@@ -75,6 +75,29 @@ they must hold.
   identity of the instance. The agent's own session id is not used for identity: it
   changes on `/resume`, which already broke the bili MCP shim (docs/sidecar.md,
   2026-10-26). [V for the failure; C for the fix]
+- **Inherited agent markers are removed before every launch** [C; decided by the user
+  2026-10-28]. Shinatama can itself be started from inside an agent (a terminal opened
+  by Claude Code, an agent's shell tool, the command line mode called by a hosted
+  agent), and then it inherits that agent's markers. Before starting any agent it
+  removes them from the child's environment, so the agent starts as it would from a
+  fresh terminal; `SHINATAMA_*` are set after the removal. Each adapter declares its
+  markers as **exact names, never prefixes** (5.5 A): `CLAUDE_CONFIG_DIR`,
+  `CLAUDE_CODE_USE_BEDROCK` and the like are the user's own settings and pass through.
+  Evidence [V 2026-10-28, environment of a shell started by Claude Code 2.1.312 and
+  strings of that binary; no values read]: the shell carries `CLAUDECODE`, `AI_AGENT`,
+  `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_SESSION_ATTENDED`,
+  `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_EXECPATH`, `CLAUDE_PID`,
+  `CLAUDE_CODE_MESSAGING_SOCKET` and `CLAUDE_CODE_MESSAGING_TOKEN`; the binary treats
+  `CLAUDECODE` or `CLAUDE_CODE_CHILD_SESSION` as "child session", deletes the session
+  markers from its own children's environment (`CLAUDECODE`, `CLAUDE_CODE_SESSION_ID`,
+  `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_SESSION_ATTENDED`,
+  `CLAUDE_CODE_BRIDGE_SESSION_ID`, `CLAUDE_CODE_HOST_WORKTREE`,
+  `CLAUDE_CODE_HOST_WORKTREE_FENCE` and others), and reads
+  `CLAUDE_CODE_MESSAGING_SOCKET` to reach the session that started it. A hosted Claude
+  that inherited them would take itself for the outer Claude's child and could reach its
+  socket. What changes in practice, the exact list per agent, and the markers of Codex
+  (`CODEX_SANDBOX`), OpenCode (`OPENCODE_CLIENT`) and Pi (unknown) are [U, register P20].
+  Origin: docs/notes/2026-10-28-harness-cli-survey.md.
 - Any process may run any operation (hop, send message, summarize) that does not touch a
   PTY it does not own; operations that need a foreign PTY are queued in the database and
   executed by the owning process.
@@ -429,6 +452,7 @@ builder writes it as a Rust trait):
 A. Identity and environment
 detect() -> Installed{version, exe, home} | Missing
 fixture_gate(version) -> Supported | Degraded(reason) | Unsupported   -- from captured fixtures
+inherited_markers() -> [exact env names]              -- removed before any launch (3)
 auth_status() -> SignedIn | SignedOut | Unknown       -- asks the agent, never reads credentials
 login() -> the agent's own login flow, run in a PTY
 install_or_update(); install_daodan()                 -- the checkup, as Musashi does today

@@ -101,6 +101,7 @@ short form of this set; this register is the complete one and wins where they di
 | P17 | G0 | The Rust crates named in the spec exist, are maintained, license-compatible and work on 3 OS (PTY, terminal emulation, text UI, SQLite) | Read crates' metadata and repositories; build the spike | A shortlist with versions and licences; "mature crates exist" restated with evidence | main 3 |
 | P18 | G2 | Startup time, idle memory, per-instance memory, binary size | Measure on 3 OS | Numbers written; targets set from them | main 3 |
 | P19 | G1 | Terminal capability fallbacks: 16-colour only, no Unicode box drawing, no Nerd Font, `NO_COLOR`, screen readers | Run in degraded terminals | Usable and legible; keyboard-only operation complete | main 5.7 |
+| P20 | G1 | Inherited agent markers: the exact variables each agent (Claude Code, Codex, OpenCode, Pi) sets for its children; what a hosted agent does differently when it inherits them (Claude: `CLAUDECODE`, `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_MESSAGING_SOCKET`); that removing exactly those names gives fresh-terminal behaviour and removes none of the user's own settings | Env dump (names only) from each agent's shell tool in a scratch home; start each agent from inside another agent with and without the removal; compare startup, session listing, hooks, messaging socket use | Exact list per agent written into its adapter; with the removal, behaviour equals a fresh terminal; no user setting removed | engine 3; engine 5.5 A |
 
 ## 3. Shared state: SQLite (S)
 
