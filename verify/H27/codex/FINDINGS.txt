@@ -1,0 +1,174 @@
+# H27 — Codex leg: findings (2026-10-27)
+
+Every fact is marked [V]: seen in this run, in the file named. Paths are relative to `verify/H27/out/2026-10-27/codex/` unless they start with `verify/`. Source session `01a17e07-93f7-7a73-85c7-9f0205836600` (`source/rollout-2026-10-27T16-43-08-01a17e07-93f7-7a73-85c7-9f0205836600.jsonl`, 75 lines).
+
+## Scripts (`verify/H27/codex/`, PowerShell 5.1, rerunnable)
+
+| Script | What it does |
+|---|---|
+| `env.ps1` | Dot-sourced. Sets the scratch `CODEX_HOME`, `USERPROFILE` and `HOME`, `H27_API_KEY=h27-dummy`, and proxy variables pointing at the egress sink; writes the config. |
+| `gen-source.ps1` | Resets the scratch home, then runs T1 (exec), T2 (exec resume), compaction (app-server), T3 (exec resume), T4a (app-server interrupt) and T4b (exec resume, killed). Copies the rollout, capture, step logs, SQLite dump and home file list to `source/`. |
+| `resume-capture.ps1 -SessionId -Prompt -Tag` | Resets nothing. Runs from the session's own cwd if it exists. Writes `resume/<Tag>.{capture.jsonl,stdout.jsonl,stderr.txt,exit.txt,cmd.txt,egress.jsonl}`. |
+| `probe-store.ps1 -SessionId` | Probes P1–P6 on copies of the home. |
+| `app-server-drive.mjs` | Drives `codex app-server` with the actions `compact`, `interrupt` and `list`. |
+| `egress-sink.mjs` | Local proxy that logs and refuses any request not aimed at the mock. |
+| `dump-state.mjs`, `set-rollout-path.mjs`, `strip-compacted.mjs` | Small helpers for the SQLite dump and the probes. |
+
+## Versions, isolation, config
+
+- [V] codex-cli **0.164.0**, native binary `C:\Users\alfio\AppData\Local\Programs\OpenAI\Codex\bin\codex.exe`; Node v24.14.1; Windows 10.0.26200.
+- [V] Scratch root: `%LOCALAPPDATA%\shinatama-verify\H27\codex\{home,profile,work,logs}`.
+- [V] The real store did not move (gen-source output, before and after every run):
+  - `~\.codex\session_index.jsonl` mtime stayed at `2026-10-27T10:29:48`;
+  - the count of today's rollouts stayed at 46;
+  - the newest real rollout stayed `rollout-2026-10-27T10-29-48-01a17cb1-….jsonl`.
+  - Only names and mtimes of the real store were read.
+- [V] Every model request went to `127.0.0.1:4132`. All egress logs are empty (`source/egress-gen.jsonl`, `resume/*.egress.jsonl`, `probe/*.egress.jsonl`).
+- [V] Egress with plugins on (early trial runs; the logs were kept only in the scratch folder, not in `out/`):
+  - Each codex process tried `CONNECT chatgpt.com:443` twice, `github.com:443` and `api.github.com:443`.
+  - All were refused by the sink.
+  - `--disable apps` left all four attempts; `--disable plugins` removed all of them.
+  - The tool list had 9 tools either way.
+- [V] Config (`source/config.toml`):
+  ```toml
+  model = "h27-mock"
+  model_provider = "h27"
+  approval_policy = "never"
+  sandbox_mode = "danger-full-access"
+  check_for_update_on_startup = false
+  [model_providers.h27]
+  name = "H27 mock"
+  base_url = "http://127.0.0.1:4132/v1"
+  wire_api = "responses"
+  env_key = "H27_API_KEY"
+  [analytics]
+  enabled = false
+  [features]
+  plugins = false
+  ```
+  Environment: `HTTP_PROXY`, `HTTPS_PROXY` and `ALL_PROXY` are set to `http://127.0.0.1:4142`, and `NO_PROXY=127.0.0.1,localhost`.
+- [V] Request shape (`source/capture-gen.jsonl`):
+  - `POST /v1/responses` with `stream:true`, `store:false`, `include:["reasoning.encrypted_content"]`, `reasoning:{summary:"auto"}`, `parallel_tool_calls:true`.
+  - `prompt_cache_key` is the thread id.
+  - There is no `instructions` field: the base instructions are the first `developer` message (17,174 chars).
+  - The 9 tools offered: `exec_command`, `write_stdin`, `request_user_input`, `view_image`, `multi_agent_v1`, `get_goal`, `create_goal`, `update_goal`, `web_search`.
+  - There is no read tool, so the mock called `exec_command {"cmd":"Get-Content -Raw '<path>'"}`. It ran through `pwsh.exe -Command` and returned both files.
+- [V] The unknown model name produces an `error` item on `--json` stdout: "Model metadata for `h27-mock` not found. Defaulting to fallback metadata…". It is not in the rollout. The fallback context window is 258400.
+
+## Commands
+
+- [V] **New turn.**
+  - Command: `codex exec --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox "<prompt>"`, run from the work dir.
+  - The thread id is on stdout line 1, as `thread.started`.
+  - stdin is an empty file. stderr then says "Reading additional input from stdin...", and nothing is appended to the prompt.
+- [V] **Resume with a prompt.**
+  - Command: `codex exec resume --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox <id> "<prompt>"`.
+  - It appends to the same rollout.
+  - The request header `x-codex-turn-metadata` carries `history_initialization:"cold_resume"`.
+- [V] **Compaction.**
+  - Steps over `codex app-server`: `initialize`, `initialized`, `thread/resume {threadId,cwd}`, `thread/compact/start {threadId}`, then an `item/started` and `item/completed` of type `contextCompaction`, then `turn/completed`.
+  - `thread/resume` also emits a `deprecationNotice`: "Full-history hydration is deprecated for paginated threads…".
+  - The compaction is **local**: an ordinary `/v1/responses` call with `request_kind:"compaction"`, 0 tools, `parallel_tool_calls:false`, the full history, and as last user message "You are performing a CONTEXT CHECKPOINT COMPACTION. Create a handoff summary for another LLM that will resume the task. …".
+  - There was no `/responses/compact` call, even though the header `x-codex-beta-features: remote_compaction_v2` is sent.
+- [V] **Graceful interrupt (T4a):** `turn/start` followed 15 s later by `turn/interrupt {threadId,turnId}`. Result: `turn/completed` with status `interrupted`.
+- [V] **Hard kill (T4b):** `taskkill /T /F` on `exec resume` after 15 s.
+
+## Native record shape (source rollout)
+
+- [V] Each line is `{timestamp, ordinal (0-based), type, payload[, metadata]}`.
+- [V] Line counts: `session_meta` 1, `response_item` 18, `event_msg` 48, `turn_context` 6, `world_state` 2, `token_usage_record` 5, `compacted` 1.
+- [V] **session_meta (line 1):**
+  - Fields: `session_id`, `id`, `timestamp`, `cwd`, `runtime_workspace_roots`, `originator:"codex_exec"`, `cli_version`, `source:"exec"`, `thread_source:"user"`, `model_provider:"h27"`, `base_instructions:{text}`, `history_mode:"paginated"`, `context_window:{window_id}`.
+  - There is no model or title here. The model is in `turn_context.model`; the title is in SQLite.
+- [V] **User text (line 8):**
+  - `{"type":"message","id":"msg_…","role":"user","content":[{"type":"input_text","text":"H27-TOOLS read …"}],"internal_chat_message_metadata_passthrough":{"turn_id","create_time","content_item_kinds":["user.text"],"content_item_metadata":[{"provenance":{"type":"user"}}]}}`
+  - Line `metadata`: `{"retained_source":{…},"user_input_order":0,…}`.
+- [V] **Reasoning (line 11)** is stored with its encrypted content: `{"type":"reasoning","id":"rs_h27_1","summary":[{"type":"summary_text","text":"H27-REASONING: …"}],"content":null,"encrypted_content":"h27-mock-encrypted-reasoning",…}`.
+- [V] **Assistant text (line 13):** `{"type":"message","status":"completed","id":"msg_h27_1","role":"assistant","content":[{"type":"output_text","text":"H27-PRE: reading the files.","annotations":[]}],…}`.
+- [V] **The two parallel calls:**
+  - Lines 14–15: two consecutive `function_call` lines, with no grouping record. Example: `{"type":"function_call","status":"completed","id":"fc_h27call1x0","name":"exec_command","arguments":"{\"cmd\":\"Get-Content -Raw '…alpha.txt'\"}","call_id":"call_h27call1x0",…}`.
+  - Line 16: `token_usage_record`.
+  - Lines 17–18: `event_msg/item_completed` of type `CommandExecution` (argv, `parsed_cmd:[{type:"read",path}]`, `aggregated_output`, `exit_code`).
+  - Lines 19–20: the two `function_call_output` lines, paired with the calls only by `call_id`. Example: `{"type":"function_call_output","call_id":"call_h27call1x0","output":"Chunk ID: …\nWall time: …\nProcess exited with code 0\nOriginal token count: 5\nOutput:\nALPHA-CONTENT-42\r\n\r\n"}`, with `metadata:{"fallback_token_limit_override":3000}`.
+- [V] **Turn boundaries:** a turn opens with `event_msg/task_started {turn_id, turn_attribution, model_context_window}` and closes with `event_msg/task_complete {last_agent_message, duration_ms}`.
+- [V] **Compaction (lines 38–50).** Sequence:
+  - `task_started`;
+  - an assistant `<summary>…</summary>` message, kept as an ordinary message (line 41);
+  - `token_usage_record`;
+  - **`compacted`** (line 44);
+  - `world_state` (full);
+  - `turn_context`;
+  - `item_completed` of type `ContextCompaction`;
+  - `task_complete`.
+
+  `compacted.payload` holds:
+  - `message`: "Another language model started to solve this problem and produced a summary of its thinking process. You also have access to the state of the tools that were used by that language model. Use this to build on the work that has already been done and avoid duplicating work. Here is the summary produced by the other language model, use the information in this summary to assist with your own analysis:\n<summary>…</summary>"
+  - `replacement_history`, 5 full ResponseItems in this order: user T1, developer skills+permissions, user `<environment_context>`, user T2, user summary bridge.
+    - The initial context is re-inserted before the last user message.
+    - The summary is sent as a *user* message.
+    - Assistant, reasoning and tool items are dropped.
+  - `replacement_history_metadata` (5 entries) and `retained_context {user_messages[2], assistant_messages[3], incomplete:false, next_order:7}`.
+  - `window_number:1`, `first_window_id`, `previous_window_id`, `window_id` and `compaction_response_id:"resp_h27_4"`.
+  - `latest_token_usage_record` and `resume_metadata {last_started_turn_id, turn_attribution, previous_turn_settings}`.
+- [V] **Graceful interrupt (T4a):**
+  - Line 68 is a user message `"<turn_aborted>\nThe user interrupted the previous turn on purpose. Any running unified exec processes may still be running in the background. If any tools/commands were aborted, they may have partially executed.\n</turn_aborted>"`, with `content_item_kinds:["generic.turn_aborted"]` and provenance `harness`.
+  - Line 69 is `event_msg {"type":"turn_aborted","reason":"interrupted",…}`.
+  - The partial streamed text is not stored (`H27-PARTIAL` appears 0 times in the rollout).
+- [V] **Hard kill (T4b):**
+  - The file simply ends after `turn_context`, the user message and its `item_completed` (lines 73–75). There is no abort record.
+  - `thread_history_1.sqlite` `thread_turns.status` is `inProgress`.
+- [V] **Ids and naming:**
+  - The thread id is a UUIDv7. It equals `session_id` and appears in the `session-id` and `thread-id` request headers.
+  - File path: `sessions\<YYYY>\<MM>\<DD>\rollout-<local YYYY-MM-DDTHH-MM-SS>-<id>.jsonl`.
+  - The title is the first user message (`threads.title`, `preview` and `first_user_message`).
+  - `threads.cwd` stores the path with a `\\?\` prefix; `threads.source` is `"exec"`.
+  - No `session_index.jsonl` was written in the scratch home.
+
+## Stores beside the rollout, and probes (`source/state-dump.json`, `probe/`)
+
+The scratch home also holds:
+- `state_5.sqlite`: the `threads` row and `thread_read_receipts`;
+- `thread_history_1.sqlite`: `thread_turns`, `thread_items` and a projection state with a byte offset into the rollout;
+- `logs_2`, `goals_1`, `memories_1` and `queue_1` SQLite files;
+- `thread-writer-locks\<id>.lock`.
+
+The probes ran on copies of the home:
+- [V] **P1, rollout only.** A home with only `config.toml` and the rollout resumes by id with the full history, and Codex rebuilds the SQLite stores. `thread/list` with default filters returns 0 threads, because it defaults to interactive sources and exec threads are hidden. With `sourceKinds` including `exec`, it lists the thread.
+- [V] **P2, wrong date folder.** The rollout under `sessions\2020\01\01\` still resumes.
+- [V] **P3, database path wins.** When `state_5.sqlite` has a row, its `rollout_path` wins. Home B's own edited rollout was ignored: the model saw home A's text, and the new turn was appended to home A's file.
+- [V] **P5, missing file.** A `rollout_path` pointing to a missing file fails hard, even though the rollout sits at its normal path: `Error: thread/resume: thread/resume failed: no rollout found for thread id … (code -32600)`.
+- [V] **P4, which store feeds the model.** The model context comes from the rollout, not from `thread_history_1.sqlite`: text edited only in the rollout reached the model.
+- [V] **P6, minimal compaction record.** A `compacted` line reduced to `{message}` still resumes. Codex rebuilds the history as base developer message, user T1, user T2, user summary bridge, then the later items, and re-appends the developer skills message and the user `<environment_context>` just before the new prompt.
+- [V] **Context re-injection.** A home at another path changes the skill paths, so the resume request carries a fresh `developer <skills_instructions>` message right before the prompt (P1). `world_state` records the context that was injected.
+
+## What the model receives (captures)
+
+- [V] **Resume before compaction** (T2, capture #3, 12 items): the full history is resent verbatim, including the reasoning item with `encrypted_content` and both calls with their outputs. The prompt is the last item.
+- [V] **After compaction** (T3, capture #5, 7 items), in order:
+  1. developer base instructions
+  2. user T1
+  3. developer skills+permissions
+  4. user `<environment_context>`
+  5. user T2
+  6. user summary bridge
+  7. user T3 prompt
+
+  There are no pre-compaction assistant, tool or reasoning items, and no `encrypted_content`. The `x-codex-window-id` header changes from `<id>:0` to `<id>:1`.
+- [V] **`resume-capture` on the source session** (`resume/native-source.capture.jsonl`, 1 request, 12 items), in order:
+  1. the 6 items of the compacted history
+  2. user T3
+  3. assistant `<summary>…`
+  4. user `H27-HANG T4a`
+  5. user `<turn_aborted>…`
+  6. user `H27-HANG T4b`, with no reply and no marker after it
+  7. the resume prompt, last
+
+  The reply was `H27-REPLY: …` and the exit code 0.
+
+## Surprises
+
+1. The T3 prompt matches the mock's summary pattern, so T3's reply is `H27-SUMMARY` (rollout line 57).
+2. `compacted` carries a full `replacement_history`, and the initial context sits between the user messages rather than at the top.
+3. `thread_history_1.sqlite` is a new store and the rollout header says `history_mode:"paginated"`. The store is only a projection of the rollout, but `threads.rollout_path` in `state_5.sqlite` decides where the rollout is looked up.
+4. A hard kill leaves no trace of the interruption. A graceful one stores the `<turn_aborted>` message and sends it to the model on resume.
+5. With defaults, Codex contacts chatgpt.com and GitHub on every start, even with a custom provider and no login.

@@ -1,0 +1,202 @@
+# H27 — Claude Code leg: findings (2026-10-27)
+
+Runner: Claude Code agent (team member `claude_code`), no login, no real model call, cost 0.
+Machine: Windows 11 Home 10.0.26200, Windows PowerShell 5.1.26100.9711, Node v24.14.1.
+Harness: **claude 2.1.311** (`C:\Users\alfio\.local\bin\claude.exe`). On the wire it reports `user-agent: claude-cli/2.1.311 (external, sdk-cli)`, Anthropic SDK `x-stainless-package-version 0.128.0`, bundled runtime `v26.12.1`, `anthropic-version: 2023-06-01`, default model `claude-opus-5-5`.
+
+Evidence files (all under `verify/H27/out/2026-10-27/claude_code/`):
+
+| tag | file |
+|---|---|
+| S | `source/c45db7bc-542c-4201-89de-b590c6fdb797.jsonl`: the source session (92 lines) |
+| F | `source/fork-ab331b72-eaca-4374-b7e0-28e700eeb0e6.jsonl`: `--fork-session` of S after T4 |
+| C | `source/capture-gen.jsonl`: 13 mock requests of the generation; `source/steps.json` maps steps to capture lines |
+| R | `resume/source-resume.capture.jsonl` + `.session-after.jsonl`: resume of S with a prompt |
+| O | `resume/fork-othercwd.*`: resume of F from a different cwd |
+
+"S:50" means line 50 of S (1-based). Source session id: **c45db7bc-542c-4201-89de-b590c6fdb797**.
+Readers: `node verify/H27/claude_code/inspect-session.mjs <file> [--line N]` and `node verify/H27/claude_code/inspect-capture.mjs <capture> [--full N]`.
+
+## 1. Making Claude Code use the mock [V: C, `source/isolation-check.txt`]
+
+- `env.ps1` first removes every inherited `CLAUDE*` and `ANTHROPIC*` variable. This agent runs inside a Claude Code session, so `CLAUDECODE`, `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_MESSAGING_SOCKET` and others would otherwise leak into the child.
+- It then sets:
+  - `CLAUDE_CONFIG_DIR=%LOCALAPPDATA%\shinatama-verify\H27\claude_code\home`
+  - `ANTHROPIC_BASE_URL=http://127.0.0.1:4131`, `ANTHROPIC_API_KEY=h27-dummy`
+  - `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, `DISABLE_TELEMETRY=1`, `DISABLE_ERROR_REPORTING=1`, `DISABLE_AUTOUPDATER=1`, `DISABLE_BUG_COMMAND=1`
+  - `HTTPS_PROXY=http://127.0.0.1:4191`: the trap proxy `trap-proxy.mjs`, which refuses and logs every CONNECT
+  - `NO_PROXY=127.0.0.1,localhost`
+- Scratch `home\.claude.json` holds `hasCompletedOnboarding`, `lastOnboardingVersion`, `bypassPermissionsModeAccepted`, `customApiKeyResponses.approved=["h27-dummy"]` and `projects[<work dir>].hasTrustDialogAccepted`. In `-p` mode the env key was used with no prompt. Whether the file is strictly needed was not tested.
+- stdin must be redirected to an empty file. Otherwise every run prints `Warning: no stdin data received in 3s, proceeding without it.` and waits 3 s.
+- Isolation evidence:
+  - The trap log was empty in every run: 0 attempts to reach a real endpoint.
+  - The real `~\.claude\projects` has no entry for the work dir or the session id.
+  - The real `~\.claude.json` does not mention the scratch work dir.
+  - The captures contain no trace of the real home: no user plugins or skills, no `D:\Projects`.
+  - The "newest mtime in the real home" test is useless here, because this agent's own session writes there continuously.
+- Each process start first sends `POST /v1/messages/count_tokens?beta=true` with `messages:[{role:user,content:"foo"}]` and 11 tools (a probe). The real turns then go to `POST /v1/messages?beta=true` with `stream:true`.
+
+**Mock change (rule 3).** Claude Code 2.1.311 appends a `role:"system"` message after each user turn (beta `per-turn-control-2026-07-01`). The shared mock therefore read the environment block as the last turn and answered every prompt with the summary. Local copy: `verify/H27/claude_code/server.local.mjs`. Diff:
+
+```diff
+-// H27 mock model server. Speaks three wire dialects so the four harnesses can run
++// H27 mock model server (claude_code local copy of verify/H27/mock/server.mjs; see lastTurnAnthropic). Speaks three wire dialects so the four harnesses can run
+ function lastTurnAnthropic(body) {
+-  const msgs = body.messages || [];
++  // claude_code copy: Claude Code 2.1.311 appends a role "system" message (environment
++  // block) after the user turn, so the last message is not the user's; skip those.
++  const msgs = (body.messages || []).filter((m) => m.role !== "system");
+```
+
+## 2. Commands [V: `source/steps.json`, `source/steps/*`]
+
+All run from the work dir with `--output-format json --dangerously-skip-permissions`.
+
+- **New session:** `claude -p "<prompt>"`. Stdout is a JSON result `{"type":"result","subtype":"success","session_id":…,"result":…}`.
+- **Resume with a prompt:** `claude -p --resume <id> "<prompt>"`. It keeps the **same session id and appends to the same file**; T2, compact, T3 and T4 all returned c45db7bc….
+- **Compaction:** `claude -p --resume <id> "/compact"`. The result text is `Compacted …`, exit 0, trigger `manual`.
+- **Interrupted turn:** `claude -p --resume <id> "H27-HANG" --output-format stream-json --verbose`, process tree killed with `taskkill /T /F` after 15 s. Stdout holds only the `system/init` event.
+- **Fork:** `claude -p --resume <id> --fork-session "<prompt>"`. It returns a new id (ab331b72…) and writes a new file.
+- **`--resume <id>` from a different cwd works** [V: O]:
+  - it finds the file in the original project folder and appends there;
+  - the appended rows carry the new `cwd`;
+  - an empty `projects\<new flattened cwd>\memory\` folder appears;
+  - the request carries both the old environment block and `Primary working directory: …\othercwd (was …\work)`.
+
+## 3. Native record shapes [V: S]
+
+**File and common fields**
+- Path: `<CLAUDE_CONFIG_DIR>\projects\C--Users-alfio-AppData-Local-shinatama-verify-H27-claude-code-work\<uuid>.jsonl`. Every non-alphanumeric character of the cwd, `_` included, becomes `-`.
+- Conversation rows share `parentUuid, isSidechain, uuid, timestamp, userType:"external", entrypoint:"sdk-cli", cwd, sessionId, version:"2.1.311", gitBranch:"HEAD"` (the work dir is not a git repo).
+- From the compaction on, rows also carry `slug` (`"parsed-yawning-creek"`).
+- No title record (`summary` or `ai-title`) is written in `-p` mode.
+
+**Record types in S**
+- `queue-operation`: enqueue and dequeue of each prompt.
+- `user` and `assistant`.
+- `attachment`, with types `environment, model, deferred_tools_delta, agent_listing_delta, skill_listing, auto_mode, total_tokens_reminder, session_context, date, prompt_snapshot, file`.
+- `system/compact_boundary`.
+- `last-prompt {lastPrompt, leafUuid}`, `cost-state`, `tools-used`, `mode`, `atis-latch`.
+- Request records:
+  - `api-request {id, querySource:"sdk", shapeHash, params{model,betas,max_tokens,thinking,context_management,output_config}, base, keep, tail, cacheControl, requestDigest}`
+  - `api-request-shape`
+  - `api-request-blob {hash, message}`: the system-role messages actually sent.
+
+**Row shapes**
+- **User text** (S:3): `{"parentUuid":null,"promptId":"…","type":"user","message":{"role":"user","content":"H27-TOOLS read C:\\…\\alpha.txt and C:\\…\\beta.txt"},"permissionMode":"bypassPermissions","promptSource":"sdk","turnOrigin":"sdk","turnPosition":{"promptIndex":0,"turnIndex":1},…}`. The content is a plain string.
+- **One API response = one row per content block** (S:21→22→23→24):
+  - all rows share the same `message.id` (`msg_h27_2`);
+  - the full message envelope (`model, stop_reason:"tool_use", usage`) is repeated on each row;
+  - each row also carries `apiBlockIndex` 0..3, `requestRef` (= the `api-request.id`), `requestedModel` and `effort:"medium"`;
+  - the rows are chained by `parentUuid`.
+- **Thinking** (S:21): `"content":[{"type":"thinking","thinking":"H27-REASONING: …","signature":"h27-mock-signature"}]`, with row fields `thinkingDurationMs` and `thinkingDisplay:"omitted"`. **The signature is stored.**
+- **Assistant text** (S:22): `"content":[{"type":"text","text":"H27-PRE: reading the files."}]`.
+- **Tool call** (S:23, S:24): `"content":[{"type":"tool_use","id":"toolu_h27call2x0","name":"Read","input":{"file_path":"C:\\…\\alpha.txt"}}]`.
+- **Tool result** (S:25, S:26): one `user` row per result:
+  `"message":{"role":"user","content":[{"tool_use_id":"toolu_h27call2x1","type":"tool_result","content":"1\tBETA-CONTENT-17"}]},"toolUseResult":{"type":"text","file":{"filePath":"…","content":"BETA-CONTENT-17","numLines":1,"startLine":1,"totalLines":1}},"sourceToolAssistantUUID":"<its tool_use row>","permissionDecision":{"decision":"accept","source":"config","reasonType":"mode"}`.
+  The model sees `1\tBETA-CONTENT-17` (Read's line-numbered form); `toolUseResult` keeps the raw file content.
+
+**Two parallel calls**
+- The two tool_use rows form a chain (x0 row → x1 row).
+- **Each tool_result row's `parentUuid` is its own tool_use row.** Results are written in completion order, and the turn continues from the *last written* result.
+- In S the x1 result came first (S:25, parent = x1 row S:24) and x0 second (S:26, parent = x0 row S:23). S:27 hangs off S:26.
+- Walking `parentUuid` back from the leaf therefore skips S:24 and S:25. In an earlier run with the other completion order, the walk skipped only the x0 result.
+- The request regroups them [V: C #3]: one assistant message `[thinking, text, tool_use x0, tool_use x1]` and one user message `[tool_result x0, tool_result x1]`.
+- A reader must merge rows by `message.id` and collect results by `tool_use_id` / `sourceToolAssistantUUID`.
+
+`last-prompt.leafUuid` is written when the request starts, so it lags: S:18 points to the x1 tool_use row.
+
+## 4. Compaction records [V: S:50–61, C #7]
+
+**Boundary (S:50)**
+`{"parentUuid":null,"logicalParentUuid":"<T2 assistant row>","type":"system","subtype":"compact_boundary","content":"Conversation compacted","isMeta":false,"level":"info","compactMetadata":{"trigger":"manual","preTokens":120,"durationMs":110,"preservedSegment":{"headUuid":"5237bfb4…","anchorUuid":"f2eb3e0f…","tailUuid":"5237bfb4…"},"preservedMessages":{"anchorUuid":"f2eb3e0f…","uuids":["5237bfb4…"],"allUuids":["5237bfb4…"]},"postTokens":2747,"cumulativeDroppedTokens":0}}`
+- `parentUuid:null` cuts the tree; `logicalParentUuid` keeps the old leaf.
+- `preTokens` is the mock's usage figure.
+
+**Summary row (S:51)**
+- `type:"user"`, parent = the boundary, `"isCompactSummary":true,"isVisibleInTranscriptOnly":true`.
+- Content: `This session is being continued from a previous conversation that ran out of context. … <system-reminder><tools-used-before-summary>Read</tools-used-before-summary></system-reminder> Summary: H27-SUMMARY: … If you need specific details from before compaction … read the full transcript at: <absolute path of S> Continue the conversation … The messages after this summary are the most recent messages from before compaction, kept verbatim. The summary was written without seeing them …`
+- The mock's `<summary>…</summary>` tags are stripped; an `<analysis>` block in the reply would be dropped.
+
+**Preserved tail**
+- The last assistant row before compaction (the T2 reply, uuid 5237bfb4) stays at S:42 with its old parent; it is *not* rewritten.
+- `preservedSegment` tells the loader to hang it under the summary row (the anchor).
+- In F it is physically re-parented (F:8 parent = the summary row).
+
+**Rows after the summary**
+- S:52–54 are the `/compact` command rows:
+  - `<local-command-caveat>` with `isMeta:true`;
+  - `<command-name>/compact</command-name>…`;
+  - `<local-command-stdout>Compacted (ctrl+o to see full summary)</local-command-stdout>`.
+- S:55–56 are `attachment type:"file"` rows for beta.txt and alpha.txt: `{"filename":"…","content":"<toolUseResult JSON>","displayPath":"beta.txt"}`, with `rendered:[{"content":"<system-reminder>Called the Read tool with the following input: …"},{"content":"…Result of calling the Read tool:\n1\tBETA-CONTENT-17…"}]`. **Files read before compaction are re-attached.**
+- S:57–61 re-emit the tool, agent and skill listings, the snapshot and the identity block.
+
+**The summarisation request (C #7)**
+- It sends the whole pre-compaction conversation: 8 messages, the thinking block with its signature, and both tool calls and results.
+- The compaction prompt is appended **as a second text block of the last user message**: `CRITICAL: Respond with TEXT ONLY. Do NOT call any tools. … an <analysis> block followed by a <summary> block`.
+- Same system prompt, 23 tools offered, `thinking:{type:adaptive}`.
+- The T2 reply (the preserved tail) is **left out**.
+- The summary response is not stored as an assistant row.
+
+## 5. Interrupted turn [V: S:89–92, R]
+
+- The killed T4 leaves:
+  - the `user` row `H27-HANG` (S:89);
+  - its `total_tokens_reminder` attachment;
+  - the `api-request` row (S:92).
+- It leaves **no assistant row and no partial text** (`H27-PARTIAL` appears nowhere), and no `last-prompt` or `cost-state`.
+- On the next resume, and in the fork, Claude Code **writes a synthetic reply** under it and sends it to the model:
+  `{"type":"assistant","message":{"id":"<uuid>","model":"<synthetic>","role":"assistant","stop_reason":"stop_sequence","content":[{"type":"text","text":"No response requested."}],…},"isApiErrorMessage":false}`
+  (seen at `resume/source-resume.session-after.jsonl:95` and F:29).
+
+## 6. Fork [V: F]
+
+- `--fork-session` writes a new file under the same project folder, with a new `sessionId` on every row.
+- There is **no lineage field**: no `forkedFrom` and no reference to the parent session.
+- It copies only the live chain from the last `compact_boundary` on, with the **original uuids and timestamps**:
+  - the boundary and the summary;
+  - the preserved T2 reply, re-parented;
+  - the command rows and attachments;
+  - T3 and H27-HANG;
+  - then the synthetic `No response requested.`.
+- Pre-compaction rows are not copied, nor are the source's `api-request*`, `cost-state` and `last-prompt` rows.
+
+## 7. What the model receives on resume [V: C, R]
+
+| request | messages (roles) | thinking+signature | tool_use / tool_result |
+|---|---|---|---|
+| C #5 T2 resume, before compaction | 8 `usausaus` | sent back (`h27-mock-signature`) | 2 / 2 |
+| C #9 T3, after compaction | 5 `usaus` | none | 0 / 0 |
+| R #2 resume after T4 | 11 `usausausaus` | none | 0 / 0 |
+
+- Before compaction, a resume replays everything, including the thinking block **with its signature** (`context_management:{edits:[{type:"clear_thinking_20251015",keep:"all"}]}`).
+- **After compaction only the summary and the tail are sent.** T1's tool calls, results and thinking are not sent. R #2, message by message:
+  - `[0] user`: the summary text
+  - `[1] system`: empty (`content:[]`, `output_config:{effort:"medium"}`)
+  - `[2] assistant`: the preserved T2 reply
+  - `[3] user`: caveat + `/compact` + stdout + `H27-T3 after compaction`, merged into one message
+  - `[4] system`: the re-attached alpha/beta Read results plus the tool, agent and skill listings
+  - `[5] assistant`: the T3 reply
+  - `[6] user`: `H27-HANG`
+  - `[7] system`: `<total_tokens>…`
+  - `[8] assistant`: `"No response requested."`
+  - **`[9] user`: the resume prompt**
+  - `[10] system`: `<total_tokens>` with `cache_control`
+- Every user turn is followed by a `role:"system"` message.
+- The system prompt starts with `x-anthropic-billing-header: cc_version=2.1.311.…; cc_entrypoint=sdk-cli;`.
+- `metadata.user_id` is a JSON string `{device_id, account_uuid:"", session_id}`; the header `x-claude-code-session-id` carries the session id.
+- `thinking.display` is `"omitted"` with `--output-format json` and `"updates"` with `stream-json --verbose` (C #11).
+
+## 8. Surprises
+
+- The role-`system` messages inside `messages` (beta `per-turn-control-2026-07-01`) broke the shared mock (§1).
+- Parallel tool results branch the `parentUuid` tree (§3). The leaf walk alone loses a call or a result.
+- Compaction keeps a verbatim tail by reference (`preservedSegment`) instead of rewriting rows, and it re-injects files read earlier. The summary tells the model the absolute path of the full transcript.
+- The interrupted turn gets its `<synthetic>` "No response requested." reply only when the session is next loaded.
+- The mock answers T3 (`H27-T3 after compaction`) with the summary text, because its `SUMMARY_RE` matches "compaction". This is the mock's behaviour, not Claude Code's.
+
+## 9. Open problems
+
+- Auto-compaction (by threshold) was not tried, nor was compacting a session that ends in an unanswered tool call.
+- Whether the `.claude.json` onboarding and approval fields are required in `-p` mode was not isolated.
+- `resume-capture.ps1` runs in the session's recorded cwd only when it lies under `%LOCALAPPDATA%\shinatama-verify`; otherwise it uses the scratch work dir, or `-Cwd` if given. A txcript-written session with a real-project cwd will therefore show an "Environment update … (was …)" block in the capture.

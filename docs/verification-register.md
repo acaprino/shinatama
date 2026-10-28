@@ -1,0 +1,414 @@
+# Verification register
+
+Date: 2026-10-26. Status: draft. Companion of
+[the functional design](functional-design.md) and
+[the technical design](technical-design.md).
+
+Every claim in the specs that has not been proved by running something on a real machine
+is listed here, once, with how to prove it, what counts as proved, and where the result is
+written back. Nothing in this file has been run yet, except where a row says **observed**.
+
+## 0. Rules for running and reporting
+
+**Priority.** `G0` gate: if it fails, the design changes; nothing is built on it before it
+passes (the first milestone). `G1` blocks one feature, not the architecture. `G2` tunes a
+default, a target or a number.
+
+**Status** (the column that gets updated): `open`, `running`, `passed`, `failed`,
+`changed` (passed with the design adjusted), `dropped` (no longer needed, with the reason).
+
+**One record per item**, written when it is run: `docs/verification/YYYY-MM-DD-<ID>.md`
+holding: the item id; date; machine and OS version; the versions of every agent and tool
+involved (`--version` output); the exact commands or the script path; the raw result
+(structure only when the data is private, see below); pass or fail against the stated
+criterion; what the spec said before; what it says now. Scripts live in `verify/<ID>/` in
+the repository and rerun without edits.
+
+**Write-back is part of the item.** An item is not `passed` until the spec sentence it
+backs has been changed from `[U]` (or `[C]`, `[R]`, `[D]`) to `[V]` with the date and the
+record's file name, or has been corrected. A failed item gets the same treatment: the spec
+is changed and the failure is recorded, not deleted.
+
+**Fixtures** are captured from synthetic sessions created for the test, with invented
+content, a marker string per turn, and the agent version in the file name. Real
+conversations of the user are never copied into the repository or into a record; where a
+check needs their shape (for example the size of the OpenCode database), only counts and
+column names are recorded.
+
+**Scratch homes.** Anything that writes uses a scratch copy of the agent's home so the
+user's real sessions, indexes and settings are untouched: `CLAUDE_CONFIG_DIR`,
+`CODEX_HOME`, `OPENCODE_DB` plus `XDG_*`, `PI_CODING_AGENT_DIR`. A scratch home starts signed
+out. Tests that need a live model therefore need **one login per scratch home, done by the
+user**; credential files are never copied into the repository, a record or a scratch home by
+the test code. Each live-model test uses tiny prompts and a stated cost cap, and the cost
+is written in the record. Which accounts are used is the user's decision (open question O1).
+
+**Reading from the real homes** (listing, structure) is read-only, with shared read access,
+and never `immutable` on a database an agent may be writing.
+
+**Version drift.** Every [V] and [R] fact carries the version it was observed on. When an
+agent's version changes, `fixture_gate` (engine 5.5) compares the fixtures and drops the
+adapter to degraded until its suite passes; this register's agent rows are rerun on the
+new version before the release notes claim support.
+
+**Security-sensitive items** (marked `SEC`) are also reviewed by a second reader and their
+records state the negative result as well as the positive.
+
+**Size.** 220 rows: 86 `G0`, 118 `G1`, 16 `G2` (recounted 2026-10-27 after adding D9 to D14 and raising D4 to `G1`); 13 are marked `SEC`. `G0` means the
+gate of its own component, not of the whole first milestone. The **first-milestone set** is
+the subset that decides the foundations: P1, P2, P3, P4, P9, P12, P14, P16, P17, S1, S2,
+S9, CL1, CL2, CL4, CX1, CX2, CX3, CX4, OC1, PI1, PI2, PI11, M1, U3, X3 (26 rows). The
+remaining `G0` rows gate their own feature (the hop, the messaging layer, the widget, the
+sidecar port) and run when that feature is built. The engine design's section 10 is the
+short form of this set; this register is the complete one and wins where they differ.
+
+## 1. Spec statements that this list found questionable (to fix, or to prove)
+
+| # | Statement in the specs | Why it is suspect | Row |
+|---|---|---|---|
+| Q1 | Shinatama is the "companion marketplace" in `D:\Projects\shinatama`; the product reuses the name | Daodan's README says the 24 plugins "returned" to Daodan in 42.0.0 (commit "Reunify Shinatama into Daodan as one marketplace"); the other repo's last commit is 2026-10-25. The role of `acaprino/shinatama` today is unclear, and the product name may collide with it. **Settled 2026-10-27:** the user decided only Daodan is the plugin marketplace, and the remote `acaprino/shinatama` was deleted after a bundle backup | D1 |
+| Q2 | Pi can run a backend that the real TUI attaches to (engine 5.7, item 4: "Pi (rpc)") | Pi's `--mode rpc` is a long-lived protocol; nothing found says the Pi TUI can attach to it, unlike Codex `--remote` and OpenCode `--server` | PI5 |
+| Q3 | Two instances changing the same file in one worktree are detected from `git status` (engine 8.5) | `git status` says a file changed, not which instance changed it; attribution needs tool-call targets from events or transcripts | I4 |
+| Q4 | Global keys `^H`, `^K`, `^F`, `^A`, `^T`, `^D` (mockups, main spec) | `^H` is Backspace on many terminals, `^D` is end-of-file, `^K` `^A` `^F` are line-editing keys the agents use | U4 |
+| Q5 | The titler and seed pass through the sidecar like ordinary traffic | The sidecar can rewrite the human message (prompt rewriter, `promptRewrite.mode: auto`) and externalize large results (CCR); a seed or a bootstrap must not be altered | SC9 |
+| Q6 | Musashi parity is "menus, checkup, error policy, project manager, sidecar" | Musashi also has the native ADHD plugin, the prompt rewriter, token-efficiency settings, turn-completion handling, an exit report and terminal templates (docs/*.md, src/exit_report.*); none is in the Shinatama spec | PM9 |
+| Q7 | "Each instance's traffic goes through the proxy" (engine 9) | Whether the sidecar proxy is one per instance (as in Musashi, per launch) or one shared by all instances of a window is not decided, and the memory and recovery design depends on it | SC5 |
+| Q8 | `event`, `summary_log` and `message_event` grow without bound | No pruning policy is written | I8 |
+| Q9 | A seed is a safe user message | Text from an old transcript can contain lines starting with `/` (slash commands), `!` (shell escape in Claude), `@path` (file inclusion) or `#`; pasted or passed as a prompt they may be interpreted by the destination | H7 |
+| Q10 | Claude hooks "never fail the agent" because `shinatama hook` exits 0 | Claude documents exit-code semantics for hooks (a specific nonzero code blocks the action); the tested behavior on 2.1.310 is not recorded | M11 |
+| Q11 | OpenCode SSE emits `session.status` (busy/idle) and `session.idle` is deprecated (engine 5.7) | OpenChamber's v2 translator, shipped with opencode 2.1.4 (MIT, `lib/event-stream/translate-v2.js`), states "v2 emits no `session.status` and no `session.idle` of its own" and synthesizes status from `session.execution.*`, `session.retry.scheduled` and `session.step.*` | OC5 |
+
+## 2. Platform, terminal hosting, security of the terminal layer (P)
+
+| ID | Prio | What must be proved | How | Pass when | Writes back to |
+|---|---|---|---|---|---|
+| P1 | G0 | A pseudo-terminal crate hosts each agent interactively on Windows 11 (ConPTY), macOS and Linux: start, type, resize, Ctrl-C, exit code, close without hang | Spike binary spawning each agent in a PTY and a vt parser; scripted keystrokes | Echo correct; resize reaches the agent; exit code propagated; closing never hangs; no orphan processes | main 5.1; main 3 |
+| P2 | G0 | Emulator fidelity against the real agents | Record the raw byte stream of a scripted session per agent through the PTY; replay into candidate emulators; diff the final grid cell by cell against a reference terminal's grid of the same bytes | Text and attributes identical except a written list of exceptions | main 5.1 |
+| P3 | G0 | Wide characters, emoji, CJK, combining marks, zero-width joiners, box drawing render with correct widths | Fixture strings through P2 | No column drift on any row in any agent's screen | main 5.1 |
+| P4 | G0 | Alternate screen enter and exit, scroll regions, insert/delete line, scrollback in the pane | Replay corpus from each agent plus a terminal conformance suite | Screen restored exactly on exit; user can scroll the pane's history | main 5.1 |
+| P5 | G1 | Mouse reporting, wheel, selection and copy in the pane; bracketed paste both directions | Manual script plus recorded input events per outer terminal | Mouse reaches agents that request it; selection works; paste not mangled | main 5.1 |
+| P6 | G0 | Advanced keys (kitty keyboard protocol, modifyOtherKeys, Shift+Enter, Alt combinations, Italian keyboard AltGr) pass through outer terminal, Shinatama, agent | Key matrix per outer terminal and per agent | Every key the agent documents arrives unchanged | main 5.1; U4 |
+| P7 | G1 | No flicker; CPU and latency with 4 instances streaming | Synthetic streaming load; measure frame time, CPU %, keystroke-to-echo latency | Targets written from the measurement (my starting target: echo under 20 ms at the 95th percentile) | main 3 |
+| P8 | G1 | Images (kitty graphics, sixel, iTerm2 inline) from an agent reach the outer terminal, or are cleanly dropped | Which agents emit images; test in 3 outer terminals | Documented per agent and terminal; no corrupted screen | main 5.1; main 5.13 icons |
+| P9 | G0 | Escape-sequence policy: which sequences are passed to the outer terminal and which are swallowed (OSC 0/2 title, OSC 7 cwd, OSC 8 links, OSC 9/777 notifications, OSC 52 clipboard, DECRQSS and other query answerbacks, window-manipulation CSI t) | Corpus of known terminal escape attacks plus each agent's real stream | A hosted agent cannot write the clipboard, read the screen, retitle the outer window or inject input without a decision; each decision is documented | main 5.1; SEC |
+| P10 | G1 | Truecolor passthrough; 16-colour remap onto each skin keeps agent output legible | Contrast measured for every ANSI colour on every skin background; screenshots | Every remapped colour meets 4.5:1 against its background or is exempted in writing | main 5.7; U1 |
+| P11 | G1 | Smallest usable pane width per agent; behavior when a side panel narrows the agent | Resize each agent from 120 down to 40 columns | Each agent's minimum documented; side panels collapse before the agent breaks | main 5.1 |
+| P12 | G0 | Overlay compositing: a window drawn over the pane then removed restores the agent screen, cursor, SGR state, wide characters and alternate screen | Automated screen-grid comparison before and after, mid-stream output included | Grids identical; no lost output while the overlay is open (output keeps being parsed) | main 5.1 |
+| P13 | G1 | Outer-terminal matrix: Windows Terminal, conhost, macOS Terminal and iTerm2, GNOME Terminal, kitty, WezTerm, a tmux outer; launched from PowerShell, cmd, Git Bash, zsh, bash | Run P1-P12 subsets in each | Supported list and known problems written | README; main 3 |
+| P14 | G0 | Process lifecycle: closing an instance kills its whole tree (Windows job object, Unix process group); a Shinatama crash leaves no orphan agents or MCP servers | Kill -9 and window-close tests | No surviving process after 10 s, or the survivors are documented | engine 3 |
+| P15 | G1 | Environment given to the child: `SHINATAMA_*`, `TERM`, `COLORTERM`; child-only | Env dump from inside each agent's shell tool | Values as specified; nothing leaks to the parent or siblings | engine 3 |
+| P16 | G0 | Spawning without a shell on Windows with paths containing spaces, parentheses, ampersands, non-ASCII, over 260 characters; `.cmd` shims; PATHEXT; Pi as `node.exe cli.js` | Spawn matrix per agent, carrying Musashi's known cases (EINVAL on `.cmd`, PATHEXT) | Every case starts the right program with the right arguments | engine 5.6; engine 6.8 |
+| P17 | G0 | The Rust crates named in the spec exist, are maintained, license-compatible and work on 3 OS (PTY, terminal emulation, text UI, SQLite) | Read crates' metadata and repositories; build the spike | A shortlist with versions and licences; "mature crates exist" restated with evidence | main 3 |
+| P18 | G2 | Startup time, idle memory, per-instance memory, binary size | Measure on 3 OS | Numbers written; targets set from them | main 3 |
+| P19 | G1 | Terminal capability fallbacks: 16-colour only, no Unicode box drawing, no Nerd Font, `NO_COLOR`, screen readers | Run in degraded terminals | Usable and legible; keyboard-only operation complete | main 5.7 |
+
+## 3. Shared state: SQLite (S)
+
+| ID | Prio | What must be proved | How | Pass when | Writes back to |
+|---|---|---|---|---|---|
+| S1 | G0 | Bundled SQLite with FTS5 and WAL works with several processes on Windows, macOS, Linux | 4 writers and 4 readers for 10 minutes; kill tests | No corruption; busy errors within the stated budget | engine 4.1 |
+| S2 | G0 | Refuse a network or synchronized location (Google Drive `G:` `H:`, OneDrive, SMB, NFS, Dropbox) without false alarms on local disks | Detection per OS tested on those volumes, using a throwaway folder only | Refused on every synced or network volume; accepted on local; the message is useful | engine 4.1 |
+| S3 | G1 | `PRAGMA data_version` polling at 200 ms: latency and CPU; works across processes | Two processes, measure | Latency and CPU recorded; the interval chosen from data | engine 4.6 |
+| S4 | G0 | Crash safety: kill -9 mid-transaction, in the middle of a hop's state change | Fault injection | `integrity_check` ok; hop state recoverable | engine 4; engine 11.1 |
+| S5 | G1 | Migrations: forward migration, backup before, refusal of a newer database (opened read-only) | Versioned fixture databases | Each path behaves as written | engine 4.1 |
+| S6 | G1 | Index size and speed on a realistic corpus (counts only: Claude project folders, Codex rollouts, OpenCode 232 MB database) | Index synthetic data at the real corpus's size | Indexing time, database growth and search latency recorded; targets set (starting target: search 150 ms at the 95th percentile) | engine 4.2 |
+| S7 | G1 | Incremental indexing: detect appended JSONL, rotated or deleted files (Claude retention), OpenCode changes | mtime plus size plus content hash; watch cost | No full re-read of unchanged files; deleted sessions keep their text and are marked | engine 4.2; engine 5.7 |
+| S8 | G1 | Liveness: pid plus start time per OS; thresholds 5 s and 20 s; laptop sleep and resume | Kill, suspend, resume tests | No false "dead" after sleep; dead found within the stated time | engine 4.4 |
+| S9 | G0 | Path canonicalization: `\\?\` prefix, junctions, drive-letter case, 8.3 names, symlinks, Google Drive paths; one project recognized across the different path encodings of the four agents | Path corpus including the real shapes seen: Claude flattened names, Codex `\\?\`, Pi `--…--` | The same folder always maps to the same project id | engine 4.5 |
+| S10 | G0 | The unique indexes enforce "one live segment per thread" under concurrent hops | Acceptance 11.4 | Exactly one wins | engine 4.3 |
+| S11 | G1 | File permissions: mode 0600, Windows ACL for the current user only | Inspect after creation on 3 OS | Other users cannot read | engine 4.1 |
+
+## 4. Claude Code adapter (CL), version 2.1.310 (installed 2026-10-27: 2.1.311 — rows to re-run first, `docs/verification/2026-10-27-E1.md`)
+
+| ID | Prio | What must be proved | How | Pass when | Writes back to |
+|---|---|---|---|---|---|
+| CL1 | G0 | `claude --session-id <uuid> "<bootstrap>"` starts interactive, uses that id, writes `<id>.jsonl` at the expected path; the prompt is a user turn | Scratch config dir, one login | File name and first user entry as predicted | engine 5.7 |
+| CL2 | G0 | Seed by argument: 2 KB, 30 KB, 100 KB; special characters, newlines, leading `-`, non-ASCII; the Windows 32,767 limit | Spawn matrix, `--` separator | Delivered intact up to a stated size; the failing size and error recorded | engine 5.6 |
+| CL3 | G1 | `--append-system-prompt-file` as a large-text channel (it is system prompt, not a user turn) | Use and inspect the transcript | Behaviour recorded; adopted or rejected | engine 5.6 |
+| CL4 | G0 | `--resume <id>` in the same cwd; in a different cwd; `--resume <absolute path>`; `--fork-session` | Run each | Documented outcome per case; the cwd rule confirmed | engine 5.7 |
+| CL5 | G1 | The CLI accepts a hand-built transcript (minimal valid) in a scratch config dir and resumes it | Build from fixtures; try | Accepted or not; the minimum fields written | engine 5.4 |
+| CL6 | G0 | Reader against real records: block names (`text`, `thinking`, `tool_use`, `tool_result`), `isMeta`, `isSidechain`, leaf selection by `last-prompt.leafUuid`, compaction, attachments, hook-output records | Synthetic session with each feature; parse | Every item maps to the canonical form; unknown types counted | engine 5.3 |
+| CL7 | G1 | Retention: `cleanupPeriodDays` default 30, when deletion happens, what is deleted | Scratch dir, shortened setting, aged files | Behaviour recorded; the claim "Claude deletes after 30 days" confirmed | engine 5.7 |
+| CL8 | G0 | Hooks via `--settings`: merge with the user's hooks; `Notification` types, `Stop`, `SessionStart` (resume, fork) fire; command latency; quoting of the command in JSON on Windows | Launch with a hook that logs; scripted turns | Events arrive with the documented fields; user hooks still run | engine 5.7; engine 8.1 |
+| CL9 | G0 | Per-launch MCP: `--mcp-config` adds `shinatama mcp` next to the user's servers; the server child sees `SHINATAMA_INSTANCE`; survives `/resume`, `/clear`, compaction | Launch, run each, call the tool | Tool works; identity stable (the bili `/resume` bug does not recur) | engine 7.5; engine 3 |
+| CL10 | G1 | Pre-approval of the four tools (`--allowedTools` or settings) | Call them without a prompt | No permission prompt for the four; none for anything else | engine 7.5 |
+| CL11 | G1 | Headless answer-only: `claude -p` with tools disabled (`--allowedTools`/`--disallowedTools`, `--permission-mode`), `--no-session-persistence`; stream-json ends with `result`; cost field | Ask it to run a command and write a canary file | No file written, no command run; result and cost parsed | engine 7.6; R2 |
+| CL12 | G0 | First-run folder-trust prompt in an unfamiliar directory: what shows, how long, which state a hook reports | Fresh directory, scratch dir | Surfaced to the user in time; never stuck hidden | engine 6.7 |
+| CL13 | G1 | `claude auth status` reports sign-in without exposing credentials; its output format; `auth login` runs in a PTY | Run both, signed out and in | Parseable; no secret in output | engine 5.5; D5 |
+| CL14 | G1 | `AGENTS.md` versus `CLAUDE.md` reading rule (2.1.277 and later) | Projects with each combination | Matches the documented rule; the seed header states it correctly | engine 5.7 |
+| CL15 | G1 | Resuming a session already open in another process: interleaving, locks | Two processes | Outcome documented; Shinatama's prevention (4.3) is sufficient or extended | engine 4.3 |
+| CL16 | G2 | Large transcripts (over 64 MiB): backward streaming read time and memory | Synthetic 100 MiB file | Within a stated budget | engine 6.8 |
+| CL17 | G1 | `claude import` really imports configuration only | `--dry-run` in a scratch dir | Confirmed or corrected | engine 5.4 |
+
+## 5. Codex adapter (CX), version 0.164.0
+
+| ID | Prio | What must be proved | How | Pass when | Writes back to |
+|---|---|---|---|---|---|
+| CX1 | G0 | `codex -C <cwd> "<bootstrap>"` starts interactive; the new thread id is learned reliably (new rollout file, `session_meta.id`, notify) with two instances starting at once | Scratch `CODEX_HOME`; start several | Correct id for each instance, no mix-up | engine 5.7; engine 6.3 |
+| CX2 | G0 | `codex resume <id>` for a native session, an archived session, an imported one; `--last` never used | Run each | Documented outcome | engine 5.7 |
+| CX3 | G0 | `thread/inject_items` persists to the rollout and survives `codex resume` | App server in a scratch home: inject, stop, resume, read | Items visible after resume, in the rollout file | engine 5.4 |
+| CX4 | G0 | `externalAgentConfig/detect` and `/import`: request and response shape (from `codex app-server generate-json-schema`); import of one named synthetic Claude session; resumable; tool items kept; the 30-day window; a session still being appended | Scratch home, synthetic fixtures | Each criterion recorded; Claude → Codex strategy chosen from the result | engine 5.4; engine 6.2 |
+| CX5 | G1 | `codex queue --thread` reaches a running interactive instance, and when | Queue while idle and while working | Delivery timing recorded; honest wording for the UI | engine 7.3 |
+| CX6 | G1 | Backend attach: `codex app-server` plus `codex --remote ws://` or `unix://` (also `--remote-auth-token-env`): TUI behaves like stand-alone; `unix://` on Windows; the labelled "experimental and unsupported" `ws://`; the local app-server daemon (`codex app-server daemon`) already on this machine | Run both modes side by side | Behaviour parity or a list of differences; decision attach versus stand-alone | engine 5.7 item 4 |
+| CX7 | G0 | TUI notifications emitted into the PTY: `[tui] notifications`, `osc9`/`bel`, `notification_condition = always`, set per launch with `-c`; which events fire; no false positives | Launch with the setting, scripted turns, read the byte stream | Reliable turn-end and approval signals, or the signal is dropped | engine 5.7; engine 8.1 |
+| CX8 | G1 | Hooks: trust gate; whether `-c` can inject them; confirm Shinatama cannot rely on hooks without `--dangerously-bypass-hook-trust` (never used) | Try | Recorded; legacy `notify` evaluated as the alternative | engine 5.7 |
+| CX9 | G1 | Headless answer-only: `codex exec --ephemeral --ignore-user-config --json` with a read-only sandbox and no approvals | Ask it to write a canary file | No file written; events parsed; end of turn clear | engine 7.6; R2 |
+| CX10 | G0 | Reader against real rollout lines: `response_item` payload types (message, agent_message, reasoning, tool items), `compacted`, `ordinal` as cursor, turn boundaries; `history_mode: paginated` and `codex migrate-rollouts` do not break it | Synthetic session in both modes | Every item maps; paginated detected and handled or the adapter degrades | engine 5.3 |
+| CX11 | G1 | `codex login status` output; `codex login` in a PTY | Signed out and in | Parseable; no secret in output | engine 5.5; D5 |
+| CX12 | G1 | `CODEX_HOME` handling agrees with the sidecar's private overlay (sessions still land in the usual home) | Launch through the sidecar | Native chats, history and auth stay where Codex expects | engine 9 |
+| CX13 | G1 | A session open in the Codex Desktop app and resumed from the terminal | Two processes | Outcome documented | engine 4.3 |
+| CX14 | G1 | `AGENTS.md` reading rules and `project_doc_max_bytes` against a seed header; `CLAUDE.md` fallback | Test | The header's statement is true | engine 5.7 |
+
+## 6. OpenCode adapter (OC), version 2.1.4
+
+| ID | Prio | What must be proved | How | Pass when | Writes back to |
+|---|---|---|---|---|---|
+| OC1 | G0 | `opencode <dir> --standalone --session ses_<id> --prompt "<bootstrap>"`: the chosen id is used (`^ses` format); `--standalone` avoids the shared background service and its inherited environment (the known proxy-poisoning problem) | Scratch DB and XDG; start; inspect | Id as chosen; environment is that of the launching process | engine 5.7 |
+| OC2 | G0 | `session import <file> --directory D`: the exact interchange format, round trip with `session export`, tool items preserved or not, the 409 on an existing id | Export a synthetic session, import into a second scratch DB | Round-trip law of 5.5.1 holds or the losses are listed | engine 5.4; 5.5.1 |
+| OC3 | G0 | `session export` as the primary reader: speed and size on large sessions; read-only SQLite fallback: legacy `session` and `message` tables versus `session_v2` and `session_message`; reading while OpenCode writes (WAL) | Synthetic and the real DB (counts only) | Reader correct on both generations; no lock trouble | engine 5.3 |
+| OC4 | G0 | The HTTP API of a standalone instance: finding the address and auth, `--server URL`, `GET /api/event` (SSE), the 4,096-frame queue and the slow-consumer drop, reconnection | Connect, stress, disconnect | No missed state change after a reconnect; behaviour of a dropped consumer handled | engine 5.7 |
+| OC5 | G0 | Signals: `session.status` busy and idle, `permission.asked`, `form.created`, `session.execution.*`; latency | Scripted turns | Mapped to the states of 8.1 | engine 8.1 |
+| OC6 | G1 | Per-launch config: `OPENCODE_CONFIG`, `OPENCODE_CONFIG_CONTENT`, `OPENCODE_CONFIG_DIR` merge with the user's config; MCP and plugin injection | Inject, list tools | `shinatama mcp` present; the user's config intact | engine 7.5 |
+| OC7 | G1 | Headless answer-only: `opencode run --format json` with restricted permissions | Canary file | No write; events parsed | engine 7.6; R2 |
+| OC8 | G1 | Sign-in detection via `opencode auth` subcommands (the mockup's "no provider configured") | Signed out and in | Parseable; no secret in output | engine 5.5; D5 |
+| OC9 | G1 | `AGENTS.md` only; seed header statement | Test | True | engine 5.7 |
+| OC10 | G1 | Which of `session` and `session_v2` is live on 2.1.4; migration versions; the effect of an upgrade | Read schema, compare to a newer version | Adapter handles both or is gated by version | engine 5.3 |
+| OC11 | G2 | OpenCode's own `project` and `worktree` tables versus git worktrees, for the overview | Compare | Mapping documented | main 5.13 |
+
+## 7. Pi adapter (PI), version 1.2.0
+
+| ID | Prio | What must be proved | How | Pass when | Writes back to |
+|---|---|---|---|---|---|
+| PI1 | G0 | Starting Pi by `node.exe …/cli.js` on Windows (finding the entry in the npm layout) and by `pi` on macOS and Linux; `pi @file "<bootstrap>"` delivers the file as the first user message; size limits; images | Scratch `PI_CODING_AGENT_DIR` | Whole seed arrives; limits recorded | engine 5.6; 5.7 |
+| PI2 | G0 | `--session-id <id>` creates a session with that id; the resulting path; combining with `@file`; `--session-dir` | Run | File at the predicted path | engine 5.7 |
+| PI3 | G0 | Reader: tree JSONL, leaf selection, `compaction` entries, `custom_message`, tool-call content shape, `usage` entries | Synthetic session | Every item maps | engine 5.3 |
+| PI4 | G0 | A per-launch extension (`-e`) can report `agent_settled`, `ui_prompt_start` to `shinatama hook`; startup cost; coexistence with the user's extensions | Write a minimal extension, run | Events arrive; startup cost recorded | engine 5.7; engine 8.1 |
+| PI5 | G1 | Whether the Pi TUI can attach to a backend at all (spec Q2); otherwise delete Pi from the attach list | Read the docs and try | Spec corrected | engine 5.7 item 4 |
+| PI6 | G1 | No permission prompts: states `waiting_permission` never occur; `ui_prompt` kinds map to `waiting_question` | Scripted prompts | Mapping confirmed | engine 8.1 |
+| PI7 | G1 | MCP per launch through `pi-mcp-adapter`: which file is read (`~/.config/mcp/mcp.json` versus `~/.pi/agent/mcp.json`, per the earlier memory), whether a per-launch override exists | Try | `shinatama mcp` reachable without editing the user's config, or Pi is marked "no MCP" | engine 7.5 |
+| PI8 | G1 | Headless answer-only: `--mode json` with tools disabled | Canary file | No write | engine 7.6; R2 |
+| PI9 | G1 | Sign-in detection without reading `auth.json`; login flow in a PTY | Try | Parseable status or marked "unknown" | engine 5.5; D5 |
+| PI10 | G2 | The correct package name and update path (`@earendil-works/pi-coding-agent` installed; docs earlier named `@mariozechner/…`) | `npm ls -g`, registry | Checkup uses the right one | engine 5.7 |
+| PI11 | G0 | **Observed:** `pi --help` printed nothing within 25 s on this machine today. The earlier memory note says Pi is unresponsive for about 60 s after launch because of a synchronous WMI query in `pi-subagents`. This would break a 90 s hop receipt and `fixture_gate` | Time `pi --version` and a bare launch with and without `pi-subagents` | Start time recorded; the hop timeouts and `doctor` timeouts set above it, or a workaround is used | engine 6.3; engine 6.7 |
+
+## 8. The hop (H)
+
+| ID | Prio | What must be proved | How | Pass when | Writes back to |
+|---|---|---|---|---|---|
+| H1 | G0 | Canary hop for all 12 ordered pairs at stage 1, small thread and a 400-turn thread, 10 runs each | Acceptance 11.2 with live models, tiny cost | 10 of 10 on the small thread; the 400-turn rate recorded and a floor set | engine 11.2 |
+| H2 | G0 | The receipt: each destination replies `ready <nonce>` plus one line as told; failure rate; its token cost; how fast it can be read back from the destination's store | Instrument | Rate and cost recorded; the design keeps or drops the receipt | engine 6.3 |
+| H3 | G1 | Budget: the bytes-per-token estimate (3.5) against each provider's reported usage; where each agent's window comes from (never a name in the code) | Compare on real prompts | Error range recorded; the constant adjusted | engine 6.4 |
+| H4 | G0 | The full-transcript file is readable by the destination: Claude outside-cwd read permission, Codex sandbox roots, OpenCode external-directory permission, Pi none; whether each reads it when told | Per agent | Location chosen per agent; fallback works | engine 6.4 |
+| H5 | G0 | First-run and trust prompts in an unfamiliar directory for each destination (Claude trust, Codex trust, OpenCode, Pi `trust.json`) | Fresh directories | Surfaced to the user quickly; never hidden | engine 6.7 |
+| H6 | G1 | Warm standby: cold start to input-ready per agent; idle memory; zero token cost while idle; seed delivery after minutes idle; the targets of 8 s and 25 s | Time and measure | Targets confirmed or revised | engine 6.1; 6.5 |
+| H7 | G0 | **SEC** A seed or bootstrap containing a line starting with `/`, `!`, `@path`, `#`, or `-` is not executed or expanded by any destination | Harmless marker commands and files | Nothing runs or expands; otherwise the seed is escaped or sent by a safe channel | engine 6.4 |
+| H8 | G1 | Bracketed-paste channel per agent: large paste collapsing, Enter submission, input-ready detection | Try | Documented per agent | engine 5.6 |
+| H9 | G0 | Idle detection before switching: turn-end signal latency per agent; interrupting a running turn (keys and `turn/interrupt`) and what is lost | Scripted | Behaviour documented; the "wait or interrupt" dialog tells the truth | engine 6.3 |
+| H10 | G0 | Hop back: the earlier session resumes natively and absorbs the catch-up message; a fact from the other segment is known afterward | Canary variant | Pass; cost recorded | engine 6.6; engine 11.3 |
+| H11 | G0 | Hand-off marker: the seed is recognized when read back from each agent's store (no nesting across A to B to C) | Read back | Recognized in all four; otherwise a different marker | engine 6.4 |
+| H12 | G0 | Evidence of a spawn per agent (id known in advance for Claude, OpenCode, Pi; learned for Codex); uncertain-spawn recovery never relaunches | Fault injection | Matches 6.3 | engine 6.3; 11.1 |
+| H13 | G1 | Undo: resuming the source natively while the destination still exists | Try | No duplicate live session; documented | engine 6.3 |
+| H14 | G1 | Redaction: recall on a synthetic secret corpus (AWS, GitHub, OpenAI, JWT, private keys, `.env` lines, URLs with credentials); false positives on code, hashes, UUIDs; speed on 10 MB | Corpus | Recall and false-positive rates recorded; the rules tuned | engine 6.4; engine 11.6 |
+| H15 | G1 | Leaf and branch selection against what each agent itself resumes (rewinds and forks) | Synthetic branched sessions | Same path as the agent's | engine 5.2 |
+| H16 | G1 | Tool-call digests: names and targets extracted for each agent's tool vocabulary | Fixtures | Accurate on the fixtures | engine 5.1; 6.4 |
+| H17 | G1 | Attachments: where each agent keeps pasted images and files; paths still exist after the hop; destinations can read images by path; size limits | Try | Documented per agent | engine 6.4 |
+| H18 | G1 | "Instruction files linked" (CLAUDE.md and AGENTS.md): what exactly is done, with no file created in the user's repository without consent | Decide and test | Behaviour written and tested | main 5.2 |
+| H19 | G2 | Git state collection cost on very large repos, submodules, worktrees; timeouts | Large repo | Within a stated budget | engine 6.4 |
+| H20 | G1 | Hopping between worktrees of one project (the cwd changes; Claude keys sessions by cwd) | Try | Rules written | engine 6.2 |
+| H21 | G1 | Elapsed time from Enter to READY, per pair, 95th percentile | Instrument H1 | Targets in 6.1 confirmed or revised | engine 6.1 |
+| H22 | G1 | The measured cost in tokens and money of a hop (seed, receipt), per pair | Instrument | Shown in the dialog only if accurate | engine 6.4 |
+| H23 | G1 | Windows: non-ASCII and long cwd in the handoff file path and in argv (UTF-16 conversion) | Try | Correct | engine 5.6 |
+| H24 | G2 | Journal and crash recovery at every state (fault injection) | Acceptance 11.1 | Pass | engine 11.1 |
+| H25 | G2 | Concurrency of two hops of one thread | Acceptance 11.4 | Pass | engine 11.4 |
+| H26 | G1 | Fork hop: the destination is a new thread with a new native session id; the source instance, thread, activation and native session stay live and unmodified; no `native_resume` of a live session; the default setting and the per-hop override both work | Canary fork for same-agent and cross-agent pairs; compare the source session file before/after | Both threads usable; the source file unchanged; close stays the default | engine 6.2; 6.3; main 5.2 |
+| H27 | G0 | **Session conversion between the four agents with Shinatama's own library** (originally: txcript as the converter; not adopted, user decision 2026-10-27): for every ordered pair of Claude Code, Codex, OpenCode 2.1.4 and Pi, convert a synthetic session (text, tool call with result, two parallel tool calls, thinking, a compaction, a rewind, an interrupted last turn) and read it back natively; list what is lost or changed per pair | Build the library (`cargo build -p txcript --lib --release --locked`), convert in scratch dirs, import with the agent's own path (OpenCode `session import`), `resume` where the agent allows; compare with the source | Per pair: a table of kept/changed/lost; parallel results and compaction behave as stated in engine 5.4 or the gap is written; parallel-call and compaction cases are in the pin since the 2026-10-27 merge, so they are tested, not assumed | engine 5.4 |
+
+## 9. Messages, MCP, hooks (M)
+
+| ID | Prio | What must be proved | How | Pass when | Writes back to |
+|---|---|---|---|---|---|
+| M1 | G0 | Per-launch MCP injection for all four agents without editing global configuration; coexists with the user's servers; start latency; the server sees `SHINATAMA_INSTANCE` | CL9, CX, OC6, PI7 together | Works on each, or the agent is marked "no MCP" | engine 7.5 |
+| M2 | G1 | Pre-approval of the four tools per agent | CL10 and equivalents | No prompts | engine 7.5 |
+| M3 | G1 | The token cost of the four tool definitions per agent | Capture the first request through the sidecar | Recorded | engine 7.5a; T1 |
+| M4 | G0 | What reaches an idle agent: Claude hook output, `codex queue`, Pi `queued`/`steer`, OpenCode `/prompt` and `/synthetic`; honest statement of what "delivered" means | Per agent | UI wording matches the behaviour | engine 7.3 |
+| M5 | G0 | **SEC** PTY write safety: text is never written while a permission dialog, a selection, a search box or a draft is active; a write can never answer a permission prompt | Provoke each situation | Never; otherwise the channel is removed | engine 7.3 |
+| M6 | G0 | **SEC** Injection resistance: a peer message that says "create file X" or "ignore previous instructions" is not obeyed by an agent with tools; measured rate per agent | Canary messages | Rate documented honestly; tools stay denied for unattended delivery if not zero | engine 7.6 |
+| M7 | G1 | Loop control: ping-pong stops at depth 6 with an alert even if agents do not carry `in_reply_to` | Acceptance 11.7 | Enforced by the server | engine 7.4 |
+| M8 | G1 | `shinatama mcp` startup time, stdio framing on Windows, no stdout noise, exits when the parent dies | Measure | Within 200 ms (my target); no orphans | engine 7.5 |
+| M9 | G1 | Identity survives `/resume`, `/clear`, compaction (CL9) | Per agent | Stable | engine 3 |
+| M10 | G1 | At-least-once, dedupe and expiry behave as written | Fault injection | Matches 7.3 | engine 7.3 |
+| M11 | G0 | Hook command can never block or fail an agent: Claude's exit-code semantics, timeouts, a locked database, a crash | Simulate each | The agent continues in all cases | engine 8.2 |
+| M12 | G2 | Claude `http` hook handler versus the command handler | Compare | One chosen | engine 8.2 |
+| M13 | G1 | Cross-project sends are refused | Acceptance 11.7 | Refused | engine 7.2 |
+| M14 | G1 | Latency from send to delivery across two windows; the owning process dies with messages queued | Measure | Queued messages shown, delivered when an owner returns | engine 7.3 |
+
+## 10. Instance state, overview, titles (I)
+
+| ID | Prio | What must be proved | How | Pass when | Writes back to |
+|---|---|---|---|---|---|
+| I1 | G0 | State accuracy per agent against scripted sessions (idle, working, waiting_permission, waiting_question) and the false-positive rate of the PTY heuristic | Acceptance 11.9 | Precision and recall recorded; "unsure" labels used honestly | engine 8.1 |
+| I2 | G1 | Tokens, cost and context fill per agent (Claude `cost-state`, Codex `token_count`, OpenCode session columns, Pi `usage`) and the window per model | Compare with provider usage | Accurate within a stated margin | main 5.13 |
+| I3 | G1 | Branch and worktree: detached HEAD, linked worktrees, submodules, bare, non-git; cost of `git status` per idle on large repos | Matrix | Correct; cost bounded by caching | engine 8.5 |
+| I4 | G0 | Collisions: how to attribute a changed file to an instance (spec Q3); false positives from generated files | Use tool-call targets from events and transcripts | Method chosen and tested; spec corrected | engine 8.5 |
+| I5 | G0 | The title backends: the quality gate on about 50 real activity snapshots with a written rubric (names the right action, no invented fact, 12 words at most) | Rubric scoring of local and provider models | Default chosen from the result | engine 8.4 |
+| I6 | G1 | The local small model: CPU, memory and latency with four agents running; the Rust binding or a bundled `llama-server` on 3 OS; model licence; download size and hash; the fftext README claims (Qwen 0.8B, 4,096 context, about 500 MB, Apache-2.0 for the tool) | Run, and read the model card and licence | Numbers recorded; licence compatible; claims confirmed | engine 8.4 |
+| I7 | G1 | A provider low-cost model: how it is chosen from the catalog without names in code; cost accounting; the cap works | Run | Cap enforced; fallback to verbatim text works | engine 8.4 |
+| I8 | G1 | Pruning of `event`, `summary_log`, `message_event` (spec Q8) | Decide and test growth | Policy written; size bounded | engine 4.2 |
+| I9 | G1 | Redaction before a summary is sent; `summaries_excluded` really stops sending | Network capture | No excluded or secret text leaves | engine 8.4 |
+| I10 | G1 | Icons: glyph rendering and width across terminals and fonts; Nerd Font absent; letter-badge fallback | Matrix | Legible everywhere | main 5.13 |
+
+## 11. Sidecar parity (SC)
+
+| ID | Prio | What must be proved | How | Pass when | Writes back to |
+|---|---|---|---|---|---|
+| SC1 | G0 | Preparing the private root on Windows, macOS, Linux (Node version, locked build, no native dependencies, time) | Fresh machines | `0.1.207` printed; time recorded | main 5.6 |
+| SC2 | G0 | **SEC** Environment applied to the child only | Inspect parent, siblings, shell | No leakage | main 5.6 |
+| SC3 | G0 | **SEC** The certificate authority is trusted only by the launched process, per agent runtime (native binary, Rust, Bun, Node) and per OS; the system trust store is unchanged | Before and after store listing; each agent's TLS to the proxy | Works in each; store unchanged | main 5.6 |
+| SC4 | G0 | **SEC** The launch manifest holds argv and overrides only, no credentials | Inspect on disk | None found | main 5.6 |
+| SC5 | G0 | One proxy per instance versus one shared (spec Q7): memory, recovery, isolation | Prototype both | Decision written | engine 9 |
+| SC6 | G0 | Proxy recovery on the original address while the agent keeps running; orderly drain when an instance (not the window) exits | Kill the proxy mid-turn | Agent recovers; no lost final flush | main 5.6 |
+| SC7 | G0 | Compression behaviour equals Musashi's: run Musashi's existing sidecar and prompt-rewrite fixtures against Shinatama-launched sessions; `--no-context` equivalent | Reuse tests | Same results | main 5.6 |
+| SC8 | G1 | The bili MCP shim follows `/resume` under Shinatama and coexists with `shinatama mcp` | Resume test | Correct session id | main 5.6 |
+| SC9 | G0 | **SEC** The seed, bootstrap and receipt are not altered by the prompt rewriter or externalized by CCR; a first destination turn does not trigger a compression pass | Compare sent and received bytes | Identical; or a bypass marker is added | engine 9 |
+| SC10 | G1 | Reusing the sidecar's auxiliary-call path for titles and roundtable calls without handling credentials (the rewriter is the precedent) | Read and try | A path exists, or the titler uses another route | engine 8.4 |
+| SC11 | G1 | Gemini launch-only keeps working through the sidecar | Launch | Works as in Musashi | main 5.9 |
+| SC12 | G1 | The Windows proxy watcher (2 s) with Shinatama as the long-lived owner | Test | No premature or late shutdown | main 5.6 |
+| SC13 | G1 | Providing Node on macOS and Linux (system, bundled, downloaded): offline, size, version | Try the options | One chosen | main 5.6 |
+
+## 12. Daodan, checkup, login (D)
+
+| ID | Prio | What must be proved | How | Pass when | Writes back to |
+|---|---|---|---|---|---|
+| D1 | G0 | The role of `acaprino/shinatama` after the 42.0.0 reunification (spec Q1); name collision with the product; install instructions | Read both repositories' READMEs and history | Statements in the specs and README corrected | main; README |
+| D2 | G0 | Per-host install, update and "enabled" commands for Daodan 42.0.0 (Claude marketplace update, Codex, OpenCode V2 package path, Pi git package); non-interactive; the dependency tables Musashi uses (`pianoDipendenzeCodex`, `serverMcpRichiesti`) still correct | Fresh profiles | Each host ends with the plugins enabled and no duplicates | main 5.5 |
+| D3 | G1 | The user's own disabled plugins stay disabled | Test | Respected | main 5.5 |
+| D4 | G1 | Enabling all Daodan plugins by default (48 at 42.7.3): tokens added to each agent's first request (skill listings, tool definitions), MCP servers that fail to start, launch time; a failing plugin must not block the launch | Capture the first request per agent through the sidecar, all versus `core` | Numbers per agent; failures reported by the checkup; decision on the default recorded | main 5.5; daodan-native 4.6 |
+| D5 | G1 | Sign-in detection and login in a PTY for all four: `claude auth status`/`login`, `codex login status`, `opencode auth`, Pi; polling cost; cancel; no secret read | Per agent | Works, or marked "unknown" | main 5.11 |
+| D6 | G0 | Checkup parity with Musashi on Windows: port each case of Musashi's tests (EINVAL on `.cmd`, PATHEXT, provider key, states) and reuse the fixtures if they are plain data | Port and run | All pass | main 5.9 |
+| D7 | G1 | Checkup time per launch; when it runs when several instances start; updating an agent while an instance runs (locked executables on Windows) | Measure | Policy written; never update a running agent | main 3 |
+| D8 | G1 | The Daodan palette lists workflows from the installed manifest, not a hard-coded list; the native entry per host | Compare to hosts doc | Correct on all four | main 5.5 |
+| D9 | G0 | Does `holder.session` in `.daodan/agenda.json` equal each agent's native session id (Claude, Codex, OpenCode, Pi)? How Daodan gets `--session ID` on each host | Run a Daodan task per host, compare the row with the agent's session store | Per agent: equal, derivable, or unrelated; the link is exact or by place accordingly | daodan-native 4.2 |
+| D10 | G0 | The native "continue this task" and "show status" entries per host (`continue-task`, `show-status`): spelling, whether they accept a run id or branch, what they print | Hosts doc plus a run on each host | One typed command per host, or "no argument" recorded | daodan-native 4.5 |
+| D11 | G1 | Reading `agenda.json` while a Daodan script rewrites it (`atomic_write`): torn or missing reads on Windows, macOS, Linux and Drive paths | Hammer the reader while the writer loops | No torn read, or the fallback (MCP or `run_state.py agenda`) chosen | daodan-native 7.1 |
+| D12 | G1 | Resolving the main checkout from a linked worktree through the Git common directory on Windows paths; non-Git projects with the `.daodan-root` sentinel | Test with worktrees under `.daodan/worktrees/` and a plain folder | Same agenda found from every worktree | daodan-native 3 |
+| D13 | G0 | The hop seed's Daodan block: the destination continues the task and takes over after one confirmation (the dialog's), not two; in fork mode it reads without writing and leaves the holder | Hop a task thread in each mode between two agents | Close: one confirmation total. Fork: holder unchanged | daodan-native 4.3 |
+| D14 | G1 | Onboarding trigger: Shinatama's "no Daodan state" check (none of `.daodan`, `.codebase-map`, `.codebase-xray` in the project or the main checkout) gives the same answer as `run_state.py first-use` for a plain folder, a Git repo, a linked worktree and a project with only `.codebase-map`; the offer shows once and "Not now" sticks | Run both on a fixture set | Same result on every case; no repeated offer | daodan-native 4.7 |
+
+## 13. Project manager and Musashi parity (PM)
+
+| ID | Prio | What must be proved | How | Pass when | Writes back to |
+|---|---|---|---|---|---|
+| PM1 | G1 | Listing and sorting roots with hundreds of folders, including Google Drive paths, without blocking the UI | Measure | Under a stated time, async | main 5.4 |
+| PM2 | G1 | Git branch and dirty count for 30 projects: parallel, timeouts, cache | Measure | Bounded | main 5.4 |
+| PM3 | G1 | Last agent and thread per project, matching paths across agents (S9), worktree versus main tree | Test | Correct | main 5.4 |
+| PM4 | G1 | New project: name validation per OS (reserved names, trailing dots, case-insensitive duplicates), `git init` default branch, permissions, a root on a synced drive | Test | No half-created folder | main 5.4 |
+| PM5 | G1 | Importing `cronologia.json`: observed keys `recenti`, `percorso`, `quando` with values that look like Unix seconds although `history.h` says FILETIME; invalid entries | Parse the real file (counts only) and the code | Correct conversion; bad entries skipped | main 5.9 |
+| PM6 | G2 | A folder picker for any folder (F3) on each OS, drive letters, no terminal-escape traps | Test | Works | main 5.4 |
+| PM7 | G1 | A missing root (removed drive) is reported, not ignored (Musashi behaviour) | Test | Reported | main 5.4 |
+| PM8 | G1 | Where the configuration lives (Musashi keeps it beside the executable); reading Musashi's `config.json` | Decide and test | Documented; old file read | main 5.9 |
+| PM9 | G0 | The inventory of Musashi features to port or drop (spec Q6): ADHD plugin, prompt rewriter, token-efficiency settings, turn-completion, exit report, terminal templates, history, sidecar | Read `docs/*.md` and `src/*` | One line per feature: port, drop, or later, with the reason | main 5.9 |
+
+## 14. Skins and UI (U)
+
+| ID | Prio | What must be proved | How | Pass when | Writes back to |
+|---|---|---|---|---|---|
+| U1 | G1 | Contrast of every text role on every skin, measured by a script on the final tokens | WCAG 4.5:1 | All pass or exemptions written | main 5.7 |
+| U2 | G1 | Changing the skin live applies to the hosted pane without restart or flicker | Test | Works | main 5.7 |
+| U3 | G0 | Global key bindings (spec Q4): which keys each agent and each outer terminal consume; choose a leader key or prefix | Key matrix | A binding set with no conflicts, written | main 5.1; mockups |
+| U4 | G1 | Mouse support, focus, tab clicks; keyboard-only completeness | Test | Complete | main 5.1 |
+| U5 | G1 | Layout at narrow widths; overlays; side panel collapse | Resize | No overlap or loss | main 5.1 |
+| U6 | G1 | Rendering four panes: background panes are parsed but not drawn; CPU | Measure | Within budget | main 3 |
+| U7 | G1 | Italian keyboard (AltGr), IME, CJK input pass through | Test | Correct | main 5.1 |
+| U8 | G2 | No glow effects; the design review of the real UI (not the HTML mockups) | Review | Findings closed | main 5.7 |
+
+## 15. Widget and animation (W)
+
+| ID | Prio | What must be proved | How | Pass when | Writes back to |
+|---|---|---|---|---|---|
+| W1 | G0 | A graphical toolkit for a transparent, borderless, always-on-top, click-through window on Windows 11, macOS, X11, Wayland (GNOME, KDE, sway): idle CPU and memory, startup, 6 to 8 fps sprite animation | Prototype per toolkit candidate | One toolkit chosen with numbers | main 5.8 |
+| W2 | G1 | Wayland always-on-top and placement per compositor; the fallback (notification-only mode) | Test | Documented | main 5.8 |
+| W3 | G0 | **SEC** The widget never takes keyboard focus and never steals keystrokes when an alert appears | Type continuously while alerts fire, on each OS | No lost or redirected keystroke | main 5.8 |
+| W4 | G1 | Event path: DB event to bubble in under 1 s; widget with no Shinatama running; autostart; several windows | Measure | Within target | main 5.8 |
+| W5 | G0 | **SEC** Quick answers: allow or deny goes only to the right instance and prompt; the bubble shows the real command from the native event; a prompt that changed between event and click is refused | Race tests | No stale approval | main 5.8 |
+| W6 | G1 | Bubble text: source (titles or last assistant text), redaction, length, language | Test | Correct; no secret shown | main 5.8 |
+| W7 | G0 | GPT Image 2.5: the model name, variants and parameters from OpenAI's current documentation (the spec's claims come from secondary articles); transparent output with no halo; identity consistency across frames by a rubric; pilot of three frames (base, a mouth edit, an arm edit) before generating all | Generate the pilot | Rubric passed; cost recorded | main 5.8 |
+| W8 | G1 | The sprite pipeline: atlas, premultiplied alpha, 1x and 2x, size budget, seamless idle loop | Build | Within budget | main 5.8 |
+| W9 | G1 | Terms for using Bungie's character in a distributed build (legal decision) | Read terms; user decides | Decision written | main 5.8; README |
+| W10 | G2 | Reduced-motion setting honoured; a mute and disable switch | Test | Works | main 5.8 |
+
+## 16. Roundtable (R)
+
+| ID | Prio | What must be proved | How | Pass when | Writes back to |
+|---|---|---|---|---|---|
+| R1 | G0 | How Shinatama reaches `moe_ask` (an MCP server) without holding credentials: as an MCP client, or through an agent; where `moe` gets model access | Read Daodan's moe and peer-review, try | One route written | engine 7.8 |
+| R2 | G0 | **SEC** Answer-only per agent: no file written, no command run in each headless mode (CL11, CX9, OC7, PI8) | Canary prompts | None written or run | engine 7.6 |
+| R3 | G1 | Parallel participants: rate limits on one account; per-participant cost; a cap that stops a round mid-way (interrupt granularity) | Run | Caps hold within a stated overshoot | engine 7.8 |
+| R4 | G0 | **SEC** Injection between participants: an answer that tells another to write a file | Canary | Not obeyed in answer-only | engine 7.6 |
+| R5 | G1 | Convergence, synthesis quality and real cost of three topics; calibrate the default caps ($2, 40k tokens) | Run | Defaults set from data | main 5.10 |
+| R6 | G1 | A roundtable thread is searchable and can seed a work thread | Test | Works | engine 7.8 |
+| R7 | G1 | Choosing a model per participant per launch, including a local OpenAI-compatible endpoint on the LAN, without editing global config; model lists from catalogs | Try per agent | Works, or the agent is excluded as a participant | main 5.10 |
+
+## 17. Install, distribution, legal, telemetry (X)
+
+| ID | Prio | What must be proved | How | Pass when | Writes back to |
+|---|---|---|---|---|---|
+| X1 | G1 | Install on macOS (arm64, x86_64) and Linux (glibc, musl; x86_64, aarch64): release binaries, installer script, package managers; signing and notarization; Windows signing and SmartScreen; checksums | Clean machines | Documented one-command install per OS | README |
+| X2 | G1 | First run on clean Windows 11, macOS and Ubuntu: install to first hop, with a stopwatch and a list of failures | Clean VMs | Time and failures recorded | README |
+| X3 | G0 | Licences of every dependency and bundled asset are compatible with MIT (crates, SQLite, llama.cpp, the small model, BillionContext, fonts, icons) | `cargo deny` and a manual list | A generated notice file; no conflict | README |
+| X4 | G1 | **SEC** No unintended outbound connections: only agent traffic through the sidecar, model-catalog calls the user enabled, update checks the user enabled | Capture traffic during a full session | List matches the document | README; engine 4.7 |
+| X5 | G0 | **SEC** A threat model reviewed by a second reader: untrusted agent output into the emulator (P9), the database, MCP and hooks, handoff files, local sockets, the widget quick answers (W5) | Review | Findings closed | new `docs/threat-model.md` |
+| X6 | G2 | Shinatama's own updates: how they work and that they do not touch the sidecar's no-auto-update rule | Decide and test | Documented | README |
+
+## 18. Token economy and Code Mode (T)
+
+| ID | Prio | What must be proved | How | Pass when | Writes back to |
+|---|---|---|---|---|---|
+| T1 | G1 | Baseline: tokens of tool definitions per agent in a typical session (Daodan plugins' MCP servers, bili, `shinatama mcp`) | Capture the first request per agent through the sidecar | Numbers per agent | engine 7.5a |
+| T2 | G1 | Cloudflare Code Mode claims against the primary sources (the April 2026 report's 1.17 million to about 1,000 tokens figure is secondhand) | Read Cloudflare's own posts and documentation | Claims restated with primary citations | engine 7.5a |
+| T3 | G2 | A prototype code-mode gateway in front of the real MCP servers: tokens saved, task success, latency, sandbox security, engine size and licence | Prototype only if T1 shows a large footprint | Built only if the saving beats a threshold the user sets and success does not fall | engine 7.5a |
+| T4 | G1 | Prompt-cache effect of a seed on the destination: cost in money per hop | Measure | Included in H22 | engine 6.4 |
+
+## 19. Evidence the specs quote that nobody ran
+
+| ID | Prio | What must be proved | How | Pass when | Writes back to |
+|---|---|---|---|---|---|
+| E1 | G0 | Every `[R]` line in engine 5.7 (read from docs, source or `--help`, not run) is confirmed on the installed versions by the matching fixture above | The CL, CX, OC and PI rows | Each line becomes `[V]` with a date, or is corrected | engine 5.7 |
+| E2 | G2 | The Agent Deck claims in engine 6.8 (`[S]`: read at the tag, not run) are checked by a second reader against the tag | Re-read the files cited | Table confirmed or corrected | engine 6.8 |
+| E3 | G1 | The tool facts quoted from Windows documentation: the 32,767 and 8,191 limits | Spawn test (P16, CL2) | Confirmed | engine 5.6 |
+| E4 | G1 | "SQLite WAL needs a local disk" and what happens on Google Drive, with a throwaway folder only | S2 | Confirmed | engine 4.1 |
+| E5 | G2 | The structure notes marked `[V]` in engine 5.3 are re-captured when an agent's version changes | The fixture suite | Versions in the spec are current | engine 5.3 |
+
+## 20. Not empirical: waiting for the user
+
+These are decisions, not experiments; they are listed so nothing is lost.
+
+- O1 Which accounts and scratch logins may the tests use, and the cost cap per test run.
+- O2 Default title backend: the small local model (about 500 MB, downloaded after consent) or a provider low-cost model.
+- O3 Windows in v1 (assumed yes in the design); the exact scope of the "assistant" in the widget.
+- O4 Whether to run the Oni character's use as a distribution decision now (W9).
+- O5 Approval of the design and the engine design, so that the plan can be written.
+
+## 21. Runs so far
+
+Records: `docs/verification/`; scripts: `verify/<ID>/` (rerunnable without edits). First run 2026-10-27 on Windows 11 Home build 26200 (claude 2.1.311, codex-cli 0.164.0, opencode v2.1.4, pi 1.2.0); no login and no model calls were used.
+
+| Item | Prio | Status | Record | Note |
+|---|---|---|---|---|
+| E1 | G0 | running (partial) | `2026-10-27-E1.md` | `--help` surface of all four agents re-checked; Claude drift 2.1.310 → 2.1.311; runtime rows open |
+| CX4 | G0 | passed | `2026-10-27-CX4.md` | scratch detect/import/resume proven; tool calls arrive as text markers; age window is the detector's filter |
+| PI5 | G1 | passed (spec corrected) | `2026-10-27-PI5.md` | Pi has no TUI attach; 5.7 item 4 corrected |
+| PI10 | G2 | running (partial) | `2026-10-27-PI10.md` | `@earendil-works/pi-coding-agent` installed 1.2.0; registry latest 1.4.0 |
+| PI11 | G0 | running (partial) | `2026-10-27-PI11.md` | timings recorded; bare launch open |
+| D1 | G0 | done | `2026-10-27-D1.md` | remote repo found alive, 24 plugins all in Daodan at equal or newer versions; user decided; deleted 2026-10-27 with bundle backup |
+| CL13 | G1 | running (partial) | `2026-10-27-CL13.md` | both states recorded: real exit 0 (identity redacted), scratch exit 1 loggedIn false; PTY login open |
+| CX11 | G1 | running (partial) | `2026-10-27-CX11.md` | both states recorded: text on **stderr**, exit 0/1; PTY login open |
+| OC8 | G1 | running (partial) | `2026-10-27-OC8.md` | real home flaky (2 successes then 5x "Location plugins did not finish activating"); scratch answers; HTTP route candidate |
+| PI9 | G1 | running (partial) | `2026-10-27-PI9.md` | check recorded (`pi auth check --json --no-refresh`, exit 1 not_ready for anthropic); signed-in provider + PTY login open |
+| OC2 | G0 | passed | `2026-10-27-OC2.md` | interchange `{info,messages[]}`; round trip lossless for user/assistant+tool/compaction/system/synthetic/shell; 409 ConflictError; `/synthetic resume:false` stays in the inbox |
+| H27 | G0 | changed | `2026-10-27-H27.md` | external converter not adopted (user, 2026-10-27: own library); probe run kept: 36/36 written and resumed, 4/4 destination-native compactions; requirements L1–L14 in `session-interchange-spec.md` — the library and its docs are now the `mukade` repository (github.com/acaprino/mukade) |
+
+Status values follow section 0; this index is the status view until a Status column is added to the tables.
+
+Reuse survey (JanuraCode on this machine): `docs/notes/2026-10-27-januracode-code-survey.md` — official OpenCode import/export client and protocol schema, managed-OpenCode hosting, V1→V2 session migration, sign-in reference; **no cross-harness session translator found**.
+
+External tool trial (not a register row): `docs/verification/2026-10-27-UNI1.md` — **UniSessions** (vibheksoni/session-export, MIT, PyPI 0.5.0): Claude/Codex/Pi-style conversions work in scratch; **the OpenCode legs are incompatible with 2.1.4** (its v1-shaped export is rejected by the import: 400 `info.cost` then `messages[0]`; v2 exports are read as nearly empty).

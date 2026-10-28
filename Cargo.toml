@@ -1,0 +1,22 @@
+# Shinatama workspace. verify/H27/driver and verify/H27/shim are separate probes with their own [workspace].
+# The session-interchange library no longer lives here: it is published on its own as the `mukade`
+# crate (https://github.com/acaprino/mukade). Shinatama will depend on it when the runtime grows code.
+[workspace]
+resolver = "3"
+# No members yet: the session-interchange library was its only crate and now lives in the `mukade`
+# repository. The runtime's crates will be listed here when they exist.
+members = []
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+publish = false
+license = "UNLICENSED"
+
+# The only dependencies the workspace crates may use; adding one is a decision, not a side effect.
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+anyhow = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std", "serde"] }
+uuid = { version = "1", features = ["v4", "v7"] }

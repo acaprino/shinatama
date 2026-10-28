@@ -1,0 +1,8 @@
+# tool state and the retired marketplace checkout
+.jcode/
+.daodan/
+# build outputs
+target/
+# the bench regenerates its evidence: sources, captures, resumes, matrices
+verify/*/out/
+

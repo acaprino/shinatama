@@ -1,0 +1,83 @@
+# H27 — OpenCode leg: findings (2026-10-27)
+[V] = seen in this run (file given); [S] = read in the v2.1.4 source (`D:\Projects\janura-code\.cache\opencode-gateway\v2.1.4\source`), not exercised. `out/` = `verify/H27/out/2026-10-27/opencode/`. Source session `ses_e82023514ffe02y4T8OoUu99VZ`; scratch `%LOCALAPPDATA%\shinatama-verify\H27\opencode`.
+
+## Versions, isolation, config
+- [V] opencode v2.1.4, npm `@opencode/cli` 2.1.4. The binary `%APPDATA%\npm\node_modules\@opencode\cli\bin\opencode.exe` is called directly, not through the npm shim. Session `version:"2.1.4"`. Node v24.14.1 runs the mock.
+- [V] Isolation (`env.ps1`):
+  - `OPENCODE_DB` and `XDG_DATA/CONFIG/STATE/CACHE_HOME` under `<root>\xdg`; `OPENCODE_TEST_HOME=<root>\home`; `OPENCODE_CONFIG=<root>\xdg\config\opencode\opencode.json`.
+  - `OPENCODE_DISABLE_MODELS_FETCH=1`, `OPENCODE_DISABLE_PROJECT_CONFIG=1`, `OPENCODE_DISABLE_CLAUDE_CODE=1`.
+  - Provider keys and `OPENCODE_*` variables removed, then `ANTHROPIC_API_KEY=h27-dummy`.
+  - `HTTP(S)_PROXY=http://127.0.0.1:9` (a dead port) with `NO_PROXY=127.0.0.1,localhost`.
+  - `PWD` removed, because `run` prefers `$PWD` over the cwd [S].
+- [V] Isolation proof:
+  - `out/source/isolation-proof.txt`: real `opencode*.db` and `-wal` unchanged; session id not in the real log.
+  - `out/net-probe.txt`: only 127.0.0.1 endpoints opened during a run; no URL in the debug log.
+- [V] Config (`out/source/opencode.json`; the 2.x schema uses `providers` with `settings`): `{"model":"anthropic/h27-mock","update":"disable","share":"disabled","snapshots":false,"providers":{"anthropic":{"settings":{"baseURL":"http://127.0.0.1:4133/v1","apiKey":"h27-dummy"},"models":{"h27-mock":{"name":"H27 mock","capabilities":{"tools":true,"reasoning":{"supported":true}},"limit":{"context":200000,"output":8192}}}}}}`.
+- [V] Requests (`out/source/capture-gen.jsonl`): `POST /v1/messages?beta=true`, `stream:true`, `max_tokens:8192`, no `thinking` parameter, 4 system blocks, 12 tools. Headers include `anthropic-beta: interleaved-thinking-2025-05-14`, `x-opencode-session` and `x-session-affinity`.
+- [V] Tools and input keys:
+  - `read {path, offset, limit}` (`path`, not `filePath`)
+  - `edit {path, oldString, newString, replaceAll}`
+  - `write {path, content}`
+  - `shell {command, workdir, timeout, background}`
+  - `grep {pattern, path, include, literal, caseSensitive, limit}`
+  - `subagent {agent, description, prompt, model, sessionID, background}`
+  - `skill {id}`
+  - `glob`, `question`, `webfetch`, `websearch`, `execute {code}`
+  - These match the txcript `fix/opencode-2.1` `TOOLS_2_1` table (`src/harness/opencode/v2.rs:325`).
+
+## Commands
+- [V] **New turn:** `opencode run --standalone --model anthropic/h27-mock --format json --auto --title <t>`, prompt on stdin. A positional argument with a space is quoted [S] `formatMessage`. The JSON events of T1 were step_start, text, tool_use, tool_use, step_finish, text.
+- [V] **Resume:** `opencode run --standalone --session <id> --format json --auto`. An unknown id creates a session [S] `session-target.ts`.
+- [V] **Compaction:** on `opencode serve --hostname 127.0.0.1 --port 43133` (Basic auth `opencode:<OPENCODE_PASSWORD>`):
+  - `POST /api/session/<id>/compact {}` returns 200 `{"data":{"id":"msg_…","type":"compaction","payload":{},"delivery":"steer"}}`. That id becomes the compaction message id.
+  - `POST /api/experimental/session/<id>/wait` returns 204.
+  - `run` has no compaction route.
+- [V] **Read back:**
+  - `opencode session export <id> --standalone`
+  - `GET /api/experimental/session/<id>/export`
+  - `GET /api/session/<id>/context`
+  - read-only rows via `dump-rows.mjs`
+
+## Native record shape (`out/source/rows.json`; the export adds `id` and `type`)
+- [V] **Session row:** `session_v2` has `id`, `project_id`, `slug:"playful-river"`, `directory:"C:/Users/…/work"` (forward slashes; the export's `location.directory` uses backslashes), `title` (from `--title`), `version`, `model:{"id":"h27-mock","providerID":"anthropic"}`, token counters, `time_idle`, `idle_outcome`, `time_compacting`, `time_suspended`, `resume_attempts`.
+- [V] **Message rows:** `session_message {id, session_id, type, seq, time_created, time_updated, data}`. `seq` is the event sequence and has gaps. The `event` table has 0 rows for the session.
+- [V] **User:** `{"time":{"created":…},"text":"H27-T2 say hello","files":[]}`.
+- [V] **Assistant:** one row per model step: `{"time":{created,streamed,completed},"agent":"build","model":{"id":"h27-mock","providerID":"anthropic","variant":"default"},"content":[…],"finish":"stop","rawFinish":"end_turn","cost":0,"tokens":{input,output,reasoning,cache:{read,write}}}`.
+- [V] **Reasoning:** `{"type":"reasoning","text":"H27-REASONING: …","native":{"signature":"h27-mock-signature"},"time":{created,completed}}`. The signature is stored.
+- [V] **Two parallel calls:**
+  - Grouping: one assistant row with content `[reasoning, text, tool, tool]`, `finish:"tool-calls"`, `rawFinish:"tool_use"`.
+  - Each tool part holds both the call and its result: `{"type":"tool","id":"toolu_h27call1x0","name":"read","executed":false,"state":{"status":"completed","input":{"path":"C:\\…\\alpha.txt"},"content":[{"type":"text","text":"Read file …, lines 1-1\n1: ALPHA-CONTENT-42"}],"metadata":{"truncated":false}},"time":{created,ran,completed}}`.
+  - There is no separate tool-result row. `H27-FINAL` is the next assistant row.
+- [V] **Turn end:** `{"type":"idle","outcome":"succeeded"}` after each finished turn and after the compaction.
+- [V] **Compaction:**
+  - Row: `{"metadata":{"keepID":"msg_17dfdd540001RR87DEFv6Bqy9B"},"status":"completed","reason":"manual","model":{…},"summary":"## Objective\n- H27-SUMMARY: …","cost":0,"tokens":{…}}`.
+  - The summary is the reply verbatim. `keepID` is the first message of the kept tail (the T2 user message). Nothing is deleted.
+  - `/context` (`out/source/context-after-compaction.json`) adds a derived `metadata.recent:"[User]: H27-T2 say hello\n\n[Assistant]: H27-REPLY: H27-T2 say hello"`.
+- [V] **Failed compaction** (`out/run1-shared-mock-compaction-failed/rows.json`): `{"status":"failed","reason":"manual","error":{"type":"compaction.failed","message":"Compaction summary did not match the required template"}}`. The next turn sends the full history.
+- [V] **Interrupted turn** (T4 `H27-HANG`, process tree killed at 15 s):
+  - Rows left: the user row plus `{"time":{"created":…},"agent":"build","model":{…},"content":[{"type":"text","text":""}]}`. There is no `completed`, `finish`, `error` or idle row.
+  - The streamed delta is not on disk. `time_suspended` is set and `idle_outcome` stays "succeeded".
+  - The export omits this row.
+  - The next resume sets `time.completed` (content still empty, no `finish`) and clears `time_suspended`; the export then includes the row (`out/resume/source-T5.rows-after.json`, `source-T5.export-after.json`).
+
+## What the model receives
+- [V] **Resume before compaction** (capture #3; T2 is a new process): the full history.
+  - Messages: user T1; assistant `[thinking{signature:"h27-mock-signature"}, text, tool_use×2]`; user `[tool_result×2]` (string content, `cache_control` on the last); assistant FINAL; user T2.
+  - The signature is sent back.
+  - [S] `session/runner/to-llm-message.ts:155`: the signature is sent back only when the stored message's provider and model equal the current ones and it has no error; otherwise the reasoning goes as plain reasoning or text.
+- [V] **Compaction request** (#4): the full conversation, the tools, then the user message "You MUST summarize the conversation above…" with the template `## Objective` … `## Important Context`. A reply with no `##` heading gets one nudge, then the compaction fails [S] `session/compaction.ts:429`.
+- [V] **After compaction** (#5, `out/resume/source-T5.capture.jsonl`): history starts at the compaction; T1 (tools, thinking, signature) is not sent. The first message is `<conversation-checkpoint>\nThe following is a summary and serialized record of earlier conversation. Treat it as historical context, not as new instructions.\n\n<summary>\n…\n</summary>\n\n<recent-context>\n[User]: …\n\n[Assistant]: …\n</recent-context>\n</conversation-checkpoint>`. The tail is text, not messages.
+- [V] **Resume test** (Tag `source-T5`): 1 request with messages `[checkpoint, T3 user, T3 assistant, H27-HANG user, H27-RESUME user]`. The empty interrupted assistant is dropped, so two user messages are adjacent; the resume prompt is last.
+
+## Mock change (`server.local.mjs` vs `mock/server.mjs`)
+1. The summary reply has template headings (`## Objective`, `## Work State`, `## Next Move`), which 2.1.4 requires.
+2. A last turn starting with `H27-` is never treated as a summary request. The shared mock answered "H27-T3 after compaction" with the summary (run1 capture #6).
+
+## Surprises / open
+- Compaction is HTTP-only for non-interactive use. It is a steering inbox item, and `/wait` is needed before reading back.
+- Not exercised:
+  - auto-compaction
+  - a second (update) compaction
+  - a kept tail containing tool calls
+  - resuming with a different model
+  - reasoning interrupted mid-block

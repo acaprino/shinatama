@@ -1,0 +1,118 @@
+# H27 — Pi leg (2026-10-27)
+
+Runner: agent, on the user's machine, no login, no real model call, cost 0. Every fact is [V] (seen
+in this run) with the file it is seen in. Paths below are relative to `verify/H27/out/2026-10-27/pi/`
+unless they start with `verify/`.
+
+## Versions and isolation
+
+- [V] pi **1.2.0** (`@earendil-works/pi-coding-agent`, `package.json` of the global install), run as
+  `node <npm root -g>\@earendil-works\pi-coding-agent\dist\bundle\cli.js` (what the `pi` shim runs), Node v24.14.1,
+  Windows 11 26200, PowerShell 5.1. — `verify/H27/pi/lib.ps1`
+- [V] Scratch root `%LOCALAPPDATA%\shinatama-verify\H27\pi\` (`home\` = `PI_CODING_AGENT_DIR`, `work\` = cwd).
+  After a run the scratch home holds only `auth.json` (`{}`), `models-store.json` (`{}`), `models.json`,
+  `settings.json`, `sessions\--C--Users-alfio-AppData-Local-shinatama-verify-H27-pi-work--\*.jsonl`. —
+  `source/gen-source.log.txt`
+- [V] Real store untouched: newest file under `~\.pi\agent` before and after every run is
+  `2026-10-26T18:39:18.88Z …\.last-cleanup`. — `source/gen-source.log.txt`
+- [V] Only the mock was contacted: every request in every capture is `POST /v1/messages?beta=true` to
+  `127.0.0.1:4134`, `user-agent: pi (win32 10.0.26200; x64)`, `x-api-key` redacted (value `h27-dummy`);
+  stderr of every run is empty. Belt and braces in `env.ps1`: `PI_OFFLINE=1`, `PI_SKIP_VERSION_CHECK=1`,
+  `PI_TELEMETRY=0`, `--offline`, `HTTP(S)_PROXY=http://127.0.0.1:9` with `NO_PROXY=127.0.0.1,localhost`,
+  provider API-key variables removed (the user's shell had `OPENROUTER_API_KEY` set). — `source/capture-gen.jsonl`
+- `-ns` (`--no-skills`) is on every run: `~\.agents\skills\` holds the user's real skills and Pi reads
+  that location regardless of `PI_CODING_AGENT_DIR` (docs `configuration.md`).
+
+## Config that points Pi at the mock (written by `env.ps1` into the scratch home)
+
+```json
+// models.json
+{"providers":{"h27":{"baseUrl":"http://127.0.0.1:4134","api":"anthropic-messages","apiKey":"h27-dummy",
+  "models":[{"id":"h27-mock","name":"H27 mock","reasoning":true,"input":["text"],"contextWindow":200000,
+             "maxTokens":8192,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0}}]}}}
+// settings.json
+{"defaultProvider":"h27","defaultModel":"h27-mock","compaction":{"keepRecentTokens":10},
+ "cacheWarming":"off","enableAnalytics":false,"enableInstallTelemetry":false}
+```
+
+- [V] Request shape: `stream:true`, `max_tokens:8192`, `thinking:{"type":"enabled","budget_tokens":7168,"display":"summarized"}`
+  (default level `medium`), header `anthropic-beta: interleaved-thinking-2025-05-14`, one `system` text
+  block (2804 chars, with `cache_control`), tools `read,bash,edit,write`; the last user block carries
+  `cache_control: ephemeral`. — `source/capture-gen.jsonl` n1
+
+## Commands
+
+| step | command (flags common to all: `--provider h27 --model h27-mock --offline --no-skills`) |
+|---|---|
+| new turn, new session | `pi -p … "<prompt>"` (cwd = project; session file created) |
+| resume with a prompt | `pi -p … --session <file path or id> "<prompt>"` (id: exact or partial, searched in the current project first) |
+| compaction | `pi --mode rpc … --session <id>` then stdin `{"id":"c1","type":"compact"}` → response `{"command":"compact","success":true,"data":{summary,firstKeptEntryId,tokensBefore,estimatedTokensAfter,usage,details}}` |
+| interrupt (graceful) | RPC `{"type":"prompt",…}` then `{"type":"abort"}` |
+
+- [V] `/compact` in print mode is **not** a command: it is sent to the model as user text and stored
+  as a user message. — `probe/capture-probe.jsonl` n3
+- [V] Pi's RPC stdin rejects a UTF-8 BOM (`Failed to parse command: Unexpected token '\uFEFF'`); PS 5.1
+  writes one unless `[Console]::InputEncoding` is BOM-less while the process starts (handled in `lib.ps1`).
+- Scripts: `verify/H27/pi/gen-source.ps1` (resets scratch, T1–T4 + abort variant), `resume-capture.ps1
+  -SessionId -Prompt -Tag [-Cwd]` (resets nothing; finds the file by id under `home\sessions`, runs in the
+  header cwd when it exists, saves `resume/<Tag>.{capture.jsonl,stdout.txt,stderr.txt,exit.txt,session-before.jsonl,session-after.jsonl}`),
+  `test-resume.ps1` (the four resume runs below). Source session id of the final run:
+  `01a17e17-9f07-743d-8072-8b3b13d65ab5` (`source/session-id.txt`).
+
+## Native record shapes — `source/2026-10-27T16-00-39-689Z_01a17e17-9f07-743d-8072-8b3b13d65ab5.jsonl`
+
+- [V] File: `<home>\sessions\--<cwd with \ : / → ->--\<ISO ts, : and . → ->_<id>.jsonl`; id is a UUIDv7.
+  No title entry (`session_info` only with `/name`/`--name`).
+- [V] Header (line 1, not in the tree): `{"type":"session","version":3,"id":"01a17e17-9f07-…","timestamp":"2026-10-27T16:00:39.689Z","cwd":"C:\\Users\\alfio\\AppData\\Local\\shinatama-verify\\H27\\pi\\work"}`.
+  A fork adds `"parentSession":"<absolute path of the source .jsonl>"` and **keeps every entry id**. — `source/abort-variant/*.jsonl` line 1
+- [V] Lines 2–4: `{"type":"model_change","id":"cd01602e","parentId":null,…,"provider":"h27","modelId":"h27-mock"}`,
+  `{"type":"thinking_level_change",…,"thinkingLevel":"medium"}`, then a **system message** entry
+  `{"type":"message",…,"message":{"role":"system","content":"","sections":{"preamble","tools","rules","docs","cwd"},"toolsAdded":[read,bash,edit,write …full schemas],"timestamp":…}}` — the persisted prompt + tool loadout.
+- [V] User text: `{"type":"message","id":"e1527d15","parentId":"512de644","timestamp":"…","message":{"role":"user","content":[{"type":"text","text":"H27-TOOLS read C:\\…\\alpha.txt and …\\beta.txt"}],"timestamp":1793116839…}}`
+- [V] Assistant with thinking + text + **two parallel calls in ONE assistant message**:
+  `{"role":"assistant","content":[{"type":"thinking","thinking":"H27-REASONING: …","thinkingSignature":"h27-mock-signature"},{"type":"text","text":"H27-PRE: reading the files."},{"type":"toolCall","id":"toolu_h27call1x0","name":"read","arguments":{"path":"C:\\…\\alpha.txt"}},{"type":"toolCall","id":"toolu_h27call1x1","name":"read","arguments":{"path":"C:\\…\\beta.txt"}}],"api":"anthropic-messages","provider":"h27","model":"h27-mock","usage":{…,"cacheWrite1h":0},"stopReason":"toolUse","timestamp":…,"responseId":"msg_h27_1","rawStopReason":"tool_use","durationMs":53,"thinkingLevel":"medium"}`
+  — the signature **is stored** (`thinkingSignature`).
+- [V] Tool results: **one entry per result**, chained (`parentId` = previous result):
+  `{"role":"toolResult","toolCallId":"toolu_h27call1x0","toolName":"read","content":[{"type":"text","text":"ALPHA-CONTENT-42"}],"isError":false,"durationMs":5,"timestamp":…}`, then the same for `…x1`/`BETA-CONTENT-17`.
+- [V] Final assistant: `…"content":[{"type":"text","text":"H27-FINAL: both files were read."}],…"stopReason":"stop","rawStopReason":"end_turn"…`
+- [V] **Compaction entry** (line 12), appended after the T2 assistant:
+  `{"type":"compaction","id":"dffed3d2","parentId":"8be15ad8","timestamp":"…","summary":"<summary>H27-SUMMARY: …</summary>\n\n<read-files>\nC:\\…\\alpha.txt\nC:\\…\\beta.txt\n</read-files>","firstKeptEntryId":"c975c1e0","tokensBefore":120,"details":{"readFiles":["C:\\…\\alpha.txt","C:\\…\\beta.txt"],"modifiedFiles":[]},"usage":{…},"fromHook":false,"systemMessage":{"role":"system","content":"","sections":{preamble,tools,rules,docs,cwd},"toolsAdded":[…4 tools…],"timestamp":…}}`
+  — `summary` = model text + Pi-appended `<read-files>` block (from tool calls); `firstKeptEntryId`
+  = the T2 user entry (everything before it is replaced); entries are never deleted.
+- [V] Killed turn (T4, `taskkill /T /F` after 15 s): only the **user** entry is on disk, no assistant entry. — source line 15
+- [V] Aborted turn (RPC `abort`, fork): an assistant entry with the partial text and
+  `"stopReason":"aborted","errorMessage":"This operation was aborted","durationMs":15048`; RPC ends with
+  `{"type":"agent_settled","aborted":true}`. — `source/abort-variant/*.jsonl` last line, `abort-rpc.stdout.txt`
+
+## What the model receives
+
+- [V] Compaction request: no tools, system = `You are a context summarization assistant. … ONLY output the structured summary.`, ONE user
+  message `<conversation>\n[User]: …\n\n[Assistant]: H27-PRE…\n\n[Assistant tool calls]: read(path="…"); read(path="…")\n\n[Tool result]: ALPHA-CONTENT-42\n\n[Tool result]: BETA-CONTENT-17\n\n[Assistant]: H27-FINAL…\n</conversation>` + the fixed format instructions (Goal / Constraints / Progress / Key Decisions / Next Steps / Critical Context). Thinking is omitted; thinking is still enabled on the request. — `source/capture-gen.jsonl` n4
+- [V] After compaction (T3, and every resume): system prompt (from the stored system message), then
+  **summary + kept tail only**: msg 1 = user `"The conversation history before this point was compacted into the following summary:\n\n<summary>\n<summary>H27-SUMMARY…</summary>\n\n<read-files>…</read-files>\n</summary>"`, then the kept entries from `firstKeptEntryId` (T2 user, T2 assistant), then later entries. T1, its thinking/signature, tool calls and results are **not** sent. — `source/capture-gen.jsonl` n5
+- [V] Before compaction, T1's thinking goes back verbatim with `"signature":"h27-mock-signature"`, and the two tool results go back as one user message with two `tool_result` blocks. — `source/capture-gen.jsonl` n2, n3
+- [V] Resume of the source session (`resume/source-T5.capture.jsonl`): 1 request, 7 messages: summary(user), T2 user, T2 assistant, T3 user, T3 assistant, **T4 user `H27-HANG interrupted turn`**, resume prompt — two consecutive user messages, nothing synthesized for the killed turn. The prompt lands as the last user message; the new entries are appended under the dangling T4 user entry.
+- [V] Resume of the aborted fork (`resume/fork-abort.capture.jsonl`): the `stopReason:"aborted"` assistant is **dropped** from the request (three user messages in a row). Same rule for `"error"` (pi-ai `transform-messages.js`).
+- [V] Resume from another cwd (`resume/source-othercwd.capture.jsonl`): the `<cwd>` section still says `…/H27/pi/work` — the stored system message is replayed, not rebuilt from the process cwd.
+- [V] Hand-written 3-line session (header, user, assistant with `provider:"anthropic"`, `model:"claude-sonnet-4-5"`, thinking + `thinkingSignature`) resumes fine (`resume/synthetic.*`). Pi appends `thinking_level_change` + a system message before the new user entry (no `model_change`), and because the stored assistant names another provider/model, its thinking is sent as **plain text** (`{"type":"text","text":"H27-SYN thinking"}`), signature dropped. Same-model thinking with a signature is sent back as a thinking block (n2/n3 above).
+
+## Surprises / notes
+
+- Mock interaction: Pi's compaction request quotes `H27-TOOLS` from the conversation, so the shared
+  mock answered it `H27-NOTOOL: no read or shell tool offered (tools: )`, which became the stored summary.
+  Fixed in a local copy `verify/H27/pi/server.local.mjs` (diff: `verify/H27/pi/server.local.diff`: a
+  tool-less request matching the summary regex gets `H27-SUMMARY` before the HANG/TOOLS checks). The
+  shared `mock/server.mjs` is unchanged by me; the copy is rebased on its 16:37 version.
+- The brief's T3 prompt contains "compaction", which matches the mock's summary regex, so T3's reply is
+  the `<summary>H27-SUMMARY…` text (stored as a normal assistant message). Applies to every harness.
+- `keepRecentTokens` decides the boundary with chars/4 estimates. With `1`, the cut lands on the T2
+  assistant ("split turn"): two summary requests and a summary containing `**Turn Context (split turn):**`
+  (`probe/rpc-compact-splitturn.stdout.jsonl`, `probe/capture-probe.jsonl` n4–n5). `10` cuts at the T2 user.
+- `tokensBefore` is 120: the mock's reported usage, not an estimate.
+- Startup was fast here (0.4–1.0 s per print-mode turn), unlike PI11's slow `--help`.
+
+## Open
+
+- Auto-compaction (threshold) was not exercised; only manual RPC `compact`. Same entry type is documented.
+- `resume-capture.ps1` passes `--session <file path>`; a session written by txcript into a different
+  project folder still resolves by path, but Pi's own id lookup searches the current project first.

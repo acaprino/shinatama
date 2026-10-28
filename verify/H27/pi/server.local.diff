@@ -1,0 +1,38 @@
+--- mock/server.mjs	2026-10-27 16:37:32.869264200 +0100
++++ pi/server.local.mjs	2026-10-27 16:58:00.370056900 +0100
+@@ -105,6 +105,9 @@
+ function decide(turn, tools) {
+   if (turn.kind === "after-tools") return { text: "H27-FINAL: both files were read.", calls: [], stop: "end" };
+   const t = turn.text || "";
++  // H27/pi local change: Pi's compaction request offers no tools and quotes the whole
++  // conversation (including "H27-TOOLS …") in one user turn; answer it as a summary.
++  if (!tools.length && SUMMARY_RE.test(t)) return summaryPlan();
+   if (t.includes("H27-HANG")) return { hang: true };
+   if (t.includes("H27-TOOLS")) {
+     const paths = [...new Set(t.match(PATH_RE) || [])].slice(0, 2);
+@@ -119,16 +122,18 @@
+     }
+     return { text: `H27-NOTOOL: no read or shell tool offered (tools: ${tools.map((x) => x.name).join(",")})`, calls: [], stop: "end" };
+   }
+-  if (SUMMARY_RE.test(t)) {
+-    return {
+-      text: "<summary>H27-SUMMARY: the user asked to read alpha.txt and beta.txt; both were read; then said hello.</summary>",
+-      calls: [],
+-      stop: "end",
+-    };
+-  }
++  if (SUMMARY_RE.test(t)) return summaryPlan();
+   return { text: `H27-REPLY: ${t.replace(/\s+/g, " ").slice(0, 80)}`, calls: [], stop: "end" };
+ }
+ 
++function summaryPlan() {
++  return {
++    text: "<summary>H27-SUMMARY: the user asked to read alpha.txt and beta.txt; both were read; then said hello.</summary>",
++    calls: [],
++    stop: "end",
++  };
++}
++
+ // ---------- Anthropic Messages ----------
+ 
+ function sse(res, event, data) {
