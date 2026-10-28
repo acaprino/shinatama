@@ -101,16 +101,29 @@ they must hold.
 - Any process may run any operation (hop, send message, summarize) that does not touch a
   PTY it does not own; operations that need a foreign PTY are queued in the database and
   executed by the owning process.
-- **What is isolated and what is not** [C]: isolation is per launch, never a per-agent
-  copy. The sidecar's private root, child-only environment and child-only certificate
-  trust leave system state untouched (9); hooks and the MCP server arrive per launch
-  (`--settings`, `-c`, `OPENCODE_CONFIG*`, `-e`) without editing the user's configuration
-  (7.5). The agents are the real binaries against their real homes; the verification
-  register's scratch homes (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_DB` + `XDG_*`,
-  `PI_CODING_AGENT_DIR`) are a test-only device. Daodan is the non-isolated piece: the
-  checkup installs it into each agent's native plugin store (main spec 5.5). To be
-  proved: per-launch MCP injection [M1], one sidecar proxy per instance versus shared
-  [SC5], the private overlay leaving Codex history and auth in place [CX12].
+- **What is isolated and what is not** [C]: the sidecar's private root, child-only
+  environment and child-only certificate trust leave system state untouched (9); hooks
+  and the MCP server arrive per launch (`--settings`, `-c`, `OPENCODE_CONFIG*`, `-e`)
+  without editing the user's configuration (7.5). Where each agent lives is a per-agent
+  mode (main spec 5.14, decided 2026-10-28):
+  - `private` (default): Shinatama's own copy of the agent, under
+    `<data>/agents/<agent>/versions/<version>/`, against Shinatama's own home
+    `<data>/agents/<agent>/home/`, selected at launch by the agent's home variable
+    (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_DB` + `XDG_*`, `PI_CODING_AGENT_DIR`,
+    the variables the verification bench already uses for its scratch homes). Daodan is
+    installed into that home. The agent's own self-update is off; updates install side
+    by side, running instances keep their version, the previous version is kept for
+    rollback when `fixture_gate` fails.
+  - `system`: the user's installed binary against the user's home; Daodan goes into
+    that agent's native plugin store (main spec 5.5); Shinatama never installs, updates
+    or replaces the binary.
+  - Never mixed: Shinatama's copy is never pointed at the user's home (a newer version
+    can migrate the store under an older one).
+  - The register's scratch homes stay a separate, test-only device.
+
+  To be proved: per-launch MCP injection [M1], one sidecar proxy per instance versus
+  shared [SC5], the private overlay leaving Codex history and auth in place [CX12], and
+  the private mode itself [D15 to D18].
 
 ## 4. Shared state: one SQLite database per user [C, confirmed in principle by the user]
 
@@ -450,12 +463,17 @@ builder writes it as a Rust trait):
 
 ```
 A. Identity and environment
-detect() -> Installed{version, exe, home} | Missing
+mode() -> Private | System                           -- per-agent setting, main spec 5.14
+detect() -> Installed{version, exe, home} | Missing  -- in the home and binary of mode()
 fixture_gate(version) -> Supported | Degraded(reason) | Unsupported   -- from captured fixtures
 inherited_markers() -> [exact env names]              -- removed before any launch (3)
 auth_status() -> SignedIn | SignedOut | Unknown       -- asks the agent, never reads credentials
 login() -> the agent's own login flow, run in a PTY
-install_or_update(); install_daodan()                 -- the checkup, as Musashi does today
+install_or_update(); install_daodan()                 -- the checkup; install_or_update only in
+                                                      -- Private (side by side, rollback kept);
+                                                      -- System: report the update, never run it
+system_homes() -> [home]                              -- read-only: search and import of the
+                                                      -- user's sessions while in Private
 
 B. Read side: list and EXPORT
 list_sessions(filter) -> [SessionSummary{native_ref, id, cwd, branch, title,

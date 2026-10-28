@@ -125,11 +125,14 @@ resilient, as safe and as well compressed as a launch through Musashi today.
 - **Isolation, at a glance.** Nothing system-level is touched: the sidecar keeps a
   private root and applies its environment and its certificate authority to the launched
   child only; hooks and the MCP server are injected per launch, never by editing global
-  configuration; the agents are the real binaries on the user's own homes and sessions
-  (scratch homes are a test-only device). The exception is Daodan: the checkup installs
-  it into each agent's native plugin store, so the user's own agent runs see it too (the
+  configuration. Where each agent lives is a per-agent setting (5.14): by default
+  (`private`) Shinatama runs its own copy of the agent against its own home, so the
+  user's installation, sessions and plugins are untouched, Daodan included; with
+  `system` it uses the user's installed agent and home, and then Daodan is installed
+  into that agent's native plugin store, so the user's own agent runs see it too (the
   user's disabled plugins stay disabled). Unproved parts: per-launch MCP injection, one
-  proxy per instance, the `CODEX_HOME` overlay (register rows M1, SC5, CX12).
+  proxy per instance, the `CODEX_HOME` overlay (register rows M1, SC5, CX12) and the
+  private mode itself (D15 to D18).
 
 ## 4. Surfaces
 
@@ -271,7 +274,10 @@ the chosen agent (never run automatically).
 
 ### 5.5 Daodan preinstalled (decided: option A, downloaded and kept updated)
 
-Daodan is a set of plugins. Shinatama's checkup installs or updates it in every
+Daodan is a set of plugins, already compiled for each agent: Shinatama converts
+nothing, it only installs. The plugins go into the home the agent's mode points to
+(5.14): Shinatama's private home by default, the user's own home in `system` mode.
+Shinatama's checkup installs or updates it in every
 agent present and enables, by default, **every plugin the Daodan marketplace lists**
 (decided 2026-10-27, user: "mi aspetto che attivi tutti i plugin"; read from the
 manifest at check time, 48 at marketplace 42.7.3): the entry plugin `daodan`, the
@@ -439,6 +445,9 @@ calls:
   the background).
 - Each agent's authentication methods differ and change by version; the adapter
   declares what it can detect and what it can only launch. To be verified per agent.
+- In `private` mode (5.14) an agent's home starts signed out, so the first launch of
+  each agent asks for one login through that agent's own flow; it then persists in the
+  private home. In `system` mode the user's existing login is used as it is.
 
 Whether Shinatama should also hold provider keys once and share them across agents
 is **open**; it would make Shinatama a credential store that must be protected.
@@ -515,11 +524,47 @@ My calls:
 - The overview reads. Its only actions: focus a session, hop, pause an instance's
   summaries.
 
+### 5.14 Where the agents live: `private` or `system` (decided 2026-10-28, user: "di base è con istanze private, ma poi c'è l'opzione per integrarlo con quello di sistema"; shape is mine)
+
+One setting per agent, `agents.<agent>.mode`, with two values. Per agent, so the user
+can keep, for example, Claude on `system` (subscription and history already there) and
+the others on `private`.
+
+- **`private` (default).** Shinatama installs its own copy of the agent in its own data
+  folder and gives it its own home (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_DB`
+  plus `XDG_*`, `PI_CODING_AGENT_DIR`; the mechanism the verification bench already uses
+  for scratch homes). The user's installation, sessions, settings and plugins are never
+  touched. Shinatama chooses the version, so it stays within the versions its fixtures
+  prove (`fixture_gate`); the agent's own self-update is turned off. An update installs
+  the new version **next to** the running one: open instances keep the old one, new
+  instances start on the new one, and the previous version is kept so that Shinatama
+  can go back if the new one fails its fixtures. Cost: one login per agent the first
+  time (5.11). The user's existing sessions in the system home are still found: search
+  and import read them, read-only, and a hop or import brings them into Shinatama.
+- **`system`.** Shinatama uses the agent the user installed and the user's own home:
+  same login, same sessions, visible outside Shinatama too. Shinatama never installs,
+  updates or replaces that agent (npm, brew, winget or the agent's own updater own
+  it); it only reports that an update exists and the command to run. If the installed
+  version is outside the proved range, the agent runs degraded and the user is told
+  why. Daodan is installed into the user's native plugin store (5.5).
+- **No mixed mode.** Shinatama's copy against the user's home is not offered: two
+  versions of one agent would write the same store, and a newer version can migrate it
+  so that the older one no longer reads it (OpenCode 2.x migrates its v1 tables to v2
+  once and stamps it, docs/notes/2026-10-27-januracode-code-survey.md, item 3).
+- **Switching** an agent from one mode to the other moves nothing: the other home's
+  sessions stay readable and importable, as above.
+
+Unproved, register D15 to D18: each agent fully honours its home variable; the private
+login persists; how each agent is obtained into the private folder (Pi needs Node);
+turning the agent's own self-update off; side-by-side versions on Windows; what `XDG_*`
+does to the programs an OpenCode instance starts (git reads `XDG_CONFIG_HOME`).
+
 ## 6. Agent adapter contract (builder's design, requirements mine)
 
 One adapter per agent (decided), so Grok or another agent can be added without touching
 the rest. **Each adapter provides export, import, resume and handover, plus the rest:**
-install and update the agent and the Daodan plugins in it; login and sign-in status;
+install and update the agent and the Daodan plugins in it, in the home its mode
+selects (5.14; never the user's installation in `system` mode); login and sign-in status;
 start it in a PTY in a folder; list and read its sessions; **export** a session to a
 portable file (`.stx.jsonl`); **import** such a file as a native session where the
 agent allows it; **resume** a session natively; **handover**: the adapter's part of a hop,
