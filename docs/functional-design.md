@@ -4,10 +4,9 @@ Date: 2026-10-26
 Status: draft, not yet approved. Nothing is built from this document until it is.
 
 Shinatama is a local-first terminal runtime, written in Rust, that hosts the real
-coding agents (Claude Code, Codex, OpenCode, Pi) in one terminal, lets the user hop
-a live chat from one agent to another without starting over, and replaces
-Musashi Terminal (the C++ launcher in `D:\Projects\horness-launcher`). This document
-lives in the new project `shinatama`.
+coding agents (Claude Code, Codex, OpenCode, Pi) in one terminal and lets the user hop
+a live chat from one agent to another without starting over. This document lives in
+the project `shinatama`.
 
 Who decided what is marked throughout:
 
@@ -30,8 +29,8 @@ resumed. The point is a *runtime*, not a wrapper that fakes the conversation:
 
 Success looks like this: a thread started in one agent continues in another with
 one keystroke and nothing re-explained; any old chat, in any supported agent, is
-found by searching and resumed in the same or another agent; and a launch is as
-resilient, as safe and as well compressed as a launch through Musashi today.
+found by searching and resumed in the same or another agent; and every launch keeps
+the full resilience, safety and compression of the BillionContext sidecar (5.6).
 
 ## 2. Goals, non-goals, anti-goals
 
@@ -43,14 +42,14 @@ resilient, as safe and as well compressed as a launch through Musashi today.
 3. Search all local sessions of all supported agents; resume from history in the
    same agent or in a different one. Interactive terminal flow plus a scriptable
    command line mode.
-4. An integrated project manager, "as in Horness, but better" (5.4), with a
-   default root directory and a shortcut to create a new project.
+4. An integrated project manager (5.4), with a default root directory and a shortcut
+   to create a new project.
 5. Daodan arrives preinstalled and enabled in every agent (5.5), and Shinatama is a
    **native support for it** (decided 2026-10-27, user): it reads Daodan's tasks, links
    threads to them and carries a task across a hop. Read-only; Daodan stays the only
    writer of its state. See [daodan-native-support.md](daodan-native-support.md).
-6. The BillionContext sidecar is integrated "as in Horness, with the same
-   resilience, security and compression" (5.6).
+6. The BillionContext sidecar is integrated with its full resilience, security and
+   compression (5.6).
 7. Skinnable UI whose default is the pink Shinatama theme (5.7).
 8. Easy install on macOS and Linux.
 9. A desktop widget with Shinatama as an assistant that talks, moves and alerts
@@ -92,31 +91,27 @@ resilient, as safe and as well compressed as a launch through Musashi today.
   agent.
 - A second scheduler or a resident service that keeps executing work after the
   terminal closes.
-- A sidecar integration that is weaker than Musashi's: any loss of private root,
-  child-only environment, child-only certificate trust or proxy recovery.
+- A weakened sidecar integration: any loss of private root, child-only environment,
+  child-only certificate trust or proxy recovery.
 
 ## 3. Constraints
 
 - Rust. macOS and Linux are required (the original request); Windows is assumed
   required too (section 7, item 1).
-- Why Rust and not C++ (Musashi's language): the user's original request named Rust;
-  my reasons agree. Shinatama *hosts* agents, which Musashi never did: it needs a
-  pseudo-terminal on all three systems and a terminal emulator, for which mature Rust
-  crates exist (pseudo-terminal, escape-sequence parser, text UI), against assembling
-  ConPTY and a VT library by hand in C++; it runs many concurrent tasks (several
-  terminals, sidecar, event stream, summaries); one toolchain builds and cross-builds
-  for macOS, Linux and Windows. The cost: the checkup (3,256 lines) and the tests
-  (7,134 lines) are rewritten; the captured real-output fixtures can be reused if they
-  are plain data (not verified). Not proved yet: that a Rust pseudo-terminal plus
+- Why Rust: the user's original request named Rust; my reasons agree. Shinatama
+  *hosts* agents: it needs a pseudo-terminal on all three systems and a terminal
+  emulator, for which mature Rust crates exist (pseudo-terminal, escape-sequence
+  parser, text UI); it runs many concurrent tasks (several terminals, sidecar, event
+  stream, summaries); one toolchain builds and cross-builds for macOS, Linux and
+  Windows. Not proved yet: that a Rust pseudo-terminal plus
   emulator hosts the four agents faithfully on Windows with ConPTY — the first
   milestone must prove it before the rest is built on it.
 - Local-first: no account, no hosted service. Threads and settings live on disk.
-- Every agent launch goes through the checkup, as in Musashi: there is one launch
-  point and it runs the checkup (my call, inherited from Musashi's first
-  constraint; the user did not object).
+- Every agent launch goes through the checkup: there is one launch point and it runs
+  the checkup (my call; the user did not object).
 - Agent behaviour that Shinatama depends on (resume flags, session stores, hooks,
   HTTP APIs) must be verified against the installed version of each agent with real
-  captured fixtures, as Musashi's tests do. Documentation alone is not proof.
+  captured fixtures. Documentation alone is not proof.
 - The BillionContext sidecar source in `sidecar/source-build` stays the single
   source; Shinatama does not fork it, and does not install the precompiled npm
   package (docs/sidecar.md).
@@ -257,8 +252,7 @@ shinatama resume t_8f3a --agent codex
 
 ### 5.4 Project manager
 
-Starts from what Musashi does today (`src/config.*`, `src/history.*`): project
-roots whose first-level folders are the projects, sorted by last change;
+Project roots whose first-level folders are the projects, sorted by last change;
 incremental filter while typing; any folder via F3; a history of the last 10
 non-standard folders, including folders that are not git repositories (Desktop,
 shared drives).
@@ -266,7 +260,7 @@ shared drives).
 Decided additions: a **default root** (where new projects are created; chosen at
 first run, changeable) and a **shortcut (`n`) to create a new project**.
 
-My calls ("better than Horness"): pinned projects; git branch and dirty-file count;
+My calls: pinned projects; git branch and dirty-file count;
 the last agent and last thread per project; the threads of a project listed
 beside it; one key to resume the last thread; several roots. In the new-project
 dialog: optional `git init`, and an option to type Daodan's native init command in
@@ -291,9 +285,8 @@ through their own native entries: `/daodan:<workflow>` on Claude Code and OpenCo
 `<workflow>-workflow` on Codex, `/daodan-<workflow>` on Pi (docs/hosts.md of the
 Daodan repository).
 
-Musashi already does this for Claude, Codex, OpenCode and Pi in `src/checkup/*.cpp`:
-it reads the required dependencies from the manifest in each host's clone and
-translates them with a per-host table. That logic is ported, not reinvented. The
+Daodan's own build for each host already carries its dependencies, so the checkup
+installs that build and enables what its manifest lists; nothing is translated. The
 `research` question is settled by "all"; what is open is the cost of "all" (register D4).
 
 A palette (`^K`) lists Daodan's workflows and types the selected agent's native
@@ -310,9 +303,8 @@ files. Full design, behaviour and open checks: [daodan-native-support.md](daodan
 
 ### 5.6 BillionContext sidecar (decided: same resilience, security, compression)
 
-Same code, supervised by Rust instead of C++ (`src/sidecar.cpp` is the reference).
-Acceptance is behavioural parity with Musashi, each item re-verified under
-Shinatama and not assumed:
+The same BillionContext code, supervised by Shinatama. Acceptance is each item
+below, verified under Shinatama and not assumed:
 
 - private root; Canonical config, data, cache and state paths resolve under it;
 - environment applied to the child process only;
@@ -325,8 +317,8 @@ Shinatama and not assumed:
 - compression policy as shipped (adaptive pressure, CCR, Absorb, profiles);
   `--no-context` remains an explicit per-session opt-out.
 
-Agents covered in v1: Claude Code, Codex, OpenCode, Pi; Gemini keeps the routing it
-has today (launch-only, 5.9). The sidecar needs Node (as today); how Node is provided on macOS and Linux is
+Agents covered in v1: Claude Code, Codex, OpenCode, Pi; Gemini is launch-only (5.9).
+The sidecar needs Node; how Node is provided on macOS and Linux is
 the builder's call within the install story. A known interaction: the hop context
 passes through the sidecar and counts against the destination's window; and the MCP
 shim must follow `/resume` session ids (docs/sidecar.md, 2026-10-26).
@@ -419,14 +411,11 @@ My calls:
   (agreements, differences, open questions). The user can hop any participant's
   position into a normal working session ("continue with codex's plan").
 
-### 5.9 Replacing Musashi
+### 5.9 Gemini (my call)
 
-Musashi's behaviour (menus, checkup, error policy) is the specification that
-Shinatama must at least match, and its tests with real captured fixtures are the
-model for the adapters. What goes away: external terminal selection. My calls:
-Gemini keeps a launch-only adapter in v1 (Musashi launches it today and the sidecar
-supports it; no hop, no search); `cronologia.json` is imported once. The code lives
-in the new project `shinatama` (section 7). **Open**: Windows (assumed yes).
+Gemini keeps a launch-only adapter in v1: it starts through the sidecar, with no hop
+and no search. External terminal selection is not offered (section 2, non-goals).
+**Open**: Windows (assumed yes, section 7).
 
 ### 5.11 Accounts and login (decided as a wish: "recognize automatically or perform the login for codex, claude, etc."; shape is mine)
 
@@ -457,15 +446,12 @@ is **open**; it would make Shinatama a credential store that must be protected.
 ### 5.12 Order of work and audience (my calls, to check)
 
 Suggested order: (1) skin system, PTY host and threads; (2) checkup: agents, Daodan,
-login detection; (3) sidecar parity; (4) project manager and launch; (5) search and
+login detection; (3) sidecar; (4) project manager and launch; (5) search and
 resume within the same agent; (6) hop: text for every pair with the preview first,
 then native import agent by agent; (7) roundtable; (8) widget (the user generates the
 animation assets in parallel). The overview (5.13) grows alongside: the instance
 table right after (1), the summaries and flows once hop (6) and the roundtable (7)
 exist.
-
-Musashi stays the working launcher until items 1–5 reach parity on the user's
-machine, each parity item verified; it is retired only then.
 
 Audience: build as if other people will install it (the install instructions of
 Daodan and Shinatama already point to public repositories), so release builds,
@@ -648,11 +634,9 @@ suite are in section 5.5 of the [engine spec](technical-design.md).
 
 ## 7. Open questions for the user
 
-1. **Windows in v1?** Assumed yes (my call, to confirm): the user asked for a project
-   manager "as in Horness", which is Windows-only, and Shinatama replaces Musashi on
-   the user's own PC; macOS and Linux stay required. If yes: ConPTY, Windows paths,
-   environment and trust handling from the first milestone; if no, Musashi cannot be
-   retired there.
+1. **Windows in v1?** Assumed yes (my call, to confirm): the user works on Windows;
+   macOS and Linux stay required. If yes: ConPTY, Windows paths, environment and trust
+   handling from the first milestone.
 2. **What does "assistant" mean for the widget?** The widget is in v1 (decided).
    My default for v1: animated character, speech bubble, alerts and quick answers
    (allow/deny); chat with the assistant and spoken voice later. Voice would add
@@ -663,9 +647,8 @@ suite are in section 5.5 of the [engine spec](technical-design.md).
    (acaprino/shinatama) was deleted on 2026-10-26 (the user's decision on register
    row D1); the local folder `D:\Projects\shinatama-sld` is renamed to
    `D:\Projects\shinatama` as soon as JanuraCode is not holding it (its services
-   keep `.jcode` open). It is separate from Musashi in `D:\Projects\horness-launcher`,
-   which stays the parity reference until retired. How the sidecar source
-   (`sidecar/source-build`, owned by Musashi today) is brought in without forking it
+   keep `.jcode` open). How the sidecar source
+   (`sidecar/source-build`, kept today in another repository) is brought in without forking it
    — a copy with provenance, a submodule or a published package — is the builder's
    call, but it must stay a single source.
 
@@ -675,9 +658,9 @@ suite are in section 5.5 of the [engine spec](technical-design.md).
 - Hop staged: text hand-off for every pair first, native import agent by agent (5.2).
 - Hop: close or fork the source at each hop, with a user setting for the default
   (default close); a fork continues in a new thread (5.2; engine 6.2, 6.3).
-- Gemini launch-only; `cronologia.json` imported once (5.9).
+- Gemini launch-only (5.9).
 - Others may install it: release, signing and notarization planned (5.12).
-- Order of work, with Musashi retired only after parity (5.12).
+- Order of work (5.12).
 - All Daodan plugins enabled by default, `research` included (5.5, user).
 - Login: detect and run each agent's own login, never hold their credentials; sharing
   provider keys across agents is not in v1 (5.11).

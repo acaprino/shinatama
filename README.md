@@ -1,6 +1,6 @@
 # shinatama
 
-Shinatama: a local-first terminal runtime in Rust that hosts Claude Code, Codex, OpenCode and Pi, hops a live chat between them, and replaces Musashi Terminal.
+Shinatama: a local-first terminal runtime in Rust that hosts Claude Code, Codex, OpenCode and Pi, and hops a live chat between them.
 
 Status: design draft, not approved. No code yet.
 

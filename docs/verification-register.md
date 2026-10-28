@@ -54,7 +54,7 @@ new version before the release notes claim support.
 **Security-sensitive items** (marked `SEC`) are also reviewed by a second reader and their
 records state the negative result as well as the positive.
 
-**Size.** 226 rows: 88 `G0`, 122 `G1`, 16 `G2` (recounted 2026-10-28 after adding P20 and D15 to D19); 13 are marked `SEC`. `G0` means the
+**Size.** 213 rows in sections 2 to 19: 82 `G0`, 116 `G1`, 15 `G2`; 13 are marked `SEC` (counted by script on 2026-10-28, after adding P20 and D15 to D19 and removing D6, PM5 and PM9; earlier totals were hand counts and ran higher). `G0` means the
 gate of its own component, not of the whole first milestone. The **first-milestone set** is
 the subset that decides the foundations: P1, P2, P3, P4, P9, P12, P14, P16, P17, S1, S2,
 S9, CL1, CL2, CL4, CX1, CX2, CX3, CX4, OC1, PI1, PI2, PI11, M1, U3, X3 (26 rows). The
@@ -71,8 +71,7 @@ short form of this set; this register is the complete one and wins where they di
 | Q3 | Two instances changing the same file in one worktree are detected from `git status` (engine 8.5) | `git status` says a file changed, not which instance changed it; attribution needs tool-call targets from events or transcripts | I4 |
 | Q4 | Global keys `^H`, `^K`, `^F`, `^A`, `^T`, `^D` (mockups, main spec) | `^H` is Backspace on many terminals, `^D` is end-of-file, `^K` `^A` `^F` are line-editing keys the agents use | U4 |
 | Q5 | The titler and seed pass through the sidecar like ordinary traffic | The sidecar can rewrite the human message (prompt rewriter, `promptRewrite.mode: auto`) and externalize large results (CCR); a seed or a bootstrap must not be altered | SC9 |
-| Q6 | Musashi parity is "menus, checkup, error policy, project manager, sidecar" | Musashi also has the native ADHD plugin, the prompt rewriter, token-efficiency settings, turn-completion handling, an exit report and terminal templates (docs/*.md, src/exit_report.*); none is in the Shinatama spec | PM9 |
-| Q7 | "Each instance's traffic goes through the proxy" (engine 9) | Whether the sidecar proxy is one per instance (as in Musashi, per launch) or one shared by all instances of a window is not decided, and the memory and recovery design depends on it | SC5 |
+| Q7 | "Each instance's traffic goes through the proxy" (engine 9) | Whether the sidecar proxy is one per instance (per launch) or one shared by all instances of a window is not decided, and the memory and recovery design depends on it | SC5 |
 | Q8 | `event`, `summary_log` and `message_event` grow without bound | No pruning policy is written | I8 |
 | Q9 | A seed is a safe user message | Text from an old transcript can contain lines starting with `/` (slash commands), `!` (shell escape in Claude), `@path` (file inclusion) or `#`; pasted or passed as a prompt they may be interpreted by the destination | H7 |
 | Q10 | Claude hooks "never fail the agent" because `shinatama hook` exits 0 | Claude documents exit-code semantics for hooks (a specific nonzero code blocks the action); the tested behavior on 2.1.310 is not recorded | M11 |
@@ -97,7 +96,7 @@ short form of this set; this register is the complete one and wins where they di
 | P13 | G1 | Outer-terminal matrix: Windows Terminal, conhost, macOS Terminal and iTerm2, GNOME Terminal, kitty, WezTerm, a tmux outer; launched from PowerShell, cmd, Git Bash, zsh, bash | Run P1-P12 subsets in each | Supported list and known problems written | README; main 3 |
 | P14 | G0 | Process lifecycle: closing an instance kills its whole tree (Windows job object, Unix process group); a Shinatama crash leaves no orphan agents or MCP servers | Kill -9 and window-close tests | No surviving process after 10 s, or the survivors are documented | engine 3 |
 | P15 | G1 | Environment given to the child: `SHINATAMA_*`, `TERM`, `COLORTERM`; child-only | Env dump from inside each agent's shell tool | Values as specified; nothing leaks to the parent or siblings | engine 3 |
-| P16 | G0 | Spawning without a shell on Windows with paths containing spaces, parentheses, ampersands, non-ASCII, over 260 characters; `.cmd` shims; PATHEXT; Pi as `node.exe cli.js` | Spawn matrix per agent, carrying Musashi's known cases (EINVAL on `.cmd`, PATHEXT) | Every case starts the right program with the right arguments | engine 5.6; engine 6.8 |
+| P16 | G0 | Spawning without a shell on Windows with paths containing spaces, parentheses, ampersands, non-ASCII, over 260 characters; `.cmd` shims; PATHEXT; Pi as `node.exe cli.js` | Spawn matrix per agent, including the known cases (EINVAL on `.cmd`, PATHEXT) | Every case starts the right program with the right arguments | engine 5.6; engine 6.8 |
 | P17 | G0 | The Rust crates named in the spec exist, are maintained, license-compatible and work on 3 OS (PTY, terminal emulation, text UI, SQLite) | Read crates' metadata and repositories; build the spike | A shortlist with versions and licences; "mature crates exist" restated with evidence | main 3 |
 | P18 | G2 | Startup time, idle memory, per-instance memory, binary size | Measure on 3 OS | Numbers written; targets set from them | main 3 |
 | P19 | G1 | Terminal capability fallbacks: 16-colour only, no Unicode box drawing, no Nerd Font, `NO_COLOR`, screen readers | Run in degraded terminals | Usable and legible; keyboard-only operation complete | main 5.7 |
@@ -258,7 +257,7 @@ short form of this set; this register is the complete one and wins where they di
 | I9 | G1 | Redaction before a summary is sent; `summaries_excluded` really stops sending | Network capture | No excluded or secret text leaves | engine 8.4 |
 | I10 | G1 | Icons: glyph rendering and width across terminals and fonts; Nerd Font absent; letter-badge fallback | Matrix | Legible everywhere | main 5.13 |
 
-## 11. Sidecar parity (SC)
+## 11. Sidecar (SC)
 
 | ID | Prio | What must be proved | How | Pass when | Writes back to |
 |---|---|---|---|---|---|
@@ -268,11 +267,11 @@ short form of this set; this register is the complete one and wins where they di
 | SC4 | G0 | **SEC** The launch manifest holds argv and overrides only, no credentials | Inspect on disk | None found | main 5.6 |
 | SC5 | G0 | One proxy per instance versus one shared (spec Q7): memory, recovery, isolation | Prototype both | Decision written | engine 9 |
 | SC6 | G0 | Proxy recovery on the original address while the agent keeps running; orderly drain when an instance (not the window) exits | Kill the proxy mid-turn | Agent recovers; no lost final flush | main 5.6 |
-| SC7 | G0 | Compression behaviour equals Musashi's: run Musashi's existing sidecar and prompt-rewrite fixtures against Shinatama-launched sessions; `--no-context` equivalent | Reuse tests | Same results | main 5.6 |
+| SC7 | G0 | Compression behaviour as shipped: the sidecar's own fixtures against Shinatama-launched sessions; the `--no-context` opt-out | Run the sidecar's fixtures | Results match the fixtures | main 5.6 |
 | SC8 | G1 | The bili MCP shim follows `/resume` under Shinatama and coexists with `shinatama mcp` | Resume test | Correct session id | main 5.6 |
 | SC9 | G0 | **SEC** The seed, bootstrap and receipt are not altered by the prompt rewriter or externalized by CCR; a first destination turn does not trigger a compression pass | Compare sent and received bytes | Identical; or a bypass marker is added | engine 9 |
 | SC10 | G1 | Reusing the sidecar's auxiliary-call path for titles and roundtable calls without handling credentials (the rewriter is the precedent) | Read and try | A path exists, or the titler uses another route | engine 8.4 |
-| SC11 | G1 | Gemini launch-only keeps working through the sidecar | Launch | Works as in Musashi | main 5.9 |
+| SC11 | G1 | Gemini launch-only keeps working through the sidecar | Launch | Starts and is compressed through the sidecar | main 5.9 |
 | SC12 | G1 | The Windows proxy watcher (2 s) with Shinatama as the long-lived owner | Test | No premature or late shutdown | main 5.6 |
 | SC13 | G1 | Providing Node on macOS and Linux (system, bundled, downloaded): offline, size, version | Try the options | One chosen | main 5.6 |
 
@@ -281,11 +280,10 @@ short form of this set; this register is the complete one and wins where they di
 | ID | Prio | What must be proved | How | Pass when | Writes back to |
 |---|---|---|---|---|---|
 | D1 | G0 | The role of `acaprino/shinatama` after the 42.0.0 reunification (spec Q1); name collision with the product; install instructions | Read both repositories' READMEs and history | Statements in the specs and README corrected | main; README |
-| D2 | G0 | Per-host install, update and "enabled" commands for Daodan 42.0.0 (Claude marketplace update, Codex, OpenCode V2 package path, Pi git package); non-interactive; the dependency tables Musashi uses (`pianoDipendenzeCodex`, `serverMcpRichiesti`) still correct | Fresh profiles | Each host ends with the plugins enabled and no duplicates | main 5.5 |
+| D2 | G0 | Per-host install, update and "enabled" commands for Daodan 42.0.0 (Claude marketplace update, Codex, OpenCode V2 package path, Pi git package); non-interactive; Daodan's per-host build installed as is, nothing translated | Fresh profiles | Each host ends with the plugins enabled and no duplicates | main 5.5 |
 | D3 | G1 | The user's own disabled plugins stay disabled | Test | Respected | main 5.5 |
 | D4 | G1 | Enabling all Daodan plugins by default (48 at 42.7.3): tokens added to each agent's first request (skill listings, tool definitions), MCP servers that fail to start, launch time; a failing plugin must not block the launch | Capture the first request per agent through the sidecar, all versus `core` | Numbers per agent; failures reported by the checkup; decision on the default recorded | main 5.5; daodan-native 4.6 |
 | D5 | G1 | Sign-in detection and login in a PTY for all four: `claude auth status`/`login`, `codex login status`, `opencode auth`, Pi; polling cost; cancel; no secret read | Per agent | Works, or marked "unknown" | main 5.11 |
-| D6 | G0 | Checkup parity with Musashi on Windows: port each case of Musashi's tests (EINVAL on `.cmd`, PATHEXT, provider key, states) and reuse the fixtures if they are plain data | Port and run | All pass | main 5.9 |
 | D7 | G1 | Checkup time per launch; when it runs when several instances start; updating an agent while an instance runs (locked executables on Windows) | Measure | Policy written; never update a running agent | main 3 |
 | D8 | G1 | The Daodan palette lists workflows from the installed manifest, not a hard-coded list; the native entry per host | Compare to hosts doc | Correct on all four | main 5.5 |
 | D9 | G0 | Does `holder.session` in `.daodan/agenda.json` equal each agent's native session id (Claude, Codex, OpenCode, Pi)? How Daodan gets `--session ID` on each host | Run a Daodan task per host, compare the row with the agent's session store | Per agent: equal, derivable, or unrelated; the link is exact or by place accordingly | daodan-native 4.2 |
@@ -300,7 +298,7 @@ short form of this set; this register is the complete one and wins where they di
 | D18 | G1 | `system` program and `system` home (main 5.14): the user's binary and home are found on 3 OS (PATH, npm prefix, Homebrew, winget, Claude's native install folder); Shinatama never writes the binary; a version outside the proved range runs degraded with the reason shown; the user's sessions are listed read-only while the agent is in a box; switching mode moves nothing | Per agent; checksum of the user's binary before and after a checkup and an update notice | Found everywhere or "not found" with where it looked; binary unchanged; degraded state and switching behave as written | main 5.14; engine 5.5 A |
 | D19 | G1 | Per-instance set (main 5.14): an instance launched with the switches of its agent (Claude `--setting-sources` + `--plugin-dir` + `--strict-mcp-config`; Codex `-c`/`--profile`/`--enable`/`--disable`; OpenCode `OPENCODE_CONFIG`/`OPENCODE_CONFIG_DIR`; Pi `--no-extensions --no-skills -e --skill`) sees exactly its plugins, skills and MCP servers and none of the home's others (user-level skills folders included), while the login and sessions of the home stay shared; two instances of one agent with different sets run at once | Per agent, in a box and in the system home: list the skills, plugins, tools and MCP servers in the first model request (mock) for an instance with set A, one with set B and one with none | Each instance's request contains exactly its set; no switch edits a file in the home; or the gap recorded per agent | main 5.14; engine 5.5 A |
 
-## 13. Project manager and Musashi parity (PM)
+## 13. Project manager (PM)
 
 | ID | Prio | What must be proved | How | Pass when | Writes back to |
 |---|---|---|---|---|---|
@@ -308,11 +306,9 @@ short form of this set; this register is the complete one and wins where they di
 | PM2 | G1 | Git branch and dirty count for 30 projects: parallel, timeouts, cache | Measure | Bounded | main 5.4 |
 | PM3 | G1 | Last agent and thread per project, matching paths across agents (S9), worktree versus main tree | Test | Correct | main 5.4 |
 | PM4 | G1 | New project: name validation per OS (reserved names, trailing dots, case-insensitive duplicates), `git init` default branch, permissions, a root on a synced drive | Test | No half-created folder | main 5.4 |
-| PM5 | G1 | Importing `cronologia.json`: observed keys `recenti`, `percorso`, `quando` with values that look like Unix seconds although `history.h` says FILETIME; invalid entries | Parse the real file (counts only) and the code | Correct conversion; bad entries skipped | main 5.9 |
 | PM6 | G2 | A folder picker for any folder (F3) on each OS, drive letters, no terminal-escape traps | Test | Works | main 5.4 |
-| PM7 | G1 | A missing root (removed drive) is reported, not ignored (Musashi behaviour) | Test | Reported | main 5.4 |
-| PM8 | G1 | Where the configuration lives (Musashi keeps it beside the executable); reading Musashi's `config.json` | Decide and test | Documented; old file read | main 5.9 |
-| PM9 | G0 | The inventory of Musashi features to port or drop (spec Q6): ADHD plugin, prompt rewriter, token-efficiency settings, turn-completion, exit report, terminal templates, history, sidecar | Read `docs/*.md` and `src/*` | One line per feature: port, drop, or later, with the reason | main 5.9 |
+| PM7 | G1 | A missing root (removed drive) is reported, not ignored | Test | Reported | main 5.4 |
+| PM8 | G1 | Where the configuration lives on each OS | Decide and test | Documented | main 5.4 |
 
 ## 14. Skins and UI (U)
 
@@ -393,7 +389,7 @@ These are decisions, not experiments; they are listed so nothing is lost.
 - O3 Windows in v1 (assumed yes in the design); the exact scope of the "assistant" in the widget.
 - O4 Whether to run the Oni character's use as a distribution decision now (W9).
 - O5 Approval of the design and the engine design, so that the plan can be written.
-- O6 The documents still name Musashi 35 times (README, both designs, this register). The user said on 2026-10-28 that Musashi must not exist here. Should those mentions be removed, together with the parity rows (PM, D6) that use it as the reference?
+- ~~O6~~ Decided 2026-10-28 (user: yes): the former launcher is out of scope. Its mentions were removed from the README, both designs and this register; the rows that used it as their reference (Q6, D6, PM5, PM9) were removed; P16, SC7, SC11, D2, PM7, PM8 and Q7 were rewritten to stand alone; the first-milestone set is unchanged.
 - O7 Should the hop dialog, roundtable and palette offer only the actions both adapters' `capabilities()` support, showing what each choice loses, instead of offering everything and failing? This is a harness/cli idea, `docs/notes/2026-10-28-harness-cli-survey.md`.
 
 Next runs, no decision needed. These are listed in priority order:

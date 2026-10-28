@@ -764,7 +764,7 @@ runtime halves still await their rows.
   come from the config `plugins` array or `.opencode/plugins/`, `~/.config/opencode/plugins/`.
   Per launch: `OPENCODE_CONFIG`, `OPENCODE_CONFIG_CONTENT`, `OPENCODE_CONFIG_DIR`. **The
   background service keeps the environment of the process that started it**, so Shinatama
-  always launches with `--standalone` or `--server URL` (the same fix as Musashi's sidecar).
+  always launches with `--standalone` or `--server URL`.
 - Context file: `AGENTS.md` only (ancestor walk plus `~/.config/opencode/AGENTS.md`);
   `.claude` is read only for skills.
 - Re-check (help, 2026-10-27): `opencode auth export` prints stored credentials
@@ -1310,7 +1310,7 @@ instances whose worktree roots are equal and whose modified paths intersect rais
 
 ## 9. Sidecar interaction
 
-- Each instance's traffic goes through the BillionContext proxy as it does in Musashi
+- Each instance's traffic goes through the BillionContext proxy
   today; the seed and catch-up messages are ordinary user turns for it. The seed budget
   (6.4) is chosen well below the sidecar's adaptive threshold (`maxTokens: 160000` in the
   shipped policy [D, docs/sidecar.md]) so a hop does not trigger a compression pass on
