@@ -125,14 +125,14 @@ resilient, as safe and as well compressed as a launch through Musashi today.
 - **Isolation, at a glance.** Nothing system-level is touched: the sidecar keeps a
   private root and applies its environment and its certificate authority to the launched
   child only; hooks and the MCP server are injected per launch, never by editing global
-  configuration. Where each agent lives is a per-agent setting (5.14): by default
-  (`private`) Shinatama runs its own copy of the agent against its own home, so the
-  user's installation, sessions and plugins are untouched, Daodan included; with
-  `system` it uses the user's installed agent and home, and then Daodan is installed
-  into that agent's native plugin store, so the user's own agent runs see it too (the
-  user's disabled plugins stay disabled). Unproved parts: per-launch MCP injection, one
-  proxy per instance, the `CODEX_HOME` overlay (register rows M1, SC5, CX12) and the
-  private mode itself (D15 to D18).
+  configuration. Where each agent lives is set per agent (5.14): by default the user's
+  installed program runs in a **box**, a home in Shinatama's folder, so the user's
+  sessions, settings and plugins are untouched, Daodan included; with the `system`
+  home it uses the user's own home, and then Daodan is installed into that agent's
+  native plugin store, so the user's own agent runs see it too (the user's disabled
+  plugins stay disabled). Each instance can also carry its own set of plugins and
+  skills. Unproved parts: per-launch MCP injection, one proxy per instance, the
+  `CODEX_HOME` overlay (register rows M1, SC5, CX12) and the box itself (D15 to D19).
 
 ## 4. Surfaces
 
@@ -275,8 +275,9 @@ the chosen agent (never run automatically).
 ### 5.5 Daodan preinstalled (decided: option A, downloaded and kept updated)
 
 Daodan is a set of plugins, already compiled for each agent: Shinatama converts
-nothing, it only installs. The plugins go into the home the agent's mode points to
-(5.14): Shinatama's private home by default, the user's own home in `system` mode.
+nothing, it only installs. The plugins go into the agent's home (5.14): the box by
+default, the user's own home with the `system` home; an instance with its own set loads
+them per launch instead.
 Shinatama's checkup installs or updates it in every
 agent present and enables, by default, **every plugin the Daodan marketplace lists**
 (decided 2026-10-27, user: "mi aspetto che attivi tutti i plugin"; read from the
@@ -445,9 +446,10 @@ calls:
   the background).
 - Each agent's authentication methods differ and change by version; the adapter
   declares what it can detect and what it can only launch. To be verified per agent.
-- In `private` mode (5.14) an agent's home starts signed out, so the first launch of
-  each agent asks for one login through that agent's own flow; it then persists in the
-  private home. In `system` mode the user's existing login is used as it is.
+- In a box (5.14) an agent's home starts signed out, so the first launch of each agent
+  asks for one login through that agent's own flow; it then persists in the box and is
+  shared by every instance of that agent. With the `system` home the user's existing
+  login is used as it is.
 
 Whether Shinatama should also hold provider keys once and share them across agents
 is **open**; it would make Shinatama a credential store that must be protected.
@@ -524,47 +526,102 @@ My calls:
 - The overview reads. Its only actions: focus a session, hop, pause an instance's
   summaries.
 
-### 5.14 Where the agents live: `private` or `system` (decided 2026-10-28, user: "di base è con istanze private, ma poi c'è l'opzione per integrarlo con quello di sistema"; shape is mine)
+### 5.14 Where the agents live: program, home, per-instance set (decided 2026-10-28, user: "di base è con istanze private, ma poi c'è l'opzione per integrarlo con quello di sistema", then "si possono avviare anche se installate nel sistema, in una sorta di box per cui hanno le skill e i plugin solo per quella istanza?" — "ok"; shape is mine)
 
-One setting per agent, `agents.<agent>.mode`, with two values. Per agent, so the user
-can keep, for example, Claude on `system` (subscription and history already there) and
-the others on `private`.
+Three independent choices per agent, so the user can keep, for example, Claude's home
+on `system` (subscription and history already there) and the others in a box.
 
-- **`private` (default).** Shinatama installs its own copy of the agent in its own data
-  folder and gives it its own home (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_DB`
-  plus `XDG_*`, `PI_CODING_AGENT_DIR`; the mechanism the verification bench already uses
-  for scratch homes). The user's installation, sessions, settings and plugins are never
-  touched. Shinatama chooses the version, so it stays within the versions its fixtures
-  prove (`fixture_gate`); the agent's own self-update is turned off. An update installs
-  the new version **next to** the running one: open instances keep the old one, new
-  instances start on the new one, and the previous version is kept so that Shinatama
-  can go back if the new one fails its fixtures. Cost: one login per agent the first
-  time (5.11). The user's existing sessions in the system home are still found: search
-  and import read them, read-only, and a hop or import brings them into Shinatama.
-- **`system`.** Shinatama uses the agent the user installed and the user's own home:
-  same login, same sessions, visible outside Shinatama too. Shinatama never installs,
-  updates or replaces that agent (npm, brew, winget or the agent's own updater own
-  it); it only reports that an update exists and the command to run. If the installed
-  version is outside the proved range, the agent runs degraded and the user is told
-  why. Daodan is installed into the user's native plugin store (5.5).
-- **No mixed mode.** Shinatama's copy against the user's home is not offered: two
-  versions of one agent would write the same store, and a newer version can migrate it
-  so that the older one no longer reads it (OpenCode 2.x migrates its v1 tables to v2
-  once and stamps it, docs/notes/2026-10-27-januracode-code-survey.md, item 3).
-- **Switching** an agent from one mode to the other moves nothing: the other home's
-  sessions stay readable and importable, as above.
+**1. Program: `agents.<agent>.program = system | own`.** Default `system` when the agent
+is installed, `own` otherwise.
 
-Unproved, register D15 to D18: each agent fully honours its home variable; the private
-login persists; how each agent is obtained into the private folder (Pi needs Node);
-turning the agent's own self-update off; side-by-side versions on Windows; what `XDG_*`
-does to the programs an OpenCode instance starts (git reads `XDG_CONFIG_HOME`).
+- `system`: the binary the user installed (D18 found two native installers and two npm
+  installs on this machine). Shinatama never installs, updates or replaces it; it only
+  reports that an update exists, with the owner's command (`claude update`, `codex
+  update`, or `npm install -g <package>@latest` with the package read from the npm
+  shim). If the installed version is outside the proved range, the agent runs degraded
+  and the user is told why. Nothing to download and no disk cost.
+- `own`: Shinatama's copy, installed with npm `--prefix` (works for all four, D16), when
+  the agent is not installed or the user wants a pinned version. Updates install
+  **next to** the running version: open instances keep the old one, new instances start
+  on the new one, the previous version is kept for going back when the new one fails
+  its fixtures (`fixture_gate`). The agent's own self-update and its update command
+  are both blocked. Cost: hundreds of MB to over a GB per kept version (D16).
+
+**2. Home: `agents.<agent>.home = box | system`.** Default `box`.
+
+- `box`: a home in Shinatama's folder (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_DB`
+  plus `XDG_*`, `PI_CODING_AGENT_DIR`). Plugins, skills, settings, sessions and login
+  live there; the user's own agent runs see none of it, and the user's home is never
+  written. Cost: one login per agent the first time (5.11). The user's existing sessions
+  in the system home are still found: search and import read them, read-only, and a
+  hop or import brings them into the box.
+- `system`: the user's own home: same login, sessions and plugins, visible outside
+  Shinatama too. Daodan is installed into the user's native plugin store (5.5).
+
+**Forbidden combination: `own` program with `system` home.** Two versions of one agent
+would write the same store, and a newer version can migrate it so that the older one no
+longer reads it (OpenCode 2.x migrates its v1 tables to v2 once and stamps it,
+docs/notes/2026-10-27-januracode-code-survey.md, item 3). The reverse, the user's
+program in a box, is safe: only that program ever touches the box. If the user later
+downgrades the system program, a box already migrated by the newer one may not open;
+Shinatama shows it, never repairs it (inference, not tested).
+
+**3. Per-instance set of plugins and skills.** Each instance (one tab) can carry its own
+set, in either home, without a home of its own, so the login stays one: the launch
+loads exactly the instance's plugins and skills and excludes the rest. The switches
+exist in each agent's `--help` (2026-10-28, not yet run, register D19):
+
+- Claude Code: `--setting-sources` (leave out the user's settings, where the enabled
+  plugins live), `--plugin-dir <path>` once per plugin, `--mcp-config` with
+  `--strict-mcp-config`; `--disable-slash-commands` turns all skills off.
+- Codex: `-c <key=value>`, `--profile`, `--enable`/`--disable <feature>`.
+- OpenCode: `OPENCODE_CONFIG` / `OPENCODE_CONFIG_DIR` pointed at the instance's own
+  configuration.
+- Pi: `--no-extensions --no-skills`, then `-e <path>` and `--skill <path>` per item.
+
+Switching any choice moves nothing: the other home's sessions stay readable and
+importable.
+
+**What a box takes, per agent** (verified on Windows 2026-10-28 with the system
+programs, records `docs/verification/2026-10-28-{D15,D16,D17,D18}.md`): the home
+variable alone is not enough. Every agent also gets `TEMP`/`TMP` (and, for the
+Node-based ones, `NODE_COMPILE_CACHE`) inside Shinatama's folder, plus:
+
+- Claude Code: `CLAUDE_CONFIG_DIR`. On Windows and Linux the login is a plain-text file
+  in the box; on macOS a Keychain entry per box. Daodan installs plugin by plugin; the
+  full set needs its dependency marketplaces from the network.
+- Codex: `CODEX_HOME` on a **short path** (its daemon socket must stay under about 108
+  characters); the daemon and its socket follow `CODEX_HOME`, so a boxed Codex never
+  meets the user's daemon. **Known leak, shown to the user:** its unelevated Windows
+  sandbox writes `~\.sbx-denybin` (four stub files) into the user's profile, as a
+  system Codex already does; its elevated sandbox creates system users and firewall
+  rules and is not box-safe.
+- OpenCode: `OPENCODE_DB` plus the four `XDG_*` (no narrower set exists in 2.1.4) and a
+  small Shinatama plugin in the box that gives the programs OpenCode starts back the
+  user's own `XDG_*` (otherwise git loses a configuration kept under `~/.config`, D17);
+  `OPENCODE_DISABLE_CLAUDE_CODE=1` (otherwise it loads the user's `~/.claude` skills);
+  Shinatama starts and stops OpenCode's background service per box. The login is a
+  table in its database.
+- Pi: `PI_CODING_AGENT_DIR`; `--no-skills` or `HOME` for the child (it reads
+  `~\.agents\skills`). Login in `auth.json` in the box.
+
+With the `own` program, also: Claude `DISABLE_AUTOUPDATER=1` and `DISABLE_UPDATES=1`;
+OpenCode `OPENCODE_DISABLE_AUTOUPDATE=1` (left on, it would update the user's global npm
+install); Pi `PI_OFFLINE=1` (or `PI_SKIP_VERSION_CHECK`) and `PI_TELEMETRY=0`, run as
+`node …\cli.js`, Node ≥ 22.19.0; Codex's three update paths (startup check, `codex
+update`, the daemon's own loop) are not yet controllable, so `own` Codex waits for D16.
+
+Still unproved: login persistence in a box (needs the user's sign-in), the per-instance
+switches (D19), the one-week self-update observation and OpenCode side by side for
+`own`, macOS and Linux.
 
 ## 6. Agent adapter contract (builder's design, requirements mine)
 
 One adapter per agent (decided), so Grok or another agent can be added without touching
 the rest. **Each adapter provides export, import, resume and handover, plus the rest:**
-install and update the agent and the Daodan plugins in it, in the home its mode
-selects (5.14; never the user's installation in `system` mode); login and sign-in status;
+install and update the agent (only Shinatama's `own` copy, never the user's program)
+and the Daodan plugins in the home chosen in 5.14; the per-instance launch switches for
+plugins and skills (5.14); login and sign-in status;
 start it in a PTY in a folder; list and read its sessions; **export** a session to a
 portable file (`.stx.jsonl`); **import** such a file as a native session where the
 agent allows it; **resume** a session natively; **handover**: the adapter's part of a hop,

@@ -1,0 +1,12 @@
+0a1
+> // P20 copy of verify/H27/pi/server.local.mjs (adds the "P20-ENVNAMES" trigger; see decide()).
+111a113,121
+>   // P20 local change: one call of the shell tool that prints the NAMES (never values) of the
+>   // environment the tool's child process receives.
+>   if (t.includes("P20-ENVNAMES")) {
+>     const sh = tools.find((x) => ["bash", "powershell", "shell"].includes(x.name.toLowerCase()));
+>     if (sh) {
+>       const command = `node -e "console.log('P20-ENV-NAMES ' + Object.keys(process.env).sort().join(' '))"`;
+>       return { text: "P20-PRE: listing environment names.", calls: [{ id: `p20call${counter}`, name: sh.name, input: { command } }], stop: "tool" };
+>     }
+>   }

@@ -95,35 +95,47 @@ they must hold.
   `CLAUDE_CODE_HOST_WORKTREE_FENCE` and others), and reads
   `CLAUDE_CODE_MESSAGING_SOCKET` to reach the session that started it. A hosted Claude
   that inherited them would take itself for the outer Claude's child and could reach its
-  socket. What changes in practice, the exact list per agent, and the markers of Codex
-  (`CODEX_SANDBOX`), OpenCode (`OPENCODE_CLIENT`) and Pi (unknown) are [U, register P20].
-  Origin: docs/notes/2026-10-28-harness-cli-survey.md.
+  socket. **Effect [V 2026-10-28, P20 record]:** an interactive Claude Code 2.1.312
+  that inherits `CLAUDE_CODE_CHILD_SESSION` reaches the model but saves **no transcript
+  and no history** ("Transcript saving is off — inherited CLAUDE_CODE_CHILD_SESSION
+  marker"), so it could not be resumed or found. Codex 0.164.0, OpenCode 2.1.4 and
+  Pi 1.4.0 showed no change of their own behaviour, but **each passes every inherited
+  marker on to its children** (and OpenCode keeps an inherited `AI_AGENT`, connects its
+  TUI to an inherited `CLAUDE_CODE_SSE_PORT` [S, strings]). So the rule is: before
+  launching any agent, remove the **union** of the four adapters' lists (P20 record,
+  "Criterion"); `GIT_EDITOR` only when its value is Claude's helper; Codex's generic
+  sandbox names (`NPM_CONFIG_OFFLINE`, `PIP_NO_INDEX`, …) only when `SBX_NONET_ACTIVE` is
+  present. Not covered by names: Pi's `<agentDir>\bin` prepended to `PATH`. [V on Windows
+  for the lists and Claude's effect; a real nested interactive start for the other three
+  and macOS/Linux are open, P20.] Origin: docs/notes/2026-10-28-harness-cli-survey.md.
 - Any process may run any operation (hop, send message, summarize) that does not touch a
   PTY it does not own; operations that need a foreign PTY are queued in the database and
   executed by the owning process.
 - **What is isolated and what is not** [C]: the sidecar's private root, child-only
   environment and child-only certificate trust leave system state untouched (9); hooks
   and the MCP server arrive per launch (`--settings`, `-c`, `OPENCODE_CONFIG*`, `-e`)
-  without editing the user's configuration (7.5). Where each agent lives is a per-agent
-  mode (main spec 5.14, decided 2026-10-28):
-  - `private` (default): Shinatama's own copy of the agent, under
-    `<data>/agents/<agent>/versions/<version>/`, against Shinatama's own home
-    `<data>/agents/<agent>/home/`, selected at launch by the agent's home variable
-    (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_DB` + `XDG_*`, `PI_CODING_AGENT_DIR`,
-    the variables the verification bench already uses for its scratch homes). Daodan is
-    installed into that home. The agent's own self-update is off; updates install side
-    by side, running instances keep their version, the previous version is kept for
-    rollback when `fixture_gate` fails.
-  - `system`: the user's installed binary against the user's home; Daodan goes into
-    that agent's native plugin store (main spec 5.5); Shinatama never installs, updates
-    or replaces the binary.
-  - Never mixed: Shinatama's copy is never pointed at the user's home (a newer version
-    can migrate the store under an older one).
+  without editing the user's configuration (7.5). Where each agent lives is three
+  per-agent choices (main spec 5.14, decided 2026-10-28):
+  - Program: `system` (default when installed; the user's binary, never installed,
+    updated or replaced by Shinatama) or `own` (Shinatama's copy under
+    `<data>/agents/<agent>/versions/<version>/`, installed with npm `--prefix`, side by
+    side, previous version kept for rollback when `fixture_gate` fails, the agent's
+    self-update and update command blocked).
+  - Home: `box` (default; `<data>/agents/<agent>/home/` on a short path, selected at
+    launch by the agent's home variable `CLAUDE_CONFIG_DIR`, `CODEX_HOME`,
+    `OPENCODE_DB` + `XDG_*`, `PI_CODING_AGENT_DIR`, plus `TEMP`/`TMP`,
+    `NODE_COMPILE_CACHE` and the per-agent switches of main 5.14) or `system` (the
+    user's home; Daodan goes into that agent's native plugin store, main spec 5.5).
+  - Never `own` program with `system` home (a newer version can migrate the store
+    under an older one).
+  - Per-instance set: launch switches load exactly the instance's plugins and skills
+    (`--setting-sources`, `--plugin-dir`, `--strict-mcp-config`; `-c`/`--profile`;
+    `OPENCODE_CONFIG*`; `--no-extensions --no-skills -e --skill`), in either home.
   - The register's scratch homes stay a separate, test-only device.
 
   To be proved: per-launch MCP injection [M1], one sidecar proxy per instance versus
   shared [SC5], the private overlay leaving Codex history and auth in place [CX12], and
-  the private mode itself [D15 to D18].
+  the box and per-instance sets themselves [D15 to D19].
 
 ## 4. Shared state: one SQLite database per user [C, confirmed in principle by the user]
 
@@ -463,17 +475,19 @@ builder writes it as a Rust trait):
 
 ```
 A. Identity and environment
-mode() -> Private | System                           -- per-agent setting, main spec 5.14
-detect() -> Installed{version, exe, home} | Missing  -- in the home and binary of mode()
+placement() -> {program: System | Own, home: Box | System}   -- main spec 5.14; never Own+System
+detect() -> Installed{version, exe, home} | Missing  -- the program and home of placement()
+instance_set(plugins[], skills[]) -> launch overrides       -- per-instance set, main spec 5.14
 fixture_gate(version) -> Supported | Degraded(reason) | Unsupported   -- from captured fixtures
 inherited_markers() -> [exact env names]              -- removed before any launch (3)
 auth_status() -> SignedIn | SignedOut | Unknown       -- asks the agent, never reads credentials
 login() -> the agent's own login flow, run in a PTY
-install_or_update(); install_daodan()                 -- the checkup; install_or_update only in
-                                                      -- Private (side by side, rollback kept);
-                                                      -- System: report the update, never run it
+install_or_update(); install_daodan()                 -- the checkup; install_or_update only for
+                                                      -- an Own program (side by side, rollback);
+                                                      -- System program: report the update with
+                                                      -- its owner's command, never run it
 system_homes() -> [home]                              -- read-only: search and import of the
-                                                      -- user's sessions while in Private
+                                                      -- user's sessions while in a Box
 
 B. Read side: list and EXPORT
 list_sessions(filter) -> [SessionSummary{native_ref, id, cwd, branch, title,
