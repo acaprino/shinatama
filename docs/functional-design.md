@@ -567,17 +567,28 @@ downgrades the system program, a box already migrated by the newer one may not o
 Shinatama shows it, never repairs it (inference, not tested).
 
 **3. Per-instance set of plugins and skills.** Each instance (one tab) can carry its own
-set, in either home, without a home of its own, so the login stays one: the launch
-loads exactly the instance's plugins and skills and excludes the rest. The switches
-exist in each agent's `--help` (2026-10-28, not yet run, register D19):
+set, in either home, without an agent home of its own (OpenCode only needs an empty
+per-instance `~`), so login and sessions stay shared: the launch
+loads exactly the instance's plugins, skills and MCP servers and excludes the rest.
+Verified on Windows for all four agents in a box (2026-10-28, record
+`docs/verification/2026-10-28-D19.md`): two instances with different sets ran at once
+on one home and shared its sessions; a resumed session takes the set of the instance
+that resumes it.
 
-- Claude Code: `--setting-sources` (leave out the user's settings, where the enabled
-  plugins live), `--plugin-dir <path>` once per plugin, `--mcp-config` with
-  `--strict-mcp-config`; `--disable-slash-commands` turns all skills off.
-- Codex: `-c <key=value>`, `--profile`, `--enable`/`--disable <feature>`.
-- OpenCode: `OPENCODE_CONFIG` / `OPENCODE_CONFIG_DIR` pointed at the instance's own
-  configuration.
-- Pi: `--no-extensions --no-skills`, then `-e <path>` and `--skill <path>` per item.
+- Claude Code: `--setting-sources project,local`, `--settings` with a copy of the
+  user's settings minus the plugin list (leaving out the user source drops all user
+  settings), `--plugin-dir` per plugin, `--mcp-config` with the set's servers (a set
+  plugin's own server passed again) and always `--strict-mcp-config`.
+- Codex: it cannot load a plugin for one launch, so Shinatama installs each set's
+  plugins into the home once, turned off; each launch switches its set on and the rest
+  off with `-c` (`plugins.<p>.enabled`, `mcp_servers.<s>.*`, `skills.config`,
+  `skills.bundled.enabled=false`).
+- OpenCode: `OPENCODE_CONFIG_DIR` (the set), `OPENCODE_CONFIG` (provider and model only)
+  and `OPENCODE_TEST_HOME` (an empty home per instance, because nothing turns off
+  `~/.agents/skills`). Its MCP tools reach the model from the second request on.
+- Pi: `-ne -ns -np`, then `-e` and `--skill` per item; a box keeps `mcp.json` empty and
+  each instance brings its MCP servers through its own extension (untested), since Pi
+  has no per-launch MCP switch.
 
 Switching any choice moves nothing: the other home's sessions stay readable and
 importable.
@@ -611,9 +622,13 @@ install); Pi `PI_OFFLINE=1` (or `PI_SKIP_VERSION_CHECK`) and `PI_TELEMETRY=0`, r
 `node …\cli.js`, Node ≥ 22.19.0; Codex's three update paths (startup check, `codex
 update`, the daemon's own loop) are not yet controllable, so `own` Codex waits for D16.
 
-Still unproved: login persistence in a box (needs the user's sign-in), the per-instance
-switches (D19), the one-week self-update observation and OpenCode side by side for
-`own`, macOS and Linux.
+Box leaks found with the per-instance sets (D19): Claude writes MCP server logs to
+`%LOCALAPPDATA%\claude-cli-nodejs\Cache` (`CLAUDE_CODE_SKIP_MCP_DEBUG_LOG_FILES`
+untested).
+
+Still unproved: login persistence in a box (needs the user's sign-in), the interactive
+mode with per-instance sets, the one-week self-update observation and OpenCode side by
+side for `own`, macOS and Linux.
 
 ## 6. Agent adapter contract (builder's design, requirements mine)
 

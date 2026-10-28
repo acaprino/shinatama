@@ -128,9 +128,13 @@ they must hold.
     user's home; Daodan goes into that agent's native plugin store, main spec 5.5).
   - Never `own` program with `system` home (a newer version can migrate the store
     under an older one).
-  - Per-instance set: launch switches load exactly the instance's plugins and skills
-    (`--setting-sources`, `--plugin-dir`, `--strict-mcp-config`; `-c`/`--profile`;
-    `OPENCODE_CONFIG*`; `--no-extensions --no-skills -e --skill`), in either home.
+  - Per-instance set [V 2026-10-28, D19, Windows, box, print/exec mode]: launch switches
+    load exactly the instance's plugins, skills and MCP servers (Claude
+    `--setting-sources project,local` + `--settings` + `--plugin-dir` + `--mcp-config`
+    + `--strict-mcp-config`; Codex set plugins pre-installed turned off, then `-c` per
+    launch; OpenCode `OPENCODE_CONFIG_DIR` + `OPENCODE_CONFIG` + a per-instance
+    `OPENCODE_TEST_HOME`; Pi `-ne -ns -np -e --skill`, MCP through the instance's
+    extension), in either home; details in main spec 5.14.
   - The register's scratch homes stay a separate, test-only device.
 
   To be proved: per-launch MCP injection [M1], one sidecar proxy per instance versus

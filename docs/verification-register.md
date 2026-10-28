@@ -418,6 +418,7 @@ Records: `docs/verification/`; scripts: `verify/<ID>/` (rerunnable without edits
 | D16 | G0 | running (partial) | `2026-10-28-D16.md` | npm `--prefix` recipe for all four; self-update off proved for Claude, OpenCode, Pi; Codex not controllable yet; OpenCode side by side not finished (disk full) |
 | D17 | G1 | changed | `2026-10-28-D17.md` | no narrower set than `XDG_*`; children inherit it and lose `~/.config/git`; fixed by a private plugin restoring the user's `XDG_*` |
 | D18 | G1 | running (partial) | `2026-10-28-D18.md` | Windows discovery: two native installers, two npm installs, no winget; each agent has its own update command |
+| D19 | G1 | running (partial) | `2026-10-28-D19.md` | exact per-instance set works for all four in a box (Codex: set plugins pre-installed turned off; OpenCode: per-instance home; Pi: MCP via the instance's extension, untested); interactive mode, real login and OpenCode system home open |
 
 Second run 2026-10-28, same machine (claude 2.1.312, codex-cli 0.164.0, opencode v2.1.4, **pi 1.4.0**: Pi rows recorded on 1.2.0 need a rerun). Runner incidents that day: drive C: filled up with test installs (cleaned); one cleanup killed another run's processes (that run was repeated); three "cli starting" lines went into the real OpenCode log through npm's `postinstall`; Codex's sandbox created `~\.sbx-denybin` in the real profile (removed).
 
