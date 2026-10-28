@@ -683,6 +683,18 @@ suite are in section 5.5 of the [engine spec](technical-design.md).
   provider keys across agents is not in v1 (5.11).
 - Roundtable: moderated rounds with a free-form two-agent variant, answer-only by
   default with per-participant opt-in to tools (5.10).
+- Agent placement defaults (5.14, 2026-10-28): program `system` when the agent is
+  installed, home `box`.
+- Codex in a box despite its sandbox leak (`~\.sbx-denybin` in the user's profile),
+  shown to the user rather than blocked; its elevated sandbox is not offered in a box
+  (5.14).
+- Per-instance sets (5.14): for Codex, Shinatama installs each set's plugins into the
+  home once, turned off (a home write); for OpenCode, each instance gets an empty `~`
+  of its own; for Pi, the box keeps `mcp.json` empty and each instance brings its MCP
+  servers through its own extension; a resumed session takes the set of the instance
+  that resumes it.
+- Inherited markers (engine 3): the union of the four agents' lists is removed before
+  any launch; `GIT_EDITOR` only when its value is Claude's helper.
 - Overview: titles written by a low-cost model that Shinatama calls (not the agents),
   chosen from the catalog of a provider already signed in or a local model, capped
   and switchable, through the sidecar's auxiliary path so Shinatama holds no

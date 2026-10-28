@@ -388,11 +388,22 @@ short form of this set; this register is the complete one and wins where they di
 
 These are decisions, not experiments; they are listed so nothing is lost.
 
-- O1 Which accounts and scratch logins may the tests use, and the cost cap per test run.
+- O1 Which accounts and scratch logins may the tests use, and the cost cap per test run. Since 2026-10-28 it also blocks D15's login persistence: one sign-in per agent in a box.
 - O2 Default title backend: the small local model (about 500 MB, downloaded after consent) or a provider low-cost model.
 - O3 Windows in v1 (assumed yes in the design); the exact scope of the "assistant" in the widget.
 - O4 Whether to run the Oni character's use as a distribution decision now (W9).
 - O5 Approval of the design and the engine design, so that the plan can be written.
+- O6 The documents still name Musashi 35 times (README, both designs, this register). The user said on 2026-10-28 that Musashi must not exist here. Should those mentions be removed, together with the parity rows (PM, D6) that use it as the reference?
+- O7 Should the hop dialog, roundtable and palette offer only the actions both adapters' `capabilities()` support, showing what each choice loses, instead of offering everything and failing? This is a harness/cli idea, `docs/notes/2026-10-28-harness-cli-survey.md`.
+
+Next runs, no decision needed. These are listed in priority order:
+1. P20 with a real nested interactive start for Codex, OpenCode and Pi.
+2. D19 in interactive mode, and Pi's MCP brought through the instance's own extension.
+3. OpenCode's D16 rerun (side by side and rollback; it needs about 1 GB free on C:).
+4. Codex's update channels for an `own` copy (D16).
+5. The Pi rows recorded on 1.2.0, rerun on 1.4.0.
+6. The untested switches: `CLAUDE_CODE_SKIP_MCP_DEBUG_LOG_FILES`, `CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL` and `CLAUDE_CODE_TMPDIR`.
+7. Everything on macOS and Linux.
 
 ## 21. Runs so far
 
