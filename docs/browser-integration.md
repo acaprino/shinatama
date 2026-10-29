@@ -6,6 +6,13 @@ Status: proposed, not approved. Nothing is built. This document amends the
 [engine design](technical-design.md) (section 7.9). Verification rows B1–B10 in
 [the register](verification-register.md) are part of this specification.
 
+Native workspace revision, 2026-10-29: functional design 5.16 and engine design
+3.1 supersede the terminal-only shell assumption. Static artifacts can be shown
+in native tiled preview panes; terminal-image references below describe the older
+presentation fallback, not a requirement to build a TUI. Interactive embedded
+browsing remains outside the first integration. Tiling does not authorize a new
+engine, web frontend, automatic fallback or browser session transfer.
+
 ## 1. Intent and decisions
 
 The user wants browser access for both hosted agents and the user, without paying
@@ -110,8 +117,9 @@ controller and reason. A Moli failure offers no automatic Chrome action; it may
 show the exact new command the user can choose. A visual request is not reported
 as visually satisfied when only text was produced.
 
-Patchright opens a real external Chrome window. It does not turn Shinatama's TUI
-into a graphical window and does not depend on terminal image support.
+Patchright opens a real external Chrome window, separate from the native Rust
+workspace. It is not embedded by the tiling revision and does not depend on terminal
+image support. Static artifacts can use native preview panes (main design 5.16).
 
 ## 5. Routing and request contract
 

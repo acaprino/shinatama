@@ -8,6 +8,23 @@ Every claim in the specs that has not been proved by running something on a real
 is listed here, once, with how to prove it, what counts as proved, and where the result is
 written back. Nothing in this file has been run yet, except where a row says **observed**.
 
+## Native tiling revision — 2026-10-29
+
+These gates cover functional design 5.16 and technical design 3.1. They have not
+been executed. The toolkit remains a proposal; native Rust UI is the requirement.
+
+| ID | Priority | Verification and pass criterion | Status |
+| --- | --- | --- | --- |
+| TL1 | G0 | Prototype the chosen native toolkit with real agent PTYs, nested splits and Markdown/file panels on macOS/Linux and assumed Windows. No web frontend or required browser startup; record versions and platform gaps before selection. | open |
+| TL2 | G1 | Mouse and keyboard split/resize/tab move/collapse/maximize work, including cancelled drops and small windows. Session identity/output stay intact; final PTY size is correct, hidden output is drained and modal/background input is isolated. Include IME, Unicode and scaling. | open |
+| TL3 | G1 | Per-project/window layout survives restart; corrupt/unknown state recovers without lost documents/history, conflicting workspace ownership is rejected and restoration starts no agents, apps or interactive browsers. | open |
+| TL4 | G1 | Markdown source/preview and dirty close preserve buffers; concurrent agent writes, save failures and stale render results cannot silently overwrite content. Hostile Markdown, paths/symlinks and remote assets cannot exceed grants. Test visual editor fidelity separately before enabling it. | open |
+| TL5 | G1 | Many noisy/hidden agent panes and large previews remain within explicit resource limits without starving UI or other panes; record measured CPU/memory and responsiveness, then set budgets rather than claim them in advance. | open |
+| TL6 | G1 | Before DOCX reader, interactive embedded browser or mini-app activation, record format fidelity/capability limits, isolation/grants, lifecycle and target-platform results. Unsupported features remain unavailable; no assumed JanuraCode app compatibility. Browser B-series gates still apply. | open |
+
+Write results to `docs/verification/YYYY-MM-DD-TL<n>-<topic>.md` under the rules
+below, then update the corresponding spec. No pass is claimed by adding these rows.
+
 ## 0. Rules for running and reporting
 
 **Priority.** `G0` gate: if it fails, the design changes; nothing is built on it before it

@@ -1,10 +1,10 @@
 # Shinatama — design
 
-Date: 2026-10-26
+Date: 2026-10-26; native tiling revision: 2026-10-29
 Status: draft, not yet approved. Nothing is built from this document until it is.
 
-Shinatama is a local-first terminal runtime, written in Rust, that hosts the real
-coding agents (Claude Code, Codex, OpenCode, Pi) in one terminal and lets the user hop
+Shinatama is a local-first native desktop workspace, written in Rust, that hosts the real
+coding agents (Claude Code, Codex, OpenCode, Pi) in tiled terminal panes and lets the user hop
 a live chat from one agent to another without starting over. This document lives in
 the project `shinatama`.
 
@@ -66,6 +66,9 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
     UI only as an explicit graphical path, with no Chrome resident and no
     automatic fallback or session migration (5.15).
 
+14. Native tiling, draggable tabs, resizable splits and collapsible side panes
+    (decided 2026-10-29; 5.16), with a Rust UI, not a web frontend.
+
 ### Non-goals
 
 - Grok. Daodan has no Grok adapter and the user said Grok is not supported for now.
@@ -80,14 +83,10 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
   a persistent addressed mailbox between agents). They are Daodan's roadmap; Shinatama
   shows the agenda and the holder but does not implement them. The
   roundtable (5.10) is different: started by the user, session-level, no mailbox.
-- Choosing or configuring an external terminal (Windows Terminal, Warp). Shinatama
-  is a text UI that runs in whatever terminal the user opened, like tmux; it is not
-  a window of its own (the original request asked for "a terminal app"). **Decided**
-  (the user confirmed the frame-and-panels approach of 5.1). The widget (5.8) is
-  Shinatama's only graphical UI of its own; the external Chrome window explicitly
-  started through 5.15 is a separate process. Real graphic effects inside the main
-  window (rounded corners, gradients, shadows, free images, animation) are out of
-  scope for that reason.
+- A web-built application shell: no HTML/CSS/JavaScript frontend, Tauri or Electron
+  for the main UI (decided 2026-10-29). Native desktop tiling supersedes the earlier
+  terminal-only decision. Agents still run in real PTYs, not simulated chats. A
+  future isolated browser pane would not make the shell a web frontend.
 - Automatic browser fallback or migration (5.15): no switching from Moli to
   Patchright after an error, no shared cookies/login and no resident Chrome or
   Patchright companion. Persistent `moli serve` and interactive Moli previews are
@@ -100,7 +99,7 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
   does not. The words "native resume" are used only for resuming within the *same*
   agent.
 - A second scheduler or a resident service that keeps executing work after the
-  terminal closes.
+  owning application window closes.
 - A weakened sidecar integration: any loss of private root, child-only environment,
   child-only certificate trust or proxy recovery.
 
@@ -111,7 +110,7 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
 - Why Rust: the user's original request named Rust; my reasons agree. Shinatama
   *hosts* agents: it needs a pseudo-terminal on all three systems and a terminal
   emulator, for which mature Rust crates exist (pseudo-terminal, escape-sequence
-  parser, text UI); it runs many concurrent tasks (several terminals, sidecar, event
+  parser, native UI); it runs many concurrent tasks (several terminals, sidecar, event
   stream, summaries); one toolchain builds and cross-builds for macOS, Linux and
   Windows. Not proved yet: that a Rust pseudo-terminal plus
   emulator hosts the four agents faithfully on Windows with ConPTY — the first
@@ -141,8 +140,8 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
 
 ## 4. Surfaces
 
-Terminal UI screens, shown in the mockups listed in section 11: project manager,
-session view with agent tabs, hop dialog and preview, find (search), Daodan
+Native Rust desktop surfaces: project manager, tiled workspace with agent tabs
+and side panes (5.16), hop dialog and preview, find (search), Daodan
 palette, first-run setup. Command line: `shinatama find`, `resume`, `hop`,
 `doctor` (names are my call). Browser access: `/browse` with `read`, `preview`
 and explicit `open-ui` operations (5.15; spelling is my call). Desktop widget:
@@ -161,7 +160,8 @@ the builder's call. Closing Shinatama does not lose a thread.
 Shinatama reads each agent's own session store to search and to resume. Those stores
 differ per agent and per version; the adapter for each agent owns reading them.
 
-**The hosted agent lives in a pane inside Shinatama's tab (decided).** What Shinatama
+**The hosted agent lives in a terminal pane in the native tiled workspace
+(decided; revised 2026-10-29, 5.16).** What Shinatama
 draws around and over it:
 
 - **Frame and bars:** border and title, a top bar (thread, folder, branch, cost, the
@@ -170,8 +170,8 @@ draws around and over it:
   the agent. The agent is given a narrower terminal and resizes itself, so resizing is
   forwarded to it correctly.
 - **Windows over the agent:** the hop dialog (`^H`), the Daodan palette (`^K`) and
-  find. Shinatama owns the emulator's screen, so it composes the overlay and then
-  restores the agent's screen intact.
+  find. Native overlays leave the emulator screen intact and restore focus to the
+  originating pane when dismissed.
 - **Skin colours inside the pane:** the agent's standard 16-colour palette is remapped
   to the skin's palette, so the Shinatama pink reaches the agent's own output.
 
@@ -346,7 +346,8 @@ from a skin definition, never hard-coded.
 - **TCTF:** steel grey with orange, cut corners, filled active tab.
 - **Sumi:** ink black with vermilion.
 
-In a text UI a skin is colour, box characters and layout. Effects seen in the HTML
+In the native UI a skin controls colours, typography, borders and panel states;
+terminal palette remapping stays separate. Effects seen in the HTML
 mockups (scan lines, clipped corners, glow) illustrate the mood and are not
 requirements.
 
@@ -514,10 +515,9 @@ My calls:
   different worktrees is not a collision. It does not infer intent.
 - **Agent icons** (decided: every tab shows the icon of its agent): each agent has an
   icon and an accent colour, shown in the tab, the overview and the project manager.
-  In a text UI an icon is a glyph or a Nerd Font symbol, or an inline image where the
-  terminal supports an image protocol; there is always a plain-text fallback (letter
-  badge), since terminals differ. The widget can show the real logos. How the glyphs
-  or images are obtained and licensed is the builder's call.
+  The native UI can render icons directly, with a text label/letter badge fallback
+  and accessible names independent of colour. The widget can use the same assets.
+  Asset sourcing and licensing remain the builder's responsibility.
 - **Own worktree for a new instance** (my idea, optional): from the overview or the
   project manager, start a new instance in a new linked worktree so that two agents on
   the same project do not collide.
@@ -656,9 +656,10 @@ The detailed functional and technical contract is
 - **No automatic fallback:** a Moli error, timeout or unsupported page is shown
   as such. The user may issue a new explicit Patchright command, but this starts
   a new session without transferring cookies, login or control.
-- Static visual output uses terminal image support where verified and otherwise a
-  private artifact plus textual alternative. Text is not reported as a successful
-  visual preview. Full graphical interaction belongs to the external Chrome path.
+- Static visual output uses native preview panes for supported artifacts, otherwise
+  a private artifact plus textual alternative. Text alone is not a visual preview.
+  Interactive browsing remains external Chrome in the first integration; tiling
+  does not implicitly approve an embedded browser engine.
 - Local roots, MCP/local services, redirects and subresources have explicit scope;
   `localhost` is not blanket permission. Temporary profiles are the default and
   screenshots/extracted content follow secret-aware retention rules.
@@ -670,6 +671,54 @@ No speed or memory saving is claimed before B10 measures equivalent workloads on
 the whole process tree. B1–B10 in the register define the evidence required. The
 reduced first scope and the eventual performance budget remain subject to overall
 design approval.
+
+### 5.16 Native tiling workspace (decided 2026-10-29)
+
+Shinatama has a native Rust desktop UI, not a web frontend. Tabs and tiling coexist:
+project workspaces contain horizontal/vertical splits with tab groups at the
+leaves. Side panes are resizable and collapsible. Earlier terminal/HTML mockups
+are interaction references, not binding implementation choices. Toolkit selection
+and exact shortcuts remain builder proposals.
+
+**Interactions and lifecycle:**
+
+- Drag splitters to resize; drag tabs to reorder, move between groups or create
+  an edge split. Preview valid drop targets; cancelled/invalid drops change nothing.
+- Provide keyboard equivalents for focus, resize, tab moves, splitting and side
+  pane collapse/restore. Ordinary input goes to the focused agent; workspace
+  actions use documented explicit shortcuts or a command palette.
+- Temporarily maximize a pane and restore its prior layout. Enforce minimum usable
+  sizes; smaller windows must not discard panes or make them unreachable. Save
+  and restore the layout per project and window workspace.
+- Moving/hiding/collapsing a terminal view never restarts/stops its agent, creates
+  a session or changes its thread. Closing a view is distinct from stopping a live
+  instance; stopping requires confirmation. Dirty documents offer save/discard/cancel.
+- Restore view/resource references, never stale process handles. Saved layout alone
+  must not start/resume agents, execute apps or reopen interactive browser sessions.
+  Show unavailable resources explicitly.
+
+**Panel contents:**
+
+| Surface | Behaviour / boundary |
+| --- | --- |
+| Agent terminal | Real PTY/emulator, resize, selection, scrollback and focus isolation; multiple agents visible together. |
+| File navigator | Project tree, search and explicit open in a tab/pane; no implicit execution or arbitrary-root access. |
+| Markdown | Rendered reading, source editing and source/preview split. Direct visual editing is requested but gated by editor/syntax fidelity checks before delivery. |
+| File/document preview | Supported text/image artifacts. DOCX reading needs a separate renderer and declared fidelity; DOCX editing/full Office support is not implied. |
+| Browser / integrated apps | Static previews fit 5.15. Interactive embedded browsing and mini-app hosting need separate design/security gates; JanuraCode app compatibility is not assumed. |
+
+Editing provides undo/redo, visible dirty state and explicit save. Detect external
+changes, including agent writes: preserve the buffer and offer reload/compare/
+resolution, never silent overwrite. Markdown rendering must not execute scripts,
+embedded commands or unapproved remote requests. Visual editing must preserve
+unsupported syntax rather than silently discard it.
+
+**Acceptance:** demonstrate nested splits/tab moves without session changes,
+keyboard-only layout control, per-project/window restore without process auto-start,
+real-agent resize and input isolation, dirty/external-write protection and safe
+Markdown. Verify macOS/Linux and assumed Windows, including scaling, IME/Unicode,
+small windows and many active panes. Engine 3.1 defines the technical prototype
+gate. This revision specifies behaviour, not an implemented or validated feature.
 
 ## 6. Agent adapter contract (builder's design, requirements mine)
 
@@ -709,7 +758,8 @@ suite are in section 5.5 of the [engine spec](technical-design.md).
 
 ### Calls made to settle the rest (check them; each is also marked where it appears)
 
-- ~~A text UI inside the user's own terminal~~ — confirmed by the user (5.1, section 2).
+- Native Rust desktop tiling supersedes the earlier terminal-only decision
+  (2026-10-29, 5.16); real agent PTYs and CLI mode remain.
 - Hop staged: text hand-off for every pair first, native import agent by agent (5.2).
 - Hop: close or fork the source at each hop, with a user setting for the default
   (default close); a fork continues in a new thread (5.2; engine 6.2, 6.3).
@@ -740,7 +790,7 @@ suite are in section 5.5 of the [engine spec](technical-design.md).
 
 ## 8. Left to the builder
 
-Language-level choices (terminal UI library, PTY and terminal-emulation crates,
+Language-level choices (native Rust UI library, PTY and terminal-emulation crates,
 async model), the exact table and column definitions inside the engine spec's sketch
 (the storage choice, SQLite per user, is decided), the optional wake-up socket, the
 install mechanism on macOS and Linux (script, package manager, release binaries),

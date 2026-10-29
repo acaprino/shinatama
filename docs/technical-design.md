@@ -1,6 +1,6 @@
 # Shinatama engine — threads, hop, exchange between instances, shared state
 
-Date: 2026-10-26
+Date: 2026-10-26; native tiling revision: 2026-10-29
 Status: draft, not approved. Companion of
 [the functional design](functional-design.md); sections 5.2, 5.10
 and 5.13 of that document point here for the how.
@@ -64,7 +64,7 @@ they must hold.
 
 ## 3. Process model
 
-- Shinatama is **one process per terminal window**. Each owns the PTYs of the instances it
+- Shinatama is **one owning runtime process per native application window**. Each owns the PTYs of the instances it
   hosts; only that process can write into those PTYs.
 - There is **no resident service**. Several windows, the desktop widget, the command line
   mode and each agent's MCP server and hooks are separate processes that coordinate
@@ -140,6 +140,86 @@ they must hold.
   To be proved: per-launch MCP injection [M1], one sidecar proxy per instance versus
   shared [SC5], the private overlay leaving Codex history and auth in place [CX12], and
   the box and per-instance sets themselves [D15 to D19].
+
+### 3.1 Native Rust tiling and panel host (2026-10-29)
+
+Functional authority: main spec 5.16. Native desktop tiling supersedes the former
+terminal-only shell; agent TUIs remain in real PTYs. No web frontend or
+Tauri/Electron application shell.
+
+**Toolkit [C, not selected or prototyped].** First candidate: GPUI with GPUI Kit /
+`gpui-component`; alternative: egui with `egui_dock` or `egui_tiles`. Upstream
+documents docking/tab/split support and GPUI Kit editor/Markdown components [D],
+not integration into Shinatama. Pin compatible releases after the combined
+terminal/layout prototype passes on target platforms. Toolkit selection must not
+force browser startup. Native HTML rendering is not a full browser or DOCX engine.
+References: https://github.com/longbridge/gpui-kit,
+https://docs.rs/egui_dock/latest/egui_dock/,
+https://docs.rs/egui_tiles/latest/egui_tiles/.
+
+**Toolkit-independent layout sketch [C]:**
+
+```text
+WorkspaceLayout { schema_version, project_id, workspace_id, root, side_panes,
+                  focused_panel_id, maximized_panel_id? }
+Node = Split { axis, relative_weights, children }
+     | TabGroup { tabs: [PanelId], active_tab }
+PanelDescriptor { panel_id, kind, resource_ref, view_state }
+kind = agent_terminal | files | markdown | file_preview | browser_preview
+     | integrated_app
+```
+
+Panel identity is separate from instance/segment/thread identity. Terminal views
+reference a live instance and a resumable thread for restoration, never reusable
+PID/PTY handles or credentials. Initially one interactive terminal view per instance
+prevents duplicate writers. Moving a tab reparents the view without relaunch.
+Cross-window live PTY transfer is outside this revision. Share document buffers by
+canonical file identity rather than duplicating independent writable buffers.
+Gated panel kinds show unavailable placeholders until explicitly enabled.
+
+**Transitions/persistence [C].** Apply split/move/close as validated atomic tree
+operations; reject cycles, duplicate membership, invalid active tabs, non-finite/
+non-positive weights and excessive nesting/panel counts. Collapse empty groups and
+redundant splits. Cancelled drags do not mutate the model. Store versioned layout
+JSON in a shared-database workspace record (4), keyed by project/workspace with a
+revision for optimistic updates and one owning window per workspace. Debounce
+resize writes, flush committed changes on clean shutdown and use database
+migrations. Retain the last valid layout; corrupt/unknown data falls back safely
+without deleting documents or session history. Layout JSON contains no dirty
+buffers, rendered content or credentials. Restore never executes resources or
+launches/resumes agents without user action.
+
+**PTY/focus.** Only the focused terminal receives input through its owning runtime;
+modal focus must prevent background keystrokes/paste. Derive PTY rows/columns from
+actual content bounds/cell metrics, excluding chrome; coalesce resize events and
+deliver the final size. Never send zero dimensions for collapsed views: retain
+their last usable size. Drain hidden instances into bounded emulator/scrollback
+state. PTY reads/parsing, file I/O and previews must not block the UI thread. Bound
+queues/resources and schedule fairly so noisy agents cannot freeze other panes.
+Closing a view does not kill its instance; explicit stop follows runtime cleanup.
+
+**Documents/untrusted content.** Source, preview and future visual editors share a
+buffer revision; ignore stale renders. Save checks the file version against the
+version read and uses safe replacement where supported; retain the buffer on
+conflict/error. File watching does not replace save-time conflict detection.
+Dirty close offers save/discard/cancel. Crash-recovery buffers need separate privacy/
+retention design, not layout storage. Resolve links/assets within authorized roots,
+including symlinks; sanitize active HTML, gate remote requests and bound parser
+size/depth/rendering work. DOCX preview and visual Markdown editing require fidelity
+fixtures, not merely a toolkit. A future browser/mini-app panel has no ambient
+filesystem, PTY, credential or Rust-command access: define isolation, grants,
+lifecycle and platform support before enabling it. This does not replace 7.9 or
+select an embedded browser engine.
+
+**Prototype verification gate (not executed):** combine a real agent, nested dock
+panels, Markdown source/preview and file navigation. Verify mouse/keyboard tiling,
+minimum sizes, cancelled drops and corrupt layout recovery; restore without process
+auto-start; stable sessions/output through move/collapse/maximize; final PTY resize,
+focus/paste isolation, scaling and IME/Unicode; concurrent agent writes, dirty close,
+save failures and stale renders; hostile Markdown/assets and bounded CPU/memory
+with many noisy panes. Run on macOS/Linux and assumed Windows with actual versions
+and gaps recorded. Browser, DOCX and mini-app gates remain separate. No implemented
+feature, passed gate or measured performance budget is claimed here.
 
 ## 4. Shared state: one SQLite database per user [C, confirmed in principle by the user]
 
@@ -583,7 +663,7 @@ the agent deleted it (Claude does after 30 days, 5.7) or moved between machines.
 
 #### 5.5.2 The same operations on the command line
 
-TUI and scripts call the same adapter functions:
+Native workspace UI and scripts call the same adapter functions:
 
 ```
 shinatama sessions [--agent A] [--project P] [--json]       -> list_sessions
@@ -1269,7 +1349,7 @@ immutable engine, operation, target scope and permission snapshot.
   require `moli serve`. General agent-provided `--eval` is not exposed initially.
 - **Patchright UI is a separate user-started path.** Its Node.js or Python
   companion is lazy-loaded and owns visible Chrome through a dedicated profile.
-  It is not embedded in the TUI and never shares cookies or login state with Moli.
+  It is not embedded in the native workspace and never shares cookies or login state with Moli.
 - **`moli serve` is gated off.** At upstream commit
   `dcae77e5aa27ef645b819773f8420750bc06e291`, the inspected source binds a TCP
   HTTP/WebSocket server (default `127.0.0.1:9222`) for CDP/WebDriver; no request
