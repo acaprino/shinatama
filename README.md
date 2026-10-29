@@ -1,5 +1,9 @@
 # shinatama
 
+<p align="center">
+  <img src="docs/assets/branding/shinatama-logo-xenotron-glow.png" alt="Shinatama from Oni beside the Shinatama wordmark" width="800">
+</p>
+
 Shinatama: a local-first terminal runtime in Rust that hosts Claude Code, Codex, OpenCode and Pi, and hops a live chat between them.
 
 Status: design draft, not approved. No code yet.
