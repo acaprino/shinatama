@@ -9,20 +9,18 @@
 
 ## References
 
-- Original repository logo: [shinatama-logo-oni.png](shinatama-logo-oni.png),
-  SHA-256 `3e1050ef2bf44acfa7c650d6255862cc7b438dc74bf7f6264dbcf2c2a5c0fe44`.
+The edit used a composite of the previous Shinatama logo and a Daodan style
+sample. The composite and previous logo are no longer stored in this directory;
+the prompt below is retained verbatim.
+
 - Daodan style reference: [daodan-logo-xenotron-glow.png](https://github.com/acaprino/daodan/blob/master/docs/assets/branding/daodan-logo-xenotron-glow.png),
   SHA-256 `52e8793aea33443e52a5e8f1b27baaeada8af70502e47919bd75c2f0bdcae740e`.
   Its typography is a generated interpretation inspired by Xenotron, not a
   recorded font file.
-- Actual image-edit input: [shinatama-daodan-edit-input.png](references/shinatama-daodan-edit-input.png),
-  SHA-256 `095404e9865443dde0fd81268ad72454e1d07814ab208d1d10848186ca56401a`.
-  It combines the original Shinatama logo with the Daodan style sample as an
-  inset. The inset is not part of the intended output.
 - Original in-game Shinatama portrait: [shinatama-oni-original.png](references/shinatama-oni-original.png),
   downloaded from [OniGalore](https://wiki.oni2.net/File:TXMPSHINlistening.png),
   SHA-256 `ec63d6675c392eb02251bcb602dc71ae8fdef8941a8397c06b61263bf8a65d44`.
-  This third-party image is retained locally as a reference; redistribution
+  This third-party image is stored in this repository as a reference; redistribution
   rights have not been verified.
 
 ## Image-edit prompt
