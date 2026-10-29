@@ -25,7 +25,7 @@ Not met: parseable when it answers, but the real-home flakiness makes the CLI pa
 ## Spec before / after
 
 Before: OC8 open; engine 5.5 intends `auth_status()` to ask the agent.
-After: unchanged; opening note for the adapter work: prefer the HTTP route or retry logic, and reproduce the plugin-activation failure before relying on `auth list` (evidence above, record `docs/verification/2026-10-27-OC8.md`).
+After: unchanged; opening note for the adapter work: prefer the HTTP route or retry logic, and reproduce the plugin-activation failure before relying on `auth list` (evidence above, [OC8 record](2026-10-27-OC8-opencode-auth-status.md)).
 
 ## Open
 

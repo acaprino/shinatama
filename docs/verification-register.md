@@ -17,12 +17,15 @@ default, a target or a number.
 **Status** (the column that gets updated): `open`, `running`, `passed`, `failed`,
 `changed` (passed with the design adjusted), `dropped` (no longer needed, with the reason).
 
-**One record per item**, written when it is run: `docs/verification/YYYY-MM-DD-<ID>.md`
+**One record per item**, written when it is run: `docs/verification/YYYY-MM-DD-<ID>-<topic>.md`
 holding: the item id; date; machine and OS version; the versions of every agent and tool
 involved (`--version` output); the exact commands or the script path; the raw result
 (structure only when the data is private, see below); pass or fail against the stated
 criterion; what the spec said before; what it says now. Scripts live in `verify/<ID>/` in
-the repository and rerun without edits.
+the repository. Reruns depend on the recorded machine, agent versions and prerequisites;
+check each script and record before running. Raw output under `verify/*/out/` is ignored by
+Git, and some records point to machine-local paths, so not all evidence is portable with
+the repository. External records are linked as such rather than stored in this directory.
 
 **Write-back is part of the item.** An item is not `passed` until the spec sentence it
 backs has been changed from `[U]` (or `[C]`, `[R]`, `[D]`) to `[V]` with the date and the
@@ -118,7 +121,7 @@ short form of this set; this register is the complete one and wins where they di
 | S10 | G0 | The unique indexes enforce "one live segment per thread" under concurrent hops | Acceptance 11.4 | Exactly one wins | engine 4.3 |
 | S11 | G1 | File permissions: mode 0600, Windows ACL for the current user only | Inspect after creation on 3 OS | Other users cannot read | engine 4.1 |
 
-## 4. Claude Code adapter (CL), version 2.1.310 (installed 2026-10-27: 2.1.311 — rows to re-run first, `docs/verification/2026-10-27-E1.md`)
+## 4. Claude Code adapter (CL), version 2.1.310 (installed 2026-10-27: 2.1.311 — rows to re-run first, [E1 record](verification/2026-10-27-E1-agent-cli-recheck.md))
 
 | ID | Prio | What must be proved | How | Pass when | Writes back to |
 |---|---|---|---|---|---|
@@ -422,29 +425,28 @@ Next runs, no decision needed. These are listed in priority order:
 
 ## 21. Runs so far
 
-Records: `docs/verification/`; scripts: `verify/<ID>/` (rerunnable without edits). First run 2026-10-27 on Windows 11 Home build 26200 (claude 2.1.311, codex-cli 0.164.0, opencode v2.1.4, pi 1.2.0); no login and no model calls were used.
+Local records: [verification/](verification/); scripts: `verify/<ID>/` (see the rerun and portability limitations in section 0). H27 links to an external Mukade record. First run 2026-10-27 on Windows 11 Home build 26200 (claude 2.1.311, codex-cli 0.164.0, opencode v2.1.4, pi 1.2.0); no login and no model calls were used.
 
 | Item | Prio | Status | Record | Note |
 |---|---|---|---|---|
-| E1 | G0 | running (partial) | `2026-10-27-E1.md` | `--help` surface of all four agents re-checked; Claude drift 2.1.310 → 2.1.311; runtime rows open |
-| CX4 | G0 | passed | `2026-10-27-CX4.md` | scratch detect/import/resume proven; tool calls arrive as text markers; age window is the detector's filter |
-| PI5 | G1 | passed (spec corrected) | `2026-10-27-PI5.md` | Pi has no TUI attach; 5.7 item 4 corrected |
-| PI10 | G2 | running (partial) | `2026-10-27-PI10.md` | `@earendil-works/pi-coding-agent` installed 1.2.0; registry latest 1.4.0 |
-| PI11 | G0 | running (partial) | `2026-10-27-PI11.md` | timings recorded; bare launch open |
-| D1 | G0 | done | `2026-10-27-D1.md` | remote repo found alive, 24 plugins all in Daodan at equal or newer versions; user decided; deleted 2026-10-27 with bundle backup |
-| CL13 | G1 | running (partial) | `2026-10-27-CL13.md` | both states recorded: real exit 0 (identity redacted), scratch exit 1 loggedIn false; PTY login open |
-| CX11 | G1 | running (partial) | `2026-10-27-CX11.md` | both states recorded: text on **stderr**, exit 0/1; PTY login open |
-| OC8 | G1 | running (partial) | `2026-10-27-OC8.md` | real home flaky (2 successes then 5x "Location plugins did not finish activating"); scratch answers; HTTP route candidate |
-| PI9 | G1 | running (partial) | `2026-10-27-PI9.md` | check recorded (`pi auth check --json --no-refresh`, exit 1 not_ready for anthropic); signed-in provider + PTY login open |
-| OC2 | G0 | passed | `2026-10-27-OC2.md` | interchange `{info,messages[]}`; round trip lossless for user/assistant+tool/compaction/system/synthetic/shell; 409 ConflictError; `/synthetic resume:false` stays in the inbox |
-| H27 | G0 | changed | `2026-10-27-H27.md` | external converter not adopted (user, 2026-10-27: own library); probe run kept: 36/36 written and resumed, 4/4 destination-native compactions; requirements L1–L14 in `session-interchange-spec.md` — the library and its docs are now the `mukade` repository (github.com/acaprino/mukade) |
-
-| P20 | G1 | running (partial) | `2026-10-28-P20.md` | marker lists for all four agents; Claude with an inherited `CLAUDE_CODE_CHILD_SESSION` saves no transcript; the others pass markers through; union removal rule written to engine 3; nested interactive start for Codex/OpenCode/Pi open |
-| D15 | G0 | running (partial) | `2026-10-28-D15.md` | no agent private with its home variable alone: temp, Node caches, skill reads; Codex's Windows sandbox writes the real profile; login persistence pending user |
-| D16 | G0 | running (partial) | `2026-10-28-D16.md` | npm `--prefix` recipe for all four; self-update off proved for Claude, OpenCode, Pi; Codex not controllable yet; OpenCode side by side not finished (disk full) |
-| D17 | G1 | changed | `2026-10-28-D17.md` | no narrower set than `XDG_*`; children inherit it and lose `~/.config/git`; fixed by a private plugin restoring the user's `XDG_*` |
-| D18 | G1 | running (partial) | `2026-10-28-D18.md` | Windows discovery: two native installers, two npm installs, no winget; each agent has its own update command |
-| D19 | G1 | running (partial) | `2026-10-28-D19.md` | exact per-instance set works for all four in a box (Codex: set plugins pre-installed turned off; OpenCode: per-instance home; Pi: MCP via the instance's extension, untested); interactive mode, real login and OpenCode system home open |
+| E1 | G0 | running (partial) | [2026-10-27-E1-agent-cli-recheck.md](verification/2026-10-27-E1-agent-cli-recheck.md) | `--help` surface of all four agents re-checked; Claude drift 2.1.310 → 2.1.311; runtime rows open |
+| CX4 | G0 | passed | [2026-10-27-CX4-codex-claude-import.md](verification/2026-10-27-CX4-codex-claude-import.md) | scratch detect/import/resume proven; tool calls arrive as text markers; age window is the detector's filter |
+| PI5 | G1 | passed (spec corrected) | [2026-10-27-PI5-pi-tui-attach.md](verification/2026-10-27-PI5-pi-tui-attach.md) | Pi has no TUI attach; 5.7 item 4 corrected |
+| PI10 | G2 | running (partial) | [2026-10-27-PI10-pi-package-update.md](verification/2026-10-27-PI10-pi-package-update.md) | `@earendil-works/pi-coding-agent` installed 1.2.0; registry latest 1.4.0 |
+| PI11 | G0 | running (partial) | [2026-10-27-PI11-pi-startup-timing.md](verification/2026-10-27-PI11-pi-startup-timing.md) | timings recorded; bare launch open |
+| D1 | G0 | done | [2026-10-27-D1-marketplace-name-collision.md](verification/2026-10-27-D1-marketplace-name-collision.md) | remote repo found alive, 24 plugins all in Daodan at equal or newer versions; user decided; deleted 2026-10-27 with bundle backup |
+| CL13 | G1 | running (partial) | [2026-10-27-CL13-claude-auth-status.md](verification/2026-10-27-CL13-claude-auth-status.md) | both states recorded: real exit 0 (identity redacted), scratch exit 1 loggedIn false; PTY login open |
+| CX11 | G1 | running (partial) | [2026-10-27-CX11-codex-login-status.md](verification/2026-10-27-CX11-codex-login-status.md) | both states recorded: text on **stderr**, exit 0/1; PTY login open |
+| OC8 | G1 | running (partial) | [2026-10-27-OC8-opencode-auth-status.md](verification/2026-10-27-OC8-opencode-auth-status.md) | real home flaky (2 successes then 5x "Location plugins did not finish activating"); scratch answers; HTTP route candidate |
+| PI9 | G1 | running (partial) | [2026-10-27-PI9-pi-auth-status.md](verification/2026-10-27-PI9-pi-auth-status.md) | check recorded (`pi auth check --json --no-refresh`, exit 1 not_ready for anthropic); signed-in provider + PTY login open |
+| OC2 | G0 | passed | [2026-10-27-OC2-opencode-session-interchange.md](verification/2026-10-27-OC2-opencode-session-interchange.md) | interchange `{info,messages[]}`; round trip lossless for user/assistant+tool/compaction/system/synthetic/shell; 409 ConflictError; `/synthetic resume:false` stays in the inbox |
+| H27 | G0 | changed | [2026-10-27-H27.md (external Mukade)](https://github.com/acaprino/mukade/blob/master/docs/verification/2026-10-27-H27.md) | external converter not adopted (user, 2026-10-27: own library); probe run kept: 36/36 written and resumed, 4/4 destination-native compactions; requirements L1–L14 in `session-interchange-spec.md` — the library and its docs are now the `mukade` repository (github.com/acaprino/mukade) |
+| P20 | G1 | running (partial) | [2026-10-28-P20-inherited-agent-markers.md](verification/2026-10-28-P20-inherited-agent-markers.md) | marker lists for all four agents; Claude with an inherited `CLAUDE_CODE_CHILD_SESSION` saves no transcript; the others pass markers through; union removal rule written to engine 3; nested interactive start for Codex/OpenCode/Pi open |
+| D15 | G0 | running (partial) | [2026-10-28-D15-private-home-isolation.md](verification/2026-10-28-D15-private-home-isolation.md) | no agent private with its home variable alone: temp, Node caches, skill reads; Codex's Windows sandbox writes the real profile; login persistence pending user |
+| D16 | G0 | running (partial) | [2026-10-28-D16-agent-install-update.md](verification/2026-10-28-D16-agent-install-update.md) | npm `--prefix` recipe for all four; self-update off proved for Claude, OpenCode, Pi; Codex not controllable yet; OpenCode side by side not finished (disk full) |
+| D17 | G1 | changed | [2026-10-28-D17-opencode-xdg-children.md](verification/2026-10-28-D17-opencode-xdg-children.md) | no narrower set than `XDG_*`; children inherit it and lose `~/.config/git`; fixed by a private plugin restoring the user's `XDG_*` |
+| D18 | G1 | running (partial) | [2026-10-28-D18-system-agent-discovery.md](verification/2026-10-28-D18-system-agent-discovery.md) | Windows discovery: two native installers, two npm installs, no winget; each agent has its own update command |
+| D19 | G1 | running (partial) | [2026-10-28-D19-per-instance-sets.md](verification/2026-10-28-D19-per-instance-sets.md) | exact per-instance set works for all four in a box (Codex: set plugins pre-installed turned off; OpenCode: per-instance home; Pi: MCP via the instance's extension, untested); interactive mode, real login and OpenCode system home open |
 
 H27 is evidence from a harness probe, not a test of the Shinatama runtime integration. Mukade's
 subsequent source-model summary live checks and the remaining host acceptance gates are linked
@@ -457,4 +459,4 @@ Status values follow section 0; this index is the status view until a Status col
 
 Reuse survey (JanuraCode on this machine): `docs/notes/2026-10-27-januracode-code-survey.md` — official OpenCode import/export client and protocol schema, managed-OpenCode hosting, V1→V2 session migration, sign-in reference; **no cross-harness session translator found**.
 
-External tool trial (not a register row): `docs/verification/2026-10-27-UNI1.md` — **UniSessions** (vibheksoni/session-export, MIT, PyPI 0.5.0): Claude/Codex/Pi-style conversions work in scratch; **the OpenCode legs are incompatible with 2.1.4** (its v1-shaped export is rejected by the import: 400 `info.cost` then `messages[0]`; v2 exports are read as nearly empty).
+External tool trial (not a register row): [UNI1 record](verification/2026-10-27-UNI1-unisessions-trial.md) — **UniSessions** (vibheksoni/session-export, MIT, PyPI 0.5.0): Claude/Codex/Pi-style conversions work in scratch; **the OpenCode legs are incompatible with 2.1.4** (its v1-shaped export is rejected by the import: 400 `info.cost` then `messages[0]`; v2 exports are read as nearly empty).

@@ -5,9 +5,13 @@ of that harness with a prompt**, both against a local mock model so that nothing
 and every request the harness sends to "the model" is captured. The captures are the evidence
 of what a destination model actually receives after an import (the resume context).
 
-Register row: H27 (`docs/verification-register.md`). Design context: `docs/technical-design.md`
+Register row: H27 ([verification register](../../docs/verification-register.md)). Design context: [technical design](../../docs/technical-design.md)
 5.3, 5.4, 5.4.1, 5.7. Earlier records with working scripts to reuse:
-`docs/verification/2026-10-27-{CX4,OC2,PI5,PI11,CL13}.md` and `verify/<row>/run.ps1`.
+[CX4](../../docs/verification/2026-10-27-CX4-codex-claude-import.md),
+[OC2](../../docs/verification/2026-10-27-OC2-opencode-session-interchange.md),
+[PI5](../../docs/verification/2026-10-27-PI5-pi-tui-attach.md),
+[PI11](../../docs/verification/2026-10-27-PI11-pi-startup-timing.md) and
+[CL13](../../docs/verification/2026-10-27-CL13-claude-auth-status.md), and `verify/<row>/run.ps1`.
 
 ## Hard rules
 

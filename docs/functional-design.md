@@ -570,7 +570,7 @@ set, in either home, without an agent home of its own (OpenCode only needs an em
 per-instance `~`), so login and sessions stay shared: the launch
 loads exactly the instance's plugins, skills and MCP servers and excludes the rest.
 Verified on Windows for all four agents in a box (2026-10-28, record
-`docs/verification/2026-10-28-D19.md`): two instances with different sets ran at once
+[D19](verification/2026-10-28-D19-per-instance-sets.md)): two instances with different sets ran at once
 on one home and shared its sessions; a resumed session takes the set of the instance
 that resumes it.
 
@@ -593,7 +593,10 @@ Switching any choice moves nothing: the other home's sessions stay readable and
 importable.
 
 **What a box takes, per agent** (verified on Windows 2026-10-28 with the system
-programs, records `docs/verification/2026-10-28-{D15,D16,D17,D18}.md`): the home
+programs, records [D15](verification/2026-10-28-D15-private-home-isolation.md),
+[D16](verification/2026-10-28-D16-agent-install-update.md),
+[D17](verification/2026-10-28-D17-opencode-xdg-children.md) and
+[D18](verification/2026-10-28-D18-system-agent-discovery.md)): the home
 variable alone is not enough. Every agent also gets `TEMP`/`TMP` (and, for the
 Node-based ones, `NODE_COMPILE_CACHE`) inside Shinatama's folder, plus:
 

@@ -331,7 +331,7 @@ data)` (9,159 rows); also `session_inbox`, `session_pending`, `event`, `event_se
 `time_idle`, `idle_outcome`. Message `data` is JSON whose shape is [U]. **Reading rule:
 use OpenCode's own `export` command or HTTP API as the primary source** [D: documented in
 the V2 docs; **V: both the CLI `session export`/`import` and the HTTP export/import run on
-2026-10-27 in a scratch DB — `docs/verification/2026-10-27-OC2.md`**]; read the SQLite file directly only as a read-only fallback
+2026-10-27 in a scratch DB — [OC2 record](verification/2026-10-27-OC2-opencode-session-interchange.md)**]; read the SQLite file directly only as a read-only fallback
 for listing and search, because the schema changes between versions and the legacy and
 current tables disagree.
 
@@ -365,7 +365,7 @@ session; it does not implement Shinatama's verification, journal or switch.
      inserts with sequence numbers), so writing the SQLite rows directly is wrong and
      never done. Also `POST /api/session {id}` then `/synthetic` admits messages without
      running the agent loop [R-S].
-      **Run on 2026-10-27 (OC2 record, `docs/verification/2026-10-27-OC2.md`):** in scratch
+      **Run on 2026-10-27 ([OC2 record](verification/2026-10-27-OC2-opencode-session-interchange.md)):** in scratch
       DBs on 2.1.4 the interchange is exactly `{info, messages[]}` and the round trip is
       lossless for every kind tested — `user`, `assistant` (text and **tool parts**: name,
       state, input and content all preserved), `compaction`, `system`, `synthetic`, `shell`;
@@ -385,7 +385,7 @@ session; it does not implement Shinatama's verification, journal or switch.
      vibheksoni/session-export): converter with 110+ directions across Codex, Claude, Pi,
      OpenCode, Devin, Factory, Windsurf, Grok, Freebuff, OMP, Command Code and T3, plus trace
      export and an MCP search server. Trial on 2026-10-27 (record
-     `docs/verification/2026-10-27-UNI1.md`): a synthetic Claude session converts cleanly to a
+     [UNI1](verification/2026-10-27-UNI1-unisessions-trial.md)): a synthetic Claude session converts cleanly to a
      Pi v3 JSONL (text and compaction markers preserved); its **OpenCode legs target the v1
      export shape** — the output is rejected by 2.1.4's import (400: missing `info.cost`, then
      `messages[0]` is not a v2 message) and a v2 export is read as nearly empty (1 record, cwd
@@ -426,7 +426,7 @@ session; it does not implement Shinatama's verification, journal or switch.
      the real request and response types for 0.164.0 without starting a session, which turns
      most of this paragraph into a milestone-1 check, not a guess.
 
-     **Run on 2026-10-27 (CX4 record, `docs/verification/2026-10-27-CX4.md`):** in a scratch
+     **Run on 2026-10-27 ([CX4 record](verification/2026-10-27-CX4-codex-claude-import.md)):** in a scratch
      `USERPROFILE`/`CODEX_HOME`, `externalAgentConfig/detect` → `import` works for one named
      Claude session and `thread/resume` loads it back from disk; the 30-day window is the
      detector's `maxSessionAgeDays` filter (40 days excluded by default, included with 90 and
@@ -647,7 +647,7 @@ An adapter's `seed_channel` is one of:
 Each line is a fact an adapter may rely on **after its fixture confirms it** against the
 installed version; none was run here except `--help` and `--version`.
 
-**Re-check on the installed versions (2026-10-27, E1 partial — `docs/verification/2026-10-27-E1.md`):**
+**Re-check on the installed versions (2026-10-27, E1 partial — [record](verification/2026-10-27-E1-agent-cli-recheck.md)):**
 installed here: Claude Code **2.1.311** (drift from the recorded 2.1.310: the CL rows re-run
 on the installed version before any support claim, per section 0 of the register), Codex
 0.164.0, OpenCode 2.1.4, Pi 1.2.0 (npm latest 1.4.0, PI10 record). `--help` re-captured
@@ -840,7 +840,7 @@ runtime halves still await their rows.
    remote, server or socket flag, and the startup modes (interactive, print, json, rpc) are
    mutually exclusive. For Pi the choice is: host the TUI (no structured backend) or drive an
    RPC process (no TUI pane), not both. Codex `--remote` and OpenCode `--server URL` stand
-   (record: `docs/verification/2026-10-27-PI5.md`).
+   (record: [PI5](verification/2026-10-27-PI5-pi-tui-attach.md)).
 5. **Headless "answer-only" candidates** (roundtables, titles): `claude -p`, `codex exec
    --ephemeral --ignore-user-config`, `opencode run --format json`, `pi --mode json`. For Pi
    the switches were found on 2026-10-27 (`--no-tools`, `--tools`, `--exclude-tools`; help

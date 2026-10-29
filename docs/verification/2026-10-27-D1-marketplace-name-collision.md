@@ -1,14 +1,14 @@
-# D1 — role of `acaprino/shinatama` and name collision (partial)
+# D1 — role of `acaprino/shinatama` and name collision
 
 Item: D1 (G0) — "The role of `acaprino/shinatama` after the 42.0.0 reunification (spec Q1); name collision with the product; install instructions." Pass when: "Statements in the specs and README corrected."
-Status: **running (partial)** — current facts recorded from both repositories; the corrections and the naming decision are the user's.
+Initial status, before the later resolution below: **running (partial)** — facts recorded from both repositories; the corrections and the naming decision were the user's.
 Date: 2026-10-27.
 Runner: JanuraCode agent; public GitHub data only, cost 0.
 
 Command: `powershell -NoProfile -ExecutionPolicy Bypass -File verify/D1/run.ps1` (GitHub API; rerunnable without edits).
 Raw output: `verify/D1/out/2026-10-27/{shinatama-repo.json, daodan-repo.json}`; README and commit evidence fetched the same day.
 
-## Result
+## Initial result (before the later resolution)
 
 **`acaprino/shinatama` — public, alive, not archived**
 - MIT, created 2026-10-17, last push 2026-10-25T10:22:59Z, branch `master`, 1 011 commits, 30.5 MB, language Python, 0 open issues.
@@ -21,7 +21,7 @@ Raw output: `verify/D1/out/2026-10-27/{shinatama-repo.json, daodan-repo.json}`; 
 
 **Conflict found**: the two READMEs disagree on where the 24 verticals live today. Shinatama's README presents itself as their marketplace and its latest commit moves a plugin *into* Shinatama (2026-10-25); Daodan's README says they returned to Daodan (repo pushed 2026-10-26). Q1's "the role of `acaprino/shinatama` today is unclear" is therefore confirmed as a fact, not a suspicion. The deliverables of D1 (correct the statements, settle the name collision with the terminal-runtime product named `shinatama` on 2026-10-26, install instructions) need the user's decision.
 
-## Criterion
+## Criterion at the initial observation
 
 Not met (no spec/README edit; decision pending). Evidence above is the base for it.
 
