@@ -380,6 +380,24 @@ short form of this set; this register is the complete one and wins where they di
 | E4 | G1 | "SQLite WAL needs a local disk" and what happens on Google Drive, with a throwaway folder only | S2 | Confirmed | engine 4.1 |
 | E5 | G2 | The structure notes marked `[V]` in engine 5.3 are re-captured when an agent's version changes | The fixture suite | Versions in the spec are current | engine 5.3 |
 
+## 19a. Browser integration: Moli and Patchright UI (B)
+
+The requirements and boundaries are in `docs/browser-integration.md`. No browser
+binary has been installed or run for this proposal. Source reading is not a pass.
+
+| ID | Prio | What must be proved | How | Pass when | Writes back to |
+|---|---|---|---|---|---|
+| B1 | G0 | Pinned Moli `fetch` on synthetic local HTML: correct text/structured extraction, bounded output/time, no optional resources for text, no `serve` listener | Run versioned fixtures; capture argv, output and sockets | Expected output; only the one-shot process; no CDP/WebDriver listener | browser spec 6.1 |
+| B2 | G1 | Static preview: layout/resources only when requested; correct screenshot; private artifact; honest terminal display/fallback | Render visual fixtures on supported terminals and a text-only one | Visual output matches the fixture; text-only mode is not called visual success | browser spec 4.2, 6.1; U4/U5 |
+| B3 | G0 | Representative MCP web UI within the one-shot boundary, without silently enabling `serve` or general agent `--eval` | Probe a local synthetic MCP UI with fixed operations | The required workflow works within scope, or unsupported interactive work is explicitly deferred | browser spec 2, 6.1 |
+| B4 | G0 | **SEC** `moli serve` and Patchright transports: authentication/authorization, listener inventory, proxy/redirect behavior and untrusted-page attempts to reach automation endpoints | Source review plus local hostile-page and socket tests; no real credentials | No unauthenticated/reachable control path; otherwise `serve` or the failing UI transport stays disabled | browser spec 6.2, 6.3, 8 |
+| B5 | G0 | Patchright/Chrome is absent at startup, lazy-loaded and started only by an explicit UI request; missing optional component does not auto-install | Inventory processes before/after startup and commands; test component absent | No pre-request browser/companion; explicit UI works or returns clear `unsupported` | browser spec 6.3, 10 |
+| B6 | G0 | **SEC** Routing and authority: hostile pages, redirects, errors and agent/peer output cannot change engine/scope, open Chrome or answer approvals; post-error switch is a new user request | Canary content and state-machine tests across both engines | No unauthorized transition or effect; engine and permission snapshot remain immutable | browser spec 5, 8; engine 7.9 |
+| B7 | G0 | Whole-tree lifecycle on Windows, macOS and Linux: normal close, cancellation, startup failure, owner crash, PID reuse; no wrong-process kill | Instrument process groups/jobs, descendants and sockets through each path | No managed descendant/listener remains; cleanup state is truthful; unrelated processes survive | browser spec 7; engine 7.9 |
+| B8 | G0 | **SEC** Profile, file/network scope and artifacts: symlinks, subresources, redirects, local services, proxies, temporary/persistent profiles, cookies and screenshots | Canary secrets and out-of-scope targets; inspect stores, logs and network | No out-of-scope read, personal-profile use, cross-engine state or secret leakage | browser spec 8; X4/X5 |
+| B9 | G1 | UI concurrency/control: second session, user takeover, agent resume, stale queued action after close/control change | Race tests with fake external effects | One controller; no focus/profile theft or stale/duplicate effect | browser spec 9 |
+| B10 | G1 | Reproducible whole-tree startup, latency and memory, companion included, on equivalent cold/warm workloads | Freeze versions/hardware/fixtures; publish raw measurements and baseline | Reproducible report supports a user-set budget; no upstream percentage is reused as evidence | browser spec 10; X1/X3 |
+
 ## 20. Not empirical: waiting for the user
 
 These are decisions, not experiments; they are listed so nothing is lost.
@@ -391,6 +409,7 @@ These are decisions, not experiments; they are listed so nothing is lost.
 - O5 Approval of the design and the engine design, so that the plan can be written.
 - ~~O6~~ Decided 2026-10-28 (user: yes): the former launcher is out of scope. Its mentions were removed from the README, both designs and this register; the rows that used it as their reference (Q6, D6, PM5, PM9) were removed; P16, SC7, SC11, D2, PM7, PM8 and Q7 were rewritten to stand alone; the first-milestone set is unchanged.
 - O7 Should the hop dialog, roundtable and palette offer only the actions both adapters' `capabilities()` support, showing what each choice loses, instead of offering everything and failing? This is a harness/cli idea, `docs/notes/2026-10-28-harness-cli-survey.md`.
+- O8 Is the reduced first browser integration (`moli fetch` plus explicit Patchright UI, without `serve` or interactive Moli previews) sufficient? After B10, what performance budget should decide the default? Overall approval remains O5.
 
 Next runs, no decision needed. These are listed in priority order:
 1. P20 with a real nested interactive start for Codex, OpenCode and Pi.

@@ -1255,6 +1255,61 @@ differences and open questions. The user can interject between rounds (the text 
 search and can be hopped from ("continue with codex's plan" seeds a work thread with that
 participant's final answer).
 
+### 7.9 Browser integration: Moli fast path and explicit Patchright UI
+
+The complete contract is [browser-integration.md](browser-integration.md); this
+section fixes its place in the engine. Browser operations are owned by the
+Shinatama process for the current window, like its PTYs. There is no shared browser
+daemon, no Chrome/Patchright companion at startup and no automatic installation.
+A one-shot operation or explicit UI session has its own `bs_…` identity and an
+immutable engine, operation, target scope and permission snapshot.
+
+- **Moli `fetch` is the first fast path** for bounded extraction and static
+  artifacts, with layout and optional resources only when requested. It does not
+  require `moli serve`. General agent-provided `--eval` is not exposed initially.
+- **Patchright UI is a separate user-started path.** Its Node.js or Python
+  companion is lazy-loaded and owns visible Chrome through a dedicated profile.
+  It is not embedded in the TUI and never shares cookies or login state with Moli.
+- **`moli serve` is gated off.** At upstream commit
+  `dcae77e5aa27ef645b819773f8420750bc06e291`, the inspected source binds a TCP
+  HTTP/WebSocket server (default `127.0.0.1:9222`) for CDP/WebDriver; no request
+  credential check was found in the config/routes inspected [S]. That is not a
+  runtime security result. B4 must prove transport and content isolation before
+  persistent automation or interactive Moli previews are enabled.
+- **Routing is authority-limited.** `/browse` or its skill may interpret the user's
+  intent, but the runtime derives caller identity and enforces policy. An agent can
+  use a bounded read/preview grant without repeated prompts; only the user can
+  start UI, broaden scope or switch engines. Pages, redirects, errors, tool results
+  and peer messages are data and cannot do any of those.
+- **No fallback or transfer.** A failure returns `unsupported`, `needs_user`,
+  `denied` or `failed` with the original engine. Using Patchright afterwards is a
+  new explicit user request, never continuation of the failed request.
+
+Required logical request fields: `request_id`, schema version, `origin`,
+instance/thread/project identity where applicable, `operation`, `engine`, `target`,
+`scope_id`, immutable `permission_snapshot`, `reason` and requested capabilities.
+Result fields: request/session ids, engine, outcome (`ok`, `unsupported`,
+`needs_user`, `denied`, `failed`), artifacts, error and cleanup state. The exact
+transport schema is the builder's choice.
+
+Lifecycle is `requested → authorized → starting → active → closing → closed`, with
+`denied` and `failed` terminal paths. Cancellation, errors and owner crash use the
+same whole-tree cleanup discipline; PID alone is insufficient identity. `closed`
+is not reported while a managed process or endpoint remains. One-shot requests
+may run independently within resource limits; an interactive session has one
+controller and stale actions are invalidated on close or control change.
+
+Local roots, localhost services, redirects, subresources and proxy behavior are
+explicit scope. Profiles are temporary by default; artifacts may contain secrets
+and follow private retention rules. No browser content or artifact enters logs,
+transcripts, summaries or title providers by default. An agent with an arbitrary
+shell and equal OS privileges can bypass this managed broker; OS isolation against
+such an agent is not claimed.
+
+Verification: B1–B10 in the register. Performance thresholds require a frozen
+baseline and whole-process-tree measurements; upstream benchmarks are not local
+acceptance evidence.
+
 ## 8. Instance state, events and titles
 
 ### 8.1 States and their sources
@@ -1355,7 +1410,7 @@ agent session or read conversation contents.
 ## 10. The first milestone must prove (or the design changes)
 
 > The complete list, with method, pass criterion and where each result is written back, is
-> [the verification register](verification-register.md) (202 rows). This section is
+> [the verification register](verification-register.md) (212 rows). This section is
 > its short form; where they differ the register wins.
 
 1. Shared-memory SQLite with FTS5 under two processes on Windows, macOS and Linux; a
@@ -1393,6 +1448,10 @@ agent session or read conversation contents.
 14. `claude import` and `claude --resume <absolute .jsonl path>` against a hand-built
     synthetic transcript in a scratch `CLAUDE_CONFIG_DIR`: does the CLI accept it and resume.
     Only then does any pair with Claude as destination move above `seed_prompt`.
+15. Browser integration B1–B10 (7.9): one-shot Moli correctness and optional rendering;
+    the bounded MCP use case; explicit Patchright startup; endpoint and hostile-content
+    isolation; profile/artifact privacy; control handover; whole-tree cleanup; and a
+    reproducible performance baseline. `moli serve` stays off unless B4 passes.
 
 ## 11. Acceptance tests (what "done" means)
 
@@ -1422,7 +1481,11 @@ agent session or read conversation contents.
    those that do not.
 10. **Unknown version:** an agent whose version fails the fixtures drops to launch-only
     with a visible reason instead of a wrong hop.
-11. **Portability:** tests 1-10 pass on Windows, macOS and Linux, or the failing system is
+11. **Browser boundaries:** B1–B10 pass for the enabled browser paths; hostile content
+    cannot change engine/scope or start UI, an error causes no fallback, explicit UI has
+    one controller, close/crash leaves no managed descendant, and no credential or
+    out-of-scope artifact leaks. Disabled `serve`/UI paths are named, not implied to work.
+12. **Portability:** tests 1-11 pass on Windows, macOS and Linux, or the failing system is
     named in the release notes.
 
 ## 12. Open points for the user

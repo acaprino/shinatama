@@ -61,6 +61,10 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
 12. A global overview tab of every instance started from or inside Shinatama: what
     each is doing (titled periodically by a low-cost model), how they collaborate,
     the flows and exchanges between them, and the work (5.13).
+13. Browser access for agents and the user (decided 2026-10-29): Moli by default
+    for fast operations, local HTML, previews and MCP web interfaces; Patchright
+    UI only as an explicit graphical path, with no Chrome resident and no
+    automatic fallback or session migration (5.15).
 
 ### Non-goals
 
@@ -79,9 +83,15 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
 - Choosing or configuring an external terminal (Windows Terminal, Warp). Shinatama
   is a text UI that runs in whatever terminal the user opened, like tmux; it is not
   a window of its own (the original request asked for "a terminal app"). **Decided**
-  (the user confirmed the frame-and-panels approach of 5.1). The widget (5.8) is the
-  only graphical part. Real graphic effects inside the main window (rounded corners,
-  gradients, shadows, free images, animation) are out of scope for that reason.
+  (the user confirmed the frame-and-panels approach of 5.1). The widget (5.8) is
+  Shinatama's only graphical UI of its own; the external Chrome window explicitly
+  started through 5.15 is a separate process. Real graphic effects inside the main
+  window (rounded corners, gradients, shadows, free images, animation) are out of
+  scope for that reason.
+- Automatic browser fallback or migration (5.15): no switching from Moli to
+  Patchright after an error, no shared cookies/login and no resident Chrome or
+  Patchright companion. Persistent `moli serve` and interactive Moli previews are
+  outside the first integration until their security gates pass.
 
 ### Anti-goals (would be a failure even if it technically works)
 
@@ -134,7 +144,9 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
 Terminal UI screens, shown in the mockups listed in section 11: project manager,
 session view with agent tabs, hop dialog and preview, find (search), Daodan
 palette, first-run setup. Command line: `shinatama find`, `resume`, `hop`,
-`doctor` (names are my call). Desktop widget: separate process (5.8).
+`doctor` (names are my call). Browser access: `/browse` with `read`, `preview`
+and explicit `open-ui` operations (5.15; spelling is my call). Desktop widget:
+separate process (5.8).
 
 ## 5. The parts
 
@@ -449,7 +461,8 @@ Suggested order: (1) skin system, PTY host and threads; (2) checkup: agents, Dao
 login detection; (3) sidecar; (4) project manager and launch; (5) search and
 resume within the same agent; (6) hop: text for every pair with the preview first,
 then native import agent by agent; (7) roundtable; (8) widget (the user generates the
-animation assets in parallel). The overview (5.13) grows alongside: the instance
+animation assets in parallel); (9) browser fast path, then the optional UI path
+after its gates (5.15). The overview (5.13) grows alongside: the instance
 table right after (1), the summaries and flows once hop (6) and the roundtable (7)
 exist.
 
@@ -615,6 +628,45 @@ untested).
 Still unproved: login persistence in a box (needs the user's sign-in), the interactive
 mode with per-instance sets, the one-week self-update observation and OpenCode side by
 side for `own`, macOS and Linux.
+
+### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)
+
+**Moli is the lightweight default; Patchright UI is explicit and on demand.**
+The detailed functional and technical contract is
+[browser-integration.md](browser-integration.md).
+
+- Agents and the user can read authorized local HTML and web targets, produce
+  static previews and use bounded MCP web-interface operations through Moli.
+  Text extraction does not enable layout or optional visual resources; a preview
+  does. General agent-provided JavaScript evaluation is not exposed initially.
+- The first Moli path is one-shot `moli fetch`, not `moli serve`. Interactive Moli
+  previews and persistent CDP/WebDriver automation wait for the transport and
+  hostile-content security gate (B4).
+- `open-ui` starts Patchright with visible Chrome only at the user's explicit
+  request. It supports user-driven login/MFA/CAPTCHA and normal graphical use in
+  a separate profile. Patchright is a driver, so its companion is lazy-loaded;
+  neither it nor Chrome is resident at startup or installed automatically.
+- `/browse` or its preinstalled skill chooses from the user's intent and displays
+  engine, reason and scope. Agents may use existing bounded read/preview grants;
+  they cannot open UI, broaden scope or authorize themselves. Ambiguous sensitive
+  requests ask for clarification.
+- **No automatic fallback:** a Moli error, timeout or unsupported page is shown
+  as such. The user may issue a new explicit Patchright command, but this starts
+  a new session without transferring cookies, login or control.
+- Static visual output uses terminal image support where verified and otherwise a
+  private artifact plus textual alternative. Text is not reported as a successful
+  visual preview. Full graphical interaction belongs to the external Chrome path.
+- Local roots, MCP/local services, redirects and subresources have explicit scope;
+  `localhost` is not blanket permission. Temporary profiles are the default and
+  screenshots/extracted content follow secret-aware retention rules.
+- One-shot operations can be independent within resource limits. An interactive
+  UI session has one controller, explicit user/agent handover and verified
+  whole-tree cleanup after close, cancellation or crash.
+
+No speed or memory saving is claimed before B10 measures equivalent workloads on
+the whole process tree. B1–B10 in the register define the evidence required. The
+reduced first scope and the eventual performance budget remain subject to overall
+design approval.
 
 ## 6. Agent adapter contract (builder's design, requirements mine)
 

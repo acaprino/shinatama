@@ -6,6 +6,7 @@ Status: design draft, not approved. No code yet.
 
 - Functional design: [docs/functional-design.md](docs/functional-design.md)
 - Technical design (threads, hop, exchange between instances, shared state): [docs/technical-design.md](docs/technical-design.md)
+- Browser integration (Moli fast path, explicit Patchright UI, routing, security and lifecycle gates; proposed 2026-10-29): [docs/browser-integration.md](docs/browser-integration.md)
 - Mukade integration for native session handover (API, host responsibilities and gates): [docs/mukade-handover.md](docs/mukade-handover.md)
 - Native support for Daodan (decided 2026-10-27; proposed, not approved): [docs/daodan-native-support.md](docs/daodan-native-support.md)
 - Session import/export: the library is now its own repository, [mukade](https://github.com/acaprino/mukade), which ships the spec ([session-interchange-spec.md](https://github.com/acaprino/mukade/blob/master/docs/session-interchange-spec.md)) and the tool tables ([tool-conversion-tables.md](https://github.com/acaprino/mukade/blob/master/docs/tool-conversion-tables.md)); technical design 5.4.1, register row H27.
