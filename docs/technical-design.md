@@ -198,6 +198,18 @@ state. PTY reads/parsing, file I/O and previews must not block the UI thread. Bo
 queues/resources and schedule fairly so noisy agents cannot freeze other panes.
 Closing a view does not kill its instance; explicit stop follows runtime cleanup.
 
+**Terminal profiles.** Each terminal view references a versioned harness profile
+with font family and size, cell metrics, cursor style, the 16-colour ANSI palette,
+and default foreground/background. Profiles are presentation data, not layout or
+session identity, and a missing or invalid profile falls back to a built-in
+monospace profile without restarting the PTY. A user-selected **follow skin** mode
+remaps default/ANSI colours only; it must preserve truecolour sequences emitted by
+the harness. Initialise the terminal with the profile before deriving rows/columns.
+Changing font or metrics recomputes cell size and delivers one final resize; the
+emulator must still handle Unicode, wide glyphs, IME input and fallback fonts.
+Bundled fonts and their licences are part of the dependency notice. The harness
+remains the sole owner of TUI layout, text and controls inside the PTY.
+
 **Documents/untrusted content.** Source, preview and future visual editors share a
 buffer revision; ignore stale renders. Save checks the file version against the
 version read and uses safe replacement where supported; retain the buffer on
@@ -215,7 +227,8 @@ select an embedded browser engine.
 panels, Markdown source/preview and file navigation. Verify mouse/keyboard tiling,
 minimum sizes, cancelled drops and corrupt layout recovery; restore without process
 auto-start; stable sessions/output through move/collapse/maximize; final PTY resize,
-focus/paste isolation, scaling and IME/Unicode; concurrent agent writes, dirty close,
+focus/paste isolation, per-profile font fallback and ANSI/truecolour output,
+scaling and IME/Unicode; concurrent agent writes, dirty close,
 save failures and stale renders; hostile Markdown/assets and bounded CPU/memory
 with many noisy panes. Run on macOS/Linux and assumed Windows with actual versions
 and gaps recorded. Browser, DOCX and mini-app gates remain separate. No implemented

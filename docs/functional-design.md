@@ -172,8 +172,10 @@ draws around and over it:
 - **Windows over the agent:** the hop dialog (`^H`), the Daodan palette (`^K`) and
   find. Native overlays leave the emulator screen intact and restore focus to the
   originating pane when dismissed.
-- **Skin colours inside the pane:** the agent's standard 16-colour palette is remapped
-  to the skin's palette, so the Shinatama pink reaches the agent's own output.
+- **Terminal presentation inside the pane:** each view uses its harness's terminal
+  profile (font, metrics, ANSI palette and cursor), so the agent keeps its own
+  visual identity. Chrome uses the active skin. An explicit follow-skin option
+  may remap the default and 16-colour ANSI palette; it never rewrites truecolour.
 
 What stays the agent's: the text it draws (tables, tool calls, reasoning, choices) and
 any colour it picks at 24-bit. Not yet verified, to be proved by the first milestone:
@@ -346,10 +348,15 @@ from a skin definition, never hard-coded.
 - **TCTF:** steel grey with orange, cut corners, filled active tab.
 - **Sumi:** ink black with vermilion.
 
-In the native UI a skin controls colours, typography, borders and panel states;
-terminal palette remapping stays separate. Effects seen in the HTML
-mockups (scan lines, clipped corners, glow) illustrate the mood and are not
-requirements.
+In the native UI a skin controls the chrome: window, menus, tabs, side panels,
+UI typography, borders and panel states. Agent terminals use separate terminal
+profiles: each harness has a default monospace font and metrics, ANSI palette,
+default foreground/background and cursor. The profile gives the harness a
+stable identity inside its pane; it does not replace or reinterpret the TUI.
+A user may opt into **follow Shinatama skin**, which remaps only the default and
+16-colour ANSI palette. Truecolour output chosen by the harness remains
+untouched. Effects seen in the HTML mockups (scan lines, clipped corners, glow)
+illustrate the mood and are not requirements.
 
 The references are *Oni* (Bungie, 2001) and *Ghost in the Shell*; the user's wider
 Daodan/Shinatama family shares that world. The colour values in the mockups are
@@ -680,6 +687,11 @@ leaves. Side panes are resizable and collapsible. Earlier terminal/HTML mockups
 are interaction references, not binding implementation choices. Toolkit selection
 and exact shortcuts remain builder proposals.
 
+**Initial terminal-first scope (2026-10-30):** project selector, resizable terminal
+tiles, leaf tab groups and per-harness terminal profiles. Git integration, file
+navigator, diffs, thread side panes, hop and Daodan surfaces are not part of this
+first UI. The rest of this section specifies later workspace surfaces.
+
 **Interactions and lifecycle:**
 
 - Drag splitters to resize; drag tabs to reorder, move between groups or create
@@ -701,11 +713,20 @@ and exact shortcuts remain builder proposals.
 
 | Surface | Behaviour / boundary |
 | --- | --- |
-| Agent terminal | Real PTY/emulator, resize, selection, scrollback and focus isolation; multiple agents visible together. |
+| Agent terminal | Real PTY/emulator, resize, selection, scrollback and focus isolation; multiple agents visible together. Each view uses its harness's terminal profile (font, cell metrics, ANSI palette); Shinatama chrome keeps the active skin. |
 | File navigator | Project tree, search and explicit open in a tab/pane; no implicit execution or arbitrary-root access. |
 | Markdown | Rendered reading, source editing and source/preview split. Direct visual editing is requested but gated by editor/syntax fidelity checks before delivery. |
 | File/document preview | Supported text/image artifacts. DOCX reading needs a separate renderer and declared fidelity; DOCX editing/full Office support is not implied. |
 | Browser / integrated apps | Static previews fit 5.15. Interactive embedded browsing and mini-app hosting need separate design/security gates; JanuraCode app compatibility is not assumed. |
+
+**Terminal presentation:** the harness owns what appears inside the PTY: layout,
+glyphs, spacing, prompts, boxes and colours. Shinatama does not redraw those
+widgets or pretend they are native controls. The terminal profile controls only
+what the emulator owns: monospace font and cell metrics, ANSI palette, default
+foreground/background and cursor. If a profile font is unavailable, the terminal
+falls back to the built-in monospace face without changing the PTY session.
+Following the Shinatama skin is an explicit compatibility option, not the
+default.
 
 Editing provides undo/redo, visible dirty state and explicit save. Detect external
 changes, including agent writes: preserve the buffer and offer reload/compare/

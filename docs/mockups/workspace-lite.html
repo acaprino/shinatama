@@ -326,62 +326,125 @@
   .tile-view[hidden] { display: none; }
 
   .terminal {
+    --term-bg: var(--terminal);
+    --term-fg: #c8d6e4;
+    --term-dim: var(--dim);
+    --term-accent: var(--accent);
+    --term-tool: var(--tool);
+    --term-name: var(--text-2);
+    --term-border: var(--line);
+    --term-warn: var(--amber);
+    --term-add: var(--cyan);
+    --term-del: var(--red);
+    --term-faint: #5f7387;
+    --term-font: var(--font-mono);
+    --term-size: 11px;
+    --term-tracking: 0;
     min-width: 0; min-height: 0;
     overflow: auto;
     padding: 13px 14px 16px;
     outline: none;
-    background: var(--terminal);
-    color: #c8d6e4;
-    font-family: var(--font-mono);
-    font-size: 11px;
+    background: var(--term-bg);
+    color: var(--term-fg);
+    font-family: var(--term-font);
+    font-size: var(--term-size);
+    letter-spacing: var(--term-tracking);
     line-height: 1.6;
     scrollbar-gutter: stable;
   }
-  .terminal:focus-visible { outline: 1px solid var(--accent-soft); outline-offset: -2px; }
+  .terminal:focus-visible { outline: 1px solid var(--term-accent); outline-offset: -2px; }
   .terminal p { margin: 0 0 7px; white-space: pre-wrap; overflow-wrap: anywhere; }
   .terminal p:last-child { margin-bottom: 0; }
-  .t-user { display: flex; align-items: flex-start; gap: 7px; color: var(--dim); }
-  .t-user .prompt { color: var(--accent); font-weight: 700; flex: 0 0 auto; }
-  .t-user .text { color: var(--text); }
+  .t-user { display: flex; align-items: flex-start; gap: 7px; color: var(--term-dim); }
+  .t-user .prompt { color: var(--term-accent); font-weight: 700; flex: 0 0 auto; }
+  .t-user .text { color: var(--term-fg); }
   .t-agent { display: flex; align-items: flex-start; gap: 7px; }
-  .t-agent .spark { flex: 0 0 auto; color: var(--agent, var(--accent)); }
+  .t-agent .spark { flex: 0 0 auto; color: var(--term-accent); }
   .t-agent .body { min-width: 0; }
-  .t-agent strong { color: var(--text); font-weight: 600; }
-  .t-tool { display: flex; align-items: flex-start; gap: 7px; color: var(--muted); }
-  .t-tool .mark { flex: 0 0 auto; color: var(--tool); }
-  .t-tool .name { color: var(--text-2); }
-  .t-tool .arg { color: var(--dim); }
-  .t-result { display: flex; gap: 7px; padding-left: 18px; color: var(--dim); }
-  .t-result .branch { color: var(--line-strong); flex: 0 0 auto; }
-  .t-add { color: var(--cyan); }
-  .t-del { color: var(--red); }
-  .t-dim { color: var(--dim); }
-  .t-faint { color: #5f7387; }
-  .t-cyan { color: var(--cyan); }
-  .t-blue { color: var(--tool); }
-  .t-pink { color: var(--accent-soft); }
+  .t-agent strong { color: var(--term-fg); font-weight: 600; }
+  .t-tool { display: flex; align-items: flex-start; gap: 7px; color: var(--term-dim); }
+  .t-tool .mark { flex: 0 0 auto; color: var(--term-tool); }
+  .t-tool .name { color: var(--term-name); }
+  .t-tool .arg { color: var(--term-dim); }
+  .t-result { display: flex; gap: 7px; padding-left: 18px; color: var(--term-dim); }
+  .t-result .branch { color: var(--term-border); flex: 0 0 auto; }
+  .t-add { color: var(--term-add); }
+  .t-del { color: var(--term-del); }
+  .t-dim { color: var(--term-dim); }
+  .t-faint { color: var(--term-faint); }
+  .t-cyan { color: var(--term-accent); }
+  .t-blue { color: var(--term-tool); }
+  .t-pink { color: var(--term-accent); }
   .cursor {
     display: inline-block; width: 6px; height: 12px; margin-left: 2px;
-    background: var(--accent); vertical-align: -2px;
+    background: var(--term-accent); vertical-align: -2px;
     animation: caret 1.1s steps(1) infinite;
   }
   @keyframes caret { 0%, 44% { opacity: 1; } 45%, 100% { opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .cursor { animation: none; } }
-  .claude-terminal { --agent: var(--claude); }
-  .codex-terminal { --agent: var(--codex); }
-  .opencode-terminal { --agent: var(--opencode); }
-  .pi-terminal { --agent: var(--pi); }
+
+  /* Each harness carries its own terminal presentation profile. */
+  .claude-terminal {
+    --agent: var(--claude);
+    --term-bg: #0c0a09;
+    --term-fg: #e7ded6;
+    --term-dim: #ab998c;
+    --term-accent: #e08a66;
+    --term-tool: #e4b98b;
+    --term-name: #f0e6de;
+    --term-border: #3b2c24;
+    --term-warn: #e8bb72;
+    --term-font: "Consolas", "Cascadia Mono", monospace;
+    --term-size: 11.3px;
+  }
+  .codex-terminal {
+    --agent: var(--codex);
+    --term-bg: #071019;
+    --term-fg: #dbe8f3;
+    --term-dim: #8ea7bb;
+    --term-accent: #7fa9ff;
+    --term-tool: #87d4ef;
+    --term-name: #c7d9e8;
+    --term-border: #22384b;
+    --term-font: "Cascadia Mono", Consolas, monospace;
+    --term-size: 10.7px;
+    --term-tracking: .01em;
+  }
+  .opencode-terminal {
+    --agent: var(--opencode);
+    --term-bg: #07110e;
+    --term-fg: #d5e8e3;
+    --term-dim: #84a69f;
+    --term-accent: #63d8c5;
+    --term-tool: #b1e2d5;
+    --term-name: #cbe6df;
+    --term-border: #233b36;
+    --term-font: "Lucida Console", "Cascadia Mono", monospace;
+    --term-size: 11px;
+  }
+  .pi-terminal {
+    --agent: var(--pi);
+    --term-bg: #0d0b14;
+    --term-fg: #e4def0;
+    --term-dim: #a29cb4;
+    --term-accent: #b7a4ff;
+    --term-tool: #d3c8ff;
+    --term-name: #dcd4ec;
+    --term-border: #332d45;
+    --term-font: "Cascadia Code", "Cascadia Mono", Consolas, monospace;
+    --term-size: 10.9px;
+  }
 
   .tui-approval {
     margin: 8px 0 9px 18px;
     padding: 7px 0;
-    border-top: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
-    color: var(--text-2);
+    border-top: 1px solid var(--term-border);
+    border-bottom: 1px solid var(--term-border);
+    color: var(--term-fg);
     white-space: pre-wrap;
   }
-  .tui-approval .tui-title { color: var(--amber); }
-  .tui-approval .tui-command { color: var(--tool); }
+  .tui-approval .tui-title { color: var(--term-warn); }
+  .tui-approval .tui-command { color: var(--term-tool); }
 
   .terminal-status {
     min-width: 0;
@@ -399,6 +462,7 @@
   .terminal-status .status-agent b { color: var(--text-2); font-weight: 500; }
   .terminal-status .spring { flex: 1; }
   .terminal-status .state { color: var(--agent, var(--muted)); }
+  .terminal-status .profile-name { color: var(--dim); }
   .terminal-status .path { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .terminal-status .size { color: var(--dim); }
 
@@ -481,7 +545,7 @@
     .toolbar-button.primary .button-label { display: none; }
     .material { display: none; }
     .harness-tab { max-width: 128px; padding: 0 8px; }
-    .terminal-status .path { display: none; }
+    .terminal-status .path, .terminal-status .profile-name { display: none; }
     .board { grid-template-columns: minmax(0, 1fr) 5px minmax(0, 1fr); padding: 6px; }
   }
 </style>
@@ -616,6 +680,7 @@
           <div class="terminal-status" style="--agent:var(--claude)">
             <span class="status-agent"><span class="dot"></span><b>Claude Code</b> · claude·04</span>
             <span>Sonnet 4.5</span>
+            <span class="profile-name">profile claude</span>
             <span class="state">working</span>
             <span class="spring"></span>
             <span class="path current-path">~/Projects/shinatama</span>
@@ -636,6 +701,7 @@
           <div class="terminal-status" style="--agent:var(--opencode)">
             <span class="status-agent"><span class="dot"></span><b>OpenCode</b> · opencode·02</span>
             <span>local</span>
+            <span class="profile-name">profile opencode</span>
             <span class="state">idle</span>
             <span class="spring"></span>
             <span class="path current-path">~/Projects/shinatama</span>
@@ -683,6 +749,7 @@
           <div class="terminal-status" style="--agent:var(--codex)">
             <span class="status-agent"><span class="dot"></span><b>Codex</b> · codex·07</span>
             <span>GPT-5.1</span>
+            <span class="profile-name">profile codex</span>
             <span class="state">needs input</span>
             <span class="spring"></span>
             <span class="path current-path">~/Projects/shinatama</span>
@@ -701,6 +768,7 @@
           <div class="terminal-status" style="--agent:var(--pi)">
             <span class="status-agent"><span class="dot"></span><b>Pi</b> · pi·01</span>
             <span>local</span>
+            <span class="profile-name">profile pi</span>
             <span class="state">idle</span>
             <span class="spring"></span>
             <span class="path current-path">~/Projects/shinatama</span>
@@ -1050,6 +1118,7 @@
         <div class="terminal-status" style="--agent:var(--${harness})">
           <span class="status-agent"><span class="dot"></span><b>${config.name}</b> · ${harness}·new</span>
           <span>${config.model}</span>
+          <span class="profile-name">profile ${harness}</span>
           <span class="state">ready</span>
           <span class="spring"></span>
           <span class="path current-path">${activeProjectPath}</span>
