@@ -1,6 +1,7 @@
 # tool state and the retired marketplace checkout
 .jcode/
 .daodan/
+effectiveness-metrics.json
 # build outputs
 target/
 # the bench regenerates its evidence: sources, captures, resumes, matrices

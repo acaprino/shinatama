@@ -40,7 +40,7 @@ Why it matters: Daodan's lock is the task holder in `.daodan/agenda.json`. A hop
 
 ## 3. What Shinatama reads
 
-Source of truth: `.daodan/agenda.json`, schema `daodan/agenda/v1`, in the **main checkout**, found through the Git common directory (`AGENTS.md:96-99`). Outside Git the project folder is its own home (the `.daodan-root` sentinel). Row fields used (`plugins/work-controller/skills/work-record/scripts/run_state.py:1504-1523`):
+Source of truth: `.daodan/agenda.json`, schema `daodan/agenda/v1`, in the **main checkout**, found through the Git common directory (`AGENTS.md:96-99`). Outside Git, or when the common directory is not a plain `.git`, the project folder is its own home; `.daodan-root` is the marker file Daodan keeps inside `.daodan/` to prove the directory is dedicated to it, not a project sentinel (`checkout_home` and `roots` in `run_state.py`, work-controller 1.0.0). Row fields used (`plugins/work-controller/skills/work-record/scripts/run_state.py:1504-1523`):
 
 `run_id`, `operation`, `objective`, `status`, `loop`, `branch`, `worktree`, `head`, `phase`, `waves.{sealed,total}`, `adr`, `review`, `questions` (count of unanswered), `holder.{session,host,since}`, `updated_at`.
 
@@ -64,7 +64,15 @@ A thread is linked to a task when its working directory equals the row's `worktr
 
 When the source thread is linked to an open task, the hop dialog gains a **Daodan task** block: `run_id`, objective, phase, branch, worktree, unanswered questions, current holder. Two modes, matching 5.2:
 
-- **Close source (default).** The seed to the destination carries a Daodan block: the task identity above, plus the sentence that the source session is closed and the user confirmed it. The destination agent then continues through Daodan's own continue flow, which finds the task by branch and takes over on that confirmation. Shinatama itself writes nothing.
+- **Close source (default).** The preliminary seed to the destination carries the task
+  identity above and says that close was requested but is **not yet confirmed**; the task
+  remains held by the source and the destination may read it, not take it over. Only after
+  the hop reaches COMMITTED and the source process has actually closed does Shinatama send
+  a separate handover message through the destination's normal channel, stating that the
+  source session is closed and the user confirmed the takeover. The destination agent then
+  continues through Daodan's own continue flow. If closure is refused, crashes or remains
+  uncertain, that message is not sent and the holder is unchanged. Shinatama itself writes
+  no Daodan state.
 - **Fork.** The source stays live and keeps the holder. The destination is a new thread **without** the task: its seed says the task is held by the source session and may be read, not written, until the source closes. The two threads never both hold one task.
 
 The preview (5.2, item 5) shows the Daodan block verbatim.
@@ -79,7 +87,7 @@ Adds, for the selected thread's task: *Show status* and *Continue this task*, ty
 
 ### 4.6 All plugins enabled
 
-The user, 2026-10-27: "mi aspetto che attivi tutti i plugin di shinatama" (I expect it to activate all the plugins). The checkup (5.5) enables **every plugin the Daodan marketplace lists**, read from its manifest at check time and never from a list kept in Shinatama: 48 at marketplace 42.7.3 (`.claude-plugin/marketplace.json` in the Daodan repository), including the verticals that returned from the old Shinatama marketplace. Dependencies come along because everything is on.
+The user, 2026-10-27: "mi aspetto che attivi tutti i plugin di shinatama" (I expect it to activate all the plugins). The checkup (5.5) enables **every plugin the Daodan marketplace lists**, read from its manifest at check time and never from a list kept in Shinatama: 48 at marketplace 42.7.3 and still 48 at 1.0.0, after Daodan reset every version on 2026-10-29 (`.claude-plugin/marketplace.json` in the Daodan repository), including the verticals that returned from the old Shinatama marketplace. Dependencies come along because everything is on.
 
 - Plugins the user disabled stay disabled (D3).
 - A plugin whose MCP server does not start is reported by the checkup and never blocks the launch.
@@ -93,7 +101,7 @@ Cost, said once: "all" puts every plugin's skill descriptions and tool definitio
 
 Daodan does the onboarding itself only when one of its workflows runs. `first_use_probe` (`plugins/work-controller/skills/work-record/scripts/run_state.py:102-110`) is called at the start of `/daodan:init-project`, `/daodan:onboard-project`, `/daodan:map-code` and the other workflows, and `references/first-use.md` of `project-delivery` then asks whether to keep decision records and how deep to analyze (none, lite, deep). Nothing opens that by itself when a project is merely opened: the only hooks Daodan declares are the `research` plugin's session-start and prompt hooks, which emit Science Mode routing and nothing else. Shinatama adds the trigger, not the logic.
 
-When a project is opened in the project manager, or a thread is first started in it, Shinatama checks that `.daodan`, `.codebase-map` and `.codebase-xray` are all absent in the project and in the main checkout (the test of `run_state.py:99-110`; `.daodan` lives in the main checkout). If so it offers once:
+When a project is opened in the project manager, or a thread is first started in it, Shinatama checks that neither `.codebase-map` nor `.daodan/runs` exists as a directory in the project or in its main checkout (the test of `first_use_probe`, `run_state.py:99-112` in work-controller 1.0.0; a bare `.daodan/` does not count, because Daodan's process store and a declined decision-record answer create it before any run exists). If so it offers once:
 
 - **Onboard**: `/daodan:onboard-project`, the handover dossier; changes nothing in the project.
 - **Initialize**: `/daodan:init-project`: map, environment, baseline.
@@ -118,5 +126,5 @@ Register rows D9 to D14 and D4 ([verification-register.md](verification-register
 2. Shinatama never runs a Daodan script. It only reads and types.
 3. Fork mode hands over no task. Safer than sharing the holder; revisit if forks of task threads turn out to be the common case.
 4. The superseded mockup `daodan-flow.html` (threads linked to Daodan tasks) is not revived as is; a new mockup of the project manager row and the hop block comes with approval.
-5. The onboarding check is reimplemented in Shinatama (three directory tests) instead of calling Daodan's `first-use` script, to keep "Shinatama never runs a Daodan script" (call 2). D14 checks parity.
+5. The onboarding check is reimplemented in Shinatama (two directory tests, on the project and on its main checkout) instead of calling Daodan's `first-use` script, to keep "Shinatama never runs a Daodan script" (call 2). D14 checks parity.
 6. The offer is made once per project and never auto-runs a command, same typed-not-sent rule as the palette.

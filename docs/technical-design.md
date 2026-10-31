@@ -1,6 +1,6 @@
 # Shinatama engine — threads, hop, exchange between instances, shared state
 
-Date: 2026-10-26; native tiling revision: 2026-10-29
+Date: 2026-10-26; native tiling revision: 2026-10-29; last revised 2026-10-31.
 Status: draft, not approved. Companion of
 [the functional design](functional-design.md); sections 5.2, 5.10
 and 5.13 of that document point here for the how.
@@ -34,9 +34,11 @@ they must hold.
    database, 4.3). A fork hop leaves the source thread live, so its destination is a
    **new thread** (`parent_thread_id` = the source thread); the invariant then holds
    on both (6.2).
-2. **The source is never modified.** Shinatama never writes into the source agent's
-   session store, and never deletes or moves it. "Archived" is a mark in Shinatama's own
-   database.
+2. **The source records are never modified.** Shinatama never edits, deletes or moves
+   the source session's records. "Archived" is a mark in Shinatama's own database.
+   A post-v1, gated same-store handoff may create only a new session with a distinct
+   id in the authorized destination store; creating that session is not permission to
+   alter the source records.
 3. **Every step is journaled before its effect and idempotent after it** (6.3), keyed by
    the hop id, so a crash at any point is recovered by reading the journal.
 4. **What the destination receives is exactly what the user previewed**, stored
@@ -46,11 +48,14 @@ they must hold.
 6. **A message from another agent is quoted data**, never an instruction and never an
    authorization (7.6).
 7. **Native stores are read-only in v1**, except through the agent's own commands.
-   Writing a foreign session file is stage 3 and needs its own gate (5.4).
+   V1 hops use only `seed_prompt` or `native_resume`. Writing a foreign session file
+   is post-v1 and needs its own pair/version, privacy, store and recovery gates (5.4).
 
 ## 2. Vocabulary
 
 - **Agent**: one of claude, codex, opencode, pi (Gemini is launch-only).
+- **Store root** `store_root`: one harness's session store (a box, the user's system home
+  or a read-only portable root); every native session id is scoped by it (4.2).
 - **Instance** `i_…`: a running agent process hosted in one Shinatama pane.
 - **Native session**: the agent's own record of a conversation (file or database rows).
 - **Segment** `s_…`: Shinatama's record that "this thread lived in this native session of
@@ -71,7 +76,8 @@ they must hold.
   through one SQLite file (section 4) and, optionally, a local socket used only to wake
   a sleeping process sooner (4.6).
 - The hosted agent gets these environment variables at launch: `SHINATAMA_INSTANCE`
-  (instance id), `SHINATAMA_THREAD`, `SHINATAMA_DB` (database path). They are the stable
+  (instance id), `SHINATAMA_THREAD`, `SHINATAMA_DB` (database path) and
+  `SHINATAMA_INSTANCE_TOKEN` (a per-launch random token, 7.5). They are the stable
   identity of the instance. The agent's own session id is not used for identity: it
   changes on `/resume`, which already broke the bili MCP shim (docs/sidecar.md,
   2026-10-26). [V for the failure; C for the fix]
@@ -166,7 +172,7 @@ Node = Split { axis, relative_weights, children }
      | TabGroup { tabs: [PanelId], active_tab }
 PanelDescriptor { panel_id, kind, resource_ref, view_state }
 kind = agent_terminal | files | markdown | file_preview | browser_preview
-     | integrated_app
+     | integrated_app | session_detail
 ```
 
 Panel identity is separate from instance/segment/thread identity. Terminal views
@@ -176,6 +182,26 @@ prevents duplicate writers. Moving a tab reparents the view without relaunch.
 Cross-window live PTY transfer is outside this revision. Share document buffers by
 canonical file identity rather than duplicating independent writable buffers.
 Gated panel kinds show unavailable placeholders until explicitly enabled.
+
+**Session panels [C].** `session_detail` references `(harness,
+native_session_id, store_root_id)` and a view state; a file path is never the
+identity. The adapter resolves the root and capabilities and delegates native parsing
+to Mukade. Listing and transcript reads run off the UI thread against an explicitly
+selected root, with an unavailable or stale state when the session, store or
+executable is missing or changes. The declared Mukade pin has whole-session
+`Reader::read`, not bounded paging. Before the incremental-reader gate, the adapter
+enforces a pre-read size cap and returns `too large` without loading the session.
+The required paged API bounds input bytes, decoded records, retained raw data and
+subprocess capture end-to-end and needs a reviewed Mukade revision or an adapter-owned
+bounded native reader; limiting cache or rendering alone is not sufficient. Each
+asynchronous result carries `(request_id, panel_revision, store_root_id,
+native_session_id)` and is discarded after cancellation or a revision change. Child-process readers inherit the adapter's isolated launch context, timeout
+and cleanup. Opening is read-only and must not resume or write. Live seed hops and
+historical handoffs are separate explicit commands; post-v1 native writes additionally
+require confirmation, journal and a reserved destination for reconciliation. Restoring
+a panel never replays a command. Raw display and copy use redaction by default and are
+never logged or persisted by the UI. Lineage distinguishes the thread chain, native
+parent and native children and does not infer missing or ambiguous relations.
 
 **Transitions/persistence [C].** Apply split/move/close as validated atomic tree
 operations; reject cycles, duplicate membership, invalid active tabs, non-finite/
@@ -261,12 +287,15 @@ Authoritative (lost = lost work history):
 
 ```
 project(id, path UNIQUE, name, pinned, last_opened, root)
+store_root(id, harness, kind, resolved_path, origin, config_revision, access)
+                                                   -- kind: box | system; origin: configured | env | catalog | scan;
+                                                   -- access: read_only | read_write
 thread(id, project_id, kind, title, state, created_at, updated_at,
        parent_thread_id, summaries_excluded)            -- kind: work | roundtable
-segment(id, thread_id, ordinal, agent, native_ref, native_session_id, cwd, branch,
+segment(id, thread_id, ordinal, agent, store_root_id, native_ref, native_session_id, cwd, branch,
         worktree, started_at, ended_at, end_reason,
         native_cursor, imported_from_segment_id, created_by_hop_id,
-        UNIQUE(agent, native_session_id))
+        UNIQUE(store_root_id, native_session_id))
 activation(id, segment_id, started_at, ended_at)        -- a segment can be resumed again
 hop(id, thread_id, from_segment_id, to_agent, to_segment_id, strategy, mode, state,
     state_detail, plan_json, snapshot_id, nonce, created_at, updated_at, error)
@@ -285,19 +314,26 @@ setting(key, value)
 Operational (can be rebuilt or discarded):
 
 ```
-instance(id, owner_pid, owner_start_time, pid, agent, thread_id, segment_id, project_id,
+instance(id, owner_pid, owner_start_time, pid, agent, store_root_id, thread_id, segment_id, project_id,
          cwd, branch, worktree, state, state_since, state_source, doing_title,
          doing_updated_at, context_fill, tokens, cost_usd, started_at, ended_at, last_seen)
 event(seq INTEGER PRIMARY KEY AUTOINCREMENT, ts, instance_id, kind, payload)
 summary_log(id, instance_id, ts, model_label, input_tokens, output_tokens, cost_usd, title)
-session_index(agent, native_session_id, native_ref, cwd, title, first_ts, last_ts, turns,
-              content_hash, mtime, indexed_at, PRIMARY KEY(agent, native_session_id))
-session_text(rowid, agent, native_session_id, role, ts, ordinal)   -- + FTS5 virtual table over text
+session_index(store_root_id, agent, native_session_id, native_ref, cwd, title, first_ts, last_ts, turns,
+              content_hash, mtime, indexed_at, PRIMARY KEY(store_root_id, native_session_id))
+session_text(rowid, store_root_id, agent, native_session_id, role, ts, ordinal)   -- + FTS5 virtual table over text
 ```
 
 `native_cursor` is a JSON object per agent (the last entry id or ordinal, the file length
 or row sequence, and a hash of what was read), enough to know later "what happened in
 that session after this point" (6.6).
+
+Every native session reference is scoped by `store_root_id`; agent plus native id alone
+is not an identity. A root's canonical location, origin and configuration revision are
+recorded once, and changing or reconnecting a root creates a new revision rather than
+silently reassigning sessions. Migrations preserve the old root mapping; removing a root
+marks its records unavailable instead of deleting thread history. Additional system roots
+are `read_only` and cannot be selected as a box's write destination.
 
 ### 4.3 Constraints that enforce invariants
 
@@ -342,9 +378,21 @@ agents' sessions. That is sensitive. `shinatama forget <thread>` deletes a threa
 snapshots, messages, summaries and index rows; a thread can be marked
 `summaries_excluded`; indexing of a project can be switched off; no data leaves the
 machine except the explicit calls in 8.4 (summaries) and the agents' own traffic through
-the sidecar.
+the sidecar. A hosted agent with a shell runs as the same user and can open the file; this
+section states what Shinatama does with the data, not isolation from the agents it hosts (7.9).
 
 ## 5. Reading the agents: adapters and the canonical transcript
+
+**Where the readers live (2026-10-31).** The native readers for the four agents are Mukade's
+(`Reader::list`, `list_all`, `read`, one per harness; `SessionInfo` for listing, `Session` with
+every source record kept verbatim for reading). Shinatama's adapters do not parse native stores
+a second time: `list_sessions` and `read_transcript` (5.5 B) call Mukade and project its
+`Session` onto the canonical transcript of 5.1. The rules of 5.2 and the store facts of 5.3 are
+the requirements those readers meet and the facts the index relies on; the register rows that
+test readers (CL6, CX10, OC3, PI3, H15) run against Mukade's fixtures at the declared pin. The
+one exception is the bounded incremental reader of main 5.16 and 5.5 B, which Shinatama may own
+until a reviewed Mukade revision exposes it, and must then replace, not keep beside Mukade's.
+[C]
 
 ### 5.1 Canonical transcript (the intermediate form)
 
@@ -542,8 +590,10 @@ For native handovers, reading and writing are delegated to the `mukade` library:
 repository [`acaprino/mukade`](https://github.com/acaprino/mukade). It started here as an
 in-house interchange crate informed by the H27 bench and was published on its own on 2026-10-28, spec,
 tool tables, fixtures and conformance report included. Shinatama depends on the `mukade` crate —
-to be declared in `[workspace.dependencies]` when the runtime's first crate exists — and calls the
-library in-process through `hop()` on top of one reader and one writer per agent. The H27 bench
+to be declared in `[workspace.dependencies]` when the runtime's first crate exists. In v1 only its
+readers and read-side APIs are used through the adapters; `hop()` and native writers are post-v1.
+Post-v1 the library is called in-process through `hop()` on top of one reader and one writer per
+agent. The H27 bench
 probed the harnesses using an external converter, not this current API. **No third-party session
 converter is used** (the user's decision of 2026-10-27;
 it replaces the earlier plan to link an external converter).
@@ -561,7 +611,10 @@ it replaces the earlier plan to link an external converter).
   markers (CX4), so the Codex writer writes the rollout; Claude Code and Pi have no import and
   their writers write the session file. Every write is a new session, in the agent's default
   store or in a scratch root for tests, never while the agent runs against the same store.
-- **Evidence:** H27 (record [`2026-10-27-H27.md`](https://github.com/acaprino/mukade/blob/master/docs/verification/2026-10-27-H27.md), bench in `verify/H27/`): native
+- **Evidence:** H27 (the probe record of 2026-10-27, since removed from Mukade's documentation
+  in its reorganization; its current records are indexed in
+  [docs/README.md](https://github.com/acaprino/mukade/blob/master/docs/README.md#verification-records);
+  bench in `verify/H27/`): native
   record shapes of the four agents, what each sends to the model on resume and after its own
   compaction, and how each destination reacts to wrongly shaped sessions. Mukade's own tests
   and fixtures are separate from that external-converter probe.
@@ -596,13 +649,19 @@ system_homes() -> [home]                              -- read-only: search and i
                                                       -- user's sessions while in a Box
 
 B. Read side: list and EXPORT
-list_sessions(filter) -> [SessionSummary{native_ref, id, cwd, branch, title,
-                                         first_ts, last_ts, turns, bytes}]
-read_transcript(native_ref, from_cursor?) -> Transcript + new cursor       -- canonical form, 5.1
+list_sessions(store_root_id, filter, include_children) -> [SessionSummary{
+    native_ref, id, cwd?, branch?, title?, first_ts?, last_ts?, turns?, bytes?,
+    archived?, native_parent?}]
+                                                 -- unknown metadata stays unknown; no full read per row;
+                                                 -- Mukade list/list_all give id, path, title?, cwd?,
+                                                 -- updated?, archived, parent? (OpenCode and Pi only)
+read_transcript(native_ref, from_cursor?, max_bytes, max_records) -> TranscriptPage + new cursor
+                                                 -- canonical form, 5.1; bounded end-to-end, lazy raw;
+                                                 -- requires incremental-reader gate, not current Reader::read
 export(native_ref | thread, opts) -> an interchange file (5.5.1) + attachment files
 export_native(native_ref) -> the agent's OWN export where it has one       -- backup (opencode)
 
-C. Write side: IMPORT
+C. Write side: IMPORT (post-v1 only)
 import_support() -> None | Official | Experimental | Stage3                 -- 5.4
 import(transcript, cwd, opts) -> native_ref    -- the agent's official import where it exists;
                                                 -- stage 3 only when gated; never edits a session.
@@ -615,17 +674,17 @@ D. Run side: start, RESUME, fork
 start_new(cwd, spec) -> Instance     -- spec: seed channel, instance env, launch overrides,
                                      -- chosen session id when the agent allows it (5.7)
 resume(native_ref, cwd, catch_up?) -> Instance      -- native, same agent only
-fork(native_ref) -> native_ref                      -- optional; fork hops (6.2): a NEW native
+fork(native_ref) -> native_ref                      -- optional; post-v1 fork hops (6.2): a NEW native
                                                    -- session id, never a resume of a live session,
-                                                   -- and never a write into the source's store
+                                                   -- and never a modification of source records
 attach_backend(...) -> Instance                     -- optional, 5.7 item 4
 
 E. HANDOVER (the adapter's part of a hop; the engine owns the state machine, 6.3)
 handover_out(instance) -> Snapshot   -- check idle, read transcript, cursor, attachments, git state
 handover_in(snapshot, strategy) -> Instance
                                       -- strategy native_resume | native_import | seed_prompt;
-                                      -- native_import uses Mukade's new native session and receipt;
-                                      -- seed_prompt delivers the seed on the agent's channel
+                                      -- v1: native_resume | seed_prompt only; native_import is post-v1
+                                      -- post-v1 native_import uses Mukade's new native session and receipt;
 confirm_receipt(instance, nonce) -> Receipt         -- technical evidence + the nonce reply
 catch_up(instance, turns) -> ok                     -- 6.6
 release(instance) -> ok              -- close the source instance; never touches its native session
@@ -674,6 +733,10 @@ the agent deleted it (Claude does after 30 days, 5.7) or moved between machines.
   `user_text`, `assistant_text` and `compaction` items, in order, and the same tool items as
   digests. What an agent cannot represent natively on import is listed in the report.
 
+The file is Shinatama's redacted projection of the canonical transcript; Mukade's interchange
+JSON (`mukade dump`, the "portable Mukade JSON" export of main 5.16) is Mukade's own document.
+Neither is parsed into the other, and neither is a parser of native stores (section 5 intro).
+
 #### 5.5.2 The same operations on the command line
 
 Native workspace UI and scripts call the same adapter functions:
@@ -682,12 +745,16 @@ Native workspace UI and scripts call the same adapter functions:
 shinatama sessions [--agent A] [--project P] [--json]       -> list_sessions
 shinatama find "text" [--agent A] [--json]                  -> the text index
 shinatama export <thread | agent:session> [-o file.stx.jsonl] [--mode full|portable]
-                      [--format stx|md|json] [--with-attachments]                  -> export
+                      [--format stx|mukade|native|md] [--with-attachments]         -> export
 shinatama import <file> --agent A [--cwd DIR] [--dry-run]   -> import (+ verify_import)
 shinatama resume <thread | agent:session> [--agent A]       -> resume, or a hop if A differs
 shinatama hop <thread> --to A [--preview] [--yes]           -> handover (6)
 shinatama doctor [--agent A]                                -> detect, fixture_gate, auth_status
 ```
+
+`--format`: `stx` is 5.5.1; `mukade` is Mukade's interchange JSON; `native` is the agent's
+own export where it has one (`export_native`, 5.5 B); `md` is the rendering of 6.4. The sessions
+surface offers the same three export choices (main 5.16).
 
 `--json` output has a stable schema and exit codes: 0 done, 2 refused with a reason, 3 needs
 the user (login, a first-run prompt), 4 failed and nothing changed, 5 failed and recovery
@@ -966,12 +1033,26 @@ reasoning. Those are listed in the hop dialog as lost.
 
 ### 6.2 Strategies, per (source, destination)
 
+V1 permits only `native_resume` and `seed_prompt`. `native_import` and native fork are
+post-v1 strategies and cannot be selected until their pair/version, privacy, store and
+recovery gates pass.
+
 | strategy | when | what the destination gets |
 |---|---|---|
 | `native_resume` | destination = an agent that already has a segment of this thread | its own earlier session, plus a catch-up message (6.6) |
-| `native_import` | Mukade supports the pair and Shinatama's version, privacy and store gates pass | a new native session plus Mukade receipt and manifest (5.4.1) |
-| `seed_prompt` | everything else | a new native session started with the seed |
+| `native_import` | **post-v1:** Mukade supports the pair and Shinatama's version, privacy, store and recovery gates pass | a new native session plus Mukade receipt and manifest (5.4.1) |
+| `seed_prompt` | every other supported v1 handoff | a new native session started with the seed |
 | `refuse` | destination not installed/signed in and cannot be fixed, or agent is launch-only | an explanation and, where possible, the login flow |
+
+**Live hop and historical handoff.** `hop_live` starts from a hosted instance/segment and
+uses the cursor, idle, close/fork and catch-up rules below. `handoff_history` starts from
+`(store_root_id, native_session_id)` that need not belong to a Shinatama thread: in one
+transaction the host creates or reuses the project mapping and persists a derived thread
+and historical source segment, with no live activation. It never closes a source process,
+waits for idle or performs live catch-up. The source fingerprint is captured for the
+preview and checked again before use; a mismatch restarts preview instead of writing. V1
+historical handoff uses `seed_prompt`; native conversion is post-v1. The source session
+and its store records remain untouched.
 
 **Close or fork (decided 2026-10-27, user).** Every hop has a `mode`: `close` or `fork`.
 The setting `hop.source_mode` holds the user's default (`close`); the hop dialog offers
@@ -983,10 +1064,10 @@ In `fork` mode:
   invariant 1 keeps holding while both stay live;
 - the source instance, thread and activation stay live and untouched;
 - the destination **never resumes the source's live native session** — two processes
-  would write one session (5.7: two terminals interleave turns). It gets a new native
-  session: the adapter's `fork(native_ref)` where the agent has one (5.5 D), otherwise
-  `native_import` or `seed_prompt`. A native fork that writes into the source's store is
-  not used (invariant 2);
+  would write one session (5.7: two terminals interleave turns). In v1 it gets a new
+  native session through `seed_prompt`. Post-v1 it may use the adapter's
+  `fork(native_ref)` where the agent has one (5.5 D), or gated `native_import`; either
+  must create a distinct session without modifying the source records (invariant 2);
 - after the fork the two threads diverge on purpose; nothing synchronizes them, and the
   10-minute UNDO of 6.3 does not apply (the source is still there).
 
@@ -1003,6 +1084,9 @@ PLANNED -> PREVIEWED -> CONFIRMED -> PREPARING -> READY -> SWITCHING -> COMMITTE
    +-----------+------------+-----------+-----------+          +--> (UNDO within 10 min) -> ROLLED_BACK
                       ABORTED / FAILED(error)
 ```
+
+In v1 the state machine can be entered only with `native_resume` or `seed_prompt`; the
+`native_import` branches below are post-v1 and remain unreachable until their gates pass.
 
 Each arrow is one SQLite transaction that updates `hop.state` and inserts a `hop_event`.
 Effects outside the database (spawning a process, writing a file, pasting into a PTY)
@@ -1022,11 +1106,17 @@ not repeated automatically.
   [integration guide](mukade-handover.md#5-preview-privacy-and-concurrency-gates).
 - **CONFIRMED**: the user pressed Enter. Nothing has run in the destination yet.
 - **PREPARING**: for `seed_prompt`, start the destination in a hidden pane (or take the warm
-  standby) and deliver the seed. For `native_import`, first invoke Mukade against the intended
-  stores, persist its receipt and manifest and create the segment, then start the destination
-  through its adapter with the returned native reference and instance overrides. The written
-  session must not be concurrently opened by another writer. Record the session as soon as its
-  id is known; a failed resume can still return a written session.
+  standby) and deliver the seed. For post-v1 `native_import`, persist the reviewed source
+  fingerprint and reserve and journal the destination id/path where Mukade supports them
+  before the call. The host rechecks the source fingerprint immediately before invoking
+  Mukade against the intended stores with that reservation; a mismatch aborts before the
+  call. Then persist Mukade's receipt and manifest and create the segment, then start
+  the destination through its adapter with the returned native reference and instance
+  overrides. `SourceChanged`, where returned by a staged path, also aborts before any
+  destination write. `WriteUncertain` retains
+  the reserved identity for reconciliation and never triggers another write automatically.
+  The written session must not be concurrently opened by another writer. Record the session
+  as soon as its id is known; a failed resume can still return a written session.
 - **READY** when both hold: **technical** (the process is alive and the native session exists;
   for a seed, its first user entry hashes to the seed sent; for a native import, the adapter
   verifies the returned session and the selected content against the receipt and manifest) and
@@ -1084,8 +1174,9 @@ its first 15 and last 15 lines with a marker. `reasoning` items are never includ
 transcript to `<handoffs>/<hop-id>/full.md`, and the seed names that path so the
 destination can read whatever the budget cut, on demand. This is what lets the hop carry
 the **whole** thread (Agent Deck's default cap is 32,000 bytes [D]) without filling the
-window. `<handoffs>` is `<project git dir>/shinatama/handoffs` for a git project (inside
-the project's reach and never tracked) or the data directory otherwise; whether each
+window. `<handoffs>` is `<git common dir>/shinatama/handoffs` for a git project (the common
+directory, so linked worktrees share it; inside the project's reach and never tracked; files
+0600 or a current-user ACL, as 4.1) or the data directory otherwise; whether each
 agent's sandbox may read it is [U] and decided per agent by fixtures, with the data
 directory as fallback. [C]
 
@@ -1268,7 +1359,13 @@ Daodan's docs already name]. Four tools, kept few because tool definitions cost 
 
 (`shinatama_roundtable` is **not** offered to agents; only the user starts a roundtable,
 because it spends money.) The server identifies the caller by `SHINATAMA_INSTANCE`; an
-unknown or ended instance is refused. It opens the same database (4.1); there is no daemon.
+unknown or ended instance is refused. Because any local process of the same user can set
+that variable, the launch also passes a per-instance random token (`SHINATAMA_INSTANCE_TOKEN`,
+stored hashed in `instance`); `shinatama mcp` and `shinatama hook` refuse a caller whose token
+does not match, so a hosted agent cannot send, acknowledge or report state as a peer whose id
+it saw in `shinatama_instances()`. This limits impersonation between instances; it is not
+isolation from an agent with a shell (7.9). [C; register M15] It opens the same database (4.1);
+there is no daemon.
 Pre-approving only these four tools at launch (per agent mechanism, [U]) avoids a
 permission prompt on every call. The existing bili MCP shim keeps working alongside it.
 
@@ -1503,15 +1600,16 @@ agent session or read conversation contents.
 ## 10. The first milestone must prove (or the design changes)
 
 > The complete list, with method, pass criterion and where each result is written back, is
-> [the verification register](verification-register.md) (212 rows). This section is
+> [the verification register](verification-register.md) (236 rows). This section is
 > its short form; where they differ the register wins.
 
 1. Shared-memory SQLite with FTS5 under two processes on Windows, macOS and Linux; a
    refused network/synchronized location.
 2. For each agent: start with an initial prompt, learn the new session id, resume it, and
    get a clear turn-end signal; capture fixtures with the agent version.
-3. The Claude → Codex native import: how it is triggered and whether the imported thread
-   resumes in the CLI.
+3. The Claude → Codex native import (post-v1 since 2026-10-31): CX4 proved Codex's own
+   detect, import and resume in a scratch home, with tool calls as text markers; what
+   remains is Mukade's Codex writer and the pair gates (5.4.1, 6.2).
 4. Delivering a seed of 2 KB bootstrap + a file reference, and of a pasted 30 KB seed, to
    each agent, including a path with spaces and parentheses; the destination's sandbox
    reading the handoff file.
@@ -1537,10 +1635,13 @@ agent session or read conversation contents.
     `detect` + `import` and check: resumable by `codex resume`, tool items kept, a named
     single session, the 30-day window, a session that is still being appended to. If it
     works it becomes the Claude → Codex `native_import` (stage 2) and the first strategy
-    above `seed_prompt` for that pair.
+    above `seed_prompt` for that pair. **Run 2026-10-27 (CX4, passed):** one named session
+    imports and resumes; tool calls arrive as text markers; the window is the detector's
+    `maxSessionAgeDays`. With v1 seed-only (6.2) it is a post-v1 strategy, and Mukade's Codex
+    writer writes the rollout instead (5.4.1).
 14. `claude import` and `claude --resume <absolute .jsonl path>` against a hand-built
     synthetic transcript in a scratch `CLAUDE_CONFIG_DIR`: does the CLI accept it and resume.
-    Only then does any pair with Claude as destination move above `seed_prompt`.
+    Only then does any pair with Claude as destination move above `seed_prompt` (post-v1, 6.2).
 15. Browser integration B1–B10 (7.9): one-shot Moli correctness and optional rendering;
     the bounded MCP use case; explicit Patchright startup; endpoint and hostile-content
     isolation; profile/artifact privacy; control handover; whole-tree cleanup; and a
@@ -1549,8 +1650,9 @@ agent session or read conversation contents.
 ## 11. Acceptance tests (what "done" means)
 
 1. **Journal and crash:** inject a crash after each state of 6.3; on restart the hop ends
-   in the documented terminal state; no agent file is changed; no duplicate destination
-   process remains.
+   in the documented terminal state; no source record is changed; at most the intended new
+   destination session exists and is identified and reconciled through the journal; no
+   duplicate destination session or process remains.
 2. **Canary hop:** in the source, state a fact that appears once, in turn 3 (a made-up
    project codename). Hop to each of the other agents. Ask the destination for the
    codename without repeating it. Pass = correct answer, for every ordered pair among the

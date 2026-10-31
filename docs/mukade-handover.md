@@ -1,9 +1,12 @@
 # Mukade: session handover integration
 
 **Status: technical integration proposal, not implemented or approved.** Shinatama has no runtime
-crate yet. This document describes the Mukade checkout at `0792671e2875ab4e3ee16719d5962b31732e4a83`
+crate yet. This document describes the Mukade checkout at `4124b1f880f49a8f958801195324628752e35c4a`
 and the work Shinatama must do around it; it is not evidence that the two products have been
-integrated. The upstream [README](https://github.com/acaprino/mukade/blob/master/README.md),
+integrated. This revision includes OpenCode listing, `SourceChanged`, `WriteUncertain` and
+reservable destination ids/paths required by the Sessions and recovery design. Updating the pin
+still requires rechecking the complete API, harness versions and acceptance evidence. V1 uses only
+read-side Mukade APIs through Shinatama's adapters; native writes are post-v1. The upstream [README](https://github.com/acaprino/mukade/blob/master/README.md),
 [specification](https://github.com/acaprino/mukade/blob/master/docs/session-interchange-spec.md),
 [usage guide](https://github.com/acaprino/mukade/blob/master/docs/usage.md) and
 [open points](https://github.com/acaprino/mukade/blob/master/next.md) remain authoritative for
@@ -24,7 +27,7 @@ and commit the resulting lockfile rather than silently tracking a moving branch.
 
 ```toml
 [workspace.dependencies]
-mukade = { git = "https://github.com/acaprino/mukade", rev = "0792671e2875ab4e3ee16719d5962b31732e4a83" }
+mukade = { git = "https://github.com/acaprino/mukade", rev = "4124b1f880f49a8f958801195324628752e35c4a" }
 ```
 
 This is a proposed dependency, not a change to the currently empty workspace. Updating the pin
@@ -127,12 +130,15 @@ means its configured store, so a boxed instance must explicitly resolve and vali
 and related `XDG_*` environment rather than accidentally target a user's store. Mukade's OpenCode
 store commands use `--standalone` to avoid a background service with a different environment.
 `StoreRoots::from_env()` is convenient for a controlled CLI environment, not a substitute for
-per-instance resolution. One `StoreRoots` has only one root per harness: a same-harness transfer
-between two distinct homes needs a separately verified staged approach; do not assume `hop()`
-can represent both roots.
+per-instance resolution. At the pin one `StoreRoots` has one root per harness and `hop()` reads
+and writes through the same value, so a same-harness transfer between two distinct homes is not
+representable there; revisions after the pin add `hop_into(&request, &destination)` for exactly
+that case (section 8). Either way the transfer stays behind Shinatama's own verification (SS5).
 
 `WriteDetails` supplies destination facts such as protocol, shell, offered tools, provider, model,
-project ID, version and executable override. Fill only facts established for the target instance;
+project ID, version and executable override. Its `dest_id` and `dest_path` can carry a destination
+identity reserved and journaled by the host before the write; use them for reconciliation where the
+writer supports them. Fill only facts established for the target instance;
 incorrect protocol or tool assumptions can change the conversion. Source summary executable
 overrides live in `SummarizeOpts`; OpenCode source selection also uses `MUKADE_OPENCODE_EXE`.
 Resolve executables and construct child environments per instance; do not change process-wide
@@ -200,7 +206,9 @@ Mukade call:
 | Mukade error | Meaning | Shinatama action |
 |---|---|---|
 | `NotFound`, `Unsupported` | Lookup, store or option refused; no destination written. | Show the reason; fix configuration or offer an authorized fallback. |
+| `SourceChanged { expected, actual }` | A staged caller's reviewed source fingerprint no longer matches; no destination written. | Discard the preview, recapture the source and require a new confirmation; never write from the stale selection. |
 | `StrictCheckFailed`, `WriteFailed` | Plan or write failed; API reports no destination write. | Preserve diagnostics and source; investigate before retry. |
+| `WriteUncertain { reason, dest_id, location }` | A destination may have committed before the import process failed. | Reconcile the returned/reserved id and location before any retry; never create another destination automatically. |
 | `SummaryFailed` | The source-model summary failed; no destination session written. | Report failure, potential model cost and any reported cleanup; no partial handover. |
 | `VerifyFailed` | Mukade could not read the source. This is **not** Shinatama `verify_import`. | Keep source active; diagnose the store/read failure. |
 | `ResumeFailed { reason, receipt }` | Destination was written but optional prompt/resume failed or timed out. | Persist the embedded receipt and manifest, show the reason, recover that destination; never blindly re-import. |
@@ -213,11 +221,13 @@ native sessions, indexes or leftovers.
 
 ## 7. Evidence and acceptance gaps
 
-- [H27](https://github.com/acaprino/mukade/blob/master/docs/verification/2026-10-27-H27.md)
+- H27 (its record was removed from Mukade's documentation in the reorganization of commit
+  `5ea6bd6`; Mukade's current records are indexed in its
+  [docs/README.md](https://github.com/acaprino/mukade/blob/master/docs/README.md#verification-records))
   is a harness probe, including 36/36 reported writes/resumes and four destination-native
   compactions in that scenario. It used an external converter as a probe; it does not validate
   Shinatama's future in-process integration.
-- [Summary live record](https://github.com/acaprino/mukade/blob/master/docs/verification/2026-10-28-summary-live.md)
+- [Summary live record](https://github.com/acaprino/mukade/blob/master/docs/verification/source-model-summary-live.md)
   reports real source-model summary hops from Claude, Pi and OpenCode; Codex used a mock because
   the real account hit its usage limit. Claude hooks did change side files. The result is scoped
   to those versions, sessions and configurations, not all pairs or providers.
@@ -231,3 +241,30 @@ native sessions, indexes or leftovers.
   consent, failure before/after write, crash recovery, concurrent hops and provider rejection.
   Exercise real providers only with approved accounts and spending limits. Validate macOS/Linux
   and actual customer workflows separately; no such host tests have been run by this document.
+
+## 8. Revisions after the pin (local checkout read 2026-10-31)
+
+The Mukade checkout at `D:\Projects\mukade` is five commits past the pin, with further
+uncommitted changes. None of this counts for Shinatama until the pin is advanced and sections
+1 to 7 are rechecked against it; it is listed so the recheck knows what to look at.
+
+| Change | Where | What it means for Shinatama |
+|---|---|---|
+| `detect::scan_installations(root, max_depth) -> Scan { installations, visited, truncated }`, `locate_installation(path, harness)`; CLI `mukade scan <dir> [--depth n]` | commits `2db98a0`, `c59c178` (unpushed) | Recognizes every harness installation below a folder, portable ones included, from the embedded catalog: breadth first, no links or junctions, read-only, never into a store's own session folders. Shinatama's `detect()` and `system_homes()` (engine 5.5 A) can delegate discovery to it instead of keeping a second rule set (main 5.14, 5.16). |
+| `--root` and `--dest-root` on `list`, `dump`, `write` and `hop`: a store, or a folder holding exactly one installation | `c59c178` | The CLI equivalent of per-instance roots; the library path is `StoreRoots` plus `hop_into`. |
+| `StoreRoots::root(harness)` and `set_root(harness, path)` (an existing OpenCode folder means its `opencode.db`); `hop_into(&request, &destination_roots)` reads and compacts with `request.roots` and writes with the second `StoreRoots` | working tree, uncommitted | Two installations of one harness are representable: box to system, or into a portable JanuraCode. The "one root per harness" limit of section 3 is lifted at the library level; Shinatama's SS5 gate stays until it is run. |
+| ADR-0001: installation scanning is a library capability, the CLI exposes it first, `mukade-tui` never matches layouts itself | `docs/adr/ADR-0001-installation-scan-in-library-and-cli.md`, Accepted 2026-10-31 | The rule Shinatama adopts too: one recognition rule set, in Mukade. |
+| `mukade-tui` renders its first frame before the store scan returns; `mukade-tui/src/location.rs` (uncommitted) | `611a47b`, working tree | TUI only; no Shinatama impact. |
+
+Already in the pin and not described above: `mukade harnesses` (a text inventory from the
+embedded `catalog/harnesses.json`: binary locations, default stores and layouts per OS, the
+lineage each harness records), `exe::resolve(harness, override)` (explicit override, then
+`MUKADE_*_EXE`, then `PATH`, then well-known locations) and `exe::run_within(command, timeout)`,
+which stops a harness child and everything it started at the deadline. `WriteDetails` also
+carries `dest_agent`, `metadata`, `tool_map`, `without_tools` and `now` beyond the fields named
+in section 3.
+
+Open in Mukade's own [`next.md`](https://github.com/acaprino/mukade/blob/master/next.md) and
+relevant here: Codex paginated threads (0.165) read from hand-made files only, Codex subagent
+threads not linked to their root, native compaction records never written by a portable hop,
+the 100 MB read not re-measured after the speed work. CX10 and SS2 inherit them.

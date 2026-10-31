@@ -58,7 +58,7 @@ an Ultra Nerd review. It is not yet an approved build plan.
 ### Outside the first integration
 
 - `moli serve` and persistent CDP/WebDriver automation.
-- Interactive Moli previews embedded in the TUI, continuous screencasting or a
+- Interactive Moli previews embedded in the workspace, continuous screencasting or a
   browser window owned by Moli.
 - Automatic fallback, automatic engine migration, shared cookie jars and automatic
   reuse of the user's personal Chrome profile.
@@ -110,7 +110,7 @@ task and target scope. It need not ask again for every navigation already inside
 that grant. It cannot grant itself `open-ui`, broaden scope or answer its own
 permission request. It may ask the user to issue a new explicit UI command.
 
-### 4.2 TUI and overview
+### 4.2 Workspace and overview
 
 The session view and overview show engine, target origin/root, operation, state,
 controller and reason. A Moli failure offers no automatic Chrome action; it may

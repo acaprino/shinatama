@@ -123,7 +123,9 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
   captured fixtures. Documentation alone is not proof.
 - The BillionContext sidecar source in `sidecar/source-build` stays the single
   source; Shinatama does not fork it, and does not install the precompiled npm
-  package (docs/sidecar.md).
+  package (docs/sidecar.md). The sidecar documents named in these designs
+  (`docs/sidecar.md`, `docs/token-efficiency.md`, `docs/prompt-rewrite.md`) are in the
+  sidecar's own source tree, not in this repository.
 - No measured saving percentage may be claimed for compression
   (docs/token-efficiency.md says none has been measured).
 - **Isolation, at a glance.** Nothing system-level is touched: the sidecar keeps a
@@ -143,7 +145,8 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
 Native Rust desktop surfaces: project manager, tiled workspace with agent tabs
 and side panes (5.16), hop dialog and preview, find (search), Daodan
 palette, first-run setup. Command line: `shinatama find`, `resume`, `hop`,
-`doctor` (names are my call). Browser access: `/browse` with `read`, `preview`
+`doctor` and the rest of engine 5.5.2 (`sessions`, `export`, `import`, `forget`; names
+are my call). Browser access: `/browse` with `read`, `preview`
 and explicit `open-ui` operations (5.15; spelling is my call). Desktop widget:
 separate process (5.8).
 
@@ -171,7 +174,9 @@ draws around and over it:
   forwarded to it correctly.
 - **Windows over the agent:** the hop dialog (`^H`), the Daodan palette (`^K`) and
   find. Native overlays leave the emulator screen intact and restore focus to the
-  originating pane when dismissed.
+  originating pane when dismissed. Key names in this document (`^H`, `^K`) are
+  placeholders until register row U3 settles bindings that no agent or outer terminal
+  consumes.
 - **Terminal presentation inside the pane:** each view uses its harness's terminal
   profile (font, metrics, ANSI palette and cursor), so the agent keeps its own
   visual identity. Chrome uses the active skin. An explicit follow-skin option
@@ -230,16 +235,18 @@ destination gets a new native session (the agent's own fork where it exists, oth
 an import or a seed), so two processes never write one session. After a fork the two
 threads diverge on purpose; nothing synchronizes them. Details: engine spec 6.2 and 6.3.
 
-How the history reaches the destination — **my recommendation, hybrid**: where the
-destination's session format can be written reliably, import the converted history
-as a real native session (fuller fidelity, tool calls as native entries where
-possible); otherwise fall back to a readable text export. Import is gated per agent
-and version by captured fixtures. **Staged (my call, to check):** v1 ships the text
-hand-off for every pair of agents, with the preview; native import is added one
-destination agent at a time, only when its fixtures pass, because it writes into
-another agent's session store and a bug could corrupt the user's data. The hybrid is
-the end state. The user has not confirmed this; the alternative is text only. Native
-import is done by the `mukade` interchange library — Shinatama's own reader and writer for the four harnesses, published as its own repository and linked in-process (technical design 5.4.1).
+How the history reaches the destination — **v1 is seed-only (decided 2026-10-31,
+user).** V1 ships the text hand-off for every pair of agents, with the preview, and
+never writes a native session through Shinatama or Mukade. Native import is post-v1:
+it is added one destination agent and version at a time, only when its fixtures,
+privacy, store and recovery gates pass, because it writes into another agent's
+session store. The hybrid remains the end state: where the destination's session
+format can be written reliably, import the converted history as a real native
+session; otherwise fall back to a readable text export. Native import is done by the
+`mukade` interchange library — Shinatama's own reader and writer for the four
+harnesses, published as its own repository and linked in-process (technical design
+5.4.1). Until that post-v1 gate opens, every hop uses `seed_prompt` or
+`native_resume`; a fork also uses a seed, never a native fork or import.
 
 What carries over, as the hop dialog must show it: conversation (text),
 tool calls (summarized unless native import preserves them), files (same folder;
@@ -289,7 +296,8 @@ them per launch instead.
 Shinatama's checkup installs or updates it in every
 agent present and enables, by default, **every plugin the Daodan marketplace lists**
 (decided 2026-10-27, user: "mi aspetto che attivi tutti i plugin"; read from the
-manifest at check time, 48 at marketplace 42.7.3): the entry plugin `daodan`, the
+manifest at check time; 48 at marketplace 42.7.3 and still 48 after Daodan reset its
+versions to 1.0.0 on 2026-10-29): the entry plugin `daodan`, the
 document-driven project management (project-lifecycle, project-delivery with ADR/FRD
 under `docs/`, project-knowledge), codebase-map, senior-review, testing, the domain
 verticals, `research` and the rest. A setting `daodan.enable = all | core | custom`
@@ -467,12 +475,23 @@ is **open**; it would make Shinatama a credential store that must be protected.
 
 Suggested order: (1) skin system, PTY host and threads; (2) checkup: agents, Daodan,
 login detection; (3) sidecar; (4) project manager and launch; (5) search and
-resume within the same agent; (6) hop: text for every pair with the preview first,
-then native import agent by agent; (7) roundtable; (8) widget (the user generates the
-animation assets in parallel); (9) browser fast path, then the optional UI path
-after its gates (5.15). The overview (5.13) grows alongside: the instance
+resume within the same agent; (6) hop: seed/text for every pair with the preview;
+(7) roundtable; (8) widget (the user generates the animation assets in parallel);
+(9) browser fast path, then the optional UI path after its gates (5.15). Native
+import is post-v1 and is then enabled one destination agent and version at a time
+after its fixtures and privacy, store and recovery gates (5.2). The overview (5.13)
+grows alongside: the instance
 table right after (1), the summaries and flows once hop (6) and the roundtable (7)
 exist.
+
+**Delivery baseline (2026-10-31).** The terminal-first UI milestone of 5.16 (TL1: project
+selector, terminal tiles, tab groups, terminal profiles, no sessions surface) comes first.
+The first usable release slice adds read-only store browsing/search and same-agent native
+resume. The next slice is
+the live seed hop. These slices do not drop the other v1 goals, but no downstream surface
+is treated as deliverable in the same baseline before its dependencies and G0/G1 gates
+are closed. Native import is post-v1; Daodan task handover, browser UI, roundtable and
+widget each follow their own gates rather than blocking the first usable slice.
 
 Audience: build as if other people will install it (the install instructions of
 Daodan and Shinatama already point to public repositories), so release builds,
@@ -541,7 +560,9 @@ on `system` (subscription and history already there) and the others in a box.
 is installed, `own` otherwise.
 
 - `system`: the binary the user installed (D18 found two native installers and two npm
-  installs on this machine). Shinatama never installs, updates or replaces it; it only
+  installs on this machine). Discovery reuses Mukade's harness catalog and installation
+  scan where they cover the case (binary locations, default stores, portable layouts), so
+  the recognition rules live once (my call; 5.16). Shinatama never installs, updates or replaces it; it only
   reports that an update exists, with the owner's command (`claude update`, `codex
   update`, or `npm install -g <package>@latest` with the package read from the npm
   shim). If the installed version is outside the proved range, the agent runs degraded
@@ -625,6 +646,10 @@ Node-based ones, `NODE_COMPILE_CACHE`) inside Shinatama's folder, plus:
 - Pi: `PI_CODING_AGENT_DIR`; `--no-skills` or `HOME` for the child (it reads
   `~\.agents\skills`). Login in `auth.json` in the box.
 
+A box is created with owner-only permissions (0700 on macOS and Linux, a current-user ACL
+on Windows, the rule of engine 4.1), because it holds the agent's login and sessions (my
+call; D15 records the permissions it finds).
+
 With the `own` program, also: Claude `DISABLE_AUTOUPDATER=1` and `DISABLE_UPDATES=1`;
 OpenCode `OPENCODE_DISABLE_AUTOUPDATE=1` (left on, it would update the user's global npm
 install); Pi `PI_OFFLINE=1` (or `PI_SKIP_VERSION_CHECK`) and `PI_TELEMETRY=0`, run as
@@ -689,8 +714,9 @@ and exact shortcuts remain builder proposals.
 
 **Initial terminal-first scope (2026-10-30):** project selector, resizable terminal
 tiles, leaf tab groups and per-harness terminal profiles. Git integration, file
-navigator, diffs, thread side panes, hop and Daodan surfaces are not part of this
-first UI. The rest of this section specifies later workspace surfaces.
+navigator, diffs, thread side panes, session browsing, hop and Daodan surfaces are
+not part of this first UI. The rest of this section specifies later workspace
+surfaces.
 
 **Interactions and lifecycle:**
 
@@ -718,6 +744,98 @@ first UI. The rest of this section specifies later workspace surfaces.
 | Markdown | Rendered reading, source editing and source/preview split. Direct visual editing is requested but gated by editor/syntax fidelity checks before delivery. |
 | File/document preview | Supported text/image artifacts. DOCX reading needs a separate renderer and declared fidelity; DOCX editing/full Office support is not implied. |
 | Browser / integrated apps | Static previews fit 5.15. Interactive embedded browsing and mini-app hosting need separate design/security gates; JanuraCode app compatibility is not assumed. |
+
+**Sessions surface (decided 2026-10-30; revised 2026-10-31).** The workspace can
+browse the sessions of all four harnesses and open one in a detail panel. It is not
+part of the first terminal-first milestone. Read-only browsing is the first slice;
+live seed hops follow after their hop gates. Native Import and native handoff are
+post-v1 capabilities and remain unavailable until their separate gates pass (5.2).
+The supported Mukade revision must provide all four listing readers; the declared
+dependency pin, not an arbitrary local checkout, defines that capability. Mukade
+revisions after the pin (installation scan, two-home hops) count only once the pin is
+advanced and rechecked ([mukade-handover.md](mukade-handover.md), section 8).
+
+- **Tree and store selection.** A Projects/Sessions switch in the navigator;
+  harness nodes expand to their sessions with one metadata-only incremental filter
+  and a manual rescan (`r`) that works only while the navigator has focus. Arrow
+  keys move in the tree; they never steal input from a terminal pane. The adapter
+  owns store resolution and capabilities and delegates parsing to Mukade. A catalog
+  of persisted `store_root` records identifies box and system roots, their harness,
+  origin, configuration revision and read/write permission. Discovery of system and
+  portable roots may use Mukade's harness catalog and installation scan, one recognition
+  rule set and no second parser; which discovered root becomes a box or a read-only
+  system root is Shinatama's decision, recorded in the catalog (my call). The tree can read both
+  an agent's box and the system roots exposed read-only by `system_homes()` (5.14);
+  it never chooses a root from an arbitrary instance or ambient defaults.
+- **Detail and metadata.** A `session_detail` panel with Overview, Transcript and
+  Lineage tabs, in-session search, collapsible tool calls, a raw-JSON toggle and
+  copy of the id, native path and resume command. Opening a session is read-only:
+  it never resumes, imports or writes. Tree and Overview display only fields the
+  adapter can obtain for that harness and store; unavailable title, cwd, dates,
+  turns or byte counts are `unknown`, never inferred by loading every transcript.
+  Native children are included where the reader supports them, not only root
+  sessions.
+- **Read path and resource limits.** Reads run off the UI thread against an
+  explicitly selected `store_root_id`; the panel names the store and shows an
+  unavailable or stale state when a root or session is missing or changes. The declared
+  Mukade pin provides listing and whole-session reads, **not** bounded paging. Until a
+  reviewed revision exposes incremental reads and bounded subprocess capture, or the
+  adapter owns an equivalent bounded native reader, the adapter must enforce a pre-read
+  size cap and return `too large` without loading the session. The paged adapter contract
+  is a required new capability, not a feature attributed to the current pin; limiting only
+  rendering or cache is never sufficient. Responses carry `(request_id, panel_revision,
+  store_root_id, native_session_id)` and late or cancelled results are discarded. Where a reader
+  launches a harness command, such as OpenCode export, it inherits the adapter's
+  complete isolated launch context, timeout and cleanup contract; a read-only UI
+  label alone does not make that child side-effect free.
+- **Privacy and export.** Raw records can contain credentials, private paths and
+  tool arguments. Raw display and copy are explicit actions with a privacy warning
+  and redaction by default; an override reveals the selected records only. Raw and
+  copied content is never logged or persisted by the UI. Export is separate from
+  browsing and offers explicit **STX**, **portable Mukade JSON** and **native**
+  choices where supported. Each declares format version, raw/unknown-field and
+  attachment handling, redaction, losses, overwrite and atomic-output behaviour;
+  portable Mukade JSON is not represented as a lossless backup.
+- **Write paths.** Resume starts a PTY through the adapter. `hop_live` operates on
+  a hosted instance/segment and follows close/fork, cursor, idle and catch-up rules
+  (5.2). `handoff_history` operates on a historical native session: it creates a
+  derived thread and source segment without closing a process, waiting for idle or
+  inventing a live activation; its source fingerprint is rechecked before use. In
+  v1 both paths use only seed delivery; native Import and native handoff are
+  post-v1. Before any post-v1 write, the dialog shows the exact staged payload and
+  known losses, obtains consent and journals the reserved destination id/path
+  where supported. The receipt is persisted even when launch fails; uncertain
+  writes are reconciled against that reservation, never blindly retried. A
+  headless resume is a separate, cost-warned action.
+- **Stores and executables.** Home and write destination are configured per agent
+  (box/system), not per instance (5.14). Additional system roots are read-only and
+  cannot become a box's write destination. A same-harness transfer between two homes (box to
+  system, or into a portable installation) is not offered until SS5 verifies it; Mukade
+  revisions after the pin address two stores of one harness (`hop_into`), so the gate is
+  Shinatama's verification, no longer the library's shape. Executable overrides are adapter facts.
+  Settings persist in the shared database; unresolved roots, missing executables
+  and refused stores are reported, not replaced by ambient defaults.
+- **Lineage.** The tab distinguishes the Shinatama thread chain, native parent and
+  native children. Native relations are shown only where the reader exposes them
+  (Pi and OpenCode in the declared Mukade revision); it does not infer edges for
+  Claude or Codex. Missing, external, ambiguous parents and cycles are marked.
+  Clicking a node opens that session or thread; it does not resume it.
+
+**Acceptance of the read-only slice:** all four harnesses listed from the declared
+Mukade pin and their explicitly resolved stores, including native children where
+supported; the user's own stores and side files stay untouched, including child
+process effects; no native write from browsing, opening, searching or copying;
+id, path, store and available metadata correct, with unavailable fields explicit;
+with the current whole-session reader, oversized input returns `too large` before the
+read; after the incremental-reader gate, a 30 MB transcript meets a recorded
+end-to-end memory and responsiveness budget and larger input pages or is refused
+without unbounded allocation; stale, cancelled and concurrent reads cannot update
+the wrong panel; redaction and export fixtures contain planted secrets; tree and
+detail restore without resuming anything; keyboard focus stays with the terminal
+unless the navigator or a dialog is focused. Live seed hops add preview, consent, journal and recovery acceptance.
+Post-v1 native writes additionally require an exact staged preview, a persisted
+reserved destination, reconciliation after every crash point and no duplicate
+session on double-click or retry.
 
 **Terminal presentation:** the harness owns what appears inside the PTY: layout,
 glyphs, spacing, prompts, boxes and colours. Shinatama does not redraw those
@@ -750,7 +868,7 @@ and the Daodan plugins in the home chosen in 5.14; the per-instance launch switc
 plugins and skills (5.14); login and sign-in status;
 start it in a PTY in a folder; list and read its sessions; **export** a session to a
 portable file (`.stx.jsonl`); **import** such a file as a native session where the
-agent allows it; **resume** a session natively; **handover**: the adapter's part of a hop,
+agent allows it (post-v1, engine 5.5 C); **resume** a session natively; **handover**: the adapter's part of a hop,
 including seeding a new session with a thread and confirming it arrived; and, where the
 agent exposes it, report "needs input" and "turn finished" without screen parsing.
 Capability differences per agent are declared and shown to the user, never hidden.
@@ -780,8 +898,13 @@ suite are in section 5.5 of the [engine spec](technical-design.md).
 ### Calls made to settle the rest (check them; each is also marked where it appears)
 
 - Native Rust desktop tiling supersedes the earlier terminal-only decision
-  (2026-10-29, 5.16); real agent PTYs and CLI mode remain.
-- Hop staged: text hand-off for every pair first, native import agent by agent (5.2).
+  (2026-10-29, 5.16); real agent PTYs and CLI mode remain. Sessions browsing is a
+  later surface: read-only first, live seed hops after their gates, native import
+  and native handoff post-v1 (revised 2026-10-31, 5.16).
+- Hop: v1 is seed/text-only for every pair, with preview (2026-10-31, user);
+  native import is post-v1, enabled agent by agent and version by version (5.2).
+- Store discovery reuses Mukade's catalog and installation scan; Shinatama decides what
+  each root is used for (5.14, 5.16).
 - Hop: close or fork the source at each hop, with a user setting for the default
   (default close); a fork continues in a new thread (5.2; engine 6.2, 6.3).
 - Gemini launch-only (5.9).
