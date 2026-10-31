@@ -4,7 +4,7 @@ Date: 2026-10-31
 Status: draft, not yet approved. Nothing is built from this document until it is.
 
 This document specifies how Shinatama cuts the tokens that the hosted harnesses (Claude Code,
-Codex, OpenCode, Pi) send to their frontier models, without lowering the quality of the work.
+Codex, OpenCode, Pi, Hermes Agent, DeepSeek Harness) send to their frontier models, without lowering the quality of the work.
 The bookkeeping that makes the saving possible (scoring, choosing, digesting) runs on a small
 fast model on the local CPU. Working concept name for that model: **julia1**. Its analyses and
 benchmarks run in another project; here it is a contract and a set of tasks, not a model
@@ -98,7 +98,8 @@ it; "julia1" means the local model does the judging.
    Anthropic reports roughly 85% fewer tool-definition tokens on large tool sets; not measured
    here (see 9).
 3. **Progressive disclosure of skills.** Name and description in context, body on demand.
-   Risk: none. Runs: Daodan already does it.
+   Risk: none. Runs: Daodan already does it, on the four harnesses it builds for; Hermes Agent
+   and DeepSeek Harness have no Daodan package yet (functional-design 5.5).
 4. **MCP pruning per instance.** Mount only the servers a session needs. Shinatama's
    per-instance plugin and skill set (functional-design 5.14) is the switch. Risk: a missing
    tool; mitigated by a visible list at launch. Runs: Shinatama.
@@ -330,6 +331,8 @@ its source, not run here):
 | Codex | Proxy side: Codex recognized by its User-Agent, its compaction handled on the Responses wire (`codex-compact.ts`) | On the wire, inside the request path Codex already takes |
 | OpenCode | Plugin (`.server()` on 1.x, `{ id, setup }` on 2.x) with an `http.request` hook that routes model URLs to the proxy (`src/agent/opencode*.ts`) | Inside the OpenCode plugin |
 | Pi | Extension that patches `fetch` to route model requests to the proxy (`src/agent/pi-native.ts`, `native-intercept.ts`) | Inside the Pi extension |
+| Hermes Agent | No plugin of its own: Hermes runs on its real home and its httpx stack is routed through the proxy by environment, with the proxy's certificate authority passed as `HERMES_CA_BUNDLE`; providers come from `config.yaml`, and with none configured traffic does not reach the proxy (`launcher.ts`, Hermes branch) | On the wire, inside the request path Hermes already takes. Hermes compacts natively at 50% of the window and has a `post_compaction` hook (technical-design 5.7); how to stand its compaction down is not yet known and is verified first |
+| DeepSeek Harness | A plugin installed per profile through dsh's own `dsh plugin --profile <p> add` (`dsh-channel.ts`, `dsh-ledger.ts`); remote traffic through the proxy, loopback and `DEEPSEEK_BASE_URL` routes rewritten (`launcher.ts`, dsh branch); dsh's native compaction rows disabled (`dsh-compaction-disable.ts`) | Inside the dsh plugin of the box's profile, the ACP profile Shinatama runs (functional-design 5.16); native compaction stood down the same way |
 
 Rules every adapter follows (my calls):
 
@@ -354,8 +357,10 @@ Rules every adapter follows (my calls):
    local endpoint that answers with the rules of 6.3 alone (no model). Measure.
 3. **julia1 behind the endpoint**, delivered by the other project with its threshold.
    Measure against 2.
-4. **Adapters for Codex, OpenCode and Pi**, one at a time, each on its own seam (7.1),
-   each verified on the installed version.
+4. **Adapters for Codex, OpenCode, Pi, Hermes Agent and DeepSeek Harness**, one at a time,
+   each on its own seam (7.1), each verified on the installed version. Hermes Agent and
+   DeepSeek Harness come after their proxy coverage is verified (register HM12, DS12), since
+   their adapters ride that path.
 5. **Tool chooser and digests.**
 6. **Code-mode gateway** in front of MCP.
 
@@ -388,8 +393,11 @@ the answer (6.4).
   `ContextCategory`). Clone kept in the session scratchpad, not in this repository.
 - Read, not run: the BillionContext source (`sidecar/source-build`), header comments of
   `host-profiles.ts`, `codex-compact.ts`, `claude-native-bootstrap.ts`,
-  `src/agent/opencode*.ts`, `src/agent/pi*.ts`, `src/agent/native-intercept.ts` and
-  `src/agent/dsh-compaction-disable.ts`.
+  `src/agent/opencode*.ts`, `src/agent/pi*.ts`, `src/agent/native-intercept.ts`,
+  `src/agent/dsh-compaction-disable.ts`, `dsh-channel.ts` and `dsh-ledger.ts`, and the Hermes
+  and dsh branches of `launcher.ts`.
+- Reused from technical-design 5.7: the Hermes Agent 0.22.5 and DeepSeek Harness
+  0.2.1-rc.5 facts (hooks, compaction, profiles), themselves research, not runs.
 - Vendor claims, unverified: Anthropic's figures for tool search and programmatic tool
   calling; Cloudflare's Code Mode write-up; Morph's "FlashCompact" and the community
   "Magic Compact" plugin found while looking for the name "fast compact". Third-party
@@ -412,6 +420,8 @@ the answer (6.4).
    describes. Documentation alone is not proof (functional-design 3).
 5. For each adapter, that its rewrite leaves the cache hit rate unchanged and that the
    harness's native compaction does not run behind it.
+6. For Hermes Agent, which setting or hook stands its native compaction down; until that is
+   known its adapter is not built.
 
 Verification records go under `docs/verification/` and the register, as for the other
 designs.
