@@ -87,7 +87,7 @@ Adds, for the selected thread's task: *Show status* and *Continue this task*, ty
 
 ### 4.6 All plugins enabled
 
-The user, 2026-10-27: "mi aspetto che attivi tutti i plugin di shinatama" (I expect it to activate all the plugins). The checkup (5.5) enables **every plugin the Daodan marketplace lists**, read from its manifest at check time and never from a list kept in Shinatama: 48 at marketplace 42.7.3 and still 48 at 1.0.0, after Daodan reset every version on 2026-10-29 (`.claude-plugin/marketplace.json` in the Daodan repository), including the verticals that returned from the old Shinatama marketplace. Dependencies come along because everything is on.
+The user, 2026-10-27: "mi aspetto che attivi tutti i plugin di shinatama" (I expect it to activate all the plugins). The checkup (5.5) enables **every plugin the Daodan marketplace lists**, read from its manifest at check time and never from a list kept in Shinatama: 48 at marketplace 1.0.0 (`.claude-plugin/marketplace.json` in the Daodan repository), including the verticals that returned from the old Shinatama marketplace. Dependencies come along because everything is on.
 
 - Plugins the user disabled stay disabled (D3).
 - A plugin whose MCP server does not start is reported by the checkup and never blocks the launch.

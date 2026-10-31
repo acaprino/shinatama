@@ -296,8 +296,7 @@ them per launch instead.
 Shinatama's checkup installs or updates it in every
 agent present and enables, by default, **every plugin the Daodan marketplace lists**
 (decided 2026-10-27, user: "mi aspetto che attivi tutti i plugin"; read from the
-manifest at check time; 48 at marketplace 42.7.3 and still 48 after Daodan reset its
-versions to 1.0.0 on 2026-10-29): the entry plugin `daodan`, the
+manifest at check time, 48 at marketplace 1.0.0): the entry plugin `daodan`, the
 document-driven project management (project-lifecycle, project-delivery with ADR/FRD
 under `docs/`, project-knowledge), codebase-map, senior-review, testing, the domain
 verticals, `research` and the rest. A setting `daodan.enable = all | core | custom`
