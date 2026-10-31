@@ -4,7 +4,7 @@
   <img src="docs/assets/branding/shinatama-logo-xenotron-glow.png" alt="Shinatama from Oni beside the Shinatama wordmark" width="800">
 </p>
 
-Shinatama: a local-first native desktop workspace in Rust that hosts Claude Code, Codex, OpenCode and Pi in tiled terminal panes and hops a live chat between them (native tiling decided 2026-10-29; v1 hops are seed-only, decided 2026-10-31).
+Shinatama: a local-first native desktop workspace in Rust that hosts Claude Code, Codex, OpenCode, Pi, Hermes Agent and DeepSeek Harness in tiled terminal panes and hops a live chat between them (native tiling decided 2026-10-29; v1 hops are seed-only, decided 2026-10-31).
 
 Status: design draft, not approved. No code yet.
 

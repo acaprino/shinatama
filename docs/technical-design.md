@@ -53,7 +53,8 @@ they must hold.
 
 ## 2. Vocabulary
 
-- **Agent**: one of claude, codex, opencode, pi (Gemini is launch-only).
+- **Agent**: one of claude, codex, opencode, pi, hermes (Hermes Agent), deepseek (DeepSeek
+  Harness); the last two added 2026-10-31. Gemini is launch-only.
 - **Store root** `store_root`: one harness's session store (a box, the user's system home
   or a read-only portable root); every native session id is scoped by it (4.2).
 - **Instance** `i_…`: a running agent process hosted in one Shinatama pane.
@@ -108,7 +109,7 @@ they must hold.
   Pi 1.4.0 showed no change of their own behaviour, but **each passes every inherited
   marker on to its children** (and OpenCode keeps an inherited `AI_AGENT`, connects its
   TUI to an inherited `CLAUDE_CODE_SSE_PORT` [S, strings]). So the rule is: before
-  launching any agent, remove the **union** of the four adapters' lists (P20 record,
+  launching any agent, remove the **union** of every adapter's list (P20 record,
   "Criterion"); `GIT_EDITOR` only when its value is Claude's helper; Codex's generic
   sandbox names (`NPM_CONFIG_OFFLINE`, `PIP_NO_INDEX`, …) only when `SBX_NONET_ACTIVE` is
   present. Not covered by names: Pi's `<agentDir>\bin` prepended to `PATH`. [V on Windows
@@ -119,8 +120,10 @@ they must hold.
   executed by the owning process.
 - **What is isolated and what is not** [C]: the sidecar's private root, child-only
   environment and child-only certificate trust leave system state untouched (9); hooks
-  and the MCP server arrive per launch (`--settings`, `-c`, `OPENCODE_CONFIG*`, `-e`)
-  without editing the user's configuration (7.5). Where each agent lives is three
+  and the MCP server arrive per launch (`--settings`, `-c`, `OPENCODE_CONFIG*`, `-e`,
+  DeepSeek Harness's `--patch` or its ACP session) without editing the user's configuration
+  (7.5). Hermes Agent has no per-launch switch: its hook and MCP entries live in the box's
+  own `config.yaml`, and a Hermes on the `system` home runs without them (5.7). Where each agent lives is three
   per-agent choices (main spec 5.14, decided 2026-10-28):
   - Program: `system` (default when installed; the user's binary, never installed,
     updated or replaced by Shinatama) or `own` (Shinatama's copy under
@@ -383,13 +386,18 @@ section states what Shinatama does with the data, not isolation from the agents 
 
 ## 5. Reading the agents: adapters and the canonical transcript
 
-**Where the readers live (2026-10-31).** The native readers for the four agents are Mukade's
+**Where the readers live (2026-10-31).** The native readers for Claude Code, Codex, OpenCode
+and Pi are Mukade's; Hermes Agent and DeepSeek Harness have none yet and need new Mukade
+readers ([mukade-handover.md](mukade-handover.md) section 9). Until a reviewed pin carries
+them, those two adapters declare `list_sessions`, `read_transcript` and `export` unsupported:
+they resume natively within themselves and receive seeds, but are not searched and are not
+hop sources. Mukade's reader API:
 (`Reader::list`, `list_all`, `read`, one per harness; `SessionInfo` for listing, `Session` with
 every source record kept verbatim for reading). Shinatama's adapters do not parse native stores
 a second time: `list_sessions` and `read_transcript` (5.5 B) call Mukade and project its
 `Session` onto the canonical transcript of 5.1. The rules of 5.2 and the store facts of 5.3 are
 the requirements those readers meet and the facts the index relies on; the register rows that
-test readers (CL6, CX10, OC3, PI3, H15) run against Mukade's fixtures at the declared pin. The
+test readers (CL6, CX10, OC3, PI3, HM3, DS3, H15) run against Mukade's fixtures at the declared pin. The
 one exception is the bounded incremental reader of main 5.16 and 5.5 B, which Shinatama may own
 until a reviewed Mukade revision exposes it, and must then replace, not keep beside Mukade's.
 [C]
@@ -475,6 +483,44 @@ the V2 docs; **V: both the CLI `session export`/`import` and the HTTP export/imp
 2026-10-27 in a scratch DB — [OC2 record](verification/2026-10-27-OC2-opencode-session-interchange.md)**]; read the SQLite file directly only as a read-only fallback
 for listing and search, because the schema changes between versions and the legacy and
 current tables disagree.
+
+**Hermes Agent** `HERMES_HOME/state.db` (default `~/.hermes`; `%LOCALAPPDATA%\hermes` on
+Windows), SQLite with FTS5 and WAL, schema version 32 [R: v0.22.5 source, 2026-10-31; not
+observed here, Hermes is not installed on this machine]. `sessions(id, source, profile_name,
+cwd, git_branch, git_repo_root, title, parent_session_id, model, model_config, started_at,
+ended_at, end_reason, last_activity_at, message_count, archived, hidden, pinned, …)` and
+`messages(id, session_id, timestamp, role, content, reasoning, tool_calls, tool_call_id,
+tool_name, active, compacted)`. Ids look like `YYYYMMDD_HHMMSS_<hex>`. Map: user and
+assistant rows → `user_text` and `assistant_text`; `reasoning` → `reasoning`; `tool_calls`
+→ `tool_call`; rows with a `tool_call_id` → `tool_result`. Compaction is **in place** by
+default: the session keeps its id and the replaced rows stay with `active=0, compacted=1`,
+so the reader follows the active rows and marks the summary as `compaction`. A sub-agent run
+is its own session row with `parent_session_id` and a `_delegate_from` marker in
+`model_config`, hidden from pickers: summarized as one tool pair (5.2). Each profile (`-p`)
+has its own `state.db`. A JSONL copy under `sessions/` is written only as a fallback.
+Retention: no pruning by default (`sessions.auto_prune`, 90 days when turned on). **Reading
+rule:** Hermes's own `hermes sessions export - --session-id <id> --format jsonl` is the
+primary source and the SQLite file a read-only fallback for listing and search, as for
+OpenCode, because the schema is versioned and moves. The role names and the JSON shape of
+`content` and `tool_calls` are [U].
+
+**DeepSeek Harness** `DSH_HOME/sessions/--<normalized cwd>--/<encoded id>/session.v4.jsonl.zstd`
+(`_no-cwd/` when no directory was recorded; `DSH_HOME` defaults to `~/.dsh`) [R: 0.2.1-rc.5
+source, 2026-10-31; not observed here]. One JSON record per line, stored by default as
+checksummed Zstandard frames (`compression: 'none'` writes plain `.jsonl`, and only for a fresh
+root), so the reader decompresses frame by frame and ignores a torn last frame as it ignores a
+torn last line (5.2). Header: `version` (4), `id`, `createdAt`, `cwd`, `parentSession`,
+`isSeeded` (a fork), `origin: 'subagent'`, `delegationDepth`, `agentPreset`. Records `{type,
+seq, time, data}` of types `user/message`, `assistant/message`, `tool/call`, `tool/result`,
+`system/message`, `turn/start|end`, `session/title`, `model/selection`, `compaction/*`,
+`subagent/*`. Map: the two message types → `user_text` and `assistant_text`; `tool/call` and
+`tool/result` → `tool_call` and `tool_result`; `compaction/*` → `compaction`;
+`model/selection` → `meta`; `seq` is the cursor. A sub-agent is its own session with
+`origin: 'subagent'`: summarized as one tool pair. One writer per session (`session.lock`, a
+named semaphore on Windows); the reader never takes it. Retention: nothing deletes session
+files. SQLite serves only an opt-in search index. There is no list or export command:
+listing is a walk of the directory (or ACP `session/list`); the web UI's `/export` zip is not
+used. The shapes inside `data` are [U].
 
 ### 5.4 Writing into a native store: stages
 
@@ -666,7 +712,9 @@ import_support() -> None | Official | Experimental | Stage3                 -- 5
 import(transcript, cwd, opts) -> native_ref    -- the agent's official import where it exists;
                                                 -- stage 3 only when gated; never edits a session.
                                                 -- Claude Code, Codex, OpenCode, Pi: Shinatama's
-                                                -- own writers do the write (5.4.1)
+                                                -- own writers do the write (5.4.1);
+                                                -- Hermes: its official import, Claude Code and
+                                                -- Codex sources only; DeepSeek Harness: None
 verify_import(native_ref, transcript) -> Report  -- the agent's own list command, a dry-run resume
                                                 -- in a scratch home, first and last items compared
 
@@ -793,6 +841,12 @@ An adapter's `seed_channel` is one of:
   directly [R-D]. [C]
 - `file_arg`: only Pi: `pi @<path> "<bootstrap>"` includes a text file in the first prompt
   [R-H, R-D], so Pi receives the whole seed natively, without an instruction to read it.
+- `query_file`: only Hermes Agent: `hermes chat --query-file <path>` takes the first turn
+  from a file, so the whole seed arrives as the first user turn with no argv bootstrap [R,
+  HM1]. Whether `%LOCALAPPDATA%\hermes\bin\hermes` is a native executable or a shim with a
+  shorter command line is HM1.
+- `protocol_prompt`: only DeepSeek Harness: the seed is the first ACP `session/prompt`;
+  neither a command line nor a PTY is involved [R, DS2].
 - `system_prompt_file`: Claude only: `--append-system-prompt-file <file>` carries large
   text without any argv limit, but it becomes **system prompt**, not a user turn
   [R-D]. Evaluated in milestone 1 as an alternative to bootstrap-plus-file; not the default
@@ -802,7 +856,7 @@ An adapter's `seed_channel` is one of:
   on the agent's UI and on its input being ready. [U]
 - `native_import`: stage 2 above.
 
-### 5.7 Per-agent facts from the research task [R] (versions: Claude Code 2.1.310, Codex 0.164.0, OpenCode 2.1.4, Pi 1.2.0)
+### 5.7 Per-agent facts from the research task [R] (versions: Claude Code 2.1.310, Codex 0.164.0, OpenCode 2.1.4, Pi 1.2.0; added 2026-10-31: Hermes Agent 0.22.5, DeepSeek Harness 0.2.1-rc.5)
 
 Each line is a fact an adapter may rely on **after its fixture confirms it** against the
 installed version; none was run here except `--help` and `--version`.
@@ -973,21 +1027,160 @@ runtime halves still await their rows.
   Which combination removes tools and write access is a fixture (PI8, R2), not a help
   reading.
 
+**Hermes Agent** (Nous Research, MIT; v0.22.5 of 2026-10-22; Python 3.11 to 3.14, installed by
+its own script with a bundled uv; docs hermes-agent.nousresearch.com) [R: research of
+2026-10-31 on the release, its source and its docs; nothing run here]
+- **Gateway first.** `hermes chat` does not run the agent in the terminal: it finds or starts
+  the profile's background **gateway**, creates or resumes the session there and attaches
+  over a local WebSocket. Closing the terminal only detaches and the turn keeps running;
+  Ctrl+C stops it. Launch flags are fixed when the session is created; a resume cannot change
+  them. Consequences: Shinatama starts and stops the gateway per box, as it does OpenCode's
+  service (main 5.14), and `release()` stops the turn and, with the box's last instance, the
+  gateway; otherwise the anti-goal "a resident service that keeps executing work after the
+  window closes" fails (HM2).
+- Start: `hermes chat -q "<text>"` on a TTY sends the text as the first turn and stays open;
+  `--query-file <path>` (`-` for stdin) takes the first turn from a file, never
+  shell-interpreted. No positional prompt (a bare word is a subcommand). `@file:path`,
+  `@folder:`, `@diff`, `@git:N`, `@url:` expand inline, with a warning at 25% of the window and
+  a refusal at 50%. Size limit of `-q`: not found.
+- Resume: `hermes chat --resume <id|title|latest>`, `--continue [title]`; a resume moves back
+  to the session's recorded directory unless `--no-restore-cwd`. **The caller cannot choose
+  the id**: it is learned from the `session_id:` line on stderr, the `system/init` event of
+  `--format stream-json`, a hook payload or the line printed on exit. List: `hermes sessions
+  list` (a text table, no JSON). Fork: `/branch` (alias `/fork`) inside a session.
+- Export and import: `hermes sessions export <out|-> --session-id <id> --format
+  jsonl|md|html|trace` (`trace` is Claude Code JSONL). **Official import:** `hermes sessions
+  import --from claude|codex [path]`, and `hermes --resume @claude` imports and resumes in one
+  step; tool activity is condensed into short notes. This is Hermes's own
+  `import_support = Official` for Claude Code and Codex sources (post-v1, 6.2), not Mukade's.
+- Headless: `hermes chat --oneshot -q` (or `-q` without a TTY) answers and exits; `-z
+  "<prompt>"` prints only the final text; `--format stream-json` emits JSONL (`system`,
+  `text`, `tool_use`, `tool_result`, `result`; `result` with `exit_code` ends the turn).
+  Isolation: `--ignore-user-config`, `--ignore-rules`, `--safe-mode`; tools restricted with
+  `-t/--toolsets`; approvals off with `--yolo` or `HERMES_YOLO_MODE=1`. There is no
+  answer-only flag: which toolset removes tools and write access is a fixture (HM7, R2).
+- Signals: shell hooks in the profile's `config.yaml` (`hooks:` with `matcher`, `command`,
+  `timeout`, `fail_closed`); events `pre_tool_call`, `post_tool_call`, `pre_llm_call`,
+  `post_llm_call`, `on_session_start|end|finalize|reset|delete`, `post_compaction`,
+  `subagent_start|stop`, `pre_command`; a JSON payload on stdin with `session_id` and `cwd`;
+  replies in a Claude Code compatible block/modify format. Each new event and command pair is
+  approved once into `shell-hooks-allowlist.json`; `--accept-hooks` or `HERMES_ACCEPT_HOOKS=1`
+  skips that. **No per-launch hook or MCP switch**: the only levers are `HERMES_HOME` and the
+  profile, and both also switch the session store. So the hook and `shinatama mcp` go into the
+  box's own `config.yaml`, a file Shinatama owns; with the `system` home Hermes runs without
+  them, and its state comes from the PTY and the gateway (HM4, HM5). ACP (`hermes-acp`)
+  attaches `mcpServers` per session at `session/new`: a backend route to evaluate with
+  item 4 below.
+- MCP client: `mcp_servers:` in `config.yaml` (stdio or url); `hermes mcp add|list|remove|test`.
+- Skills and plugins: `HERMES_HOME/skills/<name>/SKILL.md` (agentskills.io format),
+  `skills.external_dirs` (for example `~/.agents/skills`), project `.hermes/skills/` or
+  `.agents/skills/` only after `hermes skills trust`; plugins in `HERMES_HOME/plugins/`
+  (`plugin.yaml` plus Python, off until enabled) and "Agent Plugins v1.0.0" packages
+  (`plugin.json`, `skills/`, `mcp.json`). Claude Code plugins and marketplaces are not loaded.
+- Login: `hermes model`, `hermes setup`, `hermes auth add <provider> [--type
+  oauth|--api-key]`; status without secrets: `hermes status`, `hermes auth list`, `hermes
+  auth status <provider>`. Secrets live in `HERMES_HOME/.env` and `auth.json`. Many providers
+  (OpenRouter, Nous, OpenAI Codex, Anthropic, Gemini, Bedrock and more), so the sidecar must
+  carry whichever the user picks (HM12).
+- Context files: `.hermes.md`/`HERMES.md`, `AGENTS.override.md`, `AGENTS.md` (merged from the
+  git root down), `CLAUDE.md`, `.cursorrules`, `.cursor/rules/*.mdc`; **only the first
+  project file type found is loaded**. `SOUL.md` always, from `HERMES_HOME` only.
+- PTY: the default classic CLI (prompt_toolkit) writes to normal scrollback; Ctrl+T opens a
+  full-screen sub-agent roster. `--tui` is an alternate-screen Node TUI with mouse tracking on
+  by default and is not the hosting default. Windows is native (a UTF-8 console shim; the
+  gateway runs detached through `pythonw`).
+- Compaction at 50% of the window by default, in place (5.3). `/model` changes the model for
+  the session. Sub-agents run through `delegate_task`; their logs under
+  `cache/delegation/live/` are pruned after 7 days.
+
+**DeepSeek Harness** (deepseek-ai, MIT, "developer preview: there will be compatibility-breaking
+changes"; npm `@deepseek-ai/dsh` 0.2.1-rc.5, npm `latest` of 2026-10-29; Node `^22.19.0 ||
+>=24`; repository deepseek-ai/deepseek-harness) [R: research of 2026-10-31 on the release, its
+source and its docs; nothing run here]. No DeepSeek product is called DeepSeek Code; the
+community projects with similar names (DeepSeek-TUI, deepcode-cli, a PyPI
+`deepseek-harness-cli`) are other agents.
+- **No terminal UI.** The interactive surface is `dsh web`, a browser UI on `127.0.0.1:3080`
+  (`--port`, `--no-open`) behind a browser-trust check, with an internal, undocumented API.
+  The other profiles are `headless`, `acp` (ACP v1 over stdio) and `sdk` (JSON-RPC over
+  stdio); `desktop` is reserved for an Electron app. So DeepSeek Harness is the one agent
+  Shinatama does not host in a PTY: in v1 it runs as `dsh --profile acp`, with Shinatama as its
+  ACP client in a native conversation pane (main 5.16). `dsh web` stays an explicit "open in
+  browser" action in the user's browser, never embedded (main 5.15) and never a hop path. The
+  fixture gate pins the exact version, since the project announces breaking changes (DS1).
+- Launcher: `dsh [--profile] <name>`, `--patch <file>` (a repeatable overlay),
+  `--dump-config`; profiles in `DSH_HOME/profiles/<name>/` (`package.json` plus
+  `cordis.patch.yml`); layers: shipped bundles, profile patch, home patch
+  `DSH_HOME/cordis.patch.yml`, then each `--patch`.
+- Start and seed: ACP `session/new` returns the id, then `session/prompt` carries the seed as
+  the first user turn, with no command line in between; the SDK profile creates a session
+  lazily under a **caller-chosen id** (`session/prompt` with an unknown `sessionId`). Either
+  way the hop journal records the destination segment before the first prompt, as for
+  Claude, OpenCode and Pi. Prompt size limit: not found; workspace instructions are capped at
+  65,536 bytes.
+- Resume: ACP `session/resume` and `session/list` (paged, newest first, `cwd` filter);
+  headless `--session-id <id>` resumes an existing session but refuses one recorded in another
+  directory, a fork or a sub-agent session. No `session/load`; fork only in the web UI
+  (`atSeq`); export only as the web UI's zip; **no import** of any kind.
+- Headless: `dsh headless "<task>"` (or stdin) prints the final answer on stdout and the
+  reasoning on stderr, exit 0 when the turn completed; `--json` emits NDJSON `session`,
+  `status`, `text`, `thinking`, `tool_call`, `tool_result`, closing with `final` or `error`
+  (fields capped at 8 KiB, lines at 32 KiB, `final` uncapped). Permissions:
+  `DSH_PERMISSION_MODE=read-only|workspace-write|danger-full-access`; `read-only` is the
+  answer-only candidate (DS7, R2); no no-tools switch was found.
+- Signals: ACP `session/update` notifications and `session/request_permission` give exact
+  `working`, `waiting_permission` and turn end, with no hook and no screen reading. Native
+  hooks are plugin event handlers; Claude Code and Codex style hook files run through separate
+  packages (`@deepseek-ai/dsh-hooks-claude-code`, `-codex`; command hooks only; events
+  `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`, `SubagentStart`),
+  not needed while ACP is the channel.
+- MCP: one plugin row per server (`@deepseek-ai/dsh-mcp-client`, stdio or streamable-http),
+  tools named `mcp__<server>__<tool>`; **per launch** through a `--patch` file, and per
+  session through ACP's `mcpServers`. Stdio servers get a scrubbed environment (names
+  matching `KEY|PASSWORD|SECRET|TOKEN` and every `DSH_*` are dropped), so
+  `SHINATAMA_INSTANCE_TOKEN` (M15) must reach `shinatama mcp` some other way (DS5).
+- Plugins and skills: plugins are npm packages; bundles install with `dsh plugin --profile <p>
+  add <pkg>`; skills are `<name>/SKILL.md` or `<name>.md` with `name` and `description` front
+  matter, read in order from `<project>/.dsh/skills`, `<project>/.agents/skills`, custom
+  directories, `DSH_HOME/skills`, `~/.agents/skills`. Claude Code plugins and marketplaces are
+  not loaded.
+- Login: no login command and no status command. A DeepSeek key comes from
+  `DEEPSEEK_API_KEY` or the web UI's Models page; account sign-in is web only; other providers
+  (Anthropic, OpenAI, Moonshot, Z.ai, custom OpenAI or Anthropic endpoints) come through pi-ai.
+  Credentials are read from `DSH_HOME/.credentials.yaml`, then the environment, then the
+  project's `.env`, then `DSH_HOME/.env`. Consequences: `auth_status()` is `Unknown` until DS9
+  finds a check that reads no secret, and `login()` opens `dsh web` on the box's home in the
+  user's browser.
+- Context files: `DSH_HOME/AGENTS.md`, `~/.agents/AGENTS.md`, then `AGENTS.md` and `CLAUDE.md`
+  plus `AGENTS.local.md` and `CLAUDE.local.md` from the git root down; no `DEEPSEEK.md`.
+- Compaction near the context limit and on `/compact` (`compaction/*` records); the model is
+  chosen per session (`model/selection`); sub-agents are separate sessions, and their
+  providers include Codex and Claude Code, each run once.
+- Platforms: Windows code paths exist (a PowerShell sandbox, Windows locking); the SDK lists
+  Linux x64 and arm64, macOS 14+ arm64 and Windows x64; the CLI has no platform matrix (DS1).
+
 **Consequences for the design**
 
 1. **Seed delivery per agent:** Claude `claude --session-id <uuid> <bootstrap>` (id known in
    advance); Codex `codex -C <cwd> <bootstrap>` (id learned from the new rollout file
    or a notify); OpenCode `opencode <dir> --standalone --session ses_<id> --prompt
    <bootstrap>`; Pi `node cli.js --session-id <id> @<seed-file> <bootstrap>` (whole seed
-   natively). The id-known-in-advance property (Claude, OpenCode, Pi) lets the hop journal
-   record the destination segment **before** the spawn.
+   natively); Hermes `hermes chat --query-file <seed-file>` (whole seed natively; id learned
+   from the `session_id:` line or a hook, as for Codex); DeepSeek Harness ACP `session/new`,
+   then `session/prompt` with the seed. The id-known-in-advance property (Claude, OpenCode,
+   Pi; DeepSeek Harness at `session/new`, before the first prompt) lets the hop journal
+   record the destination segment **before** the spawn or the first prompt.
 2. **Context files in the seed header** must say which instruction file the destination
    reads: Codex and OpenCode read `AGENTS.md` only, Claude reads `CLAUDE.md` first. When a
    project has only `CLAUDE.md`, the seed names its path and tells a Codex or OpenCode
-   destination to read it, rather than assuming it was loaded.
+   destination to read it, rather than assuming it was loaded. Hermes loads only the first
+   project file type it finds (`.hermes.md`/`HERMES.md`, then `AGENTS.md`, then `CLAUDE.md`),
+   so its seed names every instruction file the project has; DeepSeek Harness reads both
+   `AGENTS.md` and `CLAUDE.md`.
 3. **State signals per agent:** Claude hooks through `--settings`; Codex TUI notifications
    in the PTY stream plus legacy `notify` plus app-server status; OpenCode the SSE feed of
-   its standalone server; Pi an extension passed with `-e` (or RPC). These replace the
+   its standalone server; Pi an extension passed with `-e` (or RPC); Hermes shell hooks in
+   the box's own `config.yaml` (none on the `system` home: PTY and gateway only); DeepSeek
+   Harness its ACP notifications and permission requests. These replace the
    "[U per agent]" of 7.3 and 8.1 as candidates; each still needs its fixture.
 4. **Backend-attach mode (candidate, milestone 1):** Codex (`app-server` plus
    `--remote`), OpenCode (`--server URL`) and Pi (`rpc`) can run a backend that Shinatama
@@ -1001,15 +1194,21 @@ runtime halves still await their rows.
    mutually exclusive. For Pi the choice is: host the TUI (no structured backend) or drive an
    RPC process (no TUI pane), not both. Codex `--remote` and OpenCode `--server URL` stand
    (record: [PI5](verification/2026-10-27-PI5-pi-tui-attach.md)).
+   **Added 2026-10-31:** Hermes's classic CLI is already a client of its own gateway, and
+   `hermes-acp` speaks ACP; whether Shinatama talks to that gateway while the CLI renders is
+   HM2. DeepSeek Harness has only the backend (ACP, SDK) and no terminal UI, so for it the
+   structured route is the only route.
 5. **Headless "answer-only" candidates** (roundtables, titles): `claude -p`, `codex exec
-   --ephemeral --ignore-user-config`, `opencode run --format json`, `pi --mode json`. For Pi
+   --ephemeral --ignore-user-config`, `opencode run --format json`, `pi --mode json`, `hermes
+   chat --oneshot -q <prompt> --format stream-json --ignore-user-config --ignore-rules`, `dsh
+   headless --json` with `DSH_PERMISSION_MODE=read-only`. For Pi
    the switches were found on 2026-10-27 (`--no-tools`, `--tools`, `--exclude-tools`; help
    only); for the other three the exact flags that remove tools or write access were **not
    established**. Each candidate needs its fixture.
 6. **Claude retention** (30 days) shapes search and resume, above.
 
 **Not established by the research (each becomes a milestone-1 task):** whether the Claude
-CLI accepts hand-built transcripts; any size limit for a seed prompt in any of the four;
+CLI accepts hand-built transcripts; any size limit for a seed prompt in any of the six;
 a file or stdin route for the interactive user prompt of Claude and Codex; whether Codex
 `-c` can inject hooks past the trust gate; whether `thread/inject_items` persists to the
 rollout; the OpenCode V2 pages on rules and the event list (read from source only);
@@ -1272,7 +1471,7 @@ differences, each answering a gap found in its code:
 | Hopping back creates another fresh export | Hopping back is a native resume of the earlier session plus a catch-up (6.6) |
 | tmux and POSIX `sh`; Windows only through WSL | Process spawned with an argument vector, no shell; a short bootstrap prompt plus a file, because `CreateProcess` caps the command line at 32,767 characters (5.6) |
 | Wrapper text nests across A → B → C | Hand-off messages are recognized and elided when read back (6.4) |
-| Agents: Claude, Codex, Pi; OpenCode and Gemini unsupported | Claude, Codex, OpenCode, Pi; Gemini launch-only |
+| Agents: Claude, Codex, Pi; OpenCode and Gemini unsupported | Claude, Codex, OpenCode, Pi, Hermes Agent, DeepSeek Harness (ACP); Gemini launch-only |
 | Claude → Claude and Codex → Codex native "resume" is an account switch | Not a goal; Shinatama's native resume is the **same segment** after a hop |
 
 What Agent Deck's code establishes about launching a seeded destination [S]:
@@ -1600,7 +1799,7 @@ agent session or read conversation contents.
 ## 10. The first milestone must prove (or the design changes)
 
 > The complete list, with method, pass criterion and where each result is written back, is
-> [the verification register](verification-register.md) (236 rows). This section is
+> [the verification register](verification-register.md) (266 rows). This section is
 > its short form; where they differ the register wins.
 
 1. Shared-memory SQLite with FTS5 under two processes on Windows, macOS and Linux; a
@@ -1646,6 +1845,11 @@ agent session or read conversation contents.
     the bounded MCP use case; explicit Patchright startup; endpoint and hostile-content
     isolation; profile/artifact privacy; control handover; whole-tree cleanup; and a
     reproducible performance baseline. `moli serve` stays off unless B4 passes.
+16. Hermes Agent and DeepSeek Harness (added 2026-10-31; register sections 7a and 7b):
+    Hermes's gateway owned per box and stopped on release (HM2); its seed by `--query-file`
+    and its id learned (HM1); DeepSeek Harness driven over ACP in a native pane, with a seed,
+    a resume and the permission round trip (DS1, DS2, DS4). Their Mukade readers (HM3, DS3)
+    gate search and hops from them.
 
 ## 11. Acceptance tests (what "done" means)
 
@@ -1656,7 +1860,8 @@ agent session or read conversation contents.
 2. **Canary hop:** in the source, state a fact that appears once, in turn 3 (a made-up
    project codename). Hop to each of the other agents. Ask the destination for the
    codename without repeating it. Pass = correct answer, for every ordered pair among the
-   four agents, at stage 1.
+   six agents, at stage 1; a pair whose source is Hermes Agent or DeepSeek Harness counts
+   from the day Mukade reads that source (engine 5).
 3. **Hop back:** hop A → B, do two turns in B, hop back to A. A's native session is
    resumed (its id is the old one) and its catch-up names B's two turns.
 4. **Concurrency:** two processes try to hop the same thread; exactly one wins; the loser

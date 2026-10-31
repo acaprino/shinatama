@@ -4,7 +4,7 @@ Date: 2026-10-26; native tiling revision: 2026-10-29
 Status: draft, not yet approved. Nothing is built from this document until it is.
 
 Shinatama is a local-first native desktop workspace, written in Rust, that hosts the real
-coding agents (Claude Code, Codex, OpenCode, Pi) in tiled terminal panes and lets the user hop
+coding agents (Claude Code, Codex, OpenCode, Pi, Hermes Agent, DeepSeek Harness) in tiled terminal panes and lets the user hop
 a live chat from one agent to another without starting over. This document lives in
 the project `shinatama`.
 
@@ -36,8 +36,14 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
 
 ### Goals (decided unless marked)
 
-1. Host Claude Code, Codex, OpenCode and Pi as real processes in a terminal
-   multiplexed inside Shinatama.
+1. Host Claude Code, Codex, OpenCode, Pi, Hermes Agent and DeepSeek Harness as real
+   processes in a terminal multiplexed inside Shinatama (the six decided 2026-10-31,
+   user: "deve supportare opencode, codex, claude code, pi, hermes e deep seek code").
+   "Deep seek code" is read as DeepSeek Harness, DeepSeek's own open-source agent; no
+   DeepSeek product is called DeepSeek Code (my call, section 7). Hermes Agent and
+   DeepSeek Harness join with every adapter capability declared `unsupported` until
+   its register row passes (engine 5.5 and 5.7; register sections 7a and 7b): nothing
+   is claimed for them from documentation alone.
 2. Seamless hop of a live thread between those agents (see 5.2).
 3. Search all local sessions of all supported agents; resume from history in the
    same agent or in a different one. Interactive terminal flow plus a scriptable
@@ -113,7 +119,7 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
   parser, native UI); it runs many concurrent tasks (several terminals, sidecar, event
   stream, summaries); one toolchain builds and cross-builds for macOS, Linux and
   Windows. Not proved yet: that a Rust pseudo-terminal plus
-  emulator hosts the four agents faithfully on Windows with ConPTY — the first
+  emulator hosts the six agents faithfully on Windows with ConPTY — the first
   milestone must prove it before the rest is built on it.
 - Local-first: no account, no hosted service. Threads and settings live on disk.
 - Every agent launch goes through the checkup: there is one launch point and it runs
@@ -184,8 +190,8 @@ draws around and over it:
 
 What stays the agent's: the text it draws (tables, tool calls, reasoning, choices) and
 any colour it picks at 24-bit. Not yet verified, to be proved by the first milestone:
-fidelity of the emulator against the real Claude Code, Codex, OpenCode and Pi on
-macOS, Linux and Windows (ConPTY can alter escape sequences); wide characters and
+fidelity of the emulator against the real Claude Code, Codex, OpenCode, Pi, Hermes
+Agent and DeepSeek Harness on macOS, Linux and Windows (ConPTY can alter escape sequences); wide characters and
 emoji; alternate screen and scroll regions; mouse and advanced keys; passing agent
 images (kitty or sixel) through to the outer terminal; no flicker; and how well the
 colour remap reads in each skin.
@@ -193,7 +199,8 @@ colour remap reads in each skin.
 Formatting of live work stays the agent's own. Where the data is already structured
 and read-only — find, the hop preview, the roundtable, the overview — Shinatama draws
 its own rich views. Redrawing the live chat itself from each agent's structured stream
-is not planned.
+is not planned, with one exception: DeepSeek Harness ships no terminal UI, so its live
+view is a native ACP pane (5.16).
 
 ### 5.2 Hop (decided: "truly seamless"; built from scratch in Rust)
 
@@ -243,8 +250,9 @@ privacy, store and recovery gates pass, because it writes into another agent's
 session store. The hybrid remains the end state: where the destination's session
 format can be written reliably, import the converted history as a real native
 session; otherwise fall back to a readable text export. Native import is done by the
-`mukade` interchange library — Shinatama's own reader and writer for the four
-harnesses, published as its own repository and linked in-process (technical design
+`mukade` interchange library — Shinatama's own reader and writer for the hosted
+harnesses (four today; Hermes Agent and DeepSeek Harness are new Mukade work,
+[mukade-handover.md](mukade-handover.md) section 9), published as its own repository and linked in-process (technical design
 5.4.1). Until that post-v1 gate opens, every hop uses `seed_prompt` or
 `native_resume`; a fork also uses a seed, never a native fork or import.
 
@@ -261,7 +269,7 @@ export, fork). All are documented as partly experimental.
 
 ### 5.3 Search and resume
 
-Full-text search over the sessions of all four agents, filterable by agent,
+Full-text search over the sessions of every agent Mukade reads, filterable by agent,
 project and date, with a preview of the thread. Enter resumes in the same agent
 (native); another key resumes in a different agent (a hop). The command line mode
 mirrors it for scripts, for example:
@@ -306,6 +314,16 @@ through their own native entries: `/daodan:<workflow>` on Claude Code and OpenCo
 `<workflow>-workflow` on Codex, `/daodan-<workflow>` on Pi (docs/hosts.md of the
 Daodan repository).
 
+**Hermes Agent and DeepSeek Harness have no Daodan package (2026-10-31).** Daodan builds for
+five hosts: Claude Code, GitHub Copilot, Codex, Pi and OpenCode (its README, "One source,
+five hosts", marketplace 1.0.0). On the two new agents the checkup installs nothing and says
+"Daodan: no package for this agent"; the palette offers no Daodan command there. Shinatama
+never copies another host's build into them: a package Daodan did not compile and check for
+that host would claim an execution nobody proved. The task view of the native support still
+works for their threads, because that is Shinatama reading `.daodan/agenda.json`. Adding the
+two hosts is Daodan's work, in its own adapters and exports (register D20); the day Daodan
+ships them, the checkup treats them like the other five.
+
 Daodan's own build for each host already carries its dependencies, so the checkup
 installs that build and enables what its manifest lists; nothing is translated. The
 `research` question is settled by "all"; what is open is the cost of "all" (register D4).
@@ -338,7 +356,11 @@ below, verified under Shinatama and not assumed:
 - compression policy as shipped (adaptive pressure, CCR, Absorb, profiles);
   `--no-context` remains an explicit per-session opt-out.
 
-Agents covered in v1: Claude Code, Codex, OpenCode, Pi; Gemini is launch-only (5.9).
+Agents covered in v1: Claude Code, Codex, OpenCode, Pi, Hermes Agent and DeepSeek
+Harness; Gemini is launch-only (5.9). The last two count as covered only once the proxy
+carries their provider traffic (register HM12, DS12): Hermes reaches many providers
+(OpenRouter, Nous, Anthropic, OpenAI Codex, Gemini, Bedrock and more), DeepSeek Harness
+the DeepSeek API plus the providers of its pi-ai layer.
 The sidecar needs Node; how Node is provided on macOS and Linux is
 the builder's call within the install story. A known interaction: the hop context
 passes through the sidecar and counts against the destination's window; and the MCP
@@ -360,6 +382,8 @@ UI typography, borders and panel states. Agent terminals use separate terminal
 profiles: each harness has a default monospace font and metrics, ANSI palette,
 default foreground/background and cursor. The profile gives the harness a
 stable identity inside its pane; it does not replace or reinterpret the TUI.
+Hermes Agent gets a profile like the other four. DeepSeek Harness has no terminal, so
+its ACP pane (5.16) is drawn with the skin and a harness accent colour instead.
 A user may opt into **follow Shinatama skin**, which remaps only the default and
 16-colour ANSI palette. Truecolour output chosen by the harness remains
 untouched. Effects seen in the HTML mockups (scan lines, clipped corners, glow)
@@ -421,7 +445,7 @@ My calls:
   or ask for another.
   A free-form chat between two agents is the same machinery with one reply per
   round. Whether the free-form variant is wanted is **open**.
-- **Participants:** any mix of the four agents, each with its own model, including
+- **Participants:** any mix of the supported agents, each with its own model, including
   an agent pointed at a local model. The same agent may appear twice with different
   models.
 - **Transport:** for roundtable turns use an agent's non-interactive or native API
@@ -462,6 +486,12 @@ calls:
   the background).
 - Each agent's authentication methods differ and change by version; the adapter
   declares what it can detect and what it can only launch. To be verified per agent.
+- Hermes Agent reports sign-in without secrets (`hermes auth list`, `hermes auth status
+  <provider>`) and logs in with `hermes model` or `hermes auth add`. DeepSeek Harness has
+  neither a login nor a status command: its state shows as **unknown**, and its login opens
+  its own web UI (`dsh web`, on the box's home) in the user's browser, where the key or the
+  account is entered (register DS9). It also reads a project's `.env`: a key there is used
+  even in a box, and the setup screen says so.
 - In a box (5.14) an agent's home starts signed out, so the first launch of each agent
   asks for one login through that agent's own flow; it then persists in the box and is
   shared by every instance of that agent. With the `system` home the user's existing
@@ -566,7 +596,9 @@ is installed, `own` otherwise.
   update`, or `npm install -g <package>@latest` with the package read from the npm
   shim). If the installed version is outside the proved range, the agent runs degraded
   and the user is told why. Nothing to download and no disk cost.
-- `own`: Shinatama's copy, installed with npm `--prefix` (works for all four, D16), when
+- `own`: Shinatama's copy, installed with npm `--prefix` (works for all four, D16, and
+  DeepSeek Harness is an npm package too; Hermes Agent comes from its own installer with a
+  bundled uv and Python, so its `own` recipe is HM10), when
   the agent is not installed or the user wants a pinned version. Updates install
   **next to** the running version: open instances keep the old one, new instances start
   on the new one, the previous version is kept for going back when the new one fails
@@ -576,7 +608,8 @@ is installed, `own` otherwise.
 **2. Home: `agents.<agent>.home = box | system`.** Default `box`.
 
 - `box`: a home in Shinatama's folder (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_DB`
-  plus `XDG_*`, `PI_CODING_AGENT_DIR`). Plugins, skills, settings, sessions and login
+  plus `XDG_*`, `PI_CODING_AGENT_DIR`, `HERMES_HOME`, `DSH_HOME` plus `DSH_AGENTS_HOME`).
+  Plugins, skills, settings, sessions and login
   live there; the user's own agent runs see none of it, and the user's home is never
   written. Cost: one login per agent the first time (5.11). The user's existing sessions
   in the system home are still found: search and import read them, read-only, and a
@@ -615,6 +648,11 @@ that resumes it.
 - Pi: `-ne -ns -np`, then `-e` and `--skill` per item; a box keeps `mcp.json` empty and
   each instance brings its MCP servers through its own extension (untested), since Pi
   has no per-launch MCP switch.
+- Hermes Agent: no per-launch switch for plugins, skills, hooks or MCP, and a profile (`-p`)
+  brings its own session store, so it would split the sessions. Until HM13 finds a way, a
+  Hermes instance carries its box's set.
+- DeepSeek Harness: a `--patch` overlay per launch (plugin and MCP rows) plus the ACP
+  session's `mcpServers`; skills come from the box and the project (untested, DS13).
 
 Switching any choice moves nothing: the other home's sessions stay readable and
 importable.
@@ -644,6 +682,14 @@ Node-based ones, `NODE_COMPILE_CACHE`) inside Shinatama's folder, plus:
   table in its database.
 - Pi: `PI_CODING_AGENT_DIR`; `--no-skills` or `HOME` for the child (it reads
   `~\.agents\skills`). Login in `auth.json` in the box.
+- Hermes Agent (not yet run, HM9): `HERMES_HOME`; the box's `config.yaml` carries
+  Shinatama's hook and MCP entries (engine 5.7) and an empty `skills.external_dirs`, so
+  `~/.agents/skills` stays out; Shinatama starts and stops the box's gateway, which
+  otherwise keeps running after its terminal closes. Login in `.env` and `auth.json` in the
+  box.
+- DeepSeek Harness (not yet run, DS9): `DSH_HOME` and `DSH_AGENTS_HOME` (without the second
+  it reads `~/.agents/skills` and `~/.agents/AGENTS.md`). Login in `.credentials.yaml` in
+  the box.
 
 A box is created with owner-only permissions (0700 on macOS and Linux, a current-user ACL
 on Windows, the rule of engine 4.1), because it holds the agent's login and sessions (my
@@ -744,12 +790,23 @@ surfaces.
 | File/document preview | Supported text/image artifacts. DOCX reading needs a separate renderer and declared fidelity; DOCX editing/full Office support is not implied. |
 | Browser / integrated apps | Static previews fit 5.15. Interactive embedded browsing and mini-app hosting need separate design/security gates; JanuraCode app compatibility is not assumed. |
 
+**DeepSeek Harness pane (2026-10-31, my call).** DeepSeek Harness ships no terminal UI:
+its interactive surface is a browser page (`dsh web`), and its other modes are ACP and
+SDK over stdio (engine 5.7). So its tab is a native **ACP pane**: Shinatama runs `dsh
+--profile acp` and is its ACP client, the way an editor is, drawing messages, tool calls
+and permission requests with the active skin and answering permissions through ACP. The
+agent's loop, tools, models and session store stay its own, so this is not the simulated
+chat of the anti-goals (2). The pane has the same tab, split, hop and overview behaviour as a
+terminal tab. `dsh web` is offered as an explicit "open in browser" action in the user's
+browser for what the pane lacks (the web UI's fork and export), never embedded (5.15).
+
 **Sessions surface (decided 2026-10-30; revised 2026-10-31).** The workspace can
-browse the sessions of all four harnesses and open one in a detail panel. It is not
+browse the sessions of every harness Mukade reads and open one in a detail panel. It is not
 part of the first terminal-first milestone. Read-only browsing is the first slice;
 live seed hops follow after their hop gates. Native Import and native handoff are
 post-v1 capabilities and remain unavailable until their separate gates pass (5.2).
-The supported Mukade revision must provide all four listing readers; the declared
+The supported Mukade revision must provide a listing reader for every harness shown (four
+today; Hermes Agent and DeepSeek Harness appear in the tree once Mukade reads them); the declared
 dependency pin, not an arbitrary local checkout, defines that capability. Mukade
 revisions after the pin (installation scan, two-home hops) count only once the pin is
 advanced and rechecked ([mukade-handover.md](mukade-handover.md), section 8).
@@ -820,8 +877,9 @@ advanced and rechecked ([mukade-handover.md](mukade-handover.md), section 8).
   Claude or Codex. Missing, external, ambiguous parents and cycles are marked.
   Clicking a node opens that session or thread; it does not resume it.
 
-**Acceptance of the read-only slice:** all four harnesses listed from the declared
-Mukade pin and their explicitly resolved stores, including native children where
+**Acceptance of the read-only slice:** every harness the declared Mukade pin reads (the four
+today, all six once the Hermes Agent and DeepSeek Harness readers land) listed with
+its explicitly resolved stores, including native children where
 supported; the user's own stores and side files stay untouched, including child
 process effects; no native write from browsing, opening, searching or copying;
 id, path, store and available metadata correct, with unavailable fields explicit;
@@ -907,6 +965,14 @@ suite are in section 5.5 of the [engine spec](technical-design.md).
 - Hop: close or fork the source at each hop, with a user setting for the default
   (default close); a fork continues in a new thread (5.2; engine 6.2, 6.3).
 - Gemini launch-only (5.9).
+- "Deep seek code" is DeepSeek Harness (`dsh`, deepseek-ai/deepseek-harness), DeepSeek's
+  only official agent; "hermes" is Hermes Agent by Nous Research (goal 1, 2026-10-31).
+- DeepSeek Harness runs in a native ACP pane, since it has no terminal UI; its web UI only
+  on explicit request, in the user's browser (5.16).
+- Hermes Agent and DeepSeek Harness get no Daodan package until Daodan builds one; nothing
+  is copied from another host (5.5).
+- Until Mukade reads them, Hermes Agent and DeepSeek Harness resume natively and receive
+  seeds, but are not searched and are not hop sources (engine 5).
 - Others may install it: release, signing and notarization planned (5.12).
 - Order of work (5.12).
 - All Daodan plugins enabled by default, `research` included (5.5, user).
@@ -924,7 +990,7 @@ suite are in section 5.5 of the [engine spec](technical-design.md).
   of its own; for Pi, the box keeps `mcp.json` empty and each instance brings its MCP
   servers through its own extension; a resumed session takes the set of the instance
   that resumes it.
-- Inherited markers (engine 3): the union of the four agents' lists is removed before
+- Inherited markers (engine 3): the union of every supported agent's list is removed before
   any launch; `GIT_EDITOR` only when its value is Claude's helper.
 - Overview: titles written by a low-cost model that Shinatama calls (not the agents),
   chosen from the catalog of a provider already signed in or a local model, capped

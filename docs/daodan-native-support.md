@@ -21,7 +21,7 @@ Why it matters: Daodan's lock is the task holder in `.daodan/agenda.json`. A hop
 4. **Start and resume in the task's worktree**: a thread for a task opens with that task's worktree as its directory.
 5. **Surface what needs the user**: unanswered questions and stale holders in the project manager, the overview tab (5.13) and the widget (5.8).
 6. **Task-aware palette**: the `^K` palette offers the task commands (show status, continue this task) next to the workflows of 5.5.
-7. **Every Daodan plugin enabled** in every agent by default (4.6).
+7. **Every Daodan plugin enabled** in every agent Daodan builds for, by default (4.6). Hermes Agent and DeepSeek Harness have no Daodan package yet (functional design 5.5): their threads show tasks and holders, with no typed Daodan commands.
 8. **Onboarding offer** on a project with no Daodan state: handover or initialization, once (4.7).
 
 ### Non-goals
@@ -75,6 +75,8 @@ When the source thread is linked to an open task, the hop dialog gains a **Daoda
   no Daodan state.
 - **Fork.** The source stays live and keeps the holder. The destination is a new thread **without** the task: its seed says the task is held by the source session and may be read, not written, until the source closes. The two threads never both hold one task.
 
+A destination with no Daodan package (Hermes Agent, DeepSeek Harness) receives the task block as read-only context, and the dialog says the task cannot be taken over there; close mode then leaves the holder unchanged and sends no handover message.
+
 The preview (5.2, item 5) shows the Daodan block verbatim.
 
 ### 4.4 Overview, widget, alerts
@@ -83,7 +85,7 @@ A task with `questions > 0` is a user-needed item, shown in the overview tab and
 
 ### 4.5 Palette (`^K`)
 
-Adds, for the selected thread's task: *Show status* and *Continue this task*, typed as the agent's native command (`/daodan:show-status`, `/daodan:continue-task` on Claude Code and OpenCode; the Codex and Pi spellings come from the installed manifest, 5.5 and D8). The user presses Enter.
+Adds, for the selected thread's task: *Show status* and *Continue this task*, typed as the agent's native command (`/daodan:show-status`, `/daodan:continue-task` on Claude Code and OpenCode; the Codex and Pi spellings come from the installed manifest, 5.5 and D8). Hermes Agent and DeepSeek Harness get neither entry: Daodan has no package for them (functional design 5.5). The user presses Enter.
 
 ### 4.6 All plugins enabled
 

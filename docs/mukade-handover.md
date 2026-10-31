@@ -268,3 +268,27 @@ Open in Mukade's own [`next.md`](https://github.com/acaprino/mukade/blob/master/
 relevant here: Codex paginated threads (0.165) read from hand-made files only, Codex subagent
 threads not linked to their root, native compaction records never written by a portable hop,
 the 100 MB read not re-measured after the speed work. CX10 and SS2 inherit them.
+
+## 9. Hermes Agent and DeepSeek Harness (requested 2026-10-31)
+
+Shinatama hosts six agents since 2026-10-31 ([functional design](functional-design.md), goal
+1); Mukade reads and writes four. The two new harnesses need Mukade work in its own repository
+before Shinatama can search them or hop **from** them. Until a reviewed pin carries it, their
+adapters declare `list_sessions`, `read_transcript` and `export` unsupported: they resume
+natively within themselves and receive seeds, nothing more ([engine 5](technical-design.md#5-reading-the-agents-adapters-and-the-canonical-transcript)).
+The store facts are in engine 5.3 and 5.7, researched from each project's source on
+2026-10-31 and not yet observed on this machine.
+
+| | Hermes Agent 0.22.5 | DeepSeek Harness 0.2.1-rc.5 |
+|---|---|---|
+| Root variable | `HERMES_HOME` (default `~/.hermes`, `%LOCALAPPDATA%\hermes` on Windows); one `state.db` per profile | `DSH_HOME` (default `~/.dsh`), plus `DSH_AGENTS_HOME` |
+| Store | SQLite `state.db`, schema 32, WAL: `sessions` and `messages` tables | `sessions/--<cwd>--/<id>/session.v4.jsonl.zstd`: JSONL in checksummed Zstandard frames |
+| Agent's own route | `hermes sessions export --format jsonl` (primary source, as OpenCode's export) | none on the command line; ACP `session/list` for listing |
+| Lineage | `parent_session_id`; sub-agents marked `_delegate_from` in `model_config` | header `parentSession`, `isSeeded`, `origin: 'subagent'` |
+| Compaction | in place: replaced rows kept with `active=0, compacted=1` | `compaction/*` records |
+| Writer (post-v1) | Hermes's own `sessions import --from claude\|codex` exists for those two sources; a Mukade writer for the other pairs | no import of any kind; a Mukade writer would be the only route, and the store's single-writer lock must be respected |
+
+Reader requirements are those of section 3 and engine 5.2: read-only, no lock (`session.lock`
+included), the torn last record or frame ignored, unknown records counted. Fixtures come
+first: register HM3 and DS3. Whether to add both readers at once or Hermes first (its export
+route makes it the cheaper one) is Mukade's call; Shinatama's acceptance is per harness.
