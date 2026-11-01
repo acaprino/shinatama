@@ -44,7 +44,7 @@ messages expire; nothing outlives the sessions.
 |---|---|---|---|---|---|
 | R09 | Channels are tried in order per recipient capability: the agent's native queue (Codex `queue`, app-server `turn/steer`, Pi RPC `prompt`/`steer`, OpenCode `/prompt` or `/synthetic`); hook injection at the next boundary through `shinatama hook`; MCP pull through `shinatama_inbox`; a PTY bracketed paste as the last resort. | S | V1 | M4, CX5 | 0024 |
 | R10 | A PTY write happens only when the instance is idle and the user has typed nothing in it for 10 s, never while a permission dialog, a selection, a search box or a draft is active, so it can never answer a permission prompt; where that cannot be guaranteed the channel is removed for that agent. | A | V1 | M5 (SEC) | 0024 |
-| R11 | States: `queued` → `delivering` → `delivered` → `acked` | `failed` | `expired`. `delivered` is never shown as "read"; the UI says delivered or acknowledged. | S | V1 | M4 | 0024 |
+| R11 | States: `queued` → `delivering` → `delivered` → `acked`, `failed` or `expired`. `delivered` is never shown as "read"; the UI says delivered or acknowledged. | S | V1 | M4 | 0024 |
 | R12 | Delivery is at least once: at most 5 retries with a backoff starting at 5 s and doubling; receivers deduplicate by message id; a duplicate send yields one delivery; no exactly-once promise. | S | V1 | AT-7 | 0024 |
 | R13 | A message to an offline recipient is queued and delivered when the recipient starts, if still within the expiry; otherwise it expires. | S | V1 | AT-7 | 0024 |
 | R14 | What "delivered" means per agent is stated honestly in the UI from what M4 measured (a hook output, a queued message, a pasted line). | S | V1 | M4 | 0024 |

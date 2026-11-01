@@ -77,7 +77,7 @@ identity, and the removal of inherited agent markers.
 | R31 | Hermes Agent has no per-launch switch: its hook and MCP entries live in the box's own `config.yaml`, a file Shinatama owns; a Hermes Agent on the `system` home runs without them and its state comes from the PTY and the gateway. | A | X | HM4, HM5 | 0013 |
 | R32 | At launch the agent receives `SHINATAMA_INSTANCE`, `SHINATAMA_THREAD`, `SHINATAMA_DB` and `SHINATAMA_INSTANCE_TOKEN` (a per-launch random token stored hashed). They are the instance's stable identity; the agent's own session id is never used for identity because it changes on `/resume`. | A | X | P15, M9, M15 | 0013 |
 | R33 | `shinatama mcp` and `shinatama hook` refuse an unknown or ended instance and a caller whose token does not match, so one hosted agent cannot act as another; the token never appears in clear in the database, logs or transcripts. | A | X | M15 | 0013, 0024 |
-| R34 | DeepSeek Harness scrubs `KEY\|PASSWORD\|SECRET\|TOKEN` and `DSH_*` from stdio MCP servers' environments, so the instance token must reach `shinatama mcp` another way, found and verified by DS5. | S | V1 | DS5 (SEC) | 0013 |
+| R34 | DeepSeek Harness scrubs `KEY\\|PASSWORD\\|SECRET\\|TOKEN` and `DSH_*` from stdio MCP servers' environments, so the instance token must reach `shinatama mcp` another way, found and verified by DS5. | S | V1 | DS5 (SEC) | 0013 |
 
 ### 2.6 Inherited agent markers
 
