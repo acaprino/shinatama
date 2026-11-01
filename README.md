@@ -15,6 +15,8 @@ Status: design draft, not approved. No code yet.
 - Native support for Daodan (decided 2026-10-27; proposed, not approved): [docs/daodan-native-support.md](docs/daodan-native-support.md)
 - Session import/export: the library is now its own repository, [mukade](https://github.com/acaprino/mukade), which ships the spec ([session-interchange-spec.md](https://github.com/acaprino/mukade/blob/master/docs/session-interchange-spec.md)) and the tool tables ([tool-conversion-tables.md](https://github.com/acaprino/mukade/blob/master/docs/tool-conversion-tables.md)); technical design 5.4.1, register row H27 (its original Mukade record was removed in that repository's documentation reorganization; Mukade's current verification records are indexed in its [docs/README.md](https://github.com/acaprino/mukade/blob/master/docs/README.md#verification-records)).
 - What still has to be proved by running something: [docs/verification-register.md](docs/verification-register.md)
+- Requirements, one readable record per area with origin, delivery slice and proof row (FRD-0001 to FRD-0017, Proposed): [docs/frd/README.md](docs/frd/README.md)
+- Decisions, one record per version (ADR-0001 to ADR-0050; reading map and coherence audit in the index): [docs/adr/README.md](docs/adr/README.md)
 
 Naming (decided 2026-10-26): the project is called `shinatama` (earlier suffixes `-sld` and `-mux` were dropped). The obsolete Daodan marketplace checkout (`acaprino/shinatama`, register row D1) was deleted on 2026-10-26; the local folder is renamed to `D:\Projects\shinatama` once JanuraCode is not holding it, because its services keep `.jcode` open.
 

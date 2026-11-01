@@ -124,6 +124,11 @@ Decision, Examples, Rejected Alternatives, Invariants, Consequences and Confirma
   defect to fix in one of them, not a precedence rule.
 - `adr_tool.py validate` passes on all 45 records (ADR-0041 to ADR-0043 and the v2 records of
   ADR-0002 and ADR-0003 come from the companion work).
+- Added 2026-11-01 as **Proposed**, by hand and not yet validated by the tool: ADR-0046 (project
+  manager), ADR-0047 (Rust, platforms, dependency policy), ADR-0048 (install, distribution,
+  updates), ADR-0049 (text index outlives retention), ADR-0050 (the FRD and ADR method), and the
+  v2 records of ADR-0031 and ADR-0037 that carry the narrowings ADR-0044 states. The README of
+  `docs/adr/` now has a reading map by domain and a coherence audit (C1 to C12).
 
 ## 4a. Functional requirements documents
 
@@ -149,7 +154,13 @@ proposed, or unmarked in the design. Open questions are not requirements.
 | FRD-0012 | Companion pane, decision cards and web grounding (spec revision 4) | 201 |
 | FRD-0013 | Token savings | 47 |
 
-All 13 are **Proposed**, extracted on 2026-11-01 and last refreshed at `c84d28e`, after the
+Since 2026-11-01 each area also has a readable Markdown record beside the JSON
+(`FRD-NNNN-<slug>.md`), and four areas the extraction had left inside other records have their own:
+FRD-0014 (shared state and privacy), FRD-0015 (model routing and the tool chooser), FRD-0016
+(TokenEconomizer) and FRD-0017 (install and release). The Markdown is the text a person reviews;
+the JSON is the evidence binding; `docs/frd/README.md` states the conventions (origin, slice, proof).
+
+All 13 JSON records are **Proposed**, extracted on 2026-11-01 and last refreshed at `c84d28e`, after the
 inconsistency fixes and the user's three rounds of answers that day (866 requirements); items are `extracted`, not
 reviewed. `frd_tool.py validate` passes. An FRD becomes Accepted only through `promote`
 after the user approves its exact text. Because evidence is bound to file hashes, any edit
