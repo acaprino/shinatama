@@ -106,7 +106,7 @@ companion. See the specification, sections 4 to 8.
 - technical-design 4.2 gains thread kind `companion` with its own link column (not `parent_thread_id`) and a table for the companion's messages and per-card cost (`summary_log` unchanged); technical-design 5.5 gains a read-only-with-reads policy value, a stateless mode and `turn_end_signal` as a prerequisite; technical-design 7.6 gains wrapper escaping; technical-design 4.7 gains the companion's provider data flow; functional-design 5.1 and 5.16 gain the second native chat surface.
 - Privacy: the companion's file reads are not redacted; a companion on a provider other than the worker's shows a first-use warning; `summaries_excluded` threads get no companion; the user's learning memory goes to the companion's provider (ADR-0042).
 - New register rows per harness and per platform (spec 10.2), including context neutrality, channel isolation and sidecar coverage.
-- The pane's input is preset actions and selections only (ADR-0041) and its learning memory is ADR-0042; both depend on this record.
+- The pane's input is preset actions and selections only (ADR-0041), its ledger of what was explained is ADR-0042 and its web search through the harness's own web tool is ADR-0043; all three depend on this record, and ADR-0043 is the one place where the read-only companion has any web access.
 
 ## Confirmation
 

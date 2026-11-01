@@ -56,7 +56,7 @@ assumed a typed question; ADR-0002 v2 rewrites that example to a pane action.
 ## Decision
 
 The companion pane has no free-text input. The user acts through fixed presets on a card (basics,
-why here, alternatives, example, simpler, deeper, expand) and through Explain this on a selection
+why here, alternatives, example, simpler, deeper, expand, sources) and through Explain this on a selection
 in the worker's pane. Each preset reaches the companion as a fixed template, versioned with
 Shinatama, with its operand wrapped as untrusted data. The one piece of user-typed text that
 reaches the companion is the short level text written in the settings screen, sent as data. The

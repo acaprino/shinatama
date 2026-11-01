@@ -63,6 +63,7 @@ run `index`; do not edit this block by hand.
 | [ADR-0040](<ADR-0040-delivery-baseline.md>) | Terminal-first TL1 baseline, then read-only browsing and resume, then the seed hop; first-milestone gates decide the design | `docs/functional-design.md`, `docs/technical-design.md`, `docs/verification-register.md`, `delivery-plan`, `milestones`, `verification-gates`, `release` | `adr-backfill-2026-11-01` |
 | [ADR-0041](<ADR-0041-companion-preset-input.md>) | The companion pane accepts only preset actions and selections, and has two card flows | `docs/specs/companion-explainer.md`, `docs/functional-design.md`, `companion`, `preset-input`, `card-flows` | `init-abfe6369faa4489a915c5f057a84e467` |
 | [ADR-0042](<ADR-0042-companion-learning-memory.md>) | A per-person ledger of what the companion explained, written by Shinatama from the companion's card block | `docs/specs/companion-explainer.md`, `docs/technical-design.md`, `companion`, `learning-memory` | `init-abfe6369faa4489a915c5f057a84e467` |
+| [ADR-0043](<ADR-0043-companion-web-grounding.md>) | The companion searches the web only through its harness's own web tool | `docs/specs/companion-explainer.md`, `docs/technical-design.md`, `companion`, `web-grounding` | `init-f902721f1dd545f89329508d08db0f7c` |
 
 ## Superseded
 
