@@ -22,6 +22,8 @@ run `index`; do not edit this block by hand.
 
 | ADR | Title | Governs | From task |
 |---|---|---|---|
+| [ADR-0002 v2](<ADR-0002-v2-companion-feed.md>) | Companion pane fed by the canonical transcript, harness chosen per companion | `docs/specs/companion-explainer.md`, `docs/technical-design.md`, `docs/functional-design.md`, `companion`, `explain-mode`, `read-only-session`, `adapter-headless` | `init-abfe6369faa4489a915c5f057a84e467` |
+| [ADR-0003 v2](<ADR-0003-v2-decision-cards.md>) | Decision cards explain a worker's pending request before the user answers | `docs/specs/companion-explainer.md`, `docs/technical-design.md`, `docs/functional-design.md`, `companion`, `decision-cards`, `approval-explanation` | `init-abfe6369faa4489a915c5f057a84e467` |
 | [ADR-0004](<ADR-0004-real-agents-in-ptys.md>) | Run the real agent CLIs in Shinatama-owned PTYs, never a simulated chat | `docs/functional-design.md`, `docs/technical-design.md`, `agent-hosting`, `pty`, `terminal-emulation`, `tui-fidelity` | `adr-backfill-2026-11-01` |
 | [ADR-0005](<ADR-0005-native-tiling-workspace.md>) | Native Rust desktop tiling workspace; layout never starts, stops or alters sessions | `docs/functional-design.md`, `docs/technical-design.md`, `tiling-workspace`, `native-ui`, `layout-persistence`, `panel-lifecycle`, `rust-toolkit` | `adr-backfill-2026-11-01` |
 | [ADR-0006](<ADR-0006-hosted-agent-set.md>) | Host six agents; capabilities declared unsupported until their rows pass; Gemini launch-only; Grok out | `docs/functional-design.md`, `docs/technical-design.md`, `hosted-agents`, `agent-support`, `adapter-capabilities`, `launch-only` | `adr-backfill-2026-11-01` |
@@ -59,6 +61,8 @@ run `index`; do not edit this block by hand.
 | [ADR-0038](<ADR-0038-token-savings-per-harness.md>) | One token-savings adapter per harness on its own seam; one owner of compaction and of the wire; measure before claiming | `docs/specs/token-savings.md`, `docs/functional-design.md`, `docs/verification-register.md`, `token-savings`, `harness-adapter`, `prompt-cache`, `token-ledger` | `adr-backfill-2026-11-01` |
 | [ADR-0039](<ADR-0039-skins-and-terminal-profiles.md>) | Data-driven skins control only the chrome; per-harness terminal profiles; truecolour never rewritten | `docs/functional-design.md`, `docs/technical-design.md`, `docs/verification-register.md`, `skins`, `terminal-profiles`, `native-ui`, `accessibility` | `adr-backfill-2026-11-01` |
 | [ADR-0040](<ADR-0040-delivery-baseline.md>) | Terminal-first TL1 baseline, then read-only browsing and resume, then the seed hop; first-milestone gates decide the design | `docs/functional-design.md`, `docs/technical-design.md`, `docs/verification-register.md`, `delivery-plan`, `milestones`, `verification-gates`, `release` | `adr-backfill-2026-11-01` |
+| [ADR-0041](<ADR-0041-companion-preset-input.md>) | The companion pane accepts only preset actions and selections, and has two card flows | `docs/specs/companion-explainer.md`, `docs/functional-design.md`, `companion`, `preset-input`, `card-flows` | `init-abfe6369faa4489a915c5f057a84e467` |
+| [ADR-0042](<ADR-0042-companion-learning-memory.md>) | A per-person ledger of what the companion explained, written by Shinatama from the companion's card block | `docs/specs/companion-explainer.md`, `docs/technical-design.md`, `companion`, `learning-memory` | `init-abfe6369faa4489a915c5f057a84e467` |
 
 ## Superseded
 
