@@ -169,7 +169,10 @@ What follows from it, each point either settled by reading or a check of section
    cache stays visible, `launcher.ts:2975-2994`); on OpenCode through the `plugin` array of the
    instance's `$OPENCODE_CONFIG`, as BillionContext does (`launcher.ts:3390-3410`;
    `OPENCODE_CONFIG_DIR/plugins` is used by neither project), with the 2.x background service
-   restarted so it sees `TOKENECONOMIZER_HOME`; `-e` on Pi. Pinned to a commit; updated next to
+   restarted so it sees `TOKENECONOMIZER_HOME`; `-e` on Pi. TE5 (2026-11-01) found the
+   `plugin` array route stalling the standalone server once with a `file:///` URL, while a
+   re-export wrapper in `<OPENCODE_CONFIG_DIR>/plugins/` loaded; Shinatama uses the latter
+   until the stall is explained. Pinned to a commit; updated next to
    the running version, as the `own` program rule does. **Version gate is Shinatama's**: TE has
    none (flags by `--help`, `README.md:196-203`); the launcher refuses the module outside the range
    its checks passed on and says why.
@@ -280,7 +283,7 @@ backs it, stays with the other project (token-savings 8.4).
 | TE2 | Prompt cache across a session whose launch carries TE's deny list, with BillionContext on | Cache hit rate unchanged inside the session; the change shows only at the next session |
 | TE3 | Hook latency per tool call on Windows (Python start) with four agents running | Recorded; threshold set before enabling |
 | TE4 | Loop guard side call inside a box: tokens of one judge call with Daodan preinstalled (H5 confirmed: the call runs on the box user settings), `CLAUDE_CONFIG_DIR=<box> claude -p "Reply OK" --output-format stream-json --verbose --tools "" --strict-mcp-config --mcp-config <empty> --max-turns 1 --model haiku`, reading `init` and `usage` | Recorded (TE's 14k figure is unreachable by design in such a box); threshold set before enabling the judge on Claude Code |
-| TE5 | OpenCode 2.2.5: does `session.execution.succeeded` fire, so that a turn closes | After one prompt, `<TOKENECONOMIZER_HOME>/repos/<key>/opencode/sessions/<id>.json` has a non-empty `turns` list |
+| TE5 | OpenCode 2.2.5: does `session.execution.succeeded` fire, so that a turn closes | **Passed 2026-11-01** (record `docs/verification/2026-11-01-TE5-opencode-turn-close.md`): a one-tool-call turn closed with `resolved_proxy: true`, so review H3's trigger is absent on 2.2.5. Side findings: a zero-tool turn is never green (`turn.py:260`); the plugin loaded through the `plugins` array with a `file:///` URL stalled the standalone server once, so Shinatama loads it from `<OPENCODE_CONFIG_DIR>/plugins/` through a re-export wrapper until that is understood |
 | TE6 | Codex 0.164.0 and Pi 1.4.0 on Windows | `status` works; loop guard fires on a provoked loop |
 | TE7 | TE's ledger with BillionContext on | Its per-session cost matches the provider's billed usage for the same session |
 | TE8 | A judge side call as BillionContext sees it | Recorded whether it shows as a session of its own; if so, it is labelled, not counted as user work |
