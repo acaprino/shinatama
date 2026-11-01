@@ -361,7 +361,10 @@ below, verified under Shinatama and not assumed:
   or its port no longer accepts connections;
 - no sidecar diagnostic is written to an agent's terminal, where it would print over
   the agent's TUI: diagnostics go to Shinatama's log and to the proxy status shown
-  in the window;
+  in the window. The rule covers every line a launcher or proxy can write (owner
+  renewal, attach refusals and stale-proxy rotation included) and is verified by
+  capturing the agent's terminal while faults are injected, not by auditing messages
+  (register SC15);
 - no auto-update; the owned source upgrades only through Shinatama;
 - compression policy as shipped (adaptive pressure, CCR, Absorb, profiles);
   `--no-context` remains an explicit per-session opt-out.
@@ -380,9 +383,13 @@ several sessions share one proxy (observed 2026-10-31 with BillionContext 0.1.20
 each session's launcher watches the proxy itself, counts it dead after two missed
 health checks of 1.5 s, starts a replacement that can only lose the port to the busy
 proxy, and prints every attempt on its agent's terminal. On that day 170 such
-replacements started, and the agents' screens filled with the messages. Shinatama
-therefore does not rely on per-session supervision (technical design 9; register SC6,
-SC12, SC14).
+replacements started, and the agents' screens filled with the messages. On 2026-11-01 a
+launcher build whose recovery messages had been moved to a log still printed
+`bili: watcher registration failed — ... (The operation was aborted due to timeout)` over
+Claude Code's screen: the owner-renewal path had been missed, so fixing messages one path
+at a time does not close the class. Shinatama therefore does not rely on per-session
+supervision or on the launcher's own message discipline (technical design 9; register
+SC6, SC12, SC14, SC15).
 
 ### 5.7 Skins (decided: default is Shinatama pink; others selectable)
 

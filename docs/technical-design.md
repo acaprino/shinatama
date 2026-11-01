@@ -1798,7 +1798,14 @@ instances whose worktree roots are equal and whose modified paths intersect rais
   launch path is used is decided with SC5. Sidecar diagnostics go to Shinatama's log;
   the window shows the busy and recovering states. The proxy's own owner watchdog
   must not take a long stall of its event loop for the loss of every owner (SC12).
-  To be proved: SC5, SC6, SC12, SC14.
+  The sidecar code stays unmodified (ADR-0029), so the terminal rule is not left to the
+  launcher's messages: the bytes on an agent's PTY must come only from the agent
+  (ADR-0030 INV-006). The check is a PTY capture from launch to exit while faults are
+  injected one at a time (a held event loop, a timed-out and a refused owner-renewal
+  request, a killed proxy, a stale proxy on the port, an unarmed daemon proxy); every
+  fault appears once in Shinatama's log and never in the capture (SC15). It runs against
+  each launch path under SC5 and again on every sidecar upgrade.
+  To be proved: SC5, SC6, SC12, SC14, SC15.
 
 ### 9.1 Research folded in
 
