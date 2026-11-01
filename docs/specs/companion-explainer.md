@@ -2,6 +2,10 @@
 
 Date: 2026-11-01
 Status: draft, not yet approved. Nothing is built from this document until it is.
+Revision 2 (2026-11-01, draft): adds decision cards, select-to-ask and the user's level (5.5),
+after the user described obeying the worker without understanding it. Revision 1 is the text
+that was approved and committed (b667db5, sha256 315bf22c5b89b15503066f54e5a5c37cd9c8826ce765555c7503fe81757f6bd9);
+revision 2 is not approved and no reviewer has checked it.
 
 This document specifies the **companion pane**: a read-only session opened beside a working
 agent instance that explains what that instance is doing in the project, or teaches it.
@@ -46,6 +50,14 @@ Why a separate session rather than a mode inside the worker:
   companion is a place to ask those questions without slowing or steering the worker. What
   was read and not read of the paper is listed in 10.1.
 
+The case that matters most (user, 2026-11-01): the model takes decisions the user does not
+understand, talks about problems the user has not grasped, and applies solutions and tools
+outside the user's competence, for example the system-administration tool Coolify: "non ho idea
+di cosa serva ma ho obbedito al modello come un automa senza capire". That is the delegation
+pattern the trial above ties to the lowest scores. A card that arrives when the turn ends comes
+after the user has already answered, so the companion also has to help at the moment of the
+decision, while the worker waits (5.5).
+
 Success looks like this: the user opens a companion beside any running instance with one key,
 gets a short, correct account of each worker turn (what changed, why, what to watch), can ask
 anything about the project at any time, and the worker's bytes, context and behaviour are the
@@ -69,6 +81,10 @@ same as without the companion.
    not be the same; the default is my call).
 5. Answers are rendered Markdown with tables and diagrams (5.3) (decided as a wish,
    2026-11-01: "spiegazione in markdown anche con tabelle, schemi").
+6. Explain a worker's pending approval or question while the worker waits, and any text the
+   user selects in the worker's pane, so that the user understands before answering (5.5)
+   (decided as a need, 2026-11-01: "ho obbedito al modello come un automa senza capire"; the
+   shape is my call).
 
 ### Non-goals
 
@@ -79,7 +95,7 @@ same as without the companion.
 - Replacing the overview's titles (5.13). Titles stay one line by the titler of engine 8.4.
 - Exposing the worker's reasoning. Reasoning items are never transferable (engine 5.1), so
   the companion never sees them.
-- Streaming a card token by token. A card appears whole when its turn ends (my call; the
+- Streaming a card token by token. A card appears whole when its answer is complete (my call; the
   `ask_headless` contract of engine 5.5 returns an answer, not a stream).
 
 ### Anti-goals (would be a failure even if it technically works)
@@ -90,6 +106,10 @@ same as without the companion.
   project-local state files of its own harness.
 - Presenting a guess as the worker's reason. "Why" is either quoted from the worker's own text
   or labelled as the companion's inference.
+- A companion that increases blind acceptance: an explanation that argues for the worker's
+  choice, or one that is fluent and wrong (10.1, Bansal et al.).
+- The companion in the approval path: holding, answering, pre-answering or recommending
+  approve or deny on a request of the worker.
 - A companion that costs more than the work it explains without the user seeing it: its cost
   is shown in the header beside the worker's cost for the same period (section 7).
 
@@ -101,6 +121,7 @@ same as without the companion.
 | Companion | The read-only session attached to one worker thread. Always "companion pane" or "companion session" in prose: it has nothing to do with the "companion marketplace" of register row Q1 |
 | Feed | What Shinatama sends the companion about the worker (section 4) |
 | Card | One companion answer about one worker turn, or a batch of turns |
+| Decision card | A card about one pending approval or question of the worker, sent while it waits (5.5) |
 | Brief | The fixed instructions sent as the first feed message (5.4) |
 
 ## 4. The feed: what the companion receives
@@ -145,6 +166,15 @@ Shinatama builds the feed; the companion never reads the worker's native store i
   companion is not offered.
 - **Turn boundary.** "A finished turn" comes from the per-harness `turn_end_signal` capability
   of engine 5.5; a harness without it cannot drive automatic cards, only on-demand ones.
+- **Pending request.** When a native `waiting_permission` or `waiting_question` event arrives
+  (engine 8.1; never inferred from screen text), a **pending-request item** is sent at once,
+  outside the turn-end rhythm: the request (tool and arguments, or the question and its
+  options) and the worker's last assistant text, redacted and wrapped like any delta. If the
+  event does not carry the request, the companion is told so and its card says what it could
+  not see (5.5).
+- **Selection.** Text the user selects in the worker's pane, with a bounded excerpt of the
+  pane's scrollback, is sent as the context of a user question; it is wrapped and escaped as
+  untrusted data like any delta (5.5).
 
 ## 5. Modes, cards and rendering
 
@@ -154,6 +184,8 @@ After each worker turn the companion writes a card: what the worker did, which f
 and how, why (quoted or labelled as inference), and what to watch (risk, an untested path, a
 command that touched something outside the worktree). The user can type a question at any
 time; questions are answered from the feed received so far plus the companion's own reads.
+A pending approval or question of the worker gets a **decision card** at once, without waiting
+for the turn to end (5.5).
 
 Automatic cards can be switched to **on demand**: deltas still accumulate and are sent with
 the user's next question (my call: automatic by default, on demand as a setting).
@@ -196,8 +228,70 @@ an extension, not part of the first release of the pane.
 The brief is sent as the first message of the companion session, identically on every harness,
 not through per-harness system-prompt flags (my call: one mechanism, no adapter work). It
 states the mode, the read-only role, the untrusted framing of the feed, the "quoted or
-inference" rule, the rendering conventions of 5.3 and the user's language. Switching mode sends
+inference" rule, the rendering conventions of 5.3, the decision card rules and the user's level of 5.5 and the
+user's language. Switching mode sends
 a short brief update as a message.
+
+### 5.5 Decision cards: before you obey (my call)
+
+The cards of 5.1 arrive when the turn ends, which is after the user answered. A decision card
+arrives while the worker waits, and the companion can also explain whatever the user points at.
+
+**Trigger.** The worker reaches `waiting_permission` or `waiting_question`, reported by the
+harness's native event (engine 8.1). Shinatama sends the pending-request item of section 4 at
+once. A harness with no such event gets no decision cards: its header says **approvals not
+detected**, and select-to-ask (below) still works.
+
+**Which requests get a card.** A setting with three values, default **smart** (my call): every
+request that is not a read inside the worktree (a write, a shell command, a network call, an
+install, a change outside the worktree, a credential) and every question that offers the user a
+choice between options; **all**; or **none**. Any request can be explained on demand. The
+default keeps the cost on the requests where understanding matters.
+
+**What a decision card contains**, in this order:
+
+1. **What it is.** The tool or concept in plain words, for the user's level. Example: "Coolify
+   is a self-hosted platform for deploying applications; you install it on a server that you
+   administer."
+2. **If you say yes, if you say no.** The literal effects (files, commands, ports, services,
+   accounts, money) and whether and how it can be undone.
+3. **Why the worker asks.** Quoted from its text, or labelled as the companion's inference.
+4. **What could make it a bad idea, and what the worker did not mention**: a simpler option, a
+   precondition, a cost.
+5. **What to check first**: at most three items.
+6. **A risk marker** from a fixed set: changes only the worktree; changes things outside the
+   worktree; needs or exposes credentials; costs money; opens a network port or a service; hard
+   to undo.
+7. **Source labels.** Each claim about a tool or concept is marked **from the repository**
+   (quoted with `path:line`) or **general knowledge, not checked**. Under policy A (section 6)
+   the companion has no network, so it cannot check a tool's current documentation, and a
+   version-specific claim it cannot ground says so.
+
+**Neutral, not a verdict.** The card says what the request does and what to check; it never says
+approve or deny, and it never argues for the worker's choice. Reason (10.1): explanations raised
+the acceptance of an AI recommendation whether or not it was right, and designs that made people
+think before accepting reduced overreliance, though people liked them least and overreliance
+remained. Learn mode applies this: on a request whose risk marker is anything but "changes only
+the worktree", the card opens with one question ("what do you expect this to change?") and shows
+the rest after the answer or a skip.
+
+**Advice only.** The companion cannot answer, delay or alter a request (INV-002, INV-009). The
+worker's prompt is answerable the moment it appears, with or without a card. The pane header and
+the worker's tab show **explanation ready** when the card is complete. A pending request is served
+before a queued question, and automatic turn cards are not started while a request is pending
+(section 8).
+
+**Select to ask.** The user selects text in the worker's terminal pane (a word the model used, a
+command, a paragraph) and chooses **Explain this** (key or menu; bindings wait for register row
+U3). The selection, wrapped as untrusted data, and a bounded excerpt of the pane's scrollback go
+to the companion as a user question. It needs neither a transcript reader nor a native event, so
+it works with every hosted harness, the two without a reader included.
+
+**The user's level** (my call). A short text the user writes once, per user and optionally per
+companion (at most 500 characters), sent in the brief. Example: "Developer. Strong: Rust, git.
+Beginner: servers, Docker, networking; explain infrastructure from zero." Every card has a
+**simpler** action that explains it again from zero. The text is the user's own, stored locally,
+and never inferred from behaviour.
 
 ## 6. Read-only, by independent mechanisms
 
@@ -275,8 +369,10 @@ which version it read when it matters.
   rebuilt (engine 4.2), and shown in the pane header beside the worker's. A close-mode hop does
   not change the record, so the cost continues across it. The unit is dollars where the harness reports cost and tokens where it
   does not. A daily cap per user (default $2.00, **open**: the user sets the number; separate
-  from the titler's cap of engine 8.4) pauses automatic cards; questions still work and show
-  their cost. A pause key stops the feed.
+  from the titler's cap of engine 8.4) pauses automatic turn cards; questions still work and show
+  their cost. A decision card pauses too but leaves a one-line stub ("explanation paused: cap
+  reached. Explain anyway"), so the user can still choose to explain that one request. A pause
+  key stops the feed.
 - **Context of the companion itself.** Its session grows with every card. Whether a headless
   turn is covered by the BillionContext sidecar the way an interactive instance is, is not
   shown in the documents; it is a register row (10.2), and until then no compression of the
@@ -291,8 +387,9 @@ which version it read when it matters.
   stateless) and today's cost.
 - **One turn at a time.** At most one headless turn is in flight per companion session. A
   question typed while a card turn runs is queued behind it and shown as queued; automatic
-  cards that arrive meanwhile coalesce (section 4). A queued user question runs before a
-  queued automatic card. The same holds across several windows (INV-007).
+  cards that arrive meanwhile coalesce (section 4). A pending request is served first, then a queued user
+  question, then a queued automatic card, and an automatic turn card is not started while a
+  request is pending (5.5). The same holds across several windows (INV-007).
 - **Attach.** A companion attaches to the worker's **thread**, not its process. After a hop
   (functional-design 5.2) in `close` mode the thread continues: the companion stays open with
   its own harness and the feed continues from the new worker's transcript, with a card that
@@ -338,6 +435,10 @@ which version it read when it matters.
 - **RA-005**: relying on the harness's read-only policy alone. Rejected: it is the only
   barrier between a mistaken policy and the worktree; the confinement of section 6 B is
   independent of the harness.
+- **RA-006**: making the companion hold the worker's approval until the user has read the card,
+  or pre-answering it. Rejected for this design: it puts the companion in the approval path
+  (anti-goal 1, INV-002). The evidence favours some friction before accepting (10.1), so the
+  question-first rule of Learn mode (5.5) and open point 4 keep the choice with the user.
 
 ### 9.3 Examples
 
@@ -372,6 +473,23 @@ which version it read when it matters.
   offered, and the pane says why.
 - **EX-009** (boundary): the user opens a companion on a provider other than the worker's.
   Expected: the first-use warning appears before any feed is sent; declining opens nothing.
+- **EX-010** (nominal): a Claude Code worker asks permission to run an installer for a
+  self-hosted deployment platform (Coolify) on a server, and the user does not know the tool.
+  Expected: before the user answers, a decision card with the seven parts of 5.5 appears and
+  the pane header and the worker's tab show **explanation ready**; "what it is" is labelled
+  general knowledge, not checked; the risk markers include "changes things outside the
+  worktree" and "opens a network port or a service"; the card contains no approve or deny; the
+  worker's prompt stayed answerable throughout and is unchanged by the card.
+- **EX-011** (boundary): with the setting at **smart**, the worker asks to read a file inside
+  the worktree. Expected: no decision card and no cost; the request can still be explained on
+  demand.
+- **EX-012** (boundary): the worker's harness has no native `waiting_permission` event.
+  Expected: the header says **approvals not detected**, no decision card is produced, and
+  select-to-ask still works.
+- **EX-013** (nominal): the user selects the word "Coolify" in the pane of a Hermes Agent
+  worker (no transcript reader) and chooses **Explain this**. Expected: a card answers from the
+  selection and the pane excerpt, its claims labelled as in 5.5; a selection that contains the
+  closing wrapper tag stays inside its wrapper.
 
 ### 9.4 Invariants
 
@@ -393,6 +511,12 @@ which version it read when it matters.
   on that platform; without it the companion is an opt-in preview with the badge **read-only:
   harness policy only**.
 - **INV-007**: at most one headless turn is in flight per companion session.
+- **INV-008**: every claim about a tool or a concept in a decision card is labelled **from the
+  repository** (with `path:line`) or **general knowledge, not checked**, and a decision card
+  never says to approve or deny. The card template has no verdict field; the rest is measured
+  by the rubric of 10.2 row 11 and is not enforceable at runtime.
+- **INV-009**: no state of the companion (a card running, queued, capped, paused or crashed)
+  delays or changes a worker's approval prompt. Checked by 10.2 row 10.
 
 ### 9.5 Open
 
@@ -401,6 +525,14 @@ which version it read when it matters.
    from the session browser.
 3. Whether a feed-only local companion may serve a `summaries_excluded` thread. It would amend
    engine 8.4 ("never sent to any backend"); until the user decides, no companion is offered.
+4. Whether Shinatama itself (not the companion) should ask the user to confirm that they read
+   the card before the widget's quick-approve buttons accept a high-risk request. Not planned:
+   the evidence says such friction reduces overreliance but is liked least, and it would put
+   Shinatama in the approval path.
+5. Whether to offer a documentation lookup the user approves: Shinatama fetches a named
+   official page and hands it to the companion as quoted data, so a card about an external
+   tool can be **checked** instead of "general knowledge". It adds a network path to a
+   read-only session, so it is not in the first release.
 
 ### 9.6 Order of work (my calls)
 
@@ -411,8 +543,12 @@ which version it read when it matters.
    measure card quality and cost before anything else is built. It needs the `turn_end_signal`
    capability and the incremental reader of engine 5.5 B first, both still behind their gates;
    until confinement B exists for the platform it runs as the opt-in preview of INV-006.
+   Decision cards and select-to-ask come before the automatic turn cards: they answer the
+   user's main case, and select-to-ask needs neither the incremental reader nor a turn-end
+   signal. Decision cards need the native `waiting_*` event of engine 8.1 for that harness.
 3. Confinement B per platform; then the other harnesses one at a time, each behind its rows.
-4. Learn mode; the local feed-only backend; export.
+4. Learn mode and, with it, a glossary of the terms explained (kept in the companion's record,
+   listed on request); the local feed-only backend; export.
 
 ### 9.7 Changes this spec requires in other documents
 
@@ -427,6 +563,11 @@ Not made here; they belong to the planning step after approval.
   new is a read-only-with-reads policy value, the stateless mode, and the per-harness
   `turn_end_signal` as a prerequisite of the feed.
 - technical-design 7.6: escaping of the wrapper's content.
+- technical-design 8.1 and 8.3: the `state` event for `waiting_permission` and
+  `waiting_question` carries the pending request (tool and arguments, or the question and
+  options) where the harness reports it [U, per harness], redacted before it reaches the feed.
+- functional-design 5.16: a context action **Explain this** on a text selection in a terminal
+  pane.
 - technical-design 8.4: its `summaries_excluded` rule, only if open point 3 is decided yes.
 - functional-design 5.1 (the statement at line 202 that a native chat is not planned, with one
   exception) and 5.16: the companion pane as a second native chat surface.
@@ -446,6 +587,18 @@ Not made here; they belong to the planning step after approval.
 - **Claude Code output styles** (`code.claude.com/docs/en/output-styles`): known from search
   summaries only (styles modify the system prompt; Explanatory adds insights, Learning adds
   `TODO(human)` tasks; longer answers cost more output tokens). Not read in full.
+- **Bansal et al., "Does the Whole Exceed its Parts? The Effect of AI Explanations on
+  Complementary Team Performance", CHI 2021, arXiv 2006.14779**: known from its abstract in a
+  search result only. Reported there: explanations increased the chance that people accept the
+  AI's recommendation regardless of its correctness, and did not beat showing the AI's
+  confidence. Three datasets (two sentiment analysis, one question answering): not coding.
+- **Buçinca et al., "To Trust or to Think: Cognitive Forcing Functions Can Reduce Overreliance on
+  AI in AI-assisted Decision-making", CSCW 2021, arXiv 2102.09692**: known from its abstract in
+  search results only. Reported there: N=199; cognitive forcing designs reduced overreliance
+  compared with simple explainable-AI conditions, were rated least favourably, helped people
+  with a higher need for cognition more, and did not eliminate overreliance. Not coding
+  either. Neither paper studies coding agents: they motivate the neutral card and the
+  question-first rule of 5.5, they do not prove them.
 - **Rendering candidates**, from search results on 2026-11-01, none read or run:
   `egui_commonmark` (lists GFM tables, strikethrough, task lists, footnotes); `gpui-component`
   (lists Markdown in `TextView` with tree-sitter highlighting; table and Mermaid support inside
@@ -490,3 +643,19 @@ New register rows, proposed (my call; IDs to be assigned in `docs/verification-r
 9. Channel isolation: after a run with a deliberately hostile companion policy, the worker's
    agent home, hooks, settings and session store hash equal before and after, and the companion
    process holds no handle to the worker's PTY, inbox or approval channel.
+10. Pending-request feed and latency, per harness: whether the harness reports
+    `waiting_permission` and `waiting_question` natively and whether the event carries the
+    request (tool and arguments, or the question and options); the time from the request to a
+    finished decision card, with the target set from this measurement, not assumed; and, with
+    the companion running, queued, capped, paused and killed, that the worker's prompt appears
+    and is answerable with the same latency as without a companion (INV-009).
+11. Decision-card rubric: about 20 recorded requests, at least 8 of them on infrastructure or
+    tools a developer may not know (a self-hosted deployment platform, container
+    orchestration, a reverse proxy and TLS, a firewall and ports, a system service, a cloud
+    CLI) and 5 that are plausible but wrong. Each card must get "what it is" right (judged by
+    someone who knows the tool), label the source of each claim, say what could make the
+    request a bad idea, name the concern on the wrong requests, carry no approve or deny, and
+    stay within 250 words. The user's own sessions are used only with the user's consent.
+12. Select to ask: the companion receives the selection wrapped and escaped with a bounded
+    excerpt; it works on a harness with no reader; a selection holding the closing tag stays
+    inside its wrapper (the EX-004 fixture).
