@@ -1957,7 +1957,8 @@ agent session or read conversation contents.
    transcript file is complete.
 6. **Redaction:** a planted fake key and a fake bearer token never appear in the snapshot,
    the seed, the full transcript file, a message body or a summary input.
-7. **Messages:** to an offline recipient (queued, then delivered on start); a duplicate
+7. **Messages:** to an offline recipient (queued, then delivered on start if within the
+   expiry of 7.1, otherwise `expired`); a duplicate
    send (one delivery); a two-agent ping-pong (stops at depth 6 with an alert); a
    cross-project send (refused).
 8. **Roundtable caps:** a run that would exceed the token cap stops at the cap with a
@@ -1984,8 +1985,8 @@ None block the design. These are my defaults; change any of them:
 - Receipt: the destination replies `ready <nonce>` and one line; it costs one short turn
   per hop. (6.3)
 - Warm standby off by default; on per agent by the user. (6.5)
-- Agents can message only within the same project or roundtable, unless a per-project
-  setting broadens the scope; they cannot hop, start instances or start roundtables.
-  (7.2, 7.7)
+- Agents can message only within the same project or roundtable (decided by the user
+  2026-11-01), unless a per-project setting broadens the scope (my default); they cannot
+  hop, start instances or start roundtables. (7.2, 7.7)
 - Titles: cap $0.50 per day, one line, off switch. (8.4)
 - Native store writing (stage 3) is not in v1. (5.4)

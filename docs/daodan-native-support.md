@@ -27,7 +27,7 @@ Why it matters: Daodan's lock is the task holder in `.daodan/agenda.json`. A hop
 ### Non-goals
 
 - **Writing any Daodan file** (`agenda.json`, `runs/`, `processes/`, worktrees). Daodan's scripts are the only writer. Reason: the agenda row *is* the lock, and Daodan states that a bound process cannot bypass its grants, deliveries, questions or gates (`AGENTS.md:92-94`). A second writer would be the bypass.
-- A task graph, checkpoints, an addressed mailbox, a scheduler: still Daodan's roadmap (functional design, non-goals).
+- A task graph, checkpoints, an addressed mailbox that outlives the sessions or the expiry, a scheduler: still Daodan's roadmap (functional design, non-goals; Shinatama's own messages between instances expire, engine 7.1).
 - Creating or removing worktrees (Worktrunk and Daodan own that).
 - Cross-machine holder logic: a holder whose `host` is another machine is shown, never judged stale.
 - Guessing: an unreadable or unknown-schema agenda shows as "Daodan state unreadable (schema X)", never as an empty list.

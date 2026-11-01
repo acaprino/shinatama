@@ -74,6 +74,22 @@ Items 9, 42–45, 68 and 83 of the first list referred to revision 2 and are rep
 | 102 | E | Expand takes the worker's last message as an operand, but no pane control for it is described | spec 5.6 | FRD-0012 |
 | 103 | U | The daily cap amount ($2.00) is open point 1 | spec 9.5 | FRD-0012 |
 
+## 6a. Found on 2026-11-01 after the third round
+
+| # | Kind | Item | Where | FRD |
+|---|---|---|---|---|
+| 106 | E | token-savings 4.4.3 still puts "summaries" on julia1, while activity titles stay on the user's chosen backend (TD 8.4, FD 5.13): which summaries are meant | specs/token-savings 4.4.3 | FRD-0013 |
+| 107 | E | The summary fallback fires at task boundaries (4.3.4), but the library falls back inside the same compaction at `compactAtPercent` when the reduction is too small or the scorer fails (5.1.6) | specs/token-savings 4.3.4, 5.1.6 | FRD-0013 |
+| 108 | E | token-savings 7.1 says BillionContext sits behind "one shared proxy core" while the topology is open (#53, SC5) | specs/token-savings 7.1 | FRD-0013 |
+| 109 | G | harness-tools 3 says items 1–3 and 7 "are applied in revision 4.1 of the companion spec"; the spec at HEAD is revision 4 and contains none of them | harness-tools 3; companion spec | FRD-0012 |
+| 110 | U | Codex has no read tool (harness-tools 3.1): the companion's Codex route reads files only through its shell, against the "no shell commands" policy of spec 6 A | harness-tools 3.1; spec 6 A | FRD-0012 |
+| 111 | U | Codex's hosted search does not report result URLs (harness-tools 3.2), so the `seen` link check of 5.9 would mark every link unseen | harness-tools 3.2; spec 5.9 | FRD-0012 |
+| 112 | E | "Every query is shown on the card" (spec 5.9) cannot be literal: Claude Code only counts its internal searches and DeepSeek hides its native ones (harness-tools 3.3) | spec 5.9; harness-tools 3.3 | FRD-0012 |
+| 113 | E | Spec 6 A still says the design documents are silent on the web tools; harness-tools.md now covers them | spec 6 A | FRD-0012 |
+| 114 | E | Spec 7 speaks of "the local model shared with the titler and julia1"; token-savings 7 now says they share the runtime and are one model only when one model serves both | spec 7; specs/token-savings 7 | FRD-0012, FRD-0013 |
+
+Items 109–114 belong to the companion work, like section 6.
+
 ## 7. Resolved on 2026-11-01
 
 | # | Kind | Resolution |

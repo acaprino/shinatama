@@ -91,8 +91,10 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
   an addressed mailbox between agents that outlives the sessions or the expiry). They
   are Daodan's roadmap; Shinatama shows the agenda and the holder but does not implement
   them. The boundary is persistence (user, 2026-11-01): the messages between instances
-  of engine 7 stay (they expire after 1 hour by default, engine 7.1, and stay within one project or roundtable), and the
-  roundtable (5.10) is started by the user and session-level.
+  of engine 7 stay: they expire after 1 hour by default (engine 7.1), a message for an
+  offline recipient waits only within that expiry, and they stay within one project or
+  roundtable unless a per-project setting broadens the scope (engine 7.2); the roundtable
+  (5.10) is started by the user and session-level.
 - A web-built application shell: no HTML/CSS/JavaScript frontend, Tauri or Electron
   for the main UI (decided 2026-10-29). Native desktop tiling supersedes the earlier
   terminal-only decision. Agents still run in real PTYs, not simulated chats. A
@@ -320,7 +322,7 @@ option is the only Daodan offer, and declining it counts as the "Not now" of
 daodan-native-support 4.7, whose one-time offer stays for projects that are opened,
 not created (user, 2026-11-01).
 
-**Own worktree for a new instance** (my idea, optional): the new-instance command, from
+**Own worktree for a new instance** (user, 2026-11-01): the new-instance command, from
 the project manager or a tab, can start the instance in a new linked worktree so that
 two agents on the same project do not collide. It is an option of that command, not an
 overview action (user, 2026-11-01; 5.13).
