@@ -60,32 +60,40 @@ request path and every reversible reduction inside one session (token-savings 7.
 
 ## Decision
 
-TokenEconomizer is admitted beside BillionContext as an optional module, off by default and chosen
-per instance in the instance's set, pinned to a commit and installed per box like a Daodan plugin
-(`--plugin-dir` on Claude Code; installed into the home and switched per launch with `-c` on
-Codex; through the `plugin` array of the instance's `$OPENCODE_CONFIG` on OpenCode; `-e` on Pi).
-Its state lives under a `TOKENECONOMIZER_HOME` inside the box, shared by the box's instances.
-Shinatama's launcher owns the version gate, since TokenEconomizer has none. Tool pruning runs in
-`propose` mode, written explicitly because the default is `auto`: Shinatama reads the proposal from
-TokenEconomizer's state, waits for the repository's idle time itself, and adds the deny entries to
-that instance's launch only; it never applies an entry matching `mcp__bili__*` (BillionContext's
-recovery tools) or Codex's `image_media`, sets `toolprune_protect=mcp__bili__*`, keeps the
-`toolprune` slash command out of the instance's set and does not relay the notice that invites
-`toolprune apply`, so the repository's `.claude/settings.local.json` and `.codex/config.toml` are
-not written by the module. On OpenCode, where TokenEconomizer has neither a catalog nor a writer,
-Shinatama writes the instance's tool catalog into TokenEconomizer's state and turns the proposal
-into `permissions` deny rules in that instance's `OPENCODE_CONFIG`, with OpenCode's work surface
-and BillionContext's tools (`bili_*`) protected. The loop guard is on for Claude Code and Pi, off on OpenCode until the
-redirect travels outside the tool result (an upstream request), and off on Codex and OpenCode
-until its judge runs on julia1, a jev-like selector model on the local CPU, through a `noul`
-question once TokenEconomizer offers an optimizer endpoint (an upstream request, not a fork);
-until then the judge stays a side call through the agent's own CLI, measured first (TE4) because
-it loads the box's user settings and not the instance's set. Micro-skills runs only as `envfacts`.
-TokenEconomizer never sits on the wire and never compacts; BillionContext keeps both. Before it is
-enabled on a harness, that harness passes the study's checks, including the contact points with
-BillionContext: its ledger against billed usage (TE7), its side calls as BillionContext sees them
-(TE8), redirects against CCR's threshold (TE9), session-start facts under `promptRewrite` (TE10)
-and BillionContext's retrieved results against the loop guard's failure accounting (TE11).
+TokenEconomizer is admitted beside BillionContext as an optional module. Seven rules:
+
+1. **Optional, per instance.** Off by default, chosen per instance in the instance's set, pinned
+   to a commit and installed per box like a Daodan plugin: `--plugin-dir` on Claude Code;
+   installed into the home and switched per launch with `-c` on Codex; through the `plugin`
+   array of the instance's `$OPENCODE_CONFIG` on OpenCode; `-e` on Pi.
+2. **State and gate.** Its state lives under a `TOKENECONOMIZER_HOME` inside the box, shared by
+   the box's instances. Shinatama's launcher owns the version gate, since TokenEconomizer has
+   none.
+3. **Tool pruning proposes, Shinatama applies.** `toolprune=propose` is written explicitly,
+   because the default is `auto`. Shinatama reads the proposal from TokenEconomizer's state,
+   waits for the repository's idle time itself, and adds the deny entries to that instance's
+   launch only. It never applies an entry matching `mcp__bili__*` (BillionContext's recovery
+   tools) or Codex's `image_media`, sets `toolprune_protect=mcp__bili__*`, keeps the
+   `toolprune` slash command out of the instance's set and does not relay the notice that
+   invites `toolprune apply`. The repository's `.claude/settings.local.json` and
+   `.codex/config.toml` are therefore not written by the module.
+4. **OpenCode.** TokenEconomizer has neither a catalog nor a writer there: Shinatama writes the
+   instance's tool catalog into TokenEconomizer's state and turns the proposal into
+   `permissions` deny rules in that instance's `OPENCODE_CONFIG`, with OpenCode's work surface
+   and BillionContext's tools (`bili_*`) protected.
+5. **Loop guard.** On for Claude Code and Pi. Off on OpenCode until the redirect travels
+   outside the tool result (an upstream request). Off on Codex and OpenCode until its judge
+   runs on julia1, a jev-like selector model on the local CPU, through a `noul` question once
+   TokenEconomizer offers an optimizer endpoint (an upstream request, not a fork); until then
+   the judge stays a side call through the agent's own CLI, measured first (TE4) because it
+   loads the box's user settings and not the instance's set.
+6. **Micro-skills** runs only as `envfacts`. TokenEconomizer never sits on the wire and never
+   compacts; BillionContext keeps both.
+7. **Checks before enabling** on a harness: the study's checks, including the contact points
+   with BillionContext: its ledger against billed usage (TE7), its side calls as BillionContext
+   sees them (TE8), redirects against CCR's threshold (TE9), session-start facts under
+   `promptRewrite` (TE10) and BillionContext's retrieved results against the loop guard's
+   failure accounting (TE11).
 
 ## Verified Interview Examples
 
@@ -111,5 +119,5 @@ and BillionContext's retrieved results against the loop guard's failure accounti
 - **INV-002**: the tool list of a running session never changes because of TokenEconomizer.
 - **INV-003**: TokenEconomizer adds no proxy and no compaction; BillionContext stays the only owner of the wire, decision compaction and BillionContext's tiers the only reducers of history.
 - **INV-004**: Shinatama's launcher loads the module only on a harness version whose checks have passed; the gate is Shinatama's, since TokenEconomizer has none.
-- **INV-006**: no entry matching `mcp__bili__*`, and no Codex `image_media` capability, is ever applied from a TokenEconomizer proposal.
 - **INV-005**: no saving is stated for TokenEconomizer before the ledger has measured it with the module on and off.
+- **INV-006**: no entry matching `mcp__bili__*`, and no Codex `image_media` capability, is ever applied from a TokenEconomizer proposal.
