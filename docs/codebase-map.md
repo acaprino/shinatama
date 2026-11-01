@@ -179,3 +179,39 @@ O10 (ask Daodan for Hermes and DeepSeek packages). O6 was decided on 2026-10-28.
   as "[C; decided by the user 2026-10-28]").
 - The companion pane is a second native chat surface, an exception to functional-design 5.16
   that ADR-0002 says must be declared there; it is not declared yet.
+
+Found while writing ADR-0003 to ADR-0039 (each is also noted in the record named):
+
+- Origin labels disagree. Inherited-marker removal is "[C; decided by the user 2026-10-28]"
+  (technical-design 3), "adopted" (harness/cli note) and a call to check (functional-design 7)
+  (ADR-0013). Proxy supervision sits under a user decision in functional-design 5.6 but is [C]
+  in technical-design 9 (ADR-0029). The sessions surface is "decided" in functional-design 5.16
+  and a call to check in functional-design 7 (ADR-0022). The roundtable shape is "open" in
+  goal 10 and "mine" in 5.10 (ADR-0025).
+- functional-design 5.8 describes the widget's feed as a socket or named pipe; technical-design
+  4.6 and 8.3 make it the SQLite `event` table, with a socket only as an optional wake-up
+  (ADR-0026).
+- An agent that fails its fixtures degrades to "`Degraded` or `Unsupported`" (technical-design
+  5.5.3), "launch-only plus the agent's own export command" (5.2) or "launch-only" (11.10)
+  (ADR-0010).
+- functional-design 3 and 8 ask for "real captured fixtures"; the register and technical-design
+  5.5.3 ask for synthetic, structure-only fixtures. ADR-0009 reads them together: fixtures
+  captured from the real installed agent running synthetic sessions.
+- technical-design 5.4 allows a stage-3 write only for an agent with no import of its own, yet
+  5.4.1 has Mukade's Codex writer write the rollout although Codex has an import (ADR-0015).
+- "Never edit global configuration" (functional-design 3) sits beside three accepted writes: the
+  Codex set pre-installed turned off, Claude Code rewriting `pluginUsage` in `.claude.json` (D19),
+  and Daodan installed into the native plugin store on a `system` home (ADR-0012).
+- Daodan's version is given as marketplace 1.0.0 (functional-design 5.5, register D4), 42.0.0
+  (register D2) and 42.7.3 (D1 record). The D15 record found Daodan plugins depending on eight
+  plugins from other marketplaces, against "one marketplace per host" (ADR-0031).
+- functional-design 9 still says `daodan-flow.html` was dropped because the user rejected a
+  thread-task link, which the 2026-10-27 native-support decision reversed (ADR-0032).
+- functional-design 5.9 cites a "section 2, non-goals" entry about external terminal selection
+  that section 2 does not contain (ADR-0005).
+- Register U2 ("changing the skin live applies to the hosted pane") predates the terminal
+  profiles and conflicts with the split between chrome and profile (ADR-0038).
+- The register's TL1 row prototypes Markdown and file panels, while the TL1 milestone in
+  functional-design 5.12 and 5.16 excludes the file navigator (ADR-0039).
+- The OC8 record says its criterion is "Not met"; register section 21 lists it as "running
+  (partial)" (ADR-0030).
