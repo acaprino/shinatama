@@ -64,7 +64,7 @@ run `index`; do not edit this block by hand.
 
 | ADR | Title | Governs | From task |
 |---|---|---|---|
-| none | | | |
+| [ADR-0045 v2](<ADR-0045-v2-tokeneconomizer-beside-billioncontext.md>) | TokenEconomizer beside BillionContext as an optional per-instance module | `docs/specs/token-savings.md`, `docs/functional-design.md`, `docs/notes/2026-11-01-tokeneconomizer-beside-billioncontext.md`, `token-savings`, `tool-pruning`, `loop-guard`, `billioncontext`, `per-instance-set` | `tokeneconomizer-routing-study-2026-11-01` |
 
 ## Superseded
 

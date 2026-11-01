@@ -233,8 +233,23 @@ configurable selector as the model router (routing note, section 5.1).
 
 ### 7.1 Tool pruning on OpenCode (decided by the user, 2026-11-01)
 
-TE prunes nothing on OpenCode: its evidence stage runs there, but it has no catalog and no
-writer. Shinatama supplies both, keeping TE as the evidence source (my calls on the shape):
+TE prunes nothing on OpenCode, and **it gathers no evidence there either** (TE12, 2026-11-01):
+`_fold_toolprune` returns before reading anything when `denylist.supports(host)` is false
+(`fold.py:115-116`), and `supports` is membership in `{"claude", "codex", "copilot"}`
+(`denylist.py:55,76-77`); `te --host opencode toolprune` says "tool pruning is not available on
+opencode". So the catalog-and-writer plan below cannot work as written. Two routes, for the
+user to choose (my call: route B now, route A as the upstream request):
+
+- **Route A, upstream**: TokenEconomizer adds `opencode` to `_SETTINGS` with a propose-only
+  entry and reads `hosts/opencode/catalog.json`; the points below then apply unchanged.
+- **Route B, Shinatama alone**: Shinatama computes the evidence from the per-session exports
+  TokenEconomizer already writes (`<TOKENECONOMIZER_HOME>/opencode-sessions/<id>.json`, every
+  `tool` part with its name and status), with TokenEconomizer's own rule (`enough_evidence`,
+  `fold.py:97-106`: unused over 10 prompts across at least 2 sessions, or over 5 sessions) and
+  the protected set of point 2, and writes the deny rules of point 3 itself. One small rule is
+  duplicated; nothing waits on upstream.
+
+The shape, common to both routes (my calls):
 
 1. **The catalog.** TE's proposal is "catalog minus used minus protected" (`adapter.py:126-141`,
    `fold.py:165-185`); on OpenCode the catalog is only `hosts/opencode/catalog.json` under the
@@ -289,7 +304,8 @@ backs it, stays with the other project (token-savings 8.4).
 | TE8 | A judge side call as BillionContext sees it | Recorded whether it shows as a session of its own; if so, it is labelled, not counted as user work |
 | TE9 | OpenCode: how often a redirect lands on a result at or above CCR's threshold (the loss itself is settled, review H2); Claude Code: the `additionalContext` block is untouched | Rate recorded; on Claude Code the redirect reaches the model in the next request |
 | TE10 | Micro-skills facts at session start with `promptRewrite` on | The facts reach the model unchanged and the appended note does not restate them |
-| TE12 | OpenCode: two sessions with the catalog Shinatama wrote under `hosts/opencode/catalog.json` | `untool.json` holds `used_tools` and a `proposal` that excludes every protected OpenCode name and `bili_*`; the deny rules in the next launch's `OPENCODE_CONFIG` remove those tools from the request |
+| TE12 | OpenCode: does pruning evidence form once a catalog exists | **Failed as designed, cause settled** (record `docs/verification/2026-11-01-TE12-opencode-tool-pruning.md`): the pruning stage is skipped on OpenCode before any catalog is read (`fold.py:115`, `denylist.py:55,76`); no `untool.json` after a session with a tool call; `te toolprune` reports it unavailable. Replaced by TE13 |
+| TE13 | OpenCode: Shinatama's own evidence (route B of 7.1) from two exports with one tool call each, against a catalog of the instance's set | The computed proposal excludes every protected OpenCode name and `bili_*`; the deny rules in the next launch's `OPENCODE_CONFIG` remove those tools from the request on 2.2.5 |
 | TE11 | Claude Code with CCR on: one failing command with output above 4,000 tokens, then `mcp__bili__acp_retrieve` on it | `turn.st.repeated_fail_sigs` in `sessions/<id>.json` does not rise on the retrieve (review H6); if it does, the exemption is requested upstream before the loop guard is enabled |
 
 ## 10. Evidence
