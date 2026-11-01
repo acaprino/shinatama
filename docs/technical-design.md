@@ -150,9 +150,9 @@ they must hold.
     load exactly the instance's plugins, skills and MCP servers (Claude
     `--setting-sources project,local` + `--settings` + `--plugin-dir` + `--mcp-config`
     + `--strict-mcp-config`; Codex set plugins pre-installed turned off, then `-c` per
-    launch; OpenCode `OPENCODE_CONFIG_DIR` + `OPENCODE_CONFIG` + a per-instance
+    launch, in a `box` home only (user, 2026-11-01); OpenCode `OPENCODE_CONFIG_DIR` + `OPENCODE_CONFIG` + a per-instance
     `OPENCODE_TEST_HOME`; Pi `-ne -ns -np -e --skill`, MCP through the instance's
-    extension), in either home; details in main spec 5.14.
+    extension), in either home except Codex's; details in main spec 5.14.
   - The register's scratch homes stay a separate, test-only device.
 
   To be proved: per-launch MCP injection [M1], one sidecar proxy per instance versus
@@ -634,7 +634,8 @@ session; it does not implement Shinatama's verification, journal or switch.
      assistant message: that is the declared loss for this pair. `thread/items/list` answers
      `-32601 not supported yet` on 0.164.0.
 3. **Stage 3: Shinatama writes a native file or rows itself.** Only for an agent with no
-   import of its own, only if its fixtures pass against the real binary, only into a
+   import of its own, or whose own import loses what Mukade's writer keeps (Codex: tool
+   calls become text markers, CX4; decided by the user 2026-11-01, see 5.4.1), only if its fixtures pass against the real binary, only into a
    **new** file or new rows (never editing an existing one), only after a backup of any
    index the agent keeps, and never while that agent runs against the same store.
    Verification: list the session with the agent's own list command and dry-run a resume in

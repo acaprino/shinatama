@@ -29,9 +29,6 @@ the FRD is still Proposed).
 
 | # | Kind | Item | Where | FRD / ADR |
 |---|---|---|---|---|
-| 14 | U | Stage-3 writes only for an agent with no import of its own (TD 5.4) vs Mukade's Codex writer writing the rollout although Codex has an import (TD 5.4.1) | TD 5.4, 5.4.1 | ADR-0016, ADR-0020 |
-| 15 | U | "Never edit global configuration" vs three accepted writes: Codex set pre-installed turned off (a home write; on the `system` home this is the user's Codex home), Claude Code rewriting `pluginUsage` (D19), Daodan into the native store on a `system` home | FD 3, 5.14; D19 | FRD-0002; ADR-0013 |
-| 16 | U | Daodan depends on 8 plugins from other marketplaces (D15) vs "one marketplace per host" | D15 record; FD 5.5; DN 4.6 | FRD-0008; ADR-0032 |
 | 30 | U | Non-goal "a persistent addressed mailbox" vs TD 7's addressed, queued messages with a 1-hour expiry: where the line is | FD 2; TD 7 | FRD-0007; ADR-0024 |
 | 32 | U | Default title backend: a quality gate (FD 5.13), the author's recommendation (TD 8.4), a user decision (register O2) | FD 5.13; TD 8.4; O2 | FRD-0010; ADR-0028 |
 | 34 | U | The overview's only actions are focus, hop, pause summaries, yet "own worktree for a new instance" starts one from it | FD 5.13 | FRD-0010 |
@@ -45,7 +42,6 @@ the FRD is still Proposed).
 | 50 | E | Goal 2 "replace summary compaction" vs 4.3.4 keeping it as a fallback | specs/token-savings | FRD-0013 |
 | 51 | U | DeepSeek sign-in "shows as unknown" (FD 5.11) vs unknown until DS9 (TD 5.7); login with the `system` home not stated | FD 5.11; TD 5.7 | FRD-0003 |
 | 53 | U | Proxy topology undecided (one per instance or shared; Q7, SC5) while TD 9 says each instance's traffic goes through "the proxy" | TD 9; register Q7, SC5 | FRD-0009 |
-| 104 | U | Register D15's fallback ("the leak recorded and the agent marked `system`-only") contradicts FD 5.14 and FD 7, where Codex's recorded `~\.sbx-denybin` leak is shown to the user and Codex stays boxable | register D15; FD 5.14, 7 | FRD-0002; ADR-0012 |
 | 105 | U | TD 9 (from SC9): where the rewriter or CCR would alter the seed, a bypass marker is added; that may need sidecar support, while the sidecar code stays unmodified (ADR-0029) | TD 9; register SC9 | FRD-0009; ADR-0029 |
 
 ## 3. Stale text and dangling references
@@ -153,3 +149,8 @@ Items 9, 42–45, 68 and 83 of the first list referred to revision 2 and are rep
 | 76 | G | FD 5.1: containment and process-tree cleanup as my calls (P9, P14). |
 | 77 | G | FD 5.4: PM1, PM4, PM7 as my calls. |
 | 78 | G | FD 5.14: `own` refused for Hermes if HM10 finds no recipe (my call). The D15 half is item 104. |
+| 14 | U | User decision 2026-11-01: TD 5.4 allows stage 3 also when the agent's own import loses what Mukade's writer keeps (Codex, CX4), as 5.4.1. |
+| 15 | U | User decision 2026-11-01: Codex per-instance sets exist only in a `box`; with the `system` home Codex instances use the home's own set and Shinatama writes nothing there (FD 5.14, FD 7, TD 3). Claude's `pluginUsage` rewrite is the agent's own bookkeeping, and Daodan in the native store follows the user's explicit `system` choice. |
+| 16 | U | User decision 2026-11-01: the restriction to Daodan alone is lifted; any marketplace may be registered, including Daodan's dependency marketplaces (FD 5.5, DN 4.6, README). |
+| 104 | U | User decision 2026-11-01: a known, harmless leak is shown and the agent stays boxable; only a leak touching credentials, sessions or the user's configuration makes it `system`-only (register D15). |
+| — | E | FD 5.12 no longer labels the UI milestone "TL1"; register TL1 is the toolkit prototype gate only. |

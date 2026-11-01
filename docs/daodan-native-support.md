@@ -95,7 +95,7 @@ The user, 2026-10-27: "mi aspetto che attivi tutti i plugin di shinatama" (I exp
 - A plugin whose MCP server does not start is reported by the checkup and never blocks the launch.
 - A plugin added in a later release is enabled at the next check.
 - Setting `daodan.enable = all | core | custom`, default `all`; `core` is the entry plugin plus its dependency closure.
-- **Only Daodan is a plugin marketplace** (user, 2026-10-27). The old `acaprino/shinatama` marketplace repository was deleted the same day (D1); its 24 plugins all exist in Daodan at an equal or newer version, so "all the plugins" is exactly Daodan's list. Shinatama registers one marketplace per host and no other.
+- **Any marketplace may be registered** (user, 2026-11-01). On 2026-10-27 the user had decided that only Daodan is a plugin marketplace, and the old `acaprino/shinatama` marketplace repository was deleted the same day (D1); its 24 plugins all exist in Daodan at an equal or newer version, so "all the plugins" is exactly Daodan's list. That restriction is lifted: the marketplaces Daodan declares as dependencies (`allowCrossMarketplaceDependenciesOn`; seven at Daodan `9fa47e7`) and any other marketplace are allowed. "All the plugins" still means Daodan's list.
 
 Cost, said once: "all" puts every plugin's skill descriptions and tool definitions into each agent's context, and this very session already has MCP servers from Daodan plugins (moe, peer-review, playwright, work-controller) that failed to start. The setting and D4 exist for that; the default stays `all` as asked.
 

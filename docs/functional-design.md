@@ -329,7 +329,9 @@ verticals, `research` and the rest. A setting `daodan.enable = all | core | cust
 lighter choice available. The agents use them
 through their own native entries: `/daodan:<workflow>` on Claude Code and OpenCode,
 `<workflow>-workflow` on Codex, `/daodan-<workflow>` on Pi (docs/hosts.md of the
-Daodan repository).
+Daodan repository). Daodan is not the only marketplace Shinatama may register: the
+restriction of 2026-10-27 was lifted on 2026-11-01 (user), so the marketplaces Daodan
+declares as dependencies, and any other, are allowed.
 
 **Hermes Agent and DeepSeek Harness have no Daodan package (2026-10-31).** Daodan builds for
 five hosts: Claude Code, GitHub Copilot, Codex, Pi and OpenCode (its README, "One source,
@@ -569,8 +571,8 @@ grows alongside: the instance
 table right after (1), the summaries and flows once hop (6) and the roundtable (7)
 exist.
 
-**Delivery baseline (decided by the user 2026-10-31).** The terminal-first UI milestone of 5.16 (TL1: project
-selector, terminal tiles, tab groups, terminal profiles, no sessions surface) comes first.
+**Delivery baseline (decided by the user 2026-10-31).** The terminal-first UI milestone of
+5.16 (project selector, terminal tiles, tab groups, terminal profiles, no sessions surface) comes first.
 The first usable release slice adds read-only store browsing/search and same-agent native
 resume. The next slice is
 the live seed hop. These slices do not drop the other v1 goals, but no downstream surface
@@ -686,7 +688,7 @@ downgrades the system program, a box already migrated by the newer one may not o
 Shinatama shows it, never repairs it (inference, not tested).
 
 **3. Per-instance set of plugins and skills.** Each instance (one tab) can carry its own
-set, in either home, without an agent home of its own (OpenCode only needs an empty
+set, in either home (Codex in a `box` only), without an agent home of its own (OpenCode only needs an empty
 per-instance `~`), so login and sessions stay shared: the launch
 loads exactly the instance's plugins, skills and MCP servers and excludes the rest.
 Verified on Windows for all four agents in a box (2026-10-28, record
@@ -701,7 +703,9 @@ that resumes it.
 - Codex: it cannot load a plugin for one launch, so Shinatama installs each set's
   plugins into the home once, turned off; each launch switches its set on and the rest
   off with `-c` (`plugins.<p>.enabled`, `mcp_servers.<s>.*`, `skills.config`,
-  `skills.bundled.enabled=false`).
+  `skills.bundled.enabled=false`). That install writes the home, so per-instance sets
+  exist for Codex only in a `box`; with the `system` home, Codex instances use the set
+  already in the user's home and Shinatama writes nothing there (user, 2026-11-01).
 - OpenCode: `OPENCODE_CONFIG_DIR` (the set), `OPENCODE_CONFIG` (provider and model only)
   and `OPENCODE_TEST_HOME` (an empty home per instance, because nothing turns off
   `~/.agents/skills`). Its MCP tools reach the model from the second request on.
@@ -1048,7 +1052,7 @@ suite are in section 5.5 of the [engine spec](technical-design.md).
   shown to the user rather than blocked; its elevated sandbox is not offered in a box
   (5.14).
 - Per-instance sets (5.14): for Codex, Shinatama installs each set's plugins into the
-  home once, turned off (a home write); for OpenCode, each instance gets an empty `~`
+  home once, turned off (a home write, so only in a `box`; user, 2026-11-01); for OpenCode, each instance gets an empty `~`
   of its own; for Pi, the box keeps `mcp.json` empty and each instance brings its MCP
   servers through its own extension; a resumed session takes the set of the instance
   that resumes it.
