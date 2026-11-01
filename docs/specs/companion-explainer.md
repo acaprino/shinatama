@@ -11,8 +11,11 @@ were approved by the user and committed. Revision 3 (commit 0729e93, sha256 9d8c
 was approved by the user and committed; two reviews preceded it (1 High, 21 Medium, 9 Low; then 1
 High, 6 Medium, 14 Low on the fixes) and its last change, the memory redefinition, was not
 rechecked. Revision 4 (2026-11-01, draft): the companion may search the web through its harness's
-own web tool to ground explanations and link sources (5.9). Revision 4 is not approved; one review of it (1 High, 9 Medium, 6 Low) is addressed here and the
-result has not been rechecked.
+own web tool to ground explanations and link sources (5.9). Revision 4 (commit 06b899c, sha256 265b0bf455dac83b8ffca2c0ebaabaf0bc2c786d34abf78cf6d8c19c0f3953fb)
+was approved by the user and committed; one review preceded it (1 High, 9 Medium, 6 Low) and the
+fixes after it were not rechecked. Revision 4.1 (2026-11-01, draft) applies `docs/harness-tools.md`,
+the written facts about the web and read tools of each harness (5.9, 6 A, 10.1, 10.2 row 19; the
+document's section 3 lists the changes). Revision 4.1 is not approved and no reviewer has checked it.
 
 This document specifies the **companion pane**: a read-only session opened beside a working
 agent instance that explains what that instance is doing in the project, or teaches it.
@@ -649,7 +652,9 @@ explaining, tramite tool harness di web search".
   one line of at most 25 words on what it gives (the brief asks for the project's own official
   documentation first, then material that is free to read), and a **Searches** line. They follow
   the numbered parts of a card, are not parts of it and are not counted in the word caps of 5.1
-  and 5.5. The Searches line is made by Shinatama from the events the harness reports, never by
+  and 5.5. Where a harness runs searches it does not list (5.9, "Per harness"), the Searches line
+  says how many were not listed when the harness gives the count. The Searches line is made by
+  Shinatama from the events the harness reports, never by
   the model: one line per query, "query text, number of results", and one per URL requested where
   pages are read. In any card a claim taken from the web carries a web label of 5.5 with its URL;
   a Learning card's claims with no web source need no label. Queries are written in English by
@@ -671,7 +676,7 @@ explaining, tramite tool harness di web search".
   the worktree, go to the web search provider of the harness, which may not be the companion's
   model provider. Shinatama cannot filter them before they are sent [U]. The brief tells the
   companion to search only for concepts and names of public tools and never for code, paths, file
-  contents, secrets, names of private projects, people or hosts. Every query is shown on the card
+  contents, secrets, names of private projects, people or hosts. Every query the harness reports is shown on the card
   and kept in the companion's record. Shinatama checks each reported query and URL after it is
   sent (INV-015): it looks for the worktree's path, a credential-like string (the redaction
   patterns of engine 8.4) and a length above the cap; on a hit, or when the budget is exceeded,
@@ -692,6 +697,19 @@ explaining, tramite tool harness di web search".
   worker whatever a page says (INV-001, INV-002); a web turn is stateless, so no injected text
   survives it; what remains is a misleading explanation and a query that carries information out,
   which the Searches line makes visible (INV-016).
+- **Per harness** (facts and sources in `docs/harness-tools.md`, which owns them; none was run,
+  every one marked [U] there needs its probe). In short, today: **Claude Code** reports the query
+  and the result URLs in the tool call and its result [D][V], but runs up to 8 internal searches
+  per call and reports only their count; **Codex** reports the query and an opened page's URL but
+  **not the result URLs** with its default hosted tool, so the link check of this section cannot
+  hold on Codex (a standalone tool that carries a `results` field exists, off by default and "under
+  development"); **OpenCode** reports the query and the requested URL, the result URLs are to be
+  probed; **Pi** has no web tool of its own and is eligible only with an adopted extension or MCP
+  tool; **Hermes Agent** reports the query and the result URLs, cut at 5000 characters, and needs a
+  search backend key or a Nous subscription beyond the model login; **DeepSeek Harness** reports the
+  queries and up to 8 source URLs, not the searches DeepSeek runs natively, and needs a DeepSeek
+  credential, without which its `web_search` is withheld from the model. No harness is eligible
+  without its probe.
 - **Where it does not apply.** A harness without a web tool, whose web tool does not report its
   queries and result URLs to Shinatama (a search that runs on the model provider's side and shows
   nothing in the harness's event stream is such a case), or whose row 19 fails, does not host web
@@ -703,7 +721,7 @@ explaining, tramite tool harness di web search".
 
 **A. The companion harness's own policy.** Each turn runs through the adapter's headless route
 (engine 5.5 `ask_headless`) with a read-only policy: reads and searches inside the worker's
-worktree are allowed; writes, shell commands, MCP servers that can write and every network access other than the
+worktree are allowed; writes, shell commands (except on Codex, whose only way to read files is its shell; see the table), MCP servers that can write and every network access other than the
 harness's own web search tool are not; that tool, and a page-reading tool only where 5.9 allows
 it, is allowed on a **web turn** only (5.9), which exists from R4 (9.6).
 The register's existing answer-only rows (CL11, CX9, OC7, PI8, HM7, DS7, R2) prove something
@@ -718,15 +736,17 @@ all [U]:
 | Harness | Candidate mechanism |
 | --- | --- |
 | Claude Code | headless resume with a read-only tool allowlist and plan permission mode |
-| Codex | `exec` resume under the read-only sandbox |
+| Codex | `exec` resume under the read-only sandbox. **Codex has no read tool**: it reads files through its shell tool (`exec_command`), so the shell stays enabled and what keeps it from writing is the read-only sandbox, backed by confinement B, not the absence of a shell; this is the one exception to "no shell commands" above |
 | OpenCode | `run` on a companion agent whose permissions deny edit and shell |
 | Pi | print mode with only its read tools enabled |
-| Hermes Agent | the one-shot chat candidate named by HM7, with a toolset that removes tools and writes, widened to allow reads; unsupported until its row passes |
-| DeepSeek Harness | the headless candidate named by DS7 (`DSH_PERMISSION_MODE=read-only`), or the ACP session of functional-design 5.16 where Shinatama, as the client, denies every permission request that writes; whichever its row passes |
+| Hermes Agent | the one-shot chat candidate named by HM7, with a toolset that removes tools and writes, widened to allow reads; unsupported until its row passes. A built-in toolset with reads and search but no `write_file` and `patch` does not exist: `--toolsets search,file` keeps both, so a custom toolset is needed |
+| DeepSeek Harness | the headless candidate named by DS7 (`DSH_PERMISSION_MODE=read-only`), or the ACP session of functional-design 5.16 where Shinatama, as the client, denies every permission request that writes; whichever its row passes. `DSH_PERMISSION_MODE=read-only` covers the filesystem only: the shell and its network stay open, so the shell rows must be removed by a patch before it hosts a companion |
 
-Web tools (5.9) are not in the table: each harness's web search and page-reading tool, and
-whether it reports its queries and results to Shinatama, are unverified [U]; the design
-documents are silent on them. Row 19 settles it per harness.
+The web tools of 5.9 and, for every harness, the tools that are read-only and the switch that
+allows them for one run are written down in `docs/harness-tools.md` (a summary of the five
+conditions per harness is its section 2); the facts are unverified [U] until their probes run,
+and row 19 settles each harness. The inventories of all tools are in Mukade's page for each
+harness.
 
 **B. Operating-system confinement.** The companion's whole process tree runs under a positive
 allow-list that the operating system enforces:
@@ -1219,6 +1239,10 @@ Not made here; they belong to the planning step after approval.
   sections above; they are revised with those documents.
 - ADR-0002, ADR-0003, ADR-0041 and ADR-0042 list these documents in their scope, so edits to
   them surface the records.
+- technical-design 5.7 and the register rows behind 6 A (CL, CX, OC, PI, HM, DS) were verified on
+  older versions than the ones installed on the research machine (Claude Code 2.1.316 against
+  2.1.311, OpenCode 2.2.5 against 2.1.4, Pi 1.4.0 against 1.2.0); they are re-run on the installed
+  versions before a support claim (`docs/harness-tools.md`, section 3).
 - verification-register: the new rows of 10.2.
 
 ## 10. Evidence and verification
@@ -1263,6 +1287,13 @@ Not made here; they belong to the planning step after approval.
   design or about any harness's web tool. One secondary source gives the venue AISec '23; that was
   not confirmed. No evidence was read on whether grounding in web sources makes explanations of
   tools more accurate: the label of 5.5 shows what was read and claims no reliability.
+- **Harness tools** (`docs/harness-tools.md`, research of 2026-11-01): the web search and
+  page-reading tools of the six harnesses, their stream events, the switches that limit a turn and
+  the verdict per condition, from vendor documentation and source read through summarising fetches
+  and from `--version` and `--help` of the four installed harnesses (Claude Code 2.1.316, Codex
+  0.164.0, OpenCode 2.2.5, Pi 1.4.0). Hermes Agent v0.22.5 and DeepSeek Harness 0.2.1-rc.5 are not
+  installed and are read from documentation and source only. No model turn, web search or probe
+  was run. The document has not been reviewed by anyone else.
 - **Rendering candidates**, from search results on 2026-11-01, none read or run:
   `egui_commonmark` (lists GFM tables, strikethrough, task lists, footnotes); `gpui-component`
   (lists Markdown in `TextView` with tree-sitter highlighting; table and Mermaid support inside
@@ -1383,7 +1414,9 @@ New register rows, proposed (my call; IDs to be assigned in `docs/verification-r
 19. Web grounding, per harness: (a) it has a web search tool that runs on a web turn under
     policy A with every other network access closed, and a turn with no web policy value has no
     web tool; (b) it reports to Shinatama, through the headless route, every query and result URL
-    and, where pages are read, every URL requested, in order; a search that runs at the model
+    and, where pages are read, every URL requested, in order ("every" means every one the harness
+    reports: where it lists only a count of further internal searches, as Claude Code does, the
+    count is shown and the probe records it); a search that runs at the model
     provider's side with nothing in the event stream means web mode is not offered; (c) the
     budget holds, and Shinatama's check after each event (the worktree's path, a credential-like
     string, a length above the cap) fires on planted fixtures, aborts the turn and leaves no
