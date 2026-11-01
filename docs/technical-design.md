@@ -1,6 +1,6 @@
 # Shinatama engine — threads, hop, exchange between instances, shared state
 
-Date: 2026-10-26; native tiling revision: 2026-10-29; last revised 2026-10-31.
+Date: 2026-10-26; native tiling revision: 2026-10-29; last revised 2026-11-01.
 Status: draft, not approved. Companion of
 [the functional design](functional-design.md); sections 5.2, 5.10
 and 5.13 of that document point here for the how.
@@ -1161,8 +1161,9 @@ community projects with similar names (DeepSeek-TUI, deepcode-cli, a PyPI
   (Anthropic, OpenAI, Moonshot, Z.ai, custom OpenAI or Anthropic endpoints) come through pi-ai.
   Credentials are read from `DSH_HOME/.credentials.yaml`, then the environment, then the
   project's `.env`, then `DSH_HOME/.env`. Consequences: `auth_status()` is `Unknown` until DS9
-  finds a check that reads no secret, and `login()` opens `dsh web` on the box's home in the
-  user's browser.
+  finds a check that reads no secret, and `login()` opens `dsh web` on the home the agent
+  uses (the box's, or the user's home with `system`) in the user's browser (decided by the
+  user 2026-11-01).
 - Context files: `DSH_HOME/AGENTS.md`, `~/.agents/AGENTS.md`, then `AGENTS.md` and `CLAUDE.md`
   plus `AGENTS.local.md` and `CLAUDE.local.md` from the git root down; no `DEEPSEEK.md`.
 - Compaction near the context limit and on `/compact` (`compaction/*` records); the model is
@@ -1525,13 +1526,16 @@ support lists not individually verified) stay open.
 `message` (4.2). `kind`: `note` (no reply expected), `ask` (reply expected), `reply`,
 `catch_up`, `roundtable_prompt`, `roundtable_answer`, `alert` (from Shinatama to an
 instance). `body` ≤ 16 KB; longer content travels as a file path and a hash. `depth`
-counts agent-to-agent replies in a chain. `expires_at` defaults to 1 hour.
+counts agent-to-agent replies in a chain. `expires_at` defaults to 1 hour and can only be
+shorter: a message not delivered by then expires, so there is no mailbox that outlives the
+sessions or the expiry (main spec 2; decided by the user 2026-11-01).
 
 ### 7.2 Addressing and scope [C]
 
 `to` is an instance id, `agent@project`, or a roundtable group. **Default deny across
 projects**: an instance may message only instances of the same project folder or the same
-roundtable. A broader scope is a setting, per project.
+roundtable (decided by the user 2026-11-01, with the 1-hour limit of 7.1). A broader scope
+is a setting, per project.
 
 ### 7.3 Delivery channels, tried in order, per recipient capability
 
@@ -1625,13 +1629,15 @@ What it means for Shinatama, honestly:
   of them would be one more thing Shinatama launches the agents with. It could replace the
   agents' own handling in some of them (Claude Code already defers tool definitions and
   loads them on demand [V: visible in this very session]) and it is a large feature with
-  its own security model. It is **not** in v1; it is an evaluated option.
-- **Decide with numbers, not with Cloudflare's:** milestone 1 (section 10, item 8) measures,
-  per agent, how many tokens the tool definitions of a typical Shinatama session cost
-  today. The sidecar's CCR and Absorb already cut tool *results* [D, docs/sidecar.md]; Code
-  Mode cuts tool *definitions* and intermediate results, so they are complementary and
-  not a replacement. No saving percentage may be claimed before it is measured
-  (docs/token-efficiency.md).
+  its own security model. It is **not** in v1 and not scheduled: it is evaluated only
+  after the T1 measurement below, and built only if the saving passes a threshold the
+  user sets (register T3; decided by the user 2026-11-01).
+- **Decide with numbers, not with Cloudflare's:** milestone 1 (section 10, item 8; register
+  T1) measures, per agent, how many tokens the tool definitions of a typical Shinatama
+  session cost today. The sidecar's CCR and Absorb already cut tool *results* [D,
+  docs/sidecar.md]; Code Mode cuts tool *definitions* and intermediate results, so they are
+  complementary and not a replacement. No saving percentage may be claimed before it is
+  measured (docs/token-efficiency.md).
 
 ### 7.6 Authority and prompt-injection rules
 
@@ -1787,19 +1793,25 @@ message verbatim. A thread marked `summaries_excluded` is never sent to any back
    Shinatama holds no credentials; counted against the daily cap.
 3. **None** — verbatim last tool call or assistant line.
 
-Default (my recommendation, to be confirmed by measurement): offer backend 1 at first
-run; if declined or not yet downloaded, use 3; backend 2 is a user choice for better
-wording. **Quality gate in milestone 1:** run backends 1 and 2 on about 50 recorded
-activity snapshots from real sessions with a written rubric (names the right file or
-action, no invented fact, at most 12 words), and choose the default from the result.
+Default (my recommendation, decided by the user 2026-11-01; register O2): offer backend 1
+at first run (about 500 MB, after consent, with the licence shown); if declined or not yet
+downloaded, use 3; backend 2 stays a user choice for better wording. **Quality gate in
+milestone 1:** run backends 1 and 2 on about 50 recorded activity snapshots from real
+sessions with a written rubric (names the right file or action, no invented fact, at most
+12 words), and confirm the default with the result.
 
 ### 8.5 Branch, worktree and collisions
 
 Per instance, from git at start and at each `idle` transition: `git rev-parse
 --abbrev-ref HEAD`, `git rev-parse --show-toplevel` and `--git-dir` (a linked worktree has
-a `.git` file), and the list of modified paths from `git status --porcelain=v1 -z`. Two
-instances whose worktree roots are equal and whose modified paths intersect raise a
-`file_collision` event; equal paths in different worktrees do not.
+a `.git` file), and the list of modified paths from `git status --porcelain=v1 -z`.
+`git status` says that a file changed, not which instance changed it, so each modified path
+is attributed from the tool-call targets of the instances in that worktree (their events
+and transcripts). Two instances whose worktree roots are equal and that are both attributed
+a modified path raise a `file_collision` event naming both; a modified path that cannot be
+attributed, while two or more instances work in that worktree, raises a "possible
+collision" warning that names no instance. Generated files are excluded. Equal paths in
+different worktrees do not collide. (Decided by the user 2026-11-01; register Q3, I4.)
 
 ## 9. Sidecar interaction
 
@@ -1810,7 +1822,10 @@ instances whose worktree roots are equal and whose modified paths intersect rais
   the destination's first turn. The seed, the bootstrap and the receipt reach the agent
   as sent: the sidecar's prompt rewriter (`promptRewrite.mode: auto`) does not alter them
   and CCR does not externalize them; where it would, a bypass marker is added (SC9
-  compares the bytes sent and received). [C; register Q5, SC9]
+  compares the bytes sent and received). [C; register Q5, SC9] The marker, like anything
+  else on the request path (the token-savings adapters for Codex and Hermes), goes into
+  the single source (Musashi Terminal, `sidecar/source-build`) and Shinatama inherits it,
+  like the watchdog fix below (decided by the user 2026-11-01; ADR-0029, ADR-0038).
 - The sidecar's session id for an instance is separate from `SHINATAMA_INSTANCE`; the
   bili MCP shim and `shinatama mcp` coexist as two MCP servers in the same launch.
 - The low-cost title calls and roundtable bare-model calls go through the same sidecar so
@@ -1848,9 +1863,10 @@ instances whose worktree roots are equal and whose modified paths intersect rais
   held its loop for 15 to 71 s every few minutes with six Claude Code sessions, using
   about two thirds of a core on average; how long it may be held is open (SC16) and
   bears on SC5.
-  The sidecar code stays unmodified (ADR-0029), so the terminal rule is not left to the
-  launcher's messages: the bytes on an agent's PTY must come only from the agent
-  (ADR-0030 INV-006). The check is a PTY capture from launch to exit while faults are
+  The sidecar code stays unmodified (ADR-0029: no fork or patch inside Shinatama; changes
+  go into the single source, decided by the user 2026-11-01), so the terminal rule is not
+  left to the launcher's messages: the bytes on an agent's PTY must come only from the
+  agent (ADR-0030 INV-006). The check is a PTY capture from launch to exit while faults are
   injected one at a time (a held event loop, a timed-out and a refused owner-renewal
   request, a killed proxy, a stale proxy on the port, an unarmed daemon proxy); every
   fault appears once in Shinatama's log and never in the capture (SC15). It runs against

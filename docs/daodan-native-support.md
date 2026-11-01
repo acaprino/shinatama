@@ -111,6 +111,8 @@ When a project is opened in the project manager, or a thread is first started in
 
 A choice types the agent's native command; the user presses Enter. The questions that follow (decision records, analysis depth) are Daodan's, asked through the agent's question tool: Shinatama neither asks them nor passes answers. "Not now" is remembered per project in Shinatama's SQLite, because declining writes nothing in the project; the next Daodan workflow still asks its own first-use questions. The offer ends when a state directory appears.
 
+For a project created by Shinatama, the new-project dialog's option to type Daodan's native init command (functional design 5.4) is the only offer: declining it counts as "Not now" and no second offer follows. The one-time offer above stays for projects that are opened, not created (user, 2026-11-01).
+
 ## 5. Engine impact (for the engine spec after approval)
 
 - A `daodan` reader module: resolve main checkout, read and validate `agenda.json`, expose rows; watch the file for changes with a bounded poll (no resident service beyond the owning window's life).
