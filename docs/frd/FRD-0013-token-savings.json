@@ -1,0 +1,1280 @@
+{
+  "accepted_at_sha": null,
+  "accepted_on": null,
+  "author": "Claude",
+  "conflicts": [],
+  "created_from_task": "frd-backfill-2026-11-01",
+  "entities": [],
+  "frd_id": "FRD-0013",
+  "last_verified_sha": null,
+  "proposed_at_sha": "da4b83e5a769c6999a57e2b4587c2561c2d491fc",
+  "proposed_on": "2026-11-01",
+  "relationships": [],
+  "requirements": [
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 1441,
+          "excerpt": "technique that exists today applied in Shinatama, as long as none of them lowers quality, and",
+          "path": "docs/specs/token-savings.md",
+          "start": 1348
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 1560,
+          "excerpt": "it (decided, 2026-10-31).",
+          "path": "docs/specs/token-savings.md",
+          "start": 1535
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 343,
+          "excerpt": "Codex, OpenCode, Pi, Hermes Agent, DeepSeek Harness) send to their frontier models, without lowering the quality of the work.",
+          "path": "docs/specs/token-savings.md",
+          "start": 218
+        }
+      ],
+      "id": "REQ-001",
+      "status": "extracted",
+      "text": "Shinatama applies token-saving techniques to what the hosted harnesses send to their frontier models only where they do not lower the quality of the work (decided by the user, 2026-10-31)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 1534,
+          "excerpt": "wants the bookkeeping done by a local small model rather than by paying a frontier model for",
+          "path": "docs/specs/token-savings.md",
+          "start": 1442
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 1560,
+          "excerpt": "it (decided, 2026-10-31).",
+          "path": "docs/specs/token-savings.md",
+          "start": 1535
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 2382,
+          "excerpt": "3. Run every scoring, ranking and digest step on julia1, offline, with no credentials; what",
+          "path": "docs/specs/token-savings.md",
+          "start": 2291
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 10011,
+          "excerpt": "3. **Model routing for bookkeeping.** Summaries, titles (8.4), digests and scoring on julia1;",
+          "path": "docs/specs/token-savings.md",
+          "start": 9918
+        }
+      ],
+      "id": "REQ-002",
+      "status": "extracted",
+      "text": "Shinatama runs the token-saving bookkeeping (every scoring, ranking and digest step) on a small local CPU model, julia1, offline and with no credentials, rather than on a frontier model (decided by the user, 2026-10-31)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 1740,
+          "excerpt": "finished, no constraint or decision lost after a compaction, no credential and no transcript",
+          "path": "docs/specs/token-savings.md",
+          "start": 1648
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 1831,
+          "excerpt": "leaving the machine for the bookkeeping, and the same behaviour on every harness Shinatama",
+          "path": "docs/specs/token-savings.md",
+          "start": 1741
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 3174,
+          "excerpt": "- A hosted service. Everything here runs on the user's machine.",
+          "path": "docs/specs/token-savings.md",
+          "start": 3111
+        }
+      ],
+      "id": "REQ-003",
+      "status": "extracted",
+      "text": "No credential and no transcript leaves the user's machine for the token-saving bookkeeping, and no part of it runs as a hosted service (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 2541,
+          "excerpt": "4. One shared core and one adapter per supported harness, each built on that harness's own",
+          "path": "docs/specs/token-savings.md",
+          "start": 2451
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 2634,
+          "excerpt": "seam, the way BillionContext does it (decided, 2026-10-31). The behaviour is uniform; the",
+          "path": "docs/specs/token-savings.md",
+          "start": 2545
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 1831,
+          "excerpt": "leaving the machine for the bookkeeping, and the same behaviour on every harness Shinatama",
+          "path": "docs/specs/token-savings.md",
+          "start": 1741
+        }
+      ],
+      "id": "REQ-004",
+      "status": "extracted",
+      "text": "Token savings behave the same on every harness Shinatama hosts, through one shared core and one adapter per supported harness built on that harness's own seam (decided by the user, 2026-10-31)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 18172,
+          "excerpt": "- **One adapter per harness** (decided, 2026-10-31). The core is shared: the scoring",
+          "path": "docs/specs/token-savings.md",
+          "start": 18088
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 18445,
+          "excerpt": "its installed version (functional-design 3). There is no single proxy for all of them.",
+          "path": "docs/specs/token-savings.md",
+          "start": 18359
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 23032,
+          "excerpt": "- One adapter per supported harness on its own seam, as BillionContext does; no single",
+          "path": "docs/specs/token-savings.md",
+          "start": 22946
+        }
+      ],
+      "id": "REQ-005",
+      "status": "extracted",
+      "text": "There is no single shared proxy carrying token savings for all harnesses; each harness's adapter is verified on that harness's installed version (decided by the user, 2026-10-31)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 1979,
+          "excerpt": "1. Apply the technique catalog of section 4 in the order of its returns: prevent tokens from",
+          "path": "docs/specs/token-savings.md",
+          "start": 1887
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 2068,
+          "excerpt": "entering, then remove them reversibly, then cut lossily, never the reverse (my call).",
+          "path": "docs/specs/token-savings.md",
+          "start": 1983
+        }
+      ],
+      "id": "REQ-006",
+      "status": "extracted",
+      "text": "Token-saving techniques are applied in the order of their returns: first preventing tokens from entering, then removing them reversibly, then cutting lossily, never the reverse (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 2160,
+          "excerpt": "2. Replace summary compaction with **decision compaction**: tool calls and results are kept",
+          "path": "docs/specs/token-savings.md",
+          "start": 2069
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 2252,
+          "excerpt": "verbatim or removed, user and assistant text is never rewritten (decided, by pointing at",
+          "path": "docs/specs/token-savings.md",
+          "start": 2164
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 22814,
+          "excerpt": "- Decision compaction over summary compaction; text never rewritten.",
+          "path": "docs/specs/token-savings.md",
+          "start": 22746
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 8501,
+          "excerpt": "2. **Decision compaction** (new, julia1; section 5). Score every non-pinned tool call and",
+          "path": "docs/specs/token-savings.md",
+          "start": 8412
+        }
+      ],
+      "id": "REQ-007",
+      "status": "extracted",
+      "text": "Shinatama replaces summary compaction with decision compaction, in which each non-pinned tool call and result is scored and either kept verbatim or removed (decided by the user)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 3110,
+          "excerpt": "- Rewriting what the user or the assistant said. Text is never a candidate.",
+          "path": "docs/specs/token-savings.md",
+          "start": 3035
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 2252,
+          "excerpt": "verbatim or removed, user and assistant text is never rewritten (decided, by pointing at",
+          "path": "docs/specs/token-savings.md",
+          "start": 2164
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 22814,
+          "excerpt": "- Decision compaction over summary compaction; text never rewritten.",
+          "path": "docs/specs/token-savings.md",
+          "start": 22746
+        }
+      ],
+      "id": "REQ-008",
+      "status": "extracted",
+      "text": "Token savings never rewrite what the user or the assistant said; their text is never a candidate for compaction (decided by the user)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 2749,
+          "excerpt": "5. Measure before claiming: no saving percentage is stated anywhere until it is measured on",
+          "path": "docs/specs/token-savings.md",
+          "start": 2658
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 2831,
+          "excerpt": "the user's own sessions (existing constraint of functional-design 3; decided).",
+          "path": "docs/specs/token-savings.md",
+          "start": 2753
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 22945,
+          "excerpt": "- No saving percentage claimed before it is measured.",
+          "path": "docs/specs/token-savings.md",
+          "start": 22892
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 6667,
+          "excerpt": "isolates. Neither figure is measured here.",
+          "path": "docs/specs/token-savings.md",
+          "start": 6625
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 8208,
+          "excerpt": "- No measured saving percentage may be claimed for compression",
+          "path": "docs/functional-design.md",
+          "start": 8146
+        }
+      ],
+      "id": "REQ-009",
+      "status": "extracted",
+      "text": "Shinatama states no token-saving percentage anywhere, including vendor-reported figures, until it has been measured on the user's own sessions (decided by the user)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 3331,
+          "excerpt": "- A compaction that drops the file path, exact error, command or constraint the next turn",
+          "path": "docs/specs/token-savings.md",
+          "start": 3242
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 3400,
+          "excerpt": "needed. Re-running a tool is acceptable; losing a decision is not.",
+          "path": "docs/specs/token-savings.md",
+          "start": 3334
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 1740,
+          "excerpt": "finished, no constraint or decision lost after a compaction, no credential and no transcript",
+          "path": "docs/specs/token-savings.md",
+          "start": 1648
+        }
+      ],
+      "id": "REQ-010",
+      "status": "extracted",
+      "text": "A compaction never drops the file path, exact error, command or constraint the next turn needs; re-running a tool is acceptable, losing a decision is not (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 3488,
+          "excerpt": "- Breaking the prompt cache by rewriting early messages or reordering tools per turn. A",
+          "path": "docs/specs/token-savings.md",
+          "start": 3401
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 3558,
+          "excerpt": "saving that invalidates the cached prefix costs more than it saves.",
+          "path": "docs/specs/token-savings.md",
+          "start": 3491
+        }
+      ],
+      "id": "REQ-011",
+      "status": "extracted",
+      "text": "Token-saving measures never break the prompt cache by rewriting early messages or reordering tools per turn (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 3647,
+          "excerpt": "- Stacking lossy techniques (sliding window + lossy summary + sub-agent summary) so that",
+          "path": "docs/specs/token-savings.md",
+          "start": 3559
+        }
+      ],
+      "id": "REQ-012",
+      "status": "extracted",
+      "text": "Lossy token-saving techniques are never stacked so that their losses add up (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 3761,
+          "excerpt": "- Putting julia1 on the critical path of the frontier model's turn. Scoring is incremental",
+          "path": "docs/specs/token-savings.md",
+          "start": 3671
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 3829,
+          "excerpt": "and asynchronous; when compaction fires, decisions already exist.",
+          "path": "docs/specs/token-savings.md",
+          "start": 3764
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 15182,
+          "excerpt": "4. **Off the critical path.** No request to the executor is awaited by the frontier model's",
+          "path": "docs/specs/token-savings.md",
+          "start": 15091
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 18755,
+          "excerpt": "cache. When compaction fires there is only applying to do. The frontier model never waits",
+          "path": "docs/specs/token-savings.md",
+          "start": 18666
+        }
+      ],
+      "id": "REQ-013",
+      "status": "extracted",
+      "text": "julia1 is never on the critical path of the frontier model's turn: scoring runs incrementally and asynchronously, no request to it is awaited by the frontier model's turn, and decisions already exist when compaction fires (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 5029,
+          "excerpt": "turn is rewritten between requests; MCP servers are not restarted mid-session (a reorder of",
+          "path": "docs/specs/token-savings.md",
+          "start": 4938
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 5170,
+          "excerpt": "keeps the sidecar and MCP set stable per launch.",
+          "path": "docs/specs/token-savings.md",
+          "start": 5122
+        }
+      ],
+      "id": "REQ-014",
+      "status": "extracted",
+      "text": "Shinatama keeps the sidecar and the MCP server set stable for the duration of a launch and does not restart MCP servers mid-session (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 5817,
+          "excerpt": "4. **MCP pruning per instance.** Mount only the servers a session needs. Shinatama's",
+          "path": "docs/specs/token-savings.md",
+          "start": 5733
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 5910,
+          "excerpt": "per-instance plugin and skill set (functional-design 5.14) is the switch. Risk: a missing",
+          "path": "docs/specs/token-savings.md",
+          "start": 5821
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 5975,
+          "excerpt": "tool; mitigated by a visible list at launch. Runs: Shinatama.",
+          "path": "docs/specs/token-savings.md",
+          "start": 5914
+        }
+      ],
+      "id": "REQ-015",
+      "status": "extracted",
+      "text": "Shinatama mounts only the MCP servers an instance needs, through the per-instance plugin and skill set, and shows the mounted list at launch (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 7665,
+          "excerpt": "6. **Per-tool digests** (new, julia1). For results with a known shape (test runners, build",
+          "path": "docs/specs/token-savings.md",
+          "start": 7575
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 7851,
+          "excerpt": "to a fixed output schema; the verbatim original stays recoverable as in 3. Risk: a digest",
+          "path": "docs/specs/token-savings.md",
+          "start": 7762
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 8023,
+          "excerpt": "starting with tools whose output has a stable shape. Runs: Shinatama sidecar,",
+          "path": "docs/specs/token-savings.md",
+          "start": 7946
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 17091,
+          "excerpt": "Per-tool parsers for stable output shapes first; julia1 with a fixed output schema for the",
+          "path": "docs/specs/token-savings.md",
+          "start": 17001
+        }
+      ],
+      "id": "REQ-016",
+      "status": "extracted",
+      "text": "For tool results with a known shape (test runners, build output, directory listings, diffs), Shinatama produces a per-tool digest, a parser first and julia1 extracting the rest to a fixed output schema, starting with tools whose output has a stable shape, while the verbatim original stays recoverable (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 17182,
+          "excerpt": "remainder; the original always recoverable (4.2.6). Runs asynchronously after `tool.call`,",
+          "path": "docs/specs/token-savings.md",
+          "start": 17092
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 17209,
+          "excerpt": "never on the model's turn.",
+          "path": "docs/specs/token-savings.md",
+          "start": 17183
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 17678,
+          "excerpt": "| Digests | parser, then schema extraction | julia1 | async after `tool.call` |",
+          "path": "docs/specs/token-savings.md",
+          "start": 17599
+        }
+      ],
+      "id": "REQ-017",
+      "status": "extracted",
+      "text": "Per-tool digests run asynchronously after a tool call, never on the model's turn (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 11054,
+          "excerpt": "1. Every `tool_use` is paired with its `tool_result` by `tool_use_id`. Calls in the first",
+          "path": "docs/specs/token-savings.md",
+          "start": 10965
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 11141,
+          "excerpt": "message and in the newest `preserveRecentMessages` messages (default 6) are pinned.",
+          "path": "docs/specs/token-savings.md",
+          "start": 11058
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 12350,
+          "excerpt": "is ever left without its call; untouched messages are returned as the same objects.",
+          "path": "docs/specs/token-savings.md",
+          "start": 12267
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 13269,
+          "excerpt": "(fitting, batching, deciding, rebuilding) stays as in the library. Question types in the",
+          "path": "docs/specs/token-savings.md",
+          "start": 13181
+        }
+      ],
+      "id": "REQ-018",
+      "status": "extracted",
+      "text": "Decision compaction never removes tool calls in the first message or in the newest messages (the newest 6 by default), and never leaves a tool result without its call (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 12170,
+          "excerpt": "5. Decisions against `keepThreshold` 0.5: keep call and result; else keep the call and",
+          "path": "docs/specs/token-savings.md",
+          "start": 12084
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 12263,
+          "excerpt": "truncate the result to `truncateHeadChars` (300) plus a note; else remove both. No result",
+          "path": "docs/specs/token-savings.md",
+          "start": 12174
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 13269,
+          "excerpt": "(fitting, batching, deciding, rebuilding) stays as in the library. Question types in the",
+          "path": "docs/specs/token-savings.md",
+          "start": 13181
+        }
+      ],
+      "id": "REQ-019",
+      "status": "extracted",
+      "text": "For each non-pinned call, decision compaction either keeps the call and its result, keeps the call with the result truncated to its head plus a note, or removes both (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 8856,
+          "excerpt": "4. **Monolithic summary compaction** (the harness default). One summary, lossy; loses",
+          "path": "docs/specs/token-savings.md",
+          "start": 8771
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 8944,
+          "excerpt": "decisions, constraints and the \"why\". Kept only as the fallback when 2 cannot remove",
+          "path": "docs/specs/token-savings.md",
+          "start": 8860
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 9034,
+          "excerpt": "enough, with a structured compaction prompt (decisions, open items, files touched) and",
+          "path": "docs/specs/token-savings.md",
+          "start": 8948
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 9107,
+          "excerpt": "firing at task boundaries rather than at a percentage. Runs: harness.",
+          "path": "docs/specs/token-savings.md",
+          "start": 9038
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 12627,
+          "excerpt": "where it triggers compaction at `compactAtPercent` (60) of the window. It falls back to the",
+          "path": "docs/specs/token-savings.md",
+          "start": 12536
+        }
+      ],
+      "id": "REQ-020",
+      "status": "extracted",
+      "text": "Monolithic summary compaction is kept only as the fallback when decision compaction cannot remove enough, with a structured compaction prompt (decisions, open items, files touched) and firing at task boundaries rather than at a percentage (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 9462,
+          "excerpt": "6. **Last N turns only.** Cheapest and most dangerous; acceptable only together with 5 and a",
+          "path": "docs/specs/token-savings.md",
+          "start": 9370
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 9529,
+          "excerpt": "per-turn reinjection of the state file. Not planned on its own.",
+          "path": "docs/specs/token-savings.md",
+          "start": 9466
+        }
+      ],
+      "id": "REQ-021",
+      "status": "extracted",
+      "text": "Keeping only the last N turns is not used on its own; it is acceptable only together with externalized state and a per-turn reinjection of the state file (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 10162,
+          "excerpt": "4. **Measurement.** A ledger per session of input tokens per turn, cache hit rate, compaction",
+          "path": "docs/specs/token-savings.md",
+          "start": 10069
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 10250,
+          "excerpt": "count and tool re-runs after compaction. Without it no technique can be said to save",
+          "path": "docs/specs/token-savings.md",
+          "start": 10166
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 16481,
+          "excerpt": "part is to record in the ledger the rate of tool re-runs after compaction, which only the",
+          "path": "docs/specs/token-savings.md",
+          "start": 16392
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 25342,
+          "excerpt": "1. The ledger of 8.1 step 1 on at least ten real sessions per harness.",
+          "path": "docs/specs/token-savings.md",
+          "start": 25272
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 25413,
+          "excerpt": "2. Tool re-run rate after compaction, before and after each milestone.",
+          "path": "docs/specs/token-savings.md",
+          "start": 25343
+        }
+      ],
+      "id": "REQ-022",
+      "status": "extracted",
+      "text": "Shinatama keeps a ledger per session of input tokens per turn, cache hit rate, compaction count and tool re-runs after compaction (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 21920,
+          "excerpt": "1. **Measure.** The ledger of 4.4.4 on the user's current sessions, no technique added:",
+          "path": "docs/specs/token-savings.md",
+          "start": 21833
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 22065,
+          "excerpt": "is the baseline every later claim is compared with.",
+          "path": "docs/specs/token-savings.md",
+          "start": 22014
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 21831,
+          "excerpt": "### 8.1 Milestones (my calls)",
+          "path": "docs/specs/token-savings.md",
+          "start": 21802
+        }
+      ],
+      "id": "REQ-023",
+      "status": "extracted",
+      "text": "Before any token-saving technique is added, the ledger is run on the user's current sessions to set the baseline that every later claim is compared with (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 14020,
+          "excerpt": "julia1 is reached through one local HTTP endpoint speaking the System One wire format of",
+          "path": "docs/specs/token-savings.md",
+          "start": 13932
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 14111,
+          "excerpt": "5.3 (my call: reuse the format so the plugin needs no change beyond `baseUrl`). It answers",
+          "path": "docs/specs/token-savings.md",
+          "start": 14021
+        }
+      ],
+      "id": "REQ-024",
+      "status": "extracted",
+      "text": "julia1 is reached through one local HTTP endpoint speaking the System One wire format and answering `noul`, `choice` and `score` questions (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 14615,
+          "excerpt": "1. **Append-only, incremental state.** The state is the same prefix plus a delta at every",
+          "path": "docs/specs/token-savings.md",
+          "start": 14526
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 14703,
+          "excerpt": "call; Shinatama scores the new calls after each turn instead of the whole history at",
+          "path": "docs/specs/token-savings.md",
+          "start": 14619
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 14524,
+          "excerpt": "can (my calls):",
+          "path": "docs/specs/token-savings.md",
+          "start": 14509
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 18663,
+          "excerpt": "- **Scoring is incremental**: after each turn julia1 scores only the new calls with a warm",
+          "path": "docs/specs/token-savings.md",
+          "start": 18573
+        }
+      ],
+      "id": "REQ-025",
+      "status": "extracted",
+      "text": "After each turn Shinatama scores only the new tool calls, sending julia1 an append-only state that is the same prefix plus a delta, instead of scoring the whole history at compaction time (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 14878,
+          "excerpt": "2. **Tunable state budget.** `maxStateTokens` is a setting, not a constant; the library's",
+          "path": "docs/specs/token-savings.md",
+          "start": 14789
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 14524,
+          "excerpt": "can (my calls):",
+          "path": "docs/specs/token-savings.md",
+          "start": 14509
+        }
+      ],
+      "id": "REQ-026",
+      "status": "extracted",
+      "text": "The state budget sent to the scorer (`maxStateTokens`) is a user-adjustable setting, not a constant (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 15035,
+          "excerpt": "3. **Features precomputed.** The deterministic signals of 6.3 travel with the question, so",
+          "path": "docs/specs/token-savings.md",
+          "start": 14945
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 15090,
+          "excerpt": "the executor is never the only source of judgement.",
+          "path": "docs/specs/token-savings.md",
+          "start": 15039
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 15329,
+          "excerpt": "Computed by Shinatama from the transcript, no model involved; they carry a large part of the",
+          "path": "docs/specs/token-savings.md",
+          "start": 15237
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 14524,
+          "excerpt": "can (my calls):",
+          "path": "docs/specs/token-savings.md",
+          "start": 14509
+        }
+      ],
+      "id": "REQ-027",
+      "status": "extracted",
+      "text": "Shinatama computes deterministic features from the transcript without any model (cited later, file edited after the read, same call repeated later, error then resolved, per-tool prior) and sends them with each question, so the executor is never the only source of judgement (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 15982,
+          "excerpt": "Pipeline (my call): rules decide first where they are conclusive (a Read of a file edited",
+          "path": "docs/specs/token-savings.md",
+          "start": 15893
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 16075,
+          "excerpt": "afterwards, a call repeated later); the executor is asked only about the rest. Each decision",
+          "path": "docs/specs/token-savings.md",
+          "start": 15983
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 16108,
+          "excerpt": "records which stage produced it.",
+          "path": "docs/specs/token-savings.md",
+          "start": 16076
+        }
+      ],
+      "id": "REQ-028",
+      "status": "extracted",
+      "text": "Deterministic rules decide first where they are conclusive (a read of a file edited afterwards, a call repeated later), julia1 is asked only about the rest, and each decision records which stage produced it (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 16299,
+          "excerpt": "`keepThreshold`. Shinatama exposes it as a setting and takes its value from the model's",
+          "path": "docs/specs/token-savings.md",
+          "start": 16212
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 16391,
+          "excerpt": "delivery, because what a probability means depends on the model (6.1, 8.4). Shinatama's own",
+          "path": "docs/specs/token-savings.md",
+          "start": 16300
+        }
+      ],
+      "id": "REQ-029",
+      "status": "extracted",
+      "text": "The keep threshold that turns julia1's probability into keep or drop is a setting whose value comes with the model's delivery (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 16799,
+          "excerpt": "1. On `prompt.submit`, rank deferred tools (embedding or `choice` question on the prompt and",
+          "path": "docs/specs/token-savings.md",
+          "start": 16707
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 16892,
+          "excerpt": "the recent window) and preload the likely ones, so the model skips the search round-trip.",
+          "path": "docs/specs/token-savings.md",
+          "start": 16803
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 16630,
+          "excerpt": "The tool list cannot change per turn without breaking the prefix cache, and the harness",
+          "path": "docs/specs/token-savings.md",
+          "start": 16543
+        }
+      ],
+      "id": "REQ-030",
+      "status": "extracted",
+      "text": "When the user submits a prompt, Shinatama ranks deferred tools and preloads the likely ones so the model skips the search round-trip, without changing the tool list per turn (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 16982,
+          "excerpt": "2. Through `tool.describe`, shorten descriptions of tools the session is unlikely to use.",
+          "path": "docs/specs/token-savings.md",
+          "start": 16893
+        }
+      ],
+      "id": "REQ-031",
+      "status": "extracted",
+      "text": "Shinatama shortens the descriptions of tools a session is unlikely to use (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 17769,
+          "excerpt": "- **One sidecar per box** (functional-design 5.14): an HTTP process on localhost with the",
+          "path": "docs/specs/token-savings.md",
+          "start": 17680
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 17858,
+          "excerpt": "System One wire format, launched and supervised like the BillionContext sidecar (5.6),",
+          "path": "docs/specs/token-savings.md",
+          "start": 17772
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 17950,
+          "excerpt": "private root, no credentials, no system change. julia1 and the title backend of 8.4 share",
+          "path": "docs/specs/token-savings.md",
+          "start": 17861
+        }
+      ],
+      "id": "REQ-032",
+      "status": "extracted",
+      "text": "Each box runs one julia1 sidecar, an HTTP process on localhost launched and supervised like the BillionContext sidecar, with a private root, no credentials and no system change (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 17950,
+          "excerpt": "private root, no credentials, no system change. julia1 and the title backend of 8.4 share",
+          "path": "docs/specs/token-savings.md",
+          "start": 17861
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 18087,
+          "excerpt": "choice) and the one-time opt-in model download.",
+          "path": "docs/specs/token-savings.md",
+          "start": 18040
+        }
+      ],
+      "id": "REQ-033",
+      "status": "extracted",
+      "text": "julia1 and the local title backend share one runtime and one one-time, opt-in model download (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 21109,
+          "excerpt": "1. **One owner of compaction.** When the adapter compacts, the harness's native compaction",
+          "path": "docs/specs/token-savings.md",
+          "start": 21019
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 21288,
+          "excerpt": "Pi compaction cancel). Two compactions on one history destroy each other's substrate.",
+          "path": "docs/specs/token-savings.md",
+          "start": 21203
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 21017,
+          "excerpt": "Rules every adapter follows (my calls):",
+          "path": "docs/specs/token-savings.md",
+          "start": 20978
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 25892,
+          "excerpt": "harness's native compaction does not run behind it.",
+          "path": "docs/specs/token-savings.md",
+          "start": 25841
+        }
+      ],
+      "id": "REQ-034",
+      "status": "extracted",
+      "text": "When a token-saving adapter compacts a harness's history, the harness's native compaction is stood down or intercepted, so only one compaction runs on a history (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 21377,
+          "excerpt": "2. **One owner of the wire.** Where BillionContext already sits on the request path, the",
+          "path": "docs/specs/token-savings.md",
+          "start": 21289
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 21459,
+          "excerpt": "adapter acts inside that path, not as a second proxy in front of or behind it.",
+          "path": "docs/specs/token-savings.md",
+          "start": 21381
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 21017,
+          "excerpt": "Rules every adapter follows (my calls):",
+          "path": "docs/specs/token-savings.md",
+          "start": 20978
+        }
+      ],
+      "id": "REQ-035",
+      "status": "extracted",
+      "text": "Where the BillionContext sidecar already sits on a harness's request path, the token-saving adapter acts inside that path and never adds a second proxy in front of or behind it (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 21550,
+          "excerpt": "3. **Cache-safe.** No rewrite inside the cached prefix; compaction happens at the boundary",
+          "path": "docs/specs/token-savings.md",
+          "start": 21460
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 21589,
+          "excerpt": "the sidecar's break-even indicates.",
+          "path": "docs/specs/token-savings.md",
+          "start": 21554
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 25837,
+          "excerpt": "5. For each adapter, that its rewrite leaves the cache hit rate unchanged and that the",
+          "path": "docs/specs/token-savings.md",
+          "start": 25751
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 21017,
+          "excerpt": "Rules every adapter follows (my calls):",
+          "path": "docs/specs/token-savings.md",
+          "start": 20978
+        }
+      ],
+      "id": "REQ-036",
+      "status": "extracted",
+      "text": "A token-saving adapter never rewrites inside the cached prefix and compacts only at the boundary the sidecar's break-even indicates, leaving the cache hit rate unchanged (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 21681,
+          "excerpt": "4. **Verified per version.** Each adapter has a conformance test against the real installed",
+          "path": "docs/specs/token-savings.md",
+          "start": 21590
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 21760,
+          "excerpt": "harness and a version gate, like the other adapters of functional-design 6.",
+          "path": "docs/specs/token-savings.md",
+          "start": 21685
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 21017,
+          "excerpt": "Rules every adapter follows (my calls):",
+          "path": "docs/specs/token-savings.md",
+          "start": 20978
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 25592,
+          "excerpt": "4. That the function-hook plugin loads on the installed Claude Code and that `session.compact`",
+          "path": "docs/specs/token-savings.md",
+          "start": 25498
+        }
+      ],
+      "id": "REQ-037",
+      "status": "extracted",
+      "text": "Each token-saving adapter has a conformance test against the real installed harness and a version gate (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 25984,
+          "excerpt": "6. For Hermes Agent, which setting or hook stands its native compaction down; until that is",
+          "path": "docs/specs/token-savings.md",
+          "start": 25893
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 26019,
+          "excerpt": "known its adapter is not built.",
+          "path": "docs/specs/token-savings.md",
+          "start": 25988
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 20508,
+          "excerpt": "how to stand its compaction down is not yet known and is verified first",
+          "path": "docs/specs/token-savings.md",
+          "start": 20437
+        }
+      ],
+      "id": "REQ-038",
+      "status": "extracted",
+      "text": "The Hermes Agent token-saving adapter is not built until the setting or hook that stands down Hermes Agent's native compaction is known (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 22618,
+          "excerpt": "DeepSeek Harness come after their proxy coverage is verified (register HM12, DS12), since",
+          "path": "docs/specs/token-savings.md",
+          "start": 22529
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 21831,
+          "excerpt": "### 8.1 Milestones (my calls)",
+          "path": "docs/specs/token-savings.md",
+          "start": 21802
+        }
+      ],
+      "id": "REQ-039",
+      "status": "extracted",
+      "text": "The Hermes Agent and DeepSeek Harness token-saving adapters come only after their proxy coverage is verified (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 22158,
+          "excerpt": "2. **Claude Code first.** Fork or vendor nothing: add `baseUrl` to the plugin, point it at a",
+          "path": "docs/specs/token-savings.md",
+          "start": 22066
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 22238,
+          "excerpt": "local endpoint that answers with the rules of 6.3 alone (no model). Measure.",
+          "path": "docs/specs/token-savings.md",
+          "start": 22162
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 22324,
+          "excerpt": "3. **julia1 behind the endpoint**, delivered by the other project with its threshold.",
+          "path": "docs/specs/token-savings.md",
+          "start": 22239
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 22437,
+          "excerpt": "4. **Adapters for Codex, OpenCode, Pi, Hermes Agent and DeepSeek Harness**, one at a time,",
+          "path": "docs/specs/token-savings.md",
+          "start": 22347
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 21831,
+          "excerpt": "### 8.1 Milestones (my calls)",
+          "path": "docs/specs/token-savings.md",
+          "start": 21802
+        }
+      ],
+      "id": "REQ-040",
+      "status": "extracted",
+      "text": "Claude Code is the first harness with decision compaction, first against a local endpoint answering with the deterministic rules alone and measured before julia1 is put behind that endpoint; the other adapters follow one at a time (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 18547,
+          "excerpt": "- **Code-mode gateway** in front of MCP servers (4.2.1) is a second uniform piece; it is a",
+          "path": "docs/specs/token-savings.md",
+          "start": 18457
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 22727,
+          "excerpt": "6. **Code-mode gateway** in front of MCP.",
+          "path": "docs/specs/token-savings.md",
+          "start": 22686
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 21831,
+          "excerpt": "### 8.1 Milestones (my calls)",
+          "path": "docs/specs/token-savings.md",
+          "start": 21802
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 116679,
+          "excerpt": "its own security model. It is **not** in v1; it is an evaluated option.",
+          "path": "docs/technical-design.md",
+          "start": 116608
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 75205,
+          "excerpt": "Built only if the saving beats a threshold the user sets and success does not fall",
+          "path": "docs/verification-register.md",
+          "start": 75123
+        }
+      ],
+      "id": "REQ-041",
+      "status": "extracted",
+      "text": "A code-mode gateway in front of MCP servers, working the same for every hosted harness, comes only in a later milestone, after the tool chooser and digests (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 6359,
+          "excerpt": "cannot see intermediate values it may have needed; keep direct calls available. Runs:",
+          "path": "docs/specs/token-savings.md",
+          "start": 6274
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 10625,
+          "excerpt": "| Both in one session | Tool search + programmatic calling, both kept |",
+          "path": "docs/specs/token-savings.md",
+          "start": 10554
+        }
+      ],
+      "id": "REQ-042",
+      "status": "extracted",
+      "text": "Where code mode is used, direct tool calls stay available, and a session that needs both keeps tool search and programmatic calling (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 3034,
+          "excerpt": "- Changing Daodan. Daodan ships compiled per harness; Shinatama installs the build.",
+          "path": "docs/specs/token-savings.md",
+          "start": 2951
+        }
+      ],
+      "id": "REQ-043",
+      "status": "extracted",
+      "text": "Token savings do not change Daodan; Shinatama installs Daodan's per-harness build as shipped (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 23132,
+          "excerpt": "### 8.4 Out of scope here (decided, 2026-10-31)",
+          "path": "docs/specs/token-savings.md",
+          "start": 23085
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 23221,
+          "excerpt": "Training, fine-tuning, calibration, operating threshold, architecture and benchmarks of",
+          "path": "docs/specs/token-savings.md",
+          "start": 23134
+        },
+        {
+          "document_sha256": "b8f9efd6aa7f4fcb5ce4932e5673f002bd1375bd148066e2c4474032815e0c7f",
+          "end": 2931,
+          "excerpt": "- Picking, training, calibrating or benchmarking the model behind julia1. That runs",
+          "path": "docs/specs/token-savings.md",
+          "start": 2848
+        }
+      ],
+      "id": "REQ-044",
+      "status": "extracted",
+      "text": "Shinatama does not pick, train, fine-tune, calibrate or benchmark the model behind julia1, nor set its operating threshold; it fixes only the wire contract, what it guarantees the executor, the precomputed signals and how it acts on the answer (decided by the user, 2026-10-31)"
+    }
+  ],
+  "schema_version": 1,
+  "status": "Proposed",
+  "superseded_by": null,
+  "title": "Token savings",
+  "version": 1
+}

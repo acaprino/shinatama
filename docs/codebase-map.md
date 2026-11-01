@@ -33,8 +33,9 @@ shinatama/
 │   │   ├── companion-explainer.md  read-only companion pane (decisions: ADR-0002, ADR-0003)
 │   │   └── token-savings.md        decision compaction and the local julia1 executor
 │   ├── adr/                      architecture decision records (section 4)
+│   ├── frd/                      functional requirements documents, evidence-bound JSON (section 4a)
 │   ├── verification/             18 run records, YYYY-MM-DD-<ID>-<topic>.md (17 rows + UNI1 trial)
-│   ├── notes/                    two surveys (JanuraCode code reuse; harness/cli lessons)
+│   ├── notes/                    two surveys, and the inconsistency worklist of 2026-11-01
 │   ├── mockups/                  workspace.html, workspace-lite.html and their 1440 px PNGs
 │   └── assets/branding/          logo, its generation notes, and the Oni reference image
 └── verify/                       scripts behind the register rows, one folder per row id
@@ -69,6 +70,7 @@ README ──► functional-design ◄──► technical-design ──► mukad
    └► verification-register ◄── every design doc; ──► verification/*.md (all 18 records)
 specs/companion-explainer, specs/token-savings ──► technical-design sections they change
 docs/adr/ ──► the sections listed in each record's scope.paths
+docs/frd/ ──► exact spans of the design documents (path, sha256, code-point offsets)
 ```
 
 ## 3. Domains and where each is specified
@@ -104,8 +106,8 @@ docs/adr/ ──► the sections listed in each record's scope.paths
 
 ## 4. Decision records
 
-`docs/adr/` holds one record per decision, in the format the ADR tooling (`adr_tool.py`) used
-for ADR-0001 and ADR-0002: frontmatter with scope, status and SHAs, then Context, Drivers,
+`docs/adr/` holds one record per decision, in the format of Daodan's project-delivery
+`adr-method` (`adr_tool.py`): frontmatter with scope, status and SHAs, then Context, Drivers,
 Decision, Examples, Rejected Alternatives, Invariants, Consequences and Confirmation.
 `docs/adr/README.md` has the generated index.
 
@@ -118,6 +120,36 @@ Decision, Examples, Rejected Alternatives, Invariants, Consequences and Confirma
 - A record holds only the decision. The design documents keep the full design and stay the
   place where details change. When a record and a document disagree, the disagreement is a
   defect to fix in one of them, not a precedence rule.
+- `adr_tool.py validate` passes on all 40 records.
+
+## 4a. Functional requirements documents
+
+`docs/frd/` holds the FRDs of Daodan's project-delivery `frd-method` (`frd_tool.py`): one JSON
+record per area. Every requirement carries at least one evidence span, an exact excerpt
+bound to the source file's SHA-256 and code-point offsets. Each requirement text ends with
+its origin: decided by the user (with the date when the documents give one), author's call,
+proposed, or unmarked in the design. Open questions are not requirements.
+
+| FRD | Area | Requirements |
+|---|---|---:|
+| FRD-0001 | Workspace and agent hosting | 97 |
+| FRD-0002 | Agent placement, homes and per-instance sets | 50 |
+| FRD-0003 | Accounts and login | 26 |
+| FRD-0004 | Project manager | 19 |
+| FRD-0005 | Threads and hop | 72 |
+| FRD-0006 | Search, sessions and resume | 66 |
+| FRD-0007 | Roundtable and messages between instances | 47 |
+| FRD-0008 | Daodan preinstalled and native task support | 55 |
+| FRD-0009 | BillionContext sidecar | 29 |
+| FRD-0010 | Overview, instance state and desktop widget | 46 |
+| FRD-0011 | Browser integration | 68 |
+| FRD-0012 | Companion pane and decision cards | 88 |
+| FRD-0013 | Token savings | 44 |
+
+All 13 are **Proposed**, extracted on 2026-11-01 at `da4b83e`; items are `extracted`, not
+reviewed. `frd_tool.py validate` passes. An FRD becomes Accepted only through `promote`
+after the user approves its exact text. Because evidence is bound to file hashes, any edit
+to a cited document makes the spans in it stale until the FRD is refreshed.
 
 ## 5. The verification bench (`verify/`)
 
@@ -170,6 +202,11 @@ and its performance budget), O9 ("deep seek code" read as DeepSeek Harness in an
 O10 (ask Daodan for Hermes and DeepSeek packages). O6 was decided on 2026-10-28.
 
 ## 8. Known inconsistencies found while mapping
+
+The full, numbered list (83 items, each marked editorial, needs the user, or register-only)
+is [notes/2026-11-01-design-inconsistencies.md](notes/2026-11-01-design-inconsistencies.md).
+The items below were the first found.
+
 
 - technical-design 5.7, consequence 5, says "for the other three" while six agents are listed.
 - technical-design 4.3 keys the instance-exclusivity index by `(agent, segment_id)`, while 4.2

@@ -1,0 +1,2106 @@
+{
+  "accepted_at_sha": null,
+  "accepted_on": null,
+  "author": "Claude",
+  "conflicts": [],
+  "created_from_task": "frd-backfill-2026-11-01",
+  "entities": [],
+  "frd_id": "FRD-0001",
+  "last_verified_sha": null,
+  "proposed_at_sha": "da4b83e5a769c6999a57e2b4587c2561c2d491fc",
+  "proposed_on": "2026-11-01",
+  "relationships": [],
+  "requirements": [
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 2012,
+          "excerpt": "1. Host Claude Code, Codex, OpenCode, Pi, Hermes Agent and DeepSeek Harness as real\n   processes in a terminal multiplexed inside Shinatama (the six decided 2026-10-31,",
+          "path": "docs/functional-design.md",
+          "start": 1844
+        }
+      ],
+      "id": "REQ-001",
+      "status": "extracted",
+      "text": "Shinatama hosts Claude Code, Codex, OpenCode, Pi, Hermes Agent and DeepSeek Harness as real agent processes inside Shinatama (decided by the user, 2026-10-31)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 2251,
+          "excerpt": "\"Deep seek code\" is read as DeepSeek Harness, DeepSeek's own open-source agent; no\n   DeepSeek product is called DeepSeek Code (my call, section 7).",
+          "path": "docs/functional-design.md",
+          "start": 2103
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 64764,
+          "excerpt": "- \"Deep seek code\" is DeepSeek Harness (`dsh`, deepseek-ai/deepseek-harness), DeepSeek's\n  only official agent; \"hermes\" is Hermes Agent by Nous Research (goal 1, 2026-10-31).",
+          "path": "docs/functional-design.md",
+          "start": 64589
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 81658,
+          "excerpt": "O9 Confirm the two readings of 2026-10-31",
+          "path": "docs/verification-register.md",
+          "start": 81617
+        }
+      ],
+      "id": "REQ-002",
+      "status": "extracted",
+      "text": "The DeepSeek agent Shinatama hosts is DeepSeek Harness (`dsh`), DeepSeek's own open-source agent, and the Hermes agent is Hermes Agent by Nous Research (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 2487,
+          "excerpt": "Hermes Agent and\n   DeepSeek Harness join with every adapter capability declared `unsupported` until\n   its register row passes (engine 5.5 and 5.7; register sections 7a and 7b): nothing\n   is claimed for them from documentation alone.",
+          "path": "docs/functional-design.md",
+          "start": 2252
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 1842,
+          "excerpt": "### Goals (decided unless marked)",
+          "path": "docs/functional-design.md",
+          "start": 1809
+        }
+      ],
+      "id": "REQ-003",
+      "status": "extracted",
+      "text": "Hermes Agent and DeepSeek Harness start with every adapter capability declared `unsupported`, and a capability is claimed for them only once its verification-register row passes, never from documentation alone (decided by the user)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 4594,
+          "excerpt": "- Grok. Daodan has no Grok adapter and the user said Grok is not supported for now.",
+          "path": "docs/functional-design.md",
+          "start": 4511
+        }
+      ],
+      "id": "REQ-004",
+      "status": "extracted",
+      "text": "Shinatama does not host Grok (decided by the user)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 61471,
+          "excerpt": "One adapter per agent (decided), so Grok or another agent can be added without touching\nthe rest.",
+          "path": "docs/functional-design.md",
+          "start": 61374
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 4656,
+          "excerpt": "  The agent adapter contract must make adding it later cheap.",
+          "path": "docs/functional-design.md",
+          "start": 4595
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 58007,
+          "excerpt": "**Adding an agent (Grok, Gemini beyond launch-only, a future one)** = implement the\ncontract, record fixtures, pass the suite.",
+          "path": "docs/technical-design.md",
+          "start": 57881
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 58148,
+          "excerpt": "The engine, the database, the UI and the roundtable need no change.",
+          "path": "docs/technical-design.md",
+          "start": 58081
+        }
+      ],
+      "id": "REQ-005",
+      "status": "extracted",
+      "text": "Each supported agent is served by its own adapter, so a further agent such as Grok can be added by implementing an adapter, recording fixtures and passing the suite, without changing the engine, the database, the UI or the roundtable (decided by the user)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 29878,
+          "excerpt": "Gemini keeps a launch-only adapter in v1: it starts through the sidecar, with no hop\nand no search.",
+          "path": "docs/functional-design.md",
+          "start": 29779
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 29777,
+          "excerpt": "### 5.9 Gemini (my call)",
+          "path": "docs/functional-design.md",
+          "start": 29753
+        }
+      ],
+      "id": "REQ-006",
+      "status": "extracted",
+      "text": "In v1 Gemini has a launch-only adapter: it starts through the sidecar, with no hop and no search (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 29945,
+          "excerpt": "External terminal selection is not offered (section 2, non-goals).",
+          "path": "docs/functional-design.md",
+          "start": 29879
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 29777,
+          "excerpt": "### 5.9 Gemini (my call)",
+          "path": "docs/functional-design.md",
+          "start": 29753
+        }
+      ],
+      "id": "REQ-007",
+      "status": "extracted",
+      "text": "Shinatama does not offer a choice of external terminal for Gemini (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 9835,
+          "excerpt": "Each agent runs in a pseudo-terminal owned by Shinatama; the user types into the\nreal agent.",
+          "path": "docs/functional-design.md",
+          "start": 9743
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 1070,
+          "excerpt": "- the real agent runs in a real terminal session inside Shinatama;",
+          "path": "docs/functional-design.md",
+          "start": 1004
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 4340,
+          "excerpt": "Each owns the PTYs of the instances it\n  hosts; only that process can write into those PTYs.",
+          "path": "docs/technical-design.md",
+          "start": 4248
+        }
+      ],
+      "id": "REQ-008",
+      "status": "extracted",
+      "text": "Each hosted agent runs in a pseudo-terminal owned by Shinatama, and the user types into the real agent (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 6170,
+          "excerpt": "- A wrapper that replays or simulates the conversation instead of running the agent.",
+          "path": "docs/functional-design.md",
+          "start": 6086
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 5642,
+          "excerpt": "Agents still run in real PTYs, not simulated chats.",
+          "path": "docs/functional-design.md",
+          "start": 5591
+        }
+      ],
+      "id": "REQ-009",
+      "status": "extracted",
+      "text": "Shinatama never replaces a hosted agent with a wrapper that replays or simulates the conversation instead of running the agent (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 12089,
+          "excerpt": "Formatting of live work stays the agent's own.",
+          "path": "docs/functional-design.md",
+          "start": 12043
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 12420,
+          "excerpt": "Redrawing the live chat itself from each agent's structured stream\nis not planned, with one exception: DeepSeek Harness ships no terminal UI, so its live\nview is a native ACP pane (5.16).",
+          "path": "docs/functional-design.md",
+          "start": 12233
+        }
+      ],
+      "id": "REQ-010",
+      "status": "extracted",
+      "text": "Shinatama does not redraw an agent's live chat from the agent's structured stream; the formatting of live work stays the agent's own, with DeepSeek Harness's native ACP pane as the only exception (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 12232,
+          "excerpt": "Where the data is already structured\nand read-only — find, the hop preview, the roundtable, the overview — Shinatama draws\nits own rich views.",
+          "path": "docs/functional-design.md",
+          "start": 12090
+        }
+      ],
+      "id": "REQ-011",
+      "status": "extracted",
+      "text": "Shinatama draws its own rich views only where the data is already structured and read-only: find, the hop preview, the roundtable and the overview (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 1443,
+          "excerpt": "- Daodan (the user's plugin marketplace) and the BillionContext sidecar come with it,\n  so a Shinatama session is already the full working setup, not an empty shell.",
+          "path": "docs/functional-design.md",
+          "start": 1278
+        }
+      ],
+      "id": "REQ-012",
+      "status": "extracted",
+      "text": "A Shinatama session comes with Daodan and the BillionContext sidecar already set up, so it is the full working setup and not an empty shell (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 7552,
+          "excerpt": "- Every agent launch goes through the checkup: there is one launch point and it runs\n  the checkup (my call; the user did not object).",
+          "path": "docs/functional-design.md",
+          "start": 7418
+        }
+      ],
+      "id": "REQ-013",
+      "status": "extracted",
+      "text": "Every agent launch goes through one launch point, and that launch point runs the checkup (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 7773,
+          "excerpt": "- Agent behaviour that Shinatama depends on (resume flags, session stores, hooks,\n  HTTP APIs) must be verified against the installed version of each agent with real\n  captured fixtures. Documentation alone is not proof.",
+          "path": "docs/functional-design.md",
+          "start": 7553
+        }
+      ],
+      "id": "REQ-014",
+      "status": "extracted",
+      "text": "Shinatama relies on an agent behaviour (resume flags, session stores, hooks, HTTP APIs) only after it is verified against the installed version of that agent with real captured fixtures; documentation alone is not proof (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 9385,
+          "excerpt": "Native Rust desktop surfaces: project manager, tiled workspace with agent tabs\nand side panes (5.16), hop dialog and preview, find (search), Daodan\npalette, first-run setup.",
+          "path": "docs/functional-design.md",
+          "start": 9212
+        }
+      ],
+      "id": "REQ-015",
+      "status": "extracted",
+      "text": "Shinatama provides these native desktop surfaces: project manager, tiled workspace with agent tabs and side panes, hop dialog and preview, find (search), Daodan palette and first-run setup (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 6675,
+          "excerpt": "- Rust. macOS and Linux are required (the original request);",
+          "path": "docs/functional-design.md",
+          "start": 6615
+        }
+      ],
+      "id": "REQ-016",
+      "status": "extracted",
+      "text": "Shinatama runs on macOS and Linux (decided by the user)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 6730,
+          "excerpt": "Windows is assumed\n  required too (section 7, item 1).",
+          "path": "docs/functional-design.md",
+          "start": 6676
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 62713,
+          "excerpt": "1. **Windows in v1?** Assumed yes (my call, to confirm): the user works on Windows;\n   macOS and Linux stay required. If yes: ConPTY, Windows paths, environment and trust\n   handling from the first milestone.",
+          "path": "docs/functional-design.md",
+          "start": 62505
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 80562,
+          "excerpt": "O3 Windows in v1 (assumed yes in the design)",
+          "path": "docs/verification-register.md",
+          "start": 80518
+        }
+      ],
+      "id": "REQ-017",
+      "status": "extracted",
+      "text": "Shinatama runs on Windows in v1, with ConPTY, Windows paths, environment and trust handling from the first milestone (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 3394,
+          "excerpt": "8. Easy install on macOS and Linux.",
+          "path": "docs/functional-design.md",
+          "start": 3359
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 1842,
+          "excerpt": "### Goals (decided unless marked)",
+          "path": "docs/functional-design.md",
+          "start": 1809
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 73203,
+          "excerpt": "Documented one-command install per OS",
+          "path": "docs/verification-register.md",
+          "start": 73166
+        }
+      ],
+      "id": "REQ-018",
+      "status": "extracted",
+      "text": "Shinatama is easy to install on macOS and Linux (decided by the user)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 33633,
+          "excerpt": "Audience: build as if other people will install it (the install instructions of\nDaodan and Shinatama already point to public repositories), so release builds,\nsigning and notarization are part of the plan.",
+          "path": "docs/functional-design.md",
+          "start": 33428
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 32091,
+          "excerpt": "### 5.12 Order of work and audience (my calls, to check)",
+          "path": "docs/functional-design.md",
+          "start": 32035
+        }
+      ],
+      "id": "REQ-019",
+      "status": "extracted",
+      "text": "Shinatama is distributed as release builds that are signed and notarized, as if other people will install it (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 7382,
+          "excerpt": "- Local-first: no account, no hosted service.",
+          "path": "docs/functional-design.md",
+          "start": 7337
+        }
+      ],
+      "id": "REQ-020",
+      "status": "extracted",
+      "text": "Shinatama works without an account and without any hosted service (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 7417,
+          "excerpt": "Threads and settings live on disk.",
+          "path": "docs/functional-design.md",
+          "start": 7383
+        }
+      ],
+      "id": "REQ-021",
+      "status": "extracted",
+      "text": "Shinatama keeps its settings on local disk (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 6460,
+          "excerpt": "- A second scheduler or a resident service that keeps executing work after the\n  owning application window closes.",
+          "path": "docs/functional-design.md",
+          "start": 6346
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 4376,
+          "excerpt": "- There is **no resident service**.",
+          "path": "docs/technical-design.md",
+          "start": 4341
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 13840,
+          "excerpt": "Process lifecycle: closing an instance kills its whole tree (Windows job object, Unix process group); a Shinatama crash leaves no orphan agents or MCP servers",
+          "path": "docs/verification-register.md",
+          "start": 13682
+        }
+      ],
+      "id": "REQ-022",
+      "status": "extracted",
+      "text": "Shinatama runs no second scheduler and no resident service that keeps executing work after the owning application window closes (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 10411,
+          "excerpt": "**The hosted agent lives in a terminal pane in the native tiled workspace\n(decided; revised 2026-10-29, 5.16).**",
+          "path": "docs/functional-design.md",
+          "start": 10299
+        }
+      ],
+      "id": "REQ-023",
+      "status": "extracted",
+      "text": "A hosted agent lives in a terminal pane in the native tiled workspace (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 10606,
+          "excerpt": "- **Frame and bars:** border and title, a top bar (thread, folder, branch, cost, the\n  agent's icon) and a bottom bar of keys, all coloured by the skin.",
+          "path": "docs/functional-design.md",
+          "start": 10454
+        }
+      ],
+      "id": "REQ-024",
+      "status": "extracted",
+      "text": "Each agent pane has a frame with border and title, a top bar showing the thread, folder, branch, cost and the agent's icon, and a bottom bar of keys, all coloured by the skin (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 10807,
+          "excerpt": "- **Side panels:** for example the thread column (what carries over in a hop) beside\n  the agent. The agent is given a narrower terminal and resizes itself, so resizing is\n  forwarded to it correctly.",
+          "path": "docs/functional-design.md",
+          "start": 10607
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 13036,
+          "excerpt": "Each agent's minimum documented; side panels collapse before the agent breaks",
+          "path": "docs/verification-register.md",
+          "start": 12959
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 10167,
+          "excerpt": "Echo correct; resize reaches the agent; exit code propagated; closing never hangs; no orphan processes",
+          "path": "docs/verification-register.md",
+          "start": 10065
+        }
+      ],
+      "id": "REQ-025",
+      "status": "extracted",
+      "text": "When a side panel such as the thread column narrows an agent's pane, Shinatama gives the agent a narrower terminal and forwards the resize to it correctly (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 10898,
+          "excerpt": "- **Windows over the agent:** the hop dialog (`^H`), the Daodan palette (`^K`) and\n  find.",
+          "path": "docs/functional-design.md",
+          "start": 10808
+        }
+      ],
+      "id": "REQ-026",
+      "status": "extracted",
+      "text": "The hop dialog, the Daodan palette and find open as native windows over the agent pane (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 11007,
+          "excerpt": "Native overlays leave the emulator screen intact and restore focus to the\n  originating pane when dismissed.",
+          "path": "docs/functional-design.md",
+          "start": 10899
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 13376,
+          "excerpt": "Grids identical; no lost output while the overlay is open (output keeps being parsed)",
+          "path": "docs/verification-register.md",
+          "start": 13291
+        }
+      ],
+      "id": "REQ-027",
+      "status": "extracted",
+      "text": "A native overlay leaves the agent's emulator screen intact and, when dismissed, restores focus to the pane it was opened from (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 11149,
+          "excerpt": "Key names in this document (`^H`, `^K`) are\n  placeholders until register row U3 settles bindings that no agent or outer terminal\n  consumes.",
+          "path": "docs/functional-design.md",
+          "start": 11008
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 65109,
+          "excerpt": "| U3 | G0 | Global key bindings (spec Q4): which keys each agent and each outer terminal consume; choose a leader key or prefix | Key matrix | A binding set with no conflicts, written | main 5.1; mockups |",
+          "path": "docs/verification-register.md",
+          "start": 64904
+        }
+      ],
+      "id": "REQ-028",
+      "status": "extracted",
+      "text": "Shinatama's global key bindings are keys that no hosted agent or outer terminal consumes; the names `^H` and `^K` are placeholders until register row U3 settles the bindings (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 11821,
+          "excerpt": "Not yet verified, to be proved by the first milestone:\nfidelity of the emulator against the real Claude Code, Codex, OpenCode, Pi, Hermes\nAgent and DeepSeek Harness on macOS, Linux and Windows (ConPTY can alter escape sequences);",
+          "path": "docs/functional-design.md",
+          "start": 11592
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 10508,
+          "excerpt": "Text and attributes identical except a written list of exceptions",
+          "path": "docs/verification-register.md",
+          "start": 10443
+        }
+      ],
+      "id": "REQ-029",
+      "status": "extracted",
+      "text": "The terminal emulator reproduces each of the six agents faithfully on macOS, Linux and Windows, with text and attributes matching a reference terminal (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 11848,
+          "excerpt": "wide characters and\nemoji;",
+          "path": "docs/functional-design.md",
+          "start": 11822
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 10718,
+          "excerpt": "No column drift on any row in any agent's screen",
+          "path": "docs/verification-register.md",
+          "start": 10670
+        }
+      ],
+      "id": "REQ-030",
+      "status": "extracted",
+      "text": "The terminal emulator renders wide characters and emoji with correct widths (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 11885,
+          "excerpt": "alternate screen and scroll regions;",
+          "path": "docs/functional-design.md",
+          "start": 11849
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 10971,
+          "excerpt": "Screen restored exactly on exit; user can scroll the pane's history",
+          "path": "docs/verification-register.md",
+          "start": 10904
+        }
+      ],
+      "id": "REQ-031",
+      "status": "extracted",
+      "text": "The terminal emulator supports the alternate screen and scroll regions of the hosted agents (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 11910,
+          "excerpt": "mouse and advanced keys;",
+          "path": "docs/functional-design.md",
+          "start": 11886
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 11221,
+          "excerpt": "Mouse reaches agents that request it; selection works; paste not mangled",
+          "path": "docs/verification-register.md",
+          "start": 11149
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 11500,
+          "excerpt": "Every key the agent documents arrives unchanged",
+          "path": "docs/verification-register.md",
+          "start": 11453
+        }
+      ],
+      "id": "REQ-032",
+      "status": "extracted",
+      "text": "Mouse input and advanced keys reach the hosted agent (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 11979,
+          "excerpt": "passing agent\nimages (kitty or sixel) through to the outer terminal;",
+          "path": "docs/functional-design.md",
+          "start": 11911
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 12009,
+          "excerpt": "Documented per agent and terminal; no corrupted screen",
+          "path": "docs/verification-register.md",
+          "start": 11955
+        }
+      ],
+      "id": "REQ-033",
+      "status": "extracted",
+      "text": "Images an agent emits (kitty or sixel) are passed through, or cleanly dropped without corrupting the screen (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 11991,
+          "excerpt": "through to the outer terminal; no flicker;",
+          "path": "docs/functional-design.md",
+          "start": 11949
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 11584,
+          "excerpt": "No flicker; CPU and latency with 4 instances streaming",
+          "path": "docs/verification-register.md",
+          "start": 11530
+        }
+      ],
+      "id": "REQ-034",
+      "status": "extracted",
+      "text": "Hosted agents are displayed without flicker (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 23961,
+          "excerpt": "Skins are selectable at runtime and stored in the configuration;",
+          "path": "docs/functional-design.md",
+          "start": 23897
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 23895,
+          "excerpt": "### 5.7 Skins (decided: default is Shinatama pink; others selectable)",
+          "path": "docs/functional-design.md",
+          "start": 23826
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 64875,
+          "excerpt": "Changing the skin live applies to the hosted pane without restart or flicker",
+          "path": "docs/verification-register.md",
+          "start": 64799
+        }
+      ],
+      "id": "REQ-035",
+      "status": "extracted",
+      "text": "The user can select a skin at runtime, and the choice is stored in the configuration (decided by the user)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 3358,
+          "excerpt": "7. Skinnable UI whose default is the pink Shinatama theme (5.7).",
+          "path": "docs/functional-design.md",
+          "start": 3294
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 23895,
+          "excerpt": "### 5.7 Skins (decided: default is Shinatama pink; others selectable)",
+          "path": "docs/functional-design.md",
+          "start": 23826
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 24151,
+          "excerpt": "- **Shinatama (default):** midnight navy, cobalt/ice lines as in the repository\n  logo, her pink hair as the only warm accent.",
+          "path": "docs/functional-design.md",
+          "start": 24025
+        }
+      ],
+      "id": "REQ-036",
+      "status": "extracted",
+      "text": "The default skin is the pink Shinatama skin (decided by the user)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 24023,
+          "excerpt": "the UI colours come\nfrom a skin definition, never hard-coded.",
+          "path": "docs/functional-design.md",
+          "start": 23962
+        }
+      ],
+      "id": "REQ-037",
+      "status": "extracted",
+      "text": "UI colours come from a skin definition and are never hard-coded (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 24208,
+          "excerpt": "- **Section 9:** teal-black with cyan, faint scan lines.",
+          "path": "docs/functional-design.md",
+          "start": 24152
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 24276,
+          "excerpt": "- **TCTF:** steel grey with orange, cut corners, filled active tab.",
+          "path": "docs/functional-design.md",
+          "start": 24209
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 24314,
+          "excerpt": "- **Sumi:** ink black with vermilion.",
+          "path": "docs/functional-design.md",
+          "start": 24277
+        }
+      ],
+      "id": "REQ-038",
+      "status": "extracted",
+      "text": "Shinatama offers the Shinatama (default), Section 9, TCTF and Sumi skins (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 24435,
+          "excerpt": "In the native UI a skin controls the chrome: window, menus, tabs, side panels,\nUI typography, borders and panel states.",
+          "path": "docs/functional-design.md",
+          "start": 24316
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 11359,
+          "excerpt": "Chrome uses the active skin.",
+          "path": "docs/functional-design.md",
+          "start": 11331
+        }
+      ],
+      "id": "REQ-039",
+      "status": "extracted",
+      "text": "A skin controls Shinatama's chrome: window, menus, tabs, side panels, UI typography, borders and panel states (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 25413,
+          "excerpt": "Secondary text must reach 4.5:1\ncontrast in every skin",
+          "path": "docs/functional-design.md",
+          "start": 25359
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 64786,
+          "excerpt": "| U1 | G1 | Contrast of every text role on every skin, measured by a script on the final tokens | WCAG 4.5:1 | All pass or exemptions written | main 5.7 |",
+          "path": "docs/verification-register.md",
+          "start": 64632
+        }
+      ],
+      "id": "REQ-040",
+      "status": "extracted",
+      "text": "Secondary text reaches at least 4.5:1 contrast in every skin (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 25481,
+          "excerpt": "No glowing\nshadows.",
+          "path": "docs/functional-design.md",
+          "start": 25462
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 25148,
+          "excerpt": "Effects seen in the HTML mockups (scan lines, clipped corners, glow)\nillustrate the mood and are not requirements.",
+          "path": "docs/functional-design.md",
+          "start": 25034
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 65622,
+          "excerpt": "No glow effects; the design review of the real UI (not the HTML mockups)",
+          "path": "docs/verification-register.md",
+          "start": 65550
+        }
+      ],
+      "id": "REQ-041",
+      "status": "extracted",
+      "text": "Skins use no glowing shadows, and the effects of the HTML mockups (scan lines, clipped corners, glow) are not requirements (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 51062,
+          "excerpt": "Each view uses its harness's terminal profile (font, cell metrics, ANSI palette); Shinatama chrome keeps the active skin.",
+          "path": "docs/functional-design.md",
+          "start": 50941
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 11330,
+          "excerpt": "- **Terminal presentation inside the pane:** each view uses its harness's terminal\n  profile (font, metrics, ANSI palette and cursor), so the agent keeps its own\n  visual identity.",
+          "path": "docs/functional-design.md",
+          "start": 11150
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 24594,
+          "excerpt": "Agent terminals use separate terminal\nprofiles: each harness has a default monospace font and metrics, ANSI palette,\ndefault foreground/background and cursor.",
+          "path": "docs/functional-design.md",
+          "start": 24436
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48933,
+          "excerpt": "### 5.16 Native tiling workspace (decided 2026-10-29)",
+          "path": "docs/functional-design.md",
+          "start": 48880
+        }
+      ],
+      "id": "REQ-042",
+      "status": "extracted",
+      "text": "Each agent terminal view uses its harness's own terminal profile (monospace font and cell metrics, ANSI palette, default foreground/background and cursor), so the agent keeps its visual identity, while Shinatama's chrome keeps the active skin (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 24752,
+          "excerpt": "Hermes Agent gets a profile like the other four.",
+          "path": "docs/functional-design.md",
+          "start": 24704
+        }
+      ],
+      "id": "REQ-043",
+      "status": "extracted",
+      "text": "Hermes Agent gets a terminal profile like the other four terminal agents (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 60089,
+          "excerpt": "**Terminal presentation:** the harness owns what appears inside the PTY: layout,\nglyphs, spacing, prompts, boxes and colours. Shinatama does not redraw those\nwidgets or pretend they are native controls.",
+          "path": "docs/functional-design.md",
+          "start": 59887
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 60237,
+          "excerpt": "The terminal profile controls only\nwhat the emulator owns: monospace font and cell metrics, ANSI palette, default\nforeground/background and cursor.",
+          "path": "docs/functional-design.md",
+          "start": 60090
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 24703,
+          "excerpt": "stable identity inside its pane; it does not replace or reinterpret the TUI.",
+          "path": "docs/functional-design.md",
+          "start": 24627
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 11591,
+          "excerpt": "What stays the agent's: the text it draws (tables, tool calls, reasoning, choices) and\nany colour it picks at 24-bit.",
+          "path": "docs/functional-design.md",
+          "start": 11474
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48933,
+          "excerpt": "### 5.16 Native tiling workspace (decided 2026-10-29)",
+          "path": "docs/functional-design.md",
+          "start": 48880
+        }
+      ],
+      "id": "REQ-044",
+      "status": "extracted",
+      "text": "The harness owns everything that appears inside its PTY (layout, glyphs, spacing, prompts, boxes, the text it draws and any 24-bit colour it picks); a terminal profile does not replace or reinterpret the TUI, and Shinatama does not redraw those widgets or present them as native controls (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 60360,
+          "excerpt": "If a profile font is unavailable, the terminal\nfalls back to the built-in monospace face without changing the PTY session.",
+          "path": "docs/functional-design.md",
+          "start": 60238
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 15754,
+          "excerpt": "a missing or invalid profile falls back to a built-in\nmonospace profile without restarting the PTY.",
+          "path": "docs/technical-design.md",
+          "start": 15655
+        }
+      ],
+      "id": "REQ-045",
+      "status": "extracted",
+      "text": "If a terminal profile or its font is missing or invalid, the terminal falls back to the built-in monospace face without changing or restarting the PTY session (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 60443,
+          "excerpt": "Following the Shinatama skin is an explicit compatibility option, not the\ndefault.",
+          "path": "docs/functional-design.md",
+          "start": 60361
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 24915,
+          "excerpt": "A user may opt into **follow Shinatama skin**",
+          "path": "docs/functional-design.md",
+          "start": 24870
+        }
+      ],
+      "id": "REQ-046",
+      "status": "extracted",
+      "text": "Following the Shinatama skin inside an agent terminal is an explicit opt-in compatibility option, not the default (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 24974,
+          "excerpt": "A user may opt into **follow Shinatama skin**, which remaps only the default and\n16-colour ANSI palette.",
+          "path": "docs/functional-design.md",
+          "start": 24870
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 15824,
+          "excerpt": "remaps default/ANSI colours only",
+          "path": "docs/technical-design.md",
+          "start": 15792
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 12795,
+          "excerpt": "Every remapped colour meets 4.5:1 against its background or is exempted in writing",
+          "path": "docs/verification-register.md",
+          "start": 12713
+        }
+      ],
+      "id": "REQ-047",
+      "status": "extracted",
+      "text": "The follow-skin option remaps only the default colours and the 16-colour ANSI palette (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 25033,
+          "excerpt": "Truecolour output chosen by the harness remains\nuntouched.",
+          "path": "docs/functional-design.md",
+          "start": 24975
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 11472,
+          "excerpt": "may remap the default and 16-colour ANSI palette; it never rewrites truecolour.",
+          "path": "docs/functional-design.md",
+          "start": 11393
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 15887,
+          "excerpt": "it must preserve truecolour sequences emitted by\nthe harness.",
+          "path": "docs/technical-design.md",
+          "start": 15826
+        }
+      ],
+      "id": "REQ-048",
+      "status": "extracted",
+      "text": "Shinatama never rewrites truecolour output chosen by the harness, follow-skin mode included (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 5519,
+          "excerpt": "- A web-built application shell: no HTML/CSS/JavaScript frontend, Tauri or Electron\n  for the main UI (decided 2026-10-29).",
+          "path": "docs/functional-design.md",
+          "start": 5396
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48994,
+          "excerpt": "Shinatama has a native Rust desktop UI, not a web frontend.",
+          "path": "docs/functional-design.md",
+          "start": 48935
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 6782,
+          "excerpt": "- Why Rust: the user's original request named Rust;",
+          "path": "docs/functional-design.md",
+          "start": 6731
+        }
+      ],
+      "id": "REQ-049",
+      "status": "extracted",
+      "text": "Shinatama's main UI is a native Rust desktop UI, with no HTML/CSS/JavaScript frontend and no Tauri or Electron shell (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 11043,
+          "excerpt": "Toolkit selection must not\nforce browser startup.",
+          "path": "docs/technical-design.md",
+          "start": 10994
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 10666,
+          "excerpt": "**Toolkit [C, not selected or prototyped].**",
+          "path": "docs/technical-design.md",
+          "start": 10622
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 919,
+          "excerpt": "No web frontend or required browser startup",
+          "path": "docs/verification-register.md",
+          "start": 876
+        }
+      ],
+      "id": "REQ-050",
+      "status": "extracted",
+      "text": "Starting Shinatama's UI requires no browser (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 49104,
+          "excerpt": "Tabs and tiling coexist:\nproject workspaces contain horizontal/vertical splits with tab groups at the\nleaves.",
+          "path": "docs/functional-design.md",
+          "start": 48995
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 4494,
+          "excerpt": "14. Native tiling, draggable tabs, resizable splits and collapsible side panes\n    (decided 2026-10-29; 5.16), with a Rust UI, not a web frontend.",
+          "path": "docs/functional-design.md",
+          "start": 4348
+        }
+      ],
+      "id": "REQ-051",
+      "status": "extracted",
+      "text": "Project workspaces contain horizontal and vertical splits with tab groups at the leaves, so tabs and tiling coexist (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 49146,
+          "excerpt": "Side panes are resizable and collapsible.",
+          "path": "docs/functional-design.md",
+          "start": 49105
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48933,
+          "excerpt": "### 5.16 Native tiling workspace (decided 2026-10-29)",
+          "path": "docs/functional-design.md",
+          "start": 48880
+        }
+      ],
+      "id": "REQ-052",
+      "status": "extracted",
+      "text": "Side panes are resizable and collapsible (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 49702,
+          "excerpt": "- Drag splitters to resize;",
+          "path": "docs/functional-design.md",
+          "start": 49675
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48933,
+          "excerpt": "### 5.16 Native tiling workspace (decided 2026-10-29)",
+          "path": "docs/functional-design.md",
+          "start": 48880
+        }
+      ],
+      "id": "REQ-053",
+      "status": "extracted",
+      "text": "The user can resize panes by dragging splitters (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 49771,
+          "excerpt": "drag tabs to reorder, move between groups or create\n  an edge split.",
+          "path": "docs/functional-design.md",
+          "start": 49703
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48933,
+          "excerpt": "### 5.16 Native tiling workspace (decided 2026-10-29)",
+          "path": "docs/functional-design.md",
+          "start": 48880
+        }
+      ],
+      "id": "REQ-054",
+      "status": "extracted",
+      "text": "The user can drag tabs to reorder them, move them between tab groups or create an edge split (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 49839,
+          "excerpt": "Preview valid drop targets; cancelled/invalid drops change nothing.",
+          "path": "docs/functional-design.md",
+          "start": 49772
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 14194,
+          "excerpt": "Cancelled drags do not mutate the model.",
+          "path": "docs/technical-design.md",
+          "start": 14154
+        }
+      ],
+      "id": "REQ-055",
+      "status": "extracted",
+      "text": "While a tab is dragged, Shinatama previews the valid drop targets, and a cancelled or invalid drop changes nothing (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 49944,
+          "excerpt": "- Provide keyboard equivalents for focus, resize, tab moves, splitting and side\n  pane collapse/restore.",
+          "path": "docs/functional-design.md",
+          "start": 49840
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 60924,
+          "excerpt": "keyboard-only layout control",
+          "path": "docs/functional-design.md",
+          "start": 60896
+        }
+      ],
+      "id": "REQ-056",
+      "status": "extracted",
+      "text": "Every layout action has a keyboard equivalent: focus, resize, tab moves, splitting and side-pane collapse and restore (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 49986,
+          "excerpt": "Ordinary input goes to the focused agent;",
+          "path": "docs/functional-design.md",
+          "start": 49945
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48933,
+          "excerpt": "### 5.16 Native tiling workspace (decided 2026-10-29)",
+          "path": "docs/functional-design.md",
+          "start": 48880
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 61018,
+          "excerpt": "real-agent resize and input isolation",
+          "path": "docs/functional-design.md",
+          "start": 60981
+        }
+      ],
+      "id": "REQ-057",
+      "status": "extracted",
+      "text": "Ordinary input goes to the focused agent (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 14871,
+          "excerpt": "**PTY/focus.** Only the focused terminal receives input through its owning runtime;\nmodal focus must prevent background keystrokes/paste.",
+          "path": "docs/technical-design.md",
+          "start": 14734
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 1232,
+          "excerpt": "modal/background input is isolated",
+          "path": "docs/verification-register.md",
+          "start": 1198
+        }
+      ],
+      "id": "REQ-058",
+      "status": "extracted",
+      "text": "Only the focused terminal receives input, and while a modal is focused no keystroke or paste reaches a background terminal (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 50062,
+          "excerpt": "workspace\n  actions use documented explicit shortcuts or a command palette.",
+          "path": "docs/functional-design.md",
+          "start": 49987
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48933,
+          "excerpt": "### 5.16 Native tiling workspace (decided 2026-10-29)",
+          "path": "docs/functional-design.md",
+          "start": 48880
+        }
+      ],
+      "id": "REQ-059",
+      "status": "extracted",
+      "text": "Workspace actions use documented explicit shortcuts or a command palette (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 50122,
+          "excerpt": "- Temporarily maximize a pane and restore its prior layout.",
+          "path": "docs/functional-design.md",
+          "start": 50063
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48933,
+          "excerpt": "### 5.16 Native tiling workspace (decided 2026-10-29)",
+          "path": "docs/functional-design.md",
+          "start": 48880
+        }
+      ],
+      "id": "REQ-060",
+      "status": "extracted",
+      "text": "The user can temporarily maximize a pane and then restore its prior layout (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 50219,
+          "excerpt": "Enforce minimum usable\n  sizes; smaller windows must not discard panes or make them unreachable.",
+          "path": "docs/functional-design.md",
+          "start": 50123
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48933,
+          "excerpt": "### 5.16 Native tiling workspace (decided 2026-10-29)",
+          "path": "docs/functional-design.md",
+          "start": 48880
+        }
+      ],
+      "id": "REQ-061",
+      "status": "extracted",
+      "text": "Shinatama enforces minimum usable pane sizes, and a smaller window never discards panes or makes them unreachable (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 50283,
+          "excerpt": "Save\n  and restore the layout per project and window workspace.",
+          "path": "docs/functional-design.md",
+          "start": 50220
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48933,
+          "excerpt": "### 5.16 Native tiling workspace (decided 2026-10-29)",
+          "path": "docs/functional-design.md",
+          "start": 48880
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 1333,
+          "excerpt": "Per-project/window layout survives restart;",
+          "path": "docs/verification-register.md",
+          "start": 1290
+        }
+      ],
+      "id": "REQ-062",
+      "status": "extracted",
+      "text": "Shinatama saves and restores the layout per project and window workspace (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 14579,
+          "excerpt": "Retain the last valid layout; corrupt/unknown data falls back safely\nwithout deleting documents or session history.",
+          "path": "docs/technical-design.md",
+          "start": 14464
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 13922,
+          "excerpt": "**Transitions/persistence [C].**",
+          "path": "docs/technical-design.md",
+          "start": 13890
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 1395,
+          "excerpt": "corrupt/unknown state recovers without lost documents/history",
+          "path": "docs/verification-register.md",
+          "start": 1334
+        }
+      ],
+      "id": "REQ-063",
+      "status": "extracted",
+      "text": "Corrupt or unknown saved layout data falls back safely to the last valid layout without deleting documents or session history (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 50401,
+          "excerpt": "- Moving/hiding/collapsing a terminal view never restarts/stops its agent, creates\n  a session or changes its thread.",
+          "path": "docs/functional-design.md",
+          "start": 50284
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 12038,
+          "excerpt": "Moving a tab reparents the view without relaunch.",
+          "path": "docs/technical-design.md",
+          "start": 11989
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 60894,
+          "excerpt": "demonstrate nested splits/tab moves without session changes",
+          "path": "docs/functional-design.md",
+          "start": 60835
+        }
+      ],
+      "id": "REQ-064",
+      "status": "extracted",
+      "text": "Moving, hiding or collapsing a terminal view never restarts or stops its agent, creates a session or changes its thread (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 50461,
+          "excerpt": "Closing a view is distinct from stopping a live\n  instance;",
+          "path": "docs/functional-design.md",
+          "start": 50402
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 15386,
+          "excerpt": "Closing a view does not kill its instance; explicit stop follows runtime cleanup.",
+          "path": "docs/technical-design.md",
+          "start": 15305
+        }
+      ],
+      "id": "REQ-065",
+      "status": "extracted",
+      "text": "Closing a view is distinct from stopping its live instance: closing a view does not stop the instance (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 50493,
+          "excerpt": "instance; stopping requires confirmation.",
+          "path": "docs/functional-design.md",
+          "start": 50452
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48933,
+          "excerpt": "### 5.16 Native tiling workspace (decided 2026-10-29)",
+          "path": "docs/functional-design.md",
+          "start": 48880
+        }
+      ],
+      "id": "REQ-066",
+      "status": "extracted",
+      "text": "Stopping a live agent instance requires the user's confirmation (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 50536,
+          "excerpt": "Dirty documents offer save/discard/cancel.",
+          "path": "docs/functional-design.md",
+          "start": 50494
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 16628,
+          "excerpt": "Dirty close offers save/discard/cancel.",
+          "path": "docs/technical-design.md",
+          "start": 16589
+        }
+      ],
+      "id": "REQ-067",
+      "status": "extracted",
+      "text": "Closing a view with a dirty document offers save, discard or cancel (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 50601,
+          "excerpt": "- Restore view/resource references, never stale process handles.",
+          "path": "docs/functional-design.md",
+          "start": 50537
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 11907,
+          "excerpt": "Terminal views\nreference a live instance and a resumable thread for restoration, never reusable\nPID/PTY handles or credentials.",
+          "path": "docs/technical-design.md",
+          "start": 11780
+        }
+      ],
+      "id": "REQ-068",
+      "status": "extracted",
+      "text": "Restoring a layout brings back view and resource references, never stale process handles (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 50705,
+          "excerpt": "Saved layout alone\n  must not start/resume agents, execute apps or reopen interactive browser sessions.",
+          "path": "docs/functional-design.md",
+          "start": 50602
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 14732,
+          "excerpt": "Restore never executes resources or\nlaunches/resumes agents without user action.",
+          "path": "docs/technical-design.md",
+          "start": 14652
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 60979,
+          "excerpt": "per-project/window restore without process auto-start",
+          "path": "docs/functional-design.md",
+          "start": 60926
+        }
+      ],
+      "id": "REQ-069",
+      "status": "extracted",
+      "text": "A saved layout alone never starts or resumes agents, executes apps or reopens interactive browser sessions (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 50746,
+          "excerpt": "Show unavailable resources explicitly.",
+          "path": "docs/functional-design.md",
+          "start": 50708
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48933,
+          "excerpt": "### 5.16 Native tiling workspace (decided 2026-10-29)",
+          "path": "docs/functional-design.md",
+          "start": 48880
+        }
+      ],
+      "id": "REQ-070",
+      "status": "extracted",
+      "text": "Resources that are unavailable when a layout is restored are shown explicitly as unavailable (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 12273,
+          "excerpt": "Gated panel kinds show unavailable placeholders until explicitly enabled.",
+          "path": "docs/technical-design.md",
+          "start": 12200
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 11291,
+          "excerpt": "**Toolkit-independent layout sketch [C]:**",
+          "path": "docs/technical-design.md",
+          "start": 11249
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 2294,
+          "excerpt": "Unsupported features remain unavailable",
+          "path": "docs/verification-register.md",
+          "start": 2255
+        }
+      ],
+      "id": "REQ-071",
+      "status": "extracted",
+      "text": "A gated panel kind shows an unavailable placeholder until it is explicitly enabled (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 50906,
+          "excerpt": "| Agent terminal | Real PTY/emulator, resize, selection, scrollback and focus isolation;",
+          "path": "docs/functional-design.md",
+          "start": 50818
+        }
+      ],
+      "id": "REQ-072",
+      "status": "extracted",
+      "text": "The agent terminal panel offers selection and scrollback (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 50940,
+          "excerpt": "multiple agents visible together.",
+          "path": "docs/functional-design.md",
+          "start": 50907
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48933,
+          "excerpt": "### 5.16 Native tiling workspace (decided 2026-10-29)",
+          "path": "docs/functional-design.md",
+          "start": 48880
+        }
+      ],
+      "id": "REQ-073",
+      "status": "extracted",
+      "text": "Several agents can be visible together in the workspace (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 51137,
+          "excerpt": "| File navigator | Project tree, search and explicit open in a tab/pane;",
+          "path": "docs/functional-design.md",
+          "start": 51065
+        }
+      ],
+      "id": "REQ-074",
+      "status": "extracted",
+      "text": "The file navigator shows the project tree and search and opens a file only by an explicit open into a tab or pane (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 51185,
+          "excerpt": "no implicit execution or arbitrary-root access.",
+          "path": "docs/functional-design.md",
+          "start": 51138
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 1756,
+          "excerpt": "Hostile Markdown, paths/symlinks and remote assets cannot exceed grants.",
+          "path": "docs/verification-register.md",
+          "start": 1684
+        }
+      ],
+      "id": "REQ-075",
+      "status": "extracted",
+      "text": "The file navigator never executes a file implicitly and gives no access to arbitrary roots (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 51259,
+          "excerpt": "| Markdown | Rendered reading, source editing and source/preview split.",
+          "path": "docs/functional-design.md",
+          "start": 51188
+        }
+      ],
+      "id": "REQ-076",
+      "status": "extracted",
+      "text": "The Markdown panel offers rendered reading, source editing and a source/preview split (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 51354,
+          "excerpt": "Direct visual editing is requested but gated by editor/syntax fidelity checks before delivery.",
+          "path": "docs/functional-design.md",
+          "start": 51260
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 1815,
+          "excerpt": "Test visual editor fidelity separately before enabling it.",
+          "path": "docs/verification-register.md",
+          "start": 1757
+        }
+      ],
+      "id": "REQ-077",
+      "status": "extracted",
+      "text": "Direct visual Markdown editing is not delivered until editor and syntax fidelity checks pass (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 60736,
+          "excerpt": "Markdown rendering must not execute scripts,\nembedded commands or unapproved remote requests.",
+          "path": "docs/functional-design.md",
+          "start": 60643
+        }
+      ],
+      "id": "REQ-078",
+      "status": "extracted",
+      "text": "Markdown rendering never executes scripts, embedded commands or unapproved remote requests (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 60817,
+          "excerpt": "Visual editing must preserve\nunsupported syntax rather than silently discard it.",
+          "path": "docs/functional-design.md",
+          "start": 60737
+        }
+      ],
+      "id": "REQ-079",
+      "status": "extracted",
+      "text": "Visual editing preserves unsupported syntax rather than silently discarding it (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 60511,
+          "excerpt": "Editing provides undo/redo, visible dirty state and explicit save.",
+          "path": "docs/functional-design.md",
+          "start": 60445
+        }
+      ],
+      "id": "REQ-080",
+      "status": "extracted",
+      "text": "Document editing provides undo/redo, a visible dirty state and explicit save (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 60642,
+          "excerpt": "Detect external\nchanges, including agent writes: preserve the buffer and offer reload/compare/\nresolution, never silent overwrite.",
+          "path": "docs/functional-design.md",
+          "start": 60512
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 1682,
+          "excerpt": "concurrent agent writes, save failures and stale render results cannot silently overwrite content",
+          "path": "docs/verification-register.md",
+          "start": 1585
+        }
+      ],
+      "id": "REQ-081",
+      "status": "extracted",
+      "text": "When an open file changes outside the editor, agent writes included, Shinatama preserves the buffer and offers reload, compare or resolution, and never overwrites silently (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 51414,
+          "excerpt": "| File/document preview | Supported text/image artifacts.",
+          "path": "docs/functional-design.md",
+          "start": 51357
+        }
+      ],
+      "id": "REQ-082",
+      "status": "extracted",
+      "text": "The file and document preview panel shows supported text and image artifacts (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 51525,
+          "excerpt": "DOCX reading needs a separate renderer and declared fidelity; DOCX editing/full Office support is not implied.",
+          "path": "docs/functional-design.md",
+          "start": 51415
+        }
+      ],
+      "id": "REQ-083",
+      "status": "extracted",
+      "text": "DOCX reading is offered only with a separate renderer and declared fidelity, and DOCX editing or full Office support is not provided (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 51716,
+          "excerpt": "Interactive embedded browsing and mini-app hosting need separate design/security gates; JanuraCode app compatibility is not assumed.",
+          "path": "docs/functional-design.md",
+          "start": 51584
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 17053,
+          "excerpt": "A future browser/mini-app panel has no ambient\nfilesystem, PTY, credential or Rust-command access",
+          "path": "docs/technical-design.md",
+          "start": 16956
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 2336,
+          "excerpt": "Unsupported features remain unavailable; no assumed JanuraCode app compatibility.",
+          "path": "docs/verification-register.md",
+          "start": 2255
+        }
+      ],
+      "id": "REQ-084",
+      "status": "extracted",
+      "text": "Interactive embedded browsing and mini-app hosting stay unavailable until their separate design and security gates pass, and compatibility with JanuraCode apps is not assumed (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 49447,
+          "excerpt": "**Initial terminal-first scope (2026-10-30):** project selector, resizable terminal\ntiles, leaf tab groups and per-harness terminal profiles.",
+          "path": "docs/functional-design.md",
+          "start": 49306
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 32966,
+          "excerpt": "**Delivery baseline (2026-10-31).** The terminal-first UI milestone of 5.16 (TL1: project\nselector, terminal tiles, tab groups, terminal profiles, no sessions surface) comes first.",
+          "path": "docs/functional-design.md",
+          "start": 32786
+        }
+      ],
+      "id": "REQ-085",
+      "status": "extracted",
+      "text": "The first, terminal-first UI milestone contains the project selector, resizable terminal tiles, leaf tab groups and per-harness terminal profiles (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 49579,
+          "excerpt": "Git integration, file\nnavigator, diffs, thread side panes, session browsing, hop and Daodan surfaces are\nnot part of this first UI.",
+          "path": "docs/functional-design.md",
+          "start": 49448
+        }
+      ],
+      "id": "REQ-086",
+      "status": "extracted",
+      "text": "The first, terminal-first UI milestone does not include git integration, the file navigator, diffs, thread side panes, session browsing, hop or Daodan surfaces (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52017,
+          "excerpt": "So its tab is a native **ACP pane**: Shinatama runs `dsh\n--profile acp` and is its ACP client",
+          "path": "docs/functional-design.md",
+          "start": 51924
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 51768,
+          "excerpt": "**DeepSeek Harness pane (2026-10-31, my call).**",
+          "path": "docs/functional-design.md",
+          "start": 51720
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 64839,
+          "excerpt": "- DeepSeek Harness runs in a native ACP pane, since it has no terminal UI;",
+          "path": "docs/functional-design.md",
+          "start": 64765
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 81658,
+          "excerpt": "O9 Confirm the two readings of 2026-10-31",
+          "path": "docs/verification-register.md",
+          "start": 81617
+        }
+      ],
+      "id": "REQ-087",
+      "status": "extracted",
+      "text": "DeepSeek Harness's tab is a native ACP pane: Shinatama runs `dsh --profile acp` and acts as its ACP client (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52114,
+          "excerpt": "drawing messages, tool calls\nand permission requests with the active skin",
+          "path": "docs/functional-design.md",
+          "start": 52041
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 24869,
+          "excerpt": "its ACP pane (5.16) is drawn with the skin and a harness accent colour instead.",
+          "path": "docs/functional-design.md",
+          "start": 24790
+        }
+      ],
+      "id": "REQ-088",
+      "status": "extracted",
+      "text": "The ACP pane draws DeepSeek Harness's messages, tool calls and permission requests with the active skin and a harness accent colour (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52153,
+          "excerpt": "answering permissions through ACP.",
+          "path": "docs/functional-design.md",
+          "start": 52119
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 37599,
+          "excerpt": "States mapped; no tool runs without the user's answer",
+          "path": "docs/verification-register.md",
+          "start": 37546
+        }
+      ],
+      "id": "REQ-089",
+      "status": "extracted",
+      "text": "The user answers DeepSeek Harness's permission requests in the ACP pane, and Shinatama passes the answer through ACP (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52274,
+          "excerpt": "The\nagent's loop, tools, models and session store stay its own, so this is not the simulated\nchat of the anti-goals (2).",
+          "path": "docs/functional-design.md",
+          "start": 52154
+        }
+      ],
+      "id": "REQ-090",
+      "status": "extracted",
+      "text": "In the ACP pane DeepSeek Harness keeps its own loop, tools, models and session store (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52354,
+          "excerpt": "The pane has the same tab, split, hop and overview behaviour as a\nterminal tab.",
+          "path": "docs/functional-design.md",
+          "start": 52275
+        }
+      ],
+      "id": "REQ-091",
+      "status": "extracted",
+      "text": "The ACP pane has the same tab, split, hop and overview behaviour as a terminal tab (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52516,
+          "excerpt": "`dsh web` is offered as an explicit \"open in browser\" action in the user's\nbrowser for what the pane lacks (the web UI's fork and export), never embedded (5.15).",
+          "path": "docs/functional-design.md",
+          "start": 52355
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 64908,
+          "excerpt": "its web UI only\n  on explicit request, in the user's browser (5.16).",
+          "path": "docs/functional-design.md",
+          "start": 64840
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 39768,
+          "excerpt": "`dsh web` on request: a loopback port per box, its browser-trust check, opened in the user's browser, stopped when the window closes, never embedded",
+          "path": "docs/verification-register.md",
+          "start": 39620
+        }
+      ],
+      "id": "REQ-092",
+      "status": "extracted",
+      "text": "Shinatama offers DeepSeek Harness's web UI (`dsh web`) only as an explicit \"open in browser\" action in the user's own browser and never embeds it (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 61549,
+          "excerpt": "**Each adapter provides export, import, resume and handover, plus the rest:**",
+          "path": "docs/functional-design.md",
+          "start": 61472
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 47872,
+          "excerpt": "The user's requirement (decided): **every supported agent has an adapter with export,\nimport, resume and handover functions, and the rest of what is needed.**",
+          "path": "docs/technical-design.md",
+          "start": 47714
+        }
+      ],
+      "id": "REQ-093",
+      "status": "extracted",
+      "text": "Every supported agent's adapter provides export, import, resume and handover (decided by the user)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 61890,
+          "excerpt": "install and update the agent (only Shinatama's `own` copy, never the user's program)\nand the Daodan plugins in the home chosen in 5.14; the per-instance launch switches for\nplugins and skills (5.14); login and sign-in status;\nstart it in a PTY in a folder; list and read its sessions; **export** a session to a\nportable file (`.stx.jsonl`);",
+          "path": "docs/functional-design.md",
+          "start": 61550
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 62131,
+          "excerpt": "**resume** a session natively; **handover**: the adapter's part of a hop,\nincluding seeding a new session with a thread and confirming it arrived;",
+          "path": "docs/functional-design.md",
+          "start": 61985
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 61372,
+          "excerpt": "## 6. Agent adapter contract (builder's design, requirements mine)",
+          "path": "docs/functional-design.md",
+          "start": 61306
+        }
+      ],
+      "id": "REQ-094",
+      "status": "extracted",
+      "text": "Each adapter declares, per agent, which of these capabilities it supports: install and update of Shinatama's own copy and of Daodan, per-instance launch switches, login and sign-in status, start in a PTY in a folder, list and read sessions, export to `.stx.jsonl`, import (post-v1), native resume, handover with seeding and arrival confirmation, and \"needs input\"/\"turn finished\" signals (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 62312,
+          "excerpt": "Capability differences per agent are declared and shown to the user, never hidden.",
+          "path": "docs/functional-design.md",
+          "start": 62230
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 47616,
+          "excerpt": "Each adapter declares its **capabilities** (shown to the user, never hidden)",
+          "path": "docs/technical-design.md",
+          "start": 47540
+        }
+      ],
+      "id": "REQ-095",
+      "status": "extracted",
+      "text": "Capability differences between agents are declared and shown to the user, never hidden (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 47712,
+          "excerpt": "Anything not implemented is declared `unsupported`, not faked.",
+          "path": "docs/technical-design.md",
+          "start": 47650
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 57758,
+          "excerpt": "every capability it declares is exercised and every one it does not\ndeclare is refused.",
+          "path": "docs/technical-design.md",
+          "start": 57671
+        }
+      ],
+      "id": "REQ-096",
+      "status": "extracted",
+      "text": "A capability an adapter does not implement is declared `unsupported` and refused, never faked (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 62229,
+          "excerpt": "and, where the\nagent exposes it, report \"needs input\" and \"turn finished\" without screen parsing.",
+          "path": "docs/functional-design.md",
+          "start": 62132
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 61372,
+          "excerpt": "## 6. Agent adapter contract (builder's design, requirements mine)",
+          "path": "docs/functional-design.md",
+          "start": 61306
+        }
+      ],
+      "id": "REQ-097",
+      "status": "extracted",
+      "text": "Where the agent exposes them, its adapter reports \"needs input\" and \"turn finished\" without parsing the screen (author's call, unconfirmed)"
+    }
+  ],
+  "schema_version": 1,
+  "status": "Proposed",
+  "superseded_by": null,
+  "title": "Workspace and agent hosting",
+  "version": 1
+}

@@ -1,0 +1,2008 @@
+{
+  "accepted_at_sha": null,
+  "accepted_on": null,
+  "author": "Claude",
+  "conflicts": [],
+  "created_from_task": "frd-backfill-2026-11-01",
+  "entities": [],
+  "frd_id": "FRD-0011",
+  "last_verified_sha": null,
+  "proposed_at_sha": "da4b83e5a769c6999a57e2b4587c2561c2d491fc",
+  "proposed_on": "2026-11-01",
+  "relationships": [],
+  "requirements": [
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 1285,
+          "excerpt": "1. **Moli is the default** for fast operations, local HTML, previews and MCP web",
+          "path": "docs/browser-integration.md",
+          "start": 1205
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 1203,
+          "excerpt": "The following are **user requirements**, decided 2026-10-29:",
+          "path": "docs/browser-integration.md",
+          "start": 1143
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 4139,
+          "excerpt": "13. Browser access for agents and the user (decided 2026-10-29): Moli by default",
+          "path": "docs/functional-design.md",
+          "start": 4059
+        }
+      ],
+      "id": "REQ-001",
+      "status": "extracted",
+      "text": "Shinatama uses Moli as the default browser engine for fast operations, local HTML, previews and MCP web interfaces (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 1364,
+          "excerpt": "Layout and visual resources are enabled only when the requested",
+          "path": "docs/browser-integration.md",
+          "start": 1301
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 1203,
+          "excerpt": "The following are **user requirements**, decided 2026-10-29:",
+          "path": "docs/browser-integration.md",
+          "start": 1143
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 8772,
+          "excerpt": "- no layout, images, fonts or other optional resources for text extraction;",
+          "path": "docs/browser-integration.md",
+          "start": 8697
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 46772,
+          "excerpt": "Text extraction does not enable layout or optional visual resources; a preview",
+          "path": "docs/functional-design.md",
+          "start": 46694
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 76895,
+          "excerpt": "Pinned Moli `fetch` on synthetic local HTML: correct text/structured extraction, bounded output/time, no optional resources for text, no `serve` listener",
+          "path": "docs/verification-register.md",
+          "start": 76742
+        }
+      ],
+      "id": "REQ-002",
+      "status": "extracted",
+      "text": "Moli enables layout and visual resources only when the requested operation needs them; text extraction loads no layout, images, fonts or other optional resources (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 1471,
+          "excerpt": "2. **Patchright with a visible Chrome window** is the graphical path for explicit",
+          "path": "docs/browser-integration.md",
+          "start": 1390
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 1542,
+          "excerpt": "UI use, login/MFA/CAPTCHA and pages the user chooses to open there.",
+          "path": "docs/browser-integration.md",
+          "start": 1475
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 1203,
+          "excerpt": "The following are **user requirements**, decided 2026-10-29:",
+          "path": "docs/browser-integration.md",
+          "start": 1143
+        }
+      ],
+      "id": "REQ-003",
+      "status": "extracted",
+      "text": "The user can open a visible Chrome window driven by Patchright as the graphical path for explicit UI use, login/MFA/CAPTCHA and pages the user chooses to open there (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 1621,
+          "excerpt": "3. **No automatic fallback.** Shinatama must not infer that an error, timeout,",
+          "path": "docs/browser-integration.md",
+          "start": 1543
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 1695,
+          "excerpt": "empty page or anti-bot response authorizes a switch to another engine.",
+          "path": "docs/browser-integration.md",
+          "start": 1625
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 1203,
+          "excerpt": "The following are **user requirements**, decided 2026-10-29:",
+          "path": "docs/browser-integration.md",
+          "start": 1143
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 5792,
+          "excerpt": "- Automatic browser fallback or migration (5.15): no switching from Moli to",
+          "path": "docs/functional-design.md",
+          "start": 5717
+        }
+      ],
+      "id": "REQ-004",
+      "status": "extracted",
+      "text": "Shinatama never treats an error, timeout, empty page or anti-bot response as authorization to switch a browser request to another engine (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 1776,
+          "excerpt": "4. **No automatic transfer** of pages, cookies, credentials, sessions or control",
+          "path": "docs/browser-integration.md",
+          "start": 1696
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 1203,
+          "excerpt": "The following are **user requirements**, decided 2026-10-29:",
+          "path": "docs/browser-integration.md",
+          "start": 1143
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 5871,
+          "excerpt": "Patchright after an error, no shared cookies/login and no resident Chrome or",
+          "path": "docs/functional-design.md",
+          "start": 5795
+        }
+      ],
+      "id": "REQ-005",
+      "status": "extracted",
+      "text": "Shinatama never transfers pages, cookies, credentials, sessions or control between browser engines automatically (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 1876,
+          "excerpt": "5. **No resident Chrome or Patchright companion.** The graphical path is loaded",
+          "path": "docs/browser-integration.md",
+          "start": 1797
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 1956,
+          "excerpt": "and started only on an explicit request. Nothing is installed automatically.",
+          "path": "docs/browser-integration.md",
+          "start": 1880
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 1203,
+          "excerpt": "The following are **user requirements**, decided 2026-10-29:",
+          "path": "docs/browser-integration.md",
+          "start": 1143
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 47363,
+          "excerpt": "neither it nor Chrome is resident at startup or installed automatically.",
+          "path": "docs/functional-design.md",
+          "start": 47291
+        }
+      ],
+      "id": "REQ-006",
+      "status": "extracted",
+      "text": "No Chrome or Patchright companion is resident: the graphical browser path is loaded and started only on an explicit request (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 1956,
+          "excerpt": "and started only on an explicit request. Nothing is installed automatically.",
+          "path": "docs/browser-integration.md",
+          "start": 1880
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 1203,
+          "excerpt": "The following are **user requirements**, decided 2026-10-29:",
+          "path": "docs/browser-integration.md",
+          "start": 1143
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 3622,
+          "excerpt": "- Automatic download, installation or update of Moli, Chrome or Patchright.",
+          "path": "docs/browser-integration.md",
+          "start": 3547
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 15588,
+          "excerpt": "optional component is never downloaded merely because `/browse` was invoked; a",
+          "path": "docs/browser-integration.md",
+          "start": 15510
+        }
+      ],
+      "id": "REQ-007",
+      "status": "extracted",
+      "text": "Shinatama never downloads, installs or updates Moli, Chrome or Patchright automatically, and invoking `/browse` never by itself downloads an optional component (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 15654,
+          "excerpt": "missing UI component returns an explanatory `unsupported` result.",
+          "path": "docs/browser-integration.md",
+          "start": 15589
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 2236,
+          "excerpt": "The shape below is the proposed implementation of those requirements, refined by",
+          "path": "docs/browser-integration.md",
+          "start": 2156
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 78398,
+          "excerpt": "No pre-request browser/companion; explicit UI works or returns clear `unsupported`",
+          "path": "docs/verification-register.md",
+          "start": 78316
+        }
+      ],
+      "id": "REQ-008",
+      "status": "extracted",
+      "text": "When an optional browser UI component is missing, the request returns an explanatory `unsupported` result (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 2038,
+          "excerpt": "6. **Intent-based routing.** A preinstalled skill or `/browse` command may choose",
+          "path": "docs/browser-integration.md",
+          "start": 1957
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 1203,
+          "excerpt": "The following are **user requirements**, decided 2026-10-29:",
+          "path": "docs/browser-integration.md",
+          "start": 1143
+        }
+      ],
+      "id": "REQ-009",
+      "status": "extracted",
+      "text": "A preinstalled skill or the `/browse` command can choose the browser engine from the user's request (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 2120,
+          "excerpt": "the engine from the user's request. Web content and agent output cannot change",
+          "path": "docs/browser-integration.md",
+          "start": 2042
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 2154,
+          "excerpt": "the engine or its permissions.",
+          "path": "docs/browser-integration.md",
+          "start": 2124
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 1203,
+          "excerpt": "The following are **user requirements**, decided 2026-10-29:",
+          "path": "docs/browser-integration.md",
+          "start": 1143
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 78581,
+          "excerpt": "hostile pages, redirects, errors and agent/peer output cannot change engine/scope, open Chrome or answer approvals",
+          "path": "docs/verification-register.md",
+          "start": 78467
+        }
+      ],
+      "id": "REQ-010",
+      "status": "extracted",
+      "text": "Web content and agent output cannot change the engine of a browser request or its permissions (decided by the user, 2026-10-29)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 7160,
+          "excerpt": "Routing happens before loading the target and is immutable for that request. A",
+          "path": "docs/browser-integration.md",
+          "start": 7082
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 7242,
+          "excerpt": "page, redirect, script, error message, tool result or peer message is data, never",
+          "path": "docs/browser-integration.md",
+          "start": 7161
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 3924,
+          "excerpt": "origin, operation, target scope and permission snapshot.",
+          "path": "docs/browser-integration.md",
+          "start": 3868
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 2236,
+          "excerpt": "The shape below is the proposed implementation of those requirements, refined by",
+          "path": "docs/browser-integration.md",
+          "start": 2156
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 78771,
+          "excerpt": "No unauthorized transition or effect; engine and permission snapshot remain immutable",
+          "path": "docs/verification-register.md",
+          "start": 78686
+        }
+      ],
+      "id": "REQ-011",
+      "status": "extracted",
+      "text": "Each accepted browser request has an engine, origin, operation, target scope and permission snapshot fixed before the target is loaded and immutable for that request; pages, redirects, scripts, error messages, tool results and peer messages are data, never routing authority (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 47803,
+          "excerpt": "as such. The user may issue a new explicit Patchright command, but this starts",
+          "path": "docs/functional-design.md",
+          "start": 47725
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 47867,
+          "excerpt": "a new session without transferring cookies, login or control.",
+          "path": "docs/functional-design.md",
+          "start": 47806
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 7324,
+          "excerpt": "routing authority. Starting another engine is a **new request**, not continuation",
+          "path": "docs/browser-integration.md",
+          "start": 7243
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 7080,
+          "excerpt": "| Moli reports unsupported/failed | Keep Moli; stop | A new explicit user command is required to use Patchright |",
+          "path": "docs/browser-integration.md",
+          "start": 6967
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 46356,
+          "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
+          "path": "docs/functional-design.md",
+          "start": 46278
+        }
+      ],
+      "id": "REQ-012",
+      "status": "extracted",
+      "text": "After a Moli error, timeout or unsupported page, the user can issue a new explicit Patchright command; it starts a new request and a new session that does not continue the failed request and carries no cookies, login or control from it (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 47722,
+          "excerpt": "- **No automatic fallback:** a Moli error, timeout or unsupported page is shown",
+          "path": "docs/functional-design.md",
+          "start": 47643
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 5990,
+          "excerpt": "controller and reason. A Moli failure offers no automatic Chrome action; it may",
+          "path": "docs/browser-integration.md",
+          "start": 5911
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 46356,
+          "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
+          "path": "docs/functional-design.md",
+          "start": 46278
+        }
+      ],
+      "id": "REQ-013",
+      "status": "extracted",
+      "text": "A Moli error, timeout or unsupported page is shown to the user as such, with no automatic Chrome action; Shinatama may show the exact new command the user can choose to run (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 5060,
+          "excerpt": "- `read`: extract bounded text or structured content through Moli.",
+          "path": "docs/browser-integration.md",
+          "start": 4994
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 4955,
+          "excerpt": "`/browse` is the proposed single entry point. Its final spelling is a builder's",
+          "path": "docs/browser-integration.md",
+          "start": 4876
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 9584,
+          "excerpt": "are my call). Browser access: `/browse` with `read`, `preview`",
+          "path": "docs/functional-design.md",
+          "start": 9522
+        }
+      ],
+      "id": "REQ-014",
+      "status": "extracted",
+      "text": "The user and agents can run a `/browse` `read` operation that extracts bounded text or structured content through Moli (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 5141,
+          "excerpt": "- `preview`: produce a static visual artifact through Moli, enabling layout only",
+          "path": "docs/browser-integration.md",
+          "start": 5061
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 6636,
+          "excerpt": "| Static preview | Moli | Same scope plus artifact permission |",
+          "path": "docs/browser-integration.md",
+          "start": 6573
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 4955,
+          "excerpt": "`/browse` is the proposed single entry point. Its final spelling is a builder's",
+          "path": "docs/browser-integration.md",
+          "start": 4876
+        }
+      ],
+      "id": "REQ-015",
+      "status": "extracted",
+      "text": "A `/browse` `preview` operation produces a static visual artifact through Moli, enabling layout only for that operation and requiring the request's scope plus artifact permission (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 5239,
+          "excerpt": "- `open-ui`: open a Patchright/Chrome UI session; requires an explicit user",
+          "path": "docs/browser-integration.md",
+          "start": 5164
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 47128,
+          "excerpt": "- `open-ui` starts Patchright with visible Chrome only at the user's explicit",
+          "path": "docs/functional-design.md",
+          "start": 47051
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 6812,
+          "excerpt": "| Visible browser, login, MFA, CAPTCHA | Patchright UI | Explicit user request |",
+          "path": "docs/browser-integration.md",
+          "start": 6732
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 4955,
+          "excerpt": "`/browse` is the proposed single entry point. Its final spelling is a builder's",
+          "path": "docs/browser-integration.md",
+          "start": 4876
+        }
+      ],
+      "id": "REQ-016",
+      "status": "extracted",
+      "text": "A `/browse` `open-ui` operation opens a Patchright/Chrome UI session and requires an explicit user request (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 5333,
+          "excerpt": "- `--engine=moli|patchright`: optional explicit override, not a security boundary.",
+          "path": "docs/browser-integration.md",
+          "start": 5251
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 4955,
+          "excerpt": "`/browse` is the proposed single entry point. Its final spelling is a builder's",
+          "path": "docs/browser-integration.md",
+          "start": 4876
+        }
+      ],
+      "id": "REQ-017",
+      "status": "extracted",
+      "text": "`/browse` accepts an optional explicit `--engine=moli|patchright` override, which is not a security boundary (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 5479,
+          "excerpt": "engine, reason, operation and scope are shown before execution.",
+          "path": "docs/browser-integration.md",
+          "start": 5416
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 47445,
+          "excerpt": "- `/browse` or its preinstalled skill chooses from the user's intent and displays",
+          "path": "docs/functional-design.md",
+          "start": 47364
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 46356,
+          "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
+          "path": "docs/functional-design.md",
+          "start": 46278
+        }
+      ],
+      "id": "REQ-018",
+      "status": "extracted",
+      "text": "Before a browser request executes, Shinatama shows the selected engine, the reason, the operation and the scope (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 5561,
+          "excerpt": "An agent may request `read` or `preview` only inside an existing user-authorized",
+          "path": "docs/browser-integration.md",
+          "start": 5481
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 5642,
+          "excerpt": "task and target scope. It need not ask again for every navigation already inside",
+          "path": "docs/browser-integration.md",
+          "start": 5562
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 6572,
+          "excerpt": "| Read/extract local HTML or an authorized web target | Moli | Existing task/request scope |",
+          "path": "docs/browser-integration.md",
+          "start": 6480
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 2236,
+          "excerpt": "The shape below is the proposed implementation of those requirements, refined by",
+          "path": "docs/browser-integration.md",
+          "start": 2156
+        }
+      ],
+      "id": "REQ-019",
+      "status": "extracted",
+      "text": "An agent can request `read` or `preview` only inside an existing user-authorized task and target scope, and is not asked again for navigation already inside that grant (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 5720,
+          "excerpt": "that grant. It cannot grant itself `open-ui`, broaden scope or answer its own",
+          "path": "docs/browser-integration.md",
+          "start": 5643
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 5796,
+          "excerpt": "permission request. It may ask the user to issue a new explicit UI command.",
+          "path": "docs/browser-integration.md",
+          "start": 5721
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 47608,
+          "excerpt": "they cannot open UI, broaden scope or authorize themselves. Ambiguous sensitive",
+          "path": "docs/functional-design.md",
+          "start": 47529
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 46356,
+          "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
+          "path": "docs/functional-design.md",
+          "start": 46278
+        }
+      ],
+      "id": "REQ-020",
+      "status": "extracted",
+      "text": "An agent cannot open a browser UI session, broaden scope or answer its own permission request; it can only ask the user to issue a new explicit UI command (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 6966,
+          "excerpt": "| Ambiguous sensitive action or broad local access | None | Ask for clarification |",
+          "path": "docs/browser-integration.md",
+          "start": 6883
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 47608,
+          "excerpt": "they cannot open UI, broaden scope or authorize themselves. Ambiguous sensitive",
+          "path": "docs/functional-design.md",
+          "start": 47529
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 46356,
+          "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
+          "path": "docs/functional-design.md",
+          "start": 46278
+        }
+      ],
+      "id": "REQ-021",
+      "status": "extracted",
+      "text": "An ambiguous sensitive browser action or a request for broad local access runs on no engine; Shinatama asks the user for clarification (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 6882,
+          "excerpt": "| Ambiguous, non-sensitive read | Moli | Narrowest applicable scope |",
+          "path": "docs/browser-integration.md",
+          "start": 6813
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 2236,
+          "excerpt": "The shape below is the proposed implementation of those requirements, refined by",
+          "path": "docs/browser-integration.md",
+          "start": 2156
+        }
+      ],
+      "id": "REQ-022",
+      "status": "extracted",
+      "text": "An ambiguous, non-sensitive read is routed to Moli with the narrowest applicable scope (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 6731,
+          "excerpt": "| MCP web interface, bounded one-shot operation | Moli | Explicit local service/target scope |",
+          "path": "docs/browser-integration.md",
+          "start": 6637
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 46691,
+          "excerpt": "static previews and use bounded MCP web-interface operations through Moli.",
+          "path": "docs/functional-design.md",
+          "start": 46617
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 46356,
+          "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
+          "path": "docs/functional-design.md",
+          "start": 46278
+        }
+      ],
+      "id": "REQ-023",
+      "status": "extracted",
+      "text": "Agents and the user can use a bounded one-shot operation on an MCP server's web interface through Moli, only within an explicit local service or target scope (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 16437,
+          "excerpt": "- the MCP UI use case is either demonstrated within the one-shot boundary or",
+          "path": "docs/browser-integration.md",
+          "start": 16361
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 16496,
+          "excerpt": "explicitly deferred, never silently replaced by `serve`;",
+          "path": "docs/browser-integration.md",
+          "start": 16440
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 77494,
+          "excerpt": "Representative MCP web UI within the one-shot boundary, without silently enabling `serve` or general agent `--eval`",
+          "path": "docs/verification-register.md",
+          "start": 77379
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 77648,
+          "excerpt": "The required workflow works within scope, or unsupported interactive work is explicitly deferred",
+          "path": "docs/verification-register.md",
+          "start": 77552
+        }
+      ],
+      "id": "REQ-024",
+      "status": "extracted",
+      "text": "The MCP web-interface use case is either demonstrated within the one-shot `fetch` boundary or explicitly deferred; it is never silently replaced by `moli serve` or general agent `--eval` (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 8232,
+          "excerpt": "Results distinguish unsupported functionality, required user intervention,",
+          "path": "docs/browser-integration.md",
+          "start": 8158
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 8309,
+          "excerpt": "permission denial and execution failure. They never convert `failed` into an",
+          "path": "docs/browser-integration.md",
+          "start": 8233
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 7808,
+          "excerpt": "outcome: ok|unsupported|needs_user|denied|failed,",
+          "path": "docs/browser-integration.md",
+          "start": 7759
+        }
+      ],
+      "id": "REQ-025",
+      "status": "extracted",
+      "text": "A browser result distinguishes unsupported functionality, required user intervention, permission denial and execution failure (`unsupported`, `needs_user`, `denied`, `failed`) and never turns `failed` into an implicit retry on the other engine (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 2940,
+          "excerpt": "- A small common request/result contract that preserves unsupported capabilities",
+          "path": "docs/browser-integration.md",
+          "start": 2860
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 2997,
+          "excerpt": "instead of pretending the engines are interchangeable.",
+          "path": "docs/browser-integration.md",
+          "start": 2943
+        }
+      ],
+      "id": "REQ-026",
+      "status": "extracted",
+      "text": "Browser requests and results use one small common contract that reports a capability an engine lacks as unsupported instead of treating the engines as interchangeable (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 7932,
+          "excerpt": "The runtime validates engine, operation, identity and scope. The skill's prose,",
+          "path": "docs/browser-integration.md",
+          "start": 7853
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 8015,
+          "excerpt": "`SHINATAMA_INSTANCE`, a caller-supplied instance id and an `--engine` flag are not",
+          "path": "docs/browser-integration.md",
+          "start": 7933
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 8156,
+          "excerpt": "derive identity server-side; that mechanism is unverified.",
+          "path": "docs/browser-integration.md",
+          "start": 8098
+        }
+      ],
+      "id": "REQ-027",
+      "status": "extracted",
+      "text": "The browser runtime validates engine, operation, identity and scope itself; skill prose, `SHINATAMA_INSTANCE`, a caller-supplied instance id and an `--engine` flag are not accepted as authentication (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 5910,
+          "excerpt": "The session view and overview show engine, target origin/root, operation, state,",
+          "path": "docs/browser-integration.md",
+          "start": 5830
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 2236,
+          "excerpt": "The shape below is the proposed implementation of those requirements, refined by",
+          "path": "docs/browser-integration.md",
+          "start": 2156
+        }
+      ],
+      "id": "REQ-028",
+      "status": "extracted",
+      "text": "The session view and the overview show, for each browser session, its engine, target origin or root, operation, state, controller and reason (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 6071,
+          "excerpt": "show the exact new command the user can choose. A visual request is not reported",
+          "path": "docs/browser-integration.md",
+          "start": 5991
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 6122,
+          "excerpt": "as visually satisfied when only text was produced.",
+          "path": "docs/browser-integration.md",
+          "start": 6072
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48034,
+          "excerpt": "a private artifact plus textual alternative. Text alone is not a visual preview.",
+          "path": "docs/functional-design.md",
+          "start": 47954
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 77333,
+          "excerpt": "Visual output matches the fixture; text-only mode is not called visual success",
+          "path": "docs/verification-register.md",
+          "start": 77255
+        }
+      ],
+      "id": "REQ-029",
+      "status": "extracted",
+      "text": "A visual browser request is never reported as visually satisfied when only text was produced (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 47951,
+          "excerpt": "- Static visual output uses native preview panes for supported artifacts, otherwise",
+          "path": "docs/functional-design.md",
+          "start": 47868
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48034,
+          "excerpt": "a private artifact plus textual alternative. Text alone is not a visual preview.",
+          "path": "docs/functional-design.md",
+          "start": 47954
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 526,
+          "excerpt": "3.1 supersede the terminal-only shell assumption. Static artifacts can be shown",
+          "path": "docs/browser-integration.md",
+          "start": 447
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 46356,
+          "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
+          "path": "docs/functional-design.md",
+          "start": 46278
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 77184,
+          "excerpt": "Static preview: layout/resources only when requested; correct screenshot; private artifact; honest terminal display/fallback",
+          "path": "docs/verification-register.md",
+          "start": 77060
+        }
+      ],
+      "id": "REQ-030",
+      "status": "extracted",
+      "text": "Static visual browser output is shown in native preview panes for supported artifacts, otherwise as a private artifact with a textual alternative (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 6201,
+          "excerpt": "Patchright opens a real external Chrome window, separate from the native Rust",
+          "path": "docs/browser-integration.md",
+          "start": 6124
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48114,
+          "excerpt": "Interactive browsing remains external Chrome in the first integration; tiling",
+          "path": "docs/functional-design.md",
+          "start": 48037
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48172,
+          "excerpt": "does not implicitly approve an embedded browser engine.",
+          "path": "docs/functional-design.md",
+          "start": 48117
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 766,
+          "excerpt": "browsing remains outside the first integration. Tiling does not authorize a new",
+          "path": "docs/browser-integration.md",
+          "start": 687
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 51670,
+          "excerpt": "Static previews fit 5.15. Interactive embedded browsing and mini-app hosting need separate design/security gates",
+          "path": "docs/functional-design.md",
+          "start": 51558
+        }
+      ],
+      "id": "REQ-031",
+      "status": "extracted",
+      "text": "In the first browser integration, interactive browsing happens only in an external Chrome window opened by Patchright, separate from the native workspace; the workspace embeds no interactive browser engine (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 8471,
+          "excerpt": "Start the pinned Moli binary as a child for a bounded `fetch`; do not start",
+          "path": "docs/browser-integration.md",
+          "start": 8396
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 46934,
+          "excerpt": "- The first Moli path is one-shot `moli fetch`, not `moli serve`. Interactive Moli",
+          "path": "docs/functional-design.md",
+          "start": 46852
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 77026,
+          "excerpt": "Expected output; only the one-shot process; no CDP/WebDriver listener",
+          "path": "docs/verification-register.md",
+          "start": 76957
+        }
+      ],
+      "id": "REQ-032",
+      "status": "extracted",
+      "text": "Moli runs only as a one-shot `moli fetch` child process for a bounded operation; Shinatama does not start `moli serve` (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 9814,
+          "excerpt": "Therefore `serve` stays disabled until B4 proves a private authenticated transport",
+          "path": "docs/browser-integration.md",
+          "start": 9732
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 9895,
+          "excerpt": "or an equivalent verified boundary, and proves that untrusted pages cannot reach",
+          "path": "docs/browser-integration.md",
+          "start": 9815
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 10057,
+          "excerpt": "themselves authentication. This gate applies to Moli as well as Patchright; the",
+          "path": "docs/browser-integration.md",
+          "start": 9978
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 47012,
+          "excerpt": "previews and persistent CDP/WebDriver automation wait for the transport and",
+          "path": "docs/functional-design.md",
+          "start": 46937
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 5953,
+          "excerpt": "Patchright companion. Persistent `moli serve` and interactive Moli previews are",
+          "path": "docs/functional-design.md",
+          "start": 5874
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 78048,
+          "excerpt": "No unauthenticated/reachable control path; otherwise `serve` or the failing UI transport stays disabled",
+          "path": "docs/verification-register.md",
+          "start": 77945
+        }
+      ],
+      "id": "REQ-033",
+      "status": "extracted",
+      "text": "`moli serve`, persistent CDP/WebDriver automation and interactive Moli previews stay disabled until register row B4 proves a private authenticated transport or an equivalent verified boundary and that untrusted pages cannot reach or control the endpoint; loopback, an ephemeral port or a random path alone do not count as authentication (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 8631,
+          "excerpt": "not exposed to agents in the first integration; a probe may use it locally to",
+          "path": "docs/browser-integration.md",
+          "start": 8554
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 46851,
+          "excerpt": "General agent-provided JavaScript evaluation is not exposed initially.",
+          "path": "docs/functional-design.md",
+          "start": 46781
+        }
+      ],
+      "id": "REQ-034",
+      "status": "extracted",
+      "text": "General agent-provided JavaScript evaluation (Moli `--eval`) is not exposed to agents in the first browser integration (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 8901,
+          "excerpt": "- bounded time, output, response size, redirects and artifact count/size;",
+          "path": "docs/browser-integration.md",
+          "start": 8828
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 2236,
+          "excerpt": "The shape below is the proposed implementation of those requirements, refined by",
+          "path": "docs/browser-integration.md",
+          "start": 2156
+        }
+      ],
+      "id": "REQ-035",
+      "status": "extracted",
+      "text": "Each Moli operation is bounded in time, output, response size, redirects and artifact count and size (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 8984,
+          "excerpt": "- a temporary dedicated profile unless the user explicitly configures persistence;",
+          "path": "docs/browser-integration.md",
+          "start": 8902
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 13426,
+          "excerpt": "4. **Profiles.** Temporary per-session profiles by default. Persistent profiles",
+          "path": "docs/browser-integration.md",
+          "start": 13347
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48335,
+          "excerpt": "`localhost` is not blanket permission. Temporary profiles are the default and",
+          "path": "docs/functional-design.md",
+          "start": 48258
+        }
+      ],
+      "id": "REQ-036",
+      "status": "extracted",
+      "text": "Each browser session uses a temporary dedicated profile unless the user explicitly configures persistence (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 2833,
+          "excerpt": "- A separate Patchright UI session started only by the user, with its own profile",
+          "path": "docs/browser-integration.md",
+          "start": 2752
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 47209,
+          "excerpt": "request. It supports user-driven login/MFA/CAPTCHA and normal graphical use in",
+          "path": "docs/functional-design.md",
+          "start": 47131
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 46356,
+          "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
+          "path": "docs/functional-design.md",
+          "start": 46278
+        }
+      ],
+      "id": "REQ-037",
+      "status": "extracted",
+      "text": "A Patchright UI session is started only by the user and runs with its own profile and an explicit lifecycle (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 13504,
+          "excerpt": "are separate per engine and explicitly consented scope; no personal Chrome",
+          "path": "docs/browser-integration.md",
+          "start": 13430
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 13577,
+          "excerpt": "profile, concurrent profile sharing or cross-engine cookie migration.",
+          "path": "docs/browser-integration.md",
+          "start": 13508
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 3336,
+          "excerpt": "reuse of the user's personal Chrome profile.",
+          "path": "docs/browser-integration.md",
+          "start": 3292
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 79499,
+          "excerpt": "No out-of-scope read, personal-profile use, cross-engine state or secret leakage",
+          "path": "docs/verification-register.md",
+          "start": 79419
+        }
+      ],
+      "id": "REQ-038",
+      "status": "extracted",
+      "text": "Persistent browser profiles are separate per engine and limited to an explicitly consented scope; Shinatama never uses the user's personal Chrome profile, shares a profile concurrently or migrates cookies across engines (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 9051,
+          "excerpt": "- no inherited agent credentials or unrelated environment secrets;",
+          "path": "docs/browser-integration.md",
+          "start": 8985
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 2236,
+          "excerpt": "The shape below is the proposed implementation of those requirements, refined by",
+          "path": "docs/browser-integration.md",
+          "start": 2156
+        }
+      ],
+      "id": "REQ-039",
+      "status": "extracted",
+      "text": "Browser processes receive no inherited agent credentials or unrelated environment secrets (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 12870,
+          "excerpt": "2. **Local files.** Only explicit roots are readable. Do not expose the project",
+          "path": "docs/browser-integration.md",
+          "start": 12791
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 12949,
+          "excerpt": "root by implication when a single HTML file was authorized. Downloads, file",
+          "path": "docs/browser-integration.md",
+          "start": 12874
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 13026,
+          "excerpt": "URLs, symlink resolution and subresources require the same canonical-path",
+          "path": "docs/browser-integration.md",
+          "start": 12953
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 2569,
+          "excerpt": "- Read-only access to explicitly authorized local HTML roots and explicitly",
+          "path": "docs/browser-integration.md",
+          "start": 2494
+        }
+      ],
+      "id": "REQ-040",
+      "status": "extracted",
+      "text": "Only explicitly authorized local roots are readable by the browser; authorizing a single HTML file does not expose the project root, and downloads, file URLs, symlink resolution and subresources follow the same canonical-path policy (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48255,
+          "excerpt": "- Local roots, MCP/local services, redirects and subresources have explicit scope;",
+          "path": "docs/functional-design.md",
+          "start": 48173
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 4432,
+          "excerpt": "operations authorized for that request. `localhost` is not itself a scope.",
+          "path": "docs/browser-integration.md",
+          "start": 4358
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 46356,
+          "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
+          "path": "docs/functional-design.md",
+          "start": 46278
+        }
+      ],
+      "id": "REQ-041",
+      "status": "extracted",
+      "text": "`localhost` is not blanket browser permission: local roots, MCP and local services, redirects and subresources each need explicit scope (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 13118,
+          "excerpt": "3. **Network.** Allow only the intended destinations and address classes. Moli's",
+          "path": "docs/browser-integration.md",
+          "start": 13038
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 9131,
+          "excerpt": "- target and subresource policy applied to the initial URL, redirects and local",
+          "path": "docs/browser-integration.md",
+          "start": 9052
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 13346,
+          "excerpt": "blocking. A proxy therefore needs its own equivalent enforcement.",
+          "path": "docs/browser-integration.md",
+          "start": 13281
+        }
+      ],
+      "id": "REQ-042",
+      "status": "extracted",
+      "text": "Browser network access is allowed only to the intended destinations and address classes, applied to the initial URL, redirects, subresources and local files; when a proxy resolves targets, the proxy enforces equivalent blocking (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 13652,
+          "excerpt": "5. **Secrets and artifacts.** No cookies, tokens, authorization headers or",
+          "path": "docs/browser-integration.md",
+          "start": 13578
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 13737,
+          "excerpt": "credentials in logs, SQLite, transcripts, summaries or error reports. Screenshots",
+          "path": "docs/browser-integration.md",
+          "start": 13656
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 122525,
+          "excerpt": "and follow private retention rules. No browser content or artifact enters logs,",
+          "path": "docs/technical-design.md",
+          "start": 122446
+        }
+      ],
+      "id": "REQ-043",
+      "status": "extracted",
+      "text": "No cookies, tokens, authorization headers or credentials from browser use appear in logs, SQLite, transcripts, summaries or error reports (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 13815,
+          "excerpt": "and extracted pages can contain secrets: store them privately, bound their",
+          "path": "docs/browser-integration.md",
+          "start": 13741
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 13888,
+          "excerpt": "retention and never send them to a title/summary provider by default.",
+          "path": "docs/browser-integration.md",
+          "start": 13819
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48404,
+          "excerpt": "screenshots/extracted content follow secret-aware retention rules.",
+          "path": "docs/functional-design.md",
+          "start": 48338
+        }
+      ],
+      "id": "REQ-044",
+      "status": "extracted",
+      "text": "Browser screenshots and extracted pages are stored privately with bounded retention and are never sent to a title or summary provider by default (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 12567,
+          "excerpt": "1. **Untrusted content.** HTML, JavaScript, screenshots, downloads, redirects,",
+          "path": "docs/browser-integration.md",
+          "start": 12489
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 12645,
+          "excerpt": "MCP UI content and agent output cannot authorize navigation outside scope,",
+          "path": "docs/browser-integration.md",
+          "start": 12571
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 12724,
+          "excerpt": "start Chrome, change controller or request credentials. The rules of engine",
+          "path": "docs/browser-integration.md",
+          "start": 12649
+        }
+      ],
+      "id": "REQ-045",
+      "status": "extracted",
+      "text": "HTML, JavaScript, screenshots, downloads, redirects, MCP UI content and agent output cannot authorize navigation outside scope, start Chrome, change the controller or request credentials (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 13964,
+          "excerpt": "6. **Sensitive effects.** Login/MFA is user-driven. Purchases, submissions,",
+          "path": "docs/browser-integration.md",
+          "start": 13889
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 14040,
+          "excerpt": "messages, downloads with side effects and permission changes require the",
+          "path": "docs/browser-integration.md",
+          "start": 13968
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 14108,
+          "excerpt": "applicable user authorization; a page or agent cannot supply it.",
+          "path": "docs/browser-integration.md",
+          "start": 14044
+        }
+      ],
+      "id": "REQ-046",
+      "status": "extracted",
+      "text": "Login and MFA in the browser are performed by the user; purchases, submissions, messages, downloads with side effects and permission changes require the applicable user authorization, which neither a page nor an agent can supply (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 14186,
+          "excerpt": "7. **Local hostile agents.** An agent with an arbitrary shell and the same OS",
+          "path": "docs/browser-integration.md",
+          "start": 14109
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 14390,
+          "excerpt": "enforcement only for its managed path.",
+          "path": "docs/browser-integration.md",
+          "start": 14352
+        }
+      ],
+      "id": "REQ-047",
+      "status": "extracted",
+      "text": "Shinatama claims browser policy enforcement only for its managed path and does not claim to stop a local agent with an arbitrary shell and the same OS privileges from bypassing it (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 11004,
+          "excerpt": "The Shinatama process for the current window owns the browser request and its",
+          "path": "docs/browser-integration.md",
+          "start": 10927
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 11085,
+          "excerpt": "whole child tree. There is no cross-window browser daemon. Ownership records the",
+          "path": "docs/browser-integration.md",
+          "start": 11005
+        }
+      ],
+      "id": "REQ-048",
+      "status": "extracted",
+      "text": "The Shinatama process of the current window owns each browser request and its whole child tree; there is no cross-window browser daemon (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 4090,
+          "excerpt": "owned by one Shinatama window. A session belongs to a project and, when present,",
+          "path": "docs/browser-integration.md",
+          "start": 4010
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 4149,
+          "excerpt": "to an instance/thread; it is not a native agent session.",
+          "path": "docs/browser-integration.md",
+          "start": 4093
+        }
+      ],
+      "id": "REQ-049",
+      "status": "extracted",
+      "text": "A browser session belongs to a project and, when present, to an instance and thread; it is not a native agent session (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 11282,
+          "excerpt": "requested -> authorized -> starting -> active -> closing -> closed",
+          "path": "docs/browser-integration.md",
+          "start": 11216
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 11499,
+          "excerpt": "`needs_user` and `unsupported` are explicit outcomes, not silent retries. Every",
+          "path": "docs/browser-integration.md",
+          "start": 11420
+        }
+      ],
+      "id": "REQ-050",
+      "status": "extracted",
+      "text": "A browser session moves through the states requested, authorized, starting, active, closing and closed, with denied and failed as terminal paths; `needs_user` and `unsupported` are explicit outcomes, never silent retries (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 11581,
+          "excerpt": "effect is idempotent by `request_id`: a repeated result or shutdown does not open",
+          "path": "docs/browser-integration.md",
+          "start": 11500
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 11636,
+          "excerpt": "another browser or delete another session's artifacts.",
+          "path": "docs/browser-integration.md",
+          "start": 11582
+        }
+      ],
+      "id": "REQ-051",
+      "status": "extracted",
+      "text": "Every browser effect is idempotent by request id: a repeated result or shutdown never opens another browser or deletes another session's artifacts (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 11799,
+          "excerpt": "- Normal close: stop accepting actions, close pages/context, wait with a timeout,",
+          "path": "docs/browser-integration.md",
+          "start": 11718
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 11881,
+          "excerpt": "terminate remaining descendants if necessary, close endpoints, remove temporary",
+          "path": "docs/browser-integration.md",
+          "start": 11802
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 12015,
+          "excerpt": "- Cancellation/error: the same cleanup path, with the original error preserved.",
+          "path": "docs/browser-integration.md",
+          "start": 11936
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 79131,
+          "excerpt": "No managed descendant/listener remains; cleanup state is truthful; unrelated processes survive",
+          "path": "docs/verification-register.md",
+          "start": 79037
+        }
+      ],
+      "id": "REQ-052",
+      "status": "extracted",
+      "text": "Closing, cancelling or failing a browser session stops accepting actions, closes pages and context, terminates remaining descendants, closes endpoints and removes temporary material according to policy, keeping the original error on cancellation or failure (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 12095,
+          "excerpt": "- Owner crash: OS-specific job/process-group cleanup and restart reconciliation",
+          "path": "docs/browser-integration.md",
+          "start": 12016
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 12174,
+          "excerpt": "must prevent or identify orphans. Merely being a child process is not proof.",
+          "path": "docs/browser-integration.md",
+          "start": 12098
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 11165,
+          "excerpt": "OS process/group/job identity, not just a PID, so PID reuse cannot make cleanup",
+          "path": "docs/browser-integration.md",
+          "start": 11086
+        }
+      ],
+      "id": "REQ-053",
+      "status": "extracted",
+      "text": "After an owner crash Shinatama prevents or identifies orphaned browser processes, and browser cleanup never kills an unrelated process through PID reuse (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 12403,
+          "excerpt": "Cleanup status is reported honestly: `closed` is not claimed while a browser,",
+          "path": "docs/browser-integration.md",
+          "start": 12326
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48559,
+          "excerpt": "UI session has one controller, explicit user/agent handover and verified",
+          "path": "docs/functional-design.md",
+          "start": 48487
+        }
+      ],
+      "id": "REQ-054",
+      "status": "extracted",
+      "text": "Shinatama never reports a browser session as `closed` while a browser, companion or endpoint of it is still alive (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 12254,
+          "excerpt": "- UI close: no background companion remains. An explicit persistent profile may",
+          "path": "docs/browser-integration.md",
+          "start": 12175
+        }
+      ],
+      "id": "REQ-055",
+      "status": "extracted",
+      "text": "After a browser UI session closes, no background companion remains; only an explicit persistent profile may remain on disk (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 14502,
+          "excerpt": "One-shot Moli requests may run independently within explicit resource limits. A",
+          "path": "docs/browser-integration.md",
+          "start": 14423
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48484,
+          "excerpt": "- One-shot operations can be independent within resource limits. An interactive",
+          "path": "docs/functional-design.md",
+          "start": 48405
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 15426,
+          "excerpt": "browser.max_concurrent_fetch = <bounded>",
+          "path": "docs/browser-integration.md",
+          "start": 15386
+        }
+      ],
+      "id": "REQ-056",
+      "status": "extracted",
+      "text": "One-shot Moli requests can run independently of each other within explicit resource limits, including a bounded maximum of concurrent fetches (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 14584,
+          "excerpt": "UI session has one owner and one controller. Starting another UI session must not",
+          "path": "docs/browser-integration.md",
+          "start": 14503
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 14663,
+          "excerpt": "silently steal focus, profile or control; refuse it or require an explicit new",
+          "path": "docs/browser-integration.md",
+          "start": 14585
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 4228,
+          "excerpt": "- **Controller**: `agent` or `user`, exactly one for an interactive session. A",
+          "path": "docs/browser-integration.md",
+          "start": 4150
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 3383,
+          "excerpt": "- Simultaneous agent/user control of one page.",
+          "path": "docs/browser-integration.md",
+          "start": 3337
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 79760,
+          "excerpt": "One controller; no focus/profile theft or stale/duplicate effect",
+          "path": "docs/verification-register.md",
+          "start": 79696
+        }
+      ],
+      "id": "REQ-057",
+      "status": "extracted",
+      "text": "An interactive browser UI session has exactly one owner and one controller (agent or user); starting another UI session never silently steals focus, profile or control and is refused or requires an explicit new session (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 14776,
+          "excerpt": "When control is `user`, agent actions on that page are suspended. Returning",
+          "path": "docs/browser-integration.md",
+          "start": 14701
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 14858,
+          "excerpt": "control to the agent is explicit and checked against the current session and page",
+          "path": "docs/browser-integration.md",
+          "start": 14777
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48559,
+          "excerpt": "UI session has one controller, explicit user/agent handover and verified",
+          "path": "docs/functional-design.md",
+          "start": 48487
+        }
+      ],
+      "id": "REQ-058",
+      "status": "extracted",
+      "text": "While the user controls a browser UI session, agent actions on that page are suspended; control returns to the agent only explicitly and after a check against the current session and page state (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 14939,
+          "excerpt": "state. Closing or replacing a session invalidates outstanding actions, approvals",
+          "path": "docs/browser-integration.md",
+          "start": 14859
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 15016,
+          "excerpt": "and queued results. There is no exactly-once claim for external web effects.",
+          "path": "docs/browser-integration.md",
+          "start": 14940
+        }
+      ],
+      "id": "REQ-059",
+      "status": "extracted",
+      "text": "Closing or replacing a browser session invalidates its outstanding actions, approvals and queued results, and Shinatama makes no exactly-once claim for external web effects (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 15097,
+          "excerpt": "Proposed settings:",
+          "path": "docs/browser-integration.md",
+          "start": 15079
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 15132,
+          "excerpt": "browser.default_engine = moli",
+          "path": "docs/browser-integration.md",
+          "start": 15103
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 15167,
+          "excerpt": "browser.patchright.enabled = false",
+          "path": "docs/browser-integration.md",
+          "start": 15133
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 15285,
+          "excerpt": "browser.local_roots = []",
+          "path": "docs/browser-integration.md",
+          "start": 15261
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 15307,
+          "excerpt": "browser.services = []",
+          "path": "docs/browser-integration.md",
+          "start": 15286
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 15385,
+          "excerpt": "browser.profiles = temporary",
+          "path": "docs/browser-integration.md",
+          "start": 15357
+        }
+      ],
+      "id": "REQ-060",
+      "status": "extracted",
+      "text": "Browser settings default to Moli as the engine, Patchright disabled until the user opts in, no authorized local roots or services, and temporary profiles (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 15732,
+          "excerpt": "The base startup gate is observable without a performance baseline: no Moli,",
+          "path": "docs/browser-integration.md",
+          "start": 15656
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 15813,
+          "excerpt": "Patchright, companion or Chrome process is started until requested, and enabling",
+          "path": "docs/browser-integration.md",
+          "start": 15733
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 15864,
+          "excerpt": "browser support does not itself start the UI path.",
+          "path": "docs/browser-integration.md",
+          "start": 15814
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 10579,
+          "excerpt": "helper, Chrome process or update check runs at Shinatama startup.",
+          "path": "docs/browser-integration.md",
+          "start": 10514
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 78234,
+          "excerpt": "Patchright/Chrome is absent at startup, lazy-loaded and started only by an explicit UI request; missing optional component does not auto-install",
+          "path": "docs/verification-register.md",
+          "start": 78090
+        }
+      ],
+      "id": "REQ-061",
+      "status": "extracted",
+      "text": "No Moli, Patchright, companion, Node/Python helper or Chrome process and no update check starts with Shinatama or until a request needs it, and enabling browser support does not itself start the UI path (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 10662,
+          "excerpt": "The companion exposes only the typed session operations needed by the UI path. It",
+          "path": "docs/browser-integration.md",
+          "start": 10581
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 10742,
+          "excerpt": "does not expose a generic local automation socket. Its transport, opened ports,",
+          "path": "docs/browser-integration.md",
+          "start": 10663
+        }
+      ],
+      "id": "REQ-062",
+      "status": "extracted",
+      "text": "The Patchright companion exposes only the typed session operations the UI path needs and never a generic local automation socket (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 15509,
+          "excerpt": "Versions, checksums, licenses and update behavior are pinned and recorded. An",
+          "path": "docs/browser-integration.md",
+          "start": 15432
+        }
+      ],
+      "id": "REQ-063",
+      "status": "extracted",
+      "text": "Versions, checksums, licences and update behaviour of the browser components are pinned and recorded (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 48698,
+          "excerpt": "No speed or memory saving is claimed before B10 measures equivalent workloads on",
+          "path": "docs/functional-design.md",
+          "start": 48618
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 9265,
+          "excerpt": "Moli's upstream performance figures are not Shinatama acceptance evidence.",
+          "path": "docs/browser-integration.md",
+          "start": 9191
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 16180,
+          "excerpt": "the companion. No arbitrary saving percentage or latency target is accepted as",
+          "path": "docs/browser-integration.md",
+          "start": 16102
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 80069,
+          "excerpt": "Reproducible report supports a user-set budget; no upstream percentage is reused as evidence",
+          "path": "docs/verification-register.md",
+          "start": 79977
+        }
+      ],
+      "id": "REQ-064",
+      "status": "extracted",
+      "text": "Shinatama claims no browser speed or memory saving until register row B10 measures equivalent workloads on the whole process tree, companion included; upstream Moli figures and arbitrary saving percentages or latency targets are not accepted as evidence (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 17083,
+          "excerpt": "If Moli fails the priority use cases or shows no accepted benefit, do not make it",
+          "path": "docs/browser-integration.md",
+          "start": 17002
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 1285,
+          "excerpt": "1. **Moli is the default** for fast operations, local HTML, previews and MCP web",
+          "path": "docs/browser-integration.md",
+          "start": 1205
+        }
+      ],
+      "id": "REQ-065",
+      "status": "extracted",
+      "text": "If Moli fails the priority use cases or shows no accepted benefit, Moli is not made the default browser engine (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 17162,
+          "excerpt": "the default. If only the UI path fails, defer it and record that the graphical",
+          "path": "docs/browser-integration.md",
+          "start": 17084
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 17245,
+          "excerpt": "requirement remains open. A failed `serve` gate limits persistent Moli automation;",
+          "path": "docs/browser-integration.md",
+          "start": 17163
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 17303,
+          "excerpt": "it does not invalidate successful one-shot `fetch` cases.",
+          "path": "docs/browser-integration.md",
+          "start": 17246
+        }
+      ],
+      "id": "REQ-066",
+      "status": "extracted",
+      "text": "If only the Patchright UI path fails its gates, it is deferred and the graphical requirement is recorded as open, while successful one-shot `fetch` cases stay valid even when the `serve` gate fails (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 3466,
+          "excerpt": "- A universal browser abstraction, site-capability heuristics, anti-bot guarantees",
+          "path": "docs/browser-integration.md",
+          "start": 3384
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 3546,
+          "excerpt": "or arbitrary multi-step agent automation through a general JavaScript escape.",
+          "path": "docs/browser-integration.md",
+          "start": 3469
+        },
+        {
+          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "end": 3703,
+          "excerpt": "These exclusions are intentional simplifications, not features silently missing",
+          "path": "docs/browser-integration.md",
+          "start": 3624
+        }
+      ],
+      "id": "REQ-067",
+      "status": "extracted",
+      "text": "The first browser integration offers no universal browser abstraction, site-capability heuristics, anti-bot guarantees or arbitrary multi-step agent automation through a general JavaScript escape (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 32498,
+          "excerpt": "(9) browser fast path, then the optional UI path after its gates (5.15). Native",
+          "path": "docs/functional-design.md",
+          "start": 32419
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 32091,
+          "excerpt": "### 5.12 Order of work and audience (my calls, to check)",
+          "path": "docs/functional-design.md",
+          "start": 32035
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 33346,
+          "excerpt": "are closed. Native import is post-v1; Daodan task handover, browser UI, roundtable and",
+          "path": "docs/functional-design.md",
+          "start": 33260
+        }
+      ],
+      "id": "REQ-068",
+      "status": "extracted",
+      "text": "The browser fast path is delivered first and the optional Patchright UI path only after its gates, without either blocking the first usable release slice (author's call, unconfirmed)"
+    }
+  ],
+  "schema_version": 1,
+  "status": "Proposed",
+  "superseded_by": null,
+  "title": "Browser integration",
+  "version": 1
+}

@@ -1,0 +1,1476 @@
+{
+  "accepted_at_sha": null,
+  "accepted_on": null,
+  "author": "Claude",
+  "conflicts": [],
+  "created_from_task": "frd-backfill-2026-11-01",
+  "entities": [],
+  "frd_id": "FRD-0006",
+  "last_verified_sha": null,
+  "proposed_at_sha": "da4b83e5a769c6999a57e2b4587c2561c2d491fc",
+  "proposed_on": "2026-11-01",
+  "relationships": [],
+  "requirements": [
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 2670,
+          "excerpt": "3. Search all local sessions of all supported agents; resume from history in the\n   same agent or in a different one.",
+          "path": "docs/functional-design.md",
+          "start": 2553
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 1842,
+          "excerpt": "### Goals (decided unless marked)",
+          "path": "docs/functional-design.md",
+          "start": 1809
+        }
+      ],
+      "id": "REQ-001",
+      "status": "extracted",
+      "text": "The user can search local agent sessions and resume a session from history in the same agent or in a different one (decided by the user)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 16838,
+          "excerpt": "Full-text search over the sessions of every agent Mukade reads,",
+          "path": "docs/functional-design.md",
+          "start": 16775
+        }
+      ],
+      "id": "REQ-002",
+      "status": "extracted",
+      "text": "Find (search) is full-text over the sessions of every agent Mukade reads (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 65191,
+          "excerpt": "Until Mukade reads them, Hermes Agent and DeepSeek Harness resume natively and receive\n  seeds, but are not searched and are not hop sources (engine 5).",
+          "path": "docs/functional-design.md",
+          "start": 65039
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 63822,
+          "excerpt": "### Calls made to settle the rest (check them; each is also marked where it appears)",
+          "path": "docs/functional-design.md",
+          "start": 63738
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 25772,
+          "excerpt": "those two adapters declare `list_sessions`, `read_transcript` and `export` unsupported:",
+          "path": "docs/technical-design.md",
+          "start": 25685
+        }
+      ],
+      "id": "REQ-003",
+      "status": "extracted",
+      "text": "Shinatama does not search Hermes Agent or DeepSeek Harness sessions until Mukade reads them; until then those agents resume natively within themselves (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 16907,
+          "excerpt": "filterable by agent,\nproject and date, with a preview of the thread.",
+          "path": "docs/functional-design.md",
+          "start": 16839
+        }
+      ],
+      "id": "REQ-004",
+      "status": "extracted",
+      "text": "The user can filter search results by agent, project and date (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 16907,
+          "excerpt": "filterable by agent,\nproject and date, with a preview of the thread.",
+          "path": "docs/functional-design.md",
+          "start": 16839
+        }
+      ],
+      "id": "REQ-005",
+      "status": "extracted",
+      "text": "Find shows a preview of the thread of a search result (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 16949,
+          "excerpt": "Enter resumes in the same agent\n(native);",
+          "path": "docs/functional-design.md",
+          "start": 16908
+        }
+      ],
+      "id": "REQ-006",
+      "status": "extracted",
+      "text": "The user can press Enter on a search result to resume it natively in the same agent (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 16999,
+          "excerpt": "another key resumes in a different agent (a hop).",
+          "path": "docs/functional-design.md",
+          "start": 16950
+        }
+      ],
+      "id": "REQ-007",
+      "status": "extracted",
+      "text": "The user can press another key on a search result to resume it in a different agent, as a hop (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 10204,
+          "excerpt": "Shinatama reads each agent's own session store to search and to resume.",
+          "path": "docs/functional-design.md",
+          "start": 10133
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 2880,
+          "excerpt": "7. **Native stores are read-only in v1**, except through the agent's own commands.",
+          "path": "docs/technical-design.md",
+          "start": 2798
+        }
+      ],
+      "id": "REQ-008",
+      "status": "extracted",
+      "text": "Shinatama reads each agent's own session store to search and to resume, and in v1 never writes a native store except through the agent's own commands (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 2736,
+          "excerpt": "Interactive terminal flow plus a scriptable\n   command line mode.",
+          "path": "docs/functional-design.md",
+          "start": 2671
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 1842,
+          "excerpt": "### Goals (decided unless marked)",
+          "path": "docs/functional-design.md",
+          "start": 1809
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 17058,
+          "excerpt": "The command line mode\nmirrors it for scripts, for example:",
+          "path": "docs/functional-design.md",
+          "start": 17000
+        }
+      ],
+      "id": "REQ-009",
+      "status": "extracted",
+      "text": "The user can search and resume from a scriptable command line mode that mirrors the interactive flow (decided by the user)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 55979,
+          "excerpt": "Native workspace UI and scripts call the same adapter functions:",
+          "path": "docs/technical-design.md",
+          "start": 55915
+        }
+      ],
+      "id": "REQ-010",
+      "status": "extracted",
+      "text": "The native workspace UI and the command line call the same adapter operations (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 56061,
+          "excerpt": "shinatama sessions [--agent A] [--project P] [--json]       -> list_sessions",
+          "path": "docs/technical-design.md",
+          "start": 55985
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 9534,
+          "excerpt": "(`sessions`, `export`, `import`, `forget`; names\nare my call)",
+          "path": "docs/functional-design.md",
+          "start": 9473
+        }
+      ],
+      "id": "REQ-011",
+      "status": "extracted",
+      "text": "The command line's `shinatama sessions [--agent A] [--project P] [--json]` lists sessions, filterable by agent and project (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 56139,
+          "excerpt": "shinatama find \"text\" [--agent A] [--json]                  -> the text index",
+          "path": "docs/technical-design.md",
+          "start": 56062
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 17119,
+          "excerpt": "shinatama find \"refresh token\" --json | jq -r '.[0].id'",
+          "path": "docs/functional-design.md",
+          "start": 17064
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 9534,
+          "excerpt": "(`sessions`, `export`, `import`, `forget`; names\nare my call)",
+          "path": "docs/functional-design.md",
+          "start": 9473
+        }
+      ],
+      "id": "REQ-012",
+      "status": "extracted",
+      "text": "The command line's `shinatama find \"text\" [--agent A] [--json]` searches the text index, and its JSON output can be piped to scripts (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 56498,
+          "excerpt": "shinatama resume <thread | agent:session> [--agent A]       -> resume, or a hop if A differs",
+          "path": "docs/technical-design.md",
+          "start": 56406
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 17157,
+          "excerpt": "shinatama resume t_8f3a --agent codex",
+          "path": "docs/functional-design.md",
+          "start": 17120
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 9534,
+          "excerpt": "(`sessions`, `export`, `import`, `forget`; names\nare my call)",
+          "path": "docs/functional-design.md",
+          "start": 9473
+        }
+      ],
+      "id": "REQ-013",
+      "status": "extracted",
+      "text": "The command line's `shinatama resume <thread | agent:session> [--agent A]` resumes natively, and performs a hop when A is a different agent (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 56574,
+          "excerpt": "shinatama hop <thread> --to A [--preview] [--yes]           -> handover (6)",
+          "path": "docs/technical-design.md",
+          "start": 56499
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 9534,
+          "excerpt": "(`sessions`, `export`, `import`, `forget`; names\nare my call)",
+          "path": "docs/functional-design.md",
+          "start": 9473
+        }
+      ],
+      "id": "REQ-014",
+      "status": "extracted",
+      "text": "The command line's `shinatama hop <thread> --to A [--preview] [--yes]` hops a thread to agent A, with an optional preview (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 56317,
+          "excerpt": "shinatama export <thread | agent:session> [-o file.stx.jsonl] [--mode full|portable]\n                      [--format stx|mukade|native|md] [--with-attachments]         -> export",
+          "path": "docs/technical-design.md",
+          "start": 56140
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 56851,
+          "excerpt": "`--format`: `stx` is 5.5.1; `mukade` is Mukade's interchange JSON; `native` is the agent's\nown export where it has one (`export_native`, 5.5 B); `md` is the rendering of 6.4.",
+          "path": "docs/technical-design.md",
+          "start": 56677
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 9534,
+          "excerpt": "(`sessions`, `export`, `import`, `forget`; names\nare my call)",
+          "path": "docs/functional-design.md",
+          "start": 9473
+        }
+      ],
+      "id": "REQ-015",
+      "status": "extracted",
+      "text": "The command line's `shinatama export <thread | agent:session>` writes an export with `-o`, `--mode full|portable`, `--format stx|mukade|native|md` and `--with-attachments`; `stx` is the `.stx.jsonl` format, `mukade` Mukade's interchange JSON, `native` the agent's own export where it has one, and `md` the seed rendering (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 55159,
+          "excerpt": "Two export modes: `full` (everything transferable, for the user's own backup) and\n  `portable` (redacted, for sharing). Secrets are redacted in both before writing (6.4).",
+          "path": "docs/technical-design.md",
+          "start": 54989
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 54059,
+          "excerpt": "#### 5.5.1 Interchange format: `.stx.jsonl` (\"Shinatama transcript\", version 1) [C]",
+          "path": "docs/technical-design.md",
+          "start": 53976
+        }
+      ],
+      "id": "REQ-016",
+      "status": "extracted",
+      "text": "Shinatama exports in two modes, `full` for the user's own backup and `portable` (redacted) for sharing, and redacts secrets in both before writing (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 55306,
+          "excerpt": "`reasoning` items are never exported. Attachments are exported as references with hashes;\n  the files are copied only with `--with-attachments`.",
+          "path": "docs/technical-design.md",
+          "start": 55162
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 54059,
+          "excerpt": "#### 5.5.1 Interchange format: `.stx.jsonl` (\"Shinatama transcript\", version 1) [C]",
+          "path": "docs/technical-design.md",
+          "start": 53976
+        }
+      ],
+      "id": "REQ-017",
+      "status": "extracted",
+      "text": "Shinatama never exports reasoning items; it exports attachments as references with hashes and copies the files only with `--with-attachments` (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 54986,
+          "excerpt": "a higher `version` than\n  the reader knows is refused with a message, not guessed at.",
+          "path": "docs/technical-design.md",
+          "start": 54901
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 54059,
+          "excerpt": "#### 5.5.1 Interchange format: `.stx.jsonl` (\"Shinatama transcript\", version 1) [C]",
+          "path": "docs/technical-design.md",
+          "start": 53976
+        }
+      ],
+      "id": "REQ-018",
+      "status": "extracted",
+      "text": "Shinatama refuses, with a message, an interchange file whose version is higher than the reader knows, instead of guessing (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 56405,
+          "excerpt": "shinatama import <file> --agent A [--cwd DIR] [--dry-run]   -> import (+ verify_import)",
+          "path": "docs/technical-design.md",
+          "start": 56318
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 50279,
+          "excerpt": "C. Write side: IMPORT (post-v1 only)",
+          "path": "docs/technical-design.md",
+          "start": 50243
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 9534,
+          "excerpt": "(`sessions`, `export`, `import`, `forget`; names\nare my call)",
+          "path": "docs/functional-design.md",
+          "start": 9473
+        }
+      ],
+      "id": "REQ-019",
+      "status": "extracted",
+      "text": "The command line's `shinatama import <file> --agent A [--cwd DIR] [--dry-run]` imports an interchange file and verifies the result; import is a post-v1 capability (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 56671,
+          "excerpt": "shinatama doctor [--agent A]                                -> detect, fixture_gate, auth_status",
+          "path": "docs/technical-design.md",
+          "start": 56575
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 9534,
+          "excerpt": "(`sessions`, `export`, `import`, `forget`; names\nare my call)",
+          "path": "docs/functional-design.md",
+          "start": 9473
+        }
+      ],
+      "id": "REQ-020",
+      "status": "extracted",
+      "text": "The command line's `shinatama doctor [--agent A]` reports, per agent, whether it is installed, whether its version passes the fixture gate, and its sign-in status (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 27998,
+          "excerpt": "Unknown record types are skipped and counted; the count is shown by `doctor`.",
+          "path": "docs/technical-design.md",
+          "start": 27921
+        }
+      ],
+      "id": "REQ-021",
+      "status": "extracted",
+      "text": "Shinatama skips and counts unknown record types in an agent's session store, and `shinatama doctor` shows the count (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 57149,
+          "excerpt": "`--json` output has a stable schema and exit codes: 0 done, 2 refused with a reason, 3 needs\nthe user (login, a first-run prompt), 4 failed and nothing changed, 5 failed and recovery\nis needed (`shinatama hop --recover`). [C]",
+          "path": "docs/technical-design.md",
+          "start": 56924
+        }
+      ],
+      "id": "REQ-022",
+      "status": "extracted",
+      "text": "The command line's `--json` output has a stable schema and exit codes 0 (done), 2 (refused with a reason), 3 (needs the user, such as a login or first-run prompt), 4 (failed, nothing changed) and 5 (failed, recovery needed through `shinatama hop --recover`) (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 24956,
+          "excerpt": "`shinatama forget <thread>` deletes a thread's\nsnapshots, messages, summaries and index rows;",
+          "path": "docs/technical-design.md",
+          "start": 24863
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 9515,
+          "excerpt": "`doctor` and the rest of engine 5.5.2 (`sessions`, `export`, `import`, `forget`;",
+          "path": "docs/functional-design.md",
+          "start": 9435
+        }
+      ],
+      "id": "REQ-023",
+      "status": "extracted",
+      "text": "The user can run `shinatama forget <thread>` to delete a thread's snapshots, messages, summaries and index rows from Shinatama's database (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 25001,
+          "excerpt": "a thread can be marked\n`summaries_excluded`;",
+          "path": "docs/technical-design.md",
+          "start": 24957
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 124995,
+          "excerpt": "A thread marked `summaries_excluded` is never sent to any backend.",
+          "path": "docs/technical-design.md",
+          "start": 124929
+        }
+      ],
+      "id": "REQ-024",
+      "status": "extracted",
+      "text": "The user can mark a thread as excluded from summaries, and such a thread is never sent to any summary backend (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 25044,
+          "excerpt": "indexing of a project can be switched off;",
+          "path": "docs/technical-design.md",
+          "start": 25002
+        }
+      ],
+      "id": "REQ-025",
+      "status": "extracted",
+      "text": "The user can switch off the indexing of a project's sessions (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 25165,
+          "excerpt": "no data leaves the\nmachine except the explicit calls in 8.4 (summaries) and the agents' own traffic through\nthe sidecar.",
+          "path": "docs/technical-design.md",
+          "start": 25045
+        }
+      ],
+      "id": "REQ-026",
+      "status": "extracted",
+      "text": "Shinatama sends no data from its database off the machine except the explicit summary calls and the agents' own traffic through the sidecar (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52680,
+          "excerpt": "The workspace can\nbrowse the sessions of every harness Mukade reads and open one in a detail panel.",
+          "path": "docs/functional-design.md",
+          "start": 52581
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-027",
+      "status": "extracted",
+      "text": "The user can browse, in the workspace, the sessions of every harness Mukade reads and open one in a detail panel (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52818,
+          "excerpt": "It is not\npart of the first terminal-first milestone. Read-only browsing is the first slice;\nlive seed hops follow after their hop gates.",
+          "path": "docs/functional-design.md",
+          "start": 52681
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-028",
+      "status": "extracted",
+      "text": "The sessions surface is not part of the first terminal-first milestone: read-only browsing is the first slice, and live seed hops from it follow only after their hop gates (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52938,
+          "excerpt": "Native Import and native handoff are\npost-v1 capabilities and remain unavailable until their separate gates pass (5.2).",
+          "path": "docs/functional-design.md",
+          "start": 52819
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 15115,
+          "excerpt": "**v1 is seed-only (decided 2026-10-31,\nuser).**",
+          "path": "docs/functional-design.md",
+          "start": 15068
+        }
+      ],
+      "id": "REQ-029",
+      "status": "extracted",
+      "text": "The sessions surface keeps native import and native handoff unavailable until their separate post-v1 gates pass (decided by the user, 2026-10-31)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 53200,
+          "excerpt": "The supported Mukade revision must provide a listing reader for every harness shown (four\ntoday; Hermes Agent and DeepSeek Harness appear in the tree once Mukade reads them); the declared\ndependency pin, not an arbitrary local checkout, defines that capability.",
+          "path": "docs/functional-design.md",
+          "start": 52939
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-030",
+      "status": "extracted",
+      "text": "The sessions tree shows only harnesses for which the declared Mukade dependency pin, not an arbitrary local checkout, provides a listing reader; Hermes Agent and DeepSeek Harness appear once Mukade reads them (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 53490,
+          "excerpt": "A Projects/Sessions switch in the navigator;\n  harness nodes expand to their sessions",
+          "path": "docs/functional-design.md",
+          "start": 53405
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-031",
+      "status": "extracted",
+      "text": "The navigator has a Projects/Sessions switch, and harness nodes expand to their sessions (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 53532,
+          "excerpt": "with one metadata-only incremental filter",
+          "path": "docs/functional-design.md",
+          "start": 53491
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-032",
+      "status": "extracted",
+      "text": "The sessions tree offers one metadata-only incremental filter (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 53607,
+          "excerpt": "a manual rescan (`r`) that works only while the navigator has focus.",
+          "path": "docs/functional-design.md",
+          "start": 53539
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-033",
+      "status": "extracted",
+      "text": "The user can trigger a manual rescan of the sessions tree with `r`, which works only while the navigator has focus (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 53683,
+          "excerpt": "Arrow\n  keys move in the tree; they never steal input from a terminal pane.",
+          "path": "docs/functional-design.md",
+          "start": 53608
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 59623,
+          "excerpt": "keyboard focus stays with the terminal\nunless the navigator or a dialog is focused.",
+          "path": "docs/functional-design.md",
+          "start": 59540
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-034",
+      "status": "extracted",
+      "text": "The sessions tree moves with the arrow keys but never steals input from a terminal pane, and keyboard focus stays with the terminal unless the navigator or a dialog is focused (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 53923,
+          "excerpt": "A catalog\n  of persisted `store_root` records identifies box and system roots, their harness,\n  origin, configuration revision and read/write permission.",
+          "path": "docs/functional-design.md",
+          "start": 53770
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 68224,
+          "excerpt": "Store catalog persists root identity, origin, revision and access;",
+          "path": "docs/verification-register.md",
+          "start": 68158
+        }
+      ],
+      "id": "REQ-035",
+      "status": "extracted",
+      "text": "Shinatama keeps a catalog of persisted store roots that identifies each box and system root with its harness, origin, configuration revision and read/write permission (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 54194,
+          "excerpt": "Discovery of system and\n  portable roots may use Mukade's harness catalog and installation scan, one recognition\n  rule set and no second parser; which discovered root becomes a box or a read-only\n  system root is Shinatama's decision, recorded in the catalog (my call).",
+          "path": "docs/functional-design.md",
+          "start": 53924
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 64403,
+          "excerpt": "Store discovery reuses Mukade's catalog and installation scan; Shinatama decides what\n  each root is used for (5.14, 5.16).",
+          "path": "docs/functional-design.md",
+          "start": 64280
+        }
+      ],
+      "id": "REQ-036",
+      "status": "extracted",
+      "text": "Shinatama may discover store roots with Mukade's harness catalog and installation scan, with no second parser, but decides itself which discovered root becomes a box or a read-only system root and records that in the catalog (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 54375,
+          "excerpt": "The tree can read both\n  an agent's box and the system roots exposed read-only by `system_homes()` (5.14);\n  it never chooses a root from an arbitrary instance or ambient defaults.",
+          "path": "docs/functional-design.md",
+          "start": 54195
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-037",
+      "status": "extracted",
+      "text": "The sessions tree can read both an agent's box and the system roots exposed read-only, and never chooses a root from an arbitrary instance or ambient defaults (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 54588,
+          "excerpt": "A `session_detail` panel with Overview, Transcript and\n  Lineage tabs, in-session search, collapsible tool calls, a raw-JSON toggle and\n  copy of the id, native path and resume command.",
+          "path": "docs/functional-design.md",
+          "start": 54403
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-038",
+      "status": "extracted",
+      "text": "The session detail panel has Overview, Transcript and Lineage tabs, in-session search, collapsible tool calls, a raw-JSON toggle, and copy of the session id, native path and resume command (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 54659,
+          "excerpt": "Opening a session is read-only:\n  it never resumes, imports or writes.",
+          "path": "docs/functional-design.md",
+          "start": 54589
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 59008,
+          "excerpt": "the user's own stores and side files stay untouched, including child\nprocess effects; no native write from browsing, opening, searching or copying;",
+          "path": "docs/functional-design.md",
+          "start": 58861
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 59539,
+          "excerpt": "tree and\ndetail restore without resuming anything;",
+          "path": "docs/functional-design.md",
+          "start": 59489
+        }
+      ],
+      "id": "REQ-039",
+      "status": "extracted",
+      "text": "The sessions surface is read-only: opening, browsing, searching or copying a session never resumes, imports or writes, and the user's own stores and side files stay untouched, including effects of child processes (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 54863,
+          "excerpt": "Tree and Overview display only fields the\n  adapter can obtain for that harness and store; unavailable title, cwd, dates,\n  turns or byte counts are `unknown`, never inferred by loading every transcript.",
+          "path": "docs/functional-design.md",
+          "start": 54660
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-040",
+      "status": "extracted",
+      "text": "The sessions tree and Overview show only metadata the adapter can obtain for that harness and store; an unavailable title, cwd, date, turn count or byte count is shown as `unknown`, never inferred by loading every transcript (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 54952,
+          "excerpt": "Native children are included where the reader supports them, not only root\n  sessions.",
+          "path": "docs/functional-design.md",
+          "start": 54866
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-041",
+      "status": "extracted",
+      "text": "The sessions tree includes native child sessions where the reader supports them, not only root sessions (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 55093,
+          "excerpt": "Reads run off the UI thread against an\n  explicitly selected `store_root_id`; the panel names the store",
+          "path": "docs/functional-design.md",
+          "start": 54990
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-042",
+      "status": "extracted",
+      "text": "The session panel reads off the UI thread against an explicitly selected store root and names the store it reads (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 55181,
+          "excerpt": "shows an\n  unavailable or stale state when a root or session is missing or changes.",
+          "path": "docs/functional-design.md",
+          "start": 55098
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-043",
+      "status": "extracted",
+      "text": "The session panel shows an unavailable or stale state when a store root or session is missing or changes (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 55517,
+          "excerpt": "the adapter must enforce a pre-read\n  size cap and return `too large` without loading the session.",
+          "path": "docs/functional-design.md",
+          "start": 55419
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 55677,
+          "excerpt": "limiting only\n  rendering or cache is never sufficient.",
+          "path": "docs/functional-design.md",
+          "start": 55622
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 59182,
+          "excerpt": "with the current whole-session reader, oversized input returns `too large` before the\nread;",
+          "path": "docs/functional-design.md",
+          "start": 59091
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-044",
+      "status": "extracted",
+      "text": "The session panel returns `too large` without loading a session that exceeds the pre-read size cap, until a bounded incremental reader is available; limiting only rendering or cache is never sufficient (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 59364,
+          "excerpt": "after the incremental-reader gate, a 30 MB transcript meets a recorded\nend-to-end memory and responsiveness budget and larger input pages or is refused\nwithout unbounded allocation;",
+          "path": "docs/functional-design.md",
+          "start": 59183
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 55621,
+          "excerpt": "The paged adapter contract\n  is a required new capability, not a feature attributed to the current pin;",
+          "path": "docs/functional-design.md",
+          "start": 55518
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-045",
+      "status": "extracted",
+      "text": "Shinatama must gain bounded, paged transcript reading as a new capability, not attributed to the current Mukade pin; with it a 30 MB transcript opens within a recorded end-to-end memory and responsiveness budget, and larger input is paged or refused without unbounded allocation (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 55805,
+          "excerpt": "late or cancelled results are discarded.",
+          "path": "docs/functional-design.md",
+          "start": 55765
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 59433,
+          "excerpt": "stale, cancelled and concurrent reads cannot update\nthe wrong panel;",
+          "path": "docs/functional-design.md",
+          "start": 59365
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-046",
+      "status": "extracted",
+      "text": "The session panel discards late, cancelled, stale or concurrent reads so they can never update the wrong panel (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 55967,
+          "excerpt": "Where a reader\n  launches a harness command, such as OpenCode export, it inherits the adapter's\n  complete isolated launch context, timeout and cleanup contract;",
+          "path": "docs/functional-design.md",
+          "start": 55806
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-047",
+      "status": "extracted",
+      "text": "Shinatama runs any harness command a session reader launches, such as OpenCode export, with the adapter's complete isolated launch context, timeout and cleanup (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 56278,
+          "excerpt": "Raw display and copy are explicit actions with a privacy warning\n  and redaction by default; an override reveals the selected records only.",
+          "path": "docs/functional-design.md",
+          "start": 56139
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        },
+        {
+          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "end": 68890,
+          "excerpt": "planted secrets do not leak by default.",
+          "path": "docs/verification-register.md",
+          "start": 68851
+        }
+      ],
+      "id": "REQ-048",
+      "status": "extracted",
+      "text": "The session panel shows and copies raw records only as explicit actions with a privacy warning and redaction by default; an override reveals only the selected records (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 56343,
+          "excerpt": "Raw and\n  copied content is never logged or persisted by the UI.",
+          "path": "docs/functional-design.md",
+          "start": 56279
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-049",
+      "status": "extracted",
+      "text": "The sessions UI never logs or persists raw or copied session content (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 56474,
+          "excerpt": "Export is separate from\n  browsing and offers explicit **STX**, **portable Mukade JSON** and **native**\n  choices where supported.",
+          "path": "docs/functional-design.md",
+          "start": 56344
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-050",
+      "status": "extracted",
+      "text": "The sessions surface offers export separately from browsing, with explicit STX, portable Mukade JSON and native choices where supported (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 56671,
+          "excerpt": "Each declares format version, raw/unknown-field and\n  attachment handling, redaction, losses, overwrite and atomic-output behaviour;\n  portable Mukade JSON is not represented as a lossless backup.",
+          "path": "docs/functional-design.md",
+          "start": 56475
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-051",
+      "status": "extracted",
+      "text": "The sessions surface declares for each export choice its format version, raw and unknown-field handling, attachment handling, redaction, losses, overwrite and atomic-output behaviour, and never presents portable Mukade JSON as a lossless backup (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 56731,
+          "excerpt": "Resume starts a PTY through the adapter.",
+          "path": "docs/functional-design.md",
+          "start": 56691
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-052",
+      "status": "extracted",
+      "text": "The user can resume a session from the sessions surface, which starts a PTY through the agent's adapter (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 56847,
+          "excerpt": "`hop_live` operates on\n  a hosted instance/segment and follows close/fork, cursor, idle and catch-up rules\n  (5.2).",
+          "path": "docs/functional-design.md",
+          "start": 56732
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-053",
+      "status": "extracted",
+      "text": "The sessions surface runs a live hop on a hosted instance and segment, following the close/fork, cursor, idle and catch-up rules of the hop (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 57033,
+          "excerpt": "`handoff_history` operates on a historical native session: it creates a\n  derived thread and source segment without closing a process, waiting for idle or\n  inventing a live activation;",
+          "path": "docs/functional-design.md",
+          "start": 56848
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 91465,
+          "excerpt": "It never closes a source process,\nwaits for idle or performs live catch-up.",
+          "path": "docs/technical-design.md",
+          "start": 91390
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-054",
+      "status": "extracted",
+      "text": "The user can hand off a historical native session from the sessions surface, which creates a derived thread and source segment without closing a process, waiting for idle, performing live catch-up or inventing a live activation (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 57081,
+          "excerpt": "its source fingerprint is rechecked before use.",
+          "path": "docs/functional-design.md",
+          "start": 57034
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 91594,
+          "excerpt": "The source fingerprint is captured for the\npreview and checked again before use; a mismatch restarts preview instead of writing.",
+          "path": "docs/technical-design.md",
+          "start": 91466
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-055",
+      "status": "extracted",
+      "text": "Shinatama captures the source fingerprint of a historical handoff for the preview and checks it again before use; a mismatch restarts the preview instead of writing (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 57172,
+          "excerpt": "In\n  v1 both paths use only seed delivery; native Import and native handoff are\n  post-v1.",
+          "path": "docs/functional-design.md",
+          "start": 57082
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 15115,
+          "excerpt": "**v1 is seed-only (decided 2026-10-31,\nuser).**",
+          "path": "docs/functional-design.md",
+          "start": 15068
+        },
+        {
+          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "end": 91666,
+          "excerpt": "V1\nhistorical handoff uses `seed_prompt`; native conversion is post-v1.",
+          "path": "docs/technical-design.md",
+          "start": 91595
+        }
+      ],
+      "id": "REQ-056",
+      "status": "extracted",
+      "text": "Shinatama v1 uses only seed delivery for both the live hop and the historical handoff (decided by the user, 2026-10-31)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 57341,
+          "excerpt": "Before any post-v1 write, the dialog shows the exact staged payload and\n  known losses, obtains consent and journals the reserved destination id/path\n  where supported.",
+          "path": "docs/functional-design.md",
+          "start": 57173
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-057",
+      "status": "extracted",
+      "text": "The hop dialog, before any post-v1 native write, shows the exact staged payload and known losses, obtains the user's consent and journals the reserved destination id or path where supported (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 57473,
+          "excerpt": "The receipt is persisted even when launch fails; uncertain\n  writes are reconciled against that reservation, never blindly retried.",
+          "path": "docs/functional-design.md",
+          "start": 57342
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 59885,
+          "excerpt": "no duplicate\nsession on double-click or retry.",
+          "path": "docs/functional-design.md",
+          "start": 59839
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-058",
+      "status": "extracted",
+      "text": "Shinatama persists the receipt of a post-v1 native write even when launch fails and reconciles uncertain writes against the reservation, never retrying blindly, so a double-click or retry never creates a duplicate session (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 57528,
+          "excerpt": "A\n  headless resume is a separate, cost-warned action.",
+          "path": "docs/functional-design.md",
+          "start": 57474
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-059",
+      "status": "extracted",
+      "text": "The user can run a headless resume only as a separate action that carries a cost warning (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 57736,
+          "excerpt": "Additional system roots are read-only and\n  cannot become a box's write destination.",
+          "path": "docs/functional-design.md",
+          "start": 57652
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-060",
+      "status": "extracted",
+      "text": "Shinatama treats additional system store roots as read-only and never makes one a box's write destination (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 57867,
+          "excerpt": "A same-harness transfer between two homes (box to\n  system, or into a portable installation) is not offered until SS5 verifies it;",
+          "path": "docs/functional-design.md",
+          "start": 57737
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-061",
+      "status": "extracted",
+      "text": "Shinatama does not offer a same-harness transfer between two homes (box to system, or into a portable installation) until register row SS5 verifies it (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 58212,
+          "excerpt": "unresolved roots, missing executables\n  and refused stores are reported, not replaced by ambient defaults.",
+          "path": "docs/functional-design.md",
+          "start": 58106
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-062",
+      "status": "extracted",
+      "text": "Shinatama reports unresolved store roots, missing executables and refused stores to the user and never replaces them with ambient defaults (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 58314,
+          "excerpt": "The tab distinguishes the Shinatama thread chain, native parent and\n  native children.",
+          "path": "docs/functional-design.md",
+          "start": 58228
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-063",
+      "status": "extracted",
+      "text": "The Lineage tab distinguishes the Shinatama thread chain, the native parent and the native children of a session (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 58476,
+          "excerpt": "Native relations are shown only where the reader exposes them\n  (Pi and OpenCode in the declared Mukade revision); it does not infer edges for\n  Claude or Codex.",
+          "path": "docs/functional-design.md",
+          "start": 58315
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-064",
+      "status": "extracted",
+      "text": "The Lineage tab shows native relations only where the reader exposes them (Pi and OpenCode in the declared Mukade revision) and infers no edges for Claude Code or Codex (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 58536,
+          "excerpt": "Missing, external, ambiguous parents and cycles are marked.",
+          "path": "docs/functional-design.md",
+          "start": 58477
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-065",
+      "status": "extracted",
+      "text": "The Lineage tab marks missing, external and ambiguous parents and cycles (decided by the user, 2026-10-30)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 58607,
+          "excerpt": "Clicking a node opens that session or thread; it does not resume it.",
+          "path": "docs/functional-design.md",
+          "start": 58539
+        },
+        {
+          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "end": 52580,
+          "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 52518
+        }
+      ],
+      "id": "REQ-066",
+      "status": "extracted",
+      "text": "The user can click a lineage node to open that session or thread without resuming it (decided by the user, 2026-10-30)"
+    }
+  ],
+  "schema_version": 1,
+  "status": "Proposed",
+  "superseded_by": null,
+  "title": "Search, sessions and resume",
+  "version": 1
+}
