@@ -111,7 +111,7 @@ user's own level calibrates the depth. See specification 5.5.
 
 - **INV-001**: no state of the companion (a card running, queued, capped, paused or crashed) delays or changes a worker's approval prompt (spec INV-009).
 - **INV-002**: a decision card never recommends an option; its template has no verdict field (spec INV-008).
-- **INV-003**: every claim about a tool or a concept in a decision card is labelled "from the repository" with its path and line, or "general knowledge, not checked"; measured by a rubric, not enforceable at runtime (spec INV-008).
+- **INV-003**: every claim about a tool or a concept in a decision card is labelled "from the repository" with its path and line, "from the web" with its URL and whether the page was read or only a search result (ADR-0043), or "general knowledge, not checked"; measured by a rubric, not enforceable at runtime (spec INV-008).
 - **INV-004**: a decision card is produced only from a native waiting event, from a finished turn's last assistant message read in the structured transcript, or from an explicit user request (the expand action); a pending request is never inferred from screen text.
 - **INV-005**: no instruction, text or tool is added to the worker's prompt, system prompt, tools or context for any decision card, and the worker is never asked to expand its own messages (spec INV-012).
 - **INV-006**: a new card never takes keyboard focus from, nor scrolls or resizes, the worker's pane (spec INV-010).
@@ -121,7 +121,7 @@ user's own level calibrates the depth. See specification 5.5.
 - technical-design 8.1 and 8.3: the waiting event carries the pending request where the harness reports it, redacted before the feed; functional-design 5.16 gains an "Explain this" action on a text selection.
 - The turn-end origin depends on the per-harness turn-end signal and the incremental reader of the specification (9.6): until they exist only the other two origins work.
 - Cost: one card per request that is not a read inside the worktree; a turn-end card replaces the recap of that turn instead of adding one; it counts against the companion's daily cap, and at the cap a stub remains for a pending request while turn-end cards pause with the other automatic cards.
-- Without network, an explanation of an external tool is general knowledge and says so; a user-approved documentation lookup is an open point of the specification.
+- Outside a web turn, an explanation of an external tool is general knowledge and says so; with web grounding (ADR-0043) it can carry a web source.
 - The classification of a turn-end message is a model judgement that can be wrong; the expand action recovers a miss.
 - New register rows 10 to 14 of the specification (pending-request feed and latency, decision-card rubric, Explain this, presets and attention, origin classification).
 
