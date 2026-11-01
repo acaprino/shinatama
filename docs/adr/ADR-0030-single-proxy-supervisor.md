@@ -43,7 +43,11 @@ Shinatama has no code yet. On 2026-10-31, with BillionContext 0.1.207, several s
 one proxy and each session's launcher watched it itself: it counted the proxy dead after two
 missed health checks of 1.5 s, started a replacement that could only lose the port to the busy
 proxy, and printed every attempt on its agent's terminal. That day 170 replacements started and
-the agents' screens filled with the messages (functional-design 5.6). Three supervision items
+the agents' screens filled with the messages (functional-design 5.6). On 2026-11-01 a launcher
+build whose recovery messages had been moved to a log still printed `bili: watcher registration
+failed — the shared proxy may exit when its first owner does (The operation was aborted due to
+timeout)` over Claude Code's screen: the owner-renewal path had been missed. Moving messages one
+path at a time does not close the class. Three supervision items
 were then added to the sidecar acceptance list of functional-design 5.6 (commit `9eabbaa`), whose
 heading carries the user's decision "same resilience, security, compression". Technical-design 9
 tags the proxy supervision [C], so the exact rule is the author's call, not confirmed by the
@@ -78,11 +82,13 @@ functional-design 5.6 and technical-design 9.
 - **EX-001** (boundary case): Input: five instances attached; the proxy's event loop held for 60 s (a debugger pause or a synthetic long compression) while its port still accepts connections -> Expected: no replacement process starts, no line appears in any agent's terminal, the window shows the proxy busy and then normal, and the agents' next turns go through (register SC14).
 - **EX-002** (rejection or error case): Input: the proxy killed mid-turn with five instances attached -> Expected: exactly one replacement starts, every agent recovers, no final flush is lost and nothing is printed in any agent's terminal (register SC6).
 - **EX-003** (boundary case): Input: the Windows proxy watcher (2 s) with Shinatama as the long-lived owner, after the proxy's own event loop was blocked for 60 s -> Expected: no premature or late shutdown (register SC12).
+- **EX-004** (rejection or error case): Input: five instances attached and running; the owner-renewal request to the proxy times out after 2 s and is then refused, an attach-gate refusal is raised and a stale-proxy rotation is attempted -> Expected: each event is recorded once in Shinatama's log, and every agent's terminal carries only bytes the agent itself wrote (register SC15).
 
 ## Rejected Alternatives
 
 - **RA-001**: per-session supervision of a shared proxy, as the shipped launcher does it; observed on 2026-10-31 to count a busy proxy dead, start replacements that lose the port and print every attempt on the agents' terminals (170 replacements in one day).
 - **RA-002**: treating missed health checks alone as death; a long compression can hold the event loop for a minute while the port still accepts connections, and a replacement could not bind that port.
+- **RA-003**: guarding the terminal by moving the launcher's messages to a log one path at a time; rejected because the 2026-11-01 message came from a path that such a fix had missed, and the sidecar code stays unmodified (ADR-0029), so Shinatama cannot audit every message of a later upstream version.
 
 ## Enforceable Invariants
 
@@ -91,6 +97,7 @@ functional-design 5.6 and technical-design 9.
 - **INV-003**: a recovery starts exactly one replacement, on the original address, and waiting sessions attach to it.
 - **INV-004**: no sidecar diagnostic is written to an agent's terminal.
 - **INV-005**: a session's process never probes, restarts or reports on the proxy.
+- **INV-006**: the bytes on an agent's terminal come only from the agent. This is verified by capturing the terminal while faults are injected (register SC15), not by auditing individual messages, and it holds for every launch path chosen under SC5.
 
 ## Consequences
 
@@ -101,5 +108,5 @@ functional-design 5.6 and technical-design 9.
 
 ## Confirmation
 
-- Register SC5, SC6, SC12 and SC14 pass; all are open (SC14 was added with this rule).
+- Register SC5, SC6, SC12, SC14 and SC15 pass; all are open (SC14 and SC15 were added with this rule).
 - Nothing has been run under Shinatama; the only evidence is the 2026-10-31 observation of the shipped launcher.
