@@ -1786,6 +1786,19 @@ instances whose worktree roots are equal and whose modified paths intersect rais
 - The low-cost title calls and roundtable bare-model calls go through the same sidecar so
   the cost and security properties hold (child-only environment, child-only certificate
   trust, no credentials in the manifest).
+- **Proxy supervision** [C] (main spec 5.6): the Shinatama process that owns the proxy is
+  its only supervisor. Liveness is two facts checked by that process: the proxy's process
+  is alive, and its port accepts a TCP connection. A missed health check with both facts
+  true marks the proxy **busy**: the window shows it and nothing is started, because a
+  replacement could not bind the port. Recovery on the original address starts only when
+  the process has exited or the port refuses connections; it starts one replacement,
+  and every waiting session attaches to it. A session's process never probes, restarts
+  or reports on the proxy: when the shipped per-session launcher is used, its
+  supervision is switched off and its output kept off the agent's terminal; which
+  launch path is used is decided with SC5. Sidecar diagnostics go to Shinatama's log;
+  the window shows the busy and recovering states. The proxy's own owner watchdog
+  must not take a long stall of its event loop for the loss of every owner (SC12).
+  To be proved: SC5, SC6, SC12, SC14.
 
 ### 9.1 Research folded in
 

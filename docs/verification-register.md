@@ -325,15 +325,16 @@ short form of this set; this register is the complete one and wins where they di
 | SC2 | G0 | **SEC** Environment applied to the child only | Inspect parent, siblings, shell | No leakage | main 5.6 |
 | SC3 | G0 | **SEC** The certificate authority is trusted only by the launched process, per agent runtime (native binary, Rust, Bun, Node) and per OS; the system trust store is unchanged | Before and after store listing; each agent's TLS to the proxy | Works in each; store unchanged | main 5.6 |
 | SC4 | G0 | **SEC** The launch manifest holds argv and overrides only, no credentials | Inspect on disk | None found | main 5.6 |
-| SC5 | G0 | One proxy per instance versus one shared (spec Q7): memory, recovery, isolation | Prototype both | Decision written | engine 9 |
-| SC6 | G0 | Proxy recovery on the original address while the agent keeps running; orderly drain when an instance (not the window) exits | Kill the proxy mid-turn | Agent recovers; no lost final flush | main 5.6 |
+| SC5 | G0 | One proxy per instance versus one shared (spec Q7): memory, recovery, isolation; and the launch path (the shipped per-session launcher with its supervision off, or a direct launch with the proxy environment) that keeps Shinatama the only supervisor | Prototype both | Decision written | engine 9 |
+| SC6 | G0 | Proxy recovery on the original address while the agent keeps running; orderly drain when an instance (not the window) exits | Kill the proxy mid-turn with 5 instances attached | Exactly one replacement starts; every agent recovers; no lost final flush; nothing printed in any agent's terminal | main 5.6; engine 9 |
 | SC7 | G0 | Compression behaviour as shipped: the sidecar's own fixtures against Shinatama-launched sessions; the `--no-context` opt-out | Run the sidecar's fixtures | Results match the fixtures | main 5.6 |
 | SC8 | G1 | The bili MCP shim follows `/resume` under Shinatama and coexists with `shinatama mcp` | Resume test | Correct session id | main 5.6 |
 | SC9 | G0 | **SEC** The seed, bootstrap and receipt are not altered by the prompt rewriter or externalized by CCR; a first destination turn does not trigger a compression pass | Compare sent and received bytes | Identical; or a bypass marker is added | engine 9 |
 | SC10 | G1 | Reusing the sidecar's auxiliary-call path for titles and roundtable calls without handling credentials (the rewriter is the precedent) | Read and try | A path exists, or the titler uses another route | engine 8.4 |
 | SC11 | G1 | Gemini launch-only keeps working through the sidecar | Launch | Starts and is compressed through the sidecar | main 5.9 |
-| SC12 | G1 | The Windows proxy watcher (2 s) with Shinatama as the long-lived owner | Test | No premature or late shutdown | main 5.6 |
+| SC12 | G1 | The Windows proxy watcher (2 s) with Shinatama as the long-lived owner, including after the proxy's own event loop was blocked for longer than the watcher's interval | Test; block the proxy's loop for 60 s | No premature or late shutdown | main 5.6 |
 | SC13 | G1 | Providing Node on macOS and Linux (system, bundled, downloaded): offline, size, version | Try the options | One chosen | main 5.6 |
+| SC14 | G0 | A busy proxy is not replaced: its event loop is held while its port still accepts connections | With 5 instances attached, hold the proxy's loop for 60 s (debugger pause or a synthetic long compression) | No replacement process starts; no line appears in any agent's terminal; the window shows the proxy busy, then normal; the agents' next turns go through | main 5.6; engine 9 |
 
 ## 12. Daodan, checkup, login (D)
 

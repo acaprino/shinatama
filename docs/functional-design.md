@@ -352,6 +352,16 @@ below, verified under Shinatama and not assumed:
 - the launch manifest holds argv and launch overrides only, never credentials;
 - automatic proxy recovery on the original address for active sessions; orderly
   drain on exit;
+- one supervisor per proxy: Shinatama alone starts and restarts it, and a recovery
+  starts one replacement; each session's process attaches to the proxy and never
+  starts a replacement of its own;
+- busy is not dead: a proxy whose port still accepts connections while it misses
+  health checks (a long compression can hold its event loop for a minute) is shown
+  as busy and never duplicated; recovery starts only when its process has exited
+  or its port no longer accepts connections;
+- no sidecar diagnostic is written to an agent's terminal, where it would print over
+  the agent's TUI: diagnostics go to Shinatama's log and to the proxy status shown
+  in the window;
 - no auto-update; the owned source upgrades only through Shinatama;
 - compression policy as shipped (adaptive pressure, CCR, Absorb, profiles);
   `--no-context` remains an explicit per-session opt-out.
@@ -365,6 +375,14 @@ The sidecar needs Node; how Node is provided on macOS and Linux is
 the builder's call within the install story. A known interaction: the hop context
 passes through the sidecar and counts against the destination's window; and the MCP
 shim must follow `/resume` session ids (docs/sidecar.md, 2026-10-26).
+The three supervision items above are not what the shipped launcher does when
+several sessions share one proxy (observed 2026-10-31 with BillionContext 0.1.207):
+each session's launcher watches the proxy itself, counts it dead after two missed
+health checks of 1.5 s, starts a replacement that can only lose the port to the busy
+proxy, and prints every attempt on its agent's terminal. On that day 170 such
+replacements started, and the agents' screens filled with the messages. Shinatama
+therefore does not rely on per-session supervision (technical design 9; register SC6,
+SC12, SC14).
 
 ### 5.7 Skins (decided: default is Shinatama pink; others selectable)
 
