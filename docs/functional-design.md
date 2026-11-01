@@ -355,10 +355,14 @@ below, verified under Shinatama and not assumed:
 - one supervisor per proxy: Shinatama alone starts and restarts it, and a recovery
   starts one replacement; each session's process attaches to the proxy and never
   starts a replacement of its own;
-- busy is not dead: a proxy whose port still accepts connections while it misses
-  health checks (a long compression can hold its event loop for a minute) is shown
-  as busy and never duplicated; recovery starts only when its process has exited
-  or its port no longer accepts connections;
+- busy is not dead: a proxy whose process is alive and still holds its port while it
+  misses health checks (a long compression can hold its event loop for a minute) is
+  shown as busy and never duplicated; whether the port is held is checked by binding
+  it, not by connecting, because on Windows a held proxy refuses new connections once
+  its accept queue is full; recovery starts only when its process has exited or its
+  port is free;
+- the proxy never shuts itself down because its own event loop was held: the time it
+  could not read its owners' heartbeats is not their silence;
 - no sidecar diagnostic is written to an agent's terminal, where it would print over
   the agent's TUI: diagnostics go to Shinatama's log and to the proxy status shown
   in the window. The rule covers every line a launcher or proxy can write (owner
@@ -389,7 +393,12 @@ launcher build whose recovery messages had been moved to a log still printed
 Claude Code's screen: the owner-renewal path had been missed, so fixing messages one path
 at a time does not close the class. Shinatama therefore does not rely on per-session
 supervision or on the launcher's own message discipline (technical design 9; register
-SC6, SC12, SC14, SC15).
+SC6, SC12, SC14, SC15). Later that day the agents received `ECONNREFUSED` by two more
+paths: the shared proxy shut itself down four times with every owner alive, counting
+its own held event loop as their silence, and the launchers' connection checks read the
+busy proxy as gone once its accept queue was full, then started replacements that lost
+the port. Musashi Terminal's owned source fixes both (technical design 9; register
+SC12, SC14, SC16).
 
 ### 5.7 Skins (decided: default is Shinatama pink; others selectable)
 
