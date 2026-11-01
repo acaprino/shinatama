@@ -45,9 +45,10 @@ what a skin may change, and what stays the harness's own inside its pane. Source
 - Decided by the user: a skinnable UI whose default is the pink Shinatama theme, with other
   skins selectable (functional-design goal 7; 5.7, "decided: default is Shinatama pink; others
   selectable").
-- From the native tiling revision (functional-design 5.16, "decided 2026-10-29"; terminal-first
-  scope of 2026-10-30): chrome from the skin, agent terminals from separate per-harness
-  profiles. The doc does not quote the user on the profile details.
+- From the native tiling revision (functional-design 5.16, "decided 2026-10-29") and the
+  terminal-first scope the user decided on 2026-10-30, which includes per-harness terminal
+  profiles: chrome from the skin, agent terminals from separate per-harness profiles. The doc
+  does not quote the user on the profile details.
 - Author's call, not confirmed: the DeepSeek Harness ACP pane (2026-10-31), drawn with the skin
   and a harness accent colour.
 - Left to the builder: final colour tokens and the skin definition format (functional-design 5.7, 8).
@@ -90,7 +91,7 @@ glowing shadows. See functional-design 5.7 and 5.16; technical-design 3.1.
 
 - **RA-001**: following the skin by default inside agent terminals; the profile gives the harness a stable identity in its pane, so following the skin is an explicit compatibility option (functional-design 5.1, 5.7, 5.16).
 - **RA-002**: redrawing the harness's widgets as native controls; the harness owns layout, glyphs, spacing, prompts, boxes and colours inside the PTY (functional-design 5.16).
-- **RA-003**: the HTML mockups' effects (scan lines, clipped corners, glow) as requirements; they illustrate the mood only (functional-design 5.7).
+- **RA-003**: the HTML mockups' effects (scan lines, clipped corners, glow) as requirements; they illustrate the mood only, and where a skin lists scan lines or cut corners they are optional decoration (functional-design 5.7).
 
 ## Enforceable Invariants
 
@@ -105,7 +106,7 @@ glowing shadows. See functional-design 5.7 and 5.16; technical-design 3.1.
 
 - Bundled fonts and their licences join the dependency notice (technical-design 3.1).
 - The terminal-first milestone ships per-harness profiles (functional-design 5.12, 5.16; ADR-0040).
-- Register U2 still reads "changing the skin live applies to the hosted pane without restart or flicker", a row older than the terminal profiles (defined 2026-10-30); its wording should be checked against this decision.
+- Register U2 tests a live skin change on the chrome and the DeepSeek Harness ACP pane, without restart or flicker, with terminal panes keeping their harness profiles unless follow-skin is on.
 - The Oni-derived art of the default skin is a distribution decision separate from the code (functional-design 5.12; register O4).
 
 ## Confirmation

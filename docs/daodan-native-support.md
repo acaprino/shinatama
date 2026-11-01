@@ -7,7 +7,7 @@ Status: proposed, not approved. Nothing is built. Amends [the functional design]
 
 The user, 2026-10-27: "shinatama deve essere un supporto nativo per daodan" (Shinatama must be a native support for Daodan).
 
-Until now Shinatama only *installed* Daodan (5.5) and typed its commands from a palette. Daodan was "a set of plugins and nothing else", and any Daodan state inside Shinatama was a non-goal. That is reversed. **Shinatama becomes a first-class host for Daodan's task layer**: it sees Daodan's tasks, ties them to threads, and carries a task across a hop without losing who holds it. (My reading of "native"; the sentence has one requirement and I took the widest reading that does not make Shinatama a second Daodan.)
+Until now Shinatama only *installed* Daodan (5.5) and typed its commands from a palette. Daodan was "a set of plugins and nothing else", and any Daodan state inside Shinatama was a non-goal. That is reversed. **Shinatama becomes a first-class host for Daodan's task layer**: it sees Daodan's tasks, ties them to threads, and carries a task across a hop without losing who holds it. (My reading of "native"; the sentence has one requirement and I took the widest reading that does not make Shinatama a second Daodan. The user confirmed this shape on 2026-11-01; the calls of section 7 are still to check.)
 
 Why it matters: Daodan's lock is the task holder in `.daodan/agenda.json`. A hop starts a *new* native session in the destination, so without support the destination agent is refused by the holder rule (the old session still "holds" the task) and the user has to explain and take over by hand. That is exactly the re-explaining Shinatama exists to remove.
 
@@ -17,7 +17,7 @@ Why it matters: Daodan's lock is the task holder in `.daodan/agenda.json`. A hop
 
 1. **Read Daodan's task state**, read-only, for every project Shinatama knows: tasks with objective, branch, worktree, phase, status, sealed waves, unanswered questions, holder.
 2. **Link threads to tasks** (derived, rebuildable, never authoritative).
-3. **Carry a task across a hop**: the destination knows the task, and the user's confirmation in the hop dialog is the "user confirms the old session is closed" that Daodan's take-over requires.
+3. **Carry a task across a hop**: the destination knows the task. The "user confirms the old session is closed" that Daodan's take-over requires is the user's confirmation in the hop dialog plus the hop reaching COMMITTED and the source's confirmed closure; only then does a separate handover message enable the takeover (4.3).
 4. **Start and resume in the task's worktree**: a thread for a task opens with that task's worktree as its directory.
 5. **Surface what needs the user**: unanswered questions and stale holders in the project manager, the overview tab (5.13) and the widget (5.8).
 6. **Task-aware palette**: the `^K` palette offers the task commands (show status, continue this task) next to the workflows of 5.5.
@@ -27,7 +27,7 @@ Why it matters: Daodan's lock is the task holder in `.daodan/agenda.json`. A hop
 ### Non-goals
 
 - **Writing any Daodan file** (`agenda.json`, `runs/`, `processes/`, worktrees). Daodan's scripts are the only writer. Reason: the agenda row *is* the lock, and Daodan states that a bound process cannot bypass its grants, deliveries, questions or gates (`AGENTS.md:92-94`). A second writer would be the bypass.
-- A task graph, checkpoints, an addressed mailbox, a scheduler: still Daodan's roadmap (functional design, non-goals).
+- A task graph, checkpoints, an addressed mailbox that outlives the sessions or the expiry, a scheduler: still Daodan's roadmap (functional design, non-goals; Shinatama's own messages between instances expire, engine 7.1).
 - Creating or removing worktrees (Worktrunk and Daodan own that).
 - Cross-machine holder logic: a holder whose `host` is another machine is shown, never judged stale.
 - Guessing: an unreadable or unknown-schema agenda shows as "Daodan state unreadable (schema X)", never as an empty list.
@@ -47,7 +47,7 @@ Source of truth: `.daodan/agenda.json`, schema `daodan/agenda/v1`, in the **main
 Rules:
 
 - **Read-only, schema-checked.** A different `schema` value is a visible error. Rows are keyed by `run_id`.
-- **Rebuilt, not cached as truth**: Shinatama's SQLite keeps only the thread-to-`run_id` link and the last-seen row for display when the file is unreachable (Drive paths).
+- **Rebuilt, not cached as truth**: Shinatama's SQLite keeps only the thread-to-`run_id` link, the last-seen row for display when the file is unreachable (Drive paths) and the per-project "Not now" of 4.7.
 - **A completed row has no holder** (Daodan releases it on completion); Shinatama shows it as done and stops offering "continue".
 
 ## 4. Behaviour
@@ -95,7 +95,7 @@ The user, 2026-10-27: "mi aspetto che attivi tutti i plugin di shinatama" (I exp
 - A plugin whose MCP server does not start is reported by the checkup and never blocks the launch.
 - A plugin added in a later release is enabled at the next check.
 - Setting `daodan.enable = all | core | custom`, default `all`; `core` is the entry plugin plus its dependency closure.
-- **Only Daodan is a plugin marketplace** (user, 2026-10-27). The old `acaprino/shinatama` marketplace repository was deleted the same day (D1); its 24 plugins all exist in Daodan at an equal or newer version, so "all the plugins" is exactly Daodan's list. Shinatama registers one marketplace per host and no other.
+- **Any marketplace may be registered** (user, 2026-11-01). On 2026-10-27 the user had decided that only Daodan is a plugin marketplace, and the old `acaprino/shinatama` marketplace repository was deleted the same day (D1); its 24 plugins all exist in Daodan at an equal or newer version, so "all the plugins" is exactly Daodan's list. That restriction is lifted: the marketplaces Daodan declares as dependencies (`allowCrossMarketplaceDependenciesOn`; seven at Daodan `9fa47e7`) and any other marketplace are allowed. "All the plugins" still means Daodan's list.
 
 Cost, said once: "all" puts every plugin's skill descriptions and tool definitions into each agent's context, and this very session already has MCP servers from Daodan plugins (moe, peer-review, playwright, work-controller) that failed to start. The setting and D4 exist for that; the default stays `all` as asked.
 
@@ -111,9 +111,11 @@ When a project is opened in the project manager, or a thread is first started in
 
 A choice types the agent's native command; the user presses Enter. The questions that follow (decision records, analysis depth) are Daodan's, asked through the agent's question tool: Shinatama neither asks them nor passes answers. "Not now" is remembered per project in Shinatama's SQLite, because declining writes nothing in the project; the next Daodan workflow still asks its own first-use questions. The offer ends when a state directory appears.
 
+For a project created by Shinatama, the new-project dialog's option to type Daodan's native init command (functional design 5.4) is the only offer: declining it counts as "Not now" and no second offer follows. The one-time offer above stays for projects that are opened, not created (user, 2026-11-01).
+
 ## 5. Engine impact (for the engine spec after approval)
 
-- A `daodan` reader module: resolve main checkout, read and validate `agenda.json`, expose rows; watch the file for changes with a bounded poll (no resident service beyond the terminal's life).
+- A `daodan` reader module: resolve main checkout, read and validate `agenda.json`, expose rows; watch the file for changes with a bounded poll (no resident service beyond the owning window's life).
 - One SQLite table `thread_task(thread_id, run_id, link_kind, last_row_json, seen_at)`; derived, droppable.
 - Hop seed (6.4) gains an optional Daodan block with its own budget line; the preview renders it.
 - The adapter contract (section 6) gains nothing: the task commands are typed text per agent.

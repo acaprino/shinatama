@@ -45,12 +45,12 @@ agent's environment markers and would pass them to every agent it launches. The 
 2026-10-28 showed that an interactive Claude Code 2.1.312 that inherits
 `CLAUDE_CODE_CHILD_SESSION` saves no transcript and no history.
 
-Origin: technical-design 3 tags the rule "[C; decided by the user 2026-10-28]", and the
-harness/cli survey note (`docs/notes/2026-10-28-harness-cli-survey.md`, section 4 item 4) says
-"Adopted 2026-10-28". Functional-design 7 lists it among the "calls made to settle the rest
-(check them)". The per-agent name lists come from the P20 record,
-which is still running (partial). The full rule and evidence are in technical-design 3 and the
-P20 record; this record holds only the decision.
+Origin: decided by the user on 2026-10-28 and confirmed by the user on 2026-11-01:
+technical-design 3 marks the rule "decided by the user 2026-10-28", functional-design 7 marks it
+"user, 2026-10-28", and the harness/cli survey note
+(`docs/notes/2026-10-28-harness-cli-survey.md`, section 4 item 4) says "Adopted 2026-10-28". The
+per-agent name lists come from the P20 record, which is still running (partial). The full rule
+and evidence are in technical-design 3 and the P20 record; this record holds only the decision.
 
 ## Decision Drivers
 
@@ -104,8 +104,6 @@ P20 record; Hermes Agent and DeepSeek Harness add theirs through HM11 and DS11. 
 - Open: P20 ran on Windows only, with a mock model in print or exec mode. A real nested
   interactive start for Codex, OpenCode and Pi, and macOS and Linux, are not run (register 20,
   next run 1). HM11 and DS11 are open.
-- Functional-design 7 and technical-design 3 label the origin differently; approving this record
-  settles it.
 
 ## Confirmation
 

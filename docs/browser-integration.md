@@ -46,10 +46,13 @@ an Ultra Nerd review. It is not yet an approved build plan.
 
 - One-shot Moli operations through `moli fetch`: text/structured extraction and,
   where verified, screenshots or other bounded artifacts.
+- MCP web interfaces, if B3 demonstrates them within one-shot `fetch`; otherwise
+  they are explicitly deferred (section 11), never replaced by `serve` (user,
+  2026-11-01).
 - Read-only access to explicitly authorized local HTML roots and explicitly
   authorized local or remote HTTP(S) targets.
-- Static preview artifacts shown where the terminal supports them, otherwise
-  exposed as an artifact with a clear textual alternative.
+- Static preview artifacts shown in native preview panes when supported, otherwise
+  exposed as a private artifact with a clear textual alternative.
 - A separate Patchright UI session started only by the user, with its own profile
   and explicit lifecycle.
 - A small common request/result contract that preserves unsupported capabilities
@@ -93,14 +96,15 @@ revoked. Neither creates a shared resident service.
 
 ### 4.1 `/browse`
 
-`/browse` is the proposed single entry point. Its final spelling is a builder's
-choice, but its semantics are fixed:
+`/browse` is the proposed single entry point. Its final spelling is the author's
+call (functional design 4), but its semantics are fixed:
 
 - `read`: extract bounded text or structured content through Moli.
 - `preview`: produce a static visual artifact through Moli, enabling layout only
   for that operation.
 - `open-ui`: open a Patchright/Chrome UI session; requires an explicit user
-  request.
+  request. While `browser.patchright.enabled` is off it returns `unsupported`
+  explaining how to enable it (section 10; user, 2026-11-01).
 - `--engine=moli|patchright`: optional explicit override, not a security boundary.
 - A free-form request may be classified by the preinstalled skill. The selected
   engine, reason, operation and scope are shown before execution.
@@ -130,7 +134,7 @@ image support. Static artifacts can use native preview panes (main design 5.16).
 | Read/extract local HTML or an authorized web target | Moli | Existing task/request scope |
 | Static preview | Moli | Same scope plus artifact permission |
 | MCP web interface, bounded one-shot operation | Moli | Explicit local service/target scope |
-| Visible browser, login, MFA, CAPTCHA | Patchright UI | Explicit user request |
+| Visible browser, login, MFA, CAPTCHA | Patchright UI | Explicit user request, with `browser.patchright.enabled` on; otherwise `unsupported` (10) |
 | Ambiguous, non-sensitive read | Moli | Narrowest applicable scope |
 | Ambiguous sensitive action or broad local access | None | Ask for clarification |
 | Moli reports unsupported/failed | Keep Moli; stop | A new explicit user command is required to use Patchright |
@@ -310,7 +314,11 @@ browser.max_concurrent_fetch = <bounded>
 
 Versions, checksums, licenses and update behavior are pinned and recorded. An
 optional component is never downloaded merely because `/browse` was invoked; a
-missing UI component returns an explanatory `unsupported` result.
+missing UI component returns an explanatory `unsupported` result. With
+`browser.patchright.enabled = false`, `open-ui` returns `unsupported` explaining how
+to enable it; nothing is downloaded or started automatically (user, 2026-11-01).
+Consent has two levels: the one-time opt-in of that setting, then an explicit request
+for each UI session.
 
 The base startup gate is observable without a performance baseline: no Moli,
 Patchright, companion or Chrome process is started until requested, and enabling
@@ -327,8 +335,9 @@ evidence before that baseline exists.
 B1–B10 in the register are normative. In short:
 
 - local HTML extraction and optional static rendering are correct;
-- the MCP UI use case is either demonstrated within the one-shot boundary or
-  explicitly deferred, never silently replaced by `serve`;
+- the MCP UI use case is either demonstrated within the one-shot boundary (B3),
+  and then stays in the first integration, or explicitly deferred, never silently
+  replaced by `serve` (user, 2026-11-01);
 - `serve` and companion transports pass endpoint isolation and hostile-content
   tests before persistent automation is enabled;
 - routing and permissions cannot be changed by pages/errors/agent output;
@@ -338,10 +347,13 @@ B1–B10 in the register are normative. In short:
 - concurrent UI actions cannot steal control or apply stale approvals;
 - performance is reported from reproducible whole-tree measurements.
 
-If Moli fails the priority use cases or shows no accepted benefit, do not make it
-the default. If only the UI path fails, defer it and record that the graphical
-requirement remains open. A failed `serve` gate limits persistent Moli automation;
-it does not invalidate successful one-shot `fetch` cases.
+If Moli fails the priority use cases or shows no accepted benefit, the gate defers,
+it does not withdraw (user, 2026-11-01): Moli stays the default (requirement 1),
+its fast path is not enabled until it passes, and meanwhile only the explicit
+Patchright UI or no browser is available; no other engine becomes the default. If
+only the UI path fails, defer it and record that the graphical requirement remains
+open. A failed `serve` gate limits persistent Moli automation; it does not
+invalidate successful one-shot `fetch` cases.
 
 ## 12. Evidence and open decisions
 
@@ -365,7 +377,7 @@ traffic, rendering, compatibility, sandbox, cleanup or performance claim has bee
 verified locally.
 
 Builder choices, subject to the gates: Node.js versus Python for the companion,
-private transport implementation, exact command/schema names, OS process cleanup,
+private transport implementation, exact schema names, OS process cleanup,
 artifact viewer and retention defaults. User decisions still open: whether the
 reduced first integration without `serve`/interactive Moli previews is sufficient,
 and the performance budget after a baseline exists. Overall design approval remains

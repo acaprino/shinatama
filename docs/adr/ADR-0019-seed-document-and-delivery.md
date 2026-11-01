@@ -48,9 +48,14 @@ destination is prepared, and how a hop back works.
 Origin: author's proposed shape, not confirmed by the user. Budget, full-transcript location,
 noise filtering, argv bootstrap and warm standby are "[C]"; the redaction rule list is "the
 builder's"; markers and cuts are lessons from Agent Deck's source ("[S]"); per-agent channels
-are research ("[R]"). Functional-design 5.2 marks the whole thread "my call" and the catch-up "a
-guess to validate". Technical-design 5.6 and 6.4 to 6.6 hold the full design; this record holds
-only the decision.
+are research ("[R]"). Two register rules are written into the governing sections as the
+author's calls: lines of the seed or bootstrap that a destination could interpret are never
+executed or expanded (technical-design 6.4; register Q9, H7), and the sidecar delivers the seed,
+bootstrap and receipt as sent (technical-design 9; register Q5, SC9; ADR-0029); where a bypass
+marker is needed for that, the user decided on 2026-11-01 that it goes into the sidecar's single
+source and Shinatama inherits it. Functional-design
+5.2 marks the whole thread "my call" and the catch-up "a guess to validate". Technical-design 5.6
+and 6.4 to 6.6 hold the full design; this record holds only the decision.
 
 ## Decision Drivers
 
@@ -117,12 +122,15 @@ turns, same budget and receipt; if that session is gone or cannot be resumed, fa
 - **INV-005**: argv carries at most a 2 KB bootstrap; no agent is spawned through a shell.
 - **INV-006**: cuts never fall inside a turn or a multi-byte character; an empty projection is never sent.
 - **INV-007**: a hand-off message read back from a store is a `meta` marker, never a user turn.
+- **INV-008**: no destination executes or expands a line of the seed or the bootstrap that starts with `/`, `!`, `@path`, `#` or `-`; where a channel would, the seed is escaped or sent by a safe channel (author's call; technical-design 6.4; register Q9, H7).
 
 ## Consequences
 
 - The budget stays well below the sidecar's `maxTokens: 160000`, so a hop does not trigger
-  compression on the first turn (technical-design 9); the sidecar must not rewrite a seed
-  (register Q5, SC9). Each hop costs one short receipt turn; a standby costs memory, not tokens.
+  compression on the first turn (technical-design 9); the seed, bootstrap and receipt reach the
+  agent as sent, with a bypass marker where the prompt rewriter or CCR would alter them, added in
+  the sidecar's single source and never patched inside Shinatama (ADR-0029; register Q5, SC9).
+  Each hop costs one short receipt turn; a standby costs memory, not tokens.
 - Whether each agent's sandbox can read the handoff file is unverified per agent; the data
   directory is the fallback (register H4).
 - The defaults of technical-design 12 (40 %, 60,000 tokens, standby off) are open for the user.

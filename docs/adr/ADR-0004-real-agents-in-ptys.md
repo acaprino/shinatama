@@ -46,7 +46,9 @@ Origin: hosting the agents "as real processes in a terminal multiplexed inside S
 goal 1, and goals are decided by the user unless marked (the agent list on 2026-10-31). The
 native tiling decision of 2026-10-29 kept it: "Agents still run in real PTYs, not simulated
 chats" (functional-design 2, non-goals). Which views Shinatama draws itself is stated in
-functional-design 5.1 without a marker. Emulator fidelity is unproved. The full design is in
+functional-design 5.1 without a marker. Containment of the agent's escape sequences and cleanup
+of its whole process tree were written into functional-design 5.1 on 2026-11-01 as the author's
+calls, from register P9 and P14. Emulator fidelity is unproved. The full design is in
 functional-design 5.1 and 5.16 and technical-design 3.1; this record holds only the decision.
 
 ## Decision Drivers
@@ -77,7 +79,7 @@ technical-design 3.1.
 - **EX-002** (nominal case): Input: the raw byte stream of a scripted session per agent, replayed into the candidate emulator and into a reference terminal -> Expected: the final grids have identical text and attributes, except a written list of exceptions (register P2).
 - **EX-003** (boundary case): Input: a window drawn over the pane and removed while the agent keeps writing -> Expected: screen, cursor, SGR state, wide characters and alternate screen identical before and after; no output lost while the overlay is open (register P12).
 - **EX-004** (boundary case): Input: the agent's truecolour output and the 16-colour remap onto each skin -> Expected: truecolour passes through untouched; every remapped colour meets 4.5:1 against its background or is exempted in writing (register P10; functional-design 5.7).
-- **EX-005** (rejection or error case): Input: a corpus of known terminal escape attacks plus each agent's real stream (OSC 52 clipboard, query answerbacks, window retitling) -> Expected: a hosted agent cannot write the clipboard, read the screen, retitle the outer window or inject input without a documented decision (register P9).
+- **EX-005** (rejection or error case): Input: a corpus of known terminal escape attacks plus each agent's real stream (OSC 52 clipboard, query answerbacks, window retitling) -> Expected: a hosted agent cannot write the clipboard, read the screen, retitle the window or inject input without a documented decision (register P9).
 
 ## Rejected Alternatives
 
@@ -91,16 +93,18 @@ technical-design 3.1.
 - **INV-003**: a native overlay leaves the emulator screen intact, keeps parsing the agent's output while open and restores focus to the originating pane when dismissed.
 - **INV-004**: the agent sees its real pane size: rows and columns come from the content bounds, the final size of a resize is delivered, and zero dimensions are never sent for a collapsed view (technical-design 3.1).
 - **INV-005**: Shinatama's own rich views (find, hop preview, roundtable, overview) are drawn only from structured, read-only data.
+- **INV-006**: a hosted agent's escape sequences cannot write the clipboard, read the screen, retitle the window or inject input unless a documented decision allows it (author's call; register P9).
+- **INV-007**: stopping an instance kills its whole process tree, and a Shinatama crash leaves no orphan agent or MCP server process (author's call; register P14).
 
 ## Consequences
 
-- The first milestone must prove emulator fidelity against the hosted agents on macOS, Linux and Windows: ConPTY escape changes, wide characters and emoji, alternate screen and scroll regions, mouse and advanced keys, kitty or sixel images, no flicker, and how the colour remap reads per skin (functional-design 5.1; technical-design 10 item 7).
-- Key names `^H` and `^K` are placeholders until register U3 settles bindings that no agent or outer terminal consumes.
+- The first milestone must prove emulator fidelity against the hosted agents on macOS and Linux, and on Windows if it is in v1 (open question 1; ConPTY can alter escape sequences): wide characters and emoji, alternate screen and scroll regions, mouse and advanced keys, kitty or sixel images drawn in the pane or cleanly dropped, no flicker, and how the colour remap reads per skin (functional-design 5.1; technical-design 10 item 7).
+- Key names `^H` and `^K` are placeholders until register U3 settles bindings that neither the agents nor the desktop's own shortcuts consume; the window is native, so there is no outer terminal (functional-design 5.1).
 - State should come from native signals rather than the screen where the agent offers them (ADR-0027); only the owning window process writes into a PTY (ADR-0008).
 - The tiling host is ADR-0005; per-harness terminal profiles are ADR-0039; the DeepSeek Harness exception is ADR-0007.
 - Windows in v1 is assumed, not decided (register O3); that a Rust PTY plus emulator hosts the agents faithfully on ConPTY is unproved (functional-design 3).
 
 ## Confirmation
 
-- Register rows P1, P2, P3, P4, P9 and P12 (G0, in the first-milestone set), P6 (G0) and P5, P7, P8, P10, P11 and P13 (G1) pass on macOS, Linux and Windows, each with a record in `docs/verification/`.
+- Register rows P1, P2, P3, P4, P9, P12 and P14 (G0, in the first-milestone set), P6 (G0) and P5, P7, P8, P10, P11 and P13 (G1) pass on macOS and Linux, and on Windows if it is in v1, each with a record in `docs/verification/`.
 - None of these rows has been run, and no PTY or emulator prototype exists.

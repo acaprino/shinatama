@@ -42,9 +42,11 @@ Version 1 · Proposed 2026-11-01 at b667db5 · proposed 2026-11-01 by Alfio Capr
 
 Shinatama has no code yet. The user decided that a desktop widget with Shinatama as an assistant
 is in v1 and is built last within v1 (functional-design goal 9 and 5.8). Its shape is the
-author's call: the core exposes events that the widget subscribes to as just another client, and
-quick answers appear only for prompts recognized with certainty. What "assistant" means is open
-(functional-design 7 item 2; register O3). The instance states, the hook command and the event
+author's call: the widget reads the `event` feed in the shared SQLite database as just another
+client, with an optional local socket or named pipe used only as a wake-up ping, and quick
+answers appear only for prompts recognized with certainty. The widget rules of register W2, W3,
+W5 and W10 are written into functional-design 5.8 as the author's calls. What "assistant" means
+is open (functional-design 7 item 2; register O3). The instance states, the hook command and the event
 feed of technical-design 8.1 to 8.3 are untagged author's design. The question is where
 Shinatama learns what each instance is doing, how far it can trust that, and how the overview,
 the widget and other views hear about it without a daemon. The full design is in
@@ -73,7 +75,8 @@ by a native event.
 `instance` update in one transaction, prints what the agent expects on stdout, exits in under
 100 ms and never fails the agent: errors are logged and swallowed, and it exits 0 unless the
 agent's contract says otherwise. All changes go into one feed, `event(seq, ts, instance_id, kind,
-payload)`, with kinds `state`, `hop`, `message`, `summary`, `alert` and `file_change`. The
+payload)`, with kinds `state`, `hop`, `message`, `summary`, `alert`, `file_change` and
+`file_collision`. The
 overview, the widget and the roundtable view are consumers that remember their last `seq`; a
 process wakes by polling `PRAGMA data_version` every 200 ms, and a socket ping is an optional
 later optimization. The widget is a separate process and needs no other channel; clicking an
@@ -100,19 +103,21 @@ technical-design 4.6 and 8.1 to 8.3.
 - **INV-003**: `shinatama hook` writes the event and the instance update in one transaction, exits in under 100 ms and never makes the agent fail.
 - **INV-004**: `shinatama hook` refuses a caller whose instance token does not match (technical-design 7.5; register M15).
 - **INV-005**: consumers read the `event` feed in `seq` order; the widget uses no other channel.
-- **INV-006**: the widget never takes keyboard focus (register W3).
+- **INV-006**: the widget never takes keyboard focus and never steals keystrokes when an alert appears (author's call; register W3).
+- **INV-007**: a quick answer goes only to the instance and prompt it was offered for, the bubble shows the real command from the native event, and a prompt that changed between the event and the click is refused (author's call; register W5).
+- **INV-008**: the widget honours the reduced-motion setting and has a mute and a disable switch (author's call; register W10).
+- **INV-009**: where always-on-top or free placement fails on Wayland, the widget falls back to a notification-only mode (author's call; register W2).
 
 ## Consequences
 
 - The per-agent signal candidates (Claude hooks through `--settings`, Codex PTY notifications plus `notify` and app-server status, OpenCode SSE, a Pi extension, Hermes shell hooks in the box's `config.yaml`, DeepSeek Harness ACP notifications) each need a fixture; a Hermes on the `system` home has PTY and gateway only (technical-design 5.7 item 3; register HM4).
 - Backend-attach mode, decided before the adapters are written, can change how state is obtained (technical-design 10 item 11).
 - `event` is an operational table; its pruning policy is open (register I8).
-- Functional-design 5.8 still describes the stream as a socket or named pipe; technical-design 3, 4.6 and 8.3 make it the `event` table in SQLite, with a socket only as an optional wake-up ping. The two documents should be aligned.
 - The companion pane of ADR-0002 also reads this feed; the overview (ADR-0028) and the roundtable view (ADR-0026) are consumers.
-- Widget specifics stay open: the toolkit (register W1), Wayland placement (W2), the "assistant" scope (O3) and the Oni character (O4, W9).
+- Widget specifics stay open: the toolkit (register W1), Wayland placement per compositor (W2; the notification-only fallback is INV-009), the "assistant" scope (O3) and the Oni character (O4, W9).
 
 ## Confirmation
 
-- Register I1, M11, M15, W3, W4 and W5 pass; all are open.
+- Register I1, M11, M15, W2, W3, W4, W5 and W10 pass; all are open.
 - Acceptance test 11.9 passes for every agent.
 - Nothing has been run yet.

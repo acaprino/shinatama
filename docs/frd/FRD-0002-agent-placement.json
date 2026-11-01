@@ -1,0 +1,1224 @@
+{
+  "accepted_at_sha": null,
+  "accepted_on": null,
+  "author": "Claude",
+  "conflicts": [],
+  "created_from_task": "frd-backfill-2026-11-01",
+  "entities": [],
+  "frd_id": "FRD-0002",
+  "last_verified_sha": null,
+  "proposed_at_sha": "c84d28ee66da672cf7c3058f27fb16e5d87fa031",
+  "proposed_on": "2026-11-01",
+  "relationships": [],
+  "requirements": [
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 44221,
+          "excerpt": "Three independent choices per agent, so the user can keep, for example, Claude's home\non `system` (subscription and history already there) and the others in a box.",
+          "path": "docs/functional-design.md",
+          "start": 44058
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 44056,
+          "excerpt": "\"ok\"; shape is mine)",
+          "path": "docs/functional-design.md",
+          "start": 44036
+        }
+      ],
+      "id": "REQ-001",
+      "status": "extracted",
+      "text": "Shinatama offers three independent placement choices per agent (program, home and per-instance set), so the user can, for example, keep Claude Code's home on `system` and the other agents in a box (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 44279,
+          "excerpt": "**1. Program: `agents.<agent>.program = system | own`.**",
+          "path": "docs/functional-design.md",
+          "start": 44223
+        },
+        {
+          "document_sha256": "6795933c29c6e3d36fb19ffef35a4a3ebb2ee907bc21aefdc1ea67d4e01377ba",
+          "end": 48957,
+          "excerpt": "placement() -> {program: System | Own, home: Box | System}",
+          "path": "docs/technical-design.md",
+          "start": 48899
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 44056,
+          "excerpt": "\"ok\"; shape is mine)",
+          "path": "docs/functional-design.md",
+          "start": 44036
+        }
+      ],
+      "id": "REQ-002",
+      "status": "extracted",
+      "text": "Each agent has a program setting `agents.<agent>.program` whose values are `system` (the user's installed binary) and `own` (Shinatama's copy) (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 44342,
+          "excerpt": "Default `system` when the agent\nis installed, `own` otherwise.",
+          "path": "docs/functional-design.md",
+          "start": 44280
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 73570,
+          "excerpt": "- Agent placement defaults (5.14, 2026-10-28): program `system` when the agent is\n  installed;",
+          "path": "docs/functional-design.md",
+          "start": 73476
+        }
+      ],
+      "id": "REQ-003",
+      "status": "extracted",
+      "text": "An agent's program defaults to `system` when the agent is installed and to `own` otherwise (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 44385,
+          "excerpt": "- `system`: the binary the user installed",
+          "path": "docs/functional-design.md",
+          "start": 44344
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 43803,
+          "excerpt": "(decided 2026-10-28, user:",
+          "path": "docs/functional-design.md",
+          "start": 43777
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 44040,
+          "excerpt": "\"si possono avviare anche se installate nel sistema, in una sorta di box per cui hanno le skill e i plugin solo per quella istanza?\" — \"ok\"",
+          "path": "docs/functional-design.md",
+          "start": 43901
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 47077,
+          "excerpt": "The reverse, the user's\nprogram in a box, is safe: only that program ever touches the box.",
+          "path": "docs/functional-design.md",
+          "start": 46987
+        }
+      ],
+      "id": "REQ-004",
+      "status": "extracted",
+      "text": "With program `system`, Shinatama runs the agent binary the user installed, and it can run it in a box (decided by the user, 2026-10-28)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 44659,
+          "excerpt": "Discovery reuses Mukade's harness catalog and installation\n  scan where they cover the case (binary locations, default stores, portable layouts), so\n  the recognition rules live once (my call; 5.16).",
+          "path": "docs/functional-design.md",
+          "start": 44460
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 72184,
+          "excerpt": "- Store discovery reuses Mukade's catalog and installation scan; Shinatama decides what\n  each root is used for (5.14, 5.16).",
+          "path": "docs/functional-design.md",
+          "start": 72059
+        },
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 66303,
+          "excerpt": "Found everywhere or \"not found\" with where it looked",
+          "path": "docs/verification-register.md",
+          "start": 66251
+        }
+      ],
+      "id": "REQ-005",
+      "status": "extracted",
+      "text": "Shinatama discovers the user's installed agent programs (binary locations, default stores, portable layouts) by reusing Mukade's harness catalog and installation scan where they cover the case, with one set of recognition rules (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 44717,
+          "excerpt": "Shinatama never installs, updates or replaces it; it only",
+          "path": "docs/functional-design.md",
+          "start": 44660
+        },
+        {
+          "document_sha256": "6795933c29c6e3d36fb19ffef35a4a3ebb2ee907bc21aefdc1ea67d4e01377ba",
+          "end": 9266,
+          "excerpt": "- Program: `system` (default when installed; the user's binary, never installed,\n    updated or replaced by Shinatama)",
+          "path": "docs/technical-design.md",
+          "start": 9148
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 69306,
+          "excerpt": "install and update the agent (only Shinatama's `own` copy, never the user's program)",
+          "path": "docs/functional-design.md",
+          "start": 69222
+        },
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 66369,
+          "excerpt": "binary unchanged; degraded state and switching behave as written",
+          "path": "docs/verification-register.md",
+          "start": 66305
+        }
+      ],
+      "id": "REQ-006",
+      "status": "extracted",
+      "text": "With program `system`, Shinatama never installs, updates or replaces the user's agent binary (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 44892,
+          "excerpt": "reports that an update exists, with the owner's command (`claude update`, `codex\n  update`, or `npm install -g <package>@latest` with the package read from the npm\n  shim).",
+          "path": "docs/functional-design.md",
+          "start": 44720
+        },
+        {
+          "document_sha256": "6795933c29c6e3d36fb19ffef35a4a3ebb2ee907bc21aefdc1ea67d4e01377ba",
+          "end": 49897,
+          "excerpt": "-- System program: report the update with\n                                                      -- its owner's command, never run it",
+          "path": "docs/technical-design.md",
+          "start": 49765
+        }
+      ],
+      "id": "REQ-007",
+      "status": "extracted",
+      "text": "With program `system`, when an update of the agent exists Shinatama only reports it, together with the owner's update command (`claude update`, `codex update`, or `npm install -g <package>@latest` with the package read from the npm shim), and never runs it (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 45139,
+          "excerpt": "If the installed version is outside the proved range, the agent runs degraded\n  (engine 5.5.3: failing capabilities unsupported, launch-only plus its own export, hops\n  by seed or refused; decided by the user 2026-11-01) and the user is told why.",
+          "path": "docs/functional-design.md",
+          "start": 44893
+        },
+        {
+          "document_sha256": "6795933c29c6e3d36fb19ffef35a4a3ebb2ee907bc21aefdc1ea67d4e01377ba",
+          "end": 58953,
+          "excerpt": "An agent that fails its suite for the installed version is `Degraded`:\neach capability whose fixtures fail is declared `unsupported`; the agent stays launch-only\nplus its own export command where it has one; hops to or from it drop to `seed_prompt` or\n`refuse`; the UI says why (decided by the user 2026-11-01; 5.2, 6.7, 11.10).",
+          "path": "docs/technical-design.md",
+          "start": 58625
+        },
+        {
+          "document_sha256": "6795933c29c6e3d36fb19ffef35a4a3ebb2ee907bc21aefdc1ea67d4e01377ba",
+          "end": 142387,
+          "excerpt": "10. **Unknown version:** an agent whose version fails the fixtures is `Degraded` as 5.5.3\n    says (launch-only plus its own export, failing capabilities `unsupported`, hops by seed\n    or refused) with a visible reason instead of a wrong hop.",
+          "path": "docs/technical-design.md",
+          "start": 142144
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 74879,
+          "excerpt": "- Degraded agent (user, 2026-11-01; engine 5.5.3): an agent whose installed version fails\n  its fixtures keeps launch-only plus its own export command, each failing capability is\n  declared unsupported, and hops to or from it go by seed or are refused.",
+          "path": "docs/functional-design.md",
+          "start": 74627
+        }
+      ],
+      "id": "REQ-008",
+      "status": "extracted",
+      "text": "When the installed version of an agent is outside the range its adapter's fixtures prove, the agent runs `Degraded`: each capability whose fixtures fail is declared `unsupported`, the agent stays launch-only plus its own export command where it has one, hops to or from it go by seed or are refused, and the user is told why (decided by the user, 2026-11-01)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 45565,
+          "excerpt": "- `own`: Shinatama's copy, installed with npm `--prefix` (works for all four, D16, and\n  DeepSeek Harness is an npm package too; Hermes Agent comes from its own installer with a\n  bundled uv and Python, so its `own` recipe is HM10, and if HM10 yields no recipe, `own`\n  is refused for Hermes: my call; register HM10), when\n  the agent is not installed or the user wants a pinned version.",
+          "path": "docs/functional-design.md",
+          "start": 45178
+        },
+        {
+          "document_sha256": "6795933c29c6e3d36fb19ffef35a4a3ebb2ee907bc21aefdc1ea67d4e01377ba",
+          "end": 9378,
+          "excerpt": "or `own` (Shinatama's copy under\n    `<data>/agents/<agent>/versions/<version>/`, installed with npm `--prefix`",
+          "path": "docs/technical-design.md",
+          "start": 9267
+        }
+      ],
+      "id": "REQ-009",
+      "status": "extracted",
+      "text": "With program `own`, Shinatama installs its own copy of the agent in Shinatama's folder (with npm `--prefix`; Hermes Agent from its own installer once its recipe, HM10, exists), used when the agent is not installed or the user wants a pinned version (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 45686,
+          "excerpt": "**next to** the running version: open instances keep the old one, new instances start\n  on the new one",
+          "path": "docs/functional-design.md",
+          "start": 45584
+        },
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 60887,
+          "excerpt": "Policy written; never update a running agent",
+          "path": "docs/verification-register.md",
+          "start": 60843
+        }
+      ],
+      "id": "REQ-010",
+      "status": "extracted",
+      "text": "An update of an `own` copy installs next to the running version: open instances keep the old version and new instances start on the new one (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 45787,
+          "excerpt": "the previous version is kept for going back when the new one fails\n  its fixtures (`fixture_gate`).",
+          "path": "docs/functional-design.md",
+          "start": 45688
+        },
+        {
+          "document_sha256": "6795933c29c6e3d36fb19ffef35a4a3ebb2ee907bc21aefdc1ea67d4e01377ba",
+          "end": 9458,
+          "excerpt": "previous version kept for rollback when `fixture_gate` fails",
+          "path": "docs/technical-design.md",
+          "start": 9398
+        }
+      ],
+      "id": "REQ-011",
+      "status": "extracted",
+      "text": "Shinatama keeps the previous `own` version, so the agent can go back to it when the new version fails its fixtures (`fixture_gate`) (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 45858,
+          "excerpt": "The agent's own self-update and its update command\n  are both blocked.",
+          "path": "docs/functional-design.md",
+          "start": 45788
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 52380,
+          "excerpt": "With the `own` program, also: Claude `DISABLE_AUTOUPDATER=1` and `DISABLE_UPDATES=1`;\nOpenCode `OPENCODE_DISABLE_AUTOUPDATE=1` (left on, it would update the user's global npm\ninstall)",
+          "path": "docs/functional-design.md",
+          "start": 52197
+        }
+      ],
+      "id": "REQ-012",
+      "status": "extracted",
+      "text": "With program `own`, the agent's own self-update and its update command are both blocked (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 52628,
+          "excerpt": "Codex's three update paths (startup check, `codex\nupdate`, the daemon's own loop) are not yet controllable, so `own` Codex waits for D16.",
+          "path": "docs/functional-design.md",
+          "start": 52491
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 44056,
+          "excerpt": "\"ok\"; shape is mine)",
+          "path": "docs/functional-design.md",
+          "start": 44036
+        }
+      ],
+      "id": "REQ-013",
+      "status": "extracted",
+      "text": "Shinatama does not offer the `own` program for Codex until Codex's three update paths (startup check, `codex update`, the daemon's own loop) can be controlled (register D16) (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 45983,
+          "excerpt": "**2. Home: `agents.<agent>.home = box | system`.** Default `box`.",
+          "path": "docs/functional-design.md",
+          "start": 45918
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 43894,
+          "excerpt": "\"di base è con istanze private, ma poi c'è l'opzione per integrarlo con quello di sistema\"",
+          "path": "docs/functional-design.md",
+          "start": 43804
+        },
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 63525,
+          "excerpt": "| D15 | G0 | `box` home (main 5.14; recorded 2026-10-28 as \"`private` mode\")",
+          "path": "docs/verification-register.md",
+          "start": 63449
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 73600,
+          "excerpt": "home `box` (user, 2026-10-28)",
+          "path": "docs/functional-design.md",
+          "start": 73571
+        }
+      ],
+      "id": "REQ-014",
+      "status": "extracted",
+      "text": "Each agent has a home setting `agents.<agent>.home` whose values are `box` and `system`, and its default is `box`, a private home (decided by the user, 2026-10-28)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 46610,
+          "excerpt": "- `system`: the user's own home: same login, sessions and plugins, visible outside\n  Shinatama too.",
+          "path": "docs/functional-design.md",
+          "start": 46511
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 43894,
+          "excerpt": "\"di base è con istanze private, ma poi c'è l'opzione per integrarlo con quello di sistema\"",
+          "path": "docs/functional-design.md",
+          "start": 43804
+        }
+      ],
+      "id": "REQ-015",
+      "status": "extracted",
+      "text": "The user can set an agent's home to `system`, so the agent uses the user's own home with the same login, sessions and plugins, also visible outside Shinatama (decided by the user, 2026-10-28)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 46022,
+          "excerpt": "- `box`: a home in Shinatama's folder",
+          "path": "docs/functional-design.md",
+          "start": 45985
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 46265,
+          "excerpt": "Plugins, skills, settings, sessions and login\n  live there; the user's own agent runs see none of it",
+          "path": "docs/functional-design.md",
+          "start": 46165
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 9594,
+          "excerpt": "by default the user's\n  installed program runs in a **box**, a home in Shinatama's folder, so the user's\n  sessions, settings and plugins are untouched, Daodan included;",
+          "path": "docs/functional-design.md",
+          "start": 9425
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 44056,
+          "excerpt": "\"ok\"; shape is mine)",
+          "path": "docs/functional-design.md",
+          "start": 44036
+        }
+      ],
+      "id": "REQ-016",
+      "status": "extracted",
+      "text": "With home `box`, the agent's plugins, skills, settings, sessions and login live in a home inside Shinatama's folder, and the user's own runs of that agent see none of it (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 46306,
+          "excerpt": "and the user's home is never\n  written.",
+          "path": "docs/functional-design.md",
+          "start": 46267
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 50137,
+          "excerpt": "the home\nvariable alone is not enough. Every agent also gets `TEMP`/`TMP` (and, for the\nNode-based ones, `NODE_COMPILE_CACHE`) inside Shinatama's folder",
+          "path": "docs/functional-design.md",
+          "start": 49985
+        },
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 64241,
+          "excerpt": "Per agent: zero writes outside the private home; login persists; Daodan enabled; or the leak recorded",
+          "path": "docs/verification-register.md",
+          "start": 64140
+        }
+      ],
+      "id": "REQ-017",
+      "status": "extracted",
+      "text": "With home `box`, Shinatama and the boxed agent never write to the user's home; the box gives the agent its own home, `TEMP`/`TMP` and, for Node-based agents, `NODE_COMPILE_CACHE` inside Shinatama's folder (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 50582,
+          "excerpt": "- Codex: `CODEX_HOME` on a **short path** (its daemon socket must stay under about 108\n  characters); the daemon and its socket follow `CODEX_HOME`, so a boxed Codex never\n  meets the user's daemon.",
+          "path": "docs/functional-design.md",
+          "start": 50384
+        }
+      ],
+      "id": "REQ-018",
+      "status": "extracted",
+      "text": "A boxed Codex runs its own daemon and socket, with `CODEX_HOME` on a short path, and never meets the user's Codex daemon (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 50751,
+          "excerpt": "**Known leak, shown to the user:** its unelevated Windows\n  sandbox writes `~\\.sbx-denybin` (four stub files) into the user's profile, as a\n  system Codex already does;",
+          "path": "docs/functional-design.md",
+          "start": 50583
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 73726,
+          "excerpt": "- Codex in a box despite its sandbox leak (`~\\.sbx-denybin` in the user's profile),\n  shown to the user rather than blocked;",
+          "path": "docs/functional-design.md",
+          "start": 73602
+        }
+      ],
+      "id": "REQ-019",
+      "status": "extracted",
+      "text": "Codex may run in a box despite its known leak, and Shinatama shows the user that its unelevated Windows sandbox writes `~\\.sbx-denybin` (four stub files) into the user's profile rather than blocking Codex (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 73771,
+          "excerpt": "its elevated sandbox is not offered in a box",
+          "path": "docs/functional-design.md",
+          "start": 73727
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 50835,
+          "excerpt": "its elevated sandbox creates system users and firewall\n  rules and is not box-safe.",
+          "path": "docs/functional-design.md",
+          "start": 50752
+        }
+      ],
+      "id": "REQ-020",
+      "status": "extracted",
+      "text": "Shinatama does not offer Codex's elevated sandbox in a box, because it creates system users and firewall rules (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 51096,
+          "excerpt": "small Shinatama plugin in the box that gives the programs OpenCode starts back the\n  user's own `XDG_*` (otherwise git loses a configuration kept under `~/.config`, D17);",
+          "path": "docs/functional-design.md",
+          "start": 50926
+        },
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 65751,
+          "excerpt": "The user's git and tool configuration still found, or the variables narrowed until it is",
+          "path": "docs/verification-register.md",
+          "start": 65663
+        }
+      ],
+      "id": "REQ-021",
+      "status": "extracted",
+      "text": "Programs that a boxed OpenCode starts get the user's own `XDG_*` back, so git and other tools still find the user's configuration (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 51183,
+          "excerpt": "`OPENCODE_DISABLE_CLAUDE_CODE=1` (otherwise it loads the user's `~/.claude` skills);",
+          "path": "docs/functional-design.md",
+          "start": 51099
+        }
+      ],
+      "id": "REQ-022",
+      "status": "extracted",
+      "text": "A boxed OpenCode does not load the user's `~/.claude` skills (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 51251,
+          "excerpt": "Shinatama starts and stops OpenCode's background service per box.",
+          "path": "docs/functional-design.md",
+          "start": 51186
+        }
+      ],
+      "id": "REQ-023",
+      "status": "extracted",
+      "text": "Shinatama starts and stops OpenCode's background service per box (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 51391,
+          "excerpt": "- Pi: `PI_CODING_AGENT_DIR`; `--no-skills` or `HOME` for the child (it reads\n  `~\\.agents\\skills`).",
+          "path": "docs/functional-design.md",
+          "start": 51292
+        }
+      ],
+      "id": "REQ-024",
+      "status": "extracted",
+      "text": "A boxed Pi does not read the user's `~/.agents/skills` (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 51626,
+          "excerpt": "- Hermes Agent (not yet run, HM9): `HERMES_HOME`; the box's `config.yaml` carries\n  Shinatama's hook and MCP entries (engine 5.7) and an empty `skills.external_dirs`, so\n  `~/.agents/skills` stays out;",
+          "path": "docs/functional-design.md",
+          "start": 51425
+        }
+      ],
+      "id": "REQ-025",
+      "status": "extracted",
+      "text": "A boxed Hermes Agent's `config.yaml` carries Shinatama's hook and MCP entries and an empty `skills.external_dirs`, so the user's `~/.agents/skills` stays out (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 51731,
+          "excerpt": "Shinatama starts and stops the box's gateway, which\n  otherwise keeps running after its terminal closes.",
+          "path": "docs/functional-design.md",
+          "start": 51627
+        },
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 33388,
+          "excerpt": "Nothing of Hermes runs after Shinatama's window closes; no gateway shared across homes",
+          "path": "docs/verification-register.md",
+          "start": 33302
+        }
+      ],
+      "id": "REQ-026",
+      "status": "extracted",
+      "text": "Shinatama starts and stops each box's Hermes Agent gateway, which otherwise keeps running after its terminal closes (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 51927,
+          "excerpt": "- DeepSeek Harness (not yet run, DS9): `DSH_HOME` and `DSH_AGENTS_HOME` (without the second\n  it reads `~/.agents/skills` and `~/.agents/AGENTS.md`).",
+          "path": "docs/functional-design.md",
+          "start": 51778
+        }
+      ],
+      "id": "REQ-027",
+      "status": "extracted",
+      "text": "A boxed DeepSeek Harness does not read the user's `~/.agents/skills` or `~/.agents/AGENTS.md` (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 52195,
+          "excerpt": "A box is created with owner-only permissions (0700 on macOS and Linux, a current-user ACL\non Windows, the rule of engine 4.1), because it holds the agent's login and sessions (my\ncall; D15 records the permissions it finds).",
+          "path": "docs/functional-design.md",
+          "start": 51972
+        }
+      ],
+      "id": "REQ-028",
+      "status": "extracted",
+      "text": "A box is created with owner-only permissions: 0700 on macOS and Linux, a current-user ACL on Windows (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 46735,
+          "excerpt": "**Forbidden combination: `own` program with `system` home.**",
+          "path": "docs/functional-design.md",
+          "start": 46675
+        },
+        {
+          "document_sha256": "6795933c29c6e3d36fb19ffef35a4a3ebb2ee907bc21aefdc1ea67d4e01377ba",
+          "end": 10084,
+          "excerpt": "- Never `own` program with `system` home (a newer version can migrate the store\n    under an older one).",
+          "path": "docs/technical-design.md",
+          "start": 9980
+        },
+        {
+          "document_sha256": "6795933c29c6e3d36fb19ffef35a4a3ebb2ee907bc21aefdc1ea67d4e01377ba",
+          "end": 48995,
+          "excerpt": "-- main spec 5.14; never Own+System",
+          "path": "docs/technical-design.md",
+          "start": 48960
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 44056,
+          "excerpt": "\"ok\"; shape is mine)",
+          "path": "docs/functional-design.md",
+          "start": 44036
+        }
+      ],
+      "id": "REQ-029",
+      "status": "extracted",
+      "text": "Shinatama refuses the combination of program `own` with home `system` for any agent (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 47242,
+          "excerpt": "If the user later\ndowngrades the system program, a box already migrated by the newer one may not open;\nShinatama shows it, never repairs it (inference, not tested).",
+          "path": "docs/functional-design.md",
+          "start": 47078
+        }
+      ],
+      "id": "REQ-030",
+      "status": "extracted",
+      "text": "If the user downgrades a system program and a box already migrated by the newer version no longer opens, Shinatama shows this and never repairs the box (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 46461,
+          "excerpt": "The user's existing sessions\n  in the system home are still found: search and import read them, read-only",
+          "path": "docs/functional-design.md",
+          "start": 46356
+        },
+        {
+          "document_sha256": "6795933c29c6e3d36fb19ffef35a4a3ebb2ee907bc21aefdc1ea67d4e01377ba",
+          "end": 50078,
+          "excerpt": "system_homes() -> [home]                              -- read-only: search and import of the\n                                                      -- user's sessions while in a Box",
+          "path": "docs/technical-design.md",
+          "start": 49898
+        },
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 66127,
+          "excerpt": "the user's sessions are listed read-only while the agent is in a box",
+          "path": "docs/verification-register.md",
+          "start": 66059
+        }
+      ],
+      "id": "REQ-031",
+      "status": "extracted",
+      "text": "While an agent is in a box, Shinatama still finds the user's existing sessions in the system home, and search and import read them read-only (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 46510,
+          "excerpt": "and a\n  hop or import brings them into the box.",
+          "path": "docs/functional-design.md",
+          "start": 46463
+        }
+      ],
+      "id": "REQ-032",
+      "status": "extracted",
+      "text": "A hop or an import brings a session from the user's system home into the agent's box (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 49636,
+          "excerpt": "Switching any choice moves nothing: the other home's sessions stay readable and\nimportable.",
+          "path": "docs/functional-design.md",
+          "start": 49545
+        },
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 66157,
+          "excerpt": "switching mode moves nothing",
+          "path": "docs/verification-register.md",
+          "start": 66129
+        }
+      ],
+      "id": "REQ-033",
+      "status": "extracted",
+      "text": "Switching any placement choice moves nothing: the sessions of the other home stay readable and importable (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 65290,
+          "excerpt": "Home and write destination are configured per agent\n  (box/system), not per instance (5.14).",
+          "path": "docs/functional-design.md",
+          "start": 65198
+        }
+      ],
+      "id": "REQ-034",
+      "status": "extracted",
+      "text": "Home and write destination are configured per agent, not per instance (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 47410,
+          "excerpt": "**3. Per-instance set of plugins and skills.** Each instance (one tab) can carry its own\nset, in either home (Codex in a `box` only), without an agent home of its own",
+          "path": "docs/functional-design.md",
+          "start": 47244
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 44040,
+          "excerpt": "\"si possono avviare anche se installate nel sistema, in una sorta di box per cui hanno le skill e i plugin solo per quella istanza?\" — \"ok\"",
+          "path": "docs/functional-design.md",
+          "start": 43901
+        }
+      ],
+      "id": "REQ-035",
+      "status": "extracted",
+      "text": "Each instance (one tab) can carry its own set of plugins and skills, in either home (Codex only in a `box`), without an agent home of its own (decided by the user, 2026-10-28)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 47589,
+          "excerpt": "the launch\nloads exactly the instance's plugins, skills and MCP servers and excludes the rest.",
+          "path": "docs/functional-design.md",
+          "start": 47495
+        },
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 67241,
+          "excerpt": "Each instance's request contains exactly its set; no switch edits a file in the home; or the gap recorded per agent",
+          "path": "docs/verification-register.md",
+          "start": 67126
+        }
+      ],
+      "id": "REQ-036",
+      "status": "extracted",
+      "text": "An instance's launch loads exactly that instance's plugins, skills and MCP servers and excludes the rest of the home's (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 47493,
+          "excerpt": "per-instance `~`), so login and sessions stay shared",
+          "path": "docs/functional-design.md",
+          "start": 47441
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 47799,
+          "excerpt": "two instances with different sets ran at once\non one home and shared its sessions;",
+          "path": "docs/functional-design.md",
+          "start": 47717
+        }
+      ],
+      "id": "REQ-037",
+      "status": "extracted",
+      "text": "Instances of one agent with different sets share the home's login and sessions and can run at the same time (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 74181,
+          "excerpt": "servers through its own extension; a resumed session takes the set of the instance\n  that resumes it.",
+          "path": "docs/functional-design.md",
+          "start": 74080
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 47864,
+          "excerpt": "on one home and shared its sessions; a resumed session takes the set of the instance\nthat resumes it.",
+          "path": "docs/functional-design.md",
+          "start": 47763
+        }
+      ],
+      "id": "REQ-038",
+      "status": "extracted",
+      "text": "A resumed session takes the plugin and skill set of the instance that resumes it (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 48186,
+          "excerpt": "- Claude Code: `--setting-sources project,local`, `--settings` with a copy of the\n  user's settings minus the plugin list (leaving out the user source drops all user\n  settings), `--plugin-dir` per plugin, `--mcp-config` with the set's servers (a set\n  plugin's own server passed again) and always `--strict-mcp-config`.",
+          "path": "docs/functional-design.md",
+          "start": 47866
+        }
+      ],
+      "id": "REQ-039",
+      "status": "extracted",
+      "text": "A Claude Code instance with its own set keeps the user's settings except the plugin list, receives the set's MCP servers and always runs with strict MCP configuration, so no other MCP server loads (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 48371,
+          "excerpt": "- Codex: it cannot load a plugin for one launch, so Shinatama installs each set's\n  plugins into the home once, turned off; each launch switches its set on and the rest\n  off with `-c`",
+          "path": "docs/functional-design.md",
+          "start": 48187
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 73945,
+          "excerpt": "- Per-instance sets (5.14): for Codex, Shinatama installs each set's plugins into the\n  home once, turned off (a home write, so only in a `box`; user, 2026-11-01);",
+          "path": "docs/functional-design.md",
+          "start": 73782
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 48690,
+          "excerpt": "That install writes the home, so per-instance sets\n  exist for Codex only in a `box`; with the `system` home, Codex instances use the set\n  already in the user's home and Shinatama writes nothing there (user, 2026-11-01).",
+          "path": "docs/functional-design.md",
+          "start": 48469
+        }
+      ],
+      "id": "REQ-040",
+      "status": "extracted",
+      "text": "For Codex, per-instance sets exist only in a `box`: Shinatama installs each set's plugins into the boxed home once, turned off, and each launch switches its own set on and the rest off; with the `system` home, Codex instances use the set already in the user's home and Shinatama writes nothing there (decided by the user, 2026-11-01)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 48884,
+          "excerpt": "and `OPENCODE_TEST_HOME` (an empty home per instance, because nothing turns off\n  `~/.agents/skills`).",
+          "path": "docs/functional-design.md",
+          "start": 48782
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 74005,
+          "excerpt": "for OpenCode, each instance gets an empty `~`\n  of its own;",
+          "path": "docs/functional-design.md",
+          "start": 73946
+        }
+      ],
+      "id": "REQ-041",
+      "status": "extracted",
+      "text": "Each OpenCode instance gets an empty home of its own, because nothing turns off `~/.agents/skills` (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 49148,
+          "excerpt": "a box keeps `mcp.json` empty and\n  each instance brings its MCP servers through its own extension (untested), since Pi\n  has no per-launch MCP switch.",
+          "path": "docs/functional-design.md",
+          "start": 48998
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 74114,
+          "excerpt": "for Pi, the box keeps `mcp.json` empty and each instance brings its MCP\n  servers through its own extension;",
+          "path": "docs/functional-design.md",
+          "start": 74006
+        }
+      ],
+      "id": "REQ-042",
+      "status": "extracted",
+      "text": "For Pi, the box keeps `mcp.json` empty and each instance brings its MCP servers through its own extension (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 49372,
+          "excerpt": "- Hermes Agent: no per-launch switch for plugins, skills, hooks or MCP, and a profile (`-p`)\n  brings its own session store, so it would split the sessions. Until HM13 finds a way, a\n  Hermes instance carries its box's set.",
+          "path": "docs/functional-design.md",
+          "start": 49149
+        },
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 36280,
+          "excerpt": "A way found, or Hermes keeps the box's set",
+          "path": "docs/verification-register.md",
+          "start": 36238
+        }
+      ],
+      "id": "REQ-043",
+      "status": "extracted",
+      "text": "A Hermes Agent instance carries its box's set, with no per-instance set, until register row HM13 finds a way that does not split the sessions (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 49543,
+          "excerpt": "- DeepSeek Harness: a `--patch` overlay per launch (plugin and MCP rows) plus the ACP\n  session's `mcpServers`; skills come from the box and the project (untested, DS13).",
+          "path": "docs/functional-design.md",
+          "start": 49373
+        }
+      ],
+      "id": "REQ-044",
+      "status": "extracted",
+      "text": "A DeepSeek Harness instance's set is applied through a per-launch `--patch` overlay (plugin and MCP rows) and the ACP session's `mcpServers`, while its skills come from the box and the project (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 9162,
+          "excerpt": "- **Isolation, at a glance.** Nothing system-level is touched:",
+          "path": "docs/functional-design.md",
+          "start": 9100
+        },
+        {
+          "document_sha256": "6795933c29c6e3d36fb19ffef35a4a3ebb2ee907bc21aefdc1ea67d4e01377ba",
+          "end": 8699,
+          "excerpt": "the sidecar's private root, child-only\n  environment and child-only certificate trust leave system state untouched (9)",
+          "path": "docs/technical-design.md",
+          "start": 8581
+        }
+      ],
+      "id": "REQ-045",
+      "status": "extracted",
+      "text": "Launching agents touches nothing system-level (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 9376,
+          "excerpt": "hooks and the MCP server are injected per launch, never by editing global\n  configuration.",
+          "path": "docs/functional-design.md",
+          "start": 9286
+        },
+        {
+          "document_sha256": "6795933c29c6e3d36fb19ffef35a4a3ebb2ee907bc21aefdc1ea67d4e01377ba",
+          "end": 8893,
+          "excerpt": "hooks\n  and the MCP server arrive per launch (`--settings`, `-c`, `OPENCODE_CONFIG*`, `-e`,\n  DeepSeek Harness's `--patch` or its ACP session) without editing the user's configuration\n  (7.5).",
+          "path": "docs/technical-design.md",
+          "start": 8701
+        }
+      ],
+      "id": "REQ-046",
+      "status": "extracted",
+      "text": "Shinatama injects its hooks and its MCP server per launch and never edits the user's global agent configuration to do so (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6795933c29c6e3d36fb19ffef35a4a3ebb2ee907bc21aefdc1ea67d4e01377ba",
+          "end": 9055,
+          "excerpt": "Hermes Agent has no per-launch switch: its hook and MCP entries live in the box's\n  own `config.yaml`, and a Hermes on the `system` home runs without them (5.7).",
+          "path": "docs/technical-design.md",
+          "start": 8894
+        },
+        {
+          "document_sha256": "6795933c29c6e3d36fb19ffef35a4a3ebb2ee907bc21aefdc1ea67d4e01377ba",
+          "end": 8579,
+          "excerpt": "- **What is isolated and what is not** [C]",
+          "path": "docs/technical-design.md",
+          "start": 8537
+        }
+      ],
+      "id": "REQ-047",
+      "status": "extracted",
+      "text": "A Hermes Agent on the `system` home runs without Shinatama's hook and MCP entries, because those live only in a box's own `config.yaml` (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6795933c29c6e3d36fb19ffef35a4a3ebb2ee907bc21aefdc1ea67d4e01377ba",
+          "end": 5692,
+          "excerpt": "- **Inherited agent markers are removed before every launch** (decided by the user\n  2026-10-28).",
+          "path": "docs/technical-design.md",
+          "start": 5595
+        },
+        {
+          "document_sha256": "6795933c29c6e3d36fb19ffef35a4a3ebb2ee907bc21aefdc1ea67d4e01377ba",
+          "end": 6030,
+          "excerpt": "Before starting any agent it\n  removes them from the child's environment, so the agent starts as it would from a\n  fresh terminal;",
+          "path": "docs/technical-design.md",
+          "start": 5900
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 74305,
+          "excerpt": "- Inherited markers (engine 3; user, 2026-10-28): the union of every supported agent's\n  list is removed before any launch;",
+          "path": "docs/functional-design.md",
+          "start": 74182
+        },
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 16315,
+          "excerpt": "with the removal, behaviour equals a fresh terminal; no user setting removed",
+          "path": "docs/verification-register.md",
+          "start": 16239
+        }
+      ],
+      "id": "REQ-048",
+      "status": "extracted",
+      "text": "Before starting any agent, Shinatama removes from the child's environment the union of every supported agent's inherited markers, so the agent starts as it would from a fresh terminal even when Shinatama was itself started from inside an agent (decided by the user, 2026-10-28)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6795933c29c6e3d36fb19ffef35a4a3ebb2ee907bc21aefdc1ea67d4e01377ba",
+          "end": 6259,
+          "excerpt": "markers as **exact names, never prefixes** (5.5 A): `CLAUDE_CONFIG_DIR`,\n  `CLAUDE_CODE_USE_BEDROCK` and the like are the user's own settings and pass through.",
+          "path": "docs/technical-design.md",
+          "start": 6100
+        },
+        {
+          "document_sha256": "6795933c29c6e3d36fb19ffef35a4a3ebb2ee907bc21aefdc1ea67d4e01377ba",
+          "end": 5692,
+          "excerpt": "- **Inherited agent markers are removed before every launch** (decided by the user\n  2026-10-28).",
+          "path": "docs/technical-design.md",
+          "start": 5595
+        }
+      ],
+      "id": "REQ-049",
+      "status": "extracted",
+      "text": "Inherited markers are removed by exact name, never by prefix, so the user's own settings such as `CLAUDE_CONFIG_DIR` and `CLAUDE_CODE_USE_BEDROCK` pass through (decided by the user, 2026-10-28)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "6795933c29c6e3d36fb19ffef35a4a3ebb2ee907bc21aefdc1ea67d4e01377ba",
+          "end": 8069,
+          "excerpt": "`GIT_EDITOR` only when its value is Claude's helper; Codex's generic\n  sandbox names (`NPM_CONFIG_OFFLINE`, `PIP_NO_INDEX`, …) only when `SBX_NONET_ACTIVE` is\n  present.",
+          "path": "docs/technical-design.md",
+          "start": 7900
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 74358,
+          "excerpt": "any launch; `GIT_EDITOR` only when its value is Claude's helper.",
+          "path": "docs/functional-design.md",
+          "start": 74294
+        },
+        {
+          "document_sha256": "6795933c29c6e3d36fb19ffef35a4a3ebb2ee907bc21aefdc1ea67d4e01377ba",
+          "end": 5692,
+          "excerpt": "- **Inherited agent markers are removed before every launch** (decided by the user\n  2026-10-28).",
+          "path": "docs/technical-design.md",
+          "start": 5595
+        }
+      ],
+      "id": "REQ-050",
+      "status": "extracted",
+      "text": "`GIT_EDITOR` is removed only when its value is Claude Code's helper, and Codex's generic sandbox variables only when `SBX_NONET_ACTIVE` is present (decided by the user, 2026-10-28)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 45494,
+          "excerpt": "and if HM10 yields no recipe, `own`\n  is refused for Hermes: my call; register HM10)",
+          "path": "docs/functional-design.md",
+          "start": 45410
+        },
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 35585,
+          "excerpt": "Recipe written, or `own` refused for Hermes",
+          "path": "docs/verification-register.md",
+          "start": 35542
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 75283,
+          "excerpt": "`own` refused\n  for Hermes Agent if HM10 finds no recipe (5.14).",
+          "path": "docs/functional-design.md",
+          "start": 75219
+        }
+      ],
+      "id": "REQ-051",
+      "status": "extracted",
+      "text": "If register row HM10 yields no installation recipe for Hermes Agent, Shinatama refuses the `own` program for Hermes Agent (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 64550,
+          "excerpt": "a known, harmless leak is shown to the user and the agent stays boxable (Codex's `~\\.sbx-denybin`, main 5.14; Claude's MCP logs if the switch does not stop them, user 2026-11-01), and only a leak that touches credentials, sessions or the user's configuration marks the agent `system`-only (user, 2026-11-01)",
+          "path": "docs/verification-register.md",
+          "start": 64243
+        }
+      ],
+      "id": "REQ-052",
+      "status": "extracted",
+      "text": "A known, harmless write outside the box is shown to the user and the agent stays boxable; only a leak that touches credentials, sessions or the user's configuration makes the agent `system`-only (decided by the user, 2026-11-01)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 52852,
+          "excerpt": "Box leaks found with the per-instance sets (D19): Claude writes MCP server logs to\n`%LOCALAPPDATA%\\claude-cli-nodejs\\Cache`. Shinatama tries\n`CLAUDE_CODE_SKIP_MCP_DEBUG_LOG_FILES` (untested): if it works, there is no leak;",
+          "path": "docs/functional-design.md",
+          "start": 52630
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 52948,
+          "excerpt": "the leak is shown to the user like Codex's and Claude stays boxable (user, 2026-11-01).",
+          "path": "docs/functional-design.md",
+          "start": 52861
+        },
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 64137,
+          "excerpt": "for Claude, a session with an MCP server and `CLAUDE_CODE_SKIP_MCP_DEBUG_LOG_FILES` set, then look for `%LOCALAPPDATA%\\claude-cli-nodejs\\Cache\\<cwd>\\mcp-logs-*` (the leak D19 found)",
+          "path": "docs/verification-register.md",
+          "start": 63956
+        }
+      ],
+      "id": "REQ-053",
+      "status": "extracted",
+      "text": "Shinatama tries `CLAUDE_CODE_SKIP_MCP_DEBUG_LOG_FILES` to stop a boxed Claude Code from writing its MCP server logs to `%LOCALAPPDATA%\\claude-cli-nodejs\\Cache`, outside the box; if the variable works, Claude Code has no such leak (decided by the user, 2026-11-01)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 52948,
+          "excerpt": "if not,\nthe leak is shown to the user like Codex's and Claude stays boxable (user, 2026-11-01).",
+          "path": "docs/functional-design.md",
+          "start": 52853
+        },
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 64420,
+          "excerpt": "Claude's MCP logs if the switch does not stop them, user 2026-11-01",
+          "path": "docs/verification-register.md",
+          "start": 64353
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 76095,
+          "excerpt": "Claude's MCP-log leak: the skip variable is tried, else the leak is shown and Claude\n  stays boxable (5.14)",
+          "path": "docs/functional-design.md",
+          "start": 75988
+        }
+      ],
+      "id": "REQ-054",
+      "status": "extracted",
+      "text": "If `CLAUDE_CODE_SKIP_MCP_DEBUG_LOG_FILES` does not stop Claude Code's MCP server logs, Shinatama shows that leak to the user as it shows Codex's, and Claude Code stays boxable (decided by the user, 2026-11-01)"
+    }
+  ],
+  "schema_version": 1,
+  "status": "Proposed",
+  "superseded_by": null,
+  "title": "Agent placement, homes and per-instance sets",
+  "version": 1
+}
