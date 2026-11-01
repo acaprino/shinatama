@@ -21,7 +21,7 @@ run `index`; do not edit this block by hand.
 
 | ADR | Title | Governs | From task |
 |---|---|---|---|
-| none | | | |
+| [ADR-0003](<ADR-0003-decision-cards.md>) | Decision cards explain a worker's pending request before the user answers | `docs/specs/companion-explainer.md`, `docs/technical-design.md`, `docs/functional-design.md`, `companion`, `decision-cards`, `approval-explanation` | `init-6c1ecf1751fc4d45a9a63202041ab5e6` |
 
 ## Superseded
 
