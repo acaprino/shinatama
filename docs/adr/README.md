@@ -16,12 +16,13 @@ run `index`; do not edit this block by hand.
 | ADR | Title | Governs | Symbols | Accepted at |
 |---|---|---|---:|---|
 | [ADR-0002](<ADR-0002-companion-feed.md>) | Companion pane fed by the canonical transcript, harness chosen per companion | `docs/specs/companion-explainer.md`, `docs/technical-design.md`, `docs/functional-design.md`, `companion`, `explain-mode`, `read-only-session`, `adapter-headless` | 0 | `9eabbaa290bf11cf242e660da54d08504987929b` |
+| [ADR-0003](<ADR-0003-decision-cards.md>) | Decision cards explain a worker's pending request before the user answers | `docs/specs/companion-explainer.md`, `docs/technical-design.md`, `docs/functional-design.md`, `companion`, `decision-cards`, `approval-explanation` | 0 | `5ff9deaec52dd2c4036bc14f1a91c6c692e39ea0` |
 
 ## Proposed
 
 | ADR | Title | Governs | From task |
 |---|---|---|---|
-| [ADR-0003](<ADR-0003-decision-cards.md>) | Decision cards explain a worker's pending request before the user answers | `docs/specs/companion-explainer.md`, `docs/technical-design.md`, `docs/functional-design.md`, `companion`, `decision-cards`, `approval-explanation` | `init-6c1ecf1751fc4d45a9a63202041ab5e6` |
+| none | | | |
 
 ## Superseded
 

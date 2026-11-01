@@ -2,7 +2,7 @@
 adr_id: ADR-0003
 version: 1
 title: "Decision cards explain a worker's pending request before the user answers"
-status: Proposed
+status: Accepted
 author: Alfio Caprino
 scope:
   paths:
@@ -20,8 +20,8 @@ depends_on:
 created_from_task: init-6c1ecf1751fc4d45a9a63202041ab5e6
 proposed_on: 2026-11-01
 proposed_at_sha: b667db5c3d7df4618ccb73b73165e8f3290ae151
-accepted_on: null
-accepted_at_sha: null
+accepted_on: 2026-11-01
+accepted_at_sha: 5ff9deaec52dd2c4036bc14f1a91c6c692e39ea0
 last_verified_sha: null
 retired_on: null
 retired_reason: null
@@ -33,7 +33,7 @@ changes:
 # ADR-0003: Decision cards explain a worker's pending request before the user answers
 
 <!-- adr-header:start -->
-Version 1 · Proposed 2026-11-01 by Alfio Caprino
+Version 1 · Accepted 2026-11-01 at 5ff9dea · proposed 2026-11-01 by Alfio Caprino
 <!-- adr-header:end -->
 
 ## Context and Problem Statement
