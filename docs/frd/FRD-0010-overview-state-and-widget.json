@@ -7,25 +7,25 @@
   "entities": [],
   "frd_id": "FRD-0010",
   "last_verified_sha": null,
-  "proposed_at_sha": "da4b83e5a769c6999a57e2b4587c2561c2d491fc",
+  "proposed_at_sha": "e22191501ff4ef3a182bcee7175dba73550586e6",
   "proposed_on": "2026-11-01",
   "relationships": [],
   "requirements": [
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 3500,
           "excerpt": "9. A desktop widget with Shinatama as an assistant that talks, moves and alerts\n   (5.8) — decided for v1",
           "path": "docs/functional-design.md",
           "start": 3395
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 25552,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 26160,
           "excerpt": "### 5.8 Desktop widget (decided, in v1; \"assistant\" scope is my call)",
           "path": "docs/functional-design.md",
-          "start": 25483
+          "start": 26091
         }
       ],
       "id": "REQ-001",
@@ -35,25 +35,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 25631,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 26239,
           "excerpt": "A small borderless, transparent, always-on-top window showing Shinatama as an",
           "path": "docs/functional-design.md",
-          "start": 25554
+          "start": 26162
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 69534,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 70467,
           "excerpt": "A graphical toolkit for a transparent, borderless, always-on-top, click-through window",
           "path": "docs/verification-register.md",
-          "start": 69448
+          "start": 70381
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 25552,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 26160,
           "excerpt": "### 5.8 Desktop widget (decided, in v1; \"assistant\" scope is my call)",
           "path": "docs/functional-design.md",
-          "start": 25483
+          "start": 26091
         }
       ],
       "id": "REQ-002",
@@ -63,18 +63,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 25674,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 26282,
           "excerpt": "assistant: it speaks in a bubble, animates",
           "path": "docs/functional-design.md",
-          "start": 25632
+          "start": 26240
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 25552,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 26160,
           "excerpt": "### 5.8 Desktop widget (decided, in v1; \"assistant\" scope is my call)",
           "path": "docs/functional-design.md",
-          "start": 25483
+          "start": 26091
         }
       ],
       "id": "REQ-003",
@@ -84,18 +84,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 25798,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 26406,
           "excerpt": "and alerts when an agent needs input,\nan operation finishes, or something important happens (e.g. the context filling up).",
           "path": "docs/functional-design.md",
-          "start": 25676
+          "start": 26284
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 25552,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 26160,
           "excerpt": "### 5.8 Desktop widget (decided, in v1; \"assistant\" scope is my call)",
           "path": "docs/functional-design.md",
-          "start": 25483
+          "start": 26091
         }
       ],
       "id": "REQ-004",
@@ -105,21 +105,21 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 25984,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 26592,
           "excerpt": "My calls for the shape: the core exposes a local event stream (socket or named\npipe) that the widget subscribes to, so the widget is just another client and can be\nbuilt after the core",
           "path": "docs/functional-design.md",
-          "start": 25800
+          "start": 26408
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 124350,
           "excerpt": "The overview, the widget and the roundtable view are\nconsumers that remember their last `seq`. The widget needs no other channel.",
           "path": "docs/technical-design.md",
           "start": 124221
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 9687,
           "excerpt": "Desktop widget:\nseparate process (5.8).",
           "path": "docs/functional-design.md",
@@ -133,18 +133,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 37352,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 37960,
           "excerpt": "- The same event stream feeds the widget (5.8): an alert there is an event here.",
           "path": "docs/functional-design.md",
-          "start": 37272
+          "start": 37880
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 34686,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 35294,
           "excerpt": "My calls:\n\n- **What it is doing**",
           "path": "docs/functional-design.md",
-          "start": 34653
+          "start": 35261
         }
       ],
       "id": "REQ-006",
@@ -154,18 +154,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 26029,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 26637,
           "excerpt": "clicking an alert focuses the right session",
           "path": "docs/functional-design.md",
-          "start": 25986
+          "start": 26594
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 25823,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 26431,
           "excerpt": "My calls for the shape:",
           "path": "docs/functional-design.md",
-          "start": 25800
+          "start": 26408
         }
       ],
       "id": "REQ-007",
@@ -175,32 +175,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 26151,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 26759,
           "excerpt": "quick-answer\nbuttons (allow/deny) only for prompts recognized with certainty, because they send\nkeystrokes to the agent.",
           "path": "docs/functional-design.md",
-          "start": 26031
+          "start": 26639
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 123722,
           "excerpt": "Never infer `waiting_permission` from screen text alone in a way that lets the\nwidget send keystrokes; the widget's quick answers (allow/deny) are offered only for\nstates reported by a native event.",
           "path": "docs/technical-design.md",
           "start": 123524
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 70432,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 71365,
           "excerpt": "Quick answers: allow or deny goes only to the right instance and prompt; the bubble shows the real command from the native event; a prompt that changed between event and click is refused",
           "path": "docs/verification-register.md",
-          "start": 70246
+          "start": 71179
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 25823,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 26431,
           "excerpt": "My calls for the shape:",
           "path": "docs/functional-design.md",
-          "start": 25800
+          "start": 26408
         }
       ],
       "id": "REQ-008",
@@ -210,18 +210,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 26274,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 26882,
           "excerpt": "Detecting \"needs input\" is per agent, preferably through the\nagent's native hooks or events rather than parsing the screen",
           "path": "docs/functional-design.md",
-          "start": 26152
+          "start": 26760
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 25823,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 26431,
           "excerpt": "My calls for the shape:",
           "path": "docs/functional-design.md",
-          "start": 25800
+          "start": 26408
         }
       ],
       "id": "REQ-009",
@@ -231,25 +231,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 27004,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 27612,
           "excerpt": "seven actions, about 25 frames, transparent 512×512, 6–8\nframes per second: idle (4), talk (3 mouth shapes), alert (4), done (4), thinking\n(4), worried (3), sleep (3).",
           "path": "docs/functional-design.md",
-          "start": 26837
+          "start": 27445
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 26725,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 27333,
           "excerpt": "My proposal: one neutral base",
           "path": "docs/functional-design.md",
-          "start": 26696
+          "start": 27304
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 27052,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 27660,
           "excerpt": "The action list awaits the user's confirmation.",
           "path": "docs/functional-design.md",
-          "start": 27005
+          "start": 27613
         }
       ],
       "id": "REQ-010",
@@ -259,25 +259,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 34198,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 34806,
           "excerpt": "One tab shows every agent instance started from or inside Shinatama",
           "path": "docs/functional-design.md",
-          "start": 34131
+          "start": 34739
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 3906,
           "excerpt": "12. A global overview tab of every instance started from or inside Shinatama",
           "path": "docs/functional-design.md",
           "start": 3830
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 33989,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 34597,
           "excerpt": "(decided as a wish: \"a global view tab with all the instances, how they collaborate, what they are doing, a low-cost model titling their activity, the communication flows, the exchanges and the work\"; shape is mine)",
           "path": "docs/functional-design.md",
-          "start": 33774
+          "start": 34382
         }
       ],
       "id": "REQ-011",
@@ -287,18 +287,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 34239,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 34847,
           "excerpt": "its agent and\nmodel, project and thread",
           "path": "docs/functional-design.md",
-          "start": 34200
+          "start": 34808
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 33989,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 34597,
           "excerpt": "the work\"; shape is mine)",
           "path": "docs/functional-design.md",
-          "start": 33964
+          "start": 34572
         }
       ],
       "id": "REQ-012",
@@ -308,25 +308,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 123090,
           "excerpt": "`starting`, `idle` (waiting for the user), `working`, `waiting_permission`,\n`waiting_question`, `error`, `exited`.",
           "path": "docs/technical-design.md",
           "start": 122976
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 34292,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 34900,
           "excerpt": "state (working, waiting for you, idle, done, error)",
           "path": "docs/functional-design.md",
-          "start": 34241
+          "start": 34849
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
-          "end": 136023,
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
+          "end": 136609,
           "excerpt": "9. **State accuracy:** `waiting_permission`, `idle` and `working` reported correctly over a\n   scripted session for every agent that offers a native signal",
           "path": "docs/technical-design.md",
-          "start": 135868
+          "start": 136454
         }
       ],
       "id": "REQ-013",
@@ -336,21 +336,21 @@
     {
       "evidence": [
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 123188,
           "excerpt": "Source, in order of trust (`state_source` records\nwhich): the agent's native hook or event stream",
           "path": "docs/technical-design.md",
           "start": 123091
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 123421,
           "excerpt": "the agent's structured\ntranscript tail (a new `assistant` entry, a pending tool call without a result)",
           "path": "docs/technical-design.md",
           "start": 123319
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
           "end": 50054,
           "excerpt": "State accuracy per agent against scripted sessions (idle, working, waiting_permission, waiting_question) and the false-positive rate of the PTY heuristic",
           "path": "docs/verification-register.md",
@@ -364,21 +364,21 @@
     {
       "evidence": [
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 123523,
           "excerpt": "heuristics (output silence for 8 s after activity = probably `idle`), always labelled\n`unsure`.",
           "path": "docs/technical-design.md",
           "start": 123428
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
-          "end": 136068,
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
+          "end": 136654,
           "excerpt": "the `unsure` label on\n   those that do not.",
           "path": "docs/technical-design.md",
-          "start": 136025
+          "start": 136611
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
           "end": 50135,
           "excerpt": "\"unsure\" labels used honestly",
           "path": "docs/verification-register.md",
@@ -392,25 +392,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 34735,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 35343,
           "excerpt": "- **What it is doing** is a short title written by a **low-cost model**",
           "path": "docs/functional-design.md",
-          "start": 34664
+          "start": 35272
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 3972,
           "excerpt": "each is doing (titled periodically by a low-cost model)",
           "path": "docs/functional-design.md",
           "start": 3917
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 33989,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 34597,
           "excerpt": "(decided as a wish: \"a global view tab with all the instances, how they collaborate, what they are doing, a low-cost model titling their activity, the communication flows, the exchanges and the work\"; shape is mine)",
           "path": "docs/functional-design.md",
-          "start": 33774
+          "start": 34382
         }
       ],
       "id": "REQ-016",
@@ -420,25 +420,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 34940,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 35548,
           "excerpt": "Shinatama makes the call, from the\n  activity it already observes (events and the tail of the transcript); the agents are\n  not asked to do it",
           "path": "docs/functional-design.md",
-          "start": 34798
+          "start": 35406
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 66532,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 67140,
           "excerpt": "- Overview: titles written by a low-cost model that Shinatama calls (not the agents),",
           "path": "docs/functional-design.md",
-          "start": 66447
+          "start": 67055
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 63822,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 64430,
           "excerpt": "### Calls made to settle the rest (check them; each is also marked where it appears)",
           "path": "docs/functional-design.md",
-          "start": 63738
+          "start": 64346
         }
       ],
       "id": "REQ-017",
@@ -448,18 +448,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 124442,
           "excerpt": "On a state change, and every 2 minutes while `working`",
           "path": "docs/technical-design.md",
           "start": 124388
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 34797,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 35405,
           "excerpt": "refreshed\n  periodically and when an instance changes state.",
           "path": "docs/functional-design.md",
-          "start": 34737
+          "start": 35345
         }
       ],
       "id": "REQ-018",
@@ -469,18 +469,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 124689,
           "excerpt": "ask the configured low-cost model for **one line of at most 12 words**\ndescribing what the instance is doing now",
           "path": "docs/technical-design.md",
           "start": 124577
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
-          "end": 137270,
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
+          "end": 137856,
           "excerpt": "- Titles: cap $0.50 per day, one line, off switch. (8.4)",
           "path": "docs/technical-design.md",
-          "start": 137214
+          "start": 137800
         }
       ],
       "id": "REQ-019",
@@ -490,7 +490,7 @@
     {
       "evidence": [
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 124575,
           "excerpt": "build an input of at most 6 KB\nfrom the transcript tail (tool names and targets, the last assistant lines; no full\nfiles), redacted",
           "path": "docs/technical-design.md",
@@ -504,32 +504,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 35827,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 36435,
           "excerpt": "credential-like strings are redacted before sending (the builder defines\n  how)",
           "path": "docs/functional-design.md",
-          "start": 35748
+          "start": 36356
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
-          "end": 135556,
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
+          "end": 136142,
           "excerpt": "6. **Redaction:** a planted fake key and a fake bearer token never appear in the snapshot,\n   the seed, the full transcript file, a message body or a summary input.",
           "path": "docs/technical-design.md",
-          "start": 135392
+          "start": 135978
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
           "end": 51845,
           "excerpt": "Redaction before a summary is sent",
           "path": "docs/verification-register.md",
           "start": 51811
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 34686,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 35294,
           "excerpt": "My calls:\n\n- **What it is doing**",
           "path": "docs/functional-design.md",
-          "start": 34653
+          "start": 35261
         }
       ],
       "id": "REQ-021",
@@ -539,18 +539,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 35746,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 36354,
           "excerpt": "- **Privacy:** summaries send parts of a transcript to a provider. This is shown at\n  first use",
           "path": "docs/functional-design.md",
-          "start": 35651
+          "start": 36259
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 34686,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 35294,
           "excerpt": "My calls:\n\n- **What it is doing**",
           "path": "docs/functional-design.md",
-          "start": 34653
+          "start": 35261
         }
       ],
       "id": "REQ-022",
@@ -560,32 +560,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 35858,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 36466,
           "excerpt": "and a thread can be excluded.",
           "path": "docs/functional-design.md",
-          "start": 35829
+          "start": 36437
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 124995,
           "excerpt": "A thread marked `summaries_excluded` is never sent to any backend.",
           "path": "docs/technical-design.md",
           "start": 124929
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
           "end": 51888,
           "excerpt": "`summaries_excluded` really stops sending",
           "path": "docs/verification-register.md",
           "start": 51847
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 34686,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 35294,
           "excerpt": "My calls:\n\n- **What it is doing**",
           "path": "docs/functional-design.md",
-          "start": 34653
+          "start": 35261
         }
       ],
       "id": "REQ-023",
@@ -595,25 +595,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 35565,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 36173,
           "excerpt": "Frequency, a\n  daily cost cap and an off switch are settings.",
           "path": "docs/functional-design.md",
-          "start": 35504
+          "start": 36112
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 124839,
           "excerpt": "A daily cost cap (default $0.50 for paid backends) and an\noff switch exist",
           "path": "docs/technical-design.md",
           "start": 124765
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 34686,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 35294,
           "excerpt": "My calls:\n\n- **What it is doing**",
           "path": "docs/functional-design.md",
-          "start": 34653
+          "start": 35261
         }
       ],
       "id": "REQ-024",
@@ -623,28 +623,28 @@
     {
       "evidence": [
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 124815,
           "excerpt": "A daily cost cap (default $0.50 for paid backends)",
           "path": "docs/technical-design.md",
           "start": 124765
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
-          "end": 136779,
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
+          "end": 137365,
           "excerpt": "None block the design. These are my defaults; change any of them:",
           "path": "docs/technical-design.md",
-          "start": 136714
+          "start": 137300
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
-          "end": 137270,
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
+          "end": 137856,
           "excerpt": "- Titles: cap $0.50 per day, one line, off switch. (8.4)",
           "path": "docs/technical-design.md",
-          "start": 137214
+          "start": 137800
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
           "end": 51639,
           "excerpt": "Cap enforced; fallback to verbatim text works",
           "path": "docs/verification-register.md",
@@ -658,21 +658,21 @@
     {
       "evidence": [
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 124928,
           "excerpt": "with no backend, at the cap or off, `doing_title` is the last tool or\nmessage verbatim.",
           "path": "docs/technical-design.md",
           "start": 124841
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 35502,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 36110,
           "excerpt": "or **none** (the last tool or message verbatim)",
           "path": "docs/functional-design.md",
-          "start": 35455
+          "start": 36063
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
           "end": 51639,
           "excerpt": "Cap enforced; fallback to verbatim text works",
           "path": "docs/verification-register.md",
@@ -686,7 +686,7 @@
     {
       "evidence": [
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 124764,
           "excerpt": "log tokens\nand cost in `summary_log`.",
           "path": "docs/technical-design.md",
@@ -700,18 +700,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 125076,
           "excerpt": "**Backends** (the titler is an interface; one is active, the user chooses) [C]:",
           "path": "docs/technical-design.md",
           "start": 124997
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 35053,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 35661,
           "excerpt": "- **The model** is a choice among three backends (engine spec 8.4)",
           "path": "docs/functional-design.md",
-          "start": 34987
+          "start": 35595
         }
       ],
       "id": "REQ-028",
@@ -721,21 +721,21 @@
     {
       "evidence": [
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 125750,
           "excerpt": "run a small GGUF model locally through llama.cpp",
           "path": "docs/technical-design.md",
           "start": 125702
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 125891,
           "excerpt": "for titles at **zero token\n   cost, offline and with no credentials**.",
           "path": "docs/technical-design.md",
           "start": 125821
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 125076,
           "excerpt": "**Backends** (the titler is an interface; one is active, the user chooses) [C]:",
           "path": "docs/technical-design.md",
@@ -749,21 +749,21 @@
     {
       "evidence": [
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 126046,
           "excerpt": "The model is a one-time opt-in download (about 500 MB) with\n   the licence shown.",
           "path": "docs/technical-design.md",
           "start": 125965
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 35276,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 35884,
           "excerpt": "one-time opt-in\n  download; quality unmeasured",
           "path": "docs/functional-design.md",
-          "start": 35230
+          "start": 35838
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 125076,
           "excerpt": "**Backends** (the titler is an interface; one is active, the user chooses) [C]:",
           "path": "docs/technical-design.md",
@@ -777,21 +777,21 @@
     {
       "evidence": [
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 126455,
           "excerpt": "from the catalog of a provider the user is signed in\n   with, chosen by capability and price and never by a name in the code",
           "path": "docs/technical-design.md",
           "start": 126331
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 35453,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 36061,
           "excerpt": "provider the user is already signed in with, by capability and price, never by a model\n  name written in the code",
           "path": "docs/functional-design.md",
-          "start": 35340
+          "start": 35948
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 125076,
           "excerpt": "**Backends** (the titler is an interface; one is active, the user chooses) [C]:",
           "path": "docs/technical-design.md",
@@ -805,28 +805,28 @@
     {
       "evidence": [
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 126593,
           "excerpt": "the call goes\n   through the sidecar's auxiliary-call path or the agent's own non-interactive mode, so\n   Shinatama holds no credentials",
           "path": "docs/technical-design.md",
           "start": 126457
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 35945,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 36553,
           "excerpt": "- **Credentials:** Shinatama holds none (5.11), so the call goes through the sidecar's",
           "path": "docs/functional-design.md",
-          "start": 35859
+          "start": 36467
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
           "end": 54348,
           "excerpt": "Reusing the sidecar's auxiliary-call path for titles and roundtable calls without handling credentials",
           "path": "docs/verification-register.md",
           "start": 54246
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 125076,
           "excerpt": "**Backends** (the titler is an interface; one is active, the user chooses) [C]:",
           "path": "docs/technical-design.md",
@@ -840,14 +840,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 126625,
           "excerpt": "Shinatama holds no credentials; counted against the daily cap.",
           "path": "docs/technical-design.md",
           "start": 126563
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 125076,
           "excerpt": "**Backends** (the titler is an interface; one is active, the user chooses) [C]:",
           "path": "docs/technical-design.md",
@@ -861,21 +861,21 @@
     {
       "evidence": [
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 126863,
           "excerpt": "Default (my recommendation, to be confirmed by measurement): offer backend 1 at first\nrun; if declined or not yet downloaded, use 3; backend 2 is a user choice for better\nwording.",
           "path": "docs/technical-design.md",
           "start": 126684
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 35650,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 36258,
           "excerpt": "The default is decided by a quality gate\n  on real snapshots in the first milestone.",
           "path": "docs/functional-design.md",
-          "start": 35566
+          "start": 36174
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
           "end": 51059,
           "excerpt": "Default chosen from the result",
           "path": "docs/verification-register.md",
@@ -889,25 +889,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 34353,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 34961,
           "excerpt": "is doing, tokens and cost, how full its context is.",
           "path": "docs/functional-design.md",
-          "start": 34302
+          "start": 34910
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
           "end": 50202,
           "excerpt": "Tokens, cost and context fill per agent",
           "path": "docs/verification-register.md",
           "start": 50163
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 33989,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 34597,
           "excerpt": "the work\"; shape is mine)",
           "path": "docs/functional-design.md",
-          "start": 33964
+          "start": 34572
         }
       ],
       "id": "REQ-035",
@@ -917,11 +917,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 36344,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 36952,
           "excerpt": "- **Branch and worktree** (decided): the table shows, for each instance, the git\n  branch and the worktree it works in (the main tree or a linked worktree), read from\n  git, not guessed. Non-git folders show none.",
           "path": "docs/functional-design.md",
-          "start": 36131
+          "start": 36739
         }
       ],
       "id": "REQ-036",
@@ -931,14 +931,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 127212,
           "excerpt": "Per instance, from git at start and at each `idle` transition",
           "path": "docs/technical-design.md",
           "start": 127151
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
           "end": 50478,
           "excerpt": "Branch and worktree: detached HEAD, linked worktrees, submodules, bare, non-git",
           "path": "docs/verification-register.md",
@@ -952,18 +952,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 34467,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 35075,
           "excerpt": "Beside the table: the **flows**\nbetween instances (hops of a thread, roundtable participants, who waits for whom)",
           "path": "docs/functional-design.md",
-          "start": 34354
+          "start": 34962
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 33989,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 34597,
           "excerpt": "(decided as a wish: \"a global view tab with all the instances, how they collaborate, what they are doing, a low-cost model titling their activity, the communication flows, the exchanges and the work\"; shape is mine)",
           "path": "docs/functional-design.md",
-          "start": 33774
+          "start": 34382
         }
       ],
       "id": "REQ-038",
@@ -973,18 +973,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 34557,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 35165,
           "excerpt": "timeline of **exchanges and changes** (hops, rounds, approvals, errors, files\nchanged)",
           "path": "docs/functional-design.md",
-          "start": 34471
+          "start": 35079
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 33989,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 34597,
           "excerpt": "(decided as a wish: \"a global view tab with all the instances, how they collaborate, what they are doing, a low-cost model titling their activity, the communication flows, the exchanges and the work\"; shape is mine)",
           "path": "docs/functional-design.md",
-          "start": 33774
+          "start": 34382
         }
       ],
       "id": "REQ-039",
@@ -994,18 +994,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 34651,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 35259,
           "excerpt": "the **work** per shared folder, including files that more than one\ninstance is touching.",
           "path": "docs/functional-design.md",
-          "start": 34563
+          "start": 35171
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 33989,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 34597,
           "excerpt": "(decided as a wish: \"a global view tab with all the instances, how they collaborate, what they are doing, a low-cost model titling their activity, the communication flows, the exchanges and the work\"; shape is mine)",
           "path": "docs/functional-design.md",
-          "start": 33774
+          "start": 34382
         }
       ],
       "id": "REQ-040",
@@ -1015,25 +1015,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 36499,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 37107,
           "excerpt": "- **\"How they collaborate\"** is built only from what Shinatama really knows: threads\n  that hopped, roundtable groups, instances sharing a project folder.",
           "path": "docs/functional-design.md",
-          "start": 36345
+          "start": 36953
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 36661,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 37269,
           "excerpt": "It does not infer intent.",
           "path": "docs/functional-design.md",
-          "start": 36636
+          "start": 37244
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 34686,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 35294,
           "excerpt": "My calls:\n\n- **What it is doing**",
           "path": "docs/functional-design.md",
-          "start": 34653
+          "start": 35261
         }
       ],
       "id": "REQ-041",
@@ -1043,25 +1043,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 36635,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 37243,
           "excerpt": "It warns when\n  two instances change the same file in the same worktree; the same path in two\n  different worktrees is not a collision.",
           "path": "docs/functional-design.md",
-          "start": 36500
+          "start": 37108
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 127558,
           "excerpt": "Two\ninstances whose worktree roots are equal and whose modified paths intersect raise a\n`file_collision` event; equal paths in different worktrees do not.",
           "path": "docs/technical-design.md",
           "start": 127404
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 34686,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 35294,
           "excerpt": "My calls:\n\n- **What it is doing**",
           "path": "docs/functional-design.md",
-          "start": 34653
+          "start": 35261
         }
       ],
       "id": "REQ-042",
@@ -1071,11 +1071,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 36832,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 37440,
           "excerpt": "- **Agent icons** (decided: every tab shows the icon of its agent): each agent has an\n  icon and an accent colour, shown in the tab, the overview and the project manager.",
           "path": "docs/functional-design.md",
-          "start": 36662
+          "start": 37270
         }
       ],
       "id": "REQ-043",
@@ -1085,25 +1085,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 36961,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 37569,
           "excerpt": "with a text label/letter badge fallback\n  and accessible names independent of colour.",
           "path": "docs/functional-design.md",
-          "start": 36876
+          "start": 37484
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
           "end": 52071,
           "excerpt": "letter-badge fallback",
           "path": "docs/verification-register.md",
           "start": 52050
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 34686,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 35294,
           "excerpt": "My calls:\n\n- **What it is doing**",
           "path": "docs/functional-design.md",
-          "start": 34653
+          "start": 35261
         }
       ],
       "id": "REQ-044",
@@ -1113,11 +1113,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 37271,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 37879,
           "excerpt": "- **Own worktree for a new instance** (my idea, optional): from the overview or the\n  project manager, start a new instance in a new linked worktree so that two agents on\n  the same project do not collide.",
           "path": "docs/functional-design.md",
-          "start": 37066
+          "start": 37674
         }
       ],
       "id": "REQ-045",
@@ -1127,18 +1127,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 37447,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 38055,
           "excerpt": "- The overview reads. Its only actions: focus a session, hop, pause an instance's\n  summaries.",
           "path": "docs/functional-design.md",
-          "start": 37353
+          "start": 37961
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 34686,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 35294,
           "excerpt": "My calls:\n\n- **What it is doing**",
           "path": "docs/functional-design.md",
-          "start": 34653
+          "start": 35261
         }
       ],
       "id": "REQ-046",

@@ -1,7 +1,8 @@
 # Design inconsistencies — worklist (2026-11-01)
 
 Found while writing ADR-0004 to ADR-0040 and extracting FRD-0001 to FRD-0013 from the
-documents at commit `da4b83e`. Each item names where the documents disagree. Nothing here is
+documents at commit `da4b83e`; the companion items (section 6) were redone on revision 3 of the
+companion spec, at commit `e221915`. Each item names where the documents disagree. Nothing here is
 fixed yet: this is the list to work through.
 
 FD = functional-design, TD = technical-design, DN = daodan-native-support, BI =
@@ -30,7 +31,6 @@ the FRD is still Proposed).
 | 6 | U | Daodan native support: goal 5 marks reading, linking, carrying a task and read-only as decided; 5.5 says "shape is mine"; daodan-native 1 says "my reading" | FD 2, 5.5; DN 1 | FRD-0008; ADR-0033 |
 | 7 | E | Adapter requirements: FD 6 says "requirements mine", TD 5.5 says "The user's requirement (decided)" | FD 6; TD 5.5 | FRD-0001; ADR-0011 |
 | 8 | U | Terminal-first scope (2026-10-30) and delivery baseline (2026-10-31) are dated but not attributed | FD 5.12, 5.16 | FRD-0001; ADR-0040 |
-| 9 | U | Companion spec marks default harness/model, the read-only layers, `summaries_excluded` and the decision cards as "my call", while ADR-0002 and ADR-0003 (Accepted) record them; the spec header still says "draft, not yet approved" | specs/companion-explainer 0, 9 | FRD-0012 |
 | 10 | E | Token-savings decisions (goals 2, 5, 8.2) carry no date | specs/token-savings | FRD-0013 |
 
 ## 2. Contradictions in behaviour
@@ -68,10 +68,6 @@ the FRD is still Proposed).
 | 39 | E | Browser content in logs: none by default (TD 7.9) vs the narrower BI 8.5, which TD 7.9 calls the complete contract | TD 7.9; BI 8 | FRD-0011 |
 | 40 | U | `browser.patchright.enabled = false` vs an explicit `open-ui`: does `open-ui` work with the setting off? | BI 10; FD 5.15 | FRD-0011 |
 | 41 | E | `/browse` spelling: "my call" (FD 4) vs "builder's choice" (BI 4.1) | FD 4; BI 4.1 | FRD-0011 |
-| 42 | E | Companion default model: "a lower-cost model" (goal 4) vs "the lowest-cost model that passes a quality gate" (7) | specs/companion-explainer | FRD-0012 |
-| 43 | U | RA-005 rejects relying on the harness policy alone, yet the opt-in preview "read-only: harness policy only" does that | specs/companion-explainer 6, 9 | FRD-0012 |
-| 44 | E | Decision cards are sent "at once", but INV-007 allows one turn at a time; 9.6 step 2 orders work two ways | specs/companion-explainer 5.5, 9.4, 9.6 | FRD-0012 |
-| 45 | U | Select-to-ask is defined on a terminal pane; DeepSeek Harness has none | specs/companion-explainer; FD 5.16 | FRD-0012 |
 | 46 | U | Code-mode gateway: a later milestone (token-savings 7, 8.1) vs "not in v1, an evaluated option" (TD 7.5a) vs built only past a user threshold (T3) | specs/token-savings; TD 7.5a | FRD-0013; ADR-0025 |
 | 47 | U | Titles through julia1 (token-savings 4.4.3) vs the user's title backend choice (TD 8.4); one model download or two | specs/token-savings; TD 8.4 | FRD-0013; ADR-0028 |
 | 48 | E | Compaction trigger: task boundaries (4.3.4) vs the library's `compactAtPercent` 60 vs "at threshold" (7) | specs/token-savings | FRD-0013; ADR-0037 |
@@ -99,7 +95,6 @@ the FRD is still Proposed).
 | 65 | E | OC8 record says "Not met"; register 21 lists it as "running (partial)" | register 21; OC8 record |
 | 66 | E | FD 5.7: the Section 9 and TCTF skins list scan lines and cut corners, which the same section says are not requirements | FD 5.7 |
 | 67 | E | TD 3's box home variables and register D15 cover four agents, FD 5.14 six | TD 3; register D15 |
-| 68 | G | Companion spec 9.7: FD 5.1 and 5.16 do not declare the companion pane; TD 4.2 lacks thread kind `companion`; TD 4.7 does not allow the companion's provider data flow; TD 7.6 lacks wrapper escaping; TD 8.1/8.3 lack the pending-request payload | FD 5.1, 5.16; TD 4.2, 4.7, 7.6, 8.1, 8.3 |
 | 69 | E | Windows is assumed (open question 1, O3) while FD 5.1 and register B7 require Windows results | FD 3, 5.1; register B7 |
 | 84 | E | Register T5 to T9 (added 2026-11-01) cite token-savings 4.4 for output steering and 7.2 for a per-instance status line; the spec has no output-steering text and no section 7.2 | register T5–T9; specs/token-savings |
 | 85 | E | Register 21 links `verification/2026-11-01-T5-effort-cache-claude-code.md`, which is not in the repository | register 21 |
@@ -126,4 +121,28 @@ the FRD is still Proposed).
 | 80 | U | Project list "sorted by last change" (of what?), "last 10 non-standard folders" (which?), the `n` shortcut vs the incremental filter, and two Daodan offers for a new project | FD 5.4; DN 4.7 |
 | 81 | U | Claude's MCP-log leak in a box (D19) is not disclosed the way Codex's is | FD 5.14; D19 |
 | 82 | U | Browser MCP web interfaces "can" be used (FD 5.15) but may be deferred (BI 11, B3) | FD 5.15; BI 11 |
-| 83 | U | Companion word limits (200, 250 words) exist only in acceptance material | specs/companion-explainer 10.2 |
+
+## 6. Companion spec, revision 3
+
+Items 9, 42–45, 68 and 83 of the first list referred to revision 2 and are replaced by these.
+
+| # | Kind | Item | Where | FRD |
+|---|---|---|---|---|
+| 86 | G | The companion is a second native chat pane run headless; FD 5.1 plans no native redraw of a live chat except DeepSeek (spec 9.7 acknowledges it) | FD 5.1; spec 9.7 | FRD-0012 |
+| 87 | G | Neither FD 5.16's panel table nor TD 3.1's `PanelDescriptor` kinds list a companion pane or an "Explain this" action; 9.7 names only 5.16 | FD 5.16; TD 3.1 | FRD-0012 |
+| 88 | U | Spec 6 B has Shinatama make read-only copies or bindings of the harness's credential files at launch, against "Detect, never collect" (FD 5.11); 9.7 does not mention it | FD 5.11; spec 6 | FRD-0012, FRD-0003 |
+| 89 | U | Each companion gets its own scratch home, a third kind of home beside box and system (FD 5.14, 5.16); 9.7 lists no change to 5.14 | FD 5.14; spec 6 | FRD-0012, FRD-0002 |
+| 90 | U | On close Shinatama deletes the native session in the companion's scratch home, against TD invariant 7 (native stores read-only in v1); not acknowledged | TD 1; spec 8 | FRD-0012 |
+| 91 | G | TD 4.2 has no thread kind `companion`, no link column, no record table, no `learning_memory` table (acknowledged) | TD 4.2; spec 9.7 | FRD-0012 |
+| 92 | G | TD 4.7: companion feed and ledger leave the machine to the companion's provider; sidecar coverage unknown; `forget` does not cover the companion record (acknowledged) | TD 4.7; spec 7 | FRD-0012 |
+| 93 | G | TD 5.5 lists `ask_headless` for roundtables and titles only, answer-only with no tools; no read-only-with-reads policy, no stateless mode; TD 7.6 has no wrapper escaping (acknowledged) | TD 5.5, 7.6 | FRD-0012 |
+| 94 | G | TD 8.1/8.3 waiting events carry no request payload, which decision cards need (acknowledged; unverified per harness) | TD 8.1, 8.3 | FRD-0012 |
+| 95 | U | The spec withholds `shinatama_send` and `shinatama_inbox` from the companion and says nothing of `shinatama_instances` and `shinatama_ack` (TD 7.7) | TD 7.7; spec 6 C | FRD-0012 |
+| 96 | U | The companion has no `instance` row, yet the overview shows it as a child row with an "explanation ready" badge; the overview is built from `instance` and event rows | FD 5.13; TD 8.3; spec 8 | FRD-0012, FRD-0010 |
+| 97 | U | The two flows are marked decided (goal 2, 9.1) while preset-only input is "my call until the user approves this revision" (goal 7, 5.6, 9.1), though both come from the user's pasted design | spec 2, 5.6, 9.1 | FRD-0012 |
+| 98 | U | The 5.7 "decided" heading covers mechanics the quoted words do not (levels 1–4, the 30/40/2 KB selection, notice wording, failure handling) and clashes with 5.6 and 5.8 "my call" on the same level rules | spec 5.6–5.8 | FRD-0012 |
+| 99 | E | Section 8's header shows "mode", but revision 3 has no modes | spec 8 | FRD-0012 |
+| 100 | E | 9.6 puts "the feed" and expand-on-last-message in R1, which lacks the turn-end signal and incremental reader a per-turn delta needs (section 4) | spec 4, 9.6 | FRD-0012 |
+| 101 | E | Turn-card length: 200 words and one diagram in EX-001 and row 5; no cap in 5.1; preset cards capped at 150 words in 5.6 | spec 5.1, 5.6, 10.2 | FRD-0012 |
+| 102 | E | Expand takes the worker's last message as an operand, but no pane control for it is described | spec 5.6 | FRD-0012 |
+| 103 | U | The daily cap amount ($2.00) is open point 1 | spec 9.5 | FRD-0012 |

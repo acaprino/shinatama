@@ -140,13 +140,14 @@ proposed, or unmarked in the design. Open questions are not requirements.
 | FRD-0006 | Search, sessions and resume | 66 |
 | FRD-0007 | Roundtable and messages between instances | 47 |
 | FRD-0008 | Daodan preinstalled and native task support | 55 |
-| FRD-0009 | BillionContext sidecar | 29 |
+| FRD-0009 | BillionContext sidecar | 30 |
 | FRD-0010 | Overview, instance state and desktop widget | 46 |
 | FRD-0011 | Browser integration | 68 |
-| FRD-0012 | Companion pane and decision cards | 88 |
+| FRD-0012 | Companion pane and decision cards (spec revision 3) | 168 |
 | FRD-0013 | Token savings | 44 |
 
-All 13 are **Proposed**, extracted on 2026-11-01 at `da4b83e`; items are `extracted`, not
+All 13 are **Proposed**, extracted on 2026-11-01 and refreshed at `e221915` after the merge of
+revision 3 of the companion spec and the SC15 terminal-byte rule; items are `extracted`, not
 reviewed. `frd_tool.py validate` passes. An FRD becomes Accepted only through `promote`
 after the user approves its exact text. Because evidence is bound to file hashes, any edit
 to a cited document makes the spans in it stale until the FRD is refreshed.
@@ -203,7 +204,7 @@ O10 (ask Daodan for Hermes and DeepSeek packages). O6 was decided on 2026-10-28.
 
 ## 8. Known inconsistencies found while mapping
 
-The full, numbered list (83 items, each marked editorial, needs the user, or register-only)
+The full, numbered list (103 numbers, 96 open items, each marked editorial, needs the user, or register-only)
 is [notes/2026-11-01-design-inconsistencies.md](notes/2026-11-01-design-inconsistencies.md).
 The items below were the first found.
 

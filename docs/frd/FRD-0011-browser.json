@@ -7,7 +7,7 @@
   "entities": [],
   "frd_id": "FRD-0011",
   "last_verified_sha": null,
-  "proposed_at_sha": "da4b83e5a769c6999a57e2b4587c2561c2d491fc",
+  "proposed_at_sha": "e22191501ff4ef3a182bcee7175dba73550586e6",
   "proposed_on": "2026-11-01",
   "relationships": [],
   "requirements": [
@@ -28,7 +28,7 @@
           "start": 1143
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 4139,
           "excerpt": "13. Browser access for agents and the user (decided 2026-10-29): Moli by default",
           "path": "docs/functional-design.md",
@@ -63,18 +63,18 @@
           "start": 8697
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 46772,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 47380,
           "excerpt": "Text extraction does not enable layout or optional visual resources; a preview",
           "path": "docs/functional-design.md",
-          "start": 46694
+          "start": 47302
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 76895,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 80953,
           "excerpt": "Pinned Moli `fetch` on synthetic local HTML: correct text/structured extraction, bounded output/time, no optional resources for text, no `serve` listener",
           "path": "docs/verification-register.md",
-          "start": 76742
+          "start": 80800
         }
       ],
       "id": "REQ-002",
@@ -133,7 +133,7 @@
           "start": 1143
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 5792,
           "excerpt": "- Automatic browser fallback or migration (5.15): no switching from Moli to",
           "path": "docs/functional-design.md",
@@ -161,7 +161,7 @@
           "start": 1143
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 5871,
           "excerpt": "Patchright after an error, no shared cookies/login and no resident Chrome or",
           "path": "docs/functional-design.md",
@@ -196,11 +196,11 @@
           "start": 1143
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 47363,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 47971,
           "excerpt": "neither it nor Chrome is resident at startup or installed automatically.",
           "path": "docs/functional-design.md",
-          "start": 47291
+          "start": 47899
         }
       ],
       "id": "REQ-006",
@@ -259,11 +259,11 @@
           "start": 2156
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 78398,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 82456,
           "excerpt": "No pre-request browser/companion; explicit UI works or returns clear `unsupported`",
           "path": "docs/verification-register.md",
-          "start": 78316
+          "start": 82374
         }
       ],
       "id": "REQ-008",
@@ -315,11 +315,11 @@
           "start": 1143
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 78581,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 82639,
           "excerpt": "hostile pages, redirects, errors and agent/peer output cannot change engine/scope, open Chrome or answer approvals",
           "path": "docs/verification-register.md",
-          "start": 78467
+          "start": 82525
         }
       ],
       "id": "REQ-010",
@@ -357,11 +357,11 @@
           "start": 2156
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 78771,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 82829,
           "excerpt": "No unauthorized transition or effect; engine and permission snapshot remain immutable",
           "path": "docs/verification-register.md",
-          "start": 78686
+          "start": 82744
         }
       ],
       "id": "REQ-011",
@@ -371,18 +371,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 47803,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 48411,
           "excerpt": "as such. The user may issue a new explicit Patchright command, but this starts",
           "path": "docs/functional-design.md",
-          "start": 47725
+          "start": 48333
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 47867,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 48475,
           "excerpt": "a new session without transferring cookies, login or control.",
           "path": "docs/functional-design.md",
-          "start": 47806
+          "start": 48414
         },
         {
           "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
@@ -399,11 +399,11 @@
           "start": 6967
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 46356,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 46964,
           "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
           "path": "docs/functional-design.md",
-          "start": 46278
+          "start": 46886
         }
       ],
       "id": "REQ-012",
@@ -413,11 +413,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 47722,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 48330,
           "excerpt": "- **No automatic fallback:** a Moli error, timeout or unsupported page is shown",
           "path": "docs/functional-design.md",
-          "start": 47643
+          "start": 48251
         },
         {
           "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
@@ -427,11 +427,11 @@
           "start": 5911
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 46356,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 46964,
           "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
           "path": "docs/functional-design.md",
-          "start": 46278
+          "start": 46886
         }
       ],
       "id": "REQ-013",
@@ -455,7 +455,7 @@
           "start": 4876
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 9584,
           "excerpt": "are my call). Browser access: `/browse` with `read`, `preview`",
           "path": "docs/functional-design.md",
@@ -504,11 +504,11 @@
           "start": 5164
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 47128,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 47736,
           "excerpt": "- `open-ui` starts Patchright with visible Chrome only at the user's explicit",
           "path": "docs/functional-design.md",
-          "start": 47051
+          "start": 47659
         },
         {
           "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
@@ -560,18 +560,18 @@
           "start": 5416
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 47445,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 48053,
           "excerpt": "- `/browse` or its preinstalled skill chooses from the user's intent and displays",
           "path": "docs/functional-design.md",
-          "start": 47364
+          "start": 47972
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 46356,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 46964,
           "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
           "path": "docs/functional-design.md",
-          "start": 46278
+          "start": 46886
         }
       ],
       "id": "REQ-018",
@@ -630,18 +630,18 @@
           "start": 5721
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 47608,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 48216,
           "excerpt": "they cannot open UI, broaden scope or authorize themselves. Ambiguous sensitive",
           "path": "docs/functional-design.md",
-          "start": 47529
+          "start": 48137
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 46356,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 46964,
           "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
           "path": "docs/functional-design.md",
-          "start": 46278
+          "start": 46886
         }
       ],
       "id": "REQ-020",
@@ -658,18 +658,18 @@
           "start": 6883
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 47608,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 48216,
           "excerpt": "they cannot open UI, broaden scope or authorize themselves. Ambiguous sensitive",
           "path": "docs/functional-design.md",
-          "start": 47529
+          "start": 48137
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 46356,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 46964,
           "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
           "path": "docs/functional-design.md",
-          "start": 46278
+          "start": 46886
         }
       ],
       "id": "REQ-021",
@@ -707,18 +707,18 @@
           "start": 6637
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 46691,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 47299,
           "excerpt": "static previews and use bounded MCP web-interface operations through Moli.",
           "path": "docs/functional-design.md",
-          "start": 46617
+          "start": 47225
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 46356,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 46964,
           "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
           "path": "docs/functional-design.md",
-          "start": 46278
+          "start": 46886
         }
       ],
       "id": "REQ-023",
@@ -742,18 +742,18 @@
           "start": 16440
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 77494,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 81552,
           "excerpt": "Representative MCP web UI within the one-shot boundary, without silently enabling `serve` or general agent `--eval`",
           "path": "docs/verification-register.md",
-          "start": 77379
+          "start": 81437
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 77648,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 81706,
           "excerpt": "The required workflow works within scope, or unsupported interactive work is explicitly deferred",
           "path": "docs/verification-register.md",
-          "start": 77552
+          "start": 81610
         }
       ],
       "id": "REQ-024",
@@ -875,18 +875,18 @@
           "start": 6072
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 48034,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 48642,
           "excerpt": "a private artifact plus textual alternative. Text alone is not a visual preview.",
           "path": "docs/functional-design.md",
-          "start": 47954
+          "start": 48562
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 77333,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 81391,
           "excerpt": "Visual output matches the fixture; text-only mode is not called visual success",
           "path": "docs/verification-register.md",
-          "start": 77255
+          "start": 81313
         }
       ],
       "id": "REQ-029",
@@ -896,18 +896,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 47951,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 48559,
           "excerpt": "- Static visual output uses native preview panes for supported artifacts, otherwise",
           "path": "docs/functional-design.md",
-          "start": 47868
+          "start": 48476
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 48034,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 48642,
           "excerpt": "a private artifact plus textual alternative. Text alone is not a visual preview.",
           "path": "docs/functional-design.md",
-          "start": 47954
+          "start": 48562
         },
         {
           "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
@@ -917,18 +917,18 @@
           "start": 447
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 46356,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 46964,
           "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
           "path": "docs/functional-design.md",
-          "start": 46278
+          "start": 46886
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 77184,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 81242,
           "excerpt": "Static preview: layout/resources only when requested; correct screenshot; private artifact; honest terminal display/fallback",
           "path": "docs/verification-register.md",
-          "start": 77060
+          "start": 81118
         }
       ],
       "id": "REQ-030",
@@ -945,18 +945,18 @@
           "start": 6124
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 48114,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 48722,
           "excerpt": "Interactive browsing remains external Chrome in the first integration; tiling",
           "path": "docs/functional-design.md",
-          "start": 48037
+          "start": 48645
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 48172,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 48780,
           "excerpt": "does not implicitly approve an embedded browser engine.",
           "path": "docs/functional-design.md",
-          "start": 48117
+          "start": 48725
         },
         {
           "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
@@ -966,11 +966,11 @@
           "start": 687
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 51670,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 52278,
           "excerpt": "Static previews fit 5.15. Interactive embedded browsing and mini-app hosting need separate design/security gates",
           "path": "docs/functional-design.md",
-          "start": 51558
+          "start": 52166
         }
       ],
       "id": "REQ-031",
@@ -987,18 +987,18 @@
           "start": 8396
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 46934,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 47542,
           "excerpt": "- The first Moli path is one-shot `moli fetch`, not `moli serve`. Interactive Moli",
           "path": "docs/functional-design.md",
-          "start": 46852
+          "start": 47460
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 77026,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 81084,
           "excerpt": "Expected output; only the one-shot process; no CDP/WebDriver listener",
           "path": "docs/verification-register.md",
-          "start": 76957
+          "start": 81015
         }
       ],
       "id": "REQ-032",
@@ -1029,25 +1029,25 @@
           "start": 9978
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 47012,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 47620,
           "excerpt": "previews and persistent CDP/WebDriver automation wait for the transport and",
           "path": "docs/functional-design.md",
-          "start": 46937
+          "start": 47545
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 5953,
           "excerpt": "Patchright companion. Persistent `moli serve` and interactive Moli previews are",
           "path": "docs/functional-design.md",
           "start": 5874
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 78048,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 82106,
           "excerpt": "No unauthenticated/reachable control path; otherwise `serve` or the failing UI transport stays disabled",
           "path": "docs/verification-register.md",
-          "start": 77945
+          "start": 82003
         }
       ],
       "id": "REQ-033",
@@ -1064,11 +1064,11 @@
           "start": 8554
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 46851,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 47459,
           "excerpt": "General agent-provided JavaScript evaluation is not exposed initially.",
           "path": "docs/functional-design.md",
-          "start": 46781
+          "start": 47389
         }
       ],
       "id": "REQ-034",
@@ -1113,11 +1113,11 @@
           "start": 13347
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 48335,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 48943,
           "excerpt": "`localhost` is not blanket permission. Temporary profiles are the default and",
           "path": "docs/functional-design.md",
-          "start": 48258
+          "start": 48866
         }
       ],
       "id": "REQ-036",
@@ -1134,18 +1134,18 @@
           "start": 2752
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 47209,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 47817,
           "excerpt": "request. It supports user-driven login/MFA/CAPTCHA and normal graphical use in",
           "path": "docs/functional-design.md",
-          "start": 47131
+          "start": 47739
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 46356,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 46964,
           "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
           "path": "docs/functional-design.md",
-          "start": 46278
+          "start": 46886
         }
       ],
       "id": "REQ-037",
@@ -1176,11 +1176,11 @@
           "start": 3292
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 79499,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 83557,
           "excerpt": "No out-of-scope read, personal-profile use, cross-engine state or secret leakage",
           "path": "docs/verification-register.md",
-          "start": 79419
+          "start": 83477
         }
       ],
       "id": "REQ-038",
@@ -1246,11 +1246,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 48255,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 48863,
           "excerpt": "- Local roots, MCP/local services, redirects and subresources have explicit scope;",
           "path": "docs/functional-design.md",
-          "start": 48173
+          "start": 48781
         },
         {
           "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
@@ -1260,11 +1260,11 @@
           "start": 4358
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 46356,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 46964,
           "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
           "path": "docs/functional-design.md",
-          "start": 46278
+          "start": 46886
         }
       ],
       "id": "REQ-041",
@@ -1316,7 +1316,7 @@
           "start": 13656
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 122525,
           "excerpt": "and follow private retention rules. No browser content or artifact enters logs,",
           "path": "docs/technical-design.md",
@@ -1344,11 +1344,11 @@
           "start": 13819
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 48404,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 49012,
           "excerpt": "screenshots/extracted content follow secret-aware retention rules.",
           "path": "docs/functional-design.md",
-          "start": 48338
+          "start": 48946
         }
       ],
       "id": "REQ-044",
@@ -1540,11 +1540,11 @@
           "start": 11936
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 79131,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 83189,
           "excerpt": "No managed descendant/listener remains; cleanup state is truthful; unrelated processes survive",
           "path": "docs/verification-register.md",
-          "start": 79037
+          "start": 83095
         }
       ],
       "id": "REQ-052",
@@ -1589,11 +1589,11 @@
           "start": 12326
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 48559,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 49167,
           "excerpt": "UI session has one controller, explicit user/agent handover and verified",
           "path": "docs/functional-design.md",
-          "start": 48487
+          "start": 49095
         }
       ],
       "id": "REQ-054",
@@ -1624,11 +1624,11 @@
           "start": 14423
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 48484,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 49092,
           "excerpt": "- One-shot operations can be independent within resource limits. An interactive",
           "path": "docs/functional-design.md",
-          "start": 48405
+          "start": 49013
         },
         {
           "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
@@ -1673,11 +1673,11 @@
           "start": 3337
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 79760,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 83818,
           "excerpt": "One controller; no focus/profile theft or stale/duplicate effect",
           "path": "docs/verification-register.md",
-          "start": 79696
+          "start": 83754
         }
       ],
       "id": "REQ-057",
@@ -1701,11 +1701,11 @@
           "start": 14777
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 48559,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 49167,
           "excerpt": "UI session has one controller, explicit user/agent handover and verified",
           "path": "docs/functional-design.md",
-          "start": 48487
+          "start": 49095
         }
       ],
       "id": "REQ-058",
@@ -1813,11 +1813,11 @@
           "start": 10514
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 78234,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 82292,
           "excerpt": "Patchright/Chrome is absent at startup, lazy-loaded and started only by an explicit UI request; missing optional component does not auto-install",
           "path": "docs/verification-register.md",
-          "start": 78090
+          "start": 82148
         }
       ],
       "id": "REQ-061",
@@ -1862,11 +1862,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 48698,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 49306,
           "excerpt": "No speed or memory saving is claimed before B10 measures equivalent workloads on",
           "path": "docs/functional-design.md",
-          "start": 48618
+          "start": 49226
         },
         {
           "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
@@ -1883,11 +1883,11 @@
           "start": 16102
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 80069,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 84127,
           "excerpt": "Reproducible report supports a user-set budget; no upstream percentage is reused as evidence",
           "path": "docs/verification-register.md",
-          "start": 79977
+          "start": 84035
         }
       ],
       "id": "REQ-064",
@@ -1974,25 +1974,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 32498,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 33106,
           "excerpt": "(9) browser fast path, then the optional UI path after its gates (5.15). Native",
           "path": "docs/functional-design.md",
-          "start": 32419
+          "start": 33027
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 32091,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 32699,
           "excerpt": "### 5.12 Order of work and audience (my calls, to check)",
           "path": "docs/functional-design.md",
-          "start": 32035
+          "start": 32643
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 33346,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 33954,
           "excerpt": "are closed. Native import is post-v1; Daodan task handover, browser UI, roundtable and",
           "path": "docs/functional-design.md",
-          "start": 33260
+          "start": 33868
         }
       ],
       "id": "REQ-068",

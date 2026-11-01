@@ -7,28 +7,28 @@
   "entities": [],
   "frd_id": "FRD-0003",
   "last_verified_sha": null,
-  "proposed_at_sha": "da4b83e5a769c6999a57e2b4587c2561c2d491fc",
+  "proposed_at_sha": "e22191501ff4ef3a182bcee7175dba73550586e6",
   "proposed_on": "2026-11-01",
   "relationships": [],
   "requirements": [
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 3801,
           "excerpt": "11. Recognize existing logins automatically, or run the agent's own login, for each",
           "path": "docs/functional-design.md",
           "start": 3718
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 30125,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 30733,
           "excerpt": "### 5.11 Accounts and login (decided as a wish: \"recognize automatically or perform the login for codex, claude, etc.\"; shape is mine)",
           "path": "docs/functional-design.md",
-          "start": 29991
+          "start": 30599
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 1842,
           "excerpt": "### Goals (decided unless marked)",
           "path": "docs/functional-design.md",
@@ -42,18 +42,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 3801,
           "excerpt": "11. Recognize existing logins automatically, or run the agent's own login, for each",
           "path": "docs/functional-design.md",
           "start": 3718
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 30125,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 30733,
           "excerpt": "### 5.11 Accounts and login (decided as a wish: \"recognize automatically or perform the login for codex, claude, etc.\"; shape is mine)",
           "path": "docs/functional-design.md",
-          "start": 29991
+          "start": 30599
         }
       ],
       "id": "REQ-002",
@@ -63,18 +63,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 30208,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 30816,
           "excerpt": "At first run and in `shinatama doctor`, each agent shows whether it is signed in.",
           "path": "docs/functional-design.md",
-          "start": 30127
+          "start": 30735
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 30125,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 30733,
           "excerpt": "### 5.11 Accounts and login (decided as a wish: \"recognize automatically or perform the login for codex, claude, etc.\"; shape is mine)",
           "path": "docs/functional-design.md",
-          "start": 29991
+          "start": 30599
         }
       ],
       "id": "REQ-003",
@@ -84,21 +84,21 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 30208,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 30816,
           "excerpt": "At first run and in `shinatama doctor`, each agent shows whether it is signed in.",
           "path": "docs/functional-design.md",
-          "start": 30127
+          "start": 30735
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 56671,
           "excerpt": "shinatama doctor [--agent A]                                -> detect, fixture_gate, auth_status",
           "path": "docs/technical-design.md",
           "start": 56575
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 9534,
           "excerpt": "`doctor` and the rest of engine 5.5.2 (`sessions`, `export`, `import`, `forget`; names\nare my call)",
           "path": "docs/functional-design.md",
@@ -112,25 +112,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 30338,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 30946,
           "excerpt": "- **Detect, never collect.** The adapter asks the agent itself (its own status\n  command or its own credential check).",
           "path": "docs/functional-design.md",
-          "start": 30220
+          "start": 30828
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 48606,
           "excerpt": "auth_status() -> SignedIn | SignedOut | Unknown       -- asks the agent, never reads credentials",
           "path": "docs/technical-design.md",
           "start": 48510
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 56915,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 57848,
           "excerpt": "| D5 | G1 | Sign-in detection and login in a PTY for every agent: `claude auth status`/`login`, `codex login status`, `opencode auth`, Pi, `hermes auth list`, DeepSeek Harness (DS9); polling cost; cancel; no secret read | Per agent | Works, or marked \"unknown\" | main 5.11 |",
           "path": "docs/verification-register.md",
-          "start": 56641
+          "start": 57574
         }
       ],
       "id": "REQ-005",
@@ -140,28 +140,28 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 30467,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 31075,
           "excerpt": "Shinatama does not read, copy, move or\n  store an agent's credentials, and puts none of them in the sidecar's launch\n  manifest.",
           "path": "docs/functional-design.md",
-          "start": 30339
+          "start": 30947
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 65450,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 66058,
           "excerpt": "- Login: detect and run each agent's own login, never hold their credentials; sharing",
           "path": "docs/functional-design.md",
-          "start": 65365
+          "start": 65973
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 2687,
           "excerpt": "5. **No credentials** in the database, snapshots, messages, summaries or the sidecar's\n   launch manifest.",
           "path": "docs/technical-design.md",
           "start": 2581
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 71360,
           "excerpt": "- Re-check (help, 2026-10-27): `opencode auth export` prints stored credentials\n  **including secrets**. Shinatama never calls it (D5: ask the agent, never read\n  credentials).",
           "path": "docs/technical-design.md",
@@ -175,14 +175,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 30615,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 31223,
           "excerpt": "- **Log in through the agent's own flow**, run inside Shinatama's terminal (browser\n  sign-in, device code or key entry, whatever that agent uses).",
           "path": "docs/functional-design.md",
-          "start": 30468
+          "start": 31076
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 48658,
           "excerpt": "login() -> the agent's own login flow, run in a PTY",
           "path": "docs/technical-design.md",
@@ -196,18 +196,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 30654,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 31262,
           "excerpt": "Shinatama only\n  observes the outcome.",
           "path": "docs/functional-design.md",
-          "start": 30616
+          "start": 31224
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 30125,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 30733,
           "excerpt": "### 5.11 Accounts and login (decided as a wish: \"recognize automatically or perform the login for codex, claude, etc.\"; shape is mine)",
           "path": "docs/functional-design.md",
-          "start": 29991
+          "start": 30599
         }
       ],
       "id": "REQ-008",
@@ -217,14 +217,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 30735,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 31343,
           "excerpt": "- Login state is visible where it matters: the setup screen, the project manager",
           "path": "docs/functional-design.md",
-          "start": 30655
+          "start": 31263
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 9385,
           "excerpt": "palette, first-run setup.",
           "path": "docs/functional-design.md",
@@ -238,11 +238,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 30776,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 31384,
           "excerpt": "- Login state is visible where it matters: the setup screen, the project manager\n  (an agent that cannot start shows why)",
           "path": "docs/functional-design.md",
-          "start": 30655
+          "start": 31263
         }
       ],
       "id": "REQ-010",
@@ -252,14 +252,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 30919,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 31527,
           "excerpt": "and the hop dialog (a destination that is\n  not signed in offers login before the hop, since the destination is prepared in\n  the background).",
           "path": "docs/functional-design.md",
-          "start": 30777
+          "start": 31385
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 104255,
           "excerpt": "| destination signed out | `auth_status()` | login flow (section 5.11 of the main spec), then retry |",
           "path": "docs/technical-design.md",
@@ -273,11 +273,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 31058,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 31666,
           "excerpt": "- Each agent's authentication methods differ and change by version; the adapter\n  declares what it can detect and what it can only launch.",
           "path": "docs/functional-design.md",
-          "start": 30920
+          "start": 31528
         }
       ],
       "id": "REQ-012",
@@ -287,18 +287,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 48557,
           "excerpt": "auth_status() -> SignedIn | SignedOut | Unknown",
           "path": "docs/technical-design.md",
           "start": 48510
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 56915,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 57848,
           "excerpt": "| D5 | G1 | Sign-in detection and login in a PTY for every agent: `claude auth status`/`login`, `codex login status`, `opencode auth`, Pi, `hermes auth list`, DeepSeek Harness (DS9); polling cost; cancel; no secret read | Per agent | Works, or marked \"unknown\" | main 5.11 |",
           "path": "docs/verification-register.md",
-          "start": 56641
+          "start": 57574
         }
       ],
       "id": "REQ-013",
@@ -308,14 +308,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 31187,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 31795,
           "excerpt": "- Hermes Agent reports sign-in without secrets (`hermes auth list`, `hermes auth status\n  <provider>`)",
           "path": "docs/functional-design.md",
-          "start": 31085
+          "start": 31693
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 78493,
           "excerpt": "status without secrets: `hermes status`, `hermes auth list`, `hermes\n  auth status <provider>`.",
           "path": "docs/technical-design.md",
@@ -329,14 +329,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 31241,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 31849,
           "excerpt": "and logs in with `hermes model` or `hermes auth add`.",
           "path": "docs/functional-design.md",
-          "start": 31188
+          "start": 31796
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 78397,
           "excerpt": "- Login: `hermes model`, `hermes setup`, `hermes auth add <provider> [--type\n  oauth|--api-key]`;",
           "path": "docs/technical-design.md",
@@ -350,21 +350,21 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 31333,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 31941,
           "excerpt": "DeepSeek Harness has\n  neither a login nor a status command: its state shows as **unknown**",
           "path": "docs/functional-design.md",
-          "start": 31242
+          "start": 31850
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 84113,
           "excerpt": "Consequences: `auth_status()` is `Unknown` until DS9\n  finds a check that reads no secret",
           "path": "docs/technical-design.md",
           "start": 84024
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
           "end": 38819,
           "excerpt": "Nothing written outside the box; sign-in detectable or \"unknown\"",
           "path": "docs/verification-register.md",
@@ -378,14 +378,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 31483,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 32091,
           "excerpt": "and its login opens\n  its own web UI (`dsh web`, on the box's home) in the user's browser, where the key or the\n  account is entered (register DS9).",
           "path": "docs/functional-design.md",
-          "start": 31335
+          "start": 31943
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 84187,
           "excerpt": "and `login()` opens `dsh web` on the box's home in the\n  user's browser.",
           "path": "docs/technical-design.md",
@@ -399,14 +399,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 31584,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 32192,
           "excerpt": "It also reads a project's `.env`: a key there is used\n  even in a box, and the setup screen says so.",
           "path": "docs/functional-design.md",
-          "start": 31484
+          "start": 32092
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 84023,
           "excerpt": "Credentials are read from `DSH_HOME/.credentials.yaml`, then the environment, then the\n  project's `.env`, then `DSH_HOME/.env`.",
           "path": "docs/technical-design.md",
@@ -420,18 +420,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 31723,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 32331,
           "excerpt": "- In a box (5.14) an agent's home starts signed out, so the first launch of each agent\n  asks for one login through that agent's own flow;",
           "path": "docs/functional-design.md",
-          "start": 31585
+          "start": 32193
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 39865,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 40473,
           "excerpt": "Cost: one login per agent the first time (5.11).",
           "path": "docs/functional-design.md",
-          "start": 39817
+          "start": 40425
         }
       ],
       "id": "REQ-019",
@@ -441,25 +441,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 31800,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 32408,
           "excerpt": "it then persists in the box and is\n  shared by every instance of that agent.",
           "path": "docs/functional-design.md",
-          "start": 31724
+          "start": 32332
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 60007,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 60940,
           "excerpt": "its login persists across restarts in that home",
           "path": "docs/verification-register.md",
-          "start": 59960
+          "start": 60893
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 46139,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 46747,
           "excerpt": "Still unproved: login persistence in a box (needs the user's sign-in)",
           "path": "docs/functional-design.md",
-          "start": 46070
+          "start": 46678
         }
       ],
       "id": "REQ-020",
@@ -469,18 +469,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 31800,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 32408,
           "excerpt": "it then persists in the box and is\n  shared by every instance of that agent.",
           "path": "docs/functional-design.md",
-          "start": 31724
+          "start": 32332
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 40979,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 41587,
           "excerpt": "so login and sessions stay shared",
           "path": "docs/functional-design.md",
-          "start": 40946
+          "start": 41554
         }
       ],
       "id": "REQ-021",
@@ -490,53 +490,53 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 39816,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 40424,
           "excerpt": "Plugins, skills, settings, sessions and login\n  live there; the user's own agent runs see none of it, and the user's home is never\n  written.",
           "path": "docs/functional-design.md",
-          "start": 39675
+          "start": 40283
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 43546,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 44154,
           "excerpt": "On Windows and Linux the login is a plain-text file\n  in the box; on macOS a Keychain entry per box.",
           "path": "docs/functional-design.md",
-          "start": 43446
+          "start": 44054
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 44555,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 45163,
           "excerpt": "The login is a\n  table in its database.",
           "path": "docs/functional-design.md",
-          "start": 44516
+          "start": 45124
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 44688,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 45296,
           "excerpt": "Login in `auth.json` in the box.",
           "path": "docs/functional-design.md",
-          "start": 44656
+          "start": 45264
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 45041,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 45649,
           "excerpt": "Login in `.env` and `auth.json` in the\n  box.",
           "path": "docs/functional-design.md",
-          "start": 44996
+          "start": 45604
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 45234,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 45842,
           "excerpt": "Login in `.credentials.yaml` in\n  the box.",
           "path": "docs/functional-design.md",
-          "start": 45192
+          "start": 45800
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 37792,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 38400,
           "excerpt": "\"ok\"; shape is mine)",
           "path": "docs/functional-design.md",
-          "start": 37772
+          "start": 38380
         }
       ],
       "id": "REQ-022",
@@ -546,18 +546,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 31869,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 32477,
           "excerpt": "With the `system` home the user's existing\n  login is used as it is.",
           "path": "docs/functional-design.md",
-          "start": 31801
+          "start": 32409
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 40103,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 40711,
           "excerpt": "- `system`: the user's own home: same login, sessions and plugins, visible outside",
           "path": "docs/functional-design.md",
-          "start": 40021
+          "start": 40629
         }
       ],
       "id": "REQ-023",
@@ -567,18 +567,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 65501,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 66109,
           "excerpt": "sharing\n  provider keys across agents is not in v1 (5.11).",
           "path": "docs/functional-design.md",
-          "start": 65443
+          "start": 66051
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 32033,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 32641,
           "excerpt": "Whether Shinatama should also hold provider keys once and share them across agents\nis **open**; it would make Shinatama a credential store that must be protected.",
           "path": "docs/functional-design.md",
-          "start": 31871
+          "start": 32479
         }
       ],
       "id": "REQ-024",
@@ -588,25 +588,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 35383,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 35991,
           "excerpt": "a **provider low-cost model** chosen from the catalog of a\n  provider the user is already signed in with",
           "path": "docs/functional-design.md",
-          "start": 35279
+          "start": 35887
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 126391,
           "excerpt": "2. **Provider low-cost model** — from the catalog of a provider the user is signed in\n   with",
           "path": "docs/technical-design.md",
           "start": 126298
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 66607,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 67215,
           "excerpt": "chosen from the catalog of a provider already signed in or a local model",
           "path": "docs/functional-design.md",
-          "start": 66535
+          "start": 67143
         }
       ],
       "id": "REQ-025",
@@ -616,32 +616,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 35976,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 36584,
           "excerpt": "- **Credentials:** Shinatama holds none (5.11), so the call goes through the sidecar's\n  existing auxiliary-call path",
           "path": "docs/functional-design.md",
-          "start": 35859
+          "start": 36467
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 36130,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 36738,
           "excerpt": "or through the agent's own non-interactive mode. The builder chooses and\n  verifies.",
           "path": "docs/functional-design.md",
-          "start": 36046
+          "start": 36654
         },
         {
-          "document_sha256": "86c0c9b4af68e6102cced6bf9dbc49706055c0972750d8547df9d41dcfddba47",
+          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
           "end": 126593,
           "excerpt": "the call goes\n   through the sidecar's auxiliary-call path or the agent's own non-interactive mode, so\n   Shinatama holds no credentials",
           "path": "docs/technical-design.md",
           "start": 126457
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 34686,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 35294,
           "excerpt": "My calls:\n\n- **What it is doing**",
           "path": "docs/functional-design.md",
-          "start": 34653
+          "start": 35261
         }
       ],
       "id": "REQ-026",

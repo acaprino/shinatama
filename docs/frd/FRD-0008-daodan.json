@@ -7,39 +7,39 @@
   "entities": [],
   "frd_id": "FRD-0008",
   "last_verified_sha": null,
-  "proposed_at_sha": "da4b83e5a769c6999a57e2b4587c2561c2d491fc",
+  "proposed_at_sha": "e22191501ff4ef3a182bcee7175dba73550586e6",
   "proposed_on": "2026-11-01",
   "relationships": [],
   "requirements": [
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 18361,
           "excerpt": "Shinatama's checkup installs or updates it in every\nagent present",
           "path": "docs/functional-design.md",
           "start": 18296
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 2913,
           "excerpt": "5. Daodan arrives preinstalled and enabled in every agent (5.5)",
           "path": "docs/functional-design.md",
           "start": 2850
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 18018,
           "excerpt": "### 5.5 Daodan preinstalled (decided: option A, downloaded and kept updated)",
           "path": "docs/functional-design.md",
           "start": 17942
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 56095,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 57028,
           "excerpt": "Each host ends with the plugins enabled and no duplicates",
           "path": "docs/verification-register.md",
-          "start": 56038
+          "start": 56971
         }
       ],
       "id": "REQ-001",
@@ -49,21 +49,21 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 18126,
           "excerpt": "Daodan is a set of plugins, already compiled for each agent: Shinatama converts\nnothing, it only installs.",
           "path": "docs/functional-design.md",
           "start": 18020
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 20116,
           "excerpt": "installs that build and enables what its manifest lists; nothing is translated.",
           "path": "docs/functional-design.md",
           "start": 20037
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 18018,
           "excerpt": "### 5.5 Daodan preinstalled (decided: option A, downloaded and kept updated)",
           "path": "docs/functional-design.md",
@@ -77,14 +77,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 18295,
           "excerpt": "The plugins go into the agent's home (5.14): the box by\ndefault, the user's own home with the `system` home; an instance with its own set loads\nthem per launch instead.",
           "path": "docs/functional-design.md",
           "start": 18127
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 18018,
           "excerpt": "### 5.5 Daodan preinstalled (decided: option A, downloaded and kept updated)",
           "path": "docs/functional-design.md",
@@ -98,25 +98,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 18432,
           "excerpt": "agent present and enables, by default, **every plugin the Daodan marketplace lists**",
           "path": "docs/functional-design.md",
           "start": 18348
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 18513,
           "excerpt": "(decided 2026-10-27, user: \"mi aspetto che attivi tutti i plugin\"; read from the",
           "path": "docs/functional-design.md",
           "start": 18433
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 65364,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 65972,
           "excerpt": "- All Daodan plugins enabled by default, `research` included (5.5, user).",
           "path": "docs/functional-design.md",
-          "start": 65291
+          "start": 65899
         },
         {
           "document_sha256": "d21a5a1e609c6c11d9425684609fc2c4f4913ee3cd72e49331e676a6ed0f51b3",
@@ -140,7 +140,7 @@
           "start": 8167
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 18562,
           "excerpt": "(decided 2026-10-27, user: \"mi aspetto che attivi tutti i plugin\"; read from the\nmanifest at check time, 48 at marketplace 1.0.0)",
           "path": "docs/functional-design.md",
@@ -182,11 +182,11 @@
           "start": 8456
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 56166,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 57099,
           "excerpt": "The user's own disabled plugins stay disabled",
           "path": "docs/verification-register.md",
-          "start": 56121
+          "start": 57054
         },
         {
           "document_sha256": "d21a5a1e609c6c11d9425684609fc2c4f4913ee3cd72e49331e676a6ed0f51b3",
@@ -210,11 +210,11 @@
           "start": 8504
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 56443,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 57376,
           "excerpt": "a failing plugin must not block the launch",
           "path": "docs/verification-register.md",
-          "start": 56401
+          "start": 57334
         },
         {
           "document_sha256": "d21a5a1e609c6c11d9425684609fc2c4f4913ee3cd72e49331e676a6ed0f51b3",
@@ -231,14 +231,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 18847,
           "excerpt": "A setting `daodan.enable = all | core | custom`",
           "path": "docs/functional-design.md",
           "start": 18800
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 18929,
           "excerpt": "(default `all`; `core` is the entry plugin plus its dependency closure) keeps the",
           "path": "docs/functional-design.md",
@@ -280,32 +280,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 19473,
           "excerpt": "On the two new agents the checkup installs nothing and says\n\"Daodan: no package for this agent\"",
           "path": "docs/functional-design.md",
           "start": 19378
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 65036,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 65644,
           "excerpt": "- Hermes Agent and DeepSeek Harness get no Daodan package until Daodan builds one; nothing\n  is copied from another host (5.5).",
           "path": "docs/functional-design.md",
-          "start": 64909
+          "start": 65517
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 63822,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 64430,
           "excerpt": "### Calls made to settle the rest (check them; each is also marked where it appears)",
           "path": "docs/functional-design.md",
-          "start": 63738
+          "start": 64346
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 63205,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 64138,
           "excerpt": "with no Daodan host package, the checkup says so, installs nothing and the palette types nothing",
           "path": "docs/verification-register.md",
-          "start": 63109
+          "start": 64042
         }
       ],
       "id": "REQ-011",
@@ -315,25 +315,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 19620,
           "excerpt": "never copies another host's build into them: a package Daodan did not compile and check for",
           "path": "docs/functional-design.md",
           "start": 19529
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 65036,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 65644,
           "excerpt": "- Hermes Agent and DeepSeek Harness get no Daodan package until Daodan builds one; nothing\n  is copied from another host (5.5).",
           "path": "docs/functional-design.md",
-          "start": 64909
+          "start": 65517
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 63361,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 64294,
           "excerpt": "Nothing copied from another host",
           "path": "docs/verification-register.md",
-          "start": 63329
+          "start": 64262
         }
       ],
       "id": "REQ-012",
@@ -343,25 +343,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 19953,
           "excerpt": "ships them, the checkup treats them like the other five.",
           "path": "docs/functional-design.md",
           "start": 19897
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 63301,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 64234,
           "excerpt": "when Daodan's marketplace lists a package for either host, it is installed like the other five",
           "path": "docs/verification-register.md",
-          "start": 63207
+          "start": 64140
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 63822,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 64430,
           "excerpt": "### Calls made to settle the rest (check them; each is also marked where it appears)",
           "path": "docs/functional-design.md",
-          "start": 63738
+          "start": 64346
         }
       ],
       "id": "REQ-013",
@@ -371,7 +371,7 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 20350,
           "excerpt": "A palette (`^K`) lists Daodan's workflows and types the selected agent's native\ncommand into the prompt; the user presses Enter. (my call)",
           "path": "docs/functional-design.md",
@@ -385,18 +385,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 19118,
           "excerpt": "through their own native entries: `/daodan:<workflow>` on Claude Code and OpenCode,\n`<workflow>-workflow` on Codex, `/daodan-<workflow>` on Pi",
           "path": "docs/functional-design.md",
           "start": 18976
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 57261,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 58194,
           "excerpt": "The Daodan palette lists workflows from the installed manifest, not a hard-coded list; the native entry per host",
           "path": "docs/verification-register.md",
-          "start": 57149
+          "start": 58082
         }
       ],
       "id": "REQ-015",
@@ -413,11 +413,11 @@
           "start": 7740
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 57234,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 58167,
           "excerpt": "The Daodan palette lists workflows from the installed manifest, not a hard-coded list",
           "path": "docs/verification-register.md",
-          "start": 57149
+          "start": 58082
         },
         {
           "document_sha256": "d21a5a1e609c6c11d9425684609fc2c4f4913ee3cd72e49331e676a6ed0f51b3",
@@ -434,7 +434,7 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 19517,
           "excerpt": "the palette offers no Daodan command there",
           "path": "docs/functional-design.md",
@@ -448,18 +448,18 @@
           "start": 7814
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 57386,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 58319,
           "excerpt": "nothing offered on Hermes Agent and DeepSeek Harness (D20)",
           "path": "docs/verification-register.md",
-          "start": 57328
+          "start": 58261
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
-          "end": 63822,
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "end": 64430,
           "excerpt": "### Calls made to settle the rest (check them; each is also marked where it appears)",
           "path": "docs/functional-design.md",
-          "start": 63738
+          "start": 64346
         }
       ],
       "id": "REQ-017",
@@ -476,7 +476,7 @@
           "start": 263
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 20432,
           "excerpt": "**Native support (decided 2026-10-27, user; shape is mine):** beyond installing,",
           "path": "docs/functional-design.md",
@@ -497,14 +497,14 @@
           "start": 1311
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 3021,
           "excerpt": "(decided 2026-10-27, user): it reads Daodan's tasks, links",
           "path": "docs/functional-design.md",
           "start": 2963
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 20432,
           "excerpt": "**Native support (decided 2026-10-27, user; shape is mine):** beyond installing,",
           "path": "docs/functional-design.md",
@@ -532,14 +532,14 @@
           "start": 2511
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 3106,
           "excerpt": "threads to them and carries a task across a hop. Read-only; Daodan stays the only",
           "path": "docs/functional-design.md",
           "start": 3025
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 4937,
           "excerpt": "goal 5. What remains: Shinatama only reads `.daodan/agenda.json`; Daodan's scripts\n  are the only writer.)",
           "path": "docs/functional-design.md",
@@ -595,11 +595,11 @@
           "start": 3761
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 58608,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 59541,
           "excerpt": "Same agenda found from every worktree",
           "path": "docs/verification-register.md",
-          "start": 58571
+          "start": 59504
         },
         {
           "document_sha256": "d21a5a1e609c6c11d9425684609fc2c4f4913ee3cd72e49331e676a6ed0f51b3",
@@ -763,7 +763,7 @@
     {
       "evidence": [
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 5309,
           "excerpt": "- Work Controller's task-graph features (checkpoints, handover between Daodan tasks,\n  a persistent addressed mailbox between agents). They are Daodan's roadmap; Shinatama\n  shows the agenda and the holder but does not implement them.",
           "path": "docs/functional-design.md",
@@ -791,7 +791,7 @@
           "start": 4843
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 20591,
           "excerpt": "questions in the project manager, overview and widget, adds task commands to the",
           "path": "docs/functional-design.md",
@@ -987,11 +987,11 @@
           "start": 5919
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 58722,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 59655,
           "excerpt": "the preliminary seed never claims the source is closed",
           "path": "docs/verification-register.md",
-          "start": 58668
+          "start": 59601
         },
         {
           "document_sha256": "d21a5a1e609c6c11d9425684609fc2c4f4913ee3cd72e49331e676a6ed0f51b3",
@@ -1015,11 +1015,11 @@
           "start": 6146
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 58815,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 59748,
           "excerpt": "takeover is enabled only by a separate message after COMMITTED and confirmed source closure",
           "path": "docs/verification-register.md",
-          "start": 58724
+          "start": 59657
         },
         {
           "document_sha256": "d21a5a1e609c6c11d9425684609fc2c4f4913ee3cd72e49331e676a6ed0f51b3",
@@ -1043,11 +1043,11 @@
           "start": 6476
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 59185,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 60118,
           "excerpt": "Failure/fork: holder unchanged",
           "path": "docs/verification-register.md",
-          "start": 59155
+          "start": 60088
         },
         {
           "document_sha256": "d21a5a1e609c6c11d9425684609fc2c4f4913ee3cd72e49331e676a6ed0f51b3",
@@ -1071,14 +1071,14 @@
           "start": 1633
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 58849,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 59782,
           "excerpt": "with one user confirmation total",
           "path": "docs/verification-register.md",
-          "start": 58817
+          "start": 59750
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 20677,
           "excerpt": "palette, and carries the task across a hop (the user's confirmation in the hop dialog",
           "path": "docs/functional-design.md",
@@ -1141,11 +1141,11 @@
           "start": 12413
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 58923,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 59856,
           "excerpt": "in fork mode the destination reads without writing and leaves the holder",
           "path": "docs/verification-register.md",
-          "start": 58851
+          "start": 59784
         }
       ],
       "id": "REQ-044",
@@ -1211,7 +1211,7 @@
           "start": 2327
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 19794,
           "excerpt": "works for their threads, because that is Shinatama reading `.daodan/agenda.json`.",
           "path": "docs/functional-design.md",
@@ -1358,7 +1358,7 @@
           "start": 10751
         },
         {
-          "document_sha256": "117e60a5dc738e2c4b435536c36c61f4d3adac9298325c5bef2ac8b72e195110",
+          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
           "end": 20849,
           "excerpt": "Daodan state it offers once to onboard it (the handover dossier) or initialize it (map,",
           "path": "docs/functional-design.md",
@@ -1435,11 +1435,11 @@
           "start": 11171
         },
         {
-          "document_sha256": "dcea3050404046f914ca9fd135191898d2251ef62c82764535ff57a48d118bcb",
-          "end": 59589,
+          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
+          "end": 60522,
           "excerpt": "the offer shows once and \"Not now\" sticks",
           "path": "docs/verification-register.md",
-          "start": 59548
+          "start": 60481
         },
         {
           "document_sha256": "d21a5a1e609c6c11d9425684609fc2c4f4913ee3cd72e49331e676a6ed0f51b3",
