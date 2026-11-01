@@ -1818,16 +1818,36 @@ instances whose worktree roots are equal and whose modified paths intersect rais
   trust, no credentials in the manifest).
 - **Proxy supervision** (decided by the user, confirmed 2026-11-01; main spec 5.6): the Shinatama process that owns the proxy is
   its only supervisor. Liveness is two facts checked by that process: the proxy's process
-  is alive, and its port accepts a TCP connection. A missed health check with both facts
-  true marks the proxy **busy**: the window shows it and nothing is started, because a
-  replacement could not bind the port. Recovery on the original address starts only when
-  the process has exited or the port refuses connections; it starts one replacement,
-  and every waiting session attaches to it. A session's process never probes, restarts
+  is alive, and its port is held, decided by binding the port (`EADDRINUSE` means held),
+  not by connecting to it. On Windows a listener whose event loop is held refuses new
+  connections once 232 wait to be accepted, while the bind still fails with `EADDRINUSE`:
+  a connection check reads a busy proxy as gone, and every probe connection fills the
+  queue further [observed 2026-11-01, Node 24.14.1 on Windows 11, measured twice, the
+  same with a backlog of 2048; Musashi Terminal docs/sidecar.md]. A missed health check
+  with both facts true marks the proxy **busy**: the window shows it and nothing is
+  started, because a replacement could not bind the port. A busy proxy is probed at a
+  growing interval, at most 8 s, so the supervisor's own probes do not take the queue
+  slots the agents' turns need. Recovery on the original address starts only when the
+  process has exited or the port is free; it starts one replacement, and every waiting
+  session attaches to it. A session's process never probes, restarts
   or reports on the proxy: when the shipped per-session launcher is used, its
   supervision is switched off and its output kept off the agent's terminal; which
   launch path is used is decided with SC5. Sidecar diagnostics go to Shinatama's log;
   the window shows the busy and recovering states. The proxy's own owner watchdog
-  must not take a long stall of its event loop for the loss of every owner (SC12).
+  must not take a long stall of its event loop for the loss of every owner (SC12). The
+  shipped 0.1.207 watchdog did, four times on 2026-11-01 and each time with every owner
+  alive: after holding its loop for about 36 s it found all six heartbeat owners past
+  their 15 s grace on its first tick and force-exited with 324 connections open, and
+  every agent received `ECONNREFUSED`. The owned source fixes it from Musashi Terminal
+  commit `ac7d57a` (`musashi-terminal/watchdog-stall.ts`): a late tick's delay beyond
+  one 2 s interval is credited back to every recorded heartbeat and to the 5 s idle
+  grace, while a recycled owner pid that goes silent with the watchdog on time still
+  ages out. Shinatama inherits the fix through the single source (ADR-0029). A held
+  loop also limits availability by itself: once the agents' own connections fill the
+  accept queue, their turns are refused until it resumes. On 2026-11-01 the shared proxy
+  held its loop for 15 to 71 s every few minutes with six Claude Code sessions, using
+  about two thirds of a core on average; how long it may be held is open (SC16) and
+  bears on SC5.
   The sidecar code stays unmodified (ADR-0029), so the terminal rule is not left to the
   launcher's messages: the bytes on an agent's PTY must come only from the agent
   (ADR-0030 INV-006). The check is a PTY capture from launch to exit while faults are
@@ -1835,7 +1855,7 @@ instances whose worktree roots are equal and whose modified paths intersect rais
   request, a killed proxy, a stale proxy on the port, an unarmed daemon proxy); every
   fault appears once in Shinatama's log and never in the capture (SC15). It runs against
   each launch path under SC5 and again on every sidecar upgrade.
-  To be proved: SC5, SC6, SC12, SC14, SC15.
+  To be proved: SC5, SC6, SC12, SC14, SC15, SC16.
 
 ### 9.1 Research folded in
 
