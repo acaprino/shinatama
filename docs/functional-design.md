@@ -88,9 +88,11 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
 - A universal migration of a live session between agents. No tool does this; the
   hop starts a *new* native session in the destination.
 - Work Controller's task-graph features (checkpoints, handover between Daodan tasks,
-  a persistent addressed mailbox between agents). They are Daodan's roadmap; Shinatama
-  shows the agenda and the holder but does not implement them. The
-  roundtable (5.10) is different: started by the user, session-level, no mailbox.
+  an addressed mailbox between agents that outlives the sessions or the expiry). They
+  are Daodan's roadmap; Shinatama shows the agenda and the holder but does not implement
+  them. The boundary is persistence (user, 2026-11-01): the messages between instances
+  of engine 7 stay (they expire after 1 hour by default, engine 7.1, and stay within one project or roundtable), and the
+  roundtable (5.10) is started by the user and session-level.
 - A web-built application shell: no HTML/CSS/JavaScript frontend, Tauri or Electron
   for the main UI (decided 2026-10-29). Native desktop tiling supersedes the earlier
   terminal-only decision. Agents still run in real PTYs, not simulated chats. A
@@ -131,9 +133,13 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
   captured fixtures. Documentation alone is not proof.
 - The BillionContext sidecar source in `sidecar/source-build` stays the single
   source; Shinatama does not fork it, and does not install the precompiled npm
-  package (docs/sidecar.md). The sidecar documents named in these designs
-  (`docs/sidecar.md`, `docs/token-efficiency.md`, `docs/prompt-rewrite.md`) are in the
-  sidecar's own source tree, not in this repository.
+  package (docs/sidecar.md). Anything on the request path (the token-savings adapters
+  for Codex and Hermes Agent, the SC9 bypass marker) goes into that single source,
+  Musashi Terminal's, and Shinatama inherits it as it inherits the watchdog fix (5.6);
+  not forking means no fork or patch inside Shinatama (user, 2026-11-01). The sidecar
+  documents named in these designs (`docs/sidecar.md`, `docs/token-efficiency.md`,
+  `docs/prompt-rewrite.md`) are in the sidecar's own source tree, not in this
+  repository.
 - No measured saving percentage may be claimed for compression
   (docs/token-efficiency.md says none has been measured).
 - **Isolation, at a glance.** Nothing system-level is touched: the sidecar keeps a
@@ -293,19 +299,31 @@ shinatama resume t_8f3a --agent codex
 
 ### 5.4 Project manager
 
-Project roots whose first-level folders are the projects, sorted by last change;
-incremental filter while typing; any folder via F3; a history of the last 10
-non-standard folders, including folders that are not git repositories (Desktop,
-shared drives).
+Project roots whose first-level folders are the projects, sorted by last use in
+Shinatama (last open or last thread activity; engine 4.2 `project.last_opened`), with
+projects never opened sorted by folder modification time; an incremental filter, opened
+with `/` or by focusing the search field; any folder via F3; a history of the last 10
+non-standard folders, that is, folders opened with F3 that are not under a project root
+(Desktop, shared drives, folders that are not git repositories). Sorting, filter and
+history decided by the user 2026-11-01.
 
 Decided additions: a **default root** (where new projects are created; chosen at
-first run, changeable) and a **shortcut (`n`) to create a new project**.
+first run, changeable) and a **shortcut (`n`) to create a new project**, which works
+outside the filter (user, 2026-11-01); the final keys are set with register U3.
 
 My calls: pinned projects; git branch and dirty-file count;
 the last agent and last thread per project; the threads of a project listed
 beside it; one key to resume the last thread; several roots. In the new-project
 dialog: optional `git init`, and an option to type Daodan's native init command in
-the chosen agent (never run automatically).
+the chosen agent (never run automatically). For a project Shinatama creates, this
+option is the only Daodan offer, and declining it counts as the "Not now" of
+daodan-native-support 4.7, whose one-time offer stays for projects that are opened,
+not created (user, 2026-11-01).
+
+**Own worktree for a new instance** (my idea, optional): the new-instance command, from
+the project manager or a tab, can start the instance in a new linked worktree so that
+two agents on the same project do not collide. It is an option of that command, not an
+overview action (user, 2026-11-01; 5.13).
 
 Robustness (my calls): listing and sorting a root never blocks the UI, even with
 hundreds of folders or a Google Drive path (register PM1); creating a new project never
@@ -555,10 +573,11 @@ calls:
   declares what it can detect and what it can only launch. To be verified per agent.
 - Hermes Agent reports sign-in without secrets (`hermes auth list`, `hermes auth status
   <provider>`) and logs in with `hermes model` or `hermes auth add`. DeepSeek Harness has
-  neither a login nor a status command: its state shows as **unknown**, and its login opens
-  its own web UI (`dsh web`, on the box's home) in the user's browser, where the key or the
-  account is entered (register DS9). It also reads a project's `.env`: a key there is used
-  even in a box, and the setup screen says so.
+  neither a login nor a status command: its state shows as **unknown** until DS9 finds a
+  check that reads no secret, and its login opens its own web UI (`dsh web`, on the home
+  the agent uses: the box, or the user's home with `system`; user, 2026-11-01) in the
+  user's browser, where the key or the account is entered (register DS9). It also reads
+  a project's `.env`: a key there is used even in a box, and the setup screen says so.
 - In a box (5.14) an agent's home starts signed out, so the first launch of each agent
   asks for one login through that agent's own flow; it then persists in the box and is
   shared by every instance of that agent. With the `system` home the user's existing
@@ -621,8 +640,11 @@ My calls:
   download; quality unmeasured), a **provider low-cost model** chosen from the catalog of a
   provider the user is already signed in with, by capability and price, never by a model
   name written in the code, or **none** (the last tool or message verbatim). Frequency, a
-  daily cost cap and an off switch are settings. The default is decided by a quality gate
-  on real snapshots in the first milestone.
+  daily cost cap and an off switch are settings. The default (decided by the user
+  2026-11-01: engine 8.4's recommendation, with the quality gate on real snapshots in the
+  first milestone as its confirmation): the local model is offered at first run (about
+  500 MB, with consent and its licence shown); if declined, none. The provider low-cost
+  model stays a user choice.
 - **Privacy:** summaries send parts of a transcript to a provider. This is shown at
   first use, credential-like strings are redacted before sending (the builder defines
   how), and a thread can be excluded.
@@ -635,19 +657,20 @@ My calls:
   git, not guessed. Non-git folders show none.
 - **"How they collaborate"** is built only from what Shinatama really knows: threads
   that hopped, roundtable groups, instances sharing a project folder. It warns when
-  two instances change the same file in the same worktree; the same path in two
+  two instances change the same file in the same worktree, attributing each change to
+  an instance from the tool-call targets in its events and transcript (register I4);
+  where a change cannot be attributed, the warning says "possible collision" and names
+  no instance; generated files are excluded (user, 2026-11-01). The same path in two
   different worktrees is not a collision. It does not infer intent.
 - **Agent icons** (decided: every tab shows the icon of its agent): each agent has an
   icon and an accent colour, shown in the tab, the overview and the project manager.
   The native UI can render icons directly, with a text label/letter badge fallback
   and accessible names independent of colour. The widget can use the same assets.
   Asset sourcing and licensing remain the builder's responsibility.
-- **Own worktree for a new instance** (my idea, optional): from the overview or the
-  project manager, start a new instance in a new linked worktree so that two agents on
-  the same project do not collide.
 - The same event stream feeds the widget (5.8): an alert there is an event here.
-- The overview reads. Its only actions: focus a session, hop, pause an instance's
-  summaries.
+- The overview stays read-mostly (user, 2026-11-01). Its only actions: focus a session,
+  hop, pause an instance's summaries. A new instance in its own linked worktree is an
+  option of the new-instance command (5.4), not an overview action.
 
 ### 5.14 Where the agents live: program, home, per-instance set (decided 2026-10-28, user: "di base è con istanze private, ma poi c'è l'opzione per integrarlo con quello di sistema", then "si possono avviare anche se installate nel sistema, in una sorta di box per cui hanno le skill e i plugin solo per quella istanza?" — "ok"; shape is mine)
 
@@ -775,8 +798,9 @@ install); Pi `PI_OFFLINE=1` (or `PI_SKIP_VERSION_CHECK`) and `PI_TELEMETRY=0`, r
 update`, the daemon's own loop) are not yet controllable, so `own` Codex waits for D16.
 
 Box leaks found with the per-instance sets (D19): Claude writes MCP server logs to
-`%LOCALAPPDATA%\claude-cli-nodejs\Cache` (`CLAUDE_CODE_SKIP_MCP_DEBUG_LOG_FILES`
-untested).
+`%LOCALAPPDATA%\claude-cli-nodejs\Cache`. Shinatama tries
+`CLAUDE_CODE_SKIP_MCP_DEBUG_LOG_FILES` (untested): if it works, there is no leak; if not,
+the leak is shown to the user like Codex's and Claude stays boxable (user, 2026-11-01).
 
 Still unproved: login persistence in a box (needs the user's sign-in), the interactive
 mode with per-instance sets, the one-week self-update observation and OpenCode side by
@@ -794,11 +818,16 @@ The detailed functional and technical contract is
   does. General agent-provided JavaScript evaluation is not exposed initially.
 - The first Moli path is one-shot `moli fetch`, not `moli serve`. Interactive Moli
   previews and persistent CDP/WebDriver automation wait for the transport and
-  hostile-content security gate (B4).
+  hostile-content security gate (B4). MCP web interfaces stay in the first integration
+  if B3 demonstrates them within one-shot `fetch`; otherwise they are explicitly
+  deferred, never replaced by `serve` (user, 2026-11-01).
 - `open-ui` starts Patchright with visible Chrome only at the user's explicit
   request. It supports user-driven login/MFA/CAPTCHA and normal graphical use in
   a separate profile. Patchright is a driver, so its companion is lazy-loaded;
-  neither it nor Chrome is resident at startup or installed automatically.
+  neither it nor Chrome is resident at startup or installed automatically. Two levels
+  (user, 2026-11-01): a one-time opt-in, then each UI session explicit. With
+  `browser.patchright.enabled = false`, `open-ui` returns `unsupported` and explains how
+  to enable it; nothing is downloaded or started automatically.
 - `/browse` or its preinstalled skill chooses from the user's intent and displays
   engine, reason and scope. Agents may use existing bounded read/preview grants;
   they cannot open UI, broaden scope or authorize themselves. Ambiguous sensitive
@@ -820,7 +849,10 @@ The detailed functional and technical contract is
 No speed or memory saving is claimed before B10 measures equivalent workloads on
 the whole process tree. B1–B10 in the register define the evidence required. The
 reduced first scope and the eventual performance budget remain subject to overall
-design approval.
+design approval. The B10 and priority-case gate defers, it does not withdraw (user,
+2026-11-01): Moli stays the default (user, 2026-10-29); if Moli fails the priority
+cases, the fast path is not enabled until it passes; meanwhile there is only the
+explicit Patchright UI or no browser, and no other engine becomes the default.
 
 ### 5.16 Native tiling workspace (decided 2026-10-29)
 
@@ -1079,6 +1111,18 @@ suite are in section 5.5 of the [engine spec](technical-design.md).
   Wayland rules (5.8, W2, W3, W5, W10); escape-sequence containment and process-tree
   cleanup (5.1, P9, P14); project-manager robustness (5.4, PM1, PM4, PM7); `own` refused
   for Hermes Agent if HM10 finds no recipe (5.14).
+- Decided by the user 2026-11-01, each marked where it appears: no mailbox that outlives
+  the sessions or the expiry, the engine 7 messages stay (2); request-path changes go into
+  the sidecar's single source, no fork or patch inside Shinatama (3); projects sorted by
+  last use, non-standard folders defined, `/` filter and `n` outside it, Daodan's init in
+  the new-project dialog as the only offer for created projects, own worktree as an option
+  of the new-instance command (5.4); DeepSeek login on the home the agent uses (5.11);
+  overview read-mostly, collisions attributed from tool-call targets or shown as
+  "possible", title default the local model offered at first run, else none (5.13);
+  Claude's MCP-log leak: the skip variable is tried, else the leak is shown and Claude
+  stays boxable (5.14); Patchright UI behind a one-time opt-in, MCP web interfaces within
+  one-shot `fetch` or deferred, the B10 gate defers and no other engine becomes the
+  default (5.15).
 
 ## 8. Left to the builder
 
