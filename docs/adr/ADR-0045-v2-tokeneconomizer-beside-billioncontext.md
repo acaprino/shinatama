@@ -2,7 +2,7 @@
 adr_id: ADR-0045
 version: 2
 title: TokenEconomizer beside BillionContext as an optional per-instance module
-status: Proposed
+status: Accepted
 author: Alfio Caprino
 scope:
   paths:
@@ -21,8 +21,8 @@ depends_on:
 created_from_task: tokeneconomizer-routing-study-2026-11-01
 proposed_on: 2026-11-01
 proposed_at_sha: d8278992a9a6d4a0d28928cb5cb147f804f83620
-accepted_on: null
-accepted_at_sha: null
+accepted_on: 2026-11-01
+accepted_at_sha: 202a34e2675cfe7e8d7ba1d5e7ecf88bf2299182
 last_verified_sha: null
 retired_on: null
 retired_reason: null
@@ -35,7 +35,7 @@ changes:
 # ADR-0045: TokenEconomizer beside BillionContext as an optional per-instance module
 
 <!-- adr-header:start -->
-Version 2 · Proposed 2026-11-01 by Alfio Caprino
+Version 2 · Accepted 2026-11-01 at 202a34e · proposed 2026-11-01 by Alfio Caprino
 <!-- adr-header:end -->
 
 ## Context and Problem Statement

@@ -2,7 +2,7 @@
 adr_id: ADR-0031
 version: 2
 title: Login detected and performed through the agent itself; Shinatama never holds an agent's credentials; the one key it may hold is the router's, in the OS vault only
-status: Proposed
+status: Accepted
 author: Alfio Caprino
 scope:
   paths:
@@ -22,8 +22,8 @@ depends_on:
 created_from_task: frd-adr-consolidation-2026-11-01
 proposed_on: 2026-11-01
 proposed_at_sha: 620bcf9a66edeb57d0528b3c522f3018928b3706
-accepted_on: null
-accepted_at_sha: null
+accepted_on: 2026-11-01
+accepted_at_sha: 202a34e2675cfe7e8d7ba1d5e7ecf88bf2299182
 last_verified_sha: null
 retired_on: null
 retired_reason: null
@@ -35,12 +35,13 @@ changes:
   - INV-007
   - EX-006
   - RA-003
+  - INV-008
 ---
 
 # ADR-0031: Login detected and performed through the agent itself; Shinatama never holds an agent's credentials; the one key it may hold is the router's, in the OS vault only
 
 <!-- adr-header:start -->
-Version 2 · Proposed 2026-11-01 by Alfio Caprino · supersedes version 1 (Accepted 2026-11-01)
+Version 2 · Accepted 2026-11-01 at 202a34e · proposed 2026-11-01 by Alfio Caprino
 <!-- adr-header:end -->
 
 ## Context and Problem Statement
@@ -82,6 +83,12 @@ never appears in Shinatama's database, snapshots, messages, configuration files,
 or logs, and it is never given to a hosted agent. Holding provider keys once and sharing them
 across agents remains outside v1.
 
+Clarified for the companion (ADR-0002 v3, coherence audit C3): a companion's harness reaches its
+credential files only through a read-only binding of their original path that the operating system
+enforces (a read rule or a read-only bind mount); Shinatama never opens, copies, moves or stores
+them, so "detect, never collect" holds. A platform that cannot bind runs the companion as the
+opt-in preview of ADR-0002.
+
 ## Verified Interview Examples
 
 - **EX-001** (nominal case): Input: `claude auth status` (claude 2.1.311) on a signed-in home, then on a scratch `CLAUDE_CONFIG_DIR` -> Expected: exit 0 and one JSON object with `loggedIn` true, then exit 1 with `loggedIn` false; no credential material in either (CL13 record).
@@ -106,6 +113,7 @@ across agents remains outside v1.
 - **INV-005**: a hop to a destination that is not signed in offers login first; if that cannot be fixed, the strategy is `refuse` (technical-design 6.2, 6.7).
 - **INV-006**: DeepSeek Harness's `auth_status()` is `Unknown` until register DS9 finds a check that reads no secret, and its `login()` opens `dsh web` on the home the instance uses, never on another (decided by the user 2026-11-01; technical-design 5.7).
 - **INV-007**: the router key is read only by the router sidecar, referenced by name from the configuration, never written to the database, snapshots, messages, configuration files, launch manifests or logs, and never present in a hosted agent's environment (ADR-0044 INV-004).
+- **INV-008**: a companion's credentials are exposed only as a read-only OS binding of the original files; Shinatama's process never opens, copies or stores them (ADR-0002 v3 INV-008).
 
 ## Consequences
 

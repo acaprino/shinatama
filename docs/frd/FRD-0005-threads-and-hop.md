@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | 1 (Markdown record; JSON record version 1 at `c84d28e`) |
-| Status | Proposed |
+| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
 | Date | 2026-11-01 |
 | Sources | functional-design goal 2, 5.1, 5.2, 7; technical-design 1, 2, 4.2 to 4.4, 5.4, 5.6, 6.1 to 6.8, 9, 11, 12; mukade-handover 2 to 7; daodan-native-support 4.3 |
 | Governing ADRs | ADR-0015, ADR-0016, ADR-0017, ADR-0018, ADR-0019, ADR-0022, ADR-0034 |

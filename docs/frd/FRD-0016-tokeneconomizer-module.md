@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Version | 1 (new Markdown record; no JSON record yet) |
-| Status | Proposed |
+| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
 | Date | 2026-11-01 |
 | Sources | docs/notes/2026-11-01-tokeneconomizer-beside-billioncontext.md 1 to 10; specs/token-savings 7.2; records TE5, TE12 |
-| Governing ADRs | ADR-0045 v2 (proposed; v1 Accepted) |
+| Governing ADRs | ADR-0045 v2 |
 | Register sections | TE1 to TE13 (TE5, TE12, TE13 in the register; the others proposed in the note) |
 | Related records | FRD-0002 (installed per box like a Daodan plugin, state in the box), FRD-0009 (BillionContext owns the wire), FRD-0013 (admission tests, ledger), FRD-0015 (evidence as the chooser's prior) |
 

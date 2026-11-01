@@ -4,7 +4,10 @@ Date of this set: 2026-11-01, written at commit `620bcf9` from every design docu
 repository (`functional-design.md`, `technical-design.md`, `browser-integration.md`,
 `mukade-handover.md`, `daodan-native-support.md`, `harness-tools.md`, `specs/companion-explainer.md`,
 `specs/token-savings.md`, the two notes of 2026-11-01 and the verification register). Status of
-every record: **Proposed**. A record becomes Accepted only when the user approves its text.
+every Markdown record: **Accepted** by the user on 2026-11-01. The JSON evidence records stay
+Proposed until `frd_tool.py promote` runs; their spans into `functional-design.md`,
+`technical-design.md`, `companion-explainer.md` and `token-savings.md` are stale after the
+coherence fixes of that day and need a refresh with the tool.
 
 ## 1. Two representations, one set
 
@@ -70,7 +73,7 @@ Open questions are not requirements. Each record lists them at the end, with the
 | FRD | Title | Requirements | Slices | Governing ADRs |
 |---|---|---|---|---|
 | [FRD-0001](FRD-0001-workspace-and-agent-hosting.md) | Workspace and agent hosting | 58 | M0, V1 | 0004, 0005, 0006, 0007, 0039, 0040 |
-| [FRD-0002](FRD-0002-agent-placement.md) | Agent placement, homes and per-instance sets | 41 | X, V1 | 0012, 0013, 0014 |
+| [FRD-0002](FRD-0002-agent-placement.md) | Agent placement, homes and per-instance sets | 41 | X, V1 | 0012 v2, 0013, 0014 |
 | [FRD-0003](FRD-0003-accounts-and-login.md) | Accounts and login | 20 | X, V1 | 0031 |
 | [FRD-0004](FRD-0004-project-manager.md) | Project manager | 25 | M0, V1 | 0046 |
 | [FRD-0005](FRD-0005-threads-and-hop.md) | Threads and hop | 62 | S2, P1 | 0015 to 0019, 0022, 0034 |
@@ -80,7 +83,7 @@ Open questions are not requirements. Each record lists them at the end, with the
 | [FRD-0009](FRD-0009-billioncontext-sidecar.md) | BillionContext sidecar | 30 | X | 0029, 0030 |
 | [FRD-0010](FRD-0010-overview-state-and-widget.md) | Overview, instance state and desktop widget | 44 | V1 | 0027, 0028 |
 | [FRD-0011](FRD-0011-browser.md) | Browser integration | 52 | V1 | 0035, 0036 |
-| [FRD-0012](FRD-0012-companion-pane.md) | Companion pane, Aided Decision cards and web grounding | 96 | V1 (R1 to R5) | 0002 v2, 0003 v2, 0041, 0042, 0043 |
+| [FRD-0012](FRD-0012-companion-pane.md) | Companion pane, Aided Decision cards and web grounding | 96 | V1 (R1 to R5) | 0002 v3, 0003 v2, 0041, 0042, 0043 |
 | [FRD-0013](FRD-0013-token-savings.md) | Token savings | 40 | V1, EV | 0025, 0037, 0038 |
 | [FRD-0014](FRD-0014-shared-state-and-privacy.md) | Shared state, privacy and data retention | 32 | X | 0008, 0009 |
 | [FRD-0015](FRD-0015-model-routing-and-tool-chooser.md) | Model routing and the tool chooser | 26 | V1 | 0044, 0031 v2, 0037 v2 |

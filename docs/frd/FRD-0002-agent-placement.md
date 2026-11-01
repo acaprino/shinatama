@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Version | 1 (Markdown record; JSON record version 1 at `c84d28e`) |
-| Status | Proposed |
+| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
 | Date | 2026-11-01 |
 | Sources | functional-design 3 (isolation), 5.14, 7; technical-design 3, 5.5 A; records D15 to D19, P20 |
-| Governing ADRs | ADR-0012, ADR-0013, ADR-0014 |
+| Governing ADRs | ADR-0012 v2, ADR-0013, ADR-0014 |
 | Register sections | D15 to D19, P20, HM9 to HM11, HM13, DS9 to DS11, DS13, SS5, M1, CX12 |
 | Related records | FRD-0003 (login in a box), FRD-0006 (store roots), FRD-0008 (Daodan into the home), FRD-0016 (TokenEconomizer in the set) |
 

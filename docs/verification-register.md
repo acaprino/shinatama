@@ -456,6 +456,18 @@ These gates cover functional design 5.16 (sessions surface) and technical design
 | TE13 | G0 | **Shinatama's own OpenCode pruning evidence** (route B of the TE study 7.1): proposal computed from TokenEconomizer's session exports with the rule of `enough_evidence` and the protected set, applied as `permissions` deny rules | Two exports with one tool call each against a catalog of the instance's set; one launch with the rules | Proposal excludes protected names and `bili_*`; the denied tools are absent from the request on 2.2.5 | ADR-0045 rule 4 v2 |
 | T9 | G2 | Effective configuration, not intended: Shinatama's per-instance status line reads CCR, input compression and output steering from what the running sidecar resolved (including provider and model overrides) | Start the sidecar with each lever on and off; compare the line with the sidecar log | The line matches the log in all combinations | token-savings 7.2 |
 
+Token-savings 9.2 (added 2026-11-01; ADR-0037 v2, ADR-0038):
+
+| ID | Prio | What must be proved | How | Pass when | Writes back to |
+|---|---|---|---|---|---|
+| T10 | G0 | Baseline ledger: input tokens per turn, cache hit rate, compaction count and tool re-runs after compaction, with no technique added | The ledger on at least ten real sessions per harness | Baseline recorded per harness; every later claim compares with it | token-savings 4.4.4, 8.1 |
+| T11 | G0 | Tool re-run rate after compaction before and after each milestone of token-savings 8.1 | Same sessions as T10, per milestone | Rate recorded; a rise is a regression and blocks the milestone | token-savings 6.4 |
+| T12 | G1 | Latency of one incremental scoring pass on the target CPU while four agents run | Instrument the julia1 sidecar | Recorded; the frontier model never waits for it | token-savings 6.2 |
+| T13 | G0 | The fast-jev-compaction function-hook plugin loads on the installed Claude Code and `session.compact` receives the main conversation and sub-agent transcripts as `types/claude-code.d.ts` describes | Scratch home, function hooks enabled | Hook fires with the documented input, or the base-URL route is used | token-savings 5.1, 7.1 |
+| T14 | G0 | Per adapter: its rewrite leaves the cache hit rate unchanged and the harness's native compaction does not run behind it | Per harness, compare with T10 | Hit rate within noise; no native compaction event | token-savings 7.1 |
+| T15 | G1 | Hermes Agent: the setting or hook that stands its native compaction down | Read and run in a scratch `HERMES_HOME` | Found, or the Hermes adapter is not built | token-savings 7.1 |
+| T16 | G1 | With a hosted router endpoint opted in, compaction and digest requests still reach only the local julia1 endpoint | Traffic capture of both endpoints | No compaction or digest request reaches the hosted endpoint | ADR-0037 v2 |
+
 ## 19. Evidence the specs quote that nobody ran
 
 | ID | Prio | What must be proved | How | Pass when | Writes back to |

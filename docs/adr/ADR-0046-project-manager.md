@@ -2,7 +2,7 @@
 adr_id: ADR-0046
 version: 1
 title: Project manager over project roots, sorted by last use, with a default root, a new-project shortcut and a per-instance worktree option
-status: Proposed
+status: Accepted
 author: Alfio Caprino
 scope:
   paths:
@@ -22,8 +22,8 @@ depends_on:
 created_from_task: frd-adr-consolidation-2026-11-01
 proposed_on: 2026-11-01
 proposed_at_sha: 620bcf9a66edeb57d0528b3c522f3018928b3706
-accepted_on: null
-accepted_at_sha: null
+accepted_on: 2026-11-01
+accepted_at_sha: 202a34e2675cfe7e8d7ba1d5e7ecf88bf2299182
 last_verified_sha: null
 retired_on: null
 retired_reason: null
@@ -35,7 +35,7 @@ changes:
 # ADR-0046: Project manager over project roots, sorted by last use, with a default root, a new-project shortcut and a per-instance worktree option
 
 <!-- adr-header:start -->
-Version 1 · Proposed 2026-11-01 by Alfio Caprino
+Version 1 · Accepted 2026-11-01 at 202a34e · proposed 2026-11-01 by Alfio Caprino
 <!-- adr-header:end -->
 
 ## Context and Problem Statement

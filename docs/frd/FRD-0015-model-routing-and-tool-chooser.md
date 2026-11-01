@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Version | 1 (new Markdown record; no JSON record yet) |
-| Status | Proposed |
+| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
 | Date | 2026-11-01 |
 | Sources | docs/notes/2026-11-01-model-routing-decision-model.md 1 to 10; specs/token-savings 4.4.3, 6.5; harness-tools (seams) |
-| Governing ADRs | ADR-0044, ADR-0031 v2 (proposed), ADR-0037 v2 (proposed) |
+| Governing ADRs | ADR-0044, ADR-0031 v2, ADR-0037 v2 |
 | Register sections | MR1 to MR4 (proposed in the note; ids to be assigned in the register) |
 | Related records | FRD-0003 (the router key), FRD-0013 (julia1, the ledger), FRD-0016 (TokenEconomizer's evidence as the chooser's prior), FRD-0014 (what leaves the machine) |
 

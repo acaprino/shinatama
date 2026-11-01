@@ -40,8 +40,10 @@ hosts.
 1. Apply the technique catalog of section 4 in the order of its returns: prevent tokens from
    entering, then remove them reversibly, then cut lossily, never the reverse (my call).
 2. Replace summary compaction with **decision compaction** as the primary method (summary
-   compaction stays only as the fallback of 4.3.4): tool calls and results are kept
-   verbatim or removed, user and assistant text is never rewritten (decided, by pointing at
+   compaction stays only as the fallback of 4.3.4): a tool call and its result are kept
+   verbatim, kept with the result truncated to its head plus a note, or removed (the library's
+   three outcomes, kept as they are; decided 2026-11-01, ADR-0037 v2), and user and assistant
+   text is never rewritten (decided, by pointing at
    `tamaratran/fast-jev-compaction`).
 3. Run every scoring, ranking and digest step on julia1, offline, with no credentials; what
    julia1 is and how it is trained is out of scope (8.4) (decided).
@@ -143,7 +145,7 @@ it; "julia1" means the local model does the judging.
    be cache-aware: compressing invalidates the cache downstream, so it pays only past the
    break-even the sidecar measures (`acp_cache`). Runs: sidecar.
 2. **Decision compaction** (new, julia1; section 5). Score every non-pinned tool call and
-   result; keep verbatim or remove; never rewrite text. Runs: Shinatama, through the harness
+   result; keep verbatim, truncate the result to its head, or remove; never rewrite text. Runs: Shinatama, through the harness
    adapter (7.1).
 3. **Context editing at the API.** Clear old tool results and thinking past N turns, keep
    user and assistant text. Runs: harness/provider where available.
@@ -151,7 +153,9 @@ it; "julia1" means the local model does the judging.
    decisions, constraints and the "why". Kept only as the fallback when 2 cannot remove
    enough, with a structured compaction prompt (decisions, open items, files touched) and
    firing at task boundaries rather than at a percentage; the percentage trigger
-   (`compactAtPercent`, 5.1.6; section 7) is decision compaction's. Runs: harness.
+   (`compactAtPercent`, 5.1.6; section 7) is decision compaction's. Inside one compaction the library itself may still fall back to the built-in summary
+   when the reduction is under `minReductionRatio` or the scorer fails (5.1.6); that in-library
+   fallback is the only one that fires at the percentage. Runs: harness.
 5. **Externalized state.** Anything that must survive a compaction lives on disk: plan file,
    task ledger, decision records, memory. Work-controller run records and Daodan already do
    this. Runs: Daodan; Shinatama's thread store (5.1) keeps the hop context.
@@ -165,7 +169,7 @@ it; "julia1" means the local model does the judging.
 2. **Isolated sub-agents.** Their dumps never enter the main context; only the report comes
    back. Cost: duplicated prefix and the hand-off loss. Forks inherit the context with a cache
    hit and keep their output out. Runs: harness.
-3. **Model routing for bookkeeping.** Summaries, digests and scoring on julia1; the frontier
+3. **Model routing for bookkeeping.** Digests and scoring on julia1 (the summaries of the compaction fallback stay the harness's own); the frontier
    model only on the work. Titles stay on the backend the user chooses (technical-design
    8.4) and go through julia1 only when it is the chosen local model (decided, 2026-11-01).
    Runs: Shinatama. Routing of the working model itself, at session start and sub-agent

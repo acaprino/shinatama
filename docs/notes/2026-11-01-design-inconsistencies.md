@@ -35,14 +35,11 @@ the FRD is still Proposed).
 
 | # | Kind | Item | Where |
 |---|---|---|---|
-| 84 | E | Register T5 to T9 (added 2026-11-01) cite token-savings 4.4 for output steering and 7.2 for a per-instance status line; the spec has no output-steering text and no section 7.2 | register T5–T9; specs/token-savings |
-| 85 | E | Register 21 links `verification/2026-11-01-T5-effort-cache-claude-code.md`, which is not in the repository | register 21 |
 
 ## 4. Rules that live only in the register
 
 | # | Kind | Item | Register |
 |---|---|---|---|
-| 79 | G | Token-savings verification items (9.2) have no register rows; no other document refers to the spec | specs/token-savings 9.2 |
 
 ## 5. Undefined in the documents
 
@@ -55,22 +52,10 @@ Items 9, 42–45, 68 and 83 of the first list referred to revision 2 and are rep
 
 | # | Kind | Item | Where | FRD |
 |---|---|---|---|---|
-| 86 | G | The companion is a second native chat pane run headless; FD 5.1 plans no native redraw of a live chat except DeepSeek (spec 9.7 acknowledges it) | FD 5.1; spec 9.7 | FRD-0012 |
-| 87 | G | Neither FD 5.16's panel table nor TD 3.1's `PanelDescriptor` kinds list a companion pane or an "Explain this" action; 9.7 names only 5.16 | FD 5.16; TD 3.1 | FRD-0012 |
-| 88 | U | Spec 6 B has Shinatama make read-only copies or bindings of the harness's credential files at launch, against "Detect, never collect" (FD 5.11); 9.7 does not mention it | FD 5.11; spec 6 | FRD-0012, FRD-0003 |
-| 89 | U | Each companion gets its own scratch home, a third kind of home beside box and system (FD 5.14, 5.16); 9.7 lists no change to 5.14 | FD 5.14; spec 6 | FRD-0012, FRD-0002 |
-| 90 | U | On close Shinatama deletes the native session in the companion's scratch home, against TD invariant 7 (native stores read-only in v1); not acknowledged | TD 1; spec 8 | FRD-0012 |
-| 91 | G | TD 4.2 has no thread kind `companion`, no link column, no record table, no `learning_memory` table (acknowledged) | TD 4.2; spec 9.7 | FRD-0012 |
 | 92 | G | TD 4.7: companion feed and ledger leave the machine to the companion's provider; sidecar coverage unknown; `forget` does not cover the companion record (acknowledged) | TD 4.7; spec 7 | FRD-0012 |
 | 93 | G | TD 5.5 lists `ask_headless` for roundtables and titles only, answer-only with no tools; no read-only-with-reads policy, no stateless mode; TD 7.6 has no wrapper escaping (acknowledged) | TD 5.5, 7.6 | FRD-0012 |
 | 94 | G | TD 8.1/8.3 waiting events carry no request payload, which decision cards need (acknowledged; unverified per harness) | TD 8.1, 8.3 | FRD-0012 |
-| 95 | U | The spec withholds `shinatama_send` and `shinatama_inbox` from the companion and says nothing of `shinatama_instances` and `shinatama_ack` (TD 7.7) | TD 7.7; spec 6 C | FRD-0012 |
-| 96 | U | The companion has no `instance` row, yet the overview shows it as a child row with an "explanation ready" badge; the overview is built from `instance` and event rows | FD 5.13; TD 8.3; spec 8 | FRD-0012, FRD-0010 |
-| 97 | U | The two flows are marked decided (goal 2, 9.1) while preset-only input is "my call until the user approves this revision" (goal 7, 5.6, 9.1), though both come from the user's pasted design | spec 2, 5.6, 9.1 | FRD-0012 |
-| 98 | U | The 5.7 "decided" heading covers mechanics the quoted words do not (levels 1–4, the 30/40/2 KB selection, notice wording, failure handling) and clashes with 5.6 and 5.8 "my call" on the same level rules | spec 5.6–5.8 | FRD-0012 |
-| 99 | E | Section 8's header shows "mode", but revision 3 has no modes | spec 8 | FRD-0012 |
 | 100 | E | 9.6 puts "the feed" and expand-on-last-message in R1, which lacks the turn-end signal and incremental reader a per-turn delta needs (section 4) | spec 4, 9.6 | FRD-0012 |
-| 101 | E | Turn-card length: 200 words and one diagram in EX-001 and row 5; no cap in 5.1; preset cards capped at 150 words in 5.6 | spec 5.1, 5.6, 10.2 | FRD-0012 |
 | 102 | E | Expand takes the worker's last message as an operand, but no pane control for it is described | spec 5.6 | FRD-0012 |
 | 103 | U | The daily cap amount ($2.00) is open point 1 | spec 9.5 | FRD-0012 |
 
@@ -78,15 +63,6 @@ Items 9, 42–45, 68 and 83 of the first list referred to revision 2 and are rep
 
 | # | Kind | Item | Where | FRD |
 |---|---|---|---|---|
-| 106 | E | token-savings 4.4.3 still puts "summaries" on julia1, while activity titles stay on the user's chosen backend (TD 8.4, FD 5.13): which summaries are meant | specs/token-savings 4.4.3 | FRD-0013 |
-| 107 | E | The summary fallback fires at task boundaries (4.3.4), but the library falls back inside the same compaction at `compactAtPercent` when the reduction is too small or the scorer fails (5.1.6) | specs/token-savings 4.3.4, 5.1.6 | FRD-0013 |
-| 108 | E | token-savings 7.1 says BillionContext sits behind "one shared proxy core" while the topology is open (#53, SC5) | specs/token-savings 7.1 | FRD-0013 |
-| 109 | G | harness-tools 3 says items 1–3 and 7 "are applied in revision 4.1 of the companion spec"; the spec at HEAD is revision 4 and contains none of them | harness-tools 3; companion spec | FRD-0012 |
-| 110 | U | Codex has no read tool (harness-tools 3.1): the companion's Codex route reads files only through its shell, against the "no shell commands" policy of spec 6 A | harness-tools 3.1; spec 6 A | FRD-0012 |
-| 111 | U | Codex's hosted search does not report result URLs (harness-tools 3.2), so the `seen` link check of 5.9 would mark every link unseen | harness-tools 3.2; spec 5.9 | FRD-0012 |
-| 112 | E | "Every query is shown on the card" (spec 5.9) cannot be literal: Claude Code only counts its internal searches and DeepSeek hides its native ones (harness-tools 3.3) | spec 5.9; harness-tools 3.3 | FRD-0012 |
-| 113 | E | Spec 6 A still says the design documents are silent on the web tools; harness-tools.md now covers them | spec 6 A | FRD-0012 |
-| 114 | E | Spec 7 speaks of "the local model shared with the titler and julia1"; token-savings 7 now says they share the runtime and are one model only when one model serves both | spec 7; specs/token-savings 7 | FRD-0012, FRD-0013 |
 
 Items 109–114 belong to the companion work, like section 6.
 
@@ -170,3 +146,27 @@ Items 109–114 belong to the companion work, like section 6.
 | 81 | U | User decision 2026-11-01: try `CLAUDE_CODE_SKIP_MCP_DEBUG_LOG_FILES`; if it fails, the leak is disclosed and Claude stays boxable (FD 5.14, register). |
 | 82 | U | User decision 2026-11-01: MCP web interfaces stay in the first integration if B3 demonstrates them within one-shot `fetch`, otherwise explicitly deferred (FD 5.15, BI). |
 | 105 | U | User decision 2026-11-01: the bypass marker goes into the sidecar's single source, inherited by Shinatama (TD 9, register SC9). |
+| 79 | G | Register rows T10 to T16 cover token-savings 9.2. |
+| 84 | E | Register T5 to T9 cite token-savings 7.2, which now holds output steering and the per-instance status line. |
+| 85 | E | The T5 record is in `docs/verification/`. |
+| 86 | U | User decision 2026-11-01 (eliminate the inconsistencies): Functional-design 5.1 declares the companion pane as a second native chat surface. |
+| 87 | U | User decision 2026-11-01 (eliminate the inconsistencies): Functional-design 5.16 panel table and technical-design 3.1 `PanelDescriptor` list the companion. |
+| 88 | U | User decision 2026-11-01 (eliminate the inconsistencies): Credentials reach the companion only as read-only OS bindings; Shinatama never opens or copies them (ADR-0002 v3, ADR-0031 v2). |
+| 89 | U | User decision 2026-11-01 (eliminate the inconsistencies): The scratch home is a Shinatama-owned store per companion, not a placement choice (ADR-0012 v2). |
+| 90 | U | User decision 2026-11-01 (eliminate the inconsistencies): Invariant I7 covers the user homes, read-only roots and boxes; the scratch home is outside it (technical-design 1). |
+| 91 | G | Technical-design 4.2 lists thread kind `companion`; the record and ledger tables are FRD-0012 R88 and R89. |
+| 95 | U | User decision 2026-11-01 (eliminate the inconsistencies): No `shinatama mcp` server is configured for a companion (ADR-0002 v3; spec 6 C). |
+| 96 | U | User decision 2026-11-01 (eliminate the inconsistencies): The companion's overview row comes from its own record (ADR-0002 v3 INV-010). |
+| 106 | E | Token-savings 4.4.3 says digests and scoring on julia1; titles stay on the chosen backend. |
+| 107 | E | Token-savings 4.3.4 names the in-library fallback at the percentage beside the task-boundary fallback. |
+| 108 | E | Token-savings 7.1 no longer says "one shared proxy core". |
+| 109 | E | The companion spec is at revision 4.1, which applies harness-tools 3. |
+| 110 | U | User decision 2026-11-01 (eliminate the inconsistencies): Spec 6 A makes Codex the one exception: it reads through its shell under the read-only sandbox, backed by confinement B. |
+| 112 | E | INV-015 says "every query the harness reports". |
+| 113 | E | Spec 6 A points to harness-tools.md for the web and read tools. |
+| 114 | E | Companion spec 7 speaks of the shared llama.cpp runtime. |
+| 97 | U | User decision 2026-11-01: preset-only input and the two flows are Accepted (ADR-0041). |
+| 98 | U | User decision 2026-11-01: the ledger mechanics are Accepted (ADR-0042). |
+| 99 | E | Spec 8 header lists no mode. |
+| 101 | E | Spec 5.1 states the turn-card cap (200 words, one diagram) beside the preset and expand caps. |
+| 111 | U | User decision 2026-11-01: a harness hosts web mode only if it reports result URLs (ADR-0043); Codex with its default hosted tool is not eligible (FRD-0012 R86). |

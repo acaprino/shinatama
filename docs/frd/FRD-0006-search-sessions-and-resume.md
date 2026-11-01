@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Version | 1 (Markdown record; JSON record version 1 at `c84d28e`) |
-| Status | Proposed |
+| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
 | Date | 2026-11-01 |
 | Sources | functional-design goal 3, 4, 5.3, 5.16 (sessions surface); technical-design 4.2 (`session_index`, `session_text`), 5, 5.1 to 5.3, 5.5 B, 5.5.1, 5.5.2, 5.7 (Claude retention), 6.2 (historical handoff); mukade-handover 1, 3, 8, 9 |
-| Governing ADRs | ADR-0011, ADR-0020, ADR-0021, ADR-0023, ADR-0049 (proposed) |
+| Governing ADRs | ADR-0011, ADR-0020, ADR-0021, ADR-0023, ADR-0049 |
 | Register sections | SS1 to SS6, S6, S7, CL6, CL7, CX10, OC3, PI3, HM3, DS3, H15, H27 |
 | Related records | FRD-0005 (live hop), FRD-0002 (store roots per home), FRD-0014 (index tables and `forget`) |
 

@@ -55,7 +55,10 @@ they must hold.
    launch manifest.
 6. **A message from another agent is quoted data**, never an instruction and never an
    authorization (7.6).
-7. **Native stores are read-only in v1**, except through the agent's own commands.
+7. **Native stores are read-only in v1**, except through the agent's own commands. The
+   invariant covers the user's system homes, read-only roots and the agents' boxes; a companion's
+   scratch home (companion spec 6 B) is a store Shinatama creates, owns and deletes on Close, and
+   is outside it (decided 2026-11-01, ADR-0012 v2).
    V1 hops use only `seed_prompt` or `native_resume`. Writing a foreign session file
    is post-v1 and needs its own pair/version, privacy, store and recovery gates (5.4).
 
@@ -183,7 +186,7 @@ WorkspaceLayout { schema_version, project_id, workspace_id, root, side_panes,
 Node = Split { axis, relative_weights, children }
      | TabGroup { tabs: [PanelId], active_tab }
 PanelDescriptor { panel_id, kind, resource_ref, view_state }
-kind = agent_terminal | files | markdown | file_preview | browser_preview
+kind = agent_terminal | companion | files | markdown | file_preview | browser_preview
      | integrated_app | session_detail
 ```
 
@@ -303,7 +306,7 @@ store_root(id, harness, kind, resolved_path, origin, config_revision, access)
                                                    -- kind: box | system; origin: configured | env | catalog | scan;
                                                    -- access: read_only | read_write
 thread(id, project_id, kind, title, state, created_at, updated_at,
-       parent_thread_id, summaries_excluded)            -- kind: work | roundtable
+       parent_thread_id, summaries_excluded)            -- kind: work | roundtable | companion
 segment(id, thread_id, ordinal, agent, store_root_id, native_ref, native_session_id, cwd, branch,
         worktree, started_at, ended_at, end_reason,
         native_cursor, imported_from_segment_id, created_by_hop_id,

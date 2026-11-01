@@ -214,10 +214,12 @@ decision allows it. Closing (stopping, 5.16) an instance kills its whole process
 and a Shinatama crash leaves no orphan agents or MCP servers.
 
 Formatting of live work stays the agent's own. Where the data is already structured
-and read-only — find, the hop preview, the roundtable, the overview — Shinatama draws
-its own rich views. Redrawing the live chat itself from each agent's structured stream
-is not planned, with one exception: DeepSeek Harness ships no terminal UI, so its live
-view is a native ACP pane (5.16).
+and read-only — find, the hop preview, the roundtable, the overview, the companion pane —
+Shinatama draws its own rich views. Redrawing a worker's live chat from its structured
+stream is not planned, with one exception: DeepSeek Harness ships no terminal UI, so its live
+view is a native ACP pane (5.16). The companion pane (docs/specs/companion-explainer.md) is a
+second native chat surface: it renders the cards of a read-only companion session beside a
+worker, never the worker's own chat (decided 2026-11-01).
 
 ### 5.2 Hop (decided: "truly seamless"; built from scratch in Rust)
 
@@ -895,6 +897,7 @@ surfaces.
 | File navigator | Project tree, search and explicit open in a tab/pane; no implicit execution or arbitrary-root access. |
 | Markdown | Rendered reading, source editing and source/preview split. Direct visual editing is requested but gated by editor/syntax fidelity checks before delivery. |
 | File/document preview | Supported text/image artifacts. DOCX reading needs a separate renderer and declared fidelity; DOCX editing/full Office support is not implied. |
+| Companion | A native chat pane beside a worker (companion spec): Markdown cards with tables and diagrams, presets and chips only, no text input, never takes focus; an **Explain this** action on a selection in a terminal pane; an **explanation ready** badge on the worker's tab and in the overview (5.13). |
 | Browser / integrated apps | Static previews fit 5.15. Interactive embedded browsing and mini-app hosting need separate design/security gates; JanuraCode app compatibility is not assumed. |
 
 **DeepSeek Harness pane (2026-10-31, my call).** DeepSeek Harness ships no terminal UI:

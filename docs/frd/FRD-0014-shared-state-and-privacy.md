@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | 1 (new Markdown record; no JSON record yet) |
-| Status | Proposed |
+| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
 | Date | 2026-11-01 |
 | Sources | functional-design 3, 5.1, 8; technical-design 1 (invariants), 3, 4.1 to 4.7, 8.3; companion spec 9.7 (new tables) |
 | Governing ADRs | ADR-0008, ADR-0009 |

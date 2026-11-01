@@ -263,7 +263,8 @@ Shinatama builds the feed; the companion never reads the worker's native store i
 
 After each worker turn the companion writes a Learning card. It speaks to the user and to
 nobody else; nothing in it is addressed to the worker. The default card is short: depth comes
-on request (**deeper**, **simpler**, **basics**, a chip), not by default. In this order:
+on request (**deeper**, **simpler**, **basics**, a chip), not by default: at most 200 words of prose and
+one diagram (preset cards 150 words, 5.6; **expand** 300, 5.5). In this order:
 
 1. **What is happening.** What the worker did in this turn, which files changed and how (the
    table of 5.3), and what to watch (an untested path, a command that touched something outside
@@ -755,9 +756,12 @@ allow-list that the operating system enforces:
   sessions land.
 - **Readable, never writable:** the worker's worktree (its working directory), `.git` and ignored
   paths; the harness's own program and runtime libraries as installed by Shinatama
-  (functional-design 5.14); and, inside the scratch home, read-only copies or bindings, made by
-  Shinatama at launch, of exactly two things: the harness's credential files and the skills of the
-  companion's per-instance set.
+  (functional-design 5.14); and, inside the scratch home, exactly two things made available at
+  launch: the harness's credential files, only as a **read-only binding** of their original path
+  that the operating system enforces (a read rule or a read-only bind mount; Shinatama never opens,
+  copies or stores them, functional-design 5.11; decided 2026-11-01, ADR-0002 v3, ADR-0031 v2),
+  and read-only copies of the skills of the companion's per-instance set. Where a platform cannot
+  bind the credential path, the companion is not confined there and runs as the opt-in preview.
 - **Not readable at all:** the worker's agent home, the system home (which hold the user's
   sessions of every project), other projects, Shinatama's own data directory (the per-user
   database of engine 4.7) and everything else.
@@ -784,8 +788,9 @@ Shinatama's own data (engine 4.7). The plain badge **read-only (confined)** is r
 confined case.
 
 **C. Channel isolation by Shinatama.** The companion gets no PTY input path to the worker, no
-`shinatama_send`, `shinatama_inbox` or approval channel (engine 7.7 gives agents only the four
-`shinatama_*` tools), and no MCP server that writes. Its harness home is its scratch directory, not the worker's agent
+approval channel and **no `shinatama mcp` server at all**: none of the four `shinatama_*` tools of
+engine 7.7 (`shinatama_instances`, `shinatama_send`, `shinatama_inbox`, `shinatama_ack`) is offered
+to it (decided 2026-11-01, ADR-0002 v3), and no MCP server that writes. Its harness home is its scratch directory, not the worker's agent
 home: functional-design 5.14 makes that home a per-agent setting shared by every instance, so
 sharing it would be a channel to the worker. It carries a per-instance set of its own with
 read-only tools and skills.
@@ -815,7 +820,7 @@ which version it read when it matters.
   search words to the web search of <harness>. The model writes them from your code and
   conversation. Shinatama cannot filter them, only show them on the card and check them after
   they are sent. [Search] [Keep web off]". Declining keeps `web` off and hides **sources**.
-- **Local backend** (my call, later): the local model shared with the titler and julia1
+- **Local backend** (my call, later): a local model on the llama.cpp runtime shared with the titler and julia1
   (engine 8.4, token-savings 7) can host a companion only as a **feed-only** companion: it has
   no tools, no native session and no file reads; Shinatama keeps its history within the model's
   context and it answers only from the feed. It is not offered until a row shows the model's
@@ -846,7 +851,7 @@ which version it read when it matters.
 - **Open.** From an agent tab: a key (default `^E`, my call; key names stay placeholders until
   register row U3 settles bindings that no agent or outer terminal consumes) or the tab menu.
   The companion opens in a split to the right of the worker (5.16), with a header showing
-  harness, model, mode, the read-only badge of section 6, feed state (live, partial, paused,
+  harness, model, the read-only badge of section 6, feed state (live, partial, paused,
   stateless) and today's cost.
 - **One turn at a time.** At most one headless turn is in flight per companion session. A
   preset pressed while a card turn runs is queued behind it and shown as queued; automatic
@@ -1321,7 +1326,7 @@ New register rows, proposed (my call; IDs to be assigned in `docs/verification-r
 2. Per platform, confinement B: with the confinement on, a harness started under policy A still
    works (including any project-local state it needs, which must then be redirected to its
    scratch directory), and a deliberately permissive policy still cannot change the worktree;
-   the read-only copies of its credentials and skills let the harness log in and see its skills,
+   the read-only binding of its credentials and the copies of its skills let the harness log in and see its skills,
    or the row records that it cannot host a companion; repository hooks and settings are off for
    it; the companion process can read the worktree and the files of its allow-list, and cannot
    read the worker's agent home, the system home, Shinatama's data directory or another project;

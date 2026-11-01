@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Version | 1 (Markdown record; JSON record version 1 at `c84d28e`) |
-| Status | Proposed |
+| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
 | Date | 2026-11-01 |
 | Sources | functional-design goal 11, 5.11, 7; technical-design 5.5 A, 5.7, 6.7; records CL13, CX11, OC8, PI9 |
-| Governing ADRs | ADR-0031 (and its proposed v2, which narrows it to agent credentials) |
+| Governing ADRs | ADR-0031 v2 |
 | Register sections | D5, CL13, CX11, OC8, PI9, DS9, HM-login rows, O1 |
 | Related records | FRD-0002 (login in a box), FRD-0005 (login before a hop), FRD-0010 (title calls without credentials), FRD-0015 (the router key) |
 

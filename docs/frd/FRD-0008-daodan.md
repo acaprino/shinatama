@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | 1 (Markdown record; JSON record version 1 at `c84d28e`) |
-| Status | Proposed |
+| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
 | Date | 2026-11-01 |
 | Sources | functional-design goal 5, 2 (non-goals), 5.5, 7; daodan-native-support 1 to 7; README (marketplaces) |
 | Governing ADRs | ADR-0032, ADR-0033, ADR-0034 |

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | 1 (Markdown record; JSON record version 1 at `c84d28e`) |
-| Status | Proposed |
+| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
 | Date | 2026-11-01 |
 | Sources | functional-design goal 10, 2 (non-goals), 5.10, 7; technical-design 1 (I6), 4.2 (`message`, `roundtable`), 7.1 to 7.8, 7.5a, 11.7, 11.8, 12 |
 | Governing ADRs | ADR-0024, ADR-0025, ADR-0026 |

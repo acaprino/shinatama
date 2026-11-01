@@ -124,11 +124,12 @@ Decision, Examples, Rejected Alternatives, Invariants, Consequences and Confirma
   defect to fix in one of them, not a precedence rule.
 - `adr_tool.py validate` passes on all 45 records (ADR-0041 to ADR-0043 and the v2 records of
   ADR-0002 and ADR-0003 come from the companion work).
-- Added 2026-11-01 as **Proposed**, by hand and not yet validated by the tool: ADR-0046 (project
-  manager), ADR-0047 (Rust, platforms, dependency policy), ADR-0048 (install, distribution,
+- Added 2026-11-01 and **Accepted** the same day with the coherence fixes (ADR-0002 v3, ADR-0012 v2
+  and ADR-0045 v2 included; seven earlier versions Superseded; no record left Proposed), by hand and
+  not yet validated by the tool: ADR-0046 (project manager), ADR-0047 (Rust, platforms, dependency policy), ADR-0048 (install, distribution,
   updates), ADR-0049 (text index outlives retention), ADR-0050 (the FRD and ADR method), and the
   v2 records of ADR-0031 and ADR-0037 that carry the narrowings ADR-0044 states. The README of
-  `docs/adr/` now has a reading map by domain and a coherence audit (C1 to C12).
+  `docs/adr/` has a reading map by domain and the coherence audit C1 to C12, all resolved.
 
 ## 4a. Functional requirements documents
 

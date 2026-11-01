@@ -2,7 +2,7 @@
 adr_id: ADR-0037
 version: 2
 title: Decision compaction over summary compaction, scored by a local offline executor (julia1); compaction and digests never leave the machine, routing and the tool chooser may by opt-in
-status: Proposed
+status: Accepted
 author: Alfio Caprino
 scope:
   paths:
@@ -20,8 +20,8 @@ depends_on:
 created_from_task: frd-adr-consolidation-2026-11-01
 proposed_on: 2026-11-01
 proposed_at_sha: 620bcf9a66edeb57d0528b3c522f3018928b3706
-accepted_on: null
-accepted_at_sha: null
+accepted_on: 2026-11-01
+accepted_at_sha: 202a34e2675cfe7e8d7ba1d5e7ecf88bf2299182
 last_verified_sha: null
 retired_on: null
 retired_reason: null
@@ -37,7 +37,7 @@ changes:
 # ADR-0037: Decision compaction over summary compaction, scored by a local offline executor (julia1); compaction and digests never leave the machine, routing and the tool chooser may by opt-in
 
 <!-- adr-header:start -->
-Version 2 · Proposed 2026-11-01 by Alfio Caprino · supersedes version 1 (Accepted 2026-11-01)
+Version 2 · Accepted 2026-11-01 at 202a34e · proposed 2026-11-01 by Alfio Caprino
 <!-- adr-header:end -->
 
 ## Context and Problem Statement
@@ -115,9 +115,9 @@ and the chooser remains julia1 locally, with no key.
 - The julia1 sidecar serves three question kinds for three callers (compaction, routing, chooser); only the latter two may be redirected to a hosted endpoint by `router.endpoint`.
 - The compaction endpoint setting and `router.endpoint` are distinct, so an opt-in for routing never moves compaction traffic.
 - The tool chooser (same `ask` contract) and per-tool digests come at a later milestone (ADR-0038); the chooser now follows the router's shape (ADR-0044).
-- Goal 2 says calls and results are "kept verbatim or removed", while the library also truncates a result to 300 characters plus a note; whether Shinatama keeps that third outcome is still unstated (worklist).
+- The library's three outcomes are kept as they are: verbatim, result truncated to `truncateHeadChars` (300) plus a note, or removed (token-savings goal 2 updated 2026-11-01; coherence audit C10).
 
 ## Confirmation
 
 - token-savings 9.2: the ledger on at least ten real sessions per harness; the tool re-run rate after compaction before and after each milestone; the latency of one incremental scoring pass while four agents run; that `session.compact` receives the main and sub-agent transcripts; a traffic capture showing compaction requests never reach a hosted endpoint.
-- No register row is assigned to these checks yet (worklist #79). Nothing has been run.
+- Register rows T10 to T16 (added 2026-11-01) cover these checks. Nothing has been run.

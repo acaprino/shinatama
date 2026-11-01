@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Version | 1 (Markdown record; JSON record version 1 at `c84d28e`) |
-| Status | Proposed |
+| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
 | Date | 2026-11-01 |
 | Sources | functional-design goal 4, 5.4, 5.13 (worktree option), 7; technical-design 4.2 (`project`); daodan-native-support 4.1, 4.7 |
-| Governing ADRs | ADR-0046 (proposed), ADR-0033 (Daodan rows and offers) |
+| Governing ADRs | ADR-0046, ADR-0033 (Daodan rows and offers) |
 | Register sections | PM1 to PM8, U3, D14 |
 | Related records | FRD-0006 (threads per project), FRD-0008 (Daodan tasks and offers), FRD-0010 (worktree collisions) |
 
