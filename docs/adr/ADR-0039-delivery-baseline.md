@@ -90,7 +90,8 @@ in this repository. See functional-design 5.12 and 5.16; technical-design 10; re
 
 ## Rejected Alternatives
 
-- None recorded in the design documents.
+- **RA-001**: letting Daodan task handover, the browser UI, the roundtable and the widget block the first usable slice; each "follow[s] their own gates rather than blocking the first usable slice" (functional-design 5.12).
+- **RA-002**: dropping the other v1 goals to fit the slices; "These slices do not drop the other v1 goals" (functional-design 5.12).
 
 ## Enforceable Invariants
 
