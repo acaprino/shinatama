@@ -114,5 +114,5 @@ claimed. See functional-design 5.6 and technical-design 9.
 
 ## Confirmation
 
-- Register SC1 to SC4, SC6 to SC11, SC13, CX12, HM12 and DS12 pass; all are open. SC6 is shared with ADR-0030, which also holds SC5, SC12 and SC14.
+- Register SC1 to SC4, SC6 to SC11, SC13, CX12, HM12 and DS12 pass; all are open. SC6 is shared with ADR-0030, which also holds SC5, SC12, SC14 and SC15.
 - Nothing has been run yet under Shinatama.
