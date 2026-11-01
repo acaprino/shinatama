@@ -162,7 +162,9 @@ it; "julia1" means the local model does the judging.
    back. Cost: duplicated prefix and the hand-off loss. Forks inherit the context with a cache
    hit and keep their output out. Runs: harness.
 3. **Model routing for bookkeeping.** Summaries, titles (8.4), digests and scoring on julia1;
-   the frontier model only on the work. Runs: Shinatama.
+   the frontier model only on the work. Runs: Shinatama. Routing of the working model itself, at
+   session start and sub-agent spawn, delegated to a configurable jev-like decision model:
+   ADR-0044 and `docs/notes/2026-11-01-model-routing-decision-model.md`.
 4. **Measurement.** A ledger per session of input tokens per turn, cache hit rate, compaction
    count and tool re-runs after compaction. Without it no technique can be said to save
    anything (section 9).
@@ -288,6 +290,12 @@ exposes no per-turn offer hook. Two cache-safe moves, same `ask` contract:
    the recent window) and preload the likely ones, so the model skips the search round-trip.
 2. Through `tool.describe`, shorten descriptions of tools the session is unlikely to use.
 
+The chooser is the same configurable selector as the model router (decided by the user,
+2026-11-01): one `choice` question over a closed label set, on the endpoint and with the settings
+of ADR-0044; TokenEconomizer's per-repository usage evidence is its prior, and BillionContext's
+recovery tools are never candidates. Shape in
+`docs/notes/2026-11-01-model-routing-decision-model.md`, section 5.1.
+
 ### 6.6 Digests
 
 Per-tool parsers for stable output shapes first; julia1 with a fixed output schema for the
@@ -345,6 +353,124 @@ Rules every adapter follows (my calls):
    the sidecar's break-even indicates.
 4. **Verified per version.** Each adapter has a conformance test against the real installed
    harness and a version gate, like the other adapters of functional-design 6.
+
+### 7.2 Layer ownership and the BillionContext baseline
+
+BillionContext owns the request path and every reversible reduction of what is already in
+context. Any other token-saving tool is admitted only if it passes all five tests (my call,
+from the 2026-11-01 review of `chipfighter/context-attachment-manager`):
+
+1. It attacks a content kind that no layer in the table below already attacks.
+2. It is not a second proxy on the wire; it acts inside BillionContext's path or off the path.
+3. It does not rewrite the cached prefix on its own schedule.
+4. What it removes comes back through the mechanism the model already knows (`acp_retrieve`,
+   `decompress`), not through a second one.
+5. It works on every hosted harness, or it is optional, off by default and chosen per instance.
+
+| Content | Owner |
+| --- | --- |
+| Large tool results | BillionContext CCR: stored, replaced by a placeholder, recovered with `acp_retrieve` |
+| A result just read | BillionContext Absorb |
+| History ranges | BillionContext tiered compress and decompress; decision compaction (section 5) inside the same path |
+| The human message | BillionContext `promptRewrite` |
+| Model output | BillionContext output steering |
+| Images | BillionContext: older media folds by default (#2640) in token space, plus a byte-space shed backstop on the WebSocket lane and a rescale (`egress-shed.ts`, `image-rescale.ts`); originals come back with `decompress({ imageRef })` or `acp_read_original_image` |
+| Static prefix | The harness and Daodan |
+
+**BillionContext baseline** (decided by the user, 2026-11-01: CCR must be visibly on, and both
+input and output must be compressed):
+
+- CCR: `compress.ccr.enabled = true`; `compress.ccr.minToolTokens` is 4000 in the live config.
+- Input: `compress.absorb.enabled`, `compress.tiers`, `compress.adaptivePressure.enabled`,
+  `promptRewrite.mode = "auto"`.
+- Output: `compress.outputSteering.enabled = true`, with `verbosityLevel` 0 to 4 (default 2) and
+  `effortRouting` (default true once enabled). The key lives inside the `compress` block
+  (`src/config.ts`, the compress key whitelist), not at the top level of `config.json`. Read on
+  2026-11-01: this was **not active**; the live `config.json` has no such key and the kernel
+  default is `enabled: false` (`kernel/src/output-steering.ts`). The verbosity lever appends one
+  frozen directive to the tail of the system prompt and rewrites no past text, so it does not
+  break the goal that text is never rewritten. The effort lever lowers reasoning effort on
+  tool-result continuation turns only, so it flips the field at every boundary between a user
+  turn and a tool-result turn. **The effort lever is locked off on every harness, provider and
+  model** (decided by the user, 2026-11-01): Shinatama writes `effortRouting: false` into the
+  `compress.outputSteering` block it manages and offers no switch for it. Reasons, from the T5
+  record: on Haiku 5.5 the flip invalidates the message cache (2 of 2 trials); on Sonnet 5.5,
+  Opus 5.5 and Fable 5.1 it did not, but its effect on reasoning tokens is weak (8% to 32% in a
+  small sample) and was not measured for the sidecar's own top-level edit; for OpenAI, Gemini and
+  DeepSeek nothing is measured (OpenAI blocked by quota until 2026-11-04). Cost of being wrong is
+  asymmetric: a cache miss rewrites the whole prefix at full price, the saving is a few hundred
+  reasoning tokens. The lock is lifted only by a later decision backed by a passed T5 row for that
+  provider and model **and** a measured saving that beats the miss risk; BillionContext's
+  per-provider merge (`src/compress-settings.ts`) would carry the exception.
+**Effort lever and the prompt cache, per provider** (official documentation read 2026-11-01;
+nothing here is measured, T5 measures it):
+
+| Provider (wire) | Reached by | What the documentation says | Lever |
+| --- | --- | --- | --- |
+| Anthropic Messages | Claude Code; OpenCode, Pi, Hermes when pointed at Anthropic | Documentation: changing `output_config.effort` or `thinking.budget_tokens` "always invalidates message blocks". **Measured 2026-11-01 on Claude Code 2.1.316 (T5 record):** a top-level-only change kept the cache on Sonnet 5.5, Opus 5.5 and Fable 5.1 (minimal prefix, 5 trials) and invalidated the whole message cache on Haiku 5.5 (2 of 2). Claude Code itself sends effort as a per-message `role: "system"` entry as well, and its own `--effort` changes kept the cache in 6 of 6 minimal-prefix trials and 2 of 2 clean full-configuration trials; parallel full-configuration runs showed full misses that also occurred with no effort change, so they are not attributed to it. Whether the top-level `low` changes behavior on the three models is unmeasured | **Locked off.** Never for Haiku 5.5 (measured miss) |
+| OpenAI Responses and chat | Codex (ChatGPT route, WebSocket); OpenCode, Pi, Hermes on OpenAI | `reasoning.effort` "can change model-side reasoning instructions"; on GPT-6 and later a `configuration_update` item changes effort and keeps the prefix. Cache is exact-prefix | **Locked off** (nothing measured) |
+| Gemini | OpenCode, Pi, Hermes on Google | The caching page is silent on `thinkingBudget`; the thinking page is silent on caching; current models use `thinking_level`, while BillionContext edits `thinkingBudget` | **Locked off**, and the lever may not even match the current field |
+| DeepSeek | DeepSeek Harness; others pointed at DeepSeek | Disk cache matches an input prefix "fully"; the pages do not say whether `reasoning_effort` or `thinking.type` is part of the match. With `tools`, earlier `reasoning_content` must be sent back or the API returns 400 | **Locked off** (nothing measured) |
+
+Consequence for the baseline: the verbosity lever is cache-neutral by construction (a frozen
+block at the tail of the system prompt, identical on every turn), so it is the only output lever
+on, and T6 confirms it per harness. The effort lever is locked off (see the baseline above); T5
+and T7 stay in the register as the evidence a future decision would need, and the cache-safe
+mechanisms of T7 (per-message effort on Anthropic, `configuration_update` on OpenAI) are the only
+routes to lift the lock without risking the cache; BillionContext implements neither today.
+
+- Shinatama shows one status line per instance: CCR on or off, input on or off, output level.
+  It is read from the effective configuration, not the intended one, and a baseline item that is
+  off shows as a warning, never as a silent state.
+
+**Evaluated and not admitted: `chipfighter/context-attachment-manager`** (MIT, v0.9.1; README
+and the source headers of `proxy.ts`, `claude-rewrite.ts`, `rewrite.ts`, `claude-thinking.ts`,
+`hooks/register.js` and `INSTALL.md` read on 2026-11-01; not run). What it does: a local proxy
+that replaces the images of earlier turns with text placeholders and lets the model fetch one
+back, plus a feature-line index so the model can find an image by what it showed. It also keeps
+Anthropic thinking blocks valid after it changes the history (`claude-thinking.ts`). Why it is
+not run beside BillionContext:
+
+- **Overlap.** BillionContext already folds older media by default (#2640), has a byte-space
+  backstop and a rescale, and recovers the originals. Its own authors removed the equivalent
+  sliding-cutoff strip (`compress.stripImages`) because it broke the prompt cache turn after
+  turn on three of four wires (`src/config.ts`, `warnInertStripImages`). CAM's automatic
+  selection is that same shape.
+- **Second owner of the wire** (section 7, rule 2): both pin `ANTHROPIC_BASE_URL`, and two
+  history rewriters in a chain both have to keep the thinking chain valid.
+- **Reach.** Claude support applies to the Code tab of Claude Desktop (a function hook and a
+  panel in the desktop browser); Codex support to the Codex desktop app. Shinatama hosts the
+  CLI harnesses, so it would not engage there, and OpenCode, Pi, Hermes and DeepSeek Harness
+  are out of its reach.
+- **Scope.** It matches `image` blocks (pasted images, images inside tool results, PDF-page
+  screenshots Codex attaches). A PDF sent as a `document` block is not handled.
+- **Evidence.** Its figures are request bytes on a nine-frame test, not tokens; not repeated.
+
+Where it is right: documents handled as render-and-review loops (slides, pages, scans) put an
+image into context on every iteration, and that is where image weight concentrates (the user,
+2026-11-01). Whether BillionContext's default folding fires early enough on such a loop is
+**not measured**; a scan of the stored sessions found image blocks in 5 of 5,015 files, which
+cannot tell folding from absence (the store may hold folded copies; `index.db` was not
+readable). The test is a session of the real workflow with the ledger of 4.4 on: image tokens
+per turn and the turn at which they fold. If they fold too late, the fix is to tune or extend
+BillionContext's media fold for tool-result images, in its own path, and to borrow CAM's one
+good idea (a described, searchable index of images), not to add CAM (my call).
+
+**Evaluated, admissible as an optional module: `microsoft/TokenEconomizer`** (Apache-2.0, commit
+`c53a4a6`, 2026-10-31; read, not run; study
+`docs/notes/2026-11-01-tokeneconomizer-beside-billioncontext.md`, ADR-0045). It attacks cross-session
+waste no layer above attacks (re-learning a repository, tools never used, stuck turns) through
+hooks, not a proxy. It passes tests 1, 2 and 3; it fails test 4 for tool pruning (a denied tool
+comes back only through a person's `restore`), and it covers Claude Code, Codex, OpenCode
+(experimental) and Pi, not Hermes Agent or DeepSeek Harness, so by test 5 it is off by default
+and chosen per instance. Adaptations (my calls): state under a per-box `TOKENECONOMIZER_HOME`;
+tool pruning in `propose` mode, with Shinatama applying the deny list at launch instead of
+letting it write the repository's `.claude/settings.local.json` or `.codex/config.toml`, which
+the user's own runs outside the box would also read; loop guard on, its judge moved to julia1
+through a `noul` question once TokenEconomizer offers an optimizer endpoint (an upstream request,
+not a fork); micro-skills only as `envfacts`. The installed Claude Code 2.1.316, OpenCode 2.2.5
+and Pi 1.4.0 are newer than its tested ranges; Codex 0.164.0 is inside. Checks TE1 to TE10 of the
+study come first, among them the four contact points with BillionContext (its section 5).
 
 ## 8. Order of work and open questions
 
