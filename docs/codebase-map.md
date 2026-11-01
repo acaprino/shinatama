@@ -27,6 +27,7 @@ shinatama/
 │   ├── browser-integration.md    Moli fast path and explicit Patchright UI (proposed 2026-10-29)
 │   ├── mukade-handover.md        integration guide for the Mukade library, pinned at 4124b1f
 │   ├── daodan-native-support.md  Daodan task layer inside Shinatama (proposed 2026-10-27)
+│   ├── harness-tools.md          web mode and read-only tool allowlists of the six harnesses, for the companion
 │   ├── verification-register.md  every unproved claim, one row each (295 rows), with gates G0/G1/G2
 │   ├── codebase-map.md           this file
 │   ├── specs/
@@ -51,6 +52,7 @@ shinatama/
 | `docs/browser-integration.md` | Browser routing, contract, lifecycle, security, gates B1–B10 | Detail for functional-design 5.15 and technical-design 7.9 | requirements decided 2026-10-29; shape proposed |
 | `docs/mukade-handover.md` | How Shinatama calls Mukade, at pin `4124b1f`; revisions after the pin (8); Hermes and DeepSeek (9) | Detail for technical-design 5.4.1 | proposal, not implemented |
 | `docs/daodan-native-support.md` | Agenda reading, thread-task link, task across a hop, onboarding | Detail for functional-design 5.5 | proposed, not approved |
+| `docs/harness-tools.md` | Web tools and read-only allowlists per harness, with a probe for every unproved fact | Detail for the companion spec 5.9, 6 A and 10.2; the tool inventories themselves are Mukade's | draft, nothing run but `--help` |
 | `docs/specs/companion-explainer.md` | Companion pane, decision cards (revision 2) | Its decisions are ADR-0002 and ADR-0003 (Accepted) | spec |
 | `docs/specs/token-savings.md` | Token-savings techniques, decision compaction, julia1 | Own spec | draft, not approved |
 | `docs/verification-register.md` | Every claim not yet proved, how to prove it, where the result is written back | Wins over technical-design 10 where they differ | living |
@@ -102,7 +104,7 @@ docs/frd/ ──► exact spans of the design documents (path, sha256, code-poin
 | Token savings | — | 7.5a | specs/token-savings | T | ADR-0037, ADR-0038 |
 | Skins, terminal profiles | 5.7, 5.16 | 3.1 | — | U | ADR-0039 |
 | Order of work, first milestone | 5.12, 5.16 | 10 | — | TL1, G0 rows | ADR-0040 |
-| Companion pane, decision cards | 5.1, 5.16 (to be declared) | 4.2, 5.5, 7.6 | specs/companion-explainer | spec 10.2 | ADR-0002, ADR-0003 |
+| Companion pane, decision cards, web grounding | 5.1, 5.16 (to be declared) | 4.2, 5.5, 7.6 | specs/companion-explainer, harness-tools | spec 10.2 | ADR-0002, ADR-0003, ADR-0041 – ADR-0043 |
 
 ## 4. Decision records
 

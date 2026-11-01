@@ -29,20 +29,7 @@ the FRD is still Proposed).
 
 | # | Kind | Item | Where | FRD / ADR |
 |---|---|---|---|---|
-| 30 | U | Non-goal "a persistent addressed mailbox" vs TD 7's addressed, queued messages with a 1-hour expiry: where the line is | FD 2; TD 7 | FRD-0007; ADR-0024 |
-| 32 | U | Default title backend: a quality gate (FD 5.13), the author's recommendation (TD 8.4), a user decision (register O2) | FD 5.13; TD 8.4; O2 | FRD-0010; ADR-0028 |
-| 34 | U | The overview's only actions are focus, hop, pause summaries, yet "own worktree for a new instance" starts one from it | FD 5.13 | FRD-0010 |
-| 35 | U | Collision from `git status` cannot attribute a change to an instance (register Q3, I4) | FD 5.13; TD 8.5 | FRD-0010 |
-| 38 | U | BI 11 may withdraw Moli as the default, which requirement 1 (user, 2026-10-29) decided | BI 1, 11 | FRD-0011; ADR-0035 |
-| 40 | U | `browser.patchright.enabled = false` vs an explicit `open-ui`: does `open-ui` work with the setting off? | BI 10; FD 5.15 | FRD-0011 |
-| 46 | U | Code-mode gateway: a later milestone (token-savings 7, 8.1) vs "not in v1, an evaluated option" (TD 7.5a) vs built only past a user threshold (T3) | specs/token-savings; TD 7.5a | FRD-0013; ADR-0025 |
-| 47 | U | Titles through julia1 (token-savings 4.4.3) vs the user's title backend choice (TD 8.4); one model download or two | specs/token-savings; TD 8.4 | FRD-0013; ADR-0028 |
-| 48 | E | Compaction trigger: task boundaries (4.3.4) vs the library's `compactAtPercent` 60 vs "at threshold" (7) | specs/token-savings | FRD-0013; ADR-0037 |
-| 49 | U | "No single shared proxy" (8.2) vs BillionContext as "one shared proxy core" (7.1), and adapters acting inside an unmodified sidecar's request path | specs/token-savings; FD 3 | FRD-0013; ADR-0038 |
-| 50 | E | Goal 2 "replace summary compaction" vs 4.3.4 keeping it as a fallback | specs/token-savings | FRD-0013 |
-| 51 | U | DeepSeek sign-in "shows as unknown" (FD 5.11) vs unknown until DS9 (TD 5.7); login with the `system` home not stated | FD 5.11; TD 5.7 | FRD-0003 |
 | 53 | U | Proxy topology undecided (one per instance or shared; Q7, SC5) while TD 9 says each instance's traffic goes through "the proxy" | TD 9; register Q7, SC5 | FRD-0009 |
-| 105 | U | TD 9 (from SC9): where the rewriter or CCR would alter the seed, a bypass marker is added; that may need sidecar support, while the sidecar code stays unmodified (ADR-0029) | TD 9; register SC9 | FRD-0009; ADR-0029 |
 
 ## 3. Stale text and dangling references
 
@@ -61,9 +48,6 @@ the FRD is still Proposed).
 
 | # | Kind | Item | Where |
 |---|---|---|---|
-| 80 | U | Project list "sorted by last change" (of what?), "last 10 non-standard folders" (which?), the `n` shortcut vs the incremental filter, and two Daodan offers for a new project | FD 5.4; DN 4.7 |
-| 81 | U | Claude's MCP-log leak in a box (D19) is not disclosed the way Codex's is | FD 5.14; D19 |
-| 82 | U | Browser MCP web interfaces "can" be used (FD 5.15) but may be deferred (BI 11, B3) | FD 5.15; BI 11 |
 
 ## 6. Companion spec, revision 3
 
@@ -154,3 +138,19 @@ Items 9, 42–45, 68 and 83 of the first list referred to revision 2 and are rep
 | 16 | U | User decision 2026-11-01: the restriction to Daodan alone is lifted; any marketplace may be registered, including Daodan's dependency marketplaces (FD 5.5, DN 4.6, README). |
 | 104 | U | User decision 2026-11-01: a known, harmless leak is shown and the agent stays boxable; only a leak touching credentials, sessions or the user's configuration makes it `system`-only (register D15). |
 | — | E | FD 5.12 no longer labels the UI milestone "TL1"; register TL1 is the toolkit prototype gate only. |
+| 30 | U | User decision 2026-11-01: the line is persistence; messages live at most 1 h within a project or roundtable; no mailbox outlives the sessions or the expiry (FD 2, TD 7). |
+| 32 | U | User decision 2026-11-01 (O2): offer the local model at first run, else none; a provider model stays a choice (FD 5.13, TD 8.4, register O2). |
+| 34 | U | User decision 2026-11-01: the overview keeps focus, hop and pause; a new instance in its own worktree is an option of the new-instance command (FD 5.13). |
+| 35 | U | User decision 2026-11-01: attribute from tool-call targets; otherwise "possible collision" without naming an instance; generated files excluded (FD 5.13, TD 8.5, register Q3, I4). |
+| 38 | U | User decision 2026-11-01: the gate defers the fast path, it does not withdraw Moli as the default (BI 11, FD 5.15). |
+| 40 | U | User decision 2026-11-01: with `browser.patchright.enabled = false`, `open-ui` returns `unsupported` and says how to enable it (BI 10, FD 5.15). |
+| 46 | U | User decision 2026-11-01: the code-mode gateway is evaluated after T1 and built only past the user's T3 threshold; not in v1 (token-savings, TD 7.5a). |
+| 47 | U | User decision 2026-11-01: the title backend stays the user's choice; julia1 and the local title model share one runtime, one download if one model serves both (token-savings, TD 8.4). |
+| 48 | E | token-savings states which trigger applies where (library threshold vs the fallback at task boundaries). |
+| 49 | U | User decision 2026-11-01: request-path behaviour goes into the sidecar's single source (Musashi Terminal); no fork or patch inside Shinatama; token-savings 8.2 says "no second proxy". |
+| 50 | E | token-savings goal 2: replaced as the primary method; summary compaction stays the fallback (4.3.4). |
+| 51 | U | User decision 2026-11-01: state unknown until DS9; login opens `dsh web` on the home the agent uses, box or system (FD 5.11, TD 5.7). |
+| 80 | U | User decision 2026-11-01: sorted by last use in Shinatama; non-standard = outside the project roots; filter on `/`, `n` creates; the new-project dialog's Daodan option replaces the one-time offer for created projects (FD 5.4, DN 4.7). |
+| 81 | U | User decision 2026-11-01: try `CLAUDE_CODE_SKIP_MCP_DEBUG_LOG_FILES`; if it fails, the leak is disclosed and Claude stays boxable (FD 5.14, register). |
+| 82 | U | User decision 2026-11-01: MCP web interfaces stay in the first integration if B3 demonstrates them within one-shot `fetch`, otherwise explicitly deferred (FD 5.15, BI). |
+| 105 | U | User decision 2026-11-01: the bypass marker goes into the sidecar's single source, inherited by Shinatama (TD 9, register SC9). |
