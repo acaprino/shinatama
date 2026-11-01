@@ -1,0 +1,629 @@
+{
+  "accepted_at_sha": null,
+  "accepted_on": null,
+  "author": "Claude",
+  "conflicts": [],
+  "created_from_task": "frd-backfill-2026-11-01",
+  "entities": [],
+  "frd_id": "FRD-0004",
+  "last_verified_sha": null,
+  "proposed_at_sha": "c84d28ee66da672cf7c3058f27fb16e5d87fa031",
+  "proposed_on": "2026-11-01",
+  "relationships": [],
+  "requirements": [
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 2927,
+          "excerpt": "4. An integrated project manager (5.4), with a default root directory and a shortcut",
+          "path": "docs/functional-design.md",
+          "start": 2843
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 1842,
+          "excerpt": "### Goals (decided unless marked)",
+          "path": "docs/functional-design.md",
+          "start": 1809
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 10123,
+          "excerpt": "Native Rust desktop surfaces: project manager, tiled workspace with agent tabs",
+          "path": "docs/functional-design.md",
+          "start": 10045
+        }
+      ],
+      "id": "REQ-001",
+      "status": "extracted",
+      "text": "Shinatama includes an integrated project manager as one of its native desktop surfaces (decided by the user)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 18905,
+          "excerpt": "Project roots whose first-level folders are the projects",
+          "path": "docs/functional-design.md",
+          "start": 18849
+        }
+      ],
+      "id": "REQ-002",
+      "status": "extracted",
+      "text": "The project manager lists as projects the first-level folders of each project root (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19008,
+          "excerpt": "sorted by last use in\nShinatama (last open or last thread activity; engine 4.2 `project.last_opened`)",
+          "path": "docs/functional-design.md",
+          "start": 18907
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19401,
+          "excerpt": "Sorting, filter and\nhistory decided by the user 2026-11-01.",
+          "path": "docs/functional-design.md",
+          "start": 19342
+        },
+        {
+          "document_sha256": "6795933c29c6e3d36fb19ffef35a4a3ebb2ee907bc21aefdc1ea67d4e01377ba",
+          "end": 20200,
+          "excerpt": "project(id, path UNIQUE, name, pinned, last_opened, root)",
+          "path": "docs/technical-design.md",
+          "start": 20143
+        }
+      ],
+      "id": "REQ-003",
+      "status": "extracted",
+      "text": "The project manager sorts the projects by last use in Shinatama, that is, by the last open or the last thread activity (decided by the user, 2026-11-01)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19144,
+          "excerpt": "an incremental filter, opened\nwith `/` or by focusing the search field;",
+          "path": "docs/functional-design.md",
+          "start": 19073
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19401,
+          "excerpt": "Sorting, filter and\nhistory decided by the user 2026-11-01.",
+          "path": "docs/functional-design.md",
+          "start": 19342
+        }
+      ],
+      "id": "REQ-004",
+      "status": "extracted",
+      "text": "The project manager offers an incremental filter of the project list, opened with `/` or by focusing the search field (decided by the user, 2026-11-01)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19163,
+          "excerpt": "any folder via F3;",
+          "path": "docs/functional-design.md",
+          "start": 19145
+        },
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 68529,
+          "excerpt": "| PM6 | G2 | A folder picker for any folder (F3) on each OS, drive letters, no terminal-escape traps | Test | Works | main 5.4 |",
+          "path": "docs/verification-register.md",
+          "start": 68401
+        }
+      ],
+      "id": "REQ-005",
+      "status": "extracted",
+      "text": "The user can open any folder as a project through F3 (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19341,
+          "excerpt": "a history of the last 10\nnon-standard folders, that is, folders opened with F3 that are not under a project root\n(Desktop, shared drives, folders that are not git repositories).",
+          "path": "docs/functional-design.md",
+          "start": 19164
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19401,
+          "excerpt": "Sorting, filter and\nhistory decided by the user 2026-11-01.",
+          "path": "docs/functional-design.md",
+          "start": 19342
+        }
+      ],
+      "id": "REQ-006",
+      "status": "extracted",
+      "text": "The project manager keeps a history of the last 10 non-standard folders, that is, folders the user opened with F3 that are not under a project root, such as the Desktop, shared drives or folders that are not git repositories (decided by the user, 2026-11-01)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19483,
+          "excerpt": "Decided additions: a **default root** (where new projects are created; chosen at",
+          "path": "docs/functional-design.md",
+          "start": 19403
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 2927,
+          "excerpt": "4. An integrated project manager (5.4), with a default root directory and a shortcut",
+          "path": "docs/functional-design.md",
+          "start": 2843
+        }
+      ],
+      "id": "REQ-007",
+      "status": "extracted",
+      "text": "Shinatama creates new projects in a default root directory (decided by the user)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19506,
+          "excerpt": "Decided additions: a **default root** (where new projects are created; chosen at\nfirst run, changeable)",
+          "path": "docs/functional-design.md",
+          "start": 19403
+        }
+      ],
+      "id": "REQ-008",
+      "status": "extracted",
+      "text": "The user chooses the default root at first run (decided by the user)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19506,
+          "excerpt": "chosen at\nfirst run, changeable)",
+          "path": "docs/functional-design.md",
+          "start": 19474
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19440,
+          "excerpt": "Decided additions: a **default root**",
+          "path": "docs/functional-design.md",
+          "start": 19403
+        }
+      ],
+      "id": "REQ-009",
+      "status": "extracted",
+      "text": "The user can change the default root after first run (decided by the user)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19555,
+          "excerpt": "and a **shortcut (`n`) to create a new project**",
+          "path": "docs/functional-design.md",
+          "start": 19507
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 2955,
+          "excerpt": "   to create a new project.",
+          "path": "docs/functional-design.md",
+          "start": 2928
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19440,
+          "excerpt": "Decided additions: a **default root**",
+          "path": "docs/functional-design.md",
+          "start": 19403
+        }
+      ],
+      "id": "REQ-010",
+      "status": "extracted",
+      "text": "The user can create a new project from the project manager with the `n` shortcut (decided by the user)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19676,
+          "excerpt": "My calls: pinned projects;",
+          "path": "docs/functional-design.md",
+          "start": 19650
+        }
+      ],
+      "id": "REQ-011",
+      "status": "extracted",
+      "text": "The user can pin projects in the project manager (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19709,
+          "excerpt": "My calls: pinned projects; git branch and dirty-file count;",
+          "path": "docs/functional-design.md",
+          "start": 19650
+        },
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 68040,
+          "excerpt": "| PM2 | G1 | Git branch and dirty count for 30 projects: parallel, timeouts, cache | Measure | Bounded | main 5.4 |",
+          "path": "docs/verification-register.md",
+          "start": 67925
+        }
+      ],
+      "id": "REQ-012",
+      "status": "extracted",
+      "text": "The project manager shows each project's git branch and dirty-file count (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19753,
+          "excerpt": "the last agent and last thread per project;",
+          "path": "docs/functional-design.md",
+          "start": 19710
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19676,
+          "excerpt": "My calls: pinned projects;",
+          "path": "docs/functional-design.md",
+          "start": 19650
+        },
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 68179,
+          "excerpt": "| PM3 | G1 | Last agent and thread per project, matching paths across agents (S9), worktree versus main tree | Test | Correct | main 5.4 |",
+          "path": "docs/verification-register.md",
+          "start": 68041
+        }
+      ],
+      "id": "REQ-013",
+      "status": "extracted",
+      "text": "The project manager shows the last agent and the last thread of each project (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19796,
+          "excerpt": "the threads of a project listed\nbeside it;",
+          "path": "docs/functional-design.md",
+          "start": 19754
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19676,
+          "excerpt": "My calls: pinned projects;",
+          "path": "docs/functional-design.md",
+          "start": 19650
+        }
+      ],
+      "id": "REQ-014",
+      "status": "extracted",
+      "text": "The project manager lists a project's threads beside the project (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19831,
+          "excerpt": "one key to resume the last thread;",
+          "path": "docs/functional-design.md",
+          "start": 19797
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19676,
+          "excerpt": "My calls: pinned projects;",
+          "path": "docs/functional-design.md",
+          "start": 19650
+        }
+      ],
+      "id": "REQ-015",
+      "status": "extracted",
+      "text": "The user can resume a project's last thread with one key from the project manager (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19846,
+          "excerpt": "one key to resume the last thread; several roots.",
+          "path": "docs/functional-design.md",
+          "start": 19797
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19676,
+          "excerpt": "My calls: pinned projects;",
+          "path": "docs/functional-design.md",
+          "start": 19650
+        }
+      ],
+      "id": "REQ-016",
+      "status": "extracted",
+      "text": "The user can configure several project roots (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19893,
+          "excerpt": "dialog: optional `git init`",
+          "path": "docs/functional-design.md",
+          "start": 19866
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19676,
+          "excerpt": "My calls: pinned projects;",
+          "path": "docs/functional-design.md",
+          "start": 19650
+        }
+      ],
+      "id": "REQ-017",
+      "status": "extracted",
+      "text": "The new-project dialog offers an optional `git init` of the new project (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19992,
+          "excerpt": "and an option to type Daodan's native init command in\nthe chosen agent (never run automatically).",
+          "path": "docs/functional-design.md",
+          "start": 19895
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19676,
+          "excerpt": "My calls: pinned projects;",
+          "path": "docs/functional-design.md",
+          "start": 19650
+        }
+      ],
+      "id": "REQ-018",
+      "status": "extracted",
+      "text": "The new-project dialog offers an option to type Daodan's native init command into the prompt of the agent the user chose (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19992,
+          "excerpt": "the chosen agent (never run automatically).",
+          "path": "docs/functional-design.md",
+          "start": 19949
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19676,
+          "excerpt": "My calls: pinned projects;",
+          "path": "docs/functional-design.md",
+          "start": 19650
+        }
+      ],
+      "id": "REQ-019",
+      "status": "extracted",
+      "text": "Shinatama never runs Daodan's init command automatically from the new-project dialog; it only types it for the user (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 20667,
+          "excerpt": "Robustness (my calls): listing and sorting a root never blocks the UI, even with\nhundreds of folders or a Google Drive path (register PM1);",
+          "path": "docs/functional-design.md",
+          "start": 20528
+        },
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 67924,
+          "excerpt": "| PM1 | G1 | Listing and sorting roots with hundreds of folders, including Google Drive paths, without blocking the UI | Measure | Under a stated time, async | main 5.4 |",
+          "path": "docs/verification-register.md",
+          "start": 67754
+        }
+      ],
+      "id": "REQ-020",
+      "status": "extracted",
+      "text": "Listing and sorting a project root never blocks the UI, even with hundreds of folders or a Google Drive path (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 20741,
+          "excerpt": "creating a new project never\nleaves a half-created folder (register PM4);",
+          "path": "docs/functional-design.md",
+          "start": 20668
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 20550,
+          "excerpt": "Robustness (my calls):",
+          "path": "docs/functional-design.md",
+          "start": 20528
+        },
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 68400,
+          "excerpt": "| PM4 | G1 | New project: name validation per OS (reserved names, trailing dots, case-insensitive duplicates), `git init` default branch, permissions, a root on a synced drive | Test | No half-created folder | main 5.4 |",
+          "path": "docs/verification-register.md",
+          "start": 68180
+        }
+      ],
+      "id": "REQ-021",
+      "status": "extracted",
+      "text": "Creating a new project never leaves a half-created folder (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 20823,
+          "excerpt": "a missing root, such as a removed drive, is\nreported, not ignored (register PM7).",
+          "path": "docs/functional-design.md",
+          "start": 20742
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 20550,
+          "excerpt": "Robustness (my calls):",
+          "path": "docs/functional-design.md",
+          "start": 20528
+        },
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 68629,
+          "excerpt": "| PM7 | G1 | A missing root (removed drive) is reported, not ignored | Test | Reported | main 5.4 |",
+          "path": "docs/verification-register.md",
+          "start": 68530
+        }
+      ],
+      "id": "REQ-022",
+      "status": "extracted",
+      "text": "A missing project root, such as a removed drive, is reported to the user, not ignored (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19072,
+          "excerpt": "with\nprojects never opened sorted by folder modification time;",
+          "path": "docs/functional-design.md",
+          "start": 19010
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19401,
+          "excerpt": "Sorting, filter and\nhistory decided by the user 2026-11-01.",
+          "path": "docs/functional-design.md",
+          "start": 19342
+        }
+      ],
+      "id": "REQ-023",
+      "status": "extracted",
+      "text": "The project manager sorts projects never opened in Shinatama by folder modification time (decided by the user, 2026-11-01)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19648,
+          "excerpt": "which works\noutside the filter (user, 2026-11-01); the final keys are set with register U3.",
+          "path": "docs/functional-design.md",
+          "start": 19557
+        },
+        {
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 69331,
+          "excerpt": "| U3 | G0 | Global key bindings (spec Q4)",
+          "path": "docs/verification-register.md",
+          "start": 69290
+        }
+      ],
+      "id": "REQ-024",
+      "status": "extracted",
+      "text": "The `n` shortcut creates a new project when used outside the incremental filter; the final key bindings are set with register U3 (decided by the user, 2026-11-01)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 20062,
+          "excerpt": "For a project Shinatama creates, this\noption is the only Daodan offer",
+          "path": "docs/functional-design.md",
+          "start": 19993
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 20223,
+          "excerpt": "not created (user, 2026-11-01).",
+          "path": "docs/functional-design.md",
+          "start": 20192
+        },
+        {
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 12035,
+          "excerpt": "For a project created by Shinatama, the new-project dialog's option to type Daodan's native init command (functional design 5.4) is the only offer: declining it counts as \"Not now\" and no second offer follows.",
+          "path": "docs/daodan-native-support.md",
+          "start": 11826
+        }
+      ],
+      "id": "REQ-025",
+      "status": "extracted",
+      "text": "For a project Shinatama creates, the new-project dialog's option to type Daodan's native init command is the only Daodan offer; no second offer follows (decided by the user, 2026-11-01)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 20133,
+          "excerpt": "declining it counts as the \"Not now\" of\ndaodan-native-support 4.7",
+          "path": "docs/functional-design.md",
+          "start": 20068
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 20223,
+          "excerpt": "not created (user, 2026-11-01).",
+          "path": "docs/functional-design.md",
+          "start": 20192
+        },
+        {
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 12128,
+          "excerpt": "The one-time offer above stays for projects that are opened, not created (user, 2026-11-01).",
+          "path": "docs/daodan-native-support.md",
+          "start": 12036
+        }
+      ],
+      "id": "REQ-026",
+      "status": "extracted",
+      "text": "Declining the new-project dialog's Daodan init option counts as the \"Not now\" of daodan-native-support 4.7 for that project (decided by the user, 2026-11-01)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 20444,
+          "excerpt": "the new-instance command, from\nthe project manager or a tab, can start the instance in a new linked worktree so that\ntwo agents on the same project do not collide.",
+          "path": "docs/functional-design.md",
+          "start": 20281
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 20526,
+          "excerpt": "It is an option of that command, not an\noverview action (user, 2026-11-01; 5.13).",
+          "path": "docs/functional-design.md",
+          "start": 20445
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 43711,
+          "excerpt": "A new instance in its own linked worktree is an\n  option of the new-instance command (5.4), not an overview action.",
+          "path": "docs/functional-design.md",
+          "start": 43596
+        }
+      ],
+      "id": "REQ-027",
+      "status": "extracted",
+      "text": "The new-instance command, from the project manager or a tab, offers to start the instance in a new linked worktree so that two agents on the same project do not collide; this is an option of that command, not an overview action (decided by the user, 2026-11-01)"
+    }
+  ],
+  "schema_version": 1,
+  "status": "Proposed",
+  "superseded_by": null,
+  "title": "Project manager",
+  "version": 1
+}

@@ -43,11 +43,12 @@ Version 1 · Accepted 2026-11-01 at eeb3feb · proposed 2026-11-01 by Alfio Capr
 ## Context and Problem Statement
 
 Shinatama has no code yet. The user decided that Shinatama searches all local sessions of every
-supported agent and resumes one in the same agent or in a different one, with an interactive
-flow and a scriptable command line (functional-design goal 3). The sessions surface of
-functional-design 5.16 is marked "decided 2026-10-30; revised 2026-10-31"; the document quotes
-no user words for it, and functional-design 7 lists "read-only first, live seed hops after
-their gates" among the author's calls to check. Which discovered root becomes a box or a
+supported agent Mukade reads (four today; Hermes Agent and DeepSeek Harness once Mukade reads
+them) and resumes one in the same agent or in a different one, with an interactive flow and a
+scriptable command line (functional-design goal 3). The sequencing of the sessions surface,
+read-only browsing first and live seed hops after their gates, with native import and native
+handoff post-v1, is the user's decision of 2026-10-30, revised 2026-10-31 and confirmed on
+2026-11-01 (functional-design 5.16 and 7). Which discovered root becomes a box or a
 read-only system root is the author's call, the session panels of technical-design 3.1 are
 tagged [C], and command names are left to the builder (functional-design 4, 8). The question
 is how browsing, search and opening of native sessions stay read-only, bounded in memory and

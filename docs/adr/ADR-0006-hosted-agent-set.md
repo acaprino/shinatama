@@ -101,7 +101,7 @@ functional-design 2 and 5.9 and technical-design 5.
 - DeepSeek Harness has no terminal UI and is hosted in a native ACP pane (ADR-0007). Hermes Agent's gateway must be started and stopped per box (register HM2; ADR-0008).
 - Neither new agent gets a Daodan package until Daodan builds one (ADR-0032; register D20, O10).
 - Open: O9 (the DeepSeek reading and how it is hosted) and Gemini on Windows (functional-design 5.9). The versions researched are Hermes Agent 0.22.5 and DeepSeek Harness 0.2.1-rc.5.
-- functional-design 5.9 says external terminal selection is not offered "(section 2, non-goals)", but section 2 lists no such non-goal.
+- External terminal selection is not offered, for Gemini or any other agent, because every agent runs in Shinatama's own panes (functional-design 5.9, 5.1).
 
 ## Confirmation
 

@@ -51,8 +51,9 @@ technical-design 3 marks the isolation rule as the author's call [C]. The identi
 call (technical-design 7.5, register M15). "There is one launch point and it runs the checkup" is
 the author's call ("the user did not object", functional-design 3). Per-launch MCP injection, one
 proxy per instance, the `CODEX_HOME` overlay and the box are unproved (register M1, SC5, CX12,
-D15 to D19). The full design is in technical-design 3 and 7.5; this record holds only the
-decision.
+D15 to D19). Which writes to an agent home remain was decided by the user on 2026-11-01
+(functional-design 5.14 and 7). The full design is in technical-design 3 and 7.5; this record
+holds only the decision.
 
 ## Decision Drivers
 
@@ -68,7 +69,9 @@ touched: the sidecar keeps a private root and applies its environment and certif
 to the launched child only (ADR-0029), and Shinatama's hooks, its MCP server `shinatama mcp` and
 the instance's set of plugins, skills and MCP servers arrive through per-launch switches:
 `--settings`, `-c`, `OPENCODE_CONFIG*`, `-e`, DeepSeek Harness's `--patch` or its ACP session
-(adapter operations `hooks()`, `mcp_inject()` and `instance_set()`). Hermes Agent has no
+(adapter operations `hooks()`, `mcp_inject()` and `instance_set()`); Codex's set plugins are
+installed into the home, so a Codex instance carries its own set only in a `box` (user,
+2026-11-01). Hermes Agent has no
 per-launch switch: its hook and MCP entries live in the box's own `config.yaml`, a file Shinatama
 owns, and a Hermes Agent on the `system` home runs without them. At launch, after inherited agent
 markers are removed (ADR-0014), the agent gets `SHINATAMA_INSTANCE`, `SHINATAMA_THREAD`,
@@ -100,12 +103,13 @@ whose token does not match. See technical-design 3 and 7.5.
 - **INV-005**: `SHINATAMA_INSTANCE_TOKEN` is stored only hashed and never appears in clear in the database, logs or transcripts (technical-design I5; register M15).
 - **INV-006**: `shinatama mcp` and `shinatama hook` refuse an unknown or ended instance and a mismatched token.
 - **INV-007**: a Hermes Agent on the `system` home gets no Shinatama hook or MCP entry.
+- **INV-008**: no instance set is installed into a `system` Codex home; Shinatama writes nothing there for a Codex instance (decided by the user 2026-11-01; functional-design 5.14).
 
 ## Consequences
 
 - The token limits impersonation between instances; it is not isolation from an agent with a shell (technical-design 7.5, 7.9).
 - DeepSeek Harness drops variables matching `TOKEN` from its stdio MCP servers' environment, so the token must reach `shinatama mcp` another way (register DS5).
-- Some launches still write to an agent home: Codex set plugins are pre-installed there turned off (a home write, author's call); Claude Code rewrites bookkeeping such as `pluginUsage` in `.claude.json` (record D19); with the `system` home, Daodan is installed into the agent's native plugin store, so the user's own runs see it (functional-design 3; ADR-0012).
+- Writes to an agent home that remain, as the user decided on 2026-11-01: Codex set plugins are pre-installed turned off into a `box` home only, and with the `system` home Codex instances use the home's own set while Shinatama writes nothing there; Claude Code's rewrite of bookkeeping such as `pluginUsage` in `.claude.json` is the agent's own (record D19); with the `system` home, Daodan goes into the agent's native plugin store because the user chose `system`, so the user's own runs see it (functional-design 3, 5.14; ADR-0012).
 - The sidecar's session id stays separate from `SHINATAMA_INSTANCE`; the bili MCP shim and `shinatama mcp` coexist in one launch (technical-design 9).
 - Adapter operations `hooks()`, `mcp_inject()` and `instance_set()` (ADR-0011); inherited-marker removal is ADR-0014; messaging over `shinatama mcp` is ADR-0024.
 

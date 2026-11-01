@@ -44,11 +44,18 @@ quality, with the same behaviour on every hosted harness. The six harnesses offe
 seams, and BillionContext already integrates each of them on its own seam. Sources, kept apart:
 
 - Decided by the user: one shared core and one adapter per harness on its own seam, "the way
-  BillionContext does it", with no single shared proxy (2026-10-31, token-savings goal 4 and
-  8.2); no saving percentage stated until measured on the user's sessions (goal 5, an existing
-  constraint of functional-design 3).
-- Author's call, not confirmed: the order prevent, remove reversibly, cut lossily (goal 1); the
-  four adapter rules (7.1); the milestones (8.1).
+  BillionContext does it" (2026-10-31, token-savings goal 4 and 8.2); no saving percentage
+  stated until measured on the user's sessions (goal 5, an existing constraint of
+  functional-design 3).
+- Decided by the user, 2026-11-01: no second proxy; an adapter on the request path (Codex,
+  Hermes Agent) acts inside BillionContext's path, and its code goes into the sidecar's single
+  source (Musashi Terminal, `sidecar/source-build`), which Shinatama inherits like the watchdog
+  fix, with no fork or patch inside Shinatama (token-savings 7.1 rule 2, 8.2; functional-design
+  3; ADR-0029); the code-mode gateway is not in v1: evaluated after register T1 and built only
+  past the user's T3 threshold, so milestone 6 is an evaluation, not a delivery (token-savings
+  4.2.1, 7, 8.1; ADR-0025).
+- Author's call, not confirmed: the order prevent, remove reversibly, cut lossily (goal 1);
+  adapter rules 1, 3 and 4 (7.1); the milestones (8.1).
 
 The full design is in `docs/specs/token-savings.md`, a draft; this record holds only the
 decision. What the adapters apply is ADR-0037.
@@ -70,14 +77,16 @@ wire, inside the request path they already take; on OpenCode and Pi inside their
 extension; on DeepSeek Harness inside the dsh plugin of the box's ACP profile. Every adapter
 follows four rules: one owner of compaction (the harness's native compaction is stood down or
 intercepted); one owner of the wire (inside BillionContext's path, never a second proxy in front
-of or behind it); cache-safe (no rewrite inside the cached prefix, compaction at the sidecar's
-break-even boundary); verified per version (a conformance test and a version gate). Techniques
-apply in the order prevent, remove reversibly, cut lossily, never the reverse, and lossy
-techniques are not stacked. A per-session ledger records input tokens per turn, cache hit rate,
+of or behind it, with the adapter's code in the sidecar's single source and inherited, never a
+fork or patch inside Shinatama; user, 2026-11-01); cache-safe (no rewrite inside the cached
+prefix, compaction at the sidecar's break-even boundary); verified per version (a conformance
+test and a version gate). Techniques apply in the order prevent, remove reversibly, cut lossily,
+never the reverse, and lossy techniques are not stacked. A per-session ledger records input tokens per turn, cache hit rate,
 compaction count and tool re-runs after compaction. Work order: measure; Claude Code with a
 rules-only local endpoint; julia1; the other adapters one at a time (Hermes Agent and DeepSeek
-Harness after HM12 and DS12); tool chooser and digests; code-mode gateway. See token-savings
-2, 4, 7.1 and 8.1.
+Harness after HM12 and DS12); tool chooser and digests; then an evaluation of the code-mode
+gateway, not a delivery: not in v1, after register T1, built only past the user's T3 threshold
+(user, 2026-11-01; ADR-0025). See token-savings 2, 4, 7.1 and 8.1.
 
 ## Verified Interview Examples
 
@@ -88,7 +97,7 @@ Harness after HM12 and DS12); tool chooser and digests; code-mode gateway. See t
 
 ## Rejected Alternatives
 
-- **RA-001**: a single proxy shared by all harnesses; each harness is integrated on its own seam, as BillionContext does (token-savings goal 4, 7).
+- **RA-001**: a second proxy for token savings, in front of or behind BillionContext or shared by all harnesses; each harness is integrated on its own seam, as BillionContext does, and an adapter on the request path acts inside the sidecar's single source (token-savings goal 4, 7.1, 8.2; user, 2026-11-01).
 - **RA-002**: letting the harness's native compaction run beside the adapter's; two compactions on one history destroy each other's substrate (token-savings 7.1).
 - **RA-003**: rewriting early messages or changing the tool list per turn; it breaks the prompt cache, and a saving that invalidates the cached prefix costs more than it saves (token-savings anti-goals, 6.5).
 - **RA-004**: stacking lossy techniques (sliding window, lossy summary, sub-agent summary); their losses add up (token-savings anti-goals).
@@ -96,7 +105,7 @@ Harness after HM12 and DS12); tool chooser and digests; code-mode gateway. See t
 ## Enforceable Invariants
 
 - **INV-001**: on any history, at most one compaction runs: when the adapter compacts, native compaction is stood down or intercepted.
-- **INV-002**: where BillionContext sits on the request path, the adapter acts inside it and never adds a second proxy.
+- **INV-002**: where BillionContext sits on the request path, the adapter acts inside it and never adds a second proxy; its code is part of the sidecar's single source, and Shinatama carries no fork or patch of the sidecar (decided by the user 2026-11-01; token-savings 7.1, 8.2; ADR-0029 INV-001).
 - **INV-003**: no adapter rewrites inside the cached prefix or changes the tool list per turn; Shinatama keeps the sidecar and MCP set stable per launch (token-savings 4.1).
 - **INV-004**: every adapter has a conformance test against the real installed harness and a version gate.
 - **INV-005**: no saving percentage is claimed for Shinatama anywhere before the ledger has measured it on the user's sessions; vendor figures are labelled as not measured.
@@ -105,7 +114,8 @@ Harness after HM12 and DS12); tool chooser and digests; code-mode gateway. See t
 
 - The seams are read from BillionContext's source, not run (token-savings 9.1). The Hermes Agent and DeepSeek Harness adapters ride BillionContext's path and wait for its proxy coverage (register HM12, DS12).
 - Hermes Agent compacts natively at 50% of the window and has a `post_compaction` hook; how to stand its compaction down is unknown, so its adapter waits.
-- The code-mode gateway in front of MCP servers is the last milestone; technical-design 7.5a keeps it out of v1 as an evaluated option, gated by register T1 and T3 (see ADR-0025).
+- The Codex and Hermes Agent adapters are changes to the sidecar's single source (Musashi Terminal); Shinatama gets them only through that source, as it gets the watchdog fix (ADR-0029, ADR-0030).
+- The code-mode gateway in front of MCP servers is the last milestone, as an evaluation, not a delivery; technical-design 7.5a keeps it out of v1 and unscheduled, evaluated after register T1 and built only past the user's T3 threshold (user, 2026-11-01; see ADR-0025).
 - Daodan is not changed: it ships compiled per harness (token-savings non-goals).
 - Verification records go under `docs/verification/` and the register; no register row is assigned to the 9.2 checks yet.
 

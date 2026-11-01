@@ -45,12 +45,14 @@ depending on any of them, and when an agent's integration counts as acceptable.
 Origin: "One adapter per agent (decided), so Grok or another agent can be added without touching
 the rest" (functional-design 6), and the user's requirement, marked decided: "every supported
 agent has an adapter with export, import, resume and handover functions, and the rest of what is
-needed" (technical-design 5.5). The contract's design is the builder's and its requirements the
-author's (functional-design 6 heading); the operation list is a language-neutral sketch for a
-Rust trait. The command names (functional-design 4) and the exit codes (technical-design 5.5.2,
-[C]) are the author's calls, and functional-design 8 leaves both to the builder. The conformance
-suite is untagged; how adapters are packaged is the builder's call. The full design is in technical-design 5.5, 5.5.2 and 5.5.3; this record
-holds only the decision.
+needed" (technical-design 5.5). The contract's design is the builder's; the requirement is the
+user's, decided (functional-design 6 heading). The operation list is a language-neutral sketch
+for a Rust trait. The command names (functional-design 4) and the exit codes proposed in
+technical-design 5.5.2 are the author's calls, and functional-design 8 leaves both to the
+builder. The conformance suite is untagged; how adapters are packaged is the builder's call. What
+happens to an agent whose installed version fails its fixtures was decided by the user on
+2026-11-01 (technical-design 5.5.3; functional-design 7). The full design is in technical-design
+5.5, 5.5.2 and 5.5.3; this record holds only the decision.
 
 ## Decision Drivers
 
@@ -71,11 +73,13 @@ environment (`placement`, `detect`, `instance_set`, `fixture_gate`, `inherited_m
 `release`); F signals (`state_events`, `queue_message`, `ask_headless`); G injection and
 capabilities (`hooks`, `mcp_inject`, `capabilities()`). Anything not implemented is declared
 `unsupported`, not faked. The command line exposes the same operations (`sessions`, `find`,
-`export`, `import`, `resume`, `hop`, `doctor`) with a stable `--json` schema and exit codes 0 done,
+`export`, `import` post-v1, `resume`, `hop`, `doctor`) with a stable `--json` schema and exit codes 0 done,
 2 refused with a reason, 3 needs the user, 4 failed and nothing changed, 5 failed and recovery
 needed. An adapter is acceptable only if it passes a contract suite on recorded fixtures per agent
-version, structure-only and synthetic; one that fails for the installed version drops to
-`Degraded` or `Unsupported` and the UI says so. Adding an agent means implementing the contract,
+version, structure-only and synthetic. An agent that fails its suite for the installed version is
+`Degraded`: each capability whose fixtures fail is declared `unsupported`; the agent stays
+launch-only plus its own export command where it has one; hops to or from it go by `seed_prompt`
+or are refused (`refuse`); the UI says why. Adding an agent means implementing the contract,
 recording fixtures and passing the suite. The engine compiles and passes its tests with no
 adapter at all and with a fake in-memory adapter. See technical-design 5.5.
 
@@ -84,7 +88,7 @@ adapter at all and with a fake in-memory adapter. See technical-design 5.5.
 - **EX-001** (nominal case): Input: the canary hop, a made-up codename stated once in turn 3 of the source, run against every other adapter in both directions -> Expected: the destination answers it without the codename being repeated, for every ordered pair at stage 1 (technical-design 5.5.3, 11.2).
 - **EX-002** (boundary case): Input: an adapter whose agent supports import (post-v1) -> Expected: `read_transcript(import(export(x)))` has the same `user_text`, `assistant_text` and `compaction` items in order and the same tool items as digests; what the agent cannot represent is listed in the report (technical-design 5.5.1).
 - **EX-003** (rejection or error case): Input: an operation the adapter does not declare -> Expected: refused; every declared capability is exercised by the suite (technical-design 5.5.3).
-- **EX-004** (rejection or error case): Input: an agent whose installed version fails its fixtures -> Expected: it drops to launch-only with a visible reason instead of a wrong hop (technical-design 11.10).
+- **EX-004** (rejection or error case): Input: an agent whose installed version fails its fixtures -> Expected: the agent is `Degraded`: launch-only plus its own export command, each failing capability `unsupported`, hops to or from it by `seed_prompt` or `refuse`, with a visible reason instead of a wrong hop (technical-design 5.5.3, 6.7, 11.10).
 - **EX-005** (nominal case): Input: `shinatama find "refresh token" --json | jq -r '.[0].id'`, then `shinatama resume t_8f3a --agent codex` -> Expected: a thread id from the text index, then thread `t_8f3a` resumed in Codex, or hopped there if its agent differs (functional-design 5.3; technical-design 5.5.2).
 
 ## Rejected Alternatives
@@ -102,13 +106,14 @@ adapter at all and with a fake in-memory adapter. See technical-design 5.5.
 - **INV-006**: suite fixtures are structure-only and synthetic, never the user's real conversations.
 - **INV-007**: `list_sessions` never reads a whole session per row, and unknown metadata stays unknown.
 - **INV-008**: `--json` output keeps a stable schema and the exit codes above.
+- **INV-009**: an agent whose installed version fails its fixtures is `Degraded`: every capability whose fixtures fail is declared `unsupported`, the agent stays launch-only plus its own export command where it has one, and every hop to or from it uses `seed_prompt` or is refused, with the reason shown (decided by the user 2026-11-01; technical-design 5.5.3).
 
 ## Consequences
 
 - The first milestone must establish per agent: starting with an initial prompt and its size limit, choosing or learning the session id, the exact resume command, per-launch hooks and MCP, a non-interactive mode with a clear turn end, and an answer-only policy (technical-design 5.5; 10 item 2).
 - Readers delegate parsing to Mukade (ADR-0020); `.stx.jsonl` is ADR-0021; placement and launch operations follow ADR-0012 and ADR-0013.
 - Post-v1 import differs per agent: Shinatama's own writers for Claude Code, Codex, OpenCode and Pi; Hermes Agent's official import for Claude Code and Codex sources only; none for DeepSeek Harness.
-- The degraded outcome is worded three ways: `Degraded` or `Unsupported` (technical-design 5.5.3), "launch-only plus the agent's own export command" (technical-design 5.2), and "launch-only" (technical-design 11.10). The builder must reconcile them.
+- The degraded outcome is one tiered rule, stated alike in technical-design 5.2, 5.5.3, 6.7 and 11.10 and functional-design 5.14 and 7: the conformance suite exercises the degraded path (`fixture_gate`), and the UI says why an agent is `Degraded`.
 - Open: register O7, whether the hop dialog, roundtable and palette offer only actions both adapters' `capabilities()` support.
 
 ## Confirmation

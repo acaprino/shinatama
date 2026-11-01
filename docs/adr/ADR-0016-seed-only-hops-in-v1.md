@@ -46,8 +46,9 @@ another agent's session store. The question this record answers is which of thes
 Origin: "v1 is seed-only (decided 2026-10-31, user)" (functional-design 5.2; README). The stage
 model of technical-design 5.4 "preserves the research history, not three implemented release
 stages". Technical-design 12 also lists "Native store writing (stage 3) is not in v1" as an
-author's default; the user's decision of 2026-10-31 covers it. Technical-design 5.4 and 6.2 hold
-the full design; this record holds only the decision.
+author's default; the user's decision of 2026-10-31 covers it. Which agents a post-v1 stage-3
+write may cover was decided by the user on 2026-11-01 (technical-design 5.4). Technical-design
+5.4 and 6.2 hold the full design; this record holds only the decision.
 
 ## Decision Drivers
 
@@ -71,15 +72,17 @@ import. Native stores are read-only in v1, except through the agent's own comman
 a time, only when that pair's fixtures, privacy, store and recovery gates pass. The end state is
 a hybrid: import a real native session where the destination's format can be written reliably,
 otherwise a readable text export. Post-v1 writes follow the stages of technical-design 5.4
-(stage 2: the agent's own import; stage 3: a native file or rows written for the agent, only
-into a new file or new rows, after a backup of any index the agent keeps, and never while that
-agent runs against the same store) and the writer choices of technical-design 5.4.1. The
+(stage 2: the agent's own import; stage 3: a native file or rows written for an agent with no
+import of its own or whose own import loses what Mukade's writer keeps, as Codex's turns tool
+calls into text markers (decided by the user 2026-11-01), only into a new file or new rows,
+after a backup of any index the agent keeps, and never while that agent runs against the same
+store) and the writer choices of technical-design 5.4.1. The
 post-v1 handover rules are in ADR-0022.
 
 ## Verified Interview Examples
 
 - **EX-001** (boundary case): Input: a Claude Code to Codex hop in v1 -> Expected: `seed_prompt`. CX4 proved Codex's own detect, import and resume of one named Claude session in a scratch home, with tool calls as text markers; "With v1 seed-only (6.2) it is a post-v1 strategy" and "Pair support is not by itself approval to use a real store" (technical-design 6.2, 10.13; CX4 record).
-- **EX-002** (rejection or error case): Input: the destination's version is unknown to its adapter -> Expected: the pair drops to `seed_prompt` or `refuse` (technical-design 6.7).
+- **EX-002** (rejection or error case): Input: the destination's version is unknown to its adapter -> Expected: the agent is `Degraded` and the pair drops to `seed_prompt` or `refuse` (technical-design 5.5.3, 6.7; ADR-0011).
 - **EX-003** (rejection or error case): Input: the destination is not installed or signed in and cannot be fixed, or is launch-only (Gemini) -> Expected: `refuse`, with an explanation and, where possible, the login flow (technical-design 6.2).
 - **EX-004** (nominal case): Input: a live seed hop and a historical handoff -> Expected: "Correct v1 seed-only behaviour" for both, with distinct source models (register SS4).
 
@@ -108,10 +111,9 @@ post-v1 handover rules are in ADR-0022.
 - The sessions surface offers no native Import or native handoff in v1 (functional-design 5.16).
 - In v1 Mukade is used only through its read-side APIs (ADR-0020).
 - Native import is deferred, not rejected: it stays the end state, behind per-pair gates.
-- Open in the documents: technical-design 5.4 allows stage 3 "only for an agent with no import of
-  its own", while 5.4.1 has Mukade's Codex writer write the rollout although Codex has an import
-  (because that import turns tool calls into text markers). The post-v1 gate for Codex must
-  settle which rule applies.
+- Mukade's Codex writer may write the rollout although Codex has an import: stage 3 also covers
+  an agent whose own import loses what the writer keeps (decided by the user 2026-11-01;
+  technical-design 5.4, 5.4.1; CX4). It still waits for the post-v1 gates of that pair.
 
 ## Confirmation
 

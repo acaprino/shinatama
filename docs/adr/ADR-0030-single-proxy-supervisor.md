@@ -49,10 +49,11 @@ failed — the shared proxy may exit when its first owner does (The operation wa
 timeout)` over Claude Code's screen: the owner-renewal path had been missed. Moving messages one
 path at a time does not close the class. Three supervision items
 were then added to the sidecar acceptance list of functional-design 5.6 (commit `9eabbaa`), whose
-heading carries the user's decision "same resilience, security, compression". Technical-design 9
-tags the proxy supervision [C], so the exact rule is the author's call, not confirmed by the
-user. The full design is in functional-design 5.6 and technical-design 9; this record holds only
-the decision.
+heading carries the user's decision "same resilience, security, compression". The user confirmed
+on 2026-11-01 that this supervision rule (one supervisor per proxy, busy is not dead, no
+diagnostics on agent terminals) is the user's decision, and technical-design 9 marks it so. The
+full design is in functional-design 5.6 and technical-design 9; this record holds only the
+decision.
 
 Later on 2026-11-01 two more paths turned a busy shared proxy into `ECONNREFUSED` for Claude Code
 (observed in Musashi Terminal, recorded in its docs/sidecar.md). First, the proxy shut itself down
@@ -122,7 +123,7 @@ technical-design 9.
 
 ## Consequences
 
-- The launch path is open: the shipped per-session launcher with its supervision off, or a direct launch with the proxy environment, decided together with one proxy per instance versus one shared (register SC5, G0). The sidecar code stays unmodified (ADR-0029).
+- The launch path is open: the shipped per-session launcher with its supervision off, or a direct launch with the proxy environment, decided together with one proxy per instance versus one shared (register SC5, G0). The sidecar code stays unmodified (ADR-0029): no fork or patch inside Shinatama, and a change the proxy needs goes into the single source and is inherited, as the watchdog fix is (user, 2026-11-01; technical-design 9).
 - The window gains a proxy status with busy and recovering states; Shinatama's log receives the sidecar's diagnostics.
 - The proxy's own owner watchdog must not read a long stall as the loss of every owner; the owned source does this from Musashi Terminal commit `ac7d57a`, and register SC12 tests it for the Windows watcher under Shinatama.
 - A held event loop is itself an availability limit on Windows: once the agents' own connections fill the accept queue, their turns are refused until the loop resumes. On 2026-11-01 the shared proxy held its loop for 15 to 71 s every few minutes with six Claude Code sessions; how long it may be held is open (register SC16) and bears on one proxy per instance versus one shared (SC5).

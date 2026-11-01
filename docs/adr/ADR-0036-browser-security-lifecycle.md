@@ -52,6 +52,11 @@ security audit". Sources, kept apart:
 
 - Decided by the user, 2026-10-29: no resident Chrome or Patchright companion and nothing
   installed automatically (browser-integration 1, requirement 5).
+- Decided by the user, 2026-11-01: with `browser.patchright.enabled = false`, `open-ui` returns
+  `unsupported` explaining how to enable it and nothing is downloaded or started; consent has
+  two levels, the one-time opt-in, then each UI session explicitly (browser-integration 10;
+  functional-design 5.15). The B10 and priority-case gate defers Moli's fast path and does not
+  withdraw Moli as the default (browser-integration 11; ADR-0035).
 - Proposed shape, not approved: the `serve` gate, process ownership, scope and privacy rules,
   control and performance protocol of browser-integration 6.2 to 10. functional-design 5.15
   also says no speed or memory saving is claimed before B10; that section marks its
@@ -75,17 +80,22 @@ until register B4 proves a private authenticated transport or an equivalent veri
 that untrusted pages cannot reach; the same gate applies to Patchright transports. No Moli,
 Patchright, companion or Chrome process starts before a request, there is no cross-window
 browser daemon, the companion is lazy-loaded, and a missing component returns `unsupported`
-instead of being downloaded. The Shinatama process of the current window owns each request and
+instead of being downloaded; so does `open-ui` while `browser.patchright.enabled` is off, with
+how to enable it, and enabling it starts nothing until a UI session is explicitly requested
+(user, 2026-11-01). The Shinatama process of the current window owns each request and
 its whole child tree, recording OS process, group or job identity, not just a PID. A session
 moves `requested -> authorized -> starting -> active -> closing -> closed` with `denied` and
 `failed` branches; every effect is idempotent by `request_id`; `closed` is not reported while a
 managed process or endpoint is alive. Content (HTML, scripts, screenshots, downloads,
 redirects, MCP UI, agent output) is untrusted under the rules of technical-design 7.6. Local
 roots, services, redirects, subresources and proxies are explicit scope; profiles are temporary
-by default; no cookie, token or credential reaches logs, SQLite, transcripts or summaries, and
-browser content reaches no title or summary provider by default. An interactive session has
+by default; no cookie, token, authorization header or credential reaches logs, SQLite,
+transcripts, summaries or error reports; screenshots and extracted pages, which can contain
+secrets, are stored privately with bounded retention, and browser content reaches no title or
+summary provider by default (technical-design 7.9; browser-integration 8). An interactive session has
 one owner and one controller; handover is explicit; closing invalidates queued actions. No performance figure is accepted before a frozen whole-process-tree baseline
-(B10). See browser-integration 6.2 to 11.
+(B10); failing B10 or the priority cases defers Moli's fast path and leaves Moli the default
+(user, 2026-11-01; ADR-0035). See browser-integration 6.2 to 11.
 
 ## Verified Interview Examples
 
@@ -105,7 +115,7 @@ one owner and one controller; handover is explicit; closing invalidates queued a
 ## Enforceable Invariants
 
 - **INV-001**: `moli serve` and any persistent automation transport stay off until B4 passes for that transport.
-- **INV-002**: no Moli, Patchright, companion or Chrome process exists before a request; enabling browser support does not start the UI path; `/browse` never triggers a download.
+- **INV-002**: no Moli, Patchright, companion or Chrome process exists before a request; enabling browser support does not start the UI path; `/browse` never triggers a download; with `browser.patchright.enabled = false`, `open-ui` downloads and starts nothing and returns `unsupported` (decided by the user 2026-11-01 for `open-ui`; browser-integration 10).
 - **INV-003**: `closed` is never reported while a managed browser, companion or endpoint is alive, and cleanup never targets a process outside the recorded tree.
 - **INV-004**: no cookie, token, authorization header or credential appears in logs, SQLite, transcripts, summaries or error reports; browser content is not sent to title or summary providers by default (technical-design I5).
 - **INV-005**: untrusted content cannot authorize navigation outside scope, start Chrome, change controller or request credentials (technical-design I6, 7.6).

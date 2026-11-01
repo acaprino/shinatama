@@ -46,8 +46,8 @@ several stores.
 
 Origin: technical-design 4 is marked "[C, confirmed in principle by the user]", with no date;
 functional-design 8 says "the storage choice, SQLite per user, is decided" and leaves the exact
-tables and columns to the builder. Functional-design 5.1 still says the thread's "format and
-location are the builder's call". The tables are a sketch (technical-design 0); the path quirks of
+tables and columns to the builder, and functional-design 5.1 stores the thread in one SQLite
+database per user (decided). The tables are a sketch (technical-design 0); the path quirks of
 4.5 are observed [V]; FTS5 and WAL on three systems are unverified [U]. The full design is in
 technical-design 4; this record holds only the decision.
 

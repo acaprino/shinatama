@@ -72,7 +72,9 @@ it what it missed; (5) the user sees, before sending, exactly what is carried an
 Not promised: moving a live process, permissions, model state, or the agent's hidden reasoning.
 The hop dialog lists them as lost. What carries over, as the dialog shows it: conversation text,
 tool calls (summarized unless native import preserves them), files (same folder, git state
-unchanged), attachments (paths) and project instructions (CLAUDE.md and AGENTS.md linked).
+unchanged), attachments (paths) and project instructions (CLAUDE.md and AGENTS.md linked; what
+linking does is still to be decided and tested, and no file is created in the user's repository
+without consent, the author's call of register H18).
 Agent Deck and Agent Relay are prior art to study, not to wrap. Strategies, modes, the state
 machine and the seed are ADR-0016 to ADR-0019.
 
@@ -80,7 +82,7 @@ machine and the seed are ADR-0016 to ADR-0019.
 
 - **EX-001** (nominal case): Input: in the source, a made-up project codename stated once in turn 3; hop to each other agent and ask for the codename without repeating it -> Expected: the correct answer for every ordered pair among the six agents at stage 1; a pair whose source is Hermes Agent or DeepSeek Harness counts from the day Mukade reads that source (technical-design 11.2; register H1: 10 of 10 on the small thread).
 - **EX-002** (boundary case): Input: Enter to READY measured per pair, 95th percentile, with and without warm standby -> Expected: the 8 s and 25 s targets of 6.1 confirmed or revised (register H6, H21).
-- **EX-003** (rejection or error case): Input: an agent whose installed version fails its fixtures -> Expected: it drops to launch-only with a visible reason instead of a wrong hop (technical-design 11.10).
+- **EX-003** (rejection or error case): Input: an agent whose installed version fails its fixtures -> Expected: the agent is `Degraded` (launch-only plus its own export command, failing capabilities `unsupported`) and hops to or from it go by `seed_prompt` or are refused, with a visible reason instead of a wrong hop (technical-design 5.5.3, 11.10; ADR-0011).
 
 ## Rejected Alternatives
 
@@ -94,6 +96,7 @@ machine and the seed are ADR-0016 to ADR-0019.
 - **INV-002**: the hop dialog states what carries over and what is lost before anything is sent; permissions, model state and hidden reasoning are always listed as lost.
 - **INV-003**: the source session's records are never modified (technical-design I2).
 - **INV-004**: "native resume" in the UI and documents means a resume within the same agent only.
+- **INV-005**: carrying project instructions across a hop never creates a file in the user's repository without the user's consent (author's call; register H18; functional-design 5.2).
 
 ## Consequences
 

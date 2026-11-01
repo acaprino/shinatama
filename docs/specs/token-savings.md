@@ -39,7 +39,8 @@ hosts.
 
 1. Apply the technique catalog of section 4 in the order of its returns: prevent tokens from
    entering, then remove them reversibly, then cut lossily, never the reverse (my call).
-2. Replace summary compaction with **decision compaction**: tool calls and results are kept
+2. Replace summary compaction with **decision compaction** as the primary method (summary
+   compaction stays only as the fallback of 4.3.4): tool calls and results are kept
    verbatim or removed, user and assistant text is never rewritten (decided, by pointing at
    `tamaratran/fast-jev-compaction`).
 3. Run every scoring, ranking and digest step on julia1, offline, with no credentials; what
@@ -110,10 +111,12 @@ it; "julia1" means the local model does the judging.
    code runs in a sandbox and calls the tools; only one schema and the final result enter
    context. Saves schemas, intermediate results and round-trips at once. Risk: the model
    cannot see intermediate values it may have needed; keep direct calls available. Runs:
-   harness where native; Shinatama can put a code-mode gateway in front of MCP servers,
-   which works the same for every hosted harness (section 7). Anthropic reports about 37%
-   fewer tokens on chained-call tasks; Cloudflare's Code Mode is the same idea over
-   isolates. Neither figure is measured here.
+   harness where native. A Shinatama code-mode gateway in front of MCP servers would work
+   the same for every hosted harness, but it is evaluated, not scheduled: not in v1,
+   evaluated after the register's T1 measurement and built only past the threshold the
+   user sets (T3; technical-design 7.5a, section 7; decided, 2026-11-01). Anthropic reports
+   about 37% fewer tokens on chained-call tasks; Cloudflare's Code Mode is the same idea
+   over isolates. Neither figure is measured here.
 2. **Offload to external engines.** The model sends a specification and receives a status;
    the engine does the work. Mukade (DeckCraft, WordCraft, GridCraft) and codebase-map (an
    index answers "where is X" instead of a grep dump) are this pattern. Risk: none beyond the
@@ -147,7 +150,8 @@ it; "julia1" means the local model does the judging.
 4. **Monolithic summary compaction** (the harness default). One summary, lossy; loses
    decisions, constraints and the "why". Kept only as the fallback when 2 cannot remove
    enough, with a structured compaction prompt (decisions, open items, files touched) and
-   firing at task boundaries rather than at a percentage. Runs: harness.
+   firing at task boundaries rather than at a percentage; the percentage trigger
+   (`compactAtPercent`, 5.1.6; section 7) is decision compaction's. Runs: harness.
 5. **Externalized state.** Anything that must survive a compaction lives on disk: plan file,
    task ledger, decision records, memory. Work-controller run records and Daodan already do
    this. Runs: Daodan; Shinatama's thread store (5.1) keeps the hop context.
@@ -161,10 +165,12 @@ it; "julia1" means the local model does the judging.
 2. **Isolated sub-agents.** Their dumps never enter the main context; only the report comes
    back. Cost: duplicated prefix and the hand-off loss. Forks inherit the context with a cache
    hit and keep their output out. Runs: harness.
-3. **Model routing for bookkeeping.** Summaries, titles (8.4), digests and scoring on julia1;
-   the frontier model only on the work. Runs: Shinatama. Routing of the working model itself, at
-   session start and sub-agent spawn, delegated to a configurable jev-like decision model:
-   ADR-0044 and `docs/notes/2026-11-01-model-routing-decision-model.md`.
+3. **Model routing for bookkeeping.** Summaries, digests and scoring on julia1; the frontier
+   model only on the work. Titles stay on the backend the user chooses (technical-design
+   8.4) and go through julia1 only when it is the chosen local model (decided, 2026-11-01).
+   Runs: Shinatama. Routing of the working model itself, at session start and sub-agent
+   spawn, and the tool chooser, delegated to a configurable jev-like decision model: ADR-0044
+   and `docs/notes/2026-11-01-model-routing-decision-model.md`.
 4. **Measurement.** A ledger per session of input tokens per turn, cache hit rate, compaction
    count and tool re-runs after compaction. Without it no technique can be said to save
    anything (section 9).
@@ -307,22 +313,25 @@ never on the model's turn.
 | Component | Contract | Local executor | When |
 | --- | --- | --- | --- |
 | Call/result scoring | `ask(state, noul[])` | rules where conclusive, julia1 for the rest | incrementally on `turn.complete` |
-| Compaction | `applyDecisions` | no model | at threshold; decisions already made |
+| Compaction | `applyDecisions` | no model | at `compactAtPercent` of the window on `turn.complete`, or on an intercepted native compaction (5.1.6); decisions already made |
 | Tool chooser | `ask(state, choice)` | julia1 | `prompt.submit` |
 | Digests | parser, then schema extraction | julia1 | async after `tool.call` |
 
 - **One sidecar per box** (functional-design 5.14): an HTTP process on localhost with the
   System One wire format, launched and supervised like the BillionContext sidecar (5.6),
-  private root, no credentials, no system change. julia1 and the title backend of 8.4 share
-  the runtime (llama.cpp through a Rust binding or a bundled `llama-server`, builder's
-  choice) and the one-time opt-in model download.
+  private root, no credentials, no system change. julia1 and the local title model of
+  technical-design 8.4 share the llama.cpp runtime (a Rust binding or a bundled
+  `llama-server`, builder's choice); when one model serves both, there is one opt-in
+  download. The title backend stays the user's choice; titles go through julia1 only when
+  it is the chosen local model (decided, 2026-11-01).
 - **One adapter per harness** (decided, 2026-10-31). The core is shared: the scoring
   library of section 5, the features of 6.3, the julia1 endpoint, the ledger. What touches
   the harness is an adapter written for that harness, on the seam it offers, and verified on
-  its installed version (functional-design 3). There is no single proxy for all of them.
-  See 7.1.
-- **Code-mode gateway** in front of MCP servers (4.2.1) is a second uniform piece; it is a
-  later milestone (8.1).
+  its installed version (functional-design 3). There is no second proxy: an adapter on
+  the request path acts inside the sidecar's single source (7.1, rule 2).
+- **Code-mode gateway** in front of MCP servers (4.2.1) would be a second uniform piece. It
+  is not in v1: evaluated after the T1 measurement, built only past the threshold the user
+  sets (T3; decided, 2026-11-01); milestone 6 of 8.1 is the evaluation, not a delivery.
 - **Scoring is incremental**: after each turn julia1 scores only the new calls with a warm
   cache. When compaction fires there is only applying to do. The frontier model never waits
   for julia1.
@@ -347,8 +356,12 @@ Rules every adapter follows (my calls):
 1. **One owner of compaction.** When the adapter compacts, the harness's native compaction
    is stood down or intercepted, as BillionContext does (`dsh-compaction-disable.ts`, the
    Pi compaction cancel). Two compactions on one history destroy each other's substrate.
-2. **One owner of the wire.** Where BillionContext already sits on the request path, the
-   adapter acts inside that path, not as a second proxy in front of or behind it.
+2. **One owner of the wire; no second proxy** (decided, 2026-11-01). Where BillionContext
+   already sits on the request path (the Codex and Hermes Agent adapters), the adapter acts
+   inside that path, not as a second proxy in front of or behind it. Its code goes into the
+   sidecar's single source (Musashi Terminal, `sidecar/source-build`) and Shinatama
+   inherits it, like the watchdog fix (technical-design 9); "unmodified" means no fork or
+   patch inside Shinatama.
 3. **Cache-safe.** No rewrite inside the cached prefix; compaction happens at the boundary
    the sidecar's break-even indicates.
 4. **Verified per version.** Each adapter has a conformance test against the real installed
@@ -488,15 +501,19 @@ study come first, among them the four contact points with BillionContext (its se
    DeepSeek Harness come after their proxy coverage is verified (register HM12, DS12), since
    their adapters ride that path.
 5. **Tool chooser and digests.**
-6. **Code-mode gateway** in front of MCP.
+6. **Code-mode gateway** in front of MCP: an evaluation, not a delivery. It follows the
+   T1 measurement and is built only past the threshold the user sets (T3), not in v1
+   (decided, 2026-11-01).
 
 ### 8.2 Decided
 
 - Decision compaction over summary compaction; text never rewritten.
 - Bookkeeping on a local CPU model; model analyses and benchmarks elsewhere.
 - No saving percentage claimed before it is measured.
-- One adapter per supported harness on its own seam, as BillionContext does; no single
-  shared proxy.
+- One adapter per supported harness on its own seam, as BillionContext does; no second
+  proxy: an adapter that acts on the request path does so inside the sidecar's single
+  source (Musashi Terminal, `sidecar/source-build`), which Shinatama inherits, with no fork
+  or patch inside Shinatama (decided, 2026-11-01).
 
 ### 8.3 Open
 
