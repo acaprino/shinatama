@@ -2,7 +2,7 @@
 adr_id: ADR-0041
 version: 1
 title: The companion pane accepts only preset actions and selections, and has two card flows
-status: Proposed
+status: Accepted
 author: Alfio Caprino
 scope:
   paths:
@@ -19,8 +19,8 @@ depends_on:
 created_from_task: init-abfe6369faa4489a915c5f057a84e467
 proposed_on: 2026-11-01
 proposed_at_sha: 6539cf1d5bf6564247a6d8b5d47ccc114f9fdc58
-accepted_on: null
-accepted_at_sha: null
+accepted_on: 2026-11-01
+accepted_at_sha: eeb3febaf0115d13f95ca0ba044c11e2628acb06
 last_verified_sha: null
 retired_on: null
 retired_reason: null
@@ -32,7 +32,7 @@ changes:
 # ADR-0041: The companion pane accepts only preset actions and selections, and has two card flows
 
 <!-- adr-header:start -->
-Version 1 · Proposed 2026-11-01 by Alfio Caprino
+Version 1 · Accepted 2026-11-01 at eeb3feb · proposed 2026-11-01 by Alfio Caprino
 <!-- adr-header:end -->
 
 ## Context and Problem Statement

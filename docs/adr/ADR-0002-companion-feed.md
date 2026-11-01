@@ -2,7 +2,7 @@
 adr_id: ADR-0002
 version: 1
 title: Companion pane fed by the canonical transcript, harness chosen per companion
-status: Accepted
+status: Superseded
 author: Alfio Caprino
 scope:
   paths:
@@ -26,14 +26,14 @@ last_verified_sha: null
 retired_on: null
 retired_reason: null
 supersedes:
-superseded_by: null
+superseded_by: ADR-0002 v2
 changes:
 ---
 
 # ADR-0002: Companion pane fed by the canonical transcript, harness chosen per companion
 
 <!-- adr-header:start -->
-Version 1 · Accepted 2026-11-01 at 9eabbaa · proposed 2026-11-01 by Alfio Caprino
+Version 1 · Superseded by ADR-0002 v2 · proposed 2026-11-01 by Alfio Caprino
 <!-- adr-header:end -->
 
 ## Context and Problem Statement

@@ -2,7 +2,7 @@
 adr_id: ADR-0043
 version: 1
 title: "The companion searches the web only through its harness's own web tool"
-status: Proposed
+status: Accepted
 author: Alfio Caprino
 scope:
   paths:
@@ -19,8 +19,8 @@ depends_on:
 created_from_task: init-f902721f1dd545f89329508d08db0f7c
 proposed_on: 2026-11-01
 proposed_at_sha: 79756dfcb5a67447a2f2cc6b04d7cf15798da068
-accepted_on: null
-accepted_at_sha: null
+accepted_on: 2026-11-01
+accepted_at_sha: eeb3febaf0115d13f95ca0ba044c11e2628acb06
 last_verified_sha: null
 retired_on: null
 retired_reason: null
@@ -32,7 +32,7 @@ changes:
 # ADR-0043: The companion searches the web only through its harness's own web tool
 
 <!-- adr-header:start -->
-Version 1 · Proposed 2026-11-01 by Alfio Caprino
+Version 1 · Accepted 2026-11-01 at eeb3feb · proposed 2026-11-01 by Alfio Caprino
 <!-- adr-header:end -->
 
 ## Context and Problem Statement

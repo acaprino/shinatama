@@ -2,7 +2,7 @@
 adr_id: ADR-0028
 version: 1
 title: Overview titles from a pluggable low-cost backend that Shinatama calls, capped; facts from git only
-status: Proposed
+status: Accepted
 author: Alfio Caprino
 scope:
   paths:
@@ -23,8 +23,8 @@ depends_on:
 created_from_task: adr-backfill-2026-11-01
 proposed_on: 2026-11-01
 proposed_at_sha: b667db5c3d7df4618ccb73b73165e8f3290ae151
-accepted_on: null
-accepted_at_sha: null
+accepted_on: 2026-11-01
+accepted_at_sha: eeb3febaf0115d13f95ca0ba044c11e2628acb06
 last_verified_sha: null
 retired_on: null
 retired_reason: null
@@ -36,7 +36,7 @@ changes:
 # ADR-0028: Overview titles from a pluggable low-cost backend that Shinatama calls, capped; facts from git only
 
 <!-- adr-header:start -->
-Version 1 · Proposed 2026-11-01 at b667db5 · proposed 2026-11-01 by Alfio Caprino
+Version 1 · Accepted 2026-11-01 at eeb3feb · proposed 2026-11-01 by Alfio Caprino
 <!-- adr-header:end -->
 
 ## Context and Problem Statement
