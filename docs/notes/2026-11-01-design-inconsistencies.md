@@ -101,6 +101,8 @@ the FRD is still Proposed).
 | 67 | E | TD 3's box home variables and register D15 cover four agents, FD 5.14 six | TD 3; register D15 |
 | 68 | G | Companion spec 9.7: FD 5.1 and 5.16 do not declare the companion pane; TD 4.2 lacks thread kind `companion`; TD 4.7 does not allow the companion's provider data flow; TD 7.6 lacks wrapper escaping; TD 8.1/8.3 lack the pending-request payload | FD 5.1, 5.16; TD 4.2, 4.7, 7.6, 8.1, 8.3 |
 | 69 | E | Windows is assumed (open question 1, O3) while FD 5.1 and register B7 require Windows results | FD 3, 5.1; register B7 |
+| 84 | E | Register T5 to T9 (added 2026-11-01) cite token-savings 4.4 for output steering and 7.2 for a per-instance status line; the spec has no output-steering text and no section 7.2 | register T5–T9; specs/token-savings |
+| 85 | E | Register 21 links `verification/2026-11-01-T5-effort-cache-claude-code.md`, which is not in the repository | register 21 |
 
 ## 4. Rules that live only in the register
 
