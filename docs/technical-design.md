@@ -11,7 +11,9 @@ Evidence tags, used on every factual claim about an outside system:
 
 - **[V]** verified on the user's machine on 2026-10-26, structure only (keys and
   table columns; no conversation text was read). Versions: Claude Code 2.1.310,
-  Codex CLI 0.164.0, OpenCode 2.1.4, Pi 1.2.0.
+  Codex CLI 0.164.0, OpenCode 2.1.4, Pi 1.2.0. Later records state their own date and
+  versions (P20, 2026-10-28: Claude Code 2.1.312, Pi 1.4.0); the Pi rows recorded on
+  1.2.0 are to be rerun on 1.4.0 (register 21).
 - **[D]** stated in documentation or source, not executed here.
 - **[R]** from the per-agent research task of 2026-10-26: official documentation, the
   agent's own source at a named tag, or the agent's `--help`, read but **not executed**
@@ -22,6 +24,12 @@ Evidence tags, used on every factual claim about an outside system:
 - **[U]** unverified; the first milestone or an adapter fixture must prove it before
   anything depends on it.
 - **[C]** my call; the user has not confirmed it.
+- **[H: …]** read in the `--help` output named after the colon; nothing beyond `--help`
+  was run.
+
+A note after a tag, following a colon, comma or semicolon, qualifies it: `[C; register
+M15]` names the register row that tests the call, and `[C; decided by the user <date>]`
+marks a call of mine that the user decided on that date.
 
 Nothing here has been run as a prototype. Where the document says "must", it is a
 requirement on the build; where it says "sketch", names and types bind only for what
@@ -82,8 +90,8 @@ they must hold.
   identity of the instance. The agent's own session id is not used for identity: it
   changes on `/resume`, which already broke the bili MCP shim (docs/sidecar.md,
   2026-10-26). [V for the failure; C for the fix]
-- **Inherited agent markers are removed before every launch** [C; decided by the user
-  2026-10-28]. Shinatama can itself be started from inside an agent (a terminal opened
+- **Inherited agent markers are removed before every launch** (decided by the user
+  2026-10-28). Shinatama can itself be started from inside an agent (a terminal opened
   by Claude Code, an agent's shell tool, the command line mode called by a hosted
   agent), and then it inherits that agent's markers. Before starting any agent it
   removes them from the child's environment, so the agent starts as it would from a
@@ -132,7 +140,8 @@ they must hold.
     self-update and update command blocked).
   - Home: `box` (default; `<data>/agents/<agent>/home/` on a short path, selected at
     launch by the agent's home variable `CLAUDE_CONFIG_DIR`, `CODEX_HOME`,
-    `OPENCODE_DB` + `XDG_*`, `PI_CODING_AGENT_DIR`, plus `TEMP`/`TMP`,
+    `OPENCODE_DB` + `XDG_*`, `PI_CODING_AGENT_DIR`, `HERMES_HOME` [HM9],
+    `DSH_HOME` + `DSH_AGENTS_HOME` [DS9], plus `TEMP`/`TMP`,
     `NODE_COMPILE_CACHE` and the per-agent switches of main 5.14) or `system` (the
     user's home; Daodan goes into that agent's native plugin store, main spec 5.5).
   - Never `own` program with `system` home (a newer version can migrate the store
@@ -426,8 +435,9 @@ ordinal, timestamp, and the byte range or row in the native store.
   access; for SQLite, `mode=ro` and never `immutable` while the agent may be writing.
 - The last line of a JSONL file may be incomplete: ignore it until the next scan.
 - Unknown record types are skipped and counted; the count is shown by `doctor`. A new major
-  version of an agent that fails its fixtures degrades that agent to **launch-only plus the
-  agent's own export command** and says so.
+  version of an agent that fails its fixtures degrades that agent as 5.5.3 says: each
+  failing capability `unsupported`, **launch-only plus the agent's own export command**,
+  hops by `seed_prompt` or `refuse`; the UI says so.
 - Branching: sessions that are trees (a user rewinds, forks or resumes) are followed
   along one path, from the root to the **leaf**: the one named by the agent when it
   records one, otherwise the most recent leaf. The other branches are indexed but not
@@ -794,7 +804,7 @@ shinatama sessions [--agent A] [--project P] [--json]       -> list_sessions
 shinatama find "text" [--agent A] [--json]                  -> the text index
 shinatama export <thread | agent:session> [-o file.stx.jsonl] [--mode full|portable]
                       [--format stx|mukade|native|md] [--with-attachments]         -> export
-shinatama import <file> --agent A [--cwd DIR] [--dry-run]   -> import (+ verify_import)
+shinatama import <file> --agent A [--cwd DIR] [--dry-run]   -> import (+ verify_import); post-v1
 shinatama resume <thread | agent:session> [--agent A]       -> resume, or a hop if A differs
 shinatama hop <thread> --to A [--preview] [--yes]           -> handover (6)
 shinatama doctor [--agent A]                                -> detect, fixture_gate, auth_status
@@ -816,8 +826,10 @@ version** (structure-only and synthetic, never the user's real conversations):
 import is supported; the canary hop of 11.2 against every other adapter, in both directions;
 refusal and degraded paths (`fixture_gate`, signed out, session deleted by retention,
 agent still working); every capability it declares is exercised and every one it does not
-declare is refused. An agent that fails its suite for the installed version drops to
-`Degraded` or `Unsupported` and the UI says so (11.10).
+declare is refused. An agent that fails its suite for the installed version is `Degraded`:
+each capability whose fixtures fail is declared `unsupported`; the agent stays launch-only
+plus its own export command where it has one; hops to or from it drop to `seed_prompt` or
+`refuse`; the UI says why (decided by the user 2026-11-01; 5.2, 6.7, 11.10).
 
 **Adding an agent (Grok, Gemini beyond launch-only, a future one)** = implement the
 contract, record fixtures, pass the suite. Capabilities it lacks are declared `unsupported`
@@ -1203,7 +1215,7 @@ community projects with similar names (DeepSeek-TUI, deepcode-cli, a PyPI
    chat --oneshot -q <prompt> --format stream-json --ignore-user-config --ignore-rules`, `dsh
    headless --json` with `DSH_PERMISSION_MODE=read-only`. For Pi
    the switches were found on 2026-10-27 (`--no-tools`, `--tools`, `--exclude-tools`; help
-   only); for the other three the exact flags that remove tools or write access were **not
+   only); for the other five the exact flags that remove tools or write access were **not
    established**. Each candidate needs its fixture.
 6. **Claude retention** (30 days) shapes search and resume, above.
 
@@ -1407,6 +1419,12 @@ secret, URLs with credentials, long high-entropy tokens) become `[redacted:<kind
 count is shown in the dialog; the rule set is configurable and tested. [C; the rule list
 is the builder's]
 
+**Lines a destination could interpret.** Text from an old transcript can contain lines
+that start with `/` (a slash command), `!` (a shell escape in Claude), `@path` (file
+inclusion), `#` or `-`. No destination executes or expands such a line of the seed or the
+bootstrap; where a channel would, the seed is escaped or sent by a safe channel.
+[C; register Q9, H7]
+
 ### 6.5 Warm standby
 
 The slow part of a hop is booting the destination agent. Optionally, for the agents the
@@ -1528,7 +1546,10 @@ roundtable. A broader scope is a setting, per project.
 3. **MCP pull.** The agent calls `shinatama_inbox` (7.5). Always available where MCP is.
 4. **PTY write.** Only if the instance is idle and the **user** has typed nothing in it
    for 10 s (Shinatama sees every keystroke, since it owns the PTY), as a bracketed paste
-   plus Enter. This is the last resort because it can collide with a draft.
+   plus Enter. This is the last resort because it can collide with a draft. A PTY write
+   can never answer a permission prompt: nothing is written while a permission dialog, a
+   selection, a search box or a draft is active; otherwise the channel is removed.
+   [C; register M5]
 
 States: `queued` → `delivering` → `delivered` (written to a channel) → `acked`
 (the recipient called `shinatama_ack` or a hook receipt arrived) | `failed` | `expired`.
@@ -1541,7 +1562,8 @@ idempotent by message id; no exactly-once promise.
 `depth` ≤ 6 (config); per sender-recipient pair ≤ 6 messages per minute; per thread ≤ 40
 per hour; when a limit trips, agent-to-agent auto-replies are paused, an `alert` is raised
 to the user and the widget, and nothing is dropped silently. Messages between two agents
-never trigger a tool call or approval by themselves.
+never trigger a tool call or approval by themselves. The depth limit holds even when the
+agents do not carry `in_reply_to`: the server enforces it. [C; register M7]
 
 ### 7.5 The MCP server `shinatama mcp` [C]
 
@@ -1637,12 +1659,13 @@ participant per round, in parallel, each with its own model. Bare-model particip
 through Daodan's `moe` tools (`moe_ask`, run state in `.moe/<run-id>/`) [D]. Round 1: the
 same topic prompt, independent. Round 2..N: each participant gets the others' previous
 answers as quoted data and critiques; the runner enforces `max_rounds`, a token cap and a
-cost cap (`caps_json`) and stops at the first cap. A synthesis step (itself an
-`ask_headless`, by a participant the user picks or a configured one) writes agreements,
-differences and open questions. The user can interject between rounds (the text becomes a
-`note` to all) or stop. The whole run is a `thread` of kind `roundtable`, so it appears in
-search and can be hopped from ("continue with codex's plan" seeds a work thread with that
-participant's final answer).
+cost cap (`caps_json`) and stops at the first cap. Default caps per roundtable: $2 and 40k
+tokens, to be calibrated from the real cost of three topics [C; register R5]. A synthesis
+step (itself an `ask_headless`, by a participant the user picks or a configured one)
+writes agreements, differences and open questions. The user can interject between rounds
+(the text becomes a `note` to all) or stop. The whole run is a `thread` of kind
+`roundtable`, so it appears in search and can be hopped from ("continue with codex's
+plan" seeds a work thread with that participant's final answer).
 
 ### 7.9 Browser integration: Moli fast path and explicit Patchright UI
 
@@ -1689,9 +1712,11 @@ may run independently within resource limits; an interactive session has one
 controller and stale actions are invalidated on close or control change.
 
 Local roots, localhost services, redirects, subresources and proxy behavior are
-explicit scope. Profiles are temporary by default; artifacts may contain secrets
-and follow private retention rules. No browser content or artifact enters logs,
-transcripts, summaries or title providers by default. An agent with an arbitrary
+explicit scope. Profiles are temporary by default. No cookies, tokens,
+authorization headers or credentials enter logs, SQLite, transcripts, summaries
+or error reports; screenshots and extracted pages can contain secrets, so they are
+stored privately with bounded retention and never sent to a title or summary
+provider by default (browser-integration 8). An agent with an arbitrary
 shell and equal OS privileges can bypass this managed broker; OS isolation against
 such an agent is not claimed.
 
@@ -1724,8 +1749,9 @@ logged and swallowed; exit code 0 unless the agent's contract says otherwise).
 ### 8.3 Event feed
 
 `event(seq, ts, instance_id, kind, payload)`; kinds: `state`, `hop`, `message`,
-`summary`, `alert`, `file_change`. The overview, the widget and the roundtable view are
-consumers that remember their last `seq`. The widget needs no other channel.
+`summary`, `alert`, `file_change`, `file_collision` (8.5). The overview, the widget and
+the roundtable view are consumers that remember their last `seq`. The widget needs no
+other channel.
 
 ### 8.4 Titles by a low-cost model
 
@@ -1780,13 +1806,16 @@ instances whose worktree roots are equal and whose modified paths intersect rais
   today; the seed and catch-up messages are ordinary user turns for it. The seed budget
   (6.4) is chosen well below the sidecar's adaptive threshold (`maxTokens: 160000` in the
   shipped policy [D, docs/sidecar.md]) so a hop does not trigger a compression pass on
-  the destination's first turn.
+  the destination's first turn. The seed, the bootstrap and the receipt reach the agent
+  as sent: the sidecar's prompt rewriter (`promptRewrite.mode: auto`) does not alter them
+  and CCR does not externalize them; where it would, a bypass marker is added (SC9
+  compares the bytes sent and received). [C; register Q5, SC9]
 - The sidecar's session id for an instance is separate from `SHINATAMA_INSTANCE`; the
   bili MCP shim and `shinatama mcp` coexist as two MCP servers in the same launch.
 - The low-cost title calls and roundtable bare-model calls go through the same sidecar so
   the cost and security properties hold (child-only environment, child-only certificate
   trust, no credentials in the manifest).
-- **Proxy supervision** [C] (main spec 5.6): the Shinatama process that owns the proxy is
+- **Proxy supervision** (decided by the user, confirmed 2026-11-01; main spec 5.6): the Shinatama process that owns the proxy is
   its only supervisor. Liveness is two facts checked by that process: the proxy's process
   is alive, and its port accepts a TCP connection. A missed health check with both facts
   true marks the proxy **busy**: the window shows it and nothing is started, because a
@@ -1899,8 +1928,9 @@ agent session or read conversation contents.
 9. **State accuracy:** `waiting_permission`, `idle` and `working` reported correctly over a
    scripted session for every agent that offers a native signal; the `unsure` label on
    those that do not.
-10. **Unknown version:** an agent whose version fails the fixtures drops to launch-only
-    with a visible reason instead of a wrong hop.
+10. **Unknown version:** an agent whose version fails the fixtures is `Degraded` as 5.5.3
+    says (launch-only plus its own export, failing capabilities `unsupported`, hops by seed
+    or refused) with a visible reason instead of a wrong hop.
 11. **Browser boundaries:** B1–B10 pass for the enabled browser paths; hostile content
     cannot change engine/scope or start UI, an error causes no fallback, explicit UI has
     one controller, close/crash leaves no managed descendant, and no credential or
@@ -1917,7 +1947,8 @@ None block the design. These are my defaults; change any of them:
 - Receipt: the destination replies `ready <nonce>` and one line; it costs one short turn
   per hop. (6.3)
 - Warm standby off by default; on per agent by the user. (6.5)
-- Agents can message only within the same project or roundtable; they cannot hop,
-  start instances or start roundtables. (7.2, 7.7)
+- Agents can message only within the same project or roundtable, unless a per-project
+  setting broadens the scope; they cannot hop, start instances or start roundtables.
+  (7.2, 7.7)
 - Titles: cap $0.50 per day, one line, off switch. (8.4)
 - Native store writing (stage 3) is not in v1. (5.4)

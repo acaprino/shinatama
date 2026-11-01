@@ -2,8 +2,8 @@
 
 Found while writing ADR-0004 to ADR-0040 and extracting FRD-0001 to FRD-0013 from the
 documents at commit `da4b83e`; the companion items (section 6) were redone on revision 3 of the
-companion spec, at commit `e221915`. Each item names where the documents disagree. Nothing here is
-fixed yet: this is the list to work through.
+companion spec, at commit `e221915`. Each item names where the documents disagree. Resolved items move to
+section 7 with their resolution.
 
 FD = functional-design, TD = technical-design, DN = daodan-native-support, BI =
 browser-integration.
@@ -23,79 +23,35 @@ the FRD is still Proposed).
 
 | # | Kind | Item | Where | FRD / ADR |
 |---|---|---|---|---|
-| 1 | U | Inherited-marker removal: "[C; decided by the user 2026-10-28]" (TD 3), "adopted" (harness/cli note), listed as a call to check (FD 7) | TD 3; FD 7; notes/harness-cli 4 | FRD-0002; ADR-0014 |
-| 2 | U | Proxy supervision (one supervisor, busy is not dead, no diagnostics on agent terminals): under the "decided" heading of FD 5.6, [C] in TD 9 | FD 5.6; TD 9 | FRD-0009; ADR-0030 |
-| 3 | U | Sessions surface: heading "decided 2026-10-30; revised 2026-10-31" vs listed among the calls to check | FD 5.16; FD 7 | FRD-0006; ADR-0023 |
-| 4 | U | Roundtable shape: "open" (goal 10), "my calls" (5.10), the free-form variant in the calls list but "open" in 5.10 | FD 2, 5.10, 7 | FRD-0007; ADR-0026 |
-| 5 | U | Default home `box`: the 5.14 heading quotes the user ("di base è con istanze private"), FD 7 lists it as an author default | FD 5.14; FD 7 | FRD-0002; ADR-0012 |
-| 6 | U | Daodan native support: goal 5 marks reading, linking, carrying a task and read-only as decided; 5.5 says "shape is mine"; daodan-native 1 says "my reading" | FD 2, 5.5; DN 1 | FRD-0008; ADR-0033 |
-| 7 | E | Adapter requirements: FD 6 says "requirements mine", TD 5.5 says "The user's requirement (decided)" | FD 6; TD 5.5 | FRD-0001; ADR-0011 |
-| 8 | U | Terminal-first scope (2026-10-30) and delivery baseline (2026-10-31) are dated but not attributed | FD 5.12, 5.16 | FRD-0001; ADR-0040 |
 | 10 | E | Token-savings decisions (goals 2, 5, 8.2) carry no date | specs/token-savings | FRD-0013 |
 
 ## 2. Contradictions in behaviour
 
 | # | Kind | Item | Where | FRD / ADR |
 |---|---|---|---|---|
-| 11 | E | Widget feed: socket or named pipe (FD 5.8) vs the SQLite `event` table with an optional wake-up socket (TD 3, 4.6, 8.3) | FD 5.8; TD 8.3 | FRD-0010; ADR-0027 |
-| 12 | E | Instance states: working, waiting for you, idle, done, error (FD 5.13) vs starting, idle, working, waiting_permission, waiting_question, error, exited (TD 8.1) | FD 5.13; TD 8.1 | FRD-0010 |
-| 13 | U | An adapter that fails its fixtures or meets an unknown version: "degraded" (FD 5.14), "Degraded or Unsupported" (TD 5.5.3), "launch-only plus the agent's own export" (TD 5.2), "launch-only" (TD 11.10), the pair drops to seed or refuse (TD 6.7) | FD 5.14; TD 5.2, 5.5.3, 6.7, 11.10 | FRD-0002; ADR-0011 |
 | 14 | U | Stage-3 writes only for an agent with no import of its own (TD 5.4) vs Mukade's Codex writer writing the rollout although Codex has an import (TD 5.4.1) | TD 5.4, 5.4.1 | ADR-0016, ADR-0020 |
 | 15 | U | "Never edit global configuration" vs three accepted writes: Codex set pre-installed turned off (a home write; on the `system` home this is the user's Codex home), Claude Code rewriting `pluginUsage` (D19), Daodan into the native store on a `system` home | FD 3, 5.14; D19 | FRD-0002; ADR-0013 |
 | 16 | U | Daodan depends on 8 plugins from other marketplaces (D15) vs "one marketplace per host" | D15 record; FD 5.5; DN 4.6 | FRD-0008; ADR-0032 |
-| 17 | E | Daodan's version: marketplace 1.0.0 (FD 5.5, D4) vs 42.0.0 (register D2, Q1) vs 42.7.3 (D1 record); Daodan reset its versions to 1.0.0 on 2026-10-29, so D2 is stale and Q1, D1 are history | FD 5.5; register D2, Q1 | FRD-0008; ADR-0032 |
-| 18 | E | Deletion of `acaprino/shinatama`: 2026-10-26 (FD 7 item 3) vs 2026-10-27 (README, DN 4.6, D1, register 21); only the local checkout went on 2026-10-26 | FD 7 | FRD-0008 |
-| 19 | E | Takeover on hop: "the hop-dialog confirmation is the 'old session is closed'" (FD 5.5, DN goal 3) vs COMMITTED plus confirmed closure plus a separate message (DN 4.3, D13) | FD 5.5; DN 2, 4.3 | FRD-0008; ADR-0034 |
-| 20 | E | Hop speed: "instant" (FD 5.2) vs under 8 s warm, under 25 s cold, to measure (TD 6.1) | FD 5.2; TD 6.1 | FRD-0005 |
-| 21 | E | Fork: "the agent's own fork… otherwise an import or a seed" (FD 5.2) vs seed only in v1 (FD 5.2 seed-only paragraph, TD 6.2) | FD 5.2 | FRD-0005; ADR-0017 |
-| 22 | E | Canary pairs: "all 12 ordered pairs" (register H1, four agents) vs every ordered pair among six (TD 11.2) | register H1; TD 11.2 | FRD-0005 |
-| 23 | E | Thread storage: "format and location are the builder's call" (FD 5.1) vs SQLite per user decided (FD 8, TD 4) | FD 5.1 | FRD-0005; ADR-0009 |
-| 24 | E | Search scope: "all supported agents" (goal 3) vs only agents Mukade reads (5.3, calls, TD 5) | FD 2, 5.3 | FRD-0006 |
-| 25 | E | `forget` said to be in TD 5.5.2 (FD 4); it is only in TD 4.7 | FD 4 | FRD-0006 |
-| 26 | E | `shinatama import` listed in TD 5.5.2 without "post-v1" | TD 5.5.2 | FRD-0006 |
-| 27 | E | Exit codes: [C] in TD 5.5.2 vs left to the builder in FD 8 | TD 5.5.2; FD 8 | FRD-0006 |
-| 28 | E | Roundtable transport: PTY typing fallback (FD 5.10) vs headless sessions only (TD 7.8) | FD 5.10; TD 7.8 | FRD-0007; ADR-0026 |
-| 29 | E | Roundtable control: "interject in any round, stop, or ask for another" (FD 5.10) vs between rounds, stop, `max_rounds` (TD 7.8) | FD 5.10; TD 7.8 | FRD-0007 |
 | 30 | U | Non-goal "a persistent addressed mailbox" vs TD 7's addressed, queued messages with a 1-hour expiry: where the line is | FD 2; TD 7 | FRD-0007; ADR-0024 |
-| 31 | E | TD 12 restates messaging scope without 7.2's per-project setting | TD 12 | FRD-0007 |
 | 32 | U | Default title backend: a quality gate (FD 5.13), the author's recommendation (TD 8.4), a user decision (register O2) | FD 5.13; TD 8.4; O2 | FRD-0010; ADR-0028 |
-| 33 | E | Title frequency: a setting (FD 5.13) vs every 2 min and on state change (TD 8.4) | FD 5.13; TD 8.4 | FRD-0010 |
 | 34 | U | The overview's only actions are focus, hop, pause summaries, yet "own worktree for a new instance" starts one from it | FD 5.13 | FRD-0010 |
 | 35 | U | Collision from `git status` cannot attribute a change to an instance (register Q3, I4) | FD 5.13; TD 8.5 | FRD-0010 |
-| 36 | E | TD 8.5 raises `file_collision`; TD 8.3 lists only `file_change` | TD 8.3, 8.5 | FRD-0010 |
-| 37 | E | Browser previews: "on supported terminals" (register B2, BI 2) vs native preview panes (FD 5.15, BI revision note) | BI 2; register B2 | FRD-0011 |
 | 38 | U | BI 11 may withdraw Moli as the default, which requirement 1 (user, 2026-10-29) decided | BI 1, 11 | FRD-0011; ADR-0035 |
-| 39 | E | Browser content in logs: none by default (TD 7.9) vs the narrower BI 8.5, which TD 7.9 calls the complete contract | TD 7.9; BI 8 | FRD-0011 |
 | 40 | U | `browser.patchright.enabled = false` vs an explicit `open-ui`: does `open-ui` work with the setting off? | BI 10; FD 5.15 | FRD-0011 |
-| 41 | E | `/browse` spelling: "my call" (FD 4) vs "builder's choice" (BI 4.1) | FD 4; BI 4.1 | FRD-0011 |
 | 46 | U | Code-mode gateway: a later milestone (token-savings 7, 8.1) vs "not in v1, an evaluated option" (TD 7.5a) vs built only past a user threshold (T3) | specs/token-savings; TD 7.5a | FRD-0013; ADR-0025 |
 | 47 | U | Titles through julia1 (token-savings 4.4.3) vs the user's title backend choice (TD 8.4); one model download or two | specs/token-savings; TD 8.4 | FRD-0013; ADR-0028 |
 | 48 | E | Compaction trigger: task boundaries (4.3.4) vs the library's `compactAtPercent` 60 vs "at threshold" (7) | specs/token-savings | FRD-0013; ADR-0037 |
 | 49 | U | "No single shared proxy" (8.2) vs BillionContext as "one shared proxy core" (7.1), and adapters acting inside an unmodified sidecar's request path | specs/token-savings; FD 3 | FRD-0013; ADR-0038 |
 | 50 | E | Goal 2 "replace summary compaction" vs 4.3.4 keeping it as a fallback | specs/token-savings | FRD-0013 |
 | 51 | U | DeepSeek sign-in "shows as unknown" (FD 5.11) vs unknown until DS9 (TD 5.7); login with the `system` home not stated | FD 5.11; TD 5.7 | FRD-0003 |
-| 52 | E | Shared provider keys: "open" (FD 5.11) vs "not in v1" (FD 7) | FD 5.11, 7 | FRD-0003 |
 | 53 | U | Proxy topology undecided (one per instance or shared; Q7, SC5) while TD 9 says each instance's traffic goes through "the proxy" | TD 9; register Q7, SC5 | FRD-0009 |
+| 104 | U | Register D15's fallback ("the leak recorded and the agent marked `system`-only") contradicts FD 5.14 and FD 7, where Codex's recorded `~\.sbx-denybin` leak is shown to the user and Codex stays boxable | register D15; FD 5.14, 7 | FRD-0002; ADR-0012 |
+| 105 | U | TD 9 (from SC9): where the rewriter or CCR would alter the seed, a bypass marker is added; that may need sidecar support, while the sidecar code stays unmodified (ADR-0029) | TD 9; register SC9 | FRD-0009; ADR-0029 |
 
 ## 3. Stale text and dangling references
 
 | # | Kind | Item | Where |
 |---|---|---|---|
-| 54 | E | TD 5.7 consequence 5 says "the other three" while six agents are listed | TD 5.7 |
-| 55 | E | Pi 1.4.0 in P20 vs Pi 1.2.0 in TD 0 (register 21: Pi rows on 1.2.0 need a rerun) | TD 0; P20 |
-| 56 | E | TD 0 does not define the bare `[H: …]` tag or mixed forms such as "[C; decided by the user …]" | TD 0 |
-| 57 | E | FD 5.9 cites a "section 2, non-goals" entry on external terminal selection that does not exist | FD 5.9 |
-| 58 | E | FD 9 says the user rejected `daodan-flow.html` for linking threads to tasks; goal 5 reversed that | FD 9 |
-| 59 | E | DN 5: an agenda poll "beyond the terminal's life" predates the native window | DN 5 |
-| 60 | E | DN 3 says SQLite keeps "only" the link and the last row; DN 4.7 also stores "Not now" | DN 3, 4.7 |
-| 61 | E | "Outer terminal" in FD 5.1, the U3 note and register P6, P8, P13, U3: terminal-only era | FD 5.1; register |
-| 62 | E | Register U2 ("changing the skin live applies to the hosted pane") predates terminal profiles | register U2 |
-| 63 | E | Register I10 tests glyphs across terminals and Nerd Fonts; icons are native now | register I10 |
-| 64 | E | Register TL1 prototypes Markdown and file panels; the TL1 milestone excludes the file navigator | register TL1; FD 5.12, 5.16 |
-| 65 | E | OC8 record says "Not met"; register 21 lists it as "running (partial)" | register 21; OC8 record |
-| 66 | E | FD 5.7: the Section 9 and TCTF skins list scan lines and cut corners, which the same section says are not requirements | FD 5.7 |
-| 67 | E | TD 3's box home variables and register D15 cover four agents, FD 5.14 six | TD 3; register D15 |
-| 69 | E | Windows is assumed (open question 1, O3) while FD 5.1 and register B7 require Windows results | FD 3, 5.1; register B7 |
 | 84 | E | Register T5 to T9 (added 2026-11-01) cite token-savings 4.4 for output steering and 7.2 for a per-instance status line; the spec has no output-steering text and no section 7.2 | register T5–T9; specs/token-savings |
 | 85 | E | Register 21 links `verification/2026-11-01-T5-effort-cache-claude-code.md`, which is not in the repository | register 21 |
 
@@ -103,15 +59,6 @@ the FRD is still Proposed).
 
 | # | Kind | Item | Register |
 |---|---|---|---|
-| 70 | G | Seed lines starting with `/`, `!`, `@path`, `#`, `-` are not executed or expanded | Q9, H7 |
-| 71 | G | The prompt rewriter and CCR do not alter or externalize the seed, bootstrap and receipt | Q5, SC9 |
-| 72 | G | No file is created in the user's repository without consent ("CLAUDE.md ↔ AGENTS.md linked" is undefined) | H18 |
-| 73 | G | The depth limit holds without `in_reply_to`; a terminal write never answers a permission prompt | M7, M5 |
-| 74 | G | Roundtable default caps ($2, 40k tokens) | R5 |
-| 75 | G | Widget: never takes keyboard focus; refuses a prompt that changed before the click; reduced motion and mute; notification-only fallback on Wayland | W3, W5, W10, W2 |
-| 76 | G | An agent cannot write the clipboard, read the screen, retitle the window or inject input; closing kills the whole process tree | P9, P14 |
-| 77 | G | Project manager: no half-created folder; a missing root is reported; listing never blocks the UI | PM4, PM7, PM1 |
-| 78 | G | Box fallbacks: a leak recorded and the agent marked `system`-only (D15); `own` refused for Hermes (HM10) | D15, HM10 |
 | 79 | G | Token-savings verification items (9.2) have no register rows; no other document refers to the spec | specs/token-savings 9.2 |
 
 ## 5. Undefined in the documents
@@ -146,3 +93,63 @@ Items 9, 42–45, 68 and 83 of the first list referred to revision 2 and are rep
 | 101 | E | Turn-card length: 200 words and one diagram in EX-001 and row 5; no cap in 5.1; preset cards capped at 150 words in 5.6 | spec 5.1, 5.6, 10.2 | FRD-0012 |
 | 102 | E | Expand takes the worker's last message as an operand, but no pane control for it is described | spec 5.6 | FRD-0012 |
 | 103 | U | The daily cap amount ($2.00) is open point 1 | spec 9.5 | FRD-0012 |
+
+## 7. Resolved on 2026-11-01
+
+| # | Kind | Resolution |
+|---|---|---|
+| 1 | U | User decision (confirmed 2026-11-01): TD 3 now "decided by the user 2026-10-28"; FD 7 marks it (user). |
+| 2 | U | User decision (confirmed 2026-11-01): TD 9 proxy supervision no longer [C]. |
+| 3 | U | User decision: FD 7 marks the sessions-surface sequencing (user; revised 2026-10-31). |
+| 4 | U | User decision (confirmed 2026-11-01): roundtable shape decided in goal 10, 5.10 and FD 7; scheduling and the free-form variant stay open. |
+| 5 | U | User decision: FD 7 marks home `box` (user, 2026-10-28). |
+| 6 | U | User decision (confirmed 2026-11-01): FD 5.5 and DN 1 record the shape as confirmed; DN 7 calls still to check. |
+| 7 | E | FD 6 heading: the requirement is the user's, decided (engine 5.5). |
+| 8 | U | User decision: FD 5.16 scope (2026-10-30) and FD 5.12 baseline (2026-10-31) marked decided by the user. |
+| 11 | E | FD 5.8: the widget reads the SQLite `event` feed; a socket or pipe is only a wake-up ping. |
+| 12 | E | FD 5.13 uses the engine 8.1 state names. |
+| 13 | U | User decision 2026-11-01, tiered rule: failing capabilities `unsupported`, the agent `Degraded` (launch-only plus its own export), hops by seed or refused; TD 5.2, 5.5.3, 11.10, FD 5.14 and FD 7 agree. |
+| 17 | E | Register D2 names the current marketplace (1.0.0 since the 2026-10-29 reset); Q1 and D1 stay as history. |
+| 18 | E | FD 7 item 3: local checkout deleted 2026-10-26, remote 2026-10-27. |
+| 19 | E | FD 5.5 and DN goal 3 follow DN 4.3 and D13 (COMMITTED, confirmed closure, separate message). |
+| 20 | E | FD 5.2: under 8 s warm, under 25 s cold (engine 6.1 targets). |
+| 21 | E | FD 5.2: a fork starts with a seed in v1; the agent's own fork or an import only post-v1. |
+| 22 | E | Register H1: every ordered pair among the six agents, as TD 11.2. |
+| 23 | E | FD 5.1: one SQLite database per user (decided); tables are the builder's. |
+| 24 | E | FD goal 3: every supported agent Mukade reads. |
+| 25 | E | FD 4: `forget` is engine 4.7. |
+| 26 | E | TD 5.5.2 and FD 4 mark `import` post-v1. |
+| 27 | E | FD 8 notes the exit codes proposed in engine 5.5.2 (my call). |
+| 28 | E | FD 5.10: headless participants only, no PTY fallback (engine 7.8). |
+| 29 | E | FD 5.10: interject between rounds or stop; `max_rounds` and caps (engine 7.8). |
+| 31 | E | TD 12 includes the per-project setting of 7.2. |
+| 33 | E | FD 5.13: every state change and every 2 min while working (engine 8.4 defaults), a setting. |
+| 36 | E | TD 8.3 lists `file_collision`. |
+| 37 | E | Register B2 and BI 2: native preview panes. |
+| 39 | E | TD 7.9 summary agrees with BI 8. |
+| 41 | E | BI 4.1: the spelling is the author's call (FD 4); BI 12 no longer lists command names. |
+| 52 | E | FD 5.11: shared provider keys are not in v1 (my call), as FD 7. |
+| 54 | E | TD 5.7 consequence 5: "the other five". |
+| 55 | E | TD 0: later records state their own versions; Pi rows on 1.2.0 to rerun. |
+| 56 | E | TD 0 defines `[H: …]` and the tag-with-note forms. |
+| 57 | E | FD 5.9: external terminals are not offered because every agent runs in Shinatama's panes (5.1). |
+| 58 | E | FD 9: the daodan-flow mockup note follows the 2026-10-27 decision. |
+| 59 | E | DN 5: the owning window's life. |
+| 60 | E | DN 3 also names the per-project "Not now". |
+| 61 | E | FD 5.1 and register P5, P6, P8, P9, P13, P19, U3 describe the native window, not an outer terminal. |
+| 62 | E | Register U2: skins change the chrome; terminal profiles stay unless follow-skin. |
+| 63 | E | Register I10 tests native icons with text fallback and accessible names. |
+| 64 | E | Register TL1 is named the toolkit prototype gate of TD 3.1, distinct from the UI milestone. |
+| 65 | E | Register 21 OC8: "running (criterion not met on the real home)". |
+| 66 | E | FD 5.7: scan lines and cut corners are optional decoration. |
+| 67 | E | TD 3 lists the Hermes Agent and DeepSeek Harness home variables (HM9, DS9). |
+| 69 | E | FD 5.1: Windows results only if Windows is in v1 (open question 1). |
+| 70 | G | TD 6.4: seed lines starting with `/`, `!`, `@path`, `#`, `-` are never executed or expanded [C; Q9, H7]. |
+| 71 | G | TD 9: the rewriter and CCR leave the seed, bootstrap and receipt as sent [C; Q5, SC9] (see 105). |
+| 72 | G | FD 5.2: no file created in the user's repository without consent; "linked" still to decide [my call; H18]. |
+| 73 | G | TD 7.3 (M5) and TD 7.4 (M7) [C]. |
+| 74 | G | TD 7.8: default caps $2 and 40k tokens, to calibrate [C; R5]. |
+| 75 | G | FD 5.8: W2, W3, W5, W10 as my calls. |
+| 76 | G | FD 5.1: containment and process-tree cleanup as my calls (P9, P14). |
+| 77 | G | FD 5.4: PM1, PM4, PM7 as my calls. |
+| 78 | G | FD 5.14: `own` refused for Hermes if HM10 finds no recipe (my call). The D15 half is item 104. |

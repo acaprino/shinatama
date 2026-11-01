@@ -48,8 +48,8 @@ an Ultra Nerd review. It is not yet an approved build plan.
   where verified, screenshots or other bounded artifacts.
 - Read-only access to explicitly authorized local HTML roots and explicitly
   authorized local or remote HTTP(S) targets.
-- Static preview artifacts shown where the terminal supports them, otherwise
-  exposed as an artifact with a clear textual alternative.
+- Static preview artifacts shown in native preview panes when supported, otherwise
+  exposed as a private artifact with a clear textual alternative.
 - A separate Patchright UI session started only by the user, with its own profile
   and explicit lifecycle.
 - A small common request/result contract that preserves unsupported capabilities
@@ -93,8 +93,8 @@ revoked. Neither creates a shared resident service.
 
 ### 4.1 `/browse`
 
-`/browse` is the proposed single entry point. Its final spelling is a builder's
-choice, but its semantics are fixed:
+`/browse` is the proposed single entry point. Its final spelling is the author's
+call (functional design 4), but its semantics are fixed:
 
 - `read`: extract bounded text or structured content through Moli.
 - `preview`: produce a static visual artifact through Moli, enabling layout only
@@ -365,7 +365,7 @@ traffic, rendering, compatibility, sandbox, cleanup or performance claim has bee
 verified locally.
 
 Builder choices, subject to the gates: Node.js versus Python for the companion,
-private transport implementation, exact command/schema names, OS process cleanup,
+private transport implementation, exact schema names, OS process cleanup,
 artifact viewer and retention defaults. User decisions still open: whether the
 reduced first integration without `serve`/interactive Moli previews is sufficient,
 and the performance budget after a baseline exists. Overall design approval remains

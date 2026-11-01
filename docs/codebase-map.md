@@ -202,55 +202,10 @@ both designs), O7 (offer only actions both adapters support), O8 (reduced browse
 and its performance budget), O9 ("deep seek code" read as DeepSeek Harness in an ACP pane),
 O10 (ask Daodan for Hermes and DeepSeek packages). O6 was decided on 2026-10-28.
 
-## 8. Known inconsistencies found while mapping
+## 8. Inconsistencies between documents
 
-The full, numbered list (103 numbers, 96 open items, each marked editorial, needs the user, or register-only)
-is [notes/2026-11-01-design-inconsistencies.md](notes/2026-11-01-design-inconsistencies.md).
-The items below were the first found.
-
-
-- technical-design 5.7, consequence 5, says "for the other three" while six agents are listed.
-- technical-design 4.3 keys the instance-exclusivity index by `(agent, segment_id)`, while 4.2
-  scopes native sessions by `store_root_id`.
-- The P20 record cites Pi 1.4.0; technical-design 0 lists Pi 1.2.0. Register section 21 says
-  Pi rows recorded on 1.2.0 need a rerun.
-- technical-design 0 does not define some tags the body uses (a bare `[H: …]`, mixed forms such
-  as "[C; decided by the user 2026-10-28]").
-- The companion pane is a second native chat surface, an exception to functional-design 5.16
-  that ADR-0002 says must be declared there; it is not declared yet.
-
-Found while writing ADR-0004 to ADR-0040 (each is also noted in the record named):
-
-- Origin labels disagree. Inherited-marker removal is "[C; decided by the user 2026-10-28]"
-  (technical-design 3), "adopted" (harness/cli note) and a call to check (functional-design 7)
-  (ADR-0014). Proxy supervision sits under a user decision in functional-design 5.6 but is [C]
-  in technical-design 9 (ADR-0030). The sessions surface is "decided" in functional-design 5.16
-  and a call to check in functional-design 7 (ADR-0023). The roundtable shape is "open" in
-  goal 10 and "mine" in 5.10 (ADR-0026).
-- functional-design 5.8 describes the widget's feed as a socket or named pipe; technical-design
-  4.6 and 8.3 make it the SQLite `event` table, with a socket only as an optional wake-up
-  (ADR-0027).
-- An agent that fails its fixtures degrades to "`Degraded` or `Unsupported`" (technical-design
-  5.5.3), "launch-only plus the agent's own export command" (5.2) or "launch-only" (11.10)
-  (ADR-0011).
-- functional-design 3 and 8 ask for "real captured fixtures"; the register and technical-design
-  5.5.3 ask for synthetic, structure-only fixtures. ADR-0010 reads them together: fixtures
-  captured from the real installed agent running synthetic sessions.
-- technical-design 5.4 allows a stage-3 write only for an agent with no import of its own, yet
-  5.4.1 has Mukade's Codex writer write the rollout although Codex has an import (ADR-0016).
-- "Never edit global configuration" (functional-design 3) sits beside three accepted writes: the
-  Codex set pre-installed turned off, Claude Code rewriting `pluginUsage` in `.claude.json` (D19),
-  and Daodan installed into the native plugin store on a `system` home (ADR-0013).
-- Daodan's version is given as marketplace 1.0.0 (functional-design 5.5, register D4), 42.0.0
-  (register D2) and 42.7.3 (D1 record). The D15 record found Daodan plugins depending on eight
-  plugins from other marketplaces, against "one marketplace per host" (ADR-0032).
-- functional-design 9 still says `daodan-flow.html` was dropped because the user rejected a
-  thread-task link, which the 2026-10-27 native-support decision reversed (ADR-0033).
-- functional-design 5.9 cites a "section 2, non-goals" entry about external terminal selection
-  that section 2 does not contain (ADR-0006).
-- Register U2 ("changing the skin live applies to the hosted pane") predates the terminal
-  profiles and conflicts with the split between chrome and profile (ADR-0039).
-- The register's TL1 row prototypes Markdown and file panels, while the TL1 milestone in
-  functional-design 5.12 and 5.16 excludes the file navigator (ADR-0040).
-- The OC8 record says its criterion is "Not met"; register section 21 lists it as "running
-  (partial)" (ADR-0031).
+The numbered worklist is [notes/2026-11-01-design-inconsistencies.md](notes/2026-11-01-design-inconsistencies.md).
+On 2026-11-01, 55 items were resolved: editorial fixes, register-only rules written into the
+governing sections as the author's calls, and eight questions the user answered (who decided
+what, and one rule for a degraded adapter). 43 stay open: 18 concern the companion spec and
+are left to that work, the rest need the user or touch the token-savings spec.

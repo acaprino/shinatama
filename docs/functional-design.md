@@ -45,9 +45,10 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
    its register row passes (engine 5.5 and 5.7; register sections 7a and 7b): nothing
    is claimed for them from documentation alone.
 2. Seamless hop of a live thread between those agents (see 5.2).
-3. Search all local sessions of all supported agents; resume from history in the
-   same agent or in a different one. Interactive terminal flow plus a scriptable
-   command line mode.
+3. Search all local sessions of every supported agent Mukade reads (four today; Hermes
+   Agent and DeepSeek Harness once Mukade reads them, 5.3 and engine 5); resume from
+   history in the same agent or in a different one. Interactive terminal flow plus a
+   scriptable command line mode.
 4. An integrated project manager (5.4), with a default root directory and a shortcut
    to create a new project.
 5. Daodan arrives preinstalled and enabled in every agent (5.5), and Shinatama is a
@@ -61,7 +62,8 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
 9. A desktop widget with Shinatama as an assistant that talks, moves and alerts
    (5.8) — decided for v1; built last within v1, after the core it listens to.
 10. A roundtable: several hosted agent instances, each with its own model, converse
-    and compare positions on a topic (5.10). Shape and scheduling are **open**.
+    and compare positions on a topic (5.10). The shape is decided (5.10, confirmed by
+    the user 2026-11-01); scheduling and the free-form variant are **open**.
 11. Recognize existing logins automatically, or run the agent's own login, for each
     supported agent (5.11).
 12. A global overview tab of every instance started from or inside Shinatama: what
@@ -151,8 +153,8 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
 Native Rust desktop surfaces: project manager, tiled workspace with agent tabs
 and side panes (5.16), hop dialog and preview, find (search), Daodan
 palette, first-run setup. Command line: `shinatama find`, `resume`, `hop`,
-`doctor` and the rest of engine 5.5.2 (`sessions`, `export`, `import`, `forget`; names
-are my call). Browser access: `/browse` with `read`, `preview`
+`doctor` and the rest of engine 5.5.2 (`sessions`, `export`, `import` post-v1), plus `forget`
+(engine 4.7); names are my call. Browser access: `/browse` with `read`, `preview`
 and explicit `open-ui` operations (5.15; spelling is my call). Desktop widget:
 separate process (5.8).
 
@@ -163,8 +165,9 @@ separate process (5.8).
 Each agent runs in a pseudo-terminal owned by Shinatama; the user types into the
 real agent. A **thread** is Shinatama's own record on disk: an id, the project
 folder, the chain of agent sessions it has been through (agent, native session id,
-time span) and enough to rebuild the hand-over context. The format and location are
-the builder's call. Closing Shinatama does not lose a thread.
+time span) and enough to rebuild the hand-over context. It is stored in one SQLite
+database per user (decided; engine 4); the exact tables and columns are the builder's
+call. Closing Shinatama does not lose a thread.
 
 Shinatama reads each agent's own session store to search and to resume. Those stores
 differ per agent and per version; the adapter for each agent owns reading them.
@@ -181,8 +184,8 @@ draws around and over it:
 - **Windows over the agent:** the hop dialog (`^H`), the Daodan palette (`^K`) and
   find. Native overlays leave the emulator screen intact and restore focus to the
   originating pane when dismissed. Key names in this document (`^H`, `^K`) are
-  placeholders until register row U3 settles bindings that no agent or outer terminal
-  consumes.
+  placeholders until register row U3 settles bindings that neither the agents nor the
+  desktop's own shortcuts consume (the window is native; there is no outer terminal).
 - **Terminal presentation inside the pane:** each view uses its harness's terminal
   profile (font, metrics, ANSI palette and cursor), so the agent keeps its own
   visual identity. Chrome uses the active skin. An explicit follow-skin option
@@ -191,10 +194,16 @@ draws around and over it:
 What stays the agent's: the text it draws (tables, tool calls, reasoning, choices) and
 any colour it picks at 24-bit. Not yet verified, to be proved by the first milestone:
 fidelity of the emulator against the real Claude Code, Codex, OpenCode, Pi, Hermes
-Agent and DeepSeek Harness on macOS, Linux and Windows (ConPTY can alter escape sequences); wide characters and
-emoji; alternate screen and scroll regions; mouse and advanced keys; passing agent
-images (kitty or sixel) through to the outer terminal; no flicker; and how well the
+Agent and DeepSeek Harness on macOS and Linux, and on Windows if it is in v1 (open
+question 1; ConPTY can alter escape sequences); wide characters and
+emoji; alternate screen and scroll regions; mouse and advanced keys; agent images
+(kitty or sixel) drawn in the pane or cleanly dropped; no flicker; and how well the
 colour remap reads in each skin.
+
+Containment (my call; register P9, P14): a hosted agent's escape sequences cannot write
+the clipboard, read the screen, retitle the window or inject input unless a documented
+decision allows it. Closing (stopping, 5.16) an instance kills its whole process tree,
+and a Shinatama crash leaves no orphan agents or MCP servers.
 
 Formatting of live work stays the agent's own. Where the data is already structured
 and read-only — find, the hop preview, the roundtable, the overview — Shinatama draws
@@ -219,8 +228,9 @@ So seamless is defined by experience, not by lossless state:
 
 1. **One keystroke**, nothing to re-explain, no copying. (my call)
 2. The destination agent is **prepared in the background** while the user keeps
-   working, so the switch is instant. (my call; needs verification that starting an
-   agent costs nothing until its first turn)
+   working, so the switch is quick: from Enter to "destination ready" under 8 s with a
+   warm standby, under 25 s without (engine 6.1 targets, to measure). (my call; needs
+   verification that starting an agent costs nothing until its first turn)
 3. The destination receives the **whole thread**, not a fixed small excerpt —
    bounded by the destination model's window and by what the sidecar will let
    through. Agent Deck, the closest existing tool, caps the export at 32 KB by
@@ -238,9 +248,10 @@ and thread stay live and usable, and the destination continues the work as a **n
 thread** whose parent is the source thread. A user setting (`hop.source_mode`) picks the
 default (default: close); the hop dialog offers the other mode for that hop only.
 Forking never resumes the source's live native session in the destination: the
-destination gets a new native session (the agent's own fork where it exists, otherwise
-an import or a seed), so two processes never write one session. After a fork the two
-threads diverge on purpose; nothing synchronizes them. Details: engine spec 6.2 and 6.3.
+destination gets a new native session, started with a seed in v1 (the agent's own fork
+or an import only post-v1, once their gates pass), so two processes never write one
+session. After a fork the two threads diverge on purpose; nothing synchronizes them.
+Details: engine spec 6.2 and 6.3.
 
 How the history reaches the destination — **v1 is seed-only (decided 2026-10-31,
 user).** V1 ships the text hand-off for every pair of agents, with the preview, and
@@ -259,8 +270,9 @@ harnesses (four today; Hermes Agent and DeepSeek Harness are new Mukade work,
 What carries over, as the hop dialog must show it: conversation (text),
 tool calls (summarized unless native import preserves them), files (same folder;
 git state unchanged), attachments (paths handed over), project instructions (e.g.
-CLAUDE.md ↔ AGENTS.md linked). What does not: permissions (the destination asks
-again), model state.
+CLAUDE.md ↔ AGENTS.md linked; what exactly that does is still to be decided and tested,
+and no file is created in the user's repository without consent: my call; register H18).
+What does not: permissions (the destination asks again), model state.
 
 Prior art to study, not to wrap: Agent Deck (Go, tmux, MIT; on Windows only via
 WSL) for the handoff design; Agent Relay for messaging. Native APIs to use where
@@ -294,6 +306,11 @@ the last agent and last thread per project; the threads of a project listed
 beside it; one key to resume the last thread; several roots. In the new-project
 dialog: optional `git init`, and an option to type Daodan's native init command in
 the chosen agent (never run automatically).
+
+Robustness (my calls): listing and sorting a root never blocks the UI, even with
+hundreds of folders or a Google Drive path (register PM1); creating a new project never
+leaves a half-created folder (register PM4); a missing root, such as a removed drive, is
+reported, not ignored (register PM7).
 
 ### 5.5 Daodan preinstalled (decided: option A, downloaded and kept updated)
 
@@ -331,14 +348,16 @@ installs that build and enables what its manifest lists; nothing is translated. 
 A palette (`^K`) lists Daodan's workflows and types the selected agent's native
 command into the prompt; the user presses Enter. (my call)
 
-**Native support (decided 2026-10-27, user; shape is mine):** beyond installing,
+**Native support (decided 2026-10-27, user; shape confirmed by the user 2026-11-01):** beyond installing,
 Shinatama reads Daodan's task agenda, links threads to tasks, shows tasks and
 questions in the project manager, overview and widget, adds task commands to the
-palette, and carries the task across a hop (the user's confirmation in the hop dialog
-is the "old session is closed" that Daodan's take-over needs). On a project with no
-Daodan state it offers once to onboard it (the handover dossier) or initialize it (map,
-environment, baseline) by typing the matching Daodan command. It never writes Daodan
-files. Full design, behaviour and open checks: [daodan-native-support.md](daodan-native-support.md).
+palette, and carries the task across a hop (in close mode the destination may take the
+task over only through a separate message sent after the hop is COMMITTED and the source
+session's closure is confirmed, with one user confirmation in total; until then, and in
+fork mode, the holder is unchanged: daodan-native-support 4.3, register D13). On a
+project with no Daodan state it offers once to onboard it (the handover dossier) or
+initialize it (map, environment, baseline) by typing the matching Daodan command. It
+never writes Daodan files. Full design, behaviour and open checks: [daodan-native-support.md](daodan-native-support.md).
 
 ### 5.6 BillionContext sidecar (decided: same resilience, security, compression)
 
@@ -398,8 +417,8 @@ from a skin definition, never hard-coded.
 
 - **Shinatama (default):** midnight navy, cobalt/ice lines as in the repository
   logo, her pink hair as the only warm accent.
-- **Section 9:** teal-black with cyan, faint scan lines.
-- **TCTF:** steel grey with orange, cut corners, filled active tab.
+- **Section 9:** teal-black with cyan; faint scan lines are optional decoration.
+- **TCTF:** steel grey with orange, filled active tab; cut corners are optional decoration.
 - **Sumi:** ink black with vermilion.
 
 In the native UI a skin controls the chrome: window, menus, tabs, side panels,
@@ -412,7 +431,8 @@ its ACP pane (5.16) is drawn with the skin and a harness accent colour instead.
 A user may opt into **follow Shinatama skin**, which remaps only the default and
 16-colour ANSI palette. Truecolour output chosen by the harness remains
 untouched. Effects seen in the HTML mockups (scan lines, clipped corners, glow)
-illustrate the mood and are not requirements.
+illustrate the mood and are not requirements; where a skin above lists scan lines or cut
+corners, they are optional decoration.
 
 The references are *Oni* (Bungie, 2001) and *Ghost in the Shell*; the user's wider
 Daodan/Shinatama family shares that world. The colour values in the mockups are
@@ -426,13 +446,22 @@ A small borderless, transparent, always-on-top window showing Shinatama as an
 assistant: it speaks in a bubble, animates, and alerts when an agent needs input,
 an operation finishes, or something important happens (e.g. the context filling up).
 
-My calls for the shape: the core exposes a local event stream (socket or named
-pipe) that the widget subscribes to, so the widget is just another client and can be
-built after the core; clicking an alert focuses the right session; quick-answer
+My calls for the shape: the widget reads the event feed in the shared SQLite database
+(the `event` table, after its last `seq`; engine 3, 4.6 and 8.3), with an optional local
+socket or named pipe used only as a wake-up ping, so the widget is just another client
+and can be built after the core; clicking an alert focuses the right session; quick-answer
 buttons (allow/deny) only for prompts recognized with certainty, because they send
 keystrokes to the agent. Detecting "needs input" is per agent, preferably through the
 agent's native hooks or events rather than parsing the screen; to be verified agent
 by agent.
+
+Also my calls (register W3, W5, W10, W2): the widget never takes keyboard focus and
+never steals keystrokes when an alert appears (W3); a quick answer goes only to the
+right instance and prompt, the bubble shows the real command from the native event, and
+a prompt that changed between the event and the click is refused (W5); the
+reduced-motion setting is honoured, with a mute and disable switch (W10); where
+always-on-top or placement fails on Wayland, the widget falls back to a notification-only
+mode (W2).
 
 Known platform limits (from my own knowledge, to be verified): always-on-top and
 free placement are not guaranteed on Wayland; they work on macOS and Windows.
@@ -446,7 +475,7 @@ so framing stays identical; seven actions, about 25 frames, transparent 512×512
 frames per second: idle (4), talk (3 mouth shapes), alert (4), done (4), thinking
 (4), worried (3), sleep (3). The action list awaits the user's confirmation.
 
-### 5.10 Roundtable (decided as a wish: "let different harness instances and models talk to each other and compare on a topic"; shape is mine)
+### 5.10 Roundtable (decided as a wish: "let different harness instances and models talk to each other and compare on a topic"; shape decided by the user, confirmed 2026-11-01)
 
 The user puts several agent instances around one topic and lets them answer,
 critique and converge. Shinatama is the natural broker: it already owns every
@@ -466,17 +495,18 @@ My calls:
   instances with their own session, tools and context, and the UI around them. A cost
   warning is shown before a roundtable starts.
 - **Moderated, structured rounds**, as in Ultra Nerd: independent proposals, then
-  reciprocal critique, then a synthesis. The user can interject in any round, stop,
-  or ask for another.
+  reciprocal critique, then a synthesis. The user can interject between rounds (the
+  text goes to every participant as a note) or stop; the run also stops at `max_rounds`
+  or at the first token or cost cap (engine 7.8).
   A free-form chat between two agents is the same machinery with one reply per
   round. Whether the free-form variant is wanted is **open**.
 - **Participants:** any mix of the supported agents, each with its own model, including
   an agent pointed at a local model. The same agent may appear twice with different
   models.
-- **Transport:** for roundtable turns use an agent's non-interactive or native API
-  route where it has one, so a turn has a clear end and a clean answer. Typing into
-  the PTY and reading the screen is the fallback, relying on native turn-finished
-  signals. To be verified per agent.
+- **Transport:** each participant is a headless session of its own (`ask_headless`),
+  never the user's live instance, so a turn has a clear end and a clean answer; there
+  is no fallback that types into a PTY and reads the screen (engine 7.8). The exact
+  flags are to be verified per agent.
 - **Safety** (an anti-goal is agents steering each other): a message from a peer is
   always passed as quoted data from a named participant, never as an instruction or
   an authorization. Roundtable turns run **answer-only**, without tool permissions,
@@ -490,7 +520,8 @@ My calls:
 ### 5.9 Gemini (my call)
 
 Gemini keeps a launch-only adapter in v1: it starts through the sidecar, with no hop
-and no search. External terminal selection is not offered (section 2, non-goals).
+and no search. External terminal selection is not offered: every agent runs in
+Shinatama's own panes (5.1).
 **Open**: Windows (assumed yes, section 7).
 
 ### 5.11 Accounts and login (decided as a wish: "recognize automatically or perform the login for codex, claude, etc."; shape is mine)
@@ -522,8 +553,8 @@ calls:
   shared by every instance of that agent. With the `system` home the user's existing
   login is used as it is.
 
-Whether Shinatama should also hold provider keys once and share them across agents
-is **open**; it would make Shinatama a credential store that must be protected.
+Holding provider keys once and sharing them across agents is not in v1 (my call,
+section 7): it would make Shinatama a credential store that must be protected.
 
 ### 5.12 Order of work and audience (my calls, to check)
 
@@ -538,7 +569,7 @@ grows alongside: the instance
 table right after (1), the summaries and flows once hop (6) and the roundtable (7)
 exist.
 
-**Delivery baseline (2026-10-31).** The terminal-first UI milestone of 5.16 (TL1: project
+**Delivery baseline (decided by the user 2026-10-31).** The terminal-first UI milestone of 5.16 (TL1: project
 selector, terminal tiles, tab groups, terminal profiles, no sessions surface) comes first.
 The first usable release slice adds read-only store browsing/search and same-agent native
 resume. The next slice is
@@ -558,8 +589,9 @@ skin's character, the widget) is a distribution decision separate from the code.
 section 8 of the [engine spec](technical-design.md).)
 
 One tab shows every agent instance started from or inside Shinatama: its agent and
-model, project and thread, state (working, waiting for you, idle, done, error), what it
-is doing, tokens and cost, how full its context is. Beside the table: the **flows**
+model, project and thread, state (`starting`, `idle`, `working`, `waiting_permission`,
+`waiting_question`, `error`, `exited`; engine 8.1), what it is doing, tokens and cost,
+how full its context is. Beside the table: the **flows**
 between instances (hops of a thread, roundtable participants, who waits for whom), a
 timeline of **exchanges and changes** (hops, rounds, approvals, errors, files
 changed), and the **work** per shared folder, including files that more than one
@@ -567,8 +599,9 @@ instance is touching.
 
 My calls:
 
-- **What it is doing** is a short title written by a **low-cost model**, refreshed
-  periodically and when an instance changes state. Shinatama makes the call, from the
+- **What it is doing** is a short title written by a **low-cost model**, refreshed on
+  every state change and every 2 minutes while `working` (engine 8.4 defaults; the
+  frequency is a setting). Shinatama makes the call, from the
   activity it already observes (events and the tail of the transcript); the agents are
   not asked to do it, since they cannot be made to do it reliably.
 - **The model** is a choice among three backends (engine spec 8.4): a **small local
@@ -620,10 +653,12 @@ is installed, `own` otherwise.
   reports that an update exists, with the owner's command (`claude update`, `codex
   update`, or `npm install -g <package>@latest` with the package read from the npm
   shim). If the installed version is outside the proved range, the agent runs degraded
-  and the user is told why. Nothing to download and no disk cost.
+  (engine 5.5.3: failing capabilities unsupported, launch-only plus its own export, hops
+  by seed or refused; decided by the user 2026-11-01) and the user is told why. Nothing to download and no disk cost.
 - `own`: Shinatama's copy, installed with npm `--prefix` (works for all four, D16, and
   DeepSeek Harness is an npm package too; Hermes Agent comes from its own installer with a
-  bundled uv and Python, so its `own` recipe is HM10), when
+  bundled uv and Python, so its `own` recipe is HM10, and if HM10 yields no recipe, `own`
+  is refused for Hermes: my call; register HM10), when
   the agent is not installed or the user wants a pinned version. Updates install
   **next to** the running version: open instances keep the old one, new instances start
   on the new one, the previous version is kept for going back when the new one fails
@@ -782,7 +817,7 @@ leaves. Side panes are resizable and collapsible. Earlier terminal/HTML mockups
 are interaction references, not binding implementation choices. Toolkit selection
 and exact shortcuts remain builder proposals.
 
-**Initial terminal-first scope (2026-10-30):** project selector, resizable terminal
+**Initial terminal-first scope (decided by the user 2026-10-30):** project selector, resizable terminal
 tiles, leaf tab groups and per-harness terminal profiles. Git integration, file
 navigator, diffs, thread side panes, session browsing, hop and Daodan surfaces are
 not part of this first UI. The rest of this section specifies later workspace
@@ -941,7 +976,7 @@ Markdown. Verify macOS/Linux and assumed Windows, including scaling, IME/Unicode
 small windows and many active panes. Engine 3.1 defines the technical prototype
 gate. This revision specifies behaviour, not an implemented or validated feature.
 
-## 6. Agent adapter contract (builder's design, requirements mine)
+## 6. Agent adapter contract (builder's design; the requirement is the user's, decided: engine 5.5)
 
 One adapter per agent (decided), so Grok or another agent can be added without touching
 the rest. **Each adapter provides export, import, resume and handover, plus the rest:**
@@ -969,8 +1004,9 @@ suite are in section 5.5 of the [engine spec](technical-design.md).
 3. ~~Where does the code live?~~ **Decided:** a new project called `shinatama`
    (name decided on 2026-10-26; the earlier suffixes `-sld` and `-mux` were
    dropped), in this repository. The obsolete Daodan companion marketplace
-   (acaprino/shinatama) was deleted on 2026-10-26 (the user's decision on register
-   row D1); the local folder `D:\Projects\shinatama-sld` is renamed to
+   (acaprino/shinatama) is gone: its local checkout was deleted on 2026-10-26, and the
+   remote repository on 2026-10-27 after a verified bundle backup (the user's decision
+   on register row D1); the local folder `D:\Projects\shinatama-sld` is renamed to
    `D:\Projects\shinatama` as soon as JanuraCode is not holding it (its services
    keep `.jcode` open). How the sidecar source
    (`sidecar/source-build`, kept today in another repository) is brought in without forking it
@@ -982,7 +1018,7 @@ suite are in section 5.5 of the [engine spec](technical-design.md).
 - Native Rust desktop tiling supersedes the earlier terminal-only decision
   (2026-10-29, 5.16); real agent PTYs and CLI mode remain. Sessions browsing is a
   later surface: read-only first, live seed hops after their gates, native import
-  and native handoff post-v1 (revised 2026-10-31, 5.16).
+  and native handoff post-v1 (user; revised 2026-10-31, 5.16).
 - Hop: v1 is seed/text-only for every pair, with preview (2026-10-31, user);
   native import is post-v1, enabled agent by agent and version by version (5.2).
 - Store discovery reuses Mukade's catalog and installation scan; Shinatama decides what
@@ -1003,10 +1039,11 @@ suite are in section 5.5 of the [engine spec](technical-design.md).
 - All Daodan plugins enabled by default, `research` included (5.5, user).
 - Login: detect and run each agent's own login, never hold their credentials; sharing
   provider keys across agents is not in v1 (5.11).
-- Roundtable: moderated rounds with a free-form two-agent variant, answer-only by
-  default with per-participant opt-in to tools (5.10).
+- Roundtable (user, confirmed 2026-11-01): moderated rounds, answer-only by default with
+  per-participant opt-in to tools; whether a free-form two-agent variant is wanted stays
+  open (5.10).
 - Agent placement defaults (5.14, 2026-10-28): program `system` when the agent is
-  installed, home `box`.
+  installed; home `box` (user, 2026-10-28).
 - Codex in a box despite its sandbox leak (`~\.sbx-denybin` in the user's profile),
   shown to the user rather than blocked; its elevated sandbox is not offered in a box
   (5.14).
@@ -1015,12 +1052,20 @@ suite are in section 5.5 of the [engine spec](technical-design.md).
   of its own; for Pi, the box keeps `mcp.json` empty and each instance brings its MCP
   servers through its own extension; a resumed session takes the set of the instance
   that resumes it.
-- Inherited markers (engine 3): the union of every supported agent's list is removed before
-  any launch; `GIT_EDITOR` only when its value is Claude's helper.
+- Inherited markers (engine 3; user, 2026-10-28): the union of every supported agent's
+  list is removed before any launch; `GIT_EDITOR` only when its value is Claude's helper.
 - Overview: titles written by a low-cost model that Shinatama calls (not the agents),
   chosen from the catalog of a provider already signed in or a local model, capped
   and switchable, through the sidecar's auxiliary path so Shinatama holds no
   credentials (5.13).
+- Degraded agent (user, 2026-11-01; engine 5.5.3): an agent whose installed version fails
+  its fixtures keeps launch-only plus its own export command, each failing capability is
+  declared unsupported, and hops to or from it go by seed or are refused.
+- Added 2026-11-01 from register rows, each marked where it appears: no file created in
+  the user's repository without consent (5.2, H18); widget focus, quick-answer, motion and
+  Wayland rules (5.8, W2, W3, W5, W10); escape-sequence containment and process-tree
+  cleanup (5.1, P9, P14); project-manager robustness (5.4, PM1, PM4, PM7); `own` refused
+  for Hermes Agent if HM10 finds no recipe (5.14).
 
 ## 8. Left to the builder
 
@@ -1029,7 +1074,8 @@ async model), the exact table and column definitions inside the engine spec's sk
 (the storage choice, SQLite per user, is decided), the optional wake-up socket, the
 install mechanism on macOS and Linux (script, package manager, release binaries),
 how Node is provisioned for the sidecar, the skin definition format, command names
-and exit codes, test strategy (real-fixture tests per adapter).
+and exit codes (engine 5.5.2 proposes a set of exit codes, my call), test strategy
+(real-fixture tests per adapter).
 
 ## 8a. Verification
 
@@ -1047,4 +1093,5 @@ honest carry-over and preview), `daodan-native.html` (Daodan setup and palette),
 `project-manager-v2.html` (projects, default root, new project), `widget.html`
 (widget states), `roundtable.html` (several agents compared on a topic), `setup-login.html`
 (sign-in status and login), `overview.html` (the global view). Superseded: `daodan-flow.html` (it linked threads to Daodan
-tasks, which the user rejected).
+tasks; the user first rejected that, then decided native support on 2026-10-27, goal 5,
+and a new mockup comes with the approval of daodan-native-support.md, section 7).
