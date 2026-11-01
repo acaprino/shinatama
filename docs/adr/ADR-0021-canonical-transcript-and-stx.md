@@ -71,8 +71,10 @@ byte range or row (technical-design 5.1). Adapters produce it by projecting Muka
 Reader rules (5.2): read-only and never take a lock the agent could wait on; SQLite `mode=ro`,
 never `immutable` while the agent may write; an incomplete last JSONL line is ignored until the
 next scan; unknown record types are skipped and counted, and `doctor` shows the count; a new
-major version that fails its fixtures degrades the agent to launch-only plus its own export
-command, and says so; trees are followed from the root to one leaf (the one the agent names,
+major version that fails its fixtures makes the agent `Degraded` as technical-design 5.5.3 says
+(each failing capability `unsupported`, launch-only plus its own export command, hops by
+`seed_prompt` or `refuse`; ADR-0011), and the UI says so; trees are followed from the root to
+one leaf (the one the agent names,
 else the most recent), other branches indexed but not carried; sub-agent entries become one
 `tool_call`/`tool_result` pair. For OpenCode and Hermes Agent the agent's own export is the
 primary source and SQLite only a read-only fallback for listing and search (5.3).
@@ -90,7 +92,7 @@ native stores. `shinatama export --format stx|mukade|native|md` offers all four 
 - **EX-002** (rejection or error case): Input: an `.stx.jsonl` header with a higher `version` than the reader knows -> Expected: refused with a message, not guessed at (technical-design 5.5.1).
 - **EX-003** (boundary case): Input: a JSONL session whose last line is incomplete because the agent is writing -> Expected: the line is ignored until the next scan (technical-design 5.2); for DeepSeek Harness a torn last Zstandard frame is ignored the same way (register DS3).
 - **EX-004** (boundary case): Input: synthetic branched sessions with rewinds and forks -> Expected: the reader follows the same path as the agent's own resume (register H15).
-- **EX-005** (rejection or error case): Input: an agent whose installed version fails its fixtures -> Expected: it drops to launch-only with a visible reason instead of a wrong hop (technical-design 11.10).
+- **EX-005** (rejection or error case): Input: an agent whose installed version fails its fixtures -> Expected: the agent is `Degraded` (launch-only plus its own export command, failing capabilities `unsupported`, hops by `seed_prompt` or `refuse`) with a visible reason instead of a wrong hop (technical-design 5.5.3, 11.10).
 
 ## Rejected Alternatives
 

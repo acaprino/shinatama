@@ -7,32 +7,32 @@
   "entities": [],
   "frd_id": "FRD-0004",
   "last_verified_sha": null,
-  "proposed_at_sha": "e22191501ff4ef3a182bcee7175dba73550586e6",
+  "proposed_at_sha": "e7a1c1dd1ce0429f012af8aa2a40097038a22553",
   "proposed_on": "2026-11-01",
   "relationships": [],
   "requirements": [
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 2821,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 2927,
           "excerpt": "4. An integrated project manager (5.4), with a default root directory and a shortcut",
           "path": "docs/functional-design.md",
-          "start": 2737
+          "start": 2843
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
           "end": 1842,
           "excerpt": "### Goals (decided unless marked)",
           "path": "docs/functional-design.md",
           "start": 1809
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 9290,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 9479,
           "excerpt": "Native Rust desktop surfaces: project manager, tiled workspace with agent tabs",
           "path": "docs/functional-design.md",
-          "start": 9212
+          "start": 9401
         }
       ],
       "id": "REQ-001",
@@ -42,25 +42,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17244,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18261,
           "excerpt": "Project roots whose first-level folders are the projects",
           "path": "docs/functional-design.md",
-          "start": 17188
-        },
-        {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 64638,
-          "excerpt": "| PM1 | G1 | Listing and sorting roots with hundreds of folders, including Google Drive paths, without blocking the UI | Measure | Under a stated time, async | main 5.4 |",
-          "path": "docs/verification-register.md",
-          "start": 64468
-        },
-        {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 65343,
-          "excerpt": "| PM7 | G1 | A missing root (removed drive) is reported, not ignored | Test | Reported | main 5.4 |",
-          "path": "docs/verification-register.md",
-          "start": 65244
+          "start": 18205
         }
       ],
       "id": "REQ-002",
@@ -70,11 +56,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17268,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18285,
           "excerpt": "Project roots whose first-level folders are the projects, sorted by last change;",
           "path": "docs/functional-design.md",
-          "start": 17188
+          "start": 18205
         }
       ],
       "id": "REQ-003",
@@ -84,11 +70,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17301,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18318,
           "excerpt": "incremental filter while typing;",
           "path": "docs/functional-design.md",
-          "start": 17269
+          "start": 18286
         }
       ],
       "id": "REQ-004",
@@ -98,18 +84,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17320,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18337,
           "excerpt": "any folder via F3;",
           "path": "docs/functional-design.md",
-          "start": 17302
+          "start": 18319
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 65243,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 65915,
           "excerpt": "| PM6 | G2 | A folder picker for any folder (F3) on each OS, drive letters, no terminal-escape traps | Test | Works | main 5.4 |",
           "path": "docs/verification-register.md",
-          "start": 65115
+          "start": 65787
         }
       ],
       "id": "REQ-005",
@@ -119,11 +105,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17441,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18458,
           "excerpt": "a history of the last 10\nnon-standard folders, including folders that are not git repositories (Desktop,\nshared drives).",
           "path": "docs/functional-design.md",
-          "start": 17321
+          "start": 18338
         }
       ],
       "id": "REQ-006",
@@ -133,18 +119,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17523,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18540,
           "excerpt": "Decided additions: a **default root** (where new projects are created; chosen at",
           "path": "docs/functional-design.md",
-          "start": 17443
+          "start": 18460
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 2821,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 2927,
           "excerpt": "4. An integrated project manager (5.4), with a default root directory and a shortcut",
           "path": "docs/functional-design.md",
-          "start": 2737
+          "start": 2843
         }
       ],
       "id": "REQ-007",
@@ -154,11 +140,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17546,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18563,
           "excerpt": "Decided additions: a **default root** (where new projects are created; chosen at\nfirst run, changeable)",
           "path": "docs/functional-design.md",
-          "start": 17443
+          "start": 18460
         }
       ],
       "id": "REQ-008",
@@ -168,11 +154,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17596,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18613,
           "excerpt": "first run, changeable) and a **shortcut (`n`) to create a new project**.",
           "path": "docs/functional-design.md",
-          "start": 17524
+          "start": 18541
         }
       ],
       "id": "REQ-009",
@@ -182,25 +168,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17596,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18613,
           "excerpt": "first run, changeable) and a **shortcut (`n`) to create a new project**.",
           "path": "docs/functional-design.md",
-          "start": 17524
+          "start": 18541
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 2849,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 2955,
           "excerpt": "   to create a new project.",
           "path": "docs/functional-design.md",
-          "start": 2822
-        },
-        {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 65114,
-          "excerpt": "| PM4 | G1 | New project: name validation per OS (reserved names, trailing dots, case-insensitive duplicates), `git init` default branch, permissions, a root on a synced drive | Test | No half-created folder | main 5.4 |",
-          "path": "docs/verification-register.md",
-          "start": 64894
+          "start": 2928
         }
       ],
       "id": "REQ-010",
@@ -210,11 +189,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17624,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18641,
           "excerpt": "My calls: pinned projects;",
           "path": "docs/functional-design.md",
-          "start": 17598
+          "start": 18615
         }
       ],
       "id": "REQ-011",
@@ -224,18 +203,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17657,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18674,
           "excerpt": "My calls: pinned projects; git branch and dirty-file count;",
           "path": "docs/functional-design.md",
-          "start": 17598
+          "start": 18615
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 64754,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 65426,
           "excerpt": "| PM2 | G1 | Git branch and dirty count for 30 projects: parallel, timeouts, cache | Measure | Bounded | main 5.4 |",
           "path": "docs/verification-register.md",
-          "start": 64639
+          "start": 65311
         }
       ],
       "id": "REQ-012",
@@ -245,25 +224,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17701,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18718,
           "excerpt": "the last agent and last thread per project;",
           "path": "docs/functional-design.md",
-          "start": 17658
+          "start": 18675
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17624,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18641,
           "excerpt": "My calls: pinned projects;",
           "path": "docs/functional-design.md",
-          "start": 17598
+          "start": 18615
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 64893,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 65565,
           "excerpt": "| PM3 | G1 | Last agent and thread per project, matching paths across agents (S9), worktree versus main tree | Test | Correct | main 5.4 |",
           "path": "docs/verification-register.md",
-          "start": 64755
+          "start": 65427
         }
       ],
       "id": "REQ-013",
@@ -273,18 +252,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17744,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18761,
           "excerpt": "the threads of a project listed\nbeside it;",
           "path": "docs/functional-design.md",
-          "start": 17702
+          "start": 18719
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17624,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18641,
           "excerpt": "My calls: pinned projects;",
           "path": "docs/functional-design.md",
-          "start": 17598
+          "start": 18615
         }
       ],
       "id": "REQ-014",
@@ -294,18 +273,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17779,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18796,
           "excerpt": "one key to resume the last thread;",
           "path": "docs/functional-design.md",
-          "start": 17745
+          "start": 18762
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17624,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18641,
           "excerpt": "My calls: pinned projects;",
           "path": "docs/functional-design.md",
-          "start": 17598
+          "start": 18615
         }
       ],
       "id": "REQ-015",
@@ -315,18 +294,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17794,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18811,
           "excerpt": "one key to resume the last thread; several roots.",
           "path": "docs/functional-design.md",
-          "start": 17745
+          "start": 18762
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17624,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18641,
           "excerpt": "My calls: pinned projects;",
           "path": "docs/functional-design.md",
-          "start": 17598
+          "start": 18615
         }
       ],
       "id": "REQ-016",
@@ -336,18 +315,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17841,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18858,
           "excerpt": "dialog: optional `git init`",
           "path": "docs/functional-design.md",
-          "start": 17814
+          "start": 18831
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17624,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18641,
           "excerpt": "My calls: pinned projects;",
           "path": "docs/functional-design.md",
-          "start": 17598
+          "start": 18615
         }
       ],
       "id": "REQ-017",
@@ -357,18 +336,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17940,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18957,
           "excerpt": "and an option to type Daodan's native init command in\nthe chosen agent (never run automatically).",
           "path": "docs/functional-design.md",
-          "start": 17843
+          "start": 18860
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17624,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18641,
           "excerpt": "My calls: pinned projects;",
           "path": "docs/functional-design.md",
-          "start": 17598
+          "start": 18615
         }
       ],
       "id": "REQ-018",
@@ -378,23 +357,100 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17940,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18957,
           "excerpt": "the chosen agent (never run automatically).",
           "path": "docs/functional-design.md",
-          "start": 17897
+          "start": 18914
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17624,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18641,
           "excerpt": "My calls: pinned projects;",
           "path": "docs/functional-design.md",
-          "start": 17598
+          "start": 18615
         }
       ],
       "id": "REQ-019",
       "status": "extracted",
       "text": "Shinatama never runs Daodan's init command automatically from the new-project dialog; it only types it for the user (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 19098,
+          "excerpt": "Robustness (my calls): listing and sorting a root never blocks the UI, even with\nhundreds of folders or a Google Drive path (register PM1);",
+          "path": "docs/functional-design.md",
+          "start": 18959
+        },
+        {
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 65310,
+          "excerpt": "| PM1 | G1 | Listing and sorting roots with hundreds of folders, including Google Drive paths, without blocking the UI | Measure | Under a stated time, async | main 5.4 |",
+          "path": "docs/verification-register.md",
+          "start": 65140
+        }
+      ],
+      "id": "REQ-020",
+      "status": "extracted",
+      "text": "Listing and sorting a project root never blocks the UI, even with hundreds of folders or a Google Drive path (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 19172,
+          "excerpt": "creating a new project never\nleaves a half-created folder (register PM4);",
+          "path": "docs/functional-design.md",
+          "start": 19099
+        },
+        {
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18981,
+          "excerpt": "Robustness (my calls):",
+          "path": "docs/functional-design.md",
+          "start": 18959
+        },
+        {
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 65786,
+          "excerpt": "| PM4 | G1 | New project: name validation per OS (reserved names, trailing dots, case-insensitive duplicates), `git init` default branch, permissions, a root on a synced drive | Test | No half-created folder | main 5.4 |",
+          "path": "docs/verification-register.md",
+          "start": 65566
+        }
+      ],
+      "id": "REQ-021",
+      "status": "extracted",
+      "text": "Creating a new project never leaves a half-created folder (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 19254,
+          "excerpt": "a missing root, such as a removed drive, is\nreported, not ignored (register PM7).",
+          "path": "docs/functional-design.md",
+          "start": 19173
+        },
+        {
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18981,
+          "excerpt": "Robustness (my calls):",
+          "path": "docs/functional-design.md",
+          "start": 18959
+        },
+        {
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 66015,
+          "excerpt": "| PM7 | G1 | A missing root (removed drive) is reported, not ignored | Test | Reported | main 5.4 |",
+          "path": "docs/verification-register.md",
+          "start": 65916
+        }
+      ],
+      "id": "REQ-022",
+      "status": "extracted",
+      "text": "A missing project root, such as a removed drive, is reported to the user, not ignored (author's call, unconfirmed)"
     }
   ],
   "schema_version": 1,

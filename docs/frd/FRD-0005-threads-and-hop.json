@@ -7,18 +7,18 @@
   "entities": [],
   "frd_id": "FRD-0005",
   "last_verified_sha": null,
-  "proposed_at_sha": "e22191501ff4ef3a182bcee7175dba73550586e6",
+  "proposed_at_sha": "e7a1c1dd1ce0429f012af8aa2a40097038a22553",
   "proposed_on": "2026-11-01",
   "relationships": [],
   "requirements": [
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 10041,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 10256,
           "excerpt": "A **thread** is Shinatama's own record on disk: an id, the project\nfolder, the chain of agent sessions it has been through (agent, native session id,\ntime span) and enough to rebuild the hand-over context.",
           "path": "docs/functional-design.md",
-          "start": 9836
+          "start": 10051
         }
       ],
       "id": "REQ-001",
@@ -28,25 +28,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 10131,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 10417,
           "excerpt": "Closing Shinatama does not lose a thread.",
           "path": "docs/functional-design.md",
-          "start": 10090
+          "start": 10376
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
           "end": 1146,
           "excerpt": "the thread is tracked on disk, so it survives the agent and the terminal;",
           "path": "docs/functional-design.md",
           "start": 1073
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 7417,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 7606,
           "excerpt": "Local-first: no account, no hosted service. Threads and settings live on disk.",
           "path": "docs/functional-design.md",
-          "start": 7339
+          "start": 7528
         }
       ],
       "id": "REQ-002",
@@ -56,25 +56,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
           "end": 2552,
           "excerpt": "2. Seamless hop of a live thread between those agents (see 5.2).",
           "path": "docs/functional-design.md",
           "start": 2488
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
           "end": 1842,
           "excerpt": "### Goals (decided unless marked)",
           "path": "docs/functional-design.md",
           "start": 1809
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 12489,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 13212,
           "excerpt": "### 5.2 Hop (decided: \"truly seamless\"; built from scratch in Rust)",
           "path": "docs/functional-design.md",
-          "start": 12422
+          "start": 13145
         }
       ],
       "id": "REQ-003",
@@ -84,18 +84,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 13157,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 13880,
           "excerpt": "a **new native session in the destination, started with the thread's content**,\nwith the loss declared.",
           "path": "docs/functional-design.md",
-          "start": 13054
+          "start": 13777
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 5074,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 5263,
           "excerpt": "A universal migration of a live session between agents. No tool does this; the\n  hop starts a *new* native session in the destination.",
           "path": "docs/functional-design.md",
-          "start": 4940
+          "start": 5129
         }
       ],
       "id": "REQ-004",
@@ -105,11 +105,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 6265,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 6454,
           "excerpt": "Promising a lossless transfer. The UI must always say what carries over and what\n  does not.",
           "path": "docs/functional-design.md",
-          "start": 6173
+          "start": 6362
         }
       ],
       "id": "REQ-005",
@@ -119,11 +119,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 6345,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 6534,
           "excerpt": "The words \"native resume\" are used only for resuming within the *same*\n  agent.",
           "path": "docs/functional-design.md",
-          "start": 6266
+          "start": 6455
         }
       ],
       "id": "REQ-006",
@@ -133,25 +133,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 89459,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 90532,
           "excerpt": "1. One key (`^H`), a destination, Enter. Nothing to type, copy or explain.",
           "path": "docs/technical-design.md",
-          "start": 89385
+          "start": 90458
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 13344,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 14067,
           "excerpt": "1. **One keystroke**, nothing to re-explain, no copying. (my call)",
           "path": "docs/functional-design.md",
-          "start": 13278
+          "start": 14001
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 11149,
-          "excerpt": "Key names in this document (`^H`, `^K`) are\n  placeholders until register row U3 settles bindings that no agent or outer terminal\n  consumes.",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 11457,
+          "excerpt": "Key names in this document (`^H`, `^K`) are\n  placeholders until register row U3 settles bindings that neither the agents nor the\n  desktop's own shortcuts consume",
           "path": "docs/functional-design.md",
-          "start": 11008
+          "start": 11294
         }
       ],
       "id": "REQ-007",
@@ -161,18 +161,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 13491,
-          "excerpt": "2. The destination agent is **prepared in the background** while the user keeps\n   working, so the switch is instant. (my call; needs verification",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 14182,
+          "excerpt": "2. The destination agent is **prepared in the background** while the user keeps\n   working, so the switch is quick",
           "path": "docs/functional-design.md",
-          "start": 13345
+          "start": 14068
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 89615,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 90688,
           "excerpt": "with visible progress and the source usable the whole time.",
           "path": "docs/technical-design.md",
-          "start": 89556
+          "start": 90629
         }
       ],
       "id": "REQ-008",
@@ -182,25 +182,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 89552,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 90625,
           "excerpt": "2. Wait from Enter to \"destination ready\" under 8 s with a warm standby, under 25 s without,",
           "path": "docs/technical-design.md",
-          "start": 89460
+          "start": 90533
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 89640,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 90713,
           "excerpt": "[C: targets, to measure]",
           "path": "docs/technical-design.md",
-          "start": 89616
+          "start": 90689
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 44573,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 44781,
           "excerpt": "Elapsed time from Enter to READY, per pair, 95th percentile",
           "path": "docs/verification-register.md",
-          "start": 44514
+          "start": 44722
+        },
+        {
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 14395,
+          "excerpt": "from Enter to \"destination ready\" under 8 s with a\n   warm standby, under 25 s without (engine 6.1 targets, to measure). (my call; needs\n   verification that starting an agent costs nothing until its first turn)",
+          "path": "docs/functional-design.md",
+          "start": 14184
         }
       ],
       "id": "REQ-009",
@@ -210,25 +217,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 13629,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 14471,
           "excerpt": "3. The destination receives the **whole thread**, not a fixed small excerpt",
           "path": "docs/functional-design.md",
-          "start": 13554
+          "start": 14396
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 13721,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 14563,
           "excerpt": "bounded by the destination model's window and by what the sidecar will let\n   through.",
           "path": "docs/functional-design.md",
-          "start": 13635
+          "start": 14477
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 13887,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 14729,
           "excerpt": "Shinatama should do better, with the budget computed for the\n   destination. (my call)",
           "path": "docs/functional-design.md",
-          "start": 13801
+          "start": 14643
         }
       ],
       "id": "REQ-010",
@@ -238,25 +245,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 89784,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 90857,
           "excerpt": "3. The destination answers a question about the previous work **correctly, with a fact only\n   present in the history** (acceptance test 11.2).",
           "path": "docs/technical-design.md",
-          "start": 89641
+          "start": 90714
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 135494,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 137862,
           "excerpt": "Pass = correct answer, for every ordered pair among the\n   six agents, at stage 1; a pair whose source is Hermes Agent or DeepSeek Harness counts\n   from the day Mukade reads that source (engine 5).",
           "path": "docs/technical-design.md",
-          "start": 135296
+          "start": 137664
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 40294,
-          "excerpt": "Canary hop for all 12 ordered pairs at stage 1, small thread and a 400-turn thread, 10 runs each",
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 40452,
+          "excerpt": "Canary hop for every ordered pair among the six hosted agents at stage 1 (a pair whose source is Hermes Agent or DeepSeek Harness counts once Mukade reads that source)",
           "path": "docs/verification-register.md",
-          "start": 40198
+          "start": 40285
         }
       ],
       "id": "REQ-011",
@@ -266,25 +273,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 13929,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 14771,
           "excerpt": "4. The **source session stays untouched**",
           "path": "docs/functional-design.md",
-          "start": 13888
+          "start": 14730
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 2090,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 2594,
           "excerpt": "Shinatama never edits, deletes or moves\n   the source session's records. \"Archived\" is a mark in Shinatama's own database.",
           "path": "docs/technical-design.md",
-          "start": 1968
+          "start": 2472
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 14175,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 15017,
           "excerpt": "(my call; the catch-up is a\n   guess to validate)",
           "path": "docs/functional-design.md",
-          "start": 14126
+          "start": 14968
         }
       ],
       "id": "REQ-012",
@@ -294,18 +301,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 14020,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 14862,
           "excerpt": "in close mode, is archived only after the\n   destination confirms it has the context.",
           "path": "docs/functional-design.md",
-          "start": 13935
+          "start": 14777
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 14175,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 15017,
           "excerpt": "(my call; the catch-up is a\n   guess to validate)",
           "path": "docs/functional-design.md",
-          "start": 14126
+          "start": 14968
         }
       ],
       "id": "REQ-013",
@@ -315,32 +322,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 96236,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 97309,
           "excerpt": "**READY** when both hold: **technical** (the process is alive and the native session exists;\n  for a seed, its first user entry hashes to the seed sent;",
           "path": "docs/technical-design.md",
-          "start": 96084
+          "start": 97157
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 96459,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 97532,
           "excerpt": "**receipt** (the destination's first reply contains the hop's `nonce`, requested by the seed",
           "path": "docs/technical-design.md",
-          "start": 96367
+          "start": 97440
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 137603,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 140077,
           "excerpt": "Receipt: the destination replies `ready <nonce>` and one line; it costs one short turn\n  per hop. (6.3)",
           "path": "docs/technical-design.md",
-          "start": 137500
+          "start": 139974
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 137365,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 139839,
           "excerpt": "None block the design. These are my defaults; change any of them:",
           "path": "docs/technical-design.md",
-          "start": 137300
+          "start": 139774
         }
       ],
       "id": "REQ-014",
@@ -350,25 +357,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 14254,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 15096,
           "excerpt": "5. A **preview** of exactly what the destination will receive, before sending.",
           "path": "docs/functional-design.md",
-          "start": 14176
+          "start": 15018
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 89949,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 91022,
           "excerpt": "5. The user can see, before sending, exactly what is carried and what is lost.",
           "path": "docs/technical-design.md",
-          "start": 89871
+          "start": 90944
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 94516,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 95589,
           "excerpt": "**PREVIEWED**: the snapshot and loss list were shown. (`tab` opens the exact text.)",
           "path": "docs/technical-design.md",
-          "start": 94433
+          "start": 95506
         }
       ],
       "id": "REQ-015",
@@ -378,11 +385,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 2580,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 3084,
           "excerpt": "4. **What the destination receives is exactly what the user previewed**, stored\n   verbatim (snapshot, 4.2) after redaction.",
           "path": "docs/technical-design.md",
-          "start": 2456
+          "start": 2960
         }
       ],
       "id": "REQ-016",
@@ -392,32 +399,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 16373,
-          "excerpt": "What carries over, as the hop dialog must show it: conversation (text),\ntool calls (summarized unless native import preserves them), files (same folder;\ngit state unchanged), attachments (paths handed over), project instructions (e.g.\nCLAUDE.md ↔ AGENTS.md linked).",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 17301,
+          "excerpt": "What carries over, as the hop dialog must show it: conversation (text),\ntool calls (summarized unless native import preserves them), files (same folder;\ngit state unchanged), attachments (paths handed over), project instructions (e.g.\nCLAUDE.md ↔ AGENTS.md linked; what exactly that does is still to be decided and tested,",
           "path": "docs/functional-design.md",
-          "start": 16108
+          "start": 16979
         }
       ],
       "id": "REQ-017",
       "status": "extracted",
-      "text": "The hop dialog shows what carries over: the conversation text, tool calls (summarized), files (same folder, git state unchanged), attachments (paths handed over) and project instructions (CLAUDE.md and AGENTS.md linked) (unmarked in the design)"
+      "text": "The hop dialog shows what carries over: the conversation text, tool calls (summarized), files (same folder, git state unchanged), attachments (paths handed over) and project instructions (CLAUDE.md and AGENTS.md linked; what linking does is still to be decided and tested) (unmarked in the design)"
     },
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 90090,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 91163,
           "excerpt": "Not promised: moving a live process, permissions, model state, or the agent's hidden\nreasoning. Those are listed in the hop dialog as lost.",
           "path": "docs/technical-design.md",
-          "start": 89951
+          "start": 91024
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 16443,
-          "excerpt": "What does not: permissions (the destination asks\nagain), model state.",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 17460,
+          "excerpt": "What does not: permissions (the destination asks again), model state.",
           "path": "docs/functional-design.md",
-          "start": 16374
+          "start": 17391
         }
       ],
       "id": "REQ-018",
@@ -427,11 +434,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 14408,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 15250,
           "excerpt": "**Close or fork the source (decided 2026-10-27, user).** Every hop offers both: close\nthe source once the destination is live (the default), or **fork**",
           "path": "docs/functional-design.md",
-          "start": 14256
+          "start": 15098
         }
       ],
       "id": "REQ-019",
@@ -441,25 +448,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 14684,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 15526,
           "excerpt": "A user setting (`hop.source_mode`) picks the\ndefault (default: close); the hop dialog offers the other mode for that hop only.",
           "path": "docs/functional-design.md",
-          "start": 14558
+          "start": 15400
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 14312,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 15154,
           "excerpt": "**Close or fork the source (decided 2026-10-27, user).**",
           "path": "docs/functional-design.md",
-          "start": 14256
+          "start": 15098
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 45397,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 45605,
           "excerpt": "the default setting and the per-hop override both work",
           "path": "docs/verification-register.md",
-          "start": 45343
+          "start": 45551
         }
       ],
       "id": "REQ-020",
@@ -469,25 +476,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 14557,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 15399,
           "excerpt": "the source instance\nand thread stay live and usable, and the destination continues the work as a **new\nthread** whose parent is the source thread.",
           "path": "docs/functional-design.md",
-          "start": 14411
+          "start": 15253
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 14312,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 15154,
           "excerpt": "**Close or fork the source (decided 2026-10-27, user).**",
           "path": "docs/functional-design.md",
-          "start": 14256
+          "start": 15098
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 92180,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 93253,
           "excerpt": "the destination is a **new thread** with `parent_thread_id` = the source thread",
           "path": "docs/technical-design.md",
-          "start": 92101
+          "start": 93174
         }
       ],
       "id": "REQ-021",
@@ -497,25 +504,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 14801,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 15643,
           "excerpt": "Forking never resumes the source's live native session in the destination: the\ndestination gets a new native session",
           "path": "docs/functional-design.md",
-          "start": 14685
+          "start": 15527
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 14914,
-          "excerpt": "so two processes never write one session.",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 15785,
+          "excerpt": "so two processes never write one\nsession.",
           "path": "docs/functional-design.md",
-          "start": 14873
+          "start": 15744
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 14312,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 15154,
           "excerpt": "**Close or fork the source (decided 2026-10-27, user).**",
           "path": "docs/functional-design.md",
-          "start": 14256
+          "start": 15098
         }
       ],
       "id": "REQ-022",
@@ -525,25 +532,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 14990,
-          "excerpt": "After a fork the two\nthreads diverge on purpose; nothing synchronizes them.",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 15861,
+          "excerpt": "After a fork the two threads diverge on purpose; nothing synchronizes them.",
           "path": "docs/functional-design.md",
-          "start": 14915
+          "start": 15786
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 14312,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 15154,
           "excerpt": "**Close or fork the source (decided 2026-10-27, user).**",
           "path": "docs/functional-design.md",
-          "start": 14256
+          "start": 15098
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 92875,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 93948,
           "excerpt": "the\n  10-minute UNDO of 6.3 does not apply (the source is still there).",
           "path": "docs/technical-design.md",
-          "start": 92804
+          "start": 93877
         }
       ],
       "id": "REQ-023",
@@ -553,18 +560,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 15249,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 16120,
           "excerpt": "V1 ships the text hand-off for every pair of agents, with the preview, and\nnever writes a native session through Shinatama or Mukade.",
           "path": "docs/functional-design.md",
-          "start": 15116
+          "start": 15987
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 15115,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 15986,
           "excerpt": "**v1 is seed-only (decided 2026-10-31,\nuser).**",
           "path": "docs/functional-design.md",
-          "start": 15068
+          "start": 15939
         }
       ],
       "id": "REQ-024",
@@ -574,25 +581,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 16106,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 16977,
           "excerpt": "Until that post-v1 gate opens, every hop uses `seed_prompt` or\n`native_resume`; a fork also uses a seed, never a native fork or import.",
           "path": "docs/functional-design.md",
-          "start": 15971
+          "start": 16842
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 15115,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 15986,
           "excerpt": "**v1 is seed-only (decided 2026-10-31,\nuser).**",
           "path": "docs/functional-design.md",
-          "start": 15068
+          "start": 15939
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 90189,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 91262,
           "excerpt": "V1 permits only `native_resume` and `seed_prompt`.",
           "path": "docs/technical-design.md",
-          "start": 90139
+          "start": 91212
+        },
+        {
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 15742,
+          "excerpt": "destination gets a new native session, started with a seed in v1 (the agent's own fork\nor an import only post-v1, once their gates pass)",
+          "path": "docs/functional-design.md",
+          "start": 15606
         }
       ],
       "id": "REQ-025",
@@ -602,18 +616,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 15396,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 16267,
           "excerpt": "Native import is post-v1:\nit is added one destination agent and version at a time, only when its fixtures,\nprivacy, store and recovery gates pass,",
           "path": "docs/functional-design.md",
-          "start": 15250
+          "start": 16121
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 15115,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 15986,
           "excerpt": "**v1 is seed-only (decided 2026-10-31,\nuser).**",
           "path": "docs/functional-design.md",
-          "start": 15068
+          "start": 15939
         }
       ],
       "id": "REQ-026",
@@ -623,25 +637,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 65799,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 69236,
           "excerpt": "Until Mukade reads them, Hermes Agent and DeepSeek Harness resume natively and receive\n  seeds, but are not searched and are not hop sources (engine 5).",
           "path": "docs/functional-design.md",
-          "start": 65647
+          "start": 69084
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 64430,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 67861,
           "excerpt": "### Calls made to settle the rest (check them; each is also marked where it appears)",
           "path": "docs/functional-design.md",
-          "start": 64346
+          "start": 67777
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 25876,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 26496,
           "excerpt": "they resume natively within themselves and receive seeds, but are not searched and are not\nhop sources.",
           "path": "docs/technical-design.md",
-          "start": 25773
+          "start": 26393
         }
       ],
       "id": "REQ-027",
@@ -651,18 +665,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 1716,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 2220,
           "excerpt": "Two hops of the same thread can never run at once",
           "path": "docs/technical-design.md",
-          "start": 1667
+          "start": 2171
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 135766,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 138134,
           "excerpt": "two processes try to hop the same thread; exactly one wins; the loser\n   gets a clear message.",
           "path": "docs/technical-design.md",
-          "start": 135672
+          "start": 138040
         }
       ],
       "id": "REQ-028",
@@ -672,11 +686,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 98901,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 99974,
           "excerpt": "Header (always kept): `thread`, `from` agent and session short id, time, the project\n`cwd`, branch and worktree, the number of uncommitted and untracked files (first 20 paths),\nthe instruction files in effect (CLAUDE.md or AGENTS.md linked, as paths), attachments as\n`path, mime, size, sha256`",
           "path": "docs/technical-design.md",
-          "start": 98608
+          "start": 99681
         }
       ],
       "id": "REQ-029",
@@ -686,11 +700,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 99130,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 100203,
           "excerpt": "*this is quoted history\nfrom another agent; continue from the last user request; do not repeat finished work;\nreply with `ready <nonce>` and one line stating the last request, then wait.*",
           "path": "docs/technical-design.md",
-          "start": 98943
+          "start": 100016
         }
       ],
       "id": "REQ-030",
@@ -700,18 +714,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 99237,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 100310,
           "excerpt": "conversation, rendered as `[user]`, `[assistant]`, `[tool] <name> <short args> → <status>`\nlines.",
           "path": "docs/technical-design.md",
-          "start": 99140
+          "start": 100213
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 102031,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 103104,
           "excerpt": "Tool calls are **kept as one-line digests** (name, target path or command head, status),",
           "path": "docs/technical-design.md",
-          "start": 101943
+          "start": 103016
         }
       ],
       "id": "REQ-031",
@@ -721,25 +735,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 99351,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 100424,
           "excerpt": "**Budget** [C]: `seed_tokens = min(0.40 × destination_window, 60,000)`, estimated as\nbytes ÷ 3.5 (conservative).",
           "path": "docs/technical-design.md",
-          "start": 99239
+          "start": 100312
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 137435,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 139909,
           "excerpt": "Seed budget 40 % of the destination window, at most 60,000 tokens,",
           "path": "docs/technical-design.md",
-          "start": 137369
+          "start": 139843
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 135872,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 138240,
           "excerpt": "a 400-turn thread hops to a destination with a small window; the seed is\n   within budget,",
           "path": "docs/technical-design.md",
-          "start": 135782
+          "start": 138150
         }
       ],
       "id": "REQ-032",
@@ -749,18 +763,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 99546,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 100619,
           "excerpt": "`destination_window` comes from the provider's model catalog\nfor the model the destination will use (never from a name written in the code). If it is\nunknown the seed is capped at 24,000 tokens.",
           "path": "docs/technical-design.md",
-          "start": 99352
+          "start": 100425
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 99309,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 100382,
           "excerpt": "**Budget** [C]: `seed_tokens = min(0.40 × destination_window, 60,000)`",
           "path": "docs/technical-design.md",
-          "start": 99239
+          "start": 100312
         }
       ],
       "id": "REQ-033",
@@ -770,25 +784,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 99888,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 100961,
           "excerpt": "1. header; 2. the first user message (the task statement); 3. the last turns verbatim,\nfilled backward until 55 % of the budget; 4. the middle as one-line digests (user\nrequests kept, tool calls reduced to `name + target + status`); 5. oldest remaining turns\ndropped first, each gap marked `[N turns omitted]`.",
           "path": "docs/technical-design.md",
-          "start": 99578
+          "start": 100651
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 99309,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 100382,
           "excerpt": "**Budget** [C]: `seed_tokens = min(0.40 × destination_window, 60,000)`",
           "path": "docs/technical-design.md",
-          "start": 99239
+          "start": 100312
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 135932,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 138300,
           "excerpt": "keeps header + first message + last turns, marks omissions,",
           "path": "docs/technical-design.md",
-          "start": 135873
+          "start": 138241
         }
       ],
       "id": "REQ-034",
@@ -798,18 +812,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 99972,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 101045,
           "excerpt": "A tool output over 40 lines is cut to\nits first 15 and last 15 lines with a marker.",
           "path": "docs/technical-design.md",
-          "start": 99889
+          "start": 100962
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 99309,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 100382,
           "excerpt": "**Budget** [C]: `seed_tokens = min(0.40 × destination_window, 60,000)`",
           "path": "docs/technical-design.md",
-          "start": 99239
+          "start": 100312
         }
       ],
       "id": "REQ-035",
@@ -819,18 +833,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 100010,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 101083,
           "excerpt": "`reasoning` items are never included.",
           "path": "docs/technical-design.md",
-          "start": 99973
+          "start": 101046
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 99309,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 100382,
           "excerpt": "**Budget** [C]: `seed_tokens = min(0.40 × destination_window, 60,000)`",
           "path": "docs/technical-design.md",
-          "start": 99239
+          "start": 100312
         }
       ],
       "id": "REQ-036",
@@ -840,25 +854,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 100231,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 101304,
           "excerpt": "In the same step Shinatama writes the whole rendered\ntranscript to `<handoffs>/<hop-id>/full.md`, and the seed names that path so the\ndestination can read whatever the budget cut, on demand.",
           "path": "docs/technical-design.md",
-          "start": 100041
+          "start": 101114
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 100729,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 101802,
           "excerpt": "directory as fallback. [C]",
           "path": "docs/technical-design.md",
-          "start": 100703
+          "start": 101776
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 135977,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 138345,
           "excerpt": "marks omissions, and the full\n   transcript file is complete.",
           "path": "docs/technical-design.md",
-          "start": 135916
+          "start": 138284
         }
       ],
       "id": "REQ-037",
@@ -868,18 +882,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 100605,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 101678,
           "excerpt": "`<handoffs>` is `<git common dir>/shinatama/handoffs` for a git project (the common\ndirectory, so linked worktrees share it; inside the project's reach and never tracked; files\n0600 or a current-user ACL, as 4.1) or the data directory otherwise;",
           "path": "docs/technical-design.md",
-          "start": 100360
+          "start": 101433
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 100729,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 101802,
           "excerpt": "whether each\nagent's sandbox may read it is [U] and decided per agent by fixtures, with the data\ndirectory as fallback. [C]",
           "path": "docs/technical-design.md",
-          "start": 100606
+          "start": 101679
         }
       ],
       "id": "REQ-038",
@@ -889,25 +903,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 100898,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 101971,
           "excerpt": "The seed and every catch-up message start with the line `[shinatama handoff v1]` and the\n  hop's nonce.",
           "path": "docs/technical-design.md",
-          "start": 100795
+          "start": 101868
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 101185,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 102258,
           "excerpt": "The history of a\n  thread that went A → B → C is therefore A's turns + B's own turns + C's turns,\n  concatenated in order, with each seed elided.",
           "path": "docs/technical-design.md",
-          "start": 101040
+          "start": 102113
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 42707,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 42915,
           "excerpt": "Hand-off marker: the seed is recognized when read back from each agent's store (no nesting across A to B to C)",
           "path": "docs/verification-register.md",
-          "start": 42597
+          "start": 42805
         }
       ],
       "id": "REQ-039",
@@ -917,11 +931,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 101455,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 102528,
           "excerpt": "Cuts happen **on turn boundaries and on UTF-8 character boundaries**, never inside a\n  turn or a multi-byte character.",
           "path": "docs/technical-design.md",
-          "start": 101337
+          "start": 102410
         }
       ],
       "id": "REQ-040",
@@ -931,18 +945,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 101620,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 102693,
           "excerpt": "Noise is filtered when reading: Claude records with `isMeta` and sidechain records;",
           "path": "docs/technical-design.md",
-          "start": 101537
+          "start": 102610
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 101940,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 103013,
           "excerpt": "Hook and\n  system-reminder text injected into a turn is dropped from the rendering. [C]",
           "path": "docs/technical-design.md",
-          "start": 101853
+          "start": 102926
         }
       ],
       "id": "REQ-041",
@@ -952,11 +966,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 102159,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 103232,
           "excerpt": "An empty projection is refused, not sent.",
           "path": "docs/technical-design.md",
-          "start": 102118
+          "start": 103191
         }
       ],
       "id": "REQ-042",
@@ -966,11 +980,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 102240,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 103313,
           "excerpt": "Files over 64 MiB are read in streaming mode\n  from the end, never loaded whole.",
           "path": "docs/technical-design.md",
-          "start": 102160
+          "start": 103233
         }
       ],
       "id": "REQ-043",
@@ -980,25 +994,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 102529,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 103602,
           "excerpt": "**Redaction** before anything is stored or sent: secret-shaped strings (API keys, bearer\nand basic tokens, private key blocks, `.env`-style `NAME=value` where the name looks\nsecret, URLs with credentials, long high-entropy tokens) become `[redacted:<kind>]`;",
           "path": "docs/technical-design.md",
-          "start": 102271
+          "start": 103344
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 102640,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 103713,
           "excerpt": "[C; the rule list\nis the builder's]",
           "path": "docs/technical-design.md",
-          "start": 102605
+          "start": 103678
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 136142,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 138510,
           "excerpt": "a planted fake key and a fake bearer token never appear in the snapshot,\n   the seed, the full transcript file, a message body or a summary input.",
           "path": "docs/technical-design.md",
-          "start": 135996
+          "start": 138364
         }
       ],
       "id": "REQ-044",
@@ -1008,18 +1022,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 102604,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 103677,
           "excerpt": "the\ncount is shown in the dialog; the rule set is configurable and tested.",
           "path": "docs/technical-design.md",
-          "start": 102530
+          "start": 103603
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 102640,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 103713,
           "excerpt": "[C; the rule list\nis the builder's]",
           "path": "docs/technical-design.md",
-          "start": 102605
+          "start": 103678
         }
       ],
       "id": "REQ-045",
@@ -1029,18 +1043,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 58974,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 60048,
           "excerpt": "carries **only a bootstrap of at most 2 KB** (header, the last user request, an\n  instruction to read the seed file) and the full seed is a file (6.4). Shinatama spawns\n  agents with an argument vector and **no shell**:",
           "path": "docs/technical-design.md",
-          "start": 58755
+          "start": 59829
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 59212,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 60286,
           "excerpt": "directly [R-D]. [C]",
           "path": "docs/technical-design.md",
-          "start": 59193
+          "start": 60267
         }
       ],
       "id": "REQ-046",
@@ -1050,18 +1064,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 96761,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 97834,
           "excerpt": "**SWITCHING**: requires the source to be **idle** (turn finished; if it is working,\n  wait or, if the user chooses, interrupt it).",
           "path": "docs/technical-design.md",
-          "start": 96631
+          "start": 97704
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 104961,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 106399,
           "excerpt": "| source busy | no turn-end signal | wait / interrupt / cancel |",
           "path": "docs/technical-design.md",
-          "start": 104897
+          "start": 106335
         }
       ],
       "id": "REQ-047",
@@ -1071,18 +1085,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 103819,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 105257,
           "excerpt": "The same catch-up message is used in SWITCHING (6.3) when the source gained turns after\nthe snapshot.",
           "path": "docs/technical-design.md",
-          "start": 103718
+          "start": 105156
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 105027,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 106465,
           "excerpt": "| source gained turns | cursor compare | catch-up, max 2 rounds |",
           "path": "docs/technical-design.md",
-          "start": 104962
+          "start": 106400
         }
       ],
       "id": "REQ-048",
@@ -1092,18 +1106,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 97347,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 98420,
           "excerpt": "**COMMITTED**: the destination has been live for 30 s or accepted the user's next\n  message. In close mode the source instance is closed (asks first if it has a draft or\n  a running command);",
           "path": "docs/technical-design.md",
-          "start": 97156
+          "start": 98229
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 97519,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 98592,
           "excerpt": "The source's native session stays on disk\n  in both modes.",
           "path": "docs/technical-design.md",
-          "start": 97461
+          "start": 98534
         }
       ],
       "id": "REQ-049",
@@ -1113,18 +1127,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 97702,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 98775,
           "excerpt": "**UNDO**: within 10 minutes the user can `^H` back; this is a normal hop to the earlier\n  segment (`native_resume`). Close mode only: after a fork hop the source is still live. [C]",
           "path": "docs/technical-design.md",
-          "start": 97522
+          "start": 98595
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 103873,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 105311,
           "excerpt": "The 10-minute UNDO (6.3) exists only for close hops;",
           "path": "docs/technical-design.md",
-          "start": 103821
+          "start": 105259
         }
       ],
       "id": "REQ-050",
@@ -1134,25 +1148,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 14175,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 15017,
           "excerpt": "Hopping back later is a native resume of the\n   earlier session, plus a catch-up of the turns it missed. (my call; the catch-up is a\n   guess to validate)",
           "path": "docs/functional-design.md",
-          "start": 14021
+          "start": 14863
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 103385,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 104823,
           "excerpt": "2. Resume the earlier native session (`resume`).",
           "path": "docs/technical-design.md",
-          "start": 103337
+          "start": 104775
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 135613,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 137981,
           "excerpt": "A's native session is\n   resumed (its id is the old one)",
           "path": "docs/technical-design.md",
-          "start": 135557
+          "start": 137925
         }
       ],
       "id": "REQ-051",
@@ -1162,25 +1176,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 103610,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 105048,
           "excerpt": "3. Deliver a **catch-up message** as the first user turn: *\"While you were away (N turns,\n   via codex): …\"*, rendered like a seed but limited to the missed turns, same budget\n   rules, with the same `ready <nonce>` receipt.",
           "path": "docs/technical-design.md",
-          "start": 103386
+          "start": 104824
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 135651,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 138019,
           "excerpt": "its catch-up names B's two turns.",
           "path": "docs/technical-design.md",
-          "start": 135618
+          "start": 137986
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 14175,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 15017,
           "excerpt": "(my call; the catch-up is a\n   guess to validate)",
           "path": "docs/functional-design.md",
-          "start": 14126
+          "start": 14968
         }
       ],
       "id": "REQ-052",
@@ -1190,11 +1204,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 103716,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 105154,
           "excerpt": "4. If the earlier native session is gone or cannot be resumed, fall back to `seed_prompt`\n   and say why.",
           "path": "docs/technical-design.md",
-          "start": 103611
+          "start": 105049
         }
       ],
       "id": "REQ-053",
@@ -1204,25 +1218,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 102792,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 104230,
           "excerpt": "Optionally, for the agents the\nuser names (`warm_standby = [\"codex\"]`),",
           "path": "docs/technical-design.md",
-          "start": 102721
+          "start": 104159
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 137666,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 140140,
           "excerpt": "Warm standby off by default; on per agent by the user. (6.5)",
           "path": "docs/technical-design.md",
-          "start": 137606
+          "start": 140080
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 137365,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 139839,
           "excerpt": "None block the design. These are my defaults; change any of them:",
           "path": "docs/technical-design.md",
-          "start": 137300
+          "start": 139774
         }
       ],
       "id": "REQ-054",
@@ -1232,18 +1246,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 102930,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 104368,
           "excerpt": "Shinatama keeps one idle, un-seeded instance of\nthat agent running in a hidden pane **per project in use**, costing memory but no tokens;",
           "path": "docs/technical-design.md",
-          "start": 102793
+          "start": 104231
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 103059,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 104497,
           "excerpt": "A standby is discarded after 30 minutes idle\nor when its agent version changes. [C]",
           "path": "docs/technical-design.md",
-          "start": 102976
+          "start": 104414
         }
       ],
       "id": "REQ-055",
@@ -1253,11 +1267,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 104153,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 105591,
           "excerpt": "| destination not installed | `detect()` | offer install via the checkup, then retry |",
           "path": "docs/technical-design.md",
-          "start": 104067
+          "start": 105505
         }
       ],
       "id": "REQ-056",
@@ -1267,11 +1281,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 104255,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 105693,
           "excerpt": "| destination signed out | `auth_status()` | login flow (section 5.11 of the main spec), then retry |",
           "path": "docs/technical-design.md",
-          "start": 104154
+          "start": 105592
         }
       ],
       "id": "REQ-057",
@@ -1281,11 +1295,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 90975,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 92048,
           "excerpt": "| `refuse` | destination not installed/signed in and cannot be fixed, or agent is launch-only | an explanation and, where possible, the login flow |",
           "path": "docs/technical-design.md",
-          "start": 90827
+          "start": 91900
         }
       ],
       "id": "REQ-058",
@@ -1295,11 +1309,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 104370,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 105808,
           "excerpt": "| agent fails to start or exits | process exit during PREPARING | FAILED; show its last output; source untouched |",
           "path": "docs/technical-design.md",
-          "start": 104256
+          "start": 105694
         }
       ],
       "id": "REQ-059",
@@ -1309,11 +1323,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 104462,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 105900,
           "excerpt": "| session id never appears | timeout waiting for the store | FAILED; kill the destination |",
           "path": "docs/technical-design.md",
-          "start": 104371
+          "start": 105809
         }
       ],
       "id": "REQ-060",
@@ -1323,11 +1337,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 104558,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 105996,
           "excerpt": "| seed not found in the new session (hash mismatch) | technical check | FAILED; show the diff |",
           "path": "docs/technical-design.md",
-          "start": 104463
+          "start": 105901
         }
       ],
       "id": "REQ-061",
@@ -1337,11 +1351,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 104896,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 106334,
           "excerpt": "| no receipt (`nonce` missing) | timeout | one retry (re-ask for the receipt); then FAILED, offering to switch anyway |",
           "path": "docs/technical-design.md",
-          "start": 104777
+          "start": 106215
         }
       ],
       "id": "REQ-062",
@@ -1351,18 +1365,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 105328,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 106766,
           "excerpt": "the hidden pane is brought forward so **the user answers it**; Shinatama does not write the agent's configuration to pre-answer it",
           "path": "docs/technical-design.md",
-          "start": 105198
+          "start": 106636
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 41432,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 41640,
           "excerpt": "Surfaced to the user quickly; never hidden",
           "path": "docs/verification-register.md",
-          "start": 41390
+          "start": 41598
         }
       ],
       "id": "REQ-063",
@@ -1372,11 +1386,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 105620,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 107058,
           "excerpt": "| destination stuck without a visible reason | READY timeout | FAILED with the pane's last 40 lines shown; the source stays live and **the hop is never left hidden in a half state** |",
           "path": "docs/technical-design.md",
-          "start": 105437
+          "start": 106875
         }
       ],
       "id": "REQ-064",
@@ -1386,11 +1400,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 96628,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 97701,
           "excerpt": "Timeout 90 s → FAILED. [C]",
           "path": "docs/technical-design.md",
-          "start": 96602
+          "start": 97675
         }
       ],
       "id": "REQ-065",
@@ -1400,25 +1414,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 105680,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 107118,
           "excerpt": "| Shinatama crashes | recovery at start (6.3) | per state |",
           "path": "docs/technical-design.md",
-          "start": 105621
+          "start": 107059
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 134926,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 137294,
           "excerpt": "inject a crash after each state of 6.3; on restart the hop ends\n   in the documented terminal state; no source record is changed;",
           "path": "docs/technical-design.md",
-          "start": 134797
+          "start": 137165
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 135091,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 137459,
           "excerpt": "no\n   duplicate destination session or process remains.",
           "path": "docs/technical-design.md",
-          "start": 135036
+          "start": 137404
         }
       ],
       "id": "REQ-066",
@@ -1428,18 +1442,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 98117,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 99190,
           "excerpt": "recovery **only observes and never relaunches automatically**",
           "path": "docs/technical-design.md",
-          "start": 98056
+          "start": 99129
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 98253,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 99326,
           "excerpt": "after 90 s\nit marks FAILED and offers a manual retry;",
           "path": "docs/technical-design.md",
-          "start": 98200
+          "start": 99273
         }
       ],
       "id": "REQ-067",
@@ -1449,11 +1463,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 98579,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 99652,
           "excerpt": "No recovery path deletes anything an agent owns.",
           "path": "docs/technical-design.md",
-          "start": 98531
+          "start": 99604
         }
       ],
       "id": "REQ-068",
@@ -1463,11 +1477,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 105803,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 107241,
           "excerpt": "| database locked or full | `SQLITE_BUSY`/`FULL` | retry with backoff; show the error; never proceed without the journal |",
           "path": "docs/technical-design.md",
-          "start": 105681
+          "start": 107119
         }
       ],
       "id": "REQ-069",
@@ -1477,25 +1491,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 105913,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 107351,
           "excerpt": "| agent version unknown to the adapter | fixture version gate | the pair drops to `seed_prompt` or `refuse` |",
           "path": "docs/technical-design.md",
-          "start": 105804
+          "start": 107242
+        },
+        {
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 58952,
+          "excerpt": "hops to or from it drop to `seed_prompt` or\n`refuse`; the UI says why (decided by the user 2026-11-01; 5.2, 6.7, 11.10)",
+          "path": "docs/technical-design.md",
+          "start": 58833
         }
       ],
       "id": "REQ-070",
       "status": "extracted",
-      "text": "Shinatama drops hops involving an agent whose version is unknown to its adapter to a seed, or refuses them (unmarked in the design)"
+      "text": "Shinatama drops hops to or from an agent whose installed version fails its fixtures (a version unknown to its adapter) to a seed, or refuses them, and the UI says why (decided by the user, 2026-11-01)"
     },
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 106022,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 107460,
           "excerpt": "| context window too small for the minimum seed | budget < header + task + last turn | refuse with numbers |",
           "path": "docs/technical-design.md",
-          "start": 105914
+          "start": 107352
         }
       ],
       "id": "REQ-071",
@@ -1505,16 +1526,65 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 104776,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 106214,
           "excerpt": "| Mukade writes a session but optional resume fails | `ResumeFailed` carries a receipt | persist the receipt and manifest, keep the source live and recover or resume that destination; never blindly repeat the import |",
           "path": "docs/technical-design.md",
-          "start": 104559
+          "start": 105997
         }
       ],
       "id": "REQ-072",
       "status": "extracted",
       "text": "Shinatama, post-v1, persists the receipt and manifest, keeps the source live and never blindly repeats the import when a native import writes a session but the optional resume fails (unmarked in the design)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 17390,
+          "excerpt": "and no file is created in the user's repository without consent: my call; register H18).",
+          "path": "docs/functional-design.md",
+          "start": 17302
+        },
+        {
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 44363,
+          "excerpt": "\"Instruction files linked\" (CLAUDE.md and AGENTS.md): what exactly is done, with no file created in the user's repository without consent",
+          "path": "docs/verification-register.md",
+          "start": 44226
+        }
+      ],
+      "id": "REQ-073",
+      "status": "extracted",
+      "text": "Shinatama never creates a file in the user's repository without the user's consent when it links project instructions (CLAUDE.md and AGENTS.md) for a hop destination (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 104078,
+          "excerpt": "No destination executes or expands such a line of the seed or the\nbootstrap; where a channel would, the seed is escaped or sent by a safe channel.\n[C; register Q9, H7]",
+          "path": "docs/technical-design.md",
+          "start": 103911
+        },
+        {
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 103910,
+          "excerpt": "Text from an old transcript can contain lines\nthat start with `/` (a slash command), `!` (a shell escape in Claude), `@path` (file\ninclusion), `#` or `-`.",
+          "path": "docs/technical-design.md",
+          "start": 103756
+        },
+        {
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 42041,
+          "excerpt": "A seed or bootstrap containing a line starting with `/`, `!`, `@path`, `#`, or `-` is not executed or expanded by any destination",
+          "path": "docs/verification-register.md",
+          "start": 41912
+        }
+      ],
+      "id": "REQ-074",
+      "status": "extracted",
+      "text": "No hop destination executes or expands a line of the seed or of the bootstrap that starts with `/`, `!`, `@path`, `#` or `-`; where a delivery channel would, Shinatama escapes the seed or sends it by a safe channel (author's call, unconfirmed)"
     }
   ],
   "schema_version": 1,

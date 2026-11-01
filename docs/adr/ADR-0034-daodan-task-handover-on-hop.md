@@ -49,8 +49,14 @@ closed. Sources, kept apart:
 
 - Decided by the user, 2026-10-27: Shinatama carries the task across a hop (functional-design
   goal 5 and 5.5, as part of native support).
-- Author's call, not confirmed: a fork hands over no task (daodan-native-support 7, call 3).
-- Proposed shape: the close-mode sequence of daodan-native-support 4.3, "proposed, not approved".
+- Confirmed by the user on 2026-11-01, as part of the native-support shape: in close mode the
+  destination takes the task over only through a separate message sent after the hop is
+  COMMITTED and the source's closure is confirmed, with one user confirmation in total; until
+  then the holder is unchanged (functional-design 5.5, which also keeps the holder unchanged in
+  fork mode; daodan-native-support goal 3).
+- Author's call, still to check: a fork hands over no task (daodan-native-support 7, call 3).
+- Proposed shape: the detailed close-mode sequence of daodan-native-support 4.3, "proposed, not
+  approved".
 
 The full design is in daodan-native-support 4.3; this record holds only the decision. It
 relies on the close and fork modes (ADR-0017), the hop state machine (ADR-0018) and the
@@ -60,7 +66,7 @@ read-only link (ADR-0033).
 
 - Two live processes must never both believe they hold one task.
 - The takeover must never happen before the source is really closed.
-- One user confirmation, not two: the hop dialog's confirmation is the one Daodan needs.
+- One user confirmation, not two: the hop dialog's confirmation, with COMMITTED and the source's confirmed closure, is the "old session is closed" that Daodan's take-over needs (daodan-native-support goal 3).
 - Shinatama writes no Daodan state; the destination takes over through Daodan's own flow.
 
 ## Decision

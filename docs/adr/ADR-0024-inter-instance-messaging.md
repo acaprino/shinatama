@@ -46,8 +46,10 @@ each other and compare on a topic (functional-design goal 10, decided as a wish)
 overview of the communication flows and exchanges between instances (goal 12). No user decision
 covers the messaging itself; its shape is the author's. Technical-design 7.2 and 7.5 are tagged
 [C], the rest of section 7 is untagged author's design, and technical-design 12 lists the
-project-or-roundtable scope and the limits on what agents can do as the author's defaults. The
-question is how one hosted agent reaches another without either one steering the other or
+project-or-roundtable scope (unless a per-project setting broadens it) and the limits on what
+agents can do as the author's defaults. The PTY-write rule of register M5 and the server-side
+depth limit of register M7 are written into technical-design 7.3 and 7.4 as the author's calls
+[C]. The question is how one hosted agent reaches another without either one steering the other or
 acting with the user's authority. The full design is in technical-design 7.1 to 7.7; this record
 holds only the decision.
 
@@ -70,11 +72,14 @@ per-project setting broadens it.
 
 Delivery tries, per recipient capability: the agent's native queue, then hook injection through
 `shinatama hook`, then MCP pull through `shinatama_inbox`, and last a PTY bracketed paste, only
-when the instance is idle and the user has typed nothing in it for 10 s. States are `queued`,
+when the instance is idle and the user has typed nothing in it for 10 s, and never while a
+permission dialog, a selection, a search box or a draft is active, so that a PTY write can never
+answer a permission prompt; otherwise that channel is removed. States are `queued`,
 `delivering`, `delivered`, `acked`, `failed` and `expired`; `delivered` is never shown as read.
 Delivery is at least once (at most 5 retries, backoff 5 s ×2), receivers are idempotent by
-message id, and nothing promises exactly once. Limits: depth 6, 6 messages per minute per
-sender-recipient pair, 40 per hour per thread. A tripped limit pauses agent-to-agent
+message id, and nothing promises exactly once. Limits: depth 6, enforced by the server even when
+the agents do not carry `in_reply_to`; 6 messages per minute per sender-recipient pair; 40 per
+hour per thread. A tripped limit pauses agent-to-agent
 auto-replies and raises an `alert`; nothing is dropped silently.
 
 `shinatama mcp` is a stdio subcommand of the same binary, injected per launch, with four tools:
@@ -108,8 +113,9 @@ technical-design 7.1 to 7.7.
 - **INV-005**: `message.dedupe_key` is unique and receivers are idempotent by message id.
 - **INV-006**: `shinatama mcp` and `shinatama hook` refuse a caller whose token does not match the instance's stored token hash.
 - **INV-007**: an agent's only Shinatama tools are the four; it cannot hop, start instances or roundtables, read another instance's transcript or change settings.
-- **INV-008**: a PTY write happens only when the recipient is idle and the user has typed nothing in it for 10 s, and never while a permission dialog, a selection, a search box or a draft is active (register M5).
+- **INV-008**: a PTY write happens only when the recipient is idle and the user has typed nothing in it for 10 s, and never while a permission dialog, a selection, a search box or a draft is active, so that a PTY write never answers a permission prompt; where that cannot be guaranteed the channel is removed (author's call; technical-design 7.3; register M5).
 - **INV-009**: secrets are redacted from message bodies before storage and delivery (technical-design I5).
+- **INV-010**: the depth limit is enforced by the server, so it holds even when the agents do not carry `in_reply_to` (author's call; technical-design 7.4; register M7).
 
 ## Consequences
 

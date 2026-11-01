@@ -63,7 +63,10 @@ A claim Shinatama depends on counts as proved only when a register row has been 
 machine against the installed version and has passed. Every factual claim about an outside system
 carries an evidence tag: `[V]` verified on the user's machine, `[D]` documentation or source, `[R]` the
 research task (read, not executed), `[S]` another tool's source, `[U]` unverified, `[C]` the
-author's call (technical-design 0). Every unproved claim is listed once in the register with how
+author's call, `[H: …]` read in the named `--help` output with nothing more run; a note after a
+tag qualifies it (`[C; register M15]` names the row that tests a call, `[C; decided by the user
+<date>]` marks a call the user decided), and a later record states its own date and versions
+(technical-design 0). Every unproved claim is listed once in the register with how
 to prove it, what counts as proved and where the result is written back. Each run writes one
 record, `docs/verification/YYYY-MM-DD-<ID>-<topic>.md`, with machine, versions, commands, raw
 result, pass or fail, and the spec text before and after. Write-back is part of the item: a row is
@@ -72,8 +75,9 @@ corrected; a failed item changes the spec and keeps the failure. Fixtures come f
 sessions created for the test, with invented content, a marker string per turn and the agent
 version in the file name. Anything that writes uses a scratch home; real homes are read only.
 `G0` rows change the design if they fail, `G1` rows block one feature, `G2` rows tune a value.
-When an agent's version changes, `fixture_gate` drops its adapter to degraded until its suite
-passes again. `SEC` rows get a second reader. Where the register and technical-design 10 differ,
+An agent whose installed version fails its suite is `Degraded` (each failing capability
+`unsupported`, launch-only plus its own export command, hops by seed or refused; ADR-0011) until
+the suite passes again. `SEC` rows get a second reader. Where the register and technical-design 10 differ,
 the register wins. "A claim is not 'done' until its row is `passed` and the sentence here has been
 changed to match" (functional-design 8a).
 
@@ -81,7 +85,7 @@ changed to match" (functional-design 8a).
 
 - **EX-001** (nominal case): Input: the spec claim that Pi can run a backend its TUI attaches to (register Q2) -> Expected: PI5, run on 2026-10-27, found no TUI attach; the row reads "passed (spec corrected)" and technical-design 5.7 item 4 carries the dated correction (register 21; record PI5).
 - **EX-002** (rejection or error case): Input: D15, each agent started with only its home variable pointing at a private home -> Expected: the leaks found are recorded, functional-design 5.14 is rewritten to list the extra variables per agent, and the row stays "running (partial)" while login persistence waits on O1 (record D15).
-- **EX-003** (boundary case): Input: an installed agent version that fails its fixtures -> Expected: the agent drops to launch-only with a visible reason instead of a wrong hop (technical-design 11.10); its register rows are rerun on the new version before release notes claim support (register 0).
+- **EX-003** (boundary case): Input: an installed agent version that fails its fixtures -> Expected: the agent is `Degraded` (launch-only plus its own export command, failing capabilities `unsupported`, hops by seed or refused) with a visible reason instead of a wrong hop (technical-design 5.5.3, 11.10); its register rows are rerun on the new version before release notes claim support (register 0).
 - **EX-004** (boundary case): Input: a check that needs the shape of the user's real store, such as the size of the OpenCode database -> Expected: only counts and column names are recorded; no real conversation enters the repository or a record (register 0).
 - **EX-005** (boundary case): Input: Hermes Agent and DeepSeek Harness, known only from research -> Expected: every adapter capability declared `unsupported` until its row passes; nothing claimed from documentation alone (functional-design 2, goal 1).
 
@@ -96,7 +100,7 @@ changed to match" (functional-design 8a).
 - **INV-002**: a row is `passed` only after its spec sentence is changed to `[V]` or corrected; a failed or changed row keeps its record and its spec change.
 - **INV-003**: fixtures are synthetic; no real conversation of the user is copied into the repository or a record.
 - **INV-004**: tests that write use scratch homes; real homes are read with shared read access and never with `immutable` on a database an agent may be writing; test code never copies credential files; logins are done by the user, one per scratch home; every live-model test states a cost cap and records the cost.
-- **INV-005**: after an agent version changes, its adapter runs degraded until its fixtures pass on the new version.
+- **INV-005**: after an agent version changes, the agent runs `Degraded` (ADR-0011) until its fixtures pass on the new version.
 - **INV-006**: no measured saving percentage is claimed for compression until it is measured (functional-design 3).
 - **INV-007**: `SEC` rows are reviewed by a second reader, and their records state the negative result as well as the positive.
 
@@ -111,4 +115,4 @@ changed to match" (functional-design 8a).
 ## Confirmation
 
 - Each register row is confirmed by its own pass criterion, its record and its spec write-back.
-- Runs so far (register 21): 17 rows with local records from 2026-10-27 and 2026-10-28, all on one Windows 11 machine, plus H27 (changed), whose record was removed from Mukade's docs. CX4 and OC2 passed, PI5 passed with the spec corrected, D17 changed, D1 is done; the other twelve are running (partial). Most rows, including most of the first-milestone set, are open.
+- Runs so far (register 21): 17 rows with local records from 2026-10-27 and 2026-10-28, all on one Windows 11 machine, plus H27 (changed), whose record was removed from Mukade's docs. CX4 and OC2 passed, PI5 passed with the spec corrected, D17 changed, D1 is done; the other twelve are running, eleven of them partial and OC8 with its criterion not met on the real home. Most rows, including most of the first-milestone set, are open.

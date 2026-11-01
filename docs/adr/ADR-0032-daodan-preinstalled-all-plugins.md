@@ -1,7 +1,7 @@
 ---
 adr_id: ADR-0032
 version: 1
-title: Daodan is the only marketplace, installed as prebuilt per-host packages with every plugin enabled
+title: Daodan installed as prebuilt per-host packages with every plugin enabled; other marketplaces allowed
 status: Proposed
 author: Alfio Caprino
 scope:
@@ -32,7 +32,7 @@ superseded_by: null
 changes:
 ---
 
-# ADR-0032: Daodan is the only marketplace, installed as prebuilt per-host packages with every plugin enabled
+# ADR-0032: Daodan installed as prebuilt per-host packages with every plugin enabled; other marketplaces allowed
 
 <!-- adr-header:start -->
 Version 1 · Proposed 2026-11-01 at b667db5 · proposed 2026-11-01 by Alfio Caprino
@@ -47,7 +47,9 @@ agents Daodan does not build for. Sources of the decision, kept apart:
 - Decided by the user: "option A, downloaded and kept updated" (functional-design 5.5 heading);
   every plugin enabled, 2026-10-27: "mi aspetto che attivi tutti i plugin di shinatama" (I expect
   it to activate all the plugins; daodan-native-support 4.6); only Daodan is a marketplace,
-  2026-10-27: "solo daodan è il repository marketplace plugin" (D1 record).
+  2026-10-27: "solo daodan è il repository marketplace plugin" (D1 record), a restriction the
+  user lifted on 2026-11-01: any marketplace may be registered, including the ones Daodan
+  declares as dependencies (functional-design 5.5; daodan-native-support 4.6).
 - Author's call, not confirmed: no Daodan package on Hermes Agent and DeepSeek Harness and
   nothing copied from another host (functional-design 5.5 and 7, dated 2026-10-31).
 - Proposed shape: the `daodan.enable` setting and the checkup rules of daodan-native-support 4.6,
@@ -60,15 +62,16 @@ only the decision.
 
 - Daodan already ships a build per host; Shinatama should install it, not translate it.
 - The user expects every plugin to be active.
-- One marketplace: the old `acaprino/shinatama` marketplace was redundant and collided with
-  the product name.
+- The old `acaprino/shinatama` marketplace was redundant and collided with the product name;
+  Daodan itself depends on plugins from other marketplaces (record D15).
 - A package Daodan did not compile and check for a host would claim an execution nobody proved.
 - The context cost of "all" must stay controllable.
 
 ## Decision
 
-Daodan is the only plugin marketplace: Shinatama registers one marketplace per host and no
-other. The checkup installs or updates Daodan's own prebuilt build in every agent present,
+Daodan is the marketplace Shinatama installs and enables, but not the only one allowed: the
+marketplaces Daodan declares as dependencies, and any other, may be registered (user,
+2026-11-01). The checkup installs or updates Daodan's own prebuilt build in every agent present,
 into the agent's home: the box by default, the agent's native plugin store with the `system`
 home, and per launch for an instance with its own set (see ADR-0012). Shinatama converts
 nothing and translates nothing. The checkup enables every plugin the Daodan marketplace lists,
@@ -94,7 +97,7 @@ this agent". See functional-design 5.5 and daodan-native-support 4.6.
 
 ## Enforceable Invariants
 
-- **INV-001**: exactly one plugin marketplace is registered per host, and it is Daodan.
+- **INV-001**: Daodan's marketplace is registered on every host Daodan builds for; another marketplace, such as one Daodan declares as a dependency, may be registered beside it and never changes what `all` enables (user, 2026-11-01).
 - **INV-002**: the set of plugins enabled under `all` equals the Daodan manifest read at check time; no plugin list is kept in Shinatama.
 - **INV-003**: what is installed is Daodan's build for that host, unchanged; no host receives another host's build.
 - **INV-004**: a plugin the user disabled is never re-enabled by the checkup.
@@ -104,9 +107,9 @@ this agent". See functional-design 5.5 and daodan-native-support 4.6.
 
 - The cost of `all` is open (register D4): skill listings and tool definitions in each agent's first request, failing MCP servers, launch time. The D15 record saw Pi's system prompt grow from 2,932 to 55,463 characters after a Daodan install. The default stays `all` as asked.
 - With the `system` home, the user's own agent runs see Daodan too (functional-design 3).
-- The D15 record (2026-10-28) found that on Claude Code `testing@daodan` needs `mattpocock-skills@mattpocock`, and that Daodan depends on 8 plugins from other marketplaces. The docs do not yet reconcile this with "one marketplace per host" or with "Daodan's own build for each host already carries its dependencies" (functional-design 5.5); register D2, which covers per-host install, is still open.
-- The docs give Daodan's version as "marketplace 1.0.0" (functional-design 5.5, register D4), "42.0.0" (register D2) and "42.7.3" (D1 record); the three should be aligned.
-- functional-design 7 item 3 dates the marketplace deletion 2026-10-26; the D1 record and README date the remote deletion 2026-10-27 (the local checkout went on 2026-10-26).
+- The D15 record (2026-10-28) found that on Claude Code `testing@daodan` needs `mattpocock-skills@mattpocock`, and that Daodan depends on 8 plugins from other marketplaces (seven dependency marketplaces at Daodan `9fa47e7`, daodan-native-support 4.6); registering them is allowed since the user lifted the Daodan-only restriction on 2026-11-01. Register D2, which covers per-host install, is still open.
+- Daodan's current marketplace is 1.0.0, since Daodan reset its versions on 2026-10-29 (functional-design 5.5; register D2, D4); the 42.0.0 of register Q1 and the 42.7.3 of the D1 record are history.
+- The old `acaprino/shinatama` marketplace is gone: its local checkout was deleted on 2026-10-26 and the remote repository on 2026-10-27, after a verified bundle backup (functional-design 7 item 3; D1 record).
 - Left behind by D1: prose naming the old repository in Daodan's `README.md` and `AGENTS.md`, and a dead link in Mukade's `README.md` line 8.
 - When Daodan ships packages for Hermes Agent or DeepSeek Harness, the checkup treats them like the other five (register D20); asking Daodan for them is open (register O10).
 

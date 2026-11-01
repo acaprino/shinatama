@@ -7,7 +7,7 @@
   "entities": [],
   "frd_id": "FRD-0013",
   "last_verified_sha": null,
-  "proposed_at_sha": "e22191501ff4ef3a182bcee7175dba73550586e6",
+  "proposed_at_sha": "e7a1c1dd1ce0429f012af8aa2a40097038a22553",
   "proposed_on": "2026-11-01",
   "relationships": [],
   "requirements": [
@@ -273,11 +273,11 @@
           "start": 6625
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 8208,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 8397,
           "excerpt": "- No measured saving percentage may be claimed for compression",
           "path": "docs/functional-design.md",
-          "start": 8146
+          "start": 8335
         }
       ],
       "id": "REQ-009",
@@ -1190,18 +1190,18 @@
           "start": 21802
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 116679,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 118433,
           "excerpt": "its own security model. It is **not** in v1; it is an evaluated option.",
           "path": "docs/technical-design.md",
-          "start": 116608
+          "start": 118362
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 76138,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 77013,
           "excerpt": "Built only if the saving beats a threshold the user sets and success does not fall",
           "path": "docs/verification-register.md",
-          "start": 76056
+          "start": 76931
         }
       ],
       "id": "REQ-041",

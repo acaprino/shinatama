@@ -67,8 +67,9 @@ and thread, state, what it is doing, tokens and cost, and context fill, beside t
 instances, a timeline of exchanges and changes, and the work per shared folder. It reads; its
 only actions are focus a session, hop and pause an instance's summaries.
 
-What an instance is doing is a title that Shinatama asks a low-cost model for, on a state change
-and every 2 minutes while `working`: an input of at most 6 KB from the transcript tail, redacted,
+What an instance is doing is a title that Shinatama asks a low-cost model for, on every state
+change and every 2 minutes while `working` (defaults; the frequency is a setting): an input of
+at most 6 KB from the transcript tail, redacted,
 and an answer of one line of at most 12 words, stored in `instance.doing_title`, with tokens and
 cost logged in `summary_log`. The titler is an interface with three backends, one active and
 chosen by the user: a small local GGUF model run through llama.cpp (the idea of `kouhxp/fftext`,

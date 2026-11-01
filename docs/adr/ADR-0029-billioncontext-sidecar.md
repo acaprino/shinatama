@@ -45,8 +45,10 @@ brought in (a copy with provenance, a submodule or a published package) is the b
 as long as it stays a single source (functional-design 7 item 3). Gemini's launch-only coverage
 is the author's call (functional-design 5.9). The sidecar's own documents (`docs/sidecar.md`,
 `docs/token-efficiency.md`, `docs/prompt-rewrite.md`) live in its source tree, not here. Who
-supervises the proxy is a separate record (ADR-0030). The full design is in functional-design 5.6
-and technical-design 9; this record holds only the decision.
+supervises the proxy is a separate record (ADR-0030). That the seed, bootstrap and receipt pass
+the sidecar unaltered is the author's call, written into technical-design 9 from register Q5 and
+SC9. The full design is in functional-design 5.6 and technical-design 9; this record holds only
+the decision.
 
 ## Decision Drivers
 
@@ -102,6 +104,7 @@ claimed. See functional-design 5.6 and technical-design 9.
 - **INV-005**: hosted agent traffic, title calls to a provider and roundtable bare-model calls go through the proxy; a provider whose traffic does not is marked uncovered.
 - **INV-006**: the seed budget stays below the sidecar's adaptive threshold.
 - **INV-007**: no compression saving percentage is claimed (functional-design 3).
+- **INV-008**: the seed, the bootstrap and the receipt reach the agent as sent: the prompt rewriter (`promptRewrite.mode: auto`) does not alter them and CCR does not externalize them; where either would, a bypass marker is added (author's call; technical-design 9; register Q5, SC9).
 
 ## Consequences
 
@@ -111,6 +114,7 @@ claimed. See functional-design 5.6 and technical-design 9.
 - The hop context passes through the sidecar and counts against the destination's window (functional-design 5.6).
 - The token-savings adapters for Hermes Agent and DeepSeek Harness ride this path and wait for HM12 and DS12 (token-savings 8.1).
 - Gemini's launch-only adapter must keep working through the sidecar (register SC11).
+- Open: whether the bypass marker of INV-008 needs support in the sidecar, whose code stays unmodified (INV-001); register SC9 compares the bytes sent and received.
 
 ## Confirmation
 

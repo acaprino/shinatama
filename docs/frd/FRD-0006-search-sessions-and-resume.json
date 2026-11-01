@@ -7,21 +7,21 @@
   "entities": [],
   "frd_id": "FRD-0006",
   "last_verified_sha": null,
-  "proposed_at_sha": "e22191501ff4ef3a182bcee7175dba73550586e6",
+  "proposed_at_sha": "e7a1c1dd1ce0429f012af8aa2a40097038a22553",
   "proposed_on": "2026-11-01",
   "relationships": [],
   "requirements": [
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 2670,
-          "excerpt": "3. Search all local sessions of all supported agents; resume from history in the\n   same agent or in a different one.",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 2776,
+          "excerpt": "3. Search all local sessions of every supported agent Mukade reads (four today; Hermes\n   Agent and DeepSeek Harness once Mukade reads them, 5.3 and engine 5); resume from\n   history in the same agent or in a different one.",
           "path": "docs/functional-design.md",
           "start": 2553
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
           "end": 1842,
           "excerpt": "### Goals (decided unless marked)",
           "path": "docs/functional-design.md",
@@ -30,16 +30,23 @@
       ],
       "id": "REQ-001",
       "status": "extracted",
-      "text": "The user can search local agent sessions and resume a session from history in the same agent or in a different one (decided by the user)"
+      "text": "The user can search all local sessions of every supported agent that Mukade reads and resume a session from history in the same agent or in a different one (decided by the user)"
     },
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 16838,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 17855,
           "excerpt": "Full-text search over the sessions of every agent Mukade reads,",
           "path": "docs/functional-design.md",
-          "start": 16775
+          "start": 17792
+        },
+        {
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 2711,
+          "excerpt": "3. Search all local sessions of every supported agent Mukade reads (four today; Hermes\n   Agent and DeepSeek Harness once Mukade reads them, 5.3 and engine 5)",
+          "path": "docs/functional-design.md",
+          "start": 2553
         }
       ],
       "id": "REQ-002",
@@ -49,25 +56,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 65799,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 69236,
           "excerpt": "Until Mukade reads them, Hermes Agent and DeepSeek Harness resume natively and receive\n  seeds, but are not searched and are not hop sources (engine 5).",
           "path": "docs/functional-design.md",
-          "start": 65647
+          "start": 69084
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 64430,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 67861,
           "excerpt": "### Calls made to settle the rest (check them; each is also marked where it appears)",
           "path": "docs/functional-design.md",
-          "start": 64346
+          "start": 67777
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 25772,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 26392,
           "excerpt": "those two adapters declare `list_sessions`, `read_transcript` and `export` unsupported:",
           "path": "docs/technical-design.md",
-          "start": 25685
+          "start": 26305
+        },
+        {
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 2711,
+          "excerpt": "Hermes\n   Agent and DeepSeek Harness once Mukade reads them, 5.3 and engine 5)",
+          "path": "docs/functional-design.md",
+          "start": 2633
         }
       ],
       "id": "REQ-003",
@@ -77,11 +91,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 16907,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 17924,
           "excerpt": "filterable by agent,\nproject and date, with a preview of the thread.",
           "path": "docs/functional-design.md",
-          "start": 16839
+          "start": 17856
         }
       ],
       "id": "REQ-004",
@@ -91,11 +105,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 16907,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 17924,
           "excerpt": "filterable by agent,\nproject and date, with a preview of the thread.",
           "path": "docs/functional-design.md",
-          "start": 16839
+          "start": 17856
         }
       ],
       "id": "REQ-005",
@@ -105,11 +119,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 16949,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 17966,
           "excerpt": "Enter resumes in the same agent\n(native);",
           "path": "docs/functional-design.md",
-          "start": 16908
+          "start": 17925
         }
       ],
       "id": "REQ-006",
@@ -119,11 +133,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 16999,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18016,
           "excerpt": "another key resumes in a different agent (a hop).",
           "path": "docs/functional-design.md",
-          "start": 16950
+          "start": 17967
         }
       ],
       "id": "REQ-007",
@@ -133,18 +147,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 10204,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 10490,
           "excerpt": "Shinatama reads each agent's own session store to search and to resume.",
           "path": "docs/functional-design.md",
-          "start": 10133
+          "start": 10419
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 2880,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 3384,
           "excerpt": "7. **Native stores are read-only in v1**, except through the agent's own commands.",
           "path": "docs/technical-design.md",
-          "start": 2798
+          "start": 3302
         }
       ],
       "id": "REQ-008",
@@ -154,25 +168,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 2736,
-          "excerpt": "Interactive terminal flow plus a scriptable\n   command line mode.",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 2842,
+          "excerpt": "Interactive terminal flow plus a\n   scriptable command line mode.",
           "path": "docs/functional-design.md",
-          "start": 2671
+          "start": 2777
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
           "end": 1842,
           "excerpt": "### Goals (decided unless marked)",
           "path": "docs/functional-design.md",
           "start": 1809
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17058,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18075,
           "excerpt": "The command line mode\nmirrors it for scripts, for example:",
           "path": "docs/functional-design.md",
-          "start": 17000
+          "start": 18017
         }
       ],
       "id": "REQ-009",
@@ -182,11 +196,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 55979,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 56836,
           "excerpt": "Native workspace UI and scripts call the same adapter functions:",
           "path": "docs/technical-design.md",
-          "start": 55915
+          "start": 56772
         }
       ],
       "id": "REQ-010",
@@ -196,18 +210,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 56061,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 56918,
           "excerpt": "shinatama sessions [--agent A] [--project P] [--json]       -> list_sessions",
           "path": "docs/technical-design.md",
-          "start": 55985
+          "start": 56842
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 9534,
-          "excerpt": "(`sessions`, `export`, `import`, `forget`; names\nare my call)",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 9750,
+          "excerpt": "(engine 4.7); names are my call.",
           "path": "docs/functional-design.md",
-          "start": 9473
+          "start": 9718
         }
       ],
       "id": "REQ-011",
@@ -217,25 +231,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 56139,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 56996,
           "excerpt": "shinatama find \"text\" [--agent A] [--json]                  -> the text index",
           "path": "docs/technical-design.md",
-          "start": 56062
+          "start": 56919
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17119,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18136,
           "excerpt": "shinatama find \"refresh token\" --json | jq -r '.[0].id'",
           "path": "docs/functional-design.md",
-          "start": 17064
+          "start": 18081
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 9534,
-          "excerpt": "(`sessions`, `export`, `import`, `forget`; names\nare my call)",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 9750,
+          "excerpt": "(engine 4.7); names are my call.",
           "path": "docs/functional-design.md",
-          "start": 9473
+          "start": 9718
         }
       ],
       "id": "REQ-012",
@@ -245,25 +259,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 56498,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 57364,
           "excerpt": "shinatama resume <thread | agent:session> [--agent A]       -> resume, or a hop if A differs",
           "path": "docs/technical-design.md",
-          "start": 56406
+          "start": 57272
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 17157,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 18174,
           "excerpt": "shinatama resume t_8f3a --agent codex",
           "path": "docs/functional-design.md",
-          "start": 17120
+          "start": 18137
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 9534,
-          "excerpt": "(`sessions`, `export`, `import`, `forget`; names\nare my call)",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 9750,
+          "excerpt": "(engine 4.7); names are my call.",
           "path": "docs/functional-design.md",
-          "start": 9473
+          "start": 9718
         }
       ],
       "id": "REQ-013",
@@ -273,18 +287,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 56574,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 57440,
           "excerpt": "shinatama hop <thread> --to A [--preview] [--yes]           -> handover (6)",
           "path": "docs/technical-design.md",
-          "start": 56499
+          "start": 57365
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 9534,
-          "excerpt": "(`sessions`, `export`, `import`, `forget`; names\nare my call)",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 9750,
+          "excerpt": "(engine 4.7); names are my call.",
           "path": "docs/functional-design.md",
-          "start": 9473
+          "start": 9718
         }
       ],
       "id": "REQ-014",
@@ -294,25 +308,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 56317,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 57174,
           "excerpt": "shinatama export <thread | agent:session> [-o file.stx.jsonl] [--mode full|portable]\n                      [--format stx|mukade|native|md] [--with-attachments]         -> export",
           "path": "docs/technical-design.md",
-          "start": 56140
+          "start": 56997
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 56851,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 57717,
           "excerpt": "`--format`: `stx` is 5.5.1; `mukade` is Mukade's interchange JSON; `native` is the agent's\nown export where it has one (`export_native`, 5.5 B); `md` is the rendering of 6.4.",
           "path": "docs/technical-design.md",
-          "start": 56677
+          "start": 57543
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 9534,
-          "excerpt": "(`sessions`, `export`, `import`, `forget`; names\nare my call)",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 9750,
+          "excerpt": "(engine 4.7); names are my call.",
           "path": "docs/functional-design.md",
-          "start": 9473
+          "start": 9718
         }
       ],
       "id": "REQ-015",
@@ -322,18 +336,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 55159,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 56016,
           "excerpt": "Two export modes: `full` (everything transferable, for the user's own backup) and\n  `portable` (redacted, for sharing). Secrets are redacted in both before writing (6.4).",
           "path": "docs/technical-design.md",
-          "start": 54989
+          "start": 55846
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 54059,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 54916,
           "excerpt": "#### 5.5.1 Interchange format: `.stx.jsonl` (\"Shinatama transcript\", version 1) [C]",
           "path": "docs/technical-design.md",
-          "start": 53976
+          "start": 54833
         }
       ],
       "id": "REQ-016",
@@ -343,18 +357,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 55306,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 56163,
           "excerpt": "`reasoning` items are never exported. Attachments are exported as references with hashes;\n  the files are copied only with `--with-attachments`.",
           "path": "docs/technical-design.md",
-          "start": 55162
+          "start": 56019
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 54059,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 54916,
           "excerpt": "#### 5.5.1 Interchange format: `.stx.jsonl` (\"Shinatama transcript\", version 1) [C]",
           "path": "docs/technical-design.md",
-          "start": 53976
+          "start": 54833
         }
       ],
       "id": "REQ-017",
@@ -364,18 +378,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 54986,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 55843,
           "excerpt": "a higher `version` than\n  the reader knows is refused with a message, not guessed at.",
           "path": "docs/technical-design.md",
-          "start": 54901
+          "start": 55758
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 54059,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 54916,
           "excerpt": "#### 5.5.1 Interchange format: `.stx.jsonl` (\"Shinatama transcript\", version 1) [C]",
           "path": "docs/technical-design.md",
-          "start": 53976
+          "start": 54833
         }
       ],
       "id": "REQ-018",
@@ -385,25 +399,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 56405,
-          "excerpt": "shinatama import <file> --agent A [--cwd DIR] [--dry-run]   -> import (+ verify_import)",
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 57271,
+          "excerpt": "shinatama import <file> --agent A [--cwd DIR] [--dry-run]   -> import (+ verify_import); post-v1",
           "path": "docs/technical-design.md",
-          "start": 56318
+          "start": 57175
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 50279,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 51136,
           "excerpt": "C. Write side: IMPORT (post-v1 only)",
           "path": "docs/technical-design.md",
-          "start": 50243
+          "start": 51100
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 9534,
-          "excerpt": "(`sessions`, `export`, `import`, `forget`; names\nare my call)",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 9750,
+          "excerpt": "(`sessions`, `export`, `import` post-v1), plus `forget`\n(engine 4.7); names are my call.",
           "path": "docs/functional-design.md",
-          "start": 9473
+          "start": 9662
         }
       ],
       "id": "REQ-019",
@@ -413,18 +427,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 56671,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 57537,
           "excerpt": "shinatama doctor [--agent A]                                -> detect, fixture_gate, auth_status",
           "path": "docs/technical-design.md",
-          "start": 56575
+          "start": 57441
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 9534,
-          "excerpt": "(`sessions`, `export`, `import`, `forget`; names\nare my call)",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 9750,
+          "excerpt": "(engine 4.7); names are my call.",
           "path": "docs/functional-design.md",
-          "start": 9473
+          "start": 9718
         }
       ],
       "id": "REQ-020",
@@ -434,11 +448,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 27998,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 28618,
           "excerpt": "Unknown record types are skipped and counted; the count is shown by `doctor`.",
           "path": "docs/technical-design.md",
-          "start": 27921
+          "start": 28541
         }
       ],
       "id": "REQ-021",
@@ -448,11 +462,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 57149,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 58015,
           "excerpt": "`--json` output has a stable schema and exit codes: 0 done, 2 refused with a reason, 3 needs\nthe user (login, a first-run prompt), 4 failed and nothing changed, 5 failed and recovery\nis needed (`shinatama hop --recover`). [C]",
           "path": "docs/technical-design.md",
-          "start": 56924
+          "start": 57790
+        },
+        {
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 72060,
+          "excerpt": "command names\nand exit codes (engine 5.5.2 proposes a set of exit codes, my call)",
+          "path": "docs/functional-design.md",
+          "start": 71979
         }
       ],
       "id": "REQ-022",
@@ -462,18 +483,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 24956,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 25576,
           "excerpt": "`shinatama forget <thread>` deletes a thread's\nsnapshots, messages, summaries and index rows;",
           "path": "docs/technical-design.md",
-          "start": 24863
+          "start": 25483
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 9515,
-          "excerpt": "`doctor` and the rest of engine 5.5.2 (`sessions`, `export`, `import`, `forget`;",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 9730,
+          "excerpt": "plus `forget`\n(engine 4.7)",
           "path": "docs/functional-design.md",
-          "start": 9435
+          "start": 9704
         }
       ],
       "id": "REQ-023",
@@ -483,18 +504,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 25001,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 25621,
           "excerpt": "a thread can be marked\n`summaries_excluded`;",
           "path": "docs/technical-design.md",
-          "start": 24957
+          "start": 25577
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 124995,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 127032,
           "excerpt": "A thread marked `summaries_excluded` is never sent to any backend.",
           "path": "docs/technical-design.md",
-          "start": 124929
+          "start": 126966
         }
       ],
       "id": "REQ-024",
@@ -504,11 +525,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 25044,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 25664,
           "excerpt": "indexing of a project can be switched off;",
           "path": "docs/technical-design.md",
-          "start": 25002
+          "start": 25622
         }
       ],
       "id": "REQ-025",
@@ -518,11 +539,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 25165,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 25785,
           "excerpt": "no data leaves the\nmachine except the explicit calls in 8.4 (summaries) and the agents' own traffic through\nthe sidecar.",
           "path": "docs/technical-design.md",
-          "start": 25045
+          "start": 25665
         }
       ],
       "id": "REQ-026",
@@ -532,18 +553,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53288,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56583,
           "excerpt": "The workspace can\nbrowse the sessions of every harness Mukade reads and open one in a detail panel.",
           "path": "docs/functional-design.md",
-          "start": 53189
+          "start": 56484
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-027",
@@ -553,46 +574,67 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53426,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56721,
           "excerpt": "It is not\npart of the first terminal-first milestone. Read-only browsing is the first slice;\nlive seed hops follow after their hop gates.",
           "path": "docs/functional-design.md",
-          "start": 53289
+          "start": 56584
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
+        },
+        {
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 68164,
+          "excerpt": "Sessions browsing is a\n  later surface: read-only first, live seed hops after their gates, native import\n  and native handoff post-v1 (user; revised 2026-10-31, 5.16).",
+          "path": "docs/functional-design.md",
+          "start": 67997
+        },
+        {
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 53482,
+          "excerpt": "**Initial terminal-first scope (decided by the user 2026-10-30):** project selector, resizable terminal\ntiles, leaf tab groups and per-harness terminal profiles. Git integration, file\nnavigator, diffs, thread side panes, session browsing, hop and Daodan surfaces are\nnot part of this first UI.",
+          "path": "docs/functional-design.md",
+          "start": 53189
         }
       ],
       "id": "REQ-028",
       "status": "extracted",
-      "text": "The sessions surface is not part of the first terminal-first milestone: read-only browsing is the first slice, and live seed hops from it follow only after their hop gates (decided by the user, 2026-10-30)"
+      "text": "The sessions surface is not part of the first terminal-first milestone: read-only browsing is the first slice, and live seed hops from it follow only after their hop gates (decided by the user, 2026-10-31)"
     },
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53546,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56841,
           "excerpt": "Native Import and native handoff are\npost-v1 capabilities and remain unavailable until their separate gates pass (5.2).",
           "path": "docs/functional-design.md",
-          "start": 53427
+          "start": 56722
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 15115,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 15986,
           "excerpt": "**v1 is seed-only (decided 2026-10-31,\nuser).**",
           "path": "docs/functional-design.md",
-          "start": 15068
+          "start": 15939
+        },
+        {
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 68164,
+          "excerpt": "Sessions browsing is a\n  later surface: read-only first, live seed hops after their gates, native import\n  and native handoff post-v1 (user; revised 2026-10-31, 5.16).",
+          "path": "docs/functional-design.md",
+          "start": 67997
         }
       ],
       "id": "REQ-029",
@@ -602,18 +644,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53808,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 57103,
           "excerpt": "The supported Mukade revision must provide a listing reader for every harness shown (four\ntoday; Hermes Agent and DeepSeek Harness appear in the tree once Mukade reads them); the declared\ndependency pin, not an arbitrary local checkout, defines that capability.",
           "path": "docs/functional-design.md",
-          "start": 53547
+          "start": 56842
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-030",
@@ -623,18 +665,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 54098,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 57393,
           "excerpt": "A Projects/Sessions switch in the navigator;\n  harness nodes expand to their sessions",
           "path": "docs/functional-design.md",
-          "start": 54013
+          "start": 57308
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-031",
@@ -644,18 +686,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 54140,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 57435,
           "excerpt": "with one metadata-only incremental filter",
           "path": "docs/functional-design.md",
-          "start": 54099
+          "start": 57394
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-032",
@@ -665,18 +707,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 54215,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 57510,
           "excerpt": "a manual rescan (`r`) that works only while the navigator has focus.",
           "path": "docs/functional-design.md",
-          "start": 54147
+          "start": 57442
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-033",
@@ -686,25 +728,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 54291,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 57586,
           "excerpt": "Arrow\n  keys move in the tree; they never steal input from a terminal pane.",
           "path": "docs/functional-design.md",
-          "start": 54216
+          "start": 57511
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 60231,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 63526,
           "excerpt": "keyboard focus stays with the terminal\nunless the navigator or a dialog is focused.",
           "path": "docs/functional-design.md",
-          "start": 60148
+          "start": 63443
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-034",
@@ -714,25 +756,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 54531,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 57826,
           "excerpt": "A catalog\n  of persisted `store_root` records identifies box and system roots, their harness,\n  origin, configuration revision and read/write permission.",
           "path": "docs/functional-design.md",
-          "start": 54378
+          "start": 57673
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 69157,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 70032,
           "excerpt": "Store catalog persists root identity, origin, revision and access;",
           "path": "docs/verification-register.md",
-          "start": 69091
+          "start": 69966
         }
       ],
       "id": "REQ-035",
@@ -742,18 +784,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 54802,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 58097,
           "excerpt": "Discovery of system and\n  portable roots may use Mukade's harness catalog and installation scan, one recognition\n  rule set and no second parser; which discovered root becomes a box or a read-only\n  system root is Shinatama's decision, recorded in the catalog (my call).",
           "path": "docs/functional-design.md",
-          "start": 54532
+          "start": 57827
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 65011,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 68448,
           "excerpt": "Store discovery reuses Mukade's catalog and installation scan; Shinatama decides what\n  each root is used for (5.14, 5.16).",
           "path": "docs/functional-design.md",
-          "start": 64888
+          "start": 68325
         }
       ],
       "id": "REQ-036",
@@ -763,18 +805,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 54983,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 58278,
           "excerpt": "The tree can read both\n  an agent's box and the system roots exposed read-only by `system_homes()` (5.14);\n  it never chooses a root from an arbitrary instance or ambient defaults.",
           "path": "docs/functional-design.md",
-          "start": 54803
+          "start": 58098
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-037",
@@ -784,18 +826,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 55196,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 58491,
           "excerpt": "A `session_detail` panel with Overview, Transcript and\n  Lineage tabs, in-session search, collapsible tool calls, a raw-JSON toggle and\n  copy of the id, native path and resume command.",
           "path": "docs/functional-design.md",
-          "start": 55011
+          "start": 58306
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-038",
@@ -805,32 +847,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 55267,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 58562,
           "excerpt": "Opening a session is read-only:\n  it never resumes, imports or writes.",
           "path": "docs/functional-design.md",
-          "start": 55197
+          "start": 58492
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 59616,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 62911,
           "excerpt": "the user's own stores and side files stay untouched, including child\nprocess effects; no native write from browsing, opening, searching or copying;",
           "path": "docs/functional-design.md",
-          "start": 59469
+          "start": 62764
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 60147,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 63442,
           "excerpt": "tree and\ndetail restore without resuming anything;",
           "path": "docs/functional-design.md",
-          "start": 60097
+          "start": 63392
         }
       ],
       "id": "REQ-039",
@@ -840,18 +882,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 55471,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 58766,
           "excerpt": "Tree and Overview display only fields the\n  adapter can obtain for that harness and store; unavailable title, cwd, dates,\n  turns or byte counts are `unknown`, never inferred by loading every transcript.",
           "path": "docs/functional-design.md",
-          "start": 55268
+          "start": 58563
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-040",
@@ -861,18 +903,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 55560,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 58855,
           "excerpt": "Native children are included where the reader supports them, not only root\n  sessions.",
           "path": "docs/functional-design.md",
-          "start": 55474
+          "start": 58769
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-041",
@@ -882,18 +924,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 55701,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 58996,
           "excerpt": "Reads run off the UI thread against an\n  explicitly selected `store_root_id`; the panel names the store",
           "path": "docs/functional-design.md",
-          "start": 55598
+          "start": 58893
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-042",
@@ -903,18 +945,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 55789,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 59084,
           "excerpt": "shows an\n  unavailable or stale state when a root or session is missing or changes.",
           "path": "docs/functional-design.md",
-          "start": 55706
+          "start": 59001
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-043",
@@ -924,32 +966,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 56125,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 59420,
           "excerpt": "the adapter must enforce a pre-read\n  size cap and return `too large` without loading the session.",
           "path": "docs/functional-design.md",
-          "start": 56027
+          "start": 59322
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 56285,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 59580,
           "excerpt": "limiting only\n  rendering or cache is never sufficient.",
           "path": "docs/functional-design.md",
-          "start": 56230
+          "start": 59525
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 59790,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 63085,
           "excerpt": "with the current whole-session reader, oversized input returns `too large` before the\nread;",
           "path": "docs/functional-design.md",
-          "start": 59699
+          "start": 62994
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-044",
@@ -959,25 +1001,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 59972,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 63267,
           "excerpt": "after the incremental-reader gate, a 30 MB transcript meets a recorded\nend-to-end memory and responsiveness budget and larger input pages or is refused\nwithout unbounded allocation;",
           "path": "docs/functional-design.md",
-          "start": 59791
+          "start": 63086
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 56229,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 59524,
           "excerpt": "The paged adapter contract\n  is a required new capability, not a feature attributed to the current pin;",
           "path": "docs/functional-design.md",
-          "start": 56126
+          "start": 59421
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-045",
@@ -987,25 +1029,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 56413,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 59708,
           "excerpt": "late or cancelled results are discarded.",
           "path": "docs/functional-design.md",
-          "start": 56373
+          "start": 59668
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 60041,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 63336,
           "excerpt": "stale, cancelled and concurrent reads cannot update\nthe wrong panel;",
           "path": "docs/functional-design.md",
-          "start": 59973
+          "start": 63268
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-046",
@@ -1015,18 +1057,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 56575,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 59870,
           "excerpt": "Where a reader\n  launches a harness command, such as OpenCode export, it inherits the adapter's\n  complete isolated launch context, timeout and cleanup contract;",
           "path": "docs/functional-design.md",
-          "start": 56414
+          "start": 59709
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-047",
@@ -1036,25 +1078,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 56886,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 60181,
           "excerpt": "Raw display and copy are explicit actions with a privacy warning\n  and redaction by default; an override reveals the selected records only.",
           "path": "docs/functional-design.md",
-          "start": 56747
+          "start": 60042
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 69823,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 70698,
           "excerpt": "planted secrets do not leak by default.",
           "path": "docs/verification-register.md",
-          "start": 69784
+          "start": 70659
         }
       ],
       "id": "REQ-048",
@@ -1064,18 +1106,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 56951,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 60246,
           "excerpt": "Raw and\n  copied content is never logged or persisted by the UI.",
           "path": "docs/functional-design.md",
-          "start": 56887
+          "start": 60182
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-049",
@@ -1085,18 +1127,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 57082,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 60377,
           "excerpt": "Export is separate from\n  browsing and offers explicit **STX**, **portable Mukade JSON** and **native**\n  choices where supported.",
           "path": "docs/functional-design.md",
-          "start": 56952
+          "start": 60247
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-050",
@@ -1106,18 +1148,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 57279,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 60574,
           "excerpt": "Each declares format version, raw/unknown-field and\n  attachment handling, redaction, losses, overwrite and atomic-output behaviour;\n  portable Mukade JSON is not represented as a lossless backup.",
           "path": "docs/functional-design.md",
-          "start": 57083
+          "start": 60378
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-051",
@@ -1127,18 +1169,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 57339,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 60634,
           "excerpt": "Resume starts a PTY through the adapter.",
           "path": "docs/functional-design.md",
-          "start": 57299
+          "start": 60594
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-052",
@@ -1148,18 +1190,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 57455,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 60750,
           "excerpt": "`hop_live` operates on\n  a hosted instance/segment and follows close/fork, cursor, idle and catch-up rules\n  (5.2).",
           "path": "docs/functional-design.md",
-          "start": 57340
+          "start": 60635
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-053",
@@ -1169,25 +1211,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 57641,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 60936,
           "excerpt": "`handoff_history` operates on a historical native session: it creates a\n  derived thread and source segment without closing a process, waiting for idle or\n  inventing a live activation;",
           "path": "docs/functional-design.md",
-          "start": 57456
+          "start": 60751
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 91465,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 92538,
           "excerpt": "It never closes a source process,\nwaits for idle or performs live catch-up.",
           "path": "docs/technical-design.md",
-          "start": 91390
+          "start": 92463
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-054",
@@ -1197,25 +1239,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 57689,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 60984,
           "excerpt": "its source fingerprint is rechecked before use.",
           "path": "docs/functional-design.md",
-          "start": 57642
+          "start": 60937
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 91594,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 92667,
           "excerpt": "The source fingerprint is captured for the\npreview and checked again before use; a mismatch restarts preview instead of writing.",
           "path": "docs/technical-design.md",
-          "start": 91466
+          "start": 92539
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-055",
@@ -1225,25 +1267,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 57780,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 61075,
           "excerpt": "In\n  v1 both paths use only seed delivery; native Import and native handoff are\n  post-v1.",
           "path": "docs/functional-design.md",
-          "start": 57690
+          "start": 60985
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 15115,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 15986,
           "excerpt": "**v1 is seed-only (decided 2026-10-31,\nuser).**",
           "path": "docs/functional-design.md",
-          "start": 15068
+          "start": 15939
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 91666,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 92739,
           "excerpt": "V1\nhistorical handoff uses `seed_prompt`; native conversion is post-v1.",
           "path": "docs/technical-design.md",
-          "start": 91595
+          "start": 92668
         }
       ],
       "id": "REQ-056",
@@ -1253,18 +1295,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 57949,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 61244,
           "excerpt": "Before any post-v1 write, the dialog shows the exact staged payload and\n  known losses, obtains consent and journals the reserved destination id/path\n  where supported.",
           "path": "docs/functional-design.md",
-          "start": 57781
+          "start": 61076
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-057",
@@ -1274,25 +1316,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 58081,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 61376,
           "excerpt": "The receipt is persisted even when launch fails; uncertain\n  writes are reconciled against that reservation, never blindly retried.",
           "path": "docs/functional-design.md",
-          "start": 57950
+          "start": 61245
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 60493,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 63788,
           "excerpt": "no duplicate\nsession on double-click or retry.",
           "path": "docs/functional-design.md",
-          "start": 60447
+          "start": 63742
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-058",
@@ -1302,18 +1344,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 58136,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 61431,
           "excerpt": "A\n  headless resume is a separate, cost-warned action.",
           "path": "docs/functional-design.md",
-          "start": 58082
+          "start": 61377
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-059",
@@ -1323,18 +1365,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 58344,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 61639,
           "excerpt": "Additional system roots are read-only and\n  cannot become a box's write destination.",
           "path": "docs/functional-design.md",
-          "start": 58260
+          "start": 61555
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-060",
@@ -1344,18 +1386,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 58475,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 61770,
           "excerpt": "A same-harness transfer between two homes (box to\n  system, or into a portable installation) is not offered until SS5 verifies it;",
           "path": "docs/functional-design.md",
-          "start": 58345
+          "start": 61640
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-061",
@@ -1365,18 +1407,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 58820,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 62115,
           "excerpt": "unresolved roots, missing executables\n  and refused stores are reported, not replaced by ambient defaults.",
           "path": "docs/functional-design.md",
-          "start": 58714
+          "start": 62009
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-062",
@@ -1386,18 +1428,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 58922,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 62217,
           "excerpt": "The tab distinguishes the Shinatama thread chain, native parent and\n  native children.",
           "path": "docs/functional-design.md",
-          "start": 58836
+          "start": 62131
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-063",
@@ -1407,18 +1449,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 59084,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 62379,
           "excerpt": "Native relations are shown only where the reader exposes them\n  (Pi and OpenCode in the declared Mukade revision); it does not infer edges for\n  Claude or Codex.",
           "path": "docs/functional-design.md",
-          "start": 58923
+          "start": 62218
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-064",
@@ -1428,18 +1470,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 59144,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 62439,
           "excerpt": "Missing, external, ambiguous parents and cycles are marked.",
           "path": "docs/functional-design.md",
-          "start": 59085
+          "start": 62380
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-065",
@@ -1449,18 +1491,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 59215,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 62510,
           "excerpt": "Clicking a node opens that session or thread; it does not resume it.",
           "path": "docs/functional-design.md",
-          "start": 59147
+          "start": 62442
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 53188,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 56483,
           "excerpt": "**Sessions surface (decided 2026-10-30; revised 2026-10-31).**",
           "path": "docs/functional-design.md",
-          "start": 53126
+          "start": 56421
         }
       ],
       "id": "REQ-066",

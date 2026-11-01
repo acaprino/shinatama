@@ -42,8 +42,8 @@ Version 1 · Proposed 2026-11-01 at b667db5 · proposed 2026-11-01 by Alfio Capr
 Shinatama has no code yet. The user asked Shinatama to "recognize automatically or perform the
 login for codex, claude, etc." (functional-design goal 11 and 5.11, decided as a wish). The shape
 is the author's call: detect, never collect; log in through the agent's own flow; show the state
-where it matters. Whether Shinatama should also hold provider keys once and share them across
-agents is open, and functional-design 7 records it as not in v1. Four verification records of
+where it matters. Holding provider keys once and sharing them across agents is not in v1, also
+the author's call (functional-design 5.11 and 7). Four verification records of
 2026-10-27 (CL13, CX11, OC8, PI9) observed the status commands of Claude Code, Codex, OpenCode
 and Pi on Windows 11, with no login performed; none has passed. The full design is in
 functional-design 5.11 and technical-design 5.5 A and 5.7; this record holds only the decision.
@@ -87,7 +87,7 @@ print stored secrets are never called. See functional-design 5.11 and technical-
 
 ## Rejected Alternatives
 
-- **RA-001**: Shinatama holding provider keys once and sharing them across agents; not in v1 and left open, because it would make Shinatama a credential store that must be protected (functional-design 5.11, 7).
+- **RA-001**: Shinatama holding provider keys once and sharing them across agents; not in v1 (author's call), because it would make Shinatama a credential store that must be protected (functional-design 5.11, 7).
 - **RA-002**: reading credential files to infer sign-in (for example Pi's `auth.json`) or calling commands that print credentials (`opencode auth export`, `pi auth print-api-key`, `pi auth print-bearer-token`, `--credentials`); the adapter asks the agent and never reads credentials (technical-design 5.5 A; register D5, PI9).
 
 ## Enforceable Invariants
@@ -108,5 +108,5 @@ print stored secrets are never called. See functional-design 5.11 and technical-
 
 ## Confirmation
 
-- Register D5, CL13, CX11, OC8, PI9 and DS9 pass. CL13, CX11, OC8 and PI9 are running (partial), and OC8's criterion is not met; D5 and DS9 are open.
+- Register D5, CL13, CX11, OC8, PI9 and DS9 pass. CL13, CX11 and PI9 are running (partial), and OC8 is running with its criterion not met on the real home; D5 and DS9 are open.
 - Nothing about login has passed yet; the 2026-10-27 runs performed no login and made no model calls.

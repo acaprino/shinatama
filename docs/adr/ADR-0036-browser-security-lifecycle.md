@@ -82,8 +82,10 @@ moves `requested -> authorized -> starting -> active -> closing -> closed` with 
 managed process or endpoint is alive. Content (HTML, scripts, screenshots, downloads,
 redirects, MCP UI, agent output) is untrusted under the rules of technical-design 7.6. Local
 roots, services, redirects, subresources and proxies are explicit scope; profiles are temporary
-by default; no cookie, token or credential reaches logs, SQLite, transcripts or summaries, and
-browser content reaches no title or summary provider by default. An interactive session has
+by default; no cookie, token, authorization header or credential reaches logs, SQLite,
+transcripts, summaries or error reports; screenshots and extracted pages, which can contain
+secrets, are stored privately with bounded retention, and browser content reaches no title or
+summary provider by default (technical-design 7.9; browser-integration 8). An interactive session has
 one owner and one controller; handover is explicit; closing invalidates queued actions. No performance figure is accepted before a frozen whole-process-tree baseline
 (B10). See browser-integration 6.2 to 11.
 

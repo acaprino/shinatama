@@ -7,32 +7,32 @@
   "entities": [],
   "frd_id": "FRD-0011",
   "last_verified_sha": null,
-  "proposed_at_sha": "e22191501ff4ef3a182bcee7175dba73550586e6",
+  "proposed_at_sha": "e7a1c1dd1ce0429f012af8aa2a40097038a22553",
   "proposed_on": "2026-11-01",
   "relationships": [],
   "requirements": [
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 1285,
           "excerpt": "1. **Moli is the default** for fast operations, local HTML, previews and MCP web",
           "path": "docs/browser-integration.md",
           "start": 1205
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 1203,
           "excerpt": "The following are **user requirements**, decided 2026-10-29:",
           "path": "docs/browser-integration.md",
           "start": 1143
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 4139,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 4328,
           "excerpt": "13. Browser access for agents and the user (decided 2026-10-29): Moli by default",
           "path": "docs/functional-design.md",
-          "start": 4059
+          "start": 4248
         }
       ],
       "id": "REQ-001",
@@ -42,39 +42,39 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 1364,
           "excerpt": "Layout and visual resources are enabled only when the requested",
           "path": "docs/browser-integration.md",
           "start": 1301
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 1203,
           "excerpt": "The following are **user requirements**, decided 2026-10-29:",
           "path": "docs/browser-integration.md",
           "start": 1143
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 8772,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 8806,
           "excerpt": "- no layout, images, fonts or other optional resources for text extraction;",
           "path": "docs/browser-integration.md",
-          "start": 8697
+          "start": 8731
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 47380,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 50655,
           "excerpt": "Text extraction does not enable layout or optional visual resources; a preview",
           "path": "docs/functional-design.md",
-          "start": 47302
+          "start": 50577
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 80953,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 81828,
           "excerpt": "Pinned Moli `fetch` on synthetic local HTML: correct text/structured extraction, bounded output/time, no optional resources for text, no `serve` listener",
           "path": "docs/verification-register.md",
-          "start": 80800
+          "start": 81675
         }
       ],
       "id": "REQ-002",
@@ -84,21 +84,21 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 1471,
           "excerpt": "2. **Patchright with a visible Chrome window** is the graphical path for explicit",
           "path": "docs/browser-integration.md",
           "start": 1390
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 1542,
           "excerpt": "UI use, login/MFA/CAPTCHA and pages the user chooses to open there.",
           "path": "docs/browser-integration.md",
           "start": 1475
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 1203,
           "excerpt": "The following are **user requirements**, decided 2026-10-29:",
           "path": "docs/browser-integration.md",
@@ -112,32 +112,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 1621,
           "excerpt": "3. **No automatic fallback.** Shinatama must not infer that an error, timeout,",
           "path": "docs/browser-integration.md",
           "start": 1543
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 1695,
           "excerpt": "empty page or anti-bot response authorizes a switch to another engine.",
           "path": "docs/browser-integration.md",
           "start": 1625
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 1203,
           "excerpt": "The following are **user requirements**, decided 2026-10-29:",
           "path": "docs/browser-integration.md",
           "start": 1143
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 5792,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 5981,
           "excerpt": "- Automatic browser fallback or migration (5.15): no switching from Moli to",
           "path": "docs/functional-design.md",
-          "start": 5717
+          "start": 5906
         }
       ],
       "id": "REQ-004",
@@ -147,25 +147,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 1776,
           "excerpt": "4. **No automatic transfer** of pages, cookies, credentials, sessions or control",
           "path": "docs/browser-integration.md",
           "start": 1696
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 1203,
           "excerpt": "The following are **user requirements**, decided 2026-10-29:",
           "path": "docs/browser-integration.md",
           "start": 1143
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 5871,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 6060,
           "excerpt": "Patchright after an error, no shared cookies/login and no resident Chrome or",
           "path": "docs/functional-design.md",
-          "start": 5795
+          "start": 5984
         }
       ],
       "id": "REQ-005",
@@ -175,32 +175,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 1876,
           "excerpt": "5. **No resident Chrome or Patchright companion.** The graphical path is loaded",
           "path": "docs/browser-integration.md",
           "start": 1797
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 1956,
           "excerpt": "and started only on an explicit request. Nothing is installed automatically.",
           "path": "docs/browser-integration.md",
           "start": 1880
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 1203,
           "excerpt": "The following are **user requirements**, decided 2026-10-29:",
           "path": "docs/browser-integration.md",
           "start": 1143
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 47971,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 51246,
           "excerpt": "neither it nor Chrome is resident at startup or installed automatically.",
           "path": "docs/functional-design.md",
-          "start": 47899
+          "start": 51174
         }
       ],
       "id": "REQ-006",
@@ -210,32 +210,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 1956,
           "excerpt": "and started only on an explicit request. Nothing is installed automatically.",
           "path": "docs/browser-integration.md",
           "start": 1880
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 1203,
           "excerpt": "The following are **user requirements**, decided 2026-10-29:",
           "path": "docs/browser-integration.md",
           "start": 1143
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 3622,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 3635,
           "excerpt": "- Automatic download, installation or update of Moli, Chrome or Patchright.",
           "path": "docs/browser-integration.md",
-          "start": 3547
+          "start": 3560
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 15588,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 15622,
           "excerpt": "optional component is never downloaded merely because `/browse` was invoked; a",
           "path": "docs/browser-integration.md",
-          "start": 15510
+          "start": 15544
         }
       ],
       "id": "REQ-007",
@@ -245,25 +245,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 15654,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 15688,
           "excerpt": "missing UI component returns an explanatory `unsupported` result.",
           "path": "docs/browser-integration.md",
-          "start": 15589
+          "start": 15623
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 2236,
           "excerpt": "The shape below is the proposed implementation of those requirements, refined by",
           "path": "docs/browser-integration.md",
           "start": 2156
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 82456,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 83371,
           "excerpt": "No pre-request browser/companion; explicit UI works or returns clear `unsupported`",
           "path": "docs/verification-register.md",
-          "start": 82374
+          "start": 83289
         }
       ],
       "id": "REQ-008",
@@ -273,14 +273,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 2038,
           "excerpt": "6. **Intent-based routing.** A preinstalled skill or `/browse` command may choose",
           "path": "docs/browser-integration.md",
           "start": 1957
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 1203,
           "excerpt": "The following are **user requirements**, decided 2026-10-29:",
           "path": "docs/browser-integration.md",
@@ -294,32 +294,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 2120,
           "excerpt": "the engine from the user's request. Web content and agent output cannot change",
           "path": "docs/browser-integration.md",
           "start": 2042
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 2154,
           "excerpt": "the engine or its permissions.",
           "path": "docs/browser-integration.md",
           "start": 2124
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 1203,
           "excerpt": "The following are **user requirements**, decided 2026-10-29:",
           "path": "docs/browser-integration.md",
           "start": 1143
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 82639,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 83554,
           "excerpt": "hostile pages, redirects, errors and agent/peer output cannot change engine/scope, open Chrome or answer approvals",
           "path": "docs/verification-register.md",
-          "start": 82525
+          "start": 83440
         }
       ],
       "id": "REQ-010",
@@ -329,39 +329,39 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 7160,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 7194,
           "excerpt": "Routing happens before loading the target and is immutable for that request. A",
           "path": "docs/browser-integration.md",
-          "start": 7082
+          "start": 7116
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 7242,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 7276,
           "excerpt": "page, redirect, script, error message, tool result or peer message is data, never",
           "path": "docs/browser-integration.md",
-          "start": 7161
+          "start": 7195
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 3924,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 3937,
           "excerpt": "origin, operation, target scope and permission snapshot.",
           "path": "docs/browser-integration.md",
-          "start": 3868
+          "start": 3881
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 2236,
           "excerpt": "The shape below is the proposed implementation of those requirements, refined by",
           "path": "docs/browser-integration.md",
           "start": 2156
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 82829,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 83744,
           "excerpt": "No unauthorized transition or effect; engine and permission snapshot remain immutable",
           "path": "docs/verification-register.md",
-          "start": 82744
+          "start": 83659
         }
       ],
       "id": "REQ-011",
@@ -371,39 +371,39 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 48411,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 51686,
           "excerpt": "as such. The user may issue a new explicit Patchright command, but this starts",
           "path": "docs/functional-design.md",
-          "start": 48333
+          "start": 51608
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 48475,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 51750,
           "excerpt": "a new session without transferring cookies, login or control.",
           "path": "docs/functional-design.md",
-          "start": 48414
+          "start": 51689
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 7324,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 7358,
           "excerpt": "routing authority. Starting another engine is a **new request**, not continuation",
           "path": "docs/browser-integration.md",
-          "start": 7243
+          "start": 7277
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 7080,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 7114,
           "excerpt": "| Moli reports unsupported/failed | Keep Moli; stop | A new explicit user command is required to use Patchright |",
           "path": "docs/browser-integration.md",
-          "start": 6967
+          "start": 7001
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 46964,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 50239,
           "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
           "path": "docs/functional-design.md",
-          "start": 46886
+          "start": 50161
         }
       ],
       "id": "REQ-012",
@@ -413,25 +413,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 48330,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 51605,
           "excerpt": "- **No automatic fallback:** a Moli error, timeout or unsupported page is shown",
           "path": "docs/functional-design.md",
-          "start": 48251
+          "start": 51526
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 5990,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 6024,
           "excerpt": "controller and reason. A Moli failure offers no automatic Chrome action; it may",
           "path": "docs/browser-integration.md",
-          "start": 5911
+          "start": 5945
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 46964,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 50239,
           "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
           "path": "docs/functional-design.md",
-          "start": 46886
+          "start": 50161
         }
       ],
       "id": "REQ-013",
@@ -441,25 +441,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 5060,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 5094,
           "excerpt": "- `read`: extract bounded text or structured content through Moli.",
           "path": "docs/browser-integration.md",
-          "start": 4994
+          "start": 5028
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 4955,
-          "excerpt": "`/browse` is the proposed single entry point. Its final spelling is a builder's",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 4969,
+          "excerpt": "`/browse` is the proposed single entry point. Its final spelling is the author's",
           "path": "docs/browser-integration.md",
-          "start": 4876
+          "start": 4889
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 9584,
-          "excerpt": "are my call). Browser access: `/browse` with `read`, `preview`",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 9799,
+          "excerpt": "Browser access: `/browse` with `read`, `preview`",
           "path": "docs/functional-design.md",
-          "start": 9522
+          "start": 9751
         }
       ],
       "id": "REQ-014",
@@ -469,25 +469,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 5141,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 5175,
           "excerpt": "- `preview`: produce a static visual artifact through Moli, enabling layout only",
           "path": "docs/browser-integration.md",
-          "start": 5061
+          "start": 5095
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 6636,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 6670,
           "excerpt": "| Static preview | Moli | Same scope plus artifact permission |",
           "path": "docs/browser-integration.md",
-          "start": 6573
+          "start": 6607
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 4955,
-          "excerpt": "`/browse` is the proposed single entry point. Its final spelling is a builder's",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 4969,
+          "excerpt": "`/browse` is the proposed single entry point. Its final spelling is the author's",
           "path": "docs/browser-integration.md",
-          "start": 4876
+          "start": 4889
         }
       ],
       "id": "REQ-015",
@@ -497,32 +497,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 5239,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 5273,
           "excerpt": "- `open-ui`: open a Patchright/Chrome UI session; requires an explicit user",
           "path": "docs/browser-integration.md",
-          "start": 5164
+          "start": 5198
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 47736,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 51011,
           "excerpt": "- `open-ui` starts Patchright with visible Chrome only at the user's explicit",
           "path": "docs/functional-design.md",
-          "start": 47659
+          "start": 50934
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 6812,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 6846,
           "excerpt": "| Visible browser, login, MFA, CAPTCHA | Patchright UI | Explicit user request |",
           "path": "docs/browser-integration.md",
-          "start": 6732
+          "start": 6766
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 4955,
-          "excerpt": "`/browse` is the proposed single entry point. Its final spelling is a builder's",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 4969,
+          "excerpt": "`/browse` is the proposed single entry point. Its final spelling is the author's",
           "path": "docs/browser-integration.md",
-          "start": 4876
+          "start": 4889
         }
       ],
       "id": "REQ-016",
@@ -532,18 +532,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 5333,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 5367,
           "excerpt": "- `--engine=moli|patchright`: optional explicit override, not a security boundary.",
           "path": "docs/browser-integration.md",
-          "start": 5251
+          "start": 5285
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 4955,
-          "excerpt": "`/browse` is the proposed single entry point. Its final spelling is a builder's",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 4969,
+          "excerpt": "`/browse` is the proposed single entry point. Its final spelling is the author's",
           "path": "docs/browser-integration.md",
-          "start": 4876
+          "start": 4889
         }
       ],
       "id": "REQ-017",
@@ -553,25 +553,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 5479,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 5513,
           "excerpt": "engine, reason, operation and scope are shown before execution.",
           "path": "docs/browser-integration.md",
-          "start": 5416
+          "start": 5450
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 48053,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 51328,
           "excerpt": "- `/browse` or its preinstalled skill chooses from the user's intent and displays",
           "path": "docs/functional-design.md",
-          "start": 47972
+          "start": 51247
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 46964,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 50239,
           "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
           "path": "docs/functional-design.md",
-          "start": 46886
+          "start": 50161
         }
       ],
       "id": "REQ-018",
@@ -581,28 +581,28 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 5561,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 5595,
           "excerpt": "An agent may request `read` or `preview` only inside an existing user-authorized",
           "path": "docs/browser-integration.md",
-          "start": 5481
+          "start": 5515
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 5642,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 5676,
           "excerpt": "task and target scope. It need not ask again for every navigation already inside",
           "path": "docs/browser-integration.md",
-          "start": 5562
+          "start": 5596
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 6572,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 6606,
           "excerpt": "| Read/extract local HTML or an authorized web target | Moli | Existing task/request scope |",
           "path": "docs/browser-integration.md",
-          "start": 6480
+          "start": 6514
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 2236,
           "excerpt": "The shape below is the proposed implementation of those requirements, refined by",
           "path": "docs/browser-integration.md",
@@ -616,32 +616,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 5720,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 5754,
           "excerpt": "that grant. It cannot grant itself `open-ui`, broaden scope or answer its own",
           "path": "docs/browser-integration.md",
-          "start": 5643
+          "start": 5677
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 5796,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 5830,
           "excerpt": "permission request. It may ask the user to issue a new explicit UI command.",
           "path": "docs/browser-integration.md",
-          "start": 5721
+          "start": 5755
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 48216,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 51491,
           "excerpt": "they cannot open UI, broaden scope or authorize themselves. Ambiguous sensitive",
           "path": "docs/functional-design.md",
-          "start": 48137
+          "start": 51412
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 46964,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 50239,
           "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
           "path": "docs/functional-design.md",
-          "start": 46886
+          "start": 50161
         }
       ],
       "id": "REQ-020",
@@ -651,25 +651,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 6966,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 7000,
           "excerpt": "| Ambiguous sensitive action or broad local access | None | Ask for clarification |",
           "path": "docs/browser-integration.md",
-          "start": 6883
+          "start": 6917
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 48216,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 51491,
           "excerpt": "they cannot open UI, broaden scope or authorize themselves. Ambiguous sensitive",
           "path": "docs/functional-design.md",
-          "start": 48137
+          "start": 51412
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 46964,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 50239,
           "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
           "path": "docs/functional-design.md",
-          "start": 46886
+          "start": 50161
         }
       ],
       "id": "REQ-021",
@@ -679,14 +679,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 6882,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 6916,
           "excerpt": "| Ambiguous, non-sensitive read | Moli | Narrowest applicable scope |",
           "path": "docs/browser-integration.md",
-          "start": 6813
+          "start": 6847
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 2236,
           "excerpt": "The shape below is the proposed implementation of those requirements, refined by",
           "path": "docs/browser-integration.md",
@@ -700,25 +700,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 6731,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 6765,
           "excerpt": "| MCP web interface, bounded one-shot operation | Moli | Explicit local service/target scope |",
           "path": "docs/browser-integration.md",
-          "start": 6637
+          "start": 6671
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 47299,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 50574,
           "excerpt": "static previews and use bounded MCP web-interface operations through Moli.",
           "path": "docs/functional-design.md",
-          "start": 47225
+          "start": 50500
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 46964,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 50239,
           "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
           "path": "docs/functional-design.md",
-          "start": 46886
+          "start": 50161
         }
       ],
       "id": "REQ-023",
@@ -728,32 +728,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 16437,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 16471,
           "excerpt": "- the MCP UI use case is either demonstrated within the one-shot boundary or",
           "path": "docs/browser-integration.md",
-          "start": 16361
+          "start": 16395
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 16496,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 16530,
           "excerpt": "explicitly deferred, never silently replaced by `serve`;",
           "path": "docs/browser-integration.md",
-          "start": 16440
+          "start": 16474
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 81552,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 82467,
           "excerpt": "Representative MCP web UI within the one-shot boundary, without silently enabling `serve` or general agent `--eval`",
           "path": "docs/verification-register.md",
-          "start": 81437
+          "start": 82352
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 81706,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 82621,
           "excerpt": "The required workflow works within scope, or unsupported interactive work is explicitly deferred",
           "path": "docs/verification-register.md",
-          "start": 81610
+          "start": 82525
         }
       ],
       "id": "REQ-024",
@@ -763,25 +763,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 8232,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 8266,
           "excerpt": "Results distinguish unsupported functionality, required user intervention,",
           "path": "docs/browser-integration.md",
-          "start": 8158
+          "start": 8192
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 8309,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 8343,
           "excerpt": "permission denial and execution failure. They never convert `failed` into an",
           "path": "docs/browser-integration.md",
-          "start": 8233
+          "start": 8267
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 7808,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 7842,
           "excerpt": "outcome: ok|unsupported|needs_user|denied|failed,",
           "path": "docs/browser-integration.md",
-          "start": 7759
+          "start": 7793
         }
       ],
       "id": "REQ-025",
@@ -791,18 +791,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 2940,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 2953,
           "excerpt": "- A small common request/result contract that preserves unsupported capabilities",
           "path": "docs/browser-integration.md",
-          "start": 2860
+          "start": 2873
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 2997,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 3010,
           "excerpt": "instead of pretending the engines are interchangeable.",
           "path": "docs/browser-integration.md",
-          "start": 2943
+          "start": 2956
         }
       ],
       "id": "REQ-026",
@@ -812,25 +812,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 7932,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 7966,
           "excerpt": "The runtime validates engine, operation, identity and scope. The skill's prose,",
           "path": "docs/browser-integration.md",
-          "start": 7853
+          "start": 7887
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 8015,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 8049,
           "excerpt": "`SHINATAMA_INSTANCE`, a caller-supplied instance id and an `--engine` flag are not",
           "path": "docs/browser-integration.md",
-          "start": 7933
+          "start": 7967
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 8156,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 8190,
           "excerpt": "derive identity server-side; that mechanism is unverified.",
           "path": "docs/browser-integration.md",
-          "start": 8098
+          "start": 8132
         }
       ],
       "id": "REQ-027",
@@ -840,14 +840,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 5910,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 5944,
           "excerpt": "The session view and overview show engine, target origin/root, operation, state,",
           "path": "docs/browser-integration.md",
-          "start": 5830
+          "start": 5864
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 2236,
           "excerpt": "The shape below is the proposed implementation of those requirements, refined by",
           "path": "docs/browser-integration.md",
@@ -861,32 +861,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 6071,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 6105,
           "excerpt": "show the exact new command the user can choose. A visual request is not reported",
           "path": "docs/browser-integration.md",
-          "start": 5991
+          "start": 6025
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 6122,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 6156,
           "excerpt": "as visually satisfied when only text was produced.",
           "path": "docs/browser-integration.md",
-          "start": 6072
+          "start": 6106
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 48642,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 51917,
           "excerpt": "a private artifact plus textual alternative. Text alone is not a visual preview.",
           "path": "docs/functional-design.md",
-          "start": 48562
+          "start": 51837
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 81391,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 82306,
           "excerpt": "Visual output matches the fixture; text-only mode is not called visual success",
           "path": "docs/verification-register.md",
-          "start": 81313
+          "start": 82228
         }
       ],
       "id": "REQ-029",
@@ -896,39 +896,53 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 48559,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 51834,
           "excerpt": "- Static visual output uses native preview panes for supported artifacts, otherwise",
           "path": "docs/functional-design.md",
-          "start": 48476
+          "start": 51751
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 48642,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 51917,
           "excerpt": "a private artifact plus textual alternative. Text alone is not a visual preview.",
           "path": "docs/functional-design.md",
-          "start": 48562
+          "start": 51837
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 526,
           "excerpt": "3.1 supersede the terminal-only shell assumption. Static artifacts can be shown",
           "path": "docs/browser-integration.md",
           "start": 447
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 46964,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 50239,
           "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
           "path": "docs/functional-design.md",
-          "start": 46886
+          "start": 50161
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 81242,
-          "excerpt": "Static preview: layout/resources only when requested; correct screenshot; private artifact; honest terminal display/fallback",
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 82128,
+          "excerpt": "Static preview: layout/resources only when requested; correct screenshot; private artifact; honest native preview pane display/fallback",
           "path": "docs/verification-register.md",
-          "start": 81118
+          "start": 81993
+        },
+        {
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 2698,
+          "excerpt": "- Static preview artifacts shown in native preview panes when supported, otherwise",
+          "path": "docs/browser-integration.md",
+          "start": 2616
+        },
+        {
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 2764,
+          "excerpt": "exposed as a private artifact with a clear textual alternative.",
+          "path": "docs/browser-integration.md",
+          "start": 2701
         }
       ],
       "id": "REQ-030",
@@ -938,39 +952,39 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 6201,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 6235,
           "excerpt": "Patchright opens a real external Chrome window, separate from the native Rust",
           "path": "docs/browser-integration.md",
-          "start": 6124
+          "start": 6158
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 48722,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 51997,
           "excerpt": "Interactive browsing remains external Chrome in the first integration; tiling",
           "path": "docs/functional-design.md",
-          "start": 48645
+          "start": 51920
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 48780,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 52055,
           "excerpt": "does not implicitly approve an embedded browser engine.",
           "path": "docs/functional-design.md",
-          "start": 48725
+          "start": 52000
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 766,
           "excerpt": "browsing remains outside the first integration. Tiling does not authorize a new",
           "path": "docs/browser-integration.md",
           "start": 687
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 52278,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 55573,
           "excerpt": "Static previews fit 5.15. Interactive embedded browsing and mini-app hosting need separate design/security gates",
           "path": "docs/functional-design.md",
-          "start": 52166
+          "start": 55461
         }
       ],
       "id": "REQ-031",
@@ -980,25 +994,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 8471,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 8505,
           "excerpt": "Start the pinned Moli binary as a child for a bounded `fetch`; do not start",
           "path": "docs/browser-integration.md",
-          "start": 8396
+          "start": 8430
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 47542,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 50817,
           "excerpt": "- The first Moli path is one-shot `moli fetch`, not `moli serve`. Interactive Moli",
           "path": "docs/functional-design.md",
-          "start": 47460
+          "start": 50735
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 81084,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 81959,
           "excerpt": "Expected output; only the one-shot process; no CDP/WebDriver listener",
           "path": "docs/verification-register.md",
-          "start": 81015
+          "start": 81890
         }
       ],
       "id": "REQ-032",
@@ -1008,46 +1022,46 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 9814,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 9848,
           "excerpt": "Therefore `serve` stays disabled until B4 proves a private authenticated transport",
           "path": "docs/browser-integration.md",
-          "start": 9732
+          "start": 9766
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 9895,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 9929,
           "excerpt": "or an equivalent verified boundary, and proves that untrusted pages cannot reach",
           "path": "docs/browser-integration.md",
-          "start": 9815
+          "start": 9849
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 10057,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 10091,
           "excerpt": "themselves authentication. This gate applies to Moli as well as Patchright; the",
           "path": "docs/browser-integration.md",
-          "start": 9978
+          "start": 10012
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 47620,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 50895,
           "excerpt": "previews and persistent CDP/WebDriver automation wait for the transport and",
           "path": "docs/functional-design.md",
-          "start": 47545
+          "start": 50820
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 5953,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 6142,
           "excerpt": "Patchright companion. Persistent `moli serve` and interactive Moli previews are",
           "path": "docs/functional-design.md",
-          "start": 5874
+          "start": 6063
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 82106,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 83021,
           "excerpt": "No unauthenticated/reachable control path; otherwise `serve` or the failing UI transport stays disabled",
           "path": "docs/verification-register.md",
-          "start": 82003
+          "start": 82918
         }
       ],
       "id": "REQ-033",
@@ -1057,18 +1071,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 8631,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 8665,
           "excerpt": "not exposed to agents in the first integration; a probe may use it locally to",
           "path": "docs/browser-integration.md",
-          "start": 8554
+          "start": 8588
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 47459,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 50734,
           "excerpt": "General agent-provided JavaScript evaluation is not exposed initially.",
           "path": "docs/functional-design.md",
-          "start": 47389
+          "start": 50664
         }
       ],
       "id": "REQ-034",
@@ -1078,14 +1092,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 8901,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 8935,
           "excerpt": "- bounded time, output, response size, redirects and artifact count/size;",
           "path": "docs/browser-integration.md",
-          "start": 8828
+          "start": 8862
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 2236,
           "excerpt": "The shape below is the proposed implementation of those requirements, refined by",
           "path": "docs/browser-integration.md",
@@ -1099,25 +1113,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 8984,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 9018,
           "excerpt": "- a temporary dedicated profile unless the user explicitly configures persistence;",
           "path": "docs/browser-integration.md",
-          "start": 8902
+          "start": 8936
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 13426,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 13460,
           "excerpt": "4. **Profiles.** Temporary per-session profiles by default. Persistent profiles",
           "path": "docs/browser-integration.md",
-          "start": 13347
+          "start": 13381
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 48943,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 52218,
           "excerpt": "`localhost` is not blanket permission. Temporary profiles are the default and",
           "path": "docs/functional-design.md",
-          "start": 48866
+          "start": 52141
         }
       ],
       "id": "REQ-036",
@@ -1127,25 +1141,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 2833,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 2846,
           "excerpt": "- A separate Patchright UI session started only by the user, with its own profile",
           "path": "docs/browser-integration.md",
-          "start": 2752
+          "start": 2765
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 47817,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 51092,
           "excerpt": "request. It supports user-driven login/MFA/CAPTCHA and normal graphical use in",
           "path": "docs/functional-design.md",
-          "start": 47739
+          "start": 51014
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 46964,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 50239,
           "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
           "path": "docs/functional-design.md",
-          "start": 46886
+          "start": 50161
         }
       ],
       "id": "REQ-037",
@@ -1155,32 +1169,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 13504,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 13538,
           "excerpt": "are separate per engine and explicitly consented scope; no personal Chrome",
           "path": "docs/browser-integration.md",
-          "start": 13430
+          "start": 13464
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 13577,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 13611,
           "excerpt": "profile, concurrent profile sharing or cross-engine cookie migration.",
           "path": "docs/browser-integration.md",
-          "start": 13508
+          "start": 13542
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 3336,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 3349,
           "excerpt": "reuse of the user's personal Chrome profile.",
           "path": "docs/browser-integration.md",
-          "start": 3292
+          "start": 3305
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 83557,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 84472,
           "excerpt": "No out-of-scope read, personal-profile use, cross-engine state or secret leakage",
           "path": "docs/verification-register.md",
-          "start": 83477
+          "start": 84392
         }
       ],
       "id": "REQ-038",
@@ -1190,14 +1204,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 9051,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 9085,
           "excerpt": "- no inherited agent credentials or unrelated environment secrets;",
           "path": "docs/browser-integration.md",
-          "start": 8985
+          "start": 9019
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 2236,
           "excerpt": "The shape below is the proposed implementation of those requirements, refined by",
           "path": "docs/browser-integration.md",
@@ -1211,28 +1225,28 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 12870,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 12904,
           "excerpt": "2. **Local files.** Only explicit roots are readable. Do not expose the project",
           "path": "docs/browser-integration.md",
-          "start": 12791
+          "start": 12825
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 12949,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 12983,
           "excerpt": "root by implication when a single HTML file was authorized. Downloads, file",
           "path": "docs/browser-integration.md",
-          "start": 12874
+          "start": 12908
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 13026,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 13060,
           "excerpt": "URLs, symlink resolution and subresources require the same canonical-path",
           "path": "docs/browser-integration.md",
-          "start": 12953
+          "start": 12987
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 2569,
           "excerpt": "- Read-only access to explicitly authorized local HTML roots and explicitly",
           "path": "docs/browser-integration.md",
@@ -1246,25 +1260,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 48863,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 52138,
           "excerpt": "- Local roots, MCP/local services, redirects and subresources have explicit scope;",
           "path": "docs/functional-design.md",
-          "start": 48781
+          "start": 52056
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 4432,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 4445,
           "excerpt": "operations authorized for that request. `localhost` is not itself a scope.",
           "path": "docs/browser-integration.md",
-          "start": 4358
+          "start": 4371
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 46964,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 50239,
           "excerpt": "### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)",
           "path": "docs/functional-design.md",
-          "start": 46886
+          "start": 50161
         }
       ],
       "id": "REQ-041",
@@ -1274,25 +1288,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 13118,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 13152,
           "excerpt": "3. **Network.** Allow only the intended destinations and address classes. Moli's",
           "path": "docs/browser-integration.md",
-          "start": 13038
+          "start": 13072
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 9131,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 9165,
           "excerpt": "- target and subresource policy applied to the initial URL, redirects and local",
           "path": "docs/browser-integration.md",
-          "start": 9052
+          "start": 9086
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 13346,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 13380,
           "excerpt": "blocking. A proxy therefore needs its own equivalent enforcement.",
           "path": "docs/browser-integration.md",
-          "start": 13281
+          "start": 13315
         }
       ],
       "id": "REQ-042",
@@ -1302,25 +1316,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 13652,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 13686,
           "excerpt": "5. **Secrets and artifacts.** No cookies, tokens, authorization headers or",
           "path": "docs/browser-integration.md",
-          "start": 13578
+          "start": 13612
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 13737,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 13771,
           "excerpt": "credentials in logs, SQLite, transcripts, summaries or error reports. Screenshots",
           "path": "docs/browser-integration.md",
-          "start": 13656
+          "start": 13690
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 122525,
-          "excerpt": "and follow private retention rules. No browser content or artifact enters logs,",
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 124387,
+          "excerpt": "authorization headers or credentials enter logs, SQLite, transcripts, summaries",
           "path": "docs/technical-design.md",
-          "start": 122446
+          "start": 124308
         }
       ],
       "id": "REQ-043",
@@ -1330,25 +1344,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 13815,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 13849,
           "excerpt": "and extracted pages can contain secrets: store them privately, bound their",
           "path": "docs/browser-integration.md",
-          "start": 13741
+          "start": 13775
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 13888,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 13922,
           "excerpt": "retention and never send them to a title/summary provider by default.",
           "path": "docs/browser-integration.md",
-          "start": 13819
+          "start": 13853
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 49012,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 52287,
           "excerpt": "screenshots/extracted content follow secret-aware retention rules.",
           "path": "docs/functional-design.md",
-          "start": 48946
+          "start": 52221
+        },
+        {
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 124547,
+          "excerpt": "stored privately with bounded retention and never sent to a title or summary",
+          "path": "docs/technical-design.md",
+          "start": 124471
         }
       ],
       "id": "REQ-044",
@@ -1358,25 +1379,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 12567,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 12601,
           "excerpt": "1. **Untrusted content.** HTML, JavaScript, screenshots, downloads, redirects,",
           "path": "docs/browser-integration.md",
-          "start": 12489
+          "start": 12523
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 12645,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 12679,
           "excerpt": "MCP UI content and agent output cannot authorize navigation outside scope,",
           "path": "docs/browser-integration.md",
-          "start": 12571
+          "start": 12605
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 12724,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 12758,
           "excerpt": "start Chrome, change controller or request credentials. The rules of engine",
           "path": "docs/browser-integration.md",
-          "start": 12649
+          "start": 12683
         }
       ],
       "id": "REQ-045",
@@ -1386,25 +1407,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 13964,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 13998,
           "excerpt": "6. **Sensitive effects.** Login/MFA is user-driven. Purchases, submissions,",
           "path": "docs/browser-integration.md",
-          "start": 13889
+          "start": 13923
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 14040,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 14074,
           "excerpt": "messages, downloads with side effects and permission changes require the",
           "path": "docs/browser-integration.md",
-          "start": 13968
+          "start": 14002
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 14108,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 14142,
           "excerpt": "applicable user authorization; a page or agent cannot supply it.",
           "path": "docs/browser-integration.md",
-          "start": 14044
+          "start": 14078
         }
       ],
       "id": "REQ-046",
@@ -1414,18 +1435,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 14186,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 14220,
           "excerpt": "7. **Local hostile agents.** An agent with an arbitrary shell and the same OS",
           "path": "docs/browser-integration.md",
-          "start": 14109
+          "start": 14143
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 14390,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 14424,
           "excerpt": "enforcement only for its managed path.",
           "path": "docs/browser-integration.md",
-          "start": 14352
+          "start": 14386
         }
       ],
       "id": "REQ-047",
@@ -1435,18 +1456,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 11004,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 11038,
           "excerpt": "The Shinatama process for the current window owns the browser request and its",
           "path": "docs/browser-integration.md",
-          "start": 10927
+          "start": 10961
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 11085,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 11119,
           "excerpt": "whole child tree. There is no cross-window browser daemon. Ownership records the",
           "path": "docs/browser-integration.md",
-          "start": 11005
+          "start": 11039
         }
       ],
       "id": "REQ-048",
@@ -1456,18 +1477,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 4090,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 4103,
           "excerpt": "owned by one Shinatama window. A session belongs to a project and, when present,",
           "path": "docs/browser-integration.md",
-          "start": 4010
+          "start": 4023
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 4149,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 4162,
           "excerpt": "to an instance/thread; it is not a native agent session.",
           "path": "docs/browser-integration.md",
-          "start": 4093
+          "start": 4106
         }
       ],
       "id": "REQ-049",
@@ -1477,18 +1498,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 11282,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 11316,
           "excerpt": "requested -> authorized -> starting -> active -> closing -> closed",
           "path": "docs/browser-integration.md",
-          "start": 11216
+          "start": 11250
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 11499,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 11533,
           "excerpt": "`needs_user` and `unsupported` are explicit outcomes, not silent retries. Every",
           "path": "docs/browser-integration.md",
-          "start": 11420
+          "start": 11454
         }
       ],
       "id": "REQ-050",
@@ -1498,18 +1519,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 11581,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 11615,
           "excerpt": "effect is idempotent by `request_id`: a repeated result or shutdown does not open",
           "path": "docs/browser-integration.md",
-          "start": 11500
+          "start": 11534
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 11636,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 11670,
           "excerpt": "another browser or delete another session's artifacts.",
           "path": "docs/browser-integration.md",
-          "start": 11582
+          "start": 11616
         }
       ],
       "id": "REQ-051",
@@ -1519,32 +1540,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 11799,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 11833,
           "excerpt": "- Normal close: stop accepting actions, close pages/context, wait with a timeout,",
           "path": "docs/browser-integration.md",
-          "start": 11718
+          "start": 11752
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 11881,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 11915,
           "excerpt": "terminate remaining descendants if necessary, close endpoints, remove temporary",
           "path": "docs/browser-integration.md",
-          "start": 11802
+          "start": 11836
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 12015,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 12049,
           "excerpt": "- Cancellation/error: the same cleanup path, with the original error preserved.",
           "path": "docs/browser-integration.md",
-          "start": 11936
+          "start": 11970
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 83189,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 84104,
           "excerpt": "No managed descendant/listener remains; cleanup state is truthful; unrelated processes survive",
           "path": "docs/verification-register.md",
-          "start": 83095
+          "start": 84010
         }
       ],
       "id": "REQ-052",
@@ -1554,25 +1575,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 12095,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 12129,
           "excerpt": "- Owner crash: OS-specific job/process-group cleanup and restart reconciliation",
           "path": "docs/browser-integration.md",
-          "start": 12016
+          "start": 12050
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 12174,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 12208,
           "excerpt": "must prevent or identify orphans. Merely being a child process is not proof.",
           "path": "docs/browser-integration.md",
-          "start": 12098
+          "start": 12132
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 11165,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 11199,
           "excerpt": "OS process/group/job identity, not just a PID, so PID reuse cannot make cleanup",
           "path": "docs/browser-integration.md",
-          "start": 11086
+          "start": 11120
         }
       ],
       "id": "REQ-053",
@@ -1582,18 +1603,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 12403,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 12437,
           "excerpt": "Cleanup status is reported honestly: `closed` is not claimed while a browser,",
           "path": "docs/browser-integration.md",
-          "start": 12326
+          "start": 12360
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 49167,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 52442,
           "excerpt": "UI session has one controller, explicit user/agent handover and verified",
           "path": "docs/functional-design.md",
-          "start": 49095
+          "start": 52370
         }
       ],
       "id": "REQ-054",
@@ -1603,11 +1624,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 12254,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 12288,
           "excerpt": "- UI close: no background companion remains. An explicit persistent profile may",
           "path": "docs/browser-integration.md",
-          "start": 12175
+          "start": 12209
         }
       ],
       "id": "REQ-055",
@@ -1617,25 +1638,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 14502,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 14536,
           "excerpt": "One-shot Moli requests may run independently within explicit resource limits. A",
           "path": "docs/browser-integration.md",
-          "start": 14423
+          "start": 14457
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 49092,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 52367,
           "excerpt": "- One-shot operations can be independent within resource limits. An interactive",
           "path": "docs/functional-design.md",
-          "start": 49013
+          "start": 52288
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 15426,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 15460,
           "excerpt": "browser.max_concurrent_fetch = <bounded>",
           "path": "docs/browser-integration.md",
-          "start": 15386
+          "start": 15420
         }
       ],
       "id": "REQ-056",
@@ -1645,39 +1666,39 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 14584,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 14618,
           "excerpt": "UI session has one owner and one controller. Starting another UI session must not",
           "path": "docs/browser-integration.md",
-          "start": 14503
+          "start": 14537
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 14663,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 14697,
           "excerpt": "silently steal focus, profile or control; refuse it or require an explicit new",
           "path": "docs/browser-integration.md",
-          "start": 14585
+          "start": 14619
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 4228,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 4241,
           "excerpt": "- **Controller**: `agent` or `user`, exactly one for an interactive session. A",
           "path": "docs/browser-integration.md",
-          "start": 4150
+          "start": 4163
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 3383,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 3396,
           "excerpt": "- Simultaneous agent/user control of one page.",
           "path": "docs/browser-integration.md",
-          "start": 3337
+          "start": 3350
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 83818,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 84733,
           "excerpt": "One controller; no focus/profile theft or stale/duplicate effect",
           "path": "docs/verification-register.md",
-          "start": 83754
+          "start": 84669
         }
       ],
       "id": "REQ-057",
@@ -1687,25 +1708,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 14776,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 14810,
           "excerpt": "When control is `user`, agent actions on that page are suspended. Returning",
           "path": "docs/browser-integration.md",
-          "start": 14701
+          "start": 14735
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 14858,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 14892,
           "excerpt": "control to the agent is explicit and checked against the current session and page",
           "path": "docs/browser-integration.md",
-          "start": 14777
+          "start": 14811
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 49167,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 52442,
           "excerpt": "UI session has one controller, explicit user/agent handover and verified",
           "path": "docs/functional-design.md",
-          "start": 49095
+          "start": 52370
         }
       ],
       "id": "REQ-058",
@@ -1715,18 +1736,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 14939,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 14973,
           "excerpt": "state. Closing or replacing a session invalidates outstanding actions, approvals",
           "path": "docs/browser-integration.md",
-          "start": 14859
+          "start": 14893
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 15016,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 15050,
           "excerpt": "and queued results. There is no exactly-once claim for external web effects.",
           "path": "docs/browser-integration.md",
-          "start": 14940
+          "start": 14974
         }
       ],
       "id": "REQ-059",
@@ -1736,46 +1757,46 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 15097,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 15131,
           "excerpt": "Proposed settings:",
           "path": "docs/browser-integration.md",
-          "start": 15079
+          "start": 15113
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 15132,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 15166,
           "excerpt": "browser.default_engine = moli",
           "path": "docs/browser-integration.md",
-          "start": 15103
+          "start": 15137
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 15167,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 15201,
           "excerpt": "browser.patchright.enabled = false",
           "path": "docs/browser-integration.md",
-          "start": 15133
+          "start": 15167
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 15285,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 15319,
           "excerpt": "browser.local_roots = []",
           "path": "docs/browser-integration.md",
-          "start": 15261
+          "start": 15295
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 15307,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 15341,
           "excerpt": "browser.services = []",
           "path": "docs/browser-integration.md",
-          "start": 15286
+          "start": 15320
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 15385,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 15419,
           "excerpt": "browser.profiles = temporary",
           "path": "docs/browser-integration.md",
-          "start": 15357
+          "start": 15391
         }
       ],
       "id": "REQ-060",
@@ -1785,39 +1806,39 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 15732,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 15766,
           "excerpt": "The base startup gate is observable without a performance baseline: no Moli,",
           "path": "docs/browser-integration.md",
-          "start": 15656
+          "start": 15690
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 15813,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 15847,
           "excerpt": "Patchright, companion or Chrome process is started until requested, and enabling",
           "path": "docs/browser-integration.md",
-          "start": 15733
+          "start": 15767
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 15864,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 15898,
           "excerpt": "browser support does not itself start the UI path.",
           "path": "docs/browser-integration.md",
-          "start": 15814
+          "start": 15848
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 10579,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 10613,
           "excerpt": "helper, Chrome process or update check runs at Shinatama startup.",
           "path": "docs/browser-integration.md",
-          "start": 10514
+          "start": 10548
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 82292,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 83207,
           "excerpt": "Patchright/Chrome is absent at startup, lazy-loaded and started only by an explicit UI request; missing optional component does not auto-install",
           "path": "docs/verification-register.md",
-          "start": 82148
+          "start": 83063
         }
       ],
       "id": "REQ-061",
@@ -1827,18 +1848,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 10662,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 10696,
           "excerpt": "The companion exposes only the typed session operations needed by the UI path. It",
           "path": "docs/browser-integration.md",
-          "start": 10581
+          "start": 10615
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 10742,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 10776,
           "excerpt": "does not expose a generic local automation socket. Its transport, opened ports,",
           "path": "docs/browser-integration.md",
-          "start": 10663
+          "start": 10697
         }
       ],
       "id": "REQ-062",
@@ -1848,11 +1869,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 15509,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 15543,
           "excerpt": "Versions, checksums, licenses and update behavior are pinned and recorded. An",
           "path": "docs/browser-integration.md",
-          "start": 15432
+          "start": 15466
         }
       ],
       "id": "REQ-063",
@@ -1862,32 +1883,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 49306,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 52581,
           "excerpt": "No speed or memory saving is claimed before B10 measures equivalent workloads on",
           "path": "docs/functional-design.md",
-          "start": 49226
+          "start": 52501
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 9265,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 9299,
           "excerpt": "Moli's upstream performance figures are not Shinatama acceptance evidence.",
           "path": "docs/browser-integration.md",
-          "start": 9191
+          "start": 9225
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 16180,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 16214,
           "excerpt": "the companion. No arbitrary saving percentage or latency target is accepted as",
           "path": "docs/browser-integration.md",
-          "start": 16102
+          "start": 16136
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 84127,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 85042,
           "excerpt": "Reproducible report supports a user-set budget; no upstream percentage is reused as evidence",
           "path": "docs/verification-register.md",
-          "start": 84035
+          "start": 84950
         }
       ],
       "id": "REQ-064",
@@ -1897,14 +1918,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 17083,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 17117,
           "excerpt": "If Moli fails the priority use cases or shows no accepted benefit, do not make it",
           "path": "docs/browser-integration.md",
-          "start": 17002
+          "start": 17036
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
           "end": 1285,
           "excerpt": "1. **Moli is the default** for fast operations, local HTML, previews and MCP web",
           "path": "docs/browser-integration.md",
@@ -1918,25 +1939,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 17162,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 17196,
           "excerpt": "the default. If only the UI path fails, defer it and record that the graphical",
           "path": "docs/browser-integration.md",
-          "start": 17084
+          "start": 17118
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 17245,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 17279,
           "excerpt": "requirement remains open. A failed `serve` gate limits persistent Moli automation;",
           "path": "docs/browser-integration.md",
-          "start": 17163
+          "start": 17197
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 17303,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 17337,
           "excerpt": "it does not invalidate successful one-shot `fetch` cases.",
           "path": "docs/browser-integration.md",
-          "start": 17246
+          "start": 17280
         }
       ],
       "id": "REQ-066",
@@ -1946,25 +1967,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 3466,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 3479,
           "excerpt": "- A universal browser abstraction, site-capability heuristics, anti-bot guarantees",
           "path": "docs/browser-integration.md",
-          "start": 3384
+          "start": 3397
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 3546,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 3559,
           "excerpt": "or arbitrary multi-step agent automation through a general JavaScript escape.",
           "path": "docs/browser-integration.md",
-          "start": 3469
+          "start": 3482
         },
         {
-          "document_sha256": "6d848ddbcdfcbda0b04d5143a2e5d362a9bfc3aa48ec1535320d5706c47b61c8",
-          "end": 3703,
+          "document_sha256": "79c9656c97f52025ea14e36461c385e5299f19b841174f2659f3219f26e1380a",
+          "end": 3716,
           "excerpt": "These exclusions are intentional simplifications, not features silently missing",
           "path": "docs/browser-integration.md",
-          "start": 3624
+          "start": 3637
         }
       ],
       "id": "REQ-067",
@@ -1974,30 +1995,51 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 33106,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 35773,
           "excerpt": "(9) browser fast path, then the optional UI path after its gates (5.15). Native",
           "path": "docs/functional-design.md",
-          "start": 33027
+          "start": 35694
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 32699,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 35366,
           "excerpt": "### 5.12 Order of work and audience (my calls, to check)",
           "path": "docs/functional-design.md",
-          "start": 32643
-        },
-        {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 33954,
-          "excerpt": "are closed. Native import is post-v1; Daodan task handover, browser UI, roundtable and",
-          "path": "docs/functional-design.md",
-          "start": 33868
+          "start": 35310
         }
       ],
       "id": "REQ-068",
       "status": "extracted",
-      "text": "The browser fast path is delivered first and the optional Patchright UI path only after its gates, without either blocking the first usable release slice (author's call, unconfirmed)"
+      "text": "In the suggested order of work, the browser fast path comes first and the optional Patchright UI path follows only after its gates (author's call, unconfirmed)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 36636,
+          "excerpt": "are closed. Native import is post-v1; Daodan task handover, browser UI, roundtable and",
+          "path": "docs/functional-design.md",
+          "start": 36550
+        },
+        {
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 36716,
+          "excerpt": "widget each follow their own gates rather than blocking the first usable slice.",
+          "path": "docs/functional-design.md",
+          "start": 36637
+        },
+        {
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 36116,
+          "excerpt": "**Delivery baseline (decided by the user 2026-10-31).**",
+          "path": "docs/functional-design.md",
+          "start": 36061
+        }
+      ],
+      "id": "REQ-069",
+      "status": "extracted",
+      "text": "The browser UI path follows its own gates and does not block the first usable release slice (decided by the user, 2026-10-31)"
     }
   ],
   "schema_version": 1,

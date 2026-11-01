@@ -50,8 +50,9 @@ lifecycle rules sit under the decided heading of functional-design 5.16. Rust co
 user's original request; macOS and Linux are required and Windows is assumed (author's call,
 functional-design 7 item 1, register O3). The toolkit is the author's call, "not selected or
 prototyped", and so is the layout sketch (technical-design 3.1, [C]); exact shortcuts are
-builder proposals. The terminal-first scope of 2026-10-30 is dated but not attributed. The full
-design is in functional-design 5.16 and technical-design 3.1; this record holds only the decision.
+builder proposals. The terminal-first scope was decided by the user on 2026-10-30 and confirmed
+on 2026-11-01 (functional-design 5.16). The full design is in functional-design 5.16 and
+technical-design 3.1; this record holds only the decision.
 
 ## Decision Drivers
 
@@ -104,12 +105,12 @@ functional-design 5.16 and technical-design 3.1.
 
 ## Consequences
 
-- Gates TL1 (G0, in the first-milestone set) to TL6 are added. The first UI milestone is terminal-first (project selector, terminal tiles, leaf tab groups, terminal profiles); file navigator, diffs, thread panes, session browsing, hop and Daodan surfaces come later (functional-design 5.16; ADR-0040).
+- Gates TL1 (G0, in the first-milestone set) to TL6 are added; TL1 is the toolkit prototype gate of technical-design 3.1, not the UI milestone. The first UI milestone is terminal-first (project selector, terminal tiles, leaf tab groups, terminal profiles); file navigator, diffs, thread panes, session browsing, hop and Daodan surfaces come later (functional-design 5.16; ADR-0040).
 - Native panes other than terminals must be declared in functional-design 5.16: the DeepSeek Harness ACP pane (ADR-0007) and the companion chat (ADR-0002). Session panels follow ADR-0023; browser panes keep their own gates, and "Tiling does not authorize a new engine, web frontend, automatic fallback or browser session transfer" (browser-integration; ADR-0035, ADR-0036).
 - Markdown rendering executes no scripts, embedded commands or unapproved remote requests; external writes are detected and never silently overwritten; DOCX and visual Markdown editing need fidelity fixtures (TL4, TL6). Native HTML rendering is not a full browser or DOCX engine.
 - The UI library, crates and shortcuts stay the builder's (functional-design 8); key bindings wait for register U3; Windows is open (O3).
 
 ## Confirmation
 
-- The combined prototype gate of technical-design 3.1 (a real agent, nested dock panels, Markdown source and preview, file navigation) passes on macOS, Linux and assumed Windows with versions and gaps recorded; then TL1 to TL6 pass with records, and the acceptance list of functional-design 5.16 is demonstrated.
+- The combined prototype gate of technical-design 3.1 (register TL1: a real agent, nested dock panels, Markdown source and preview, file navigation) passes on macOS, Linux and assumed Windows with versions and gaps recorded; then TL2 to TL6 pass with records, and the acceptance list of functional-design 5.16 is demonstrated.
 - Nothing has been run: the register says these gates "have not been executed", and technical-design 3.1 claims no implemented feature, passed gate or measured budget.

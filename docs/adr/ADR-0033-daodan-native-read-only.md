@@ -48,9 +48,13 @@ must be a native support for Daodan). Sources, kept apart:
 - Decided by the user: native support (functional-design goal 5 and 5.5, 2026-10-27). Goal 5
   puts "Read-only; Daodan stays the only writer of its state" beside that decision without
   saying whether those words are the user's.
-- Author's reading, not confirmed: what "native" covers, "the widest reading that does not make
-  Shinatama a second Daodan" (daodan-native-support 1); the palette that types commands
-  (functional-design 5.5, "my call"); and calls 1, 2, 5 and 6 of daodan-native-support 7.
+- Confirmed by the user on 2026-11-01: the shape, the author's reading of what "native" covers,
+  "the widest reading that does not make Shinatama a second Daodan" (daodan-native-support 1;
+  functional-design 5.5): read the agenda, link threads to tasks, show tasks and questions in
+  the project manager, overview and widget, add task commands to the palette, carry the task
+  across a hop and offer onboarding once.
+- Author's call, not confirmed: the palette that types commands (functional-design 5.5, "my
+  call"); and calls 1, 2, 5 and 6 of daodan-native-support 7, still to check.
 - Proposed shape: the rest of daodan-native-support, "proposed, not approved".
 
 The full design is in `docs/daodan-native-support.md`; this record holds only the decision.
@@ -68,8 +72,9 @@ Carrying a task across a hop is ADR-0034.
 Shinatama reads `.daodan/agenda.json` (schema `daodan/agenda/v1`) in the main checkout, found
 through the Git common directory; outside Git the project folder is its own home. The read is
 schema-checked; rows are keyed by `run_id`, rebuilt and never cached as truth. A bounded poll
-watches the file, with no resident service beyond the terminal's life. Shinatama's SQLite keeps
-only the derived, droppable `thread_task(thread_id, run_id, link_kind, last_row_json, seen_at)`.
+watches the file, with no resident service beyond the owning window's life. Shinatama's SQLite
+keeps only the derived, droppable `thread_task(thread_id, run_id, link_kind, last_row_json,
+seen_at)` and the per-project "Not now" of the onboarding offer.
 A thread is linked to a task when its directory equals the row's `worktree`, or is the main
 checkout with the row's `branch` checked out; the link is *exact* when the native session id
 equals `holder.session`, otherwise *by place*. Tasks, questions and holders appear in the

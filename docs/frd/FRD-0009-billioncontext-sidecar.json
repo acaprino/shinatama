@@ -7,39 +7,39 @@
   "entities": [],
   "frd_id": "FRD-0009",
   "last_verified_sha": null,
-  "proposed_at_sha": "e22191501ff4ef3a182bcee7175dba73550586e6",
+  "proposed_at_sha": "e7a1c1dd1ce0429f012af8aa2a40097038a22553",
   "proposed_on": "2026-11-01",
   "relationships": [],
   "requirements": [
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 3293,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 3399,
           "excerpt": "6. The BillionContext sidecar is integrated with its full resilience, security and\n   compression (5.6).",
           "path": "docs/functional-design.md",
-          "start": 3189
+          "start": 3295
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
           "end": 1771,
           "excerpt": "and every launch keeps\nthe full resilience, safety and compression of the BillionContext sidecar (5.6).",
           "path": "docs/functional-design.md",
           "start": 1668
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
           "end": 1842,
           "excerpt": "### Goals (decided unless marked)",
           "path": "docs/functional-design.md",
           "start": 1809
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 21117,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 22852,
           "excerpt": "### 5.6 BillionContext sidecar (decided: same resilience, security, compression)",
           "path": "docs/functional-design.md",
-          "start": 21037
+          "start": 22772
         }
       ],
       "id": "REQ-001",
@@ -49,25 +49,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 21173,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 22908,
           "excerpt": "The same BillionContext code, supervised by Shinatama.",
           "path": "docs/functional-design.md",
-          "start": 21119
+          "start": 22854
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 7889,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 8078,
           "excerpt": "- The BillionContext sidecar source in `sidecar/source-build` stays the single\n  source; Shinatama does not fork it",
           "path": "docs/functional-design.md",
-          "start": 7774
+          "start": 7963
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 21117,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 22852,
           "excerpt": "### 5.6 BillionContext sidecar (decided: same resilience, security, compression)",
           "path": "docs/functional-design.md",
-          "start": 21037
+          "start": 22772
         }
       ],
       "id": "REQ-002",
@@ -77,11 +77,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 7960,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 8149,
           "excerpt": "and does not install the precompiled npm\n  package (docs/sidecar.md).",
           "path": "docs/functional-design.md",
-          "start": 7891
+          "start": 8080
         }
       ],
       "id": "REQ-003",
@@ -91,25 +91,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 21327,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 23062,
           "excerpt": "- private root; Canonical config, data, cache and state paths resolve under it;",
           "path": "docs/functional-design.md",
-          "start": 21248
+          "start": 22983
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 6594,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 6783,
           "excerpt": "- A weakened sidecar integration: any loss of private root, child-only environment,\n  child-only certificate trust or proxy recovery.",
           "path": "docs/functional-design.md",
-          "start": 6461
+          "start": 6650
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 21117,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 22852,
           "excerpt": "### 5.6 BillionContext sidecar (decided: same resilience, security, compression)",
           "path": "docs/functional-design.md",
-          "start": 21037
+          "start": 22772
         }
       ],
       "id": "REQ-004",
@@ -119,32 +119,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 21376,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 23111,
           "excerpt": "- environment applied to the child process only;",
           "path": "docs/functional-design.md",
-          "start": 21328
+          "start": 23063
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 8451,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 8640,
           "excerpt": "the sidecar keeps a\n  private root and applies its environment and its certificate authority to the launched\n  child only",
           "path": "docs/functional-design.md",
-          "start": 8330
+          "start": 8519
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 52516,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 52913,
           "excerpt": "**SEC** Environment applied to the child only | Inspect parent, siblings, shell",
           "path": "docs/verification-register.md",
-          "start": 52437
+          "start": 52834
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 21117,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 22852,
           "excerpt": "### 5.6 BillionContext sidecar (decided: same resilience, security, compression)",
           "path": "docs/functional-design.md",
-          "start": 21037
+          "start": 22772
         }
       ],
       "id": "REQ-005",
@@ -154,25 +154,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 21482,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 23217,
           "excerpt": "- the proxy's certificate authority trusted only by the launched process, no\n  system trust-store change;",
           "path": "docs/functional-design.md",
-          "start": 21377
+          "start": 23112
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 52729,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 53126,
           "excerpt": "the system trust store is unchanged",
           "path": "docs/verification-register.md",
-          "start": 52694
+          "start": 53091
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 21117,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 22852,
           "excerpt": "### 5.6 BillionContext sidecar (decided: same resilience, security, compression)",
           "path": "docs/functional-design.md",
-          "start": 21037
+          "start": 22772
         }
       ],
       "id": "REQ-006",
@@ -182,32 +182,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 21561,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 23296,
           "excerpt": "- the launch manifest holds argv and launch overrides only, never credentials;",
           "path": "docs/functional-design.md",
-          "start": 21483
+          "start": 23218
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 2667,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 3171,
           "excerpt": "**No credentials** in the database, snapshots, messages, summaries or the sidecar's",
           "path": "docs/technical-design.md",
-          "start": 2584
+          "start": 3088
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 52926,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 53323,
           "excerpt": "The launch manifest holds argv and overrides only, no credentials",
           "path": "docs/verification-register.md",
-          "start": 52861
+          "start": 53258
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 21117,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 22852,
           "excerpt": "### 5.6 BillionContext sidecar (decided: same resilience, security, compression)",
           "path": "docs/functional-design.md",
-          "start": 21037
+          "start": 22772
         }
       ],
       "id": "REQ-007",
@@ -217,25 +217,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 21641,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 23376,
           "excerpt": "- automatic proxy recovery on the original address for active sessions; orderly",
           "path": "docs/functional-design.md",
-          "start": 21562
+          "start": 23297
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 53363,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 53760,
           "excerpt": "Proxy recovery on the original address while the agent keeps running",
           "path": "docs/verification-register.md",
-          "start": 53295
+          "start": 53692
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 21117,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 22852,
           "excerpt": "### 5.6 BillionContext sidecar (decided: same resilience, security, compression)",
           "path": "docs/functional-design.md",
-          "start": 21037
+          "start": 22772
         }
       ],
       "id": "REQ-008",
@@ -245,32 +245,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 21658,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 23393,
           "excerpt": "orderly\n  drain on exit;",
           "path": "docs/functional-design.md",
-          "start": 21634
+          "start": 23369
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 53418,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 53815,
           "excerpt": "orderly drain when an instance (not the window) exits",
           "path": "docs/verification-register.md",
-          "start": 53365
+          "start": 53762
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 53546,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 53943,
           "excerpt": "no lost final flush",
           "path": "docs/verification-register.md",
-          "start": 53527
+          "start": 53924
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 21117,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 22852,
           "excerpt": "### 5.6 BillionContext sidecar (decided: same resilience, security, compression)",
           "path": "docs/functional-design.md",
-          "start": 21037
+          "start": 22772
         }
       ],
       "id": "REQ-009",
@@ -280,298 +280,298 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 21741,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 23476,
           "excerpt": "- one supervisor per proxy: Shinatama alone starts and restarts it, and a recovery",
           "path": "docs/functional-design.md",
-          "start": 21659
+          "start": 23394
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 128449,
-          "excerpt": "- **Proxy supervision** [C] (main spec 5.6): the Shinatama process that owns the proxy is\n  its only supervisor.",
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 130817,
+          "excerpt": "- **Proxy supervision** (decided by the user, confirmed 2026-11-01; main spec 5.6): the Shinatama process that owns the proxy is\n  its only supervisor.",
           "path": "docs/technical-design.md",
-          "start": 128337
+          "start": 130666
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 24378,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 26113,
           "excerpt": "therefore does not rely on per-session\nsupervision or on the launcher's own message discipline",
           "path": "docs/functional-design.md",
-          "start": 24284
+          "start": 26019
         }
       ],
       "id": "REQ-010",
       "status": "extracted",
-      "text": "Each proxy has one supervisor: only the Shinatama process that owns the proxy starts and restarts it, and Shinatama relies neither on per-session supervision nor on the launcher's own message discipline (author's call, unconfirmed)"
+      "text": "Each proxy has one supervisor: only the Shinatama process that owns the proxy starts and restarts it, and Shinatama relies neither on per-session supervision nor on the launcher's own message discipline (decided by the user, 2026-11-01)"
     },
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 21822,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 23557,
           "excerpt": "starts one replacement; each session's process attaches to the proxy and never",
           "path": "docs/functional-design.md",
-          "start": 21744
+          "start": 23479
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 128910,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 131278,
           "excerpt": "it starts one replacement,\n  and every waiting session attaches to it.",
           "path": "docs/technical-design.md",
-          "start": 128840
+          "start": 131208
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 53525,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 53922,
           "excerpt": "Exactly one replacement starts; every agent recovers",
           "path": "docs/verification-register.md",
-          "start": 53473
+          "start": 53870
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 128364,
-          "excerpt": "- **Proxy supervision** [C]",
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 130748,
+          "excerpt": "- **Proxy supervision** (decided by the user, confirmed 2026-11-01; main spec 5.6)",
           "path": "docs/technical-design.md",
-          "start": 128337
+          "start": 130666
         }
       ],
       "id": "REQ-011",
       "status": "extracted",
-      "text": "A proxy recovery starts exactly one replacement, and every waiting session attaches to it (author's call, unconfirmed)"
+      "text": "A proxy recovery starts exactly one replacement, and every waiting session attaches to it (decided by the user, 2026-11-01)"
     },
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 21857,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 23592,
           "excerpt": "each session's process attaches to the proxy and never\n  starts a replacement of its own;",
           "path": "docs/functional-design.md",
-          "start": 21768
+          "start": 23503
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 129061,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 131429,
           "excerpt": "A session's process never probes, restarts\n  or reports on the proxy: when the shipped per-session launcher is used, its\n  supervision is switched off",
           "path": "docs/technical-design.md",
-          "start": 128911
+          "start": 131279
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 128364,
-          "excerpt": "- **Proxy supervision** [C]",
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 130748,
+          "excerpt": "- **Proxy supervision** (decided by the user, confirmed 2026-11-01; main spec 5.6)",
           "path": "docs/technical-design.md",
-          "start": 128337
+          "start": 130666
         }
       ],
       "id": "REQ-012",
       "status": "extracted",
-      "text": "A session's process never probes, restarts or reports on the proxy and never starts a replacement of its own; when the shipped per-session launcher is used, its supervision is switched off (author's call, unconfirmed)"
+      "text": "A session's process never probes, restarts or reports on the proxy and never starts a replacement of its own; when the shipped per-session launcher is used, its supervision is switched off (decided by the user, 2026-11-01)"
     },
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 128567,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 130935,
           "excerpt": "Liveness is two facts checked by that process: the proxy's process\n  is alive, and its port accepts a TCP connection.",
           "path": "docs/technical-design.md",
-          "start": 128450
+          "start": 130818
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 128364,
-          "excerpt": "- **Proxy supervision** [C]",
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 130748,
+          "excerpt": "- **Proxy supervision** (decided by the user, confirmed 2026-11-01; main spec 5.6)",
           "path": "docs/technical-design.md",
-          "start": 128337
+          "start": 130666
         }
       ],
       "id": "REQ-013",
       "status": "extracted",
-      "text": "Shinatama judges a proxy alive from two facts: its process is alive and its port accepts a TCP connection (author's call, unconfirmed)"
+      "text": "Shinatama judges a proxy alive from two facts: its process is alive and its port accepts a TCP connection (decided by the user, 2026-11-01)"
     },
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 22053,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 23788,
           "excerpt": "- busy is not dead: a proxy whose port still accepts connections while it misses\n  health checks (a long compression can hold its event loop for a minute) is shown\n  as busy and never duplicated;",
           "path": "docs/functional-design.md",
-          "start": 21858
+          "start": 23593
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 128681,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 131049,
           "excerpt": "A missed health check with both facts\n  true marks the proxy **busy**: the window shows it and nothing is started",
           "path": "docs/technical-design.md",
-          "start": 128568
+          "start": 130936
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 55256,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 55653,
           "excerpt": "No replacement process starts",
           "path": "docs/verification-register.md",
-          "start": 55227
+          "start": 55624
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 128364,
-          "excerpt": "- **Proxy supervision** [C]",
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 130748,
+          "excerpt": "- **Proxy supervision** (decided by the user, confirmed 2026-11-01; main spec 5.6)",
           "path": "docs/technical-design.md",
-          "start": 128337
+          "start": 130666
         }
       ],
       "id": "REQ-014",
       "status": "extracted",
-      "text": "A proxy that misses health checks while its process is alive and its port still accepts connections is shown as busy and never duplicated: no replacement is started (author's call, unconfirmed)"
+      "text": "A proxy that misses health checks while its process is alive and its port still accepts connections is shown as busy and never duplicated: no replacement is started (decided by the user, 2026-11-01)"
     },
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 22147,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 23882,
           "excerpt": "recovery starts only when its process has exited\n  or its port no longer accepts connections;",
           "path": "docs/functional-design.md",
-          "start": 22054
+          "start": 23789
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 128838,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 131206,
           "excerpt": "Recovery on the original address starts only when\n  the process has exited or the port refuses connections",
           "path": "docs/technical-design.md",
-          "start": 128732
+          "start": 131100
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 128364,
-          "excerpt": "- **Proxy supervision** [C]",
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 130748,
+          "excerpt": "- **Proxy supervision** (decided by the user, confirmed 2026-11-01; main spec 5.6)",
           "path": "docs/technical-design.md",
-          "start": 128337
+          "start": 130666
         }
       ],
       "id": "REQ-015",
       "status": "extracted",
-      "text": "Proxy recovery starts only when the proxy's process has exited or its port no longer accepts connections (author's call, unconfirmed)"
+      "text": "Proxy recovery starts only when the proxy's process has exited or its port no longer accepts connections (decided by the user, 2026-11-01)"
     },
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 129250,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 131618,
           "excerpt": "the window shows the busy and recovering states.",
           "path": "docs/technical-design.md",
-          "start": 129202
+          "start": 131570
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 55343,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 55740,
           "excerpt": "the window shows the proxy busy, then normal",
           "path": "docs/verification-register.md",
-          "start": 55299
+          "start": 55696
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 128364,
-          "excerpt": "- **Proxy supervision** [C]",
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 130748,
+          "excerpt": "- **Proxy supervision** (decided by the user, confirmed 2026-11-01; main spec 5.6)",
           "path": "docs/technical-design.md",
-          "start": 128337
+          "start": 130666
         }
       ],
       "id": "REQ-016",
       "status": "extracted",
-      "text": "The Shinatama window shows the proxy's status, including its busy and recovering states (author's call, unconfirmed)"
+      "text": "The Shinatama window shows the proxy's status, including its busy and recovering states (decided by the user, 2026-11-01)"
     },
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 22332,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 24067,
           "excerpt": "- no sidecar diagnostic is written to an agent's terminal, where it would print over\n  the agent's TUI: diagnostics go to Shinatama's log and to the proxy status shown\n  in the window.",
           "path": "docs/functional-design.md",
-          "start": 22148
+          "start": 23883
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 129106,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 131474,
           "excerpt": "its output kept off the agent's terminal",
           "path": "docs/technical-design.md",
-          "start": 129066
+          "start": 131434
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 129199,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 131567,
           "excerpt": "Sidecar diagnostics go to Shinatama's log;",
           "path": "docs/technical-design.md",
-          "start": 129157
+          "start": 131525
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 55297,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 55694,
           "excerpt": "no line appears in any agent's terminal",
           "path": "docs/verification-register.md",
-          "start": 55258
+          "start": 55655
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 128364,
-          "excerpt": "- **Proxy supervision** [C]",
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 130748,
+          "excerpt": "- **Proxy supervision** (decided by the user, confirmed 2026-11-01; main spec 5.6)",
           "path": "docs/technical-design.md",
-          "start": 128337
+          "start": 130666
         }
       ],
       "id": "REQ-017",
       "status": "extracted",
-      "text": "No sidecar diagnostic is ever written to an agent's terminal; sidecar diagnostics go to Shinatama's log and to the proxy status shown in the window (author's call, unconfirmed)"
+      "text": "No sidecar diagnostic is ever written to an agent's terminal; sidecar diagnostics go to Shinatama's log and to the proxy status shown in the window (decided by the user, 2026-11-01)"
     },
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 129364,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 131732,
           "excerpt": "The proxy's own owner watchdog\n  must not take a long stall of its event loop for the loss of every owner (SC12).",
           "path": "docs/technical-design.md",
-          "start": 129251
+          "start": 131619
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 54848,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 55245,
           "excerpt": "No premature or late shutdown",
           "path": "docs/verification-register.md",
-          "start": 54819
+          "start": 55216
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 128364,
-          "excerpt": "- **Proxy supervision** [C]",
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 130748,
+          "excerpt": "- **Proxy supervision** (decided by the user, confirmed 2026-11-01; main spec 5.6)",
           "path": "docs/technical-design.md",
-          "start": 128337
+          "start": 130666
         }
       ],
       "id": "REQ-018",
       "status": "extracted",
-      "text": "A long stall of the proxy's event loop is not taken by the proxy's owner watchdog as the loss of every owner, so a busy proxy is not shut down prematurely (author's call, unconfirmed)"
+      "text": "A long stall of the proxy's event loop is not taken by the proxy's owner watchdog as the loss of every owner, so a busy proxy is not shut down prematurely (decided by the user, 2026-11-01)"
     },
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 22649,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 24384,
           "excerpt": "- no auto-update; the owned source upgrades only through Shinatama;",
           "path": "docs/functional-design.md",
-          "start": 22582
+          "start": 24317
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 75189,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 76064,
           "excerpt": "that they do not touch the sidecar's no-auto-update rule",
           "path": "docs/verification-register.md",
-          "start": 75133
+          "start": 76008
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 21117,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 22852,
           "excerpt": "### 5.6 BillionContext sidecar (decided: same resilience, security, compression)",
           "path": "docs/functional-design.md",
-          "start": 21037
+          "start": 22772
         }
       ],
       "id": "REQ-019",
@@ -581,25 +581,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 22725,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 24460,
           "excerpt": "- compression policy as shipped (adaptive pressure, CCR, Absorb, profiles);",
           "path": "docs/functional-design.md",
-          "start": 22650
+          "start": 24385
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 53720,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 54117,
           "excerpt": "Compression behaviour as shipped: the sidecar's own fixtures against Shinatama-launched sessions",
           "path": "docs/verification-register.md",
-          "start": 53624
+          "start": 54021
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 21117,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 22852,
           "excerpt": "### 5.6 BillionContext sidecar (decided: same resilience, security, compression)",
           "path": "docs/functional-design.md",
-          "start": 21037
+          "start": 22772
         }
       ],
       "id": "REQ-020",
@@ -609,18 +609,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 22783,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 24518,
           "excerpt": "`--no-context` remains an explicit per-session opt-out.",
           "path": "docs/functional-design.md",
-          "start": 22728
+          "start": 24463
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 21117,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 22852,
           "excerpt": "### 5.6 BillionContext sidecar (decided: same resilience, security, compression)",
           "path": "docs/functional-design.md",
-          "start": 21037
+          "start": 22772
         }
       ],
       "id": "REQ-021",
@@ -630,18 +630,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 22904,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 24639,
           "excerpt": "Agents covered in v1: Claude Code, Codex, OpenCode, Pi, Hermes Agent and DeepSeek\nHarness; Gemini is launch-only (5.9).",
           "path": "docs/functional-design.md",
-          "start": 22785
+          "start": 24520
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 21117,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 22852,
           "excerpt": "### 5.6 BillionContext sidecar (decided: same resilience, security, compression)",
           "path": "docs/functional-design.md",
-          "start": 21037
+          "start": 22772
         }
       ],
       "id": "REQ-022",
@@ -651,25 +651,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 23007,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 24742,
           "excerpt": "The last two count as covered only once the proxy\ncarries their provider traffic (register HM12, DS12)",
           "path": "docs/functional-design.md",
-          "start": 22905
+          "start": 24640
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 35761,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 35848,
           "excerpt": "Traffic through the proxy, or that provider marked uncovered",
           "path": "docs/verification-register.md",
-          "start": 35701
+          "start": 35788
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 39438,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 39525,
           "excerpt": "Traffic through the proxy, or that provider marked uncovered",
           "path": "docs/verification-register.md",
-          "start": 39378
+          "start": 39465
         }
       ],
       "id": "REQ-023",
@@ -679,18 +679,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 127722,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 129759,
           "excerpt": "- Each instance's traffic goes through the BillionContext proxy\n  today; the seed and catch-up messages are ordinary user turns for it.",
           "path": "docs/technical-design.md",
-          "start": 127587
+          "start": 129624
         },
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 23402,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 25137,
           "excerpt": "A known interaction: the hop context\npasses through the sidecar and counts against the destination's window",
           "path": "docs/functional-design.md",
-          "start": 23295
+          "start": 25030
         }
       ],
       "id": "REQ-024",
@@ -700,25 +700,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 127800,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 129837,
           "excerpt": "The seed budget\n  (6.4) is chosen well below the sidecar's adaptive threshold",
           "path": "docs/technical-design.md",
-          "start": 127723
+          "start": 129760
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 127947,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 129984,
           "excerpt": "so a hop does not trigger a compression pass on\n  the destination's first turn.",
           "path": "docs/technical-design.md",
-          "start": 127868
+          "start": 129905
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 54143,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 54540,
           "excerpt": "a first destination turn does not trigger a compression pass",
           "path": "docs/verification-register.md",
-          "start": 54083
+          "start": 54480
         }
       ],
       "id": "REQ-025",
@@ -728,18 +728,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 23485,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 25220,
           "excerpt": "and the MCP\nshim must follow `/resume` session ids (docs/sidecar.md, 2026-10-26).",
           "path": "docs/functional-design.md",
-          "start": 23404
+          "start": 25139
         },
         {
-          "document_sha256": "fdf274b9f2f76e0e8e9dcb89f9d0733dcc852498c2c98bd842215e5e402964db",
-          "end": 53918,
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 54315,
           "excerpt": "The bili MCP shim follows `/resume` under Shinatama and coexists with `shinatama mcp`",
           "path": "docs/verification-register.md",
-          "start": 53833
+          "start": 54230
         }
       ],
       "id": "REQ-026",
@@ -749,11 +749,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 128116,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 130445,
           "excerpt": "the\n  bili MCP shim and `shinatama mcp` coexist as two MCP servers in the same launch.",
           "path": "docs/technical-design.md",
-          "start": 128030
+          "start": 130359
         }
       ],
       "id": "REQ-027",
@@ -763,11 +763,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 128336,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 130665,
           "excerpt": "- The low-cost title calls and roundtable bare-model calls go through the same sidecar so\n  the cost and security properties hold (child-only environment, child-only certificate\n  trust, no credentials in the manifest).",
           "path": "docs/technical-design.md",
-          "start": 128117
+          "start": 130446
         }
       ],
       "id": "REQ-028",
@@ -777,11 +777,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 8266,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 8455,
           "excerpt": "- No measured saving percentage may be claimed for compression\n  (docs/token-efficiency.md says none has been measured).",
           "path": "docs/functional-design.md",
-          "start": 8146
+          "start": 8335
         }
       ],
       "id": "REQ-029",
@@ -791,30 +791,65 @@
     {
       "evidence": [
         {
-          "document_sha256": "da16636c4a3e9c0888eab76633eabe641f068bb239dd27b7a75f9ddba153a75f",
-          "end": 22581,
+          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "end": 24316,
           "excerpt": "The rule covers every line a launcher or proxy can write (owner\n  renewal, attach refusals and stale-proxy rotation included) and is verified by\n  capturing the agent's terminal while faults are injected, not by auditing messages\n  (register SC15);",
           "path": "docs/functional-design.md",
-          "start": 22333
+          "start": 24068
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 129533,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 131901,
           "excerpt": "the bytes on an agent's PTY must come only from the agent",
           "path": "docs/technical-design.md",
-          "start": 129476
+          "start": 131844
         },
         {
-          "document_sha256": "5d7fdfe72a0e916d61931cc17615ffa5c9241bc985667ec834a7c4abc545d570",
-          "end": 129944,
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 132312,
           "excerpt": "every\n  fault appears once in Shinatama's log and never in the capture (SC15). It runs against\n  each launch path under SC5 and again on every sidecar upgrade.",
           "path": "docs/technical-design.md",
-          "start": 129785
+          "start": 132153
+        },
+        {
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 130748,
+          "excerpt": "- **Proxy supervision** (decided by the user, confirmed 2026-11-01; main spec 5.6)",
+          "path": "docs/technical-design.md",
+          "start": 130666
         }
       ],
       "id": "REQ-030",
       "status": "extracted",
-      "text": "The bytes on an agent's terminal come only from the agent: the rule covers every line a launcher or proxy can write (owner renewal, attach refusals and stale-proxy rotation included) and is verified by capturing the agent's terminal from launch to exit while faults are injected one at a time, each fault appearing once in Shinatama's log and never in the capture, on every launch path and again on every sidecar upgrade (unmarked in the design)"
+      "text": "The bytes on an agent's terminal come only from the agent: the rule covers every line a launcher or proxy can write (owner renewal, attach refusals and stale-proxy rotation included) and is verified by capturing the agent's terminal from launch to exit while faults are injected one at a time, each fault appearing once in Shinatama's log and never in the capture, on every launch path and again on every sidecar upgrade (decided by the user, 2026-11-01)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "ea37654f8a4b70dd9f28e676495c45927189fb63257f663dd081cbbf9c5f1af3",
+          "end": 130276,
+          "excerpt": "The seed, the bootstrap and the receipt reach the agent\n  as sent: the sidecar's prompt rewriter (`promptRewrite.mode: auto`) does not alter them\n  and CCR does not externalize them; where it would, a bypass marker is added (SC9\n  compares the bytes sent and received). [C; register Q5, SC9]",
+          "path": "docs/technical-design.md",
+          "start": 129985
+        },
+        {
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 54479,
+          "excerpt": "| SC9 | G0 | **SEC** The seed, bootstrap and receipt are not altered by the prompt rewriter or externalized by CCR;",
+          "path": "docs/verification-register.md",
+          "start": 54364
+        },
+        {
+          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
+          "end": 8567,
+          "excerpt": "a seed or a bootstrap must not be altered",
+          "path": "docs/verification-register.md",
+          "start": 8526
+        }
+      ],
+      "id": "REQ-031",
+      "status": "extracted",
+      "text": "A hop's seed, its bootstrap and the destination's receipt reach the agent through the sidecar exactly as Shinatama sent them: the sidecar's prompt rewriter does not alter them and CCR does not externalize them (author's call, unconfirmed)"
     }
   ],
   "schema_version": 1,

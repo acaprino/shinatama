@@ -1,7 +1,7 @@
 ---
 adr_id: ADR-0040
 version: 1
-title: Terminal-first TL1 baseline, then read-only browsing and resume, then the seed hop; first-milestone gates decide the design
+title: Terminal-first baseline, then read-only browsing and resume, then the seed hop; first-milestone gates decide the design
 status: Proposed
 author: Alfio Caprino
 scope:
@@ -32,7 +32,7 @@ superseded_by: null
 changes:
 ---
 
-# ADR-0040: Terminal-first TL1 baseline, then read-only browsing and resume, then the seed hop; first-milestone gates decide the design
+# ADR-0040: Terminal-first baseline, then read-only browsing and resume, then the seed hop; first-milestone gates decide the design
 
 <!-- adr-header:start -->
 Version 1 · Proposed 2026-11-01 at b667db5 · proposed 2026-11-01 by Alfio Caprino
@@ -47,9 +47,9 @@ apart:
 
 - Decided by the user: native Rust tiling (2026-10-29, functional-design 5.16); v1 hops
   seed-only (2026-10-31); the project `shinatama`, named 2026-10-26, in this repository
-  (functional-design 7 item 3); the former launcher out of scope (2026-10-28, register O6).
-- Dated but not attributed to the user: the terminal-first scope (2026-10-30,
-  functional-design 5.16) and the delivery baseline (2026-10-31, functional-design 5.12).
+  (functional-design 7 item 3); the former launcher out of scope (2026-10-28, register O6); the
+  terminal-first scope (2026-10-30, functional-design 5.16) and the delivery baseline
+  (2026-10-31, functional-design 5.12), both confirmed as the user's on 2026-11-01.
 - Author's call, "to check": the order of work and the audience (functional-design 5.12).
 - Proposed shape: the first-milestone list of technical-design 10 and the gate rules of the
   register, section 0.
@@ -66,8 +66,8 @@ register; this record holds only the decision.
 
 ## Decision
 
-The first UI milestone is terminal-first (TL1): project selector, resizable terminal tiles,
-leaf tab groups and per-harness terminal profiles, with no git integration, file navigator,
+The first UI milestone is terminal-first (distinct from register row TL1, the toolkit prototype
+gate of technical-design 3.1): project selector, resizable terminal tiles, leaf tab groups and per-harness terminal profiles, with no git integration, file navigator,
 diffs, thread side panes, session browsing, hop or Daodan surfaces. The first usable release
 slice adds read-only store browsing and search and same-agent native resume. The next slice is
 the live seed hop. Native import is post-v1. Daodan task handover, browser UI, roundtable and
@@ -103,7 +103,7 @@ in this repository. See functional-design 5.12 and 5.16; technical-design 10; re
 ## Consequences
 
 - The register's first-milestone set is 30 rows (register 0) and technical-design 10 is called its short form, yet technical-design 10 also lists browser B1 to B10 and the tool-definition baseline (register T1), which are not in that set. The register says it wins; technical-design 10 should be aligned.
-- The register's TL1 row prototypes Markdown and file panels, while the TL1 UI milestone excludes the file navigator (functional-design 5.12, 5.16); the two uses of "TL1" should be reconciled.
+- Register row TL1 is the toolkit prototype gate of technical-design 3.1, not the terminal-first UI milestone: it prototypes Markdown and file panels to choose the toolkit, while the milestone ships no file navigator (functional-design 5.12, 5.16).
 - The other `G0` rows gate their own feature and run when it is built (register 0).
 - Removing the launcher left the first-milestone set unchanged (register O6).
 - Open: Windows in v1 is assumed (register O3); the Oni-derived art is a distribution decision separate from the code (register O4); overall approval of both designs (register O5).

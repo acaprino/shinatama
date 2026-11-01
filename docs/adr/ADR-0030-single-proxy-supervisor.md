@@ -49,10 +49,11 @@ failed — the shared proxy may exit when its first owner does (The operation wa
 timeout)` over Claude Code's screen: the owner-renewal path had been missed. Moving messages one
 path at a time does not close the class. Three supervision items
 were then added to the sidecar acceptance list of functional-design 5.6 (commit `9eabbaa`), whose
-heading carries the user's decision "same resilience, security, compression". Technical-design 9
-tags the proxy supervision [C], so the exact rule is the author's call, not confirmed by the
-user. The full design is in functional-design 5.6 and technical-design 9; this record holds only
-the decision.
+heading carries the user's decision "same resilience, security, compression". The user confirmed
+on 2026-11-01 that this supervision rule (one supervisor per proxy, busy is not dead, no
+diagnostics on agent terminals) is the user's decision, and technical-design 9 marks it so. The
+full design is in functional-design 5.6 and technical-design 9; this record holds only the
+decision.
 
 ## Decision Drivers
 

@@ -44,10 +44,11 @@ Version 1 · Proposed 2026-11-01 at b667db5 · proposed 2026-11-01 by Alfio Capr
 
 Shinatama has no code yet. The user asked to "let different harness instances and models talk
 to each other and compare on a topic" (functional-design goal 10 and 5.10, decided as a wish).
-The shape is the author's: functional-design 5.10 lists it under "My calls", and section 7
-records moderated rounds, a free-form two-agent variant and answer-only by default as calls to
-check. Goal 10 still marks shape and scheduling open, and whether the free-form variant is wanted
-is open. The runner of technical-design 7.8 is untagged author's design. The question is how
+The shape, moderated rounds and answer-only turns by default with a per-participant opt-in to
+tools, is the user's decision, confirmed on 2026-11-01 (functional-design goal 10, the 5.10
+heading and section 7). Scheduling, and whether the free-form two-agent variant is wanted, stay
+open. The runner of technical-design 7.8 is untagged author's design, and its default caps are
+the author's call (register R5). The question is how
 several agents and bare models discuss one topic without steering each other, spending without
 limit or touching the user's live sessions. The full design is in functional-design 5.10 and
 technical-design 7.6 to 7.8; this record holds only the decision.
@@ -75,13 +76,14 @@ Rounds are moderated. Round 1 is independent; in rounds 2 to N each participant 
 previous answers as quoted data from a named participant and critiques them. A synthesis step,
 an `ask_headless` by a participant the user picks or a configured one, writes agreements,
 differences and open questions. The runner enforces `max_rounds`, a token cap and a cost cap
-(`caps_json`) and stops at the first cap; the user can interject between rounds (a `note` to
+(`caps_json`; by default $2 and 40k tokens per roundtable, to be calibrated) and stops at the
+first cap; the user can interject between rounds (a `note` to
 all) or stop. Turns run answer-only, with no tools, file writes or network, through each
 adapter's `ask_headless` policy; the user may allow tools per participant, and the roundtable
 header shows it. Each participant's traffic goes through the sidecar. The run is stored as a
 thread of kind `roundtable`, searchable and hoppable ("continue with codex's plan"). A free-form
-two-agent chat is the same machinery with one reply per round. See functional-design 5.10 and
-technical-design 7.8.
+two-agent chat would be the same machinery with one reply per round; whether it is wanted is
+open. See functional-design 5.10 and technical-design 7.8.
 
 ## Verified Interview Examples
 
@@ -99,21 +101,21 @@ technical-design 7.8.
 ## Enforceable Invariants
 
 - **INV-001**: no roundtable starts without a user action and a cost warning; no agent tool starts one.
-- **INV-002**: participants run in headless sessions of their own; no round writes into one of the user's live instances.
+- **INV-002**: participants run in headless sessions of their own; no round writes into one of the user's live instances, and there is no fallback that types into a PTY and reads the screen (functional-design 5.10; technical-design 7.8).
 - **INV-003**: a participant receives other participants' answers only as quoted data from a named participant (technical-design I6).
 - **INV-004**: by default a turn has no tools, file writes or network; a per-participant allowance is set by the user and shown in the header (`roundtable_participant.tools_allowed`).
 - **INV-005**: the runner stops at the first of `max_rounds`, the token cap and the cost cap.
 - **INV-006**: every participant's traffic, bare-model calls included, goes through the sidecar.
+- **INV-007**: unless the user sets other caps, a roundtable runs with a cost cap of $2 and a token cap of 40k tokens, defaults to be calibrated from the real cost of three topics (author's call; technical-design 7.8; register R5).
 
 ## Consequences
 
 - Answer-only switches were found only for Pi, from its help output; for the other agents the exact flags were not established (technical-design 5.7 item 5); register R2 (G0) rests on the per-agent rows CL11, CX9, OC7, PI8, HM7 and DS7.
 - How Shinatama reaches `moe_ask` without holding credentials is open (register R1, G0).
-- The default caps of $2 and 40k tokens are calibrated on three topics (register R5); parallel participants on one account need rate-limit and overshoot data (R3); a model per participant must be chosen per launch without editing global configuration, or that agent is excluded as a participant (R7).
-- Functional-design 5.10 keeps PTY typing and screen reading as a transport fallback; technical-design 7.8 specifies only `ask_headless`. The two must be aligned once the per-agent headless routes are proved.
+- The default caps of $2 and 40k tokens are the author's call, calibrated on three topics (register R5); parallel participants on one account need rate-limit and overshoot data (R3); a model per participant must be chosen per launch without editing global configuration, or that agent is excluded as a participant (R7).
 - The database holds `roundtable` and `roundtable_participant` (technical-design 4.2); the roundtable view is a consumer of the event feed (technical-design 8.3; ADR-0027).
 - Order: after the hop (functional-design 5.12, step 7); it follows its own gates and does not block the first usable slice (ADR-0040).
-- Open: whether the free-form variant is wanted; goal 10 marks shape and scheduling open.
+- Open: scheduling, and whether the free-form variant is wanted (functional-design goal 10, 5.10).
 
 ## Confirmation
 
