@@ -7,7 +7,7 @@
   "entities": [],
   "frd_id": "FRD-0012",
   "last_verified_sha": null,
-  "proposed_at_sha": "e7a1c1dd1ce0429f012af8aa2a40097038a22553",
+  "proposed_at_sha": "c84d28ee66da672cf7c3058f27fb16e5d87fa031",
   "proposed_on": "2026-11-01",
   "relationships": [],
   "requirements": [
@@ -4261,6 +4261,13 @@
           "excerpt": "writes, shell, MCP writes and every network access except, on a web turn, the web search tool",
           "path": "docs/specs/companion-explainer.md",
           "start": 99009
+        },
+        {
+          "document_sha256": "0124d463bb754575143a4efe7e31e7ac7a9b529a6d394003512d3ea816fc8a03",
+          "end": 2174,
+          "excerpt": "- **C3** a turn can be limited to read tools plus the search tool (no shell, no writes, no other\n  network);",
+          "path": "docs/harness-tools.md",
+          "start": 2066
         }
       ],
       "id": "REQ-127",
@@ -4282,6 +4289,13 @@
           "excerpt": "the history with each turn (**stateless mode**, more tokens per card, shown in the header).",
           "path": "docs/specs/companion-explainer.md",
           "start": 54130
+        },
+        {
+          "document_sha256": "0124d463bb754575143a4efe7e31e7ac7a9b529a6d394003512d3ea816fc8a03",
+          "end": 2375,
+          "excerpt": "- **C5** the harness can run read-only and either resume between turns or run stateless.",
+          "path": "docs/harness-tools.md",
+          "start": 2287
         }
       ],
       "id": "REQ-128",
@@ -5661,6 +5675,13 @@
           "excerpt": "verification of links and the limits are my call.",
           "path": "docs/specs/companion-explainer.md",
           "start": 67128
+        },
+        {
+          "document_sha256": "0124d463bb754575143a4efe7e31e7ac7a9b529a6d394003512d3ea816fc8a03",
+          "end": 1802,
+          "excerpt": "- **C1** the search tool can be on for one turn and absent from every other turn;",
+          "path": "docs/harness-tools.md",
+          "start": 1721
         }
       ],
       "id": "REQ-171",
@@ -5710,6 +5731,13 @@
           "excerpt": "verification of links and the limits are my call.",
           "path": "docs/specs/companion-explainer.md",
           "start": 67128
+        },
+        {
+          "document_sha256": "0124d463bb754575143a4efe7e31e7ac7a9b529a6d394003512d3ea816fc8a03",
+          "end": 7279,
+          "excerpt": "4. **Per-turn switches are per process in several harnesses** (DeepSeek, OpenCode, Hermes with\n   `--toolsets`): the spec's stateless web turn in a throwaway session already fits.",
+          "path": "docs/harness-tools.md",
+          "start": 7100
         }
       ],
       "id": "REQ-172",
@@ -6053,6 +6081,20 @@
           "excerpt": "verification of links and the limits are my call.",
           "path": "docs/specs/companion-explainer.md",
           "start": 67128
+        },
+        {
+          "document_sha256": "0124d463bb754575143a4efe7e31e7ac7a9b529a6d394003512d3ea816fc8a03",
+          "end": 2065,
+          "excerpt": "- **C2** the headless route reports every query and every result URL in a machine-readable stream\n  (and, for a page-reading tool, the URL requested); a search that runs at the model provider's\n  side and shows nothing in the stream makes the harness ineligible;",
+          "path": "docs/harness-tools.md",
+          "start": 1803
+        },
+        {
+          "document_sha256": "0124d463bb754575143a4efe7e31e7ac7a9b529a6d394003512d3ea816fc8a03",
+          "end": 7099,
+          "excerpt": "The\n   invariant should say \"every query the harness reports\", and the check after each event applies\n   to those.",
+          "path": "docs/harness-tools.md",
+          "start": 6985
         }
       ],
       "id": "REQ-181",
@@ -6172,6 +6214,13 @@
           "excerpt": "verification of links and the limits are my call.",
           "path": "docs/specs/companion-explainer.md",
           "start": 67128
+        },
+        {
+          "document_sha256": "0124d463bb754575143a4efe7e31e7ac7a9b529a6d394003512d3ea816fc8a03",
+          "end": 2065,
+          "excerpt": "- **C2** the headless route reports every query and every result URL in a machine-readable stream\n  (and, for a page-reading tool, the URL requested); a search that runs at the model provider's\n  side and shows nothing in the stream makes the harness ineligible;",
+          "path": "docs/harness-tools.md",
+          "start": 1803
         }
       ],
       "id": "REQ-184",
@@ -6522,6 +6571,20 @@
           "excerpt": "search\"; the setting, the budget and the limits are my call).",
           "path": "docs/specs/companion-explainer.md",
           "start": 9784
+        },
+        {
+          "document_sha256": "0124d463bb754575143a4efe7e31e7ac7a9b529a6d394003512d3ea816fc8a03",
+          "end": 2286,
+          "excerpt": "- **C4** (later, R5) the page-reading tool can be limited to URLs that appeared in a result of the\n  same turn;",
+          "path": "docs/harness-tools.md",
+          "start": 2175
+        },
+        {
+          "document_sha256": "0124d463bb754575143a4efe7e31e7ac7a9b529a6d394003512d3ea816fc8a03",
+          "end": 7749,
+          "excerpt": "the spec's R5 condition (page reading only where it can be\n   restricted) is right, and R5 starts with those two.",
+          "path": "docs/harness-tools.md",
+          "start": 7636
         }
       ],
       "id": "REQ-192",
@@ -6634,6 +6697,20 @@
           "excerpt": "search\"; the setting, the budget and the limits are my call).",
           "path": "docs/specs/companion-explainer.md",
           "start": 9784
+        },
+        {
+          "document_sha256": "0124d463bb754575143a4efe7e31e7ac7a9b529a6d394003512d3ea816fc8a03",
+          "end": 1719,
+          "excerpt": "It needs, per harness (the same conditions as the spec's row 19):",
+          "path": "docs/harness-tools.md",
+          "start": 1654
+        },
+        {
+          "document_sha256": "0124d463bb754575143a4efe7e31e7ac7a9b529a6d394003512d3ea816fc8a03",
+          "end": 2065,
+          "excerpt": "- **C2** the headless route reports every query and every result URL in a machine-readable stream\n  (and, for a page-reading tool, the URL requested); a search that runs at the model provider's\n  side and shows nothing in the stream makes the harness ineligible;",
+          "path": "docs/harness-tools.md",
+          "start": 1803
         }
       ],
       "id": "REQ-194",
@@ -6837,6 +6914,13 @@
           "excerpt": "from R3; web grounding (EX-028 to EX-033, INV-015, INV-016, the `sources` key of 5.8, the web labels of 5.5,",
           "path": "docs/specs/companion-explainer.md",
           "start": 71090
+        },
+        {
+          "document_sha256": "0124d463bb754575143a4efe7e31e7ac7a9b529a6d394003512d3ea816fc8a03",
+          "end": 1719,
+          "excerpt": "It needs, per harness (the same conditions as the spec's row 19):",
+          "path": "docs/harness-tools.md",
+          "start": 1654
         }
       ],
       "id": "REQ-200",
@@ -6865,6 +6949,20 @@
           "excerpt": "tool can be restricted to this turn's result URLs (row 19 (g)).",
           "path": "docs/specs/companion-explainer.md",
           "start": 90877
+        },
+        {
+          "document_sha256": "0124d463bb754575143a4efe7e31e7ac7a9b529a6d394003512d3ea816fc8a03",
+          "end": 2286,
+          "excerpt": "- **C4** (later, R5) the page-reading tool can be limited to URLs that appeared in a result of the\n  same turn;",
+          "path": "docs/harness-tools.md",
+          "start": 2175
+        },
+        {
+          "document_sha256": "0124d463bb754575143a4efe7e31e7ac7a9b529a6d394003512d3ea816fc8a03",
+          "end": 7749,
+          "excerpt": "the spec's R5 condition (page reading only where it can be\n   restricted) is right, and R5 starts with those two.",
+          "path": "docs/harness-tools.md",
+          "start": 7636
         }
       ],
       "id": "REQ-201",

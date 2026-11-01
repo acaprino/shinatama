@@ -108,6 +108,7 @@ in this repository. See functional-design 5.12 and 5.16; technical-design 10; re
 - Removing the launcher left the first-milestone set unchanged (register O6).
 - Open: Windows in v1 is assumed (register O3); the Oni-derived art is a distribution decision separate from the code (register O4); overall approval of both designs (register O5).
 - The widget is built last within v1, after the core it listens to (functional-design goal 9).
+- The browser fast path in the order above is gated, not guaranteed: if Moli fails the priority cases or B10, its fast path waits while Moli stays the default, and meanwhile only the explicit Patchright UI or no browser is offered (user, 2026-11-01; ADR-0035).
 
 ## Confirmation
 

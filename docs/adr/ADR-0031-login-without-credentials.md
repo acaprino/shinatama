@@ -43,7 +43,11 @@ Shinatama has no code yet. The user asked Shinatama to "recognize automatically 
 login for codex, claude, etc." (functional-design goal 11 and 5.11, decided as a wish). The shape
 is the author's call: detect, never collect; log in through the agent's own flow; show the state
 where it matters. Holding provider keys once and sharing them across agents is not in v1, also
-the author's call (functional-design 5.11 and 7). Four verification records of
+the author's call (functional-design 5.11 and 7). For DeepSeek Harness, which has no status
+or login command, the user decided on 2026-11-01 that its state stays unknown until register DS9
+finds a check that reads no secret, and that its login opens `dsh web` on the home the agent
+uses: the box's, or the user's home with `system` (functional-design 5.11; technical-design
+5.7). Four verification records of
 2026-10-27 (CL13, CX11, OC8, PI9) observed the status commands of Claude Code, Codex, OpenCode
 and Pi on Windows 11, with no login performed; none has passed. The full design is in
 functional-design 5.11 and technical-design 5.5 A and 5.7; this record holds only the decision.
@@ -70,8 +74,10 @@ hop.
 
 Hermes Agent reports sign-in without secrets (`hermes auth list`, `hermes auth status
 <provider>`) and logs in with `hermes model` or `hermes auth add`. DeepSeek Harness has neither a
-login nor a status command: its state shows as `unknown`, and its login opens its own web UI
-(`dsh web`, on the box's home) in the user's browser. It also reads a project's `.env`, so a key
+login nor a status command: its state shows as `unknown` until DS9 finds a check that reads no
+secret, and its login opens its own web UI (`dsh web`, on the home the agent uses: the box's, or
+the user's home with `system`; user, 2026-11-01) in the user's browser. It also reads a
+project's `.env`, so a key
 there is used even in a box, and the setup screen says so. In a box each agent needs one first
 login through its own flow, which then persists in the box and is shared by every instance of
 that agent; with the `system` home the user's existing login is used as it is. Commands that
@@ -83,7 +89,7 @@ print stored secrets are never called. See functional-design 5.11 and technical-
 - **EX-002** (boundary case): Input: `codex login status` (codex-cli 0.164.0) -> Expected: stdout empty; stderr `Logged in using ChatGPT` with exit 0, or `Not logged in` with exit 1; the adapter reads stderr and the exit code (CX11 record).
 - **EX-003** (rejection or error case): Input: `opencode auth list` (opencode 2.1.4) on the real home, which failed five times in a row with `Location plugins did not finish activating` (exit 1) after two successes -> Expected: the command is not adopted as the detector as it is; the HTTP route or retries are preferred, and `opencode auth export`, which prints secrets, is never called (OC8 record).
 - **EX-004** (boundary case): Input: `pi auth check --json --no-refresh --provider anthropic` (pi 1.2.0) -> Expected: exit 1 and `{"status":"not_ready","provider":"anthropic","reason":"credentials_not_configured"}`; `--no-refresh` avoids refreshing or writing credentials, and `--credentials` and the `print-*` commands are never used (PI9 record).
-- **EX-005** (boundary case): Input: DeepSeek Harness at setup -> Expected: sign-in shown as `unknown`; login opens `dsh web` on the box's home in the user's browser (functional-design 5.11; register DS9).
+- **EX-005** (boundary case): Input: DeepSeek Harness at setup -> Expected: sign-in shown as `unknown`; login opens `dsh web` on the home the agent uses (the box's, or the user's home with `system`) in the user's browser (functional-design 5.11; register DS9).
 
 ## Rejected Alternatives
 
@@ -97,6 +103,7 @@ print stored secrets are never called. See functional-design 5.11 and technical-
 - **INV-003**: `login()` runs the agent's own flow in a PTY; Shinatama observes only the outcome.
 - **INV-004**: commands that print stored credentials are never called.
 - **INV-005**: a hop to a destination that is not signed in offers login first; if that cannot be fixed, the strategy is `refuse` (technical-design 6.2, 6.7).
+- **INV-006**: DeepSeek Harness's `auth_status()` is `Unknown` until register DS9 finds a check that reads no secret, and its `login()` opens `dsh web` on the home the instance uses (the box's `DSH_HOME`, or the user's home with `system`), never on another (decided by the user 2026-11-01; technical-design 5.7).
 
 ## Consequences
 

@@ -43,11 +43,15 @@ Version 1 · Proposed 2026-11-01 at b667db5 · proposed 2026-11-01 by Alfio Capr
 
 Shinatama has no code yet. The user asked that different harness instances and models talk to
 each other and compare on a topic (functional-design goal 10, decided as a wish) and for an
-overview of the communication flows and exchanges between instances (goal 12). No user decision
-covers the messaging itself; its shape is the author's. Technical-design 7.2 and 7.5 are tagged
-[C], the rest of section 7 is untagged author's design, and technical-design 12 lists the
-project-or-roundtable scope (unless a per-project setting broadens it) and the limits on what
-agents can do as the author's defaults. The PTY-write rule of register M5 and the server-side
+overview of the communication flows and exchanges between instances (goal 12). The shape of the
+messaging is the author's, except its boundary, which the user decided on 2026-11-01: the line
+between these messages and the non-goal of an addressed mailbox is persistence. The messages
+stay; each expires after one hour by default and never later, and stays within one project
+folder or roundtable, so no mailbox outlives the sessions or the expiry (functional-design 2;
+technical-design 7.1, 7.2). Technical-design 7.2 and 7.5 are tagged [C], the rest of section 7
+is untagged author's design, and technical-design 12 lists the limits on what agents can do
+among the author's defaults, with the project-or-roundtable scope marked as the user's and the
+per-project setting that broadens it as the author's. The PTY-write rule of register M5 and the server-side
 depth limit of register M7 are written into technical-design 7.3 and 7.4 as the author's calls
 [C]. The question is how one hosted agent reaches another without either one steering the other or
 acting with the user's authority. The full design is in technical-design 7.1 to 7.7; this record
@@ -66,9 +70,11 @@ holds only the decision.
 A message has a `kind` (`note`, `ask`, `reply`, `catch_up`, `roundtable_prompt`,
 `roundtable_answer`, `alert`), a body of at most 16 KB (longer content travels as a file path and
 a hash), a `depth` that counts agent-to-agent replies and an `expires_at` that defaults to one
-hour. It is addressed to an instance id, `agent@project` or a roundtable group. Scope is
-**default deny across projects**: only the same project folder or the same roundtable, unless a
-per-project setting broadens it.
+hour and can only be shorter: a message not delivered by then expires, so there is no mailbox
+that outlives the sessions or the expiry (user, 2026-11-01). It is addressed to an instance id,
+`agent@project` or a roundtable group. Scope is **default deny across projects**: only the same
+project folder or the same roundtable (user, 2026-11-01), unless a per-project setting
+broadens it.
 
 Delivery tries, per recipient capability: the agent's native queue, then hook injection through
 `shinatama hook`, then MCP pull through `shinatama_inbox`, and last a PTY bracketed paste, only
@@ -93,7 +99,7 @@ technical-design 7.1 to 7.7.
 
 ## Verified Interview Examples
 
-- **EX-001** (nominal case): Input: a message to an offline recipient -> Expected: queued, then delivered when the recipient starts (technical-design 11.7).
+- **EX-001** (nominal case): Input: a message to an offline recipient -> Expected: queued, then delivered when the recipient starts within the expiry; a recipient that has not started by `expires_at` never receives it, and the message is `expired` (technical-design 7.1, 11.7).
 - **EX-002** (boundary case): Input: the same message sent twice -> Expected: one delivery (technical-design 11.7; register M10).
 - **EX-003** (boundary case): Input: a two-agent ping-pong, also when the agents do not carry `in_reply_to` -> Expected: it stops at depth 6 with an alert (technical-design 11.7; register M7).
 - **EX-004** (rejection or error case): Input: a send to an instance of another project, with the default scope -> Expected: refused (technical-design 11.7; register M13).
@@ -107,7 +113,7 @@ technical-design 7.1 to 7.7.
 ## Enforceable Invariants
 
 - **INV-001**: a peer message reaches a model only inside the `untrusted="true"` wrapper, never answers an approval request and never counts as the user's reply (technical-design I6).
-- **INV-002**: with default settings an instance can message only instances of its own project folder or its own roundtable.
+- **INV-002**: with default settings an instance can message only instances of its own project folder or its own roundtable (decided by the user 2026-11-01; technical-design 7.2).
 - **INV-003**: `delivered` is never displayed as "read".
 - **INV-004**: when a depth, pair or thread limit trips, agent-to-agent auto-replies pause and an `alert` is raised; no message is dropped silently; messages between two agents never trigger a tool call or an approval by themselves.
 - **INV-005**: `message.dedupe_key` is unique and receivers are idempotent by message id.
@@ -116,6 +122,7 @@ technical-design 7.1 to 7.7.
 - **INV-008**: a PTY write happens only when the recipient is idle and the user has typed nothing in it for 10 s, and never while a permission dialog, a selection, a search box or a draft is active, so that a PTY write never answers a permission prompt; where that cannot be guaranteed the channel is removed (author's call; technical-design 7.3; register M5).
 - **INV-009**: secrets are redacted from message bodies before storage and delivery (technical-design I5).
 - **INV-010**: the depth limit is enforced by the server, so it holds even when the agents do not carry `in_reply_to` (author's call; technical-design 7.4; register M7).
+- **INV-011**: no message's `expires_at` is more than one hour after it was sent; a message not delivered by then becomes `expired` and is never delivered afterwards, so no mailbox outlives the expiry (decided by the user 2026-11-01; functional-design 2; technical-design 7.1).
 
 ## Consequences
 

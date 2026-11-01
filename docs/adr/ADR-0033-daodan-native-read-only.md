@@ -53,6 +53,10 @@ must be a native support for Daodan). Sources, kept apart:
   functional-design 5.5): read the agenda, link threads to tasks, show tasks and questions in
   the project manager, overview and widget, add task commands to the palette, carry the task
   across a hop and offer onboarding once.
+- Decided by the user, 2026-11-01: for a project Shinatama creates, the new-project dialog's
+  option to type Daodan's native init command is the only offer, and declining it counts as the
+  "Not now" of daodan-native-support 4.7; the one-time offer stays for projects that are opened,
+  not created (functional-design 5.4; daodan-native-support 4.7).
 - Author's call, not confirmed: the palette that types commands (functional-design 5.5, "my
   call"); and calls 1, 2, 5 and 6 of daodan-native-support 7, still to check.
 - Proposed shape: the rest of daodan-native-support, "proposed, not approved".
@@ -81,10 +85,12 @@ equals `holder.session`, otherwise *by place*. Tasks, questions and holders appe
 project manager, overview and widget; a stale local holder is shown, never taken over. The
 `^K` palette lists Daodan's workflows from the installed manifest and the task commands *Show
 status* and *Continue this task*, typed as the agent's native command; the user presses Enter.
-On a project with neither `.codebase-map` nor `.daodan/runs` as a directory, Shinatama offers
-Onboard, Initialize or Not now once, by typing the command. Shinatama never writes Daodan files,
-never runs a Daodan script and never creates or removes worktrees. The adapter contract gains
-nothing. See daodan-native-support 3, 4 and 7.
+On an opened project with neither `.codebase-map` nor `.daodan/runs` as a directory, Shinatama
+offers Onboard, Initialize or Not now once, by typing the command. For a project Shinatama
+creates, the new-project dialog's option to type Daodan's init command is the only offer;
+declining it counts as "Not now" and no second offer follows (user, 2026-11-01). Shinatama
+never writes Daodan files, never runs a Daodan script and never creates or removes worktrees.
+The adapter contract gains nothing. See daodan-native-support 3, 4 and 7.
 
 ## Verified Interview Examples
 
@@ -99,7 +105,7 @@ nothing. See daodan-native-support 3, 4 and 7.
 - **RA-001**: Shinatama writing Daodan state; the agenda row is the lock and a second writer would bypass Daodan's grants, deliveries, questions and gates (daodan-native-support 2).
 - **RA-002**: reading the agenda through Daodan's read-only MCP in `work-controller`; the direct read needs no agent and works when none is running. To revisit if D11 shows torn reads (call 1).
 - **RA-003**: calling Daodan's `first-use` script for the onboarding check; it would break "Shinatama never runs a Daodan script" (call 5).
-- **RA-004**: implementing Work Controller's task graph, checkpoints, addressed mailbox or scheduler; they are Daodan's roadmap (functional-design non-goals).
+- **RA-004**: implementing Work Controller's task graph, checkpoints, an addressed mailbox that outlives the sessions or the expiry, or its scheduler; they are Daodan's roadmap (functional-design non-goals).
 - **RA-005**: the earlier position that Daodan is "a set of plugins and nothing else"; a hop then forces the user to explain and take over by hand, "exactly the re-explaining Shinatama exists to remove" (daodan-native-support 1).
 
 ## Enforceable Invariants
@@ -110,11 +116,12 @@ nothing. See daodan-native-support 3, 4 and 7.
 - **INV-004**: every Daodan command Shinatama offers is typed into the prompt and never sent.
 - **INV-005**: no holder is taken over automatically; a holder whose `host` is another machine is shown and never judged stale.
 - **INV-006**: palette workflows come from the installed manifest, not from a hard-coded list (register D8).
+- **INV-007**: a project created by Shinatama gets one Daodan offer, the new-project dialog's option; declining it records the per-project "Not now", and no onboarding offer follows when the project is later opened (decided by the user 2026-11-01; daodan-native-support 4.7).
 
 ## Consequences
 
 - functional-design goal 5, two non-goals and 5.5 are amended; the engine spec absorbs the reader module, the `thread_task` table and the hop seed block after approval (daodan-native-support 5). technical-design does not contain them yet.
-- The new-project dialog may type Daodan's init command and never runs it (functional-design 5.4).
+- The new-project dialog may type Daodan's init command and never runs it; for a created project it is the only offer (user, 2026-11-01; functional-design 5.4).
 - Open: link exactness (D9), command spellings per host (D10), torn reads (D11), worktree resolution on Windows paths (D12); all six author's calls are marked "check them"; a new mockup comes with approval. The old `daodan-flow.html` mockup is not revived as is.
 
 ## Confirmation

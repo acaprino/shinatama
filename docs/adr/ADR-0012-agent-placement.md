@@ -53,7 +53,10 @@ Agent when HM10 finds no recipe are also the author's calls. On 2026-11-01 the u
 a known, harmless leak such as Codex's is shown and the agent stays boxable, only a leak that
 touches credentials, sessions or the user's configuration making it `system`-only (register
 D15), and that Codex has per-instance sets only in a `box`, because installing a set writes the
-home (functional-design 5.14 and 7). The single `private` mode was split into a program choice and a home choice on
+home (functional-design 5.14 and 7). The same day the user decided Claude's MCP-log leak (record
+D19): Shinatama tries `CLAUDE_CODE_SKIP_MCP_DEBUG_LOG_FILES` (untested); if it works there is no
+leak, and if not, the leak is shown like Codex's and Claude stays boxable (functional-design
+5.14; register D15). The single `private` mode was split into a program choice and a home choice on
 2026-10-28, after the D15 runs (record D15). The full design is in functional-design 5.14 and
 technical-design 3; this record holds only the decision.
 
@@ -86,7 +89,10 @@ the set of the instance that resumes it; for Codex this holds only in a `box`, a
 instance; switching any choice moves nothing; from a box, the user's system-home sessions are
 still found through `system_homes()`, read-only. Codex runs in a box with its unelevated Windows
 sandbox leak (`~\.sbx-denybin`) shown, not blocked, and its elevated sandbox is not offered in a
-box. See functional-design 5.14 and technical-design 3.
+box. Claude runs in a box with `CLAUDE_CODE_SKIP_MCP_DEBUG_LOG_FILES` tried against its MCP
+server logs in `%LOCALAPPDATA%\claude-cli-nodejs\Cache`; if they are still written, that leak is
+shown in the same way and Claude stays boxable (user, 2026-11-01). See functional-design 5.14 and
+technical-design 3.
 
 ## Verified Interview Examples
 
@@ -116,11 +122,12 @@ box. See functional-design 5.14 and technical-design 3.
 - **INV-008**: a box migrated by a newer program that an older one cannot open is shown, never repaired (inference, not tested).
 - **INV-009**: if register HM10 yields no `own` recipe for Hermes Agent (its installer with a bundled uv and Python), `own` is refused for Hermes Agent (author's call; register HM10; functional-design 5.14).
 - **INV-010**: with the `system` home Shinatama installs no Codex set into the user's Codex home; Codex instances there use the home's own set (decided by the user 2026-11-01; functional-design 5.14).
+- **INV-011**: a boxed Claude Code launch tries `CLAUDE_CODE_SKIP_MCP_DEBUG_LOG_FILES`; MCP logs that still reach `%LOCALAPPDATA%\claude-cli-nodejs\Cache` are shown to the user and never make Claude `system`-only (decided by the user 2026-11-01; register D15, D19).
 
 ## Consequences
 
 - Costs: one login per agent per box the first time; an `own` copy takes hundreds of MB to over a GB per kept version (D16).
-- Per agent: Codex needs `CODEX_HOME` on a short path; OpenCode needs `OPENCODE_DB`, the four `XDG_*`, a plugin that restores the user's `XDG_*` for its children (D17) and `OPENCODE_DISABLE_CLAUDE_CODE=1`; Shinatama starts and stops OpenCode's service and Hermes Agent's gateway per box (ADR-0008). Claude still writes MCP logs to `%LOCALAPPDATA%\claude-cli-nodejs\Cache`.
+- Per agent: Codex needs `CODEX_HOME` on a short path; OpenCode needs `OPENCODE_DB`, the four `XDG_*`, a plugin that restores the user's `XDG_*` for its children (D17) and `OPENCODE_DISABLE_CLAUDE_CODE=1`; Shinatama starts and stops OpenCode's service and Hermes Agent's gateway per box (ADR-0008). Claude writes MCP logs to `%LOCALAPPDATA%\claude-cli-nodejs\Cache` (D19); whether `CLAUDE_CODE_SKIP_MCP_DEBUG_LOG_FILES` stops them is untested and register D15 checks it; if it does not, the leak is shown and Claude stays boxable (user, 2026-11-01).
 - Codex sets are pre-installed into the box home turned off, a home write, which is why Codex has per-instance sets only in a `box` (user, 2026-11-01); Pi's MCP through the instance's extension is untested; Hermes Agent keeps its box's set until HM13; DeepSeek Harness sets are untested (DS13). `own` Codex waits for D16.
 - Store roots and their access are recorded in the catalog (ADR-0009, ADR-0023); hooks, MCP and sets reach the agent per launch (ADR-0013). The register's scratch homes stay a separate, test-only device.
 

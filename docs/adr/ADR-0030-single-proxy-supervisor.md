@@ -123,7 +123,7 @@ technical-design 9.
 
 ## Consequences
 
-- The launch path is open: the shipped per-session launcher with its supervision off, or a direct launch with the proxy environment, decided together with one proxy per instance versus one shared (register SC5, G0). The sidecar code stays unmodified (ADR-0029).
+- The launch path is open: the shipped per-session launcher with its supervision off, or a direct launch with the proxy environment, decided together with one proxy per instance versus one shared (register SC5, G0). The sidecar code stays unmodified (ADR-0029): no fork or patch inside Shinatama, and a change the proxy needs goes into the single source and is inherited, as the watchdog fix is (user, 2026-11-01; technical-design 9).
 - The window gains a proxy status with busy and recovering states; Shinatama's log receives the sidecar's diagnostics.
 - The proxy's own owner watchdog must not read a long stall as the loss of every owner; the owned source does this from Musashi Terminal commit `ac7d57a`, and register SC12 tests it for the Windows watcher under Shinatama.
 - A held event loop is itself an availability limit on Windows: once the agents' own connections fill the accept queue, their turns are refused until the loop resumes. On 2026-11-01 the shared proxy held its loop for 15 to 71 s every few minutes with six Claude Code sessions; how long it may be held is open (register SC16) and bears on one proxy per instance versus one shared (SC5).

@@ -99,7 +99,7 @@ changes. See functional-design 5.16 and technical-design 5.6 and 5.7.
 
 - A native conversation pane kind joins the tiling host (ADR-0005), drawn with the skin rather than a terminal profile (functional-design 5.7; ADR-0039); ADR-0002 counts the companion chat as the second such exception to functional-design 5.16.
 - The pane lacks fork and export, which only the web UI has; DeepSeek Harness has no import of any kind.
-- There is no login or status command: `auth_status()` is `Unknown` until DS9 finds a check that reads no secret, and `login()` opens `dsh web` on the box's home (ADR-0031).
+- There is no login or status command: `auth_status()` is `Unknown` until DS9 finds a check that reads no secret, and `login()` opens `dsh web` on the home the agent uses, the box's or the user's home with `system` (decided by the user 2026-11-01; ADR-0031).
 - Stdio MCP servers get a scrubbed environment (names matching `KEY|PASSWORD|SECRET|TOKEN` and every `DSH_*` are dropped), so `SHINATAMA_INSTANCE_TOKEN` must reach `shinatama mcp` another way (register DS5; ADR-0013).
 - Search and hops from DeepSeek Harness wait for its Mukade reader (register DS3; ADR-0006).
 - Open: O9; DS1 (starts on Windows, macOS and Linux with Node `^22.19.0 || >=24`).

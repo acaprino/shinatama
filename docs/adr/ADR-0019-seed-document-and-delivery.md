@@ -51,7 +51,9 @@ builder's"; markers and cuts are lessons from Agent Deck's source ("[S]"); per-a
 are research ("[R]"). Two register rules are written into the governing sections as the
 author's calls: lines of the seed or bootstrap that a destination could interpret are never
 executed or expanded (technical-design 6.4; register Q9, H7), and the sidecar delivers the seed,
-bootstrap and receipt as sent (technical-design 9; register Q5, SC9; ADR-0029). Functional-design
+bootstrap and receipt as sent (technical-design 9; register Q5, SC9; ADR-0029); where a bypass
+marker is needed for that, the user decided on 2026-11-01 that it goes into the sidecar's single
+source and Shinatama inherits it. Functional-design
 5.2 marks the whole thread "my call" and the catch-up "a guess to validate". Technical-design 5.6
 and 6.4 to 6.6 hold the full design; this record holds only the decision.
 
@@ -126,8 +128,9 @@ turns, same budget and receipt; if that session is gone or cannot be resumed, fa
 
 - The budget stays well below the sidecar's `maxTokens: 160000`, so a hop does not trigger
   compression on the first turn (technical-design 9); the seed, bootstrap and receipt reach the
-  agent as sent, with a bypass marker where the prompt rewriter or CCR would alter them (ADR-0029;
-  register Q5, SC9). Each hop costs one short receipt turn; a standby costs memory, not tokens.
+  agent as sent, with a bypass marker where the prompt rewriter or CCR would alter them, added in
+  the sidecar's single source and never patched inside Shinatama (ADR-0029; register Q5, SC9).
+  Each hop costs one short receipt turn; a standby costs memory, not tokens.
 - Whether each agent's sandbox can read the handoff file is unverified per agent; the data
   directory is the fallback (register H4).
 - The defaults of technical-design 12 (40 %, 60,000 tokens, standby off) are open for the user.

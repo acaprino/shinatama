@@ -7,39 +7,39 @@
   "entities": [],
   "frd_id": "FRD-0008",
   "last_verified_sha": null,
-  "proposed_at_sha": "e7a1c1dd1ce0429f012af8aa2a40097038a22553",
+  "proposed_at_sha": "c84d28ee66da672cf7c3058f27fb16e5d87fa031",
   "proposed_on": "2026-11-01",
   "relationships": [],
   "requirements": [
     {
       "evidence": [
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 19675,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 21244,
           "excerpt": "Shinatama's checkup installs or updates it in every\nagent present",
           "path": "docs/functional-design.md",
-          "start": 19610
+          "start": 21179
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
           "end": 3019,
           "excerpt": "5. Daodan arrives preinstalled and enabled in every agent (5.5)",
           "path": "docs/functional-design.md",
           "start": 2956
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 19332,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 20901,
           "excerpt": "### 5.5 Daodan preinstalled (decided: option A, downloaded and kept updated)",
           "path": "docs/functional-design.md",
-          "start": 19256
+          "start": 20825
         },
         {
-          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
-          "end": 57495,
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 59857,
           "excerpt": "Each host ends with the plugins enabled and no duplicates",
           "path": "docs/verification-register.md",
-          "start": 57438
+          "start": 59800
         }
       ],
       "id": "REQ-001",
@@ -49,25 +49,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 19440,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 21009,
           "excerpt": "Daodan is a set of plugins, already compiled for each agent: Shinatama converts\nnothing, it only installs.",
           "path": "docs/functional-design.md",
-          "start": 19334
+          "start": 20903
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 21633,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 23202,
           "excerpt": "installs that build and enables what its manifest lists; nothing is translated.",
           "path": "docs/functional-design.md",
-          "start": 21554
+          "start": 23123
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 19332,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 20901,
           "excerpt": "### 5.5 Daodan preinstalled (decided: option A, downloaded and kept updated)",
           "path": "docs/functional-design.md",
-          "start": 19256
+          "start": 20825
         }
       ],
       "id": "REQ-002",
@@ -77,18 +77,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 19609,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 21178,
           "excerpt": "The plugins go into the agent's home (5.14): the box by\ndefault, the user's own home with the `system` home; an instance with its own set loads\nthem per launch instead.",
           "path": "docs/functional-design.md",
-          "start": 19441
+          "start": 21010
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 19332,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 20901,
           "excerpt": "### 5.5 Daodan preinstalled (decided: option A, downloaded and kept updated)",
           "path": "docs/functional-design.md",
-          "start": 19256
+          "start": 20825
         }
       ],
       "id": "REQ-003",
@@ -98,32 +98,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 19746,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 21315,
           "excerpt": "agent present and enables, by default, **every plugin the Daodan marketplace lists**",
           "path": "docs/functional-design.md",
-          "start": 19662
+          "start": 21231
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 19827,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 21396,
           "excerpt": "(decided 2026-10-27, user: \"mi aspetto che attivi tutti i plugin\"; read from the",
           "path": "docs/functional-design.md",
-          "start": 19747
+          "start": 21316
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 69409,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 73145,
           "excerpt": "- All Daodan plugins enabled by default, `research` included (5.5, user).",
           "path": "docs/functional-design.md",
-          "start": 69336
+          "start": 73072
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 8348,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 8452,
           "excerpt": "The user, 2026-10-27: \"mi aspetto che attivi tutti i plugin di shinatama\" (I expect it to activate all the plugins).",
           "path": "docs/daodan-native-support.md",
-          "start": 8232
+          "start": 8336
         }
       ],
       "id": "REQ-004",
@@ -133,18 +133,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 8498,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 8602,
           "excerpt": "read from its manifest at check time and never from a list kept in Shinatama",
           "path": "docs/daodan-native-support.md",
-          "start": 8422
+          "start": 8526
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 19876,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 21445,
           "excerpt": "(decided 2026-10-27, user: \"mi aspetto che attivi tutti i plugin\"; read from the\nmanifest at check time, 48 at marketplace 1.0.0)",
           "path": "docs/functional-design.md",
-          "start": 19747
+          "start": 21316
         }
       ],
       "id": "REQ-005",
@@ -154,14 +154,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 8923,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 9027,
           "excerpt": "- A plugin added in a later release is enabled at the next check.",
           "path": "docs/daodan-native-support.md",
-          "start": 8858
+          "start": 8962
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -175,21 +175,21 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 8758,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 8862,
           "excerpt": "- Plugins the user disabled stay disabled (D3).",
           "path": "docs/daodan-native-support.md",
-          "start": 8711
+          "start": 8815
         },
         {
-          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
-          "end": 57566,
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 59928,
           "excerpt": "The user's own disabled plugins stay disabled",
           "path": "docs/verification-register.md",
-          "start": 57521
+          "start": 59883
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -203,21 +203,21 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 8857,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 8961,
           "excerpt": "- A plugin whose MCP server does not start is reported by the checkup and never blocks the launch.",
           "path": "docs/daodan-native-support.md",
-          "start": 8759
+          "start": 8863
         },
         {
-          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
-          "end": 57843,
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 60205,
           "excerpt": "a failing plugin must not block the launch",
           "path": "docs/verification-register.md",
-          "start": 57801
+          "start": 60163
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -231,25 +231,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 20161,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 21730,
           "excerpt": "A setting `daodan.enable = all | core | custom`",
           "path": "docs/functional-design.md",
-          "start": 20114
+          "start": 21683
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 20243,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 21812,
           "excerpt": "(default `all`; `core` is the entry plugin plus its dependency closure) keeps the",
           "path": "docs/functional-design.md",
-          "start": 20162
+          "start": 21731
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 9043,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 9147,
           "excerpt": "- Setting `daodan.enable = all | core | custom`, default `all`; `core` is the entry plugin plus its dependency closure.",
           "path": "docs/daodan-native-support.md",
-          "start": 8924
+          "start": 9028
         }
       ],
       "id": "REQ-009",
@@ -259,25 +259,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 9103,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 9207,
           "excerpt": "- **Any marketplace may be registered** (user, 2026-11-01).",
           "path": "docs/daodan-native-support.md",
-          "start": 9044
+          "start": 9148
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 9607,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 9711,
           "excerpt": "That restriction is lifted: the marketplaces Daodan declares as dependencies (`allowCrossMarketplaceDependenciesOn`; seven at Daodan `9fa47e7`) and any other marketplace are allowed. \"All the plugins\" still means Daodan's list.",
           "path": "docs/daodan-native-support.md",
-          "start": 9380
+          "start": 9484
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 20595,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 22164,
           "excerpt": "Daodan is not the only marketplace Shinatama may register: the\nrestriction of 2026-10-27 was lifted on 2026-11-01 (user)",
           "path": "docs/functional-design.md",
-          "start": 20475
+          "start": 22044
         }
       ],
       "id": "REQ-010",
@@ -287,32 +287,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 20990,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 22559,
           "excerpt": "On the two new agents the checkup installs nothing and says\n\"Daodan: no package for this agent\"",
           "path": "docs/functional-design.md",
-          "start": 20895
+          "start": 22464
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 69081,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 72817,
           "excerpt": "- Hermes Agent and DeepSeek Harness get no Daodan package until Daodan builds one; nothing\n  is copied from another host (5.5).",
           "path": "docs/functional-design.md",
-          "start": 68954
+          "start": 72690
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 67861,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 71597,
           "excerpt": "### Calls made to settle the rest (check them; each is also marked where it appears)",
           "path": "docs/functional-design.md",
-          "start": 67777
+          "start": 71513
         },
         {
-          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
-          "end": 64810,
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 67424,
           "excerpt": "with no Daodan host package, the checkup says so, installs nothing and the palette types nothing",
           "path": "docs/verification-register.md",
-          "start": 64714
+          "start": 67328
         }
       ],
       "id": "REQ-011",
@@ -322,25 +322,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 21137,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 22706,
           "excerpt": "never copies another host's build into them: a package Daodan did not compile and check for",
           "path": "docs/functional-design.md",
-          "start": 21046
+          "start": 22615
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 69081,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 72817,
           "excerpt": "- Hermes Agent and DeepSeek Harness get no Daodan package until Daodan builds one; nothing\n  is copied from another host (5.5).",
           "path": "docs/functional-design.md",
-          "start": 68954
+          "start": 72690
         },
         {
-          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
-          "end": 64966,
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 67580,
           "excerpt": "Nothing copied from another host",
           "path": "docs/verification-register.md",
-          "start": 64934
+          "start": 67548
         }
       ],
       "id": "REQ-012",
@@ -350,25 +350,25 @@
     {
       "evidence": [
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 21470,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 23039,
           "excerpt": "ships them, the checkup treats them like the other five.",
           "path": "docs/functional-design.md",
-          "start": 21414
+          "start": 22983
         },
         {
-          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
-          "end": 64906,
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 67520,
           "excerpt": "when Daodan's marketplace lists a package for either host, it is installed like the other five",
           "path": "docs/verification-register.md",
-          "start": 64812
+          "start": 67426
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 67861,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 71597,
           "excerpt": "### Calls made to settle the rest (check them; each is also marked where it appears)",
           "path": "docs/functional-design.md",
-          "start": 67777
+          "start": 71513
         }
       ],
       "id": "REQ-013",
@@ -378,11 +378,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 21867,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 23436,
           "excerpt": "A palette (`^K`) lists Daodan's workflows and types the selected agent's native\ncommand into the prompt; the user presses Enter. (my call)",
           "path": "docs/functional-design.md",
-          "start": 21729
+          "start": 23298
         }
       ],
       "id": "REQ-014",
@@ -392,18 +392,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 20432,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 22001,
           "excerpt": "through their own native entries: `/daodan:<workflow>` on Claude Code and OpenCode,\n`<workflow>-workflow` on Codex, `/daodan-<workflow>` on Pi",
           "path": "docs/functional-design.md",
-          "start": 20290
+          "start": 21859
         },
         {
-          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
-          "end": 58661,
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 61023,
           "excerpt": "The Daodan palette lists workflows from the installed manifest, not a hard-coded list; the native entry per host",
           "path": "docs/verification-register.md",
-          "start": 58549
+          "start": 60911
         }
       ],
       "id": "REQ-015",
@@ -413,21 +413,21 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 8066,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 8170,
           "excerpt": "the Codex and Pi spellings come from the installed manifest, 5.5 and D8",
           "path": "docs/daodan-native-support.md",
-          "start": 7995
+          "start": 8099
         },
         {
-          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
-          "end": 58634,
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 60996,
           "excerpt": "The Daodan palette lists workflows from the installed manifest, not a hard-coded list",
           "path": "docs/verification-register.md",
-          "start": 58549
+          "start": 60911
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -441,32 +441,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 21034,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 22603,
           "excerpt": "the palette offers no Daodan command there",
           "path": "docs/functional-design.md",
-          "start": 20992
+          "start": 22561
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 8177,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 8281,
           "excerpt": "Hermes Agent and DeepSeek Harness get neither entry: Daodan has no package for them (functional design 5.5).",
           "path": "docs/daodan-native-support.md",
-          "start": 8069
+          "start": 8173
         },
         {
-          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
-          "end": 58786,
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 61148,
           "excerpt": "nothing offered on Hermes Agent and DeepSeek Harness (D20)",
           "path": "docs/verification-register.md",
-          "start": 58728
+          "start": 61090
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 67861,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 71597,
           "excerpt": "### Calls made to settle the rest (check them; each is also marked where it appears)",
           "path": "docs/functional-design.md",
-          "start": 67777
+          "start": 71513
         }
       ],
       "id": "REQ-017",
@@ -476,18 +476,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 387,
           "excerpt": "The user, 2026-10-27: \"shinatama deve essere un supporto nativo per daodan\" (Shinatama must be a native support for Daodan).",
           "path": "docs/daodan-native-support.md",
           "start": 263
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 21955,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 23524,
           "excerpt": "**Native support (decided 2026-10-27, user; shape confirmed by the user 2026-11-01):**",
           "path": "docs/functional-design.md",
-          "start": 21869
+          "start": 23438
         }
       ],
       "id": "REQ-018",
@@ -497,28 +497,28 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 1576,
           "excerpt": "1. **Read Daodan's task state**, read-only, for every project Shinatama knows: tasks with objective, branch, worktree, phase, status, sealed waves, unanswered questions, holder.",
           "path": "docs/daodan-native-support.md",
           "start": 1399
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
           "end": 3127,
           "excerpt": "(decided 2026-10-27, user): it reads Daodan's tasks, links",
           "path": "docs/functional-design.md",
           "start": 3069
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 21955,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 23524,
           "excerpt": "**Native support (decided 2026-10-27, user; shape confirmed by the user 2026-11-01):**",
           "path": "docs/functional-design.md",
-          "start": 21869
+          "start": 23438
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 992,
           "excerpt": "The user confirmed this shape on 2026-11-01; the calls of section 7 are still to check.",
           "path": "docs/daodan-native-support.md",
@@ -532,46 +532,46 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 2850,
           "excerpt": "- **Writing any Daodan file** (`agenda.json`, `runs/`, `processes/`, worktrees). Daodan's scripts are the only writer.",
           "path": "docs/daodan-native-support.md",
           "start": 2732
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
           "end": 3212,
           "excerpt": "threads to them and carries a task across a hop. Read-only; Daodan stays the only",
           "path": "docs/functional-design.md",
           "start": 3131
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
           "end": 5126,
           "excerpt": "goal 5. What remains: Shinatama only reads `.daodan/agenda.json`; Daodan's scripts\n  are the only writer.)",
           "path": "docs/functional-design.md",
           "start": 5020
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 992,
           "excerpt": "The user confirmed this shape on 2026-11-01; the calls of section 7 are still to check.",
           "path": "docs/daodan-native-support.md",
           "start": 905
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 21955,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 23524,
           "excerpt": "**Native support (decided 2026-10-27, user; shape confirmed by the user 2026-11-01):**",
           "path": "docs/functional-design.md",
-          "start": 21869
+          "start": 23438
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 22676,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 24245,
           "excerpt": "It\nnever writes Daodan files.",
           "path": "docs/functional-design.md",
-          "start": 22647
+          "start": 24216
         }
       ],
       "id": "REQ-020",
@@ -581,18 +581,18 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 12920,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 13328,
           "excerpt": "2. Shinatama never runs a Daodan script. It only reads and types.",
           "path": "docs/daodan-native-support.md",
-          "start": 12855
+          "start": 13263
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 12625,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 13033,
           "excerpt": "## 7. My calls (check them)",
           "path": "docs/daodan-native-support.md",
-          "start": 12598
+          "start": 13006
         }
       ],
       "id": "REQ-021",
@@ -602,28 +602,28 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 3981,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 4085,
           "excerpt": "Source of truth: `.daodan/agenda.json`, schema `daodan/agenda/v1`, in the **main checkout**, found through the Git common directory (`AGENTS.md:96-99`).",
           "path": "docs/daodan-native-support.md",
-          "start": 3829
+          "start": 3933
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 4081,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 4185,
           "excerpt": "Outside Git, or when the common directory is not a plain `.git`, the project folder is its own home",
           "path": "docs/daodan-native-support.md",
-          "start": 3982
+          "start": 4086
         },
         {
-          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
-          "end": 60008,
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 62370,
           "excerpt": "Same agenda found from every worktree",
           "path": "docs/verification-register.md",
-          "start": 59971
+          "start": 62333
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -637,11 +637,11 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 12770,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 13178,
           "excerpt": "1. Read `agenda.json` directly instead of through Daodan's read-only MCP in `work-controller`: no agent needed, works when no agent is running.",
           "path": "docs/daodan-native-support.md",
-          "start": 12627
+          "start": 13035
         }
       ],
       "id": "REQ-023",
@@ -651,21 +651,21 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 4684,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 4788,
           "excerpt": "- **Read-only, schema-checked.** A different `schema` value is a visible error.",
           "path": "docs/daodan-native-support.md",
-          "start": 4605
+          "start": 4709
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 3450,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 3554,
           "excerpt": "- Guessing: an unreadable or unknown-schema agenda shows as \"Daodan state unreadable (schema X)\", never as an empty list.",
           "path": "docs/daodan-native-support.md",
-          "start": 3329
+          "start": 3433
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -679,14 +679,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 4918,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 5022,
           "excerpt": "- **Rebuilt, not cached as truth**: Shinatama's SQLite keeps only the thread-to-`run_id` link, the last-seen row for display when the file is unreachable (Drive paths) and the per-project \"Not now\" of 4.7.",
           "path": "docs/daodan-native-support.md",
-          "start": 4713
+          "start": 4817
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -700,14 +700,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 11977,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 12385,
           "excerpt": "watch the file for changes with a bounded poll (no resident service beyond the owning window's life)",
           "path": "docs/daodan-native-support.md",
-          "start": 11877
+          "start": 12285
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -721,14 +721,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 5048,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 5152,
           "excerpt": "- **A completed row has no holder** (Daodan releases it on completion); Shinatama shows it as done and stops offering \"continue\".",
           "path": "docs/daodan-native-support.md",
-          "start": 4919
+          "start": 5023
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -742,14 +742,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 3328,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 3432,
           "excerpt": "- Cross-machine holder logic: a holder whose `host` is another machine is shown, never judged stale.",
           "path": "docs/daodan-native-support.md",
-          "start": 3228
+          "start": 3332
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -763,14 +763,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 3227,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 3331,
           "excerpt": "- Creating or removing worktrees (Worktrunk and Daodan own that).",
           "path": "docs/daodan-native-support.md",
-          "start": 3162
+          "start": 3266
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -784,53 +784,60 @@
     {
       "evidence": [
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 5498,
-          "excerpt": "- Work Controller's task-graph features (checkpoints, handover between Daodan tasks,\n  a persistent addressed mailbox between agents). They are Daodan's roadmap; Shinatama\n  shows the agenda and the holder but does not implement them.",
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 5531,
+          "excerpt": "- Work Controller's task-graph features (checkpoints, handover between Daodan tasks,\n  an addressed mailbox between agents that outlives the sessions or the expiry). They\n  are Daodan's roadmap; Shinatama shows the agenda and the holder but does not implement\n  them.",
           "path": "docs/functional-design.md",
           "start": 5264
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 3161,
-          "excerpt": "- A task graph, checkpoints, an addressed mailbox, a scheduler: still Daodan's roadmap (functional design, non-goals).",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 3170,
+          "excerpt": "- A task graph, checkpoints, an addressed mailbox that outlives the sessions or the expiry, a scheduler: still Daodan's roadmap",
           "path": "docs/daodan-native-support.md",
           "start": 3043
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 5578,
+          "excerpt": "The boundary is persistence (user, 2026-11-01)",
+          "path": "docs/functional-design.md",
+          "start": 5532
         }
       ],
       "id": "REQ-030",
       "status": "extracted",
-      "text": "Shinatama shows Daodan's agenda and holders but implements no task graph, checkpoints, handover between Daodan tasks, addressed mailbox or scheduler (unmarked in the design)"
+      "text": "Shinatama shows Daodan's agenda and holders but does not implement Work Controller's task-graph features: no task graph, checkpoints, handover between Daodan tasks, scheduler, or addressed mailbox between agents that outlives the sessions or the message expiry (decided by the user, 2026-11-01)"
     },
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 5234,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 5338,
           "excerpt": "Each project row shows its open Daodan tasks beside its threads: objective, phase, `sealed/total` waves, `questions` as a count, holder.",
           "path": "docs/daodan-native-support.md",
-          "start": 5098
+          "start": 5202
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 22133,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 23702,
           "excerpt": "questions in the project manager, overview and widget, adds task commands to the",
           "path": "docs/functional-design.md",
-          "start": 22053
+          "start": 23622
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 992,
           "excerpt": "The user confirmed this shape on 2026-11-01; the calls of section 7 are still to check.",
           "path": "docs/daodan-native-support.md",
           "start": 905
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 21955,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 23524,
           "excerpt": "**Native support (decided 2026-10-27, user; shape confirmed by the user 2026-11-01):**",
           "path": "docs/functional-design.md",
-          "start": 21869
+          "start": 23438
         }
       ],
       "id": "REQ-031",
@@ -840,21 +847,21 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 5316,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 5420,
           "excerpt": "One key resumes the thread linked to the selected task, in the task's `worktree`.",
           "path": "docs/daodan-native-support.md",
-          "start": 5235
+          "start": 5339
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 2096,
           "excerpt": "4. **Start and resume in the task's worktree**: a thread for a task opens with that task's worktree as its directory.",
           "path": "docs/daodan-native-support.md",
           "start": 1979
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -868,14 +875,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 5543,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 5647,
           "excerpt": "A task with no linked thread offers \"start a thread for this task\" in the agent of the user's choice, in that worktree, with the task's native continue command typed into the prompt (typed, not sent; same rule as the palette).",
           "path": "docs/daodan-native-support.md",
-          "start": 5317
+          "start": 5421
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -889,21 +896,21 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 5714,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 5818,
           "excerpt": "A thread is linked to a task when its working directory equals the row's `worktree` (or the main checkout and the row's `branch` is checked out there).",
           "path": "docs/daodan-native-support.md",
-          "start": 5563
+          "start": 5667
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 1650,
           "excerpt": "2. **Link threads to tasks** (derived, rebuildable, never authoritative).",
           "path": "docs/daodan-native-support.md",
           "start": 1577
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -917,21 +924,21 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 5821,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 5925,
           "excerpt": "If the agent's native session id equals `holder.session` the link is marked *exact*; otherwise *by place*.",
           "path": "docs/daodan-native-support.md",
-          "start": 5715
+          "start": 5819
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 5911,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 6015,
           "excerpt": "the design works with *by place* alone.",
           "path": "docs/daodan-native-support.md",
-          "start": 5872
+          "start": 5976
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -945,14 +952,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 3720,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 3824,
           "excerpt": "- A task link that survives a lie: if branch, worktree or session no longer match, the link disappears; it is never repaired by assumption.",
           "path": "docs/daodan-native-support.md",
-          "start": 3581
+          "start": 3685
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -966,14 +973,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 6117,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 6221,
           "excerpt": "When the source thread is linked to an open task, the hop dialog gains a **Daodan task** block: `run_id`, objective, phase, branch, worktree, unanswered questions, current holder.",
           "path": "docs/daodan-native-support.md",
-          "start": 5938
+          "start": 6042
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -987,14 +994,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 7451,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 7555,
           "excerpt": "The preview (5.2, item 5) shows the Daodan block verbatim.",
           "path": "docs/daodan-native-support.md",
-          "start": 7393
+          "start": 7497
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -1008,21 +1015,21 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 6400,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 6504,
           "excerpt": "The preliminary seed to the destination carries the task\n  identity above and says that close was requested but is **not yet confirmed**; the task\n  remains held by the source and the destination may read it, not take it over.",
           "path": "docs/daodan-native-support.md",
-          "start": 6174
+          "start": 6278
         },
         {
-          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
-          "end": 60122,
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 62484,
           "excerpt": "the preliminary seed never claims the source is closed",
           "path": "docs/verification-register.md",
-          "start": 60068
+          "start": 62430
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -1036,42 +1043,42 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 6655,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 6759,
           "excerpt": "Only after\n  the hop reaches COMMITTED and the source process has actually closed does Shinatama send\n  a separate handover message through the destination's normal channel, stating that the\n  source session is closed and the user confirmed the takeover.",
           "path": "docs/daodan-native-support.md",
-          "start": 6401
+          "start": 6505
         },
         {
-          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
-          "end": 60215,
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 62577,
           "excerpt": "takeover is enabled only by a separate message after COMMITTED and confirmed source closure",
           "path": "docs/verification-register.md",
-          "start": 60124
+          "start": 62486
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 992,
           "excerpt": "The user confirmed this shape on 2026-11-01; the calls of section 7 are still to check.",
           "path": "docs/daodan-native-support.md",
           "start": 905
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 21955,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 23524,
           "excerpt": "**Native support (decided 2026-10-27, user; shape confirmed by the user 2026-11-01):**",
           "path": "docs/functional-design.md",
-          "start": 21869
+          "start": 23438
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 22340,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 23909,
           "excerpt": "in close mode the destination may take the\ntask over only through a separate message sent after the hop is COMMITTED and the source\nsession's closure is confirmed",
           "path": "docs/functional-design.md",
-          "start": 22178
+          "start": 23747
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 1978,
           "excerpt": "only then does a separate handover message enable the takeover (4.3).",
           "path": "docs/daodan-native-support.md",
@@ -1085,39 +1092,39 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 6839,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 6943,
           "excerpt": "If closure is refused, crashes or remains\n  uncertain, that message is not sent and the holder is unchanged.",
           "path": "docs/daodan-native-support.md",
-          "start": 6731
+          "start": 6835
         },
         {
-          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
-          "end": 60585,
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 62947,
           "excerpt": "Failure/fork: holder unchanged",
           "path": "docs/verification-register.md",
-          "start": 60555
+          "start": 62917
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 992,
           "excerpt": "The user confirmed this shape on 2026-11-01; the calls of section 7 are still to check.",
           "path": "docs/daodan-native-support.md",
           "start": 905
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 21955,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 23524,
           "excerpt": "**Native support (decided 2026-10-27, user; shape confirmed by the user 2026-11-01):**",
           "path": "docs/functional-design.md",
-          "start": 21869
+          "start": 23438
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 22475,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 24044,
           "excerpt": "until then, and in\nfork mode, the holder is unchanged: daodan-native-support 4.3, register D13).",
           "path": "docs/functional-design.md",
-          "start": 22379
+          "start": 23948
         }
       ],
       "id": "REQ-041",
@@ -1127,39 +1134,39 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 1908,
           "excerpt": "The \"user confirms the old session is closed\" that Daodan's take-over requires is the user's confirmation in the hop dialog plus the hop reaching COMMITTED and the source's confirmed closure;",
           "path": "docs/daodan-native-support.md",
           "start": 1717
         },
         {
-          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
-          "end": 60249,
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 62611,
           "excerpt": "with one user confirmation total",
           "path": "docs/verification-register.md",
-          "start": 60217
+          "start": 62579
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 22378,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 23947,
           "excerpt": "with one user confirmation in total;",
           "path": "docs/functional-design.md",
-          "start": 22342
+          "start": 23911
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 992,
           "excerpt": "The user confirmed this shape on 2026-11-01; the calls of section 7 are still to check.",
           "path": "docs/daodan-native-support.md",
           "start": 905
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 21955,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 23524,
           "excerpt": "**Native support (decided 2026-10-27, user; shape confirmed by the user 2026-11-01):**",
           "path": "docs/functional-design.md",
-          "start": 21869
+          "start": 23438
         }
       ],
       "id": "REQ-042",
@@ -1169,14 +1176,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 3580,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 3684,
           "excerpt": "- Shinatama running `--take-over` itself, or telling an agent to, without the user's confirmation in the dialog.",
           "path": "docs/daodan-native-support.md",
-          "start": 3468
+          "start": 3572
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -1190,32 +1197,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 6938,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 7042,
           "excerpt": "- **Fork.** The source stays live and keeps the holder.",
           "path": "docs/daodan-native-support.md",
-          "start": 6883
+          "start": 6987
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 7100,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 7204,
           "excerpt": "its seed says the task is held by the source session and may be read, not written, until the source closes.",
           "path": "docs/daodan-native-support.md",
-          "start": 6993
+          "start": 7097
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 12953,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 13361,
           "excerpt": "3. Fork mode hands over no task.",
           "path": "docs/daodan-native-support.md",
-          "start": 12921
+          "start": 13329
         },
         {
-          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
-          "end": 60323,
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 62685,
           "excerpt": "in fork mode the destination reads without writing and leaves the holder",
           "path": "docs/verification-register.md",
-          "start": 60251
+          "start": 62613
         }
       ],
       "id": "REQ-044",
@@ -1225,21 +1232,21 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 7142,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 7246,
           "excerpt": "The two threads never both hold one task.",
           "path": "docs/daodan-native-support.md",
-          "start": 7101
+          "start": 7205
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 3799,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 3903,
           "excerpt": "- Two live processes both believing they hold one task (fork mode, section 4).",
           "path": "docs/daodan-native-support.md",
-          "start": 3721
+          "start": 3825
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -1253,14 +1260,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 7391,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 7495,
           "excerpt": "A destination with no Daodan package (Hermes Agent, DeepSeek Harness) receives the task block as read-only context, and the dialog says the task cannot be taken over there; close mode then leaves the holder unchanged and sends no handover message.",
           "path": "docs/daodan-native-support.md",
-          "start": 7144
+          "start": 7248
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -1274,28 +1281,28 @@
     {
       "evidence": [
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 21311,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 22880,
           "excerpt": "works for their threads, because that is Shinatama reading `.daodan/agenda.json`.",
           "path": "docs/functional-design.md",
-          "start": 21230
+          "start": 22799
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 992,
           "excerpt": "The user confirmed this shape on 2026-11-01; the calls of section 7 are still to check.",
           "path": "docs/daodan-native-support.md",
           "start": 905
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 21955,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 23524,
           "excerpt": "**Native support (decided 2026-10-27, user; shape confirmed by the user 2026-11-01):**",
           "path": "docs/functional-design.md",
-          "start": 21869
+          "start": 23438
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 2616,
           "excerpt": "7. **Every Daodan plugin enabled** in every agent Daodan builds for, by default (4.6). Hermes Agent and DeepSeek Harness have no Daodan package yet (functional design 5.5): their threads show tasks and holders, with no typed Daodan commands.",
           "path": "docs/daodan-native-support.md",
@@ -1309,32 +1316,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 7586,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 7690,
           "excerpt": "A task with `questions > 0` is a user-needed item, shown in the overview tab and as a widget alert.",
           "path": "docs/daodan-native-support.md",
-          "start": 7487
+          "start": 7591
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 2241,
           "excerpt": "5. **Surface what needs the user**: unanswered questions and stale holders in the project manager, the overview tab (5.13) and the widget (5.8).",
           "path": "docs/daodan-native-support.md",
           "start": 2097
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 992,
           "excerpt": "The user confirmed this shape on 2026-11-01; the calls of section 7 are still to check.",
           "path": "docs/daodan-native-support.md",
           "start": 905
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 21955,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 23524,
           "excerpt": "**Native support (decided 2026-10-27, user; shape confirmed by the user 2026-11-01):**",
           "path": "docs/functional-design.md",
-          "start": 21869
+          "start": 23438
         }
       ],
       "id": "REQ-048",
@@ -1344,14 +1351,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 7778,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 7882,
           "excerpt": "A holder whose `host` is this machine and whose session matches no live Shinatama thread is shown as \"held by a closed session: take over from the next agent you open there\". Never automatic.",
           "path": "docs/daodan-native-support.md",
-          "start": 7587
+          "start": 7691
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -1365,32 +1372,32 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 7994,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 8098,
           "excerpt": "Adds, for the selected thread's task: *Show status* and *Continue this task*, typed as the agent's native command (`/daodan:show-status`, `/daodan:continue-task` on Claude Code and OpenCode;",
           "path": "docs/daodan-native-support.md",
-          "start": 7804
+          "start": 7908
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 2374,
           "excerpt": "6. **Task-aware palette**: the `^K` palette offers the task commands (show status, continue this task) next to the workflows of 5.5.",
           "path": "docs/daodan-native-support.md",
           "start": 2242
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 992,
           "excerpt": "The user confirmed this shape on 2026-11-01; the calls of section 7 are still to check.",
           "path": "docs/daodan-native-support.md",
           "start": 905
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 21955,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 23524,
           "excerpt": "**Native support (decided 2026-10-27, user; shape confirmed by the user 2026-11-01):**",
           "path": "docs/functional-design.md",
-          "start": 21869
+          "start": 23438
         }
       ],
       "id": "REQ-050",
@@ -1400,21 +1407,21 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 10847,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 10951,
           "excerpt": "When a project is opened in the project manager, or a thread is first started in it, Shinatama checks that neither `.codebase-map` nor `.daodan/runs` exists as a directory in the project or in its main checkout",
           "path": "docs/daodan-native-support.md",
-          "start": 10637
+          "start": 10741
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 10960,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 11064,
           "excerpt": "a bare `.daodan/` does not count",
           "path": "docs/daodan-native-support.md",
-          "start": 10928
+          "start": 11032
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -1428,74 +1435,81 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 11183,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 11287,
           "excerpt": "- **Onboard**: `/daodan:onboard-project`, the handover dossier; changes nothing in the project.",
           "path": "docs/daodan-native-support.md",
-          "start": 11088
+          "start": 11192
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 11253,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 11357,
           "excerpt": "- **Initialize**: `/daodan:init-project`: map, environment, baseline.",
           "path": "docs/daodan-native-support.md",
-          "start": 11184
+          "start": 11288
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 11268,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 11372,
           "excerpt": "- **Not now.**",
           "path": "docs/daodan-native-support.md",
-          "start": 11254
+          "start": 11358
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 992,
           "excerpt": "The user confirmed this shape on 2026-11-01; the calls of section 7 are still to check.",
           "path": "docs/daodan-native-support.md",
           "start": 905
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 21955,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 23524,
           "excerpt": "**Native support (decided 2026-10-27, user; shape confirmed by the user 2026-11-01):**",
           "path": "docs/functional-design.md",
-          "start": 21869
+          "start": 23438
         },
         {
-          "document_sha256": "48853be6448da655691044641e25ddc8898cc4606b3b830b1b0107ecd0d32eef",
-          "end": 22646,
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 24215,
           "excerpt": "project with no Daodan state it offers once to onboard it (the handover dossier) or\ninitialize it (map, environment, baseline) by typing the matching Daodan command.",
           "path": "docs/functional-design.md",
-          "start": 22481
+          "start": 24050
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 2715,
           "excerpt": "8. **Onboarding offer** on a project with no Daodan state: handover or initialization, once (4.7).",
           "path": "docs/daodan-native-support.md",
           "start": 2617
+        },
+        {
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 12128,
+          "excerpt": "The one-time offer above stays for projects that are opened, not created (user, 2026-11-01).",
+          "path": "docs/daodan-native-support.md",
+          "start": 12036
         }
       ],
       "id": "REQ-052",
       "status": "extracted",
-      "text": "On a project with no Daodan state Shinatama offers once: Onboard (`/daodan:onboard-project`, the handover dossier), Initialize (`/daodan:init-project`: map, environment, baseline) or Not now (decided by the user, 2026-11-01)"
+      "text": "On a project with no Daodan state that the user opens (not one Shinatama created), Shinatama offers once: Onboard (`/daodan:onboard-project`, the handover dossier), Initialize (`/daodan:init-project`: map, environment, baseline) or Not now (decided by the user, 2026-11-01)"
     },
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 11336,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 11440,
           "excerpt": "A choice types the agent's native command; the user presses Enter.",
           "path": "docs/daodan-native-support.md",
-          "start": 11270
+          "start": 11374
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 13578,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 13986,
           "excerpt": "6. The offer is made once per project and never auto-runs a command, same typed-not-sent rule as the palette.",
           "path": "docs/daodan-native-support.md",
-          "start": 13469
+          "start": 13877
         }
       ],
       "id": "REQ-053",
@@ -1505,14 +1519,14 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 11500,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 11604,
           "excerpt": "The questions that follow (decision records, analysis depth) are Daodan's, asked through the agent's question tool: Shinatama neither asks them nor passes answers.",
           "path": "docs/daodan-native-support.md",
-          "start": 11337
+          "start": 11441
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
@@ -1526,44 +1540,114 @@
     {
       "evidence": [
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 11607,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 11711,
           "excerpt": "\"Not now\" is remembered per project in Shinatama's SQLite, because declining writes nothing in the project",
           "path": "docs/daodan-native-support.md",
-          "start": 11501
+          "start": 11605
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 11720,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 11824,
           "excerpt": "The offer ends when a state directory appears.",
           "path": "docs/daodan-native-support.md",
-          "start": 11674
+          "start": 11778
         },
         {
-          "document_sha256": "1773cfea2f0dfb5f75448e6d4e52083e18c823e21d22e6e48515e8f6dca5a9cd",
-          "end": 60989,
+          "document_sha256": "404111bf3277508cca178802d2efc399b08eda5903da93db2b688eb5b4966067",
+          "end": 63351,
           "excerpt": "the offer shows once and \"Not now\" sticks",
           "path": "docs/verification-register.md",
-          "start": 60948
+          "start": 63310
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
           "end": 73,
           "excerpt": "Status: proposed, not approved.",
           "path": "docs/daodan-native-support.md",
           "start": 42
         },
         {
-          "document_sha256": "b12a62482c30b3bef63da91600665aae3cc23bc1a1b9681b124bd54485a19a7b",
-          "end": 4918,
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 5022,
           "excerpt": "the per-project \"Not now\" of 4.7.",
           "path": "docs/daodan-native-support.md",
-          "start": 4885
+          "start": 4989
         }
       ],
       "id": "REQ-055",
       "status": "extracted",
       "text": "\"Not now\" is remembered per project so the onboarding offer is not repeated, and the offer ends when a Daodan state directory appears (proposed, not approved)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 12035,
+          "excerpt": "For a project created by Shinatama, the new-project dialog's option to type Daodan's native init command (functional design 5.4) is the only offer: declining it counts as \"Not now\" and no second offer follows.",
+          "path": "docs/daodan-native-support.md",
+          "start": 11826
+        },
+        {
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 12128,
+          "excerpt": "The one-time offer above stays for projects that are opened, not created (user, 2026-11-01).",
+          "path": "docs/daodan-native-support.md",
+          "start": 12036
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 19992,
+          "excerpt": "an option to type Daodan's native init command in\nthe chosen agent (never run automatically).",
+          "path": "docs/functional-design.md",
+          "start": 19899
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 20223,
+          "excerpt": "For a project Shinatama creates, this\noption is the only Daodan offer, and declining it counts as the \"Not now\" of\ndaodan-native-support 4.7, whose one-time offer stays for projects that are opened,\nnot created (user, 2026-11-01).",
+          "path": "docs/functional-design.md",
+          "start": 19993
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 75706,
+          "excerpt": "Daodan's init in\n  the new-project dialog as the only offer for created projects",
+          "path": "docs/functional-design.md",
+          "start": 75626
+        }
+      ],
+      "id": "REQ-056",
+      "status": "extracted",
+      "text": "For a project Shinatama creates, the new-project dialog's option to type Daodan's native init command in the chosen agent is the only Daodan offer; the one-time onboarding offer is not shown for it (decided by the user, 2026-11-01)"
+    },
+    {
+      "evidence": [
+        {
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 12035,
+          "excerpt": "For a project created by Shinatama, the new-project dialog's option to type Daodan's native init command (functional design 5.4) is the only offer: declining it counts as \"Not now\" and no second offer follows.",
+          "path": "docs/daodan-native-support.md",
+          "start": 11826
+        },
+        {
+          "document_sha256": "bed4e737b593dfe208fac1d75d2fbb4a2ebbb8515f7434f8ecc6495ba4085555",
+          "end": 12128,
+          "excerpt": "The one-time offer above stays for projects that are opened, not created (user, 2026-11-01).",
+          "path": "docs/daodan-native-support.md",
+          "start": 12036
+        },
+        {
+          "document_sha256": "51d7105db8215bc4bd1c30bffc80743eb39f858b30fca3f813dbb368b254e57b",
+          "end": 20223,
+          "excerpt": "For a project Shinatama creates, this\noption is the only Daodan offer, and declining it counts as the \"Not now\" of\ndaodan-native-support 4.7, whose one-time offer stays for projects that are opened,\nnot created (user, 2026-11-01).",
+          "path": "docs/functional-design.md",
+          "start": 19993
+        }
+      ],
+      "id": "REQ-057",
+      "status": "extracted",
+      "text": "Declining the new-project dialog's Daodan init option counts as \"Not now\" for that project, so no second Daodan offer follows (decided by the user, 2026-11-01)"
     }
   ],
   "schema_version": 1,

@@ -42,7 +42,10 @@ Shinatama has no code yet. The user asked to remember Cloudflare's Code Mode to 
 instead of many MCP tools, the model gets one tool that runs code it writes against a typed API.
 Technical-design 7.5a records this as "decided as a reminder; scope is mine": the reminder is
 the user's, while the reading of what Code Mode means for Shinatama and the scope below are the
-author's calls, not confirmed, and the typed-API design is tagged [C]. The question is whether
+author's calls, not confirmed, and the typed-API design is tagged [C]. On 2026-11-01 the user
+decided the place of a code-mode gateway: it is not in v1 and not scheduled; it is evaluated only
+after the T1 measurement and built only if the saving passes a threshold the user sets (register
+T3; technical-design 7.5a; token-savings 4.2.1, 7, 8.1). The question is whether
 the agent-facing MCP surface of v1 should be a code-execution tool instead of plain tools, and
 how the decision is taken. The full analysis is in technical-design 7.5a; this record holds only
 the decision.
@@ -66,10 +69,12 @@ limits (technical-design 7.2, 7.4), have no file, network or process access, and
 time and memory cap. The embedded script engine is the builder's choice.
 
 A code-mode gateway in front of the MCP servers a Shinatama session already carries (Daodan's
-`moe`, `peer-review`, `work-controller`, `codebase-map`, Playwright, the bili tools) is not in v1;
-it is an evaluated option. The decision is taken with Shinatama's own numbers: milestone 1
-measures, per agent, the tokens that the tool definitions of a typical session cost, and no
-saving percentage is claimed before that. See technical-design 7.5a and 10 item 8.
+`moe`, `peer-review`, `work-controller`, `codebase-map`, Playwright, the bili tools) is not in v1
+and not scheduled (user, 2026-11-01). The decision is taken with Shinatama's own numbers:
+milestone 1 measures, per agent, the tokens that the tool definitions of a typical session cost
+(register T1); only then is a gateway evaluated, and it is built only if the saving passes a
+threshold the user sets and task success does not fall (register T3). No saving percentage is
+claimed before that. See technical-design 7.5a and 10 item 8.
 
 ## Verified Interview Examples
 
@@ -81,7 +86,7 @@ saving percentage is claimed before that. See technical-design 7.5a and 10 item 
 ## Rejected Alternatives
 
 - **RA-001**: Code Mode for `shinatama mcp` in v1; for four tools the saving is small, and they are cheaper than the machinery that would replace them.
-- **RA-002**: a code-mode gateway in v1; it is a large feature with its own security model, kept as an evaluated option.
+- **RA-002**: a code-mode gateway in v1, or scheduled as a delivery; it is a large feature with its own security model, evaluated only after T1 and built only past the user's T3 threshold (user, 2026-11-01).
 - **RA-003**: deciding on Cloudflare's numbers; the post gives no figures, the reported figure is secondhand, and only Shinatama's own measurement counts.
 
 ## Enforceable Invariants
@@ -90,12 +95,13 @@ saving percentage is claimed before that. See technical-design 7.5a and 10 item 
 - **INV-002**: the four operations are a typed API independent of the MCP tool layer; adding a second surface changes no engine code.
 - **INV-003**: any future `shinatama_execute` enforces the scope and rate limits of technical-design 7.2 and 7.4, has no file, network or process access and runs under a time and memory cap.
 - **INV-004**: no token-saving percentage for Code Mode or a gateway is claimed before register T1, and for a gateway T3, has measured it.
+- **INV-005**: v1 contains no code-mode gateway; a gateway is evaluated only after register T1 has measured the tool-definition footprint and is built only when T3 shows a saving past the threshold the user set with no fall in task success (decided by the user 2026-11-01; technical-design 7.5a).
 
 ## Consequences
 
 - Milestone 1 carries the measurement (technical-design 10 item 8; register T1, M3).
 - Code Mode cuts tool definitions and intermediate results; the sidecar's CCR and Absorb cut tool results. The two are complementary, not replacements (technical-design 7.5a).
-- The token-savings spec keeps the gateway as a later uniform piece, the last step of its order of work (token-savings 4.2, 7, 8.1; ADR-0038).
+- The token-savings spec keeps the gateway as a possible uniform piece; the last step of its order of work, milestone 6, is the gateway's evaluation, not a delivery (token-savings 4.2.1, 7, 8.1; ADR-0038).
 - Adding the second surface later needs an embedded script engine in Rust and a security review of agent-written code that may follow a peer message.
 - Open: the threshold of T3 is the user's and is not set.
 

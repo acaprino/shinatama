@@ -96,7 +96,7 @@ open. See functional-design 5.10 and technical-design 7.8.
 
 - **RA-001**: reimplementing Ultra Nerd; Daodan already has this protocol for bare models, so Shinatama reuses it.
 - **RA-002**: letting agents start a roundtable through an MCP tool (`shinatama_roundtable`); only the user starts one, because it spends money (technical-design 7.5).
-- **RA-003**: a persistent addressed mailbox between agents; it is part of Work Controller's features on Daodan's roadmap, and the roundtable is "started by the user, session-level, no mailbox" (functional-design 2, non-goals).
+- **RA-003**: an addressed mailbox between agents that outlives the sessions or the expiry; it is part of Work Controller's features on Daodan's roadmap. The boundary is persistence (user, 2026-11-01): the messages of ADR-0024 expire within an hour, and the roundtable "is started by the user and session-level" (functional-design 2, non-goals).
 
 ## Enforceable Invariants
 

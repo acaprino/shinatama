@@ -136,21 +136,21 @@ proposed, or unmarked in the design. Open questions are not requirements.
 | FRD | Area | Requirements |
 |---|---|---:|
 | FRD-0001 | Workspace and agent hosting | 100 |
-| FRD-0002 | Agent placement, homes and per-instance sets | 52 |
+| FRD-0002 | Agent placement, homes and per-instance sets | 54 |
 | FRD-0003 | Accounts and login | 26 |
-| FRD-0004 | Project manager | 22 |
+| FRD-0004 | Project manager | 27 |
 | FRD-0005 | Threads and hop | 74 |
 | FRD-0006 | Search, sessions and resume | 66 |
-| FRD-0007 | Roundtable and messages between instances | 49 |
-| FRD-0008 | Daodan preinstalled and native task support | 55 |
-| FRD-0009 | BillionContext sidecar | 31 |
-| FRD-0010 | Overview, instance state and desktop widget | 51 |
-| FRD-0011 | Browser integration | 69 |
+| FRD-0007 | Roundtable and messages between instances | 51 |
+| FRD-0008 | Daodan preinstalled and native task support | 57 |
+| FRD-0009 | BillionContext sidecar | 38 |
+| FRD-0010 | Overview, instance state and desktop widget | 53 |
+| FRD-0011 | Browser integration | 72 |
 | FRD-0012 | Companion pane, decision cards and web grounding (spec revision 4) | 201 |
-| FRD-0013 | Token savings | 44 |
+| FRD-0013 | Token savings | 47 |
 
-All 13 are **Proposed**, extracted on 2026-11-01 and last refreshed at `e7a1c1d`, after the
-inconsistency fixes and the user's answers of that day (840 requirements); items are `extracted`, not
+All 13 are **Proposed**, extracted on 2026-11-01 and last refreshed at `c84d28e`, after the
+inconsistency fixes and the user's three rounds of answers that day (866 requirements); items are `extracted`, not
 reviewed. `frd_tool.py validate` passes. An FRD becomes Accepted only through `promote`
 after the user approves its exact text. Because evidence is bound to file hashes, any edit
 to a cited document makes the spans in it stale until the FRD is refreshed.
@@ -208,8 +208,9 @@ O10 (ask Daodan for Hermes and DeepSeek packages). O6 was decided on 2026-10-28.
 ## 8. Inconsistencies between documents
 
 The numbered worklist is [notes/2026-11-01-design-inconsistencies.md](notes/2026-11-01-design-inconsistencies.md).
-On 2026-11-01, 59 items were resolved: editorial fixes, register-only rules written into the
-governing sections as the author's calls, and twelve questions the user answered (who decided
-what, the degraded-adapter rule, stage 3, Codex sets, marketplaces, box leaks). 39 stay open:
-18 concern the companion spec and are left to that work; the rest need the user or touch the
-token-savings spec.
+On 2026-11-01, 75 items were resolved: editorial fixes, register-only rules written into the
+governing sections as the author's calls, and the user's answers in three rounds (who decided
+what, the degraded-adapter rule, stage 3, Codex sets, marketplaces, box leaks, messaging,
+overview, collisions, titles, browser, token savings, sidecar changes, DeepSeek login, project
+manager). Open: 18 + 6 items on the companion spec and harness-tools, left to that work; #53
+(decided by the empirical row SC5); seven on the token-savings spec and register references.
