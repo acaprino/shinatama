@@ -2,7 +2,7 @@
 adr_id: ADR-0031
 version: 1
 title: Login detected and performed through the agent itself; Shinatama never holds credentials
-status: Accepted
+status: Superseded
 author: Alfio Caprino
 scope:
   paths:
@@ -27,14 +27,14 @@ last_verified_sha: null
 retired_on: null
 retired_reason: null
 supersedes:
-superseded_by: null
+superseded_by: ADR-0031 v2
 changes:
 ---
 
 # ADR-0031: Login detected and performed through the agent itself; Shinatama never holds credentials
 
 <!-- adr-header:start -->
-Version 1 · Accepted 2026-11-01 at eeb3feb · proposed 2026-11-01 by Alfio Caprino
+Version 1 · Superseded by ADR-0031 v2 · proposed 2026-11-01 by Alfio Caprino
 <!-- adr-header:end -->
 
 ## Context and Problem Statement
