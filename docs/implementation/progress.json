@@ -327,8 +327,8 @@
       "next_action": "Implement C03M maintenance units and advance C04 project roots independently; preserve the mandatory C09R gate before terminal/sidecar hardening."
     },
     "C03M": {
-      "status": "verified",
-      "commit_sha": null,
+      "status": "committed",
+      "commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb",
       "units": {
         "C03M.1": {
           "status": "committed",
@@ -349,8 +349,8 @@
           ]
         },
         "C03M.2": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -375,8 +375,8 @@
           ]
         },
         "C03M.3": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -426,8 +426,8 @@
       ]
     },
     "C04": {
-      "status": "verified",
-      "commit_sha": null,
+      "status": "committed",
+      "commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb",
       "platforms": [
         "Windows 11 x64 build 26200"
       ],
@@ -452,8 +452,8 @@
       ],
       "units": {
         "C04.1": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb",
           "evidence": [
             "docs/verification/2026-11-02-C04-project-catalog.md",
             "docs/verification/2026-11-02-C04-project-catalog.result.json"
@@ -470,8 +470,8 @@
           ]
         },
         "C04.2": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb",
           "evidence": [
             "docs/verification/2026-11-02-C04-project-catalog.md",
             "docs/verification/2026-11-02-C04-project-catalog.result.json"
@@ -488,8 +488,8 @@
           ]
         },
         "C04.3": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb",
           "evidence": [
             "docs/verification/2026-11-02-C04-project-catalog.md",
             "docs/verification/2026-11-02-C04-project-catalog.result.json"
