@@ -1,8 +1,9 @@
 import { invoke } from '@tauri-apps/api/core';
+import { openModal } from './modal.ts';
 import { beginMutation, browseFolder, cancelMutation, createCatalogClient, createRequestId, orderedCandidates, saveRoots,
   type Candidate, type Catalog, type Project, type RootConfig, type RootDraft } from './project-catalog.ts';
 
-type Options = { desktop: boolean; getPath: () => string; onSelected: (path: string) => void; onCreate: () => void; reportError: (error: unknown) => void };
+type Options = { desktop: boolean; getPath: () => string; onSelected: (path: string, chosen: boolean) => void; onCreate: () => void; reportError: (error: unknown, tone?: 'info' | 'error') => void };
 const $ = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
 const editable = (target: EventTarget | null) => target instanceof HTMLElement && !!target.closest('input,textarea,select,[contenteditable="true"]');
 const stateLabels = { ready: 'Ready', scanning: 'Scanning…', missing: 'Folder unavailable', unavailable: 'Cannot read this root', timed_out: 'Scan timed out; waiting for the drive', truncated: 'Folder limit reached' };
@@ -106,7 +107,7 @@ export function createProjectPicker(options: Options) {
     const current = mutation;
     if (!current || current.phase === 'cancelled') { dialog.close(); return; }
     if (current.phase === 'committing') {
-      dialog.close(); options.reportError('The folder operation continues in the background.'); return;
+      dialog.close(); options.reportError('The folder operation continues in the background.', 'info'); return;
     }
     if (current.phase === 'cancelling') return;
     current.cancelRequested = true; current.phase = 'cancelling'; setBusy(true);
@@ -123,7 +124,7 @@ export function createProjectPicker(options: Options) {
         } else if (current.settled) {
           mutation = null; setBusy(false); dialog.close();
           options.reportError(current.failure ? `Folder operation did not complete: ${current.failure}`
-            : 'The folder operation finished before cancellation. Its completed result has been kept.');
+            : 'The folder operation finished before cancellation. Its completed result has been kept.', current.failure ? 'error' : 'info');
         } else { current.phase = 'committing'; setBusy(true); }
       } catch (failure) {
         if (mutation === current) {
@@ -141,7 +142,7 @@ export function createProjectPicker(options: Options) {
   function useProject(project: Project) {
     selectionRevision++; selectedAvailable = project.available;
     recent = [project, ...recent.filter(entry => entry.id !== project.id)].slice(0, 10);
-    options.onSelected(project.path); dialog.close();
+    options.onSelected(project.path, true); dialog.close();
   }
   function projectButton(project: Project | Candidate, className: string) {
     const row = document.createElement('div'); row.setAttribute('role', 'listitem');
@@ -280,7 +281,7 @@ export function createProjectPicker(options: Options) {
     if (drafts.some(draft => !draft.path.trim())) { showError('Enter an absolute folder path for each root.'); return; }
     await mutate(requestId => saveRoots(draftRevision, drafts.map(draft => ({ ...draft, path: draft.path.trim() })), defaultIndex, requestId), saved => {
       config = saved;
-      if (!dialog.open) options.reportError('Project roots saved.');
+      if (!dialog.open) options.reportError('Project roots saved.', 'info');
       editor.hidden = true; refresh();
     });
   };
@@ -320,7 +321,7 @@ export function createProjectPicker(options: Options) {
         if (revision !== selectionRevision) return;
         recent = history; const latest = history[0]; selectedAvailable = !latest || latest.available;
         if (latest) {
-          options.onSelected(latest.path);
+          options.onSelected(latest.path, false);
           if (!latest.available) options.reportError(`Last project unavailable: ${latest.path}. Choose a folder before opening a new terminal.`);
         }
       } catch (failure) {
@@ -332,11 +333,11 @@ export function createProjectPicker(options: Options) {
       if (document.querySelector('dialog[open]')) return;
       dialogRevision++;
       folder.value = options.getPath(); folder.setCustomValidity(''); filter.value = ''; error.hidden = true; editor.hidden = true;
-      render(); dialog.showModal(); (focusFilter ? filter : folder).focus(); refresh();
+      render(); openModal(dialog); (focusFilter ? filter : folder).focus(); refresh();
     },
     browse: browseProject,
     handleKey(event: KeyboardEvent) {
-      if (!dialog.open || event.ctrlKey || event.metaKey || event.altKey || saving) return false;
+      if (!dialog.open || dialog.inert || event.ctrlKey || event.metaKey || event.altKey || saving) return false;
       if (event.key.toLowerCase() === 'n' && !event.repeat && !editable(event.target)) { event.preventDefault(); options.onCreate(); return true; }
       if (event.key === '/' && !editable(event.target)) { event.preventDefault(); filter.focus(); return true; }
       if (event.key === 'F3' && editor.hidden) { event.preventDefault(); void browseProject(); return true; }

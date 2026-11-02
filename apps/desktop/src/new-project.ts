@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { openModal } from './modal.ts';
 import { beginMutation, cancelMutation, createRequestId, type Project } from './project-catalog.ts';
 
 type CreationOptions = { revision: number; roots: { id: string; path: string }[]; defaultRootId: string | null };
@@ -6,7 +7,7 @@ type CreationFailure = { message: string; recoveryPath?: string; code?: string }
 type Options = {
   desktop: boolean;
   onCreated: (project: Project) => void;
-  notify: (message: string) => void;
+  notify: (message: string, tone?: 'info' | 'error') => void;
   /** Dismiss only an idle project picker before opening this modal. */
   prepareOpen?: () => boolean;
 };
@@ -125,7 +126,7 @@ export function createNewProjectDialog(options: Options) {
       // The folder is already committed. A display callback cannot turn it into a failed create.
       options.notify(`Project created: ${project.path}. Refresh the project picker to open it.`); return;
     }
-    if (!wasOpen) options.notify(`Project created: ${project.name}.`);
+    if (!wasOpen) options.notify(`Project created: ${project.name}.`, 'info');
   }
   async function create() {
     if (operation || loading || !configuration) return;
@@ -161,7 +162,7 @@ export function createNewProjectDialog(options: Options) {
   async function cancelOrClose() {
     const current = operation;
     if (!current || current.phase === 'cancelled') { dialog.close(); return; }
-    if (current.phase === 'committing') { dialog.close(); options.notify('Project creation continues. Its result will be reported here.'); return; }
+    if (current.phase === 'committing') { dialog.close(); options.notify('Project creation continues. Its result will be reported here.', 'info'); return; }
     if (current.phase === 'cancelling') return;
     current.cancelRequested = true; current.phase = 'cancelling'; render();
     current.cancellation = (async () => {
@@ -176,7 +177,7 @@ export function createNewProjectDialog(options: Options) {
           if (current.settled) operation = null;
         } else if (current.settled) {
           operation = null; dialog.close();
-          options.notify(current.failure ? failureText(current.failure) : 'Project creation finished before cancellation. The completed project has been kept.');
+          options.notify(current.failure ? failureText(current.failure) : 'Project creation finished before cancellation. The completed project has been kept.', current.failure ? 'error' : 'info');
         } else current.phase = 'committing';
         render();
       } catch (failure) {
@@ -192,13 +193,13 @@ export function createNewProjectDialog(options: Options) {
   }
   function open() {
     if (dialog.open) return false;
-    if (!options.desktop) { options.notify('Open the desktop app to create a project.'); return false; }
+    if (!options.desktop) { options.notify('Open the desktop app to create a project.', 'info'); return false; }
     if (operation) { options.notify('The previous project creation is still returning. Existing terminals remain available.'); return false; }
     if (options.prepareOpen && !options.prepareOpen()) return false;
     if (document.querySelector('dialog[open]')) return false;
     generation++; configuration = null; loading = false;
     name.value = ''; name.setCustomValidity(''); git.checked = false; error.hidden = true;
-    root.replaceChildren(); rootHelp.textContent = ''; render(); dialog.showModal(); name.focus(); void loadOptions(); return true;
+    root.replaceChildren(); rootHelp.textContent = ''; render(); openModal(dialog); name.focus(); void loadOptions(); return true;
   }
   form.onsubmit = event => { event.preventDefault(); void create(); };
   name.oninput = () => { name.setCustomValidity(''); error.hidden = true; render(); };
@@ -211,8 +212,9 @@ export function createNewProjectDialog(options: Options) {
     open,
     handleKey(event: KeyboardEvent) {
       if (event.key.toLowerCase() !== 'n' || event.ctrlKey || event.altKey || event.metaKey || event.repeat) return false;
+      // A character key acts only while its control has focus, never on stray focus.
       const target = event.target instanceof HTMLElement ? event.target : null;
-      if (target?.closest('.xterm,input,textarea,select,[contenteditable="true"]')) return false;
+      if (!target?.closest('#project')) return false;
       if (!open()) return false;
       event.preventDefault(); return true;
     },

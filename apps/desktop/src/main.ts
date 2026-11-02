@@ -8,6 +8,7 @@ import { initializeWindowControls } from './window-controls.ts';
 import { createProjectPicker } from './project-picker.ts';
 import { createNewProjectDialog } from './new-project.ts';
 import { initializeMaintenance } from './maintenance.ts';
+import { openModal } from './modal.ts';
 import './styles.css';
 
 type SessionInfo = { id: string; cwd: string; shell: string };
@@ -18,6 +19,7 @@ type View = {
   group: number; hidden: boolean; ended: boolean; disposed: boolean; profile: string;
   lastSize: string; resizeTimer: number; resizeChain: Promise<void>;
 };
+type Tone = 'info' | 'error';
 type Pane = { element: HTMLElement; tabs: HTMLElement; body: HTMLElement; empty: HTMLElement;
   state: HTMLElement; path: HTMLElement; size: HTMLElement; profile: HTMLSelectElement; active: string | null };
 
@@ -25,7 +27,7 @@ const $ = <T extends HTMLElement = HTMLElement>(selector: string) => document.qu
 const desktop = isTauri();
 const views = new Map<string, View>();
 const profiles: Record<string, Profile> = {
-  neutral: { name: 'Neutral', foreground: '#d9e5f2', background: '#070d17', accent: '#f05e97' },
+  neutral: { name: 'Neutral', foreground: '#d9e5f2', background: '#050912', accent: '#f48fb8' },
   claude: { name: 'Claude', foreground: '#f3dfce', background: '#100d0b', accent: '#f072a2' },
   codex: { name: 'Codex', foreground: '#d4e9ff', background: '#061018', accent: '#8bb8ff' },
   opencode: { name: 'OpenCode', foreground: '#d1f4eb', background: '#071512', accent: '#58d6c2' },
@@ -36,6 +38,8 @@ let focused = 0;
 let maximized: number | null = null;
 let projectPath = '';
 let starting = false;
+/** An Open terminal waiting for a project choice; a dismissed picker forgets it. */
+let pendingStart: { group: number; projectChosen: boolean } | null = null;
 const workspace = $('#workspace');
 const confirmDialog = $<HTMLDialogElement>('#confirm-dialog');
 
@@ -44,9 +48,12 @@ function savePreference() {
   try { localStorage.setItem('shinatama.prototype.layout.v1', JSON.stringify(layout)); }
   catch { notify('Layout preferences could not be saved. Terminals are still running.'); }
 }
-function notify(message: unknown) {
+function notify(message: unknown, tone: Tone = 'error') {
+  const notice = $('#notice');
+  notice.dataset.tone = tone;
+  notice.setAttribute('role', tone === 'error' ? 'alert' : 'status');
   $('#notice span').textContent = String(message);
-  $('#notice').hidden = false;
+  notice.hidden = false;
 }
 $('#notice button').onclick = () => { $('#notice').hidden = true; };
 function modalOpen() { return !!document.querySelector('dialog[open]'); }
@@ -65,34 +72,36 @@ function theme(profile: Profile): ITheme {
   };
 }
 
+const icon = (name: string, className = 'icon') => `<svg class="${className}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 function makePane(index: number): Pane {
   const element = document.createElement('section');
   element.className = 'pane'; element.dataset.index = String(index);
   element.setAttribute('aria-label', `Terminal pane ${index + 1}`);
   element.innerHTML = `<div class="pane-header"><div class="tabs" role="tablist" aria-label="Pane ${index + 1} terminals"></div>
     <div class="pane-actions"><span class="pane-label">${index ? 'B' : 'A'}</span>
-    <button data-action="move" title="Move terminal to other pane" aria-label="Move terminal to other pane">⇄</button>
-    <button data-action="hide" title="Hide view; terminal keeps running" aria-label="Hide terminal view">−</button>
-    <button data-action="maximize" title="Maximize pane" aria-label="Maximize pane">⛶</button>
-    <button data-action="stop" title="Stop terminal" aria-label="Stop terminal">×</button></div></div>
-    <div class="pane-body"><div class="empty"><span class="empty-symbol" aria-hidden="true">${index ? '⌗' : '>_'}</span>
+    <button data-action="move" title="Move terminal to other pane" aria-label="Move terminal to other pane">${icon('move')}</button>
+    <button data-action="hide" title="Hide view; terminal keeps running" aria-label="Hide terminal view">${icon('hide')}</button>
+    <button data-action="maximize" title="Maximize pane" aria-label="Maximize pane">${icon('maximize')}</button>
+    <button data-action="stop" title="Stop terminal" aria-label="Stop terminal">${icon('stop')}</button></div></div>
+    <div class="pane-body"><div class="empty">${icon(index ? 'split' : 'prompt', 'empty-symbol')}
+    <p class="empty-eyebrow">Pane ${index ? 'B' : 'A'} // no session</p>
     <h2>${index ? 'A second perspective' : 'Your workspace starts here'}</h2>
     <p>${index ? 'Keep another terminal beside your work. Moving a tab keeps its process running.' : 'Open a terminal in your project. The shell runs locally, with its own input and scrollback.'}</p>
-    <button data-action="new">＋ Open terminal</button></div></div>
-    <div class="pane-footer"><span class="pane-state">Ready</span><select aria-label="Terminal color profile"><option value="neutral">Neutral</option><option value="claude">Claude</option><option value="codex">Codex</option><option value="opencode">OpenCode</option><option value="pi">Pi</option></select><span class="path"></span><span class="size"></span></div>`;
+    <button data-action="new">${icon('plus')}Open terminal</button></div></div>
+    <div class="pane-footer"><span class="pane-state">Ready</span><label class="profile-field">Profile<select aria-label="Terminal color profile"><option value="neutral">Neutral</option><option value="claude">Claude</option><option value="codex">Codex</option><option value="opencode">OpenCode</option><option value="pi">Pi</option></select></label><span class="path"></span><span class="size"></span></div>`;
   const pane: Pane = { element, tabs: element.querySelector('.tabs')!, body: element.querySelector('.pane-body')!,
     empty: element.querySelector('.empty')!, state: element.querySelector('.pane-state')!, path: element.querySelector('.path')!,
     size: element.querySelector('.size')!, profile: element.querySelector('select')!, active: null };
   element.addEventListener('pointerdown', () => setFocus(index, false));
+  element.addEventListener('focusin', () => setFocus(index, false));
   element.querySelector<HTMLButtonElement>('[data-action="new"]')!.onclick = () => void startTerminal(index);
   element.querySelector<HTMLButtonElement>('[data-action="maximize"]')!.onclick = () => {
     maximized = maximized === index ? null : index; applyLayout();
-    element.querySelector('[data-action="maximize"]')!.setAttribute('aria-label', maximized === index ? 'Restore panes' : 'Maximize pane');
   };
   element.querySelector<HTMLButtonElement>('[data-action="move"]')!.onclick = () => { if (pane.active) moveView(pane.active, 1 - index); };
   element.querySelector<HTMLButtonElement>('[data-action="hide"]')!.onclick = () => {
     const view = pane.active && views.get(pane.active);
-    if (view) { view.hidden = true; pane.active = null; render(); }
+    if (view) { view.hidden = true; pane.active = null; render(); setFocus(index); }
   };
   element.querySelector<HTMLButtonElement>('[data-action="stop"]')!.onclick = () => {
     const view = pane.active && views.get(pane.active); if (view) void stopTerminal(view);
@@ -122,6 +131,10 @@ function applyLayout() {
     pane.element.hidden = maximized !== null && maximized !== index;
     pane.element.classList.toggle('maximized', maximized === index);
     pane.element.style.flex = `${index === 0 ? layout.ratio : 1 - layout.ratio} 1 0`;
+    const label = maximized === index ? 'Restore panes' : 'Maximize pane';
+    const button = pane.element.querySelector<HTMLButtonElement>('[data-action="maximize"]')!;
+    button.setAttribute('aria-label', label); button.title = label;
+    button.querySelector('use')!.setAttribute('href', maximized === index ? '#i-restore' : '#i-maximize');
   });
   splitter.hidden = maximized !== null;
   splitter.setAttribute('aria-orientation', layout.axis === 'columns' ? 'vertical' : 'horizontal');
@@ -156,7 +169,11 @@ splitter.addEventListener('keydown', event => {
 function setFocus(index: number, terminal = true) {
   focused = index;
   panes.forEach((pane, i) => pane.element.classList.toggle('focused', i === index));
-  if (terminal && !modalOpen()) { const id = panes[index].active; if (id) views.get(id)?.terminal.focus(); }
+  if (!terminal || modalOpen()) return;
+  // Focus must not fall to the body, where it reaches no shell and no control.
+  const id = panes[index].active;
+  if (id) views.get(id)?.terminal.focus();
+  else panes[index].element.querySelector<HTMLButtonElement>('[data-action="new"]')!.focus();
 }
 function moveView(id: string, group: number) {
   const view = views.get(id); if (!view || view.group === group) return;
@@ -172,7 +189,9 @@ function render() {
     for (const view of members) {
       const tab = document.createElement('button'); tab.className = `tab${view.ended ? ' exited' : ''}`;
       tab.setAttribute('role', 'tab'); tab.setAttribute('aria-selected', String(pane.active === view.info.id));
-      tab.textContent = `${view.info.shell} ${[...views.keys()].indexOf(view.info.id) + 1}`;
+      const label = `${view.info.shell} ${[...views.keys()].indexOf(view.info.id) + 1}`;
+      tab.textContent = label;
+      tab.setAttribute('aria-label', view.ended ? `${label}, exited` : label);
       const dot = document.createElement('i'); dot.setAttribute('aria-hidden', 'true'); tab.append(dot);
       tab.draggable = true;
       tab.ondragstart = event => { event.dataTransfer?.setData('application/x-shinatama-terminal', view.info.id); };
@@ -213,16 +232,17 @@ function scheduleFit(view: View) {
     }).catch(error => { view.lastSize = ''; if (!view.disposed) notify(error); });
   }, 80);
 }
-async function startTerminal(group: number) {
-  if (!desktop) { notify('This is the browser preview. Run npm run desktop to open real terminals.'); return; }
-  if (starting) return;
-  if (!projectPath || !projectPicker.canStart()) { openProjectDialog(); return; }
+async function startTerminal(group: number, cwd?: string): Promise<boolean> {
+  if (!desktop) { notify('This is the browser preview. Run npm run desktop to open real terminals.', 'info'); return false; }
+  if (starting) return false;
+  if (cwd === undefined && (!projectPath || !projectPicker.canStart())) { pendingStart = { group, projectChosen: false }; openProjectDialog(); return false; }
   starting = true;
   $<HTMLButtonElement>('#new-terminal').disabled = true;
   try {
-    const info = await invoke<SessionInfo>('terminal_start', { cwd: projectPath, rows: 24, cols: 80 });
+    const info = await invoke<SessionInfo>('terminal_start', { cwd: cwd ?? projectPath, rows: 24, cols: 80 });
     attachTerminal(info, group);
-  } catch (error) { notify(error); }
+    return true;
+  } catch (error) { notify(error); return false; }
   finally { starting = false; $<HTMLButtonElement>('#new-terminal').disabled = false; }
 }
 function attachTerminal(info: SessionInfo, group: number) {
@@ -261,15 +281,25 @@ async function drain(view: View) {
         await new Promise<void>(resolve => view.terminal.write(new Uint8Array(chunk), resolve));
       }
       if (batch.error) notify(`Terminal output: ${batch.error}`);
-      if (batch.eof) { view.ended = true; render(); return; }
+      if (batch.eof) { view.ended = true; showExit(view, batch.exit_code); render(); return; }
       await new Promise(resolve => setTimeout(resolve, 25));
     }
   } catch (error) { if (!view.disposed) notify(`Terminal connection interrupted: ${error}`); }
 }
+function showExit(view: View, code: number | null) {
+  const banner = document.createElement('div'); banner.className = 'exit-banner'; banner.setAttribute('role', 'status');
+  const text = document.createElement('span'); text.textContent = code === null ? 'Process exited' : `Process exited · code ${code}`;
+  const restart = document.createElement('button'); restart.type = 'button'; restart.textContent = 'Restart terminal';
+  restart.onclick = async () => { if (await startTerminal(view.group, view.info.cwd)) await stopTerminal(view); };
+  const close = document.createElement('button'); close.type = 'button'; close.textContent = 'Close terminal';
+  close.onclick = () => void stopTerminal(view);
+  banner.append(text, restart, close); view.element.append(banner);
+}
 async function confirmStop(title: string, message: string): Promise<boolean> {
-  if (modalOpen()) return false;
+  // A window close request can arrive over another dialog; the confirmation stacks above it.
+  if (confirmDialog.open) return false;
   $('#confirm-title').textContent = title; $('#confirm-message').textContent = message;
-  confirmDialog.returnValue = 'cancel'; confirmDialog.showModal();
+  confirmDialog.returnValue = 'cancel'; openModal(confirmDialog);
   return new Promise(resolve => confirmDialog.addEventListener('close', () => {
     resolve(confirmDialog.returnValue === 'stop'); setFocus(focused);
   }, { once: true }));
@@ -279,18 +309,35 @@ async function stopTerminal(view: View) {
   try {
     await invoke('terminal_stop', { id: view.info.id });
     view.disposed = true; clearTimeout(view.resizeTimer); view.terminal.dispose(); view.element.remove();
-    views.delete(view.info.id); render();
+    views.delete(view.info.id); render(); setFocus(view.group);
   } catch (error) { notify(error); }
 }
 
 const projectPicker = createProjectPicker({ desktop, getPath: () => projectPath,
-  onSelected: path => { setProject(path); render(); }, onCreate: () => { newProject.open(); }, reportError: notify });
+  onSelected: (path, chosen) => {
+    setProject(path); render();
+    if (chosen && pendingStart) pendingStart.projectChosen = true;
+  }, onCreate: () => { newProject.open(); }, reportError: notify });
 const newProject = createNewProjectDialog({ desktop, onCreated: project => projectPicker.acceptCreated(project),
   prepareOpen: () => projectPicker.prepareForCreation(), notify });
 function openProjectDialog() { projectPicker.open(); }
+function settlePendingStart() {
+  if (modalOpen()) return;
+  const request = pendingStart; pendingStart = null;
+  if (request?.projectChosen) void startTerminal(request.group);
+}
+for (const dialog of ['#project-dialog', '#new-project-dialog']) {
+  $(dialog).addEventListener('close', settlePendingStart);
+}
+confirmDialog.addEventListener('close', () => {
+  // A selection may finish under this overlay. Cancel resumes the original
+  // request once; confirming shutdown must never create another terminal.
+  if (confirmDialog.returnValue === 'stop') pendingStart = null;
+  else settlePendingStart();
+});
 $('#project').onclick = openProjectDialog;
 $('#new-terminal').onclick = () => void startTerminal(focused);
-$('#restore').onclick = () => { for (const view of views.values()) view.hidden = false; maximized = null; render(); };
+$('#restore').onclick = () => { for (const view of views.values()) view.hidden = false; maximized = null; render(); setFocus(focused); };
 $('#layout-toggle').onclick = () => { layout.axis = layout.axis === 'columns' ? 'rows' : 'columns'; maximized = null; applyLayout(); savePreference(); };
 document.addEventListener('keydown', event => {
   if (projectPicker.handleKey(event)) return;
@@ -299,7 +346,8 @@ document.addEventListener('keydown', event => {
   const terminalInput = !!target?.closest('.xterm');
   const textInput = !!target?.closest('input,textarea,select,[contenteditable="true"]');
   if (!modalOpen() && !terminalInput && !textInput && !event.ctrlKey && !event.altKey && !event.metaKey) {
-    if (event.key === '/') { event.preventDefault(); projectPicker.open(true); return; }
+    // A character key acts only while its control has focus, never on stray focus.
+    if (event.key === '/' && target?.closest('#project')) { event.preventDefault(); projectPicker.open(true); return; }
     if (event.key === 'F3') { event.preventDefault(); projectPicker.open(); void projectPicker.browse(); return; }
   }
   if (modalOpen() || !event.ctrlKey || !event.shiftKey) return;
@@ -319,7 +367,7 @@ async function initialize() {
     // A development frontend reload reattaches existing processes; it never starts a new one.
     const existing = await invoke<SessionInfo[]>('terminal_list');
     for (const [index, info] of existing.entries()) attachTerminal(info, index % 2);
-    if (existing.length) notify('Reconnected to running terminals. Earlier screen contents are not retained across a frontend reload.');
+    if (existing.length) notify('Reconnected to running terminals. Earlier screen contents are not retained across a frontend reload.', 'info');
     await listen('confirm-close', async () => {
       if (!await confirmStop('Close workspace?', 'All running terminals and their child programs will stop.')) return;
       try {

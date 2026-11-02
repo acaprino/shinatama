@@ -6,10 +6,34 @@
   <title>Shinatama — terminal workspace</title>
 </head>
 <body>
+  <svg hidden aria-hidden="true">
+    <symbol id="i-folder" viewBox="0 0 16 16"><path d="M1.5 13.5v-11h5l1.5 2h6.5v9z"/></symbol>
+    <symbol id="i-caret" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4"/></symbol>
+    <symbol id="i-layout" viewBox="0 0 16 16"><path d="M2.5 2.5h11v11h-11zM8 2.5v11"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
+    <symbol id="i-move" viewBox="0 0 16 16"><path d="M2 5.5h11M10.5 3 13 5.5 10.5 8M14 10.5H3M5.5 8 3 10.5 5.5 13"/></symbol>
+    <symbol id="i-hide" viewBox="0 0 16 16"><path d="M3 8h10"/></symbol>
+    <symbol id="i-maximize" viewBox="0 0 16 16"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></symbol>
+    <symbol id="i-restore" viewBox="0 0 16 16"><path d="M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 16 16"><path d="m4 4 8 8M12 4l-8 8"/></symbol>
+    <symbol id="i-prompt" viewBox="0 0 34 34"><path d="M3 5.5h28v23H3zM9 12l6 5-6 5M18 23h7"/></symbol>
+    <symbol id="i-split" viewBox="0 0 34 34"><path d="M3 5.5h28v23H3zM17 5.5v23M21 13h6M21 18h6M21 23h3"/></symbol>
+  </svg>
   <main id="app">
     <header class="titlebar">
       <div class="titlebar-drag" data-tauri-drag-region>
-        <span class="brand-mark" aria-hidden="true">Ξ</span><strong>SHINATAMA</strong><span class="version">0.1</span>
+        <svg class="brand-mark" viewBox="0 0 18 18" aria-hidden="true"><path d="M1 1h16v16H1zM5 5h8M5 9h8M5 13h8"/></svg>
+        <svg class="wordmark" viewBox="0 0 124 10" role="img" aria-label="Shinatama">
+          <path d="M12 .8H1.8L.8 1.8V4L1.8 5h8.4l1 1v2.2l-1 1H0"/>
+          <path transform="translate(15)" d="M.8 0v10M11.2 0v10M.8 5h10.4"/>
+          <path transform="translate(30)" d="M1 0v10"/>
+          <path transform="translate(35)" d="M.8 10V1l10.4 8V0"/>
+          <path transform="translate(50)" d="m.5 10 5.5-9.4 5.5 9.4M2.6 6.6h6.8"/>
+          <path transform="translate(65)" d="M0 .8h12M6 .8V10"/>
+          <path transform="translate(80)" d="m.5 10 5.5-9.4 5.5 9.4M2.6 6.6h6.8"/>
+          <path transform="translate(95)" d="M.8 10V1L7 7l6.2-6v9"/>
+          <path transform="translate(112)" d="m.5 10 5.5-9.4 5.5 9.4M2.6 6.6h6.8"/>
+        </svg><span class="version">0.1</span>
         <span class="title-description">multi-harness terminal</span><span class="prototype">Prototype</span>
       </div>
       <div class="window-controls" role="group" aria-label="Window controls">
@@ -26,18 +50,19 @@
       </div>
     </header>
     <nav class="toolbar" aria-label="Workspace controls">
-      <button id="project" class="project-picker" title="Choose project folder"><span aria-hidden="true">⌑</span><span id="project-name">Choose project</span><span class="caret">⌄</span></button>
+      <button id="project" class="project-picker" title="Choose project folder"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg><span id="project-name">Choose project</span><svg class="icon caret" aria-hidden="true"><use href="#i-caret"/></svg></button>
       <span class="toolbar-divider"></span><span class="workspace-name">Scratch workspace <small id="pane-count">2 panes</small></span>
       <span class="spring"></span>
-      <button id="layout-toggle" title="Switch between columns and rows">⊞ <span>Layout</span></button>
+      <button id="layout-toggle" title="Switch between columns and rows"><svg class="icon" aria-hidden="true"><use href="#i-layout"/></svg><span>Layout</span></button>
       <button id="restore" title="Show all hidden terminals">Restore views</button>
-      <button id="new-terminal" class="primary">＋ New terminal</button>
+      <button id="new-terminal" class="primary"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>New terminal</button>
     </nav>
     <section id="workspace" aria-label="Terminal workspace"></section>
-    <footer class="statusbar"><span id="runtime-status"><i></i>Connecting…</span><span id="terminal-count">0 terminals</span><span class="spring"></span><span>Ctrl+Shift+T <span class="muted">new terminal</span></span><span>Ctrl+Shift+← / → <span class="muted">focus pane</span></span></footer>
+    <footer class="statusbar"><span id="runtime-status"><i></i>Connecting…</span><span id="terminal-count">0 terminals</span><span class="spring"></span><span>Ctrl+Shift+T <span class="muted">new terminal</span></span><span>Ctrl+Shift+Left / Right <span class="muted">focus pane</span></span></footer>
     <div id="notice" role="status" hidden><span></span><button aria-label="Dismiss notification">×</button></div>
-    <dialog id="project-dialog">
-      <form id="project-form"><div class="dialog-heading"><h1>Open a project</h1><button type="button" data-cancel aria-label="Close dialog">×</button></div>
+    <div id="modal-scrim" hidden></div>
+    <dialog id="project-dialog" aria-labelledby="project-dialog-title">
+      <form id="project-form"><div class="dialog-heading"><h1 id="project-dialog-title">Open a project</h1><button type="button" data-cancel aria-label="Close dialog">×</button></div>
       <p>New terminals start here. Existing terminals keep their working folder.</p>
       <div class="catalog-tools"><button id="browse-project" type="button">Browse folder <kbd>F3</kbd></button><button id="create-project" type="button">New project <kbd>n</kbd></button><button id="manage-roots" type="button">Project roots</button><button id="refresh-projects" type="button">Refresh</button></div>
       <p id="default-root-summary" class="hint">Choose a default root for new projects.</p>
@@ -62,7 +87,7 @@
       <p id="project-error" role="alert" hidden></p>
       <div class="dialog-actions"><button type="button" data-cancel>Cancel</button><button class="primary" type="submit">Use folder</button></div></form>
     </dialog>
-    <dialog id="confirm-dialog">
+    <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-message">
       <form method="dialog"><div class="dialog-heading"><h1 id="confirm-title">Stop terminal?</h1></div><p id="confirm-message"></p>
       <div class="dialog-actions"><button value="cancel" autofocus>Cancel</button><button value="stop" class="danger">Stop</button></div></form>
     </dialog>

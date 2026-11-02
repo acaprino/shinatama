@@ -14,7 +14,7 @@ note first recorded. ADR-0040's terminal-first sequence still applies.
 - `crates/terminal`: independent Rust PTY ownership, binary output, queued input,
   resize, explicit stop and process containment. No session reader, credentials,
   model calls or agent adapter.
-- `apps/desktop`: Tauri + TypeScript + xterm, using the Lite mockup's colors and
+- `apps/desktop`: Tauri + TypeScript + xterm, using the Shinatama skin tokens (functional-design 5.7) and the Lite mockup's
   proportions. Two panes, tab groups, drag/move between groups, hide/restore,
   maximize, keyboard/pointer splitter, rows/columns and five color profiles.
 - Windows launches system PowerShell without the user's profile or saved
@@ -108,3 +108,10 @@ block supported agent launch or the active session/hop milestones.
 References: [Tauri architecture](https://v2.tauri.app/concept/architecture/),
 [capabilities](https://v2.tauri.app/security/capabilities/),
 [portable-pty](https://docs.rs/portable-pty/0.9.0/portable_pty/).
+
+The 2026-11-02 frame checkpoint includes the readable default skin, frame controls
+above modal dialogs, project-first terminal opening and single-consumption pending
+launch intent. The focused mocked UI flow and the real Windows desktop smoke both
+pass. The real proof covers minimize/maximize/restore/close, ConPTY input/output,
+view identity through move/hide/restore, resize, natural exit and close confirmation.
+This checkpoint does not qualify full workload resilience or supported agent launch.

@@ -95,6 +95,17 @@ try {
   await left.getByRole('combobox').selectOption('claude');
   await right.getByRole('combobox').selectOption('codex');
   await page.locator('#project').click();
+  // The borderless frame stays operable while a dialog is open: buttons, drag area, close request.
+  await page.getByRole('button', { name: 'Minimize window', exact: true }).click();
+  await expect.poll(() => nativeWindowState().minimized).toBe(true);
+  nativeWindowState(true);
+  await expect.poll(() => nativeWindowState().minimized).toBe(false);
+  await page.locator('.titlebar-drag').dblclick({ position: { x: 400, y: 10 } });
+  await expect(page.getByRole('button', { name: 'Restore window', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Restore window', exact: true }).click();
+  await page.getByRole('button', { name: 'Close window', exact: true }).click();
+  await page.locator('#confirm-dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(page.locator('#project-dialog')).toBeVisible();
   await page.locator('#folder').fill('not-an-absolute-folder');
   await page.getByRole('button', { name: 'Use folder' }).click();
   await expect(page.locator('#project-dialog')).toBeVisible();
