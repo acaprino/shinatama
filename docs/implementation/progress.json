@@ -537,12 +537,12 @@
       "next_action": "Use the committed creation checkpoint and proceed to C10 adapter/engine contracts; preserve the C09R gate before terminal/sidecar hardening."
     },
     "C10": {
-      "status": "verified",
-      "commit_sha": null,
+      "status": "committed",
+      "commit_sha": "417330b5001b865a2b7f86cea126eb8cfda463c0",
       "units": {
         "C10.1": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "417330b5001b865a2b7f86cea126eb8cfda463c0",
           "evidence": [
             "docs/verification/2026-11-02-C10-adapter-contracts.md",
             "docs/verification/2026-11-02-C10-adapter-contracts.result.json"
@@ -559,8 +559,8 @@
           ]
         },
         "C10.2": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "417330b5001b865a2b7f86cea126eb8cfda463c0",
           "evidence": [
             "docs/verification/2026-11-02-C10-adapter-contracts.md",
             "docs/verification/2026-11-02-C10-adapter-contracts.result.json"
