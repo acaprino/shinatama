@@ -105,7 +105,8 @@ functional-design 5.16 and technical-design 3.1.
 
 ## Consequences
 
-- Gates TL1 (G0, in the first-milestone set) to TL6 are added; TL1 is the toolkit prototype gate of technical-design 3.1, not the UI milestone. The first UI milestone is terminal-first (project selector, terminal tiles, leaf tab groups, terminal profiles); file navigator, diffs, thread panes, session browsing, hop and Daodan surfaces come later (functional-design 5.16; ADR-0040).
+- Gates TL1 (G0, in the first-milestone set) to TL6 are added; TL1 is the toolkit prototype gate of technical-design 3.1, not the UI milestone. The first UI milestone is terminal-first (project selector, terminal tiles, leaf tab groups, terminal profiles); file navigator, thread panes, session browsing, hop and Daodan surfaces come later (functional-design 5.16; ADR-0040).
+- Correction, 2026-11-02: the earlier inclusion of "diffs" among later surfaces was an unsupported inference. The user explicitly excludes a Shinatama Git Diff tab and dedicated diff editor from the product, including future scope. This does not change diff output inside a hosted agent or the technical comparisons used by the engine.
 - Native panes other than terminals must be declared in functional-design 5.16: the DeepSeek Harness ACP pane (ADR-0007) and the companion chat (ADR-0002). Session panels follow ADR-0023; browser panes keep their own gates, and "Tiling does not authorize a new engine, web frontend, automatic fallback or browser session transfer" (browser-integration; ADR-0035, ADR-0036).
 - Markdown rendering executes no scripts, embedded commands or unapproved remote requests; external writes are detected and never silently overwritten; DOCX and visual Markdown editing need fidelity fixtures (TL4, TL6). Native HTML rendering is not a full browser or DOCX engine.
 - The UI library, crates and shortcuts stay the builder's (functional-design 8); key bindings wait for register U3; Windows is open (O3).

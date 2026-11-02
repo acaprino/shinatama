@@ -18,6 +18,11 @@ run, what the workspace draws around them, how panes are arranged and restored, 
 first UI milestone contains. It does not cover where an agent's program and home live
 (FRD-0002), the hop (FRD-0005) or the session browser (FRD-0006).
 
+Scope clarification, user, 2026-11-02: a Shinatama Git Diff tab or dedicated
+diff editor is excluded from the product, including future scope. The old
+mockup and the former ADR-0005 "come later" wording did not establish such
+a requirement. Hosted agents may still display their own diff output.
+
 Vocabulary (technical-design 2): an **agent** is one of Claude Code, Codex, OpenCode, Pi, Hermes
 Agent and DeepSeek Harness; an **instance** is a running agent process hosted in one pane; a
 **pane** or **view** is a workspace surface, distinct from the instance it shows.

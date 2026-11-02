@@ -891,6 +891,11 @@ surfaces.
 
 **Panel contents:**
 
+**Scope clarification (user, 2026-11-02):** a Shinatama Git Diff tab or dedicated
+diff editor is not wanted and is excluded from the product, including future
+scope. The earlier mockup did not authorize that feature. Diff output inside
+a hosted agent and the engine's technical comparisons are unaffected.
+
 | Surface | Behaviour / boundary |
 | --- | --- |
 | Agent terminal | Real PTY/emulator, resize, selection, scrollback and focus isolation; multiple agents visible together. Each view uses its harness's terminal profile (font, cell metrics, ANSI palette); Shinatama chrome keeps the active skin. |
