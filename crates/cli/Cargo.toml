@@ -1,0 +1,15 @@
+[package]
+name = "shinatama-cli"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "shinatama"
+path = "src/main.rs"
+
+[dependencies]
+serde_json.workspace = true
+shinatama-adapter.workspace = true
+shinatama-engine.workspace = true

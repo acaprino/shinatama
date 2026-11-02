@@ -66,7 +66,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 292.
 | Rust | dunce | 1.0.5 | build-tool, runtime | CC0-1.0 OR MIT-0 OR Apache-2.0 | recognized | LICENSE |
 | Rust | dyn-clone | 1.0.20 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | embed-resource | 3.0.12 | build-tool | MIT | recognized | LICENSE |
-| Rust | equivalent | 1.0.3 | build-tool, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
+| Rust | equivalent | 1.0.3 | build-tool, dev-test, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | erased-serde | 0.4.11 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | fallible-iterator | 0.3.0 | runtime | MIT/Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | fallible-streaming-iterator | 0.1.9 | runtime | MIT/Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
@@ -76,14 +76,14 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 292.
 | Rust | find-msvc-tools | 0.1.15 | build-tool | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | flate2 | 1.1.10 | build-tool | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | fnv | 1.0.7 | build-tool, runtime | Apache-2.0 / MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
-| Rust | foldhash | 0.2.0 | build-tool, runtime | Zlib | recognized | LICENSE |
+| Rust | foldhash | 0.2.0 | build-tool, dev-test, runtime | Zlib | recognized | LICENSE |
 | Rust | form_urlencoded | 1.2.2 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | generic-array | 0.14.7 | build-tool | MIT | recognized | LICENSE |
 | Rust | getrandom | 0.3.4 | runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | getrandom | 0.4.3 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | glob | 0.3.4 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | hashbrown | 0.12.3 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
-| Rust | hashbrown | 0.17.1 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
+| Rust | hashbrown | 0.17.1 | build-tool, dev-test, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | hashlink | 0.12.2 | runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | heck | 0.5.0 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | hex | 0.4.3 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
@@ -101,9 +101,9 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 292.
 | Rust | idna | 1.1.0 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | idna_adapter | 1.2.2 | build-tool, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | indexmap | 1.9.3 | build-tool, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
-| Rust | indexmap | 2.14.2 | build-tool, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
+| Rust | indexmap | 2.14.2 | build-tool, dev-test, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | infer | 0.22.0 | build-tool, runtime | MIT | recognized | LICENSE |
-| Rust | itoa | 1.0.18 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
+| Rust | itoa | 1.0.18 | build-tool, dev-test, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | jiff | 0.2.38 | build-tool, runtime | Unlicense OR MIT | recognized | COPYING; LICENSE-MIT |
 | Rust | jiff-core | 0.1.1 | build-tool, runtime | Unlicense OR MIT | recognized | COPYING; LICENSE-MIT |
 | Rust | jiff-tzdb | 0.1.9 | build-tool, runtime | Unlicense OR MIT | recognized | COPYING; LICENSE-MIT |
@@ -118,7 +118,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 292.
 | Rust | lock_api | 0.4.14 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | log | 0.4.35 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | markup5ever | 0.39.0 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
-| Rust | memchr | 2.8.3 | build-tool, runtime | Unlicense OR MIT | recognized | COPYING; LICENSE-MIT |
+| Rust | memchr | 2.8.3 | build-tool, dev-test, runtime | Unlicense OR MIT | recognized | COPYING; LICENSE-MIT |
 | Rust | mime | 0.3.17 | runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | miniz_oxide | 0.8.9 | build-tool | MIT OR Zlib OR Apache-2.0 | recognized | LICENSE; LICENSE-APACHE.md; LICENSE-MIT.md; LICENSE-ZLIB.md |
 | Rust | miniz_oxide | 0.9.1 | build-tool | MIT OR Zlib OR Apache-2.0 | recognized | LICENSE; LICENSE-APACHE.md; LICENSE-MIT.md; LICENSE-ZLIB.md |
@@ -169,10 +169,10 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 292.
 | Rust | semver | 1.0.28 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | serde | 1.0.229 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | serde-untagged | 0.1.9 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
-| Rust | serde_core | 1.0.229 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
+| Rust | serde_core | 1.0.229 | build-tool, dev-test, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | serde_derive | 1.0.229 | build-tool | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | serde_derive_internals | 0.29.1 | build-tool | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
-| Rust | serde_json | 1.0.154 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
+| Rust | serde_json | 1.0.154 | build-tool, dev-test, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | serde_repr | 0.1.21 | build-tool | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | serde_spanned | 1.1.2 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | serde_with | 3.24.0 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
@@ -276,7 +276,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 292.
 | Rust | zerovec | 0.11.9 | build-tool, runtime | Unicode-3.0 | recognized | LICENSE |
 | Rust | zerovec-derive | 0.11.7 | build-tool | Unicode-3.0 | recognized | LICENSE |
 | Rust | zlib-rs | 0.6.8 | build-tool | Zlib | recognized | LICENSE |
-| Rust | zmij | 1.0.23 | build-tool, runtime | MIT | recognized | LICENSE-MIT |
+| Rust | zmij | 1.0.23 | build-tool, dev-test, runtime | MIT | recognized | LICENSE-MIT |
 | npm | @oxc-project/types | 0.156.0 | build-tool | MIT | recognized | LICENSE |
 | npm | @playwright/test | 1.64.1 | build-tool | Apache-2.0 | recognized | LICENSE; NOTICE |
 | npm | @rolldown/binding-win32-x64-msvc | 1.2.16 | build-tool | MIT | recognized | rolldown/LICENSE |

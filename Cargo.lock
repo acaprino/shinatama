@@ -2939,6 +2939,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc6fe69c597f9c37bfeeeeeb33da3530379845f10be461a66d16d03eca2ded77"
 
 [[package]]
+name = "shinatama-adapter"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "shinatama-cli"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "shinatama-adapter",
+ "shinatama-engine",
+]
+
+[[package]]
 name = "shinatama-desktop"
 version = "0.1.0"
 dependencies = [
@@ -2950,6 +2968,14 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-dialog",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "shinatama-engine"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "shinatama-adapter",
 ]
 
 [[package]]

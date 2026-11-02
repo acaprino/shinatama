@@ -48,6 +48,11 @@ or closing the window asks for confirmation. No terminal starts on launch.
 Only the split direction and proportion are restored. **Profiles are colors, not
 agent launchers.** Agent adapters, isolated homes, sidecar routing, search, hop and
 Learning are not wired up yet. Windows is the only platform exercised so far.
+The independent Rust engine now has versioned adapter contracts and an in-memory
+test adapter. `cargo run -p shinatama-cli -- doctor --json` inspects local program
+locations without starting agents or creating state. Exit 2 reports missing or
+unqualified support; [C10 evidence](docs/verification/2026-11-02-C10-adapter-contracts.md)
+describes the current limits.
 
 See the [prototype scope, dependencies and limits](docs/implementation/tauri-prototype.md)
 and [verification evidence](docs/verification/2026-11-02-tauri-terminal-prototype.md).

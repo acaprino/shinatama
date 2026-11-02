@@ -4,7 +4,7 @@
 [workspace]
 resolver = "3"
 # The terminal engine remains independent of the Tauri shell (ADR-0005).
-members = ["crates/terminal", "crates/projects", "crates/state", "apps/desktop/src-tauri"]
+members = ["crates/terminal", "crates/projects", "crates/state", "crates/adapter", "crates/engine", "crates/cli", "apps/desktop/src-tauri"]
 default-members = ["crates/terminal"]
 
 [workspace.package]
@@ -31,3 +31,5 @@ libc = "0.2"
 shinatama-terminal = { path = "crates/terminal" }
 shinatama-projects = { path = "crates/projects" }
 shinatama-state = { path = "crates/state" }
+shinatama-adapter = { path = "crates/adapter" }
+shinatama-engine = { path = "crates/engine" }

@@ -1,0 +1,10 @@
+[package]
+name = "shinatama-engine"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+shinatama-adapter.workspace = true
