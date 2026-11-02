@@ -71,6 +71,15 @@ they must hold.
    V1 hops use only `seed_prompt` or `native_resume`. Writing a foreign session file
    is post-v1 and needs its own pair/version, privacy, store and recovery gates (5.4).
 
+Host-resilience amendment, user 2026-11-02: subprocess instability must remain
+local; adaptive resource control and emergency termination of only the responsible
+tree protect Shinatama and healthy sessions. See FRD-0001/R59-R63 and
+[the resource-control design](implementation/2026-11-02-host-resilience.md).
+The proposal separates the global cleanup job from per-workload resource limits,
+coordinates admission across windows, bounds internal queues/allocations and
+recovery, and requires RES1-RES4 fault evidence. The user decided the priority and
+emergency policy; implementation details and thresholds still require qualification.
+
 ## 2. Vocabulary
 
 - **Agent**: one of claude, codex, opencode, pi, hermes (Hermes Agent), deepseek (DeepSeek

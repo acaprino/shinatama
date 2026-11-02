@@ -33,7 +33,7 @@ macOS e Linux sono fuori dallo scope su decisione dell utente: solo Windows e su
 | [B00](#b00) | Registrare e rendere riproducibile il prototipo di terminale senza cornice | — | committed | 2–4 |
 | [B01](#b01) | Piano completo, copertura FRD e checkpoint riprendibile | B00 | committed | 3–6 |
 | [B02](#b02) | Ricordare e riaprire i progetti recenti senza avviare processi | B00, B01 | committed | 8–16 |
-| [F32CI](#f32ci) | Verifica continua iniziale, lockfile e avvisi sulle dipendenze | B01 | pending | 3–8 |
+| [F32CI](#f32ci) | Verifica continua iniziale, lockfile e avvisi sulle dipendenze | B01 | verified | 3–8 |
 | [TL1-proof](#tl1-proof) | Provare la shell Tauri su Windows (gate TL1) | B00, F32CI | pending | 6–16 |
 | [C01](#c01) | Validare i percorsi locali privati prima di creare il database | B00, B02, F32CI | pending | 8–16 |
 | [C02](#c02) | Aprire SQLite incorporato in sicurezza ed esporre un servizio di stato tipizzato | C01, B02 | pending | 8–16 |
@@ -43,13 +43,14 @@ macOS e Linux sono fuori dallo scope su decisione dell utente: solo Windows e su
 | [C10](#c10) | Definire contratti degli adattatori, capacità e verifiche di versione | C02, C03 | pending | 10–18 |
 | [C11](#c11) | Costruire piani di avvio sicuri e cartelle private degli agenti | C01, C10 | pending | 16–32 |
 | [C12](#c12) | Integrare il sorgente del sidecar e il suo ambiente privato | C11 | pending | 20–40 |
-| [C13](#c13) | Supervisionare i sidecar distinguendo occupazione e recupero | C12 | pending | 20–40 |
+| [C09R](#c09r) | Proteggere l host con budget e recupero adattivi | C03, FS03, C11 | pending | 24–48 |
+| [C13](#c13) | Supervisionare i sidecar distinguendo occupazione e recupero | C12, C09R | pending | 20–40 |
 | [C14](#c14) | Preparare checkup, manifest e set generici di avvio | C11, C13 | pending | 6–12 |
 | [FS03](#fs03) | Separazione degli schemi autorevoli e operativi e record dei progetti | C03, C11 | pending | 4–10 |
 | [C06](#c06) | Introdurre un modello validato ad albero per le suddivisioni | B02, FS03, TL1-proof | pending | 10–20 |
 | [C07](#c07) | Disegnare l'albero di pannelli e completare i comandi da tastiera | C06 | pending | 15–30 |
 | [C08](#c08) | Rendere configurabili i temi e i profili versionati dei terminali | C07 | pending | 12–20 |
-| [C09](#c09) | Rendere robusti terminale e contenimento con fixture sintetiche | C07, C08 | pending | 8–16 |
+| [C09](#c09) | Rendere robusti terminale e contenimento con fixture sintetiche | C07, C08, C09R | pending | 8–16 |
 | [C15](#c15) | Avviare il primo adattatore Claude attraverso il checkup | C09, C10, C11, C13, C14 | pending | 12–24 |
 | [QA-claude-windows](#qa-claude-windows) | Certificare terminale claude su windows | C09, C15 | pending | 4–8 |
 | [C22](#c22) | Risolvere le radici persistenti degli archivi e collegare una revisione verificata di Mukade | C03, C11, C15 | pending | 14–28 |
@@ -137,7 +138,7 @@ macOS e Linux sono fuori dallo scope su decisione dell utente: solo Windows e su
 | [QSET-deepseek](#qset-deepseek) | Provare set e tool reali per deepseek | C14, C20 | pending | 3–6 |
 | [QA-deepseek-windows](#qa-deepseek-windows) | Certificare il pannello ACP DeepSeek su windows | C09, C20 | pending | 4–8 |
 | [F32SIGN](#f32sign) | Artefatti di rilascio firmati e notarizzazione | F32PKG, QSET-claude, QA-claude-windows, QSET-codex, QA-codex-windows, QSET-opencode, QA-opencode-windows, QSET-pi, QA-pi-windows, QSET-hermes, QA-hermes-windows, QSET-deepseek, QA-deepseek-windows | pending | 4–12 |
-| [V1-acceptance](#v1-acceptance) | Verificare e distribuire il candidato dello scope attivo | B00, C01, C02, C03, B02, C04, C05, C06, C07, C08, C09, C10, C11, C12, C13, C14, C15, C16, C17, C18, C19, C20, C21, C22, C23, C24, C25, C26, C27, C28, C29, C30, C31, C32, C33, C36, C37, C40, C41, C42, C43, C44, FS03, F02, F03P, F03H, F04, F05, F06, F07, F08, F09, F10, F11-windows, F12, F13, F14-codex, F14-opencode, F14-pi, F14-hermes, F14-deepseek, F15, F16, F17, F18, F19, F20, F21, F22, F23-codex, F23-opencode, F23-pi, F23-hermes, F23-deepseek, F24, F25, F26, F27, F28, F29, F30, F31, F32CI, F32PKG, F32SIGN, F33, B01, QSET-claude, QA-claude-windows, QSET-codex, QA-codex-windows, QSET-opencode, QA-opencode-windows, QSET-pi, QA-pi-windows, QSET-hermes, QA-hermes-windows, QSET-deepseek, QA-deepseek-windows | pending | 8–16 |
+| [V1-acceptance](#v1-acceptance) | Verificare e distribuire il candidato dello scope attivo | B00, C01, C02, C03, B02, C04, C05, C06, C07, C08, C09, C10, C11, C12, C13, C14, C15, C16, C17, C18, C19, C20, C21, C22, C23, C24, C25, C26, C27, C28, C29, C30, C31, C32, C33, C36, C37, C40, C41, C42, C43, C44, FS03, F02, F03P, F03H, F04, F05, F06, F07, F08, F09, F10, F11-windows, F12, F13, F14-codex, F14-opencode, F14-pi, F14-hermes, F14-deepseek, F15, F16, F17, F18, F19, F20, F21, F22, F23-codex, F23-opencode, F23-pi, F23-hermes, F23-deepseek, F24, F25, F26, F27, F28, F29, F30, F31, F32CI, F32PKG, F32SIGN, F33, B01, QSET-claude, QA-claude-windows, QSET-codex, QA-codex-windows, QSET-opencode, QA-opencode-windows, QSET-pi, QA-pi-windows, QSET-hermes, QA-hermes-windows, QSET-deepseek, QA-deepseek-windows, C09R | pending | 8–16 |
 | [D01](#d01) | Integrare pacchetti e marketplace Daodan | C14, C15 | deferred | 4–8 |
 | [D02](#d02) | Collegare i partecipanti bare-model della roundtable a Daodan | C33, D01 | deferred | 4–8 |
 | [D03](#d03) | Mostrare gli avvisi dei task Daodan nel widget | C34, F30 | deferred | 4–8 |
@@ -239,7 +240,7 @@ CI su Windows, dipendenze riproducibili, inventario delle licenze e documentazio
 
 **Ambito:** v1. **Dipendenze:** B01. **Stima:** 3–8 ore.
 
-**File/componenti:** `.github/workflows/`; `Cargo.toml`; `docs/implementation/`; `docs/codebase-map.md`; `THIRD_PARTY_NOTICES`.
+**File/componenti:** `.github/workflows/verify.yml`; `.node-version`; `rust-toolchain.toml`; `scripts/verify.ps1`; `scripts/check-process.ps1`; `scripts/test_verify.ps1`; `scripts/dependencies.py`; `scripts/test_dependencies.py`; `THIRD_PARTY_NOTICES.md`; `docs/implementation/windows-verification.md`; `docs/implementation/dependency-policy.md`; `docs/verification/2026-11-02-F32CI-windows-verification.md`.
 
 **Accettazione osservabile:**
 
@@ -248,7 +249,7 @@ CI su Windows, dipendenze riproducibili, inventario delle licenze e documentazio
 - Aggiornare prove, registro, README e mappa del codice a ogni passo completato, senza inventare verifiche superate.
 - Non inviare telemetria né richieste di aggiornamento o catalogo per impostazione iniziale.
 
-**Verifiche del passo:** `planned: Build/test commands recorded for Windows; macOS and Linux reported as deferred.`; `planned: Every direct Rust dependency centralized and notices generated for bundled assets.`; `planned: Evidence/register/README/codebase map updated with completed step and no invented gate pass.`; `planned: No telemetry/update/catalog requests by default.`.
+**Verifiche del passo:** `pwsh -NoProfile -File scripts/verify.ps1`; `python scripts/dependencies.py check --offline`.
 
 **Gate collegati, da registrare separatamente:** P17, P18, X3, X4, X5.
 
@@ -681,12 +682,87 @@ Verifiche pianificate: `planned: test traffico, effective-config e seed bypass`;
 
 Commit: `feat(c12.4): Collegare traffico e configurazione effettiva`. Registrare stato e prove sotto `progress.json` → `steps` → `C12` → `units` → `C12.4`.
 
+<a id="c09r"></a>
+## C09R · Proteggere l host con budget e recupero adattivi
+
+Controllore locale misurato, budget per albero e ammissione aggregata, limiti preventivi e recupero attribuibile, con priorita a host e sessioni sane.
+
+**Ambito:** v1. **Dipendenze:** C03, FS03, C11. **Stima:** 24–48 ore.
+
+**File/componenti:** `crates/engine/src/resources/**`; `verify/RES/**`; `docs/implementation/2026-11-02-host-resilience.md`.
+
+**Accettazione osservabile:**
+
+- R59-R63 seguono la specifica di resilienza aggiornata: nessun crash o blocco indefinito dell host nel perimetro qualificato.
+- Budget e soglie sono misurati e congelati prima del test; niente limiti restrittivi condivisi con host e renderer.
+- Solo emergenza attribuibile autorizza arresto automatico del responsabile; nessun replay di lavoro agente.
+
+**Verifiche del passo:** `pianificato: RES1-RES4 sintetici prima delle integrazioni dipendenti`; `pianificato: prove di carico e fault isolate, con dati sintetici`.
+
+**Gate collegati, da registrare separatamente:** RES1, RES2, RES3, RES4, TL5, P18.
+
+**Requisiti coperti dal piano:** FRD-0001/R59, FRD-0001/R60, FRD-0001/R61, FRD-0001/R62, FRD-0001/R63.
+
+**Commit proposto:** `feat(c09r): proteggere host e sessioni sane con budget adattivi`.
+
+**Prima azione alla ripresa:** Leggere la specifica di resilienza e preparare fixture sintetiche con limiti; iniziare dal campionatore locale e non da soglie arbitrarie.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### C09R.1 · Misurare risorse e pressione senza bloccare l host
+
+Campionatore locale limitato per host/renderer, alberi e sistema, con PID+start-time; distinguere commit/residente e gestire campioni mancanti.
+
+Stima: 6–12 ore. File: `crates/engine/src/resources/**`, `verify/RES/**`, `docs/verification/`.
+
+Accettazione: Fixture di processo terminato, accesso negato, crescita e contatori senza doppio conteggio. La build e l avvio delle funzionalita esistenti restano utilizzabili; nessun gate e promosso senza la relativa prova.
+
+Verifiche pianificate: `pianificato: fixture sintetiche RES1-RES4 su Windows con risorse limitate`; `pianificato: misura locale di memoria, CPU, code e latenza UI`.
+
+Commit: `feat(c09r.1): Misurare risorse e pressione senza bloccare l host`. Registrare stato e prove sotto `progress.json` → `steps` → `C09R` → `units` → `C09R.1`.
+
+### C09R.2 · Ammettere avvii e applicare limiti nativi per albero
+
+Prenotazioni aggregate tra finestre e limiti OS prima del carico, separati da host/renderer; fail-closed per nuovi avvii se manca il budget.
+
+Stima: 6–12 ore. File: `crates/engine/src/resources/**`, `verify/RES/**`, `docs/verification/`.
+
+Accettazione: Due finestre concorrenti non superano il budget; scadenza/riconciliazione dopo crash senza affidarsi al solo PID. La build e l avvio delle funzionalita esistenti restano utilizzabili; nessun gate e promosso senza la relativa prova. Burst di allocazioni e creazione figli piu rapidi del campionamento incontrano i limiti nativi; fallimenti di allocazione/creazione restano locali. Il guasto del monitor non rimuove i limiti esistenti.
+
+Verifiche pianificate: `pianificato: fixture sintetiche RES1-RES4 su Windows con risorse limitate`; `pianificato: misura locale di memoria, CPU, code e latenza UI`.
+
+Commit: `feat(c09r.2): Ammettere avvii e applicare limiti nativi per albero`. Registrare stato e prove sotto `progress.json` → `steps` → `C09R` → `units` → `C09R.2`.
+
+### C09R.3 · Calibrare budget e intervento di emergenza attribuibile
+
+Baseline sane con tetti fissi e isteresi; ridurre carico opzionale e rifiutare nuovi avvii prima di arrestare solo il responsabile.
+
+Stima: 6–12 ore. File: `crates/engine/src/resources/**`, `verify/RES/**`, `docs/verification/`.
+
+Accettazione: Nessuna vittima arbitraria per pressione esterna; una perdita continua non alza il tetto; il terminale sano continua a rispondere. La build e l avvio delle funzionalita esistenti restano utilizzabili; nessun gate e promosso senza la relativa prova. Rientro sotto una soglia inferiore con intervallo stabile; policy e limite visibili nella UI, overhead misurato, nessuna sospensione cieca di processi con lock.
+
+Verifiche pianificate: `pianificato: fixture sintetiche RES1-RES4 su Windows con risorse limitate`; `pianificato: misura locale di memoria, CPU, code e latenza UI`.
+
+Commit: `feat(c09r.3): Calibrare budget e intervento di emergenza attribuibile`. Registrare stato e prove sotto `progress.json` → `steps` → `C09R` → `units` → `C09R.3`.
+
+### C09R.4 · Qualificare guasti e recupero con soglie congelate
+
+Policy osservabile e fixture isolate per fault del monitor, OOM limitato, process storm e output eccessivo; nessun replay dei comandi agente.
+
+Stima: 6–12 ore. File: `crates/engine/src/resources/**`, `verify/RES/**`, `docs/verification/`.
+
+Accettazione: Ripetere fault in ambiente con limiti/VM, mai esaurire la macchina; salvati e fratelli sani preservati, recupero con retry finiti. La build e l avvio delle funzionalita esistenti restano utilizzabili; nessun gate e promosso senza la relativa prova.
+
+Verifiche pianificate: `pianificato: fixture sintetiche RES1-RES4 su Windows con risorse limitate`; `pianificato: misura locale di memoria, CPU, code e latenza UI`.
+
+Commit: `feat(c09r.4): Qualificare guasti e recupero con soglie congelate`. Registrare stato e prove sotto `progress.json` → `steps` → `C09R` → `units` → `C09R.4`.
+
 <a id="c13"></a>
 ## C13 · Supervisionare i sidecar distinguendo occupazione e recupero
 
 Un solo supervisore per finestra, topologia scelta sulla base delle misure, recupero sullo stesso indirizzo e diagnostica separata con stato visibile.
 
-**Ambito:** v1. **Dipendenze:** C12. **Stima:** 20–40 ore.
+**Ambito:** v1. **Dipendenze:** C12, C09R. **Stima:** 20–40 ore.
 
 **File/componenti:** `crates/sidecar/src/supervisor.rs`; `apps/desktop/src/sidecar-status.ts`.
 
@@ -699,12 +775,13 @@ Un solo supervisore per finestra, topologia scelta sulla base delle misure, recu
 - SC16 eredita la correzione storage del 2026-11-02: sei indici schema v9 e CCR incrementale transazionale; fixture locale CONNECT/health sotto 750 ms, integrità e prova di carico senza connessioni rifiutate, senza bypass o aumento dei timeout.
 - FRD-0009/R24 aggiornato 2026-11-02: prova controllata di persistenza e integrita nel build preparato; ciascun CONNECT+echo e health locale sotto 750 ms, senza aumentare timeout o bypassare il proxy. SC16 globale resta aperto fino al carico di un ora sulle piattaforme richieste.
 - Prima di avviare il sidecar si valuta process-wrap per i processi senza PTY (job con avvio sospeso, licenza, manutenzione, costo di integrazione): l'esito è una decisione registrata in `[workspace.dependencies]` con motivo e licenza, oppure il rifiuto motivato. watchexec-supervisor ed expectrl non vengono usati.
+- Ogni sidecar usa ammissione e budget C09R; recupero con attesa crescente, numero massimo di tentativi e blocco dopo guasti ripetuti. Allocazioni rifiutate, pipe rotte e monitor guasto non bloccano l host ne creano duplicati; log e code restano limitati.
 
-**Verifiche del passo:** `held-event-loop/port-bind/dead-owner/stale-proxy fault suite`; `PTY capture plus diagnostic-log comparison`; `SC16 inherited storage-latency suite, v8 migration integrity, local CONNECT/health fixture and one-hour load per supported OS`.
+**Verifiche del passo:** `held-event-loop/port-bind/dead-owner/stale-proxy fault suite`; `PTY capture plus diagnostic-log comparison`; `SC16 inherited storage-latency suite, v8 migration integrity, local CONNECT/health fixture and one-hour load per supported OS`; `planned: RES1-RES4 sidecar con crash ripetuti, memoria al limite, monitor guasto e verifica limiti di retry/log/code`.
 
-**Gate collegati, da registrare separatamente:** SC5, SC6, SC12, SC14, SC15, SC16, T9.
+**Gate collegati, da registrare separatamente:** SC5, SC6, SC12, SC14, SC15, SC16, T9, RES1, RES2, RES3, RES4 (integrazione).
 
-**Requisiti coperti dal piano:** FRD-0009/R17, FRD-0009/R18, FRD-0009/R19, FRD-0009/R20, FRD-0009/R21, FRD-0009/R22, FRD-0009/R23, FRD-0009/R24, FRD-0009/R25, FRD-0009/R26, FRD-0009/R29.
+**Requisiti coperti dal piano:** FRD-0009/R17, FRD-0009/R18, FRD-0009/R19, FRD-0009/R20, FRD-0009/R21, FRD-0009/R22, FRD-0009/R23, FRD-0009/R24, FRD-0009/R25, FRD-0009/R26, FRD-0009/R29, FRD-0001/R59, FRD-0001/R60, FRD-0001/R61, FRD-0001/R62, FRD-0001/R63.
 
 **Commit proposto:** `feat(c13): Supervisionare i sidecar distinguendo occupazione e recupero`.
 
@@ -718,7 +795,7 @@ Stati tipizzati e unico proprietario del proxy con scelta di topologia registrat
 
 Stima: 4–8 ore. File: `crates/sidecar/src/supervisor.rs`.
 
-Accettazione: Due richieste concorrenti non creano due supervisori o due processi per lo stesso indirizzo. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili. La scelta su process-wrap è registrata con versione, licenza e motivo prima del primo avvio del sidecar.
+Accettazione: Due richieste concorrenti non creano due supervisori o due processi per lo stesso indirizzo. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili. La scelta su process-wrap è registrata con versione, licenza e motivo prima del primo avvio del sidecar. Prima del primo spawn applicare ammissione e budget C09R; valutare process-wrap anche per composizione con i limiti nativi richiesti, senza assumerne il supporto.
 
 Verifiche pianificate: `planned: test concorrenza e proprietà del proxy`; `npm run build`; `planned: verifica su fonti ufficiali di manutenzione e licenza di process-wrap; avvio sospeso nel job su Windows`.
 
@@ -742,9 +819,9 @@ Recupero serializzato alla morte del processo o liberazione della porta, con dre
 
 Stima: 4–8 ore. File: `crates/sidecar/src/recovery.rs`.
 
-Accettazione: Un guasto crea un solo sostituto; le sessioni attendono lo stesso endpoint e l’ultimo output non viene perso. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
+Accettazione: Un guasto crea un solo sostituto; le sessioni attendono lo stesso endpoint e l’ultimo output non viene perso. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili. Attesa crescente e tetto ai tentativi interrompono i cicli di crash; nessun riavvio dell agente o replay delle sue richieste. La violazione di risorse resta confinata al sidecar responsabile.
 
-Verifiche pianificate: `planned: fault test kill, porta libera e uscita concorrente`; `npm run build`.
+Verifiche pianificate: `planned: fault test kill, porta libera e uscita concorrente`; `npm run build`; `planned: crash loop e allocazione rifiutata, recupero limitato senza duplicati o replay`.
 
 Commit: `feat(c13.3): Recuperare una sola volta sullo stesso indirizzo`. Registrare stato e prove sotto `progress.json` → `steps` → `C13` → `units` → `C13.3`.
 
@@ -754,7 +831,7 @@ Cattura completa della diagnostica nei log privati e stato effettivo nella fines
 
 Stima: 4–8 ore. File: `crates/sidecar/src/diagnostics.rs`, `apps/desktop/src/sidecar-status.ts`.
 
-Accettazione: Ogni guasto compare nel log e nessuna sua riga compare nel PTY dell’agente; CCR/input/output sono letti dalla configurazione effettiva. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
+Accettazione: Ogni guasto compare nel log e nessuna sua riga compare nel PTY dell’agente; CCR/input/output sono letti dalla configurazione effettiva. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili. La cattura dei log ha limiti di coda, dimensione e conservazione; saturazione ed errori di scrittura non bloccano host o sessioni.
 
 Verifiche pianificate: `planned: confronto cattura PTY/log con guasti SC15`; `npm run build`.
 
@@ -1022,7 +1099,7 @@ Commit: `feat(c08.3): Aggiungere follow-skin e avvisi sulle risorse`. Registrare
 
 Meccanismi terminali riusabili e fixture sintetiche per I/O, Unicode, input/focus, resize, code limitate e arresto del processo. Le certificazioni dei veri agenti seguono separatamente. Contenimento con garanzie distinte per crash dell'app e stop del singolo terminale.
 
-**Ambito:** v1. **Dipendenze:** C07, C08. **Stima:** 8–16 ore.
+**Ambito:** v1. **Dipendenze:** C07, C08, C09R. **Stima:** 8–16 ore.
 
 **File/componenti:** `crates/terminal/**`; `verify/P*/**`; `docs/verification/**`; `crates/terminal/src/process_tree.rs`; `crates/terminal/src/lib.rs`; `apps/desktop/src-tauri/src/main.rs`; `crates/terminal/tests/`.
 
@@ -1035,12 +1112,13 @@ Meccanismi terminali riusabili e fixture sintetiche per I/O, Unicode, input/focu
 - Lo stop di un terminale ha una garanzia distinta: con due terminali aperti e un nipote fatto nascere prima dell'assegnazione al job di sessione, arrestare A elimina tutto l'albero di A e lascia B funzionante. La prova forza quest'ordine con un punto di attesa solo di test, senza affidarsi alle ripetizioni.
 - Prova di sonda in verify/P14 (docs/verification/2026-11-02-P14-containment-probe.md): con l'ordine attuale nessun codice del figlio gira prima dell'assegnazione al job di sessione perché ConPTY trattiene il figlio finché l'host non risponde alla richiesta di posizione del cursore. Il test permanente fallisce se un figlio gira prima dell'assegnazione; in tal caso, o se una versione di Windows cambia il comportamento, il contenimento passa a PROC_THREAD_ATTRIBUTE_JOB_LIST con la pseudoconsole (verificato nella sonda, preferito a CREATE_SUSPENDED) e la prova viene ripetuta.
 - Lo stop di un terminale chiude sia il job sia la pseudoconsole; un discendente staccato dalla console dopo lo stop non sopravvive.
+- Integrare C09R nel percorso PTY/IPC/renderer: crash, blocco, allocazione rifiutata, output ostile e code piene restano locali; host e terminale sano rispondono entro soglie dichiarate. La policy di emergenza arresta solo il responsabile, preserva lo stato salvato e non ripete comandi.
 
-**Verifiche del passo:** `fixture sintetiche terminal/emulator e process lifecycle`; `corpus ANSI negativo`; `npm run test:desktop sulla piattaforma disponibile`; `planned: kill dell'app con figlio e nipote su Windows; nessun superstite entro 10 s`; `planned: handle del job globale non ereditabile e assente nei figli`; `planned: guardia permanente: nessun codice del figlio gira prima dell'assegnazione al job di sessione (ordine di produzione)`; `planned: nipote forzato prima dell'assegnazione, stop di A con B vivo, nipote staccato dalla console, su Windows`.
+**Verifiche del passo:** `fixture sintetiche terminal/emulator e process lifecycle`; `corpus ANSI negativo`; `npm run test:desktop sulla piattaforma disponibile`; `planned: kill dell'app con figlio e nipote su Windows; nessun superstite entro 10 s`; `planned: handle del job globale non ereditabile e assente nei figli`; `planned: guardia permanente: nessun codice del figlio gira prima dell'assegnazione al job di sessione (ordine di produzione)`; `planned: nipote forzato prima dell'assegnazione, stop di A con B vivo, nipote staccato dalla console, su Windows`; `planned: RES1-RES3 nel percorso terminale reale con sibling sano, limiti di memoria/CPU/processi e monitor guasto`.
 
-**Gate collegati, da registrare separatamente:** P1–P20 parziali: soli meccanismi sintetici, TL5 parziale, U6, P14.
+**Gate collegati, da registrare separatamente:** P1–P20 parziali: soli meccanismi sintetici, TL5 parziale, U6, P14, RES1, RES2, RES3, RES4 (integrazione).
 
-**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
+**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58, FRD-0001/R59, FRD-0001/R60, FRD-0001/R61, FRD-0001/R62, FRD-0001/R63.
 
 **Commit proposto:** `feat(c09): Rendere robusti terminale e contenimento con fixture sintetiche`.
 
@@ -1127,12 +1205,13 @@ Evidenza riproducibile per un vero claude su windows, separata dalle altre combi
 - Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
 - Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
 - Completare SC16 con cinque istanze e storie lunghe per un ora sulla piattaforma: nessuna connessione rifiutata, profilare i ritardi; usare solo fixture/account e budget autorizzati.
+- Ripetere i fault RES applicabili all agente Windows; nessun passaggio di test estranei qualifica la resilienza.
 
-**Verifiche del passo:** `matrice P1–P20 claude/windows applicabile`; `fixture TUI reale claude con account/test sintetici autorizzati`.
+**Verifiche del passo:** `matrice P1–P20 claude/windows applicabile`; `fixture TUI reale claude con account/test sintetici autorizzati`; `planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza`.
 
-**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
+**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7, RES1-RES4 (agente reale).
 
-**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
+**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58, FRD-0001/R59, FRD-0001/R63.
 
 **Commit proposto:** `feat(qa-claude-windows): Certificare terminale claude su windows`.
 
@@ -4282,12 +4361,13 @@ Evidenza riproducibile per un vero codex su windows, separata dalle altre combin
 - Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di codex registrata.
 - Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
 - Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
+- Ripetere i fault RES applicabili all agente Windows; nessun passaggio di test estranei qualifica la resilienza.
 
-**Verifiche del passo:** `matrice P1–P20 codex/windows applicabile`; `fixture TUI reale codex con account/test sintetici autorizzati`.
+**Verifiche del passo:** `matrice P1–P20 codex/windows applicabile`; `fixture TUI reale codex con account/test sintetici autorizzati`; `planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza`.
 
-**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
+**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7, RES1-RES4 (agente reale).
 
-**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
+**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58, FRD-0001/R59, FRD-0001/R63.
 
 **Commit proposto:** `feat(qa-codex-windows): Certificare terminale codex su windows`.
 
@@ -4334,12 +4414,13 @@ Evidenza riproducibile per un vero opencode su windows, separata dalle altre com
 - Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di opencode registrata.
 - Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
 - Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
+- Ripetere i fault RES applicabili all agente Windows; nessun passaggio di test estranei qualifica la resilienza.
 
-**Verifiche del passo:** `matrice P1–P20 opencode/windows applicabile`; `fixture TUI reale opencode con account/test sintetici autorizzati`.
+**Verifiche del passo:** `matrice P1–P20 opencode/windows applicabile`; `fixture TUI reale opencode con account/test sintetici autorizzati`; `planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza`.
 
-**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
+**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7, RES1-RES4 (agente reale).
 
-**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
+**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58, FRD-0001/R59, FRD-0001/R63.
 
 **Commit proposto:** `feat(qa-opencode-windows): Certificare terminale opencode su windows`.
 
@@ -4386,12 +4467,13 @@ Evidenza riproducibile per un vero pi su windows, separata dalle altre combinazi
 - Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di pi registrata.
 - Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
 - Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
+- Ripetere i fault RES applicabili all agente Windows; nessun passaggio di test estranei qualifica la resilienza.
 
-**Verifiche del passo:** `matrice P1–P20 pi/windows applicabile`; `fixture TUI reale pi con account/test sintetici autorizzati`.
+**Verifiche del passo:** `matrice P1–P20 pi/windows applicabile`; `fixture TUI reale pi con account/test sintetici autorizzati`; `planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza`.
 
-**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
+**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7, RES1-RES4 (agente reale).
 
-**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
+**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58, FRD-0001/R59, FRD-0001/R63.
 
 **Commit proposto:** `feat(qa-pi-windows): Certificare terminale pi su windows`.
 
@@ -4438,12 +4520,13 @@ Evidenza riproducibile per un vero hermes su windows, separata dalle altre combi
 - Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di hermes registrata.
 - Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
 - Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
+- Ripetere i fault RES applicabili all agente Windows; nessun passaggio di test estranei qualifica la resilienza.
 
-**Verifiche del passo:** `matrice P1–P20 hermes/windows applicabile`; `fixture TUI reale hermes con account/test sintetici autorizzati`.
+**Verifiche del passo:** `matrice P1–P20 hermes/windows applicabile`; `fixture TUI reale hermes con account/test sintetici autorizzati`; `planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza`.
 
-**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
+**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7, RES1-RES4 (agente reale).
 
-**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
+**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58, FRD-0001/R59, FRD-0001/R63.
 
 **Commit proposto:** `feat(qa-hermes-windows): Certificare terminale hermes su windows`.
 
@@ -4490,12 +4573,13 @@ Prova del vero client ACP Shinatama/DeepSeek su windows: messaggi, tool, permess
 - Handshake ACP, stream messaggi/tool e richieste di permesso correlati per versione e request ID.
 - Focus/modal, Unicode, backpressure e cleanup del processo verificati; nessuna risposta a una richiesta scaduta.
 - La promozione riguarda questa combinazione; restano indisponibili le capacità non provate.
+- Ripetere i fault RES applicabili all agente Windows; nessun passaggio di test estranei qualifica la resilienza.
 
-**Verifiche del passo:** `fixture DS1–DS15/ACP applicabili su windows`; `request/permission correlation e crash cleanup`.
+**Verifiche del passo:** `fixture DS1–DS15/ACP applicabili su windows`; `request/permission correlation e crash cleanup`; `planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza`.
 
-**Gate collegati, da registrare separatamente:** DS1–DS15 applicabili, P14, U3, U7.
+**Gate collegati, da registrare separatamente:** DS1–DS15 applicabili, P14, U3, U7, RES1-RES4 (agente reale).
 
-**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
+**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58, FRD-0001/R59, FRD-0001/R63.
 
 **Commit proposto:** `feat(qa-deepseek-windows): Certificare il pannello ACP DeepSeek su windows`.
 
@@ -4531,7 +4615,7 @@ Firma e checksum dei rilasci Windows, con distribuzione delle risorse grafiche r
 
 Candidato verificato dello scope attualmente autorizzato, con esclusione esplicita dell integrazione Daodan rinviata dall utente.
 
-**Ambito:** v1. **Dipendenze:** B00, C01, C02, C03, B02, C04, C05, C06, C07, C08, C09, C10, C11, C12, C13, C14, C15, C16, C17, C18, C19, C20, C21, C22, C23, C24, C25, C26, C27, C28, C29, C30, C31, C32, C33, C36, C37, C40, C41, C42, C43, C44, FS03, F02, F03P, F03H, F04, F05, F06, F07, F08, F09, F10, F11-windows, F12, F13, F14-codex, F14-opencode, F14-pi, F14-hermes, F14-deepseek, F15, F16, F17, F18, F19, F20, F21, F22, F23-codex, F23-opencode, F23-pi, F23-hermes, F23-deepseek, F24, F25, F26, F27, F28, F29, F30, F31, F32CI, F32PKG, F32SIGN, F33, B01, QSET-claude, QA-claude-windows, QSET-codex, QA-codex-windows, QSET-opencode, QA-opencode-windows, QSET-pi, QA-pi-windows, QSET-hermes, QA-hermes-windows, QSET-deepseek, QA-deepseek-windows. **Stima:** 8–16 ore.
+**Ambito:** v1. **Dipendenze:** B00, C01, C02, C03, B02, C04, C05, C06, C07, C08, C09, C10, C11, C12, C13, C14, C15, C16, C17, C18, C19, C20, C21, C22, C23, C24, C25, C26, C27, C28, C29, C30, C31, C32, C33, C36, C37, C40, C41, C42, C43, C44, FS03, F02, F03P, F03H, F04, F05, F06, F07, F08, F09, F10, F11-windows, F12, F13, F14-codex, F14-opencode, F14-pi, F14-hermes, F14-deepseek, F15, F16, F17, F18, F19, F20, F21, F22, F23-codex, F23-opencode, F23-pi, F23-hermes, F23-deepseek, F24, F25, F26, F27, F28, F29, F30, F31, F32CI, F32PKG, F32SIGN, F33, B01, QSET-claude, QA-claude-windows, QSET-codex, QA-codex-windows, QSET-opencode, QA-opencode-windows, QSET-pi, QA-pi-windows, QSET-hermes, QA-hermes-windows, QSET-deepseek, QA-deepseek-windows, C09R. **Stima:** 8–16 ore.
 
 **File/componenti:** `docs/verification/release-v1/**`; `docs/releases/**`; `release-manifest.json`.
 
@@ -4542,12 +4626,13 @@ Candidato verificato dello scope attualmente autorizzato, con esclusione esplici
 - Ogni requisito obbligatorio dello scope attivo e ogni gate pertinente ha evidenza su Windows; i requisiti Daodan e le parti macOS e Linux rinviati restano tracciati e non sono dichiarati consegnati.
 - Le indisponibilità sono ammesse solo dove le specifiche prevedono esplicitamente il gating; una release S1/S2 parziale mantiene un nome e un ambito distinti dalla V1 completa.
 - Installazione e primo avvio su macchina pulita, riavvio/crash/recupero e confini di privacy verificati; firma/pubblicazione usa credenziali e destinazione effettivamente autorizzate.
+- Qualificare almeno un ora con budget congelati, piu finestre, pressione variabile e guasti ripetuti; registrare crescita residua e latenza.
 
-**Verifiche del passo:** `matrice di accettazione FRD completa e AT-1–AT-12`; `ripetizione riproducibile dei gate di release su Windows`; `verifica checksum/firma del candidato e note di rilascio`.
+**Verifiche del passo:** `matrice di accettazione FRD completa e AT-1–AT-12`; `ripetizione riproducibile dei gate di release su Windows`; `verifica checksum/firma del candidato e note di rilascio`; `planned: soak Windows RES4 di almeno un ora, qualifiche per agente, metriche pre/dopo recupero e verifica storia salvata`.
 
-**Gate collegati, da registrare separatamente:** AT-1–AT-12, X1–X6, tutti i G0/G1 applicabili alla release.
+**Gate collegati, da registrare separatamente:** AT-1–AT-12, X1–X6, tutti i G0/G1 applicabili alla release, RES1, RES2, RES3, RES4.
 
-**Requisiti coperti dal piano:** infrastruttura di esecuzione.
+**Requisiti coperti dal piano:** FRD-0001/R59, FRD-0001/R60, FRD-0001/R61, FRD-0001/R62, FRD-0001/R63.
 
 **Commit proposto:** `feat(v1-acceptance): Chiudere la matrice V1 e pubblicare il candidato completo`.
 

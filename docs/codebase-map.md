@@ -1,5 +1,11 @@
 # Codebase map
 
+F32CI, 2026-11-02: `.github/workflows/verify.yml` richiama lo stesso runner
+`scripts/verify.ps1` usato in locale. `check-process.ps1` limita processi/log;
+`dependencies.py` controlla manifest e notice, con testi completi generati sotto
+`.verification/`. Le toolchain sono fissate in `.node-version` e
+`rust-toolchain.toml`. Vedere [evidenza F32CI](verification/2026-11-02-F32CI-windows-verification.md).
+
 Date: 2026-11-01, at commit `b667db5`. Status: descriptive, not a design document; it changes
 nothing in the specs. Regenerate it when documents are added, renamed or retired.
 

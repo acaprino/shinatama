@@ -9,7 +9,8 @@
       "ends_at": [
         "C03",
         "C09",
-        "C14"
+        "C14",
+        "C09R"
       ]
     },
     {
@@ -221,17 +222,22 @@
         "Non inviare telemetria né richieste di aggiornamento o catalogo per impostazione iniziale."
       ],
       "checks": [
-        "planned: Build/test commands recorded for Windows; macOS and Linux reported as deferred.",
-        "planned: Every direct Rust dependency centralized and notices generated for bundled assets.",
-        "planned: Evidence/register/README/codebase map updated with completed step and no invented gate pass.",
-        "planned: No telemetry/update/catalog requests by default."
+        "pwsh -NoProfile -File scripts/verify.ps1",
+        "python scripts/dependencies.py check --offline"
       ],
       "files": [
-        ".github/workflows/",
-        "Cargo.toml",
-        "docs/implementation/",
-        "docs/codebase-map.md",
-        "THIRD_PARTY_NOTICES"
+        ".github/workflows/verify.yml",
+        ".node-version",
+        "rust-toolchain.toml",
+        "scripts/verify.ps1",
+        "scripts/check-process.ps1",
+        "scripts/test_verify.ps1",
+        "scripts/dependencies.py",
+        "scripts/test_dependencies.py",
+        "THIRD_PARTY_NOTICES.md",
+        "docs/implementation/windows-verification.md",
+        "docs/implementation/dependency-policy.md",
+        "docs/verification/2026-11-02-F32CI-windows-verification.md"
       ],
       "gates": [
         "P17",
@@ -1051,6 +1057,148 @@
       ]
     },
     {
+      "id": "C09R",
+      "title": "Proteggere l host con budget e recupero adattivi",
+      "requirements": [
+        "FRD-0001/R59",
+        "FRD-0001/R60",
+        "FRD-0001/R61",
+        "FRD-0001/R62",
+        "FRD-0001/R63"
+      ],
+      "depends_on": [
+        "C03",
+        "FS03",
+        "C11"
+      ],
+      "deliverable": "Controllore locale misurato, budget per albero e ammissione aggregata, limiti preventivi e recupero attribuibile, con priorita a host e sessioni sane.",
+      "acceptance": [
+        "R59-R63 seguono la specifica di resilienza aggiornata: nessun crash o blocco indefinito dell host nel perimetro qualificato.",
+        "Budget e soglie sono misurati e congelati prima del test; niente limiti restrittivi condivisi con host e renderer.",
+        "Solo emergenza attribuibile autorizza arresto automatico del responsabile; nessun replay di lavoro agente."
+      ],
+      "checks": [
+        "pianificato: RES1-RES4 sintetici prima delle integrazioni dipendenti",
+        "pianificato: prove di carico e fault isolate, con dati sintetici"
+      ],
+      "files": [
+        "crates/engine/src/resources/**",
+        "verify/RES/**",
+        "docs/implementation/2026-11-02-host-resilience.md"
+      ],
+      "gates": [
+        "RES1",
+        "RES2",
+        "RES3",
+        "RES4",
+        "TL5",
+        "P18"
+      ],
+      "hours": [
+        24,
+        48
+      ],
+      "scope": "v1",
+      "commit": "feat(c09r): proteggere host e sessioni sane con budget adattivi",
+      "resume": "Leggere la specifica di resilienza e preparare fixture sintetiche con limiti; iniziare dal campionatore locale e non da soglie arbitrarie.",
+      "commit_units": [
+        {
+          "id": "C09R.1",
+          "title": "Misurare risorse e pressione senza bloccare l host",
+          "deliverable": "Campionatore locale limitato per host/renderer, alberi e sistema, con PID+start-time; distinguere commit/residente e gestire campioni mancanti.",
+          "acceptance": [
+            "Fixture di processo terminato, accesso negato, crescita e contatori senza doppio conteggio.",
+            "La build e l avvio delle funzionalita esistenti restano utilizzabili; nessun gate e promosso senza la relativa prova."
+          ],
+          "checks": [
+            "pianificato: fixture sintetiche RES1-RES4 su Windows con risorse limitate",
+            "pianificato: misura locale di memoria, CPU, code e latenza UI"
+          ],
+          "hours": [
+            6,
+            12
+          ],
+          "files": [
+            "crates/engine/src/resources/**",
+            "verify/RES/**",
+            "docs/verification/"
+          ],
+          "commit": "feat(c09r.1): Misurare risorse e pressione senza bloccare l host"
+        },
+        {
+          "id": "C09R.2",
+          "title": "Ammettere avvii e applicare limiti nativi per albero",
+          "deliverable": "Prenotazioni aggregate tra finestre e limiti OS prima del carico, separati da host/renderer; fail-closed per nuovi avvii se manca il budget.",
+          "acceptance": [
+            "Due finestre concorrenti non superano il budget; scadenza/riconciliazione dopo crash senza affidarsi al solo PID.",
+            "La build e l avvio delle funzionalita esistenti restano utilizzabili; nessun gate e promosso senza la relativa prova.",
+            "Burst di allocazioni e creazione figli piu rapidi del campionamento incontrano i limiti nativi; fallimenti di allocazione/creazione restano locali. Il guasto del monitor non rimuove i limiti esistenti."
+          ],
+          "checks": [
+            "pianificato: fixture sintetiche RES1-RES4 su Windows con risorse limitate",
+            "pianificato: misura locale di memoria, CPU, code e latenza UI"
+          ],
+          "hours": [
+            6,
+            12
+          ],
+          "files": [
+            "crates/engine/src/resources/**",
+            "verify/RES/**",
+            "docs/verification/"
+          ],
+          "commit": "feat(c09r.2): Ammettere avvii e applicare limiti nativi per albero"
+        },
+        {
+          "id": "C09R.3",
+          "title": "Calibrare budget e intervento di emergenza attribuibile",
+          "deliverable": "Baseline sane con tetti fissi e isteresi; ridurre carico opzionale e rifiutare nuovi avvii prima di arrestare solo il responsabile.",
+          "acceptance": [
+            "Nessuna vittima arbitraria per pressione esterna; una perdita continua non alza il tetto; il terminale sano continua a rispondere.",
+            "La build e l avvio delle funzionalita esistenti restano utilizzabili; nessun gate e promosso senza la relativa prova.",
+            "Rientro sotto una soglia inferiore con intervallo stabile; policy e limite visibili nella UI, overhead misurato, nessuna sospensione cieca di processi con lock."
+          ],
+          "checks": [
+            "pianificato: fixture sintetiche RES1-RES4 su Windows con risorse limitate",
+            "pianificato: misura locale di memoria, CPU, code e latenza UI"
+          ],
+          "hours": [
+            6,
+            12
+          ],
+          "files": [
+            "crates/engine/src/resources/**",
+            "verify/RES/**",
+            "docs/verification/"
+          ],
+          "commit": "feat(c09r.3): Calibrare budget e intervento di emergenza attribuibile"
+        },
+        {
+          "id": "C09R.4",
+          "title": "Qualificare guasti e recupero con soglie congelate",
+          "deliverable": "Policy osservabile e fixture isolate per fault del monitor, OOM limitato, process storm e output eccessivo; nessun replay dei comandi agente.",
+          "acceptance": [
+            "Ripetere fault in ambiente con limiti/VM, mai esaurire la macchina; salvati e fratelli sani preservati, recupero con retry finiti.",
+            "La build e l avvio delle funzionalita esistenti restano utilizzabili; nessun gate e promosso senza la relativa prova."
+          ],
+          "checks": [
+            "pianificato: fixture sintetiche RES1-RES4 su Windows con risorse limitate",
+            "pianificato: misura locale di memoria, CPU, code e latenza UI"
+          ],
+          "hours": [
+            6,
+            12
+          ],
+          "files": [
+            "crates/engine/src/resources/**",
+            "verify/RES/**",
+            "docs/verification/"
+          ],
+          "commit": "feat(c09r.4): Qualificare guasti e recupero con soglie congelate"
+        }
+      ]
+    },
+    {
       "id": "C13",
       "title": "Supervisionare i sidecar distinguendo occupazione e recupero",
       "requirements": [
@@ -1064,10 +1212,16 @@
         "FRD-0009/R24",
         "FRD-0009/R25",
         "FRD-0009/R26",
-        "FRD-0009/R29"
+        "FRD-0009/R29",
+        "FRD-0001/R59",
+        "FRD-0001/R60",
+        "FRD-0001/R61",
+        "FRD-0001/R62",
+        "FRD-0001/R63"
       ],
       "depends_on": [
-        "C12"
+        "C12",
+        "C09R"
       ],
       "deliverable": "Un solo supervisore per finestra, topologia scelta sulla base delle misure, recupero sullo stesso indirizzo e diagnostica separata con stato visibile.",
       "acceptance": [
@@ -1077,12 +1231,14 @@
         "La UI mostra lo stato effettivo CCR, input e output, distinguendo chiaramente traffico non coperto, busy e recovering.",
         "SC16 eredita la correzione storage del 2026-11-02: sei indici schema v9 e CCR incrementale transazionale; fixture locale CONNECT/health sotto 750 ms, integrità e prova di carico senza connessioni rifiutate, senza bypass o aumento dei timeout.",
         "FRD-0009/R24 aggiornato 2026-11-02: prova controllata di persistenza e integrita nel build preparato; ciascun CONNECT+echo e health locale sotto 750 ms, senza aumentare timeout o bypassare il proxy. SC16 globale resta aperto fino al carico di un ora sulle piattaforme richieste.",
-        "Prima di avviare il sidecar si valuta process-wrap per i processi senza PTY (job con avvio sospeso, licenza, manutenzione, costo di integrazione): l'esito è una decisione registrata in `[workspace.dependencies]` con motivo e licenza, oppure il rifiuto motivato. watchexec-supervisor ed expectrl non vengono usati."
+        "Prima di avviare il sidecar si valuta process-wrap per i processi senza PTY (job con avvio sospeso, licenza, manutenzione, costo di integrazione): l'esito è una decisione registrata in `[workspace.dependencies]` con motivo e licenza, oppure il rifiuto motivato. watchexec-supervisor ed expectrl non vengono usati.",
+        "Ogni sidecar usa ammissione e budget C09R; recupero con attesa crescente, numero massimo di tentativi e blocco dopo guasti ripetuti. Allocazioni rifiutate, pipe rotte e monitor guasto non bloccano l host ne creano duplicati; log e code restano limitati."
       ],
       "checks": [
         "held-event-loop/port-bind/dead-owner/stale-proxy fault suite",
         "PTY capture plus diagnostic-log comparison",
-        "SC16 inherited storage-latency suite, v8 migration integrity, local CONNECT/health fixture and one-hour load per supported OS"
+        "SC16 inherited storage-latency suite, v8 migration integrity, local CONNECT/health fixture and one-hour load per supported OS",
+        "planned: RES1-RES4 sidecar con crash ripetuti, memoria al limite, monitor guasto e verifica limiti di retry/log/code"
       ],
       "files": [
         "crates/sidecar/src/supervisor.rs",
@@ -1095,7 +1251,11 @@
         "SC14",
         "SC15",
         "SC16",
-        "T9"
+        "T9",
+        "RES1",
+        "RES2",
+        "RES3",
+        "RES4 (integrazione)"
       ],
       "hours": [
         20,
@@ -1112,7 +1272,8 @@
           "acceptance": [
             "Due richieste concorrenti non creano due supervisori o due processi per lo stesso indirizzo.",
             "La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.",
-            "La scelta su process-wrap è registrata con versione, licenza e motivo prima del primo avvio del sidecar."
+            "La scelta su process-wrap è registrata con versione, licenza e motivo prima del primo avvio del sidecar.",
+            "Prima del primo spawn applicare ammissione e budget C09R; valutare process-wrap anche per composizione con i limiti nativi richiesti, senza assumerne il supporto."
           ],
           "checks": [
             "planned: test concorrenza e proprietà del proxy",
@@ -1156,11 +1317,13 @@
           "deliverable": "Recupero serializzato alla morte del processo o liberazione della porta, con drenaggio dell’uscita.",
           "acceptance": [
             "Un guasto crea un solo sostituto; le sessioni attendono lo stesso endpoint e l’ultimo output non viene perso.",
-            "La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili."
+            "La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.",
+            "Attesa crescente e tetto ai tentativi interrompono i cicli di crash; nessun riavvio dell agente o replay delle sue richieste. La violazione di risorse resta confinata al sidecar responsabile."
           ],
           "checks": [
             "planned: fault test kill, porta libera e uscita concorrente",
-            "npm run build"
+            "npm run build",
+            "planned: crash loop e allocazione rifiutata, recupero limitato senza duplicati o replay"
           ],
           "hours": [
             4,
@@ -1177,7 +1340,8 @@
           "deliverable": "Cattura completa della diagnostica nei log privati e stato effettivo nella finestra.",
           "acceptance": [
             "Ogni guasto compare nel log e nessuna sua riga compare nel PTY dell’agente; CCR/input/output sono letti dalla configurazione effettiva.",
-            "La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili."
+            "La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.",
+            "La cattura dei log ha limiti di coda, dimensione e conservazione; saturazione ed errori di scrittura non bloccano host o sessioni."
           ],
           "checks": [
             "planned: confronto cattura PTY/log con guasti SC15",
@@ -1678,11 +1842,17 @@
         "FRD-0001/R54",
         "FRD-0001/R55",
         "FRD-0001/R57",
-        "FRD-0001/R58"
+        "FRD-0001/R58",
+        "FRD-0001/R59",
+        "FRD-0001/R60",
+        "FRD-0001/R61",
+        "FRD-0001/R62",
+        "FRD-0001/R63"
       ],
       "depends_on": [
         "C07",
-        "C08"
+        "C08",
+        "C09R"
       ],
       "deliverable": "Meccanismi terminali riusabili e fixture sintetiche per I/O, Unicode, input/focus, resize, code limitate e arresto del processo. Le certificazioni dei veri agenti seguono separatamente. Contenimento con garanzie distinte per crash dell'app e stop del singolo terminale.",
       "acceptance": [
@@ -1692,7 +1862,8 @@
         "Il job globale copre l'uscita e il crash dell'app: Shinatama vi entra prima di creare qualsiasi processo da contenere, l'handle resta solo nell'app e non è ereditabile, e dopo il kill dell'app non sopravvive nessun processo entro 10 s.",
         "Lo stop di un terminale ha una garanzia distinta: con due terminali aperti e un nipote fatto nascere prima dell'assegnazione al job di sessione, arrestare A elimina tutto l'albero di A e lascia B funzionante. La prova forza quest'ordine con un punto di attesa solo di test, senza affidarsi alle ripetizioni.",
         "Prova di sonda in verify/P14 (docs/verification/2026-11-02-P14-containment-probe.md): con l'ordine attuale nessun codice del figlio gira prima dell'assegnazione al job di sessione perché ConPTY trattiene il figlio finché l'host non risponde alla richiesta di posizione del cursore. Il test permanente fallisce se un figlio gira prima dell'assegnazione; in tal caso, o se una versione di Windows cambia il comportamento, il contenimento passa a PROC_THREAD_ATTRIBUTE_JOB_LIST con la pseudoconsole (verificato nella sonda, preferito a CREATE_SUSPENDED) e la prova viene ripetuta.",
-        "Lo stop di un terminale chiude sia il job sia la pseudoconsole; un discendente staccato dalla console dopo lo stop non sopravvive."
+        "Lo stop di un terminale chiude sia il job sia la pseudoconsole; un discendente staccato dalla console dopo lo stop non sopravvive.",
+        "Integrare C09R nel percorso PTY/IPC/renderer: crash, blocco, allocazione rifiutata, output ostile e code piene restano locali; host e terminale sano rispondono entro soglie dichiarate. La policy di emergenza arresta solo il responsabile, preserva lo stato salvato e non ripete comandi."
       ],
       "checks": [
         "fixture sintetiche terminal/emulator e process lifecycle",
@@ -1701,7 +1872,8 @@
         "planned: kill dell'app con figlio e nipote su Windows; nessun superstite entro 10 s",
         "planned: handle del job globale non ereditabile e assente nei figli",
         "planned: guardia permanente: nessun codice del figlio gira prima dell'assegnazione al job di sessione (ordine di produzione)",
-        "planned: nipote forzato prima dell'assegnazione, stop di A con B vivo, nipote staccato dalla console, su Windows"
+        "planned: nipote forzato prima dell'assegnazione, stop di A con B vivo, nipote staccato dalla console, su Windows",
+        "planned: RES1-RES3 nel percorso terminale reale con sibling sano, limiti di memoria/CPU/processi e monitor guasto"
       ],
       "files": [
         "crates/terminal/**",
@@ -1716,7 +1888,11 @@
         "P1–P20 parziali: soli meccanismi sintetici",
         "TL5 parziale",
         "U6",
-        "P14"
+        "P14",
+        "RES1",
+        "RES2",
+        "RES3",
+        "RES4 (integrazione)"
       ],
       "hours": [
         8,
@@ -1888,7 +2064,9 @@
         "FRD-0001/R54",
         "FRD-0001/R55",
         "FRD-0001/R57",
-        "FRD-0001/R58"
+        "FRD-0001/R58",
+        "FRD-0001/R59",
+        "FRD-0001/R63"
       ],
       "scope": "v1",
       "hours": [
@@ -1900,11 +2078,13 @@
         "Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di claude registrata.",
         "Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.",
         "Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.",
-        "Completare SC16 con cinque istanze e storie lunghe per un ora sulla piattaforma: nessuna connessione rifiutata, profilare i ritardi; usare solo fixture/account e budget autorizzati."
+        "Completare SC16 con cinque istanze e storie lunghe per un ora sulla piattaforma: nessuna connessione rifiutata, profilare i ritardi; usare solo fixture/account e budget autorizzati.",
+        "Ripetere i fault RES applicabili all agente Windows; nessun passaggio di test estranei qualifica la resilienza."
       ],
       "checks": [
         "matrice P1–P20 claude/windows applicabile",
-        "fixture TUI reale claude con account/test sintetici autorizzati"
+        "fixture TUI reale claude con account/test sintetici autorizzati",
+        "planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza"
       ],
       "files": [
         "verify/platform/windows/claude/**",
@@ -1916,7 +2096,8 @@
         "TL2",
         "TL5",
         "U3",
-        "U7"
+        "U7",
+        "RES1-RES4 (agente reale)"
       ],
       "commit": "feat(qa-claude-windows): Certificare terminale claude su windows",
       "resume": "Leggere la scheda e le dipendenze; aprire verify/platform/windows/claude/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento."
@@ -8288,7 +8469,9 @@
         "FRD-0001/R54",
         "FRD-0001/R55",
         "FRD-0001/R57",
-        "FRD-0001/R58"
+        "FRD-0001/R58",
+        "FRD-0001/R59",
+        "FRD-0001/R63"
       ],
       "scope": "v1",
       "hours": [
@@ -8299,11 +8482,13 @@
       "acceptance": [
         "Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di codex registrata.",
         "Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.",
-        "Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile."
+        "Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.",
+        "Ripetere i fault RES applicabili all agente Windows; nessun passaggio di test estranei qualifica la resilienza."
       ],
       "checks": [
         "matrice P1–P20 codex/windows applicabile",
-        "fixture TUI reale codex con account/test sintetici autorizzati"
+        "fixture TUI reale codex con account/test sintetici autorizzati",
+        "planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza"
       ],
       "files": [
         "verify/platform/windows/codex/**",
@@ -8315,7 +8500,8 @@
         "TL2",
         "TL5",
         "U3",
-        "U7"
+        "U7",
+        "RES1-RES4 (agente reale)"
       ],
       "commit": "feat(qa-codex-windows): Certificare terminale codex su windows",
       "resume": "Leggere la scheda e le dipendenze; aprire verify/platform/windows/codex/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento."
@@ -8393,7 +8579,9 @@
         "FRD-0001/R54",
         "FRD-0001/R55",
         "FRD-0001/R57",
-        "FRD-0001/R58"
+        "FRD-0001/R58",
+        "FRD-0001/R59",
+        "FRD-0001/R63"
       ],
       "scope": "v1",
       "hours": [
@@ -8404,11 +8592,13 @@
       "acceptance": [
         "Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di opencode registrata.",
         "Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.",
-        "Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile."
+        "Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.",
+        "Ripetere i fault RES applicabili all agente Windows; nessun passaggio di test estranei qualifica la resilienza."
       ],
       "checks": [
         "matrice P1–P20 opencode/windows applicabile",
-        "fixture TUI reale opencode con account/test sintetici autorizzati"
+        "fixture TUI reale opencode con account/test sintetici autorizzati",
+        "planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza"
       ],
       "files": [
         "verify/platform/windows/opencode/**",
@@ -8420,7 +8610,8 @@
         "TL2",
         "TL5",
         "U3",
-        "U7"
+        "U7",
+        "RES1-RES4 (agente reale)"
       ],
       "commit": "feat(qa-opencode-windows): Certificare terminale opencode su windows",
       "resume": "Leggere la scheda e le dipendenze; aprire verify/platform/windows/opencode/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento."
@@ -8498,7 +8689,9 @@
         "FRD-0001/R54",
         "FRD-0001/R55",
         "FRD-0001/R57",
-        "FRD-0001/R58"
+        "FRD-0001/R58",
+        "FRD-0001/R59",
+        "FRD-0001/R63"
       ],
       "scope": "v1",
       "hours": [
@@ -8509,11 +8702,13 @@
       "acceptance": [
         "Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di pi registrata.",
         "Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.",
-        "Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile."
+        "Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.",
+        "Ripetere i fault RES applicabili all agente Windows; nessun passaggio di test estranei qualifica la resilienza."
       ],
       "checks": [
         "matrice P1–P20 pi/windows applicabile",
-        "fixture TUI reale pi con account/test sintetici autorizzati"
+        "fixture TUI reale pi con account/test sintetici autorizzati",
+        "planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza"
       ],
       "files": [
         "verify/platform/windows/pi/**",
@@ -8525,7 +8720,8 @@
         "TL2",
         "TL5",
         "U3",
-        "U7"
+        "U7",
+        "RES1-RES4 (agente reale)"
       ],
       "commit": "feat(qa-pi-windows): Certificare terminale pi su windows",
       "resume": "Leggere la scheda e le dipendenze; aprire verify/platform/windows/pi/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento."
@@ -8603,7 +8799,9 @@
         "FRD-0001/R54",
         "FRD-0001/R55",
         "FRD-0001/R57",
-        "FRD-0001/R58"
+        "FRD-0001/R58",
+        "FRD-0001/R59",
+        "FRD-0001/R63"
       ],
       "scope": "v1",
       "hours": [
@@ -8614,11 +8812,13 @@
       "acceptance": [
         "Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di hermes registrata.",
         "Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.",
-        "Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile."
+        "Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.",
+        "Ripetere i fault RES applicabili all agente Windows; nessun passaggio di test estranei qualifica la resilienza."
       ],
       "checks": [
         "matrice P1–P20 hermes/windows applicabile",
-        "fixture TUI reale hermes con account/test sintetici autorizzati"
+        "fixture TUI reale hermes con account/test sintetici autorizzati",
+        "planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza"
       ],
       "files": [
         "verify/platform/windows/hermes/**",
@@ -8630,7 +8830,8 @@
         "TL2",
         "TL5",
         "U3",
-        "U7"
+        "U7",
+        "RES1-RES4 (agente reale)"
       ],
       "commit": "feat(qa-hermes-windows): Certificare terminale hermes su windows",
       "resume": "Leggere la scheda e le dipendenze; aprire verify/platform/windows/hermes/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento."
@@ -8708,7 +8909,9 @@
         "FRD-0001/R54",
         "FRD-0001/R55",
         "FRD-0001/R57",
-        "FRD-0001/R58"
+        "FRD-0001/R58",
+        "FRD-0001/R59",
+        "FRD-0001/R63"
       ],
       "scope": "v1",
       "hours": [
@@ -8719,11 +8922,13 @@
       "acceptance": [
         "Handshake ACP, stream messaggi/tool e richieste di permesso correlati per versione e request ID.",
         "Focus/modal, Unicode, backpressure e cleanup del processo verificati; nessuna risposta a una richiesta scaduta.",
-        "La promozione riguarda questa combinazione; restano indisponibili le capacità non provate."
+        "La promozione riguarda questa combinazione; restano indisponibili le capacità non provate.",
+        "Ripetere i fault RES applicabili all agente Windows; nessun passaggio di test estranei qualifica la resilienza."
       ],
       "checks": [
         "fixture DS1–DS15/ACP applicabili su windows",
-        "request/permission correlation e crash cleanup"
+        "request/permission correlation e crash cleanup",
+        "planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza"
       ],
       "files": [
         "verify/platform/windows/deepseek/**",
@@ -8734,7 +8939,8 @@
         "DS1–DS15 applicabili",
         "P14",
         "U3",
-        "U7"
+        "U7",
+        "RES1-RES4 (agente reale)"
       ],
       "commit": "feat(qa-deepseek-windows): Certificare il pannello ACP DeepSeek su windows",
       "resume": "Leggere la scheda e le dipendenze; aprire verify/platform/windows/deepseek/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento."
@@ -8897,9 +9103,16 @@
         "QSET-hermes",
         "QA-hermes-windows",
         "QSET-deepseek",
-        "QA-deepseek-windows"
+        "QA-deepseek-windows",
+        "C09R"
       ],
-      "requirements": [],
+      "requirements": [
+        "FRD-0001/R59",
+        "FRD-0001/R60",
+        "FRD-0001/R61",
+        "FRD-0001/R62",
+        "FRD-0001/R63"
+      ],
       "scope": "v1",
       "hours": [
         8,
@@ -8909,12 +9122,14 @@
       "acceptance": [
         "Ogni requisito obbligatorio dello scope attivo e ogni gate pertinente ha evidenza su Windows; i requisiti Daodan e le parti macOS e Linux rinviati restano tracciati e non sono dichiarati consegnati.",
         "Le indisponibilità sono ammesse solo dove le specifiche prevedono esplicitamente il gating; una release S1/S2 parziale mantiene un nome e un ambito distinti dalla V1 completa.",
-        "Installazione e primo avvio su macchina pulita, riavvio/crash/recupero e confini di privacy verificati; firma/pubblicazione usa credenziali e destinazione effettivamente autorizzate."
+        "Installazione e primo avvio su macchina pulita, riavvio/crash/recupero e confini di privacy verificati; firma/pubblicazione usa credenziali e destinazione effettivamente autorizzate.",
+        "Qualificare almeno un ora con budget congelati, piu finestre, pressione variabile e guasti ripetuti; registrare crescita residua e latenza."
       ],
       "checks": [
         "matrice di accettazione FRD completa e AT-1–AT-12",
         "ripetizione riproducibile dei gate di release su Windows",
-        "verifica checksum/firma del candidato e note di rilascio"
+        "verifica checksum/firma del candidato e note di rilascio",
+        "planned: soak Windows RES4 di almeno un ora, qualifiche per agente, metriche pre/dopo recupero e verifica storia salvata"
       ],
       "files": [
         "docs/verification/release-v1/**",
@@ -8924,7 +9139,11 @@
       "gates": [
         "AT-1–AT-12",
         "X1–X6",
-        "tutti i G0/G1 applicabili alla release"
+        "tutti i G0/G1 applicabili alla release",
+        "RES1",
+        "RES2",
+        "RES3",
+        "RES4"
       ],
       "commit": "feat(v1-acceptance): Chiudere la matrice V1 e pubblicare il candidato completo",
       "resume": "Leggere la scheda e le dipendenze; aprire docs/verification/release-v1/**, docs/releases/**. Preparare la prima prova di accettazione prima di modificare il comportamento.",
@@ -10019,7 +10238,8 @@
   "source_amendments": [
     "2026-11-02 FRD-0009/R24 storage latency; docs/notes/2026-11-02-sidecar-storage-latency.md",
     "2026-11-02 FRD-0001/R22 and R51 Tauri shell; ADR-0005 v2, ADR-0047 v2",
-    "2026-11-02 Windows only; FRD-0001/R15 R50 R51 R55, FRD-0017/R01 R02 R03 R05 R09; ADR-0047, ADR-0005, ADR-0048"
+    "2026-11-02 Windows only; FRD-0001/R15 R50 R51 R55, FRD-0017/R01 R02 R03 R05 R09; ADR-0047, ADR-0005, ADR-0048",
+    "2026-11-02 FRD-0001/R59-R63 host resilience; docs/implementation/2026-11-02-host-resilience.md"
   ],
   "scope_overrides": [
     {

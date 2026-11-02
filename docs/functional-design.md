@@ -43,6 +43,15 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
 
 ## 2. Goals, non-goals, anti-goals
 
+**Priority decided by the user, 2026-11-02:** Shinatama must remain stable and
+responsive when a subprocess crashes, hangs or exhausts resources. Resource use,
+including memory, is adaptively calibrated. After preventive load reduction and
+launch deferral, an offending process tree may be stopped automatically to protect
+the host; preserve already saved work and offer an explicit supported resume path.
+This emergency policy was explicitly confirmed by the user. It does not authorize
+automatic replay of agent commands. See FRD-0001/R59-R63 and the
+[resilience amendment](implementation/2026-11-02-host-resilience.md); RES1-RES4 remain open.
+
 ### Goals (decided unless marked)
 
 1. Host Claude Code, Codex, OpenCode, Pi, Hermes Agent and DeepSeek Harness as real
@@ -902,7 +911,8 @@ surfaces.
   and restore the layout per project and window workspace.
 - Moving/hiding/collapsing a terminal view never restarts/stops its agent, creates
   a session or changes its thread. Closing a view is distinct from stopping a live
-  instance; stopping requires confirmation. Dirty documents offer save/discard/cancel.
+  instance; stopping requires confirmation, except the user-authorized emergency
+  resource policy in FRD-0001/R61. Dirty documents offer save/discard/cancel.
 - Restore view/resource references, never stale process handles. Saved layout alone
   must not start/resume agents, execute apps or reopen interactive browser sessions.
   Show unavailable resources explicitly.

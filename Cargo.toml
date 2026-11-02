@@ -20,7 +20,7 @@ serde_json = { version = "1", features = ["preserve_order"] }
 anyhow = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std", "serde"] }
 uuid = { version = "1", features = ["v4", "v7"] }
-# Dependencies and licences so far: docs/implementation/tauri-prototype.md; release audit is register X3.
+# Dependency inventory: THIRD_PARTY_NOTICES.md; full release audit remains register X3.
 portable-pty = "0.9"
 tauri = "2.9"
 tauri-build = "2.5"

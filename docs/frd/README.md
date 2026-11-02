@@ -11,6 +11,10 @@ coherence fixes of that day and need a refresh with the tool. The user-requested
 2026-11-02 storage amendment is explicit in FRD-0009/R24 and its linked evidence note;
 this update does not claim to have refreshed or promoted those JSON snapshots.
 The 2026-11-02 shell decision amends FRD-0001/R22 and R51 on the same terms.
+The user's 2026-11-02 host-resilience and adaptive-resource decision adds
+FRD-0001/R59-R63 and the emergency-stop exception in R29; its
+[amendment](../implementation/2026-11-02-host-resilience.md) is recorded in Markdown.
+The historical JSON evidence snapshot has not been refreshed or promoted.
 
 **Platform decision, user, 2026-11-02:** Windows is the only officially supported platform for now
 (ADR-0047). FRD-0001 and FRD-0017 are amended; any other clause that names macOS or Linux is

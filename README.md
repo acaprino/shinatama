@@ -42,6 +42,28 @@ Learning are not wired up yet. Windows is the only platform exercised so far.
 See the [prototype scope, dependencies and limits](docs/implementation/tauri-prototype.md)
 and [verification evidence](docs/verification/2026-11-02-tauri-terminal-prototype.md).
 
+## Verify on Windows
+
+```sh
+npm run verify
+```
+
+The shared local/CI runner restores locked dependencies, validates the plan and
+dependency declarations, builds the embedded application and runs unit, real-PTY,
+window and project-restart tests. Install PowerShell 7, Python 3.13, the Windows
+Rust/MSVC prerequisites and WebView2 first. Node is pinned in `.node-version`;
+`rust-toolchain.toml` pins Rust and formatting/lint components.
+
+[Verification details](docs/implementation/windows-verification.md) describe the
+bounded runner and the Windows-only CI. Reports are generated under `.verification/`;
+only selected sanitized reports, synthetic screenshots and the unsigned debug
+prototype are CI artifacts. Local verification is separate from a remote CI run.
+
+[Third-party inventory](THIRD_PARTY_NOTICES.md) is checked against both lockfiles.
+`python scripts/dependencies.py generate` refreshes it after a reviewed dependency
+change; `check` rejects stale notices, undeclared dependencies or missing license text.
+Full texts accompany artifacts as `.verification/THIRD_PARTY_LICENSES.txt`.
+
 ## Design records
 
 - Functional design: [docs/functional-design.md](docs/functional-design.md)

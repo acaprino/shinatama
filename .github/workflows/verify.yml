@@ -1,0 +1,79 @@
+name: Verify Windows
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-windows-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Build and verify Windows x64
+    runs-on: windows-2025
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      CARGO_TERM_COLOR: always
+
+    steps:
+      # Full history is required to validate real commit SHAs in progress.json.
+      - name: Check out sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pinned Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+
+      # rustup resolves and installs the channel/components in rust-toolchain.toml.
+      - name: Set up pinned Rust toolchain
+        run: rustup show active-toolchain
+
+      - name: Run the shared local and CI verification entrypoint
+        run: ./scripts/verify.ps1
+
+      # Deliberate allowlist: never upload WebView profiles, app settings or logs.
+      - name: Upload verification reports and synthetic screenshots
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verification-windows-${{ github.sha }}
+          path: |
+            .verification/verification.json
+            .verification/dependencies.json
+            .prototype-evidence/desktop-terminals.png
+            .prototype-evidence/projects-picker.png
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload verified embedded prototype executable
+        if: success()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: shinatama-prototype-debug-windows-x64-${{ github.sha }}
+          path: |
+            target/debug/shinatama-desktop.exe
+            THIRD_PARTY_NOTICES.md
+            .verification/THIRD_PARTY_LICENSES.txt
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7

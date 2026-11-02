@@ -178,6 +178,25 @@
       "commit_sha": null,
       "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
       "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "F32CI": {
+      "status": "verified",
+      "commit_sha": null,
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-F32CI-windows-verification.md"
+      ],
+      "checks": [
+        "pwsh -NoProfile -File scripts/verify.ps1",
+        "python scripts/dependencies.py check --offline"
+      ],
+      "limits": [
+        "GitHub workflow statically verified; remote execution has not run.",
+        "Release X3/X4/X5, TL1, P14, RES and sidecar gates remain open."
+      ],
+      "next_action": "Commit this verified increment, then resume the next ready step reported by the planner: TL1-proof."
     }
   },
   "blockers": [],

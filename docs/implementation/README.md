@@ -24,6 +24,12 @@ Le cinque fasi leggibili sono: fondamenta e progetti; primo agente supportato;
 S1 ricerca/resume; S2 hop seed; estensioni V1 e distribuzione. Browser, roundtable,
 Learning, routing, ottimizzazioni e widget hanno passi propri e verifiche esplicite.
 
+**Priorita di resilienza, utente 2026-11-02:** il guasto di un subprocesso deve
+restare confinato e i consumi richiedono calibrazione adattiva. Il passo C09R
+introduce misure, budget e protezioni prima di C09/C13; l'arresto automatico del solo
+responsabile e autorizzato come ultima difesa. Requisiti e prove ancora aperte:
+[amendamento resilienza](2026-11-02-host-resilience.md), FRD-0001/R59-R63, RES1-RES4.
+
 ```mermaid
 flowchart LR
   A["Fondamenta: progetti, storage, terminali"] --> B["Primo agente con checkup e sidecar"]
@@ -79,6 +85,9 @@ singola unita di lavoro senza un motivo registrato nel checkpoint.
 Nessun `git add .`, reset o pulizia del lavoro altrui.
 
 ## Checkpoint corrente
+
+- F32CI: runner unico locale/CI Windows, inventario/notice e prove locali completate;
+  eseguire `npm run verify`. Il primo run remoto GitHub rimane prova separata.
 
 - Shell: Tauri è la scelta V1 definitiva (ADR-0005 v2); il passo `TL1-proof` la prova su Windows prima di C06.
 - B00: prototipo Tauri borderless con terminali reali, verificato su Windows.

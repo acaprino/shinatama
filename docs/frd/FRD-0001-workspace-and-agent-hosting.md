@@ -7,11 +7,17 @@ gates remain open.
 Platform decision, user, 2026-11-02: Windows is the only officially supported platform for now;
 macOS and Linux are deferred. R15, R50, R51 and R55 are amended accordingly.
 
+Resilience decision, user, 2026-11-02: host stability takes priority over an unstable
+subprocess; resource use must be adaptively calibrated. Emergency termination of
+only the responsible process tree is explicitly authorized after preventive measures.
+R59-R63 and the emergency exception in R29 record this request; implementation
+choices and open proofs are in [the resilience amendment](../implementation/2026-11-02-host-resilience.md).
+
 | | |
 |---|---|
 | Version | 1 (Markdown record; the JSON record is version 1 at `c84d28e`) |
 | Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
-| Date | 2026-11-01; R15, R22, R50, R51 and R55 amended 2026-11-02 after the user's shell and platform decisions |
+| Date | 2026-11-01; R15, R22, R50, R51 and R55 amended 2026-11-02 for shell/platform; R29 amended and R59-R63 added for the user's resilience decision |
 | Sources | functional-design 1, 2, 3, 4, 5.1, 5.7, 5.9, 5.12, 5.16, 6; technical-design 3, 3.1, 5.5.3, 5.7 |
 | Governing ADRs | ADR-0004, ADR-0005, ADR-0006, ADR-0007, ADR-0011, ADR-0039, ADR-0040, ADR-0047 |
 | Register sections | TL (tiling), P (platform and terminal), U (skins and UI), DS (DeepSeek Harness) |
@@ -78,7 +84,7 @@ Agent and DeepSeek Harness; an **instance** is a running agent process hosted in
 | R26 | Only the focused terminal receives input through its owning runtime; while a modal is focused no keystroke or paste reaches a background terminal. | S | M0 | TL2 | 0005 |
 | R27 | A pane can be temporarily maximized and its prior layout restored; minimum usable pane sizes are enforced, and a smaller window never discards a pane or makes it unreachable. | U 2026-10-29 | M0 | TL2, U5 | 0005 |
 | R28 | Layout is saved and restored per project and window workspace as versioned JSON in a shared-database workspace record, with a revision for optimistic updates and one owning window per workspace; corrupt or unknown data falls back to the last valid layout without deleting documents or session history. | U 2026-10-29 (save and restore); A (shape) | M0 | TL3 | 0005, 0009 |
-| R29 | Moving, hiding or collapsing a terminal view never restarts or stops its agent, creates a session or changes its thread; stopping a live instance requires confirmation; closing a view with a dirty document offers save, discard or cancel. | U 2026-10-29 | M0 | TL2, TL4 | 0005 |
+| R29 | Moving, hiding or collapsing a terminal view never restarts or stops its agent, creates a session or changes its thread; stopping a live instance requires confirmation, except the user-authorized emergency resource policy in R61; closing a view with a dirty document offers save, discard or cancel. | U 2026-10-29; emergency exception U 2026-11-02 | M0 | TL2, TL4, RES3 | 0005 |
 | R30 | Restoring a layout brings back view and resource references, never stale PIDs or PTY handles; a saved layout alone never starts or resumes an agent, executes an app or reopens an interactive browser session; unavailable resources are shown as unavailable; a gated panel kind shows an unavailable placeholder until it is enabled. | U 2026-10-29 | M0 | TL3 | 0005, 0036 |
 | R31 | Layout JSON holds no PID, PTY handle, dirty buffer, rendered content or credential. Tree operations are validated and atomic: cycles, duplicate membership, invalid active tabs, non-finite or non-positive weights and excessive nesting are rejected; empty groups and redundant splits are collapsed. | A | M0 | TL3 | 0005 |
 | R32 | Panel identity is separate from instance, segment and thread identity; a terminal view references a live instance and a resumable thread. Initially there is one interactive terminal view per instance; cross-window live PTY transfer is not offered. | A | M0 | TL2 | 0005 |
@@ -129,6 +135,16 @@ Agent and DeepSeek Harness; an **instance** is a running agent process hosted in
 | R57 | Later workspace surfaces (side panes, file navigator, Markdown, previews, sessions surface, companion pane) are delivered only after their dependencies and G0/G1 gates close; no downstream surface is treated as deliverable in the same baseline before that. | U 2026-10-31 | V1 | register 0 | 0040 |
 | R58 | A failed `G0` row of the first milestone changes the design; nothing is built on it before it passes. | S | X | register 0 | 0010, 0040 |
 
+### 2.8 Host resilience and adaptive resource control
+
+| ID | Requirement | Origin | Slice | Proof | ADR |
+|---|---|---|---|---|---|
+| R59 | Host stability has priority: a hosted subprocess crash, hang, resource exhaustion, broken pipe or malformed/excessive output must not crash or indefinitely block Shinatama, corrupt saved state or stop healthy sibling sessions. Qualify this against an explicit supported resource envelope and reproducible fault tests. | U 2026-11-02 (priority); A (testable envelope) | M0 | RES1, RES2, TL5 | 0004, 0008 |
+| R60 | Measure host/renderer, each process tree and system pressure with bounded local telemetry; account for committed and resident memory, CPU, process count and I/O queues. Aggregate admission across windows preserves measured headroom for Shinatama and the OS; workload limits must not impose the same restrictive cap on the host. | U 2026-11-02 (resource calibration); A (metrics and mechanism) | M0 | RES2, P18 | 0008, 0009 |
+| R61 | Adapt resource budgets conservatively to available capacity and healthy observed workloads, within fixed safety ceilings and with stable recovery thresholds. Reduce optional load and defer new launches first; if a responsible subprocess still threatens host stability, automatically stop only its tree, retain already saved state and show the reason and available resume action. No blind termination for unattributed pressure, unbounded budget growth to accommodate leaks, or automatic replay of agent work. | U 2026-11-02 (adaptive control and emergency termination); A (policy safeguards) | M0 | RES3, RES4 | 0008 |
+| R62 | Recovery is bounded and attributable: one owner, finite retries with increasing delay and a stop after repeated failure. A live busy subprocess is not duplicated. Agent commands are not replayed automatically; source stores and healthy sessions remain intact, and native resume is offered only when supported. | U 2026-11-02 (resilience); A (recovery contract) | M0 | RES4, SC12, SC14 | 0008, 0030 |
+| R63 | Resilience is a delivery gate: synthetic fault tests precede dependent integration, each supported Windows agent is qualified with the applicable faults, and release includes a sustained pressure/recovery run with budgets frozen before testing. Record resource and responsiveness measurements; plan coverage or unrelated passing tests do not constitute runtime proof. | U 2026-11-02 (stability priority); A (qualification) | M0, V1 | RES1-RES4, P14, TL5 | 0010, 0040 |
+
 ## 3. Open questions
 
 1. Windows in v1 (functional-design 7.1; register O3). Assumed yes.
@@ -141,6 +157,7 @@ Agent and DeepSeek Harness; an **instance** is a running agent process hosted in
 The native tiling gates TL1 to TL6, the terminal rows P1 to P20 and the skin rows U1 to U8 are
 the acceptance of this record; functional-design 5.16 "Acceptance" and technical-design 3.1
 "Prototype verification gate" are their short form. Nothing here is claimed implemented.
+RES1-RES4 additionally qualify R59-R63; the plan amendment does not close these gates.
 
 ## 5. Relation to the JSON record
 
@@ -149,3 +166,7 @@ REQ-001 to REQ-013 and REQ-087 to REQ-097; 2.2 covers REQ-008 to REQ-011, REQ-02
 and REQ-098 to REQ-100; 2.3 and 2.4 cover REQ-049 to REQ-086; 2.5 covers REQ-035 to REQ-048;
 2.6 covers REQ-014 to REQ-022. The install and release sentences (REQ-018, REQ-019) moved to
 FRD-0017.
+
+R59-R63 and the R29 emergency exception were added from the user's 2026-11-02
+resilience request. The older JSON evidence snapshot has not been refreshed or
+promoted and does not yet contain this amendment.

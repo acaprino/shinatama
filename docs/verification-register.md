@@ -1,5 +1,9 @@
 # Verification register
 
+**F32CI, 2026-11-02:** [runner e infrastruttura Windows verificati localmente](verification/2026-11-02-F32CI-windows-verification.md).
+L'inventario include i testi delle licenze, con obblighi MPL ancora da qualificare;
+nessun gate X/TL/P/RES completo viene chiuso da questa infrastruttura.
+
 **Implementation tracking:** [complete plan](implementation/PLAN.md),
 [checkpoint](implementation/progress.json). B02 delivers a verified Windows slice
 of recent project selection; [its evidence](verification/2026-11-02-B02-project-history.md)
@@ -43,6 +47,24 @@ been executed. The toolkit remains a proposal; native Rust UI is the requirement
 
 Write results to `docs/verification/YYYY-MM-DD-TL<n>-<topic>.md` under the rules
 below, then update the corresponding spec. No pass is claimed by adding these rows.
+
+## Host resilience amendment — user request 2026-11-02
+
+FRD-0001/R59-R63 and [the resilience amendment](implementation/2026-11-02-host-resilience.md)
+add the following gates. C09R proves the common synthetic mechanisms before C09/C13;
+their integrations and each Windows agent's QA record qualify the actual launch path.
+These rows remain open until all applicable evidence exists; synthetic evidence is
+recorded as a scoped result and never promoted to agent certification. P14 remains
+a separate lifecycle gate. Thresholds are recorded before acceptance, not relaxed
+after failures. Destructive resource-pressure fixtures run within enforced test
+limits or a VM, not by exhausting the user's working system.
+
+| ID | Priority | Verification and pass criterion | Status |
+| --- | --- | --- | --- |
+| RES1 | G0 | Crash, hang, broken pipe, malformed/continuous output and concurrent stop/exit in one child leave Shinatama and a healthy sibling responsive, with saved state intact. Test the real PTY/IPC/renderer path; no unbounded waits or buffers. Record response/echo latency against predeclared budgets. | open |
+| RES2 | G0 | Effective per-tree commit-memory, CPU and process-count limits contain bursts faster than sampling; host/renderer remain outside restrictive workload caps. Test allocation failure, process churn, simultaneous multi-window admission, stale counters and monitor failure. Record aggregate headroom, queue bounds and monitoring overhead; reject unsafe new launches. | open |
+| RES3 | G1 | Vary memory/CPU pressure and workload profiles: conservative calibration stays within safety ceilings, leaks never raise the baseline, escalation reduces optional work then isolates only the attributable offender, and recovery uses lower thresholds plus stable cooldown. Test missing telemetry and external pressure; no arbitrary victim, oscillation or silent policy change. | open |
+| RES4 | G1 | Repeated crash/resource incidents cannot cause restart storms, duplicate sidecars or automatic agent command replay. Qualify each supported Windows agent and a release soak of at least one hour with multiple windows and healthy siblings; measure post-recovery growth, latency and resource usage within the fixed envelope, with already saved history intact and explicit supported resume. | open |
 
 ## 0. Rules for running and reporting
 

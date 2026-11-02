@@ -8,6 +8,7 @@ node_modules/
 dist/
 apps/desktop/src-tauri/gen/
 .prototype-evidence/
+.verification/
 __pycache__/
 # the bench regenerates its evidence: sources, captures, resumes, matrices
 verify/*/out/
