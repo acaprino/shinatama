@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-11-02",
+  "base_head": "46435ab",
+  "git_state": "User requested commit all on 2026-11-02: B00-B02 bootstrap, the resumable plan and current specification amendments are intentionally checkpointed together. Record the real bootstrap SHA after this commit; preserve unrelated verify/T6 work.",
+  "steps": {
+    "B00": {
+      "status": "verified",
+      "commit_sha": null,
+      "platforms": [
+        "Windows"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-tauri-terminal-prototype.md"
+      ],
+      "checks": [
+        "npm run build",
+        "cargo test -p shinatama-terminal",
+        "npm run test:desktop"
+      ],
+      "limits": [
+        "Full TL/P gates remain open"
+      ]
+    },
+    "B01": {
+      "status": "verified",
+      "commit_sha": null,
+      "platforms": [
+        "Windows"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-B01-implementation-plan.md"
+      ],
+      "checks": [
+        "python scripts/implementation.py validate",
+        "python -m unittest discover -s scripts -p test_implementation.py",
+        "python scripts/implementation.py render"
+      ],
+      "next_action": "Proceed to F32CI using the validated dependency graph."
+    },
+    "B02": {
+      "status": "verified",
+      "commit_sha": null,
+      "platforms": [
+        "Windows"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-B02-project-history.md"
+      ],
+      "checks": [
+        "cargo test -p shinatama-projects",
+        "cargo clippy --workspace --all-targets --features custom-protocol -- -D warnings",
+        "npm run build",
+        "npm run test:projects",
+        "npm run test:desktop"
+      ],
+      "limits": [
+        "Full roots/F3/default-root creation and cross-platform gates are planned in later steps."
+      ],
+      "next_action": "Checkpoint current bootstrap paths, then F32CI."
+    },
+    "D01": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su richiesta esplicita dell utente del 2026-11-02: ignorare per adesso l integrazione con Daodan. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere Daodan."
+    },
+    "C34": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su richiesta esplicita dell utente del 2026-11-02: ignorare per adesso l integrazione con Daodan. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere Daodan."
+    },
+    "C35": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su richiesta esplicita dell utente del 2026-11-02: ignorare per adesso l integrazione con Daodan. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere Daodan."
+    },
+    "D02": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su richiesta esplicita dell utente del 2026-11-02: ignorare per adesso l integrazione con Daodan. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere Daodan."
+    },
+    "D03": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su richiesta esplicita dell utente del 2026-11-02: ignorare per adesso l integrazione con Daodan. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere Daodan."
+    },
+    "D04": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su richiesta esplicita dell utente del 2026-11-02: ignorare per adesso l integrazione con Daodan. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere Daodan."
+    }
+  },
+  "blockers": [],
+  "cross_platform_gates": "Windows evidence only for current product slices; Linux/macOS full gates remain open.",
+  "allow_non_v1": [],
+  "scope_overrides": [
+    {
+      "feature": "daodan",
+      "status": "deferred",
+      "requested_on": "2026-11-02",
+      "steps": [
+        "D01",
+        "C34",
+        "C35",
+        "D02",
+        "D03",
+        "D04"
+      ],
+      "reason": "Rinviato su richiesta esplicita dell utente del 2026-11-02: ignorare per adesso l integrazione con Daodan. Riprendere solo su nuova indicazione."
+    }
+  ]
+}

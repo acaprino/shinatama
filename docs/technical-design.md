@@ -1,5 +1,10 @@
 # Shinatama engine — threads, hop, exchange between instances, shared state
 
+**Implementation exception, 2026-11-02:** the user authorized a
+[Tauri frontend + Rust engine prototype](implementation/tauri-prototype.md).
+Native-only language below describes the earlier production proposal; it does not
+prohibit this experiment. Toolkit selection and the full TL1 gate remain open.
+
 Date: 2026-10-26; native tiling revision: 2026-10-29; last revised 2026-11-01.
 Status: draft, not approved. Companion of
 [the functional design](functional-design.md); sections 5.2, 5.10
@@ -31,7 +36,8 @@ A note after a tag, following a colon, comma or semicolon, qualifies it: `[C; re
 M15]` names the register row that tests the call, and `[C; decided by the user <date>]`
 marks a call of mine that the user decided on that date.
 
-Nothing here has been run as a prototype. Where the document says "must", it is a
+Apart from the scoped terminal prototype linked above, this remains a design.
+Where the document says "must", it is a
 requirement on the build; where it says "sketch", names and types bind only for what
 they must hold.
 
@@ -1864,8 +1870,19 @@ different worktrees do not collide. (Decided by the user 2026-11-01; register Q3
   loop also limits availability by itself: once the agents' own connections fill the
   accept queue, their turns are refused until it resumes. On 2026-11-01 the shared proxy
   held its loop for 15 to 71 s every few minutes with six Claude Code sessions, using
-  about two thirds of a core on average; how long it may be held is open (SC16) and
-  bears on SC5.
+  about two thirds of a core on average. The 2026-11-02 storage investigation found
+  one concrete cause: synchronous CCR replacement plus missing indexes on six foreign-key
+  reference columns. The inherited schema v9 adds those indexes; CCR synchronization
+  preserves unchanged rows and applies net blob reference-count changes in the existing
+  transaction. This removes work proportional to unrelated history on each content
+  release and preserves shared blobs across reorder, rename and deletion. The controlled
+  200,000-message / 600-CCR-change fixture fell from 13.57 s to 59–92 ms for a real local
+  CONNECT plus echo (limit 750 ms). SC16 must repeat the persistence and integrity tests
+  against Shinatama's prepared build and measure health and agent traffic in its actual
+  launch topology; the broader one-hour load test remains open and feeds SC5. See the
+  [storage correction record](notes/2026-11-02-sidecar-storage-latency.md) for the exact
+  indexes, source fingerprint, migration and acceptance checks. These source measurements
+  do not establish the cause of every earlier hold or a universal latency bound.
   The sidecar code stays unmodified (ADR-0029: no fork or patch inside Shinatama; changes
   go into the single source, decided by the user 2026-11-01), so the terminal rule is not
   left to the launcher's messages: the bytes on an agent's PTY must come only from the

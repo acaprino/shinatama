@@ -1,7 +1,13 @@
 # Shinatama — design
 
+**Implementation exception, 2026-11-02:** the user authorized an executable
+[Tauri + Rust terminal prototype](implementation/tauri-prototype.md), using the
+existing mockup style. This relaxes the native-only restriction for the experiment;
+it does not approve every draft detail or complete the first milestone.
+
 Date: 2026-10-26; native tiling revision: 2026-10-29
-Status: draft, not yet approved. Nothing is built from this document until it is.
+Status: overall design draft. Accepted FRD records and the explicit prototype
+authorization above govern the initial implementation; the full draft is not approved.
 
 Shinatama is a local-first native desktop workspace, written in Rust, that hosts the real
 coding agents (Claude Code, Codex, OpenCode, Pi, Hermes Agent, DeepSeek Harness) in tiled terminal panes and lets the user hop
@@ -442,6 +448,14 @@ its own held event loop as their silence, and the launchers' connection checks r
 busy proxy as gone once its accept queue was full, then started replacements that lost
 the port. Musashi Terminal's owned source fixes both (technical design 9; register
 SC12, SC14, SC16).
+On 2026-11-02 a separate cause was reproduced: synchronous SQLite saves rewrote all CCR
+entries, and deleting released content scanned large unrelated tables because six
+reference indexes were missing. Shinatama inherits the corrected schema and incremental,
+transactional CCR synchronization from the single sidecar source. A busy indicator or a
+longer timeout does not satisfy the latency requirement. SC16 must verify local transport
+under persistence load and data preservation in the Shinatama launch path before accepting
+that integration; the successful Musashi measurements do not pass it for Shinatama
+([source evidence and acceptance procedure](notes/2026-11-02-sidecar-storage-latency.md)).
 
 ### 5.7 Skins (decided: default is Shinatama pink; others selectable)
 

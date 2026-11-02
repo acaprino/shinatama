@@ -1,0 +1,18 @@
+[package]
+name = "shinatama-desktop"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[dependencies]
+tauri.workspace = true
+serde.workspace = true
+shinatama-terminal.workspace = true
+shinatama-projects.workspace = true

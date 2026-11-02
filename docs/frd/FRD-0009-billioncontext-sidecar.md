@@ -4,8 +4,8 @@
 |---|---|
 | Version | 1 (Markdown record; JSON record version 1 at `c84d28e`) |
 | Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
-| Date | 2026-11-01 |
-| Sources | functional-design goal 6, 2 (anti-goal), 3, 5.6, 5.9; technical-design 9; specs/token-savings 7.2 (baseline); records of 2026-10-31 and 2026-11-01 on proxy stalls |
+| Date | 2026-11-01; R24 amended 2026-11-02 at the user's request |
+| Sources | functional-design goal 6, 2 (anti-goal), 3, 5.6, 5.9; technical-design 9; specs/token-savings 7.2 (baseline); records of 2026-10-31 and 2026-11-01 on proxy stalls; [2026-11-02 storage fix](../notes/2026-11-02-sidecar-storage-latency.md) |
 | Governing ADRs | ADR-0029, ADR-0030 |
 | Register sections | SC1 to SC16, Q5, Q7, HM12, DS12 |
 | Related records | FRD-0005 (seed through the proxy), FRD-0007 (participants through the proxy), FRD-0010 (title calls), FRD-0013 (adapters inside the request path), FRD-0016 (TokenEconomizer beside it) |
@@ -61,7 +61,7 @@ isolation properties that are acceptance, the supervision rules learned from the
 | R21 | Recovery starts only when the process has exited or the port is free; while an agent keeps running the recovery lands on the original address, and an instance's exit drains in order with no lost final flush. | U | X | SC6 | 0030 |
 | R22 | A session's process never probes, restarts or reports on the proxy and never starts a replacement; when the shipped per-session launcher is used, its supervision is switched off and its output kept off the agent's terminal. | U 2026-11-01 | X | SC5, SC12 | 0030 |
 | R23 | The proxy's own owner watchdog never takes a stall of its own event loop for the loss of every owner: a late tick's delay is credited back to every recorded heartbeat and to the idle grace, while a recycled owner pid that goes silent with the watchdog on time still ages out. Shinatama inherits this fix (Musashi Terminal commit `ac7d57a`) through the single source. | U 2026-11-01 | X | SC12 | 0030, 0029 |
-| R24 | How long the proxy's event loop may be held is open and bounds availability: on 2026-11-01 it was held 15 to 71 s every few minutes with six Claude Code sessions. SC16 measures it and bears on SC5. | S | X | SC16 | 0030 |
+| R24 | Shinatama inherits the 2026-11-02 storage correction through the single sidecar source: six content-reference indexes (schema v9) and transactional CCR synchronization by net reference-count changes. SC16 must prove data preservation and bounded local transport latency during persistence, including on upgrades; increasing timeouts, tolerating a busy state or bypassing the proxy does not satisfy this requirement. Other event-loop holds and the proxy topology remain subject to SC16 and SC5. | U 2026-11-02; S (source regression) | X | SC16 | 0029, 0030 |
 
 ### 2.5 Nothing on the agent's terminal
 
@@ -82,16 +82,24 @@ isolation properties that are acceptance, the supervision rules learned from the
 ## 3. Open questions
 
 1. Proxy topology, one per instance or shared (register Q7, SC5; worklist #53).
-2. How long a held event loop is acceptable (SC16).
+2. Bounds for event-loop holds from work other than the reproduced SQLite/CCR path (SC16).
+   The persistence regression already has a local CONNECT-plus-echo limit of 750 ms.
+   This is a controlled fixture limit, not a latency promise for remote services.
 
 ## 4. Acceptance
 
 SC1 to SC16 pass under Shinatama; HM12 and DS12 for the two new agents. Observed so far
 (2026-10-31, 2026-11-01): 170 duplicate replacements, four self-shutdowns with every owner
 alive, and `ECONNREFUSED` by two further paths, all with BillionContext 0.1.207's shipped
-launcher; nothing has run under Shinatama.
+launcher; the sidecar has not been qualified under Shinatama. The storage fix was
+verified and activated in Musashi Terminal on 2026-11-02; its results are evidence for
+inheritance, not a passed Shinatama SC16. See the [amendment and acceptance
+procedure](../notes/2026-11-02-sidecar-storage-latency.md).
 
 ## 5. Relation to the JSON record
 
 FRD-0009.json holds 38 extracted sentences; this record covers them all and adds the baseline
-configuration (2.6), which the JSON set kept in FRD-0013.
+configuration (2.6), which the JSON set kept in FRD-0013. The 2026-11-02 R24 amendment
+is recorded in this Markdown requirement and its linked note. The existing Proposed
+JSON snapshot has not been re-extracted or promoted; its stale source spans remain
+the known evidence-refresh defect described in [README](README.md), not current proof.

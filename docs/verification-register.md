@@ -1,5 +1,17 @@
 # Verification register
 
+**Implementation tracking:** [complete plan](implementation/PLAN.md),
+[checkpoint](implementation/progress.json). B02 delivers a verified Windows slice
+of recent project selection; [its evidence](verification/2026-11-02-B02-project-history.md)
+does not close the complete PM or cross-platform S gates.
+
+**2026-11-02:** the authorized Tauri + Rust terminal experiment is implemented.
+See its [verification record](verification/2026-11-02-tauri-terminal-prototype.md)
+and [architecture exception](implementation/tauri-prototype.md). Windows shell
+and layout checks are partial evidence; full TL/P gates and M0 are not passed.
+The native-only TL1 restriction is relaxed for this experiment; the production
+gate still requires revision.
+
 Date: 2026-10-26. Status: draft. Companion of
 [the functional design](functional-design.md) and
 [the technical design](technical-design.md).
@@ -336,7 +348,7 @@ short form of this set; this register is the complete one and wins where they di
 | SC13 | G1 | Providing Node on macOS and Linux (system, bundled, downloaded): offline, size, version | Try the options | One chosen | main 5.6 |
 | SC14 | G0 | A busy proxy is not replaced: its event loop is held while its process is alive and holds its port, including once its accept queue is full and new connections are refused. **Observed 2026-11-01** on Windows (Node 24.14.1): a held listener refuses connections after 232 queued, the same with a backlog of 2048, while a bind on its port fails with `EADDRINUSE`; after its death the bind succeeds | With 5 instances attached, hold the proxy's loop for 60 s (debugger pause or a synthetic long compression) and open connections until they are refused; count the supervisor's probe connections | No replacement process starts; the supervisor opens no probe connection while the bind decides; no line appears in any agent's terminal; the window shows the proxy busy, then normal; the agents' next turns go through | main 5.6; engine 9 |
 | SC15 | G0 | **Observed 2026-11-01:** a launcher build whose recovery messages had been moved to a log still printed `bili: watcher registration failed — ... (The operation was aborted due to timeout)` over Claude Code's screen, from the owner-renewal path. The bytes on an agent's terminal come only from the agent, whatever launch path SC5 picks | With 5 instances attached, capture each agent's PTY from launch to exit while injecting one fault at a time: hold the proxy's loop for 60 s; make the owner-renewal request time out (2 s) and then be refused; kill the proxy; start an older proxy build on the port (stale rotation); attach to an unarmed daemon proxy. Repeat after each sidecar upgrade | Each capture holds only bytes the agent wrote: no line starting `bili:` and no launcher or proxy text; each fault appears once in Shinatama's log; the window shows the matching proxy state | main 5.6; engine 9; ADR-0030 INV-006 |
-| SC16 | G0 | How long the proxy's event loop may be held. On Windows a held loop refuses the agents' own new connections once 232 wait (SC14), so its length bounds availability. **Observed 2026-11-01:** with six Claude Code sessions the shared proxy held its loop for 15 to 71 s every few minutes and used about two thirds of a core on average; per-request preparation stayed under 4.4 s (p95 310 ms), so the holds come from other work, not yet identified | With 5 instances working on long histories, record the event-loop delay (`monitorEventLoopDelay`) and refused agent connections for one hour; CPU-profile the longest holds | No agent connection refused; the longest hold and its cause are recorded; the result feeds SC5 | main 5.6; engine 9 |
+| SC16 | G0 | Bounded local transport latency while saving history, and preservation of persisted data. **Observed 2026-11-02 in Musashi:** synchronous CCR replacement and six unindexed reference lookups caused a 13.57 s local CONNECT stall; schema v9 plus incremental CCR synchronization reduced it to 59–92 ms. This identifies one persistence cause, not every 15–71 s hold observed on 2026-11-01. [Evidence and procedure](notes/2026-11-02-sidecar-storage-latency.md); qualification under Shinatama remains open | Run the inherited storage-latency suite against the Shinatama-prepared source, including v8 migration, repeat migration, shared references and rollback. In its launch path, measure real local CONNECT plus echo and health during a 600-entry CCR replacement beside 200,000 unrelated messages. With 5 instances on long histories, record event-loop delay (`monitorEventLoopDelay`), local transport and refused agent connections for one hour; profile the longest holds. Repeat on each supported OS and sidecar upgrade | The controlled fixture keeps local CONNECT plus echo and health below 750 ms; all six reference checks use indexes, with no full-table scans; unchanged/reordered/renamed CCR content causes no blob mutations; counts and content survive migration, shared references and rollback. The one-hour run refuses no agent connection and records the longest hold and its cause for SC5. A timeout increase, proxy bypass or busy indicator is not a pass | main 5.6; engine 9; FRD-0009/R24 |
 
 ## 12. Daodan, checkup, login (D)
 

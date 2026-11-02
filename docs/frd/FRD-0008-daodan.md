@@ -1,5 +1,11 @@
 # FRD-0008: Daodan preinstalled and native task support
 
+**Implementation scope override, user 2026-11-02:** ignore Daodan integration
+for now. These requirements are retained for resumption, but Daodan installation,
+task/onboarding surfaces and dependent seams are deferred. They do not block the
+active launch/search/hop plan. See the [scope checkpoint](../implementation/progress.json)
+and [implementation plan](../implementation/PLAN.md). Resume only on a new user instruction.
+
 | | |
 |---|---|
 | Version | 1 (Markdown record; JSON record version 1 at `c84d28e`) |

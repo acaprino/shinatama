@@ -1,5 +1,10 @@
 # Architecture decision records
 
+**2026-11-02 prototype authorization:** the user explicitly selected
+[Tauri + Rust for an executable experiment](../implementation/tauri-prototype.md).
+This is a scoped exception to ADR-0005/ADR-0047's native-only UI constraint, not a
+rewrite of their accepted text or a final production toolkit selection.
+
 One record per version of a decision: ADR-NNNN-<slug>.md, then ADR-NNNN-vN-<slug>.md.
 A record is Proposed when the interview produces it, Accepted when the user
 approves its text, Superseded when a later version or another Accepted record

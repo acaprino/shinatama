@@ -6,7 +6,42 @@
 
 Shinatama: a local-first native desktop workspace in Rust that hosts Claude Code, Codex, OpenCode, Pi, Hermes Agent and DeepSeek Harness in tiled terminal panes and hops a live chat between them (native tiling decided 2026-10-29; v1 hops are seed-only, decided 2026-10-31).
 
-Status: design draft, not approved. No code yet.
+Status: implementation started. On 2026-11-02 the user authorized a **Tauri + Rust
+prototype** to evaluate the mockup's visual style. This is an experimental terminal
+workspace, not the completed first milestone or a supported agent launcher.
+
+## Run the prototype
+
+Implementation is tracked in the [complete resumable plan](docs/implementation/PLAN.md).
+Daodan integration is temporarily deferred at the user's request (2026-11-02);
+generic checkup, agent launch, sessions, hop and worktrees do not depend on it.
+Run `npm run plan:status` to see the next ready increment; see the
+[resume protocol](docs/implementation/README.md) for checkpoints and commit boundaries.
+The project picker now remembers recent folders and restores the last available
+selection at startup without launching a terminal.
+
+With Rust, Node.js and the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) installed:
+
+```sh
+npm ci
+npm run desktop
+```
+
+The borderless window has themed minimize, maximize/restore and close controls.
+Drag its title bar to move it; double-click the bar to maximize or restore.
+Choose a project folder, then **New terminal**. Two resizable panes host real
+shells. Move tabs, hide/restore views, maximize a pane, change the split direction
+or select a color profile without restarting a process. Stopping a live terminal
+or closing the window asks for confirmation. No terminal starts on launch.
+
+Only the split direction and proportion are restored. **Profiles are colors, not
+agent launchers.** Agent adapters, isolated homes, sidecar routing, search, hop and
+Learning are not wired up yet. Windows is the only platform exercised so far.
+
+See the [prototype scope, dependencies and limits](docs/implementation/tauri-prototype.md)
+and [verification evidence](docs/verification/2026-11-02-tauri-terminal-prototype.md).
+
+## Design records
 
 - Functional design: [docs/functional-design.md](docs/functional-design.md)
 - Technical design (threads, hop, exchange between instances, shared state): [docs/technical-design.md](docs/technical-design.md)

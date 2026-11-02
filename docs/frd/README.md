@@ -7,7 +7,9 @@ repository (`functional-design.md`, `technical-design.md`, `browser-integration.
 every Markdown record: **Accepted** by the user on 2026-11-01. The JSON evidence records stay
 Proposed until `frd_tool.py promote` runs; their spans into `functional-design.md`,
 `technical-design.md`, `companion-explainer.md` and `token-savings.md` are stale after the
-coherence fixes of that day and need a refresh with the tool.
+coherence fixes of that day and need a refresh with the tool. The user-requested
+2026-11-02 storage amendment is explicit in FRD-0009/R24 and its linked evidence note;
+this update does not claim to have refreshed or promoted those JSON snapshots.
 
 ## 1. Two representations, one set
 

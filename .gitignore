@@ -4,6 +4,11 @@
 effectiveness-metrics.json
 # build outputs
 target/
+node_modules/
+dist/
+apps/desktop/src-tauri/gen/
+.prototype-evidence/
+__pycache__/
 # the bench regenerates its evidence: sources, captures, resumes, matrices
 verify/*/out/
 

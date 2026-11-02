@@ -1,5 +1,9 @@
 # FRD-0001: Workspace and agent hosting
 
+Prototype exception, user, 2026-11-02: implementation may start with
+[Tauri + a Rust engine](../implementation/tauri-prototype.md). The native-only
+restriction is relaxed for this experiment; M0 and the platform gates remain open.
+
 | | |
 |---|---|
 | Version | 1 (Markdown record; the JSON record is version 1 at `c84d28e`) |

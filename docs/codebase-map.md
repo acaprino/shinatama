@@ -3,11 +3,13 @@
 Date: 2026-11-01, at commit `b667db5`. Status: descriptive, not a design document; it changes
 nothing in the specs. Regenerate it when documents are added, renamed or retired.
 
-Shinatama is in the pre-design phase: the repository holds design documents, decision records
-and a verification bench, and **no product code**. The Cargo workspace has no members
-(`Cargo.toml`), and the only Rust in the tree is two throw-away probes under `verify/H27/`.
-This map says what each part is, which document has authority over which topic, and where the
-decisions live.
+Implementation update, 2026-11-02: the workspace now contains product code:
+`crates/terminal` owns real PTYs; `crates/projects` persists project-picker settings;
+`apps/desktop` contains the borderless Tauri/TypeScript/xterm shell and native bridge.
+`docs/implementation/PLAN.md` is the complete delivery map; `progress.json` records
+verified increments and the next ready step. `scripts/implementation.py` checks
+coverage and dependency/checkpoint consistency. The document inventory below retains
+its original 2026-11-01 snapshot where not updated; it is not a current implementation claim.
 
 Built by hand from a full read of the documents. Daodan's `codebase-map` plugin was not run
 for this map and no `.codebase-map/` directory was created. Daodan's onboarding check
@@ -19,7 +21,11 @@ hand-made copy would give a false answer.
 ```
 shinatama/
 ├── README.md                     entry point: one-paragraph product statement, links, naming, D1 history
-├── Cargo.toml                    empty workspace (edition 2024, resolver 3); the allowed dependency list
+├── Cargo.toml                    Rust workspace (edition 2024, resolver 3); the allowed dependency list
+├── crates/terminal/              real PTY ownership, bounded I/O and explicit process stop
+├── crates/projects/              validated MRU project settings, atomic writes and cooperative writer locking
+├── apps/desktop/                 borderless Tauri shell, terminal/picker UI and real-app tests
+├── scripts/                      implementation plan validation, rendering and checkpoint tests
 ├── .gitignore                    .jcode/, .daodan/, target/, verify/*/out/
 ├── docs/
 │   ├── functional-design.md      WHAT and WHY: goals, non-goals, surfaces, the parts (5.1–5.16), adapter requirements
@@ -59,8 +65,9 @@ shinatama/
 | `docs/notes/*.md` | Surveys; inputs, not decisions | none | reference |
 | `docs/mockups/*` | Interaction references | Not binding (functional-design 5.16) | reference |
 
-Overall approval of the design is still open (register O5). Nothing is built from these
-documents until it is given.
+The accepted Markdown FRDs and the user's 2026-11-02 instruction to proceed govern
+implementation. The overall design still contains draft details and open gates;
+the code's existence does not settle or pass them.
 
 ### Cross-references
 
