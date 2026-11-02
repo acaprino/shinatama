@@ -301,9 +301,30 @@
       "next_action": "Wire and qualify C03 backups/migrations, then implement the newly requested bounded DB maintenance."
     },
     "C03": {
-      "status": "in_progress",
+      "status": "verified",
       "commit_sha": null,
-      "next_action": "Qualify embedded schema-2 app after 43 state tests; verified private backups, crash rollback and fixed backup budgets are implemented."
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-C03-migrations.md",
+        "docs/verification/2026-11-02-C03-state-result.json"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-state --lib --test database --test location --test migrations --example check_location -j1 -- --test-threads=1",
+        "cargo clippy --offline -p shinatama-state --lib --test database --test location --test migrations --example check_location -j1 -- -D warnings",
+        "cargo test -p shinatama-state --test database --offline -j1 claimed_current_version_requires_the_embedded_schema_before_any_wal_change",
+        "cargo fmt -p shinatama-state -p shinatama-desktop -- --check",
+        "cargo build -p shinatama-desktop --features custom-protocol",
+        "npm run test:state",
+        "npm run test:desktop",
+        "python scripts/dependencies.py check --offline"
+      ],
+      "limits": [
+        "Copy-loop deadline is cooperative; OS I/O, integrity/schema checks and flush have no hard timeout.",
+        "Backup budget is fixed; existing copies are not deleted automatically. C03M cleanup/idle jobs and full S/RES gates remain unqualified."
+      ],
+      "next_action": "Implement C03M maintenance units and advance C04 project roots independently; preserve the mandatory C09R gate before terminal/sidecar hardening."
     }
   },
   "blockers": [],

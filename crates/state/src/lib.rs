@@ -2,4 +2,5 @@
 
 pub mod database;
 pub mod location;
+mod migrations;
 mod schema;

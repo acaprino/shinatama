@@ -1,8 +1,8 @@
 //! The schema contains only state already used by the application.
 
-use rusqlite::{Connection, TransactionBehavior};
+use rusqlite::Connection;
 
-pub const CURRENT_VERSION: u32 = 1;
+pub const CURRENT_VERSION: u32 = 2;
 
 pub(crate) const CREATE_V1: &str = "CREATE TABLE project (
     id TEXT PRIMARY KEY NOT NULL CHECK(length(id)=14 AND substr(id,1,2)='p_'),
@@ -36,11 +36,22 @@ pub(crate) fn validate_version(connection: &Connection, version: u32) -> rusqlit
             Err(rusqlite::Error::InvalidQuery)
         };
     }
-    let expected = ["project", "project_recent", "setting"]
+    let mut expected = ["project", "project_recent", "setting"]
         .into_iter()
-        .zip(CREATE_V1.split(';').filter(|sql| !sql.trim().is_empty()));
-    if version != CURRENT_VERSION
-        || actual.len() != 3
+        .zip(CREATE_V1.split(';').filter(|sql| !sql.trim().is_empty()))
+        .collect::<Vec<_>>();
+    if version == 2 {
+        expected.push((
+            "setting_json_insert",
+            crate::migrations::SETTING_JSON_INSERT_TRIGGER,
+        ));
+        expected.push((
+            "setting_json_update",
+            crate::migrations::SETTING_JSON_UPDATE_TRIGGER,
+        ));
+    }
+    if !matches!(version, 1 | 2)
+        || actual.len() != expected.len()
         || !actual
             .iter()
             .zip(expected)
@@ -74,17 +85,6 @@ fn normalized(sql: &str) -> String {
         }
     }
     output
-}
-
-pub(crate) fn initialize(connection: &mut Connection) -> rusqlite::Result<()> {
-    let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
-    let version: u32 = transaction.pragma_query_value(None, "user_version", |row| row.get(0))?;
-    validate_version(&transaction, version)?;
-    if version == 0 {
-        transaction.execute_batch(CREATE_V1)?;
-        transaction.pragma_update(None, "user_version", CURRENT_VERSION)?;
-    }
-    transaction.commit()
 }
 
 #[cfg(test)]

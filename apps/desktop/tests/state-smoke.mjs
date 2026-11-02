@@ -10,7 +10,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 if (process.platform !== 'win32') throw new Error('This embedded WebView2 state check is Windows-only.');
 const root = process.cwd();
-const expectedSchema = Number(process.env.SHINATAMA_EXPECT_SCHEMA || 1);
+const expectedSchema = Number(process.env.SHINATAMA_EXPECT_SCHEMA || 2);
 if (!Number.isSafeInteger(expectedSchema) || expectedSchema < 1 || expectedSchema >= 999) {
   throw new Error('The expected test schema must be an integer from 1 to 998.');
 }

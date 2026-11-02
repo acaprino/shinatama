@@ -1,6 +1,7 @@
 //! Typed local state. Callers schedule these blocking operations outside the UI thread.
 
 use crate::location::{LocationError, StorageLocation};
+use crate::migrations;
 use crate::schema;
 use rusqlite::{Connection, OpenFlags, OptionalExtension, TransactionBehavior, params};
 use serde::{Deserialize, Serialize};
@@ -31,6 +32,7 @@ pub enum DatabaseError {
     UnsupportedConfiguration,
     UnsupportedSchema,
     Busy(&'static str),
+    BackupBudget(&'static str),
 }
 
 impl fmt::Display for DatabaseError {
@@ -63,6 +65,10 @@ impl fmt::Display for DatabaseError {
             Self::UnsupportedSchema => write!(
                 f,
                 "Lo schema del database non corrisponde alla versione supportata. I dati sono conservati."
+            ),
+            Self::BackupBudget(reason) => write!(
+                f,
+                "Non è stato possibile completare la copia di sicurezza. {reason} I dati e le copie esistenti sono conservati. Dopo la correzione, chiudi e riapri Shinatama."
             ),
             Self::Busy(operation) => write!(
                 f,
@@ -212,7 +218,7 @@ impl Database {
         connection.pragma_update(None, "foreign_keys", true)?;
         verify_configuration(&connection)?;
         verify_fts5(&connection)?;
-        schema::initialize(&mut connection).map_err(schema_error)?;
+        migrations::initialize(&mut connection, location)?;
         let database = Self {
             location: location.clone(),
             connection: Mutex::new(connection),

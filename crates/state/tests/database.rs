@@ -63,7 +63,7 @@ fn bundled_fts5_pragmas_and_private_files_are_effective() {
     let database = Database::open(&location, None).unwrap();
     let diagnostic = database.diagnostics().unwrap();
     assert_eq!(diagnostic.path, location.database_path());
-    assert_eq!(diagnostic.schema_version, 1);
+    assert_eq!(diagnostic.schema_version, 2);
     assert_eq!(diagnostic.journal_mode, "wal");
     assert_eq!(diagnostic.synchronous, 1);
     assert!(diagnostic.foreign_keys);
@@ -378,7 +378,7 @@ fn newer_database_opens_read_only_without_rewriting_content() {
         reopened.access(),
         &DatabaseAccess::ReadOnlyNewer {
             found: 999,
-            supported: 1
+            supported: 2
         }
     );
     assert_eq!(reopened.recent().unwrap()[0].id, selected.id);
@@ -386,7 +386,7 @@ fn newer_database_opens_read_only_without_rewriting_content() {
         reopened.select(&project),
         Err(DatabaseError::NewerSchema {
             found: 999,
-            supported: 1
+            supported: 2
         })
     ));
     assert_eq!(fs::read(&path).unwrap(), bytes);
@@ -395,9 +395,9 @@ fn newer_database_opens_read_only_without_rewriting_content() {
 #[test]
 fn claimed_current_version_requires_the_embedded_schema_before_any_wal_change() {
     for sql in [
-        "PRAGMA user_version=1;",
-        "CREATE TABLE foreign_data(value TEXT); INSERT INTO foreign_data VALUES('retain'); PRAGMA user_version=1;",
-        "CREATE TABLE project(id TEXT PRIMARY KEY); CREATE TABLE setting(key TEXT PRIMARY KEY,value TEXT); PRAGMA user_version=1;",
+        "PRAGMA user_version=2;",
+        "CREATE TABLE foreign_data(value TEXT); INSERT INTO foreign_data VALUES('retain'); PRAGMA user_version=2;",
+        "CREATE TABLE project(id TEXT PRIMARY KEY); CREATE TABLE setting(key TEXT PRIMARY KEY,value TEXT); PRAGMA user_version=2;",
     ] {
         let fixture = Fixture::new();
         let location = fixture.location();
