@@ -4,6 +4,17 @@ use rusqlite::Connection;
 
 pub const CURRENT_VERSION: u32 = 2;
 
+/// Call after BEGIN IMMEDIATE: another window may have upgraded since open().
+/// The write reservation prevents a newer migration racing this check/commit.
+pub(crate) fn require_write_version(connection: &Connection) -> crate::database::Result<()> {
+    let found: u32 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
+    if found > CURRENT_VERSION {
+        Err(crate::database::DatabaseError::NewerSchema { found, supported: CURRENT_VERSION })
+    } else if found != CURRENT_VERSION {
+        Err(crate::database::DatabaseError::UnsupportedSchema)
+    } else { Ok(()) }
+}
+
 pub(crate) const CREATE_V1: &str = "CREATE TABLE project (
     id TEXT PRIMARY KEY NOT NULL CHECK(length(id)=14 AND substr(id,1,2)='p_'),
     path TEXT NOT NULL,
@@ -21,14 +32,33 @@ CREATE TABLE setting (
 /// A version integer alone does not establish that this binary understands a schema.
 /// Compare the embedded DDL, including constraints, strict types and indexes, before writing.
 pub(crate) fn validate_version(connection: &Connection, version: u32) -> rusqlite::Result<()> {
+    let actual = read_schema(connection)?;
+    validate_definitions(actual, version)
+}
+
+/// At most one extra object is needed to reject an unknown schema. Projected
+/// lengths are checked by SQLite before any DDL/name string is copied to Rust.
+fn read_schema(connection: &Connection) -> rusqlite::Result<Vec<(String, String)>> {
     let mut statement = connection.prepare(
-        "SELECT name,sql FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*' ORDER BY name",
+        "SELECT CASE WHEN octet_length(name)<=64 THEN name END AS bounded_name,
+                CASE WHEN octet_length(sql)<=4096 THEN sql END
+         FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*'
+         ORDER BY bounded_name LIMIT 6",
     )?;
-    let actual = statement
+    statement
         .query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            let name = row
+                .get::<_, Option<String>>(0)?
+                .ok_or(rusqlite::Error::InvalidQuery)?;
+            let sql = row
+                .get::<_, Option<String>>(1)?
+                .ok_or(rusqlite::Error::InvalidQuery)?;
+            Ok((name, sql))
         })?
-        .collect::<rusqlite::Result<Vec<_>>>()?;
+        .collect::<rusqlite::Result<Vec<_>>>()
+}
+
+fn validate_definitions(actual: Vec<(String, String)>, version: u32) -> rusqlite::Result<()> {
     if version == 0 {
         return if actual.is_empty() {
             Ok(())
@@ -90,6 +120,51 @@ fn normalized(sql: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn schema_projection_refuses_oversized_names_and_sql_without_copying_them() {
+        for (name, constraint) in [
+            ("oversized".to_owned(), "x".repeat(8192)),
+            ("x".repeat(65), String::new()),
+        ] {
+            let connection = Connection::open_in_memory().unwrap();
+            connection
+                .execute_batch(&format!(
+                    "CREATE TABLE {name}(value TEXT CHECK(value!='{constraint}'))"
+                ))
+                .unwrap();
+            assert!(matches!(
+                read_schema(&connection),
+                Err(rusqlite::Error::InvalidQuery)
+            ));
+            assert_eq!(
+                connection
+                    .query_row("SELECT count(*) FROM sqlite_schema", [], |row| row
+                        .get::<_, i64>(0))
+                    .unwrap(),
+                1
+            );
+        }
+    }
+
+    #[test]
+    fn schema_projection_never_materializes_more_than_six_objects() {
+        let connection = Connection::open_in_memory().unwrap();
+        for index in 0..30 {
+            connection
+                .execute_batch(&format!("CREATE TABLE extra_{index}(value TEXT)"))
+                .unwrap();
+        }
+        assert_eq!(read_schema(&connection).unwrap().len(), 6);
+        assert!(validate_version(&connection, CURRENT_VERSION).is_err());
+        assert_eq!(
+            connection
+                .query_row("SELECT count(*) FROM sqlite_schema", [], |row| row
+                    .get::<_, i64>(0))
+                .unwrap(),
+            30
+        );
+    }
 
     #[test]
     fn normalization_preserves_sql_literal_case_whitespace_and_escaped_quotes() {

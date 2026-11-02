@@ -59,7 +59,12 @@ solo il lavoro SQLite del tick. `SQLITE_INTERRUPT` per scadenza o pressione è
 Non si riavvia lo stesso batch in un ciclo automatico senza un nuovo tick ammesso.
 Chiamate OS, attese di storage e flush non hanno una garanzia rigida di 100 ms:
 si misurano separatamente e non si eseguono sulla UI né mantenendo transazioni
-di scrittura aperte durante l'I/O del filesystem.
+di scrittura aperte durante l'I/O del filesystem. Nel nucleo implementato i 100 ms
+misurano la fase SQL, finalizzazione e rilascio della lease, dopo l'ammissione
+filesystem misurata separatamente. Una soglia morbida di 500 ms rinvia il lavoro
+SQL se il preflight lento è già rientrato; non può interrompere una chiamata OS
+bloccata. Il tempo totale osservato non viene presentato come garantito entro
+100 ms. Il contatore VM resta unico e monotono attraverso tutte le fasi SQL.
 
 Il checkpoint automatico usa soltanto `PASSIVE` dopo l'ammissione per dimensione
 WAL e pressione. Un checkpoint non offre un numero massimo di pagine copiabili:

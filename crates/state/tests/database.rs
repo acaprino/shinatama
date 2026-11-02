@@ -393,6 +393,25 @@ fn newer_database_opens_read_only_without_rewriting_content() {
 }
 
 #[test]
+fn an_already_open_writer_cannot_modify_a_database_upgraded_by_another_connection() {
+    let fixture = Fixture::new();
+    let project = fixture.project("retained-before-upgrade");
+    let candidate = fixture.project("not-saved-after-upgrade");
+    let location = fixture.location();
+    let database = Database::open(&location, None).unwrap();
+    database.select(&project).unwrap();
+    let before = database.recent().unwrap();
+    let appearance = database.appearance().unwrap();
+    let external = Connection::open(location.database_path()).unwrap();
+    external.pragma_update(None, "user_version", 999).unwrap();
+    assert!(matches!(database.select(&candidate), Err(DatabaseError::NewerSchema { found: 999, .. })));
+    assert!(matches!(database.set_appearance(&AppearanceSettings { terminal_font_size: 19, reduced_motion: true }), Err(DatabaseError::NewerSchema { found: 999, .. })));
+    assert_eq!(database.recent().unwrap(), before);
+    assert_eq!(database.appearance().unwrap(), appearance);
+    assert_eq!(external.pragma_query_value::<u32, _>(None, "user_version", |row| row.get(0)).unwrap(), 999);
+}
+
+#[test]
 fn claimed_current_version_requires_the_embedded_schema_before_any_wal_change() {
     for sql in [
         "PRAGMA user_version=2;",

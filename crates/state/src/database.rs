@@ -33,6 +33,8 @@ pub enum DatabaseError {
     UnsupportedSchema,
     Busy(&'static str),
     BackupBudget(&'static str),
+    CapacityBudget(&'static str),
+    Cancelled,
 }
 
 impl fmt::Display for DatabaseError {
@@ -70,6 +72,11 @@ impl fmt::Display for DatabaseError {
                 f,
                 "Non è stato possibile completare la copia di sicurezza. {reason} I dati e le copie esistenti sono conservati. Dopo la correzione, chiudi e riapri Shinatama."
             ),
+            Self::CapacityBudget(reason) => write!(
+                f,
+                "Salvataggio rinviato: {reason}. Il lavoro già salvato è conservato; libera spazio o archivia dati esplicitamente prima di riprovare."
+            ),
+            Self::Cancelled => write!(f, "Operazione annullata. I dati non sono stati modificati."),
             Self::Busy(operation) => write!(
                 f,
                 "{operation} in corso in un'altra finestra. Riprova dopo il completamento."
@@ -110,6 +117,13 @@ pub struct ProjectRecord {
     pub name: String,
     pub last_opened: i64,
     pub available: bool,
+}
+
+/// Filesystem validation is complete before a caller enters its SQL transaction.
+pub(crate) struct PreparedProject {
+    path: String,
+    name: String,
+    key: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -235,6 +249,22 @@ impl Database {
         &self.access
     }
 
+    pub(crate) fn location(&self) -> &StorageLocation {
+        &self.location
+    }
+
+    /// Uses its own connection so optional work never holds the UI service lock.
+    pub fn maintain(
+        &self,
+        policy: crate::maintenance::Policy,
+    ) -> Result<crate::maintenance::Report> {
+        crate::maintenance::run_database(
+            self.location(),
+            matches!(self.access, DatabaseAccess::ReadWrite),
+            policy,
+        )
+    }
+
     pub fn diagnostics(&self) -> Result<DatabaseDiagnostics> {
         let connection = self.lock()?;
         Ok(DatabaseDiagnostics {
@@ -284,6 +314,31 @@ impl Database {
 
     /// Select an existing folder without creating or modifying anything in it.
     pub fn select(&self, path: &Path) -> Result<ProjectRecord> {
+        self.select_if_not_cancelled(path, &crate::cancellation::MutationToken::new())
+    }
+
+    pub fn select_if_not_cancelled(
+        &self,
+        path: &Path,
+        cancellation: &crate::cancellation::MutationToken,
+    ) -> Result<ProjectRecord> {
+        if cancellation.is_cancelled() {
+            return Err(DatabaseError::Cancelled);
+        }
+        let prepared = self.prepare_project(path)?;
+        if cancellation.is_cancelled() {
+            return Err(DatabaseError::Cancelled);
+        }
+        let mut connection = self.lock()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let permit = cancellation.begin_commit()?;
+        let selected = self.record_selection(&transaction, &prepared)?;
+        transaction.commit()?;
+        permit.finish();
+        Ok(selected)
+    }
+
+    pub(crate) fn prepare_project(&self, path: &Path) -> Result<PreparedProject> {
         self.require_writable()?;
         self.location.validate_project(path)?;
         let canonical = canonical_project(path)?;
@@ -294,8 +349,19 @@ impl Database {
             .unwrap_or(&canonical)
             .to_owned();
         let key = path_key(&canonical);
-        let mut connection = self.lock()?;
-        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        Ok(PreparedProject {
+            path: canonical,
+            name,
+            key,
+        })
+    }
+
+    pub(crate) fn record_selection(
+        &self,
+        transaction: &rusqlite::Transaction<'_>,
+        prepared: &PreparedProject,
+    ) -> Result<ProjectRecord> {
+        crate::schema::require_write_version(transaction)?;
         let (previous_time, previous_sequence): (i64, i64) = transaction.query_row(
             "SELECT coalesce(max(last_opened),0),coalesce(max(recent_sequence),0) FROM project",
             [],
@@ -308,13 +374,12 @@ impl Database {
             "INSERT INTO project(id,path,path_key,name,last_opened,recent_sequence) VALUES(?1,?2,?3,?4,?5,?6)
              ON CONFLICT(path_key) DO UPDATE SET path=excluded.path,name=excluded.name,last_opened=excluded.last_opened,recent_sequence=excluded.recent_sequence
              RETURNING id",
-            params![project_id(),canonical,key,name,timestamp,previous_sequence.saturating_add(1)], |row| row.get(0),
+            params![project_id(),prepared.path,prepared.key,prepared.name,timestamp,previous_sequence.saturating_add(1)], |row| row.get(0),
         )?;
-        transaction.commit()?;
         Ok(ProjectRecord {
             id,
-            path: canonical,
-            name,
+            path: prepared.path.clone(),
+            name: prepared.name.clone(),
             last_opened: timestamp,
             available: true,
         })
@@ -345,6 +410,7 @@ impl Database {
         let json = serde_json::to_string(settings).map_err(|_| DatabaseError::InvalidAppearance)?;
         let mut connection = self.lock()?;
         let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        schema::require_write_version(&transaction)?;
         transaction.execute("INSERT INTO setting(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value", params![APPEARANCE_KEY,json])?;
         transaction.commit()?;
         Ok(())
@@ -364,15 +430,15 @@ impl Database {
         }
     }
 
-    fn lock(&self) -> Result<MutexGuard<'_, Connection>> {
+    pub(crate) fn lock(&self) -> Result<MutexGuard<'_, Connection>> {
         self.connection
             .lock()
             .map_err(|_| DatabaseError::Unavailable)
     }
 
-    fn require_writable(&self) -> Result<()> {
+    pub(crate) fn require_writable(&self) -> Result<()> {
         match self.access {
-            DatabaseAccess::ReadWrite => Ok(()),
+            DatabaseAccess::ReadWrite => crate::maintenance::admit_write(self.location()),
             DatabaseAccess::ReadOnlyNewer { found, supported } => {
                 Err(DatabaseError::NewerSchema { found, supported })
             }
@@ -390,6 +456,7 @@ impl Database {
                 return Ok(());
             }
         }
+        self.require_writable()?;
         if path.file_name() != Some(std::ffi::OsStr::new("projects.json")) {
             return Err(DatabaseError::InvalidLegacyPreferences);
         }
@@ -420,6 +487,7 @@ impl Database {
         if import_completed(&transaction)? {
             return Ok(());
         }
+        schema::require_write_version(&transaction)?;
         let previous_sequence: i64 = transaction.query_row(
             "SELECT coalesce(max(recent_sequence),0) FROM project",
             [],

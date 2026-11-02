@@ -301,8 +301,8 @@
       "next_action": "Wire and qualify C03 backups/migrations, then implement the newly requested bounded DB maintenance."
     },
     "C03": {
-      "status": "verified",
-      "commit_sha": null,
+      "status": "committed",
+      "commit_sha": "15e40eca19d1173064a7c4a13154f8a7d639b44b",
       "platforms": [
         "Windows 11 x64 build 26200"
       ],
@@ -325,6 +325,31 @@
         "Backup budget is fixed; existing copies are not deleted automatically. C03M cleanup/idle jobs and full S/RES gates remain unqualified."
       ],
       "next_action": "Implement C03M maintenance units and advance C04 project roots independently; preserve the mandatory C09R gate before terminal/sidecar hardening."
+    },
+    "C03M": {
+      "status": "in_progress",
+      "commit_sha": null,
+      "units": {
+        "C03M.1": {
+          "status": "verified",
+          "commit_sha": null,
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-02-C03M-core.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-state --lib --test database --test location --test migrations --test maintenance --example check_location -j1 -- --test-threads=1",
+            "cargo clippy --offline -p shinatama-state --lib --test database --test location --test migrations --test maintenance --example check_location -j1 -- -D warnings"
+          ],
+          "limits": [
+            "Library core qualified; idle desktop scheduling and healthy-terminal integration follow in C03M.2/.3.",
+            "Filesystem/native I/O is not hard-preemptible; 100 ms is the SQL cooperative slice after measured admission."
+          ]
+        }
+      },
+      "next_action": "Commit the bounded maintenance core, then integrate idle runtime jobs and the independently prepared C04 catalog."
     }
   },
   "blockers": [],
