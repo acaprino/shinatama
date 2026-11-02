@@ -1,0 +1,11 @@
+{
+  "productName": "Shinatama TL1 proof",
+  "identifier": "dev.shinatama.tl1proof",
+  "build": {
+    "beforeBuildCommand": "",
+    "frontendDist": "../../../.prototype-evidence/tl1-dist"
+  },
+  "app": {
+    "windows": [{ "label": "main", "title": "Shinatama TL1 proof", "width": 1440, "height": 920, "minWidth": 760, "minHeight": 500, "decorations": false, "backgroundColor": "#09111d" }]
+  }
+}

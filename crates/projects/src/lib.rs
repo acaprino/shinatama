@@ -61,6 +61,18 @@ pub struct ProjectStore {
 }
 
 impl ProjectStore {
+    /// Read the existing catalog before validating a data location. This never
+    /// creates a directory or lock file and preserves invalid source bytes.
+    pub fn known_paths(directory: &Path) -> Result<Vec<PathBuf>> {
+        match read_config(&directory.join("projects.json"))? {
+            Some(bytes) => Ok(decode_config(&bytes)?
+                .into_iter()
+                .map(|project| PathBuf::from(project.path))
+                .collect()),
+            None => Ok(Vec::new()),
+        }
+    }
+
     /// Open picker preferences only. Invalid or future files are preserved unchanged.
     pub fn open(directory: &Path) -> Result<Self> {
         if !directory.is_absolute() {
@@ -163,11 +175,42 @@ impl ProjectStore {
 }
 
 fn read_config(path: &Path) -> Result<Option<Vec<u8>>> {
-    let file = match File::open(path) {
+    let mut options = OpenOptions::new();
+    options.read(true);
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        use windows_sys::Win32::Storage::FileSystem::{
+            FILE_FLAG_OPEN_REPARSE_POINT, FILE_SHARE_READ, FILE_SHARE_WRITE,
+        };
+        options
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+            .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE);
+    }
+    let file = match options.open(path) {
         Ok(file) => file,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(error) => return Err(error).context("Cannot read project settings"),
     };
+    #[cfg(windows)]
+    {
+        use std::os::windows::io::AsRawHandle;
+        use windows_sys::Win32::Storage::FileSystem::{
+            BY_HANDLE_FILE_INFORMATION, FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT,
+            GetFileInformationByHandle,
+        };
+        let mut info: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
+        if unsafe { GetFileInformationByHandle(file.as_raw_handle(), &mut info) } == 0 {
+            return Err(std::io::Error::last_os_error()).context("Cannot inspect project settings");
+        }
+        if info.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT) != 0
+            || info.nNumberOfLinks != 1
+        {
+            bail!(
+                "Project settings must be a regular file without symbolic or hard links. The original has been preserved"
+            );
+        }
+    }
     let mut bytes = Vec::new();
     file.take(MAX_CONFIG_BYTES + 1)
         .read_to_end(&mut bytes)
@@ -331,6 +374,48 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[test]
+    fn location_preflight_reads_catalog_without_creating_files() {
+        let fixture = Fixture::new();
+        assert!(
+            ProjectStore::known_paths(&fixture.config())
+                .unwrap()
+                .is_empty()
+        );
+        assert!(!fixture.config().exists());
+        let project = fixture.project("known-project");
+        let selected = ProjectStore::open(&fixture.config())
+            .unwrap()
+            .select(&project)
+            .unwrap();
+        assert_eq!(
+            ProjectStore::known_paths(&fixture.config()).unwrap(),
+            vec![PathBuf::from(selected.path)]
+        );
+        let config = fixture.config().join("projects.json");
+        fs::write(&config, b"unsupported original").unwrap();
+        assert!(ProjectStore::known_paths(&fixture.config()).is_err());
+        assert_eq!(fs::read(config).unwrap(), b"unsupported original");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn location_preflight_refuses_hard_link_before_reading_json() {
+        let fixture = Fixture::new();
+        fs::create_dir(fixture.config()).unwrap();
+        let original = fixture.0.join("unrelated.json");
+        fs::write(&original, b"{\"schema_version\":1,\"projects\":[]}").unwrap();
+        fs::hard_link(&original, fixture.config().join("projects.json")).unwrap();
+        let error = ProjectStore::known_paths(&fixture.config())
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("without symbolic or hard links"));
+        assert_eq!(
+            fs::read(original).unwrap(),
+            b"{\"schema_version\":1,\"projects\":[]}"
+        );
     }
 
     #[test]

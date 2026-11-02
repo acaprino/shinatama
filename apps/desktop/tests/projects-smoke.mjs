@@ -1,13 +1,14 @@
 // A real app restart proves picker persistence, without touching personal settings.
 import { chromium, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
-import { mkdir, rmdir } from 'node:fs/promises';
+import { mkdir, rmdir, mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
 if (process.platform !== 'win32') throw new Error('This WebView2 test is Windows-only.');
 const root = process.cwd();
-const fixture = resolve(root, '.prototype-evidence', `projects-${Date.now()}`);
+const fixture = await mkdtemp(resolve(tmpdir(), 'shinatama-projects-'));
 const first = resolve(fixture, 'first-project');
 const second = resolve(fixture, 'second-project');
 await mkdir(first, { recursive: true }); await mkdir(second);

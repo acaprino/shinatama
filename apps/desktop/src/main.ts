@@ -318,6 +318,13 @@ async function initialize() {
     await initializeWindowControls(notify);
     $('#runtime-status').innerHTML = '<i></i>Local runtime · experimental';
     render();
+    try {
+      const storage = await invoke<{ directory: string; database_path: string }>('storage_location');
+      $('#runtime-status').title = `Private data: ${storage.directory}\nDatabase: ${storage.database_path}`;
+    } catch (error) {
+      $('#runtime-status').textContent = 'Storage unavailable';
+      notify(error);
+    }
     // Window controls stay usable while missing/removable paths are checked.
     await projectPicker.restore();
   } catch (error) { $('#runtime-status').textContent = 'Runtime unavailable'; notify(error); }

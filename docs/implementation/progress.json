@@ -197,6 +197,61 @@
         "Release X3/X4/X5, TL1, P14, RES and sidecar gates remain open."
       ],
       "next_action": "Resume TL1-proof, the next ready step selected by the updated implementation plan."
+    },
+    "TL1-proof": {
+      "status": "in_progress",
+      "commit_sha": null,
+      "units": {
+        "TL1.1": {
+          "status": "verified",
+          "commit_sha": null,
+          "evidence": [
+            "docs/verification/2026-11-02-TL1-windows.md",
+            "docs/verification/2026-11-02-TL1-result.json"
+          ],
+          "checks": [
+            "npm run build:tl1",
+            "npm run desktop:tl1",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/tl1/proof.mjs",
+            "cargo test -p shinatama-desktop --features tl1-proof,custom-protocol tl1::tests -- --test-threads=1"
+          ],
+          "platforms": [
+            "Windows 11 x64 build 26200; WebView2 156.0.4314.58; Claude Code 2.1.316"
+          ]
+        }
+      },
+      "next_action": "Commit TL1.1, then register TL1 and the Proposed ADR revisions in TL1.2; continue C01 without another user checkpoint.",
+      "evidence": [
+        "docs/verification/2026-11-02-TL1-windows.md",
+        "docs/verification/2026-11-02-TL1-result.json"
+      ]
+    },
+    "C01": {
+      "status": "verified",
+      "commit_sha": null,
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-C01-private-storage.md"
+      ],
+      "checks": [
+        "cargo test -p shinatama-state --lib --test location -- --test-threads=1",
+        "cargo test -p shinatama-projects",
+        "cargo clippy -p shinatama-state --lib --test location --example check_location -- -D warnings",
+        "cargo clippy -p shinatama-desktop -p shinatama-projects --features custom-protocol -- -D warnings",
+        "npm run build",
+        "npm run test:storage",
+        "npm run test:projects",
+        "npm run test:desktop",
+        "python scripts/dependencies.py check --offline"
+      ],
+      "limits": [
+        "Full S2/S9/S11/D15/E4 gates stay open; Google Drive custom NTFS mirrored directories without provider metadata require qualification.",
+        "C01 prepares the private location; SQLite follows in C02."
+      ],
+      "commit_boundary": "Atomic current-file commit with TL1.1: automatic approval rejected substituting source files or staging derived partial contents. Separate evidence/status retained; C02/C03 source excluded.",
+      "next_action": "Continue C02 bundled SQLite and atomic legacy-history import after this checkpoint."
     }
   },
   "blockers": [],

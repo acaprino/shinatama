@@ -7,6 +7,8 @@ license.workspace = true
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
+# Explicit test build only; no fixture commands or assets in the product build.
+tl1-proof = []
 
 [build-dependencies]
 tauri-build.workspace = true
@@ -16,3 +18,4 @@ tauri.workspace = true
 serde.workspace = true
 shinatama-terminal.workspace = true
 shinatama-projects.workspace = true
+shinatama-state.workspace = true

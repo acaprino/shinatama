@@ -2848,6 +2848,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "shinatama-projects",
+ "shinatama-state",
  "shinatama-terminal",
  "tauri",
  "tauri-build",
@@ -2862,6 +2863,15 @@ dependencies = [
  "serde",
  "serde_json",
  "uuid",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "shinatama-state"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Shinatama TL1 proof</title></head>
+<body>
+  <header data-tauri-drag-region><strong data-tauri-drag-region>SHINATAMA · TL1 proof</strong><span id="runtime">Connecting</span><button id="close">Close proof</button></header>
+  <main id="root-split" class="split horizontal" data-ratio="21">
+    <section id="files-pane" class="panel"><h1>Files · synthetic workspace</h1><nav id="files" aria-label="Proof files"></nav></section>
+    <div class="splitter vertical" tabindex="0" role="separator" aria-label="Resize files pane" aria-orientation="vertical"></div>
+    <div id="content-split" class="split vertical" data-ratio="57">
+      <section id="terminal-pane" class="panel"><div class="toolbar"><h1>Real agent · native PTY</h1><span id="dimensions"></span><button id="start">Open terminal</button><button id="stop" disabled>Stop terminal</button></div><div id="terminal"></div></section>
+      <div class="splitter horizontal" tabindex="0" role="separator" aria-label="Resize terminal pane" aria-orientation="horizontal"></div>
+      <div id="document-split" class="split horizontal" data-ratio="50">
+        <section class="panel"><h1>Markdown source · <span id="file-name">Select a file</span></h1><pre id="source" tabindex="0"></pre></section>
+        <div class="splitter vertical" tabindex="0" role="separator" aria-label="Resize Markdown panes" aria-orientation="vertical"></div>
+        <section class="panel"><h1>Safe local preview</h1><article id="preview" tabindex="0"></article></section>
+      </div>
+    </div>
+  </main>
+  <footer><span id="status">No session · read-only proof fixture</span><span>Fixture excluded from production assets</span></footer>
+  <script type="module" src="./main.ts"></script>
+</body></html>

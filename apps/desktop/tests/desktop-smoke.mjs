@@ -2,7 +2,8 @@
 // Run after npm run build and cargo build -p shinatama-desktop --features custom-protocol.
 import { chromium, expect } from '@playwright/test';
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
@@ -10,10 +11,11 @@ if (process.platform !== 'win32') throw new Error('This WebView2 smoke test is W
 const root = process.cwd();
 const output = resolve(root, '.prototype-evidence');
 await mkdir(output, { recursive: true });
+const fixture = await mkdtemp(resolve(tmpdir(), 'shinatama-desktop-'));
 const port = 19226;
 const app = spawn(resolve(root, 'target/debug/shinatama-desktop.exe'), [], {
   cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
-  env: { ...process.env, SHINATAMA_HOME: resolve(output, 'smoke-home'), WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --remote-debugging-address=127.0.0.1`, WEBVIEW2_USER_DATA_FOLDER: resolve(output, 'webview-profile') },
+  env: { ...process.env, SHINATAMA_HOME: resolve(fixture, 'data'), WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --remote-debugging-address=127.0.0.1`, WEBVIEW2_USER_DATA_FOLDER: resolve(fixture, 'webview-profile') },
 });
 let diagnostics = '';
 app.stderr.on('data', chunk => { diagnostics += chunk; });

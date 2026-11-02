@@ -4,7 +4,7 @@
 [workspace]
 resolver = "3"
 # The terminal engine remains independent of the Tauri shell (ADR-0005).
-members = ["crates/terminal", "crates/projects", "apps/desktop/src-tauri"]
+members = ["crates/terminal", "crates/projects", "crates/state", "apps/desktop/src-tauri"]
 default-members = ["crates/terminal"]
 
 [workspace.package]
@@ -24,7 +24,8 @@ uuid = { version = "1", features = ["v4", "v7"] }
 portable-pty = "0.9"
 tauri = "2.9"
 tauri-build = "2.5"
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_Security"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_Security", "Win32_Storage_FileSystem", "Win32_Security_Authorization", "Win32_System_Registry", "Win32_System_Memory", "Win32_System_Environment"] }
 libc = "0.2"
 shinatama-terminal = { path = "crates/terminal" }
 shinatama-projects = { path = "crates/projects" }
+shinatama-state = { path = "crates/state" }

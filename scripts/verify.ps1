@@ -24,7 +24,7 @@ $report = [ordered]@{
     checks = $checks
     limitations = @(
         'Remote GitHub execution is separate evidence from a local run.'
-        'TL1, P14, release signing/install, sidecar and complete X3/X4/X5 gates remain open.'
+        'P14, release signing/install, sidecar and complete X3/X4/X5 gates remain open; TL1 has separate real-agent Windows evidence.'
         'No claim is made for macOS or Linux; Daodan remains deferred.'
     )
 }
@@ -94,6 +94,7 @@ try {
     # These share a checkout and use fixed CDP ports: keep them sequential.
     Invoke-Check 'desktop-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/desktop-smoke.mjs')
     Invoke-Check 'projects-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/projects-smoke.mjs')
+    Invoke-Check 'storage-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/storage-smoke.mjs')
     $report.executable = [ordered]@{
         path = 'target/debug/shinatama-desktop.exe'
         sha256 = (Get-FileHash -LiteralPath 'target/debug/shinatama-desktop.exe' -Algorithm SHA256).Hash.ToLowerInvariant()
