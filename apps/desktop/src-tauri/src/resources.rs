@@ -1,22 +1,81 @@
 //! Read-only resource observations and numeric UI telemetry; no launch/kill command.
+use crate::resource_governor::{GovernorConfig, ResourceGovernor, Snapshot};
 use serde::{Deserialize, Serialize};
+use shinatama_engine::resources::policy::PolicyConfig;
 #[cfg(windows)]
 use shinatama_engine::resources::{
     monitor::{CallerTelemetry, MonitorConfig, ResourceMonitor, WorkerPhase},
     sampling::Measurement,
 };
+use std::sync::{Arc, OnceLock};
+use std::time::Duration;
 use tauri::{State, WebviewWindow};
 
 pub struct Resources {
     #[cfg(windows)]
-    monitor: Option<ResourceMonitor>,
+    monitor: Option<Arc<ResourceMonitor>>,
+    governor: OnceLock<ResourceGovernor>,
 }
 impl Resources {
     pub fn start() -> Self {
         Self {
             #[cfg(windows)]
-            monitor: ResourceMonitor::start(MonitorConfig::default()).ok(),
+            monitor: ResourceMonitor::start(MonitorConfig::default())
+                .ok()
+                .map(Arc::new),
+            governor: OnceLock::new(),
         }
+    }
+    pub fn attach_governor(&self, maintenance: &Arc<crate::maintenance::Controller>) {
+        if self.governor.get().is_some() {
+            return;
+        }
+        maintenance.inhibit_optional_work(true);
+        #[cfg(windows)]
+        if let Some(monitor) = &self.monitor {
+            // Explicit conservative observer policy. Native workload profiles are
+            // still absent and this does not authorize or certify native launches.
+            let config = GovernorConfig {
+                policy: PolicyConfig {
+                    physical_available_floor_bytes: 512 * 1024 * 1024,
+                    commit_available_floor_bytes: 1024 * 1024 * 1024,
+                    pressure_enter_basis_points: 8500,
+                    pressure_exit_basis_points: 7500,
+                    emergency_basis_points: 9500,
+                    max_sample_age_ms: 3000,
+                    calibration_window_ms: 30_000,
+                    calibration_samples: 30,
+                    minimum_healthy_samples: 5,
+                    stable_ms: 3000,
+                    reduce_before_defer_ms: 500,
+                    defer_before_terminate_ms: 1000,
+                    cooldown_ms: 3000,
+                    learned_headroom_basis_points: 12_500,
+                    maximum_upward_step_basis_points: 1000,
+                },
+                update_period: Duration::from_millis(500),
+                max_frame_time_us: 1_500_000,
+                max_ipc_roundtrip_us: 1_500_000,
+            };
+            let maintenance = Arc::downgrade(maintenance);
+            if let Ok(governor) = ResourceGovernor::start(
+                Arc::clone(monitor),
+                config,
+                Vec::new(),
+                Arc::new(move |inhibit| {
+                    if let Some(maintenance) = maintenance.upgrade() {
+                        maintenance.inhibit_optional_work(inhibit);
+                    }
+                }),
+            ) {
+                let _ = self.governor.set(governor);
+            }
+        }
+    }
+    fn policy_status(&self) -> Option<Snapshot> {
+        self.governor
+            .get()
+            .and_then(|governor| governor.status().ok())
     }
 }
 
@@ -24,6 +83,12 @@ impl Resources {
 pub struct ResourceStatus {
     phase: &'static str,
     complete: bool,
+    discovery_complete: Option<bool>,
+    discovery_enumerated_processes: Option<usize>,
+    discovery_unavailable_candidates: Option<usize>,
+    discovery_rejected_ancestry: Option<usize>,
+    discovery_deadline_reached: Option<bool>,
+    monitor_issue: Option<String>,
     completed_cycles: u64,
     cycle_age_ms: Option<u64>,
     cycle_elapsed_us: Option<u64>,
@@ -61,6 +126,10 @@ pub fn resources_status(
     if window.label() != "main" {
         return Err("Resource observations are unavailable in this window.");
     }
+    Ok(observation(resources.inner()))
+}
+
+fn observation(resources: &Resources) -> ResourceStatus {
     let mut result = ResourceStatus {
         phase: "unavailable",
         ..Default::default()
@@ -80,6 +149,23 @@ pub fn resources_status(
         result.cycle_age_ms = status.last_completed_ago_ms;
         if let Ok(Some(frame)) = monitor.current() {
             result.complete = frame.complete();
+            result.discovery_complete = Some(frame.discovery.complete());
+            result.discovery_enumerated_processes = Some(frame.discovery.enumerated_processes);
+            result.discovery_unavailable_candidates = Some(frame.discovery.unavailable_candidates);
+            result.discovery_rejected_ancestry = Some(frame.discovery.rejected_ancestry);
+            result.discovery_deadline_reached = Some(frame.discovery.deadline_reached);
+            // These bounded enums contain counter/discovery failures, never paths,
+            // process names, arguments or terminal contents.
+            result.monitor_issue =
+                frame
+                    .failure
+                    .map(|reason| format!("{reason:?}"))
+                    .or_else(|| {
+                        frame
+                            .discovery
+                            .first_failure
+                            .map(|reason| format!("{reason:?}"))
+                    });
             result.cycle_elapsed_us = Some(frame.cycle_elapsed_us);
             if let Some(aggregate) = &frame.aggregate {
                 result.sampling_elapsed_us = Some(aggregate.sampling_elapsed_us);
@@ -125,7 +211,14 @@ pub fn resources_status(
             }
         }
     }
-    Ok(result)
+    result
+}
+
+#[derive(Serialize)]
+pub struct TelemetryReply {
+    accepted: bool,
+    policy: Option<Snapshot>,
+    resources: ResourceStatus,
 }
 
 #[tauri::command]
@@ -133,13 +226,14 @@ pub fn resources_telemetry(
     window: WebviewWindow,
     resources: State<'_, Resources>,
     telemetry: Telemetry,
-) -> Result<bool, &'static str> {
+) -> Result<TelemetryReply, &'static str> {
     if window.label() != "main" {
         return Err("Resource observations are unavailable in this window.");
     }
+    let mut accepted = false;
     #[cfg(windows)]
     if let Some(monitor) = &resources.monitor {
-        return Ok(monitor
+        accepted = monitor
             .report(CallerTelemetry {
                 input_latency_us: telemetry.input_latency_us,
                 frame_time_us: telemetry.frame_time_us,
@@ -148,7 +242,11 @@ pub fn resources_telemetry(
                 pending_output_bytes: telemetry.pending_output_bytes,
                 queued_launches: telemetry.queued_launches,
             })
-            .is_ok());
+            .is_ok();
     }
-    Ok(false)
+    Ok(TelemetryReply {
+        accepted,
+        policy: resources.policy_status(),
+        resources: observation(resources.inner()),
+    })
 }

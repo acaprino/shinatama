@@ -80,6 +80,7 @@ try {
     await delay(100);
   }
   const measured = observations.filter(value => value.complete);
+  evidence.lastObservation = observations.at(-1);
   assert.ok(measured.length > 0, 'No complete resource snapshot was observed.');
   const last = measured.at(-1);
   assert.ok(last.completed_cycles >= minimumCycles);
@@ -93,6 +94,21 @@ try {
   assert.ok(inputObserved, 'A real numeric input-dispatch delay was not observed.');
   assert.ok(Math.max(...roundtrips) < maxUiRoundtripMs);
   assert.deepEqual(await invoke('terminal_list'), []);
+  await page.locator('#resource-status').waitFor({ state: 'visible' });
+  const governed = await invoke('resources_telemetry', { telemetry: {} });
+  // The one-slot telemetry channel can already hold the frontend's report.
+  // Refusing this extra report is bounded backpressure, not monitor failure.
+  assert.equal(typeof governed.accepted, 'boolean');
+  assert.equal(governed.policy.phase, 'running');
+  assert.equal(governed.policy.advice_only, true);
+  assert.equal(governed.policy.native_launch_enabled, false);
+  assert.equal(governed.policy.native_workloads_protected, false);
+  assert.equal(governed.policy.configured_profiles, 0);
+  assert.equal(governed.policy.active_native_workloads, 0);
+  assert.ok(governed.policy.monitor_age_ms < 3000);
+  assert.ok(governed.resources.owned_private_commit_bytes > 0);
+  assert.ok((await page.locator('#resource-status').getAttribute('title')).includes('Native agent launches: unavailable'));
+  evidence.checks.liveGovernorAndHonestStatus = true;
   evidence.checks.nativeCountersAndProcessCoverage = true;
   evidence.checks.frontendFrameInputAndIpcMeasurements = true;
   evidence.checks.unknownQueuesRemainExplicit = true;
@@ -110,7 +126,7 @@ try {
   await exitWithin(10000);
   assert.equal(app.exitCode, 0);
   evidence.status = 'passed';
-  console.log('PASS: C09R.1 real resource counters, UI telemetry and responsive owned app.');
+  console.log('PASS: real resource counters, UI telemetry, live governor and responsive owned app.');
 } catch (error) { evidence.status = 'failed'; throw error; }
 finally {
   if (app && app.exitCode === null && app.signalCode === null) { app.kill(); await exitWithin(3000).catch(() => {}); }

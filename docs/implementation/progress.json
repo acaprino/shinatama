@@ -771,8 +771,8 @@
           ]
         },
         "C09R.2": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "14f44bac6d87da30e3c6bc5271eded2c9b3284ff",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -793,11 +793,32 @@
           ]
         },
         "C09R.3": {
+          "status": "verified",
+          "commit_sha": null,
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-02-C09R-policy.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine -j1 --lib resources::policy::tests -- --test-threads=1",
+            "cargo test --offline -p shinatama-desktop -j1 --features custom-protocol resource_governor::tests -- --test-threads=1",
+            "npm run build",
+            "cargo build --offline -p shinatama-desktop --features custom-protocol -j1",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/resources-smoke.mjs"
+          ],
+          "limits": [
+            "Generic bounded policy and optional-maintenance intervention only. Desktop snapshot explicitly advice-only with zero native profiles/jobs; native launches remain disabled.",
+            "Integrated terminal and sidecar fault containment and measured production profiles require C09/C13 and per-agent qualification."
+          ]
+        },
+        "C09R.4": {
           "status": "in_progress",
           "commit_sha": null
         }
       },
-      "next_action": "Wire explicit bounded adaptive policy and host governor; use only essential targeted checks and continue toward the usable first-agent delivery milestone."
+      "next_action": "Qualify bounded synthetic native faults and healthy sibling responsiveness in C09R.4; continue directly to dependent terminal/sidecar integration with essential checks only."
     }
   },
   "blockers": [],

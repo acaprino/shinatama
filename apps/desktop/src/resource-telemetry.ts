@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { renderResourceStatus, type ResourceTelemetryReply } from './resource-status.ts';
 
 let initialized = false;
 
@@ -53,7 +54,8 @@ export function initializeResourceTelemetry() {
       inputPeakUs = null;
       framePeakUs = null;
       try {
-        await invoke<boolean>('resources_telemetry', { telemetry });
+        const reply = await invoke<ResourceTelemetryReply>('resources_telemetry', { telemetry });
+        renderResourceStatus(reply);
         previousRoundtripUs = micros(performance.now() - started);
       } catch { previousRoundtripUs = null; }
     }

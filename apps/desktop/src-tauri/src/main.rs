@@ -3,6 +3,7 @@ mod launch;
 pub mod maintenance;
 mod new_project;
 mod projects;
+mod resource_governor;
 mod resources;
 mod storage;
 #[cfg(feature = "tl1-proof")]
@@ -247,7 +248,10 @@ fn main() {
                 .map(Ok)
                 .unwrap_or_else(|| app.path().app_config_dir());
             let services = Arc::new(storage::Services::new(directory.map_err(|e| e.to_string())));
-            app.manage(Arc::new(maintenance::Controller::start(services.clone())));
+            let maintenance = Arc::new(maintenance::Controller::start(services.clone()));
+            app.state::<resources::Resources>()
+                .attach_governor(&maintenance);
+            app.manage(maintenance);
             app.manage(Arc::new(projects::ProjectCatalog::new(services.clone())));
             app.manage(services);
             Ok(())
