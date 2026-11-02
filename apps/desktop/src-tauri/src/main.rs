@@ -6,6 +6,7 @@ mod projects;
 mod resource_governor;
 mod resources;
 mod storage;
+mod workspace;
 #[cfg(feature = "tl1-proof")]
 mod tl1;
 use shinatama_state::database::{DatabaseAccess, ProjectRecord as ProjectEntry};
@@ -253,6 +254,7 @@ fn main() {
                 .attach_governor(&maintenance);
             app.manage(maintenance);
             app.manage(Arc::new(projects::ProjectCatalog::new(services.clone())));
+            app.manage(Arc::new(workspace::Controller::new(services.clone())));
             app.manage(services);
             Ok(())
         });
@@ -261,6 +263,9 @@ fn main() {
         launch::launch_preflight,
         resources::resources_status,
         resources::resources_telemetry,
+        workspace::workspace_load,
+        workspace::workspace_save,
+        workspace::workspace_release,
         storage_location,
         maintenance_activity,
         maintenance_status,
@@ -288,6 +293,9 @@ fn main() {
         launch::launch_preflight,
         resources::resources_status,
         resources::resources_telemetry,
+        workspace::workspace_load,
+        workspace::workspace_save,
+        workspace::workspace_release,
         storage_location,
         maintenance_activity,
         maintenance_status,

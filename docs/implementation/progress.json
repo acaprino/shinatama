@@ -743,8 +743,8 @@
       "next_action": "Proceed immediately to mandatory C09R resource sampling, aggregate admission and native fault containment before dependent native execution."
     },
     "C09R": {
-      "status": "verified",
-      "commit_sha": null,
+      "status": "committed",
+      "commit_sha": "4e2c1b29038bfe15d20b03e07e94122d511b3629",
       "units": {
         "C09R.1": {
           "status": "committed",
@@ -814,8 +814,8 @@
           ]
         },
         "C09R.4": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "4e2c1b29038bfe15d20b03e07e94122d511b3629",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -847,6 +847,24 @@
       ]
     },
     "C06": {
+      "status": "verified",
+      "commit_sha": null,
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-C06-workspace.md"
+      ],
+      "checks": [
+        "node --experimental-strip-types --test apps/desktop/tests/workspace-model.test.ts apps/desktop/tests/workspace-persistence.test.ts",
+        "cargo check --offline -p shinatama-desktop --features custom-protocol -j1"
+      ],
+      "limits": [
+        "Visual integration and real save/restart proof follow in C07. Layout restore never starts processes. Explicit dead-owner recovery is being integrated separately."
+      ],
+      "next_action": "Integrate C07 renderer and layout persistence into the desktop shell, preserving existing terminal DOM and process identity."
+    },
+    "C07": {
       "status": "in_progress",
       "commit_sha": null
     }
