@@ -54,6 +54,11 @@ flowchart LR
 4. Salvare prove e comandi realmente eseguiti; segnare `verified`, oppure il blocco concreto.
 5. Preparare il commit con soli file/hunk del passo; dopo il commit annotare lo SHA reale e riprendere il prossimo passo pronto.
 
+I checkpoint servono a riprendere e verificare il lavoro: non richiedono un nuovo
+ordine per continuare. L'utente ha autorizzato l'implementazione del prodotto e
+la prosecuzione autonoma degli incrementi pronti. Un blocco su un gate non ferma
+le attività indipendenti; le prove mancanti restano aperte e non vengono inventate.
+
 ```sh
 python scripts/implementation.py validate
 python scripts/implementation.py render
@@ -89,7 +94,8 @@ Nessun `git add .`, reset o pulizia del lavoro altrui.
 - F32CI: runner unico locale/CI Windows, inventario/notice e prove locali completate;
   eseguire `npm run verify`. Il primo run remoto GitHub rimane prova separata.
 
-- Shell: Tauri è la scelta V1 definitiva (ADR-0005 v2); il passo `TL1-proof` la prova su Windows prima di C06.
+- TL1: shell Tauri provata su Windows con Claude Code reale, annidamento, Markdown e file. ADR-0002 v4 e ADR-0040 v2 sono Proposed, non approvati automaticamente.
+- C01: percorsi dati privati e controlli Windows implementati; SQLite segue in C02. Le qualifiche complete dei provider sincronizzati restano aperte.
 - B00: prototipo Tauri borderless con terminali reali, verificato su Windows.
 - B01: piano completo e validatore riprendibile; stato autorevole in `progress.json`.
 - B02: cronologia progetti e ripristino, con prova su due avvii reali.

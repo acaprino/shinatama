@@ -1,5 +1,11 @@
 # Verification register
 
+**TL1, 2026-11-02:** [Windows embedded-shell proof passed](verification/2026-11-02-TL1-windows.md)
+with native Claude Code, nested panels, real files and inert Markdown. WebView2
+156.0.4314.58; Windows without the runtime and the later document gates remain open.
+**C01:** [private local storage slice verified](verification/2026-11-02-C01-private-storage.md);
+full provider/path/ACL qualification remains open.
+
 **F32CI, 2026-11-02:** [runner e infrastruttura Windows verificati localmente](verification/2026-11-02-F32CI-windows-verification.md).
 L'inventario include i testi delle licenze, con obblighi MPL ancora da qualificare;
 nessun gate X/TL/P/RES completo viene chiuso da questa infrastruttura.
@@ -12,7 +18,7 @@ does not close the complete PM or cross-platform S gates.
 **2026-11-02:** Tauri is the definitive V1 shell (ADR-0005 v2, ADR-0047 v2). See the
 prototype's [verification record](verification/2026-11-02-tauri-terminal-prototype.md)
 and [scope note](implementation/tauri-prototype.md). Windows shell and layout checks are
-partial evidence; full TL/P gates and M0 are not passed.
+partial evidence; TL1 now has the separate proof above. Other TL/P gates and M0 are not passed.
 
 **Windows only, 2026-11-02:** Windows is the only officially supported platform for now
 (ADR-0047; [deferral](implementation/2026-11-02-macos-linux-deferred.md)). A row that names macOS,
@@ -33,12 +39,12 @@ written back. Nothing in this file has been run yet, except where a row says **o
 
 ## Native tiling revision — 2026-10-29
 
-These gates cover functional design 5.16 and technical design 3.1. They have not
-been executed. The toolkit remains a proposal; native Rust UI is the requirement.
+These gates cover functional design 5.16 and technical design 3.1. Tauri is the
+definitive V1 shell under ADR-0005 v3; individual results and remaining gaps follow.
 
 | ID | Priority | Verification and pass criterion | Status |
 | --- | --- | --- | --- |
-| TL1 | G0 | Shell proof of technical design 3.1, not the terminal-first UI milestone of functional design 5.12 and 5.16 (which has no file navigator). Prove the Tauri shell (ADR-0005) with real agent PTYs, nested splits and Markdown/file panels on Windows in WebView2. No required Node, development server or browser startup; record the WebView2 version and gaps. A failure revises ADR-0005. | open |
+| TL1 | G0 | Shell proof of technical design 3.1, not the terminal-first UI milestone of functional design 5.12 and 5.16 (which has no file navigator). Prove the Tauri shell (ADR-0005) with real agent PTYs, nested splits and Markdown/file panels on Windows in WebView2. No required Node, development server or browser startup; record the WebView2 version and gaps. A failure revises ADR-0005. | passed, Windows shell proof; [evidence and runtime gap](verification/2026-11-02-TL1-windows.md) |
 | TL2 | G1 | Mouse and keyboard split/resize/tab move/collapse/maximize work, including cancelled drops and small windows. Session identity/output stay intact; final PTY size is correct, hidden output is drained and modal/background input is isolated. Include IME, Unicode and scaling. | open |
 | TL3 | G1 | Per-project/window layout survives restart; corrupt/unknown state recovers without lost documents/history, conflicting workspace ownership is rejected and restoration starts no agents, apps or interactive browsers. | open |
 | TL4 | G1 | Markdown source/preview and dirty close preserve buffers; concurrent agent writes, save failures and stale render results cannot silently overwrite content. Hostile Markdown, paths/symlinks and remote assets cannot exceed grants. Test visual editor fidelity separately before enabling it. | open |

@@ -199,12 +199,12 @@
       "next_action": "Resume TL1-proof, the next ready step selected by the updated implementation plan."
     },
     "TL1-proof": {
-      "status": "in_progress",
+      "status": "verified",
       "commit_sha": null,
       "units": {
         "TL1.1": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "f1830cfe642087b52383f1eb4b5c391e25001a67",
           "evidence": [
             "docs/verification/2026-11-02-TL1-windows.md",
             "docs/verification/2026-11-02-TL1-result.json"
@@ -218,17 +218,30 @@
           "platforms": [
             "Windows 11 x64 build 26200; WebView2 156.0.4314.58; Claude Code 2.1.316"
           ]
+        },
+        "TL1.2": {
+          "status": "verified",
+          "commit_sha": null,
+          "evidence": [
+            "docs/verification/2026-11-02-TL1-windows.md"
+          ],
+          "checks": [
+            "python adr_tool.py validate --project ."
+          ],
+          "limits": [
+            "ADR-0002 v4 and ADR-0040 v2 remain Proposed pending explicit approval of their texts."
+          ]
         }
       },
-      "next_action": "Commit TL1.1, then register TL1 and the Proposed ADR revisions in TL1.2; continue C01 without another user checkpoint.",
+      "next_action": "Continue C02 shared SQLite, migration and typed state services; no checkpoint approval is needed.",
       "evidence": [
         "docs/verification/2026-11-02-TL1-windows.md",
         "docs/verification/2026-11-02-TL1-result.json"
       ]
     },
     "C01": {
-      "status": "verified",
-      "commit_sha": null,
+      "status": "committed",
+      "commit_sha": "f1830cfe642087b52383f1eb4b5c391e25001a67",
       "platforms": [
         "Windows 11 x64 build 26200"
       ],
