@@ -5,7 +5,7 @@ use shinatama_state::database::Database;
 use shinatama_state::location::{LocationRequest, StorageLocation};
 use std::{
     path::{Path, PathBuf},
-    sync::OnceLock,
+    sync::{Arc, OnceLock},
 };
 
 pub struct PreparedStorage {
@@ -14,7 +14,7 @@ pub struct PreparedStorage {
 }
 
 pub struct WorkspaceServices {
-    pub store: Database,
+    pub store: Arc<Database>,
     pub location: StorageLocation,
     pub _legacy: StorageLocation,
 }
@@ -25,6 +25,10 @@ pub struct Services {
 }
 
 impl Services {
+    pub(crate) fn ready(&self) -> Option<&WorkspaceServices> {
+        self.loaded.get().and_then(|result| result.as_ref().ok())
+    }
+
     pub fn new(directory: Result<PathBuf, String>) -> Self {
         Self {
             directory,
@@ -44,7 +48,7 @@ impl Services {
                 )
                 .map_err(|e| e.to_string())?;
                 Ok(WorkspaceServices {
-                    store,
+                    store: Arc::new(store),
                     location: prepared.data,
                     _legacy: prepared.legacy,
                 })

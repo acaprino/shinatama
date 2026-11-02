@@ -327,12 +327,12 @@
       "next_action": "Implement C03M maintenance units and advance C04 project roots independently; preserve the mandatory C09R gate before terminal/sidecar hardening."
     },
     "C03M": {
-      "status": "in_progress",
+      "status": "verified",
       "commit_sha": null,
       "units": {
         "C03M.1": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "c63f7e976f568965af2d213e2b0d1e7648779637",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -347,9 +347,171 @@
             "Library core qualified; idle desktop scheduling and healthy-terminal integration follow in C03M.2/.3.",
             "Filesystem/native I/O is not hard-preemptible; 100 ms is the SQL cooperative slice after measured admission."
           ]
+        },
+        "C03M.2": {
+          "status": "verified",
+          "commit_sha": null,
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-02-C03M-desktop.md",
+            "docs/verification/2026-11-02-C03M-desktop.result.json"
+          ],
+          "checks": [
+            "cargo test --offline --workspace --all-targets --features custom-protocol -j1 -- --test-threads=1",
+            "cargo clippy --offline --workspace --all-targets --features custom-protocol -j1 -- -D warnings",
+            "cargo fmt --all --check",
+            "npm run build",
+            "npm test",
+            "python scripts/dependencies.py check --offline",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/maintenance-smoke.mjs"
+          ],
+          "limits": [
+            "Fixed helper admission and C09R integration hook are qualified; adaptive C09R governor and production P14 remain open.",
+            "Native filesystem/checkpoint IO has no hard preemption guarantee.",
+            "UI IPC and rendered output metrics do not measure full keystroke-to-shell latency.",
+            "Capacity/pressure faults use reduced policy limits and cancellation; no host disk or memory exhaustion is induced."
+          ]
+        },
+        "C03M.3": {
+          "status": "verified",
+          "commit_sha": null,
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-02-C03M-desktop.md",
+            "docs/verification/2026-11-02-C03M-desktop.result.json"
+          ],
+          "checks": [
+            "cargo test --offline --workspace --all-targets --features custom-protocol -j1 -- --test-threads=1",
+            "cargo clippy --offline --workspace --all-targets --features custom-protocol -j1 -- -D warnings",
+            "cargo fmt --all --check",
+            "npm run build",
+            "npm test",
+            "python scripts/dependencies.py check --offline",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/maintenance-smoke.mjs"
+          ],
+          "limits": [
+            "Fixed helper admission and C09R integration hook are qualified; adaptive C09R governor and production P14 remain open.",
+            "Native filesystem/checkpoint IO has no hard preemption guarantee.",
+            "UI IPC and rendered output metrics do not measure full keystroke-to-shell latency.",
+            "Capacity/pressure faults use reduced policy limits and cancellation; no host disk or memory exhaustion is induced."
+          ]
         }
       },
-      "next_action": "Commit the bounded maintenance core, then integrate idle runtime jobs and the independently prepared C04 catalog."
+      "next_action": "Connect the qualified optional-work revocation hook to C09R when its calibrated governor is implemented.",
+      "evidence": [
+        "docs/verification/2026-11-02-C03M-desktop.md",
+        "docs/verification/2026-11-02-C03M-desktop.result.json"
+      ],
+      "checks": [
+        "cargo test --offline --workspace --all-targets --features custom-protocol -j1 -- --test-threads=1",
+        "cargo clippy --offline --workspace --all-targets --features custom-protocol -j1 -- -D warnings",
+        "cargo fmt --all --check",
+        "npm run build",
+        "npm test",
+        "python scripts/dependencies.py check --offline",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/maintenance-smoke.mjs"
+      ],
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "limits": [
+        "Fixed helper admission and C09R integration hook are qualified; adaptive C09R governor and production P14 remain open.",
+        "Native filesystem/checkpoint IO has no hard preemption guarantee.",
+        "UI IPC and rendered output metrics do not measure full keystroke-to-shell latency.",
+        "Capacity/pressure faults use reduced policy limits and cancellation; no host disk or memory exhaustion is induced."
+      ]
+    },
+    "C04": {
+      "status": "verified",
+      "commit_sha": null,
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-C04-project-catalog.md",
+        "docs/verification/2026-11-02-C04-project-catalog.result.json"
+      ],
+      "checks": [
+        "cargo test --offline --workspace --all-targets --features custom-protocol -j1 -- --test-threads=1",
+        "cargo clippy --offline --workspace --all-targets --features custom-protocol -j1 -- -D warnings",
+        "cargo fmt --all --check",
+        "npm run build",
+        "npm test",
+        "python scripts/dependencies.py check --offline",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/catalog-smoke.mjs",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/native-picker-smoke.mjs"
+      ],
+      "limits": [
+        "Local Windows synthetic and native-folder qualification passed; actual UNC/DriveFS latency and global U3 matrix remain open.",
+        "Manual B02 explicit folder opens count like F3 in the bounded outside-root history; passive scans/configuration do not.",
+        "C03M/C04 shared setup and UI integration is one verified runnable commit from actual current files; C05/C10 source preparation is excluded."
+      ],
+      "units": {
+        "C04.1": {
+          "status": "verified",
+          "commit_sha": null,
+          "evidence": [
+            "docs/verification/2026-11-02-C04-project-catalog.md",
+            "docs/verification/2026-11-02-C04-project-catalog.result.json"
+          ],
+          "checks": [
+            "cargo test --offline --workspace --all-targets --features custom-protocol -j1 -- --test-threads=1",
+            "cargo clippy --offline --workspace --all-targets --features custom-protocol -j1 -- -D warnings",
+            "cargo fmt --all --check",
+            "npm run build",
+            "npm test",
+            "python scripts/dependencies.py check --offline",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/catalog-smoke.mjs",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/native-picker-smoke.mjs"
+          ]
+        },
+        "C04.2": {
+          "status": "verified",
+          "commit_sha": null,
+          "evidence": [
+            "docs/verification/2026-11-02-C04-project-catalog.md",
+            "docs/verification/2026-11-02-C04-project-catalog.result.json"
+          ],
+          "checks": [
+            "cargo test --offline --workspace --all-targets --features custom-protocol -j1 -- --test-threads=1",
+            "cargo clippy --offline --workspace --all-targets --features custom-protocol -j1 -- -D warnings",
+            "cargo fmt --all --check",
+            "npm run build",
+            "npm test",
+            "python scripts/dependencies.py check --offline",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/catalog-smoke.mjs",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/native-picker-smoke.mjs"
+          ]
+        },
+        "C04.3": {
+          "status": "verified",
+          "commit_sha": null,
+          "evidence": [
+            "docs/verification/2026-11-02-C04-project-catalog.md",
+            "docs/verification/2026-11-02-C04-project-catalog.result.json"
+          ],
+          "checks": [
+            "cargo test --offline --workspace --all-targets --features custom-protocol -j1 -- --test-threads=1",
+            "cargo clippy --offline --workspace --all-targets --features custom-protocol -j1 -- -D warnings",
+            "cargo fmt --all --check",
+            "npm run build",
+            "npm test",
+            "python scripts/dependencies.py check --offline",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/catalog-smoke.mjs",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/native-picker-smoke.mjs"
+          ]
+        }
+      },
+      "next_action": "Implement C05 explicit project creation using the persisted roots and atomic cancellation boundary."
+    },
+    "C05": {
+      "status": "in_progress",
+      "commit_sha": null,
+      "next_action": "Wire the prepared project-creation core and UI, qualify contained Git, then run the real synthetic creation proof."
     }
   },
   "blockers": [],

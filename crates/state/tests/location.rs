@@ -143,6 +143,122 @@ fn private_directory_and_files_preserve_existing_bytes() {
 }
 
 #[test]
+fn optional_sqlite_files_accept_disappearance_but_reject_unsafe_existing_files() {
+    let fixture = Fixture::new();
+    let location = StorageLocation::resolve(fixture.request()).unwrap();
+    location.prepare_private_directory().unwrap();
+    let outside = fixture.0.join("outside.db");
+    fs::write(&outside, b"unrelated saved work").unwrap();
+    for name in ["shinatama.db-wal", "shinatama.db-shm"] {
+        let sidecar = location.directory().join(name);
+        fs::write(&sidecar, b"transient SQLite content").unwrap();
+        assert!(location.secure_private_file_if_present(&sidecar).unwrap());
+        location.verify_private_file(&sidecar).unwrap();
+        fs::remove_file(&sidecar).unwrap();
+        assert!(!location.secure_private_file_if_present(&sidecar).unwrap());
+        assert!(!sidecar.exists(), "absence must never recreate a sidecar");
+        fs::hard_link(&outside, &sidecar).unwrap();
+        assert_eq!(
+            location
+                .secure_private_file_if_present(&sidecar)
+                .unwrap_err()
+                .kind,
+            LocationErrorKind::InvalidPath
+        );
+        fs::remove_file(&sidecar).unwrap();
+    }
+    assert_eq!(fs::read(&outside).unwrap(), b"unrelated saved work");
+    assert_eq!(
+        location
+            .secure_private_file(&location.database_path())
+            .unwrap_err()
+            .kind,
+        LocationErrorKind::Io,
+        "the authoritative database must retain its strict file guard"
+    );
+    assert_eq!(
+        location
+            .secure_private_file_if_present(&outside)
+            .unwrap_err()
+            .kind,
+        LocationErrorKind::InvalidPath,
+        "optional files must still be direct children of private storage"
+    );
+}
+
+#[test]
+fn optional_sqlite_file_waits_for_pending_deletion_without_ignoring_a_persistent_block() {
+    use std::os::windows::fs::OpenOptionsExt;
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Storage::FileSystem::{
+        FILE_DISPOSITION_INFO, FILE_READ_ATTRIBUTES, FILE_READ_DATA, FILE_SHARE_DELETE,
+        FILE_SHARE_READ, FILE_SHARE_WRITE, FileDispositionInfo, SetFileInformationByHandle,
+    };
+    let fixture = Fixture::new();
+    let location = StorageLocation::resolve(fixture.request()).unwrap();
+    location.prepare_private_directory().unwrap();
+    let sidecar = location.directory().join("shinatama.db-shm");
+    fs::write(&sidecar, b"transient SQLite content").unwrap();
+    let handle = fs::OpenOptions::new()
+        .access_mode(0x0001_0000 | FILE_READ_ATTRIBUTES)
+        .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
+        .open(&sidecar)
+        .unwrap();
+    let disposition = FILE_DISPOSITION_INFO { DeleteFile: true };
+    assert_ne!(
+        unsafe {
+            SetFileInformationByHandle(
+                handle.as_raw_handle(),
+                FileDispositionInfo,
+                (&disposition as *const FILE_DISPOSITION_INFO).cast(),
+                size_of::<FILE_DISPOSITION_INFO>() as u32,
+            )
+        },
+        0
+    );
+    let closer = std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(25));
+        drop(handle);
+    });
+    let result = location.secure_private_file_if_present(&sidecar);
+    closer.join().unwrap();
+    assert!(!result.unwrap(), "a completed SQLite deletion is absence");
+    assert!(!sidecar.exists());
+
+    fs::write(&sidecar, b"persistent content").unwrap();
+    let mut persistent = fs::OpenOptions::new()
+        .access_mode(0x0001_0000 | FILE_READ_ATTRIBUTES | FILE_READ_DATA)
+        .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
+        .open(&sidecar)
+        .unwrap();
+    assert_ne!(
+        unsafe {
+            SetFileInformationByHandle(
+                persistent.as_raw_handle(),
+                FileDispositionInfo,
+                (&disposition as *const FILE_DISPOSITION_INFO).cast(),
+                size_of::<FILE_DISPOSITION_INFO>() as u32,
+            )
+        },
+        0
+    );
+    let started = std::time::Instant::now();
+    assert_eq!(
+        location
+            .secure_private_file_if_present(&sidecar)
+            .unwrap_err()
+            .kind,
+        LocationErrorKind::Io,
+        "a persistent access/sharing failure must never be accepted as absence"
+    );
+    assert!(started.elapsed() < std::time::Duration::from_secs(1));
+    let mut bytes = Vec::new();
+    std::io::Read::read_to_end(&mut persistent, &mut bytes).unwrap();
+    assert_eq!(bytes, b"persistent content");
+    drop(persistent);
+}
+
+#[test]
 fn file_outside_storage_and_hard_links_are_never_secured() {
     let fixture = Fixture::new();
     let location = StorageLocation::resolve(fixture.request()).unwrap();

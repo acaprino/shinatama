@@ -1,0 +1,81 @@
+{
+  "check": "C03M-embedded-maintenance",
+  "status": "passed",
+  "stage": "done",
+  "thresholds": {
+    "uiRttMs": 1500,
+    "markerAgeMs": 2000,
+    "markerGapMs": 3000
+  },
+  "checks": {
+    "ownedSyntheticStorageConfirmedBeforeInteraction": true,
+    "manualFiniteChecksPreserveAuthoritativeRows": true,
+    "anomalyReportContainsNoSyntheticSensitivePayload": true,
+    "busyWriterDefersMaintenanceAndKeepsTerminalResponsive": true,
+    "boundedBurstRequestsReturnAndRecoverySucceeds": true,
+    "unchangedIdleSchedulerRunsAnActualJob": true,
+    "originalRowsLegacyAndProjectFilesPreserved": true,
+    "repeatedJobsKeepOperationalRowsAndQuarantineBounded": true,
+    "themedCloseStopsOwnedTerminal": true
+  },
+  "metrics": {
+    "automaticAfterLastInputMs": 56565,
+    "uiRttMs": {
+      "samples": 218,
+      "p50": 10,
+      "p95": 16,
+      "maximum": 488
+    },
+    "markerAgeMs": {
+      "samples": 218,
+      "p50": 572,
+      "p95": 1008,
+      "maximum": 1508
+    },
+    "observedMarkerGapMs": {
+      "samples": 56,
+      "p50": 1098,
+      "p95": 1127,
+      "maximum": 1510
+    },
+    "burstRequests": 16,
+    "burstReturnMs": 63,
+    "explicitCompletedChecks": 6,
+    "operationalRows": 2,
+    "operationalMetadataBytes": 420,
+    "anomalyCount": 1,
+    "schema": 2
+  },
+  "outcomes": {
+    "completed": 205,
+    "deferred_busy": 17
+  },
+  "platform": {
+    "os": "Windows 11 x64 build 26200",
+    "node": "24.14.1",
+    "webview2": "156.0.4314.58"
+  },
+  "binary": {
+    "path": "target/debug/shinatama-desktop.exe",
+    "sha256": "3ebf467d5f4e5141d16b06dce5e2fa632db5576d641b578afb19bdf6a61666c0"
+  },
+  "qualification": {
+    "wrapperInGlobalJob": true,
+    "exitCode": 0,
+    "rustTests": 113,
+    "stateTests": 91,
+    "desktopTests": 8,
+    "frontendTests": 3,
+    "pythonTests": 29,
+    "remoteCiExecuted": false
+  },
+  "artifactSha256": "d36f096fbfc4f0652a2a4e0e3f2cfbaa65c13ad8b54a263ff933a915a9e5ff95",
+  "driverSha256": "bbf8e9327b271963467b363765f76d5e9ba5c26ab37d654a9564618e32fb4f48",
+  "outcomeCountsAreReportObservationsNotDistinctJobs": true,
+  "limits": [
+    "Fixed helper admission and C09R integration hook are qualified; adaptive C09R governor and production P14 remain open.",
+    "Native filesystem/checkpoint IO has no hard preemption guarantee.",
+    "UI IPC and rendered output metrics do not measure full keystroke-to-shell latency.",
+    "Capacity/pressure faults use reduced policy limits and cancellation; no host disk or memory exhaustion is induced."
+  ]
+}

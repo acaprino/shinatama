@@ -6,7 +6,7 @@ Runtime and build-tool reachability are conservative package-level classificatio
 Full packaged LICENSE/COPYRIGHT/NOTICE texts and reviewed supplements are generated in `.verification/THIRD_PARTY_LICENSES.txt`; distribute that file with prototype artifacts.
 System WebView2 and system fonts are external dependencies, not bundled assets. Node/npm, Python and the Rust toolchain are build/test tools and are not shipped by this application.
 
-Target: `x86_64-pc-windows-msvc`. Indexed packages: 288.
+Target: `x86_64-pc-windows-msvc`. Indexed packages: 292.
 
 | Ecosystem | Package | Version | Reachability | Declared license | Policy | License text files |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -155,6 +155,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 288.
 | Rust | regex | 1.13.1 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | regex-automata | 0.4.18 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | regex-syntax | 0.8.11 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
+| Rust | rfd | 0.17.2 | runtime | MIT | recognized | LICENSE |
 | Rust | rusqlite | 0.40.2 | runtime | MIT | recognized | LICENSE |
 | Rust | rustc-hash | 2.1.3 | build-tool, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | rustc_version | 0.4.1 | build-tool | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
@@ -202,6 +203,9 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 288.
 | Rust | tauri-build | 2.7.4 | build-tool | Apache-2.0 OR MIT | recognized | LICENSE-APACHE-2.0; LICENSE-MIT |
 | Rust | tauri-codegen | 2.7.4 | build-tool | Apache-2.0 OR MIT | recognized | LICENSE-APACHE-2.0; LICENSE-MIT |
 | Rust | tauri-macros | 2.7.4 | build-tool | Apache-2.0 OR MIT | recognized | LICENSE-APACHE-2.0; LICENSE-MIT |
+| Rust | tauri-plugin | 2.7.2 | build-tool | Apache-2.0 OR MIT | recognized | LICENSE (reviewed source supplement) |
+| Rust | tauri-plugin-dialog | 2.8.4 | runtime | Apache-2.0 OR MIT | recognized | LICENSE.spdx; LICENSE_APACHE-2.0; LICENSE_MIT |
+| Rust | tauri-plugin-fs | 2.7.1 | runtime | Apache-2.0 OR MIT | recognized | LICENSE.spdx; LICENSE_APACHE-2.0; LICENSE_MIT |
 | Rust | tauri-runtime | 2.12.2 | runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE-2.0; LICENSE-MIT |
 | Rust | tauri-runtime-wry | 2.12.3 | runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE-2.0; LICENSE-MIT |
 | Rust | tauri-utils | 2.10.2 | build-tool, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE-2.0; LICENSE-MIT |

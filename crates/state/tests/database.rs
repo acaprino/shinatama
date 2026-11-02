@@ -229,46 +229,50 @@ fn malformed_future_and_oversize_legacy_files_do_not_partially_import() {
 
 #[test]
 fn concurrent_legacy_import_has_one_marker_and_no_duplicate_projects() {
-    let fixture = Fixture::new();
-    let project = fixture.project("imported");
-    let legacy = fixture.legacy();
-    fs::write(&legacy, serde_json::to_vec(&serde_json::json!({"schema_version":1,"projects":[{"path":project,"name":"imported","last_opened":1234}]})).unwrap()).unwrap();
-    // Initialize once, then contend for the same one-time migration.
-    drop(Database::open(&fixture.location(), None).unwrap());
-    let barrier = std::sync::Arc::new(std::sync::Barrier::new(4));
-    let handles = (0..4)
-        .map(|_| {
-            let location = fixture.location();
-            let legacy = legacy.clone();
-            let barrier = barrier.clone();
-            std::thread::spawn(move || {
-                barrier.wait();
-                Database::open(&location, Some(&legacy))
-                    .unwrap()
-                    .recent()
-                    .unwrap()
+    // Repeated last-connection closes delete WAL/SHM while the next startup
+    // inspects them. Each round also independently proves one-time import.
+    for _ in 0..8 {
+        let fixture = Fixture::new();
+        let project = fixture.project("imported");
+        let legacy = fixture.legacy();
+        fs::write(&legacy, serde_json::to_vec(&serde_json::json!({"schema_version":1,"projects":[{"path":project,"name":"imported","last_opened":1234}]})).unwrap()).unwrap();
+        // Initialize once, then contend for the same one-time migration.
+        drop(Database::open(&fixture.location(), None).unwrap());
+        let barrier = std::sync::Arc::new(std::sync::Barrier::new(4));
+        let handles = (0..4)
+            .map(|_| {
+                let location = fixture.location();
+                let legacy = legacy.clone();
+                let barrier = barrier.clone();
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    Database::open(&location, Some(&legacy))
+                        .unwrap()
+                        .recent()
+                        .unwrap()
+                })
             })
-        })
-        .collect::<Vec<_>>();
-    let results = handles
-        .into_iter()
-        .map(|handle| handle.join().unwrap())
-        .collect::<Vec<_>>();
-    assert!(
-        results
-            .iter()
-            .all(|entries| entries.len() == 1 && entries[0].id == results[0][0].id)
-    );
-    let raw = Connection::open(fixture.location().database_path()).unwrap();
-    assert_eq!(
-        raw.query_row::<i64, _, _>(
-            "SELECT count(*) FROM setting WHERE key='migration.projects_json.v1'",
-            [],
-            |row| row.get(0)
-        )
-        .unwrap(),
-        1
-    );
+            .collect::<Vec<_>>();
+        let results = handles
+            .into_iter()
+            .map(|handle| handle.join().unwrap())
+            .collect::<Vec<_>>();
+        assert!(
+            results
+                .iter()
+                .all(|entries| entries.len() == 1 && entries[0].id == results[0][0].id)
+        );
+        let raw = Connection::open(fixture.location().database_path()).unwrap();
+        assert_eq!(
+            raw.query_row::<i64, _, _>(
+                "SELECT count(*) FROM setting WHERE key='migration.projects_json.v1'",
+                [],
+                |row| row.get(0)
+            )
+            .unwrap(),
+            1
+        );
+    }
 }
 
 #[test]
@@ -404,11 +408,25 @@ fn an_already_open_writer_cannot_modify_a_database_upgraded_by_another_connectio
     let appearance = database.appearance().unwrap();
     let external = Connection::open(location.database_path()).unwrap();
     external.pragma_update(None, "user_version", 999).unwrap();
-    assert!(matches!(database.select(&candidate), Err(DatabaseError::NewerSchema { found: 999, .. })));
-    assert!(matches!(database.set_appearance(&AppearanceSettings { terminal_font_size: 19, reduced_motion: true }), Err(DatabaseError::NewerSchema { found: 999, .. })));
+    assert!(matches!(
+        database.select(&candidate),
+        Err(DatabaseError::NewerSchema { found: 999, .. })
+    ));
+    assert!(matches!(
+        database.set_appearance(&AppearanceSettings {
+            terminal_font_size: 19,
+            reduced_motion: true
+        }),
+        Err(DatabaseError::NewerSchema { found: 999, .. })
+    ));
     assert_eq!(database.recent().unwrap(), before);
     assert_eq!(database.appearance().unwrap(), appearance);
-    assert_eq!(external.pragma_query_value::<u32, _>(None, "user_version", |row| row.get(0)).unwrap(), 999);
+    assert_eq!(
+        external
+            .pragma_query_value::<u32, _>(None, "user_version", |row| row.get(0))
+            .unwrap(),
+        999
+    );
 }
 
 #[test]

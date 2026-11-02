@@ -1,4 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+pub mod maintenance;
+mod projects;
 mod storage;
 #[cfg(feature = "tl1-proof")]
 mod tl1;
@@ -8,6 +10,41 @@ use std::{path::PathBuf, sync::Arc};
 use tauri::{Emitter, Manager, State};
 type Host = Arc<TerminalHost>;
 type Services = Arc<storage::Services>;
+type Maintenance = Arc<maintenance::Controller>;
+
+#[tauri::command]
+fn maintenance_activity(
+    window: tauri::WebviewWindow,
+    maintenance: State<'_, Maintenance>,
+) -> Result<(), String> {
+    local(&window)?;
+    maintenance.activity();
+    Ok(())
+}
+
+#[tauri::command]
+fn maintenance_status(
+    window: tauri::WebviewWindow,
+    maintenance: State<'_, Maintenance>,
+) -> Result<maintenance::Status, String> {
+    local(&window)?;
+    maintenance.status()
+}
+
+#[tauri::command]
+async fn maintenance_check(
+    window: tauri::WebviewWindow,
+    maintenance: State<'_, Maintenance>,
+) -> Result<maintenance::Status, String> {
+    local(&window)?;
+    let maintenance = maintenance.inner().clone();
+    let Some(check) = maintenance.try_check() else {
+        return maintenance.status();
+    };
+    tauri::async_runtime::spawn_blocking(move || check.execute())
+        .await
+        .map_err(|e| e.to_string())?
+}
 
 #[derive(serde::Serialize)]
 struct StorageDiagnostics {
@@ -65,20 +102,26 @@ async fn project_recent(
 async fn project_select(
     window: tauri::WebviewWindow,
     services: State<'_, Services>,
+    catalog: State<'_, Arc<projects::ProjectCatalog>>,
     path: String,
+    request_id: Option<String>,
 ) -> Result<ProjectEntry, String> {
     local(&window)?;
     let services = services.inner().clone();
+    let catalog = catalog.inner().clone();
+    let reservation = catalog.reserve(request_id)?;
     tauri::async_runtime::spawn_blocking(move || {
         let state = services.load()?;
-        state
-            .location
-            .validate_project(&PathBuf::from(&path))
-            .map_err(|e| e.to_string())?;
-        state
+        let selected = state
             .store
-            .select(&PathBuf::from(path))
-            .map_err(|e| e.to_string())
+            .project_manager_select_if_not_cancelled(&PathBuf::from(path), reservation.token())
+            .map_err(|e| e.to_string())?;
+        // The selection is committed. A cache refresh must not turn that success
+        // into a failed-save response if an unrelated read becomes unavailable.
+        if let Ok(config) = state.store.project_manager_read() {
+            catalog.engine.configure(config);
+        }
+        Ok::<ProjectEntry, String>(selected)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -191,23 +234,33 @@ async fn terminal_shutdown(
 }
 fn main() {
     let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(Arc::new(TerminalHost::default()))
         .setup(|app| {
             let directory = std::env::var_os("SHINATAMA_HOME")
                 .map(PathBuf::from)
                 .map(Ok)
                 .unwrap_or_else(|| app.path().app_config_dir());
-            app.manage(Arc::new(storage::Services::new(
-                directory.map_err(|e| e.to_string()),
-            )));
+            let services = Arc::new(storage::Services::new(directory.map_err(|e| e.to_string())));
+            app.manage(Arc::new(maintenance::Controller::start(services.clone())));
+            app.manage(Arc::new(projects::ProjectCatalog::new(services.clone())));
+            app.manage(services);
             Ok(())
         });
     #[cfg(not(feature = "tl1-proof"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         storage_location,
+        maintenance_activity,
+        maintenance_status,
+        maintenance_check,
         project_path,
         project_recent,
         project_select,
+        projects::catalog_begin,
+        projects::catalog_cancel,
+        projects::catalog_read,
+        projects::catalog_roots_set,
+        projects::catalog_browse,
         terminal_start,
         terminal_list,
         terminal_read,
@@ -219,9 +272,17 @@ fn main() {
     #[cfg(feature = "tl1-proof")]
     let builder = builder.invoke_handler(tauri::generate_handler![
         storage_location,
+        maintenance_activity,
+        maintenance_status,
+        maintenance_check,
         project_path,
         project_recent,
         project_select,
+        projects::catalog_begin,
+        projects::catalog_cancel,
+        projects::catalog_read,
+        projects::catalog_roots_set,
+        projects::catalog_browse,
         terminal_start,
         terminal_list,
         terminal_read,

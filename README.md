@@ -18,8 +18,14 @@ Daodan integration is temporarily deferred at the user's request (2026-11-02);
 generic checkup, agent launch, sessions, hop and worktrees do not depend on it.
 Run `npm run plan:status` to see the next ready increment; see the
 [resume protocol](docs/implementation/README.md) for checkpoints and commit boundaries.
-The project picker now remembers recent folders and restores the last available
-selection at startup without launching a terminal.
+The project picker stores multiple roots and an explicit default, filters and
+pages their first-level folders, and opens any folder with the native F3 picker.
+It remembers the last ten outside folders and restores the last available
+selection at startup without launching a terminal. State lives in per-user
+SQLite, with verified migration backups and bounded idle maintenance that
+preserves saved work. [Project picker evidence](docs/verification/2026-11-02-C04-project-catalog.md)
+and [maintenance evidence](docs/verification/2026-11-02-C03M-desktop.md) cover the
+current local Windows build; full resource resilience remains a later gate.
 
 With Rust, Node.js and the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) installed:
 

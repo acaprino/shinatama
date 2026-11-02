@@ -38,9 +38,9 @@ macOS e Linux sono fuori dallo scope su decisione dell utente: solo Windows e su
 | [C01](#c01) | Validare i percorsi locali privati prima di creare il database | B00, B02, F32CI | committed | 8–16 |
 | [C02](#c02) | Aprire SQLite incorporato in sicurezza ed esporre un servizio di stato tipizzato | C01, B02 | committed | 8–16 |
 | [C03](#c03) | Aggiungere migrazioni, copie di sicurezza e lettura dei database più recenti | C02 | committed | 6–12 |
-| [C03M](#c03m) | Mantenere finiti pulizia, validazione e crescita dello stato locale | C03, F32CI | in_progress | 18–30 |
-| [C04](#c04) | Configurare le radici e individuare i progetti con un selettore nativo | B02, C03 | pending | 10–20 |
-| [C05](#c05) | Creare progetti in modo atomico sotto la radice scelta | C04 | pending | 8–16 |
+| [C03M](#c03m) | Mantenere finiti pulizia, validazione e crescita dello stato locale | C03, F32CI | verified | 18–30 |
+| [C04](#c04) | Configurare le radici e individuare i progetti con un selettore nativo | B02, C03 | verified | 10–20 |
+| [C05](#c05) | Creare progetti in modo atomico sotto la radice scelta | C04 | in_progress | 8–16 |
 | [C10](#c10) | Definire contratti degli adattatori, capacità e verifiche di versione | C02, C03 | pending | 10–18 |
 | [C11](#c11) | Costruire piani di avvio sicuri e cartelle private degli agenti | C01, C10 | pending | 16–32 |
 | [C12](#c12) | Integrare il sorgente del sidecar e il suo ambiente privato | C11 | pending | 20–40 |

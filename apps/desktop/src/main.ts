@@ -6,6 +6,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { boundedRatio, parseLayout } from './layout.ts';
 import { initializeWindowControls } from './window-controls.ts';
 import { createProjectPicker } from './project-picker.ts';
+import { initializeMaintenance } from './maintenance.ts';
 import './styles.css';
 
 type SessionInfo = { id: string; cwd: string; shell: string };
@@ -289,6 +290,14 @@ $('#new-terminal').onclick = () => void startTerminal(focused);
 $('#restore').onclick = () => { for (const view of views.values()) view.hidden = false; maximized = null; render(); };
 $('#layout-toggle').onclick = () => { layout.axis = layout.axis === 'columns' ? 'rows' : 'columns'; maximized = null; applyLayout(); savePreference(); };
 document.addEventListener('keydown', event => {
+  if (projectPicker.handleKey(event)) return;
+  const target = event.target instanceof HTMLElement ? event.target : null;
+  const terminalInput = !!target?.closest('.xterm');
+  const textInput = !!target?.closest('input,textarea,select,[contenteditable="true"]');
+  if (!modalOpen() && !terminalInput && !textInput && !event.ctrlKey && !event.altKey && !event.metaKey) {
+    if (event.key === '/') { event.preventDefault(); projectPicker.open(true); return; }
+    if (event.key === 'F3') { event.preventDefault(); projectPicker.open(); void projectPicker.browse(); return; }
+  }
   if (modalOpen() || !event.ctrlKey || !event.shiftKey) return;
   if (event.key.toLowerCase() === 't') { event.preventDefault(); void startTerminal(focused); }
   if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
@@ -316,6 +325,7 @@ async function initialize() {
       } catch (error) { notify(error); }
     });
     await initializeWindowControls(notify);
+    initializeMaintenance(notify);
     $('#runtime-status').innerHTML = '<i></i>Local runtime · experimental';
     render();
     try {

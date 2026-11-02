@@ -22,8 +22,10 @@ i test si collegano al WebView2 dell'app tramite una porta locale di test.
 Il runner controlla versioni e ambiente, usa `npm ci` senza audit/fund,
 valida piano e checkpoint, esegue i test Python e frontend, costruisce il frontend,
 controlla inventario/notice, formattazione, clippy e test Rust con i lockfile.
-Poi costruisce l'eseguibile embedded e prova PTY reale, controlli della finestra
-e tre avvii per la cronologia progetti.
+Poi costruisce l'eseguibile embedded e prova PTY reale, controlli della finestra,
+cronologia, storage, SQLite, catalogo e manutenzione durante un terminale sano.
+La manutenzione usa il vero intervallo di 60 secondi. La compilazione usa un job
+per default, rispettando un eventuale `CARGO_BUILD_JOBS` gia impostato.
 
 I test GUI sono sequenziali: porte CDP e profili isolati non vanno condivisi da
 run simultanei nello stesso checkout. I processi sintetici passano per il job
@@ -46,7 +48,8 @@ e il candidato installato rilevato, non una certificazione del motore effettivo.
 Sono caricabili solo:
 
 - `.verification/verification.json` e `dependencies.json` sanitizzati;
-- `desktop-terminals.png` e `projects-picker.png`, prodotti con dati sintetici;
+- `desktop-terminals.png` e `projects-picker.png`, prodotti con dati sintetici,
+  piu i rapporti sanitizzati `project-catalog.json` e `maintenance.json`;
 - eseguibile debug, `THIRD_PARTY_NOTICES.md` e testi completi delle licenze.
 
 Nessun profilo WebView, cronologia, impostazione personale, dump ambiente o log
@@ -58,6 +61,9 @@ release, non firma e non avvia modelli/agenti reali.
 
 Configurazione del workflow ed esecuzione locale sono distinte da un run GitHub
 effettivo. Un'immagine Windows Server non certifica da sola Windows 10/11.
+`npm run test:native-picker`, sotto il wrapper P14, e una prova interattiva
+Windows separata: apre il vero selettore nativo di cartelle e non e inclusa
+automaticamente nella CI hosted. Non eseguire altri test GUI in parallelo.
 TL1 ha [una prova Windows separata con agente reale](../verification/2026-11-02-TL1-windows.md).
 P14, installazione/firma, sidecar/Node provisioning e i gate completi
 X3/X4/X5 restano aperti. L'inventario segnala obblighi MPL da riesaminare per la

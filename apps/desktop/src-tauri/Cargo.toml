@@ -15,7 +15,11 @@ tauri-build.workspace = true
 
 [dependencies]
 tauri.workspace = true
+tauri-plugin-dialog.workspace = true
 serde.workspace = true
 shinatama-terminal.workspace = true
 shinatama-projects.workspace = true
 shinatama-state.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys.workspace = true

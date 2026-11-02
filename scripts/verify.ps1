@@ -15,6 +15,8 @@ $logDirectory = Join-Path $reportDirectory 'logs'
 [void](New-Item -ItemType Directory -Path $logDirectory -Force)
 $checks = [Collections.Generic.List[object]]::new()
 $deadline = [DateTime]::UtcNow.AddMinutes($TimeoutMinutes)
+$previousBuildJobs = $env:CARGO_BUILD_JOBS
+if (-not $env:CARGO_BUILD_JOBS) { $env:CARGO_BUILD_JOBS = '1' }
 $report = [ordered]@{
     schema_version = 1
     scope = 'Windows x64 development verification; not release certification'
@@ -96,6 +98,8 @@ try {
     Invoke-Check 'projects-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/projects-smoke.mjs')
     Invoke-Check 'storage-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/storage-smoke.mjs')
     Invoke-Check 'state-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/state-smoke.mjs')
+    Invoke-Check 'catalog-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/catalog-smoke.mjs')
+    Invoke-Check 'maintenance-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/maintenance-smoke.mjs')
     $report.executable = [ordered]@{
         path = 'target/debug/shinatama-desktop.exe'
         sha256 = (Get-FileHash -LiteralPath 'target/debug/shinatama-desktop.exe' -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -111,5 +115,6 @@ try {
 } finally {
     $report.finished_at = [DateTime]::UtcNow.ToString('o')
     $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $reportDirectory 'verification.json') -Encoding utf8NoBOM
+    $env:CARGO_BUILD_JOBS = $previousBuildJobs
     Pop-Location
 }

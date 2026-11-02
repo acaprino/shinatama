@@ -22,9 +22,9 @@ use windows_sys::Win32::Storage::FileSystem::{
     BY_HANDLE_FILE_INFORMATION, CreateDirectoryW, FILE_ALL_ACCESS, FILE_ATTRIBUTE_DIRECTORY,
     FILE_ATTRIBUTE_OFFLINE, FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS, FILE_ATTRIBUTE_RECALL_ON_OPEN,
     FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
-    FILE_READ_ATTRIBUTES, FILE_SHARE_READ, FILE_SHARE_WRITE, GetDriveTypeW, GetFileAttributesW,
-    GetFileInformationByHandle, GetVolumeInformationW, GetVolumePathNameW, INVALID_FILE_ATTRIBUTES,
-    QueryDosDeviceW,
+    FILE_READ_ATTRIBUTES, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_STANDARD_INFO, FileStandardInfo,
+    GetDriveTypeW, GetFileAttributesW, GetFileInformationByHandle, GetFileInformationByHandleEx,
+    GetVolumeInformationW, GetVolumePathNameW, INVALID_FILE_ATTRIBUTES, QueryDosDeviceW,
 };
 use windows_sys::Win32::System::Environment::ExpandEnvironmentStringsW;
 use windows_sys::Win32::System::Registry::{
@@ -523,12 +523,45 @@ fn inspect_object(
     }
     if info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT != 0
         || (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY != 0) != directory
-        || (!directory && info.nNumberOfLinks != 1)
     {
         return Err(LocationError::new(
             LocationErrorKind::InvalidPath,
             path,
             "Il percorso deve essere regolare, senza collegamenti simbolici o hard link.",
+        ));
+    }
+    if !directory && info.nNumberOfLinks != 1 {
+        if info.nNumberOfLinks == 0 {
+            // A last SQLite connection can unlink its sidecar after our open but
+            // before this inspection. Verify deletion on that same handle; zero
+            // links alone never exempts an object from the hard-link guard.
+            let mut standard: FILE_STANDARD_INFO = unsafe { std::mem::zeroed() };
+            if unsafe {
+                GetFileInformationByHandleEx(
+                    file.as_raw_handle(),
+                    FileStandardInfo,
+                    (&mut standard as *mut FILE_STANDARD_INFO).cast(),
+                    size_of::<FILE_STANDARD_INFO>() as u32,
+                )
+            } == 0
+            {
+                return Err(failed(
+                    path,
+                    LocationErrorKind::Permissions,
+                    "Impossibile verificare la cancellazione del file",
+                ));
+            }
+            if standard.NumberOfLinks == 0 && standard.DeletePending {
+                return Err(LocationError::io(
+                    path,
+                    io::Error::new(io::ErrorKind::NotFound, "Il file è in cancellazione."),
+                ));
+            }
+        }
+        return Err(LocationError::new(
+            LocationErrorKind::InvalidPath,
+            path,
+            "Il file deve avere un solo collegamento, senza hard link.",
         ));
     }
     Ok(info)

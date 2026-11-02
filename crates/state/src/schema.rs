@@ -9,10 +9,15 @@ pub const CURRENT_VERSION: u32 = 2;
 pub(crate) fn require_write_version(connection: &Connection) -> crate::database::Result<()> {
     let found: u32 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
     if found > CURRENT_VERSION {
-        Err(crate::database::DatabaseError::NewerSchema { found, supported: CURRENT_VERSION })
+        Err(crate::database::DatabaseError::NewerSchema {
+            found,
+            supported: CURRENT_VERSION,
+        })
     } else if found != CURRENT_VERSION {
         Err(crate::database::DatabaseError::UnsupportedSchema)
-    } else { Ok(()) }
+    } else {
+        Ok(())
+    }
 }
 
 pub(crate) const CREATE_V1: &str = "CREATE TABLE project (

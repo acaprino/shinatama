@@ -1,0 +1,80 @@
+{
+  "check": "C04-project-catalog-and-native-Windows-picker",
+  "recordedAtUtc": "2026-11-02T19:54:16Z",
+  "status": "passed-local-Windows",
+  "platform": {
+    "os": "Windows 11 x64 build 26200",
+    "node": "24.14.1",
+    "webview2": "156.0.4314.58"
+  },
+  "binary": {
+    "path": "target/debug/shinatama-desktop.exe",
+    "sha256": "3EBF467D5F4E5141D16B06DCE5E2FA632DB5576D641B578AFB19BDF6A61666C0",
+    "kind": "Normal embedded desktop build with custom-protocol; no native picker test bridge"
+  },
+  "catalog": {
+    "status": "passed",
+    "wrapperInGlobalJob": true,
+    "exitCode": 0,
+    "elapsedSeconds": 9.7,
+    "fixtureProjectCount": 186,
+    "maxRenderedProjectRows": 100,
+    "initialFailure": "Root editor accepted cached revision before authoritative configuration loaded, so Save rejected stale expectedRevision.",
+    "verifiedFix": "Separate configLoading from directory scanning; gate editor/Save; preserve monotonic cached revision.",
+    "test": "apps/desktop/tests/catalog-smoke.mjs",
+    "testSha256": "DA12EE310FDE0FA2A70972BD0D5EB1F7BA6E433E3A6541AE4235A98B16EF19DD",
+    "artifact": ".prototype-evidence/project-catalog.json",
+    "artifactSha256": "239F6F3AC47A7B02539CB0E763897D0F93A63016532E80C2C54EB3FCD1D47DBD",
+    "screenshot": ".prototype-evidence/project-roots.png",
+    "screenshotSha256": "81200E57D52D5CC0A37C073D168CC8FD8F0C8B447546CACE82B8FFACF4AC4F07",
+    "screenshotInspectedSyntheticContentOnly": true,
+    "checks": {
+      "multipleRootsExplicitDefaultAnd100RowPagination": true,
+      "usageOrderingAndIncrementalFilter": true,
+      "catalogCancelPreservesSelectionAndTerminalIdentity": true,
+      "filterShortcutNeverStealsTerminalInput": true,
+      "discardedRootDraftDoesNotChangeConfiguration": true,
+      "restartRetainsRootsAndMissingDefaultWithoutFallback": true,
+      "noAutomaticTerminalLaunchOnRestart": true
+    }
+  },
+  "compatibilityDecision": {
+    "historyIntroduction": "Explicit manual B02 Use folder is equivalent to an explicit F3 folder open for outside-root history.",
+    "passiveScanningOrConfigurationIntroducesHistory": false,
+    "outsideRootHistoryReferenceLimit": 10
+  },
+  "nativePicker": {
+    "status": "passed",
+    "wrapperInGlobalJob": true,
+    "exitCode": 0,
+    "elapsedSecondsApproximate": 11,
+    "test": "apps/desktop/tests/native-picker-smoke.mjs",
+    "testSha256": "B85B4FA7F86BB9819F1C6B7AD015F7AC44F87063574932ADA757FBEDF5E9115C",
+    "helper": "apps/desktop/tests/native-folder.ps1",
+    "helperSha256": "6FF11D16D5C401373471B74AF24E5AB9645AB381EC27B6BD6239D8DD7901F9EC",
+    "dialogClass": "#32770",
+    "ownership": "Spawned process ID and owner chain to its known main HWND; checked before each native action",
+    "entryMethod": "scoped_win32_edit",
+    "entryControlId": "1152",
+    "uiaValuePatternQualified": false,
+    "checks": {
+      "realF3NativeCancelPreservesSelectionAndHistory": true,
+      "secondRealNativeCancelReturnsCancelledKind": true,
+      "realF3SelectsExactSyntheticUnicodeFolder": true,
+      "stableIdAndSelectionSurviveRestart": true,
+      "noAutomaticTerminalsAndCustomCloseExitZero": true
+    },
+    "artifact": ".prototype-evidence/native-picker.json",
+    "artifactSha256": "E5FF28DEB97A91E66B467BD577729FDAD869A6EB4248F8DD50DCBED4BDB7FCE4",
+    "exclusiveCdpPortAdmissionEnabled": true,
+    "occupiedPortNegativeCaseExecuted": false,
+    "connectedStorageIdentityCheckedBeforeUiMutations": true
+  },
+  "allOwnedAppAndHelperProcessesClosedAfterRuns": true,
+  "unqualified": [
+    "Real UNC/network-share/Google Drive DriveFS availability and latency",
+    "Hosted CI native interactive desktop automation",
+    "Global U3 keyboard matrix and every UI scale",
+    "C09R aggregate resource calibration and subprocess-fault resilience"
+  ]
+}

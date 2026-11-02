@@ -562,11 +562,16 @@ fn acquire_private_lock(
 }
 
 fn secure_location_files(location: &StorageLocation) -> Result<()> {
-    for name in ["shinatama.db", "shinatama.db-wal", "shinatama.db-shm"] {
+    let database = location.database_path();
+    if database.try_exists().map_err(DatabaseError::Io)? {
+        location.secure_private_file(&database)?;
+    }
+    for name in ["shinatama.db-wal", "shinatama.db-shm"] {
         let path = location.directory().join(name);
-        if path.try_exists().map_err(DatabaseError::Io)? {
-            location.secure_private_file(&path)?;
-        }
+        // SQLite's last connection may delete these independently of schema.lock.
+        // Regenerated sidecars inherit the already-verified private directory ACL;
+        // existing sidecars still receive the full no-follow/ownership inspection.
+        location.secure_private_file_if_present(&path)?;
     }
     Ok(())
 }

@@ -29,6 +29,7 @@ pub struct LocationError {
     pub kind: LocationErrorKind,
     pub path: PathBuf,
     detail: String,
+    source: Option<io::Error>,
 }
 
 impl LocationError {
@@ -37,11 +38,17 @@ impl LocationError {
             kind,
             path: path.to_path_buf(),
             detail: detail.into(),
+            source: None,
         }
     }
 
     fn io(path: &Path, error: io::Error) -> Self {
-        Self::new(LocationErrorKind::Io, path, error.to_string())
+        Self {
+            kind: LocationErrorKind::Io,
+            path: path.to_path_buf(),
+            detail: error.to_string(),
+            source: Some(error),
+        }
     }
 }
 
@@ -56,7 +63,11 @@ impl fmt::Display for LocationError {
     }
 }
 
-impl std::error::Error for LocationError {}
+impl std::error::Error for LocationError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.source.as_ref().map(|error| error as _)
+    }
+}
 
 pub type Result<T> = std::result::Result<T, LocationError>;
 
@@ -160,7 +171,7 @@ impl StorageLocation {
             ));
         }
         for project in &request.project_roots {
-            if let Ok((root, _)) = canonical_future_path(project)
+            if let Ok((root, _)) = canonical_project_future_path(project)
                 && (is_within(&directory, &root) || is_within(&root, &directory))
             {
                 return Err(LocationError::new(
@@ -297,6 +308,59 @@ impl StorageLocation {
         ))
     }
 
+    /// Secure an optional file without a separate existence check. SQLite may remove
+    /// WAL/SHM files when its last connection closes, including during another open.
+    /// Only an absent file is accepted; the private parent and all existing-file
+    /// ownership, ACL, reparse-point and hard-link checks remain mandatory. A pending
+    /// Windows deletion may deny opens briefly; persistent failures still propagate
+    /// after at most 100 ms of retry waiting (filesystem calls are not preemptible).
+    pub fn secure_private_file_if_present(&self, path: &Path) -> Result<bool> {
+        self.validate_file(path)?;
+        #[cfg(windows)]
+        {
+            use std::time::{Duration, Instant};
+            use windows_sys::Win32::Foundation::{
+                ERROR_ACCESS_DENIED, ERROR_DELETE_PENDING, ERROR_SHARING_VIOLATION,
+            };
+            let deadline = Instant::now() + Duration::from_millis(100);
+            loop {
+                match windows::private_file(path, true) {
+                    Ok(()) => return Ok(true),
+                    Err(error)
+                        if error
+                            .source
+                            .as_ref()
+                            .is_some_and(|source| source.kind() == io::ErrorKind::NotFound) =>
+                    {
+                        return Ok(false);
+                    }
+                    Err(error)
+                        if Instant::now() < deadline
+                            && error.source.as_ref().is_some_and(|source| {
+                                matches!(
+                                    source.raw_os_error().map(|code| code as u32),
+                                    Some(
+                                        ERROR_ACCESS_DENIED
+                                            | ERROR_DELETE_PENDING
+                                            | ERROR_SHARING_VIOLATION
+                                    )
+                                )
+                            }) =>
+                    {
+                        std::thread::sleep(Duration::from_millis(2));
+                    }
+                    Err(error) => return Err(error),
+                }
+            }
+        }
+        #[cfg(not(windows))]
+        Err(LocationError::new(
+            LocationErrorKind::UnsupportedVolume,
+            path,
+            "Questa versione supporta Windows.",
+        ))
+    }
+
     pub fn verify_private_file(&self, path: &Path) -> Result<()> {
         self.validate_file(path)?;
         #[cfg(windows)]
@@ -311,7 +375,7 @@ impl StorageLocation {
 
     /// A project may never contain the active shared-state directory, even when selected later.
     pub fn validate_project(&self, project: &Path) -> Result<()> {
-        let (project, _) = canonical_future_path(project)?;
+        let (project, _) = canonical_project_future_path(project)?;
         if is_within(&self.directory, &project) || is_within(&project, &self.directory) {
             return Err(LocationError::new(
                 LocationErrorKind::Project,
@@ -345,6 +409,14 @@ impl StorageLocation {
 }
 
 fn validate_shape(path: &Path) -> Result<()> {
+    validate_path_shape(path, false)
+}
+
+pub(crate) fn validate_project_shape(path: &Path) -> Result<()> {
+    validate_path_shape(path, true)
+}
+
+fn validate_path_shape(path: &Path, network_project: bool) -> Result<()> {
     if !path.is_absolute() || path.components().any(|c| matches!(c, Component::ParentDir)) {
         return Err(LocationError::new(
             LocationErrorKind::InvalidPath,
@@ -358,6 +430,7 @@ fn validate_shape(path: &Path) -> Result<()> {
         match path.components().next() {
             Some(Component::Prefix(prefix)) => match prefix.kind() {
                 Prefix::Disk(_) | Prefix::VerbatimDisk(_) => {}
+                Prefix::UNC(_, _) | Prefix::VerbatimUNC(_, _) if network_project => {}
                 Prefix::UNC(_, _) | Prefix::VerbatimUNC(_, _) => {
                     return Err(LocationError::new(
                         LocationErrorKind::Network,
@@ -428,6 +501,15 @@ fn validate_shape(path: &Path) -> Result<()> {
 
 fn canonical_future_path(path: &Path) -> Result<(PathBuf, PathBuf)> {
     validate_shape(path)?;
+    canonical_validated_future_path(path)
+}
+
+fn canonical_project_future_path(path: &Path) -> Result<(PathBuf, PathBuf)> {
+    validate_project_shape(path)?;
+    canonical_validated_future_path(path)
+}
+
+fn canonical_validated_future_path(path: &Path) -> Result<(PathBuf, PathBuf)> {
     let mut ancestor = path;
     let mut tail: Vec<OsString> = Vec::new();
     loop {
@@ -477,7 +559,7 @@ fn same_path(left: &Path, right: &Path) -> bool {
     }
 }
 
-fn is_within(path: &Path, root: &Path) -> bool {
+pub(crate) fn is_within(path: &Path, root: &Path) -> bool {
     let mut path_parts = path.components();
     root.components().all(|part| {
         path_parts.next().is_some_and(|other| {

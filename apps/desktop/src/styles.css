@@ -47,3 +47,30 @@ dialog{width:min(480px,calc(100vw - 40px));padding:24px;background:var(--chrome-
 .recent-project span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font: 10px var(--mono); color: var(--muted); }
 .recent-project small { color: #e8bb72; font-size: 10px; }
 #project-error { color: #ff8495; overflow-wrap: anywhere; }
+
+/* Project roots stay separate from live terminal layout and session controls. */
+#project-dialog{width:min(760px,calc(100vw - 40px));max-height:calc(100vh - 64px);overflow:auto;padding:22px 24px}
+.catalog-tools,.root-editor-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.catalog-tools button{font-size:11px}.catalog-tools kbd,dialog label kbd{font:10px var(--mono);color:var(--muted);margin-left:6px}
+#default-root-summary{overflow-wrap:anywhere;margin:10px 0 16px}
+#roots-editor{background:var(--chrome);border:1px solid var(--line-strong);border-radius:4px;padding:12px;margin:14px 0}
+.catalog-section-heading{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.catalog-section-heading h2,#recent-project-heading{font-size:11px;font-weight:550;margin:10px 0;color:var(--text-2)}
+.catalog-section-heading span{font-size:10px;color:var(--muted)}
+.root-draft{display:grid;grid-template-columns:75px minmax(100px,1fr) auto auto;align-items:center;gap:6px;margin:7px 0}
+.root-draft input:not([type=radio]){height:32px;font-size:11px}.root-draft button{font-size:10px;padding:0 7px}
+dialog .root-default-label{display:flex;align-items:center;gap:5px;margin:0;font-size:10px;white-space:nowrap}
+dialog .root-default-label input{width:13px;height:13px;accent-color:var(--accent);margin:0;padding:0}
+.root-editor-actions{margin-top:12px}.root-editor-actions button{font-size:10px}
+#catalog-root-statuses{display:flex;flex-direction:column;gap:4px;margin:10px 0}
+.catalog-root-status{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:6px 9px;background:var(--chrome);border-left:2px solid var(--line-strong);font-size:10px}
+.catalog-root-status>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);color:var(--text-2)}
+.catalog-root-status small{color:var(--muted);white-space:nowrap}.catalog-root-status.scanning{border-color:var(--cyan)}
+.catalog-root-status.missing,.catalog-root-status.unavailable,.catalog-root-status.timed_out,.catalog-root-status.truncated{border-color:#e8bb72}
+.catalog-root-status.missing small,.catalog-root-status.unavailable small,.catalog-root-status.timed_out small,.catalog-root-status.truncated small{color:#e8bb72}
+#catalog-project-list{max-height:240px;overflow:auto;margin:7px 0}.catalog-project{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;padding:8px 10px;margin:0 0 4px;text-align:left}
+.catalog-project strong{font-size:12px;font-weight:550}.catalog-project span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:10px var(--mono);color:var(--muted)}
+.catalog-project small{font-size:10px;color:#e8bb72}#catalog-state{margin:7px 0;font-size:10px}
+#catalog-pagination{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0}#catalog-pagination button{font-size:10px}#catalog-page{font:10px var(--mono);color:var(--muted)}
+#project-dialog #recent-project-list{max-height:130px}
+@media(max-width:620px){.root-draft{grid-template-columns:65px minmax(100px,1fr) auto}.root-draft>button:last-child{grid-column:3}.catalog-root-status{align-items:flex-start;flex-direction:column;gap:3px}}

@@ -174,48 +174,4 @@ mod tests {
         drop(location);
         fs::remove_dir_all(root).unwrap();
     }
-
-    #[test]
-    #[cfg(windows)]
-    fn an_already_open_connection_refuses_selection_after_another_process_upgrades() {
-        use crate::database::Database;
-        use crate::location::{LocationRequest, StorageLocation};
-        use std::fs;
-        let root = std::env::temp_dir().join(format!(
-            "shinatama-selection-version-{}",
-            uuid::Uuid::new_v4()
-        ));
-        fs::create_dir(&root).unwrap();
-        fs::create_dir(root.join("first")).unwrap();
-        fs::create_dir(root.join("second")).unwrap();
-        let location = StorageLocation::resolve(LocationRequest {
-            local_data_directory: root.clone(),
-            home_override: Some(root.join("state")),
-            project_roots: Vec::new(),
-            synchronized_roots: Vec::new(),
-        })
-        .unwrap();
-        let database = Database::open(&location, None).unwrap();
-        let first = database.select(&root.join("first")).unwrap();
-        let newer = rusqlite::Connection::open(location.database_path()).unwrap();
-        newer.pragma_update(None, "user_version", 999).unwrap();
-        assert!(matches!(
-            database.select(&root.join("second")),
-            Err(DatabaseError::NewerSchema { found: 999, .. })
-        ));
-        let recent = database.recent().unwrap();
-        assert_eq!(recent.len(), 1);
-        assert_eq!(recent[0].id, first.id);
-        assert_eq!(recent[0].last_opened, first.last_opened);
-        assert_eq!(
-            newer
-                .query_row::<u32, _, _>("SELECT count(*) FROM project", [], |row| row.get(0))
-                .unwrap(),
-            1
-        );
-        drop(newer);
-        drop(database);
-        drop(location);
-        fs::remove_dir_all(root).unwrap();
-    }
 }

@@ -1,8 +1,9 @@
 //! Private, local shared state. Location validation precedes every persistent file.
 
-pub mod database;
 pub mod cancellation;
+pub mod database;
 pub mod location;
 pub mod maintenance;
 mod migrations;
+pub mod projects;
 mod schema;

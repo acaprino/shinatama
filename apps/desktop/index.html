@@ -37,15 +37,28 @@
     <footer class="statusbar"><span id="runtime-status"><i></i>Connecting…</span><span id="terminal-count">0 terminals</span><span class="spring"></span><span>Ctrl+Shift+T <span class="muted">new terminal</span></span><span>Ctrl+Shift+← / → <span class="muted">focus pane</span></span></footer>
     <div id="notice" role="status" hidden><span></span><button aria-label="Dismiss notification">×</button></div>
     <dialog id="project-dialog">
-      <form id="project-form"><div class="dialog-heading"><h1>Project folder</h1><button type="button" data-cancel aria-label="Close dialog">×</button></div>
+      <form id="project-form"><div class="dialog-heading"><h1>Open a project</h1><button type="button" data-cancel aria-label="Close dialog">×</button></div>
       <p>New terminals start here. Existing terminals keep their working folder.</p>
+      <div class="catalog-tools"><button id="browse-project" type="button">Browse folder <kbd>F3</kbd></button><button id="manage-roots" type="button">Project roots</button><button id="refresh-projects" type="button">Refresh</button></div>
+      <p id="default-root-summary" class="hint">Choose a default root for new projects.</p>
+      <section id="roots-editor" aria-label="Configure project roots" hidden>
+        <div class="catalog-section-heading"><h2>Project roots</h2><span>Folders directly inside each root appear as projects.</span></div>
+        <div id="root-drafts"></div>
+        <div class="root-editor-actions"><button id="add-root" type="button">Add root</button><button id="choose-root" type="button">Choose root…</button><span class="spring"></span><button id="discard-roots" type="button">Discard root changes</button><button id="save-roots" class="primary" type="button">Save roots</button></div>
+        <p class="hint">The selected default is used when creating a project. Saving roots never creates a folder or starts a terminal.</p>
+      </section>
+      <div id="catalog-root-statuses" aria-live="polite"></div>
       <section class="recent-projects" aria-label="Recent projects">
-        <label for="project-filter">Recent projects</label>
-        <input id="project-filter" type="search" placeholder="Filter recent folders" autocomplete="off">
+        <label for="project-filter">Filter projects <kbd>/</kbd></label>
+        <input id="project-filter" type="search" placeholder="Filter by project name or folder" autocomplete="off" maxlength="128">
+        <p id="catalog-state" class="hint" role="status"></p>
+        <div id="catalog-project-list" role="list" aria-label="Projects in roots"></div>
+        <div id="catalog-pagination" hidden><button id="catalog-previous" type="button">Previous</button><span id="catalog-page"></span><button id="catalog-next" type="button">Next</button></div>
+        <h2 id="recent-project-heading">Recent folders</h2>
         <div id="recent-project-list" role="list" aria-live="polite"></div>
       </section>
       <label for="folder">Absolute folder path</label><input id="folder" name="folder" required spellcheck="false" autocomplete="off">
-      <p class="hint">The folder is checked before it is added to your history.</p>
+      <p class="hint">Open a folder directly, or use Browse folder to remember an outside folder in the last ten.</p>
       <p id="project-error" role="alert" hidden></p>
       <div class="dialog-actions"><button type="button" data-cancel>Cancel</button><button class="primary" type="submit">Use folder</button></div></form>
     </dialog>
