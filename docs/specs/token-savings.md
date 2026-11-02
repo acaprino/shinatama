@@ -433,7 +433,8 @@ nothing here is measured, T5 measures it):
 
 Consequence for the baseline: the verbosity lever is cache-neutral by construction (a frozen
 block at the tail of the system prompt, identical on every turn), so it is the only output lever
-on, and T6 confirms it per harness. The effort lever is locked off (see the baseline above); T5
+on, and T6 confirms it per harness (passed for Anthropic through Claude Code on a small prefix,
+2026-11-02; enabling it mid-session costs one miss of the session's whole message history). The effort lever is locked off (see the baseline above); T5
 and T7 stay in the register as the evidence a future decision would need, and the cache-safe
 mechanisms of T7 (per-message effort on Anthropic, `configuration_update` on OpenAI) are the only
 routes to lift the lock without risking the cache; BillionContext implements neither today.
