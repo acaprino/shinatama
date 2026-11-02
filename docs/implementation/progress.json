@@ -199,8 +199,8 @@
       "next_action": "Resume TL1-proof, the next ready step selected by the updated implementation plan."
     },
     "TL1-proof": {
-      "status": "verified",
-      "commit_sha": null,
+      "status": "committed",
+      "commit_sha": "8e777be24ad5ba29497d305467d11f09755e5849",
       "units": {
         "TL1.1": {
           "status": "committed",
@@ -220,8 +220,8 @@
           ]
         },
         "TL1.2": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "8e777be24ad5ba29497d305467d11f09755e5849",
           "evidence": [
             "docs/verification/2026-11-02-TL1-windows.md"
           ],
@@ -237,6 +237,13 @@
       "evidence": [
         "docs/verification/2026-11-02-TL1-windows.md",
         "docs/verification/2026-11-02-TL1-result.json"
+      ],
+      "checks": [
+        "npm run build:tl1",
+        "npm run desktop:tl1",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/tl1/proof.mjs",
+        "cargo test -p shinatama-desktop --features tl1-proof,custom-protocol tl1::tests -- --test-threads=1",
+        "python adr_tool.py validate --project ."
       ]
     },
     "C01": {
@@ -265,6 +272,11 @@
       ],
       "commit_boundary": "Atomic current-file commit with TL1.1: automatic approval rejected substituting source files or staging derived partial contents. Separate evidence/status retained; C02/C03 source excluded.",
       "next_action": "Continue C02 bundled SQLite and atomic legacy-history import after this checkpoint."
+    },
+    "C02": {
+      "status": "in_progress",
+      "commit_sha": null,
+      "next_action": "Compile and qualify bundled SQLite, typed project state and atomic B02 import; then wire and test backups in C03."
     }
   },
   "blockers": [],
