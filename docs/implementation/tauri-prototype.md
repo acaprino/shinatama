@@ -5,9 +5,9 @@
 After the previous native-only ADR-0005 decision was identified, the user selected
 **“Prototipo Tauri + motore Rust (consigliato)”** on 2026-11-02. This authorizes an
 executable experiment, not a claim that native Rust cannot reproduce the style or
-that the entire product has passed its gates. This note records the scoped exception
-to ADR-0005/ADR-0047. Production toolkit selection and revised ADR text remain to
-be settled from evidence. ADR-0040's terminal-first sequence still applies.
+that the entire product has passed its gates. Later that day the user made Tauri the
+definitive V1 shell (ADR-0005 v2, ADR-0047 v2), which replaces the scoped exception this
+note first recorded. ADR-0040's terminal-first sequence still applies.
 
 ## Implemented
 

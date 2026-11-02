@@ -2,7 +2,7 @@
 adr_id: ADR-0047
 version: 1
 title: Rust runtime; macOS and Linux required, Windows assumed; one allowed-dependency list in the workspace, each addition a decision
-status: Accepted
+status: Superseded
 author: Alfio Caprino
 scope:
   paths:
@@ -28,14 +28,14 @@ last_verified_sha: null
 retired_on: null
 retired_reason: null
 supersedes:
-superseded_by: null
+superseded_by: ADR-0047 v2
 changes:
 ---
 
 # ADR-0047: Rust runtime; macOS and Linux required, Windows assumed; one allowed-dependency list in the workspace, each addition a decision
 
 <!-- adr-header:start -->
-Version 1 · Accepted 2026-11-01 at 202a34e · proposed 2026-11-01 by Alfio Caprino
+Version 1 · Superseded by ADR-0047 v2 · proposed 2026-11-01 by Alfio Caprino
 <!-- adr-header:end -->
 
 ## Context and Problem Statement

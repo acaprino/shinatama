@@ -4,7 +4,7 @@
 |---|---|
 | Version | 1 (new Markdown record; no JSON record yet) |
 | Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
-| Date | 2026-11-01 |
+| Date | 2026-11-01; R01, R02, R03, R05 and R09 amended 2026-11-02 after the user's platform decision |
 | Sources | functional-design goal 8, 3, 5.6 (Node), 5.8 (Oni IP), 5.12 (audience), 7, 8; technical-design 3.1 (toolkit pin), 11.12; Cargo.toml; register 17 (X1 to X6), SC13, W9, O4, O5 |
 | Governing ADRs | ADR-0047, ADR-0048, ADR-0040 |
 | Register sections | X1 to X6, SC13, P17, P18, W7 to W9 |
@@ -24,20 +24,20 @@ and the legal decisions that stay separate from the code.
 
 | ID | Requirement | Origin | Slice | Proof | ADR |
 |---|---|---|---|---|---|
-| R01 | Easy install on macOS and Linux is a goal; Windows is assumed required (open O3). Release binaries, an installer script or package managers are the builder's call: macOS arm64 and x86_64; Linux glibc and musl on x86_64 and aarch64; Windows x64. | U (goal 8); A (Windows, mechanisms) | V1 | X1 | 0048 |
-| R02 | A first run on clean Windows 11, macOS and Ubuntu, from install to the first hop, is timed and its failures listed before release. | S | V1 | X2 | 0048 |
-| R03 | The sidecar needs Node; how Node is provided on macOS and Linux (system, bundled, downloaded; offline, size, version) is the builder's call within the install story and is measured. On Windows Node is already present on the first machine. | S | V1 | SC13 | 0048, 0029 |
+| R01 | Easy install on Windows x64 is a goal; a release binary, an installer or a package manager is the builder's call, and the installer handles the WebView2 runtime. macOS and Linux are deferred. | U 2026-11-02; A (mechanisms) | V1 | X1 | 0048 |
+| R02 | A first run on clean Windows 11, from install to the first hop, is timed and its failures listed before release. | S | V1 | X2 | 0048 |
+| R03 | The sidecar needs Node; how Node is provided on Windows (system, bundled, downloaded; offline, size, version) is the builder's call within the install story and is measured. | S | V1 | SC13 | 0048, 0029 |
 | R04 | Agents are not installed by Shinatama unless the user chooses the `own` program (FRD-0002); the checkup reports what is present and how the user's own installer updates it. | A | X | D16, D18 | 0012 |
 
 ### 2.2 Release builds and the code
 
 | ID | Requirement | Origin | Slice | Proof | ADR |
 |---|---|---|---|---|---|
-| R05 | Release builds, code signing and notarization are part of the plan (macOS notarization, Windows signing). | A (audience) | V1 | X1 | 0048 |
+| R05 | Release builds and Windows code signing are part of the plan. | A (audience) | V1 | X1 | 0048 |
 | R06 | The code lives in this repository, `shinatama` (earlier suffixes `-sld` and `-mux` were dropped); the local folder `D:\Projects\shinatama-sld` is renamed to `D:\Projects\shinatama` once JanuraCode releases it. | U 2026-10-26 | X | — | 0048 |
 | R07 | The Cargo workspace (edition 2024, resolver 3) has no members until the runtime's first crate exists; `[workspace.dependencies]` is the only list of dependencies the crates may use, and adding one is a decision, not a side effect. The `mukade` crate is declared there as a Git dependency at a reviewed commit with the lockfile committed when the first crate exists. | A | X | P17 | 0047, 0020 |
 | R08 | The sidecar's single source (`sidecar/source-build`, today in another repository) is brought in without forking it, as a copy with provenance, a submodule or a published package, the builder's call, but it stays one source. | S (builder's call); U 2026-11-01 (single source) | X | — | 0029 |
-| R09 | The Rust crates the design relies on (PTY, terminal emulation, native UI, SQLite with FTS5) exist, are maintained and work on the three systems; the shortlist with versions and licences is recorded before the first milestone. | A | M0 | P17 | 0047 |
+| R09 | The Rust crates and npm packages the design relies on (PTY, terminal emulation, Tauri, SQLite with FTS5) exist, are maintained and work on Windows; the shortlist with versions and licences is recorded before the first milestone. | A | M0 | P17 | 0047 |
 
 ### 2.3 Updates
 

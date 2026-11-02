@@ -12,7 +12,7 @@ Aggiornare `progress.json` alla fine di ogni sessione; `verified` significa incr
 
 1. Verificare prerequisiti e modifiche locali; delimitare i file del passo. Nessuno `git add .` in un checkout condiviso.
 2. Implementare una capacità utilizzabile; mantenere avviabile il programma e mostrare come indisponibili le capacità non provate.
-3. Eseguire le prove della scheda, inclusi rifiuti/errori rilevanti. Registrare versione, OS e risultato; un test Windows non chiude un gate su tre sistemi.
+3. Eseguire le prove della scheda, inclusi rifiuti/errori rilevanti. Registrare versione, OS e risultato; i gate attivi si chiudono su Windows, e nessuna prova vale per macOS o Linux, che restano rinviati.
 4. Aggiornare evidenza, checkpoint e mappa; selezionare solo i file/hunk del passo e creare il commit indicato dopo le verifiche.
 5. Riprendere dal primo passo pronto. Per annullare un passo già committato usare un commit di revert; le migrazioni richiedono backup e compatibilità, mai rollback distruttivo del DB.
 
@@ -24,6 +24,8 @@ Le stime sono ore di lavoro tecnico, includono implementazione/verifica/revision
 
 Daodan e temporaneamente fuori dallo scope di implementazione su richiesta dell utente. Installazione, task/onboarding, handover task, avvisi widget e seam dipendenti restano tracciati nei passi deferred e si riprendono solo su nuova richiesta. Checkup, set generici, avvio agenti, ricerca, hop, worktree e roundtable con harness proseguono senza dipendenze Daodan.
 
+macOS e Linux sono fuori dallo scope su decisione dell utente: solo Windows e supportato ufficialmente e non ci sono macchine per provarli. I passi F11 e QA di quei sistemi restano tracciati come deferred; CI, TL1, QA, pacchetti e accettazione V1 valgono su Windows e nessun passo attivo richiede un altro sistema.
+
 ## Sequenza e dipendenze
 
 | Passo | Risultato | Prerequisiti | Stato | Ore |
@@ -32,6 +34,7 @@ Daodan e temporaneamente fuori dallo scope di implementazione su richiesta dell 
 | [B01](#b01) | Piano completo, copertura FRD e checkpoint riprendibile | B00 | committed | 3–6 |
 | [B02](#b02) | Ricordare e riaprire i progetti recenti senza avviare processi | B00, B01 | committed | 8–16 |
 | [F32CI](#f32ci) | Verifica continua iniziale, lockfile e avvisi sulle dipendenze | B01 | pending | 3–8 |
+| [TL1-proof](#tl1-proof) | Provare la shell Tauri su Windows (gate TL1) | B00, F32CI | pending | 6–16 |
 | [C01](#c01) | Validare i percorsi locali privati prima di creare il database | B00, B02, F32CI | pending | 8–16 |
 | [C02](#c02) | Aprire SQLite incorporato in sicurezza ed esporre un servizio di stato tipizzato | C01, B02 | pending | 8–16 |
 | [C03](#c03) | Aggiungere migrazioni, copie di sicurezza e lettura dei database più recenti | C02 | pending | 6–12 |
@@ -43,42 +46,43 @@ Daodan e temporaneamente fuori dallo scope di implementazione su richiesta dell 
 | [C13](#c13) | Supervisionare i sidecar distinguendo occupazione e recupero | C12 | pending | 20–40 |
 | [C14](#c14) | Preparare checkup, manifest e set generici di avvio | C11, C13 | pending | 6–12 |
 | [FS03](#fs03) | Separazione degli schemi autorevoli e operativi e record dei progetti | C03, C11 | pending | 4–10 |
-| [C06](#c06) | Introdurre un modello validato ad albero per le suddivisioni | B02, FS03 | pending | 10–20 |
-| [C07](#c07) | Disegnare l'albero di pannelli e completare i comandi da tastiera | C06 | pending | 12–24 |
+| [C06](#c06) | Introdurre un modello validato ad albero per le suddivisioni | B02, FS03, TL1-proof | pending | 10–20 |
+| [C07](#c07) | Disegnare l'albero di pannelli e completare i comandi da tastiera | C06 | pending | 15–30 |
 | [C08](#c08) | Rendere configurabili i temi e i profili versionati dei terminali | C07 | pending | 12–20 |
-| [C09](#c09) | Rendere robusti terminale e contenimento con fixture sintetiche | C07, C08 | pending | 6–12 |
+| [C09](#c09) | Rendere robusti terminale e contenimento con fixture sintetiche | C07, C08 | pending | 8–16 |
 | [C15](#c15) | Avviare il primo adattatore Claude attraverso il checkup | C09, C10, C11, C13, C14 | pending | 12–24 |
+| [QA-claude-windows](#qa-claude-windows) | Certificare terminale claude su windows | C09, C15 | pending | 4–8 |
+| [C22](#c22) | Risolvere le radici persistenti degli archivi e collegare una revisione verificata di Mukade | C03, C11, C15 | pending | 14–28 |
+| [C23](#c23) | Costruire il dettaglio delle sessioni e trascrizioni canoniche limitate | C22, C07 | pending | 18–36 |
+| [C24](#c24) | Indicizzare e cercare le sessioni in modo incrementale | C23 | pending | 12–24 |
+| [F02](#f02) | Proprietà del runtime, flusso degli eventi e rilevamento della presenza | FS03, C15, C11 | pending | 4–10 |
+| [C25](#c25) | Aggiungere thread persistenti e ripresa esclusiva nello stesso agente | C22, C24, FS03, F02 | pending | 12–24 |
+| [C26](#c26) | Aggiungere esportazioni e CLI stabile per le sessioni | C23, C24, C25 | pending | 12–24 |
+| [F03P](#f03p) | Controlli di riservatezza, doctor e ricostruzione degli indici operativi | FS03, C23, C24 | pending | 4–10 |
 | [C16](#c16) | Aggiungere l'adattatore Codex | C15 | pending | 12–24 |
 | [C17](#c17) | Aggiungere l'adattatore OpenCode | C15 | pending | 12–24 |
 | [C18](#c18) | Aggiungere l'adattatore Pi | C15 | pending | 12–24 |
 | [C19](#c19) | Aggiungere Hermes Agent con capacità non supportate esplicite | C15 | pending | 14–28 |
 | [C20](#c20) | Aggiungere il pannello ACP DeepSeek | C15 | pending | 20–40 |
+| [C27](#c27) | Creare anteprime seed esatte e oscurate | C23, C25, C26, C13 | pending | 16–32 |
+| [C28](#c28) | Implementare il coordinatore degli hop close/fork con registro persistente | C27 | pending | 20–40 |
+| [C29](#c29) | Aggiungere recupero degli hop, aggiornamento, ritorno e standby misurato | C28 | pending | 20–40 |
+| [C30](#c30) | Completare la matrice degli hop ordinati tra i sei agenti | C19, C20, C29, C16, C17, C18 | pending | 16–32 |
+| [F03H](#f03h) | Prove delle transazioni hop, dell’unicità e del recupero dopo arresto anomalo | F03P, C29 | pending | 3–8 |
+| [C31](#c31) | Costruire l'API di messaggistica limitata e circoscritta tra istanze | C25, C27, F02 | pending | 14–28 |
+| [C32](#c32) | Esporre quattro strumenti MCP e hook iniettati all'avvio | C31, C11, C14, C16, C17, C18, C19, C20 | pending | 18–36 |
+| [C33](#c33) | Consegnare una tavola rotonda headless con limiti rigidi | C32, C13, C24, C28, C29 | pending | 20–40 |
+| [C34](#c34) | Mostrare lo stato Daodan in sola lettura e digitare i comandi | C14, C25, C32, D01 | deferred | 16–32 |
+| [C35](#c35) | Trasferire il contesto delle attività Daodan dopo un hop close completato | C29, C34 | deferred | 8–16 |
+| [C36](#c36) | Aggiungere preferiti, metadati git e avvio in worktree collegati | C25 | pending | 12–24 |
+| [C39](#c39) | Vincolare importazione e trasferimento nativo post-v1 alle verifiche | C30, C26 | pending | 24–48 |
 | [C21](#c21) | Aggiungere Gemini per il solo avvio | C13, C14, C15 | pending | 6–12 |
-| [C22](#c22) | Risolvere le radici persistenti degli archivi e collegare una revisione verificata di Mukade | C03, C11, C15 | pending | 14–28 |
-| [C23](#c23) | Costruire il dettaglio delle sessioni e trascrizioni canoniche limitate | C22, C07 | pending | 18–36 |
-| [C24](#c24) | Indicizzare e cercare le sessioni in modo incrementale | C23 | pending | 12–24 |
 | [C37](#c37) | Aggiungere installazione, aggiornamento e ripristino dei programmi gestiti | C14, C15, C16, C17, C18, C19, C20 | pending | 16–32 |
 | [C41](#c41) | Aggiungere navigazione limitata e in sola lettura nei file del progetto | C07, C04 | pending | 10–18 |
 | [C42](#c42) | Aggiungere lettura sicura di Markdown e modifica del sorgente | C41 | pending | 16–32 |
 | [C43](#c43) | Abilitare la modifica visuale Markdown solo dopo le verifiche di fedeltà | C42 | pending | 16–32 |
 | [C44](#c44) | Aggiungere anteprime degli artefatti e lettura DOCX verificata separatamente | C41 | pending | 12–24 |
 | [C45](#c45) | Vincolare browser incorporati e mini-app post-v1 a verifiche separate | C07, C44 | pending | 24–48 |
-| [F02](#f02) | Proprietà del runtime, flusso degli eventi e rilevamento della presenza | FS03, C15, C11 | pending | 4–10 |
-| [C25](#c25) | Aggiungere thread persistenti e ripresa esclusiva nello stesso agente | C22, C24, FS03, F02 | pending | 12–24 |
-| [C26](#c26) | Aggiungere esportazioni e CLI stabile per le sessioni | C23, C24, C25 | pending | 12–24 |
-| [C27](#c27) | Creare anteprime seed esatte e oscurate | C23, C25, C26, C13 | pending | 16–32 |
-| [C28](#c28) | Implementare il coordinatore degli hop close/fork con registro persistente | C27 | pending | 20–40 |
-| [C29](#c29) | Aggiungere recupero degli hop, aggiornamento, ritorno e standby misurato | C28 | pending | 20–40 |
-| [C30](#c30) | Completare la matrice degli hop ordinati tra i sei agenti | C19, C20, C29, C16, C17, C18 | pending | 16–32 |
-| [C31](#c31) | Costruire l'API di messaggistica limitata e circoscritta tra istanze | C25, C27, F02 | pending | 14–28 |
-| [C32](#c32) | Esporre quattro strumenti MCP e hook iniettati all'avvio | C31, C11, C14 | pending | 18–36 |
-| [C33](#c33) | Consegnare una tavola rotonda headless con limiti rigidi | C32, C13, C24 | pending | 20–40 |
-| [C34](#c34) | Mostrare lo stato Daodan in sola lettura e digitare i comandi | C14, C25, C32, D01 | deferred | 16–32 |
-| [C35](#c35) | Trasferire il contesto delle attività Daodan dopo un hop close completato | C29, C34 | deferred | 8–16 |
-| [C36](#c36) | Aggiungere preferiti, metadati git e avvio in worktree collegati | C25 | pending | 12–24 |
-| [C39](#c39) | Vincolare importazione e trasferimento nativo post-v1 alle verifiche | C30, C26 | pending | 24–48 |
-| [F03P](#f03p) | Controlli di riservatezza, doctor e ricostruzione degli indici operativi | FS03, C23, C24 | pending | 4–10 |
-| [F03H](#f03h) | Prove delle transazioni hop, dell’unicità e del recupero dopo arresto anomalo | F03P, C29 | pending | 3–8 |
 | [F04](#f04) | Hook di stato nativi e prima panoramica delle istanze | F02, C15 | pending | 4–10 |
 | [F05](#f05) | Utilizzo, dati git, collisioni e cronologia della collaborazione | F04, C23, C29 | pending | 4–10 |
 | [F06](#f06) | Titoli testuali originali con impostazioni, esclusioni e limiti di costo | F03P, F04 | pending | 2–6 |
@@ -87,18 +91,16 @@ Daodan e temporaneamente fuori dallo scope di implementazione su richiesta dell 
 | [F09](#f09) | Protocollo delle schede companion, azioni predefinite e rendering sicuro | C42, C11 | pending | 4–10 |
 | [F10](#f10) | Companion R1: integrazione Claude su richiesta | F09, C15, C13, F04 | pending | 6–16 |
 | [F11-windows](#f11-windows) | Confinamento del companion a livello di sistema operativo: Windows | F10 | pending | 6–20 |
-| [F11-macos](#f11-macos) | Confinamento del companion a livello di sistema operativo: macOS | F10 | pending | 6–20 |
-| [F11-linux](#f11-linux) | Confinamento del companion a livello di sistema operativo: Linux | F10 | pending | 6–20 |
 | [F12](#f12) | Companion R2: flusso automatico dei turni e continuità dopo gli hop | F10, C23, C29, F04 | pending | 5–12 |
 | [F13](#f13) | Companion R3: memoria personale, quiz ed esportazione | F12, FS03 | pending | 5–12 |
-| [F14-codex](#f14-codex) | Adattatore host del companion: Codex | F10, C15, C16 | pending | 4–12 |
-| [F14-opencode](#f14-opencode) | Adattatore host del companion: OpenCode | F10, C15, C17 | pending | 4–12 |
-| [F14-pi](#f14-pi) | Adattatore host del companion: Pi | F10, C15, C18 | pending | 4–12 |
-| [F14-hermes](#f14-hermes) | Adattatore host del companion: Hermes Agent | F10, C15, C19 | pending | 4–12 |
-| [F14-deepseek](#f14-deepseek) | Adattatore host del companion: DeepSeek Harness | F10, C15, C20 | pending | 4–12 |
-| [F15](#f15) | Companion R4: ricerca web senza lettura delle pagine per gli harness idonei | F10, F13, C15, F11-windows, F11-macos, F11-linux | pending | 5–14 |
+| [F14-codex](#f14-codex) | Adattatore host del companion: Codex | F10, C15, C16, F11-windows | pending | 4–12 |
+| [F14-opencode](#f14-opencode) | Adattatore host del companion: OpenCode | F10, C15, C17, F11-windows | pending | 4–12 |
+| [F14-pi](#f14-pi) | Adattatore host del companion: Pi | F10, C15, C18, F11-windows | pending | 4–12 |
+| [F14-hermes](#f14-hermes) | Adattatore host del companion: Hermes Agent | F10, C15, C19, F11-windows | pending | 4–12 |
+| [F14-deepseek](#f14-deepseek) | Adattatore host del companion: DeepSeek Harness | F10, C15, C20, F11-windows | pending | 4–12 |
+| [F15](#f15) | Companion R4: ricerca web senza lettura delle pagine per gli harness idonei | F10, F13, C15, F11-windows | pending | 5–14 |
 | [F16](#f16) | Companion R5: lettura delle pagine limitata ai risultati | F15 | pending | 4–10 |
-| [F17](#f17) | Contratto delle richieste browser e instradamento immutabile | C11, C13 | pending | 4–10 |
+| [F17](#f17) | Contratto delle richieste browser e instradamento immutabile | C11, C13, C32 | pending | 4–10 |
 | [F18](#f18) | Moli: estrazione singola con limiti e anteprima statica | F17, C42 | pending | 6–16 |
 | [F19](#f19) | Browser Patchright esplicito e ciclo di vita con un solo controllore | F17, C13 | pending | 8–20 |
 | [F20](#f20) | Registro dei token per sessione, riferimento iniziale e regole di proprietà | C23, C13 | pending | 4–12 |
@@ -118,41 +120,42 @@ Daodan e temporaneamente fuori dallo scope di implementazione su richiesta dell 
 | [F29](#f29) | TokenEconomizer: envfacts e protezione dai cicli subordinata alle verifiche | F28, F07 | pending | 4–12 |
 | [F30](#f30) | Widget finale della V1: prova per piattaforma e avvisi di consultazione | F02, F05, F06, C29, C15, F16, F19, F24, F27, F29, C30, C33, C36, C37, C43, C44 | pending | 6–16 |
 | [F31](#f31) | Widget: risposte rapide legate alla richiesta e pipeline delle animazioni revisionata | F30, C11 | pending | 6–16 |
-| [F32PKG](#f32pkg) | Programmi di installazione, fornitura dei runtime e primo hop su sistema pulito | F32CI, C29, C14, C13 | pending | 6–18 |
+| [F32PKG](#f32pkg) | Programmi di installazione, fornitura dei runtime e primo hop su sistema pulito | F32CI, C29, C14, C13, C16 | pending | 6–18 |
 | [F33](#f33) | Aggiornamenti facoltativi e nuova verifica delle dipendenze vincolate | F32PKG, C15 | pending | 5–14 |
 | [FE01](#fe01) | Valutazione post-V1 del gateway code-mode | F20 | pending | 4–16 |
 | [C38](#c38) | Valutare le varianti aperte di roundtable e il rinvio del gateway | C32, C33, FE01 | pending | 8–16 |
 | [FE02](#fe02) | Valutazione successiva dell’escalation tra modelli | F25, F20 | pending | 4–16 |
 | [QSET-claude](#qset-claude) | Provare set e tool reali per claude | C14, C15 | pending | 3–6 |
-| [QA-claude-windows](#qa-claude-windows) | Certificare terminale claude su windows | C09, C15 | pending | 4–8 |
-| [QA-claude-macos](#qa-claude-macos) | Certificare terminale claude su macos | C09, C15 | pending | 4–8 |
-| [QA-claude-linux](#qa-claude-linux) | Certificare terminale claude su linux | C09, C15 | pending | 4–8 |
 | [QSET-codex](#qset-codex) | Provare set e tool reali per codex | C14, C16 | pending | 3–6 |
 | [QA-codex-windows](#qa-codex-windows) | Certificare terminale codex su windows | C09, C16 | pending | 4–8 |
-| [QA-codex-macos](#qa-codex-macos) | Certificare terminale codex su macos | C09, C16 | pending | 4–8 |
-| [QA-codex-linux](#qa-codex-linux) | Certificare terminale codex su linux | C09, C16 | pending | 4–8 |
 | [QSET-opencode](#qset-opencode) | Provare set e tool reali per opencode | C14, C17 | pending | 3–6 |
 | [QA-opencode-windows](#qa-opencode-windows) | Certificare terminale opencode su windows | C09, C17 | pending | 4–8 |
-| [QA-opencode-macos](#qa-opencode-macos) | Certificare terminale opencode su macos | C09, C17 | pending | 4–8 |
-| [QA-opencode-linux](#qa-opencode-linux) | Certificare terminale opencode su linux | C09, C17 | pending | 4–8 |
 | [QSET-pi](#qset-pi) | Provare set e tool reali per pi | C14, C18 | pending | 3–6 |
 | [QA-pi-windows](#qa-pi-windows) | Certificare terminale pi su windows | C09, C18 | pending | 4–8 |
-| [QA-pi-macos](#qa-pi-macos) | Certificare terminale pi su macos | C09, C18 | pending | 4–8 |
-| [QA-pi-linux](#qa-pi-linux) | Certificare terminale pi su linux | C09, C18 | pending | 4–8 |
 | [QSET-hermes](#qset-hermes) | Provare set e tool reali per hermes | C14, C19 | pending | 3–6 |
 | [QA-hermes-windows](#qa-hermes-windows) | Certificare terminale hermes su windows | C09, C19 | pending | 4–8 |
-| [QA-hermes-macos](#qa-hermes-macos) | Certificare terminale hermes su macos | C09, C19 | pending | 4–8 |
-| [QA-hermes-linux](#qa-hermes-linux) | Certificare terminale hermes su linux | C09, C19 | pending | 4–8 |
 | [QSET-deepseek](#qset-deepseek) | Provare set e tool reali per deepseek | C14, C20 | pending | 3–6 |
 | [QA-deepseek-windows](#qa-deepseek-windows) | Certificare il pannello ACP DeepSeek su windows | C09, C20 | pending | 4–8 |
-| [QA-deepseek-macos](#qa-deepseek-macos) | Certificare il pannello ACP DeepSeek su macos | C09, C20 | pending | 4–8 |
-| [QA-deepseek-linux](#qa-deepseek-linux) | Certificare il pannello ACP DeepSeek su linux | C09, C20 | pending | 4–8 |
-| [F32SIGN](#f32sign) | Artefatti di rilascio firmati e notarizzazione | F32PKG, QSET-claude, QA-claude-windows, QA-claude-macos, QA-claude-linux, QSET-codex, QA-codex-windows, QA-codex-macos, QA-codex-linux, QSET-opencode, QA-opencode-windows, QA-opencode-macos, QA-opencode-linux, QSET-pi, QA-pi-windows, QA-pi-macos, QA-pi-linux, QSET-hermes, QA-hermes-windows, QA-hermes-macos, QA-hermes-linux, QSET-deepseek, QA-deepseek-windows, QA-deepseek-macos, QA-deepseek-linux | pending | 4–12 |
-| [V1-acceptance](#v1-acceptance) | Verificare e distribuire il candidato dello scope attivo | B00, C01, C02, C03, B02, C04, C05, C06, C07, C08, C09, C10, C11, C12, C13, C14, C15, C16, C17, C18, C19, C20, C21, C22, C23, C24, C25, C26, C27, C28, C29, C30, C31, C32, C33, C36, C37, C40, C41, C42, C43, C44, FS03, F02, F03P, F03H, F04, F05, F06, F07, F08, F09, F10, F11-windows, F11-macos, F11-linux, F12, F13, F14-codex, F14-opencode, F14-pi, F14-hermes, F14-deepseek, F15, F16, F17, F18, F19, F20, F21, F22, F23-codex, F23-opencode, F23-pi, F23-hermes, F23-deepseek, F24, F25, F26, F27, F28, F29, F30, F31, F32CI, F32PKG, F32SIGN, F33, B01, QSET-claude, QA-claude-windows, QA-claude-macos, QA-claude-linux, QSET-codex, QA-codex-windows, QA-codex-macos, QA-codex-linux, QSET-opencode, QA-opencode-windows, QA-opencode-macos, QA-opencode-linux, QSET-pi, QA-pi-windows, QA-pi-macos, QA-pi-linux, QSET-hermes, QA-hermes-windows, QA-hermes-macos, QA-hermes-linux, QSET-deepseek, QA-deepseek-windows, QA-deepseek-macos, QA-deepseek-linux | pending | 8–16 |
+| [F32SIGN](#f32sign) | Artefatti di rilascio firmati e notarizzazione | F32PKG, QSET-claude, QA-claude-windows, QSET-codex, QA-codex-windows, QSET-opencode, QA-opencode-windows, QSET-pi, QA-pi-windows, QSET-hermes, QA-hermes-windows, QSET-deepseek, QA-deepseek-windows | pending | 4–12 |
+| [V1-acceptance](#v1-acceptance) | Verificare e distribuire il candidato dello scope attivo | B00, C01, C02, C03, B02, C04, C05, C06, C07, C08, C09, C10, C11, C12, C13, C14, C15, C16, C17, C18, C19, C20, C21, C22, C23, C24, C25, C26, C27, C28, C29, C30, C31, C32, C33, C36, C37, C40, C41, C42, C43, C44, FS03, F02, F03P, F03H, F04, F05, F06, F07, F08, F09, F10, F11-windows, F12, F13, F14-codex, F14-opencode, F14-pi, F14-hermes, F14-deepseek, F15, F16, F17, F18, F19, F20, F21, F22, F23-codex, F23-opencode, F23-pi, F23-hermes, F23-deepseek, F24, F25, F26, F27, F28, F29, F30, F31, F32CI, F32PKG, F32SIGN, F33, B01, QSET-claude, QA-claude-windows, QSET-codex, QA-codex-windows, QSET-opencode, QA-opencode-windows, QSET-pi, QA-pi-windows, QSET-hermes, QA-hermes-windows, QSET-deepseek, QA-deepseek-windows | pending | 8–16 |
 | [D01](#d01) | Integrare pacchetti e marketplace Daodan | C14, C15 | deferred | 4–8 |
 | [D02](#d02) | Collegare i partecipanti bare-model della roundtable a Daodan | C33, D01 | deferred | 4–8 |
 | [D03](#d03) | Mostrare gli avvisi dei task Daodan nel widget | C34, F30 | deferred | 4–8 |
 | [D04](#d04) | Riprendere le seam Daodan in companion, router e misure token | D01, F10, F25, F29 | deferred | 4–8 |
+| [QA-claude-macos](#qa-claude-macos) | Certificare terminale claude su macos | C09, C15 | deferred | 4–8 |
+| [QA-claude-linux](#qa-claude-linux) | Certificare terminale claude su linux | C09, C15 | deferred | 4–8 |
+| [F11-macos](#f11-macos) | Confinamento del companion a livello di sistema operativo: macOS | F10 | deferred | 6–20 |
+| [F11-linux](#f11-linux) | Confinamento del companion a livello di sistema operativo: Linux | F10 | deferred | 6–20 |
+| [QA-codex-macos](#qa-codex-macos) | Certificare terminale codex su macos | C09, C16 | deferred | 4–8 |
+| [QA-codex-linux](#qa-codex-linux) | Certificare terminale codex su linux | C09, C16 | deferred | 4–8 |
+| [QA-opencode-macos](#qa-opencode-macos) | Certificare terminale opencode su macos | C09, C17 | deferred | 4–8 |
+| [QA-opencode-linux](#qa-opencode-linux) | Certificare terminale opencode su linux | C09, C17 | deferred | 4–8 |
+| [QA-pi-macos](#qa-pi-macos) | Certificare terminale pi su macos | C09, C18 | deferred | 4–8 |
+| [QA-pi-linux](#qa-pi-linux) | Certificare terminale pi su linux | C09, C18 | deferred | 4–8 |
+| [QA-hermes-macos](#qa-hermes-macos) | Certificare terminale hermes su macos | C09, C19 | deferred | 4–8 |
+| [QA-hermes-linux](#qa-hermes-linux) | Certificare terminale hermes su linux | C09, C19 | deferred | 4–8 |
+| [QA-deepseek-macos](#qa-deepseek-macos) | Certificare il pannello ACP DeepSeek su macos | C09, C20 | deferred | 4–8 |
+| [QA-deepseek-linux](#qa-deepseek-linux) | Certificare il pannello ACP DeepSeek su linux | C09, C20 | deferred | 4–8 |
 
 <a id="b00"></a>
 ## B00 · Registrare e rendere riproducibile il prototipo di terminale senza cornice
@@ -232,7 +235,7 @@ Cronologia di dieci cartelle recenti, filtro e ultima cartella ripristinata nell
 <a id="f32ci"></a>
 ## F32CI · Verifica continua iniziale, lockfile e avvisi sulle dipendenze
 
-Matrice CI, dipendenze riproducibili, inventario delle licenze e documentazione coerente fin dai primi incrementi di codice.
+CI su Windows, dipendenze riproducibili, inventario delle licenze e documentazione coerente fin dai primi incrementi di codice.
 
 **Ambito:** v1. **Dipendenze:** B01. **Stima:** 3–8 ore.
 
@@ -240,12 +243,12 @@ Matrice CI, dipendenze riproducibili, inventario delle licenze e documentazione 
 
 **Accettazione osservabile:**
 
-- Registrare i comandi di build e test per ogni piattaforma supportata e dichiarare correttamente le piattaforme mancanti.
+- Registrare i comandi di build e test su Windows; macOS e Linux sono rinviati e non hanno job di CI.
 - Centralizzare ogni dipendenza Rust diretta e generare gli avvisi per le risorse incluse.
 - Aggiornare prove, registro, README e mappa del codice a ogni passo completato, senza inventare verifiche superate.
 - Non inviare telemetria né richieste di aggiornamento o catalogo per impostazione iniziale.
 
-**Verifiche del passo:** `planned: Build/test commands recorded for each supported platform and missing target honestly reported.`; `planned: Every direct Rust dependency centralized and notices generated for bundled assets.`; `planned: Evidence/register/README/codebase map updated with completed step and no invented gate pass.`; `planned: No telemetry/update/catalog requests by default.`.
+**Verifiche del passo:** `planned: Build/test commands recorded for Windows; macOS and Linux reported as deferred.`; `planned: Every direct Rust dependency centralized and notices generated for bundled assets.`; `planned: Evidence/register/README/codebase map updated with completed step and no invented gate pass.`; `planned: No telemetry/update/catalog requests by default.`.
 
 **Gate collegati, da registrare separatamente:** P17, P18, X3, X4, X5.
 
@@ -253,7 +256,58 @@ Matrice CI, dipendenze riproducibili, inventario delle licenze e documentazione 
 
 **Commit proposto:** `feat(f32ci): Verifica continua iniziale, lockfile e avvisi sulle dipendenze`.
 
-**Prima azione alla ripresa:** Aprire .github/workflows/verify.yml (da creare) e preparare la matrice Windows/macOS/Linux con build e test attuali; aggiungere audit delle dipendenze dirette e registrare i risultati realmente eseguiti.
+**Prima azione alla ripresa:** Aprire .github/workflows/verify.yml (da creare) e preparare il job Windows con build e test attuali; aggiungere audit delle dipendenze dirette e registrare i risultati realmente eseguiti.
+
+<a id="tl1-proof"></a>
+## TL1-proof · Provare la shell Tauri su Windows (gate TL1)
+
+Prova della shell Tauri su Windows con un vero agente in PTY, pannelli annidati, Markdown sorgente e anteprima e navigazione file, con la versione di WebView2 e i limiti registrati.
+
+**Ambito:** v1. **Dipendenze:** B00, F32CI. **Stima:** 6–16 ore.
+
+**File/componenti:** `apps/desktop/tests/tl1/`; `docs/verification/`; `docs/verification-register.md`; `docs/adr/`.
+
+**Accettazione osservabile:**
+
+- La build avvia un vero agente digitato nel terminale, senza adattatore, e passa annidamento, Markdown e file senza Node, server di sviluppo o browser esterno.
+- La versione di WebView2 e i limiti sono registrati; il comportamento su una macchina senza WebView2 è provato o indicato come lacuna.
+- Un fallimento produce una nuova versione di ADR-0005 prima di C06; non si cambia toolkit in silenzio.
+
+**Verifiche del passo:** `npm run build`; `npm run test:desktop`; `planned: fixture TL1 su Windows con agente reale e account di prova autorizzato`.
+
+**Gate collegati, da registrare separatamente:** TL1, P17.
+
+**Requisiti coperti dal piano:** FRD-0001/R22, FRD-0001/R51.
+
+**Commit proposto:** `test(tl1): Provare la shell Tauri su Windows`.
+
+**Prima azione alla ripresa:** Aprire apps/desktop/tests/ e preparare la fixture TL1 con pannelli annidati, Markdown e file; eseguirla prima su Windows con un agente reale digitato nel terminale.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### TL1.1 · Costruire la fixture TL1 e provarla su Windows
+
+Fixture non distribuita con pannelli annidati, Markdown, file e agente reale in PTY.
+
+Stima: 4–10 ore. File: `apps/desktop/tests/tl1/`.
+
+Accettazione: La fixture passa su Windows con un agente reale; il codice non entra nell'interfaccia distribuita.
+
+Verifiche pianificate: `planned: fixture TL1 su Windows con agente reale`.
+
+Commit: `test(tl1.1): Costruire la fixture TL1 e provarla su Windows`. Registrare stato e prove sotto `progress.json` → `steps` → `TL1-proof` → `units` → `TL1.1`.
+
+### TL1.2 · Registrare il gate e proporre gli ADR dipendenti
+
+Riga TL1 aggiornata e nuove versioni Proposed di ADR-0002 (Mermaid) e ADR-0040 (EX-001).
+
+Stima: 2–6 ore. File: `docs/verification-register.md`, `docs/adr/`.
+
+Accettazione: Il registro riporta l'esito reale; le revisioni restano Proposed finché l'utente non ne approva il testo.
+
+Verifiche pianificate: `python "adr_tool.py" validate --project .`.
+
+Commit: `docs(tl1.2): Registrare TL1 e proporre gli ADR dipendenti`. Registrare stato e prove sotto `progress.json` → `steps` → `TL1-proof` → `units` → `TL1.2`.
 
 <a id="c01"></a>
 ## C01 · Validare i percorsi locali privati prima di creare il database
@@ -346,7 +400,7 @@ Più radici, radice predefinita modificabile, individuazione delle cartelle di p
 - I progetti mai aperti sono ordinati per data di modifica della cartella; quelli già aperti per attività in Shinatama.
 - La cronologia contiene soltanto cartelle esterne alle radici e all'undicesimo inserimento elimina esattamente la voce meno recente.
 
-**Verifiche del passo:** `synthetic large-root and slow-scan fixtures`; `native folder chooser on three OS`; `keyboard focus test`.
+**Verifiche del passo:** `synthetic large-root and slow-scan fixtures`; `native folder chooser on Windows`; `keyboard focus test`.
 
 **Gate collegati, da registrare separatamente:** PM1, PM6, PM7, PM8, U3.
 
@@ -409,7 +463,7 @@ Finestra di creazione del progetto, mkdir validato e git init opzionale, con val
 - Un errore in mkdir o git init non lascia un progetto incompleto e non modifica cartelle preesistenti.
 - Il tasto n apre la creazione fuori dal filtro incrementale; la creazione del progetto richiede un'azione dell'utente.
 
-**Verifiche del passo:** `name-validation corpus on three OS`; `fault injection during mkdir/git init`.
+**Verifiche del passo:** `name-validation corpus on Windows`; `fault injection during mkdir/git init`.
 
 **Gate collegati, da registrare separatamente:** PM4, U3.
 
@@ -429,6 +483,8 @@ Il motore compila senza adattatori o con adattatori finti; programmi individuati
 **File/componenti:** `crates/adapter/**`; `crates/engine/**`; `crates/cli/**`.
 
 **Accettazione osservabile:**
+
+**Parti rinviate nello scope corrente:** Il controllo Daodan del checkup di FRD-0001/R08 e rinviato.
 
 - Individuare eseguibile e argomenti senza avviare .cmd o leggere segreti; riutilizzare il catalogo Mukade dove la revisione verificata lo consente.
 - Versioni sconosciute o non conformi diventano Degraded, con motivo e rifiuto delle singole capacità.
@@ -642,6 +698,7 @@ Un solo supervisore per finestra, topologia scelta sulla base delle misure, recu
 - La UI mostra lo stato effettivo CCR, input e output, distinguendo chiaramente traffico non coperto, busy e recovering.
 - SC16 eredita la correzione storage del 2026-11-02: sei indici schema v9 e CCR incrementale transazionale; fixture locale CONNECT/health sotto 750 ms, integrità e prova di carico senza connessioni rifiutate, senza bypass o aumento dei timeout.
 - FRD-0009/R24 aggiornato 2026-11-02: prova controllata di persistenza e integrita nel build preparato; ciascun CONNECT+echo e health locale sotto 750 ms, senza aumentare timeout o bypassare il proxy. SC16 globale resta aperto fino al carico di un ora sulle piattaforme richieste.
+- Prima di avviare il sidecar si valuta process-wrap per i processi senza PTY (job con avvio sospeso, licenza, manutenzione, costo di integrazione): l'esito è una decisione registrata in `[workspace.dependencies]` con motivo e licenza, oppure il rifiuto motivato. watchexec-supervisor ed expectrl non vengono usati.
 
 **Verifiche del passo:** `held-event-loop/port-bind/dead-owner/stale-proxy fault suite`; `PTY capture plus diagnostic-log comparison`; `SC16 inherited storage-latency suite, v8 migration integrity, local CONNECT/health fixture and one-hour load per supported OS`.
 
@@ -661,9 +718,9 @@ Stati tipizzati e unico proprietario del proxy con scelta di topologia registrat
 
 Stima: 4–8 ore. File: `crates/sidecar/src/supervisor.rs`.
 
-Accettazione: Due richieste concorrenti non creano due supervisori o due processi per lo stesso indirizzo. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
+Accettazione: Due richieste concorrenti non creano due supervisori o due processi per lo stesso indirizzo. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili. La scelta su process-wrap è registrata con versione, licenza e motivo prima del primo avvio del sidecar.
 
-Verifiche pianificate: `planned: test concorrenza e proprietà del proxy`; `npm run build`.
+Verifiche pianificate: `planned: test concorrenza e proprietà del proxy`; `npm run build`; `planned: verifica su fonti ufficiali di manutenzione e licenza di process-wrap; avvio sospeso nel job su Windows`.
 
 Commit: `feat(c13.1): Modellare proprietà, stato e topologia del proxy`. Registrare stato e prove sotto `progress.json` → `steps` → `C13` → `units` → `C13.1`.
 
@@ -773,7 +830,7 @@ Record versionati di progetti, spazi di lavoro e radici degli archivi; separazio
 
 Albero di layout versionato in Rust o TypeScript, trasformazioni atomiche per dividere, riordinare, spostare e chiudere viste, con revisioni persistenti degli spazi di lavoro.
 
-**Ambito:** v1. **Dipendenze:** B02, FS03. **Stima:** 10–20 ore.
+**Ambito:** v1. **Dipendenze:** B02, FS03, TL1-proof. **Stima:** 10–20 ore.
 
 **File/componenti:** `crates/workspace/**`; `apps/desktop/src/layout.ts`; `crates/state/src/workspaces.rs`.
 
@@ -822,23 +879,26 @@ Commit: `feat(c06.2): Persistire revisioni e proprietà dello spazio di lavoro`.
 <a id="c07"></a>
 ## C07 · Disegnare l'albero di pannelli e completare i comandi da tastiera
 
-Pannelli annidati e ridimensionabili, riordino e divisione dai bordi delle schede, anteprima dei rilasci e operazioni equivalenti da tastiera.
+Pannelli annidati e ridimensionabili, riordino e divisione dai bordi delle schede, anteprima dei rilasci e operazioni equivalenti da tastiera. Cornice con barra superiore, barra dei tasti e overlay di ricerca.
 
-**Ambito:** v1. **Dipendenze:** C06. **Stima:** 12–24 ore.
+**Ambito:** v1. **Dipendenze:** C06. **Stima:** 15–30 ore.
 
 **File/componenti:** `apps/desktop/src/workspace/**`; `apps/desktop/src/main.ts`.
 
 **Accettazione osservabile:**
 
+**Parti rinviate nello scope corrente:** La palette Daodan di FRD-0001/R12 e rinviata; le altre superfici restano attive.
+
 - Un trascinamento annullato o non valido non cambia nulla; gli spostamenti preservano identità e output del processo attivo.
 - Solo il terminale con focus riceve input; una finestra modale impedisce l'incolla nei terminali sullo sfondo.
 - Le finestre strette mantengono raggiungibile ogni pannello; una vista nascosta conserva l'ultima dimensione utilizzabile.
+- Cornice con bordo e titolo, barra superiore con thread, cartella, ramo, costo e icona dell'agente, barra inferiore dei tasti e overlay di ricerca sono colorati dalla skin; i dati non ancora disponibili appaiono come tali (FRD-0001/R12).
 
 **Verifiche del passo:** `desktop nested-split/move/cancel/keyboard smoke`; `four noisy panes plus resize instrumentation`.
 
-**Gate collegati, da registrare separatamente:** TL2, TL5, U3, U4, U5.
+**Gate collegati, da registrare separatamente:** TL2, TL5, U3, U4, U5, P11, P12.
 
-**Requisiti coperti dal piano:** FRD-0001/R14, FRD-0001/R23, FRD-0001/R24, FRD-0001/R25, FRD-0001/R26, FRD-0001/R27, FRD-0001/R29, FRD-0001/R32, FRD-0001/R33, FRD-0001/R34.
+**Requisiti coperti dal piano:** FRD-0001/R14, FRD-0001/R23, FRD-0001/R24, FRD-0001/R25, FRD-0001/R26, FRD-0001/R27, FRD-0001/R29, FRD-0001/R32, FRD-0001/R33, FRD-0001/R34, FRD-0001/R12.
 
 **Commit proposto:** `feat(c07): Disegnare l'albero di pannelli e completare i comandi da tastiera`.
 
@@ -881,6 +941,18 @@ Accettazione: La modalità solo tastiera copre tutte le azioni; input e incolla 
 Verifiche pianificate: `planned: matrice focus, shortcut e modal-paste`; `npm run build`.
 
 Commit: `feat(c07.3): Completare focus e operazioni da tastiera`. Registrare stato e prove sotto `progress.json` → `steps` → `C07` → `units` → `C07.3`.
+
+### C07.4 · Disegnare cornice, barre e overlay di ricerca
+
+Cornice, barra superiore, barra dei tasti e overlay di ricerca che lascia intatto lo schermo dell'emulatore.
+
+Stima: 3–6 ore. File: `apps/desktop/src/workspace/chrome.ts`.
+
+Accettazione: Le superfici seguono la skin e chiudendo l'overlay il focus torna al pannello di origine; la compilazione e l'avvio dell'app esistente restano funzionanti.
+
+Verifiche pianificate: `planned: prova desktop di barre, overlay e ritorno del focus`; `npm run build`.
+
+Commit: `feat(c07.4): Disegnare cornice, barre e overlay di ricerca`. Registrare stato e prove sotto `progress.json` → `steps` → `C07` → `units` → `C07.4`.
 
 <a id="c08"></a>
 ## C08 · Rendere configurabili i temi e i profili versionati dei terminali
@@ -948,21 +1020,25 @@ Commit: `feat(c08.3): Aggiungere follow-skin e avvisi sulle risorse`. Registrare
 <a id="c09"></a>
 ## C09 · Rendere robusti terminale e contenimento con fixture sintetiche
 
-Meccanismi terminali riusabili e fixture sintetiche per I/O, Unicode, input/focus, resize, code limitate e arresto del processo. Le certificazioni dei veri agenti seguono separatamente.
+Meccanismi terminali riusabili e fixture sintetiche per I/O, Unicode, input/focus, resize, code limitate e arresto del processo. Le certificazioni dei veri agenti seguono separatamente. Contenimento con garanzie distinte per crash dell'app e stop del singolo terminale.
 
-**Ambito:** v1. **Dipendenze:** C07, C08. **Stima:** 6–12 ore.
+**Ambito:** v1. **Dipendenze:** C07, C08. **Stima:** 8–16 ore.
 
-**File/componenti:** `crates/terminal/**`; `verify/P*/**`; `docs/verification/**`.
+**File/componenti:** `crates/terminal/**`; `verify/P*/**`; `docs/verification/**`; `crates/terminal/src/process_tree.rs`; `crates/terminal/src/lib.rs`; `apps/desktop/src-tauri/src/main.rs`; `crates/terminal/tests/`.
 
 **Accettazione osservabile:**
 
 - Corpus sintetico riproducibile per schermo alternativo, truecolor, Unicode e sequenze ostili senza account o chiamate modello.
 - I/O, modal focus, resize finale, code piene e arresto albero testati sulla piattaforma del commit; limiti per le altre piattaforme espliciti.
 - Ogni combinazione agente/piattaforma resta non certificata fino alla relativa scheda QA, senza bloccare il primo adattatore sulle altre combinazioni.
+- Il job globale copre l'uscita e il crash dell'app: Shinatama vi entra prima di creare qualsiasi processo da contenere, l'handle resta solo nell'app e non è ereditabile, e dopo il kill dell'app non sopravvive nessun processo entro 10 s.
+- Lo stop di un terminale ha una garanzia distinta: con due terminali aperti e un nipote fatto nascere prima dell'assegnazione al job di sessione, arrestare A elimina tutto l'albero di A e lascia B funzionante. La prova forza quest'ordine con un punto di attesa solo di test, senza affidarsi alle ripetizioni.
+- Prova di sonda in verify/P14 (docs/verification/2026-11-02-P14-containment-probe.md): con l'ordine attuale nessun codice del figlio gira prima dell'assegnazione al job di sessione perché ConPTY trattiene il figlio finché l'host non risponde alla richiesta di posizione del cursore. Il test permanente fallisce se un figlio gira prima dell'assegnazione; in tal caso, o se una versione di Windows cambia il comportamento, il contenimento passa a PROC_THREAD_ATTRIBUTE_JOB_LIST con la pseudoconsole (verificato nella sonda, preferito a CREATE_SUSPENDED) e la prova viene ripetuta.
+- Lo stop di un terminale chiude sia il job sia la pseudoconsole; un discendente staccato dalla console dopo lo stop non sopravvive.
 
-**Verifiche del passo:** `fixture sintetiche terminal/emulator e process lifecycle`; `corpus ANSI negativo`; `npm run test:desktop sulla piattaforma disponibile`.
+**Verifiche del passo:** `fixture sintetiche terminal/emulator e process lifecycle`; `corpus ANSI negativo`; `npm run test:desktop sulla piattaforma disponibile`; `planned: kill dell'app con figlio e nipote su Windows; nessun superstite entro 10 s`; `planned: handle del job globale non ereditabile e assente nei figli`; `planned: guardia permanente: nessun codice del figlio gira prima dell'assegnazione al job di sessione (ordine di produzione)`; `planned: nipote forzato prima dell'assegnazione, stop di A con B vivo, nipote staccato dalla console, su Windows`.
 
-**Gate collegati, da registrare separatamente:** P1–P20 parziali: soli meccanismi sintetici, TL5 parziale.
+**Gate collegati, da registrare separatamente:** P1–P20 parziali: soli meccanismi sintetici, TL5 parziale, U6, P14.
 
 **Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
 
@@ -981,6 +1057,8 @@ Avvio Claude, stato di accesso e login tramite l'unico percorso verificato, con 
 
 **Accettazione osservabile:**
 
+**Parti rinviate nello scope corrente:** Il controllo Daodan del checkup di FRD-0001/R08 e rinviato.
+
 - La TUI interattiva parte nel progetto scelto con sidecar e set generico selezionato, anche senza Daodan.
 - SignedOut, Unknown, Degraded e le domande iniziali di fiducia sono visibili; le credenziali restano nel flusso dell'agente.
 - Versione delle fixture e versione installata coincidono prima di dichiarare supporto; i test reali usano un account sintetico autorizzato separatamente.
@@ -988,7 +1066,7 @@ Avvio Claude, stato di accesso e login tramite l'unico percorso verificato, con 
 
 **Verifiche del passo:** `Claude contract fixtures`; `synthetic signed-out smoke`; `authorized synthetic live TUI canary`.
 
-**Gate collegati, da registrare separatamente:** CL1/CL4/CL8: sottoinsieme avvio/stato, D5, P20 parziale Claude, QA-claude-* per certificazione completa.
+**Gate collegati, da registrare separatamente:** CL1/CL4/CL8: sottoinsieme avvio/stato, D5, P20 parziale Claude, QA-claude-* per certificazione completa, CL13.
 
 **Requisiti coperti dal piano:** FRD-0001/R01, FRD-0001/R08, FRD-0001/R09, FRD-0001/R10, FRD-0001/R18, FRD-0001/R19, FRD-0003/R01, FRD-0003/R02, FRD-0003/R03, FRD-0003/R04, FRD-0003/R07, FRD-0003/R10, FRD-0003/R11, FRD-0003/R12, FRD-0003/R14, FRD-0003/R15, FRD-0004/R10, FRD-0006/R40, FRD-0006/R41, FRD-0006/R42, FRD-0006/R45, FRD-0006/R48.
 
@@ -1034,352 +1112,31 @@ Verifiche pianificate: `planned: contratto Claude e login in home di test`; `npm
 
 Commit: `feat(c15.3): Collegare login e capacità Claude provate`. Registrare stato e prove sotto `progress.json` → `steps` → `C15` → `units` → `C15.3`.
 
-<a id="c16"></a>
-## C16 · Aggiungere l'adattatore Codex
+<a id="qa-claude-windows"></a>
+## QA-claude-windows · Certificare terminale claude su windows
 
-Avvio, autenticazione, collegamento e segnali Codex attraverso lo stesso contratto, applicando i vincoli su HOME, socket e insiemi.
+Evidenza riproducibile per un vero claude su windows, separata dalle altre combinazioni e dalle sole fixture del meccanismo.
 
-**Ambito:** v1. **Dipendenze:** C15. **Stima:** 12–24 ore.
+**Ambito:** v1. **Dipendenze:** C09, C15. **Stima:** 4–8 ore.
 
-**File/componenti:** `crates/adapter/src/codex/**`; `verify/CX/**`.
-
-**Accettazione osservabile:**
-
-- Nessuna sessione nativa ha due scrittori; la sovrapposizione privata conserva autenticazione e cronologia nelle posizioni previste dall'agente.
-- Gli insiemi per istanza nella home di sistema vengono rifiutati; coda nativa e segnali dichiarati sono provati.
-
-**Verifiche del passo:** `Codex versioned contract fixtures`; `synthetic box/system-home negative cases`.
-
-**Gate collegati, da registrare separatamente:** CX1-CX14, CX12, D19, P20.
-
-**Requisiti coperti dal piano:** FRD-0001/R01, FRD-0001/R08, FRD-0001/R09, FRD-0001/R10, FRD-0003/R01, FRD-0003/R02, FRD-0003/R03, FRD-0003/R04, FRD-0003/R07, FRD-0003/R10, FRD-0003/R11, FRD-0003/R12, FRD-0003/R14, FRD-0006/R40, FRD-0006/R41, FRD-0006/R42, FRD-0006/R45, FRD-0006/R46, FRD-0006/R48.
-
-**Commit proposto:** `feat(c16): Aggiungere l'adattatore Codex`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/adapter/src/codex/**, verify/CX/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
-
-### C16.1 · Riconoscere Codex e preparare home e stato login
-
-Eseguibile, versione, autenticazione e vincoli di socket/overlay privato.
-
-Stima: 4–8 ore. File: `crates/adapter/src/codex/discovery.rs`, `crates/adapter/src/codex/auth.rs`.
-
-Accettazione: Nessuna lettura di credenziali e nessun insieme per istanza nella home di sistema. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
-
-Verifiche pianificate: `planned: fixture Codex auth/box/system`; `npm run build`.
-
-Commit: `feat(c16.1): Riconoscere Codex e preparare home e stato login`. Registrare stato e prove sotto `progress.json` → `steps` → `C16` → `units` → `C16.1`.
-
-### C16.2 · Collegare avvio e backend Codex
-
-Percorso PTY o attach scelto e versionato attraverso il launch plan comune.
-
-Stima: 4–8 ore. File: `crates/adapter/src/codex/run.rs`.
-
-Accettazione: La TUI reale usa sidecar e checkup; nessun secondo writer della sessione nativa. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
-
-Verifiche pianificate: `planned: smoke Codex e esclusività della sessione`; `npm run build`.
-
-Commit: `feat(c16.2): Collegare avvio e backend Codex`. Registrare stato e prove sotto `progress.json` → `steps` → `C16` → `units` → `C16.2`.
-
-### C16.3 · Provare segnali e capacità dichiarate Codex
-
-Queue, stato e capacità native aggiunte solo con fixture installate.
-
-Stima: 4–8 ore. File: `crates/adapter/src/codex/**`, `verify/CX/**`.
-
-Accettazione: Una capacità fallita diventa unsupported senza compromettere l’avvio già provato. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
-
-Verifiche pianificate: `planned: conformance Codex per versione`; `npm run build`.
-
-Commit: `feat(c16.3): Provare segnali e capacità dichiarate Codex`. Registrare stato e prove sotto `progress.json` → `steps` → `C16` → `units` → `C16.3`.
-
-<a id="c17"></a>
-## C17 · Aggiungere l'adattatore OpenCode
-
-Ciclo di vita del terminale e server OpenCode, rilevamento dell'autenticazione e contesto di avvio isolato.
-
-**Ambito:** v1. **Dipendenze:** C15. **Stima:** 12–24 ore.
-
-**File/componenti:** `crates/adapter/src/opencode/**`; `verify/OC/**`.
+**File/componenti:** `verify/platform/windows/claude/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
 
 **Accettazione osservabile:**
 
-- Il servizio dell'agente termina insieme alla finestra; il ripristino XDG dei sottoprocessi impedisce perdite nell'ambiente.
-- L'autenticazione mostra Unknown quando i controlli disponibili senza segreti non soddisfano il criterio sulla versione installata.
+- Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di claude registrata.
+- Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
+- Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
+- Completare SC16 con cinque istanze e storie lunghe per un ora sulla piattaforma: nessuna connessione rifiutata, profilare i ritardi; usare solo fixture/account e budget autorizzati.
 
-**Verifiche del passo:** `OpenCode contract/export/service fixtures`; `XDG child-env negative cases`.
+**Verifiche del passo:** `matrice P1–P20 claude/windows applicabile`; `fixture TUI reale claude con account/test sintetici autorizzati`.
 
-**Gate collegati, da registrare separatamente:** OC1-OC10, D17, P20.
+**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
 
-**Requisiti coperti dal piano:** FRD-0001/R01, FRD-0001/R08, FRD-0001/R09, FRD-0001/R10, FRD-0003/R01, FRD-0003/R02, FRD-0003/R03, FRD-0003/R04, FRD-0003/R07, FRD-0003/R10, FRD-0003/R11, FRD-0003/R12, FRD-0003/R14, FRD-0006/R40, FRD-0006/R41, FRD-0006/R42, FRD-0006/R45, FRD-0006/R46, FRD-0006/R48.
+**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
 
-**Commit proposto:** `feat(c17): Aggiungere l'adattatore OpenCode`.
+**Commit proposto:** `feat(qa-claude-windows): Certificare terminale claude su windows`.
 
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/adapter/src/opencode/**, verify/OC/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
-
-### C17.1 · Riconoscere OpenCode e risolvere l’ambiente isolato
-
-Catalogo, auth secret-free e piano XDG con ripristino per i programmi figli.
-
-Stima: 4–8 ore. File: `crates/adapter/src/opencode/auth.rs`, `crates/adapter/src/opencode/environment.rs`.
-
-Accettazione: Se i controlli auth disponibili non soddisfano il criterio, lo stato resta Unknown. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
-
-Verifiche pianificate: `planned: fixture auth e ambiente XDG`; `npm run build`.
-
-Commit: `feat(c17.1): Riconoscere OpenCode e risolvere l’ambiente isolato`. Registrare stato e prove sotto `progress.json` → `steps` → `C17` → `units` → `C17.1`.
-
-### C17.2 · Collegare terminale e servizio OpenCode
-
-Avvio esplicito della TUI e proprietà del servizio nella finestra.
-
-Stima: 4–8 ore. File: `crates/adapter/src/opencode/run.rs`.
-
-Accettazione: Il servizio termina con la finestra; nessun processo di sistema dell’utente viene arrestato. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
-
-Verifiche pianificate: `planned: smoke TUI e lifecycle servizio`; `npm run build`.
-
-Commit: `feat(c17.2): Collegare terminale e servizio OpenCode`. Registrare stato e prove sotto `progress.json` → `steps` → `C17` → `units` → `C17.2`.
-
-### C17.3 · Provare esportazione, segnali e insiemi OpenCode
-
-Capacità disponibili dietro contratto e fixture della versione.
-
-Stima: 4–8 ore. File: `crates/adapter/src/opencode/**`, `verify/OC/**`.
-
-Accettazione: Esportazione e segnali usano timeout e contesto isolato; niente supporto implicito. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
-
-Verifiche pianificate: `planned: suite contratto OpenCode`; `npm run build`.
-
-Commit: `feat(c17.3): Provare esportazione, segnali e insiemi OpenCode`. Registrare stato e prove sotto `progress.json` → `steps` → `C17` → `units` → `C17.3`.
-
-<a id="c18"></a>
-## C18 · Aggiungere l'adattatore Pi
-
-Pi avviato tramite node e vettore di argomenti, con capacità esplicite per skill, estensioni e RPC.
-
-**Ambito:** v1. **Dipendenze:** C15. **Stima:** 12–24 ore.
-
-**File/componenti:** `crates/adapter/src/pi/**`; `verify/PI/**`.
-
-**Accettazione osservabile:**
-
-- Non viene presunta una modalità di collegamento alla TUI; lo stato di accesso usa un controllo senza refresh e senza segreti.
-- Le cartelle skill dell'utente non entrano negli insiemi per istanza.
-
-**Verifiche del passo:** `Pi contract/RPC/skills fixtures`; `paths with spaces and nonASCII`.
-
-**Gate collegati, da registrare separatamente:** PI1-PI11, D19, P20.
-
-**Requisiti coperti dal piano:** FRD-0001/R01, FRD-0001/R08, FRD-0001/R09, FRD-0001/R10, FRD-0003/R01, FRD-0003/R02, FRD-0003/R03, FRD-0003/R04, FRD-0003/R07, FRD-0003/R10, FRD-0003/R11, FRD-0003/R12, FRD-0003/R14, FRD-0006/R40, FRD-0006/R41, FRD-0006/R42, FRD-0006/R45, FRD-0006/R48.
-
-**Commit proposto:** `feat(c18): Aggiungere l'adattatore Pi`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/adapter/src/pi/**, verify/PI/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
-
-### C18.1 · Riconoscere Pi e definire argv senza shim
-
-Catalogo Pi, node e cli.js, autenticazione senza refresh e vincoli di versione.
-
-Stima: 4–8 ore. File: `crates/adapter/src/pi/discovery.rs`, `crates/adapter/src/pi/auth.rs`.
-
-Accettazione: Percorsi con spazi/non ASCII non usano .cmd o shell; status non espone segreti. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
-
-Verifiche pianificate: `planned: fixture installazione, argv e auth Pi`; `npm run build`.
-
-Commit: `feat(c18.1): Riconoscere Pi e definire argv senza shim`. Registrare stato e prove sotto `progress.json` → `steps` → `C18` → `units` → `C18.1`.
-
-### C18.2 · Avviare Pi con skill ed estensioni esplicite
-
-TUI attraverso il launch plan e insiemi che non ereditano skill globali.
-
-Stima: 4–8 ore. File: `crates/adapter/src/pi/run.rs`, `crates/adapter/src/pi/sets.rs`.
-
-Accettazione: Due piani con insiemi diversi non condividono accidentalmente estensioni o skill. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
-
-Verifiche pianificate: `planned: smoke Pi e fixture insiemi`; `npm run build`.
-
-Commit: `feat(c18.2): Avviare Pi con skill ed estensioni esplicite`. Registrare stato e prove sotto `progress.json` → `steps` → `C18` → `units` → `C18.2`.
-
-### C18.3 · Collegare RPC e provare le capacità Pi
-
-Capacità RPC e segnali effettivi con assenza esplicita di TUI attach.
-
-Stima: 4–8 ore. File: `crates/adapter/src/pi/**`, `verify/PI/**`.
-
-Accettazione: Le operazioni non supportate sono rifiutate e ogni capacità dichiarata ha una fixture. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
-
-Verifiche pianificate: `planned: suite Pi RPC/refusal`; `npm run build`.
-
-Commit: `feat(c18.3): Collegare RPC e provare le capacità Pi`. Registrare stato e prove sotto `progress.json` → `steps` → `C18` → `units` → `C18.3`.
-
-<a id="c19"></a>
-## C19 · Aggiungere Hermes Agent con capacità non supportate esplicite
-
-Chat, autenticazione e gateway Hermes soltanto dove le fixture della versione installata passano; assenze di pacchetti e lettori sono visibili.
-
-**Ambito:** v1. **Dipendenze:** C15. **Stima:** 14–28 ore.
-
-**File/componenti:** `crates/adapter/src/hermes/**`; `verify/HM/**`.
-
-**Accettazione osservabile:**
-
-- Il gateway appartiene alla finestra e termina con essa; nella home di sistema non vengono iniettate configurazioni.
-- Nessuna capacità di lettura Mukade, esportazione o hop in uscita è dichiarata prima che una revisione verificata la fornisca.
-- Una procedura sconosciuta di installazione gestita fa rifiutare la modalità own.
-
-**Verifiche del passo:** `Hermes contract and gateway lifecycle fixtures`; `no-package/no-reader negatives`.
-
-**Gate collegati, da registrare separatamente:** HM1-HM14, D20.
-
-**Requisiti coperti dal piano:** FRD-0001/R01, FRD-0001/R02, FRD-0001/R08, FRD-0001/R09, FRD-0001/R10, FRD-0002/R09, FRD-0002/R15, FRD-0002/R27, FRD-0002/R31, FRD-0003/R01, FRD-0003/R02, FRD-0003/R03, FRD-0003/R05, FRD-0003/R07, FRD-0003/R08, FRD-0003/R10, FRD-0003/R11, FRD-0003/R12, FRD-0003/R14, FRD-0006/R03, FRD-0006/R40, FRD-0006/R41, FRD-0006/R42, FRD-0006/R45, FRD-0006/R46, FRD-0006/R48.
-
-**Commit proposto:** `feat(c19): Aggiungere Hermes Agent con capacità non supportate esplicite`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/adapter/src/hermes/**, verify/HM/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
-
-### C19.1 · Riconoscere Hermes e lo stato di autenticazione
-
-Catalogo, status per provider e rifiuti per pacchetti o lettori mancanti.
-
-Stima: 4–8 ore. File: `crates/adapter/src/hermes/discovery.rs`, `crates/adapter/src/hermes/auth.rs`.
-
-Accettazione: Nessuna copia di pacchetti di altri host e nessun reader/hop-source implicito. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
-
-Verifiche pianificate: `planned: fixture Hermes discovery/auth/unsupported`; `npm run build`.
-
-Commit: `feat(c19.1): Riconoscere Hermes e lo stato di autenticazione`. Registrare stato e prove sotto `progress.json` → `steps` → `C19` → `units` → `C19.1`.
-
-### C19.2 · Avviare chat e possedere il gateway Hermes
-
-Launch plan Hermes con box e lifecycle del gateway legato alla finestra.
-
-Stima: 5–10 ore. File: `crates/adapter/src/hermes/run.rs`, `crates/adapter/src/hermes/gateway.rs`.
-
-Accettazione: La home di sistema non riceve configurazioni iniettate e il gateway di test non sopravvive alla finestra. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
-
-Verifiche pianificate: `planned: smoke chat e gateway lifecycle`; `npm run build`.
-
-Commit: `feat(c19.2): Avviare chat e possedere il gateway Hermes`. Registrare stato e prove sotto `progress.json` → `steps` → `C19` → `units` → `C19.2`.
-
-### C19.3 · Validare le capacità e le limitazioni Hermes
-
-Conformance per versione, ricetta own non disponibile e insieme della home mantenuto.
-
-Stima: 5–10 ore. File: `crates/adapter/src/hermes/**`, `verify/HM/**`.
-
-Accettazione: Solo le capacità provate diventano disponibili; una ricetta di installazione sconosciuta rifiuta own. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
-
-Verifiche pianificate: `planned: suite Hermes versionata e rifiuti`; `npm run build`.
-
-Commit: `feat(c19.3): Validare le capacità e le limitazioni Hermes`. Registrare stato e prove sotto `progress.json` → `steps` → `C19` → `units` → `C19.3`.
-
-<a id="c20"></a>
-## C20 · Aggiungere il pannello ACP DeepSeek
-
-Un client ACP mostra messaggi, strumenti e permessi reali dell'agente e avvia dsh web soltanto su azione esplicita dell'utente.
-
-**Ambito:** v1. **Dipendenze:** C15. **Stima:** 20–40 ore.
-
-**File/componenti:** `crates/adapter/src/deepseek/**`; `apps/desktop/src/acp/**`; `verify/DS/**`.
-
-**Accettazione osservabile:**
-
-- Una richiesta di permesso attende la risposta dell'utente; nessuna esecuzione automatica di strumenti.
-- DSH_HOME, DSH_AGENTS_HOME e trasporto del token MCP di sessione vengono provati o rifiutati.
-- dsh web resta esterno e nessun processo browser rimane dopo la chiusura; autenticazione Unknown fino a DS9.
-
-**Verifiche del passo:** `ACP protocol fixture replay with denied permissions`; `real installed-version canary when authorized`.
-
-**Gate collegati, da registrare separatamente:** DS1-DS15, D20.
-
-**Requisiti coperti dal piano:** FRD-0001/R01, FRD-0001/R02, FRD-0001/R05, FRD-0001/R06, FRD-0001/R07, FRD-0001/R08, FRD-0002/R28, FRD-0002/R34, FRD-0003/R01, FRD-0003/R02, FRD-0003/R03, FRD-0003/R06, FRD-0003/R09, FRD-0003/R10, FRD-0003/R11, FRD-0003/R12, FRD-0003/R14, FRD-0006/R03, FRD-0006/R40, FRD-0006/R41, FRD-0006/R42, FRD-0006/R45, FRD-0006/R46, FRD-0006/R48.
-
-**Commit proposto:** `feat(c20): Aggiungere il pannello ACP DeepSeek`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/adapter/src/deepseek/**, apps/desktop/src/acp/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
-
-### C20.1 · Implementare handshake e sessione ACP
-
-Client ACP con inizializzazione, session/new e cancellazione su processo di test.
-
-Stima: 5–10 ore. File: `crates/adapter/src/deepseek/acp.rs`.
-
-Accettazione: Messaggi malformati, timeout e uscita del figlio producono errori visibili senza bloccare l’app. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
-
-Verifiche pianificate: `planned: fixture handshake/cancel/timeouts ACP`; `npm run build`.
-
-Commit: `feat(c20.1): Implementare handshake e sessione ACP`. Registrare stato e prove sotto `progress.json` → `steps` → `C20` → `units` → `C20.1`.
-
-### C20.2 · Disegnare messaggi e strumenti ACP
-
-Pannello ACP integrato in schede e split con stream reali del protocollo.
-
-Stima: 5–10 ore. File: `apps/desktop/src/acp/**`, `crates/adapter/src/deepseek/events.rs`.
-
-Accettazione: Nessuna lettura dello schermo simulata; output resta limitato e il pannello si sposta senza riavvio. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
-
-Verifiche pianificate: `planned: replay ACP e smoke pannello`; `npm run build`.
-
-Commit: `feat(c20.2): Disegnare messaggi e strumenti ACP`. Registrare stato e prove sotto `progress.json` → `steps` → `C20` → `units` → `C20.2`.
-
-### C20.3 · Collegare richieste di permesso e input utente
-
-Relè esplicito di prompt e risposte session/request_permission.
-
-Stima: 5–10 ore. File: `crates/adapter/src/deepseek/permissions.rs`, `apps/desktop/src/acp/permissions.ts`.
-
-Accettazione: Uno strumento non parte prima della risposta; annullamento e rifiuto preservano la richiesta corretta. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
-
-Verifiche pianificate: `planned: canary ACP deny/allow/cancel`; `npm run build`.
-
-Commit: `feat(c20.3): Collegare richieste di permesso e input utente`. Registrare stato e prove sotto `progress.json` → `steps` → `C20` → `units` → `C20.3`.
-
-### C20.4 · Integrare contesto DeepSeek e accesso web esterno
-
-Home DSH, token MCP, stato auth Unknown e avvio dsh web soltanto su richiesta.
-
-Stima: 5–10 ore. File: `crates/adapter/src/deepseek/**`, `verify/DS/**`.
-
-Accettazione: Nessun web incorporato o processo residuo; capacità non provate restano unsupported. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
-
-Verifiche pianificate: `planned: fixture DS home/token e lifecycle web`; `npm run build`.
-
-Commit: `feat(c20.4): Integrare contesto DeepSeek e accesso web esterno`. Registrare stato e prove sotto `progress.json` → `steps` → `C20` → `units` → `C20.4`.
-
-<a id="c21"></a>
-## C21 · Aggiungere Gemini per il solo avvio
-
-Gemini si avvia soltanto attraverso il sidecar, con ricerca, hop e lettura dichiarati non supportati.
-
-**Ambito:** v1. **Dipendenze:** C13, C14, C15. **Stima:** 6–12 ore.
-
-**File/componenti:** `crates/adapter/src/gemini/**`.
-
-**Accettazione osservabile:**
-
-- Gemini non compare mai tra origini o destinazioni degli hop; traffico non coperto è visibile e non viene dichiarato supportato.
-
-**Verifiche del passo:** `launch-only contract negative cases`; `provider coverage fixture`.
-
-**Gate collegati, da registrare separatamente:** SC11.
-
-**Requisiti coperti dal piano:** FRD-0001/R03, FRD-0001/R04, FRD-0006/R40, FRD-0006/R42.
-
-**Commit proposto:** `feat(c21): Aggiungere Gemini per il solo avvio`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/adapter/src/gemini/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire verify/platform/windows/claude/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento.
 
 <a id="c22"></a>
 ## C22 · Risolvere le radici persistenti degli archivi e collegare una revisione verificata di Mukade
@@ -1582,6 +1339,1305 @@ Accettazione: Ricostruire l’indice conserva thread autorevoli; disattivare ind
 Verifiche pianificate: `planned: test forget/rebuild e misure corpus`; `npm run build`.
 
 Commit: `feat(c24.3): Aggiungere esclusione, forget e ricostruzione operativa`. Registrare stato e prove sotto `progress.json` → `steps` → `C24` → `units` → `C24.3`.
+
+<a id="f02"></a>
+## F02 · Proprietà del runtime, flusso degli eventi e rilevamento della presenza
+
+Un runtime proprietario dei PTY per finestra, comando hook autenticato, lettori della sequenza eventi e recupero delle istanze terminate basato sull’identità del processo.
+
+**Ambito:** v1. **Dipendenze:** FS03, C15, C11. **Stima:** 4–10 ore.
+
+**File/componenti:** `crates/state/`; `apps/desktop/src-tauri/src/`; `docs/verification/`.
+
+**Accettazione osservabile:**
+
+- Due finestre non devono scrivere nello stesso PTY né collegare due volte lo stesso segmento nativo.
+- Heartbeat e recupero delle istanze devono tollerare la sospensione del portatile senza false segnalazioni di terminazione.
+- I lettori devono recuperare gli eventi successivi al proprio seq; misurare latenza del polling e crescita dovuta alla conservazione.
+- L’hook deve aggiornare evento e stato nella stessa transazione e rispettare token, stdout e contratto dei codici di uscita.
+
+**Verifiche del passo:** `planned: Two windows cannot write one PTY or attach one native segment twice.`; `planned: Heartbeat/reaper survives laptop sleep without false dead.`; `planned: Consumers catch up by seq; polling latency and retention growth measured.`; `planned: Hook updates event/state transactionally, honors token and stdout/exit contract.`.
+
+**Gate collegati, da registrare separatamente:** P14, S3, S8, I8, M11.
+
+**Requisiti coperti dal piano:** FRD-0010/R05, FRD-0010/R06, FRD-0010/R07, FRD-0010/R08, FRD-0014/R01, FRD-0014/R02, FRD-0014/R03, FRD-0014/R04, FRD-0014/R20, FRD-0014/R22, FRD-0014/R23, FRD-0014/R24.
+
+**Commit proposto:** `feat(f02): Proprietà del runtime, flusso degli eventi e rilevamento della presenza`.
+
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/state/, apps/desktop/src-tauri/src/. Preparare la prima prova di accettazione prima di modificare il comportamento.
+
+<a id="c25"></a>
+## C25 · Aggiungere thread persistenti e ripresa esclusiva nello stesso agente
+
+Thread di lavoro, segmenti e attivazioni persistenti, ripresa nativa esplicita e ripresa headless opzionale con avviso di costo.
+
+**Ambito:** v1. **Dipendenze:** C22, C24, FS03, F02. **Stima:** 12–24 ore.
+
+**File/componenti:** `crates/threads/**`; `crates/engine/src/resume.rs`; `apps/desktop/src/sessions/actions.ts`.
+
+**Accettazione osservabile:**
+
+- Il riavvio non perde thread; nessun riuso di PID o PTY obsoleti e nessuna ripresa automatica.
+- Una sessione nativa non si collega a due istanze attive; Claude riprende soltanto nella propria cartella di lavoro.
+- Un'origine nativa mancante propone correttamente un futuro avvio da seed, senza presentarlo come ripresa nativa.
+- La colonna dei thread è un pannello laterale ridimensionabile e comprimibile, colorato dalla skin (FRD-0001/R12).
+
+**Verifiche del passo:** `two-process resume race`; `resume/exit/restart fixtures`; `source-store unchanged assertion`.
+
+**Gate collegati, da registrare separatamente:** CL4, CL15, S4, SS5.
+
+**Requisiti coperti dal piano:** FRD-0005/R01, FRD-0005/R03, FRD-0005/R04, FRD-0005/R47, FRD-0006/R08, FRD-0006/R25, FRD-0006/R29, FRD-0014/R17, FRD-0014/R20, FRD-0001/R12.
+
+**Commit proposto:** `feat(c25): Aggiungere thread persistenti e ripresa esclusiva nello stesso agente`.
+
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/threads/**, crates/engine/src/resume.rs. Preparare la prima prova di accettazione prima di modificare il comportamento.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### C25.1 · Persistire thread, segmenti e attivazioni
+
+Schema di lavoro e record che sopravvivono a processi e terminali.
+
+Stima: 4–8 ore. File: `crates/threads/**`, `crates/state/src/threads.rs`.
+
+Accettazione: Riavvio e chiusura della vista non eliminano cronologia né avviano processi. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: test thread/segment/activation restart`; `npm run build`.
+
+Commit: `feat(c25.1): Persistire thread, segmenti e attivazioni`. Registrare stato e prove sotto `progress.json` → `steps` → `C25` → `units` → `C25.1`.
+
+### C25.2 · Riprendere nativamente con esclusività
+
+Servizio resume che risolve radice e cartella e acquisisce l’unica attivazione valida.
+
+Stima: 4–8 ore. File: `crates/engine/src/resume.rs`.
+
+Accettazione: Due processi concorrenti non collegano la stessa sessione; Claude riprende soltanto nella sua cwd. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: race resume e fixture cwd`; `npm run build`.
+
+Commit: `feat(c25.2): Riprendere nativamente con esclusività`. Registrare stato e prove sotto `progress.json` → `steps` → `C25` → `units` → `C25.2`.
+
+### C25.3 · Collegare azioni UI e ripresa headless esplicita
+
+Resume manuale da sessione o thread con avviso di costo per headless e rifiuti chiari.
+
+Stima: 4–8 ore. File: `apps/desktop/src/sessions/actions.ts`.
+
+Accettazione: Origini scadute non fingono una ripresa nativa; nessuna ripresa automatica dopo restore. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: smoke resume e sessione mancante`; `npm run build`.
+
+Commit: `feat(c25.3): Collegare azioni UI e ripresa headless esplicita`. Registrare stato e prove sotto `progress.json` → `steps` → `C25` → `units` → `C25.3`.
+
+<a id="c26"></a>
+## C26 · Aggiungere esportazioni e CLI stabile per le sessioni
+
+Operazioni comuni a UI e CLI per sessions, find, export, resume, doctor e forget, JSON e codici di uscita stabili, con rapporti per STX, Mukade, formato nativo e Markdown.
+
+**Ambito:** v1. **Dipendenze:** C23, C24, C25. **Stima:** 12–24 ore.
+
+**File/componenti:** `crates/export/**`; `crates/cli/**`.
+
+**Accettazione osservabile:**
+
+- Il ragionamento non viene mai esportato; full e portable oscurano entrambi i segreti.
+- Output atomico con regole esplicite per sovrascrittura e allegati; versioni STX superiori vengono rifiutate e i campi sconosciuti conservati.
+- La CLI non suggerisce supporto all'importazione in v1; l'esportazione nativa compare soltanto dove è provata.
+
+**Verifiche del passo:** `export roundtrip/readback fixtures`; `atomic-output failure and exit-code tests`.
+
+**Gate collegati, da registrare separatamente:** SS6, H14, OC2.
+
+**Requisiti coperti dal piano:** FRD-0006/R31, FRD-0006/R32, FRD-0006/R33, FRD-0006/R35, FRD-0006/R36, FRD-0006/R37, FRD-0006/R38, FRD-0006/R39.
+
+**Commit proposto:** `feat(c26): Aggiungere esportazioni e CLI stabile per le sessioni`.
+
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/export/**, crates/cli/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### C26.1 · Definire e scrivere STX versionato
+
+Formato, checksum, provenienza e modalità full/portable con oscuramento.
+
+Stima: 4–8 ore. File: `crates/export/src/stx.rs`.
+
+Accettazione: Ragionamento escluso, campi ignoti conservati e versione superiore rifiutata. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: fixture STX read/write/version/privacy`; `npm run build`.
+
+Commit: `feat(c26.1): Definire e scrivere STX versionato`. Registrare stato e prove sotto `progress.json` → `steps` → `C26` → `units` → `C26.1`.
+
+### C26.2 · Aggiungere formati e output atomico
+
+Mukade/native/Markdown con rapporti di perdita e policy esplicite su allegati e overwrite.
+
+Stima: 4–8 ore. File: `crates/export/src/formats.rs`, `crates/export/src/output.rs`.
+
+Accettazione: Errore di scrittura non lascia output finale parziale né sovrascrive senza consenso. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: roundtrip export e fault atomic-output`; `npm run build`.
+
+Commit: `feat(c26.2): Aggiungere formati e output atomico`. Registrare stato e prove sotto `progress.json` → `steps` → `C26` → `units` → `C26.2`.
+
+### C26.3 · Esporre le stesse operazioni nella CLI
+
+Subcomandi sessions/find/export/resume/doctor/forget con JSON e codici di uscita stabili.
+
+Stima: 4–8 ore. File: `crates/cli/**`.
+
+Accettazione: UI e CLI chiamano il medesimo servizio; import resta non disponibile in v1. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: test CLI JSON schema e exit-code`; `npm run build`.
+
+Commit: `feat(c26.3): Esporre le stesse operazioni nella CLI`. Registrare stato e prove sotto `progress.json` → `steps` → `C26` → `units` → `C26.3`.
+
+<a id="f03p"></a>
+## F03P · Controlli di riservatezza, doctor e ricostruzione degli indici operativi
+
+Controllo di integrità doctor, disattivazione dell’indicizzazione per progetto, esclusione dai riepiloghi, eliminazione selettiva e modello delle minacce revisionato.
+
+**Ambito:** v1. **Dipendenze:** FS03, C23, C24. **Stima:** 4–10 ore.
+
+**File/componenti:** `crates/state/`; `apps/desktop/src-tauri/src/`; `docs/verification/`.
+
+**Accettazione osservabile:**
+
+- L’eliminazione selettiva deve rimuovere i contenuti previsti e i record companion, conservando i dati autorevoli estranei.
+- La ricostruzione deve rigenerare soltanto gli indici operativi.
+- Database, log e acquisizioni non devono contenere credenziali o traffico in uscita non previsto.
+- I percorsi SEC devono ricevere una seconda revisione e prove dei casi negativi.
+
+**Verifiche del passo:** `planned: Forget removes specified retained content and companion records; unrelated authoritative data survives.`; `planned: Rebuild regenerates only operational indexes.`; `planned: No credentials or unintended outbound traffic in database/logs/captures.`; `planned: SEC paths receive second-reader negative-case review.`.
+
+**Gate collegati, da registrare separatamente:** AT-6, I9, X4, X5.
+
+**Requisiti coperti dal piano:** FRD-0014/R11, FRD-0014/R27, FRD-0014/R28, FRD-0014/R29, FRD-0014/R30, FRD-0014/R32, FRD-0017/R17, FRD-0017/R18.
+
+**Commit proposto:** `feat(f03p): Controlli di riservatezza, doctor e ricostruzione degli indici operativi`.
+
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/state/, apps/desktop/src-tauri/src/. Preparare la prima prova di accettazione prima di modificare il comportamento.
+
+<a id="c16"></a>
+## C16 · Aggiungere l'adattatore Codex
+
+Avvio, autenticazione, collegamento e segnali Codex attraverso lo stesso contratto, applicando i vincoli su HOME, socket e insiemi.
+
+**Ambito:** v1. **Dipendenze:** C15. **Stima:** 12–24 ore.
+
+**File/componenti:** `crates/adapter/src/codex/**`; `verify/CX/**`.
+
+**Accettazione osservabile:**
+
+**Parti rinviate nello scope corrente:** Il controllo Daodan del checkup di FRD-0001/R08 e rinviato.
+
+- Nessuna sessione nativa ha due scrittori; la sovrapposizione privata conserva autenticazione e cronologia nelle posizioni previste dall'agente.
+- Gli insiemi per istanza nella home di sistema vengono rifiutati; coda nativa e segnali dichiarati sono provati.
+
+**Verifiche del passo:** `Codex versioned contract fixtures`; `synthetic box/system-home negative cases`.
+
+**Gate collegati, da registrare separatamente:** CX1-CX14, CX12, D19, P20.
+
+**Requisiti coperti dal piano:** FRD-0001/R01, FRD-0001/R08, FRD-0001/R09, FRD-0001/R10, FRD-0003/R01, FRD-0003/R02, FRD-0003/R03, FRD-0003/R04, FRD-0003/R07, FRD-0003/R10, FRD-0003/R11, FRD-0003/R12, FRD-0003/R14, FRD-0006/R40, FRD-0006/R41, FRD-0006/R42, FRD-0006/R45, FRD-0006/R46, FRD-0006/R48.
+
+**Commit proposto:** `feat(c16): Aggiungere l'adattatore Codex`.
+
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/adapter/src/codex/**, verify/CX/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### C16.1 · Riconoscere Codex e preparare home e stato login
+
+Eseguibile, versione, autenticazione e vincoli di socket/overlay privato.
+
+Stima: 4–8 ore. File: `crates/adapter/src/codex/discovery.rs`, `crates/adapter/src/codex/auth.rs`.
+
+Accettazione: Nessuna lettura di credenziali e nessun insieme per istanza nella home di sistema. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
+
+Verifiche pianificate: `planned: fixture Codex auth/box/system`; `npm run build`.
+
+Commit: `feat(c16.1): Riconoscere Codex e preparare home e stato login`. Registrare stato e prove sotto `progress.json` → `steps` → `C16` → `units` → `C16.1`.
+
+### C16.2 · Collegare avvio e backend Codex
+
+Percorso PTY o attach scelto e versionato attraverso il launch plan comune.
+
+Stima: 4–8 ore. File: `crates/adapter/src/codex/run.rs`.
+
+Accettazione: La TUI reale usa sidecar e checkup; nessun secondo writer della sessione nativa. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
+
+Verifiche pianificate: `planned: smoke Codex e esclusività della sessione`; `npm run build`.
+
+Commit: `feat(c16.2): Collegare avvio e backend Codex`. Registrare stato e prove sotto `progress.json` → `steps` → `C16` → `units` → `C16.2`.
+
+### C16.3 · Provare segnali e capacità dichiarate Codex
+
+Queue, stato e capacità native aggiunte solo con fixture installate.
+
+Stima: 4–8 ore. File: `crates/adapter/src/codex/**`, `verify/CX/**`.
+
+Accettazione: Una capacità fallita diventa unsupported senza compromettere l’avvio già provato. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
+
+Verifiche pianificate: `planned: conformance Codex per versione`; `npm run build`.
+
+Commit: `feat(c16.3): Provare segnali e capacità dichiarate Codex`. Registrare stato e prove sotto `progress.json` → `steps` → `C16` → `units` → `C16.3`.
+
+<a id="c17"></a>
+## C17 · Aggiungere l'adattatore OpenCode
+
+Ciclo di vita del terminale e server OpenCode, rilevamento dell'autenticazione e contesto di avvio isolato.
+
+**Ambito:** v1. **Dipendenze:** C15. **Stima:** 12–24 ore.
+
+**File/componenti:** `crates/adapter/src/opencode/**`; `verify/OC/**`.
+
+**Accettazione osservabile:**
+
+**Parti rinviate nello scope corrente:** Il controllo Daodan del checkup di FRD-0001/R08 e rinviato.
+
+- Il servizio dell'agente termina insieme alla finestra; il ripristino XDG dei sottoprocessi impedisce perdite nell'ambiente.
+- L'autenticazione mostra Unknown quando i controlli disponibili senza segreti non soddisfano il criterio sulla versione installata.
+
+**Verifiche del passo:** `OpenCode contract/export/service fixtures`; `XDG child-env negative cases`.
+
+**Gate collegati, da registrare separatamente:** OC1-OC10, D17, P20.
+
+**Requisiti coperti dal piano:** FRD-0001/R01, FRD-0001/R08, FRD-0001/R09, FRD-0001/R10, FRD-0003/R01, FRD-0003/R02, FRD-0003/R03, FRD-0003/R04, FRD-0003/R07, FRD-0003/R10, FRD-0003/R11, FRD-0003/R12, FRD-0003/R14, FRD-0006/R40, FRD-0006/R41, FRD-0006/R42, FRD-0006/R45, FRD-0006/R46, FRD-0006/R48.
+
+**Commit proposto:** `feat(c17): Aggiungere l'adattatore OpenCode`.
+
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/adapter/src/opencode/**, verify/OC/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### C17.1 · Riconoscere OpenCode e risolvere l’ambiente isolato
+
+Catalogo, auth secret-free e piano XDG con ripristino per i programmi figli.
+
+Stima: 4–8 ore. File: `crates/adapter/src/opencode/auth.rs`, `crates/adapter/src/opencode/environment.rs`.
+
+Accettazione: Se i controlli auth disponibili non soddisfano il criterio, lo stato resta Unknown. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
+
+Verifiche pianificate: `planned: fixture auth e ambiente XDG`; `npm run build`.
+
+Commit: `feat(c17.1): Riconoscere OpenCode e risolvere l’ambiente isolato`. Registrare stato e prove sotto `progress.json` → `steps` → `C17` → `units` → `C17.1`.
+
+### C17.2 · Collegare terminale e servizio OpenCode
+
+Avvio esplicito della TUI e proprietà del servizio nella finestra.
+
+Stima: 4–8 ore. File: `crates/adapter/src/opencode/run.rs`.
+
+Accettazione: Il servizio termina con la finestra; nessun processo di sistema dell’utente viene arrestato. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
+
+Verifiche pianificate: `planned: smoke TUI e lifecycle servizio`; `npm run build`.
+
+Commit: `feat(c17.2): Collegare terminale e servizio OpenCode`. Registrare stato e prove sotto `progress.json` → `steps` → `C17` → `units` → `C17.2`.
+
+### C17.3 · Provare esportazione, segnali e insiemi OpenCode
+
+Capacità disponibili dietro contratto e fixture della versione.
+
+Stima: 4–8 ore. File: `crates/adapter/src/opencode/**`, `verify/OC/**`.
+
+Accettazione: Esportazione e segnali usano timeout e contesto isolato; niente supporto implicito. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
+
+Verifiche pianificate: `planned: suite contratto OpenCode`; `npm run build`.
+
+Commit: `feat(c17.3): Provare esportazione, segnali e insiemi OpenCode`. Registrare stato e prove sotto `progress.json` → `steps` → `C17` → `units` → `C17.3`.
+
+<a id="c18"></a>
+## C18 · Aggiungere l'adattatore Pi
+
+Pi avviato tramite node e vettore di argomenti, con capacità esplicite per skill, estensioni e RPC.
+
+**Ambito:** v1. **Dipendenze:** C15. **Stima:** 12–24 ore.
+
+**File/componenti:** `crates/adapter/src/pi/**`; `verify/PI/**`.
+
+**Accettazione osservabile:**
+
+**Parti rinviate nello scope corrente:** Il controllo Daodan del checkup di FRD-0001/R08 e rinviato.
+
+- Non viene presunta una modalità di collegamento alla TUI; lo stato di accesso usa un controllo senza refresh e senza segreti.
+- Le cartelle skill dell'utente non entrano negli insiemi per istanza.
+
+**Verifiche del passo:** `Pi contract/RPC/skills fixtures`; `paths with spaces and nonASCII`.
+
+**Gate collegati, da registrare separatamente:** PI1-PI11, D19, P20.
+
+**Requisiti coperti dal piano:** FRD-0001/R01, FRD-0001/R08, FRD-0001/R09, FRD-0001/R10, FRD-0003/R01, FRD-0003/R02, FRD-0003/R03, FRD-0003/R04, FRD-0003/R07, FRD-0003/R10, FRD-0003/R11, FRD-0003/R12, FRD-0003/R14, FRD-0006/R40, FRD-0006/R41, FRD-0006/R42, FRD-0006/R45, FRD-0006/R48.
+
+**Commit proposto:** `feat(c18): Aggiungere l'adattatore Pi`.
+
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/adapter/src/pi/**, verify/PI/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### C18.1 · Riconoscere Pi e definire argv senza shim
+
+Catalogo Pi, node e cli.js, autenticazione senza refresh e vincoli di versione.
+
+Stima: 4–8 ore. File: `crates/adapter/src/pi/discovery.rs`, `crates/adapter/src/pi/auth.rs`.
+
+Accettazione: Percorsi con spazi/non ASCII non usano .cmd o shell; status non espone segreti. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
+
+Verifiche pianificate: `planned: fixture installazione, argv e auth Pi`; `npm run build`.
+
+Commit: `feat(c18.1): Riconoscere Pi e definire argv senza shim`. Registrare stato e prove sotto `progress.json` → `steps` → `C18` → `units` → `C18.1`.
+
+### C18.2 · Avviare Pi con skill ed estensioni esplicite
+
+TUI attraverso il launch plan e insiemi che non ereditano skill globali.
+
+Stima: 4–8 ore. File: `crates/adapter/src/pi/run.rs`, `crates/adapter/src/pi/sets.rs`.
+
+Accettazione: Due piani con insiemi diversi non condividono accidentalmente estensioni o skill. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
+
+Verifiche pianificate: `planned: smoke Pi e fixture insiemi`; `npm run build`.
+
+Commit: `feat(c18.2): Avviare Pi con skill ed estensioni esplicite`. Registrare stato e prove sotto `progress.json` → `steps` → `C18` → `units` → `C18.2`.
+
+### C18.3 · Collegare RPC e provare le capacità Pi
+
+Capacità RPC e segnali effettivi con assenza esplicita di TUI attach.
+
+Stima: 4–8 ore. File: `crates/adapter/src/pi/**`, `verify/PI/**`.
+
+Accettazione: Le operazioni non supportate sono rifiutate e ogni capacità dichiarata ha una fixture. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
+
+Verifiche pianificate: `planned: suite Pi RPC/refusal`; `npm run build`.
+
+Commit: `feat(c18.3): Collegare RPC e provare le capacità Pi`. Registrare stato e prove sotto `progress.json` → `steps` → `C18` → `units` → `C18.3`.
+
+<a id="c19"></a>
+## C19 · Aggiungere Hermes Agent con capacità non supportate esplicite
+
+Chat, autenticazione e gateway Hermes soltanto dove le fixture della versione installata passano; assenze di pacchetti e lettori sono visibili.
+
+**Ambito:** v1. **Dipendenze:** C15. **Stima:** 14–28 ore.
+
+**File/componenti:** `crates/adapter/src/hermes/**`; `verify/HM/**`.
+
+**Accettazione osservabile:**
+
+**Parti rinviate nello scope corrente:** Il gate D20 e rinviato con D01. Il controllo Daodan del checkup di FRD-0001/R08 e rinviato.
+
+- Il gateway appartiene alla finestra e termina con essa; nella home di sistema non vengono iniettate configurazioni.
+- Nessuna capacità di lettura Mukade, esportazione o hop in uscita è dichiarata prima che una revisione verificata la fornisca.
+- Una procedura sconosciuta di installazione gestita fa rifiutare la modalità own.
+
+**Verifiche del passo:** `Hermes contract and gateway lifecycle fixtures`; `no-package/no-reader negatives`.
+
+**Gate collegati, da registrare separatamente:** HM1-HM14.
+
+**Requisiti coperti dal piano:** FRD-0001/R01, FRD-0001/R02, FRD-0001/R08, FRD-0001/R09, FRD-0001/R10, FRD-0002/R09, FRD-0002/R15, FRD-0002/R27, FRD-0002/R31, FRD-0003/R01, FRD-0003/R02, FRD-0003/R03, FRD-0003/R05, FRD-0003/R07, FRD-0003/R08, FRD-0003/R10, FRD-0003/R11, FRD-0003/R12, FRD-0003/R14, FRD-0006/R03, FRD-0006/R40, FRD-0006/R41, FRD-0006/R42, FRD-0006/R45, FRD-0006/R46, FRD-0006/R48.
+
+**Commit proposto:** `feat(c19): Aggiungere Hermes Agent con capacità non supportate esplicite`.
+
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/adapter/src/hermes/**, verify/HM/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### C19.1 · Riconoscere Hermes e lo stato di autenticazione
+
+Catalogo, status per provider e rifiuti per pacchetti o lettori mancanti.
+
+Stima: 4–8 ore. File: `crates/adapter/src/hermes/discovery.rs`, `crates/adapter/src/hermes/auth.rs`.
+
+Accettazione: Nessuna copia di pacchetti di altri host e nessun reader/hop-source implicito. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
+
+Verifiche pianificate: `planned: fixture Hermes discovery/auth/unsupported`; `npm run build`.
+
+Commit: `feat(c19.1): Riconoscere Hermes e lo stato di autenticazione`. Registrare stato e prove sotto `progress.json` → `steps` → `C19` → `units` → `C19.1`.
+
+### C19.2 · Avviare chat e possedere il gateway Hermes
+
+Launch plan Hermes con box e lifecycle del gateway legato alla finestra.
+
+Stima: 5–10 ore. File: `crates/adapter/src/hermes/run.rs`, `crates/adapter/src/hermes/gateway.rs`.
+
+Accettazione: La home di sistema non riceve configurazioni iniettate e il gateway di test non sopravvive alla finestra. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
+
+Verifiche pianificate: `planned: smoke chat e gateway lifecycle`; `npm run build`.
+
+Commit: `feat(c19.2): Avviare chat e possedere il gateway Hermes`. Registrare stato e prove sotto `progress.json` → `steps` → `C19` → `units` → `C19.2`.
+
+### C19.3 · Validare le capacità e le limitazioni Hermes
+
+Conformance per versione, ricetta own non disponibile e insieme della home mantenuto.
+
+Stima: 5–10 ore. File: `crates/adapter/src/hermes/**`, `verify/HM/**`.
+
+Accettazione: Solo le capacità provate diventano disponibili; una ricetta di installazione sconosciuta rifiuta own. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
+
+Verifiche pianificate: `planned: suite Hermes versionata e rifiuti`; `npm run build`.
+
+Commit: `feat(c19.3): Validare le capacità e le limitazioni Hermes`. Registrare stato e prove sotto `progress.json` → `steps` → `C19` → `units` → `C19.3`.
+
+<a id="c20"></a>
+## C20 · Aggiungere il pannello ACP DeepSeek
+
+Un client ACP mostra messaggi, strumenti e permessi reali dell'agente e avvia dsh web soltanto su azione esplicita dell'utente.
+
+**Ambito:** v1. **Dipendenze:** C15. **Stima:** 20–40 ore.
+
+**File/componenti:** `crates/adapter/src/deepseek/**`; `apps/desktop/src/acp/**`; `verify/DS/**`.
+
+**Accettazione osservabile:**
+
+**Parti rinviate nello scope corrente:** Il gate D20 e rinviato con D01. Il controllo Daodan del checkup di FRD-0001/R08 e rinviato.
+
+- Una richiesta di permesso attende la risposta dell'utente; nessuna esecuzione automatica di strumenti.
+- DSH_HOME, DSH_AGENTS_HOME e trasporto del token MCP di sessione vengono provati o rifiutati.
+- dsh web resta esterno e nessun processo browser rimane dopo la chiusura; autenticazione Unknown fino a DS9.
+
+**Verifiche del passo:** `ACP protocol fixture replay with denied permissions`; `real installed-version canary when authorized`.
+
+**Gate collegati, da registrare separatamente:** DS1-DS15.
+
+**Requisiti coperti dal piano:** FRD-0001/R01, FRD-0001/R02, FRD-0001/R05, FRD-0001/R06, FRD-0001/R07, FRD-0001/R08, FRD-0002/R28, FRD-0002/R34, FRD-0003/R01, FRD-0003/R02, FRD-0003/R03, FRD-0003/R06, FRD-0003/R09, FRD-0003/R10, FRD-0003/R11, FRD-0003/R12, FRD-0003/R14, FRD-0006/R03, FRD-0006/R40, FRD-0006/R41, FRD-0006/R42, FRD-0006/R45, FRD-0006/R46, FRD-0006/R48.
+
+**Commit proposto:** `feat(c20): Aggiungere il pannello ACP DeepSeek`.
+
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/adapter/src/deepseek/**, apps/desktop/src/acp/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### C20.1 · Implementare handshake e sessione ACP
+
+Client ACP con inizializzazione, session/new e cancellazione su processo di test.
+
+Stima: 5–10 ore. File: `crates/adapter/src/deepseek/acp.rs`.
+
+Accettazione: Messaggi malformati, timeout e uscita del figlio producono errori visibili senza bloccare l’app. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
+
+Verifiche pianificate: `planned: fixture handshake/cancel/timeouts ACP`; `npm run build`.
+
+Commit: `feat(c20.1): Implementare handshake e sessione ACP`. Registrare stato e prove sotto `progress.json` → `steps` → `C20` → `units` → `C20.1`.
+
+### C20.2 · Disegnare messaggi e strumenti ACP
+
+Pannello ACP integrato in schede e split con stream reali del protocollo.
+
+Stima: 5–10 ore. File: `apps/desktop/src/acp/**`, `crates/adapter/src/deepseek/events.rs`.
+
+Accettazione: Nessuna lettura dello schermo simulata; output resta limitato e il pannello si sposta senza riavvio. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
+
+Verifiche pianificate: `planned: replay ACP e smoke pannello`; `npm run build`.
+
+Commit: `feat(c20.2): Disegnare messaggi e strumenti ACP`. Registrare stato e prove sotto `progress.json` → `steps` → `C20` → `units` → `C20.2`.
+
+### C20.3 · Collegare richieste di permesso e input utente
+
+Relè esplicito di prompt e risposte session/request_permission.
+
+Stima: 5–10 ore. File: `crates/adapter/src/deepseek/permissions.rs`, `apps/desktop/src/acp/permissions.ts`.
+
+Accettazione: Uno strumento non parte prima della risposta; annullamento e rifiuto preservano la richiesta corretta. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
+
+Verifiche pianificate: `planned: canary ACP deny/allow/cancel`; `npm run build`.
+
+Commit: `feat(c20.3): Collegare richieste di permesso e input utente`. Registrare stato e prove sotto `progress.json` → `steps` → `C20` → `units` → `C20.3`.
+
+### C20.4 · Integrare contesto DeepSeek e accesso web esterno
+
+Home DSH, token MCP, stato auth Unknown e avvio dsh web soltanto su richiesta.
+
+Stima: 5–10 ore. File: `crates/adapter/src/deepseek/**`, `verify/DS/**`.
+
+Accettazione: Nessun web incorporato o processo residuo; capacità non provate restano unsupported. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
+
+Verifiche pianificate: `planned: fixture DS home/token e lifecycle web`; `npm run build`.
+
+Commit: `feat(c20.4): Integrare contesto DeepSeek e accesso web esterno`. Registrare stato e prove sotto `progress.json` → `steps` → `C20` → `units` → `C20.4`.
+
+<a id="c27"></a>
+## C27 · Creare anteprime seed esatte e oscurate
+
+Budget seed deterministico, rapporto delle perdite, file della trascrizione completa e anteprima immutabile dopo oscuramento, senza effetti sulla destinazione.
+
+**Ambito:** v1. **Dipendenze:** C23, C25, C26, C13. **Stima:** 16–32 ore.
+
+**File/componenti:** `crates/hop/src/seed.rs`; `crates/hop/src/redact.rs`; `apps/desktop/src/hop-preview.ts`.
+
+**Accettazione osservabile:**
+
+- Tutta la cronologia selezionata è rappresentata entro il budget della destinazione con omissioni segnate e tagli rispettosi di turni e UTF-8.
+- Ragionamento e vecchi seed annidati sono esclusi; il corpus dei segreti verifica l'oscuramento prima del salvataggio; i byte dell'anteprima coincidono con l'istantanea inviata.
+- Nessun file di istruzioni viene creato nel progetto senza consenso; prefissi bootstrap pericolosi non vengono eseguiti; i file completi sono privati.
+
+**Verifiche del passo:** `budget/redaction/hostile-prefix property corpus`; `preview hash and private-file fixtures`.
+
+**Gate collegati, da registrare separatamente:** H2, H3, H4, H7, H11, H14, H16, H18, CL16, SC9, CL2, CL3, CL14, H23, E3.
+
+**Requisiti coperti dal piano:** FRD-0003/R13, FRD-0005/R05, FRD-0005/R06, FRD-0005/R07, FRD-0005/R08, FRD-0005/R09, FRD-0005/R19, FRD-0005/R20, FRD-0005/R21, FRD-0005/R22, FRD-0005/R23, FRD-0005/R24, FRD-0005/R25, FRD-0005/R26, FRD-0005/R27, FRD-0005/R28, FRD-0005/R29, FRD-0005/R31, FRD-0005/R33, FRD-0006/R39.
+
+**Commit proposto:** `feat(c27): Creare anteprime seed esatte e oscurate`.
+
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/hop/src/seed.rs, crates/hop/src/redact.rs. Preparare la prima prova di accettazione prima di modificare il comportamento.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### C27.1 · Normalizzare cronologia e oscurare i segreti
+
+Proiezione seed priva di ragionamento, rumore e seed annidati, oscurata prima del salvataggio.
+
+Stima: 4–8 ore. File: `crates/hop/src/redact.rs`, `crates/hop/src/history.rs`.
+
+Accettazione: Corpus di chiavi e prefissi ostili prova richiami e falsi positivi; nessun testo non oscurato viene persistito. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: corpus redaction e normalized-history`; `npm run build`.
+
+Commit: `feat(c27.1): Normalizzare cronologia e oscurare i segreti`. Registrare stato e prove sotto `progress.json` → `steps` → `C27` → `units` → `C27.1`.
+
+### C27.2 · Applicare budget e tagli deterministici
+
+Calcolo dalla finestra del modello, ordine di conservazione e omissioni segnate.
+
+Stima: 4–8 ore. File: `crates/hop/src/seed.rs`.
+
+Accettazione: Tagli solo ai confini UTF-8/turno; minimo seed insufficiente causa rifiuto con numeri. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: proprietà budget e destination-window`; `npm run build`.
+
+Commit: `feat(c27.2): Applicare budget e tagli deterministici`. Registrare stato e prove sotto `progress.json` → `steps` → `C27` → `units` → `C27.2`.
+
+### C27.3 · Preparare file privati e canale sicuro
+
+Trascrizione completa e bootstrap limitato senza shell, con posizioni autorizzate.
+
+Stima: 4–8 ore. File: `crates/hop/src/files.rs`, `crates/adapter/src/seed_channel.rs`.
+
+Accettazione: Nessun file istruzioni viene creato nel progetto senza consenso; file grandi sono letti con limiti. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: test full-file ACL e bootstrap escaping`; `npm run build`.
+
+Commit: `feat(c27.3): Preparare file privati e canale sicuro`. Registrare stato e prove sotto `progress.json` → `steps` → `C27` → `units` → `C27.3`.
+
+### C27.4 · Mostrare l’anteprima immutabile e le perdite
+
+Dialogo seed con hash della proiezione, quantità oscurate e conferma separata dagli effetti.
+
+Stima: 4–8 ore. File: `apps/desktop/src/hop-preview.ts`, `crates/hop/src/preview.rs`.
+
+Accettazione: L’istantanea inviata coincide byte per byte con l’anteprima e attraversa invariata il bypass sidecar. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: fixture preview/send/hash e SC9`; `npm run build`.
+
+Commit: `feat(c27.4): Mostrare l’anteprima immutabile e le perdite`. Registrare stato e prove sotto `progress.json` → `steps` → `C27` → `units` → `C27.4`.
+
+<a id="c28"></a>
+## C28 · Implementare il coordinatore degli hop close/fork con registro persistente
+
+Macchina a stati transazionale degli hop con identità distinte per close e fork, avvio confermato della destinazione, verifica hash e ricevuta, errori visibili e passaggio da cronologia.
+
+**Ambito:** v1. **Dipendenze:** C27. **Stima:** 20–40 ore.
+
+**File/componenti:** `crates/hop/src/coordinator.rs`; `crates/state/src/hops.rs`; `apps/desktop/src/hop/**`.
+
+**Accettazione osservabile:**
+
+- Esattamente un hop concorrente vince; la conferma attesta che nessun effetto sulla destinazione è avvenuto prima del consenso.
+- L'origine sopravvive ai guasti e resta attiva nel fork; si chiude soltanto dopo il commit e la gestione confermata di bozze o comandi attivi.
+- Il passaggio da cronologia crea un segmento storico derivato senza toccare un'origine attiva.
+- Un database occupato o pieno non consente di procedere senza registro; nessuna risposta automatica alle domande iniziali di fiducia.
+- Il dialogo hop è un overlay che lascia intatto lo schermo dell'emulatore e restituisce il focus al pannello di origine (FRD-0001/R12).
+
+**Verifiche del passo:** `fake-adapter state transition suite`; `concurrent-hop test`; `effect-boundary fault injection`.
+
+**Gate collegati, da registrare separatamente:** S4, S10, H1, H5, H9, H12, H24, H25, H26, SS4, AT-1, AT-4, AT-10, CL12, H8, H17, H22.
+
+**Requisiti coperti dal piano:** FRD-0005/R02, FRD-0005/R10, FRD-0005/R11, FRD-0005/R12, FRD-0005/R13, FRD-0005/R14, FRD-0005/R15, FRD-0005/R18, FRD-0005/R32, FRD-0005/R35, FRD-0005/R36, FRD-0005/R37, FRD-0005/R38, FRD-0005/R39, FRD-0005/R40, FRD-0005/R43, FRD-0005/R44, FRD-0005/R48, FRD-0005/R49, FRD-0005/R50, FRD-0005/R51, FRD-0006/R26, FRD-0006/R27, FRD-0014/R19, FRD-0014/R21, FRD-0001/R12.
+
+**Commit proposto:** `feat(c28): Implementare il coordinatore degli hop close/fork con registro persistente`.
+
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/hop/src/coordinator.rs, crates/state/src/hops.rs. Preparare la prima prova di accettazione prima di modificare il comportamento.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### C28.1 · Persistire la macchina a stati e l’esclusione degli hop
+
+Transizioni e hop_event nello stesso commit SQLite, con unico hop attivo per thread.
+
+Stima: 5–10 ore. File: `crates/state/src/hops.rs`, `crates/hop/src/state.rs`.
+
+Accettazione: Due processi concorrenti producono un vincitore; transizioni non valide non mutano il registro. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: test FSM e concurrent-hop`; `npm run build`.
+
+Commit: `feat(c28.1): Persistire la macchina a stati e l’esclusione degli hop`. Registrare stato e prove sotto `progress.json` → `steps` → `C28` → `units` → `C28.1`.
+
+### C28.2 · Collegare consenso, preparazione e ricevuta
+
+Coordinatore con effetti registrati prima dell’avvio, hash della prima voce e nonce.
+
+Stima: 5–10 ore. File: `crates/hop/src/coordinator.rs`.
+
+Accettazione: Nessun effetto prima della conferma; errore o timeout lasciano l’origine utilizzabile. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: fake-adapter prepare/receipt/failure`; `npm run build`.
+
+Commit: `feat(c28.2): Collegare consenso, preparazione e ricevuta`. Registrare stato e prove sotto `progress.json` → `steps` → `C28` → `units` → `C28.2`.
+
+### C28.3 · Implementare switch e differenza close/fork
+
+Identità thread corrette e chiusura origine soltanto dopo COMMITTED e controlli sulle bozze.
+
+Stima: 5–10 ore. File: `crates/hop/src/switch.rs`, `apps/desktop/src/hop/**`.
+
+Accettazione: Fork lascia origine intatta e crea un nuovo thread; SQLite busy/full non permette effetti senza registro. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: matrice close/fork/commit/draft`; `npm run build`.
+
+Commit: `feat(c28.3): Implementare switch e differenza close/fork`. Registrare stato e prove sotto `progress.json` → `steps` → `C28` → `units` → `C28.3`.
+
+### C28.4 · Aggiungere il passaggio da sessione storica
+
+Origine storica senza attivazione viva, fingerprint e nuovo thread derivato.
+
+Stima: 5–10 ore. File: `crates/hop/src/history_handoff.rs`, `apps/desktop/src/sessions/actions.ts`.
+
+Accettazione: Nessun wait-idle o stop del processo storico; un cambiamento dell’origine richiede nuova anteprima. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: test handoff-history e source-race`; `npm run build`.
+
+Commit: `feat(c28.4): Aggiungere il passaggio da sessione storica`. Registrare stato e prove sotto `progress.json` → `steps` → `C28` → `units` → `C28.4`.
+
+<a id="c29"></a>
+## C29 · Aggiungere recupero degli hop, aggiornamento, ritorno e standby misurato
+
+Riconciliazione al riavvio senza duplicare avvii incerti, aggiornamento limitato, ritorno nativo/UNDO e standby non inizializzato attivabile esplicitamente.
+
+**Ambito:** v1. **Dipendenze:** C28. **Stima:** 20–40 ore.
+
+**File/componenti:** `crates/hop/src/recovery.rs`; `crates/hop/src/catchup.rs`; `crates/hop/src/standby.rs`.
+
+**Accettazione osservabile:**
+
+- Un crash in ogni stato dell'hop produce gli esiti documentati senza eliminare record nativi o duplicare sessioni.
+- Istantanea, hash della prima voce e nonce vengono verificati; nuovi turni nell'origine attivano al massimo due aggiornamenti.
+- Lo standby è inizialmente disattivato, non usa token prima del seed e scade dopo trenta minuti o un cambio di versione.
+
+**Verifiche del passo:** `kill-at-each-transition matrix`; `history-only canary and hop-back tests when synthetic live budget authorized`; `warm/cold latency measurements`.
+
+**Gate collegati, da registrare separatamente:** H1, H6, H9, H10, H12, H13, H15, H21, H24, AT-1, AT-2, AT-3.
+
+**Requisiti coperti dal piano:** FRD-0005/R06, FRD-0005/R34, FRD-0005/R37, FRD-0005/R38, FRD-0005/R39, FRD-0005/R40, FRD-0005/R41, FRD-0005/R42, FRD-0005/R45, FRD-0005/R46, FRD-0005/R47, FRD-0005/R51.
+
+**Commit proposto:** `feat(c29): Aggiungere recupero degli hop, aggiornamento, ritorno e standby misurato`.
+
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/hop/src/recovery.rs, crates/hop/src/catchup.rs. Preparare la prima prova di accettazione prima di modificare il comportamento.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### C29.1 · Riconciliare gli avvii incerti dopo crash
+
+Recupero per stato e osservazione di effetti già tentati senza rilancio automatico.
+
+Stima: 5–10 ore. File: `crates/hop/src/recovery.rs`.
+
+Accettazione: Un kill in ogni confine transazionale conserva integrity_check e non duplica destinazioni. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: fault matrix recovery per stato`; `npm run build`.
+
+Commit: `feat(c29.1): Riconciliare gli avvii incerti dopo crash`. Registrare stato e prove sotto `progress.json` → `steps` → `C29` → `units` → `C29.1`.
+
+### C29.2 · Inviare aggiornamenti limitati durante lo switch
+
+Cursor e catch-up dei turni nuovi con massimo due passaggi e stesso controllo ricevuta.
+
+Stima: 5–10 ore. File: `crates/hop/src/catchup.rs`.
+
+Accettazione: Origine occupata offre attendi/interrompi/annulla e non viene fermata silenziosamente. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: test source-gained-turns e busy-source`; `npm run build`.
+
+Commit: `feat(c29.2): Inviare aggiornamenti limitati durante lo switch`. Registrare stato e prove sotto `progress.json` → `steps` → `C29` → `units` → `C29.2`.
+
+### C29.3 · Riprendere il segmento precedente e applicare UNDO
+
+Hop-back nativo, finestra UNDO e ripiego seed quando l’origine non esiste più.
+
+Stima: 5–10 ore. File: `crates/hop/src/hop_back.rs`.
+
+Accettazione: Nessuna doppia attivazione; un canary presente soltanto nella cronologia resta disponibile al ritorno. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: test hop-back/undo/retention`; `npm run build`.
+
+Commit: `feat(c29.3): Riprendere il segmento precedente e applicare UNDO`. Registrare stato e prove sotto `progress.json` → `steps` → `C29` → `units` → `C29.3`.
+
+### C29.4 · Aggiungere standby opt-in e misurare le latenze
+
+Istanza nascosta non inizializzata, scadenza e misure warm/cold senza promesse non provate.
+
+Stima: 5–10 ore. File: `crates/hop/src/standby.rs`, `docs/verification/**`.
+
+Accettazione: Off iniziale, zero token prima del seed e scadenza dopo trenta minuti o cambio versione. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: test standby expiry e misure warm/cold`; `npm run build`.
+
+Commit: `feat(c29.4): Aggiungere standby opt-in e misurare le latenze`. Registrare stato e prove sotto `progress.json` → `steps` → `C29` → `units` → `C29.4`.
+
+<a id="c30"></a>
+## C30 · Completare la matrice degli hop ordinati tra i sei agenti
+
+Prove con canary per ogni combinazione ordinata origine, destinazione e versione; origini sconosciute o illeggibili vengono disattivate singolarmente.
+
+**Ambito:** v1. **Dipendenze:** C19, C20, C29, C16, C17, C18. **Stima:** 16–32 ore.
+
+**File/componenti:** `verify/H1/**`; `docs/verification/**`.
+
+**Accettazione osservabile:**
+
+- Ogni combinazione pubblicizzata supera il canary basato soltanto sulla cronologia oppure rifiuta o degrada esplicitamente.
+- Hermes e DeepSeek diventano origini soltanto quando esistono lettori Mukade verificati; Gemini resta escluso.
+- Nessuna promessa di trasferimento senza perdite; latenze a caldo e a freddo, dati trasferiti o persi e ragioni dei ripieghi sono documentati.
+
+**Verifiche del passo:** `all ordered pairs synthetic-fixture suite`; `separately authorized bounded live canaries`.
+
+**Gate collegati, da registrare separatamente:** H1, HM3, DS3, AT-2, AT-10.
+
+**Requisiti coperti dal piano:** FRD-0005/R06, FRD-0005/R14, FRD-0005/R15, FRD-0005/R18, FRD-0006/R41, FRD-0006/R42.
+
+**Commit proposto:** `feat(c30): Completare la matrice degli hop ordinati tra i sei agenti`.
+
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire verify/H1/**, docs/verification/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### C30.1 · Costruire il banco delle combinazioni ordinate
+
+Generatore di fixture sintetiche e matrice capacità/versioni per tutte le coppie.
+
+Stima: 4–8 ore. File: `verify/H1/**`, `crates/hop/tests/pairs.rs`.
+
+Accettazione: Ogni combinazione non implementata o non leggibile è esplicitamente rifiutata; Gemini escluso. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: test enumerazione e capability matrix`; `npm run build`.
+
+Commit: `feat(c30.1): Costruire il banco delle combinazioni ordinate`. Registrare stato e prove sotto `progress.json` → `steps` → `C30` → `units` → `C30.1`.
+
+### C30.2 · Eseguire canary e ritorno per coppie disponibili
+
+Prove autorizzate del contenuto presente soltanto nella cronologia e hop-back.
+
+Stima: 6–12 ore. File: `verify/H1/**`, `docs/verification/**`.
+
+Accettazione: Usare solo home, account e budget sintetici autorizzati; registrare anche ogni rifiuto e risultato negativo. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: matrice canary per coppia/versione`; `npm run build`.
+
+Commit: `feat(c30.2): Eseguire canary e ritorno per coppie disponibili`. Registrare stato e prove sotto `progress.json` → `steps` → `C30` → `units` → `C30.2`.
+
+### C30.3 · Pubblicare la matrice di supporto effettiva
+
+Capacità UI/doctor derivate dalle prove, con latenze e perdita dichiarate.
+
+Stima: 6–12 ore. File: `crates/adapter/src/capabilities.rs`, `apps/desktop/src/hop/**`.
+
+Accettazione: Hermes/DeepSeek sono origini solo dopo reader verificati; versioni fuori fixture degradano senza falsa promessa lossless. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: test support-report e version drift`; `npm run build`.
+
+Commit: `feat(c30.3): Pubblicare la matrice di supporto effettiva`. Registrare stato e prove sotto `progress.json` → `steps` → `C30` → `units` → `C30.3`.
+
+<a id="f03h"></a>
+## F03H · Prove delle transazioni hop, dell’unicità e del recupero dopo arresto anomalo
+
+Chiusura delle verifiche hop sullo stato condiviso mediante casi concorrenti e interruzioni delle transazioni.
+
+**Ambito:** v1. **Dipendenze:** F03P, C29. **Stima:** 3–8 ore.
+
+**File/componenti:** `crates/state/`; `crates/hop/`; `docs/verification/`.
+
+**Accettazione osservabile:**
+
+- Tra due hop concorrenti deve riuscirne esattamente uno.
+- Ogni effetto deve seguire il journal e il recupero deve essere idempotente.
+- L’integrità deve restare valida dopo arresti anomali indotti; l’archivio nativo sorgente deve rimanere invariato.
+
+**Verifiche del passo:** `planned: Exactly one concurrent hop wins.`; `planned: Every effect follows journal and recovery is idempotent.`; `planned: Integrity remains clean after injected crashes; source native store unchanged.`.
+
+**Gate collegati, da registrare separatamente:** S4, S10, AT-1, AT-4.
+
+**Requisiti coperti dal piano:** FRD-0014/R12, FRD-0014/R19, FRD-0014/R21.
+
+**Commit proposto:** `feat(f03h): Prove delle transazioni hop, dell’unicità e del recupero dopo arresto anomalo`.
+
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/state/, crates/hop/. Preparare la prima prova di accettazione prima di modificare il comportamento.
+
+<a id="c31"></a>
+## C31 · Costruire l'API di messaggistica limitata e circoscritta tra istanze
+
+Motore tipizzato instances, send, inbox e ack, messaggi per sessione con scadenza, deduplicazione, ambiti e controllo degli eccessi.
+
+**Ambito:** v1. **Dipendenze:** C25, C27, F02. **Stima:** 14–28 ore.
+
+**File/componenti:** `crates/messaging/**`; `crates/state/src/messages.rs`.
+
+**Accettazione osservabile:**
+
+- Il comportamento predefinito rifiuta messaggi tra progetti; la consegna almeno una volta non viene chiamata lettura o consegna esattamente una volta.
+- Il contenuto dei pari resta dato citato, non affidabile e con escape; non risponde mai ai permessi e non causa da solo chiamate a strumenti.
+- Scadenza entro un'ora, massimo cinque tentativi e limiti di profondità e frequenza sono imposti dal server; destinatari offline e duplicati sono verificati.
+- Nessuno scheduler o casella persistente di attività, né facoltà dell'agente di avviare hop, istanze o modificare impostazioni.
+
+**Verifiche del passo:** `offline/duplicate/pingpong/cross-project tests`; `injection canaries and no-approval negatives`.
+
+**Gate collegati, da registrare separatamente:** M4-M7, AT-6, AT-7.
+
+**Requisiti coperti dal piano:** FRD-0007/R01, FRD-0007/R02, FRD-0007/R03, FRD-0007/R04, FRD-0007/R05, FRD-0007/R06, FRD-0007/R07, FRD-0007/R08, FRD-0007/R09, FRD-0007/R10, FRD-0007/R11, FRD-0007/R12, FRD-0007/R13, FRD-0007/R14, FRD-0007/R15, FRD-0007/R16, FRD-0007/R17, FRD-0007/R23, FRD-0007/R24, FRD-0007/R39, FRD-0014/R20.
+
+**Commit proposto:** `feat(c31): Costruire l'API di messaggistica limitata e circoscritta tra istanze`.
+
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/messaging/**, crates/state/src/messages.rs. Preparare la prima prova di accettazione prima di modificare il comportamento.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### C31.1 · Persistire messaggi con ambito, scadenza e deduplicazione
+
+API tipizzata instances/send/inbox/ack con vincoli e quoted-data.
+
+Stima: 4–8 ore. File: `crates/messaging/src/model.rs`, `crates/state/src/messages.rs`.
+
+Accettazione: Cross-project deny iniziale, corpo limitato e scadenza entro un’ora; segreti oscurati prima del salvataggio. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: test scope/expiry/dedupe/redaction`; `npm run build`.
+
+Commit: `feat(c31.1): Persistire messaggi con ambito, scadenza e deduplicazione`. Registrare stato e prove sotto `progress.json` → `steps` → `C31` → `units` → `C31.1`.
+
+### C31.2 · Consegnare con retry e stato dichiarato correttamente
+
+Coda bounded, al-meno-una-volta e canali per capacità del destinatario.
+
+Stima: 5–10 ore. File: `crates/messaging/src/delivery.rs`.
+
+Accettazione: Massimo cinque retry; delivered non significa read e destinatari offline oltre scadenza non ricevono il messaggio. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: test offline/retry/ack/channel`; `npm run build`.
+
+Commit: `feat(c31.2): Consegnare con retry e stato dichiarato correttamente`. Registrare stato e prove sotto `progress.json` → `steps` → `C31` → `units` → `C31.2`.
+
+### C31.3 · Bloccare cicli e messaggi che simulano approvazioni
+
+Limiti server su profondità e frequenza con allerta visibile e canary di iniezione.
+
+Stima: 5–10 ore. File: `crates/messaging/src/limits.rs`, `crates/messaging/tests/injection.rs`.
+
+Accettazione: I messaggi non rispondono ai permessi e non concedono strumenti; il ping-pong si ferma senza perdita silenziosa. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: canary approval e test flood/depth`; `npm run build`.
+
+Commit: `feat(c31.3): Bloccare cicli e messaggi che simulano approvazioni`. Registrare stato e prove sotto `progress.json` → `steps` → `C31` → `units` → `C31.3`.
+
+<a id="c32"></a>
+## C32 · Esporre quattro strumenti MCP e hook iniettati all'avvio
+
+Punti di ingresso MCP e hook nello stesso eseguibile, verifica per avvio dei token salvati come hash e soltanto quattro strumenti approvati.
+
+**Ambito:** v1. **Dipendenze:** C31, C11, C14, C16, C17, C18, C19, C20. **Stima:** 18–36 ore.
+
+**File/componenti:** `crates/cli/src/mcp.rs`; `crates/cli/src/hook.rs`; `crates/adapter/src/injection/**`.
+
+**Accettazione osservabile:**
+
+- Identità sconosciute, terminate o con token non corrispondente vengono rifiutate; nessun token in chiaro in database, log o trascrizioni.
+- Stdout MCP contiene soltanto il protocollo; gli hook non fanno fallire gli agenti; entrambi terminano con il proprietario.
+- Nessun ripiego di consegna al PTY non sicuro; la preapprovazione riguarda soltanto i quattro strumenti nominati ed è verificata per versione.
+
+**Verifiche del passo:** `stdio JSONRPC and malformed-input tests`; `impersonation/token-negative fixtures`; `startup/hook latency measurement`; `per-agent hook/injection conformance`.
+
+**Gate collegati, da registrare separatamente:** M1-M3, M8-M15, CL8-CL11, OC6, PI7, HM5, DS5, SC8, T1.
+
+**Requisiti coperti dal piano:** FRD-0002/R30, FRD-0002/R31, FRD-0002/R32, FRD-0002/R33, FRD-0002/R34, FRD-0006/R45, FRD-0007/R18, FRD-0007/R19, FRD-0007/R20, FRD-0007/R21, FRD-0007/R22, FRD-0007/R23, FRD-0007/R24, FRD-0007/R25, FRD-0007/R39, FRD-0007/R40.
+
+**Commit proposto:** `feat(c32): Esporre quattro strumenti MCP e hook iniettati all'avvio`.
+
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/cli/src/mcp.rs, crates/cli/src/hook.rs. Preparare la prima prova di accettazione prima di modificare il comportamento.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### C32.1 · Esporre quattro strumenti MCP con stdout pulito
+
+Subcomando stdio JSON-RPC che chiama soltanto instances/send/inbox/ack.
+
+Stima: 6–12 ore. File: `crates/cli/src/mcp.rs`.
+
+Accettazione: Input malformati sono rifiutati senza stampare diagnostica nel protocollo; nessuno strumento di avvio/hop/roundtable. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: test stdio MCP schema e malformed-input`; `npm run build`.
+
+Commit: `feat(c32.1): Esporre quattro strumenti MCP con stdout pulito`. Registrare stato e prove sotto `progress.json` → `steps` → `C32` → `units` → `C32.1`.
+
+### C32.2 · Verificare identità e vita del chiamante MCP
+
+Controllo di istanza attiva e token hash, preapprovazione dei soli quattro strumenti.
+
+Stima: 6–12 ore. File: `crates/messaging/src/auth.rs`, `crates/adapter/src/injection/**`.
+
+Accettazione: Token errati, identità di pari e istanze terminate non possono inviare o confermare come un altro agente. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: test impersonation/token/ended-instance`; `npm run build`.
+
+Commit: `feat(c32.2): Verificare identità e vita del chiamante MCP`. Registrare stato e prove sotto `progress.json` → `steps` → `C32` → `units` → `C32.2`.
+
+### C32.3 · Collegare hook e misurare avvio/uscita
+
+Hook per evento con aggiornamento atomico, output previsto dall’harness e lifecycle del proprietario.
+
+Stima: 6–12 ore. File: `crates/cli/src/hook.rs`, `crates/adapter/src/injection/**`.
+
+Accettazione: Gli hook non fanno fallire l’agente; resume/clear non perdono identità e il bili shim coesiste. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: conformance hook e misure startup/latency`; `npm run build`.
+
+Commit: `feat(c32.3): Collegare hook e misurare avvio/uscita`. Registrare stato e prove sotto `progress.json` → `steps` → `C32` → `units` → `C32.3`.
+
+<a id="c33"></a>
+## C33 · Consegnare una tavola rotonda headless con limiti rigidi
+
+Proposte indipendenti, critica e sintesi moderate avviate dall'utente, con modello per partecipante, limiti e risultati parziali.
+
+**Ambito:** v1. **Dipendenze:** C32, C13, C24, C28, C29. **Stima:** 20–40 ore.
+
+**File/componenti:** `crates/roundtable/**`; `apps/desktop/src/roundtable/**`.
+
+**Accettazione osservabile:**
+
+**Parti rinviate nello scope corrente:** Il gate R1, che legge moe di Daodan, e rinviato con D02.
+
+- Soltanto nuove sessioni headless; nessun ripiego su PTY o lettura dello schermo e nessun riuso dei lavoratori attivi.
+- I canary answer-only provano l'assenza di scritture, rete e strumenti senza permesso esplicito; l'iniezione tra partecipanti viene misurata.
+- Limiti di costo, token e round, arresto e intervento dell'utente funzionano; risultati ricercabili e continuazione tramite seed di un thread di lavoro.
+- I partecipanti di questo ciclo usano gli harness supportati; il bridge Daodan per bare-model e rinviato a D02, senza un sostituto costruito appositamente.
+
+**Verifiche del passo:** `fake-headless timeout/cap/stop suite`; `per-agent deny-tools canaries`; `authorized three-topic cap calibration`.
+
+**Gate collegati, da registrare separatamente:** R2-R7, AT-8, SC10.
+
+**Requisiti coperti dal piano:** FRD-0007/R26, FRD-0007/R27, FRD-0007/R28, FRD-0007/R30, FRD-0007/R31, FRD-0007/R32, FRD-0007/R33, FRD-0007/R34, FRD-0007/R35, FRD-0007/R36, FRD-0007/R37.
+
+**Commit proposto:** `feat(c33): Consegnare una tavola rotonda headless con limiti rigidi`.
+
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/roundtable/**, apps/desktop/src/roundtable/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### C33.1 · Avviare partecipanti headless con politica answer-only
+
+Sessioni nuove per partecipante e modelli per lancio, senza riciclare worker o leggere PTY.
+
+Stima: 5–10 ore. File: `crates/roundtable/src/participants.rs`.
+
+Accettazione: I canary provano assenza di scritture e strumenti non autorizzati; host non conformi restano esclusi. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: fake-headless e deny-tools per adattatore`; `npm run build`.
+
+Commit: `feat(c33.1): Avviare partecipanti headless con politica answer-only`. Registrare stato e prove sotto `progress.json` → `steps` → `C33` → `units` → `C33.1`.
+
+### C33.2 · Coordinare proposte, critica e sintesi
+
+Round moderati di harness supportati con dati dei pari citati; il bridge Daodan per bare-model e rinviato.
+
+Stima: 5–10 ore. File: `crates/roundtable/src/coordinator.rs`.
+
+Accettazione: Le risposte non autorizzano strumenti e tutto il traffico resta coperto dal sidecar. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: test round ordering e cross-participant injection`; `npm run build`.
+
+Commit: `feat(c33.2): Coordinare proposte, critica e sintesi`. Registrare stato e prove sotto `progress.json` → `steps` → `C33` → `units` → `C33.2`.
+
+### C33.3 · Imporre limiti, stop e interventi dell’utente
+
+Budget rigidi e stato parziale con interrupt alla prima soglia raggiunta.
+
+Stima: 5–10 ore. File: `crates/roundtable/src/caps.rs`.
+
+Accettazione: Stop/costo/token/round non proseguono silenziosamente; interiezioni arrivano solo tra round e le misure sono registrate. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: test caps/timeout/interject e calibrazione autorizzata`; `npm run build`.
+
+Commit: `feat(c33.3): Imporre limiti, stop e interventi dell’utente`. Registrare stato e prove sotto `progress.json` → `steps` → `C33` → `units` → `C33.3`.
+
+### C33.4 · Mostrare, cercare e continuare la discussione
+
+UI roundtable e thread persistente, con seed di un thread di lavoro dalla posizione scelta.
+
+Stima: 5–10 ore. File: `apps/desktop/src/roundtable/**`, `crates/roundtable/src/history.rs`.
+
+Accettazione: Il risultato è ricercabile e continuare non riprende una sessione viva di un partecipante. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: smoke roundtable/search/continue`; `npm run build`.
+
+Commit: `feat(c33.4): Mostrare, cercare e continuare la discussione`. Registrare stato e prove sotto `progress.json` → `steps` → `C33` → `units` → `C33.4`.
+
+<a id="c34"></a>
+## C34 · Mostrare lo stato Daodan in sola lettura e digitare i comandi
+
+Lettore agenda con schema e limiti, collegamenti derivati tra thread e attività, righe nei progetti, palette e proposta iniziale una sola volta.
+
+**Ambito:** deferred. **Dipendenze:** C14, C25, C32, D01. **Stima:** 16–32 ore.
+
+**File/componenti:** `crates/daodan/src/agenda.rs`; `crates/daodan/src/links.rs`; `apps/desktop/src/tasks/**`; `apps/desktop/src/palette.ts`.
+
+**Accettazione osservabile:**
+
+**Rinvio:** Rinviato su richiesta esplicita dell utente del 2026-11-02: ignorare per adesso l integrazione con Daodan. Riprendere solo su nuova indicazione.
+
+- Shinatama non scrive file Daodan, non esegue i suoi script e non ne modifica i worktree; i comandi scelti vengono digitati e mai inviati.
+- Agenda sconosciuta, illeggibile o su disco rimosso è visibile; l'ultima copia osservata serve solo alla visualizzazione; il titolare remoto non è mai giudicato obsoleto.
+- I collegamenti esatti o per posizione spariscono quando non validi; gli agenti senza pacchetto mostrano le attività ma nessun comando.
+- Rifiutare l'inizializzazione di un nuovo progetto sopprime le proposte successive; soltanto due verifiche di directory definiscono lo stato iniziale.
+
+**Verifiche del passo:** `synthetic/torn/unreadable agenda fixtures`; `main-checkout/worktree link corpus`; `typed-not-sent terminal assertions`; `first-use parity tests`.
+
+**Gate collegati, da registrare separatamente:** D8-D12, D14, D20.
+
+**Requisiti coperti dal piano:** FRD-0004/R09, FRD-0004/R14, FRD-0004/R17, FRD-0004/R23, FRD-0004/R24, FRD-0004/R25, FRD-0008/R11, FRD-0008/R12, FRD-0008/R13, FRD-0008/R14, FRD-0008/R15, FRD-0008/R16, FRD-0008/R17, FRD-0008/R18, FRD-0008/R19, FRD-0008/R20, FRD-0008/R21, FRD-0008/R22, FRD-0008/R23, FRD-0008/R24, FRD-0008/R25, FRD-0008/R26, FRD-0008/R27, FRD-0008/R34, FRD-0008/R35, FRD-0008/R36, FRD-0008/R37, FRD-0008/R38, FRD-0008/R39, FRD-0008/R40.
+
+**Commit proposto:** `feat(c34): Mostrare lo stato Daodan in sola lettura e digitare i comandi`.
+
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/daodan/src/agenda.rs, crates/daodan/src/links.rs. Preparare la prima prova di accettazione prima di modificare il comportamento.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### C34.1 · Leggere agenda e risolvere il checkout principale
+
+Lettore schema-checked e polling limitato della sorgente Daodan in sola lettura.
+
+Stima: 4–8 ore. File: `crates/daodan/src/agenda.rs`.
+
+Accettazione: Schema sconosciuto, lettura interrotta e disco mancante sono errori visibili, non elenchi vuoti. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: corpus agenda/schema/torn/common-dir`; `npm run build`.
+
+Commit: `feat(c34.1): Leggere agenda e risolvere il checkout principale`. Registrare stato e prove sotto `progress.json` → `steps` → `C34` → `units` → `C34.1`.
+
+### C34.2 · Derivare collegamenti tra attività e thread
+
+Link esatto o per posizione ricostruibile con stato del titolare.
+
+Stima: 4–8 ore. File: `crates/daodan/src/links.rs`.
+
+Accettazione: Il link sparisce se non valido; titolari remoti non sono giudicati obsoleti e attività finite non offrono continue. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: fixture worktree/branch/session links`; `npm run build`.
+
+Commit: `feat(c34.2): Derivare collegamenti tra attività e thread`. Registrare stato e prove sotto `progress.json` → `steps` → `C34` → `units` → `C34.2`.
+
+### C34.3 · Mostrare attività e digitare comandi della palette
+
+Righe progetto e comandi nativi dal manifesto, inseriti nel prompt senza invio.
+
+Stima: 4–8 ore. File: `apps/desktop/src/tasks/**`, `apps/desktop/src/palette.ts`.
+
+Accettazione: Nessun file o script Daodan viene scritto/eseguito; Hermes/DeepSeek mostrano attività senza comandi non disponibili. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: smoke typed-not-sent e no-package`; `npm run build`.
+
+Commit: `feat(c34.3): Mostrare attività e digitare comandi della palette`. Registrare stato e prove sotto `progress.json` → `steps` → `C34` → `units` → `C34.3`.
+
+### C34.4 · Aggiungere la proposta iniziale una sola volta
+
+Due verifiche di directory e memoria per-progetto di Not now, coordinata con la creazione.
+
+Stima: 4–8 ore. File: `crates/daodan/src/onboarding.rs`, `apps/desktop/src/projects/onboarding.ts`.
+
+Accettazione: Rifiutare nella creazione sopprime la proposta successiva; Shinatama non domanda o risponde alle domande Daodan. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: first-use parity e offer-once`; `npm run build`.
+
+Commit: `feat(c34.4): Aggiungere la proposta iniziale una sola volta`. Registrare stato e prove sotto `progress.json` → `steps` → `C34` → `units` → `C34.4`.
+
+<a id="c35"></a>
+## C35 · Trasferire il contesto delle attività Daodan dopo un hop close completato
+
+Blocco attività esatto in anteprima e seed, seguito da un messaggio di passaggio separato dopo la chiusura; il fork non eredita l'attività.
+
+**Ambito:** deferred. **Dipendenze:** C29, C34. **Stima:** 8–16 ore.
+
+**File/componenti:** `crates/hop/src/daodan.rs`; `apps/desktop/src/hop/task-preview.ts`.
+
+**Accettazione osservabile:**
+
+**Rinvio:** Rinviato su richiesta esplicita dell utente del 2026-11-02: ignorare per adesso l integrazione con Daodan. Riprendere solo su nuova indicazione.
+
+- Una sola conferma; nessun messaggio di subentro prima di COMMITTED e della chiusura confermata dell'origine.
+- Chiusura rifiutata, incerta o interrotta da crash e destinazione senza pacchetto non ricevono istruzioni di subentro.
+- Nessun percorso Shinatama modifica lo stato Daodan o assegna una sola attività a entrambi i thread divergenti.
+
+**Verifiche del passo:** `close/fork/uncertain-stop task-hop matrix`; `preview-vs-delivery equality`.
+
+**Gate collegati, da registrare separatamente:** D13, D20.
+
+**Requisiti coperti dal piano:** FRD-0005/R30, FRD-0005/R60, FRD-0005/R61, FRD-0005/R62, FRD-0008/R28, FRD-0008/R29, FRD-0008/R30, FRD-0008/R31, FRD-0008/R32, FRD-0008/R33.
+
+**Commit proposto:** `feat(c35): Trasferire il contesto delle attività Daodan dopo un hop close completato`.
+
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/hop/src/daodan.rs, apps/desktop/src/hop/task-preview.ts. Preparare la prima prova di accettazione prima di modificare il comportamento.
+
+<a id="c36"></a>
+## C36 · Aggiungere preferiti, metadati git e avvio in worktree collegati
+
+Progetti preferiti, fatti git limitati e memorizzati temporaneamente, ultimo agente/thread e opzione esplicita di avvio in un worktree dedicato.
+
+**Ambito:** v1. **Dipendenze:** C25. **Stima:** 12–24 ore.
+
+**File/componenti:** `crates/projects/src/git.rs`; `crates/engine/src/worktree_launch.rs`; `apps/desktop/src/project-picker.ts`.
+
+**Accettazione osservabile:**
+
+- La scansione git di trenta progetti resta limitata, parallela e con timeout; un errore git produce Unknown.
+- Il worktree dedicato e una scelta esplicita della nuova istanza; nessun legame con task esterni e necessario.
+- Nessuna UI Git Diff dedicata e nessuna creazione o eliminazione implicita di worktree.
+
+**Verifiche del passo:** `synthetic git/common-dir/worktree corpus`; `parallel-scan timeout measurements`.
+
+**Gate collegati, da registrare separatamente:** PM2, PM3, H20, I3.
+
+**Requisiti coperti dal piano:** FRD-0004/R07, FRD-0004/R08, FRD-0004/R16, FRD-0004/R21.
+
+**Commit proposto:** `feat(c36): Aggiungere preferiti, metadati git e avvio in worktree collegati`.
+
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/projects/src/git.rs, crates/engine/src/worktree_launch.rs. Preparare la prima prova di accettazione prima di modificare il comportamento.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### C36.1 · Aggiungere preferiti e fatti git con cache
+
+Preferiti persistenti e scansione git parallela con timeout per radici/progetti.
+
+Stima: 4–8 ore. File: `crates/projects/src/git.rs`, `apps/desktop/src/project-picker.ts`.
+
+Accettazione: Trenta progetti non bloccano la UI; errori git restano Unknown e nessuna vista diff viene introdotta. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: corpus git e misura parallel-scan`; `npm run build`.
+
+Commit: `feat(c36.1): Aggiungere preferiti e fatti git con cache`. Registrare stato e prove sotto `progress.json` → `steps` → `C36` → `units` → `C36.1`.
+
+### C36.2 · Mostrare ultimo agente/thread e avvio dell’attività
+
+Righe progetto collegate alla cronologia e al worktree dell’attività.
+
+Stima: 4–8 ore. File: `apps/desktop/src/project-picker.ts`, `crates/projects/src/threads.rs`.
+
+Accettazione: Un’attività collegata si apre nel proprio worktree; link obsoleti non vengono riparati per supposizione. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: fixture last-thread e task-worktree`; `npm run build`.
+
+Commit: `feat(c36.2): Mostrare ultimo agente/thread e avvio dell’attività`. Registrare stato e prove sotto `progress.json` → `steps` → `C36` → `units` → `C36.2`.
+
+### C36.3 · Creare un worktree soltanto come opzione di nuova istanza
+
+Piano esplicito di worktree collegato con controlli e gestione del fallimento dell’avvio.
+
+Stima: 4–8 ore. File: `crates/engine/src/worktree_launch.rs`, `apps/desktop/src/launch-review.ts`.
+
+Accettazione: L overview non crea worktree; l opzione di nuova istanza crea solo il worktree confermato dall utente. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: test linked-worktree launch/failure`; `npm run build`.
+
+Commit: `feat(c36.3): Creare un worktree soltanto come opzione di nuova istanza`. Registrare stato e prove sotto `progress.json` → `steps` → `C36` → `units` → `C36.3`.
+
+<a id="c39"></a>
+## C39 · Vincolare importazione e trasferimento nativo post-v1 alle verifiche
+
+Percorso nativo attivato separatamente per agente e versione, con revisione Mukade verificata, anteprima esatta preparata, consenso, identità riservata e riconciliazione della ricevuta.
+
+**Ambito:** post-v1. **Dipendenze:** C30, C26. **Stima:** 24–48 ore.
+
+**File/componenti:** `crates/hop/src/native.rs`; `crates/import/**`; `verify/H27/**`.
+
+**Accettazione osservabile:**
+
+- ReasoningPolicy Drop; l'oscuramento copre dati grezzi, strumenti e allegati; isolamento dei figli e scritture sulla destinazione sono serializzati.
+- Una scrittura incerta non viene ritentata automaticamente; la ricevuta sopravvive a un avvio fallito; l'origine non viene modificata o eliminata.
+- Il trasferimento tra due home dello stesso harness resta rifiutato finché SS5 non passa; perdite dell'importazione o compattazione nativa sono esplicite.
+
+**Verifiche del passo:** `post-v1 writer/privacy/store/recovery fixture suite`; `source-fingerprint race and double-click tests`; `native import roundtrip law per supported destination`.
+
+**Gate collegati, da registrare separatamente:** H27, SS4, SS5, OC2, CX4.
+
+**Requisiti coperti dal piano:** FRD-0005/R16, FRD-0005/R17, FRD-0005/R52, FRD-0005/R53, FRD-0005/R54, FRD-0005/R55, FRD-0005/R56, FRD-0005/R57, FRD-0005/R58, FRD-0005/R59, FRD-0006/R28, FRD-0006/R30, FRD-0006/R34, FRD-0006/R36.
+
+**Commit proposto:** `feat(c39): Vincolare importazione e trasferimento nativo post-v1 alle verifiche`.
+
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/hop/src/native.rs, crates/import/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### C39.1 · Preparare anteprima nativa e destinazione riservata
+
+Percorso post-v1 separato con payload preparato, fingerprint e consenso esplicito.
+
+Stima: 6–12 ore. File: `crates/hop/src/native_preview.rs`.
+
+Accettazione: ReasoningPolicy Drop e oscuramento completo; nessun writer è disponibile in v1. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: test staged-preview/privacy/reserved-id`; `npm run build`.
+
+Commit: `feat(c39.1): Preparare anteprima nativa e destinazione riservata`. Registrare stato e prove sotto `progress.json` → `steps` → `C39` → `units` → `C39.1`.
+
+### C39.2 · Eseguire una scrittura nativa verificata per destinazione
+
+Wrapper Mukade con radici esplicite, journal-before-effect e scritture serializzate.
+
+Stima: 6–12 ore. File: `crates/hop/src/native.rs`, `crates/import/**`.
+
+Accettazione: Una versione o coppia non certificata rifiuta; nessuna sorgente viene modificata o eliminata. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: conformance writer per destinazione/versione`; `npm run build`.
+
+Commit: `feat(c39.2): Eseguire una scrittura nativa verificata per destinazione`. Registrare stato e prove sotto `progress.json` → `steps` → `C39` → `units` → `C39.2`.
+
+### C39.3 · Persistire ricevute e riconciliare esiti incerti
+
+Recupero di WriteUncertain/ResumeFailed senza retry automatico né eliminazione dei file nativi.
+
+Stima: 6–12 ore. File: `crates/hop/src/native_recovery.rs`.
+
+Accettazione: La ricevuta sopravvive a un avvio fallito; doppio clic o retry non creano sessioni duplicate. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: fault matrix receipt/reconcile/double-click`; `npm run build`.
+
+Commit: `feat(c39.3): Persistire ricevute e riconciliare esiti incerti`. Registrare stato e prove sotto `progress.json` → `steps` → `C39` → `units` → `C39.3`.
+
+### C39.4 · Provare due home e roundtrip del formato
+
+Abilitazione puntuale di trasferimenti tra home e dichiarazione delle perdite native.
+
+Stima: 6–12 ore. File: `verify/H27/**`, `crates/import/tests/**`.
+
+Accettazione: SS5 e legge di roundtrip devono passare prima dell’offerta; compattazione nativa richiede il percorso documentato. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
+
+Verifiche pianificate: `planned: H27/SS4/SS5 e import-export roundtrip`; `npm run build`.
+
+Commit: `feat(c39.4): Provare due home e roundtrip del formato`. Registrare stato e prove sotto `progress.json` → `steps` → `C39` → `units` → `C39.4`.
+
+<a id="c21"></a>
+## C21 · Aggiungere Gemini per il solo avvio
+
+Gemini si avvia soltanto attraverso il sidecar, con ricerca, hop e lettura dichiarati non supportati.
+
+**Ambito:** v1. **Dipendenze:** C13, C14, C15. **Stima:** 6–12 ore.
+
+**File/componenti:** `crates/adapter/src/gemini/**`.
+
+**Accettazione osservabile:**
+
+- Gemini non compare mai tra origini o destinazioni degli hop; traffico non coperto è visibile e non viene dichiarato supportato.
+
+**Verifiche del passo:** `launch-only contract negative cases`; `provider coverage fixture`.
+
+**Gate collegati, da registrare separatamente:** SC11.
+
+**Requisiti coperti dal piano:** FRD-0001/R03, FRD-0001/R04, FRD-0006/R40, FRD-0006/R42.
+
+**Commit proposto:** `feat(c21): Aggiungere Gemini per il solo avvio`.
+
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/adapter/src/gemini/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
 
 <a id="c37"></a>
 ## C37 · Aggiungere installazione, aggiornamento e ripristino dei programmi gestiti
@@ -1959,944 +3015,6 @@ Verifiche pianificate: `planned: matrice TL6/B-series per piattaforma`; `npm run
 
 Commit: `feat(c45.4): Certificare la combinazione piattaforma e contenuto`. Registrare stato e prove sotto `progress.json` → `steps` → `C45` → `units` → `C45.4`.
 
-<a id="f02"></a>
-## F02 · Proprietà del runtime, flusso degli eventi e rilevamento della presenza
-
-Un runtime proprietario dei PTY per finestra, comando hook autenticato, lettori della sequenza eventi e recupero delle istanze terminate basato sull’identità del processo.
-
-**Ambito:** v1. **Dipendenze:** FS03, C15, C11. **Stima:** 4–10 ore.
-
-**File/componenti:** `crates/state/`; `apps/desktop/src-tauri/src/`; `docs/verification/`.
-
-**Accettazione osservabile:**
-
-- Due finestre non devono scrivere nello stesso PTY né collegare due volte lo stesso segmento nativo.
-- Heartbeat e recupero delle istanze devono tollerare la sospensione del portatile senza false segnalazioni di terminazione.
-- I lettori devono recuperare gli eventi successivi al proprio seq; misurare latenza del polling e crescita dovuta alla conservazione.
-- L’hook deve aggiornare evento e stato nella stessa transazione e rispettare token, stdout e contratto dei codici di uscita.
-
-**Verifiche del passo:** `planned: Two windows cannot write one PTY or attach one native segment twice.`; `planned: Heartbeat/reaper survives laptop sleep without false dead.`; `planned: Consumers catch up by seq; polling latency and retention growth measured.`; `planned: Hook updates event/state transactionally, honors token and stdout/exit contract.`.
-
-**Gate collegati, da registrare separatamente:** P14, S3, S8, I8, M11.
-
-**Requisiti coperti dal piano:** FRD-0010/R05, FRD-0010/R06, FRD-0010/R07, FRD-0010/R08, FRD-0014/R01, FRD-0014/R02, FRD-0014/R03, FRD-0014/R04, FRD-0014/R20, FRD-0014/R22, FRD-0014/R23, FRD-0014/R24.
-
-**Commit proposto:** `feat(f02): Proprietà del runtime, flusso degli eventi e rilevamento della presenza`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/state/, apps/desktop/src-tauri/src/. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-<a id="c25"></a>
-## C25 · Aggiungere thread persistenti e ripresa esclusiva nello stesso agente
-
-Thread di lavoro, segmenti e attivazioni persistenti, ripresa nativa esplicita e ripresa headless opzionale con avviso di costo.
-
-**Ambito:** v1. **Dipendenze:** C22, C24, FS03, F02. **Stima:** 12–24 ore.
-
-**File/componenti:** `crates/threads/**`; `crates/engine/src/resume.rs`; `apps/desktop/src/sessions/actions.ts`.
-
-**Accettazione osservabile:**
-
-- Il riavvio non perde thread; nessun riuso di PID o PTY obsoleti e nessuna ripresa automatica.
-- Una sessione nativa non si collega a due istanze attive; Claude riprende soltanto nella propria cartella di lavoro.
-- Un'origine nativa mancante propone correttamente un futuro avvio da seed, senza presentarlo come ripresa nativa.
-
-**Verifiche del passo:** `two-process resume race`; `resume/exit/restart fixtures`; `source-store unchanged assertion`.
-
-**Gate collegati, da registrare separatamente:** CL4, CL15, S4, SS5.
-
-**Requisiti coperti dal piano:** FRD-0005/R01, FRD-0005/R03, FRD-0005/R04, FRD-0005/R47, FRD-0006/R08, FRD-0006/R25, FRD-0006/R29, FRD-0014/R17, FRD-0014/R20.
-
-**Commit proposto:** `feat(c25): Aggiungere thread persistenti e ripresa esclusiva nello stesso agente`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/threads/**, crates/engine/src/resume.rs. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
-
-### C25.1 · Persistire thread, segmenti e attivazioni
-
-Schema di lavoro e record che sopravvivono a processi e terminali.
-
-Stima: 4–8 ore. File: `crates/threads/**`, `crates/state/src/threads.rs`.
-
-Accettazione: Riavvio e chiusura della vista non eliminano cronologia né avviano processi. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: test thread/segment/activation restart`; `npm run build`.
-
-Commit: `feat(c25.1): Persistire thread, segmenti e attivazioni`. Registrare stato e prove sotto `progress.json` → `steps` → `C25` → `units` → `C25.1`.
-
-### C25.2 · Riprendere nativamente con esclusività
-
-Servizio resume che risolve radice e cartella e acquisisce l’unica attivazione valida.
-
-Stima: 4–8 ore. File: `crates/engine/src/resume.rs`.
-
-Accettazione: Due processi concorrenti non collegano la stessa sessione; Claude riprende soltanto nella sua cwd. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: race resume e fixture cwd`; `npm run build`.
-
-Commit: `feat(c25.2): Riprendere nativamente con esclusività`. Registrare stato e prove sotto `progress.json` → `steps` → `C25` → `units` → `C25.2`.
-
-### C25.3 · Collegare azioni UI e ripresa headless esplicita
-
-Resume manuale da sessione o thread con avviso di costo per headless e rifiuti chiari.
-
-Stima: 4–8 ore. File: `apps/desktop/src/sessions/actions.ts`.
-
-Accettazione: Origini scadute non fingono una ripresa nativa; nessuna ripresa automatica dopo restore. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: smoke resume e sessione mancante`; `npm run build`.
-
-Commit: `feat(c25.3): Collegare azioni UI e ripresa headless esplicita`. Registrare stato e prove sotto `progress.json` → `steps` → `C25` → `units` → `C25.3`.
-
-<a id="c26"></a>
-## C26 · Aggiungere esportazioni e CLI stabile per le sessioni
-
-Operazioni comuni a UI e CLI per sessions, find, export, resume, doctor e forget, JSON e codici di uscita stabili, con rapporti per STX, Mukade, formato nativo e Markdown.
-
-**Ambito:** v1. **Dipendenze:** C23, C24, C25. **Stima:** 12–24 ore.
-
-**File/componenti:** `crates/export/**`; `crates/cli/**`.
-
-**Accettazione osservabile:**
-
-- Il ragionamento non viene mai esportato; full e portable oscurano entrambi i segreti.
-- Output atomico con regole esplicite per sovrascrittura e allegati; versioni STX superiori vengono rifiutate e i campi sconosciuti conservati.
-- La CLI non suggerisce supporto all'importazione in v1; l'esportazione nativa compare soltanto dove è provata.
-
-**Verifiche del passo:** `export roundtrip/readback fixtures`; `atomic-output failure and exit-code tests`.
-
-**Gate collegati, da registrare separatamente:** SS6, H14, OC2.
-
-**Requisiti coperti dal piano:** FRD-0006/R31, FRD-0006/R32, FRD-0006/R33, FRD-0006/R35, FRD-0006/R36, FRD-0006/R37, FRD-0006/R38, FRD-0006/R39.
-
-**Commit proposto:** `feat(c26): Aggiungere esportazioni e CLI stabile per le sessioni`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/export/**, crates/cli/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
-
-### C26.1 · Definire e scrivere STX versionato
-
-Formato, checksum, provenienza e modalità full/portable con oscuramento.
-
-Stima: 4–8 ore. File: `crates/export/src/stx.rs`.
-
-Accettazione: Ragionamento escluso, campi ignoti conservati e versione superiore rifiutata. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: fixture STX read/write/version/privacy`; `npm run build`.
-
-Commit: `feat(c26.1): Definire e scrivere STX versionato`. Registrare stato e prove sotto `progress.json` → `steps` → `C26` → `units` → `C26.1`.
-
-### C26.2 · Aggiungere formati e output atomico
-
-Mukade/native/Markdown con rapporti di perdita e policy esplicite su allegati e overwrite.
-
-Stima: 4–8 ore. File: `crates/export/src/formats.rs`, `crates/export/src/output.rs`.
-
-Accettazione: Errore di scrittura non lascia output finale parziale né sovrascrive senza consenso. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: roundtrip export e fault atomic-output`; `npm run build`.
-
-Commit: `feat(c26.2): Aggiungere formati e output atomico`. Registrare stato e prove sotto `progress.json` → `steps` → `C26` → `units` → `C26.2`.
-
-### C26.3 · Esporre le stesse operazioni nella CLI
-
-Subcomandi sessions/find/export/resume/doctor/forget con JSON e codici di uscita stabili.
-
-Stima: 4–8 ore. File: `crates/cli/**`.
-
-Accettazione: UI e CLI chiamano il medesimo servizio; import resta non disponibile in v1. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: test CLI JSON schema e exit-code`; `npm run build`.
-
-Commit: `feat(c26.3): Esporre le stesse operazioni nella CLI`. Registrare stato e prove sotto `progress.json` → `steps` → `C26` → `units` → `C26.3`.
-
-<a id="c27"></a>
-## C27 · Creare anteprime seed esatte e oscurate
-
-Budget seed deterministico, rapporto delle perdite, file della trascrizione completa e anteprima immutabile dopo oscuramento, senza effetti sulla destinazione.
-
-**Ambito:** v1. **Dipendenze:** C23, C25, C26, C13. **Stima:** 16–32 ore.
-
-**File/componenti:** `crates/hop/src/seed.rs`; `crates/hop/src/redact.rs`; `apps/desktop/src/hop-preview.ts`.
-
-**Accettazione osservabile:**
-
-- Tutta la cronologia selezionata è rappresentata entro il budget della destinazione con omissioni segnate e tagli rispettosi di turni e UTF-8.
-- Ragionamento e vecchi seed annidati sono esclusi; il corpus dei segreti verifica l'oscuramento prima del salvataggio; i byte dell'anteprima coincidono con l'istantanea inviata.
-- Nessun file di istruzioni viene creato nel progetto senza consenso; prefissi bootstrap pericolosi non vengono eseguiti; i file completi sono privati.
-
-**Verifiche del passo:** `budget/redaction/hostile-prefix property corpus`; `preview hash and private-file fixtures`.
-
-**Gate collegati, da registrare separatamente:** H2, H3, H4, H7, H11, H14, H16, H18, CL16, SC9.
-
-**Requisiti coperti dal piano:** FRD-0003/R13, FRD-0005/R05, FRD-0005/R06, FRD-0005/R07, FRD-0005/R08, FRD-0005/R09, FRD-0005/R19, FRD-0005/R20, FRD-0005/R21, FRD-0005/R22, FRD-0005/R23, FRD-0005/R24, FRD-0005/R25, FRD-0005/R26, FRD-0005/R27, FRD-0005/R28, FRD-0005/R29, FRD-0005/R31, FRD-0005/R33, FRD-0006/R39.
-
-**Commit proposto:** `feat(c27): Creare anteprime seed esatte e oscurate`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/hop/src/seed.rs, crates/hop/src/redact.rs. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
-
-### C27.1 · Normalizzare cronologia e oscurare i segreti
-
-Proiezione seed priva di ragionamento, rumore e seed annidati, oscurata prima del salvataggio.
-
-Stima: 4–8 ore. File: `crates/hop/src/redact.rs`, `crates/hop/src/history.rs`.
-
-Accettazione: Corpus di chiavi e prefissi ostili prova richiami e falsi positivi; nessun testo non oscurato viene persistito. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: corpus redaction e normalized-history`; `npm run build`.
-
-Commit: `feat(c27.1): Normalizzare cronologia e oscurare i segreti`. Registrare stato e prove sotto `progress.json` → `steps` → `C27` → `units` → `C27.1`.
-
-### C27.2 · Applicare budget e tagli deterministici
-
-Calcolo dalla finestra del modello, ordine di conservazione e omissioni segnate.
-
-Stima: 4–8 ore. File: `crates/hop/src/seed.rs`.
-
-Accettazione: Tagli solo ai confini UTF-8/turno; minimo seed insufficiente causa rifiuto con numeri. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: proprietà budget e destination-window`; `npm run build`.
-
-Commit: `feat(c27.2): Applicare budget e tagli deterministici`. Registrare stato e prove sotto `progress.json` → `steps` → `C27` → `units` → `C27.2`.
-
-### C27.3 · Preparare file privati e canale sicuro
-
-Trascrizione completa e bootstrap limitato senza shell, con posizioni autorizzate.
-
-Stima: 4–8 ore. File: `crates/hop/src/files.rs`, `crates/adapter/src/seed_channel.rs`.
-
-Accettazione: Nessun file istruzioni viene creato nel progetto senza consenso; file grandi sono letti con limiti. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: test full-file ACL e bootstrap escaping`; `npm run build`.
-
-Commit: `feat(c27.3): Preparare file privati e canale sicuro`. Registrare stato e prove sotto `progress.json` → `steps` → `C27` → `units` → `C27.3`.
-
-### C27.4 · Mostrare l’anteprima immutabile e le perdite
-
-Dialogo seed con hash della proiezione, quantità oscurate e conferma separata dagli effetti.
-
-Stima: 4–8 ore. File: `apps/desktop/src/hop-preview.ts`, `crates/hop/src/preview.rs`.
-
-Accettazione: L’istantanea inviata coincide byte per byte con l’anteprima e attraversa invariata il bypass sidecar. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: fixture preview/send/hash e SC9`; `npm run build`.
-
-Commit: `feat(c27.4): Mostrare l’anteprima immutabile e le perdite`. Registrare stato e prove sotto `progress.json` → `steps` → `C27` → `units` → `C27.4`.
-
-<a id="c28"></a>
-## C28 · Implementare il coordinatore degli hop close/fork con registro persistente
-
-Macchina a stati transazionale degli hop con identità distinte per close e fork, avvio confermato della destinazione, verifica hash e ricevuta, errori visibili e passaggio da cronologia.
-
-**Ambito:** v1. **Dipendenze:** C27. **Stima:** 20–40 ore.
-
-**File/componenti:** `crates/hop/src/coordinator.rs`; `crates/state/src/hops.rs`; `apps/desktop/src/hop/**`.
-
-**Accettazione osservabile:**
-
-- Esattamente un hop concorrente vince; la conferma attesta che nessun effetto sulla destinazione è avvenuto prima del consenso.
-- L'origine sopravvive ai guasti e resta attiva nel fork; si chiude soltanto dopo il commit e la gestione confermata di bozze o comandi attivi.
-- Il passaggio da cronologia crea un segmento storico derivato senza toccare un'origine attiva.
-- Un database occupato o pieno non consente di procedere senza registro; nessuna risposta automatica alle domande iniziali di fiducia.
-
-**Verifiche del passo:** `fake-adapter state transition suite`; `concurrent-hop test`; `effect-boundary fault injection`.
-
-**Gate collegati, da registrare separatamente:** S4, S10, H1, H5, H9, H12, H24, H25, H26, SS4, AT-1, AT-4, AT-10.
-
-**Requisiti coperti dal piano:** FRD-0005/R02, FRD-0005/R10, FRD-0005/R11, FRD-0005/R12, FRD-0005/R13, FRD-0005/R14, FRD-0005/R15, FRD-0005/R18, FRD-0005/R32, FRD-0005/R35, FRD-0005/R36, FRD-0005/R37, FRD-0005/R38, FRD-0005/R39, FRD-0005/R40, FRD-0005/R43, FRD-0005/R44, FRD-0005/R48, FRD-0005/R49, FRD-0005/R50, FRD-0005/R51, FRD-0006/R26, FRD-0006/R27, FRD-0014/R19, FRD-0014/R21.
-
-**Commit proposto:** `feat(c28): Implementare il coordinatore degli hop close/fork con registro persistente`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/hop/src/coordinator.rs, crates/state/src/hops.rs. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
-
-### C28.1 · Persistire la macchina a stati e l’esclusione degli hop
-
-Transizioni e hop_event nello stesso commit SQLite, con unico hop attivo per thread.
-
-Stima: 5–10 ore. File: `crates/state/src/hops.rs`, `crates/hop/src/state.rs`.
-
-Accettazione: Due processi concorrenti producono un vincitore; transizioni non valide non mutano il registro. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: test FSM e concurrent-hop`; `npm run build`.
-
-Commit: `feat(c28.1): Persistire la macchina a stati e l’esclusione degli hop`. Registrare stato e prove sotto `progress.json` → `steps` → `C28` → `units` → `C28.1`.
-
-### C28.2 · Collegare consenso, preparazione e ricevuta
-
-Coordinatore con effetti registrati prima dell’avvio, hash della prima voce e nonce.
-
-Stima: 5–10 ore. File: `crates/hop/src/coordinator.rs`.
-
-Accettazione: Nessun effetto prima della conferma; errore o timeout lasciano l’origine utilizzabile. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: fake-adapter prepare/receipt/failure`; `npm run build`.
-
-Commit: `feat(c28.2): Collegare consenso, preparazione e ricevuta`. Registrare stato e prove sotto `progress.json` → `steps` → `C28` → `units` → `C28.2`.
-
-### C28.3 · Implementare switch e differenza close/fork
-
-Identità thread corrette e chiusura origine soltanto dopo COMMITTED e controlli sulle bozze.
-
-Stima: 5–10 ore. File: `crates/hop/src/switch.rs`, `apps/desktop/src/hop/**`.
-
-Accettazione: Fork lascia origine intatta e crea un nuovo thread; SQLite busy/full non permette effetti senza registro. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: matrice close/fork/commit/draft`; `npm run build`.
-
-Commit: `feat(c28.3): Implementare switch e differenza close/fork`. Registrare stato e prove sotto `progress.json` → `steps` → `C28` → `units` → `C28.3`.
-
-### C28.4 · Aggiungere il passaggio da sessione storica
-
-Origine storica senza attivazione viva, fingerprint e nuovo thread derivato.
-
-Stima: 5–10 ore. File: `crates/hop/src/history_handoff.rs`, `apps/desktop/src/sessions/actions.ts`.
-
-Accettazione: Nessun wait-idle o stop del processo storico; un cambiamento dell’origine richiede nuova anteprima. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: test handoff-history e source-race`; `npm run build`.
-
-Commit: `feat(c28.4): Aggiungere il passaggio da sessione storica`. Registrare stato e prove sotto `progress.json` → `steps` → `C28` → `units` → `C28.4`.
-
-<a id="c29"></a>
-## C29 · Aggiungere recupero degli hop, aggiornamento, ritorno e standby misurato
-
-Riconciliazione al riavvio senza duplicare avvii incerti, aggiornamento limitato, ritorno nativo/UNDO e standby non inizializzato attivabile esplicitamente.
-
-**Ambito:** v1. **Dipendenze:** C28. **Stima:** 20–40 ore.
-
-**File/componenti:** `crates/hop/src/recovery.rs`; `crates/hop/src/catchup.rs`; `crates/hop/src/standby.rs`.
-
-**Accettazione osservabile:**
-
-- Un crash in ogni stato dell'hop produce gli esiti documentati senza eliminare record nativi o duplicare sessioni.
-- Istantanea, hash della prima voce e nonce vengono verificati; nuovi turni nell'origine attivano al massimo due aggiornamenti.
-- Lo standby è inizialmente disattivato, non usa token prima del seed e scade dopo trenta minuti o un cambio di versione.
-
-**Verifiche del passo:** `kill-at-each-transition matrix`; `history-only canary and hop-back tests when synthetic live budget authorized`; `warm/cold latency measurements`.
-
-**Gate collegati, da registrare separatamente:** H1, H6, H9, H10, H12, H13, H15, H21, H24, AT-1, AT-2, AT-3.
-
-**Requisiti coperti dal piano:** FRD-0005/R06, FRD-0005/R34, FRD-0005/R37, FRD-0005/R38, FRD-0005/R39, FRD-0005/R40, FRD-0005/R41, FRD-0005/R42, FRD-0005/R45, FRD-0005/R46, FRD-0005/R47, FRD-0005/R51.
-
-**Commit proposto:** `feat(c29): Aggiungere recupero degli hop, aggiornamento, ritorno e standby misurato`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/hop/src/recovery.rs, crates/hop/src/catchup.rs. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
-
-### C29.1 · Riconciliare gli avvii incerti dopo crash
-
-Recupero per stato e osservazione di effetti già tentati senza rilancio automatico.
-
-Stima: 5–10 ore. File: `crates/hop/src/recovery.rs`.
-
-Accettazione: Un kill in ogni confine transazionale conserva integrity_check e non duplica destinazioni. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: fault matrix recovery per stato`; `npm run build`.
-
-Commit: `feat(c29.1): Riconciliare gli avvii incerti dopo crash`. Registrare stato e prove sotto `progress.json` → `steps` → `C29` → `units` → `C29.1`.
-
-### C29.2 · Inviare aggiornamenti limitati durante lo switch
-
-Cursor e catch-up dei turni nuovi con massimo due passaggi e stesso controllo ricevuta.
-
-Stima: 5–10 ore. File: `crates/hop/src/catchup.rs`.
-
-Accettazione: Origine occupata offre attendi/interrompi/annulla e non viene fermata silenziosamente. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: test source-gained-turns e busy-source`; `npm run build`.
-
-Commit: `feat(c29.2): Inviare aggiornamenti limitati durante lo switch`. Registrare stato e prove sotto `progress.json` → `steps` → `C29` → `units` → `C29.2`.
-
-### C29.3 · Riprendere il segmento precedente e applicare UNDO
-
-Hop-back nativo, finestra UNDO e ripiego seed quando l’origine non esiste più.
-
-Stima: 5–10 ore. File: `crates/hop/src/hop_back.rs`.
-
-Accettazione: Nessuna doppia attivazione; un canary presente soltanto nella cronologia resta disponibile al ritorno. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: test hop-back/undo/retention`; `npm run build`.
-
-Commit: `feat(c29.3): Riprendere il segmento precedente e applicare UNDO`. Registrare stato e prove sotto `progress.json` → `steps` → `C29` → `units` → `C29.3`.
-
-### C29.4 · Aggiungere standby opt-in e misurare le latenze
-
-Istanza nascosta non inizializzata, scadenza e misure warm/cold senza promesse non provate.
-
-Stima: 5–10 ore. File: `crates/hop/src/standby.rs`, `docs/verification/**`.
-
-Accettazione: Off iniziale, zero token prima del seed e scadenza dopo trenta minuti o cambio versione. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: test standby expiry e misure warm/cold`; `npm run build`.
-
-Commit: `feat(c29.4): Aggiungere standby opt-in e misurare le latenze`. Registrare stato e prove sotto `progress.json` → `steps` → `C29` → `units` → `C29.4`.
-
-<a id="c30"></a>
-## C30 · Completare la matrice degli hop ordinati tra i sei agenti
-
-Prove con canary per ogni combinazione ordinata origine, destinazione e versione; origini sconosciute o illeggibili vengono disattivate singolarmente.
-
-**Ambito:** v1. **Dipendenze:** C19, C20, C29, C16, C17, C18. **Stima:** 16–32 ore.
-
-**File/componenti:** `verify/H1/**`; `docs/verification/**`.
-
-**Accettazione osservabile:**
-
-- Ogni combinazione pubblicizzata supera il canary basato soltanto sulla cronologia oppure rifiuta o degrada esplicitamente.
-- Hermes e DeepSeek diventano origini soltanto quando esistono lettori Mukade verificati; Gemini resta escluso.
-- Nessuna promessa di trasferimento senza perdite; latenze a caldo e a freddo, dati trasferiti o persi e ragioni dei ripieghi sono documentati.
-
-**Verifiche del passo:** `all ordered pairs synthetic-fixture suite`; `separately authorized bounded live canaries`.
-
-**Gate collegati, da registrare separatamente:** H1, HM3, DS3, AT-2, AT-10.
-
-**Requisiti coperti dal piano:** FRD-0005/R06, FRD-0005/R14, FRD-0005/R15, FRD-0005/R18, FRD-0006/R41, FRD-0006/R42.
-
-**Commit proposto:** `feat(c30): Completare la matrice degli hop ordinati tra i sei agenti`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire verify/H1/**, docs/verification/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
-
-### C30.1 · Costruire il banco delle combinazioni ordinate
-
-Generatore di fixture sintetiche e matrice capacità/versioni per tutte le coppie.
-
-Stima: 4–8 ore. File: `verify/H1/**`, `crates/hop/tests/pairs.rs`.
-
-Accettazione: Ogni combinazione non implementata o non leggibile è esplicitamente rifiutata; Gemini escluso. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: test enumerazione e capability matrix`; `npm run build`.
-
-Commit: `feat(c30.1): Costruire il banco delle combinazioni ordinate`. Registrare stato e prove sotto `progress.json` → `steps` → `C30` → `units` → `C30.1`.
-
-### C30.2 · Eseguire canary e ritorno per coppie disponibili
-
-Prove autorizzate del contenuto presente soltanto nella cronologia e hop-back.
-
-Stima: 6–12 ore. File: `verify/H1/**`, `docs/verification/**`.
-
-Accettazione: Usare solo home, account e budget sintetici autorizzati; registrare anche ogni rifiuto e risultato negativo. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: matrice canary per coppia/versione`; `npm run build`.
-
-Commit: `feat(c30.2): Eseguire canary e ritorno per coppie disponibili`. Registrare stato e prove sotto `progress.json` → `steps` → `C30` → `units` → `C30.2`.
-
-### C30.3 · Pubblicare la matrice di supporto effettiva
-
-Capacità UI/doctor derivate dalle prove, con latenze e perdita dichiarate.
-
-Stima: 6–12 ore. File: `crates/adapter/src/capabilities.rs`, `apps/desktop/src/hop/**`.
-
-Accettazione: Hermes/DeepSeek sono origini solo dopo reader verificati; versioni fuori fixture degradano senza falsa promessa lossless. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: test support-report e version drift`; `npm run build`.
-
-Commit: `feat(c30.3): Pubblicare la matrice di supporto effettiva`. Registrare stato e prove sotto `progress.json` → `steps` → `C30` → `units` → `C30.3`.
-
-<a id="c31"></a>
-## C31 · Costruire l'API di messaggistica limitata e circoscritta tra istanze
-
-Motore tipizzato instances, send, inbox e ack, messaggi per sessione con scadenza, deduplicazione, ambiti e controllo degli eccessi.
-
-**Ambito:** v1. **Dipendenze:** C25, C27, F02. **Stima:** 14–28 ore.
-
-**File/componenti:** `crates/messaging/**`; `crates/state/src/messages.rs`.
-
-**Accettazione osservabile:**
-
-- Il comportamento predefinito rifiuta messaggi tra progetti; la consegna almeno una volta non viene chiamata lettura o consegna esattamente una volta.
-- Il contenuto dei pari resta dato citato, non affidabile e con escape; non risponde mai ai permessi e non causa da solo chiamate a strumenti.
-- Scadenza entro un'ora, massimo cinque tentativi e limiti di profondità e frequenza sono imposti dal server; destinatari offline e duplicati sono verificati.
-- Nessuno scheduler o casella persistente di attività, né facoltà dell'agente di avviare hop, istanze o modificare impostazioni.
-
-**Verifiche del passo:** `offline/duplicate/pingpong/cross-project tests`; `injection canaries and no-approval negatives`.
-
-**Gate collegati, da registrare separatamente:** M4-M7, AT-6, AT-7.
-
-**Requisiti coperti dal piano:** FRD-0007/R01, FRD-0007/R02, FRD-0007/R03, FRD-0007/R04, FRD-0007/R05, FRD-0007/R06, FRD-0007/R07, FRD-0007/R08, FRD-0007/R09, FRD-0007/R10, FRD-0007/R11, FRD-0007/R12, FRD-0007/R13, FRD-0007/R14, FRD-0007/R15, FRD-0007/R16, FRD-0007/R17, FRD-0007/R23, FRD-0007/R24, FRD-0007/R39, FRD-0014/R20.
-
-**Commit proposto:** `feat(c31): Costruire l'API di messaggistica limitata e circoscritta tra istanze`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/messaging/**, crates/state/src/messages.rs. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
-
-### C31.1 · Persistire messaggi con ambito, scadenza e deduplicazione
-
-API tipizzata instances/send/inbox/ack con vincoli e quoted-data.
-
-Stima: 4–8 ore. File: `crates/messaging/src/model.rs`, `crates/state/src/messages.rs`.
-
-Accettazione: Cross-project deny iniziale, corpo limitato e scadenza entro un’ora; segreti oscurati prima del salvataggio. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: test scope/expiry/dedupe/redaction`; `npm run build`.
-
-Commit: `feat(c31.1): Persistire messaggi con ambito, scadenza e deduplicazione`. Registrare stato e prove sotto `progress.json` → `steps` → `C31` → `units` → `C31.1`.
-
-### C31.2 · Consegnare con retry e stato dichiarato correttamente
-
-Coda bounded, al-meno-una-volta e canali per capacità del destinatario.
-
-Stima: 5–10 ore. File: `crates/messaging/src/delivery.rs`.
-
-Accettazione: Massimo cinque retry; delivered non significa read e destinatari offline oltre scadenza non ricevono il messaggio. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: test offline/retry/ack/channel`; `npm run build`.
-
-Commit: `feat(c31.2): Consegnare con retry e stato dichiarato correttamente`. Registrare stato e prove sotto `progress.json` → `steps` → `C31` → `units` → `C31.2`.
-
-### C31.3 · Bloccare cicli e messaggi che simulano approvazioni
-
-Limiti server su profondità e frequenza con allerta visibile e canary di iniezione.
-
-Stima: 5–10 ore. File: `crates/messaging/src/limits.rs`, `crates/messaging/tests/injection.rs`.
-
-Accettazione: I messaggi non rispondono ai permessi e non concedono strumenti; il ping-pong si ferma senza perdita silenziosa. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: canary approval e test flood/depth`; `npm run build`.
-
-Commit: `feat(c31.3): Bloccare cicli e messaggi che simulano approvazioni`. Registrare stato e prove sotto `progress.json` → `steps` → `C31` → `units` → `C31.3`.
-
-<a id="c32"></a>
-## C32 · Esporre quattro strumenti MCP e hook iniettati all'avvio
-
-Punti di ingresso MCP e hook nello stesso eseguibile, verifica per avvio dei token salvati come hash e soltanto quattro strumenti approvati.
-
-**Ambito:** v1. **Dipendenze:** C31, C11, C14. **Stima:** 18–36 ore.
-
-**File/componenti:** `crates/cli/src/mcp.rs`; `crates/cli/src/hook.rs`; `crates/adapter/src/injection/**`.
-
-**Accettazione osservabile:**
-
-- Identità sconosciute, terminate o con token non corrispondente vengono rifiutate; nessun token in chiaro in database, log o trascrizioni.
-- Stdout MCP contiene soltanto il protocollo; gli hook non fanno fallire gli agenti; entrambi terminano con il proprietario.
-- Nessun ripiego di consegna al PTY non sicuro; la preapprovazione riguarda soltanto i quattro strumenti nominati ed è verificata per versione.
-
-**Verifiche del passo:** `stdio JSONRPC and malformed-input tests`; `impersonation/token-negative fixtures`; `startup/hook latency measurement`; `per-agent hook/injection conformance`.
-
-**Gate collegati, da registrare separatamente:** M1-M3, M8-M15, CL8-CL11, OC6, PI7, HM5, DS5, SC8, T1.
-
-**Requisiti coperti dal piano:** FRD-0002/R30, FRD-0002/R31, FRD-0002/R32, FRD-0002/R33, FRD-0002/R34, FRD-0006/R45, FRD-0007/R18, FRD-0007/R19, FRD-0007/R20, FRD-0007/R21, FRD-0007/R22, FRD-0007/R23, FRD-0007/R24, FRD-0007/R25, FRD-0007/R39, FRD-0007/R40.
-
-**Commit proposto:** `feat(c32): Esporre quattro strumenti MCP e hook iniettati all'avvio`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/cli/src/mcp.rs, crates/cli/src/hook.rs. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
-
-### C32.1 · Esporre quattro strumenti MCP con stdout pulito
-
-Subcomando stdio JSON-RPC che chiama soltanto instances/send/inbox/ack.
-
-Stima: 6–12 ore. File: `crates/cli/src/mcp.rs`.
-
-Accettazione: Input malformati sono rifiutati senza stampare diagnostica nel protocollo; nessuno strumento di avvio/hop/roundtable. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: test stdio MCP schema e malformed-input`; `npm run build`.
-
-Commit: `feat(c32.1): Esporre quattro strumenti MCP con stdout pulito`. Registrare stato e prove sotto `progress.json` → `steps` → `C32` → `units` → `C32.1`.
-
-### C32.2 · Verificare identità e vita del chiamante MCP
-
-Controllo di istanza attiva e token hash, preapprovazione dei soli quattro strumenti.
-
-Stima: 6–12 ore. File: `crates/messaging/src/auth.rs`, `crates/adapter/src/injection/**`.
-
-Accettazione: Token errati, identità di pari e istanze terminate non possono inviare o confermare come un altro agente. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: test impersonation/token/ended-instance`; `npm run build`.
-
-Commit: `feat(c32.2): Verificare identità e vita del chiamante MCP`. Registrare stato e prove sotto `progress.json` → `steps` → `C32` → `units` → `C32.2`.
-
-### C32.3 · Collegare hook e misurare avvio/uscita
-
-Hook per evento con aggiornamento atomico, output previsto dall’harness e lifecycle del proprietario.
-
-Stima: 6–12 ore. File: `crates/cli/src/hook.rs`, `crates/adapter/src/injection/**`.
-
-Accettazione: Gli hook non fanno fallire l’agente; resume/clear non perdono identità e il bili shim coesiste. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: conformance hook e misure startup/latency`; `npm run build`.
-
-Commit: `feat(c32.3): Collegare hook e misurare avvio/uscita`. Registrare stato e prove sotto `progress.json` → `steps` → `C32` → `units` → `C32.3`.
-
-<a id="c33"></a>
-## C33 · Consegnare una tavola rotonda headless con limiti rigidi
-
-Proposte indipendenti, critica e sintesi moderate avviate dall'utente, con modello per partecipante, limiti e risultati parziali.
-
-**Ambito:** v1. **Dipendenze:** C32, C13, C24. **Stima:** 20–40 ore.
-
-**File/componenti:** `crates/roundtable/**`; `apps/desktop/src/roundtable/**`.
-
-**Accettazione osservabile:**
-
-- Soltanto nuove sessioni headless; nessun ripiego su PTY o lettura dello schermo e nessun riuso dei lavoratori attivi.
-- I canary answer-only provano l'assenza di scritture, rete e strumenti senza permesso esplicito; l'iniezione tra partecipanti viene misurata.
-- Limiti di costo, token e round, arresto e intervento dell'utente funzionano; risultati ricercabili e continuazione tramite seed di un thread di lavoro.
-- I partecipanti di questo ciclo usano gli harness supportati; il bridge Daodan per bare-model e rinviato a D02, senza un sostituto costruito appositamente.
-
-**Verifiche del passo:** `fake-headless timeout/cap/stop suite`; `per-agent deny-tools canaries`; `authorized three-topic cap calibration`.
-
-**Gate collegati, da registrare separatamente:** R1-R7, AT-8, SC10.
-
-**Requisiti coperti dal piano:** FRD-0007/R26, FRD-0007/R27, FRD-0007/R28, FRD-0007/R30, FRD-0007/R31, FRD-0007/R32, FRD-0007/R33, FRD-0007/R34, FRD-0007/R35, FRD-0007/R36, FRD-0007/R37.
-
-**Commit proposto:** `feat(c33): Consegnare una tavola rotonda headless con limiti rigidi`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/roundtable/**, apps/desktop/src/roundtable/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
-
-### C33.1 · Avviare partecipanti headless con politica answer-only
-
-Sessioni nuove per partecipante e modelli per lancio, senza riciclare worker o leggere PTY.
-
-Stima: 5–10 ore. File: `crates/roundtable/src/participants.rs`.
-
-Accettazione: I canary provano assenza di scritture e strumenti non autorizzati; host non conformi restano esclusi. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: fake-headless e deny-tools per adattatore`; `npm run build`.
-
-Commit: `feat(c33.1): Avviare partecipanti headless con politica answer-only`. Registrare stato e prove sotto `progress.json` → `steps` → `C33` → `units` → `C33.1`.
-
-### C33.2 · Coordinare proposte, critica e sintesi
-
-Round moderati di harness supportati con dati dei pari citati; il bridge Daodan per bare-model e rinviato.
-
-Stima: 5–10 ore. File: `crates/roundtable/src/coordinator.rs`.
-
-Accettazione: Le risposte non autorizzano strumenti e tutto il traffico resta coperto dal sidecar. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: test round ordering e cross-participant injection`; `npm run build`.
-
-Commit: `feat(c33.2): Coordinare proposte, critica e sintesi`. Registrare stato e prove sotto `progress.json` → `steps` → `C33` → `units` → `C33.2`.
-
-### C33.3 · Imporre limiti, stop e interventi dell’utente
-
-Budget rigidi e stato parziale con interrupt alla prima soglia raggiunta.
-
-Stima: 5–10 ore. File: `crates/roundtable/src/caps.rs`.
-
-Accettazione: Stop/costo/token/round non proseguono silenziosamente; interiezioni arrivano solo tra round e le misure sono registrate. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: test caps/timeout/interject e calibrazione autorizzata`; `npm run build`.
-
-Commit: `feat(c33.3): Imporre limiti, stop e interventi dell’utente`. Registrare stato e prove sotto `progress.json` → `steps` → `C33` → `units` → `C33.3`.
-
-### C33.4 · Mostrare, cercare e continuare la discussione
-
-UI roundtable e thread persistente, con seed di un thread di lavoro dalla posizione scelta.
-
-Stima: 5–10 ore. File: `apps/desktop/src/roundtable/**`, `crates/roundtable/src/history.rs`.
-
-Accettazione: Il risultato è ricercabile e continuare non riprende una sessione viva di un partecipante. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: smoke roundtable/search/continue`; `npm run build`.
-
-Commit: `feat(c33.4): Mostrare, cercare e continuare la discussione`. Registrare stato e prove sotto `progress.json` → `steps` → `C33` → `units` → `C33.4`.
-
-<a id="c34"></a>
-## C34 · Mostrare lo stato Daodan in sola lettura e digitare i comandi
-
-Lettore agenda con schema e limiti, collegamenti derivati tra thread e attività, righe nei progetti, palette e proposta iniziale una sola volta.
-
-**Ambito:** deferred. **Dipendenze:** C14, C25, C32, D01. **Stima:** 16–32 ore.
-
-**File/componenti:** `crates/daodan/src/agenda.rs`; `crates/daodan/src/links.rs`; `apps/desktop/src/tasks/**`; `apps/desktop/src/palette.ts`.
-
-**Accettazione osservabile:**
-
-**Rinvio:** Rinviato su richiesta esplicita dell utente del 2026-11-02: ignorare per adesso l integrazione con Daodan. Riprendere solo su nuova indicazione.
-
-- Shinatama non scrive file Daodan, non esegue i suoi script e non ne modifica i worktree; i comandi scelti vengono digitati e mai inviati.
-- Agenda sconosciuta, illeggibile o su disco rimosso è visibile; l'ultima copia osservata serve solo alla visualizzazione; il titolare remoto non è mai giudicato obsoleto.
-- I collegamenti esatti o per posizione spariscono quando non validi; gli agenti senza pacchetto mostrano le attività ma nessun comando.
-- Rifiutare l'inizializzazione di un nuovo progetto sopprime le proposte successive; soltanto due verifiche di directory definiscono lo stato iniziale.
-
-**Verifiche del passo:** `synthetic/torn/unreadable agenda fixtures`; `main-checkout/worktree link corpus`; `typed-not-sent terminal assertions`; `first-use parity tests`.
-
-**Gate collegati, da registrare separatamente:** D8-D12, D14, D20.
-
-**Requisiti coperti dal piano:** FRD-0004/R09, FRD-0004/R14, FRD-0004/R17, FRD-0004/R23, FRD-0004/R24, FRD-0004/R25, FRD-0008/R11, FRD-0008/R12, FRD-0008/R13, FRD-0008/R14, FRD-0008/R15, FRD-0008/R16, FRD-0008/R17, FRD-0008/R18, FRD-0008/R19, FRD-0008/R20, FRD-0008/R21, FRD-0008/R22, FRD-0008/R23, FRD-0008/R24, FRD-0008/R25, FRD-0008/R26, FRD-0008/R27, FRD-0008/R34, FRD-0008/R35, FRD-0008/R36, FRD-0008/R37, FRD-0008/R38, FRD-0008/R39, FRD-0008/R40.
-
-**Commit proposto:** `feat(c34): Mostrare lo stato Daodan in sola lettura e digitare i comandi`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/daodan/src/agenda.rs, crates/daodan/src/links.rs. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
-
-### C34.1 · Leggere agenda e risolvere il checkout principale
-
-Lettore schema-checked e polling limitato della sorgente Daodan in sola lettura.
-
-Stima: 4–8 ore. File: `crates/daodan/src/agenda.rs`.
-
-Accettazione: Schema sconosciuto, lettura interrotta e disco mancante sono errori visibili, non elenchi vuoti. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: corpus agenda/schema/torn/common-dir`; `npm run build`.
-
-Commit: `feat(c34.1): Leggere agenda e risolvere il checkout principale`. Registrare stato e prove sotto `progress.json` → `steps` → `C34` → `units` → `C34.1`.
-
-### C34.2 · Derivare collegamenti tra attività e thread
-
-Link esatto o per posizione ricostruibile con stato del titolare.
-
-Stima: 4–8 ore. File: `crates/daodan/src/links.rs`.
-
-Accettazione: Il link sparisce se non valido; titolari remoti non sono giudicati obsoleti e attività finite non offrono continue. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: fixture worktree/branch/session links`; `npm run build`.
-
-Commit: `feat(c34.2): Derivare collegamenti tra attività e thread`. Registrare stato e prove sotto `progress.json` → `steps` → `C34` → `units` → `C34.2`.
-
-### C34.3 · Mostrare attività e digitare comandi della palette
-
-Righe progetto e comandi nativi dal manifesto, inseriti nel prompt senza invio.
-
-Stima: 4–8 ore. File: `apps/desktop/src/tasks/**`, `apps/desktop/src/palette.ts`.
-
-Accettazione: Nessun file o script Daodan viene scritto/eseguito; Hermes/DeepSeek mostrano attività senza comandi non disponibili. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: smoke typed-not-sent e no-package`; `npm run build`.
-
-Commit: `feat(c34.3): Mostrare attività e digitare comandi della palette`. Registrare stato e prove sotto `progress.json` → `steps` → `C34` → `units` → `C34.3`.
-
-### C34.4 · Aggiungere la proposta iniziale una sola volta
-
-Due verifiche di directory e memoria per-progetto di Not now, coordinata con la creazione.
-
-Stima: 4–8 ore. File: `crates/daodan/src/onboarding.rs`, `apps/desktop/src/projects/onboarding.ts`.
-
-Accettazione: Rifiutare nella creazione sopprime la proposta successiva; Shinatama non domanda o risponde alle domande Daodan. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: first-use parity e offer-once`; `npm run build`.
-
-Commit: `feat(c34.4): Aggiungere la proposta iniziale una sola volta`. Registrare stato e prove sotto `progress.json` → `steps` → `C34` → `units` → `C34.4`.
-
-<a id="c35"></a>
-## C35 · Trasferire il contesto delle attività Daodan dopo un hop close completato
-
-Blocco attività esatto in anteprima e seed, seguito da un messaggio di passaggio separato dopo la chiusura; il fork non eredita l'attività.
-
-**Ambito:** deferred. **Dipendenze:** C29, C34. **Stima:** 8–16 ore.
-
-**File/componenti:** `crates/hop/src/daodan.rs`; `apps/desktop/src/hop/task-preview.ts`.
-
-**Accettazione osservabile:**
-
-**Rinvio:** Rinviato su richiesta esplicita dell utente del 2026-11-02: ignorare per adesso l integrazione con Daodan. Riprendere solo su nuova indicazione.
-
-- Una sola conferma; nessun messaggio di subentro prima di COMMITTED e della chiusura confermata dell'origine.
-- Chiusura rifiutata, incerta o interrotta da crash e destinazione senza pacchetto non ricevono istruzioni di subentro.
-- Nessun percorso Shinatama modifica lo stato Daodan o assegna una sola attività a entrambi i thread divergenti.
-
-**Verifiche del passo:** `close/fork/uncertain-stop task-hop matrix`; `preview-vs-delivery equality`.
-
-**Gate collegati, da registrare separatamente:** D13, D20.
-
-**Requisiti coperti dal piano:** FRD-0005/R30, FRD-0005/R60, FRD-0005/R61, FRD-0005/R62, FRD-0008/R28, FRD-0008/R29, FRD-0008/R30, FRD-0008/R31, FRD-0008/R32, FRD-0008/R33.
-
-**Commit proposto:** `feat(c35): Trasferire il contesto delle attività Daodan dopo un hop close completato`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/hop/src/daodan.rs, apps/desktop/src/hop/task-preview.ts. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-<a id="c36"></a>
-## C36 · Aggiungere preferiti, metadati git e avvio in worktree collegati
-
-Progetti preferiti, fatti git limitati e memorizzati temporaneamente, ultimo agente/thread e opzione esplicita di avvio in un worktree dedicato.
-
-**Ambito:** v1. **Dipendenze:** C25. **Stima:** 12–24 ore.
-
-**File/componenti:** `crates/projects/src/git.rs`; `crates/engine/src/worktree_launch.rs`; `apps/desktop/src/project-picker.ts`.
-
-**Accettazione osservabile:**
-
-- La scansione git di trenta progetti resta limitata, parallela e con timeout; un errore git produce Unknown.
-- Il worktree dedicato e una scelta esplicita della nuova istanza; nessun legame con task esterni e necessario.
-- Nessuna UI Git Diff dedicata e nessuna creazione o eliminazione implicita di worktree.
-
-**Verifiche del passo:** `synthetic git/common-dir/worktree corpus`; `parallel-scan timeout measurements`.
-
-**Gate collegati, da registrare separatamente:** PM2, PM3, H20, I3.
-
-**Requisiti coperti dal piano:** FRD-0004/R07, FRD-0004/R08, FRD-0004/R16, FRD-0004/R21.
-
-**Commit proposto:** `feat(c36): Aggiungere preferiti, metadati git e avvio in worktree collegati`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/projects/src/git.rs, crates/engine/src/worktree_launch.rs. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
-
-### C36.1 · Aggiungere preferiti e fatti git con cache
-
-Preferiti persistenti e scansione git parallela con timeout per radici/progetti.
-
-Stima: 4–8 ore. File: `crates/projects/src/git.rs`, `apps/desktop/src/project-picker.ts`.
-
-Accettazione: Trenta progetti non bloccano la UI; errori git restano Unknown e nessuna vista diff viene introdotta. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: corpus git e misura parallel-scan`; `npm run build`.
-
-Commit: `feat(c36.1): Aggiungere preferiti e fatti git con cache`. Registrare stato e prove sotto `progress.json` → `steps` → `C36` → `units` → `C36.1`.
-
-### C36.2 · Mostrare ultimo agente/thread e avvio dell’attività
-
-Righe progetto collegate alla cronologia e al worktree dell’attività.
-
-Stima: 4–8 ore. File: `apps/desktop/src/project-picker.ts`, `crates/projects/src/threads.rs`.
-
-Accettazione: Un’attività collegata si apre nel proprio worktree; link obsoleti non vengono riparati per supposizione. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: fixture last-thread e task-worktree`; `npm run build`.
-
-Commit: `feat(c36.2): Mostrare ultimo agente/thread e avvio dell’attività`. Registrare stato e prove sotto `progress.json` → `steps` → `C36` → `units` → `C36.2`.
-
-### C36.3 · Creare un worktree soltanto come opzione di nuova istanza
-
-Piano esplicito di worktree collegato con controlli e gestione del fallimento dell’avvio.
-
-Stima: 4–8 ore. File: `crates/engine/src/worktree_launch.rs`, `apps/desktop/src/launch-review.ts`.
-
-Accettazione: L overview non crea worktree; l opzione di nuova istanza crea solo il worktree confermato dall utente. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: test linked-worktree launch/failure`; `npm run build`.
-
-Commit: `feat(c36.3): Creare un worktree soltanto come opzione di nuova istanza`. Registrare stato e prove sotto `progress.json` → `steps` → `C36` → `units` → `C36.3`.
-
-<a id="c39"></a>
-## C39 · Vincolare importazione e trasferimento nativo post-v1 alle verifiche
-
-Percorso nativo attivato separatamente per agente e versione, con revisione Mukade verificata, anteprima esatta preparata, consenso, identità riservata e riconciliazione della ricevuta.
-
-**Ambito:** post-v1. **Dipendenze:** C30, C26. **Stima:** 24–48 ore.
-
-**File/componenti:** `crates/hop/src/native.rs`; `crates/import/**`; `verify/H27/**`.
-
-**Accettazione osservabile:**
-
-- ReasoningPolicy Drop; l'oscuramento copre dati grezzi, strumenti e allegati; isolamento dei figli e scritture sulla destinazione sono serializzati.
-- Una scrittura incerta non viene ritentata automaticamente; la ricevuta sopravvive a un avvio fallito; l'origine non viene modificata o eliminata.
-- Il trasferimento tra due home dello stesso harness resta rifiutato finché SS5 non passa; perdite dell'importazione o compattazione nativa sono esplicite.
-
-**Verifiche del passo:** `post-v1 writer/privacy/store/recovery fixture suite`; `source-fingerprint race and double-click tests`; `native import roundtrip law per supported destination`.
-
-**Gate collegati, da registrare separatamente:** H27, SS4, SS5, OC2, CX4.
-
-**Requisiti coperti dal piano:** FRD-0005/R16, FRD-0005/R17, FRD-0005/R52, FRD-0005/R53, FRD-0005/R54, FRD-0005/R55, FRD-0005/R56, FRD-0005/R57, FRD-0005/R58, FRD-0005/R59, FRD-0006/R28, FRD-0006/R30, FRD-0006/R34, FRD-0006/R36.
-
-**Commit proposto:** `feat(c39): Vincolare importazione e trasferimento nativo post-v1 alle verifiche`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/hop/src/native.rs, crates/import/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
-
-### C39.1 · Preparare anteprima nativa e destinazione riservata
-
-Percorso post-v1 separato con payload preparato, fingerprint e consenso esplicito.
-
-Stima: 6–12 ore. File: `crates/hop/src/native_preview.rs`.
-
-Accettazione: ReasoningPolicy Drop e oscuramento completo; nessun writer è disponibile in v1. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: test staged-preview/privacy/reserved-id`; `npm run build`.
-
-Commit: `feat(c39.1): Preparare anteprima nativa e destinazione riservata`. Registrare stato e prove sotto `progress.json` → `steps` → `C39` → `units` → `C39.1`.
-
-### C39.2 · Eseguire una scrittura nativa verificata per destinazione
-
-Wrapper Mukade con radici esplicite, journal-before-effect e scritture serializzate.
-
-Stima: 6–12 ore. File: `crates/hop/src/native.rs`, `crates/import/**`.
-
-Accettazione: Una versione o coppia non certificata rifiuta; nessuna sorgente viene modificata o eliminata. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: conformance writer per destinazione/versione`; `npm run build`.
-
-Commit: `feat(c39.2): Eseguire una scrittura nativa verificata per destinazione`. Registrare stato e prove sotto `progress.json` → `steps` → `C39` → `units` → `C39.2`.
-
-### C39.3 · Persistire ricevute e riconciliare esiti incerti
-
-Recupero di WriteUncertain/ResumeFailed senza retry automatico né eliminazione dei file nativi.
-
-Stima: 6–12 ore. File: `crates/hop/src/native_recovery.rs`.
-
-Accettazione: La ricevuta sopravvive a un avvio fallito; doppio clic o retry non creano sessioni duplicate. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: fault matrix receipt/reconcile/double-click`; `npm run build`.
-
-Commit: `feat(c39.3): Persistire ricevute e riconciliare esiti incerti`. Registrare stato e prove sotto `progress.json` → `steps` → `C39` → `units` → `C39.3`.
-
-### C39.4 · Provare due home e roundtrip del formato
-
-Abilitazione puntuale di trasferimenti tra home e dichiarazione delle perdite native.
-
-Stima: 6–12 ore. File: `verify/H27/**`, `crates/import/tests/**`.
-
-Accettazione: SS5 e legge di roundtrip devono passare prima dell’offerta; compattazione nativa richiede il percorso documentato. La compilazione e l'avvio dell'app esistente restano funzionanti; i gate del passo padre restano aperti fino alle rispettive prove.
-
-Verifiche pianificate: `planned: H27/SS4/SS5 e import-export roundtrip`; `npm run build`.
-
-Commit: `feat(c39.4): Provare due home e roundtrip del formato`. Registrare stato e prove sotto `progress.json` → `steps` → `C39` → `units` → `C39.4`.
-
-<a id="f03p"></a>
-## F03P · Controlli di riservatezza, doctor e ricostruzione degli indici operativi
-
-Controllo di integrità doctor, disattivazione dell’indicizzazione per progetto, esclusione dai riepiloghi, eliminazione selettiva e modello delle minacce revisionato.
-
-**Ambito:** v1. **Dipendenze:** FS03, C23, C24. **Stima:** 4–10 ore.
-
-**File/componenti:** `crates/state/`; `apps/desktop/src-tauri/src/`; `docs/verification/`.
-
-**Accettazione osservabile:**
-
-- L’eliminazione selettiva deve rimuovere i contenuti previsti e i record companion, conservando i dati autorevoli estranei.
-- La ricostruzione deve rigenerare soltanto gli indici operativi.
-- Database, log e acquisizioni non devono contenere credenziali o traffico in uscita non previsto.
-- I percorsi SEC devono ricevere una seconda revisione e prove dei casi negativi.
-
-**Verifiche del passo:** `planned: Forget removes specified retained content and companion records; unrelated authoritative data survives.`; `planned: Rebuild regenerates only operational indexes.`; `planned: No credentials or unintended outbound traffic in database/logs/captures.`; `planned: SEC paths receive second-reader negative-case review.`.
-
-**Gate collegati, da registrare separatamente:** AT-6, I9, X4, X5.
-
-**Requisiti coperti dal piano:** FRD-0014/R11, FRD-0014/R27, FRD-0014/R28, FRD-0014/R29, FRD-0014/R30, FRD-0014/R32, FRD-0017/R17, FRD-0017/R18.
-
-**Commit proposto:** `feat(f03p): Controlli di riservatezza, doctor e ricostruzione degli indici operativi`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/state/, apps/desktop/src-tauri/src/. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-<a id="f03h"></a>
-## F03H · Prove delle transazioni hop, dell’unicità e del recupero dopo arresto anomalo
-
-Chiusura delle verifiche hop sullo stato condiviso mediante casi concorrenti e interruzioni delle transazioni.
-
-**Ambito:** v1. **Dipendenze:** F03P, C29. **Stima:** 3–8 ore.
-
-**File/componenti:** `crates/state/`; `crates/hop/`; `docs/verification/`.
-
-**Accettazione osservabile:**
-
-- Tra due hop concorrenti deve riuscirne esattamente uno.
-- Ogni effetto deve seguire il journal e il recupero deve essere idempotente.
-- L’integrità deve restare valida dopo arresti anomali indotti; l’archivio nativo sorgente deve rimanere invariato.
-
-**Verifiche del passo:** `planned: Exactly one concurrent hop wins.`; `planned: Every effect follows journal and recovery is idempotent.`; `planned: Integrity remains clean after injected crashes; source native store unchanged.`.
-
-**Gate collegati, da registrare separatamente:** S4, S10, AT-1, AT-4.
-
-**Requisiti coperti dal piano:** FRD-0014/R12, FRD-0014/R19, FRD-0014/R21.
-
-**Commit proposto:** `feat(f03h): Prove delle transazioni hop, dell’unicità e del recupero dopo arresto anomalo`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/state/, crates/hop/. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
 <a id="f04"></a>
 ## F04 · Hook di stato nativi e prima panoramica delle istanze
 
@@ -3139,132 +3257,6 @@ Verifiche pianificate: `pianificato: Eseguire i casi negativi CS-2/CS-9 e il con
 
 Commit: `feat(f11-windows.3): Integrazione del ciclo di vita e prove prima del badge confined su Windows`. Registrare stato e prove sotto `progress.json` → `steps` → `F11-windows` → `units` → `F11-windows.3`.
 
-<a id="f11-macos"></a>
-## F11-macos · Confinamento del companion a livello di sistema operativo: macOS
-
-Lista positiva dei permessi di lettura e scrittura e collegamenti alle credenziali per macOS.
-
-**Ambito:** v1. **Dipendenze:** F10. **Stima:** 6–20 ore.
-
-**File/componenti:** `crates/confinement/macos/`; `docs/verification/`.
-
-**Accettazione osservabile:**
-
-- Consentire scritture soltanto nello scratch, comprese le restrizioni allo stato locale dell’harness.
-- Worktree, programma e collegamenti originali alle credenziali devono essere in sola lettura; Shinatama non deve aprire o copiare le credenziali.
-- Altre directory personali, progetti e database devono essere inaccessibili; mostrare il badge confinato soltanto dopo la verifica.
-
-**Verifiche del passo:** `planned: Only scratch writable, including harness-local state restrictions.`; `planned: Worktree/program and original credential bindings read-only; Shinatama never opens/copies credentials.`; `planned: Other homes/projects/DB inaccessible; confined badge withheld until pass.`.
-
-**Gate collegati, da registrare separatamente:** CS-2, CS-9.
-
-**Requisiti coperti dal piano:** FRD-0012/R66, FRD-0012/R67, FRD-0012/R68, FRD-0012/R69, FRD-0012/R70, FRD-0012/R71, FRD-0012/R72, FRD-0012/R73, FRD-0012/R94.
-
-**Commit proposto:** `feat(f11-macos): Confinamento del companion a livello di sistema operativo: macOS`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/confinement/macos/, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
-
-### F11-macos.1 · Verifica del meccanismo e inventario dei permessi su macOS
-
-Interfaccia di confinamento disattivata per impostazione iniziale, sonda delle capacita del sistema e manifesto dei percorsi del companion; valutare profilo sandbox e regole esplicite per processo e discendenti, senza modificare i file originali.
-
-Stima: 2–6 ore. File: `crates/confinement/macos/`, `docs/verification/`.
-
-Accettazione: L'app e il companion in anteprima continuano ad avviarsi con il badge di sola politica harness; nessuna esecuzione viene dichiarata confinata. L'inventario distingue scratch scrivibile, worktree/programmi e credenziali originali in sola lettura, e percorsi sempre vietati; non legge o copia credenziali reali.
-
-Verifiche pianificate: `pianificato: Compilare e avviare la versione corrente con il nuovo modulo disattivato.`; `pianificato: Eseguire la sonda su file sintetici e registrare prerequisiti, limiti e disponibilita del meccanismo.`.
-
-Commit: `feat(f11-macos.1): Verifica del meccanismo e inventario dei permessi su macOS`. Registrare stato e prove sotto `progress.json` → `steps` → `F11-macos` → `units` → `F11-macos.1`.
-
-### F11-macos.2 · Applicazione dei permessi positivi al processo companion su macOS
-
-Avvio confinato sperimentale con lo scratch come unica destinazione scrivibile e i soli percorsi autorizzati leggibili; collegamento alle credenziali originali soltanto in lettura, se il sistema lo consente.
-
-Stima: 2–8 ore. File: `crates/confinement/macos/`, `docs/verification/`.
-
-Accettazione: Il processo e i discendenti non possono scrivere nel worktree, nella sua .git o nello stato locale del progetto, ne leggere altre home, progetti o il database. Un meccanismo mancante o incapace di vincolare le credenziali non viene aggirato; la capacita confined resta disabilitata e l'anteprima rimane utilizzabile.
-
-Verifiche pianificate: `pianificato: Provare letture e scritture consentite e vietate con file canarino, collegamenti simbolici e percorsi alternativi.`; `pianificato: Verificare che nessuna API Shinatama apra o copi credenziali e che non siano necessarie modifiche permanenti ai permessi dei file originali.`.
-
-Commit: `feat(f11-macos.2): Applicazione dei permessi positivi al processo companion su macOS`. Registrare stato e prove sotto `progress.json` → `steps` → `F11-macos` → `units` → `F11-macos.2`.
-
-### F11-macos.3 · Integrazione del ciclo di vita e prove prima del badge confined su macOS
-
-Integrazione nell'adattatore companion con pulizia del processo e dello scratch, controllo degli hook di progetto e registrazione CS-2/CS-9; badge confined soltanto per la combinazione harness/versione/piattaforma provata.
-
-Stima: 2–6 ore. File: `crates/confinement/macos/`, `docs/verification/`.
-
-Accettazione: Chiusura, annullamento e fallimento di avvio non lasciano scritture esterne, processi gestiti o canali al worker; la normale UI continua a funzionare. Aggiornamento delle credenziali o dipendenze non compatibili rendono l'host non idoneo al confinamento; ogni caso non provato conserva il badge di anteprima esplicito.
-
-Verifiche pianificate: `pianificato: Eseguire i casi negativi CS-2/CS-9 e il confronto dei byte/input del worker con e senza companion.`; `pianificato: Rieseguire avvio/chiusura e prova di confinamento della versione installata, allegando record; segnare il padre completo soltanto dopo tutte le unita e le prove richieste.`.
-
-Commit: `feat(f11-macos.3): Integrazione del ciclo di vita e prove prima del badge confined su macOS`. Registrare stato e prove sotto `progress.json` → `steps` → `F11-macos` → `units` → `F11-macos.3`.
-
-<a id="f11-linux"></a>
-## F11-linux · Confinamento del companion a livello di sistema operativo: Linux
-
-Lista positiva dei permessi di lettura e scrittura e collegamenti alle credenziali per Linux.
-
-**Ambito:** v1. **Dipendenze:** F10. **Stima:** 6–20 ore.
-
-**File/componenti:** `crates/confinement/linux/`; `docs/verification/`.
-
-**Accettazione osservabile:**
-
-- Consentire scritture soltanto nello scratch, comprese le restrizioni allo stato locale dell’harness.
-- Worktree, programma e collegamenti originali alle credenziali devono essere in sola lettura; Shinatama non deve aprire o copiare le credenziali.
-- Altre directory personali, progetti e database devono essere inaccessibili; mostrare il badge confinato soltanto dopo la verifica.
-
-**Verifiche del passo:** `planned: Only scratch writable, including harness-local state restrictions.`; `planned: Worktree/program and original credential bindings read-only; Shinatama never opens/copies credentials.`; `planned: Other homes/projects/DB inaccessible; confined badge withheld until pass.`.
-
-**Gate collegati, da registrare separatamente:** CS-2, CS-9.
-
-**Requisiti coperti dal piano:** FRD-0012/R66, FRD-0012/R67, FRD-0012/R68, FRD-0012/R69, FRD-0012/R70, FRD-0012/R71, FRD-0012/R72, FRD-0012/R73, FRD-0012/R94.
-
-**Commit proposto:** `feat(f11-linux): Confinamento del companion a livello di sistema operativo: Linux`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/confinement/linux/, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
-
-### F11-linux.1 · Verifica del meccanismo e inventario dei permessi su Linux
-
-Interfaccia di confinamento disattivata per impostazione iniziale, sonda delle capacita del sistema e manifesto dei percorsi del companion; valutare Landlock o bubblewrap, con verifica delle capacita disponibili e dei vincoli del sistema.
-
-Stima: 2–6 ore. File: `crates/confinement/linux/`, `docs/verification/`.
-
-Accettazione: L'app e il companion in anteprima continuano ad avviarsi con il badge di sola politica harness; nessuna esecuzione viene dichiarata confinata. L'inventario distingue scratch scrivibile, worktree/programmi e credenziali originali in sola lettura, e percorsi sempre vietati; non legge o copia credenziali reali.
-
-Verifiche pianificate: `pianificato: Compilare e avviare la versione corrente con il nuovo modulo disattivato.`; `pianificato: Eseguire la sonda su file sintetici e registrare prerequisiti, limiti e disponibilita del meccanismo.`.
-
-Commit: `feat(f11-linux.1): Verifica del meccanismo e inventario dei permessi su Linux`. Registrare stato e prove sotto `progress.json` → `steps` → `F11-linux` → `units` → `F11-linux.1`.
-
-### F11-linux.2 · Applicazione dei permessi positivi al processo companion su Linux
-
-Avvio confinato sperimentale con lo scratch come unica destinazione scrivibile e i soli percorsi autorizzati leggibili; collegamento alle credenziali originali soltanto in lettura, se il sistema lo consente.
-
-Stima: 2–8 ore. File: `crates/confinement/linux/`, `docs/verification/`.
-
-Accettazione: Il processo e i discendenti non possono scrivere nel worktree, nella sua .git o nello stato locale del progetto, ne leggere altre home, progetti o il database. Un meccanismo mancante o incapace di vincolare le credenziali non viene aggirato; la capacita confined resta disabilitata e l'anteprima rimane utilizzabile.
-
-Verifiche pianificate: `pianificato: Provare letture e scritture consentite e vietate con file canarino, collegamenti simbolici e percorsi alternativi.`; `pianificato: Verificare che nessuna API Shinatama apra o copi credenziali e che non siano necessarie modifiche permanenti ai permessi dei file originali.`.
-
-Commit: `feat(f11-linux.2): Applicazione dei permessi positivi al processo companion su Linux`. Registrare stato e prove sotto `progress.json` → `steps` → `F11-linux` → `units` → `F11-linux.2`.
-
-### F11-linux.3 · Integrazione del ciclo di vita e prove prima del badge confined su Linux
-
-Integrazione nell'adattatore companion con pulizia del processo e dello scratch, controllo degli hook di progetto e registrazione CS-2/CS-9; badge confined soltanto per la combinazione harness/versione/piattaforma provata.
-
-Stima: 2–6 ore. File: `crates/confinement/linux/`, `docs/verification/`.
-
-Accettazione: Chiusura, annullamento e fallimento di avvio non lasciano scritture esterne, processi gestiti o canali al worker; la normale UI continua a funzionare. Aggiornamento delle credenziali o dipendenze non compatibili rendono l'host non idoneo al confinamento; ogni caso non provato conserva il badge di anteprima esplicito.
-
-Verifiche pianificate: `pianificato: Eseguire i casi negativi CS-2/CS-9 e il confronto dei byte/input del worker con e senza companion.`; `pianificato: Rieseguire avvio/chiusura e prova di confinamento della versione installata, allegando record; segnare il padre completo soltanto dopo tutte le unita e le prove richieste.`.
-
-Commit: `feat(f11-linux.3): Integrazione del ciclo di vita e prove prima del badge confined su Linux`. Registrare stato e prove sotto `progress.json` → `steps` → `F11-linux` → `units` → `F11-linux.3`.
-
 <a id="f12"></a>
 ## F12 · Companion R2: flusso automatico dei turni e continuità dopo gli hop
 
@@ -3324,7 +3316,7 @@ Registro personale dei concetti con consultazione, riduzione del livello, elimin
 
 Aggiungere soltanto le capacità companion di Codex provate sulla versione installata.
 
-**Ambito:** v1. **Dipendenze:** F10, C15, C16. **Stima:** 4–12 ore.
+**Ambito:** v1. **Dipendenze:** F10, C15, C16, F11-windows. **Stima:** 4–12 ore.
 
 **File/componenti:** `crates/companion/`; `apps/desktop/src/companion/`; `docs/verification/`.
 
@@ -3349,7 +3341,7 @@ Aggiungere soltanto le capacità companion di Codex provate sulla versione insta
 
 Aggiungere soltanto le capacità companion di OpenCode provate sulla versione installata.
 
-**Ambito:** v1. **Dipendenze:** F10, C15, C17. **Stima:** 4–12 ore.
+**Ambito:** v1. **Dipendenze:** F10, C15, C17, F11-windows. **Stima:** 4–12 ore.
 
 **File/componenti:** `crates/companion/`; `apps/desktop/src/companion/`; `docs/verification/`.
 
@@ -3374,7 +3366,7 @@ Aggiungere soltanto le capacità companion di OpenCode provate sulla versione in
 
 Aggiungere soltanto le capacità companion di Pi provate sulla versione installata.
 
-**Ambito:** v1. **Dipendenze:** F10, C15, C18. **Stima:** 4–12 ore.
+**Ambito:** v1. **Dipendenze:** F10, C15, C18, F11-windows. **Stima:** 4–12 ore.
 
 **File/componenti:** `crates/companion/`; `apps/desktop/src/companion/`; `docs/verification/`.
 
@@ -3399,7 +3391,7 @@ Aggiungere soltanto le capacità companion di Pi provate sulla versione installa
 
 Aggiungere soltanto le capacità companion di Hermes Agent provate sulla versione installata.
 
-**Ambito:** v1. **Dipendenze:** F10, C15, C19. **Stima:** 4–12 ore.
+**Ambito:** v1. **Dipendenze:** F10, C15, C19, F11-windows. **Stima:** 4–12 ore.
 
 **File/componenti:** `crates/companion/`; `apps/desktop/src/companion/`; `docs/verification/`.
 
@@ -3424,7 +3416,7 @@ Aggiungere soltanto le capacità companion di Hermes Agent provate sulla version
 
 Aggiungere soltanto le capacità companion di DeepSeek Harness provate sulla versione installata.
 
-**Ambito:** v1. **Dipendenze:** F10, C15, C20. **Stima:** 4–12 ore.
+**Ambito:** v1. **Dipendenze:** F10, C15, C20, F11-windows. **Stima:** 4–12 ore.
 
 **File/componenti:** `crates/companion/`; `apps/desktop/src/companion/`; `docs/verification/`.
 
@@ -3449,7 +3441,7 @@ Aggiungere soltanto le capacità companion di DeepSeek Harness provate sulla ver
 
 Turni web senza stato con osservazione degli eventi nativi, avviso, limite delle ricerche e collegamenti ai risultati verificati.
 
-**Ambito:** v1. **Dipendenze:** F10, F13, C15, F11-windows, F11-macos, F11-linux. **Stima:** 5–14 ore.
+**Ambito:** v1. **Dipendenze:** F10, F13, C15, F11-windows. **Stima:** 5–14 ore.
 
 **File/componenti:** `crates/companion/`; `apps/desktop/src/companion/`; `docs/verification/`.
 
@@ -3500,7 +3492,7 @@ Strumenti di lettura limitati agli URL riportati nello stesso turno web, un harn
 
 Richieste, stati ed esiti browser tipizzati e instradamento con ambito, senza avviare motori all’apertura dell’app.
 
-**Ambito:** v1. **Dipendenze:** C11, C13. **Stima:** 4–10 ore.
+**Ambito:** v1. **Dipendenze:** C11, C13, C32. **Stima:** 4–10 ore.
 
 **File/componenti:** `crates/browser/`; `apps/desktop/src/browser/`; `docs/verification/`.
 
@@ -3867,7 +3859,7 @@ Filtri su un insieme chiuso di modelli, selettore choice/signals/off e conservaz
 
 **Verifiche del passo:** `planned: No model invented/outside set; no within-conversation model switch.`; `planned: Low confidence/reject/timeout keeps instance default.`; `planned: Per-harness launch seam and cost/task outcome ledger compared with default baseline.`.
 
-**Gate collegati, da registrare separatamente:** MR1, MR2, MR3, MR4.
+**Gate collegati, da registrare separatamente:** MR1, MR2, MR-3, MR4.
 
 **Requisiti coperti dal piano:** FRD-0013/R22, FRD-0015/R01, FRD-0015/R02, FRD-0015/R03, FRD-0015/R04, FRD-0015/R05, FRD-0015/R06, FRD-0015/R07, FRD-0015/R08, FRD-0015/R09, FRD-0015/R10, FRD-0015/R11, FRD-0015/R12, FRD-0015/R15, FRD-0015/R16, FRD-0015/R17, FRD-0015/R18, FRD-0015/R24, FRD-0015/R25.
 
@@ -3893,7 +3885,7 @@ Adattatori delle fonti decisionali e chiave conservata soltanto nel vault del si
 
 **Verifiche del passo:** `planned: Only digest/cards reach hosted executor after opt-in.`; `planned: Key never appears in DB/config/log/manifest; no agent credential read.`; `planned: Unknown subagent seam unsupported; service never takes request-serving wire.`; `planned: Compaction/digests still local under same settings.`.
 
-**Gate collegati, da registrare separatamente:** MR1, MR2, MR3, MR4, T16, X4.
+**Gate collegati, da registrare separatamente:** MR1, MR2, MR-3, MR4, T16, X4.
 
 **Requisiti coperti dal piano:** FRD-0013/R21, FRD-0013/R22, FRD-0014/R28, FRD-0015/R01, FRD-0015/R02, FRD-0015/R03, FRD-0015/R04, FRD-0015/R05, FRD-0015/R06, FRD-0015/R07, FRD-0015/R08, FRD-0015/R09, FRD-0015/R10, FRD-0015/R11, FRD-0015/R12, FRD-0015/R13, FRD-0015/R14, FRD-0015/R15, FRD-0015/R16, FRD-0015/R17, FRD-0015/R18, FRD-0015/R24, FRD-0015/R25.
 
@@ -4062,18 +4054,18 @@ Consenti/rifiuta soltanto per richieste native e atlante di animazione approvato
 
 Artefatti installabili e gestione esplicita di Node e componenti facoltativi, con tempi misurati su sistemi puliti.
 
-**Ambito:** v1. **Dipendenze:** F32CI, C29, C14, C13. **Stima:** 6–18 ore.
+**Ambito:** v1. **Dipendenze:** F32CI, C29, C14, C13, C16. **Stima:** 6–18 ore.
 
 **File/componenti:** `packaging/`; `.github/workflows/`; `docs/verification/`.
 
 **Accettazione osservabile:**
 
-- Misurare l’installazione fino al primo hop su Windows, macOS e Linux puliti ed elencare i fallimenti.
+- Misurare l'installazione fino al primo hop su Windows pulito ed elencare i fallimenti, compreso il runtime WebView2.
 - Non modificare installatori o aggiornamenti degli agenti di sistema; installare copie proprie soltanto su scelta dell’utente.
 - Gestire componenti offline o facoltativi mancanti con errori chiari, senza download automatici.
-- Provare ogni combinazione ABI/architettura prevista oppure escluderla esplicitamente motivandolo.
+- Provare Windows x64; macOS e Linux restano rinviati.
 
-**Verifiche del passo:** `planned: Windows/macOS/Linux clean install to first hop timed; failures listed.`; `planned: No system-agent installer/update side effects; own install only by user choice.`; `planned: Offline/missing optional components fail clearly without automatic downloads.`; `planned: All target ABI/architecture combinations proved or excluded explicitly with rationale.`.
+**Verifiche del passo:** `planned: Windows clean install to first hop timed; failures listed.`; `planned: No system-agent installer/update side effects; own install only by user choice.`; `planned: Offline/missing optional components fail clearly without automatic downloads.`; `planned: Windows x64 proved; other targets reported as deferred.`.
 
 **Gate collegati, da registrare separatamente:** X1, X2, X3, X4, SC13, P17, P18, AT-12.
 
@@ -4097,15 +4089,15 @@ Verifiche pianificate: `pianificato: Eseguire build e avvio senza componenti fac
 
 Commit: `feat(f32pkg.1): Composizione del pacchetto e runtime facoltativi`. Registrare stato e prove sotto `progress.json` → `steps` → `F32PKG` → `units` → `F32PKG.1`.
 
-### F32PKG.2 · Pacchetti installabili per piattaforma e architettura
+### F32PKG.2 · Pacchetto installabile per Windows
 
-Ricette riproducibili per gli artefatti Windows/macOS/Linux e le combinazioni ABI/architettura previste, lasciando firma e notarizzazione al passo F32SIGN.
+Ricette riproducibili per gli artefatti Windows x64 previste, lasciando firma e notarizzazione al passo F32SIGN.
 
 Stima: 2–6 ore. File: `packaging/`, `.github/workflows/`, `docs/verification/`.
 
-Accettazione: Ogni artefatto generato installa e avvia la stessa applicazione senza modificare programmi o impostazioni degli agenti di sistema. Ogni combinazione dichiarata e prodotta e provata oppure resta esplicitamente non supportata con motivazione; nessuna falsa parita tra piattaforme.
+Accettazione: Ogni artefatto generato installa e avvia la stessa applicazione senza modificare programmi o impostazioni degli agenti di sistema. Il pacchetto Windows x64 è prodotto e provato; nessuna parità dichiarata con macOS o Linux, che restano rinviati.
 
-Verifiche pianificate: `pianificato: Generare i pacchetti dalle ricette CI su macchine della piattaforma corrispondente e confrontare i manifesti.`; `pianificato: Provare installazione, avvio e disinstallazione preservando i dati dell'utente e registrando i prerequisiti mancanti.`.
+Verifiche pianificate: `pianificato: Generare il pacchetto dalla ricetta CI su Windows e confrontare il manifesto.`; `pianificato: Provare installazione, avvio e disinstallazione preservando i dati dell'utente e registrando i prerequisiti mancanti.`.
 
 Commit: `feat(f32pkg.2): Pacchetti installabili per piattaforma e architettura`. Registrare stato e prove sotto `progress.json` → `steps` → `F32PKG` → `units` → `F32PKG.2`.
 
@@ -4214,7 +4206,7 @@ Valutazione facoltativa di turni con un modello economico seguiti, su decisione 
 
 **Verifiche del passo:** `planned: Never changes model mid-conversation.`; `planned: Measure finished-task cost and rework against fixed-default baseline.`; `planned: No first-build or V1 delivery claim from an unrun evaluation.`.
 
-**Gate collegati, da registrare separatamente:** MR3, MR4.
+**Gate collegati, da registrare separatamente:** MR-3, MR4.
 
 **Requisiti coperti dal piano:** FRD-0015/R26.
 
@@ -4233,97 +4225,21 @@ Due istanze sintetiche claude dimostrano i set effettivamente caricati, assenza 
 
 **Accettazione osservabile:**
 
+**Parti rinviate nello scope corrente:** Il gate D4 e rinviato con D01; qui si misura solo l'inventario attivo.
+
 - Due set diversi producono esattamente plugin/skill/MCP previsti e restano distinti.
 - I file della home system non vengono cambiati oltre quanto autorizzato; le prove usano box e dati sintetici.
 - Versione e costo tool registrati; se manca una seam si mantiene la capacità indisponibile con prova del rifiuto.
 
 **Verifiche del passo:** `fixture live D19 per claude`; `misura D4 definizioni tool per claude`.
 
-**Gate collegati, da registrare separatamente:** D19 per set generici, D4 misura delle sole definizioni realmente attive.
+**Gate collegati, da registrare separatamente:** D19 per set generici.
 
 **Requisiti coperti dal piano:** FRD-0002/R21, FRD-0002/R22, FRD-0002/R23, FRD-0002/R24, FRD-0002/R25, FRD-0002/R26, FRD-0002/R27, FRD-0002/R28, FRD-0002/R29.
 
 **Commit proposto:** `feat(qset-claude): Provare set e tool reali per claude`.
 
 **Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/adapter/src/claude/**, verify/D19/claude/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-<a id="qa-claude-windows"></a>
-## QA-claude-windows · Certificare terminale claude su windows
-
-Evidenza riproducibile per un vero claude su windows, separata dalle altre combinazioni e dalle sole fixture del meccanismo.
-
-**Ambito:** v1. **Dipendenze:** C09, C15. **Stima:** 4–8 ore.
-
-**File/componenti:** `verify/platform/windows/claude/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
-
-**Accettazione osservabile:**
-
-- Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di claude registrata.
-- Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
-- Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
-- Completare SC16 con cinque istanze e storie lunghe per un ora sulla piattaforma: nessuna connessione rifiutata, profilare i ritardi; usare solo fixture/account e budget autorizzati.
-
-**Verifiche del passo:** `matrice P1–P20 claude/windows applicabile`; `fixture TUI reale claude con account/test sintetici autorizzati`.
-
-**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
-
-**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
-
-**Commit proposto:** `feat(qa-claude-windows): Certificare terminale claude su windows`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire verify/platform/windows/claude/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-<a id="qa-claude-macos"></a>
-## QA-claude-macos · Certificare terminale claude su macos
-
-Evidenza riproducibile per un vero claude su macos, separata dalle altre combinazioni e dalle sole fixture del meccanismo.
-
-**Ambito:** v1. **Dipendenze:** C09, C15. **Stima:** 4–8 ore.
-
-**File/componenti:** `verify/platform/macos/claude/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
-
-**Accettazione osservabile:**
-
-- Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di claude registrata.
-- Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
-- Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
-- Completare SC16 con cinque istanze e storie lunghe per un ora sulla piattaforma: nessuna connessione rifiutata, profilare i ritardi; usare solo fixture/account e budget autorizzati.
-
-**Verifiche del passo:** `matrice P1–P20 claude/macos applicabile`; `fixture TUI reale claude con account/test sintetici autorizzati`.
-
-**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
-
-**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
-
-**Commit proposto:** `feat(qa-claude-macos): Certificare terminale claude su macos`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire verify/platform/macos/claude/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-<a id="qa-claude-linux"></a>
-## QA-claude-linux · Certificare terminale claude su linux
-
-Evidenza riproducibile per un vero claude su linux, separata dalle altre combinazioni e dalle sole fixture del meccanismo.
-
-**Ambito:** v1. **Dipendenze:** C09, C15. **Stima:** 4–8 ore.
-
-**File/componenti:** `verify/platform/linux/claude/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
-
-**Accettazione osservabile:**
-
-- Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di claude registrata.
-- Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
-- Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
-- Completare SC16 con cinque istanze e storie lunghe per un ora sulla piattaforma: nessuna connessione rifiutata, profilare i ritardi; usare solo fixture/account e budget autorizzati.
-
-**Verifiche del passo:** `matrice P1–P20 claude/linux applicabile`; `fixture TUI reale claude con account/test sintetici autorizzati`.
-
-**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
-
-**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
-
-**Commit proposto:** `feat(qa-claude-linux): Certificare terminale claude su linux`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire verify/platform/linux/claude/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento.
 
 <a id="qset-codex"></a>
 ## QSET-codex · Provare set e tool reali per codex
@@ -4336,13 +4252,15 @@ Due istanze sintetiche codex dimostrano i set effettivamente caricati, assenza d
 
 **Accettazione osservabile:**
 
+**Parti rinviate nello scope corrente:** Il gate D4 e rinviato con D01; qui si misura solo l'inventario attivo.
+
 - Due set diversi producono esattamente plugin/skill/MCP previsti e restano distinti.
 - I file della home system non vengono cambiati oltre quanto autorizzato; le prove usano box e dati sintetici.
 - Versione e costo tool registrati; se manca una seam si mantiene la capacità indisponibile con prova del rifiuto.
 
 **Verifiche del passo:** `fixture live D19 per codex`; `misura D4 definizioni tool per codex`.
 
-**Gate collegati, da registrare separatamente:** D19 per set generici, D4 misura delle sole definizioni realmente attive.
+**Gate collegati, da registrare separatamente:** D19 per set generici.
 
 **Requisiti coperti dal piano:** FRD-0002/R21, FRD-0002/R22, FRD-0002/R23, FRD-0002/R24, FRD-0002/R25, FRD-0002/R26, FRD-0002/R27, FRD-0002/R28, FRD-0002/R29.
 
@@ -4375,56 +4293,6 @@ Evidenza riproducibile per un vero codex su windows, separata dalle altre combin
 
 **Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire verify/platform/windows/codex/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento.
 
-<a id="qa-codex-macos"></a>
-## QA-codex-macos · Certificare terminale codex su macos
-
-Evidenza riproducibile per un vero codex su macos, separata dalle altre combinazioni e dalle sole fixture del meccanismo.
-
-**Ambito:** v1. **Dipendenze:** C09, C16. **Stima:** 4–8 ore.
-
-**File/componenti:** `verify/platform/macos/codex/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
-
-**Accettazione osservabile:**
-
-- Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di codex registrata.
-- Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
-- Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
-
-**Verifiche del passo:** `matrice P1–P20 codex/macos applicabile`; `fixture TUI reale codex con account/test sintetici autorizzati`.
-
-**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
-
-**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
-
-**Commit proposto:** `feat(qa-codex-macos): Certificare terminale codex su macos`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire verify/platform/macos/codex/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-<a id="qa-codex-linux"></a>
-## QA-codex-linux · Certificare terminale codex su linux
-
-Evidenza riproducibile per un vero codex su linux, separata dalle altre combinazioni e dalle sole fixture del meccanismo.
-
-**Ambito:** v1. **Dipendenze:** C09, C16. **Stima:** 4–8 ore.
-
-**File/componenti:** `verify/platform/linux/codex/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
-
-**Accettazione osservabile:**
-
-- Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di codex registrata.
-- Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
-- Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
-
-**Verifiche del passo:** `matrice P1–P20 codex/linux applicabile`; `fixture TUI reale codex con account/test sintetici autorizzati`.
-
-**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
-
-**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
-
-**Commit proposto:** `feat(qa-codex-linux): Certificare terminale codex su linux`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire verify/platform/linux/codex/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
 <a id="qset-opencode"></a>
 ## QSET-opencode · Provare set e tool reali per opencode
 
@@ -4436,13 +4304,15 @@ Due istanze sintetiche opencode dimostrano i set effettivamente caricati, assenz
 
 **Accettazione osservabile:**
 
+**Parti rinviate nello scope corrente:** Il gate D4 e rinviato con D01; qui si misura solo l'inventario attivo.
+
 - Due set diversi producono esattamente plugin/skill/MCP previsti e restano distinti.
 - I file della home system non vengono cambiati oltre quanto autorizzato; le prove usano box e dati sintetici.
 - Versione e costo tool registrati; se manca una seam si mantiene la capacità indisponibile con prova del rifiuto.
 
 **Verifiche del passo:** `fixture live D19 per opencode`; `misura D4 definizioni tool per opencode`.
 
-**Gate collegati, da registrare separatamente:** D19 per set generici, D4 misura delle sole definizioni realmente attive.
+**Gate collegati, da registrare separatamente:** D19 per set generici.
 
 **Requisiti coperti dal piano:** FRD-0002/R21, FRD-0002/R22, FRD-0002/R23, FRD-0002/R24, FRD-0002/R25, FRD-0002/R26, FRD-0002/R27, FRD-0002/R28, FRD-0002/R29.
 
@@ -4475,56 +4345,6 @@ Evidenza riproducibile per un vero opencode su windows, separata dalle altre com
 
 **Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire verify/platform/windows/opencode/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento.
 
-<a id="qa-opencode-macos"></a>
-## QA-opencode-macos · Certificare terminale opencode su macos
-
-Evidenza riproducibile per un vero opencode su macos, separata dalle altre combinazioni e dalle sole fixture del meccanismo.
-
-**Ambito:** v1. **Dipendenze:** C09, C17. **Stima:** 4–8 ore.
-
-**File/componenti:** `verify/platform/macos/opencode/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
-
-**Accettazione osservabile:**
-
-- Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di opencode registrata.
-- Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
-- Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
-
-**Verifiche del passo:** `matrice P1–P20 opencode/macos applicabile`; `fixture TUI reale opencode con account/test sintetici autorizzati`.
-
-**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
-
-**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
-
-**Commit proposto:** `feat(qa-opencode-macos): Certificare terminale opencode su macos`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire verify/platform/macos/opencode/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-<a id="qa-opencode-linux"></a>
-## QA-opencode-linux · Certificare terminale opencode su linux
-
-Evidenza riproducibile per un vero opencode su linux, separata dalle altre combinazioni e dalle sole fixture del meccanismo.
-
-**Ambito:** v1. **Dipendenze:** C09, C17. **Stima:** 4–8 ore.
-
-**File/componenti:** `verify/platform/linux/opencode/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
-
-**Accettazione osservabile:**
-
-- Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di opencode registrata.
-- Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
-- Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
-
-**Verifiche del passo:** `matrice P1–P20 opencode/linux applicabile`; `fixture TUI reale opencode con account/test sintetici autorizzati`.
-
-**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
-
-**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
-
-**Commit proposto:** `feat(qa-opencode-linux): Certificare terminale opencode su linux`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire verify/platform/linux/opencode/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
 <a id="qset-pi"></a>
 ## QSET-pi · Provare set e tool reali per pi
 
@@ -4536,13 +4356,15 @@ Due istanze sintetiche pi dimostrano i set effettivamente caricati, assenza di c
 
 **Accettazione osservabile:**
 
+**Parti rinviate nello scope corrente:** Il gate D4 e rinviato con D01; qui si misura solo l'inventario attivo.
+
 - Due set diversi producono esattamente plugin/skill/MCP previsti e restano distinti.
 - I file della home system non vengono cambiati oltre quanto autorizzato; le prove usano box e dati sintetici.
 - Versione e costo tool registrati; se manca una seam si mantiene la capacità indisponibile con prova del rifiuto.
 
 **Verifiche del passo:** `fixture live D19 per pi`; `misura D4 definizioni tool per pi`.
 
-**Gate collegati, da registrare separatamente:** D19 per set generici, D4 misura delle sole definizioni realmente attive.
+**Gate collegati, da registrare separatamente:** D19 per set generici.
 
 **Requisiti coperti dal piano:** FRD-0002/R21, FRD-0002/R22, FRD-0002/R23, FRD-0002/R24, FRD-0002/R25, FRD-0002/R26, FRD-0002/R27, FRD-0002/R28, FRD-0002/R29.
 
@@ -4575,56 +4397,6 @@ Evidenza riproducibile per un vero pi su windows, separata dalle altre combinazi
 
 **Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire verify/platform/windows/pi/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento.
 
-<a id="qa-pi-macos"></a>
-## QA-pi-macos · Certificare terminale pi su macos
-
-Evidenza riproducibile per un vero pi su macos, separata dalle altre combinazioni e dalle sole fixture del meccanismo.
-
-**Ambito:** v1. **Dipendenze:** C09, C18. **Stima:** 4–8 ore.
-
-**File/componenti:** `verify/platform/macos/pi/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
-
-**Accettazione osservabile:**
-
-- Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di pi registrata.
-- Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
-- Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
-
-**Verifiche del passo:** `matrice P1–P20 pi/macos applicabile`; `fixture TUI reale pi con account/test sintetici autorizzati`.
-
-**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
-
-**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
-
-**Commit proposto:** `feat(qa-pi-macos): Certificare terminale pi su macos`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire verify/platform/macos/pi/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-<a id="qa-pi-linux"></a>
-## QA-pi-linux · Certificare terminale pi su linux
-
-Evidenza riproducibile per un vero pi su linux, separata dalle altre combinazioni e dalle sole fixture del meccanismo.
-
-**Ambito:** v1. **Dipendenze:** C09, C18. **Stima:** 4–8 ore.
-
-**File/componenti:** `verify/platform/linux/pi/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
-
-**Accettazione osservabile:**
-
-- Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di pi registrata.
-- Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
-- Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
-
-**Verifiche del passo:** `matrice P1–P20 pi/linux applicabile`; `fixture TUI reale pi con account/test sintetici autorizzati`.
-
-**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
-
-**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
-
-**Commit proposto:** `feat(qa-pi-linux): Certificare terminale pi su linux`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire verify/platform/linux/pi/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
 <a id="qset-hermes"></a>
 ## QSET-hermes · Provare set e tool reali per hermes
 
@@ -4636,13 +4408,15 @@ Due istanze sintetiche hermes dimostrano i set effettivamente caricati, assenza 
 
 **Accettazione osservabile:**
 
+**Parti rinviate nello scope corrente:** Il gate D4 e rinviato con D01; qui si misura solo l'inventario attivo.
+
 - Due set diversi producono esattamente plugin/skill/MCP previsti e restano distinti.
 - I file della home system non vengono cambiati oltre quanto autorizzato; le prove usano box e dati sintetici.
 - Versione e costo tool registrati; se manca una seam si mantiene la capacità indisponibile con prova del rifiuto.
 
 **Verifiche del passo:** `fixture live D19 per hermes`; `misura D4 definizioni tool per hermes`.
 
-**Gate collegati, da registrare separatamente:** D19 per set generici, D4 misura delle sole definizioni realmente attive.
+**Gate collegati, da registrare separatamente:** D19 per set generici.
 
 **Requisiti coperti dal piano:** FRD-0002/R21, FRD-0002/R22, FRD-0002/R23, FRD-0002/R24, FRD-0002/R25, FRD-0002/R26, FRD-0002/R27, FRD-0002/R28, FRD-0002/R29.
 
@@ -4675,56 +4449,6 @@ Evidenza riproducibile per un vero hermes su windows, separata dalle altre combi
 
 **Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire verify/platform/windows/hermes/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento.
 
-<a id="qa-hermes-macos"></a>
-## QA-hermes-macos · Certificare terminale hermes su macos
-
-Evidenza riproducibile per un vero hermes su macos, separata dalle altre combinazioni e dalle sole fixture del meccanismo.
-
-**Ambito:** v1. **Dipendenze:** C09, C19. **Stima:** 4–8 ore.
-
-**File/componenti:** `verify/platform/macos/hermes/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
-
-**Accettazione osservabile:**
-
-- Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di hermes registrata.
-- Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
-- Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
-
-**Verifiche del passo:** `matrice P1–P20 hermes/macos applicabile`; `fixture TUI reale hermes con account/test sintetici autorizzati`.
-
-**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
-
-**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
-
-**Commit proposto:** `feat(qa-hermes-macos): Certificare terminale hermes su macos`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire verify/platform/macos/hermes/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-<a id="qa-hermes-linux"></a>
-## QA-hermes-linux · Certificare terminale hermes su linux
-
-Evidenza riproducibile per un vero hermes su linux, separata dalle altre combinazioni e dalle sole fixture del meccanismo.
-
-**Ambito:** v1. **Dipendenze:** C09, C19. **Stima:** 4–8 ore.
-
-**File/componenti:** `verify/platform/linux/hermes/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
-
-**Accettazione osservabile:**
-
-- Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di hermes registrata.
-- Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
-- Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
-
-**Verifiche del passo:** `matrice P1–P20 hermes/linux applicabile`; `fixture TUI reale hermes con account/test sintetici autorizzati`.
-
-**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
-
-**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
-
-**Commit proposto:** `feat(qa-hermes-linux): Certificare terminale hermes su linux`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire verify/platform/linux/hermes/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
 <a id="qset-deepseek"></a>
 ## QSET-deepseek · Provare set e tool reali per deepseek
 
@@ -4736,13 +4460,15 @@ Due istanze sintetiche deepseek dimostrano i set effettivamente caricati, assenz
 
 **Accettazione osservabile:**
 
+**Parti rinviate nello scope corrente:** Il gate D4 e rinviato con D01; qui si misura solo l'inventario attivo.
+
 - Due set diversi producono esattamente plugin/skill/MCP previsti e restano distinti.
 - I file della home system non vengono cambiati oltre quanto autorizzato; le prove usano box e dati sintetici.
 - Versione e costo tool registrati; se manca una seam si mantiene la capacità indisponibile con prova del rifiuto.
 
 **Verifiche del passo:** `fixture live D19 per deepseek`; `misura D4 definizioni tool per deepseek`.
 
-**Gate collegati, da registrare separatamente:** D19 per set generici, D4 misura delle sole definizioni realmente attive.
+**Gate collegati, da registrare separatamente:** D19 per set generici.
 
 **Requisiti coperti dal piano:** FRD-0002/R21, FRD-0002/R22, FRD-0002/R23, FRD-0002/R24, FRD-0002/R25, FRD-0002/R26, FRD-0002/R27, FRD-0002/R28, FRD-0002/R29.
 
@@ -4775,72 +4501,22 @@ Prova del vero client ACP Shinatama/DeepSeek su windows: messaggi, tool, permess
 
 **Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire verify/platform/windows/deepseek/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento.
 
-<a id="qa-deepseek-macos"></a>
-## QA-deepseek-macos · Certificare il pannello ACP DeepSeek su macos
-
-Prova del vero client ACP Shinatama/DeepSeek su macos: messaggi, tool, permessi e chiusura del processo, senza inventare una TUI o un PTY DeepSeek.
-
-**Ambito:** v1. **Dipendenze:** C09, C20. **Stima:** 4–8 ore.
-
-**File/componenti:** `verify/platform/macos/deepseek/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
-
-**Accettazione osservabile:**
-
-- Handshake ACP, stream messaggi/tool e richieste di permesso correlati per versione e request ID.
-- Focus/modal, Unicode, backpressure e cleanup del processo verificati; nessuna risposta a una richiesta scaduta.
-- La promozione riguarda questa combinazione; restano indisponibili le capacità non provate.
-
-**Verifiche del passo:** `fixture DS1–DS15/ACP applicabili su macos`; `request/permission correlation e crash cleanup`.
-
-**Gate collegati, da registrare separatamente:** DS1–DS15 applicabili, P14, U3, U7.
-
-**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
-
-**Commit proposto:** `feat(qa-deepseek-macos): Certificare il pannello ACP DeepSeek su macos`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire verify/platform/macos/deepseek/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
-<a id="qa-deepseek-linux"></a>
-## QA-deepseek-linux · Certificare il pannello ACP DeepSeek su linux
-
-Prova del vero client ACP Shinatama/DeepSeek su linux: messaggi, tool, permessi e chiusura del processo, senza inventare una TUI o un PTY DeepSeek.
-
-**Ambito:** v1. **Dipendenze:** C09, C20. **Stima:** 4–8 ore.
-
-**File/componenti:** `verify/platform/linux/deepseek/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
-
-**Accettazione osservabile:**
-
-- Handshake ACP, stream messaggi/tool e richieste di permesso correlati per versione e request ID.
-- Focus/modal, Unicode, backpressure e cleanup del processo verificati; nessuna risposta a una richiesta scaduta.
-- La promozione riguarda questa combinazione; restano indisponibili le capacità non provate.
-
-**Verifiche del passo:** `fixture DS1–DS15/ACP applicabili su linux`; `request/permission correlation e crash cleanup`.
-
-**Gate collegati, da registrare separatamente:** DS1–DS15 applicabili, P14, U3, U7.
-
-**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
-
-**Commit proposto:** `feat(qa-deepseek-linux): Certificare il pannello ACP DeepSeek su linux`.
-
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire verify/platform/linux/deepseek/**, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento.
-
 <a id="f32sign"></a>
 ## F32SIGN · Artefatti di rilascio firmati e notarizzazione
 
-Firma, notarizzazione e checksum dei rilasci, con distribuzione delle risorse grafiche risolta separatamente.
+Firma e checksum dei rilasci Windows, con distribuzione delle risorse grafiche risolta separatamente.
 
-**Ambito:** v1. **Dipendenze:** F32PKG, QSET-claude, QA-claude-windows, QA-claude-macos, QA-claude-linux, QSET-codex, QA-codex-windows, QA-codex-macos, QA-codex-linux, QSET-opencode, QA-opencode-windows, QA-opencode-macos, QA-opencode-linux, QSET-pi, QA-pi-windows, QA-pi-macos, QA-pi-linux, QSET-hermes, QA-hermes-windows, QA-hermes-macos, QA-hermes-linux, QSET-deepseek, QA-deepseek-windows, QA-deepseek-macos, QA-deepseek-linux. **Stima:** 4–12 ore.
+**Ambito:** v1. **Dipendenze:** F32PKG, QSET-claude, QA-claude-windows, QSET-codex, QA-codex-windows, QSET-opencode, QA-opencode-windows, QSET-pi, QA-pi-windows, QSET-hermes, QA-hermes-windows, QSET-deepseek, QA-deepseek-windows. **Stima:** 4–12 ore.
 
 **File/componenti:** `packaging/`; `.github/workflows/`; `docs/verification/`.
 
 **Accettazione osservabile:**
 
-- Verificare firma Windows e notarizzazione macOS su sistemi puliti.
+- Verificare la firma Windows su un sistema pulito.
 - Le chiavi private di firma devono restare fuori dai sorgenti e dai log.
-- Pubblicare checksum e avvisi delle dipendenze; dichiarare nelle note di rilascio le lacune dei sistemi operativi non verificati.
+- Pubblicare checksum e avvisi delle dipendenze; dichiarare nelle note di rilascio che è supportato soltanto Windows.
 
-**Verifiche del passo:** `planned: Verify Windows signature and macOS notarization on clean machines.`; `planned: Private signing secrets stay outside source and logs.`; `planned: Publish checksums/dependency notices; unverified OS gaps named in release notes.`.
+**Verifiche del passo:** `planned: Verify Windows signature on a clean machine.`; `planned: Private signing secrets stay outside source and logs.`; `planned: Publish checksums/dependency notices; Windows-only support named in release notes.`.
 
 **Gate collegati, da registrare separatamente:** X1, X2, X3, W9, AT-12.
 
@@ -4855,7 +4531,7 @@ Firma, notarizzazione e checksum dei rilasci, con distribuzione delle risorse gr
 
 Candidato verificato dello scope attualmente autorizzato, con esclusione esplicita dell integrazione Daodan rinviata dall utente.
 
-**Ambito:** v1. **Dipendenze:** B00, C01, C02, C03, B02, C04, C05, C06, C07, C08, C09, C10, C11, C12, C13, C14, C15, C16, C17, C18, C19, C20, C21, C22, C23, C24, C25, C26, C27, C28, C29, C30, C31, C32, C33, C36, C37, C40, C41, C42, C43, C44, FS03, F02, F03P, F03H, F04, F05, F06, F07, F08, F09, F10, F11-windows, F11-macos, F11-linux, F12, F13, F14-codex, F14-opencode, F14-pi, F14-hermes, F14-deepseek, F15, F16, F17, F18, F19, F20, F21, F22, F23-codex, F23-opencode, F23-pi, F23-hermes, F23-deepseek, F24, F25, F26, F27, F28, F29, F30, F31, F32CI, F32PKG, F32SIGN, F33, B01, QSET-claude, QA-claude-windows, QA-claude-macos, QA-claude-linux, QSET-codex, QA-codex-windows, QA-codex-macos, QA-codex-linux, QSET-opencode, QA-opencode-windows, QA-opencode-macos, QA-opencode-linux, QSET-pi, QA-pi-windows, QA-pi-macos, QA-pi-linux, QSET-hermes, QA-hermes-windows, QA-hermes-macos, QA-hermes-linux, QSET-deepseek, QA-deepseek-windows, QA-deepseek-macos, QA-deepseek-linux. **Stima:** 8–16 ore.
+**Ambito:** v1. **Dipendenze:** B00, C01, C02, C03, B02, C04, C05, C06, C07, C08, C09, C10, C11, C12, C13, C14, C15, C16, C17, C18, C19, C20, C21, C22, C23, C24, C25, C26, C27, C28, C29, C30, C31, C32, C33, C36, C37, C40, C41, C42, C43, C44, FS03, F02, F03P, F03H, F04, F05, F06, F07, F08, F09, F10, F11-windows, F12, F13, F14-codex, F14-opencode, F14-pi, F14-hermes, F14-deepseek, F15, F16, F17, F18, F19, F20, F21, F22, F23-codex, F23-opencode, F23-pi, F23-hermes, F23-deepseek, F24, F25, F26, F27, F28, F29, F30, F31, F32CI, F32PKG, F32SIGN, F33, B01, QSET-claude, QA-claude-windows, QSET-codex, QA-codex-windows, QSET-opencode, QA-opencode-windows, QSET-pi, QA-pi-windows, QSET-hermes, QA-hermes-windows, QSET-deepseek, QA-deepseek-windows. **Stima:** 8–16 ore.
 
 **File/componenti:** `docs/verification/release-v1/**`; `docs/releases/**`; `release-manifest.json`.
 
@@ -4863,11 +4539,11 @@ Candidato verificato dello scope attualmente autorizzato, con esclusione esplici
 
 **Parti rinviate nello scope corrente:** La V1 storica completa resta distinta dal candidato senza Daodan: riportare il rinvio nelle note, senza falsi completamenti.
 
-- Ogni requisito obbligatorio dello scope attivo e ogni gate pertinente ha evidenza sulle piattaforme richieste; i requisiti Daodan rinviati restano tracciati e non sono dichiarati consegnati.
+- Ogni requisito obbligatorio dello scope attivo e ogni gate pertinente ha evidenza su Windows; i requisiti Daodan e le parti macOS e Linux rinviati restano tracciati e non sono dichiarati consegnati.
 - Le indisponibilità sono ammesse solo dove le specifiche prevedono esplicitamente il gating; una release S1/S2 parziale mantiene un nome e un ambito distinti dalla V1 completa.
 - Installazione e primo avvio su macchina pulita, riavvio/crash/recupero e confini di privacy verificati; firma/pubblicazione usa credenziali e destinazione effettivamente autorizzate.
 
-**Verifiche del passo:** `matrice di accettazione FRD completa e AT-1–AT-12`; `ripetizione riproducibile dei gate di release sulle tre piattaforme`; `verifica checksum/firma del candidato e note di rilascio`.
+**Verifiche del passo:** `matrice di accettazione FRD completa e AT-1–AT-12`; `ripetizione riproducibile dei gate di release su Windows`; `verifica checksum/firma del candidato e note di rilascio`.
 
 **Gate collegati, da registrare separatamente:** AT-1–AT-12, X1–X6, tutti i G0/G1 applicabili alla release.
 
@@ -4895,7 +4571,7 @@ Installazione Daodan, dipendenze marketplace e pacchetti per harness. Rimane sep
 
 **Verifiche del passo:** `pianificato dopo riattivazione: fixture sintetiche della relativa integrazione e verifica dei gate applicabili`.
 
-**Gate collegati, da registrare separatamente:** FRD-0008 e gate Daodan pertinenti: rinviati.
+**Gate collegati, da registrare separatamente:** FRD-0008 e gate Daodan pertinenti: rinviati, D4, D20.
 
 **Requisiti coperti dal piano:** FRD-0008/R01, FRD-0008/R02, FRD-0008/R03, FRD-0008/R04, FRD-0008/R05, FRD-0008/R06, FRD-0008/R07, FRD-0008/R08, FRD-0008/R09, FRD-0008/R10, FRD-0008/R41, FRD-0008/R42.
 
@@ -4920,7 +4596,7 @@ Bridge moe/peer-review per modelli senza harness; la roundtable basata su harnes
 
 **Verifiche del passo:** `pianificato dopo riattivazione: fixture sintetiche della relativa integrazione e verifica dei gate applicabili`.
 
-**Gate collegati, da registrare separatamente:** FRD-0008 e gate Daodan pertinenti: rinviati.
+**Gate collegati, da registrare separatamente:** FRD-0008 e gate Daodan pertinenti: rinviati, R1.
 
 **Requisiti coperti dal piano:** FRD-0007/R29.
 
@@ -4979,11 +4655,467 @@ Contesto task/fase, eventuali tabelle thread_task, signals tramite task_router.p
 
 **Prima azione alla ripresa:** Attendere una nuova richiesta esplicita di riprendere Daodan; poi rivalutare versioni, dipendenze e scheda.
 
+<a id="qa-claude-macos"></a>
+## QA-claude-macos · Certificare terminale claude su macos
+
+Evidenza riproducibile per un vero claude su macos, separata dalle altre combinazioni e dalle sole fixture del meccanismo.
+
+**Ambito:** deferred. **Dipendenze:** C09, C15. **Stima:** 4–8 ore.
+
+**File/componenti:** `verify/platform/macos/claude/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
+
+**Accettazione osservabile:**
+
+**Rinvio:** Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.
+
+- Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di claude registrata.
+- Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
+- Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
+- Completare SC16 con cinque istanze e storie lunghe per un ora sulla piattaforma: nessuna connessione rifiutata, profilare i ritardi; usare solo fixture/account e budget autorizzati.
+
+**Verifiche del passo:** `matrice P1–P20 claude/macos applicabile`; `fixture TUI reale claude con account/test sintetici autorizzati`.
+
+**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
+
+**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
+
+**Commit proposto:** `feat(qa-claude-macos): Certificare terminale claude su macos`.
+
+**Prima azione alla ripresa:** Attendere una nuova indicazione esplicita di riprendere questo sistema; poi aggiornare ADR-0047 e provare TL1.
+
+<a id="qa-claude-linux"></a>
+## QA-claude-linux · Certificare terminale claude su linux
+
+Evidenza riproducibile per un vero claude su linux, separata dalle altre combinazioni e dalle sole fixture del meccanismo.
+
+**Ambito:** deferred. **Dipendenze:** C09, C15. **Stima:** 4–8 ore.
+
+**File/componenti:** `verify/platform/linux/claude/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
+
+**Accettazione osservabile:**
+
+**Rinvio:** Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.
+
+- Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di claude registrata.
+- Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
+- Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
+- Completare SC16 con cinque istanze e storie lunghe per un ora sulla piattaforma: nessuna connessione rifiutata, profilare i ritardi; usare solo fixture/account e budget autorizzati.
+
+**Verifiche del passo:** `matrice P1–P20 claude/linux applicabile`; `fixture TUI reale claude con account/test sintetici autorizzati`.
+
+**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
+
+**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
+
+**Commit proposto:** `feat(qa-claude-linux): Certificare terminale claude su linux`.
+
+**Prima azione alla ripresa:** Attendere una nuova indicazione esplicita di riprendere questo sistema; poi aggiornare ADR-0047 e provare TL1.
+
+<a id="f11-macos"></a>
+## F11-macos · Confinamento del companion a livello di sistema operativo: macOS
+
+Lista positiva dei permessi di lettura e scrittura e collegamenti alle credenziali per macOS.
+
+**Ambito:** deferred. **Dipendenze:** F10. **Stima:** 6–20 ore.
+
+**File/componenti:** `crates/confinement/macos/`; `docs/verification/`.
+
+**Accettazione osservabile:**
+
+**Rinvio:** Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.
+
+- Consentire scritture soltanto nello scratch, comprese le restrizioni allo stato locale dell’harness.
+- Worktree, programma e collegamenti originali alle credenziali devono essere in sola lettura; Shinatama non deve aprire o copiare le credenziali.
+- Altre directory personali, progetti e database devono essere inaccessibili; mostrare il badge confinato soltanto dopo la verifica.
+
+**Verifiche del passo:** `planned: Only scratch writable, including harness-local state restrictions.`; `planned: Worktree/program and original credential bindings read-only; Shinatama never opens/copies credentials.`; `planned: Other homes/projects/DB inaccessible; confined badge withheld until pass.`.
+
+**Gate collegati, da registrare separatamente:** CS-2, CS-9.
+
+**Requisiti coperti dal piano:** FRD-0012/R66, FRD-0012/R67, FRD-0012/R68, FRD-0012/R69, FRD-0012/R70, FRD-0012/R71, FRD-0012/R72, FRD-0012/R73, FRD-0012/R94.
+
+**Commit proposto:** `feat(f11-macos): Confinamento del companion a livello di sistema operativo: macOS`.
+
+**Prima azione alla ripresa:** Attendere una nuova indicazione esplicita di riprendere questo sistema; poi aggiornare ADR-0047 e provare TL1.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### F11-macos.1 · Verifica del meccanismo e inventario dei permessi su macOS
+
+Interfaccia di confinamento disattivata per impostazione iniziale, sonda delle capacita del sistema e manifesto dei percorsi del companion; valutare profilo sandbox e regole esplicite per processo e discendenti, senza modificare i file originali.
+
+Stima: 2–6 ore. File: `crates/confinement/macos/`, `docs/verification/`.
+
+Accettazione: L'app e il companion in anteprima continuano ad avviarsi con il badge di sola politica harness; nessuna esecuzione viene dichiarata confinata. L'inventario distingue scratch scrivibile, worktree/programmi e credenziali originali in sola lettura, e percorsi sempre vietati; non legge o copia credenziali reali.
+
+Verifiche pianificate: `pianificato: Compilare e avviare la versione corrente con il nuovo modulo disattivato.`; `pianificato: Eseguire la sonda su file sintetici e registrare prerequisiti, limiti e disponibilita del meccanismo.`.
+
+Commit: `feat(f11-macos.1): Verifica del meccanismo e inventario dei permessi su macOS`. Registrare stato e prove sotto `progress.json` → `steps` → `F11-macos` → `units` → `F11-macos.1`.
+
+### F11-macos.2 · Applicazione dei permessi positivi al processo companion su macOS
+
+Avvio confinato sperimentale con lo scratch come unica destinazione scrivibile e i soli percorsi autorizzati leggibili; collegamento alle credenziali originali soltanto in lettura, se il sistema lo consente.
+
+Stima: 2–8 ore. File: `crates/confinement/macos/`, `docs/verification/`.
+
+Accettazione: Il processo e i discendenti non possono scrivere nel worktree, nella sua .git o nello stato locale del progetto, ne leggere altre home, progetti o il database. Un meccanismo mancante o incapace di vincolare le credenziali non viene aggirato; la capacita confined resta disabilitata e l'anteprima rimane utilizzabile.
+
+Verifiche pianificate: `pianificato: Provare letture e scritture consentite e vietate con file canarino, collegamenti simbolici e percorsi alternativi.`; `pianificato: Verificare che nessuna API Shinatama apra o copi credenziali e che non siano necessarie modifiche permanenti ai permessi dei file originali.`.
+
+Commit: `feat(f11-macos.2): Applicazione dei permessi positivi al processo companion su macOS`. Registrare stato e prove sotto `progress.json` → `steps` → `F11-macos` → `units` → `F11-macos.2`.
+
+### F11-macos.3 · Integrazione del ciclo di vita e prove prima del badge confined su macOS
+
+Integrazione nell'adattatore companion con pulizia del processo e dello scratch, controllo degli hook di progetto e registrazione CS-2/CS-9; badge confined soltanto per la combinazione harness/versione/piattaforma provata.
+
+Stima: 2–6 ore. File: `crates/confinement/macos/`, `docs/verification/`.
+
+Accettazione: Chiusura, annullamento e fallimento di avvio non lasciano scritture esterne, processi gestiti o canali al worker; la normale UI continua a funzionare. Aggiornamento delle credenziali o dipendenze non compatibili rendono l'host non idoneo al confinamento; ogni caso non provato conserva il badge di anteprima esplicito.
+
+Verifiche pianificate: `pianificato: Eseguire i casi negativi CS-2/CS-9 e il confronto dei byte/input del worker con e senza companion.`; `pianificato: Rieseguire avvio/chiusura e prova di confinamento della versione installata, allegando record; segnare il padre completo soltanto dopo tutte le unita e le prove richieste.`.
+
+Commit: `feat(f11-macos.3): Integrazione del ciclo di vita e prove prima del badge confined su macOS`. Registrare stato e prove sotto `progress.json` → `steps` → `F11-macos` → `units` → `F11-macos.3`.
+
+<a id="f11-linux"></a>
+## F11-linux · Confinamento del companion a livello di sistema operativo: Linux
+
+Lista positiva dei permessi di lettura e scrittura e collegamenti alle credenziali per Linux.
+
+**Ambito:** deferred. **Dipendenze:** F10. **Stima:** 6–20 ore.
+
+**File/componenti:** `crates/confinement/linux/`; `docs/verification/`.
+
+**Accettazione osservabile:**
+
+**Rinvio:** Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.
+
+- Consentire scritture soltanto nello scratch, comprese le restrizioni allo stato locale dell’harness.
+- Worktree, programma e collegamenti originali alle credenziali devono essere in sola lettura; Shinatama non deve aprire o copiare le credenziali.
+- Altre directory personali, progetti e database devono essere inaccessibili; mostrare il badge confinato soltanto dopo la verifica.
+
+**Verifiche del passo:** `planned: Only scratch writable, including harness-local state restrictions.`; `planned: Worktree/program and original credential bindings read-only; Shinatama never opens/copies credentials.`; `planned: Other homes/projects/DB inaccessible; confined badge withheld until pass.`.
+
+**Gate collegati, da registrare separatamente:** CS-2, CS-9.
+
+**Requisiti coperti dal piano:** FRD-0012/R66, FRD-0012/R67, FRD-0012/R68, FRD-0012/R69, FRD-0012/R70, FRD-0012/R71, FRD-0012/R72, FRD-0012/R73, FRD-0012/R94.
+
+**Commit proposto:** `feat(f11-linux): Confinamento del companion a livello di sistema operativo: Linux`.
+
+**Prima azione alla ripresa:** Attendere una nuova indicazione esplicita di riprendere questo sistema; poi aggiornare ADR-0047 e provare TL1.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### F11-linux.1 · Verifica del meccanismo e inventario dei permessi su Linux
+
+Interfaccia di confinamento disattivata per impostazione iniziale, sonda delle capacita del sistema e manifesto dei percorsi del companion; valutare Landlock o bubblewrap, con verifica delle capacita disponibili e dei vincoli del sistema.
+
+Stima: 2–6 ore. File: `crates/confinement/linux/`, `docs/verification/`.
+
+Accettazione: L'app e il companion in anteprima continuano ad avviarsi con il badge di sola politica harness; nessuna esecuzione viene dichiarata confinata. L'inventario distingue scratch scrivibile, worktree/programmi e credenziali originali in sola lettura, e percorsi sempre vietati; non legge o copia credenziali reali.
+
+Verifiche pianificate: `pianificato: Compilare e avviare la versione corrente con il nuovo modulo disattivato.`; `pianificato: Eseguire la sonda su file sintetici e registrare prerequisiti, limiti e disponibilita del meccanismo.`.
+
+Commit: `feat(f11-linux.1): Verifica del meccanismo e inventario dei permessi su Linux`. Registrare stato e prove sotto `progress.json` → `steps` → `F11-linux` → `units` → `F11-linux.1`.
+
+### F11-linux.2 · Applicazione dei permessi positivi al processo companion su Linux
+
+Avvio confinato sperimentale con lo scratch come unica destinazione scrivibile e i soli percorsi autorizzati leggibili; collegamento alle credenziali originali soltanto in lettura, se il sistema lo consente.
+
+Stima: 2–8 ore. File: `crates/confinement/linux/`, `docs/verification/`.
+
+Accettazione: Il processo e i discendenti non possono scrivere nel worktree, nella sua .git o nello stato locale del progetto, ne leggere altre home, progetti o il database. Un meccanismo mancante o incapace di vincolare le credenziali non viene aggirato; la capacita confined resta disabilitata e l'anteprima rimane utilizzabile.
+
+Verifiche pianificate: `pianificato: Provare letture e scritture consentite e vietate con file canarino, collegamenti simbolici e percorsi alternativi.`; `pianificato: Verificare che nessuna API Shinatama apra o copi credenziali e che non siano necessarie modifiche permanenti ai permessi dei file originali.`.
+
+Commit: `feat(f11-linux.2): Applicazione dei permessi positivi al processo companion su Linux`. Registrare stato e prove sotto `progress.json` → `steps` → `F11-linux` → `units` → `F11-linux.2`.
+
+### F11-linux.3 · Integrazione del ciclo di vita e prove prima del badge confined su Linux
+
+Integrazione nell'adattatore companion con pulizia del processo e dello scratch, controllo degli hook di progetto e registrazione CS-2/CS-9; badge confined soltanto per la combinazione harness/versione/piattaforma provata.
+
+Stima: 2–6 ore. File: `crates/confinement/linux/`, `docs/verification/`.
+
+Accettazione: Chiusura, annullamento e fallimento di avvio non lasciano scritture esterne, processi gestiti o canali al worker; la normale UI continua a funzionare. Aggiornamento delle credenziali o dipendenze non compatibili rendono l'host non idoneo al confinamento; ogni caso non provato conserva il badge di anteprima esplicito.
+
+Verifiche pianificate: `pianificato: Eseguire i casi negativi CS-2/CS-9 e il confronto dei byte/input del worker con e senza companion.`; `pianificato: Rieseguire avvio/chiusura e prova di confinamento della versione installata, allegando record; segnare il padre completo soltanto dopo tutte le unita e le prove richieste.`.
+
+Commit: `feat(f11-linux.3): Integrazione del ciclo di vita e prove prima del badge confined su Linux`. Registrare stato e prove sotto `progress.json` → `steps` → `F11-linux` → `units` → `F11-linux.3`.
+
+<a id="qa-codex-macos"></a>
+## QA-codex-macos · Certificare terminale codex su macos
+
+Evidenza riproducibile per un vero codex su macos, separata dalle altre combinazioni e dalle sole fixture del meccanismo.
+
+**Ambito:** deferred. **Dipendenze:** C09, C16. **Stima:** 4–8 ore.
+
+**File/componenti:** `verify/platform/macos/codex/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
+
+**Accettazione osservabile:**
+
+**Rinvio:** Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.
+
+- Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di codex registrata.
+- Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
+- Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
+
+**Verifiche del passo:** `matrice P1–P20 codex/macos applicabile`; `fixture TUI reale codex con account/test sintetici autorizzati`.
+
+**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
+
+**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
+
+**Commit proposto:** `feat(qa-codex-macos): Certificare terminale codex su macos`.
+
+**Prima azione alla ripresa:** Attendere una nuova indicazione esplicita di riprendere questo sistema; poi aggiornare ADR-0047 e provare TL1.
+
+<a id="qa-codex-linux"></a>
+## QA-codex-linux · Certificare terminale codex su linux
+
+Evidenza riproducibile per un vero codex su linux, separata dalle altre combinazioni e dalle sole fixture del meccanismo.
+
+**Ambito:** deferred. **Dipendenze:** C09, C16. **Stima:** 4–8 ore.
+
+**File/componenti:** `verify/platform/linux/codex/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
+
+**Accettazione osservabile:**
+
+**Rinvio:** Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.
+
+- Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di codex registrata.
+- Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
+- Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
+
+**Verifiche del passo:** `matrice P1–P20 codex/linux applicabile`; `fixture TUI reale codex con account/test sintetici autorizzati`.
+
+**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
+
+**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
+
+**Commit proposto:** `feat(qa-codex-linux): Certificare terminale codex su linux`.
+
+**Prima azione alla ripresa:** Attendere una nuova indicazione esplicita di riprendere questo sistema; poi aggiornare ADR-0047 e provare TL1.
+
+<a id="qa-opencode-macos"></a>
+## QA-opencode-macos · Certificare terminale opencode su macos
+
+Evidenza riproducibile per un vero opencode su macos, separata dalle altre combinazioni e dalle sole fixture del meccanismo.
+
+**Ambito:** deferred. **Dipendenze:** C09, C17. **Stima:** 4–8 ore.
+
+**File/componenti:** `verify/platform/macos/opencode/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
+
+**Accettazione osservabile:**
+
+**Rinvio:** Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.
+
+- Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di opencode registrata.
+- Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
+- Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
+
+**Verifiche del passo:** `matrice P1–P20 opencode/macos applicabile`; `fixture TUI reale opencode con account/test sintetici autorizzati`.
+
+**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
+
+**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
+
+**Commit proposto:** `feat(qa-opencode-macos): Certificare terminale opencode su macos`.
+
+**Prima azione alla ripresa:** Attendere una nuova indicazione esplicita di riprendere questo sistema; poi aggiornare ADR-0047 e provare TL1.
+
+<a id="qa-opencode-linux"></a>
+## QA-opencode-linux · Certificare terminale opencode su linux
+
+Evidenza riproducibile per un vero opencode su linux, separata dalle altre combinazioni e dalle sole fixture del meccanismo.
+
+**Ambito:** deferred. **Dipendenze:** C09, C17. **Stima:** 4–8 ore.
+
+**File/componenti:** `verify/platform/linux/opencode/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
+
+**Accettazione osservabile:**
+
+**Rinvio:** Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.
+
+- Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di opencode registrata.
+- Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
+- Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
+
+**Verifiche del passo:** `matrice P1–P20 opencode/linux applicabile`; `fixture TUI reale opencode con account/test sintetici autorizzati`.
+
+**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
+
+**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
+
+**Commit proposto:** `feat(qa-opencode-linux): Certificare terminale opencode su linux`.
+
+**Prima azione alla ripresa:** Attendere una nuova indicazione esplicita di riprendere questo sistema; poi aggiornare ADR-0047 e provare TL1.
+
+<a id="qa-pi-macos"></a>
+## QA-pi-macos · Certificare terminale pi su macos
+
+Evidenza riproducibile per un vero pi su macos, separata dalle altre combinazioni e dalle sole fixture del meccanismo.
+
+**Ambito:** deferred. **Dipendenze:** C09, C18. **Stima:** 4–8 ore.
+
+**File/componenti:** `verify/platform/macos/pi/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
+
+**Accettazione osservabile:**
+
+**Rinvio:** Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.
+
+- Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di pi registrata.
+- Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
+- Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
+
+**Verifiche del passo:** `matrice P1–P20 pi/macos applicabile`; `fixture TUI reale pi con account/test sintetici autorizzati`.
+
+**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
+
+**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
+
+**Commit proposto:** `feat(qa-pi-macos): Certificare terminale pi su macos`.
+
+**Prima azione alla ripresa:** Attendere una nuova indicazione esplicita di riprendere questo sistema; poi aggiornare ADR-0047 e provare TL1.
+
+<a id="qa-pi-linux"></a>
+## QA-pi-linux · Certificare terminale pi su linux
+
+Evidenza riproducibile per un vero pi su linux, separata dalle altre combinazioni e dalle sole fixture del meccanismo.
+
+**Ambito:** deferred. **Dipendenze:** C09, C18. **Stima:** 4–8 ore.
+
+**File/componenti:** `verify/platform/linux/pi/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
+
+**Accettazione osservabile:**
+
+**Rinvio:** Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.
+
+- Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di pi registrata.
+- Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
+- Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
+
+**Verifiche del passo:** `matrice P1–P20 pi/linux applicabile`; `fixture TUI reale pi con account/test sintetici autorizzati`.
+
+**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
+
+**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
+
+**Commit proposto:** `feat(qa-pi-linux): Certificare terminale pi su linux`.
+
+**Prima azione alla ripresa:** Attendere una nuova indicazione esplicita di riprendere questo sistema; poi aggiornare ADR-0047 e provare TL1.
+
+<a id="qa-hermes-macos"></a>
+## QA-hermes-macos · Certificare terminale hermes su macos
+
+Evidenza riproducibile per un vero hermes su macos, separata dalle altre combinazioni e dalle sole fixture del meccanismo.
+
+**Ambito:** deferred. **Dipendenze:** C09, C19. **Stima:** 4–8 ore.
+
+**File/componenti:** `verify/platform/macos/hermes/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
+
+**Accettazione osservabile:**
+
+**Rinvio:** Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.
+
+- Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di hermes registrata.
+- Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
+- Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
+
+**Verifiche del passo:** `matrice P1–P20 hermes/macos applicabile`; `fixture TUI reale hermes con account/test sintetici autorizzati`.
+
+**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
+
+**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
+
+**Commit proposto:** `feat(qa-hermes-macos): Certificare terminale hermes su macos`.
+
+**Prima azione alla ripresa:** Attendere una nuova indicazione esplicita di riprendere questo sistema; poi aggiornare ADR-0047 e provare TL1.
+
+<a id="qa-hermes-linux"></a>
+## QA-hermes-linux · Certificare terminale hermes su linux
+
+Evidenza riproducibile per un vero hermes su linux, separata dalle altre combinazioni e dalle sole fixture del meccanismo.
+
+**Ambito:** deferred. **Dipendenze:** C09, C19. **Stima:** 4–8 ore.
+
+**File/componenti:** `verify/platform/linux/hermes/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
+
+**Accettazione osservabile:**
+
+**Rinvio:** Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.
+
+- Input, resize, focus/modal, clipboard/escape negativi e stream reale verificati per la versione di hermes registrata.
+- Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
+- Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
+
+**Verifiche del passo:** `matrice P1–P20 hermes/linux applicabile`; `fixture TUI reale hermes con account/test sintetici autorizzati`.
+
+**Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
+
+**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
+
+**Commit proposto:** `feat(qa-hermes-linux): Certificare terminale hermes su linux`.
+
+**Prima azione alla ripresa:** Attendere una nuova indicazione esplicita di riprendere questo sistema; poi aggiornare ADR-0047 e provare TL1.
+
+<a id="qa-deepseek-macos"></a>
+## QA-deepseek-macos · Certificare il pannello ACP DeepSeek su macos
+
+Prova del vero client ACP Shinatama/DeepSeek su macos: messaggi, tool, permessi e chiusura del processo, senza inventare una TUI o un PTY DeepSeek.
+
+**Ambito:** deferred. **Dipendenze:** C09, C20. **Stima:** 4–8 ore.
+
+**File/componenti:** `verify/platform/macos/deepseek/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
+
+**Accettazione osservabile:**
+
+**Rinvio:** Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.
+
+- Handshake ACP, stream messaggi/tool e richieste di permesso correlati per versione e request ID.
+- Focus/modal, Unicode, backpressure e cleanup del processo verificati; nessuna risposta a una richiesta scaduta.
+- La promozione riguarda questa combinazione; restano indisponibili le capacità non provate.
+
+**Verifiche del passo:** `fixture DS1–DS15/ACP applicabili su macos`; `request/permission correlation e crash cleanup`.
+
+**Gate collegati, da registrare separatamente:** DS1–DS15 applicabili, P14, U3, U7.
+
+**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
+
+**Commit proposto:** `feat(qa-deepseek-macos): Certificare il pannello ACP DeepSeek su macos`.
+
+**Prima azione alla ripresa:** Attendere una nuova indicazione esplicita di riprendere questo sistema; poi aggiornare ADR-0047 e provare TL1.
+
+<a id="qa-deepseek-linux"></a>
+## QA-deepseek-linux · Certificare il pannello ACP DeepSeek su linux
+
+Prova del vero client ACP Shinatama/DeepSeek su linux: messaggi, tool, permessi e chiusura del processo, senza inventare una TUI o un PTY DeepSeek.
+
+**Ambito:** deferred. **Dipendenze:** C09, C20. **Stima:** 4–8 ore.
+
+**File/componenti:** `verify/platform/linux/deepseek/**`; `docs/verification/`; `crates/adapter/src/capabilities.rs`.
+
+**Accettazione osservabile:**
+
+**Rinvio:** Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.
+
+- Handshake ACP, stream messaggi/tool e richieste di permesso correlati per versione e request ID.
+- Focus/modal, Unicode, backpressure e cleanup del processo verificati; nessuna risposta a una richiesta scaduta.
+- La promozione riguarda questa combinazione; restano indisponibili le capacità non provate.
+
+**Verifiche del passo:** `fixture DS1–DS15/ACP applicabili su linux`; `request/permission correlation e crash cleanup`.
+
+**Gate collegati, da registrare separatamente:** DS1–DS15 applicabili, P14, U3, U7.
+
+**Requisiti coperti dal piano:** FRD-0001/R09, FRD-0001/R10, FRD-0001/R13, FRD-0001/R15, FRD-0001/R16, FRD-0001/R17, FRD-0001/R18, FRD-0001/R19, FRD-0001/R20, FRD-0001/R21, FRD-0001/R33, FRD-0001/R50, FRD-0001/R51, FRD-0001/R52, FRD-0001/R53, FRD-0001/R54, FRD-0001/R55, FRD-0001/R57, FRD-0001/R58.
+
+**Commit proposto:** `feat(qa-deepseek-linux): Certificare il pannello ACP DeepSeek su linux`.
+
+**Prima azione alla ripresa:** Attendere una nuova indicazione esplicita di riprendere questo sistema; poi aggiornare ADR-0047 e provare TL1.
+
 ## Copertura e confini
 
 Ogni requisito Markdown FRD-0001–FRD-0017 è assegnato ad almeno un passo, compresi invarianti, esclusioni e prove. Assegnazione non equivale a implementazione.
 Gli incrementi `evaluation` possono concludersi con una decisione o una capacità ancora indisponibile; non dichiarano consegnata la funzionalità. Gli incrementi `post-v1` sono esclusi dal prossimo passo automatico.
 Hop V1 solo seed/resume; nessuna scrittura di sessioni native in V1, nessun Git Diff dedicato, Grok o fallback browser automatico. Widget ultimo nella propria sequenza V1; browser/roundtable/TokenEconomizer non bloccano S1 e S2.
-Tauri borderless è la direzione di lavoro autorizzata. Le vecchie restrizioni native-only e i riferimenti al renderer Mermaid devono essere riallineati senza falsificare l'approvazione storica degli ADR.
+Tauri è la shell V1 definitiva (ADR-0005 v2, ADR-0047 v2); TL1-proof la prova su Windows, unico sistema supportato ufficialmente. Le revisioni dipendenti di ADR-0002 (Mermaid), ADR-0040 e ADR-0048 restano da approvare.
 
 I rinvii espliciti dell’utente prevalgono sullo scope storico: le parti rinviate restano tracciate, escluse dalla selezione automatica e dall’accettazione del ciclo attivo.

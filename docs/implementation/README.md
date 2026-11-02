@@ -1,5 +1,8 @@
 # Riprendere l'implementazione di Shinatama
 
+**Piattaforma, decisione utente 2026-11-02:** solo Windows è supportato ufficialmente.
+macOS e Linux sono [rinviati](2026-11-02-macos-linux-deferred.md): nessun passo attivo li richiede.
+
 **Scope corrente, richiesta utente 2026-11-02:** integrazione Daodan rinviata.
 I passi `D01`, `C34`, `C35`, `D02`, `D03`, `D04` restano `deferred` e si
 riprendono solo su nuova indicazione. Non bloccano checkup generico, avvio degli
@@ -73,12 +76,11 @@ indicati nella scheda. Se un incremento aggrega piu unita di commit, seguirle
 nell'ordine registrando ciascuna sotto `steps.<id>.units.<unita>`; il padre diventa
 verificato soltanto quando tutte le unita lo sono. Nessun commit supera una
 singola unita di lavoro senza un motivo registrato nel checkpoint.
-In questo checkout esiste anche lavoro parallelo sotto
-`verify/T6/`: non includerlo automaticamente nel commit dell'applicazione.
 Nessun `git add .`, reset o pulizia del lavoro altrui.
 
 ## Checkpoint corrente
 
+- Shell: Tauri è la scelta V1 definitiva (ADR-0005 v2); il passo `TL1-proof` la prova su Windows prima di C06.
 - B00: prototipo Tauri borderless con terminali reali, verificato su Windows.
 - B01: piano completo e validatore riprendibile; stato autorevole in `progress.json`.
 - B02: cronologia progetti e ripristino, con prova su due avvii reali.

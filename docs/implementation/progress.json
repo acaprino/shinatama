@@ -94,6 +94,90 @@
       "commit_sha": null,
       "reason": "Rinviato su richiesta esplicita dell utente del 2026-11-02: ignorare per adesso l integrazione con Daodan. Riprendere solo su nuova indicazione.",
       "next_action": "Attendere nuova indicazione esplicita per riprendere Daodan."
+    },
+    "QA-claude-macos": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "QA-claude-linux": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "F11-macos": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "F11-linux": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "QA-codex-macos": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "QA-codex-linux": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "QA-opencode-macos": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "QA-opencode-linux": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "QA-pi-macos": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "QA-pi-linux": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "QA-hermes-macos": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "QA-hermes-linux": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "QA-deepseek-macos": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "QA-deepseek-linux": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
     }
   },
   "blockers": [],

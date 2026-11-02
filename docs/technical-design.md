@@ -1,9 +1,12 @@
 # Shinatama engine — threads, hop, exchange between instances, shared state
 
-**Implementation exception, 2026-11-02:** the user authorized a
-[Tauri frontend + Rust engine prototype](implementation/tauri-prototype.md).
-Native-only language below describes the earlier production proposal; it does not
-prohibit this experiment. Toolkit selection and the full TL1 gate remain open.
+**Platform decision, 2026-11-02:** Windows is the only officially supported platform for now;
+macOS and Linux are deferred (ADR-0047). Text below that names them describes deferred work.
+
+**Shell decision, 2026-11-02:** the user made Tauri the definitive V1 shell over a Rust
+engine (ADR-0005 v2, ADR-0047 v2), after a
+[prototype](implementation/tauri-prototype.md). Any remaining "native" wording below
+means a pane drawn by Shinatama, not a Rust UI toolkit. The full TL1 gate remains open.
 
 Date: 2026-10-26; native tiling revision: 2026-10-29; last revised 2026-11-01.
 Status: draft, not approved. Companion of
@@ -168,21 +171,17 @@ they must hold.
   shared [SC5], the private overlay leaving Codex history and auth in place [CX12], and
   the box and per-instance sets themselves [D15 to D19].
 
-### 3.1 Native Rust tiling and panel host (2026-10-29)
+### 3.1 Tiling and panel host in the Tauri shell (2026-11-02)
 
-Functional authority: main spec 5.16. Native desktop tiling supersedes the former
-terminal-only shell; agent TUIs remain in real PTYs. No web frontend or
-Tauri/Electron application shell.
+Functional authority: main spec 5.16. Desktop tiling supersedes the former
+terminal-only shell; agent TUIs remain in real PTYs. The shell is Tauri, with a
+TypeScript frontend and xterm.js over the Rust engine (ADR-0005 v2); no Electron.
 
-**Toolkit [C, not selected or prototyped].** First candidate: GPUI with GPUI Kit /
-`gpui-component`; alternative: egui with `egui_dock` or `egui_tiles`. Upstream
-documents docking/tab/split support and GPUI Kit editor/Markdown components [D],
-not integration into Shinatama. Pin compatible releases after the combined
-terminal/layout prototype passes on target platforms. Toolkit selection must not
-force browser startup. Native HTML rendering is not a full browser or DOCX engine.
-References: https://github.com/longbridge/gpui-kit,
-https://docs.rs/egui_dock/latest/egui_dock/,
-https://docs.rs/egui_tiles/latest/egui_tiles/.
+**Toolkit [decided by the user, 2026-11-02; TL1 not passed].** Tauri 2, with the system
+webview (WebView2 on Windows). The engine holds every operating-system effect; the frontend
+reaches it through explicit application commands only. TL1 proves the combined
+terminal/layout shell on Windows and must not force browser startup. The
+webview's HTML rendering is not a browser pane or a DOCX engine.
 
 **Toolkit-independent layout sketch [C]:**
 

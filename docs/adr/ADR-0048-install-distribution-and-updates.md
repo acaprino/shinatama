@@ -1,8 +1,8 @@
 ---
 adr_id: ADR-0048
 version: 1
-title: Built for others to install; signed and notarized release builds; Shinatama's own updates never touch the sidecar's rule; no unintended outbound connection; Oni art is a separate distribution decision
-status: Accepted
+title: "Built for others to install; signed and notarized release builds; Shinatama's own updates never touch the sidecar's rule; no unintended outbound connection; Oni art is a separate distribution decision"
+status: Superseded
 author: Alfio Caprino
 scope:
   paths:
@@ -28,14 +28,14 @@ last_verified_sha: null
 retired_on: null
 retired_reason: null
 supersedes:
-superseded_by: null
+superseded_by: ADR-0048 v2
 changes:
 ---
 
 # ADR-0048: Built for others to install; signed and notarized release builds; Shinatama's own updates never touch the sidecar's rule; no unintended outbound connection; Oni art is a separate distribution decision
 
 <!-- adr-header:start -->
-Version 1 · Accepted 2026-11-01 at 202a34e · proposed 2026-11-01 by Alfio Caprino
+Version 1 · Superseded by ADR-0048 v2 · proposed 2026-11-01 by Alfio Caprino
 <!-- adr-header:end -->
 
 ## Context and Problem Statement

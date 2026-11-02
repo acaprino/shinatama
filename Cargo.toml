@@ -3,7 +3,7 @@
 # crate (https://github.com/acaprino/mukade). The terminal prototype does not read agent sessions.
 [workspace]
 resolver = "3"
-# The terminal engine remains independent of the experimental Tauri shell.
+# The terminal engine remains independent of the Tauri shell (ADR-0005).
 members = ["crates/terminal", "crates/projects", "apps/desktop/src-tauri"]
 default-members = ["crates/terminal"]
 
@@ -20,7 +20,7 @@ serde_json = { version = "1", features = ["preserve_order"] }
 anyhow = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std", "serde"] }
 uuid = { version = "1", features = ["v4", "v7"] }
-# Prototype dependencies and licences: docs/implementation/tauri-prototype.md.
+# Dependencies and licences so far: docs/implementation/tauri-prototype.md; release audit is register X3.
 portable-pty = "0.9"
 tauri = "2.9"
 tauri-build = "2.5"

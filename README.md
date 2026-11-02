@@ -4,11 +4,12 @@
   <img src="docs/assets/branding/shinatama-logo-xenotron-glow.png" alt="Shinatama from Oni beside the Shinatama wordmark" width="800">
 </p>
 
-Shinatama: a local-first native desktop workspace in Rust that hosts Claude Code, Codex, OpenCode, Pi, Hermes Agent and DeepSeek Harness in tiled terminal panes and hops a live chat between them (native tiling decided 2026-10-29; v1 hops are seed-only, decided 2026-10-31).
+Shinatama: a local-first desktop workspace, with a Rust engine and a Tauri shell, that hosts Claude Code, Codex, OpenCode, Pi, Hermes Agent and DeepSeek Harness in tiled terminal panes and hops a live chat between them (native tiling decided 2026-10-29; v1 hops are seed-only, decided 2026-10-31).
 
-Status: implementation started. On 2026-11-02 the user authorized a **Tauri + Rust
-prototype** to evaluate the mockup's visual style. This is an experimental terminal
-workspace, not the completed first milestone or a supported agent launcher.
+Status: implementation started. Windows is the only officially supported platform for now, and
+Tauri is the definitive V1 shell. The
+current build is a **terminal prototype**, not the completed first milestone or a
+supported agent launcher.
 
 ## Run the prototype
 

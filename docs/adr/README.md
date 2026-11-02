@@ -1,9 +1,7 @@
 # Architecture decision records
 
-**2026-11-02 prototype authorization:** the user explicitly selected
-[Tauri + Rust for an executable experiment](../implementation/tauri-prototype.md).
-This is a scoped exception to ADR-0005/ADR-0047's native-only UI constraint, not a
-rewrite of their accepted text or a final production toolkit selection.
+**2026-11-02 decisions:** Windows is the only officially supported platform for now, and Tauri is
+the definitive V1 shell over a Rust engine (ADR-0005, ADR-0047, ADR-0048), after a [prototype](../implementation/tauri-prototype.md).
 
 One record per version of a decision: ADR-NNNN-<slug>.md, then ADR-NNNN-vN-<slug>.md.
 A record is Proposed when the interview produces it, Accepted when the user
@@ -23,7 +21,7 @@ run `index`; do not edit this block by hand.
 | [ADR-0002 v3](<ADR-0002-v3-companion-feed.md>) | Companion pane fed by the canonical transcript, harness chosen per companion; credentials only as read-only OS bindings, no shinatama mcp, overview row from its own record | `docs/specs/companion-explainer.md`, `docs/technical-design.md`, `docs/functional-design.md`, `companion`, `explain-mode`, `read-only-session`, `adapter-headless` | 0 | `202a34e2675cfe7e8d7ba1d5e7ecf88bf2299182` |
 | [ADR-0003 v2](<ADR-0003-v2-decision-cards.md>) | Decision cards explain a worker's pending request before the user answers | `docs/specs/companion-explainer.md`, `docs/technical-design.md`, `docs/functional-design.md`, `companion`, `decision-cards`, `approval-explanation` | 0 | `eeb3febaf0115d13f95ca0ba044c11e2628acb06` |
 | [ADR-0004](<ADR-0004-real-agents-in-ptys.md>) | Run the real agent CLIs in Shinatama-owned PTYs, never a simulated chat | `docs/functional-design.md`, `docs/technical-design.md`, `agent-hosting`, `pty`, `terminal-emulation`, `tui-fidelity` | 0 | `eeb3febaf0115d13f95ca0ba044c11e2628acb06` |
-| [ADR-0005](<ADR-0005-native-tiling-workspace.md>) | Native Rust desktop tiling workspace; layout never starts, stops or alters sessions | `docs/functional-design.md`, `docs/technical-design.md`, `tiling-workspace`, `native-ui`, `layout-persistence`, `panel-lifecycle`, `rust-toolkit` | 0 | `eeb3febaf0115d13f95ca0ba044c11e2628acb06` |
+| [ADR-0005 v3](<ADR-0005-v3-native-tiling-workspace.md>) | Tauri desktop tiling workspace over a Rust engine; layout never starts, stops or alters sessions | `docs/functional-design.md`, `docs/technical-design.md`, `apps/desktop/**`, `tiling-workspace`, `desktop-shell`, `layout-persistence`, `panel-lifecycle`, `ui-toolkit` | 0 | `65bee163e43b0b9f7b2d71f4e353b9fe4c580df2` |
 | [ADR-0006](<ADR-0006-hosted-agent-set.md>) | Host six agents; capabilities declared unsupported until their rows pass; Gemini launch-only; Grok out | `docs/functional-design.md`, `docs/technical-design.md`, `hosted-agents`, `agent-support`, `adapter-capabilities`, `launch-only` | 0 | `eeb3febaf0115d13f95ca0ba044c11e2628acb06` |
 | [ADR-0007](<ADR-0007-deepseek-acp-pane.md>) | DeepSeek Harness runs in a native ACP pane with Shinatama as ACP client | `docs/functional-design.md`, `docs/technical-design.md`, `deepseek-harness`, `acp-client`, `native-pane`, `agent-hosting` | 0 | `eeb3febaf0115d13f95ca0ba044c11e2628acb06` |
 | [ADR-0008](<ADR-0008-process-model-no-daemon.md>) | Local-first; one owning process per window; no resident service; coordination through SQLite | `docs/technical-design.md`, `docs/functional-design.md`, `process-model`, `local-first`, `liveness`, `inter-process-coordination` | 0 | `eeb3febaf0115d13f95ca0ba044c11e2628acb06` |
@@ -65,8 +63,8 @@ run `index`; do not edit this block by hand.
 | [ADR-0044](<ADR-0044-model-routing-decision-model.md>) | Automatic model routing delegated to a configurable decision model, at session start and sub-agent spawn | `docs/specs/token-savings.md`, `docs/functional-design.md`, `docs/notes/2026-11-01-model-routing-decision-model.md`, `model-routing`, `router-key`, `credentials`, `token-savings` | 0 | `eeb3febaf0115d13f95ca0ba044c11e2628acb06` |
 | [ADR-0045 v3](<ADR-0045-v3-tokeneconomizer-beside-billioncontext.md>) | TokenEconomizer beside BillionContext as an optional per-instance module | `docs/specs/token-savings.md`, `docs/functional-design.md`, `docs/notes/2026-11-01-tokeneconomizer-beside-billioncontext.md`, `token-savings`, `tool-pruning`, `loop-guard`, `billioncontext`, `per-instance-set` | 0 | `59421383273ab59e7b3637732269838440be0fd9` |
 | [ADR-0046](<ADR-0046-project-manager.md>) | Project manager over project roots, sorted by last use, with a default root, a new-project shortcut and a per-instance worktree option | `docs/functional-design.md`, `docs/technical-design.md`, `docs/daodan-native-support.md`, `project-manager`, `project-roots`, `new-project`, `worktree-per-instance` | 0 | `202a34e2675cfe7e8d7ba1d5e7ecf88bf2299182` |
-| [ADR-0047](<ADR-0047-rust-platforms-dependency-policy.md>) | Rust runtime; macOS and Linux required, Windows assumed; one allowed-dependency list in the workspace, each addition a decision | `docs/functional-design.md`, `docs/technical-design.md`, `Cargo.toml`, `language`, `platforms`, `dependency-policy`, `rust-toolkit` | 0 | `202a34e2675cfe7e8d7ba1d5e7ecf88bf2299182` |
-| [ADR-0048](<ADR-0048-install-distribution-and-updates.md>) | Built for others to install; signed and notarized release builds; Shinatama's own updates never touch the sidecar's rule; no unintended outbound connection; Oni art is a separate distribution decision | `docs/functional-design.md`, `docs/verification-register.md`, `install`, `distribution`, `release`, `updates`, `licensing` | 0 | `202a34e2675cfe7e8d7ba1d5e7ecf88bf2299182` |
+| [ADR-0047 v3](<ADR-0047-v3-rust-platforms-dependency-policy.md>) | Rust engine and TypeScript frontend; Windows the only officially supported platform, macOS and Linux deferred; one allowed-dependency list per ecosystem, each addition a decision | `docs/functional-design.md`, `docs/technical-design.md`, `Cargo.toml`, `package.json`, `package-lock.json`, `language`, `platforms`, `dependency-policy`, `rust-toolkit` | 0 | `65bee163e43b0b9f7b2d71f4e353b9fe4c580df2` |
+| [ADR-0048 v3](<ADR-0048-v3-install-distribution-and-updates.md>) | Built for others to install; signed Windows release builds; Shinatama's own updates never touch the sidecar's rule; no unintended outbound connection; Oni art is a separate distribution decision | `docs/functional-design.md`, `docs/verification-register.md`, `install`, `distribution`, `release`, `updates`, `licensing` | 0 | `65bee163e43b0b9f7b2d71f4e353b9fe4c580df2` |
 | [ADR-0049](<ADR-0049-text-index-outlives-native-retention.md>) | Shinatama's text index outlives an agent's retention; an aged-out session is searchable and can seed, never natively resumed; retention is never edited | `docs/technical-design.md`, `docs/functional-design.md`, `session-search`, `retention`, `text-index`, `native-resume` | 0 | `202a34e2675cfe7e8d7ba1d5e7ecf88bf2299182` |
 | [ADR-0050](<ADR-0050-frd-and-adr-govern-requirements-and-decisions.md>) | Requirements live in FRD records and decisions in ADR records, both Proposed until the user approves the text; design documents keep the design, the register alone says what is proved | `docs/frd/README.md`, `docs/adr/README.md`, `docs/codebase-map.md`, `docs/verification-register.md`, `documentation-method`, `decision-records`, `requirements-records`, `approval` | 0 | `202a34e2675cfe7e8d7ba1d5e7ecf88bf2299182` |
 
@@ -83,11 +81,17 @@ run `index`; do not edit this block by hand.
 | [ADR-0002](<ADR-0002-companion-feed.md>) | Companion pane fed by the canonical transcript, harness chosen per companion | ADR-0002 v2 |
 | [ADR-0002 v2](<ADR-0002-v2-companion-feed.md>) | Companion pane fed by the canonical transcript, harness chosen per companion | ADR-0002 v3 |
 | [ADR-0003](<ADR-0003-decision-cards.md>) | Decision cards explain a worker's pending request before the user answers | ADR-0003 v2 |
+| [ADR-0005](<ADR-0005-native-tiling-workspace.md>) | Native Rust desktop tiling workspace; layout never starts, stops or alters sessions | ADR-0005 v2 |
+| [ADR-0005 v2](<ADR-0005-v2-native-tiling-workspace.md>) | Tauri desktop tiling workspace over a Rust engine; layout never starts, stops or alters sessions | ADR-0005 v3 |
 | [ADR-0012](<ADR-0012-agent-placement.md>) | Program system|own and home box|system per agent, per-instance sets; never own program with system home | ADR-0012 v2 |
 | [ADR-0031](<ADR-0031-login-without-credentials.md>) | Login detected and performed through the agent itself; Shinatama never holds credentials | ADR-0031 v2 |
 | [ADR-0037](<ADR-0037-decision-compaction-julia1.md>) | Decision compaction over summary compaction, scored by a local offline executor (julia1) | ADR-0037 v2 |
 | [ADR-0045](<ADR-0045-tokeneconomizer-beside-billioncontext.md>) | TokenEconomizer beside BillionContext as an optional per-instance module | ADR-0045 v2 |
 | [ADR-0045 v2](<ADR-0045-v2-tokeneconomizer-beside-billioncontext.md>) | TokenEconomizer beside BillionContext as an optional per-instance module | ADR-0045 v3 |
+| [ADR-0047](<ADR-0047-rust-platforms-dependency-policy.md>) | Rust runtime; macOS and Linux required, Windows assumed; one allowed-dependency list in the workspace, each addition a decision | ADR-0047 v2 |
+| [ADR-0047 v2](<ADR-0047-v2-rust-platforms-dependency-policy.md>) | Rust engine and TypeScript frontend; macOS and Linux required, Windows assumed; one allowed-dependency list per ecosystem, each addition a decision | ADR-0047 v3 |
+| [ADR-0048](<ADR-0048-install-distribution-and-updates.md>) | Built for others to install; signed and notarized release builds; Shinatama's own updates never touch the sidecar's rule; no unintended outbound connection; Oni art is a separate distribution decision | ADR-0048 v2 |
+| [ADR-0048 v2](<ADR-0048-v2-install-distribution-and-updates.md>) | Built for others to install; signed and notarized release builds; Shinatama's own updates never touch the sidecar's rule; no unintended outbound connection; Oni art is a separate distribution decision | ADR-0048 v3 |
 
 ## Abandoned
 
@@ -105,7 +109,7 @@ records assume the ones above it. The requirements records that build on them ar
 | Order | Domain | Records | Requirements record |
 |---|---|---|---|
 | 1 | Method and evidence | ADR-0050 (how records, documents and the register relate), ADR-0010 (evidence before claims), ADR-0040 (delivery baseline) | all |
-| 2 | Shell and language | ADR-0047 (Rust, platforms, dependency policy), ADR-0005 (native tiling workspace), ADR-0004 (real agents in PTYs), ADR-0039 (skins and terminal profiles), ADR-0006 (the hosted set), ADR-0007 (DeepSeek ACP pane) | FRD-0001 |
+| 2 | Shell and language | ADR-0047 (Rust, platforms, dependency policy), ADR-0005 (tiling workspace), ADR-0004 (real agents in PTYs), ADR-0039 (skins and terminal profiles), ADR-0006 (the hosted set), ADR-0007 (DeepSeek ACP pane) | FRD-0001 |
 | 3 | Process and state | ADR-0008 (no daemon, one process per window), ADR-0009 (one SQLite database per user) | FRD-0014 |
 | 4 | Where the agents live | ADR-0012 v2 (program, home, per-instance set, companion scratch home), ADR-0013 (per-launch injection, instance identity), ADR-0014 (inherited markers), ADR-0031 v2 (login without credentials, router key in the vault) | FRD-0002, FRD-0003 |
 | 5 | Adapters and reading | ADR-0011 (adapter contract), ADR-0020 (Mukade), ADR-0021 (canonical transcript, STX), ADR-0023 (sessions surface), ADR-0049 (index outlives retention) | FRD-0006 |

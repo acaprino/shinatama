@@ -1,13 +1,16 @@
 # Shinatama — design
 
-**Implementation exception, 2026-11-02:** the user authorized an executable
-[Tauri + Rust terminal prototype](implementation/tauri-prototype.md), using the
-existing mockup style. This relaxes the native-only restriction for the experiment;
-it does not approve every draft detail or complete the first milestone.
+**Platform decision, 2026-11-02:** Windows is the only officially supported platform for now;
+macOS and Linux are deferred (ADR-0047). Text below that names them describes deferred work.
+
+**Shell decision, 2026-11-02:** the user made Tauri the definitive V1 shell over a Rust
+engine (ADR-0005 v2, ADR-0047 v2), after a
+[Tauri + Rust terminal prototype](implementation/tauri-prototype.md) in the existing
+mockup style. This does not approve every draft detail or complete the first milestone.
 
 Date: 2026-10-26; native tiling revision: 2026-10-29
-Status: overall design draft. Accepted FRD records and the explicit prototype
-authorization above govern the initial implementation; the full draft is not approved.
+Status: overall design draft. Accepted FRD records and the shell decision above
+govern the initial implementation; the full draft is not approved.
 
 Shinatama is a local-first native desktop workspace, written in Rust, that hosts the real
 coding agents (Claude Code, Codex, OpenCode, Pi, Hermes Agent, DeepSeek Harness) in tiled terminal panes and lets the user hop
@@ -64,7 +67,7 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
 6. The BillionContext sidecar is integrated with its full resilience, security and
    compression (5.6).
 7. Skinnable UI whose default is the pink Shinatama theme (5.7).
-8. Easy install on macOS and Linux.
+8. Easy install on Windows (macOS and Linux deferred, 2026-11-02).
 9. A desktop widget with Shinatama as an assistant that talks, moves and alerts
    (5.8) — decided for v1; built last within v1, after the core it listens to.
 10. A roundtable: several hosted agent instances, each with its own model, converse
@@ -81,7 +84,7 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
     automatic fallback or session migration (5.15).
 
 14. Native tiling, draggable tabs, resizable splits and collapsible side panes
-    (decided 2026-10-29; 5.16), with a Rust UI, not a web frontend.
+    (decided 2026-10-29; 5.16), in a Tauri shell over a Rust engine (decided 2026-11-02).
 
 ### Non-goals
 
@@ -101,10 +104,11 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
   offline recipient waits only within that expiry, and they stay within one project or
   roundtable unless a per-project setting broadens the scope (engine 7.2); the roundtable
   (5.10) is started by the user and session-level.
-- A web-built application shell: no HTML/CSS/JavaScript frontend, Tauri or Electron
-  for the main UI (decided 2026-10-29). Native desktop tiling supersedes the earlier
-  terminal-only decision. Agents still run in real PTYs, not simulated chats. A
-  future isolated browser pane would not make the shell a web frontend.
+- An Electron shell, or a Node, development server or browser needed to start: the
+  main UI is a Tauri application over a Rust engine (decided 2026-11-02; ADR-0005 v2).
+  Desktop tiling supersedes the earlier terminal-only decision. Agents still run in
+  real PTYs, not simulated chats. A future isolated browser pane stays separate from
+  the main webview.
 - Automatic browser fallback or migration (5.15): no switching from Moli to
   Patchright after an error, no shared cookies/login and no resident Chrome or
   Patchright companion. Persistent `moli serve` and interactive Moli previews are
@@ -123,12 +127,12 @@ the full resilience, safety and compression of the BillionContext sidecar (5.6).
 
 ## 3. Constraints
 
-- Rust. macOS and Linux are required (the original request); Windows is assumed
-  required too (section 7, item 1).
+- Rust. Windows is the only officially supported platform for now; macOS and Linux
+  are deferred (decided 2026-11-02; ADR-0047).
 - Why Rust: the user's original request named Rust; my reasons agree. Shinatama
   *hosts* agents: it needs a pseudo-terminal on all three systems and a terminal
-  emulator, for which mature Rust crates exist (pseudo-terminal, escape-sequence
-  parser, native UI); it runs many concurrent tasks (several terminals, sidecar, event
+  emulator; a pseudo-terminal crate and xterm.js exist for them (fidelity unproved,
+  register P1, P2); it runs many concurrent tasks (several terminals, sidecar, event
   stream, summaries); one toolchain builds and cross-builds for macOS, Linux and
   Windows. Not proved yet: that a Rust pseudo-terminal plus
   emulator hosts the six agents faithfully on Windows with ConPTY — the first
@@ -874,7 +878,7 @@ explicit Patchright UI or no browser, and no other engine becomes the default.
 
 ### 5.16 Native tiling workspace (decided 2026-10-29)
 
-Shinatama has a native Rust desktop UI, not a web frontend. Tabs and tiling coexist:
+Shinatama's UI is a Tauri desktop application over a Rust engine (ADR-0005). Tabs and tiling coexist:
 project workspaces contain horizontal/vertical splits with tab groups at the
 leaves. Side panes are resizable and collapsible. Earlier terminal/HTML mockups
 are interaction references, not binding implementation choices. Toolkit selection
@@ -1063,9 +1067,9 @@ suite are in section 5.5 of the [engine spec](technical-design.md).
 
 ## 7. Open questions for the user
 
-1. **Windows in v1?** Assumed yes (my call, to confirm): the user works on Windows;
-   macOS and Linux stay required. If yes: ConPTY, Windows paths, environment and trust
-   handling from the first milestone.
+1. **Windows in v1?** Answered 2026-11-02: yes, and only Windows for now; macOS and Linux
+   are deferred. ConPTY, Windows paths, environment and trust handling are in the first
+   milestone.
 2. **What does "assistant" mean for the widget?** The widget is in v1 (decided).
    My default for v1: animated character, speech bubble, alerts and quick answers
    (allow/deny); chat with the assistant and spoken voice later. Voice would add
@@ -1150,7 +1154,7 @@ suite are in section 5.5 of the [engine spec](technical-design.md).
 
 ## 8. Left to the builder
 
-Language-level choices (native Rust UI library, PTY and terminal-emulation crates,
+Language-level choices (frontend libraries, PTY and terminal-emulation crates,
 async model), the exact table and column definitions inside the engine spec's sketch
 (the storage choice, SQLite per user, is decided), the optional wake-up socket, the
 install mechanism on macOS and Linux (script, package manager, release binaries),

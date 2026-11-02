@@ -5,12 +5,19 @@
 of recent project selection; [its evidence](verification/2026-11-02-B02-project-history.md)
 does not close the complete PM or cross-platform S gates.
 
-**2026-11-02:** the authorized Tauri + Rust terminal experiment is implemented.
-See its [verification record](verification/2026-11-02-tauri-terminal-prototype.md)
-and [architecture exception](implementation/tauri-prototype.md). Windows shell
-and layout checks are partial evidence; full TL/P gates and M0 are not passed.
-The native-only TL1 restriction is relaxed for this experiment; the production
-gate still requires revision.
+**2026-11-02:** Tauri is the definitive V1 shell (ADR-0005 v2, ADR-0047 v2). See the
+prototype's [verification record](verification/2026-11-02-tauri-terminal-prototype.md)
+and [scope note](implementation/tauri-prototype.md). Windows shell and layout checks are
+partial evidence; full TL/P gates and M0 are not passed.
+
+**Windows only, 2026-11-02:** Windows is the only officially supported platform for now
+(ADR-0047; [deferral](implementation/2026-11-02-macos-linux-deferred.md)). A row that names macOS,
+Linux or "3 OS" runs on Windows only; the other systems' parts stay open and deferred, and none is
+reported as passed.
+
+**Daodan deferred, 2026-11-02:** R1, D4, D20 and the other rows that need Daodan are out of
+the active cycle until the user resumes it
+([deferral](implementation/2026-11-02-daodan-deferred.md)). They are not passed.
 
 Date: 2026-10-26. Status: draft. Companion of
 [the functional design](functional-design.md) and
@@ -27,7 +34,7 @@ been executed. The toolkit remains a proposal; native Rust UI is the requirement
 
 | ID | Priority | Verification and pass criterion | Status |
 | --- | --- | --- | --- |
-| TL1 | G0 | Toolkit prototype gate of technical design 3.1, not the terminal-first UI milestone of functional design 5.12 and 5.16 (which has no file navigator). Prototype the chosen native toolkit with real agent PTYs, nested splits and Markdown/file panels on macOS/Linux and assumed Windows. No web frontend or required browser startup; record versions and platform gaps before selection. | open |
+| TL1 | G0 | Shell proof of technical design 3.1, not the terminal-first UI milestone of functional design 5.12 and 5.16 (which has no file navigator). Prove the Tauri shell (ADR-0005) with real agent PTYs, nested splits and Markdown/file panels on Windows in WebView2. No required Node, development server or browser startup; record the WebView2 version and gaps. A failure revises ADR-0005. | open |
 | TL2 | G1 | Mouse and keyboard split/resize/tab move/collapse/maximize work, including cancelled drops and small windows. Session identity/output stay intact; final PTY size is correct, hidden output is drained and modal/background input is isolated. Include IME, Unicode and scaling. | open |
 | TL3 | G1 | Per-project/window layout survives restart; corrupt/unknown state recovers without lost documents/history, conflicting workspace ownership is rejected and restoration starts no agents, apps or interactive browsers. | open |
 | TL4 | G1 | Markdown source/preview and dirty close preserve buffers; concurrent agent writes, save failures and stale render results cannot silently overwrite content. Hostile Markdown, paths/symlinks and remote assets cannot exceed grants. Test visual editor fidelity separately before enabling it. | open |
@@ -129,7 +136,7 @@ short form of this set; this register is the complete one and wins where they di
 | P14 | G0 | Process lifecycle: closing an instance kills its whole tree (Windows job object, Unix process group); a Shinatama crash leaves no orphan agents or MCP servers | Kill -9 and window-close tests | No surviving process after 10 s, or the survivors are documented | engine 3 |
 | P15 | G1 | Environment given to the child: `SHINATAMA_*`, `TERM`, `COLORTERM`; child-only | Env dump from inside each agent's shell tool | Values as specified; nothing leaks to the parent or siblings | engine 3 |
 | P16 | G0 | Spawning without a shell on Windows with paths containing spaces, parentheses, ampersands, non-ASCII, over 260 characters; `.cmd` shims; PATHEXT; Pi as `node.exe cli.js` | Spawn matrix per agent, including the known cases (EINVAL on `.cmd`, PATHEXT) | Every case starts the right program with the right arguments | engine 5.6; engine 6.8 |
-| P17 | G0 | The Rust crates named in the spec exist, are maintained, license-compatible and work on 3 OS (PTY, terminal emulation, text UI, SQLite) | Read crates' metadata and repositories; build the spike | A shortlist with versions and licences; "mature crates exist" restated with evidence | main 3 |
+| P17 | G0 | The Rust crates and npm packages in use exist, are maintained, license-compatible and work on Windows (PTY, xterm.js terminal emulation, Tauri, SQLite) | Read crates' metadata and repositories; build the spike | A shortlist with versions and licences; "mature crates exist" restated with evidence | main 3 |
 | P18 | G2 | Startup time, idle memory, per-instance memory, binary size | Measure on 3 OS | Numbers written; targets set from them | main 3 |
 | P19 | G1 | Terminal capability fallbacks: 16-colour only, no Unicode box drawing, no Nerd Font, `NO_COLOR`, screen readers | Force each fallback in the native window | Usable and legible; keyboard-only operation complete | main 5.7 |
 | P20 | G1 | Inherited agent markers: the exact variables each agent (Claude Code, Codex, OpenCode, Pi; Hermes Agent and DeepSeek Harness in HM11 and DS11) sets for its children; what a hosted agent does differently when it inherits them (Claude: `CLAUDECODE`, `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_MESSAGING_SOCKET`); that removing exactly those names gives fresh-terminal behaviour and removes none of the user's own settings | Env dump (names only) from each agent's shell tool in a scratch home; start each agent from inside another agent with and without the removal; compare startup, session listing, hooks, messaging socket use | Exact list per agent written into its adapter; with the removal, behaviour equals a fresh terminal; no user setting removed | engine 3; engine 5.5 A |
@@ -508,13 +515,25 @@ binary has been installed or run for this proposal. Source reading is not a pass
 | B9 | G1 | UI concurrency/control: second session, user takeover, agent resume, stale queued action after close/control change | Race tests with fake external effects | One controller; no focus/profile theft or stale/duplicate effect | browser spec 9 |
 | B10 | G1 | Reproducible whole-tree startup, latency and memory, companion included, on equivalent cold/warm workloads | Freeze versions/hardware/fixtures; publish raw measurements and baseline | Reproducible report supports a user-set budget; no upstream percentage is reused as evidence | browser spec 10; X1/X3 |
 
+## 19b. Rows defined in other records
+
+The implementation plan links these families. Their checks are defined where shown; the step
+that runs one adds its result here. All are open.
+
+| Family | Defined in | Status |
+|---|---|---|
+| AT-1 to AT-12 | technical-design 11 | open |
+| CS-1 to CS-19 | FRD-0012, the nineteen checks of spec 10.2 | open |
+| MR-1 to MR-4 | FRD-0015 | open |
+| TE1 to TE4, TE6 to TE11 | FRD-0016 | open |
+
 ## 20. Not empirical: waiting for the user
 
 These are decisions, not experiments; they are listed so nothing is lost.
 
 - O1 Which accounts and scratch logins may the tests use, and the cost cap per test run. Since 2026-10-28 it also blocks D15's login persistence: one sign-in per agent in a box.
 - ~~O2~~ Decided 2026-11-01 (user): the default title backend is the small local model, offered at first run (about 500 MB, downloaded after consent, licence shown); if declined, none. The provider low-cost model stays a user choice. The quality gate (I5) confirms it (engine 8.4).
-- O3 Windows in v1 (assumed yes in the design); the exact scope of the "assistant" in the widget.
+- O3 Windows in v1: answered 2026-11-02, yes, and only Windows for now. The exact scope of the "assistant" in the widget.
 - O4 Whether to run the Oni character's use as a distribution decision now (W9).
 - O5 Approval of the design and the engine design, so that the plan can be written.
 - ~~O6~~ Decided 2026-10-28 (user: yes): the former launcher is out of scope. Its mentions were removed from the README, both designs and this register; the rows that used it as their reference (Q6, D6, PM5, PM9) were removed; P16, SC7, SC11, D2, PM7, PM8 and Q7 were rewritten to stand alone; the first-milestone set is unchanged.
@@ -530,7 +549,7 @@ Next runs, no decision needed. These are listed in priority order:
 4. Codex's update channels for an `own` copy (D16).
 5. The Pi rows recorded on 1.2.0, rerun on 1.4.0.
 6. The untested switches: `CLAUDE_CODE_SKIP_MCP_DEBUG_LOG_FILES`, `CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL` and `CLAUDE_CODE_TMPDIR`.
-7. Everything on macOS and Linux.
+7. Everything on macOS and Linux (deferred 2026-11-02).
 8. SS5 against Mukade's `hop_into` once the pin is advanced past `4124b1f` (mukade-handover section 8).
 9. Install Hermes Agent 0.22.5 and DeepSeek Harness 0.2.1-rc.5 in scratch homes (this machine has neither), then HM1, HM2, HM14, DS1, DS2 and DS15.
 
@@ -541,6 +560,7 @@ Local records: [verification/](verification/); scripts: `verify/<ID>/` (see the 
 | Item | Prio | Status | Record | Note |
 |---|---|---|---|---|
 | E1 | G0 | running (partial) | [2026-10-27-E1-agent-cli-recheck.md](verification/2026-10-27-E1-agent-cli-recheck.md) | `--help` surface of all four agents re-checked; Claude drift 2.1.310 → 2.1.311; runtime rows open |
+| P14 | G0 | running (partial) | [2026-11-02-P14-containment-probe.md](verification/2026-11-02-P14-containment-probe.md) | Windows, synthetic children: job and console behaviour measured; real agents, crash paths other than TerminateProcess and sidecar open |
 | CX4 | G0 | passed | [2026-10-27-CX4-codex-claude-import.md](verification/2026-10-27-CX4-codex-claude-import.md) | scratch detect/import/resume proven; tool calls arrive as text markers; age window is the detector's filter |
 | PI5 | G1 | passed (spec corrected) | [2026-10-27-PI5-pi-tui-attach.md](verification/2026-10-27-PI5-pi-tui-attach.md) | Pi has no TUI attach; 5.7 item 4 corrected |
 | PI10 | G2 | running (partial) | [2026-10-27-PI10-pi-package-update.md](verification/2026-10-27-PI10-pi-package-update.md) | `@earendil-works/pi-coding-agent` installed 1.2.0; registry latest 1.4.0 |

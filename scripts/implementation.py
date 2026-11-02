@@ -169,7 +169,7 @@ def render(plan, progress):
         "## Regole comuni per ogni incremento", "",
         "1. Verificare prerequisiti e modifiche locali; delimitare i file del passo. Nessuno `git add .` in un checkout condiviso.",
         "2. Implementare una capacità utilizzabile; mantenere avviabile il programma e mostrare come indisponibili le capacità non provate.",
-        "3. Eseguire le prove della scheda, inclusi rifiuti/errori rilevanti. Registrare versione, OS e risultato; un test Windows non chiude un gate su tre sistemi.",
+        "3. Eseguire le prove della scheda, inclusi rifiuti/errori rilevanti. Registrare versione, OS e risultato; i gate attivi si chiudono su Windows, e nessuna prova vale per macOS o Linux, che restano rinviati.",
         "4. Aggiornare evidenza, checkpoint e mappa; selezionare solo i file/hunk del passo e creare il commit indicato dopo le verifiche.",
         "5. Riprendere dal primo passo pronto. Per annullare un passo già committato usare un commit di revert; le migrazioni richiedono backup e compatibilità, mai rollback distruttivo del DB.", "",
         "I comandi nelle schede future sono verifiche pianificate: i relativi test e comandi devono essere creati nel passo prima di poter dichiarare il risultato.",
@@ -211,7 +211,7 @@ def render(plan, progress):
         "Ogni requisito Markdown FRD-0001–FRD-0017 è assegnato ad almeno un passo, compresi invarianti, esclusioni e prove. Assegnazione non equivale a implementazione.",
         "Gli incrementi `evaluation` possono concludersi con una decisione o una capacità ancora indisponibile; non dichiarano consegnata la funzionalità. Gli incrementi `post-v1` sono esclusi dal prossimo passo automatico.",
         "Hop V1 solo seed/resume; nessuna scrittura di sessioni native in V1, nessun Git Diff dedicato, Grok o fallback browser automatico. Widget ultimo nella propria sequenza V1; browser/roundtable/TokenEconomizer non bloccano S1 e S2.",
-        "Tauri borderless è la direzione di lavoro autorizzata. Le vecchie restrizioni native-only e i riferimenti al renderer Mermaid devono essere riallineati senza falsificare l'approvazione storica degli ADR.", ""]
+        "Tauri è la shell V1 definitiva (ADR-0005 v2, ADR-0047 v2); TL1-proof la prova su Windows, unico sistema supportato ufficialmente. Le revisioni dipendenti di ADR-0002 (Mermaid), ADR-0040 e ADR-0048 restano da approvare.", ""]
     if plan.get('scope_overrides'):
         lines += ['I rinvii espliciti dell’utente prevalgono sullo scope storico: le parti rinviate restano tracciate, escluse dalla selezione automatica e dall’accettazione del ciclo attivo.', '']
     (DIRECTORY / "PLAN.md").write_text("\n".join(lines), encoding="utf-8")
