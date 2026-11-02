@@ -20,6 +20,19 @@ Il [piano completo](PLAN.md) contiene la sequenza e la scheda di ogni incremento
 [progress.json](progress.json) conserva stato, prove eseguite, commit e azione successiva.
 Il registro di verifica mantiene l'autorità sui gate: il piano non promuove le prove.
 
+**Esecuzione aggiornata, richiesta utente 2026-11-02:** per incremento si eseguono
+solo build dei componenti modificati, prova mirata del comportamento e una prova
+nell'app quando cambia il funzionamento visibile. Suite complete e audit estesi
+restano alla verifica finale o a regressioni concrete. Isolamento dei guasti,
+budget e risposta dell'app restano verifiche essenziali di C09R. Le liste nelle
+schede sono cataloghi: le prove non eseguite restano aperte.
+
+**Consegna richiesta:** mattina del 3 novembre, Europe/Rome. La priorita esecutiva
+e una build utilizzabile sul percorso del primo agente, con C09R prima delle
+integrazioni dipendenti. Tutti i requisiti V1 restano nel piano; la richiesta di
+data non autorizza a dichiarare completo uno scope ancora aperto. Il conteggio
+dei passi non misura la percentuale del prodotto o del tempo residuo.
+
 Le cinque fasi leggibili sono: fondamenta e progetti; primo agente supportato;
 S1 ricerca/resume; S2 hop seed; estensioni V1 e distribuzione. Browser, roundtable,
 Learning, routing, ottimizzazioni e widget hanno passi propri e verifiche esplicite.

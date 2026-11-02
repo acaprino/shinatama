@@ -10467,5 +10467,35 @@
       "requirements": [],
       "partial_clauses": {}
     }
-  ]
+  ],
+  "execution_policy": {
+    "updated_on": "2026-11-02",
+    "authorization": "Richiesta utente: troppe verifiche; lasciare soltanto quelle essenziali e aggiornare il piano.",
+    "verification_mode": "essential_per_increment",
+    "essential_checks": [
+      "Compilare soltanto i componenti modificati.",
+      "Eseguire una prova mirata del comportamento modificato e del suo rifiuto/recupero rilevante.",
+      "Eseguire una sola prova nell app se cambia il funzionamento visibile."
+    ],
+    "extended_checks": "Suite complete, audit estesi, matrice multipiattaforma e ripetizioni generali alla verifica finale o dopo una regressione concreta; non a ogni incremento.",
+    "stability_checks": "Restano essenziali le prove sintetiche di isolamento del guasto, budget e processo/interfaccia sani richieste da C09R. Le prove prolungate di rilascio restano gate finali, non rituali per ogni commit.",
+    "checkpoint": "Un commit funzionale con breve evidenza e prossimo passo; non fermarsi a ogni checkpoint per chiedere di continuare.",
+    "existing_check_catalog": "Le verifiche elencate nelle schede sono un catalogo: selezionare il sottoinsieme essenziale al cambiamento; registrare le prove estese non eseguite come aperte, senza promuovere i gate."
+  },
+  "delivery_request": {
+    "requested_on": "2026-11-02",
+    "target_date": "2026-11-03",
+    "target_window": "morning",
+    "timezone": "Europe/Rome",
+    "user_requested_scope": "Prodotto completato e pronto per essere usato entro domattina.",
+    "execution_priority": "Portare prima a una build utilizzabile il percorso del milestone first-agent, preservando la priorita vincolante C09R e tutte le dipendenze.",
+    "scope_rule": "Nessun requisito V1 e rinviato o dichiarato completo soltanto per rispettare la data. La data e una richiesta di consegna; non una certificazione o garanzia gia ottenuta.",
+    "ready_criteria": [
+      "Build Windows avviabile da un percorso documentato.",
+      "Progetti, workspace/terminale e percorso del primo agente funzionanti per il perimetro effettivamente implementato.",
+      "Guasti essenziali confinati e stato gia salvato preservato nel perimetro provato.",
+      "Capacita mancanti indisponibili con motivazione chiara; elenco breve dei limiti ancora aperti."
+    ],
+    "assessment": "Il completamento di tutto lo scope residuo entro la mattina non e una stima credibile verificata; lavorare alla tappa utilizzabile senza nascondere i requisiti aperti."
+  }
 }

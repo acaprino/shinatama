@@ -126,6 +126,8 @@ pub enum WorkerPhase {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MonitorStatus {
+    /// Same monotonic epoch as published frames and caller reports.
+    pub observed_at_ms: u64,
     pub phase: WorkerPhase,
     pub completed_cycles: u64,
     pub in_flight_for_ms: Option<u64>,
@@ -253,6 +255,7 @@ impl ResourceMonitor {
         let completed_cycles = self.shared.completed_cycles.load(Ordering::Acquire);
         let now = self.shared.now_ms();
         MonitorStatus {
+            observed_at_ms: now,
             phase,
             completed_cycles,
             in_flight_for_ms: (phase == WorkerPhase::Sampling)
@@ -354,8 +357,12 @@ fn run(shared: &Shared, receiver: Receiver<CallerReport>, config: MonitorConfig)
             started,
             WindowsSampler::identify,
         );
+        let counters_started_ms = shared.now_ms();
         let (owned_processes, aggregate, failure) = match sampler.sample(&keys) {
-            Ok(snapshot) => {
+            Ok(mut snapshot) => {
+                // A sampler created on the worker can start later than the monitor.
+                // Normalize before retention/policy use instead of mixing epochs.
+                snapshot.at_ms = counters_started_ms;
                 // Confirmed identities remain owned after their parent exits. A
                 // vanished/reused key is reported once, then discarded; denied or
                 // uncertain identities keep their bounded slot until resolved.
@@ -731,6 +738,12 @@ mod tests {
                     assert!(frame.owned_processes.len() <= MAX_PROCESSES);
                     assert!(frame.cycle_elapsed_us > 0);
                     assert!(frame.aggregate.is_some());
+                    let at = frame.aggregate.as_ref().unwrap().at_ms;
+                    assert!(at <= frame.completed_at_ms);
+                    assert!(
+                        frame.completed_at_ms - at <= frame.cycle_elapsed_us.div_ceil(1000) + 2
+                    );
+                    assert!(frame.completed_at_ms <= monitor.status().observed_at_ms);
                     break;
                 }
                 assert!(

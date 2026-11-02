@@ -44,6 +44,11 @@ radici: pagine di massimo 100 record con campi limitati prima della copia.
 Non si riempiono tabelle operative future per provare la classificazione e non
 si ricostruisce o elimina una tabella autorevole durante la manutenzione.
 
+`operational.resource_reservations.v1` (C09R.2) occupa una sola chiave JSON:
+massimo 64 slot e 64 KiB. Prenotazioni pendenti o `Retired` sono budget ancora
+impegnati: nessuna potatura, riparazione o scadenza automatica ne libera le righe.
+Il rilascio appartiene al controllore che verifica job, identita e crediti delle code.
+
 Per i backup si propone una futura selezione di candidati all'archiviazione dopo
 30 giorni, mantenendo almeno tre copie verificate e la copia prima dell'ultima
 migrazione valida. Una copia necessaria per ripristino resta protetta anche se

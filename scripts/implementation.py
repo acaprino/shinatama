@@ -169,12 +169,26 @@ def render(plan, progress):
         "## Regole comuni per ogni incremento", "",
         "1. Verificare prerequisiti e modifiche locali; delimitare i file del passo. Nessuno `git add .` in un checkout condiviso.",
         "2. Implementare una capacità utilizzabile; mantenere avviabile il programma e mostrare come indisponibili le capacità non provate.",
-        "3. Eseguire le prove della scheda, inclusi rifiuti/errori rilevanti. Registrare versione, OS e risultato; i gate attivi si chiudono su Windows, e nessuna prova vale per macOS o Linux, che restano rinviati.",
-        "4. Aggiornare evidenza, checkpoint e mappa; selezionare solo i file/hunk del passo e creare il commit indicato dopo le verifiche.",
+        "3. Eseguire solo le verifiche essenziali al cambiamento secondo la policy sotto; registrare versione, OS e risultato. I gate senza prova restano aperti.",
+        "4. Aggiornare brevemente evidenza e checkpoint; selezionare solo i file del passo e creare un commit funzionale dopo le verifiche essenziali.",
         "5. Riprendere dal primo passo pronto. Per annullare un passo già committato usare un commit di revert; le migrazioni richiedono backup e compatibilità, mai rollback distruttivo del DB.", "",
         "I comandi nelle schede future sono verifiche pianificate: i relativi test e comandi devono essere creati nel passo prima di poter dichiarare il risultato.",
         "Le stime sono ore di lavoro tecnico, includono implementazione/verifica/revisione e non costituiscono date di consegna; si aggiornano con le prove delle integrazioni.", "",
         "## Sequenza e dipendenze", "", "| Passo | Risultato | Prerequisiti | Stato | Ore |", "| --- | --- | --- | --- | --- |"]
+    policy = plan.get('execution_policy')
+    if policy:
+        position = lines.index('## Sequenza e dipendenze')
+        policy_lines = ['', '## Verifiche essenziali per incremento', '', policy['authorization'], '']
+        policy_lines += [f'{index}. {check}' for index, check in enumerate(policy['essential_checks'], 1)]
+        policy_lines += ['', policy['extended_checks'], '', policy['stability_checks'], '', policy['existing_check_catalog'], '', policy['checkpoint'], '']
+        lines[position:position] = policy_lines
+    delivery = plan.get('delivery_request')
+    if delivery:
+        position = lines.index('## Sequenza e dipendenze')
+        delivery_lines = ['', '## Consegna richiesta: mattina del 3 novembre', '', delivery['user_requested_scope'], '', delivery['execution_priority'], '']
+        delivery_lines += [f'{index}. {criterion}' for index, criterion in enumerate(delivery['ready_criteria'], 1)]
+        delivery_lines += ['', delivery['scope_rule'], '', delivery['assessment'], '', 'Avanzamento: contare separatamente gli incrementi V1 verificati e le unita del blocco attivo; il numero di passi non e una percentuale del tempo o del prodotto.', '']
+        lines[position:position] = delivery_lines
     for s in plan["steps"]:
         state = progress["steps"].get(s["id"], {}).get("status", "pending")
         lines.append(f"| [{s['id']}](#{s['id'].lower()}) | {s['title']} | {', '.join(s['depends_on']) or '—'} | {state} | {s['hours'][0]}–{s['hours'][1]} |")
@@ -195,7 +209,7 @@ def render(plan, progress):
         if s.get('deferred_clauses'):
             lines += ['**Parti rinviate nello scope corrente:** ' + ' '.join(s['deferred_clauses']), '']
         lines += [f"- {a}" for a in s["acceptance"]]
-        lines += ["", "**Verifiche del passo:** " + "; ".join(f"`{c}`" for c in s["checks"]) + ".", "",
+        lines += ["", "**Catalogo verifiche (applicare la policy essenziale):** " + "; ".join(f"`{c}`" for c in s["checks"]) + ".", "",
             "**Gate collegati, da registrare separatamente:** " + (", ".join(s["gates"]) or "nessun gate intero chiuso da questo passo") + ".", "",
             "**Requisiti coperti dal piano:** " + (", ".join(s["requirements"]) or "infrastruttura di esecuzione") + ".", "",
             f"**Commit proposto:** `{s['commit']}`.", "", f"**Prima azione alla ripresa:** {s['resume']}"]
@@ -233,7 +247,9 @@ def main():
     elif args.command in {"status", "next"}:
         step = next_step(plan, progress)
         completed = sum(state["status"] in DONE for state in progress["steps"].values())
-        print(f"Verified increments: {completed}/{len(plan['steps'])}; requirement coverage: {covered}/{total}")
+        v1 = [item for item in plan['steps'] if item['scope'] == 'v1']
+        v1_done = sum(progress['steps'].get(item['id'], {}).get('status') in DONE for item in v1)
+        print(f"Verified V1 increments: {v1_done}/{len(v1)}; all-scope checkpoints: {completed}/{len(plan['steps'])}; requirements mapped: {covered}/{total} (not product completion)")
         if step:
             print(f"Next: {step['id']} -- {step['title']}")
             print(step["resume"])

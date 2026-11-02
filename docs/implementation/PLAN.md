@@ -12,12 +12,47 @@ Aggiornare `progress.json` alla fine di ogni sessione; `verified` significa incr
 
 1. Verificare prerequisiti e modifiche locali; delimitare i file del passo. Nessuno `git add .` in un checkout condiviso.
 2. Implementare una capacità utilizzabile; mantenere avviabile il programma e mostrare come indisponibili le capacità non provate.
-3. Eseguire le prove della scheda, inclusi rifiuti/errori rilevanti. Registrare versione, OS e risultato; i gate attivi si chiudono su Windows, e nessuna prova vale per macOS o Linux, che restano rinviati.
-4. Aggiornare evidenza, checkpoint e mappa; selezionare solo i file/hunk del passo e creare il commit indicato dopo le verifiche.
+3. Eseguire solo le verifiche essenziali al cambiamento secondo la policy sotto; registrare versione, OS e risultato. I gate senza prova restano aperti.
+4. Aggiornare brevemente evidenza e checkpoint; selezionare solo i file del passo e creare un commit funzionale dopo le verifiche essenziali.
 5. Riprendere dal primo passo pronto. Per annullare un passo già committato usare un commit di revert; le migrazioni richiedono backup e compatibilità, mai rollback distruttivo del DB.
 
 I comandi nelle schede future sono verifiche pianificate: i relativi test e comandi devono essere creati nel passo prima di poter dichiarare il risultato.
 Le stime sono ore di lavoro tecnico, includono implementazione/verifica/revisione e non costituiscono date di consegna; si aggiornano con le prove delle integrazioni.
+
+
+## Verifiche essenziali per incremento
+
+Richiesta utente: troppe verifiche; lasciare soltanto quelle essenziali e aggiornare il piano.
+
+1. Compilare soltanto i componenti modificati.
+2. Eseguire una prova mirata del comportamento modificato e del suo rifiuto/recupero rilevante.
+3. Eseguire una sola prova nell app se cambia il funzionamento visibile.
+
+Suite complete, audit estesi, matrice multipiattaforma e ripetizioni generali alla verifica finale o dopo una regressione concreta; non a ogni incremento.
+
+Restano essenziali le prove sintetiche di isolamento del guasto, budget e processo/interfaccia sani richieste da C09R. Le prove prolungate di rilascio restano gate finali, non rituali per ogni commit.
+
+Le verifiche elencate nelle schede sono un catalogo: selezionare il sottoinsieme essenziale al cambiamento; registrare le prove estese non eseguite come aperte, senza promuovere i gate.
+
+Un commit funzionale con breve evidenza e prossimo passo; non fermarsi a ogni checkpoint per chiedere di continuare.
+
+
+## Consegna richiesta: mattina del 3 novembre
+
+Prodotto completato e pronto per essere usato entro domattina.
+
+Portare prima a una build utilizzabile il percorso del milestone first-agent, preservando la priorita vincolante C09R e tutte le dipendenze.
+
+1. Build Windows avviabile da un percorso documentato.
+2. Progetti, workspace/terminale e percorso del primo agente funzionanti per il perimetro effettivamente implementato.
+3. Guasti essenziali confinati e stato gia salvato preservato nel perimetro provato.
+4. Capacita mancanti indisponibili con motivazione chiara; elenco breve dei limiti ancora aperti.
+
+Nessun requisito V1 e rinviato o dichiarato completo soltanto per rispettare la data. La data e una richiesta di consegna; non una certificazione o garanzia gia ottenuta.
+
+Il completamento di tutto lo scope residuo entro la mattina non e una stima credibile verificata; lavorare alla tappa utilizzabile senza nascondere i requisiti aperti.
+
+Avanzamento: contare separatamente gli incrementi V1 verificati e le unita del blocco attivo; il numero di passi non e una percentuale del tempo o del prodotto.
 
 
 ## Rinvii richiesti dall’utente
@@ -173,7 +208,7 @@ Un punto di ripristino riproducibile del prototipo Tauri/xterm/Rust già realizz
 - Registrare file sorgenti, lockfile, comandi di compilazione e limiti attuali; preservare il lavoro estraneo a questo incremento.
 - La compilazione e la prova desktop devono passare prima del punto di ripristino; il vincolo della sola UI nativa deve riportare l'eccezione Tauri autorizzata.
 
-**Verifiche del passo:** `npm ci && npm run build`; `cargo test -p shinatama-terminal`; `npm run test:desktop`.
+**Catalogo verifiche (applicare la policy essenziale):** `npm ci && npm run build`; `cargo test -p shinatama-terminal`; `npm run test:desktop`.
 
 **Gate collegati, da registrare separatamente:** partial TL2/TL5/P1/P9/P14 only.
 
@@ -198,7 +233,7 @@ Piano leggibile e macchina, dipendenze senza cicli, ogni requisito assegnato e s
 - Validazione rifiuta riferimenti mancanti, cicli, due passi attivi, prove assenti e commit senza SHA reale.
 - La scheda di ogni passo specifica risultato utilizzabile, ambito, file, verifiche, gate, stima e commit.
 
-**Verifiche del passo:** `python scripts/implementation.py validate`; `python -m unittest discover -s scripts -p test_implementation.py`; `python scripts/implementation.py status`.
+**Catalogo verifiche (applicare la policy essenziale):** `python scripts/implementation.py validate`; `python -m unittest discover -s scripts -p test_implementation.py`; `python scripts/implementation.py status`.
 
 **Gate collegati, da registrare separatamente:** nessun gate intero chiuso da questo passo.
 
@@ -224,7 +259,7 @@ Cronologia di dieci cartelle recenti, filtro e ultima cartella ripristinata nell
 - La selezione cambia soltanto la cartella dei terminali futuri e non avvia o riprende terminali.
 - Mostrare inizialmente un elenco limitato di progetti recenti; il comportamento esatto delle ultime dieci cartelle non standard viene completato con le radici configurate in C04.
 
-**Verifiche del passo:** `cargo test -p shinatama-projects`; `npm run build`; `npm run test:projects`; `npm run test:desktop`.
+**Catalogo verifiche (applicare la policy essenziale):** `cargo test -p shinatama-projects`; `npm run build`; `npm run test:projects`; `npm run test:desktop`.
 
 **Gate collegati, da registrare separatamente:** PM1 partial, PM7, PM8, S9 partial.
 
@@ -250,7 +285,7 @@ CI su Windows, dipendenze riproducibili, inventario delle licenze e documentazio
 - Aggiornare prove, registro, README e mappa del codice a ogni passo completato, senza inventare verifiche superate.
 - Non inviare telemetria né richieste di aggiornamento o catalogo per impostazione iniziale.
 
-**Verifiche del passo:** `pwsh -NoProfile -File scripts/verify.ps1`; `python scripts/dependencies.py check --offline`.
+**Catalogo verifiche (applicare la policy essenziale):** `pwsh -NoProfile -File scripts/verify.ps1`; `python scripts/dependencies.py check --offline`.
 
 **Gate collegati, da registrare separatamente:** P17, P18, X3, X4, X5.
 
@@ -275,7 +310,7 @@ Prova della shell Tauri su Windows con un vero agente in PTY, pannelli annidati,
 - La versione di WebView2 e i limiti sono registrati; il comportamento su una macchina senza WebView2 è provato o indicato come lacuna.
 - Un fallimento produce una nuova versione di ADR-0005 prima di C06; non si cambia toolkit in silenzio.
 
-**Verifiche del passo:** `npm run build`; `npm run test:desktop`; `planned: fixture TL1 su Windows con agente reale e account di prova autorizzato`.
+**Catalogo verifiche (applicare la policy essenziale):** `npm run build`; `npm run test:desktop`; `planned: fixture TL1 su Windows con agente reale e account di prova autorizzato`.
 
 **Gate collegati, da registrare separatamente:** TL1, P17.
 
@@ -326,7 +361,7 @@ Un modulo che risolve la cartella dati della piattaforma e SHINATAMA_HOME, appli
 - I percorsi sincronizzati, di rete o interni al progetto riconosciuti vengono rifiutati con un errore che indica come procedere; nessun ripiego silenzioso e nessun file creato nel percorso rifiutato.
 - Permessi e ACL vengono verificati su ogni sistema supportato; le verifiche mancanti restano dichiarate.
 
-**Verifiche del passo:** `path policy fixtures incl UNC/symlinks/OneDrive/DriveFS`; `owner-permission inspection`.
+**Catalogo verifiche (applicare la policy essenziale):** `path policy fixtures incl UNC/symlinks/OneDrive/DriveFS`; `owner-permission inspection`.
 
 **Gate collegati, da registrare separatamente:** D15, E4, S11, S2, S9.
 
@@ -352,7 +387,7 @@ Schema minimo per progetti e impostazioni, FTS5 incorporato, WAL e transazioni t
 - Nessuna IPC SQL generica e nessuno schema vuoto di funzionalità future; testi sensibili e credenziali non finiscono nei log.
 - Importare una sola volta la cronologia di configurazione B02 senza perdere percorsi o ordine; conservare il vecchio file fino alla verifica della migrazione completata.
 
-**Verifiche del passo:** `cargo test -p shinatama-state`; `synthetic 4-reader/4-writer stress and integrity_check`.
+**Catalogo verifiche (applicare la policy essenziale):** `cargo test -p shinatama-state`; `synthetic 4-reader/4-writer stress and integrity_check`.
 
 **Gate collegati, da registrare separatamente:** S1, S4, S4 partial, S5.
 
@@ -377,7 +412,7 @@ Migrazioni incorporate e versionate, copia di sicurezza verificata prima di ogni
 - Nessun percorso di ripristino o ricreazione elimina dati autorevoli.
 - Un arresto durante la migrazione annulla la transazione, conserva la copia di sicurezza e supera integrity_check.
 
-**Verifiche del passo:** `migration fixture tests`; `kill-at-migration fault test`.
+**Catalogo verifiche (applicare la policy essenziale):** `migration fixture tests`; `kill-at-migration fault test`.
 
 **Gate collegati, da registrare separatamente:** S1, S4, S5.
 
@@ -404,7 +439,7 @@ Manutenzione locale con policy finite, rapporto tipizzato, quarantena senza payl
 - Record autorevoli e backup verificati non vengono cancellati automaticamente; anomalie aggregate e report di crescita hanno tetti fissi. Le feature future registrano policy operative prima di abilitare i propri dati.
 - Prove di guasto, spazio insufficiente, contesa, ripetizioni e un terminale sano con latenza misurata; nessun gate si chiude con i soli test unitari.
 
-**Verifiche del passo:** `cargo test -p shinatama-state --test maintenance`; `planned: fault/recovery and real healthy-terminal responsiveness under maintenance`; `python scripts/implementation.py validate`.
+**Catalogo verifiche (applicare la policy essenziale):** `cargo test -p shinatama-state --test maintenance`; `planned: fault/recovery and real healthy-terminal responsiveness under maintenance`; `python scripts/implementation.py validate`.
 
 **Gate collegati, da registrare separatamente:** S4, S5, I8, X5, RES1, TL5.
 
@@ -467,7 +502,7 @@ Più radici, radice predefinita modificabile, individuazione delle cartelle di p
 - I progetti mai aperti sono ordinati per data di modifica della cartella; quelli già aperti per attività in Shinatama.
 - La cronologia contiene soltanto cartelle esterne alle radici e all'undicesimo inserimento elimina esattamente la voce meno recente.
 
-**Verifiche del passo:** `synthetic large-root and slow-scan fixtures`; `native folder chooser on Windows`; `keyboard focus test`.
+**Catalogo verifiche (applicare la policy essenziale):** `synthetic large-root and slow-scan fixtures`; `native folder chooser on Windows`; `keyboard focus test`.
 
 **Gate collegati, da registrare separatamente:** PM1, PM6, PM7, PM8, U3.
 
@@ -530,7 +565,7 @@ Finestra di creazione del progetto, mkdir validato e git init opzionale, con val
 - Un errore in mkdir o git init non lascia un progetto incompleto e non modifica cartelle preesistenti.
 - Il tasto n apre la creazione fuori dal filtro incrementale; la creazione del progetto richiede un'azione dell'utente.
 
-**Verifiche del passo:** `name-validation corpus on Windows`; `fault injection during mkdir/git init`.
+**Catalogo verifiche (applicare la policy essenziale):** `name-validation corpus on Windows`; `fault injection during mkdir/git init`.
 
 **Gate collegati, da registrare separatamente:** PM4, U3.
 
@@ -557,7 +592,7 @@ Il motore compila senza adattatori o con adattatori finti; programmi individuati
 - Versioni sconosciute o non conformi diventano Degraded, con motivo e rifiuto delle singole capacità.
 - Scegliere l'architettura di collegamento supportata prima di implementare ciascun adattatore.
 
-**Verifiche del passo:** `fake-adapter contract tests`; `synthetic installation/version fixtures`; `--help/--version only discovery probes`.
+**Catalogo verifiche (applicare la policy essenziale):** `fake-adapter contract tests`; `synthetic installation/version fixtures`; `--help/--version only discovery probes`.
 
 **Gate collegati, da registrare separatamente:** E1, E5, CX6, HM2, DS1, D18.
 
@@ -611,7 +646,7 @@ Un solo costruttore del piano di avvio risolve collocazione, ambiente del figlio
 - Le particolarità di home, file temporanei e cache di Codex, OpenCode, Pi, Hermes e DeepSeek sono verificate per versione; i percorsi di isolamento non supportati vengono rifiutati.
 - UI, CLI e ripresa usano tutti lo stesso punto di avvio con controllo preliminare.
 
-**Verifiche del passo:** `launch-plan pure fixture tests`; `marker names-only nested launch probes`; `box leak/ACL tests in synthetic homes`.
+**Catalogo verifiche (applicare la policy essenziale):** `launch-plan pure fixture tests`; `marker names-only nested launch probes`; `box leak/ACL tests in synthetic homes`.
 
 **Gate collegati, da registrare separatamente:** D15, D17, D18, P15, P16, P20, M1, CX12, HM9, DS9, SS5.
 
@@ -688,7 +723,7 @@ Installazione del sidecar dall'unico sorgente con provenienza registrata, cartel
 - Nessun avvio dichiarato supportato salta le verifiche della copertura del traffico del provider.
 - Ereditare dal singolo sorgente sidecar la correzione storage del 2026-11-02: schema v9 con sei indici e sync CCR transazionale per variazioni nette; identificare l artefatto con revisione/fingerprint e non con il solo numero versione.
 
-**Verifiche del passo:** `SC1-SC4/SC7-SC11 isolation corpus`; `synthetic HTTP/TLS fixtures`; `effective-config/seed-bypass fixtures`.
+**Catalogo verifiche (applicare la policy essenziale):** `SC1-SC4/SC7-SC11 isolation corpus`; `synthetic HTTP/TLS fixtures`; `effective-config/seed-bypass fixtures`.
 
 **Gate collegati, da registrare separatamente:** SC1-SC4, SC7-SC13, CX12, HM12, DS12, T5, T6, T7.
 
@@ -763,7 +798,7 @@ Controllore locale misurato, budget per albero e ammissione aggregata, limiti pr
 - Budget e soglie sono misurati e congelati prima del test; niente limiti restrittivi condivisi con host e renderer.
 - Solo emergenza attribuibile autorizza arresto automatico del responsabile; nessun replay di lavoro agente.
 
-**Verifiche del passo:** `pianificato: RES1-RES4 sintetici prima delle integrazioni dipendenti`; `pianificato: prove di carico e fault isolate, con dati sintetici`.
+**Catalogo verifiche (applicare la policy essenziale):** `pianificato: RES1-RES4 sintetici prima delle integrazioni dipendenti`; `pianificato: prove di carico e fault isolate, con dati sintetici`.
 
 **Gate collegati, da registrare separatamente:** RES1, RES2, RES3, RES4, TL5, P18.
 
@@ -843,7 +878,7 @@ Un solo supervisore per finestra, topologia scelta sulla base delle misure, recu
 - Prima di avviare il sidecar si valuta process-wrap per i processi senza PTY (job con avvio sospeso, licenza, manutenzione, costo di integrazione): l'esito è una decisione registrata in `[workspace.dependencies]` con motivo e licenza, oppure il rifiuto motivato. watchexec-supervisor ed expectrl non vengono usati.
 - Ogni sidecar usa ammissione e budget C09R; recupero con attesa crescente, numero massimo di tentativi e blocco dopo guasti ripetuti. Allocazioni rifiutate, pipe rotte e monitor guasto non bloccano l host ne creano duplicati; log e code restano limitati.
 
-**Verifiche del passo:** `held-event-loop/port-bind/dead-owner/stale-proxy fault suite`; `PTY capture plus diagnostic-log comparison`; `SC16 inherited storage-latency suite, v8 migration integrity, local CONNECT/health fixture and one-hour load per supported OS`; `planned: RES1-RES4 sidecar con crash ripetuti, memoria al limite, monitor guasto e verifica limiti di retry/log/code`.
+**Catalogo verifiche (applicare la policy essenziale):** `held-event-loop/port-bind/dead-owner/stale-proxy fault suite`; `PTY capture plus diagnostic-log comparison`; `SC16 inherited storage-latency suite, v8 migration integrity, local CONNECT/health fixture and one-hour load per supported OS`; `planned: RES1-RES4 sidecar con crash ripetuti, memoria al limite, monitor guasto e verifica limiti di retry/log/code`.
 
 **Gate collegati, da registrare separatamente:** SC5, SC6, SC12, SC14, SC15, SC16, T9, RES1, RES2, RES3, RES4 (integrazione).
 
@@ -930,7 +965,7 @@ Controllo preliminare unico e selezione dei plugin/skill/MCP scelti per istanza,
 - Le configurazioni system restano immutate e i set per istanza rispettano le limitazioni degli adattatori.
 - Le fixture di set generici precedono le prove QSET per adattatore; nessuna installazione marketplace implicita.
 
-**Verifiche del passo:** `fixture manifest e set generici senza Daodan`; `checkup sintetico e rifiuti dei soli prerequisiti attivi`.
+**Catalogo verifiche (applicare la policy essenziale):** `fixture manifest e set generici senza Daodan`; `checkup sintetico e rifiuti dei soli prerequisiti attivi`.
 
 **Gate collegati, da registrare separatamente:** D7: checkup generico, D19: set generici per host; pacchetti Daodan rinviati.
 
@@ -958,7 +993,7 @@ Record versionati di progetti, spazi di lavoro e radici degli archivi; separazio
 - Il layout deve usare revisione e proprietario e non avviare processi durante il ripristino.
 - Il legame del companion deve essere distinto dalla discendenza degli hop; ID e date devono rispettare il contratto canonico.
 
-**Verifiche del passo:** `planned: Rebuild only disposable indexes while authoritative history survives.`; `planned: Root removal marks unavailable; same native ID in two roots remains distinct.`; `planned: Workspace layout uses revision/owner and restores no processes.`; `planned: Companion relation is separate from hop parent lineage; IDs/timestamps match canonical contract.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Rebuild only disposable indexes while authoritative history survives.`; `planned: Root removal marks unavailable; same native ID in two roots remains distinct.`; `planned: Workspace layout uses revision/owner and restores no processes.`; `planned: Companion relation is separate from hop parent lineage; IDs/timestamps match canonical contract.`.
 
 **Gate collegati, da registrare separatamente:** TL3, SS5, S9.
 
@@ -983,7 +1018,7 @@ Albero di layout versionato in Rust o TypeScript, trasformazioni atomiche per di
 - Il ripristino ricrea soltanto descrittori di risorse: nessun PID, output, buffer modificato, credenziale o esecuzione.
 - Una seconda finestra non può acquisire lo stesso spazio di lavoro; un layout corrotto recupera l'ultima istantanea valida.
 
-**Verifiche del passo:** `layout property and revision-conflict tests`; `two-window ownership fixtures`.
+**Catalogo verifiche (applicare la policy essenziale):** `layout property and revision-conflict tests`; `two-window ownership fixtures`.
 
 **Gate collegati, da registrare separatamente:** TL3.
 
@@ -1037,7 +1072,7 @@ Pannelli annidati e ridimensionabili, riordino e divisione dai bordi delle sched
 - Le finestre strette mantengono raggiungibile ogni pannello; una vista nascosta conserva l'ultima dimensione utilizzabile.
 - Cornice con bordo e titolo, barra superiore con thread, cartella, ramo, costo e icona dell'agente, barra inferiore dei tasti e overlay di ricerca sono colorati dalla skin; i dati non ancora disponibili appaiono come tali (FRD-0001/R12).
 
-**Verifiche del passo:** `desktop nested-split/move/cancel/keyboard smoke`; `four noisy panes plus resize instrumentation`.
+**Catalogo verifiche (applicare la policy essenziale):** `desktop nested-split/move/cancel/keyboard smoke`; `four noisy panes plus resize instrumentation`.
 
 **Gate collegati, da registrare separatamente:** TL2, TL5, U3, U4, U5, P11, P12.
 
@@ -1112,7 +1147,7 @@ Temi Shinatama, Section9, TCTF e Sumi per la cornice, profili per tutti gli agen
 - Ogni ruolo di testo secondario rispetta il contrasto richiesto o ha un'eccezione esplicita; nessun effetto luminoso.
 - Una modifica di font o metriche invia un solo ridimensionamento finale; profili e font sconosciuti usano il ripiego senza riavvio; le licenze delle risorse sono documentate.
 
-**Verifiche del passo:** `contrast script over final tokens`; `ANSI/truecolour/profile/resize fixtures`; `screen-reader and no-Nerd-font checks`.
+**Catalogo verifiche (applicare la policy essenziale):** `contrast script over final tokens`; `ANSI/truecolour/profile/resize fixtures`; `screen-reader and no-Nerd-font checks`.
 
 **Gate collegati, da registrare separatamente:** U1, U2, U8, P10, TL2, X3.
 
@@ -1180,7 +1215,7 @@ Meccanismi terminali riusabili e fixture sintetiche per I/O, Unicode, input/focu
 - Lo stop di un terminale chiude sia il job sia la pseudoconsole; un discendente staccato dalla console dopo lo stop non sopravvive.
 - Integrare C09R nel percorso PTY/IPC/renderer: crash, blocco, allocazione rifiutata, output ostile e code piene restano locali; host e terminale sano rispondono entro soglie dichiarate. La policy di emergenza arresta solo il responsabile, preserva lo stato salvato e non ripete comandi.
 
-**Verifiche del passo:** `fixture sintetiche terminal/emulator e process lifecycle`; `corpus ANSI negativo`; `npm run test:desktop sulla piattaforma disponibile`; `planned: kill dell'app con figlio e nipote su Windows; nessun superstite entro 10 s`; `planned: handle del job globale non ereditabile e assente nei figli`; `planned: guardia permanente: nessun codice del figlio gira prima dell'assegnazione al job di sessione (ordine di produzione)`; `planned: nipote forzato prima dell'assegnazione, stop di A con B vivo, nipote staccato dalla console, su Windows`; `planned: RES1-RES3 nel percorso terminale reale con sibling sano, limiti di memoria/CPU/processi e monitor guasto`.
+**Catalogo verifiche (applicare la policy essenziale):** `fixture sintetiche terminal/emulator e process lifecycle`; `corpus ANSI negativo`; `npm run test:desktop sulla piattaforma disponibile`; `planned: kill dell'app con figlio e nipote su Windows; nessun superstite entro 10 s`; `planned: handle del job globale non ereditabile e assente nei figli`; `planned: guardia permanente: nessun codice del figlio gira prima dell'assegnazione al job di sessione (ordine di produzione)`; `planned: nipote forzato prima dell'assegnazione, stop di A con B vivo, nipote staccato dalla console, su Windows`; `planned: RES1-RES3 nel percorso terminale reale con sibling sano, limiti di memoria/CPU/processi e monitor guasto`.
 
 **Gate collegati, da registrare separatamente:** P1–P20 parziali: soli meccanismi sintetici, TL5 parziale, U6, P14, RES1, RES2, RES3, RES4 (integrazione).
 
@@ -1208,7 +1243,7 @@ Avvio Claude, stato di accesso e login tramite l'unico percorso verificato, con 
 - Versione delle fixture e versione installata coincidono prima di dichiarare supporto; i test reali usano un account sintetico autorizzato separatamente.
 - Supporto dichiarato solo per versione/capacità/piattaforma effettivamente provate; il resto resta indisponibile fino ai passi QA/QSET.
 
-**Verifiche del passo:** `Claude contract fixtures`; `synthetic signed-out smoke`; `authorized synthetic live TUI canary`.
+**Catalogo verifiche (applicare la policy essenziale):** `Claude contract fixtures`; `synthetic signed-out smoke`; `authorized synthetic live TUI canary`.
 
 **Gate collegati, da registrare separatamente:** CL1/CL4/CL8: sottoinsieme avvio/stato, D5, P20 parziale Claude, QA-claude-* per certificazione completa, CL13.
 
@@ -1273,7 +1308,7 @@ Evidenza riproducibile per un vero claude su windows, separata dalle altre combi
 - Completare SC16 con cinque istanze e storie lunghe per un ora sulla piattaforma: nessuna connessione rifiutata, profilare i ritardi; usare solo fixture/account e budget autorizzati.
 - Ripetere i fault RES applicabili all agente Windows; nessun passaggio di test estranei qualifica la resilienza.
 
-**Verifiche del passo:** `matrice P1–P20 claude/windows applicabile`; `fixture TUI reale claude con account/test sintetici autorizzati`; `planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza`.
+**Catalogo verifiche (applicare la policy essenziale):** `matrice P1–P20 claude/windows applicabile`; `fixture TUI reale claude con account/test sintetici autorizzati`; `planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza`.
 
 **Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7, RES1-RES4 (agente reale).
 
@@ -1298,7 +1333,7 @@ Catalogo esplicito di cartelle private, di sistema e in sola lettura, con elench
 - I metadati sconosciuti restano sconosciuti; l'elenco non carica un'intera trascrizione per riga.
 - I sottoprocessi di esportazione usano contesto isolato, timeout e pulizia; archivio nativo e file accessori restano invariati.
 
-**Verifiche del passo:** `root-scoping/side-effect fingerprint fixtures`; `Mukade pin conformance corpus`.
+**Catalogo verifiche (applicare la policy essenziale):** `root-scoping/side-effect fingerprint fixtures`; `Mukade pin conformance corpus`.
 
 **Gate collegati, da registrare separatamente:** SS1, SS5, H27, HM3, DS3, S9.
 
@@ -1362,7 +1397,7 @@ Navigatore Progetti/Sessioni e pannelli in sola lettura Panoramica, Trascrizione
 - La discendenza segnala relazioni mancanti, esterne, ambigue o cicliche senza inventare collegamenti.
 - Apertura, scansione, clic sui nodi e copia non riprendono sessioni e non scrivono negli archivi.
 
-**Verifiche del passo:** `30MB/malformed/torn-record/late-response corpus`; `privacy and native-store fingerprint tests`.
+**Catalogo verifiche (applicare la policy essenziale):** `30MB/malformed/torn-record/late-response corpus`; `privacy and native-store fingerprint tests`.
 
 **Gate collegati, da registrare separatamente:** SS1, SS2, SS3, SS6, CL6, CX10, OC3, PI3, H15.
 
@@ -1437,7 +1472,7 @@ Ricerca FTS5 con filtri per agente, progetto e data, indicazione delle origini e
 - Le sessioni native scadute restano ricercabili ma non possono essere riprese nativamente.
 - Ricostruire l'indice operativo non rigenera o elimina mai la cronologia autorevole dei thread.
 
-**Verifiche del passo:** `synthetic corpus at realistic size`; `incremental/watch/retention and forget tests`.
+**Catalogo verifiche (applicare la policy essenziale):** `synthetic corpus at realistic size`; `incremental/watch/retention and forget tests`.
 
 **Gate collegati, da registrare separatamente:** S6, S7, CL7, I9.
 
@@ -1501,7 +1536,7 @@ Un runtime proprietario dei PTY per finestra, comando hook autenticato, lettori 
 - I lettori devono recuperare gli eventi successivi al proprio seq; misurare latenza del polling e crescita dovuta alla conservazione.
 - L’hook deve aggiornare evento e stato nella stessa transazione e rispettare token, stdout e contratto dei codici di uscita.
 
-**Verifiche del passo:** `planned: Two windows cannot write one PTY or attach one native segment twice.`; `planned: Heartbeat/reaper survives laptop sleep without false dead.`; `planned: Consumers catch up by seq; polling latency and retention growth measured.`; `planned: Hook updates event/state transactionally, honors token and stdout/exit contract.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Two windows cannot write one PTY or attach one native segment twice.`; `planned: Heartbeat/reaper survives laptop sleep without false dead.`; `planned: Consumers catch up by seq; polling latency and retention growth measured.`; `planned: Hook updates event/state transactionally, honors token and stdout/exit contract.`.
 
 **Gate collegati, da registrare separatamente:** P14, S3, S8, I8, M11.
 
@@ -1527,7 +1562,7 @@ Thread di lavoro, segmenti e attivazioni persistenti, ripresa nativa esplicita e
 - Un'origine nativa mancante propone correttamente un futuro avvio da seed, senza presentarlo come ripresa nativa.
 - La colonna dei thread è un pannello laterale ridimensionabile e comprimibile, colorato dalla skin (FRD-0001/R12).
 
-**Verifiche del passo:** `two-process resume race`; `resume/exit/restart fixtures`; `source-store unchanged assertion`.
+**Catalogo verifiche (applicare la policy essenziale):** `two-process resume race`; `resume/exit/restart fixtures`; `source-store unchanged assertion`.
 
 **Gate collegati, da registrare separatamente:** CL4, CL15, S4, SS5.
 
@@ -1590,7 +1625,7 @@ Operazioni comuni a UI e CLI per sessions, find, export, resume, doctor e forget
 - Output atomico con regole esplicite per sovrascrittura e allegati; versioni STX superiori vengono rifiutate e i campi sconosciuti conservati.
 - La CLI non suggerisce supporto all'importazione in v1; l'esportazione nativa compare soltanto dove è provata.
 
-**Verifiche del passo:** `export roundtrip/readback fixtures`; `atomic-output failure and exit-code tests`.
+**Catalogo verifiche (applicare la policy essenziale):** `export roundtrip/readback fixtures`; `atomic-output failure and exit-code tests`.
 
 **Gate collegati, da registrare separatamente:** SS6, H14, OC2.
 
@@ -1654,7 +1689,7 @@ Controllo di integrità doctor, disattivazione dell’indicizzazione per progett
 - Database, log e acquisizioni non devono contenere credenziali o traffico in uscita non previsto.
 - I percorsi SEC devono ricevere una seconda revisione e prove dei casi negativi.
 
-**Verifiche del passo:** `planned: Forget removes specified retained content and companion records; unrelated authoritative data survives.`; `planned: Rebuild regenerates only operational indexes.`; `planned: No credentials or unintended outbound traffic in database/logs/captures.`; `planned: SEC paths receive second-reader negative-case review.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Forget removes specified retained content and companion records; unrelated authoritative data survives.`; `planned: Rebuild regenerates only operational indexes.`; `planned: No credentials or unintended outbound traffic in database/logs/captures.`; `planned: SEC paths receive second-reader negative-case review.`.
 
 **Gate collegati, da registrare separatamente:** AT-6, I9, X4, X5.
 
@@ -1680,7 +1715,7 @@ Avvio, autenticazione, collegamento e segnali Codex attraverso lo stesso contrat
 - Nessuna sessione nativa ha due scrittori; la sovrapposizione privata conserva autenticazione e cronologia nelle posizioni previste dall'agente.
 - Gli insiemi per istanza nella home di sistema vengono rifiutati; coda nativa e segnali dichiarati sono provati.
 
-**Verifiche del passo:** `Codex versioned contract fixtures`; `synthetic box/system-home negative cases`.
+**Catalogo verifiche (applicare la policy essenziale):** `Codex versioned contract fixtures`; `synthetic box/system-home negative cases`.
 
 **Gate collegati, da registrare separatamente:** CX1-CX14, CX12, D19, P20.
 
@@ -1744,7 +1779,7 @@ Ciclo di vita del terminale e server OpenCode, rilevamento dell'autenticazione e
 - Il servizio dell'agente termina insieme alla finestra; il ripristino XDG dei sottoprocessi impedisce perdite nell'ambiente.
 - L'autenticazione mostra Unknown quando i controlli disponibili senza segreti non soddisfano il criterio sulla versione installata.
 
-**Verifiche del passo:** `OpenCode contract/export/service fixtures`; `XDG child-env negative cases`.
+**Catalogo verifiche (applicare la policy essenziale):** `OpenCode contract/export/service fixtures`; `XDG child-env negative cases`.
 
 **Gate collegati, da registrare separatamente:** OC1-OC10, D17, P20.
 
@@ -1808,7 +1843,7 @@ Pi avviato tramite node e vettore di argomenti, con capacità esplicite per skil
 - Non viene presunta una modalità di collegamento alla TUI; lo stato di accesso usa un controllo senza refresh e senza segreti.
 - Le cartelle skill dell'utente non entrano negli insiemi per istanza.
 
-**Verifiche del passo:** `Pi contract/RPC/skills fixtures`; `paths with spaces and nonASCII`.
+**Catalogo verifiche (applicare la policy essenziale):** `Pi contract/RPC/skills fixtures`; `paths with spaces and nonASCII`.
 
 **Gate collegati, da registrare separatamente:** PI1-PI11, D19, P20.
 
@@ -1873,7 +1908,7 @@ Chat, autenticazione e gateway Hermes soltanto dove le fixture della versione in
 - Nessuna capacità di lettura Mukade, esportazione o hop in uscita è dichiarata prima che una revisione verificata la fornisca.
 - Una procedura sconosciuta di installazione gestita fa rifiutare la modalità own.
 
-**Verifiche del passo:** `Hermes contract and gateway lifecycle fixtures`; `no-package/no-reader negatives`.
+**Catalogo verifiche (applicare la policy essenziale):** `Hermes contract and gateway lifecycle fixtures`; `no-package/no-reader negatives`.
 
 **Gate collegati, da registrare separatamente:** HM1-HM14.
 
@@ -1938,7 +1973,7 @@ Un client ACP mostra messaggi, strumenti e permessi reali dell'agente e avvia ds
 - DSH_HOME, DSH_AGENTS_HOME e trasporto del token MCP di sessione vengono provati o rifiutati.
 - dsh web resta esterno e nessun processo browser rimane dopo la chiusura; autenticazione Unknown fino a DS9.
 
-**Verifiche del passo:** `ACP protocol fixture replay with denied permissions`; `real installed-version canary when authorized`.
+**Catalogo verifiche (applicare la policy essenziale):** `ACP protocol fixture replay with denied permissions`; `real installed-version canary when authorized`.
 
 **Gate collegati, da registrare separatamente:** DS1-DS15.
 
@@ -2013,7 +2048,7 @@ Budget seed deterministico, rapporto delle perdite, file della trascrizione comp
 - Ragionamento e vecchi seed annidati sono esclusi; il corpus dei segreti verifica l'oscuramento prima del salvataggio; i byte dell'anteprima coincidono con l'istantanea inviata.
 - Nessun file di istruzioni viene creato nel progetto senza consenso; prefissi bootstrap pericolosi non vengono eseguiti; i file completi sono privati.
 
-**Verifiche del passo:** `budget/redaction/hostile-prefix property corpus`; `preview hash and private-file fixtures`.
+**Catalogo verifiche (applicare la policy essenziale):** `budget/redaction/hostile-prefix property corpus`; `preview hash and private-file fixtures`.
 
 **Gate collegati, da registrare separatamente:** H2, H3, H4, H7, H11, H14, H16, H18, CL16, SC9, CL2, CL3, CL14, H23, E3.
 
@@ -2090,7 +2125,7 @@ Macchina a stati transazionale degli hop con identità distinte per close e fork
 - Un database occupato o pieno non consente di procedere senza registro; nessuna risposta automatica alle domande iniziali di fiducia.
 - Il dialogo hop è un overlay che lascia intatto lo schermo dell'emulatore e restituisce il focus al pannello di origine (FRD-0001/R12).
 
-**Verifiche del passo:** `fake-adapter state transition suite`; `concurrent-hop test`; `effect-boundary fault injection`.
+**Catalogo verifiche (applicare la policy essenziale):** `fake-adapter state transition suite`; `concurrent-hop test`; `effect-boundary fault injection`.
 
 **Gate collegati, da registrare separatamente:** S4, S10, H1, H5, H9, H12, H24, H25, H26, SS4, AT-1, AT-4, AT-10, CL12, H8, H17, H22.
 
@@ -2165,7 +2200,7 @@ Riconciliazione al riavvio senza duplicare avvii incerti, aggiornamento limitato
 - Istantanea, hash della prima voce e nonce vengono verificati; nuovi turni nell'origine attivano al massimo due aggiornamenti.
 - Lo standby è inizialmente disattivato, non usa token prima del seed e scade dopo trenta minuti o un cambio di versione.
 
-**Verifiche del passo:** `kill-at-each-transition matrix`; `history-only canary and hop-back tests when synthetic live budget authorized`; `warm/cold latency measurements`.
+**Catalogo verifiche (applicare la policy essenziale):** `kill-at-each-transition matrix`; `history-only canary and hop-back tests when synthetic live budget authorized`; `warm/cold latency measurements`.
 
 **Gate collegati, da registrare separatamente:** H1, H6, H9, H10, H12, H13, H15, H21, H24, AT-1, AT-2, AT-3.
 
@@ -2240,7 +2275,7 @@ Prove con canary per ogni combinazione ordinata origine, destinazione e versione
 - Hermes e DeepSeek diventano origini soltanto quando esistono lettori Mukade verificati; Gemini resta escluso.
 - Nessuna promessa di trasferimento senza perdite; latenze a caldo e a freddo, dati trasferiti o persi e ragioni dei ripieghi sono documentati.
 
-**Verifiche del passo:** `all ordered pairs synthetic-fixture suite`; `separately authorized bounded live canaries`.
+**Catalogo verifiche (applicare la policy essenziale):** `all ordered pairs synthetic-fixture suite`; `separately authorized bounded live canaries`.
 
 **Gate collegati, da registrare separatamente:** H1, HM3, DS3, AT-2, AT-10.
 
@@ -2303,7 +2338,7 @@ Chiusura delle verifiche hop sullo stato condiviso mediante casi concorrenti e i
 - Ogni effetto deve seguire il journal e il recupero deve essere idempotente.
 - L’integrità deve restare valida dopo arresti anomali indotti; l’archivio nativo sorgente deve rimanere invariato.
 
-**Verifiche del passo:** `planned: Exactly one concurrent hop wins.`; `planned: Every effect follows journal and recovery is idempotent.`; `planned: Integrity remains clean after injected crashes; source native store unchanged.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Exactly one concurrent hop wins.`; `planned: Every effect follows journal and recovery is idempotent.`; `planned: Integrity remains clean after injected crashes; source native store unchanged.`.
 
 **Gate collegati, da registrare separatamente:** S4, S10, AT-1, AT-4.
 
@@ -2329,7 +2364,7 @@ Motore tipizzato instances, send, inbox e ack, messaggi per sessione con scadenz
 - Scadenza entro un'ora, massimo cinque tentativi e limiti di profondità e frequenza sono imposti dal server; destinatari offline e duplicati sono verificati.
 - Nessuno scheduler o casella persistente di attività, né facoltà dell'agente di avviare hop, istanze o modificare impostazioni.
 
-**Verifiche del passo:** `offline/duplicate/pingpong/cross-project tests`; `injection canaries and no-approval negatives`.
+**Catalogo verifiche (applicare la policy essenziale):** `offline/duplicate/pingpong/cross-project tests`; `injection canaries and no-approval negatives`.
 
 **Gate collegati, da registrare separatamente:** M4-M7, AT-6, AT-7.
 
@@ -2392,7 +2427,7 @@ Punti di ingresso MCP e hook nello stesso eseguibile, verifica per avvio dei tok
 - Stdout MCP contiene soltanto il protocollo; gli hook non fanno fallire gli agenti; entrambi terminano con il proprietario.
 - Nessun ripiego di consegna al PTY non sicuro; la preapprovazione riguarda soltanto i quattro strumenti nominati ed è verificata per versione.
 
-**Verifiche del passo:** `stdio JSONRPC and malformed-input tests`; `impersonation/token-negative fixtures`; `startup/hook latency measurement`; `per-agent hook/injection conformance`.
+**Catalogo verifiche (applicare la policy essenziale):** `stdio JSONRPC and malformed-input tests`; `impersonation/token-negative fixtures`; `startup/hook latency measurement`; `per-agent hook/injection conformance`.
 
 **Gate collegati, da registrare separatamente:** M1-M3, M8-M15, CL8-CL11, OC6, PI7, HM5, DS5, SC8, T1.
 
@@ -2458,7 +2493,7 @@ Proposte indipendenti, critica e sintesi moderate avviate dall'utente, con model
 - Limiti di costo, token e round, arresto e intervento dell'utente funzionano; risultati ricercabili e continuazione tramite seed di un thread di lavoro.
 - I partecipanti di questo ciclo usano gli harness supportati; il bridge Daodan per bare-model e rinviato a D02, senza un sostituto costruito appositamente.
 
-**Verifiche del passo:** `fake-headless timeout/cap/stop suite`; `per-agent deny-tools canaries`; `authorized three-topic cap calibration`.
+**Catalogo verifiche (applicare la policy essenziale):** `fake-headless timeout/cap/stop suite`; `per-agent deny-tools canaries`; `authorized three-topic cap calibration`.
 
 **Gate collegati, da registrare separatamente:** R2-R7, AT-8, SC10.
 
@@ -2536,7 +2571,7 @@ Lettore agenda con schema e limiti, collegamenti derivati tra thread e attività
 - I collegamenti esatti o per posizione spariscono quando non validi; gli agenti senza pacchetto mostrano le attività ma nessun comando.
 - Rifiutare l'inizializzazione di un nuovo progetto sopprime le proposte successive; soltanto due verifiche di directory definiscono lo stato iniziale.
 
-**Verifiche del passo:** `synthetic/torn/unreadable agenda fixtures`; `main-checkout/worktree link corpus`; `typed-not-sent terminal assertions`; `first-use parity tests`.
+**Catalogo verifiche (applicare la policy essenziale):** `synthetic/torn/unreadable agenda fixtures`; `main-checkout/worktree link corpus`; `typed-not-sent terminal assertions`; `first-use parity tests`.
 
 **Gate collegati, da registrare separatamente:** D8-D12, D14, D20.
 
@@ -2613,7 +2648,7 @@ Blocco attività esatto in anteprima e seed, seguito da un messaggio di passaggi
 - Chiusura rifiutata, incerta o interrotta da crash e destinazione senza pacchetto non ricevono istruzioni di subentro.
 - Nessun percorso Shinatama modifica lo stato Daodan o assegna una sola attività a entrambi i thread divergenti.
 
-**Verifiche del passo:** `close/fork/uncertain-stop task-hop matrix`; `preview-vs-delivery equality`.
+**Catalogo verifiche (applicare la policy essenziale):** `close/fork/uncertain-stop task-hop matrix`; `preview-vs-delivery equality`.
 
 **Gate collegati, da registrare separatamente:** D13, D20.
 
@@ -2638,7 +2673,7 @@ Progetti preferiti, fatti git limitati e memorizzati temporaneamente, ultimo age
 - Il worktree dedicato e una scelta esplicita della nuova istanza; nessun legame con task esterni e necessario.
 - Nessuna UI Git Diff dedicata e nessuna creazione o eliminazione implicita di worktree.
 
-**Verifiche del passo:** `synthetic git/common-dir/worktree corpus`; `parallel-scan timeout measurements`.
+**Catalogo verifiche (applicare la policy essenziale):** `synthetic git/common-dir/worktree corpus`; `parallel-scan timeout measurements`.
 
 **Gate collegati, da registrare separatamente:** PM2, PM3, H20, I3.
 
@@ -2701,7 +2736,7 @@ Percorso nativo attivato separatamente per agente e versione, con revisione Muka
 - Una scrittura incerta non viene ritentata automaticamente; la ricevuta sopravvive a un avvio fallito; l'origine non viene modificata o eliminata.
 - Il trasferimento tra due home dello stesso harness resta rifiutato finché SS5 non passa; perdite dell'importazione o compattazione nativa sono esplicite.
 
-**Verifiche del passo:** `post-v1 writer/privacy/store/recovery fixture suite`; `source-fingerprint race and double-click tests`; `native import roundtrip law per supported destination`.
+**Catalogo verifiche (applicare la policy essenziale):** `post-v1 writer/privacy/store/recovery fixture suite`; `source-fingerprint race and double-click tests`; `native import roundtrip law per supported destination`.
 
 **Gate collegati, da registrare separatamente:** H27, SS4, SS5, OC2, CX4.
 
@@ -2774,7 +2809,7 @@ Gemini si avvia soltanto attraverso il sidecar, con ricerca, hop e lettura dichi
 
 - Gemini non compare mai tra origini o destinazioni degli hop; traffico non coperto è visibile e non viene dichiarato supportato.
 
-**Verifiche del passo:** `launch-only contract negative cases`; `provider coverage fixture`.
+**Catalogo verifiche (applicare la policy essenziale):** `launch-only contract negative cases`; `provider coverage fixture`.
 
 **Gate collegati, da registrare separatamente:** SC11.
 
@@ -2799,7 +2834,7 @@ Cartelle di versione per agente, procedure d'installazione verificate, passaggio
 - Ogni percorso di aggiornamento deve essere controllabile prima di offrire own; procedure sconosciute di Codex o Hermes causano un rifiuto.
 - Archivi migrati e incompatibili vengono segnalati e mai riparati automaticamente; l'osservazione degli aggiornamenti per una settimana è registrata.
 
-**Verifiche del passo:** `installer/uninstall/failure/locked-executable fixtures`; `version-switch rollback suite`; `one-week updater observation`.
+**Catalogo verifiche (applicare la policy essenziale):** `installer/uninstall/failure/locked-executable fixtures`; `version-switch rollback suite`; `one-week updater observation`.
 
 **Gate collegati, da registrare separatamente:** D16, D18, HM10, DS10.
 
@@ -2861,7 +2896,7 @@ Albero e ricerca dei file nelle radici di progetto esplicite, con attraversament
 - Aprire una voce non esegue mai un file.
 - Attraversamento e risoluzione dei collegamenti restano nelle radici autorizzate, destinazioni dei symlink comprese; alberi grandi o lenti si annullano senza bloccare i terminali.
 
-**Verifiche del passo:** `path traversal/symlink/deep-tree corpus`; `async cancellation/large-tree desktop checks`.
+**Catalogo verifiche (applicare la policy essenziale):** `path traversal/symlink/deep-tree corpus`; `async cancellation/large-tree desktop checks`.
 
 **Gate collegati, da registrare separatamente:** TL4.
 
@@ -2913,7 +2948,7 @@ Buffer condivisi per file canonico, modalità sorgente, anteprima e affiancata, 
 - La chiusura di un buffer modificato offre salva, scarta o annulla; il layout non contiene buffer modificati o testo di recupero.
 - Riallineare il vecchio vincolo Mermaid native/no-JS alla shell Tauri autorizzata: renderer locale isolato, input non eseguibile, nessun accesso ambientale o risorsa remota; nessuna falsa dichiarazione di renderer nativo.
 
-**Verifiche del passo:** `hostile Markdown and links/assets corpus`; `concurrent external write/save failure/late render tests`.
+**Catalogo verifiche (applicare la policy essenziale):** `hostile Markdown and links/assets corpus`; `concurrent external write/save failure/late render tests`.
 
 **Gate collegati, da registrare separatamente:** TL4.
 
@@ -2975,7 +3010,7 @@ Editor visuale disponibile soltanto per la sintassi che supera le fixture di and
 - Le modifiche conservano la sintassi non supportata senza eliminarla silenziosamente.
 - I casi che non superano sintassi o fedeltà restano disponibili soltanto nel sorgente e sono segnalati chiaramente.
 
-**Verifiche del passo:** `Markdown source-visual-source corpus`; `undo/redo and concurrent write fidelity tests`.
+**Catalogo verifiche (applicare la policy essenziale):** `Markdown source-visual-source corpus`; `undo/redo and concurrent write fidelity tests`.
 
 **Gate collegati, da registrare separatamente:** TL4.
 
@@ -3037,7 +3072,7 @@ Anteprime limitate di testo e immagini; lettore DOCX scelto con fedeltà dichiar
 - Input troppo grandi o non supportati vengono rifiutati senza allocazioni illimitate.
 - La disponibilità DOCX dipende dalle fixture del renderer; collegamenti e risorse remote non aggirano le radici autorizzate.
 
-**Verifiche del passo:** `artifact size/decompression/fidelity corpus`; `private asset lifecycle checks`.
+**Catalogo verifiche (applicare la policy essenziale):** `artifact size/decompression/fidelity corpus`; `private asset lifecycle checks`.
 
 **Gate collegati, da registrare separatamente:** TL6.
 
@@ -3100,7 +3135,7 @@ Proposta separata e implementazione dell'isolamento soltanto dopo i controlli br
 - Non si presumono compatibilità JanuraCode, ripiego automatico del motore o trasferimento di sessioni browser.
 - Il percorso d'integrazione browser possiede i requisiti di sicurezza del motore e delle sessioni; questo passo aggiunge soltanto l'ospitalità isolata nello spazio di lavoro.
 
-**Verifiche del passo:** `capability escape corpus`; `lifecycle/OS compatibility matrix`.
+**Catalogo verifiche (applicare la policy essenziale):** `capability escape corpus`; `lifecycle/OS compatibility matrix`.
 
 **Gate collegati, da registrare separatamente:** TL6, B-series.
 
@@ -3176,7 +3211,7 @@ Panoramica delle istanze prevalentemente di consultazione, con origine dello sta
 - Il contenuto delle richieste in attesa deve essere oscurato quando fornito dall’harness.
 - Offrire soltanto azioni di focalizzazione, hop e pausa; non inventare intenzioni di collaborazione.
 
-**Verifiche del passo:** `planned: Native event precedes transcript and heuristic; heuristic always unsure.`; `planned: No screen-text heuristic can authorize approval.`; `planned: Pending payload redacted where harness supplies it.`; `planned: Only focus/hop/pause actions; no invented collaboration intent.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Native event precedes transcript and heuristic; heuristic always unsure.`; `planned: No screen-text heuristic can authorize approval.`; `planned: Pending payload redacted where harness supplies it.`; `planned: Only focus/hop/pause actions; no invented collaboration intent.`.
 
 **Gate collegati, da registrare separatamente:** I1, I10, CL8, CX7, OC5, PI4, PI6, HM4, DS4.
 
@@ -3202,7 +3237,7 @@ Utilizzo, contesto e costi effettivi, dati git su branch e worktree e cronologia
 - Escludere i file generati; worktree distinti non devono collidere.
 - Confrontare l’utilizzo con i dati dei provider e misurare il costo del controllo di stato nei repository grandi.
 
-**Verifiche del passo:** `planned: Detached, linked, bare, submodule and non-git fixtures display correct facts.`; `planned: Two attributed writers name both; unattributed change names no instance.`; `planned: Generated files excluded; distinct worktrees never collide.`; `planned: Usage compared to provider reports; large-repository status cost measured.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Detached, linked, bare, submodule and non-git fixtures display correct facts.`; `planned: Two attributed writers name both; unattributed change names no instance.`; `planned: Generated files excluded; distinct worktrees never collide.`; `planned: Usage compared to provider reports; large-repository status cost measured.`.
 
 **Gate collegati, da registrare separatamente:** I2, I3, I4, Q3, OC11, I10.
 
@@ -3227,7 +3262,7 @@ Titoli di attività senza modello e interfaccia per pausa, impostazioni e limiti
 - I thread esclusi non devono generare richieste di titolazione.
 - Limitare gli aggiornamenti su cambio di stato e timer; conservare il log dei riepiloghi secondo la politica prevista.
 
-**Verifiche del passo:** `planned: Titles fall back to last tool/message verbatim.`; `planned: Excluded threads generate no title requests.`; `planned: State-change/timer refresh bounded; summary log retained under policy.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Titles fall back to last tool/message verbatim.`; `planned: Excluded threads generate no title requests.`; `planned: State-change/timer refresh bounded; summary log retained under policy.`.
 
 **Gate collegati, da registrare separatamente:** I7, I8, I9.
 
@@ -3252,7 +3287,7 @@ Runtime locale supervisionato e condiviso da titoli e julia1, con consenso al do
 - Un modello usato per due ruoli deve richiedere un solo runtime e un solo download.
 - Misurare CPU, memoria e latenza con quattro agenti e valutare la qualità su circa 50 istantanee.
 
-**Verifiche del passo:** `planned: Decline/no download leaves backend none and no outbound call.`; `planned: One model for two roles is one runtime/download.`; `planned: CPU/memory/latency measured with four agents; quality rubric on about 50 snapshots.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Decline/no download leaves backend none and no outbound call.`; `planned: One model for two roles is one runtime/download.`; `planned: CPU/memory/latency measured with four agents; quality rubric on about 50 snapshots.`.
 
 **Gate collegati, da registrare separatamente:** I5, I6, T12, X3.
 
@@ -3277,7 +3312,7 @@ Backend dei titoli del provider con catalogo dinamico, consenso, oscuramento dei
 - Limite di costo ed esclusioni devono impedire le richieste prima dell’invio.
 - Registrare qualità e prezzo e confrontarli con il riferimento iniziale.
 
-**Verifiche del passo:** `planned: No hardcoded model name; unavailable/provider failure falls back verbatim.`; `planned: Cap and exclusion prevent requests before send.`; `planned: Record quality/price and compare against baseline.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: No hardcoded model name; unavailable/provider failure falls back verbatim.`; `planned: Cap and exclusion prevent requests before send.`; `planned: Record quality/price and compare against baseline.`.
 
 **Gate collegati, da registrare separatamente:** I5, I7, I9, SC10.
 
@@ -3303,7 +3338,7 @@ Parser e visualizzazione delle schede con limiti, modelli di testo con operandi 
 - Un operando non attendibile non deve poter chiudere il contenitore né eseguire script o richieste.
 - La scelta del renderer deve risolvere esplicitamente la vecchia formulazione nativo/senza JavaScript rispetto a Tauri.
 
-**Verifiche del passo:** `planned: Malformed/oversized card block retains visible prose and drops only invalid items.`; `planned: NFKC/identity/quiz/source limits enforced.`; `planned: Untrusted operand cannot close wrapper or execute scripts/requests.`; `planned: Renderer selection explicitly resolves legacy native/no-JS wording for Tauri.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Malformed/oversized card block retains visible prose and drops only invalid items.`; `planned: NFKC/identity/quiz/source limits enforced.`; `planned: Untrusted operand cannot close wrapper or execute scripts/requests.`; `planned: Renderer selection explicitly resolves legacy native/no-JS wording for Tauri.`.
 
 **Gate collegati, da registrare separatamente:** CS-4, CS-11, CS-13, CS-16, U3.
 
@@ -3329,7 +3364,7 @@ Companion Claude con politica di sola lettura, spiegazione della selezione, azio
 - Verificare pulizia dello scratch, un solo turno in corso, priorità della coda e limite di costo.
 - Non produrre schede automatiche per turno senza le verifiche del lettore incrementale e del segnale di fine turno.
 
-**Verifiche del passo:** `planned: Worker input/context unchanged and approval immediately answerable.`; `planned: No worker PTY/inbox/approval/MCP channel exposed.`; `planned: Scratch cleanup, one in-flight turn, priority queue and cost cap behave.`; `planned: No automatic per-turn cards without incremental-reader/turn-end gate.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Worker input/context unchanged and approval immediately answerable.`; `planned: No worker PTY/inbox/approval/MCP channel exposed.`; `planned: Scratch cleanup, one in-flight turn, priority queue and cost cap behave.`; `planned: No automatic per-turn cards without incremental-reader/turn-end gate.`.
 
 **Gate collegati, da registrare separatamente:** CS-1, CS-6, CS-7, CS-8, CS-9, CS-10, CS-11, CS-12, CS-13, CS-16, E1.
 
@@ -3354,7 +3389,7 @@ Lista positiva dei permessi di lettura e scrittura e collegamenti alle credenzia
 - Worktree, programma e collegamenti originali alle credenziali devono essere in sola lettura; Shinatama non deve aprire o copiare le credenziali.
 - Altre directory personali, progetti e database devono essere inaccessibili; mostrare il badge confinato soltanto dopo la verifica.
 
-**Verifiche del passo:** `planned: Only scratch writable, including harness-local state restrictions.`; `planned: Worktree/program and original credential bindings read-only; Shinatama never opens/copies credentials.`; `planned: Other homes/projects/DB inaccessible; confined badge withheld until pass.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Only scratch writable, including harness-local state restrictions.`; `planned: Worktree/program and original credential bindings read-only; Shinatama never opens/copies credentials.`; `planned: Other homes/projects/DB inaccessible; confined badge withheld until pass.`.
 
 **Gate collegati, da registrare separatamente:** CS-2, CS-9.
 
@@ -3420,7 +3455,7 @@ Delta dei turni con limiti e accorpamento, schede Learning automatiche e Aided D
 - Classificare soltanto il più recente messaggio dell’assistente senza risposta; in modalità su richiesta non eseguire valutazioni automatiche.
 - Gli hop close/fork devono preservare il corretto legame con un solo worker.
 
-**Verifiche del passo:** `planned: Requires bounded incremental reader and native turn_end_signal.`; `planned: Reasoning never sent; truncated/digested fields and merged turns disclosed.`; `planned: Only newest unanswered assistant message classified; on-demand mode sends no automatic judgment.`; `planned: Close/fork hop retains correct single-worker relationship.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Requires bounded incremental reader and native turn_end_signal.`; `planned: Reasoning never sent; truncated/digested fields and merged turns disclosed.`; `planned: Only newest unanswered assistant message classified; on-demand mode sends no automatic judgment.`; `planned: Close/fork hop retains correct single-worker relationship.`.
 
 **Gate collegati, da registrare separatamente:** CS-3, CS-5, CS-6, CS-8, CS-10, CS-14.
 
@@ -3446,7 +3481,7 @@ Registro personale dei concetti con consultazione, riduzione del livello, elimin
 - Non sovrascrivere database più nuovi, in sola lettura o illeggibili; il quiz deve usare un solo turno headless.
 - Mantenere il backend locale alimentato solo dal flusso dietro le verifiche di contesto e qualità.
 
-**Verifiche del passo:** `planned: Unviewed hidden card writes no entry; Aided Decision writes none.`; `planned: Only bounded relevant concept metadata sent; no explanation text/URL stored.`; `planned: Newer/read-only or unreadable DB never overwritten; quiz uses one headless turn.`; `planned: Feed-only local backend remains gated on context/quality.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Unviewed hidden card writes no entry; Aided Decision writes none.`; `planned: Only bounded relevant concept metadata sent; no explanation text/URL stored.`; `planned: Newer/read-only or unreadable DB never overwritten; quiz uses one headless turn.`; `planned: Feed-only local backend remains gated on context/quality.`.
 
 **Gate collegati, da registrare separatamente:** CS-5, CS-15, CS-16, CS-17, CS-18.
 
@@ -3471,7 +3506,7 @@ Aggiungere soltanto le capacità companion di Codex provate sulla versione insta
 - Dichiarare resume o ripiego senza stato; verificare aggiornamento delle credenziali e hook di progetto.
 - Segnalare correttamente flusso parziale o ACP e copertura del sidecar; nessun canale verso il worker.
 
-**Verifiche del passo:** `planned: Read-only-with-reads row passes independently of answer-only tests.`; `planned: Resume or stateless fallback labelled; credentials refresh/project hooks accounted for.`; `planned: Partial/ACP feed and sidecar coverage reported honestly; no worker channel.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Read-only-with-reads row passes independently of answer-only tests.`; `planned: Resume or stateless fallback labelled; credentials refresh/project hooks accounted for.`; `planned: Partial/ACP feed and sidecar coverage reported honestly; no worker channel.`.
 
 **Gate collegati, da registrare separatamente:** CS-1, CS-2, CS-3, CS-7, CS-8, CS-9, E1.
 
@@ -3496,7 +3531,7 @@ Aggiungere soltanto le capacità companion di OpenCode provate sulla versione in
 - Dichiarare resume o ripiego senza stato; verificare aggiornamento delle credenziali e hook di progetto.
 - Segnalare correttamente flusso parziale o ACP e copertura del sidecar; nessun canale verso il worker.
 
-**Verifiche del passo:** `planned: Read-only-with-reads row passes independently of answer-only tests.`; `planned: Resume or stateless fallback labelled; credentials refresh/project hooks accounted for.`; `planned: Partial/ACP feed and sidecar coverage reported honestly; no worker channel.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Read-only-with-reads row passes independently of answer-only tests.`; `planned: Resume or stateless fallback labelled; credentials refresh/project hooks accounted for.`; `planned: Partial/ACP feed and sidecar coverage reported honestly; no worker channel.`.
 
 **Gate collegati, da registrare separatamente:** CS-1, CS-2, CS-3, CS-7, CS-8, CS-9, E1.
 
@@ -3521,7 +3556,7 @@ Aggiungere soltanto le capacità companion di Pi provate sulla versione installa
 - Dichiarare resume o ripiego senza stato; verificare aggiornamento delle credenziali e hook di progetto.
 - Segnalare correttamente flusso parziale o ACP e copertura del sidecar; nessun canale verso il worker.
 
-**Verifiche del passo:** `planned: Read-only-with-reads row passes independently of answer-only tests.`; `planned: Resume or stateless fallback labelled; credentials refresh/project hooks accounted for.`; `planned: Partial/ACP feed and sidecar coverage reported honestly; no worker channel.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Read-only-with-reads row passes independently of answer-only tests.`; `planned: Resume or stateless fallback labelled; credentials refresh/project hooks accounted for.`; `planned: Partial/ACP feed and sidecar coverage reported honestly; no worker channel.`.
 
 **Gate collegati, da registrare separatamente:** CS-1, CS-2, CS-3, CS-7, CS-8, CS-9, E1.
 
@@ -3546,7 +3581,7 @@ Aggiungere soltanto le capacità companion di Hermes Agent provate sulla version
 - Dichiarare resume o ripiego senza stato; verificare aggiornamento delle credenziali e hook di progetto.
 - Segnalare correttamente flusso parziale o ACP e copertura del sidecar; nessun canale verso il worker.
 
-**Verifiche del passo:** `planned: Read-only-with-reads row passes independently of answer-only tests.`; `planned: Resume or stateless fallback labelled; credentials refresh/project hooks accounted for.`; `planned: Partial/ACP feed and sidecar coverage reported honestly; no worker channel.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Read-only-with-reads row passes independently of answer-only tests.`; `planned: Resume or stateless fallback labelled; credentials refresh/project hooks accounted for.`; `planned: Partial/ACP feed and sidecar coverage reported honestly; no worker channel.`.
 
 **Gate collegati, da registrare separatamente:** CS-1, CS-2, CS-3, CS-7, CS-8, CS-9, E1.
 
@@ -3571,7 +3606,7 @@ Aggiungere soltanto le capacità companion di DeepSeek Harness provate sulla ver
 - Dichiarare resume o ripiego senza stato; verificare aggiornamento delle credenziali e hook di progetto.
 - Segnalare correttamente flusso parziale o ACP e copertura del sidecar; nessun canale verso il worker.
 
-**Verifiche del passo:** `planned: Read-only-with-reads row passes independently of answer-only tests.`; `planned: Resume or stateless fallback labelled; credentials refresh/project hooks accounted for.`; `planned: Partial/ACP feed and sidecar coverage reported honestly; no worker channel.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Read-only-with-reads row passes independently of answer-only tests.`; `planned: Resume or stateless fallback labelled; credentials refresh/project hooks accounted for.`; `planned: Partial/ACP feed and sidecar coverage reported honestly; no worker channel.`.
 
 **Gate collegati, da registrare separatamente:** CS-1, CS-2, CS-3, CS-7, CS-8, CS-9, E1.
 
@@ -3597,7 +3632,7 @@ Turni web senza stato con osservazione degli eventi nativi, avviso, limite delle
 - Gli URL non osservati devono essere inerti; violazioni di riservatezza o del budget devono interrompere il turno e disabilitare il web.
 - Pi resta non disponibile e la ricerca ospitata Codex non idonea, finché non viene provato un punto di integrazione qualificante.
 
-**Verifiche del passo:** `planned: C1/C2/C3/C5 measured per harness; no unsupported host offered.`; `planned: Sources default on-demand; other turns have no web tools.`; `planned: Unseen URLs inert; query/privacy/budget breach aborts and disables web.`; `planned: Pi unavailable and Codex hosted search ineligible unless qualifying seam proved.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: C1/C2/C3/C5 measured per harness; no unsupported host offered.`; `planned: Sources default on-demand; other turns have no web tools.`; `planned: Unseen URLs inert; query/privacy/budget breach aborts and disables web.`; `planned: Pi unavailable and Codex hosted search ineligible unless qualifying seam proved.`.
 
 **Gate collegati, da registrare separatamente:** CS-19(a-f).
 
@@ -3622,7 +3657,7 @@ Strumenti di lettura limitati agli URL riportati nello stesso turno web, un harn
 - Attribuire l’etichetta fonte letta soltanto a letture effettive.
 - In assenza della restrizione mantenere la modalità di sola ricerca.
 
-**Verifiche del passo:** `planned: C4 exact-URL restriction tested with hostile redirects/tool arguments.`; `planned: Only actual reads get read source label.`; `planned: Missing restriction leaves search-only mode.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: C4 exact-URL restriction tested with hostile redirects/tool arguments.`; `planned: Only actual reads get read source label.`; `planned: Missing restriction leaves search-only mode.`.
 
 **Gate collegati, da registrare separatamente:** CS-19(g).
 
@@ -3647,7 +3682,7 @@ Richieste, stati ed esiti browser tipizzati e instradamento con ambito, senza av
 - Nessun ripiego dopo errore, trasferimento tra motori o approvazione autorizzata dalla pagina.
 - La vista delle sessioni deve mostrare proprietario, controllore, motivazione ed esito effettivi.
 
-**Verifiche del passo:** `planned: User/agent identity derived server-side; engine/scope/permission immutable.`; `planned: No failure fallback, cross-engine transfer or page-authorized approval.`; `planned: Session view shows real owner/controller/reason/outcome.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: User/agent identity derived server-side; engine/scope/permission immutable.`; `planned: No failure fallback, cross-engine transfer or page-authorized approval.`; `planned: Session view shows real owner/controller/reason/outcome.`.
 
 **Gate collegati, da registrare separatamente:** B5, B6, B7, B8, B9, AT-11, M15, X5.
 
@@ -3673,7 +3708,7 @@ Involucro di fetch con operazioni fisse e versione vincolata, estrazione limitat
 - L’interfaccia MCP deve funzionare entro un fetch singolo oppure essere esplicitamente rinviata.
 - Misurare carichi equivalenti a freddo e a caldo sull’intero albero dei processi prima di dichiarare prestazioni migliori.
 
-**Verifiche del passo:** `planned: No serve/listener/general eval; text path loads no optional resources.`; `planned: Symlink/redirect/subresource/service/proxy scope enforced.`; `planned: MCP UI works within one-shot fetch or explicitly deferred.`; `planned: Equivalent whole-tree cold/warm workload measured before performance claim.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: No serve/listener/general eval; text path loads no optional resources.`; `planned: Symlink/redirect/subresource/service/proxy scope enforced.`; `planned: MCP UI works within one-shot fetch or explicitly deferred.`; `planned: Equivalent whole-tree cold/warm workload measured before performance claim.`.
 
 **Gate collegati, da registrare separatamente:** B1, B2, B3, B4, B6, B7, B8, B10, X3.
 
@@ -3698,7 +3733,7 @@ Companion Chrome esterno caricato su richiesta, con trasporto privato autenticat
 - Il controllo dell’utente deve sospendere l’agente; invalidare azioni e approvazioni obsolete.
 - Chiusura normale, annullamento, errori, arresti anomali e riutilizzo dei PID non devono lasciare processi o listener gestiti.
 
-**Verifiche del passo:** `planned: Opt-in alone starts nothing; explicit UI request required; missing binary never auto-installs.`; `planned: User takeover suspends agent; stale actions/approvals invalidated.`; `planned: Normal/cancel/error/crash/PID-reuse cleanup leaves no managed process/listener.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Opt-in alone starts nothing; explicit UI request required; missing binary never auto-installs.`; `planned: User takeover suspends agent; stale actions/approvals invalidated.`; `planned: Normal/cancel/error/crash/PID-reuse cleanup leaves no managed process/listener.`.
 
 **Gate collegati, da registrare separatamente:** B4, B5, B6, B7, B8, B9, B10, AT-11.
 
@@ -3775,7 +3810,7 @@ Registro per sessione di utilizzo, cache, compattazioni e ripetizioni degli stru
 - Escludere addestramento o calibrazione dei modelli, integrazione CAM, secondo proxy e riscrittura del testo umano.
 - Collegare ai record le misurazioni di definizioni degli strumenti, cache della verbosità e peso delle immagini.
 
-**Verifiche del passo:** `planned: Ten real sessions per harness before claims; vendor percentages not reused.`; `planned: No model training/calibration, CAM integration, second proxy or rewritten human text.`; `planned: Tool definitions, verbosity cache and image-weight measurements linked to records.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Ten real sessions per harness before claims; vendor percentages not reused.`; `planned: No model training/calibration, CAM integration, second proxy or rewritten human text.`; `planned: Tool definitions, verbosity cache and image-weight measurements linked to records.`.
 
 **Gate collegati, da registrare separatamente:** T1, T4, T5, T6, T7, T8, T9, T10, T11, T16, X4.
 
@@ -3800,7 +3835,7 @@ Coppie chiamata/risultato degli strumenti con prefisso e messaggi recenti protet
 - Intercettare o disabilitare la compattazione nativa; un solo componente deve possederla.
 - Errori dello scorer o riduzione insufficiente devono usare il ripiego strutturato; il turno del modello principale non deve attendere lo scoring.
 
-**Verifiche del passo:** `planned: Keep/truncate/remove preserve tool pairing and required paths/errors/constraints.`; `planned: Native compaction intercepted or stood down; one owner only.`; `planned: Scorer failure/insufficient reduction follows structured fallback; no frontier-turn scoring wait.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Keep/truncate/remove preserve tool pairing and required paths/errors/constraints.`; `planned: Native compaction intercepted or stood down; one owner only.`; `planned: Scorer failure/insufficient reduction follows structured fallback; no frontier-turn scoring wait.`.
 
 **Gate collegati, da registrare separatamente:** T11, T13, T14.
 
@@ -3825,7 +3860,7 @@ Scoring locale System One con stato incrementale limitato, caratteristiche deter
 - Misurare la latenza incrementale con quattro agenti.
 - La configurazione di routing ospitato non deve mai inviare compattazioni o sintesi degli strumenti all’endpoint remoto.
 
-**Verifiche del passo:** `planned: Compare re-run/cache/task outcome against rules-only baseline.`; `planned: Incremental latency measured with four agents.`; `planned: Hosted routing configuration never sends compaction/digest to remote endpoint.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Compare re-run/cache/task outcome against rules-only baseline.`; `planned: Incremental latency measured with four agents.`; `planned: Hosted routing configuration never sends compaction/digest to remote endpoint.`.
 
 **Gate collegati, da registrare separatamente:** T11, T12, T14, T16.
 
@@ -3850,7 +3885,7 @@ Un punto di integrazione Codex vincolato alla versione, con un solo proprietario
 - Le modifiche nel percorso del traffico devono essere apportate all’unica sorgente upstream del sidecar.
 - Hermes e DeepSeek richiedono copertura del proxy; l’assenza di disattivazione della compattazione Hermes ne impedisce l’abilitazione.
 
-**Verifiche del passo:** `planned: Cache hit rate remains within measured noise and native compaction absent.`; `planned: Wire-path changes land in upstream sidecar single source.`; `planned: Hermes/dsh require proxy coverage; Hermes suppression absence blocks enablement.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Cache hit rate remains within measured noise and native compaction absent.`; `planned: Wire-path changes land in upstream sidecar single source.`; `planned: Hermes/dsh require proxy coverage; Hermes suppression absence blocks enablement.`.
 
 **Gate collegati, da registrare separatamente:** T11, T14, T15, HM12, DS12.
 
@@ -3875,7 +3910,7 @@ Un punto di integrazione OpenCode vincolato alla versione, con un solo proprieta
 - Le modifiche nel percorso del traffico devono essere apportate all’unica sorgente upstream del sidecar.
 - Hermes e DeepSeek richiedono copertura del proxy; l’assenza di disattivazione della compattazione Hermes ne impedisce l’abilitazione.
 
-**Verifiche del passo:** `planned: Cache hit rate remains within measured noise and native compaction absent.`; `planned: Wire-path changes land in upstream sidecar single source.`; `planned: Hermes/dsh require proxy coverage; Hermes suppression absence blocks enablement.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Cache hit rate remains within measured noise and native compaction absent.`; `planned: Wire-path changes land in upstream sidecar single source.`; `planned: Hermes/dsh require proxy coverage; Hermes suppression absence blocks enablement.`.
 
 **Gate collegati, da registrare separatamente:** T11, T14, T15, HM12, DS12.
 
@@ -3900,7 +3935,7 @@ Un punto di integrazione Pi vincolato alla versione, con un solo proprietario de
 - Le modifiche nel percorso del traffico devono essere apportate all’unica sorgente upstream del sidecar.
 - Hermes e DeepSeek richiedono copertura del proxy; l’assenza di disattivazione della compattazione Hermes ne impedisce l’abilitazione.
 
-**Verifiche del passo:** `planned: Cache hit rate remains within measured noise and native compaction absent.`; `planned: Wire-path changes land in upstream sidecar single source.`; `planned: Hermes/dsh require proxy coverage; Hermes suppression absence blocks enablement.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Cache hit rate remains within measured noise and native compaction absent.`; `planned: Wire-path changes land in upstream sidecar single source.`; `planned: Hermes/dsh require proxy coverage; Hermes suppression absence blocks enablement.`.
 
 **Gate collegati, da registrare separatamente:** T11, T14, T15, HM12, DS12.
 
@@ -3925,7 +3960,7 @@ Un punto di integrazione Hermes Agent vincolato alla versione, con un solo propr
 - Le modifiche nel percorso del traffico devono essere apportate all’unica sorgente upstream del sidecar.
 - Hermes e DeepSeek richiedono copertura del proxy; l’assenza di disattivazione della compattazione Hermes ne impedisce l’abilitazione.
 
-**Verifiche del passo:** `planned: Cache hit rate remains within measured noise and native compaction absent.`; `planned: Wire-path changes land in upstream sidecar single source.`; `planned: Hermes/dsh require proxy coverage; Hermes suppression absence blocks enablement.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Cache hit rate remains within measured noise and native compaction absent.`; `planned: Wire-path changes land in upstream sidecar single source.`; `planned: Hermes/dsh require proxy coverage; Hermes suppression absence blocks enablement.`.
 
 **Gate collegati, da registrare separatamente:** T11, T14, T15, HM12, DS12.
 
@@ -3950,7 +3985,7 @@ Un punto di integrazione DeepSeek Harness vincolato alla versione, con un solo p
 - Le modifiche nel percorso del traffico devono essere apportate all’unica sorgente upstream del sidecar.
 - Hermes e DeepSeek richiedono copertura del proxy; l’assenza di disattivazione della compattazione Hermes ne impedisce l’abilitazione.
 
-**Verifiche del passo:** `planned: Cache hit rate remains within measured noise and native compaction absent.`; `planned: Wire-path changes land in upstream sidecar single source.`; `planned: Hermes/dsh require proxy coverage; Hermes suppression absence blocks enablement.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Cache hit rate remains within measured noise and native compaction absent.`; `planned: Wire-path changes land in upstream sidecar single source.`; `planned: Hermes/dsh require proxy coverage; Hermes suppression absence blocks enablement.`.
 
 **Gate collegati, da registrare separatamente:** T11, T14, T15, HM12, DS12.
 
@@ -3975,7 +4010,7 @@ Parser per formati stabili e sintesi locali asincrone con recupero degli origina
 - Non riscrivere il prefisso fuori cache né sovrapporre riduzioni con perdita.
 - Misurare effetti su latenza, cache e ripetizioni prima di dichiarare abilitate le capacità.
 
-**Verifiche del passo:** `planned: Build/test/listing/diff-shaped tool output retains critical signal.`; `planned: No uncached-prefix rewrite or stacked lossy reducers.`; `planned: Latency/cache/re-run impact measured before enabled capability claims.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Build/test/listing/diff-shaped tool output retains critical signal.`; `planned: No uncached-prefix rewrite or stacked lossy reducers.`; `planned: Latency/cache/re-run impact measured before enabled capability claims.`.
 
 **Gate collegati, da registrare separatamente:** T6, T8, T9, T10, T11, T12, T14, T16.
 
@@ -4002,7 +4037,7 @@ Filtri su un insieme chiuso di modelli, selettore choice/signals/off e conservaz
 - Scarsa confidenza, reject o timeout devono mantenere il modello predefinito dell’istanza.
 - Confrontare il punto di avvio di ogni harness e il registro dei costi/esiti con il riferimento del modello predefinito.
 
-**Verifiche del passo:** `planned: No model invented/outside set; no within-conversation model switch.`; `planned: Low confidence/reject/timeout keeps instance default.`; `planned: Per-harness launch seam and cost/task outcome ledger compared with default baseline.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: No model invented/outside set; no within-conversation model switch.`; `planned: Low confidence/reject/timeout keeps instance default.`; `planned: Per-harness launch seam and cost/task outcome ledger compared with default baseline.`.
 
 **Gate collegati, da registrare separatamente:** MR1, MR2, MR-3, MR4.
 
@@ -4028,7 +4063,7 @@ Adattatori delle fonti decisionali e chiave conservata soltanto nel vault del si
 - Dichiarare non supportate le integrazioni sconosciute dei sottoagenti; il servizio non deve occupare il percorso di esecuzione delle richieste.
 - Compattazioni e sintesi degli strumenti devono restare locali con le stesse impostazioni.
 
-**Verifiche del passo:** `planned: Only digest/cards reach hosted executor after opt-in.`; `planned: Key never appears in DB/config/log/manifest; no agent credential read.`; `planned: Unknown subagent seam unsupported; service never takes request-serving wire.`; `planned: Compaction/digests still local under same settings.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Only digest/cards reach hosted executor after opt-in.`; `planned: Key never appears in DB/config/log/manifest; no agent credential read.`; `planned: Unknown subagent seam unsupported; service never takes request-serving wire.`; `planned: Compaction/digests still local under same settings.`.
 
 **Gate collegati, da registrare separatamente:** MR1, MR2, MR-3, MR4, T16, X4.
 
@@ -4053,7 +4088,7 @@ Verifiche trasversali sulle credenziali condivise con le implementazioni di tito
 - Gli ambienti dei sottoprocessi browser non ereditano credenziali degli agenti; cookie, token e intestazioni di autorizzazione non raggiungono log, database, trascrizioni o sintesi.
 - Titoli, router e browser non disponibili restano rifiutati finché non passano le verifiche delle rispettive FRD.
 
-**Verifiche del passo:** `synthetic token-canary environment/log tests`; `OS-vault binding test without production credentials`.
+**Catalogo verifiche (applicare la policy essenziale):** `synthetic token-canary environment/log tests`; `OS-vault binding test without production credentials`.
 
 **Gate collegati, da registrare separatamente:** SC10, I7, B8, X5.
 
@@ -4078,7 +4113,7 @@ Selettore per prompt con lo stesso esecutore decisionale; strumenti di recupero 
 - Aggiungere gli schemi soltanto alla coda della richiesta e preservare il prefisso.
 - Abilitare soltanto hook verificati e misurare separatamente la latenza del selettore.
 
-**Verifiche del passo:** `planned: Closed deferred set and optional TE prior; threshold failure preloads nothing.`; `planned: Schemas added only at request tail; prefix unchanged.`; `planned: Only verified hook seams enabled; chooser latency measured separately.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Closed deferred set and optional TE prior; threshold failure preloads nothing.`; `planned: Schemas added only at request tail; prefix unchanged.`; `planned: Only verified hook seams enabled; chooser latency measured separately.`.
 
 **Gate collegati, da registrare separatamente:** MR4, T14.
 
@@ -4104,7 +4139,7 @@ Modulo con versione fissata e stato nel box, disattivato inizialmente, con verif
 - Il percorso B di OpenCode deve considerare i metadati Code Mode e i nomi protetti.
 - La lista degli strumenti deve restare fissa durante una sessione attiva o ripresa.
 
-**Verifiche del passo:** `planned: No Hermes/dsh offer; no system-home state/repository settings edits.`; `planned: Protect bili/image_media; close apply route and notice; own idle timer enforced.`; `planned: OpenCode route B includes Code Mode metadata and protected names.`; `planned: Tool list remains fixed during running/resumed session.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: No Hermes/dsh offer; no system-home state/repository settings edits.`; `planned: Protect bili/image_media; close apply route and notice; own idle timer enforced.`; `planned: OpenCode route B includes Code Mode metadata and protected names.`; `planned: Tool list remains fixed during running/resumed session.`.
 
 **Gate collegati, da registrare separatamente:** TE1, TE2, TE3, TE5, TE6, TE7, TE8, TE12, TE13.
 
@@ -4132,7 +4167,7 @@ Envfacts basati soltanto su modelli fissi e protezione dai cicli per Claude/Pi v
 - Mantenere disattivata la protezione Codex/OpenCode finché upstream non supporta endpoint e inoltro corretti.
 - Nessun nuovo proxy o riduttore della cronologia; confrontare modulo attivo e inattivo senza sommare percentuali di risparmio.
 
-**Verifiche del passo:** `planned: Proposer off; fixed facts survive promptRewrite.`; `planned: Judge cost/latency and recovery false-failure tests pass before enabling.`; `planned: Codex/OpenCode guard remains off pending upstream endpoint/redirect support.`; `planned: No new proxy/history reducer; ledger compares module on/off without additive saving claims.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Proposer off; fixed facts survive promptRewrite.`; `planned: Judge cost/latency and recovery false-failure tests pass before enabling.`; `planned: Codex/OpenCode guard remains off pending upstream endpoint/redirect support.`; `planned: No new proxy/history reducer; ledger compares module on/off without additive saving claims.`.
 
 **Gate collegati, da registrare separatamente:** TE4, TE6, TE7, TE8, TE9, TE10, TE11.
 
@@ -4158,7 +4193,7 @@ Widget in un processo separato alimentato dagli eventi, senza sottrarre il focus
 - Funzionare senza finestra principale e riconciliare l’identità con più finestre.
 - Verificare silenziamento, disattivazione, movimento ridotto e ripiego Wayland su sole notifiche.
 
-**Verifiche del passo:** `planned: Toolkit idle resources/placement tested on target platforms before enablement.`; `planned: Bubble receives events under one second and never steals typing.`; `planned: No main window required; multiple windows reconcile identity.`; `planned: Muted/disabled/reduced-motion and Wayland notification-only fallback verified.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Toolkit idle resources/placement tested on target platforms before enablement.`; `planned: Bubble receives events under one second and never steals typing.`; `planned: No main window required; multiple windows reconcile identity.`; `planned: Muted/disabled/reduced-motion and Wayland notification-only fallback verified.`.
 
 **Gate collegati, da registrare separatamente:** W1, W2, W3, W4, W6, W10.
 
@@ -4184,7 +4219,7 @@ Consenti/rifiuta soltanto per richieste native e atlante di animazione approvato
 - Realizzare un pilota di tre fotogrammi prima della generazione completa e verificare trasparenza, scala, dimensioni e movimento ridotto.
 - Mantenere esplicita la decisione sulla distribuzione di Oni; non formulare affermazioni legali non verificate.
 
-**Verifiche del passo:** `planned: Prompt changed before click refuses stale answer; no screen heuristic approvals.`; `planned: No key focus theft; real command shown from native payload.`; `planned: Three-frame pilot before full generation; alpha/scaling/size/reduced-motion tested.`; `planned: Oni distribution decision remains explicit; no unsupported legal claim.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Prompt changed before click refuses stale answer; no screen heuristic approvals.`; `planned: No key focus theft; real command shown from native payload.`; `planned: Three-frame pilot before full generation; alpha/scaling/size/reduced-motion tested.`; `planned: Oni distribution decision remains explicit; no unsupported legal claim.`.
 
 **Gate collegati, da registrare separatamente:** W3, W5, W7, W8, W9.
 
@@ -4210,7 +4245,7 @@ Artefatti installabili e gestione esplicita di Node e componenti facoltativi, co
 - Gestire componenti offline o facoltativi mancanti con errori chiari, senza download automatici.
 - Provare Windows x64; macOS e Linux restano rinviati.
 
-**Verifiche del passo:** `planned: Windows clean install to first hop timed; failures listed.`; `planned: No system-agent installer/update side effects; own install only by user choice.`; `planned: Offline/missing optional components fail clearly without automatic downloads.`; `planned: Windows x64 proved; other targets reported as deferred.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Windows clean install to first hop timed; failures listed.`; `planned: No system-agent installer/update side effects; own install only by user choice.`; `planned: Offline/missing optional components fail clearly without automatic downloads.`; `planned: Windows x64 proved; other targets reported as deferred.`.
 
 **Gate collegati, da registrare separatamente:** X1, X2, X3, X4, SC13, P17, P18, AT-12.
 
@@ -4274,7 +4309,7 @@ Aggiornamenti dell’app abilitati dall’utente, ripristino della versione prec
 - Il sidecar non deve aggiornarsi da solo; non modificare impostazioni o comandi di aggiornamento dei programmi di sistema.
 - Rieseguire le verifiche API, licenza e capacità quando cambia una revisione di dipendenza vincolata.
 
-**Verifiche del passo:** `planned: No update/catalog traffic until enabled.`; `planned: Invalid signature/hash rejected; previous app/agent remains recoverable.`; `planned: Sidecar never self-updates; system program settings/update commands untouched.`; `planned: Pinned dependency revision changes rerun API/license/capability gates.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: No update/catalog traffic until enabled.`; `planned: Invalid signature/hash rejected; previous app/agent remains recoverable.`; `planned: Sidecar never self-updates; system program settings/update commands untouched.`; `planned: Pinned dependency revision changes rerun API/license/capability gates.`.
 
 **Gate collegati, da registrare separatamente:** X4, X6, D16.
 
@@ -4299,7 +4334,7 @@ Record di valutazione dopo il riferimento T1 delle dimensioni e la soglia scelta
 - Realizzare il prototipo soltanto se dimensioni e soglia lo giustificano; misurare riuscita dei compiti, sicurezza e latenza.
 - Conservare le chiamate dirette e la coesistenza tra ricerca degli strumenti e percorsi programmatici dove necessaria.
 
-**Verifiche del passo:** `planned: Read primary sources for vendor claims.`; `planned: Prototype only if footprint/threshold warrants; task success/security/latency measured.`; `planned: Direct calls remain available and tool search/programmatic paths coexist where needed.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Read primary sources for vendor claims.`; `planned: Prototype only if footprint/threshold warrants; task success/security/latency measured.`; `planned: Direct calls remain available and tool search/programmatic paths coexist where needed.`.
 
 **Gate collegati, da registrare separatamente:** T1, T2, T3.
 
@@ -4324,7 +4359,7 @@ Soltanto misure e decisioni registrate, senza introdurre gateway, pianificazione
 - Il gateway richiede una soglia di risparmio stabilita dall'utente senza calo dei risultati prima dell'implementazione.
 - La variante libera tra due agenti e la pianificazione restano decisioni esplicite dell'utente.
 
-**Verifiche del passo:** `T1/T2/T3 measurement report`; `record unresolved decisions`.
+**Catalogo verifiche (applicare la policy essenziale):** `T1/T2/T3 measurement report`; `record unresolved decisions`.
 
 **Gate collegati, da registrare separatamente:** T1, T2, T3.
 
@@ -4349,7 +4384,7 @@ Valutazione facoltativa di turni con un modello economico seguiti, su decisione 
 - Misurare costo dei compiti conclusi e rilavorazione rispetto al modello predefinito fisso.
 - Non dichiarare una consegna del primo incremento o della V1 sulla base di una valutazione non eseguita.
 
-**Verifiche del passo:** `planned: Never changes model mid-conversation.`; `planned: Measure finished-task cost and rework against fixed-default baseline.`; `planned: No first-build or V1 delivery claim from an unrun evaluation.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Never changes model mid-conversation.`; `planned: Measure finished-task cost and rework against fixed-default baseline.`; `planned: No first-build or V1 delivery claim from an unrun evaluation.`.
 
 **Gate collegati, da registrare separatamente:** MR-3, MR4.
 
@@ -4376,7 +4411,7 @@ Due istanze sintetiche claude dimostrano i set effettivamente caricati, assenza 
 - I file della home system non vengono cambiati oltre quanto autorizzato; le prove usano box e dati sintetici.
 - Versione e costo tool registrati; se manca una seam si mantiene la capacità indisponibile con prova del rifiuto.
 
-**Verifiche del passo:** `fixture live D19 per claude`; `misura D4 definizioni tool per claude`.
+**Catalogo verifiche (applicare la policy essenziale):** `fixture live D19 per claude`; `misura D4 definizioni tool per claude`.
 
 **Gate collegati, da registrare separatamente:** D19 per set generici.
 
@@ -4403,7 +4438,7 @@ Due istanze sintetiche codex dimostrano i set effettivamente caricati, assenza d
 - I file della home system non vengono cambiati oltre quanto autorizzato; le prove usano box e dati sintetici.
 - Versione e costo tool registrati; se manca una seam si mantiene la capacità indisponibile con prova del rifiuto.
 
-**Verifiche del passo:** `fixture live D19 per codex`; `misura D4 definizioni tool per codex`.
+**Catalogo verifiche (applicare la policy essenziale):** `fixture live D19 per codex`; `misura D4 definizioni tool per codex`.
 
 **Gate collegati, da registrare separatamente:** D19 per set generici.
 
@@ -4429,7 +4464,7 @@ Evidenza riproducibile per un vero codex su windows, separata dalle altre combin
 - Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
 - Ripetere i fault RES applicabili all agente Windows; nessun passaggio di test estranei qualifica la resilienza.
 
-**Verifiche del passo:** `matrice P1–P20 codex/windows applicabile`; `fixture TUI reale codex con account/test sintetici autorizzati`; `planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza`.
+**Catalogo verifiche (applicare la policy essenziale):** `matrice P1–P20 codex/windows applicabile`; `fixture TUI reale codex con account/test sintetici autorizzati`; `planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza`.
 
 **Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7, RES1-RES4 (agente reale).
 
@@ -4456,7 +4491,7 @@ Due istanze sintetiche opencode dimostrano i set effettivamente caricati, assenz
 - I file della home system non vengono cambiati oltre quanto autorizzato; le prove usano box e dati sintetici.
 - Versione e costo tool registrati; se manca una seam si mantiene la capacità indisponibile con prova del rifiuto.
 
-**Verifiche del passo:** `fixture live D19 per opencode`; `misura D4 definizioni tool per opencode`.
+**Catalogo verifiche (applicare la policy essenziale):** `fixture live D19 per opencode`; `misura D4 definizioni tool per opencode`.
 
 **Gate collegati, da registrare separatamente:** D19 per set generici.
 
@@ -4482,7 +4517,7 @@ Evidenza riproducibile per un vero opencode su windows, separata dalle altre com
 - Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
 - Ripetere i fault RES applicabili all agente Windows; nessun passaggio di test estranei qualifica la resilienza.
 
-**Verifiche del passo:** `matrice P1–P20 opencode/windows applicabile`; `fixture TUI reale opencode con account/test sintetici autorizzati`; `planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza`.
+**Catalogo verifiche (applicare la policy essenziale):** `matrice P1–P20 opencode/windows applicabile`; `fixture TUI reale opencode con account/test sintetici autorizzati`; `planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza`.
 
 **Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7, RES1-RES4 (agente reale).
 
@@ -4509,7 +4544,7 @@ Due istanze sintetiche pi dimostrano i set effettivamente caricati, assenza di c
 - I file della home system non vengono cambiati oltre quanto autorizzato; le prove usano box e dati sintetici.
 - Versione e costo tool registrati; se manca una seam si mantiene la capacità indisponibile con prova del rifiuto.
 
-**Verifiche del passo:** `fixture live D19 per pi`; `misura D4 definizioni tool per pi`.
+**Catalogo verifiche (applicare la policy essenziale):** `fixture live D19 per pi`; `misura D4 definizioni tool per pi`.
 
 **Gate collegati, da registrare separatamente:** D19 per set generici.
 
@@ -4535,7 +4570,7 @@ Evidenza riproducibile per un vero pi su windows, separata dalle altre combinazi
 - Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
 - Ripetere i fault RES applicabili all agente Windows; nessun passaggio di test estranei qualifica la resilienza.
 
-**Verifiche del passo:** `matrice P1–P20 pi/windows applicabile`; `fixture TUI reale pi con account/test sintetici autorizzati`; `planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza`.
+**Catalogo verifiche (applicare la policy essenziale):** `matrice P1–P20 pi/windows applicabile`; `fixture TUI reale pi con account/test sintetici autorizzati`; `planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza`.
 
 **Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7, RES1-RES4 (agente reale).
 
@@ -4562,7 +4597,7 @@ Due istanze sintetiche hermes dimostrano i set effettivamente caricati, assenza 
 - I file della home system non vengono cambiati oltre quanto autorizzato; le prove usano box e dati sintetici.
 - Versione e costo tool registrati; se manca una seam si mantiene la capacità indisponibile con prova del rifiuto.
 
-**Verifiche del passo:** `fixture live D19 per hermes`; `misura D4 definizioni tool per hermes`.
+**Catalogo verifiche (applicare la policy essenziale):** `fixture live D19 per hermes`; `misura D4 definizioni tool per hermes`.
 
 **Gate collegati, da registrare separatamente:** D19 per set generici.
 
@@ -4588,7 +4623,7 @@ Evidenza riproducibile per un vero hermes su windows, separata dalle altre combi
 - Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
 - Ripetere i fault RES applicabili all agente Windows; nessun passaggio di test estranei qualifica la resilienza.
 
-**Verifiche del passo:** `matrice P1–P20 hermes/windows applicabile`; `fixture TUI reale hermes con account/test sintetici autorizzati`; `planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza`.
+**Catalogo verifiche (applicare la policy essenziale):** `matrice P1–P20 hermes/windows applicabile`; `fixture TUI reale hermes con account/test sintetici autorizzati`; `planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza`.
 
 **Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7, RES1-RES4 (agente reale).
 
@@ -4615,7 +4650,7 @@ Due istanze sintetiche deepseek dimostrano i set effettivamente caricati, assenz
 - I file della home system non vengono cambiati oltre quanto autorizzato; le prove usano box e dati sintetici.
 - Versione e costo tool registrati; se manca una seam si mantiene la capacità indisponibile con prova del rifiuto.
 
-**Verifiche del passo:** `fixture live D19 per deepseek`; `misura D4 definizioni tool per deepseek`.
+**Catalogo verifiche (applicare la policy essenziale):** `fixture live D19 per deepseek`; `misura D4 definizioni tool per deepseek`.
 
 **Gate collegati, da registrare separatamente:** D19 per set generici.
 
@@ -4641,7 +4676,7 @@ Prova del vero client ACP Shinatama/DeepSeek su windows: messaggi, tool, permess
 - La promozione riguarda questa combinazione; restano indisponibili le capacità non provate.
 - Ripetere i fault RES applicabili all agente Windows; nessun passaggio di test estranei qualifica la resilienza.
 
-**Verifiche del passo:** `fixture DS1–DS15/ACP applicabili su windows`; `request/permission correlation e crash cleanup`; `planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza`.
+**Catalogo verifiche (applicare la policy essenziale):** `fixture DS1–DS15/ACP applicabili su windows`; `request/permission correlation e crash cleanup`; `planned: RES1-RES4 applicabili per agente/versione Windows con sessioni sintetiche, sibling sano, budget fissati e misure memoria/CPU/latenza`.
 
 **Gate collegati, da registrare separatamente:** DS1–DS15 applicabili, P14, U3, U7, RES1-RES4 (agente reale).
 
@@ -4666,7 +4701,7 @@ Firma e checksum dei rilasci Windows, con distribuzione delle risorse grafiche r
 - Le chiavi private di firma devono restare fuori dai sorgenti e dai log.
 - Pubblicare checksum e avvisi delle dipendenze; dichiarare nelle note di rilascio che è supportato soltanto Windows.
 
-**Verifiche del passo:** `planned: Verify Windows signature on a clean machine.`; `planned: Private signing secrets stay outside source and logs.`; `planned: Publish checksums/dependency notices; Windows-only support named in release notes.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Verify Windows signature on a clean machine.`; `planned: Private signing secrets stay outside source and logs.`; `planned: Publish checksums/dependency notices; Windows-only support named in release notes.`.
 
 **Gate collegati, da registrare separatamente:** X1, X2, X3, W9, AT-12.
 
@@ -4694,7 +4729,7 @@ Candidato verificato dello scope attualmente autorizzato, con esclusione esplici
 - Installazione e primo avvio su macchina pulita, riavvio/crash/recupero e confini di privacy verificati; firma/pubblicazione usa credenziali e destinazione effettivamente autorizzate.
 - Qualificare almeno un ora con budget congelati, piu finestre, pressione variabile e guasti ripetuti; registrare crescita residua e latenza.
 
-**Verifiche del passo:** `matrice di accettazione FRD completa e AT-1–AT-12`; `ripetizione riproducibile dei gate di release su Windows`; `verifica checksum/firma del candidato e note di rilascio`; `planned: soak Windows RES4 di almeno un ora, qualifiche per agente, metriche pre/dopo recupero e verifica storia salvata`.
+**Catalogo verifiche (applicare la policy essenziale):** `matrice di accettazione FRD completa e AT-1–AT-12`; `ripetizione riproducibile dei gate di release su Windows`; `verifica checksum/firma del candidato e note di rilascio`; `planned: soak Windows RES4 di almeno un ora, qualifiche per agente, metriche pre/dopo recupero e verifica storia salvata`.
 
 **Gate collegati, da registrare separatamente:** AT-1–AT-12, X1–X6, tutti i G0/G1 applicabili alla release, RES1, RES2, RES3, RES4.
 
@@ -4720,7 +4755,7 @@ Installazione Daodan, dipendenze marketplace e pacchetti per harness. Rimane sep
 - Solo dopo riattivazione: installare e verificare manifest/pacchetti senza modifiche implicite alle home system.
 - Versioni e fixture live aggiornate prima di dichiarare i pacchetti supportati.
 
-**Verifiche del passo:** `pianificato dopo riattivazione: fixture sintetiche della relativa integrazione e verifica dei gate applicabili`.
+**Catalogo verifiche (applicare la policy essenziale):** `pianificato dopo riattivazione: fixture sintetiche della relativa integrazione e verifica dei gate applicabili`.
 
 **Gate collegati, da registrare separatamente:** FRD-0008 e gate Daodan pertinenti: rinviati, D4, D20.
 
@@ -4745,7 +4780,7 @@ Bridge moe/peer-review per modelli senza harness; la roundtable basata su harnes
 
 - Nessuna reimplementazione sostitutiva di Ultra Nerd; credenziali e traffico seguono i confini previsti.
 
-**Verifiche del passo:** `pianificato dopo riattivazione: fixture sintetiche della relativa integrazione e verifica dei gate applicabili`.
+**Catalogo verifiche (applicare la policy essenziale):** `pianificato dopo riattivazione: fixture sintetiche della relativa integrazione e verifica dei gate applicabili`.
 
 **Gate collegati, da registrare separatamente:** FRD-0008 e gate Daodan pertinenti: rinviati, R1.
 
@@ -4770,7 +4805,7 @@ Segnalazioni di domande Daodan senza risposta; gli avvisi generici degli agenti 
 
 - Gli avvisi derivano da task realmente letti; nessuna modifica dello stato Daodan.
 
-**Verifiche del passo:** `pianificato dopo riattivazione: fixture sintetiche della relativa integrazione e verifica dei gate applicabili`.
+**Catalogo verifiche (applicare la policy essenziale):** `pianificato dopo riattivazione: fixture sintetiche della relativa integrazione e verifica dei gate applicabili`.
 
 **Gate collegati, da registrare separatamente:** FRD-0008 e gate Daodan pertinenti: rinviati.
 
@@ -4796,7 +4831,7 @@ Contesto task/fase, eventuali tabelle thread_task, signals tramite task_router.p
 - I moduli generici continuano a funzionare con Daodan assente.
 - Nessun percorso esegue componenti Daodan finche questa integrazione resta rinviata.
 
-**Verifiche del passo:** `pianificato dopo riattivazione: fixture sintetiche della relativa integrazione e verifica dei gate applicabili`.
+**Catalogo verifiche (applicare la policy essenziale):** `pianificato dopo riattivazione: fixture sintetiche della relativa integrazione e verifica dei gate applicabili`.
 
 **Gate collegati, da registrare separatamente:** FRD-0008 e gate Daodan pertinenti: rinviati.
 
@@ -4824,7 +4859,7 @@ Evidenza riproducibile per un vero claude su macos, separata dalle altre combina
 - Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
 - Completare SC16 con cinque istanze e storie lunghe per un ora sulla piattaforma: nessuna connessione rifiutata, profilare i ritardi; usare solo fixture/account e budget autorizzati.
 
-**Verifiche del passo:** `matrice P1–P20 claude/macos applicabile`; `fixture TUI reale claude con account/test sintetici autorizzati`.
+**Catalogo verifiche (applicare la policy essenziale):** `matrice P1–P20 claude/macos applicabile`; `fixture TUI reale claude con account/test sintetici autorizzati`.
 
 **Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
 
@@ -4852,7 +4887,7 @@ Evidenza riproducibile per un vero claude su linux, separata dalle altre combina
 - Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
 - Completare SC16 con cinque istanze e storie lunghe per un ora sulla piattaforma: nessuna connessione rifiutata, profilare i ritardi; usare solo fixture/account e budget autorizzati.
 
-**Verifiche del passo:** `matrice P1–P20 claude/linux applicabile`; `fixture TUI reale claude con account/test sintetici autorizzati`.
+**Catalogo verifiche (applicare la policy essenziale):** `matrice P1–P20 claude/linux applicabile`; `fixture TUI reale claude con account/test sintetici autorizzati`.
 
 **Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
 
@@ -4879,7 +4914,7 @@ Lista positiva dei permessi di lettura e scrittura e collegamenti alle credenzia
 - Worktree, programma e collegamenti originali alle credenziali devono essere in sola lettura; Shinatama non deve aprire o copiare le credenziali.
 - Altre directory personali, progetti e database devono essere inaccessibili; mostrare il badge confinato soltanto dopo la verifica.
 
-**Verifiche del passo:** `planned: Only scratch writable, including harness-local state restrictions.`; `planned: Worktree/program and original credential bindings read-only; Shinatama never opens/copies credentials.`; `planned: Other homes/projects/DB inaccessible; confined badge withheld until pass.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Only scratch writable, including harness-local state restrictions.`; `planned: Worktree/program and original credential bindings read-only; Shinatama never opens/copies credentials.`; `planned: Other homes/projects/DB inaccessible; confined badge withheld until pass.`.
 
 **Gate collegati, da registrare separatamente:** CS-2, CS-9.
 
@@ -4944,7 +4979,7 @@ Lista positiva dei permessi di lettura e scrittura e collegamenti alle credenzia
 - Worktree, programma e collegamenti originali alle credenziali devono essere in sola lettura; Shinatama non deve aprire o copiare le credenziali.
 - Altre directory personali, progetti e database devono essere inaccessibili; mostrare il badge confinato soltanto dopo la verifica.
 
-**Verifiche del passo:** `planned: Only scratch writable, including harness-local state restrictions.`; `planned: Worktree/program and original credential bindings read-only; Shinatama never opens/copies credentials.`; `planned: Other homes/projects/DB inaccessible; confined badge withheld until pass.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Only scratch writable, including harness-local state restrictions.`; `planned: Worktree/program and original credential bindings read-only; Shinatama never opens/copies credentials.`; `planned: Other homes/projects/DB inaccessible; confined badge withheld until pass.`.
 
 **Gate collegati, da registrare separatamente:** CS-2, CS-9.
 
@@ -5009,7 +5044,7 @@ Evidenza riproducibile per un vero codex su macos, separata dalle altre combinaz
 - Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
 - Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
 
-**Verifiche del passo:** `matrice P1–P20 codex/macos applicabile`; `fixture TUI reale codex con account/test sintetici autorizzati`.
+**Catalogo verifiche (applicare la policy essenziale):** `matrice P1–P20 codex/macos applicabile`; `fixture TUI reale codex con account/test sintetici autorizzati`.
 
 **Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
 
@@ -5036,7 +5071,7 @@ Evidenza riproducibile per un vero codex su linux, separata dalle altre combinaz
 - Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
 - Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
 
-**Verifiche del passo:** `matrice P1–P20 codex/linux applicabile`; `fixture TUI reale codex con account/test sintetici autorizzati`.
+**Catalogo verifiche (applicare la policy essenziale):** `matrice P1–P20 codex/linux applicabile`; `fixture TUI reale codex con account/test sintetici autorizzati`.
 
 **Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
 
@@ -5063,7 +5098,7 @@ Evidenza riproducibile per un vero opencode su macos, separata dalle altre combi
 - Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
 - Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
 
-**Verifiche del passo:** `matrice P1–P20 opencode/macos applicabile`; `fixture TUI reale opencode con account/test sintetici autorizzati`.
+**Catalogo verifiche (applicare la policy essenziale):** `matrice P1–P20 opencode/macos applicabile`; `fixture TUI reale opencode con account/test sintetici autorizzati`.
 
 **Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
 
@@ -5090,7 +5125,7 @@ Evidenza riproducibile per un vero opencode su linux, separata dalle altre combi
 - Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
 - Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
 
-**Verifiche del passo:** `matrice P1–P20 opencode/linux applicabile`; `fixture TUI reale opencode con account/test sintetici autorizzati`.
+**Catalogo verifiche (applicare la policy essenziale):** `matrice P1–P20 opencode/linux applicabile`; `fixture TUI reale opencode con account/test sintetici autorizzati`.
 
 **Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
 
@@ -5117,7 +5152,7 @@ Evidenza riproducibile per un vero pi su macos, separata dalle altre combinazion
 - Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
 - Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
 
-**Verifiche del passo:** `matrice P1–P20 pi/macos applicabile`; `fixture TUI reale pi con account/test sintetici autorizzati`.
+**Catalogo verifiche (applicare la policy essenziale):** `matrice P1–P20 pi/macos applicabile`; `fixture TUI reale pi con account/test sintetici autorizzati`.
 
 **Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
 
@@ -5144,7 +5179,7 @@ Evidenza riproducibile per un vero pi su linux, separata dalle altre combinazion
 - Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
 - Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
 
-**Verifiche del passo:** `matrice P1–P20 pi/linux applicabile`; `fixture TUI reale pi con account/test sintetici autorizzati`.
+**Catalogo verifiche (applicare la policy essenziale):** `matrice P1–P20 pi/linux applicabile`; `fixture TUI reale pi con account/test sintetici autorizzati`.
 
 **Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
 
@@ -5171,7 +5206,7 @@ Evidenza riproducibile per un vero hermes su macos, separata dalle altre combina
 - Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
 - Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
 
-**Verifiche del passo:** `matrice P1–P20 hermes/macos applicabile`; `fixture TUI reale hermes con account/test sintetici autorizzati`.
+**Catalogo verifiche (applicare la policy essenziale):** `matrice P1–P20 hermes/macos applicabile`; `fixture TUI reale hermes con account/test sintetici autorizzati`.
 
 **Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
 
@@ -5198,7 +5233,7 @@ Evidenza riproducibile per un vero hermes su linux, separata dalle altre combina
 - Riavvio, chiusura, crash e processo figlio non perdono sessioni o lasciano processi non dichiarati; misure e limiti registrati.
 - Nessuna equivalenza implicita fra sistemi: la capacità è promossa solo per questa combinazione se passa; altrimenti versione o funzionalità resta indisponibile.
 
-**Verifiche del passo:** `matrice P1–P20 hermes/linux applicabile`; `fixture TUI reale hermes con account/test sintetici autorizzati`.
+**Catalogo verifiche (applicare la policy essenziale):** `matrice P1–P20 hermes/linux applicabile`; `fixture TUI reale hermes con account/test sintetici autorizzati`.
 
 **Gate collegati, da registrare separatamente:** P1–P20 per combinazione, TL2, TL5, U3, U7.
 
@@ -5225,7 +5260,7 @@ Prova del vero client ACP Shinatama/DeepSeek su macos: messaggi, tool, permessi 
 - Focus/modal, Unicode, backpressure e cleanup del processo verificati; nessuna risposta a una richiesta scaduta.
 - La promozione riguarda questa combinazione; restano indisponibili le capacità non provate.
 
-**Verifiche del passo:** `fixture DS1–DS15/ACP applicabili su macos`; `request/permission correlation e crash cleanup`.
+**Catalogo verifiche (applicare la policy essenziale):** `fixture DS1–DS15/ACP applicabili su macos`; `request/permission correlation e crash cleanup`.
 
 **Gate collegati, da registrare separatamente:** DS1–DS15 applicabili, P14, U3, U7.
 
@@ -5252,7 +5287,7 @@ Prova del vero client ACP Shinatama/DeepSeek su linux: messaggi, tool, permessi 
 - Focus/modal, Unicode, backpressure e cleanup del processo verificati; nessuna risposta a una richiesta scaduta.
 - La promozione riguarda questa combinazione; restano indisponibili le capacità non provate.
 
-**Verifiche del passo:** `fixture DS1–DS15/ACP applicabili su linux`; `request/permission correlation e crash cleanup`.
+**Catalogo verifiche (applicare la policy essenziale):** `fixture DS1–DS15/ACP applicabili su linux`; `request/permission correlation e crash cleanup`.
 
 **Gate collegati, da registrare separatamente:** DS1–DS15 applicabili, P14, U3, U7.
 

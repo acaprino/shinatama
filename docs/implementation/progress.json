@@ -747,8 +747,8 @@
       "commit_sha": null,
       "units": {
         "C09R.1": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "390c1c9b20a59bc448cfd739b323f82251edb340",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -771,11 +771,33 @@
           ]
         },
         "C09R.2": {
+          "status": "verified",
+          "commit_sha": null,
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-02-C09R-admission.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine -p shinatama-state -j1 --lib -- --test-threads=1",
+            "cargo test --offline -p shinatama-engine -j1 --test job_containment -- --test-threads=1",
+            "cargo test --offline -p shinatama-state -j1 --test resource_reservations -- --test-threads=1",
+            "cargo build --offline -p shinatama-desktop -p shinatama-cli --features custom-protocol -j1",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/resources-smoke.mjs"
+          ],
+          "limits": [
+            "Native starts remain gated until remaining C09R and dependent requirements pass.",
+            "Complete lifetime process coverage is required for release: missed descendants or owner-crash uncertainty remain Retired, never guessed empty. Automatic recovery of that uncertainty is unqualified.",
+            "This checkpoint also records the user requested essential-only verification policy and morning delivery priority without reducing V1 requirements."
+          ]
+        },
+        "C09R.3": {
           "status": "in_progress",
           "commit_sha": null
         }
       },
-      "next_action": "Integrate persisted aggregate resource reservations and pre-execution per-workload Windows Job limits, with exact identity/session-bound cleanup proofs and fail-closed retained budgets."
+      "next_action": "Wire explicit bounded adaptive policy and host governor; use only essential targeted checks and continue toward the usable first-agent delivery milestone."
     }
   },
   "blockers": [],
