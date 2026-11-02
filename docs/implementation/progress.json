@@ -743,7 +743,7 @@
       "next_action": "Proceed immediately to mandatory C09R resource sampling, aggregate admission and native fault containment before dependent native execution."
     },
     "C09R": {
-      "status": "in_progress",
+      "status": "verified",
       "commit_sha": null,
       "units": {
         "C09R.1": {
@@ -793,8 +793,8 @@
           ]
         },
         "C09R.3": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "f3068d18d62bc91849bca7ba68365894ca6cac5d",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -814,11 +814,41 @@
           ]
         },
         "C09R.4": {
-          "status": "in_progress",
-          "commit_sha": null
+          "status": "verified",
+          "commit_sha": null,
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-02-C09R-faults.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine --test resource_faults -j1 -- --test-threads=1 --nocapture"
+          ],
+          "limits": [
+            "Eight synthetic native fault rounds only; actual terminal/renderer protection belongs to C09 and sidecar supervision to C13.",
+            "Per-agent production calibration, extended soak and complete product RES gates remain open."
+          ]
         }
       },
-      "next_action": "Qualify bounded synthetic native faults and healthy sibling responsiveness in C09R.4; continue directly to dependent terminal/sidecar integration with essential checks only."
+      "next_action": "Proceed with C06/C07 workspace integration and C12 private sidecar preparation; integrate actual terminal containment in C09 and sidecar supervision in C13 before opening native agent gates.",
+      "evidence": [
+        "docs/verification/2026-11-02-C09R-observer.md",
+        "docs/verification/2026-11-02-C09R-admission.md",
+        "docs/verification/2026-11-02-C09R-policy.md",
+        "docs/verification/2026-11-02-C09R-faults.md"
+      ],
+      "limits": [
+        "Generic resource infrastructure and bounded synthetic qualification only. Dependent C09/C13 must apply and qualify it in actual terminals/sidecars; no full product resilience or native agent readiness is claimed."
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-engine --test resource_faults -j1 -- --test-threads=1 --nocapture",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/resources-smoke.mjs"
+      ]
+    },
+    "C06": {
+      "status": "in_progress",
+      "commit_sha": null
     }
   },
   "blockers": [],
