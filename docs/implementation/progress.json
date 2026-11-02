@@ -274,8 +274,8 @@
       "next_action": "Continue C02 bundled SQLite and atomic legacy-history import after this checkpoint."
     },
     "C02": {
-      "status": "verified",
-      "commit_sha": null,
+      "status": "committed",
+      "commit_sha": "85bd724b3fba830c007cf77e96d6f5a332eb97fd",
       "platforms": [
         "Windows 11 x64 build 26200"
       ],
@@ -299,6 +299,11 @@
         "Complete S1/S4/S5 and release X3 remain open; initialization failures require native app restart after correction."
       ],
       "next_action": "Wire and qualify C03 backups/migrations, then implement the newly requested bounded DB maintenance."
+    },
+    "C03": {
+      "status": "in_progress",
+      "commit_sha": null,
+      "next_action": "Qualify embedded schema-2 app after 43 state tests; verified private backups, crash rollback and fixed backup budgets are implemented."
     }
   },
   "blockers": [],

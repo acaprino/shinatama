@@ -59,6 +59,11 @@ ordine per continuare. L'utente ha autorizzato l'implementazione del prodotto e
 la prosecuzione autonoma degli incrementi pronti. Un blocco su un gate non ferma
 le attività indipendenti; le prove mancanti restano aperte e non vengono inventate.
 
+**Manutenzione DB, richiesta utente 2026-11-02:** C03M aggiunge job finiti,
+conservazione esplicita, controllo dei dati malformati e limiti di crescita prima
+di C09R. I dettagli sono nella [nota di manutenzione](2026-11-02-database-maintenance.md)
+e in FRD-0014/R33-R37; un requisito aggiunto al piano non è ancora una funzione provata.
+
 ```sh
 python scripts/implementation.py validate
 python scripts/implementation.py render

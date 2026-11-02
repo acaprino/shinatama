@@ -469,6 +469,127 @@
       "resume": "Leggere la scheda e le dipendenze; aprire crates/state/src/migrations.rs, crates/state/tests/migrations.rs. Preparare la prima prova di accettazione prima di modificare il comportamento."
     },
     {
+      "id": "C03M",
+      "title": "Mantenere finiti pulizia, validazione e crescita dello stato locale",
+      "requirements": [
+        "FRD-0014/R33",
+        "FRD-0014/R34",
+        "FRD-0014/R35",
+        "FRD-0014/R36",
+        "FRD-0014/R37",
+        "FRD-0014/R24"
+      ],
+      "depends_on": [
+        "C03",
+        "F32CI"
+      ],
+      "deliverable": "Manutenzione locale con policy finite, rapporto tipizzato, quarantena senza payload, proprietà atomica fra finestre e integrazione con la pressione C09R; storia autorevole conservata.",
+      "acceptance": [
+        "La specifica di manutenzione del 2026-11-02 governa soltanto shinatama.db e artefatti Shinatama; nessun job tocca archivi agenti o database sidecar.",
+        "Batch con quote di righe/byte/VM e scadenza cooperativa; rinvii visibili, nessuna promessa rigida sui tempi delle chiamate OS. SQLITE_INTERRUPT da budget non equivale a corruzione.",
+        "Proprietà atomica, lock rilasciato dopo crash, schema futuro senza scritture e pressione che rinvia il lavoro opzionale. Nessun ciclo infinito di retry.",
+        "Record autorevoli e backup verificati non vengono cancellati automaticamente; anomalie aggregate e report di crescita hanno tetti fissi. Le feature future registrano policy operative prima di abilitare i propri dati.",
+        "Prove di guasto, spazio insufficiente, contesa, ripetizioni e un terminale sano con latenza misurata; nessun gate si chiude con i soli test unitari."
+      ],
+      "checks": [
+        "cargo test -p shinatama-state --test maintenance",
+        "planned: fault/recovery and real healthy-terminal responsiveness under maintenance",
+        "python scripts/implementation.py validate"
+      ],
+      "files": [
+        "crates/state/src/maintenance.rs",
+        "crates/state/tests/maintenance.rs",
+        "apps/desktop/src-tauri/src/storage.rs",
+        "docs/implementation/2026-11-02-database-maintenance.md",
+        "docs/verification/"
+      ],
+      "gates": [
+        "S4",
+        "S5",
+        "I8",
+        "X5",
+        "RES1",
+        "TL5"
+      ],
+      "hours": [
+        18,
+        30
+      ],
+      "scope": "v1",
+      "commit": "feat(c03m): Limitare manutenzione e crescita dello stato locale",
+      "resume": "Aprire la specifica di manutenzione e il core maintenance.rs; verificare l ultimo commit C03, poi eseguire il prossimo batch o la prossima prova senza toccare archivi degli agenti.",
+      "commit_units": [
+        {
+          "id": "C03M.1",
+          "title": "Definire policy e nucleo finito della manutenzione",
+          "deliverable": "Policy numeriche proposte, rapporto tipizzato, controllo della crescita e anomalie senza modificare storia autorevole.",
+          "acceptance": [
+            "Quote per batch e interruzioni restituiscono lavoro rinviato, non una falsa diagnosi di corruzione.",
+            "Righe autorevoli e payload sensibili restano intatti; anomalie ripetute hanno spazio limitato."
+          ],
+          "checks": [
+            "cargo test -p shinatama-state --test maintenance",
+            "planned: measured Windows integration qualification"
+          ],
+          "files": [
+            "crates/state/src/maintenance.rs",
+            "crates/state/tests/maintenance.rs",
+            "docs/implementation/2026-11-02-database-maintenance.md"
+          ],
+          "hours": [
+            6,
+            10
+          ],
+          "commit": "feat(c03m.1): Definire policy e nucleo finito della manutenzione"
+        },
+        {
+          "id": "C03M.2",
+          "title": "Coordinare job inattivi e pressione fra finestre",
+          "deliverable": "Scheduler fuori UI, proprietà atomica e lease crash-safe, manutenzione ammessa da budget e collegamento C09R.",
+          "acceptance": [
+            "Due finestre non sovrappongono job e un crash non lascia il lavoro bloccato senza scadenza.",
+            "Schema futuro non riceve scritture; pressione rinvia i job; checkpoint e compattazione rispettano le proprie capacità reali."
+          ],
+          "checks": [
+            "cargo test -p shinatama-state --test maintenance",
+            "planned: measured Windows integration qualification"
+          ],
+          "files": [
+            "crates/state/src/maintenance.rs",
+            "apps/desktop/src-tauri/src/storage.rs"
+          ],
+          "hours": [
+            6,
+            10
+          ],
+          "commit": "feat(c03m.2): Coordinare job inattivi e pressione fra finestre"
+        },
+        {
+          "id": "C03M.3",
+          "title": "Qualificare guasti e recuperi ripetuti della manutenzione",
+          "deliverable": "Fixture isolate di crash, lock, pressione e storage failure con misure reali di un terminale sano.",
+          "acceptance": [
+            "Prima/dopo: dati autorevoli conservati, integrity_check superato e nessuna crescita residua illimitata di metadata/quarantena.",
+            "Un terminale reale sano continua a rispondere; scadenze cooperative e limiti OS vengono descritti senza garanzie inventate."
+          ],
+          "checks": [
+            "cargo test -p shinatama-state --test maintenance",
+            "planned: measured Windows integration qualification"
+          ],
+          "files": [
+            "crates/state/tests/maintenance.rs",
+            "verify/RES/",
+            "docs/verification/"
+          ],
+          "hours": [
+            6,
+            10
+          ],
+          "commit": "feat(c03m.3): Qualificare guasti e recuperi ripetuti della manutenzione"
+        }
+      ]
+    },
+    {
       "id": "C04",
       "title": "Configurare le radici e individuare i progetti con un selettore nativo",
       "requirements": [
@@ -1069,7 +1190,8 @@
       "depends_on": [
         "C03",
         "FS03",
-        "C11"
+        "C11",
+        "C03M"
       ],
       "deliverable": "Controllore locale misurato, budget per albero e ammissione aggregata, limiti preventivi e recupero attribuibile, con priorita a host e sessioni sane.",
       "acceptance": [

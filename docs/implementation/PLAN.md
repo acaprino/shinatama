@@ -36,14 +36,15 @@ macOS e Linux sono fuori dallo scope su decisione dell utente: solo Windows e su
 | [F32CI](#f32ci) | Verifica continua iniziale, lockfile e avvisi sulle dipendenze | B01 | committed | 3–8 |
 | [TL1-proof](#tl1-proof) | Provare la shell Tauri su Windows (gate TL1) | B00, F32CI | committed | 6–16 |
 | [C01](#c01) | Validare i percorsi locali privati prima di creare il database | B00, B02, F32CI | committed | 8–16 |
-| [C02](#c02) | Aprire SQLite incorporato in sicurezza ed esporre un servizio di stato tipizzato | C01, B02 | verified | 8–16 |
-| [C03](#c03) | Aggiungere migrazioni, copie di sicurezza e lettura dei database più recenti | C02 | pending | 6–12 |
+| [C02](#c02) | Aprire SQLite incorporato in sicurezza ed esporre un servizio di stato tipizzato | C01, B02 | committed | 8–16 |
+| [C03](#c03) | Aggiungere migrazioni, copie di sicurezza e lettura dei database più recenti | C02 | in_progress | 6–12 |
+| [C03M](#c03m) | Mantenere finiti pulizia, validazione e crescita dello stato locale | C03, F32CI | pending | 18–30 |
 | [C04](#c04) | Configurare le radici e individuare i progetti con un selettore nativo | B02, C03 | pending | 10–20 |
 | [C05](#c05) | Creare progetti in modo atomico sotto la radice scelta | C04 | pending | 8–16 |
 | [C10](#c10) | Definire contratti degli adattatori, capacità e verifiche di versione | C02, C03 | pending | 10–18 |
 | [C11](#c11) | Costruire piani di avvio sicuri e cartelle private degli agenti | C01, C10 | pending | 16–32 |
 | [C12](#c12) | Integrare il sorgente del sidecar e il suo ambiente privato | C11 | pending | 20–40 |
-| [C09R](#c09r) | Proteggere l host con budget e recupero adattivi | C03, FS03, C11 | pending | 24–48 |
+| [C09R](#c09r) | Proteggere l host con budget e recupero adattivi | C03, FS03, C11, C03M | pending | 24–48 |
 | [C13](#c13) | Supervisionare i sidecar distinguendo occupazione e recupero | C12, C09R | pending | 20–40 |
 | [C14](#c14) | Preparare checkup, manifest e set generici di avvio | C11, C13 | pending | 6–12 |
 | [FS03](#fs03) | Separazione degli schemi autorevoli e operativi e record dei progetti | C03, C11 | pending | 4–10 |
@@ -386,6 +387,71 @@ Migrazioni incorporate e versionate, copia di sicurezza verificata prima di ogni
 
 **Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/state/src/migrations.rs, crates/state/tests/migrations.rs. Preparare la prima prova di accettazione prima di modificare il comportamento.
 
+<a id="c03m"></a>
+## C03M · Mantenere finiti pulizia, validazione e crescita dello stato locale
+
+Manutenzione locale con policy finite, rapporto tipizzato, quarantena senza payload, proprietà atomica fra finestre e integrazione con la pressione C09R; storia autorevole conservata.
+
+**Ambito:** v1. **Dipendenze:** C03, F32CI. **Stima:** 18–30 ore.
+
+**File/componenti:** `crates/state/src/maintenance.rs`; `crates/state/tests/maintenance.rs`; `apps/desktop/src-tauri/src/storage.rs`; `docs/implementation/2026-11-02-database-maintenance.md`; `docs/verification/`.
+
+**Accettazione osservabile:**
+
+- La specifica di manutenzione del 2026-11-02 governa soltanto shinatama.db e artefatti Shinatama; nessun job tocca archivi agenti o database sidecar.
+- Batch con quote di righe/byte/VM e scadenza cooperativa; rinvii visibili, nessuna promessa rigida sui tempi delle chiamate OS. SQLITE_INTERRUPT da budget non equivale a corruzione.
+- Proprietà atomica, lock rilasciato dopo crash, schema futuro senza scritture e pressione che rinvia il lavoro opzionale. Nessun ciclo infinito di retry.
+- Record autorevoli e backup verificati non vengono cancellati automaticamente; anomalie aggregate e report di crescita hanno tetti fissi. Le feature future registrano policy operative prima di abilitare i propri dati.
+- Prove di guasto, spazio insufficiente, contesa, ripetizioni e un terminale sano con latenza misurata; nessun gate si chiude con i soli test unitari.
+
+**Verifiche del passo:** `cargo test -p shinatama-state --test maintenance`; `planned: fault/recovery and real healthy-terminal responsiveness under maintenance`; `python scripts/implementation.py validate`.
+
+**Gate collegati, da registrare separatamente:** S4, S5, I8, X5, RES1, TL5.
+
+**Requisiti coperti dal piano:** FRD-0014/R33, FRD-0014/R34, FRD-0014/R35, FRD-0014/R36, FRD-0014/R37, FRD-0014/R24.
+
+**Commit proposto:** `feat(c03m): Limitare manutenzione e crescita dello stato locale`.
+
+**Prima azione alla ripresa:** Aprire la specifica di manutenzione e il core maintenance.rs; verificare l ultimo commit C03, poi eseguire il prossimo batch o la prossima prova senza toccare archivi degli agenti.
+
+**Unita di commit sequenziali (ognuna lascia l’app avviabile):**
+
+### C03M.1 · Definire policy e nucleo finito della manutenzione
+
+Policy numeriche proposte, rapporto tipizzato, controllo della crescita e anomalie senza modificare storia autorevole.
+
+Stima: 6–10 ore. File: `crates/state/src/maintenance.rs`, `crates/state/tests/maintenance.rs`, `docs/implementation/2026-11-02-database-maintenance.md`.
+
+Accettazione: Quote per batch e interruzioni restituiscono lavoro rinviato, non una falsa diagnosi di corruzione. Righe autorevoli e payload sensibili restano intatti; anomalie ripetute hanno spazio limitato.
+
+Verifiche pianificate: `cargo test -p shinatama-state --test maintenance`; `planned: measured Windows integration qualification`.
+
+Commit: `feat(c03m.1): Definire policy e nucleo finito della manutenzione`. Registrare stato e prove sotto `progress.json` → `steps` → `C03M` → `units` → `C03M.1`.
+
+### C03M.2 · Coordinare job inattivi e pressione fra finestre
+
+Scheduler fuori UI, proprietà atomica e lease crash-safe, manutenzione ammessa da budget e collegamento C09R.
+
+Stima: 6–10 ore. File: `crates/state/src/maintenance.rs`, `apps/desktop/src-tauri/src/storage.rs`.
+
+Accettazione: Due finestre non sovrappongono job e un crash non lascia il lavoro bloccato senza scadenza. Schema futuro non riceve scritture; pressione rinvia i job; checkpoint e compattazione rispettano le proprie capacità reali.
+
+Verifiche pianificate: `cargo test -p shinatama-state --test maintenance`; `planned: measured Windows integration qualification`.
+
+Commit: `feat(c03m.2): Coordinare job inattivi e pressione fra finestre`. Registrare stato e prove sotto `progress.json` → `steps` → `C03M` → `units` → `C03M.2`.
+
+### C03M.3 · Qualificare guasti e recuperi ripetuti della manutenzione
+
+Fixture isolate di crash, lock, pressione e storage failure con misure reali di un terminale sano.
+
+Stima: 6–10 ore. File: `crates/state/tests/maintenance.rs`, `verify/RES/`, `docs/verification/`.
+
+Accettazione: Prima/dopo: dati autorevoli conservati, integrity_check superato e nessuna crescita residua illimitata di metadata/quarantena. Un terminale reale sano continua a rispondere; scadenze cooperative e limiti OS vengono descritti senza garanzie inventate.
+
+Verifiche pianificate: `cargo test -p shinatama-state --test maintenance`; `planned: measured Windows integration qualification`.
+
+Commit: `feat(c03m.3): Qualificare guasti e recuperi ripetuti della manutenzione`. Registrare stato e prove sotto `progress.json` → `steps` → `C03M` → `units` → `C03M.3`.
+
 <a id="c04"></a>
 ## C04 · Configurare le radici e individuare i progetti con un selettore nativo
 
@@ -687,7 +753,7 @@ Commit: `feat(c12.4): Collegare traffico e configurazione effettiva`. Registrare
 
 Controllore locale misurato, budget per albero e ammissione aggregata, limiti preventivi e recupero attribuibile, con priorita a host e sessioni sane.
 
-**Ambito:** v1. **Dipendenze:** C03, FS03, C11. **Stima:** 24–48 ore.
+**Ambito:** v1. **Dipendenze:** C03, FS03, C11, C03M. **Stima:** 24–48 ore.
 
 **File/componenti:** `crates/engine/src/resources/**`; `verify/RES/**`; `docs/implementation/2026-11-02-host-resilience.md`.
 

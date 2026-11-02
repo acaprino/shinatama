@@ -1,0 +1,538 @@
+{
+  "schema_version": 1,
+  "frd_id": "FRD-0014",
+  "version": 1,
+  "title": "Shared state, privacy and data retention",
+  "status": "Proposed",
+  "author": "Codex",
+  "created_from_task": "C03M-maintenance-2026-11-02",
+  "proposed_on": "2026-11-02",
+  "proposed_at_sha": "85bd724b3fba830c007cf77e96d6f5a332eb97fd",
+  "accepted_on": null,
+  "accepted_at_sha": null,
+  "last_verified_sha": null,
+  "superseded_by": null,
+  "requirements": [
+    {
+      "id": "REQ-001",
+      "status": "extracted",
+      "text": "Shinatama is one owning runtime process per native application window; each owns the PTYs of the instances it hosts, and only that process writes into them; browser operations are owned the same way.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 1276,
+          "end": 1475,
+          "excerpt": "Shinatama is one owning runtime process per native application window; each owns the PTYs of the instances it hosts, and only that process writes into them; browser operations are owned the same way."
+        }
+      ]
+    },
+    {
+      "id": "REQ-002",
+      "status": "extracted",
+      "text": "There is no resident service and no daemon: windows, the widget, the command line, each agent's MCP server and hooks are separate processes that open the one database directly and coordinate through it; no process brokers between them. An optional local socket or named pipe only wakes a sleeping process sooner.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 1541,
+          "end": 1853,
+          "excerpt": "There is no resident service and no daemon: windows, the widget, the command line, each agent's MCP server and hooks are separate processes that open the one database directly and coordinate through it; no process brokers between them. An optional local socket or named pipe only wakes a sleeping process sooner."
+        }
+      ]
+    },
+    {
+      "id": "REQ-003",
+      "status": "extracted",
+      "text": "Any process may run an operation that does not touch a PTY it does not own (hop, send message, summarize); operations that need a foreign PTY are queued in the database and executed by the owning process.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 1899,
+          "end": 2103,
+          "excerpt": "Any process may run an operation that does not touch a PTY it does not own (hop, send message, summarize); operations that need a foreign PTY are queued in the database and executed by the owning process."
+        }
+      ]
+    },
+    {
+      "id": "REQ-004",
+      "status": "extracted",
+      "text": "No Shinatama process, and no agent background process Shinatama started (OpenCode's service, Hermes Agent's gateway), keeps executing work after the owning window closes.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 2133,
+          "end": 2303,
+          "excerpt": "No Shinatama process, and no agent background process Shinatama started (OpenCode's service, Hermes Agent's gateway), keeps executing work after the owning window closes."
+        }
+      ]
+    },
+    {
+      "id": "REQ-005",
+      "status": "extracted",
+      "text": "One SQLite file per user in the platform data directory (`%LOCALAPPDATA%\\shinatama\\shinatama.db`, `~/.local/share/shinatama/shinatama.db`, `~/Library/Application Support/shinatama/shinatama.db`), overridable with `SHINATAMA_HOME`. The storage choice is the user's; exact tables and columns are the builder's.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 2488,
+          "end": 2796,
+          "excerpt": "One SQLite file per user in the platform data directory (`%LOCALAPPDATA%\\shinatama\\shinatama.db`, `~/.local/share/shinatama/shinatama.db`, `~/Library/Application Support/shinatama/shinatama.db`), overridable with `SHINATAMA_HOME`. The storage choice is the user's; exact tables and columns are the builder's."
+        }
+      ]
+    },
+    {
+      "id": "REQ-006",
+      "status": "extracted",
+      "text": "Never inside a project folder or on a synchronized or network volume (Google Drive, OneDrive, SMB, NFS, Dropbox): at open Shinatama detects such a location and refuses with an explanation, without false alarms on local disks.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 2870,
+          "end": 3095,
+          "excerpt": "Never inside a project folder or on a synchronized or network volume (Google Drive, OneDrive, SMB, NFS, Dropbox): at open Shinatama detects such a location and refuses with an explanation, without false alarms on local disks."
+        }
+      ]
+    },
+    {
+      "id": "REQ-007",
+      "status": "extracted",
+      "text": "Bundled SQLite with FTS5; `journal_mode=WAL`, `synchronous=NORMAL`, `foreign_keys=ON`, `busy_timeout=5000`; several writers and readers across processes on Windows, macOS and Linux without corruption.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 3131,
+          "end": 3331,
+          "excerpt": "Bundled SQLite with FTS5; `journal_mode=WAL`, `synchronous=NORMAL`, `foreign_keys=ON`, `busy_timeout=5000`; several writers and readers across processes on Windows, macOS and Linux without corruption."
+        }
+      ]
+    },
+    {
+      "id": "REQ-008",
+      "status": "extracted",
+      "text": "Migrations: `PRAGMA user_version` with an embedded, ordered, idempotent list; a backup copy before each migration; a database newer than the binary opens read-only with a message.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 3363,
+          "end": 3542,
+          "excerpt": "Migrations: `PRAGMA user_version` with an embedded, ordered, idempotent list; a backup copy before each migration; a database newer than the binary opens read-only with a message."
+        }
+      ]
+    },
+    {
+      "id": "REQ-009",
+      "status": "extracted",
+      "text": "File mode 0600; on Windows an ACL for the current user only.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 3574,
+          "end": 3634,
+          "excerpt": "File mode 0600; on Windows an ACL for the current user only."
+        }
+      ]
+    },
+    {
+      "id": "REQ-010",
+      "status": "extracted",
+      "text": "Write rule: short `BEGIN IMMEDIATE` transactions; no network or agent call inside a transaction.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 3667,
+          "end": 3763,
+          "excerpt": "Write rule: short `BEGIN IMMEDIATE` transactions; no network or agent call inside a transaction."
+        }
+      ]
+    },
+    {
+      "id": "REQ-011",
+      "status": "extracted",
+      "text": "`shinatama doctor` runs `PRAGMA integrity_check` and can rebuild the operational index tables from the agents' own stores; it never regenerates authoritative tables.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 3795,
+          "end": 3960,
+          "excerpt": "`shinatama doctor` runs `PRAGMA integrity_check` and can rebuild the operational index tables from the agents' own stores; it never regenerates authoritative tables."
+        }
+      ]
+    },
+    {
+      "id": "REQ-012",
+      "status": "extracted",
+      "text": "Crash safety: a kill mid-transaction, including in the middle of a hop's state change, leaves `integrity_check` clean and the hop state recoverable.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 3991,
+          "end": 4139,
+          "excerpt": "Crash safety: a kill mid-transaction, including in the middle of a hop's state change, leaves `integrity_check` clean and the hop state recoverable."
+        }
+      ]
+    },
+    {
+      "id": "REQ-013",
+      "status": "extracted",
+      "text": "Authoritative tables (lost = lost work history): `project`, `store_root`, `thread`, `segment`, `activation`, `hop`, `hop_event`, `snapshot`, `message`, `message_event`, `roundtable`, `roundtable_participant`, `setting`; plus, for the Daodan support and the companion, `thread_task` (derived, droppable), the companion record and `learning_memory`.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 4292,
+          "end": 4639,
+          "excerpt": "Authoritative tables (lost = lost work history): `project`, `store_root`, `thread`, `segment`, `activation`, `hop`, `hop_event`, `snapshot`, `message`, `message_event`, `roundtable`, `roundtable_participant`, `setting`; plus, for the Daodan support and the companion, `thread_task` (derived, droppable), the companion record and `learning_memory`."
+        }
+      ]
+    },
+    {
+      "id": "REQ-014",
+      "status": "extracted",
+      "text": "Operational tables, rebuildable or discardable: `instance`, `event`, `summary_log`, `session_index`, `session_text` (with its FTS5 virtual table).",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 4688,
+          "end": 4834,
+          "excerpt": "Operational tables, rebuildable or discardable: `instance`, `event`, `summary_log`, `session_index`, `session_text` (with its FTS5 virtual table)."
+        }
+      ]
+    },
+    {
+      "id": "REQ-015",
+      "status": "extracted",
+      "text": "Time is integer Unix milliseconds UTC; ids are a prefix plus 12 random base32 characters (`t_`, `s_`, `h_`, `i_`, `r_`, `m_`, `bs_`).",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 4865,
+          "end": 4998,
+          "excerpt": "Time is integer Unix milliseconds UTC; ids are a prefix plus 12 random base32 characters (`t_`, `s_`, `h_`, `i_`, `r_`, `m_`, `bs_`)."
+        }
+      ]
+    },
+    {
+      "id": "REQ-016",
+      "status": "extracted",
+      "text": "Every native session reference is scoped by `store_root_id`; agent plus native id alone is not an identity. A root's canonical location, origin and configuration revision are recorded once; changing or reconnecting a root creates a new revision rather than reassigning sessions; migrations preserve the old mapping; removing a root marks its records unavailable instead of deleting thread history; additional system roots are `read_only`.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 5029,
+          "end": 5467,
+          "excerpt": "Every native session reference is scoped by `store_root_id`; agent plus native id alone is not an identity. A root's canonical location, origin and configuration revision are recorded once; changing or reconnecting a root creates a new revision rather than reassigning sessions; migrations preserve the old mapping; removing a root marks its records unavailable instead of deleting thread history; additional system roots are `read_only`."
+        }
+      ]
+    },
+    {
+      "id": "REQ-017",
+      "status": "extracted",
+      "text": "`thread.kind` is `work`, `roundtable` or `companion`; a companion thread is linked to its worker by its own column, not by `parent_thread_id`, which is the hop lineage.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 5512,
+          "end": 5680,
+          "excerpt": "`thread.kind` is `work`, `roundtable` or `companion`; a companion thread is linked to its worker by its own column, not by `parent_thread_id`, which is the hop lineage."
+        }
+      ]
+    },
+    {
+      "id": "REQ-018",
+      "status": "extracted",
+      "text": "Layout is a versioned JSON workspace record keyed by project and workspace, with a revision and one owning window (FRD-0001 R28).",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 5735,
+          "end": 5864,
+          "excerpt": "Layout is a versioned JSON workspace record keyed by project and workspace, with a revision and one owning window (FRD-0001 R28)."
+        }
+      ]
+    },
+    {
+      "id": "REQ-019",
+      "status": "extracted",
+      "text": "One live segment per thread (I1): a partial unique index `UNIQUE(thread_id) WHERE state IN (non-terminal hop states)` on `hop`, a unique open activation per segment, and a check in the same transaction that no other segment of the thread has an open activation. Exactly one of two concurrent hops wins.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 6025,
+          "end": 6327,
+          "excerpt": "One live segment per thread (I1): a partial unique index `UNIQUE(thread_id) WHERE state IN (non-terminal hop states)` on `hop`, a unique open activation per segment, and a check in the same transaction that no other segment of the thread has an open activation. Exactly one of two concurrent hops wins."
+        }
+      ]
+    },
+    {
+      "id": "REQ-020",
+      "status": "extracted",
+      "text": "Duplicate messages: `message.dedupe_key UNIQUE`. Instance exclusivity: a native session is never attached to two live instances (unique `(agent, segment_id) WHERE ended_at IS NULL`).",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 6372,
+          "end": 6554,
+          "excerpt": "Duplicate messages: `message.dedupe_key UNIQUE`. Instance exclusivity: a native session is never attached to two live instances (unique `(agent, segment_id) WHERE ended_at IS NULL`)."
+        }
+      ]
+    },
+    {
+      "id": "REQ-021",
+      "status": "extracted",
+      "text": "Every hop step is journaled before its effect and idempotent after it (I3); what the destination receives is stored verbatim after redaction (I4); source records are never modified (I2); native stores are read-only in v1 (I7).",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 6594,
+          "end": 6820,
+          "excerpt": "Every hop step is journaled before its effect and idempotent after it (I3); what the destination receives is stored verbatim after redaction (I4); source records are never modified (I2); native stores are read-only in v1 (I7)."
+        }
+      ]
+    },
+    {
+      "id": "REQ-022",
+      "status": "extracted",
+      "text": "Every owning process updates `instance.last_seen` every 5 s; an instance is dead only when `last_seen` is older than 20 s and its `owner_pid` with `owner_start_time` is gone (`GetProcessTimes`, `/proc/<pid>/stat`, `proc_pidinfo`); a reaper, run by any process at start and every 30 s, marks dead instances ended with `end_reason = crashed`. Laptop sleep and resume cause no false \"dead\".",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 6968,
+          "end": 7355,
+          "excerpt": "Every owning process updates `instance.last_seen` every 5 s; an instance is dead only when `last_seen` is older than 20 s and its `owner_pid` with `owner_start_time` is gone (`GetProcessTimes`, `/proc/<pid>/stat`, `proc_pidinfo`); a reaper, run by any process at start and every 30 s, marks dead instances ended with `end_reason = crashed`. Laptop sleep and resume cause no false \"dead\"."
+        }
+      ]
+    },
+    {
+      "id": "REQ-023",
+      "status": "extracted",
+      "text": "A process polls `PRAGMA data_version` every 200 ms and reads the `event` table after its last `seq`; the interval is chosen from measured latency and CPU; a one-byte \"look now\" ping over a named pipe or Unix socket is an optional later optimization.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 7387,
+          "end": 7636,
+          "excerpt": "A process polls `PRAGMA data_version` every 200 ms and reads the `event` table after its last `seq`; the interval is chosen from measured latency and CPU; a one-byte \"look now\" ping over a named pipe or Unix socket is an optional later optimization."
+        }
+      ]
+    },
+    {
+      "id": "REQ-024",
+      "status": "extracted",
+      "text": "The `event`, `summary_log` and `message_event` tables get a pruning policy before release.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 7668,
+          "end": 7758,
+          "excerpt": "The `event`, `summary_log` and `message_event` tables get a pruning policy before release."
+        }
+      ]
+    },
+    {
+      "id": "REQ-025",
+      "status": "extracted",
+      "text": "Every path is canonicalized before storing or comparing: strip `\\\\?\\`, resolve junctions and symlinks, normalize drive-letter case, handle 8.3 names and Google Drive paths, compare case-insensitively on Windows and default macOS volumes; the same folder always maps to the same project id across Claude's flattened names, Codex's extended-length prefixes and the `--cwd--` folders of Pi and DeepSeek Harness. Claude's folder names are not invertible, so the `cwd` field inside each record is used.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 7902,
+          "end": 8399,
+          "excerpt": "Every path is canonicalized before storing or comparing: strip `\\\\?\\`, resolve junctions and symlinks, normalize drive-letter case, handle 8.3 names and Google Drive paths, compare case-insensitively on Windows and default macOS volumes; the same folder always maps to the same project id across Claude's flattened names, Codex's extended-length prefixes and the `--cwd--` folders of Pi and DeepSeek Harness. Claude's folder names are not invertible, so the `cwd` field inside each record is used."
+        }
+      ]
+    },
+    {
+      "id": "REQ-026",
+      "status": "extracted",
+      "text": "The database holds sensitive text: snapshots, message bodies, one-line summaries, the text index of the agents' sessions, the companion record and the ledger. No credential is ever stored in it, in snapshots, messages, summaries, launch manifests or logs (I5).",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 8543,
+          "end": 8803,
+          "excerpt": "The database holds sensitive text: snapshots, message bodies, one-line summaries, the text index of the agents' sessions, the companion record and the ledger. No credential is ever stored in it, in snapshots, messages, summaries, launch manifests or logs (I5)."
+        }
+      ]
+    },
+    {
+      "id": "REQ-027",
+      "status": "extracted",
+      "text": "`shinatama forget <thread>` deletes a thread's snapshots, messages, summaries and index rows, and its companion record; the ledger has its own forget-all. A thread can be marked `summaries_excluded`; indexing of a project can be switched off.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 8842,
+          "end": 9084,
+          "excerpt": "`shinatama forget <thread>` deletes a thread's snapshots, messages, summaries and index rows, and its companion record; the ledger has its own forget-all. A thread can be marked `summaries_excluded`; indexing of a project can be switched off."
+        }
+      ]
+    },
+    {
+      "id": "REQ-028",
+      "status": "extracted",
+      "text": "No data leaves the machine except: the title calls of FRD-0010 (after consent, redacted, only when a provider backend is chosen), the companion's calls to its provider and its search words (FRD-0012), the router's redacted digest when the user opts into a hosted decision model (FRD-0015), and the agents' own traffic through the sidecar. Everything else, scoring and digests included, stays local.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 9131,
+          "end": 9529,
+          "excerpt": "No data leaves the machine except: the title calls of FRD-0010 (after consent, redacted, only when a provider backend is chosen), the companion's calls to its provider and its search words (FRD-0012), the router's redacted digest when the user opts into a hosted decision model (FRD-0015), and the agents' own traffic through the sidecar. Everything else, scoring and digests included, stays local."
+        }
+      ]
+    },
+    {
+      "id": "REQ-029",
+      "status": "extracted",
+      "text": "A hosted agent with a shell runs as the same user and can open the database; this record states what Shinatama does with the data, not isolation from the agents it hosts. The browser broker makes the same statement (FRD-0011 R32).",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 9609,
+          "end": 9839,
+          "excerpt": "A hosted agent with a shell runs as the same user and can open the database; this record states what Shinatama does with the data, not isolation from the agents it hosts. The browser broker makes the same statement (FRD-0011 R32)."
+        }
+      ]
+    },
+    {
+      "id": "REQ-030",
+      "status": "extracted",
+      "text": "Raw session content shown or copied in the UI is never logged or persisted (FRD-0006 R22); handoff files are 0600 or a current-user ACL and never tracked (FRD-0005 R24); browser screenshots and extracted pages are stored privately with bounded retention (FRD-0011 R30).",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 9876,
+          "end": 10145,
+          "excerpt": "Raw session content shown or copied in the UI is never logged or persisted (FRD-0006 R22); handoff files are 0600 or a current-user ACL and never tracked (FRD-0005 R24); browser screenshots and extracted pages are stored privately with bounded retention (FRD-0011 R30)."
+        }
+      ]
+    },
+    {
+      "id": "REQ-031",
+      "status": "extracted",
+      "text": "Boxes are created owner-only because they hold logins and sessions (FRD-0002 R16); the sidecar's private root and manifest hold no credentials (FRD-0009).",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 10215,
+          "end": 10369,
+          "excerpt": "Boxes are created owner-only because they hold logins and sessions (FRD-0002 R16); the sidecar's private root and manifest hold no credentials (FRD-0009)."
+        }
+      ]
+    },
+    {
+      "id": "REQ-032",
+      "status": "extracted",
+      "text": "A threat model reviewed by a second reader covers untrusted agent output into the emulator, the database, MCP and hooks, handoff files, local sockets, the widget's quick answers and the browser broker; `SEC` rows get a second reader and state the negative result too.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 10415,
+          "end": 10682,
+          "excerpt": "A threat model reviewed by a second reader covers untrusted agent output into the emulator, the database, MCP and hooks, handoff files, local sockets, the widget's quick answers and the browser broker; `SEC` rows get a second reader and state the negative result too."
+        }
+      ]
+    },
+    {
+      "id": "REQ-033",
+      "status": "extracted",
+      "text": "Shinatama runs bounded cleanup and maintenance jobs for its own shared database and its own operational caches, logs, queues and artifacts; no job scans or modifies original agent archives or the externally sourced BillionContext database. Each batch has explicit row, byte, SQLite-work and cooperative-time budgets, records measured work, and yields instead of accumulating unlimited cleanup work.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 11212,
+          "end": 11610,
+          "excerpt": "Shinatama runs bounded cleanup and maintenance jobs for its own shared database and its own operational caches, logs, queues and artifacts; no job scans or modifies original agent archives or the externally sourced BillionContext database. Each batch has explicit row, byte, SQLite-work and cooperative-time budgets, records measured work, and yields instead of accumulating unlimited cleanup work."
+        }
+      ]
+    },
+    {
+      "id": "REQ-034",
+      "status": "extracted",
+      "text": "Every operational table, cache, log, retry queue and anomaly store has a named owner, schema-aware eligibility rules, retention and fixed count/byte ceilings before activation. Only declared disposable or concluded operational data may be removed in finite batches; pending work, consumer-required events and authoritative history are not silently discarded. A feature introducing such data must qualify its policy; no wildcard cleanup or empty schema for future features.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 11666,
+          "end": 12138,
+          "excerpt": "Every operational table, cache, log, retry queue and anomaly store has a named owner, schema-aware eligibility rules, retention and fixed count/byte ceilings before activation. Only declared disposable or concluded operational data may be removed in finite batches; pending work, consumer-required events and authoritative history are not silently discarded. A feature introducing such data must qualify its policy; no wildcard cleanup or empty schema for future features."
+        }
+      ]
+    },
+    {
+      "id": "REQ-035",
+      "status": "extracted",
+      "text": "Validation reports malformed records without silently repairing, overwriting or deleting authoritative content. Operational quarantine contains bounded identifiers, reason codes, counts and local references, not copied sensitive payloads or credentials; repeated anomalies aggregate without unlimited growth. A cooperative SQLite interruption is reported as deferred/incomplete work, never as corruption.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 12215,
+          "end": 12619,
+          "excerpt": "Validation reports malformed records without silently repairing, overwriting or deleting authoritative content. Operational quarantine contains bounded identifiers, reason codes, counts and local references, not copied sensitive payloads or credentials; repeated anomalies aggregate without unlimited growth. A cooperative SQLite interruption is reported as deferred/incomplete work, never as corruption."
+        }
+      ]
+    },
+    {
+      "id": "REQ-036",
+      "status": "extracted",
+      "text": "Authoritative work history has no automatic expiry. Database, WAL, backup and artifact growth is measured with soft warnings and hard admission budgets, visible explanation and an explicit archive/forget/recovery action; reaching a budget never silently erases saved work or reports an unsuccessful write as saved. Automatic maintenance uses admitted PASSIVE checkpoints, bounded optimize and incremental vacuum only where already enabled; no automatic full VACUUM or deletion of verified backups in the initial implementation.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 12697,
+          "end": 13224,
+          "excerpt": "Authoritative work history has no automatic expiry. Database, WAL, backup and artifact growth is measured with soft warnings and hard admission budgets, visible explanation and an explicit archive/forget/recovery action; reaching a budget never silently erases saved work or reports an unsuccessful write as saved. Automatic maintenance uses admitted PASSIVE checkpoints, bounded optimize and incremental vacuum only where already enabled; no automatic full VACUUM or deletion of verified backups in the initial implementation."
+        }
+      ]
+    },
+    {
+      "id": "REQ-037",
+      "status": "extracted",
+      "text": "Maintenance runs outside the UI thread while idle, with atomic cross-process ownership and expiring leases backed by a crash-released lock that prevents overlapping jobs. Newer/read-only schemas receive no maintenance writes. Resource pressure inhibits or cooperatively stops optional jobs through C09R; crash, locking, budget, storage-failure and repeated-recovery tests must preserve saved records and demonstrate a healthy terminal still responds.",
+      "evidence": [
+        {
+          "path": "docs/frd/FRD-0014-shared-state-and-privacy.md",
+          "document_sha256": "6b96420f8665e4dac450e95ee09d8814ae6a87e70fac7a53035f44427f2745eb",
+          "start": 13303,
+          "end": 13753,
+          "excerpt": "Maintenance runs outside the UI thread while idle, with atomic cross-process ownership and expiring leases backed by a crash-released lock that prevents overlapping jobs. Newer/read-only schemas receive no maintenance writes. Resource pressure inhibits or cooperatively stops optional jobs through C09R; crash, locking, budget, storage-failure and repeated-recovery tests must preserve saved records and demonstrate a healthy terminal still responds."
+        }
+      ]
+    }
+  ],
+  "entities": [],
+  "relationships": [],
+  "conflicts": []
+}

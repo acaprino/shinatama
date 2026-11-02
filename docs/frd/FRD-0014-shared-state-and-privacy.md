@@ -87,9 +87,24 @@ the user removes it. The JSON set spread these rules over FRD-0005, FRD-0006 and
 | R31 | Boxes are created owner-only because they hold logins and sessions (FRD-0002 R16); the sidecar's private root and manifest hold no credentials (FRD-0009). | A; U | X | D15, SC4 | 0012, 0029 |
 | R32 | A threat model reviewed by a second reader covers untrusted agent output into the emulator, the database, MCP and hooks, handoff files, local sockets, the widget's quick answers and the browser broker; `SEC` rows get a second reader and state the negative result too. | S | V1 | X5 (SEC) | 0010 |
 
+### 2.8 Bounded maintenance of Shinatama-owned state (user, 2026-11-02)
+
+The user requires cleanup and maintenance jobs against malformed data and unbounded
+growth. The numerical policy and implementation details below are builder proposals
+in [the maintenance note](../implementation/2026-11-02-database-maintenance.md),
+to qualify on Windows. This amendment does not claim working scheduling or a passed gate.
+
+| ID | Requirement | Origin | Slice | Proof | ADR |
+|---|---|---|---|---|---|
+| R33 | Shinatama runs bounded cleanup and maintenance jobs for its own shared database and its own operational caches, logs, queues and artifacts; no job scans or modifies original agent archives or the externally sourced BillionContext database. Each batch has explicit row, byte, SQLite-work and cooperative-time budgets, records measured work, and yields instead of accumulating unlimited cleanup work. | U 2026-11-02 | S1/V1 | C03M, S4, I8 | 0009 |
+| R34 | Every operational table, cache, log, retry queue and anomaly store has a named owner, schema-aware eligibility rules, retention and fixed count/byte ceilings before activation. Only declared disposable or concluded operational data may be removed in finite batches; pending work, consumer-required events and authoritative history are not silently discarded. A feature introducing such data must qualify its policy; no wildcard cleanup or empty schema for future features. | U 2026-11-02; A (policy detail) | S1/V1 | C03M, I8, RES1 | 0009 |
+| R35 | Validation reports malformed records without silently repairing, overwriting or deleting authoritative content. Operational quarantine contains bounded identifiers, reason codes, counts and local references, not copied sensitive payloads or credentials; repeated anomalies aggregate without unlimited growth. A cooperative SQLite interruption is reported as deferred/incomplete work, never as corruption. | U 2026-11-02; A (policy detail) | S1 | C03M, S4, X5 | 0009, 0010 |
+| R36 | Authoritative work history has no automatic expiry. Database, WAL, backup and artifact growth is measured with soft warnings and hard admission budgets, visible explanation and an explicit archive/forget/recovery action; reaching a budget never silently erases saved work or reports an unsuccessful write as saved. Automatic maintenance uses admitted PASSIVE checkpoints, bounded optimize and incremental vacuum only where already enabled; no automatic full VACUUM or deletion of verified backups in the initial implementation. | U 2026-11-02; A (policy detail) | S1/V1 | C03M, S4, S5, I8 | 0009 |
+| R37 | Maintenance runs outside the UI thread while idle, with atomic cross-process ownership and expiring leases backed by a crash-released lock that prevents overlapping jobs. Newer/read-only schemas receive no maintenance writes. Resource pressure inhibits or cooperatively stops optional jobs through C09R; crash, locking, budget, storage-failure and repeated-recovery tests must preserve saved records and demonstrate a healthy terminal still responds. | U 2026-11-02; A (policy detail) | S1/V1 | C03M, RES1-RES4, TL5 | 0008, 0009, 0010 |
+
 ## 3. Open questions
 
-1. Pruning policy for the event tables (register Q8).
+1. Qualify the schema-specific operational policies and numerical budgets proposed in C03M (register Q8/I8). Authoritative `message_event` retains history by default; R24 supplies no automatic deletion permission.
 2. Whether a feed-only local companion may serve a `summaries_excluded` thread (companion spec open point 3), which would amend R28.
 
 ## 4. Acceptance
@@ -98,6 +113,4 @@ S1 to S11 on the three systems; AT-1, AT-4, AT-6; X4 and X5.
 
 ## 5. Relation to the JSON records
 
-This area has no JSON record of its own. Its sentences were extracted into FRD-0005 (journal,
-I1 to I7), FRD-0006 (index, `forget`, privacy) and FRD-0010 (event feed, liveness). A JSON
-record should be produced with the tool when this Markdown record is reviewed.
+The accompanying JSON evidence snapshot was created on 2026-11-02 from the exact current Markdown spans, including R33-R37. It remains Proposed and unverified; it does not imply approval of numerical maintenance policies or passing runtime gates. Earlier extractions in FRD-0005, FRD-0006 and FRD-0010 retain their own historical status.
