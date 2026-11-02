@@ -7,3 +7,4 @@ pub mod maintenance;
 mod migrations;
 pub mod projects;
 mod schema;
+pub mod store_roots;
