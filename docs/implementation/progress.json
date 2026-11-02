@@ -847,8 +847,8 @@
       ]
     },
     "C06": {
-      "status": "verified",
-      "commit_sha": null,
+      "status": "committed",
+      "commit_sha": "4ca08d45171d40d2ec2e4e3cb3001a6ca0424ef7",
       "platforms": [
         "Windows 11 x64 build 26200"
       ],
@@ -860,7 +860,7 @@
         "cargo check --offline -p shinatama-desktop --features custom-protocol -j1"
       ],
       "limits": [
-        "Visual integration and real save/restart proof follow in C07. Layout restore never starts processes. Explicit dead-owner recovery is being integrated separately."
+        "Visual integration is C07; layout restoration never starts resources. Explicit dead-owner recovery is verified with exact native proof and CAS."
       ],
       "next_action": "Integrate C07 renderer and layout persistence into the desktop shell, preserving existing terminal DOM and process identity.",
       "units": {
@@ -891,6 +891,43 @@
     "C07": {
       "status": "in_progress",
       "commit_sha": null
+    },
+    "C12": {
+      "status": "pending",
+      "commit_sha": null,
+      "units": {
+        "C12.1": {
+          "status": "verified",
+          "commit_sha": null,
+          "evidence": [
+            "docs/verification/2026-11-03-C12-preparation.md"
+          ],
+          "checks": [
+            "pwsh -NoProfile -File sidecar/prepare.ps1 -Mode Verify",
+            "pwsh -NoProfile -File sidecar/prepare.ps1 -Mode Prepare",
+            "pwsh -NoProfile -File sidecar/prepare-runtime.ps1 -Mode Prepare",
+            "cargo test --offline -p shinatama-engine -j1 --lib sidecar_ -- --test-threads=1"
+          ]
+        },
+        "C12.2": {
+          "status": "verified",
+          "commit_sha": null,
+          "evidence": [
+            "docs/verification/2026-11-03-C12-preparation.md"
+          ],
+          "checks": [
+            "pwsh -NoProfile -File sidecar/prepare.ps1 -Mode Verify",
+            "pwsh -NoProfile -File sidecar/prepare.ps1 -Mode Prepare",
+            "pwsh -NoProfile -File sidecar/prepare-runtime.ps1 -Mode Prepare",
+            "cargo test --offline -p shinatama-engine -j1 --lib sidecar_ -- --test-threads=1"
+          ]
+        }
+      },
+      "limits": [
+        "Preparation only; actual runtime, TLS and effective-configuration qualification follow. No native agent gate is opened.",
+        "Node license notice absent from local install; distribution readiness remains false."
+      ],
+      "next_action": "Run the contained actual Node/bundle/storage integration proof, then finish child-only TLS and effective traffic/configuration in C12.3–C12.4."
     }
   },
   "blockers": [],

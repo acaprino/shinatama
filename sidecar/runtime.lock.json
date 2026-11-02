@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "runtime": "node",
+  "sourcePath": "C:/Program Files/nodejs/node.exe",
+  "relativePath": "node.exe",
+  "bytes": 91426304,
+  "sha256": "58e74bf02fc5bbacc41dcb8bef089961cd5bddd37830b87784e4fc624d145d1f",
+  "fileVersion": "24.14.1",
+  "productVersion": "24.14.1",
+  "companyName": "Node.js",
+  "peMachine": 34404,
+  "modulesAbi": null,
+  "metadataSource": "Installed PE file version resource; executable not invoked",
+  "license": {
+    "noticePresentInLocalInstall": false,
+    "upstreamNoticeUrl": "https://github.com/nodejs/node/blob/v24.14.1/LICENSE",
+    "distributionReady": false
+  },
+  "nodeExecuted": false,
+  "builtinSqliteQualified": false,
+  "runtimeQualified": false
+}

@@ -9,6 +9,8 @@ use std::collections::BTreeMap;
 pub mod doctor;
 pub mod launch;
 pub mod resources;
+pub mod sidecar_config;
+pub mod sidecar_runtime;
 
 #[derive(Default)]
 pub struct Engine {
