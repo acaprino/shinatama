@@ -275,8 +275,10 @@ The shape, common to both routes (my calls):
 4. **Evidence quality.** TE's OpenCode reader counts tool calls from the plugin's own export
    (`hosts.py:355-392`, `trace/opencode.py`); on 2.x the export is built from events, so the
    prompt count and the usage depend on the events of 2.2.5 firing as on 2.2.0 (TE5 covers the
-   turn-closing event; TE12 covers the export: after two sessions, `untool.json` holds a
-   non-empty `used_tools` and the catalog Shinatama wrote).
+   turn-closing event). Under Code Mode, OpenCode's default for MCP servers, an MCP call is
+   exported as `execute` with its target in `state.metadata.toolCalls`, and MCP tools are not in
+   the request's tool list: route B reads the first and takes the catalog from the instance's set
+   (TE13).
 
 ## 8. julia1's part
 
@@ -298,14 +300,14 @@ backs it, stays with the other project (token-savings 8.4).
 | TE2 | Prompt cache across a session whose launch carries TE's deny list, with BillionContext on | Cache hit rate unchanged inside the session; the change shows only at the next session |
 | TE3 | Hook latency per tool call on Windows (Python start) with four agents running | Recorded; threshold set before enabling |
 | TE4 | Loop guard side call inside a box: tokens of one judge call with Daodan preinstalled (H5 confirmed: the call runs on the box user settings), `CLAUDE_CONFIG_DIR=<box> claude -p "Reply OK" --output-format stream-json --verbose --tools "" --strict-mcp-config --mcp-config <empty> --max-turns 1 --model haiku`, reading `init` and `usage` | Recorded (TE's 14k figure is unreachable by design in such a box); threshold set before enabling the judge on Claude Code |
-| TE5 | OpenCode 2.2.5: does `session.execution.succeeded` fire, so that a turn closes | **Passed 2026-11-01** (record `docs/verification/2026-11-01-TE5-opencode-turn-close.md`): a one-tool-call turn closed with `resolved_proxy: true`, so review H3's trigger is absent on 2.2.5. Side findings: a zero-tool turn is never green (`turn.py:260`); the plugin loaded through the `plugins` array with a `file:///` URL stalled the standalone server once, so Shinatama loads it from `<OPENCODE_CONFIG_DIR>/plugins/` through a re-export wrapper until that is understood |
+| TE5 | OpenCode 2.2.5: does `session.execution.succeeded` fire, so that a turn closes | **Passed 2026-11-01** (record `docs/verification/2026-11-01-TE5-opencode-turn-close.md`): a one-tool-call turn closed with `resolved_proxy: true`, so review H3's trigger is absent on 2.2.5. Side findings: a zero-tool turn is never green (`turn.py:260`); the `plugins` array skips a `file:///` URL to a file (`configured plugin path must be a directory`), so Shinatama loads the plugin from `<OPENCODE_CONFIG_DIR>/plugins/` through a re-export wrapper; the stall first attributed to that array was an inherited stdin (TE13) |
 | TE6 | Codex 0.164.0 and Pi 1.4.0 on Windows | `status` works; loop guard fires on a provoked loop |
 | TE7 | TE's ledger with BillionContext on | Its per-session cost matches the provider's billed usage for the same session |
 | TE8 | A judge side call as BillionContext sees it | Recorded whether it shows as a session of its own; if so, it is labelled, not counted as user work |
 | TE9 | OpenCode: how often a redirect lands on a result at or above CCR's threshold (the loss itself is settled, review H2); Claude Code: the `additionalContext` block is untouched | Rate recorded; on Claude Code the redirect reaches the model in the next request |
 | TE10 | Micro-skills facts at session start with `promptRewrite` on | The facts reach the model unchanged and the appended note does not restate them |
 | TE12 | OpenCode: does pruning evidence form once a catalog exists | **Failed as designed, cause settled** (record `docs/verification/2026-11-01-TE12-opencode-tool-pruning.md`): the pruning stage is skipped on OpenCode before any catalog is read (`fold.py:115`, `denylist.py:55,76`); no `untool.json` after a session with a tool call; `te toolprune` reports it unavailable. Replaced by TE13 |
-| TE13 | OpenCode: Shinatama's own evidence (route B of 7.1) from two exports with one tool call each, against a catalog of the instance's set | The computed proposal excludes every protected OpenCode name and `bili_*`; the deny rules in the next launch's `OPENCODE_CONFIG` remove those tools from the request on 2.2.5 |
+| TE13 | OpenCode: Shinatama's own evidence (route B of 7.1) from the exports, against a catalog of the instance's set | **Passed 2026-11-02** (record `docs/verification/2026-11-02-TE13-opencode-pruning-evidence.md`): the proposal excludes protected names and `bili_*`, and the deny rules remove the tools from the request on 2.2.5, directly and under Code Mode. Under Code Mode a use shows only in `state.metadata.toolCalls` of `execute`, and the catalog cannot come from the request |
 | TE11 | Claude Code with CCR on: one failing command with output above 4,000 tokens, then `mcp__bili__acp_retrieve` on it | `turn.st.repeated_fail_sigs` in `sessions/<id>.json` does not rise on the retrieve (review H6); if it does, the exemption is requested upstream before the loop guard is enabled |
 
 ## 10. Evidence

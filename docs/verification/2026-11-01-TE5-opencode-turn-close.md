@@ -51,6 +51,14 @@ Records read: `<TOKENECONOMIZER_HOME>/repos/repo-5c9c9367b1/opencode/sessions/<i
   array route for OpenCode; until the stall is understood, Shinatama uses the `plugins/`
   directory of the instance's `OPENCODE_CONFIG_DIR` with a re-export wrapper, as here.
 
+## Correction (TE13, 2026-11-02)
+
+Run 1 was not stalled by the `plugins` array. `opencode run` hangs on an inherited stdin, with the
+same log ending at `cli starting`; with stdin closed the same array exits 0 three times out of three
+and skips the file (`configured plugin path must be a directory`). The `plugins/` directory route
+remains the one that loads the plugin, for that reason and not for a stall. "Isolated" above covers
+configuration and TokenEconomizer's state only: these runs wrote to the user's OpenCode database.
+
 ## Not covered
 
 One model, one provider, headless `run` only (the TUI path was not exercised); `failed` and

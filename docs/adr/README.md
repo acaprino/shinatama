@@ -58,7 +58,7 @@ run `index`; do not edit this block by hand.
 | [ADR-0042](<ADR-0042-companion-learning-memory.md>) | A per-person ledger of what the companion explained, written by Shinatama from the companion's card block | `docs/specs/companion-explainer.md`, `docs/technical-design.md`, `companion`, `learning-memory` | 0 | `eeb3febaf0115d13f95ca0ba044c11e2628acb06` |
 | [ADR-0043](<ADR-0043-companion-web-grounding.md>) | The companion searches the web only through its harness's own web tool | `docs/specs/companion-explainer.md`, `docs/technical-design.md`, `companion`, `web-grounding` | 0 | `eeb3febaf0115d13f95ca0ba044c11e2628acb06` |
 | [ADR-0044](<ADR-0044-model-routing-decision-model.md>) | Automatic model routing delegated to a configurable decision model, at session start and sub-agent spawn | `docs/specs/token-savings.md`, `docs/functional-design.md`, `docs/notes/2026-11-01-model-routing-decision-model.md`, `model-routing`, `router-key`, `credentials`, `token-savings` | 0 | `eeb3febaf0115d13f95ca0ba044c11e2628acb06` |
-| [ADR-0045 v2](<ADR-0045-v2-tokeneconomizer-beside-billioncontext.md>) | TokenEconomizer beside BillionContext as an optional per-instance module | `docs/specs/token-savings.md`, `docs/functional-design.md`, `docs/notes/2026-11-01-tokeneconomizer-beside-billioncontext.md`, `token-savings`, `tool-pruning`, `loop-guard`, `billioncontext`, `per-instance-set` | 0 | `202a34e2675cfe7e8d7ba1d5e7ecf88bf2299182` |
+| [ADR-0045 v3](<ADR-0045-v3-tokeneconomizer-beside-billioncontext.md>) | TokenEconomizer beside BillionContext as an optional per-instance module | `docs/specs/token-savings.md`, `docs/functional-design.md`, `docs/notes/2026-11-01-tokeneconomizer-beside-billioncontext.md`, `token-savings`, `tool-pruning`, `loop-guard`, `billioncontext`, `per-instance-set` | 0 | `59421383273ab59e7b3637732269838440be0fd9` |
 | [ADR-0046](<ADR-0046-project-manager.md>) | Project manager over project roots, sorted by last use, with a default root, a new-project shortcut and a per-instance worktree option | `docs/functional-design.md`, `docs/technical-design.md`, `docs/daodan-native-support.md`, `project-manager`, `project-roots`, `new-project`, `worktree-per-instance` | 0 | `202a34e2675cfe7e8d7ba1d5e7ecf88bf2299182` |
 | [ADR-0047](<ADR-0047-rust-platforms-dependency-policy.md>) | Rust runtime; macOS and Linux required, Windows assumed; one allowed-dependency list in the workspace, each addition a decision | `docs/functional-design.md`, `docs/technical-design.md`, `Cargo.toml`, `language`, `platforms`, `dependency-policy`, `rust-toolkit` | 0 | `202a34e2675cfe7e8d7ba1d5e7ecf88bf2299182` |
 | [ADR-0048](<ADR-0048-install-distribution-and-updates.md>) | Built for others to install; signed and notarized release builds; Shinatama's own updates never touch the sidecar's rule; no unintended outbound connection; Oni art is a separate distribution decision | `docs/functional-design.md`, `docs/verification-register.md`, `install`, `distribution`, `release`, `updates`, `licensing` | 0 | `202a34e2675cfe7e8d7ba1d5e7ecf88bf2299182` |
@@ -82,6 +82,7 @@ run `index`; do not edit this block by hand.
 | [ADR-0031](<ADR-0031-login-without-credentials.md>) | Login detected and performed through the agent itself; Shinatama never holds credentials | ADR-0031 v2 |
 | [ADR-0037](<ADR-0037-decision-compaction-julia1.md>) | Decision compaction over summary compaction, scored by a local offline executor (julia1) | ADR-0037 v2 |
 | [ADR-0045](<ADR-0045-tokeneconomizer-beside-billioncontext.md>) | TokenEconomizer beside BillionContext as an optional per-instance module | ADR-0045 v2 |
+| [ADR-0045 v2](<ADR-0045-v2-tokeneconomizer-beside-billioncontext.md>) | TokenEconomizer beside BillionContext as an optional per-instance module | ADR-0045 v3 |
 
 ## Abandoned
 
@@ -106,7 +107,7 @@ records assume the ones above it. The requirements records that build on them ar
 | 6 | The hop | ADR-0015, ADR-0016, ADR-0017, ADR-0018, ADR-0019, ADR-0022 (post-v1 native handover) | FRD-0005 |
 | 7 | Projects and Daodan | ADR-0046 (project manager), ADR-0032, ADR-0033, ADR-0034 (Daodan) | FRD-0004, FRD-0008 |
 | 8 | Instances together | ADR-0024 (messaging), ADR-0025 (code mode deferred), ADR-0026 (roundtable), ADR-0027 (state and event feed), ADR-0028 (overview and titles) | FRD-0007, FRD-0010 |
-| 9 | Sidecar and tokens | ADR-0029, ADR-0030 (BillionContext), ADR-0037 v2, ADR-0038 (token savings), ADR-0044 (model routing and the tool chooser), ADR-0045 v2 (TokenEconomizer) | FRD-0009, FRD-0013, FRD-0015, FRD-0016 |
+| 9 | Sidecar and tokens | ADR-0029, ADR-0030 (BillionContext), ADR-0037 v2, ADR-0038 (token savings), ADR-0044 (model routing and the tool chooser), ADR-0045 v3 (TokenEconomizer) | FRD-0009, FRD-0013, FRD-0015, FRD-0016 |
 | 10 | Browser | ADR-0035 (routing), ADR-0036 (security and lifecycle) | FRD-0011 |
 | 11 | Companion | ADR-0002 v3, ADR-0003 v2, ADR-0041, ADR-0042, ADR-0043 | FRD-0012 |
 | 12 | Release | ADR-0048 (install, distribution, updates) | FRD-0017 |

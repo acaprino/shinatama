@@ -87,7 +87,7 @@ Open questions are not requirements. Each record lists them at the end, with the
 | [FRD-0013](FRD-0013-token-savings.md) | Token savings | 40 | V1, EV | 0025, 0037, 0038 |
 | [FRD-0014](FRD-0014-shared-state-and-privacy.md) | Shared state, privacy and data retention | 32 | X | 0008, 0009 |
 | [FRD-0015](FRD-0015-model-routing-and-tool-chooser.md) | Model routing and the tool chooser | 26 | V1 | 0044, 0031 v2, 0037 v2 |
-| [FRD-0016](FRD-0016-tokeneconomizer-module.md) | TokenEconomizer as an optional module | 24 | V1 | 0045 v2 |
+| [FRD-0016](FRD-0016-tokeneconomizer-module.md) | TokenEconomizer as an optional module | 24 | V1 | 0045 v3 |
 | [FRD-0017](FRD-0017-install-distribution-and-release.md) | Installation, distribution, updates and release | 22 | X, V1 | 0047, 0048 |
 
 Cross-cutting rules that every record relies on are stated once and referenced: evidence before
