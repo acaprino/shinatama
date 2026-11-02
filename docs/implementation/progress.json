@@ -509,8 +509,8 @@
       "next_action": "Implement C05 explicit project creation using the persisted roots and atomic cancellation boundary."
     },
     "C05": {
-      "status": "verified",
-      "commit_sha": null,
+      "status": "committed",
+      "commit_sha": "1a557c96edaa4b5e3b8c1fc9a53481ff706b1655",
       "platforms": [
         "Windows 11 x64 build 26200"
       ],
