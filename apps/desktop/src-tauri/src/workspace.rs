@@ -16,6 +16,7 @@ pub struct Controller {
     services: Arc<Services>,
     busy: Arc<AtomicBool>,
     owner: OnceLock<Result<WorkspaceOwner, Error>>,
+    owned: AtomicBool,
 }
 impl Controller {
     pub fn new(services: Arc<Services>) -> Self {
@@ -23,7 +24,11 @@ impl Controller {
             services,
             busy: Arc::new(AtomicBool::new(false)),
             owner: OnceLock::new(),
+            owned: AtomicBool::new(false),
         }
+    }
+    pub fn owns_layout(&self) -> bool {
+        self.owned.load(Ordering::Acquire)
     }
     fn reserve(&self) -> Result<Reservation, Error> {
         self.busy
@@ -183,6 +188,18 @@ fn read_only() -> Error {
 }
 
 #[tauri::command]
+pub fn workspace_allow_close(
+    window: WebviewWindow,
+    controller: State<'_, Arc<Controller>>,
+) -> Result<(), Error> {
+    local(&window)?;
+    // Explicit UI discard permits exit; durable ownership is left for the
+    // next window's exact-dead-owner recovery, never falsely released.
+    controller.owned.store(false, Ordering::Release);
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn workspace_load(
     window: WebviewWindow,
     controller: State<'_, Arc<Controller>>,
@@ -253,11 +270,12 @@ pub async fn workspace_save(
             owner: None,
             updated_at,
         };
-        state
+        let saved = state
             .store
             .save_workspace(record, request.expected_revision, owner)
-            .map(|record| snapshot(record, owner, false))
-            .map_err(Error::from)
+            .map_err(Error::from)?;
+        controller.owned.store(true, Ordering::Release);
+        Ok(snapshot(saved, owner, false))
     })
     .await
     .map_err(|_| {
@@ -295,8 +313,36 @@ pub async fn workspace_release(
                 request.expected_revision,
                 controller.owner()?,
             )
-            .map_err(Error::from)
+            .map_err(Error::from)?;
+        controller.owned.store(false, Ordering::Release);
+        Ok(())
     })
     .await
     .map_err(|_| Error::new("uncertain", "Workspace release was interrupted."))?
+}
+
+#[tauri::command]
+pub async fn workspace_recover(
+    window: WebviewWindow,
+    controller: State<'_, Arc<Controller>>,
+    request: Release,
+) -> Result<Snapshot, Error> {
+    local(&window)?;
+    scope(&request.project_id, &request.workspace_id)?;
+    let reservation = controller.reserve()?;
+    let controller = Arc::clone(controller.inner());
+    tauri::async_runtime::spawn_blocking(move || {
+        let _reservation = reservation;
+        let state = controller.services.load().map_err(|_| Error::new("unavailable", "Workspace storage is unavailable."))?;
+        if !matches!(state.store.access(), DatabaseAccess::ReadWrite) { return Err(read_only()); }
+        let record = state.store.workspace_record(&request.project_id, &request.workspace_id).map_err(Error::from)?
+            .ok_or_else(|| Error::new("invalid", "Saved workspace was not found."))?;
+        if record.revision != request.expected_revision { return Err(Error::new("conflict", "Saved layout changed; reload before recovery.")); }
+        let probe = shinatama_state::records::recovery::probe_workspace_owner(&record).map_err(Error::from)?;
+        let proof = probe.proof.ok_or_else(|| Error::new("owned_elsewhere", "The previous window is alive or its identity could not be verified. Recovery was refused."))?;
+        let owner = controller.owner()?;
+        let recovered = state.store.recover_workspace(&proof, Some(owner)).map_err(Error::from)?;
+        controller.owned.store(true, Ordering::Release);
+        Ok(snapshot(recovered, owner, false))
+    }).await.map_err(|_| Error::new("uncertain", "Workspace recovery was interrupted; reload explicitly."))?
 }

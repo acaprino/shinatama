@@ -313,6 +313,48 @@ impl Database {
         transaction.commit()?;
         Ok(())
     }
+
+    /// Explicit recovery only. The caller loads the saved record and computes
+    /// its native death proof off-UI/outside SQL. No process is restored or killed.
+    /// Only ownership and revision change; the saved layout/time remain exact.
+    pub fn recover_workspace(
+        &self,
+        proof: &recovery::DeadWorkspaceOwnerProof,
+        replacement: Option<&WorkspaceOwner>,
+    ) -> Result<WorkspaceRecord> {
+        if let Some(owner) = replacement {
+            owner.validate()?;
+        }
+        self.require_writable()?;
+        let mut connection = self.lock()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        crate::schema::require_write_version(&transaction)?;
+        let mut record = read_workspace(&transaction, &proof.project_id, &proof.workspace_id)?
+            .ok_or(RecordsError::NotFound)?;
+        record.validate()?;
+        if !proof.matches(&record) {
+            return Err(RecordsError::Conflict);
+        }
+        if record.revision >= MAX_SAFE_REVISION {
+            return Err(RecordsError::Invalid("revisione recupero"));
+        }
+        let previous = record.owner.as_ref().ok_or(RecordsError::Conflict)?;
+        // The owner guard deliberately forbids direct non-null owner changes.
+        // Clear then claim inside this SAME write transaction, after the native
+        // proof/CAS check; no other connection can observe an unclaimed interval.
+        let changed = transaction.execute("UPDATE workspace SET owner_window_id=NULL,owner_pid=NULL,owner_start_time=NULL WHERE project_id=?1 AND workspace_id=?2 AND revision=?3 AND owner_window_id=?4 AND owner_pid=?5 AND owner_start_time=?6",params![record.project_id,record.workspace_id,sql_revision(record.revision)?,previous.window_id,previous.pid,previous.start_time])?;
+        if changed != 1 {
+            return Err(RecordsError::Conflict);
+        }
+        let changed = transaction.execute("UPDATE workspace SET revision=?3,owner_window_id=?4,owner_pid=?5,owner_start_time=?6 WHERE project_id=?1 AND workspace_id=?2 AND revision=?7 AND owner_window_id IS NULL AND owner_pid IS NULL AND owner_start_time IS NULL",params![record.project_id,record.workspace_id,sql_revision(record.revision+1)?,replacement.map(|owner| owner.window_id.as_str()),replacement.map(|owner| owner.pid),replacement.map(|owner| owner.start_time.as_str()),sql_revision(record.revision)?])?;
+        if changed != 1 {
+            return Err(RecordsError::Conflict);
+        }
+        record.revision += 1;
+        record.owner = replacement.cloned();
+        transaction.commit()?;
+        Ok(record)
+    }
 }
 
 fn read_workspace(

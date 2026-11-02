@@ -2,6 +2,7 @@
 //! These operations restore data and never start a process or qualify an adapter.
 
 mod database;
+pub mod recovery;
 pub(crate) mod schema;
 
 use crate::database::{Database, DatabaseError};

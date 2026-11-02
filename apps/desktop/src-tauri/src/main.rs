@@ -266,6 +266,8 @@ fn main() {
         workspace::workspace_load,
         workspace::workspace_save,
         workspace::workspace_release,
+        workspace::workspace_recover,
+        workspace::workspace_allow_close,
         storage_location,
         maintenance_activity,
         maintenance_status,
@@ -296,6 +298,8 @@ fn main() {
         workspace::workspace_load,
         workspace::workspace_save,
         workspace::workspace_release,
+        workspace::workspace_recover,
+        workspace::workspace_allow_close,
         storage_location,
         maintenance_activity,
         maintenance_status,
@@ -323,7 +327,8 @@ fn main() {
     builder
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event
-                && !window.state::<Host>().list().is_empty()
+                && (!window.state::<Host>().list().is_empty()
+                    || window.state::<Arc<workspace::Controller>>().owns_layout())
             {
                 api.prevent_close();
                 let _ = window.emit("confirm-close", ());
