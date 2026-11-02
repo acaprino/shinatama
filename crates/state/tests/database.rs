@@ -404,10 +404,15 @@ fn an_already_open_writer_cannot_modify_a_database_upgraded_by_another_connectio
     let location = fixture.location();
     let database = Database::open(&location, None).unwrap();
     database.select(&project).unwrap();
+    database.check_write_admission().unwrap();
     let before = database.recent().unwrap();
     let appearance = database.appearance().unwrap();
     let external = Connection::open(location.database_path()).unwrap();
     external.pragma_update(None, "user_version", 999).unwrap();
+    assert!(matches!(
+        database.check_write_admission(),
+        Err(DatabaseError::NewerSchema { found: 999, .. })
+    ));
     assert!(matches!(
         database.select(&candidate),
         Err(DatabaseError::NewerSchema { found: 999, .. })

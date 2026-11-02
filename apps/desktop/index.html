@@ -39,7 +39,7 @@
     <dialog id="project-dialog">
       <form id="project-form"><div class="dialog-heading"><h1>Open a project</h1><button type="button" data-cancel aria-label="Close dialog">×</button></div>
       <p>New terminals start here. Existing terminals keep their working folder.</p>
-      <div class="catalog-tools"><button id="browse-project" type="button">Browse folder <kbd>F3</kbd></button><button id="manage-roots" type="button">Project roots</button><button id="refresh-projects" type="button">Refresh</button></div>
+      <div class="catalog-tools"><button id="browse-project" type="button">Browse folder <kbd>F3</kbd></button><button id="create-project" type="button">New project <kbd>n</kbd></button><button id="manage-roots" type="button">Project roots</button><button id="refresh-projects" type="button">Refresh</button></div>
       <p id="default-root-summary" class="hint">Choose a default root for new projects.</p>
       <section id="roots-editor" aria-label="Configure project roots" hidden>
         <div class="catalog-section-heading"><h2>Project roots</h2><span>Folders directly inside each root appear as projects.</span></div>
@@ -58,7 +58,7 @@
         <div id="recent-project-list" role="list" aria-live="polite"></div>
       </section>
       <label for="folder">Absolute folder path</label><input id="folder" name="folder" required spellcheck="false" autocomplete="off">
-      <p class="hint">Open a folder directly, or use Browse folder to remember an outside folder in the last ten.</p>
+      <p class="hint">Use folder and Browse folder both remember explicitly opened folders outside your roots in the last ten.</p>
       <p id="project-error" role="alert" hidden></p>
       <div class="dialog-actions"><button type="button" data-cancel>Cancel</button><button class="primary" type="submit">Use folder</button></div></form>
     </dialog>

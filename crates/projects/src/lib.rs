@@ -1,6 +1,9 @@
 //! Small project-picker preferences in the platform configuration directory.
 //! This is not the authoritative database for sessions, threads or agent data.
 
+pub mod create;
+pub mod git_init;
+
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use std::{

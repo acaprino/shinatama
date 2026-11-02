@@ -62,6 +62,7 @@ jobs:
             .prototype-evidence/desktop-terminals.png
             .prototype-evidence/projects-picker.png
             .prototype-evidence/project-catalog.json
+            .prototype-evidence/new-project.json
             .prototype-evidence/maintenance.json
           include-hidden-files: true
           if-no-files-found: warn

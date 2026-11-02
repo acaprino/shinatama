@@ -445,6 +445,17 @@ impl Database {
         }
     }
 
+    /// Check current schema and storage admission before an external side effect.
+    /// This does not reserve a future SQL commit; typed writes still recheck in
+    /// their transaction. No database lock is held during filesystem admission.
+    pub fn check_write_admission(&self) -> Result<()> {
+        {
+            let connection = self.lock()?;
+            schema::require_write_version(&connection)?;
+        }
+        self.require_writable()
+    }
+
     fn secure_files(&self) -> Result<()> {
         secure_location_files(&self.location)
     }

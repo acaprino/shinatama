@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { beginMutation, browseFolder, cancelMutation, createCatalogClient, createRequestId, orderedCandidates, saveRoots,
   type Candidate, type Catalog, type Project, type RootConfig, type RootDraft } from './project-catalog.ts';
 
-type Options = { desktop: boolean; getPath: () => string; onSelected: (path: string) => void; reportError: (error: unknown) => void };
+type Options = { desktop: boolean; getPath: () => string; onSelected: (path: string) => void; onCreate: () => void; reportError: (error: unknown) => void };
 const $ = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
 const editable = (target: EventTarget | null) => target instanceof HTMLElement && !!target.closest('input,textarea,select,[contenteditable="true"]');
 const stateLabels = { ready: 'Ready', scanning: 'Scanning…', missing: 'Folder unavailable', unavailable: 'Cannot read this root', timed_out: 'Scan timed out; waiting for the drive', truncated: 'Folder limit reached' };
@@ -165,7 +165,7 @@ export function createProjectPicker(options: Options) {
     recentList.replaceChildren(...history.filter(inQuery).slice(0, 10).map(project => projectButton(project, 'recent-project')));
     if (!recentList.childElementCount) {
       const empty = document.createElement('p'); empty.className = 'hint';
-      empty.textContent = query ? 'No matching recent folders.' : config?.defaultRootId ? 'Folders opened with Browse outside your roots appear here.' : 'Open a folder or choose a project root.';
+      empty.textContent = query ? 'No matching recent folders.' : config?.defaultRootId ? 'Folders explicitly opened with Use folder or Browse outside your roots appear here.' : 'Open a folder or choose a project root.';
       recentList.append(empty);
     }
     projectList.replaceChildren();
@@ -269,6 +269,7 @@ export function createProjectPicker(options: Options) {
   };
   editor.addEventListener('keydown', event => { if (event.key === 'Enter' && editable(event.target)) event.preventDefault(); });
   $('#browse-project').onclick = () => { void browseProject(); };
+  $('#create-project').onclick = options.onCreate;
   $('#manage-roots').onclick = editRoots;
   $('#discard-roots').onclick = () => { if (!saving) { editor.hidden = true; error.hidden = true; } };
   $('#add-root').onclick = () => { if (!saving && drafts.length < 16) { drafts.push({ path: '' }); renderDrafts(); draftsElement.querySelector<HTMLElement>('.root-draft:last-child input:not([type="radio"])')?.focus(); } };
@@ -302,6 +303,15 @@ export function createProjectPicker(options: Options) {
 
   return {
     canStart() { return selectedAvailable; },
+    acceptCreated(project: Project) { useProject(project); },
+    prepareForCreation() {
+      if (mutation || saving) {
+        options.reportError('The current folder operation is still returning. Finish or cancel it before creating a project.'); return false;
+      }
+      if (dialog.open && !editor.hidden) { showError('Save or discard the root changes before creating a project.'); return false; }
+      if (dialog.open) dialog.close();
+      return true;
+    },
     async restore() {
       if (!options.desktop) return;
       const revision = selectionRevision;
@@ -327,6 +337,7 @@ export function createProjectPicker(options: Options) {
     browse: browseProject,
     handleKey(event: KeyboardEvent) {
       if (!dialog.open || event.ctrlKey || event.metaKey || event.altKey || saving) return false;
+      if (event.key.toLowerCase() === 'n' && !event.repeat && !editable(event.target)) { event.preventDefault(); options.onCreate(); return true; }
       if (event.key === '/' && !editable(event.target)) { event.preventDefault(); filter.focus(); return true; }
       if (event.key === 'F3' && editor.hidden) { event.preventDefault(); void browseProject(); return true; }
       return false;

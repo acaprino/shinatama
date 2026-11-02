@@ -18,6 +18,7 @@
     "test:state": "node apps/desktop/tests/state-smoke.mjs",
     "test:catalog": "node apps/desktop/tests/catalog-smoke.mjs",
     "test:native-picker": "node apps/desktop/tests/native-picker-smoke.mjs",
+    "test:new-project": "node apps/desktop/tests/new-project-smoke.mjs",
     "test:maintenance": "node apps/desktop/tests/maintenance-smoke.mjs",
     "plan:check": "python scripts/implementation.py validate",
     "plan:status": "python scripts/implementation.py status",

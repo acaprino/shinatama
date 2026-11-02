@@ -79,6 +79,45 @@ fn finished(engine: &CatalogEngine) -> CatalogResponse {
 }
 
 #[test]
+fn creation_recovery_stages_are_invisible_without_deleting_their_work() {
+    let fixture = Fixture::new();
+    let (database, _location) = fixture.database();
+    let projects = fixture.folder("roots");
+    let recovery = fixture.folder("roots/.shinatama-create-interrupted.tmp");
+    fs::write(
+        recovery.join("saved-draft.txt"),
+        b"partial work must survive",
+    )
+    .unwrap();
+    let published = fixture.folder("roots/Published project");
+    fs::write(published.join("main.txt"), b"committed project").unwrap();
+    database
+        .project_roots_set(RootsSetRequest {
+            expected_revision: 0,
+            roots: vec![root(projects)],
+            default_root_index: Some(0),
+        })
+        .unwrap();
+    let engine = Arc::new(CatalogEngine::new());
+    refresh(&engine, &database);
+    let response = finished(&engine);
+    assert_eq!(
+        response.total, 1,
+        "staged work is never a published project"
+    );
+    assert_eq!(
+        fs::canonicalize(&response.projects[0].path).unwrap(),
+        fs::canonicalize(&published).unwrap()
+    );
+    assert_eq!(
+        fs::read(recovery.join("saved-draft.txt")).unwrap(),
+        b"partial work must survive"
+    );
+    assert!(recovery.is_dir());
+    assert!(database.recent().unwrap().is_empty());
+}
+
+#[test]
 fn roots_and_default_are_explicit_persistent_and_lost_updates_are_rejected() {
     let fixture = Fixture::new();
     let (database, location) = fixture.database();

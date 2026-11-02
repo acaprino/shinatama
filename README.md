@@ -26,6 +26,10 @@ SQLite, with verified migration backups and bounded idle maintenance that
 preserves saved work. [Project picker evidence](docs/verification/2026-11-02-C04-project-catalog.md)
 and [maintenance evidence](docs/verification/2026-11-02-C03M-desktop.md) cover the
 current local Windows build; full resource resilience remains a later gate.
+In the project picker, **New project** or `n` creates a folder in an explicitly
+chosen root, with optional Git initialization on `main`. Invalid or duplicate
+names leave existing work untouched; interrupted nonempty preparation is kept
+with a recovery path. No terminal starts automatically.
 
 With Rust, Node.js and the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) installed:
 

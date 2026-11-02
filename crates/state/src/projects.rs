@@ -1257,6 +1257,18 @@ fn scan_root(
             break;
         }
         let entry = entry.map_err(DatabaseError::Io)?;
+        // C05 reserves this namespace for unpublished/recoverable preparations.
+        // Keep the contract local: the catalog does not depend on project creation.
+        // Check names before touching metadata or resolving a potentially stalled alias.
+        const CREATION_STAGING_PREFIX: &str = ".shinatama-create-";
+        if entry
+            .file_name()
+            .to_string_lossy()
+            .to_ascii_lowercase()
+            .starts_with(CREATION_STAGING_PREFIX)
+        {
+            continue;
+        }
         let kind = entry.file_type().map_err(DatabaseError::Io)?;
         if !kind.is_dir() && !kind.is_symlink() {
             continue;

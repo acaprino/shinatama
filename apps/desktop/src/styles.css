@@ -74,3 +74,10 @@ dialog .root-default-label input{width:13px;height:13px;accent-color:var(--accen
 #catalog-pagination{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0}#catalog-pagination button{font-size:10px}#catalog-page{font:10px var(--mono);color:var(--muted)}
 #project-dialog #recent-project-list{max-height:130px}
 @media(max-width:620px){.root-draft{grid-template-columns:65px minmax(100px,1fr) auto}.root-draft>button:last-child{grid-column:3}.catalog-root-status{align-items:flex-start;flex-direction:column;gap:3px}}
+
+#new-project-dialog{max-height:calc(100vh - 64px);overflow:auto}
+#new-project-root{width:100%;min-height:38px;background:var(--terminal);border:1px solid var(--line-strong);border-radius:3px;padding:0 8px}
+#new-project-destination,#new-project-error{overflow-wrap:anywhere}
+#new-project-git-label{display:flex;align-items:center;gap:8px}
+#new-project-git{width:14px;height:14px;padding:0;accent-color:var(--accent)}
+#new-project-error{color:#ff8495}

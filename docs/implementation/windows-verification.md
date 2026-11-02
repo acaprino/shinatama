@@ -24,6 +24,10 @@ valida piano e checkpoint, esegue i test Python e frontend, costruisce il fronte
 controlla inventario/notice, formattazione, clippy e test Rust con i lockfile.
 Poi costruisce l'eseguibile embedded e prova PTY reale, controlli della finestra,
 cronologia, storage, SQLite, catalogo e manutenzione durante un terminale sano.
+La creazione progetti verifica nomi, cancellazione, duplicati, revisioni e schema
+futuro senza Git. La prova interattiva `npm run test:new-project -- --with-git`,
+sotto P14, qualifica separatamente il Git nativo installato, con percorso/hash
+registrati e ambiente del solo processo di test isolato.
 La manutenzione usa il vero intervallo di 60 secondi. La compilazione usa un job
 per default, rispettando un eventuale `CARGO_BUILD_JOBS` gia impostato.
 
@@ -49,7 +53,7 @@ Sono caricabili solo:
 
 - `.verification/verification.json` e `dependencies.json` sanitizzati;
 - `desktop-terminals.png` e `projects-picker.png`, prodotti con dati sintetici,
-  piu i rapporti sanitizzati `project-catalog.json` e `maintenance.json`;
+  piu i rapporti sanitizzati `project-catalog.json`, `new-project.json` e `maintenance.json`;
 - eseguibile debug, `THIRD_PARTY_NOTICES.md` e testi completi delle licenze.
 
 Nessun profilo WebView, cronologia, impostazione personale, dump ambiente o log

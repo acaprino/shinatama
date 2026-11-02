@@ -1,0 +1,105 @@
+{
+  "check": "C05-protected-project-creation",
+  "recordedAtUtc": "2026-11-02T20:16:30Z",
+  "status": "passed-local-Windows",
+  "platform": {
+    "os": "Windows 11 x64 build 26200",
+    "node": "24.14.1",
+    "webview2": "156.0.4314.58"
+  },
+  "rust": {
+    "command": "cargo test --offline --workspace --all-targets --features custom-protocol -j1 -- --test-threads=1",
+    "passed": 146,
+    "projectsPassed": 39,
+    "desktopPassed": 12,
+    "log": ".verification/c05-rust-tests.log",
+    "logSha256": "0F258128EFA63AEFCD158EC15BC814F5A3E6DE470038B8503A7030B2C2E8AFD1",
+    "clippyCommand": "cargo clippy --offline --workspace --all-targets --features custom-protocol -j1 -- -D warnings",
+    "clippy": "passed-warnings-denied"
+  },
+  "otherChecks": {
+    "pythonPassed": 29,
+    "frontendTestsPassed": 3,
+    "frontendBuild": "passed",
+    "desktopBuild": "passed-custom-protocol",
+    "formatAndDependencyInventory": "passed"
+  },
+  "binary": {
+    "path": "target/debug/shinatama-desktop.exe",
+    "sha256": "29E47BE1A2CD569DD5B7E6864CED8F507EA13E415BBDAB5483B9516F5D909EB2"
+  },
+  "connectedUi": {
+    "command": "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/new-project-smoke.mjs --with-git",
+    "test": "apps/desktop/tests/new-project-smoke.mjs",
+    "testSha256": "D73CFC1E84BEFC8336A8C7DD2F0F8C035F2A81C36A13328837DCDD4A3BEA8258",
+    "artifact": ".prototype-evidence/new-project.json",
+    "artifactSha256": "EA7E8CD4BDD972EB35B664EB3CB53DC69171E55294D656B66A8C279BB9D04CC0",
+    "elapsedSeconds": 9.5,
+    "wrapperInGlobalJob": true,
+    "exitCode": 0,
+    "checks": {
+      "nDoesNotStealFilterTextInputOrTerminalInput": true,
+      "visibleCreateButtonWorksWithoutDiscardingRootDrafts": true,
+      "explicitDefaultRootCancelAndWindowsNameValidation": true,
+      "unicodeSpaceNameCreatedInChosenDefaultWithoutGitOrAutomaticTerminal": true,
+      "caseInsensitiveDuplicatePreservesExistingFolderAndMarker": true,
+      "staleRootRevisionRejectedBeforeCreatingAnyFolder": true,
+      "realOptionalGitCreatesMainWithoutHooksOrTemplates": true,
+      "selectionAndIdentityPersistAcrossRestartWithoutAutomaticTerminals": true,
+      "alreadyOpenAppRejectsFutureSchemaBeforeAnyFolderLockOrProjectWrite": true
+    },
+    "allOwnedAppAndHelperProcessesClosed": true,
+    "separateWithoutGitFlagRunExecuted": false
+  },
+  "creationProtection": {
+    "rootEntryScanLimit": 4000,
+    "retainedStagingEntryLimit": 8,
+    "rootLockName": ".shinatama-create.lock",
+    "rootLockWaitSecondsCooperative": 3,
+    "stageCreation": "NtCreateFile FILE_CREATE relative to pinned root; no replacement",
+    "publication": "FileRenameInfo with ReplaceIfExists=false after atomic cancellation permit",
+    "cleanup": "Only same-identity empty owned directory by handle; nonempty/uncertain work retained with recoveryPath",
+    "metadataFailureAfterRename": "Completed project preserved and typed recoveryPath returned",
+    "currentSchemaAndRootRevisionCheckedBeforeGrantAndPublication": true,
+    "sqlTransactionHeldAcrossNativeIo": false,
+    "cumulativeStagingByteQuotaQualified": false
+  },
+  "git": {
+    "status": "passed-real-initialization",
+    "selectedExecutable": "C:\\Program Files\\Git\\cmd\\git.exe",
+    "executableSha256": "7B7971DD13F0C3A284E538601F2F9770B3A87DFACCB5FB52D68141C67ED22364",
+    "selection": "First and only Git candidate in the test app PATH; global environment unchanged",
+    "branch": "main",
+    "headExact": "ref: refs/heads/main\n",
+    "noHooksOrTemplateDescriptionCopied": true,
+    "globalAndSystemGitConfigurationOrTemplatesRead": false,
+    "processCreation": "Suspended with PROC_THREAD_ATTRIBUTE_JOB_LIST and explicit handle list; verified before resume; no uncontained fallback",
+    "limits": {
+      "activeProcesses": 2,
+      "perProcessMemoryMiB": 128,
+      "jobMemoryMiB": 256,
+      "jobCpuSeconds": 5,
+      "cooperativeSupervisionSeconds": 5,
+      "totalOutputKiB": 32,
+      "cooperativeCleanupConfirmationMilliseconds": 250
+    },
+    "unconfirmedCleanup": "Single cleanup attempt retires admission slot for the app run; repeated launches refused",
+    "syntheticNativeFailureCoverage": [
+      "Timeout/cancellation/output overflow stop only the owned job and preserve staging",
+      "Membership/resume/job-list failure has no executed uncontained child",
+      "Unconfirmed teardown retires the slot without another Drop cleanup attempt",
+      "Independent healthy process remains running when another private job is stopped"
+    ],
+    "c09rAdaptiveCalibrationQualified": false
+  },
+  "filesystemEvidence": {
+    "realLocalNtfs": true,
+    "differentDriveAndUncAliasIdentityRecords": "simulated",
+    "realUncAliasOrSmbShareAccessed": false
+  },
+  "unqualified": [
+    "Real UNC/network/shared/synced roots and Google Drive DriveFS behavior or latency",
+    "Full U3 keyboard and UI-scale matrix",
+    "C09R adaptive resource calibration, resource-pressure and whole-app subprocess-fault gates"
+  ]
+}

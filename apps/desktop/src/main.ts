@@ -6,6 +6,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { boundedRatio, parseLayout } from './layout.ts';
 import { initializeWindowControls } from './window-controls.ts';
 import { createProjectPicker } from './project-picker.ts';
+import { createNewProjectDialog } from './new-project.ts';
 import { initializeMaintenance } from './maintenance.ts';
 import './styles.css';
 
@@ -283,7 +284,9 @@ async function stopTerminal(view: View) {
 }
 
 const projectPicker = createProjectPicker({ desktop, getPath: () => projectPath,
-  onSelected: path => { setProject(path); render(); }, reportError: notify });
+  onSelected: path => { setProject(path); render(); }, onCreate: () => { newProject.open(); }, reportError: notify });
+const newProject = createNewProjectDialog({ desktop, onCreated: project => projectPicker.acceptCreated(project),
+  prepareOpen: () => projectPicker.prepareForCreation(), notify });
 function openProjectDialog() { projectPicker.open(); }
 $('#project').onclick = openProjectDialog;
 $('#new-terminal').onclick = () => void startTerminal(focused);
@@ -291,6 +294,7 @@ $('#restore').onclick = () => { for (const view of views.values()) view.hidden =
 $('#layout-toggle').onclick = () => { layout.axis = layout.axis === 'columns' ? 'rows' : 'columns'; maximized = null; applyLayout(); savePreference(); };
 document.addEventListener('keydown', event => {
   if (projectPicker.handleKey(event)) return;
+  if (newProject.handleKey(event)) return;
   const target = event.target instanceof HTMLElement ? event.target : null;
   const terminalInput = !!target?.closest('.xterm');
   const textInput = !!target?.closest('input,textarea,select,[contenteditable="true"]');

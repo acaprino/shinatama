@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 pub mod maintenance;
+mod new_project;
 mod projects;
 mod storage;
 #[cfg(feature = "tl1-proof")]
@@ -261,6 +262,8 @@ fn main() {
         projects::catalog_read,
         projects::catalog_roots_set,
         projects::catalog_browse,
+        new_project::new_project_options,
+        new_project::new_project_create,
         terminal_start,
         terminal_list,
         terminal_read,
@@ -283,6 +286,8 @@ fn main() {
         projects::catalog_read,
         projects::catalog_roots_set,
         projects::catalog_browse,
+        new_project::new_project_options,
+        new_project::new_project_create,
         terminal_start,
         terminal_list,
         terminal_read,

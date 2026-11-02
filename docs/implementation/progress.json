@@ -509,9 +509,43 @@
       "next_action": "Implement C05 explicit project creation using the persisted roots and atomic cancellation boundary."
     },
     "C05": {
+      "status": "verified",
+      "commit_sha": null,
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-C05-project-creation.md",
+        "docs/verification/2026-11-02-C05-project-creation.result.json"
+      ],
+      "checks": [
+        "cargo test --offline --workspace --all-targets --features custom-protocol -j1 -- --test-threads=1",
+        "cargo clippy --offline --workspace --all-targets --features custom-protocol -j1 -- -D warnings",
+        "cargo fmt --all --check",
+        "npm run build",
+        "npm test",
+        "python -m unittest discover -s scripts -p test_*.py",
+        "python scripts/dependencies.py check --offline",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/new-project-smoke.mjs --with-git"
+      ],
+      "limits": [
+        "Local Windows creation and real native Git initialization passed; actual UNC/DriveFS creation remains unqualified.",
+        "UNC/local Data identity overlap has deterministic simulated-identity and local NTFS fixtures; no real share was created.",
+        "Fixed Git helper budgets and containment are qualified; adaptive C09R and full production P14 remain open.",
+        "Nonempty recovery work is preserved, never automatically pruned; admission stops at eight retained stages per root."
+      ],
+      "next_action": "Use the committed creation checkpoint and proceed to C10 adapter/engine contracts; preserve the C09R gate before terminal/sidecar hardening."
+    },
+    "C10": {
       "status": "in_progress",
       "commit_sha": null,
-      "next_action": "Wire the prepared project-creation core and UI, qualify contained Git, then run the real synthetic creation proof."
+      "units": {
+        "C10.1": {
+          "status": "in_progress",
+          "commit_sha": null
+        }
+      },
+      "next_action": "Wire prepared adapter, engine and CLI manifests; execute zero/fake adapter, version and discovery tests before enabling native launch."
     }
   },
   "blockers": [],

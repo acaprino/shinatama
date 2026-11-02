@@ -116,3 +116,27 @@ Le capacità dei comandi provengono dalla documentazione ufficiale SQLite di
 [vacuum incrementale](https://www.sqlite.org/pragma.html#pragma_incremental_vacuum)
 e [progress handler cooperativo](https://www.sqlite.org/c3ref/progress_handler.html).
 Sono fonti tecniche, non risultati delle prove locali.
+
+## Registro artefatti C05
+
+La creazione progetti possiede un file di coordinamento vuoto
+`.shinatama-create.lock` per radice usata e preparazioni
+`.shinatama-create-<uuid>.tmp`. Il file di lock non viene eliminato automaticamente:
+rimuoverlo mentre altre finestre lo usano potrebbe creare due lock indipendenti.
+Le preparazioni sono lavoro recuperabile, separato dalla cache eliminabile e
+mai copiato in SQLite/quarantena. Il proprietario è `crates/projects::create`;
+il namespace corrente è versione 1. Il commit è il rename atomico senza
+sovrascrittura; prima del permit si può annullare, dopo non si promette undo.
+
+L'ammissione rifiuta nuove creazioni con otto preparazioni conservate e interrompe
+l'inventario dopo 4.000 entry della radice. Una directory non vuota non scade e
+non viene potata per byte: contiene lavoro da conservare e richiede revisione
+esplicita dell'utente. Solo la directory vuota della propria operazione può
+essere eliminata tramite handle e identità verificata. Il supervisore Git ha
+limiti fissi separati: un lancio, due processi, 128 MiB per processo / 256 MiB
+per job, cinque secondi CPU user-mode per job / wall cooperativo e 32 KiB di
+output scartato dopo il conteggio.
+Non esiste una quota rigida in byte sulle scritture native di Git; il profilo
+qualificato esegue solo `init`, con template vuoto e senza rete/config esterni.
+La manutenzione DB non scandisce né cancella questi file nei progetti. C09R e
+le prove storage restano responsabili della qualifica globale delle risorse.

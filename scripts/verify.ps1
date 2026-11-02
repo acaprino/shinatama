@@ -99,6 +99,7 @@ try {
     Invoke-Check 'storage-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/storage-smoke.mjs')
     Invoke-Check 'state-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/state-smoke.mjs')
     Invoke-Check 'catalog-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/catalog-smoke.mjs')
+    Invoke-Check 'new-project-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/new-project-smoke.mjs')
     Invoke-Check 'maintenance-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/maintenance-smoke.mjs')
     $report.executable = [ordered]@{
         path = 'target/debug/shinatama-desktop.exe'
