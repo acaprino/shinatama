@@ -2,7 +2,7 @@
 mod storage;
 #[cfg(feature = "tl1-proof")]
 mod tl1;
-use shinatama_projects::ProjectEntry;
+use shinatama_state::database::{DatabaseAccess, ProjectRecord as ProjectEntry};
 use shinatama_terminal::{OutputBatch, SessionInfo, TerminalHost};
 use std::{path::PathBuf, sync::Arc};
 use tauri::{Emitter, Manager, State};
@@ -13,6 +13,8 @@ type Services = Arc<storage::Services>;
 struct StorageDiagnostics {
     directory: String,
     database_path: String,
+    read_only: bool,
+    message: Option<String>,
 }
 
 #[tauri::command]
@@ -23,10 +25,17 @@ async fn storage_location(
     local(&window)?;
     let services = services.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let location = &services.load()?.location;
+        let state = services.load()?;
+        let location = &state.location;
+        let (read_only, message) = match state.store.access() {
+            DatabaseAccess::ReadWrite => (false, None),
+            DatabaseAccess::ReadOnlyNewer { found, supported } => (true, Some(format!("Database versione {found}, più recente di quella supportata ({supported}). Aperto in sola lettura; aggiorna Shinatama per modificarlo."))),
+        };
         Ok(StorageDiagnostics {
             directory: location.directory().to_string_lossy().into_owned(),
             database_path: location.database_path().to_string_lossy().into_owned(),
+            read_only,
+            message,
         })
     })
     .await

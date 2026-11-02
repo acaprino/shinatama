@@ -319,8 +319,12 @@ async function initialize() {
     $('#runtime-status').innerHTML = '<i></i>Local runtime · experimental';
     render();
     try {
-      const storage = await invoke<{ directory: string; database_path: string }>('storage_location');
+      const storage = await invoke<{ directory: string; database_path: string; read_only: boolean; message: string | null }>('storage_location');
       $('#runtime-status').title = `Private data: ${storage.directory}\nDatabase: ${storage.database_path}`;
+      if (storage.read_only) {
+        $('#runtime-status').textContent = 'Read-only storage · update required';
+        notify(storage.message || 'Update Shinatama to modify this database.');
+      }
     } catch (error) {
       $('#runtime-status').textContent = 'Storage unavailable';
       notify(error);

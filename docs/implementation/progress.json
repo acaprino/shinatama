@@ -274,9 +274,31 @@
       "next_action": "Continue C02 bundled SQLite and atomic legacy-history import after this checkpoint."
     },
     "C02": {
-      "status": "in_progress",
+      "status": "verified",
       "commit_sha": null,
-      "next_action": "Compile and qualify bundled SQLite, typed project state and atomic B02 import; then wire and test backups in C03."
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-C02-sqlite.md",
+        "docs/verification/2026-11-02-C02-state-result.json"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-state --lib --test database --test location --example check_location -j1 -- --test-threads=1",
+        "cargo clippy --offline -p shinatama-state --lib --test database --test location --example check_location -j1 -- -D warnings",
+        "cargo clippy -p shinatama-desktop --features custom-protocol -- -D warnings",
+        "npm run build",
+        "npm run test:state",
+        "npm run test:projects",
+        "npm run test:desktop",
+        "npm run test:storage",
+        "python scripts/dependencies.py check --offline"
+      ],
+      "limits": [
+        "C02 minimal schema version 1; versioned backups follow in C03.",
+        "Complete S1/S4/S5 and release X3 remain open; initialization failures require native app restart after correction."
+      ],
+      "next_action": "Wire and qualify C03 backups/migrations, then implement the newly requested bounded DB maintenance."
     }
   },
   "blockers": [],

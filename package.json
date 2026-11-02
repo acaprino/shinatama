@@ -15,6 +15,7 @@
     "test:desktop": "node apps/desktop/tests/desktop-smoke.mjs",
     "test:projects": "node apps/desktop/tests/projects-smoke.mjs",
     "test:storage": "node apps/desktop/tests/storage-smoke.mjs",
+    "test:state": "node apps/desktop/tests/state-smoke.mjs",
     "plan:check": "python scripts/implementation.py validate",
     "plan:status": "python scripts/implementation.py status",
     "verify": "pwsh -NoProfile -File scripts/verify.ps1"

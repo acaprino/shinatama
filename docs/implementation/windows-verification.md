@@ -58,6 +58,7 @@ release, non firma e non avvia modelli/agenti reali.
 
 Configurazione del workflow ed esecuzione locale sono distinte da un run GitHub
 effettivo. Un'immagine Windows Server non certifica da sola Windows 10/11.
-TL1, P14, installazione/firma, sidecar/Node provisioning e i gate completi
+TL1 ha [una prova Windows separata con agente reale](../verification/2026-11-02-TL1-windows.md).
+P14, installazione/firma, sidecar/Node provisioning e i gate completi
 X3/X4/X5 restano aperti. L'inventario segnala obblighi MPL da riesaminare per la
 release e non fornisce approvazione legale automatica.

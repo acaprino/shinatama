@@ -95,6 +95,7 @@ try {
     Invoke-Check 'desktop-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/desktop-smoke.mjs')
     Invoke-Check 'projects-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/projects-smoke.mjs')
     Invoke-Check 'storage-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/storage-smoke.mjs')
+    Invoke-Check 'state-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/state-smoke.mjs')
     $report.executable = [ordered]@{
         path = 'target/debug/shinatama-desktop.exe'
         sha256 = (Get-FileHash -LiteralPath 'target/debug/shinatama-desktop.exe' -Algorithm SHA256).Hash.ToLowerInvariant()
