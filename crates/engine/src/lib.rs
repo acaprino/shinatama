@@ -7,6 +7,7 @@ use shinatama_adapter::{
 use std::collections::BTreeMap;
 
 pub mod doctor;
+pub mod launch;
 
 #[derive(Default)]
 pub struct Engine {

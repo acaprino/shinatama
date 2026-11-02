@@ -8,3 +8,9 @@ license.workspace = true
 [dependencies]
 serde.workspace = true
 shinatama-adapter.workspace = true
+getrandom.workspace = true
+sha2.workspace = true
+subtle.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

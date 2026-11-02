@@ -627,8 +627,8 @@
           ]
         },
         "C11.2": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "463dcc8eea46afc0e5e1a1bf1a1b9424f1b869b9",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -647,11 +647,32 @@
           ]
         },
         "C11.3": {
+          "status": "verified",
+          "commit_sha": null,
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-02-C11-identity-argv.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-adapter -p shinatama-engine -j1 -- --test-threads=1",
+            "cargo clippy --offline -p shinatama-adapter -p shinatama-engine -p shinatama-cli --all-targets -j1 -- -D warnings",
+            "cargo fmt --all --check",
+            "python scripts/dependencies.py check --offline",
+            "npm run build"
+          ],
+          "limits": [
+            "Hash-only identity records are prepared, not persisted; registry integration follows FS03.",
+            "No native recipe or launch is qualified; C11.4 composition and C09R execution admission remain required."
+          ]
+        },
+        "C11.4": {
           "status": "in_progress",
           "commit_sha": null
         }
       },
-      "next_action": "Build immutable argv and per-launch identity/token-hash preparation, then connect the single launch preflight boundary."
+      "next_action": "Connect one bounded launch preflight and composed immutable plan shared by UI, CLI and resume; native execution remains gated by C09R."
     }
   },
   "blockers": [],
