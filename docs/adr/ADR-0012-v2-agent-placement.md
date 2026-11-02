@@ -29,7 +29,6 @@ retired_reason: null
 supersedes:
 superseded_by: null
 changes:
-  - Decision
   - INV-012
   - INV-013
   - EX-006
