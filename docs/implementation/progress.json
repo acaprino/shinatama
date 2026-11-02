@@ -862,7 +862,31 @@
       "limits": [
         "Visual integration and real save/restart proof follow in C07. Layout restore never starts processes. Explicit dead-owner recovery is being integrated separately."
       ],
-      "next_action": "Integrate C07 renderer and layout persistence into the desktop shell, preserving existing terminal DOM and process identity."
+      "next_action": "Integrate C07 renderer and layout persistence into the desktop shell, preserving existing terminal DOM and process identity.",
+      "units": {
+        "C06.1": {
+          "status": "verified",
+          "commit_sha": null,
+          "evidence": [
+            "docs/verification/2026-11-02-C06-workspace.md"
+          ],
+          "checks": [
+            "node --experimental-strip-types --test apps/desktop/tests/workspace-model.test.ts apps/desktop/tests/workspace-persistence.test.ts",
+            "cargo check --offline -p shinatama-desktop --features custom-protocol -j1"
+          ]
+        },
+        "C06.2": {
+          "status": "verified",
+          "commit_sha": null,
+          "evidence": [
+            "docs/verification/2026-11-02-C06-workspace.md"
+          ],
+          "checks": [
+            "node --experimental-strip-types --test apps/desktop/tests/workspace-model.test.ts apps/desktop/tests/workspace-persistence.test.ts",
+            "cargo check --offline -p shinatama-desktop --features custom-protocol -j1"
+          ]
+        }
+      }
     },
     "C07": {
       "status": "in_progress",
