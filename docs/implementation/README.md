@@ -63,10 +63,10 @@ riattivarlo, serve prima una nuova richiesta utente e l'aggiornamento dello scop
 ## Regola dei commit iniziali
 
 Il prototipo B00 era già presente ma non committato all'inizio di questo lavoro.
-Anche B01/B02 sono registrati come verificati, con `commit_sha: null` finché
-non esiste un commit. Il primo checkpoint Git può quindi essere un bootstrap
-esplicito B00–B02; non inventare commit storici separati. Se si vogliono tre commit,
-separare i rispettivi hunk prima di committare e verificare ogni stato intermedio.
+Il 2026-11-02 la richiesta esplicita `commit all` ha autorizzato il bootstrap
+B00–B02 insieme al piano e agli emendamenti correnti delle specifiche, nel commit
+`266fb1e043f834f0cf4a2e71976028d5f54c2186`. I tre checkpoint registrano questo SHA
+reale condiviso; non sono stati inventati commit storici separati.
 
 Dal passo successivo: un incremento funzionale per commit, con titolo e ambito
 indicati nella scheda. Se un incremento aggrega piu unita di commit, seguirle

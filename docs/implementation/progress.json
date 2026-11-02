@@ -2,11 +2,11 @@
   "schema_version": 1,
   "updated_at": "2026-11-02",
   "base_head": "46435ab",
-  "git_state": "User requested commit all on 2026-11-02: B00-B02 bootstrap, the resumable plan and current specification amendments are intentionally checkpointed together. Record the real bootstrap SHA after this commit; preserve unrelated verify/T6 work.",
+  "git_state": "B00-B02 bootstrap and current specification amendments committed together at 266fb1e043f834f0cf4a2e71976028d5f54c2186 by explicit commit-all request on 2026-11-02. No historical per-step SHA is inferred; preserve unrelated verify/T6 work.",
   "steps": {
     "B00": {
-      "status": "verified",
-      "commit_sha": null,
+      "status": "committed",
+      "commit_sha": "266fb1e043f834f0cf4a2e71976028d5f54c2186",
       "platforms": [
         "Windows"
       ],
@@ -23,8 +23,8 @@
       ]
     },
     "B01": {
-      "status": "verified",
-      "commit_sha": null,
+      "status": "committed",
+      "commit_sha": "266fb1e043f834f0cf4a2e71976028d5f54c2186",
       "platforms": [
         "Windows"
       ],
@@ -39,8 +39,8 @@
       "next_action": "Proceed to F32CI using the validated dependency graph."
     },
     "B02": {
-      "status": "verified",
-      "commit_sha": null,
+      "status": "committed",
+      "commit_sha": "266fb1e043f834f0cf4a2e71976028d5f54c2186",
       "platforms": [
         "Windows"
       ],

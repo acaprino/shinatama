@@ -28,9 +28,9 @@ Daodan e temporaneamente fuori dallo scope di implementazione su richiesta dell 
 
 | Passo | Risultato | Prerequisiti | Stato | Ore |
 | --- | --- | --- | --- | --- |
-| [B00](#b00) | Registrare e rendere riproducibile il prototipo di terminale senza cornice | — | verified | 2–4 |
-| [B01](#b01) | Piano completo, copertura FRD e checkpoint riprendibile | B00 | verified | 3–6 |
-| [B02](#b02) | Ricordare e riaprire i progetti recenti senza avviare processi | B00, B01 | verified | 8–16 |
+| [B00](#b00) | Registrare e rendere riproducibile il prototipo di terminale senza cornice | — | committed | 2–4 |
+| [B01](#b01) | Piano completo, copertura FRD e checkpoint riprendibile | B00 | committed | 3–6 |
+| [B02](#b02) | Ricordare e riaprire i progetti recenti senza avviare processi | B00, B01 | committed | 8–16 |
 | [F32CI](#f32ci) | Verifica continua iniziale, lockfile e avvisi sulle dipendenze | B01 | pending | 3–8 |
 | [C01](#c01) | Validare i percorsi locali privati prima di creare il database | B00, B02, F32CI | pending | 8–16 |
 | [C02](#c02) | Aprire SQLite incorporato in sicurezza ed esporre un servizio di stato tipizzato | C01, B02 | pending | 8–16 |
