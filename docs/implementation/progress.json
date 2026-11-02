@@ -607,11 +607,31 @@
       "commit_sha": null,
       "units": {
         "C11.1": {
+          "status": "verified",
+          "commit_sha": null,
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-02-C11-environment.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-adapter -p shinatama-engine -p shinatama-cli -j1 -- --test-threads=1",
+            "cargo clippy --offline -p shinatama-adapter -p shinatama-engine -p shinatama-cli --all-targets -j1 -- -D warnings",
+            "cargo fmt --all --check",
+            "npm run build"
+          ],
+          "limits": [
+            "Pure environment composition and six synthetic Windows child processes qualified; native nested agent/version starts and full P20 remain open.",
+            "Hermes/DeepSeek marker lists and Pi prepended PATH handling remain explicit gaps; no guessed native recipe is enabled."
+          ]
+        },
+        "C11.2": {
           "status": "in_progress",
           "commit_sha": null
         }
       },
-      "next_action": "Wire the prepared pure child-environment module, prove exact conditional removals, then add qualified private-home and launch-plan admission."
+      "next_action": "Wire and qualify private store directory grants and fixture-bound placement recipes; keep native execution behind C09R."
     }
   },
   "blockers": [],

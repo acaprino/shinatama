@@ -3,6 +3,7 @@ pub mod capability;
 pub mod catalog;
 pub mod contract;
 pub mod fake;
+pub mod launch;
 pub mod pe_version;
 pub mod version;
 
