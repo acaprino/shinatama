@@ -47,7 +47,7 @@ macOS e Linux sono fuori dallo scope su decisione dell utente: solo Windows e su
 | [C09R](#c09r) | Proteggere l host con budget e recupero adattivi | C03, FS03, C11, C03M | in_progress | 24–48 |
 | [C13](#c13) | Supervisionare i sidecar distinguendo occupazione e recupero | C12, C09R | pending | 20–40 |
 | [C14](#c14) | Preparare checkup, manifest e set generici di avvio | C11, C13 | pending | 6–12 |
-| [FS03](#fs03) | Separazione degli schemi autorevoli e operativi e record dei progetti | C03, C11 | verified | 4–10 |
+| [FS03](#fs03) | Separazione degli schemi autorevoli e operativi e record dei progetti | C03, C11 | committed | 4–10 |
 | [C06](#c06) | Introdurre un modello validato ad albero per le suddivisioni | B02, FS03, TL1-proof | pending | 10–20 |
 | [C07](#c07) | Disegnare l'albero di pannelli e completare i comandi da tastiera | C06 | pending | 15–30 |
 | [C08](#c08) | Rendere configurabili i temi e i profili versionati dei terminali | C07 | pending | 12–20 |

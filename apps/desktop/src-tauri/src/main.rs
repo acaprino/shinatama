@@ -3,6 +3,7 @@ mod launch;
 pub mod maintenance;
 mod new_project;
 mod projects;
+mod resources;
 mod storage;
 #[cfg(feature = "tl1-proof")]
 mod tl1;
@@ -239,6 +240,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .manage(Arc::new(TerminalHost::default()))
         .manage(shinatama_engine::Engine::new())
+        .manage(resources::Resources::start())
         .setup(|app| {
             let directory = std::env::var_os("SHINATAMA_HOME")
                 .map(PathBuf::from)
@@ -253,6 +255,8 @@ fn main() {
     #[cfg(not(feature = "tl1-proof"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         launch::launch_preflight,
+        resources::resources_status,
+        resources::resources_telemetry,
         storage_location,
         maintenance_activity,
         maintenance_status,
@@ -278,6 +282,8 @@ fn main() {
     #[cfg(feature = "tl1-proof")]
     let builder = builder.invoke_handler(tauri::generate_handler![
         launch::launch_preflight,
+        resources::resources_status,
+        resources::resources_telemetry,
         storage_location,
         maintenance_activity,
         maintenance_status,

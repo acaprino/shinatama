@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 
 pub mod doctor;
 pub mod launch;
+pub mod resources;
 
 #[derive(Default)]
 pub struct Engine {

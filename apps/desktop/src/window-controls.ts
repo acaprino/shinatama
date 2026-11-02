@@ -1,4 +1,5 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { initializeResourceTelemetry } from './resource-telemetry.ts';
 
 /** Keep window operations separate from terminal/view operations. */
 export async function initializeWindowControls(reportError: (error: unknown) => void) {
@@ -25,4 +26,5 @@ export async function initializeWindowControls(reportError: (error: unknown) => 
   await appWindow.onResized(() => { void syncMaximized().catch(reportError); });
   await syncMaximized();
   for (const button of [minimize, maximize, close]) button.disabled = false;
+  initializeResourceTelemetry();
 }

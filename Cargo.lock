@@ -2981,6 +2981,7 @@ dependencies = [
  "sha2",
  "shinatama-adapter",
  "subtle",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

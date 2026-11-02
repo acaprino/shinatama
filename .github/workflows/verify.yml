@@ -64,6 +64,7 @@ jobs:
             .prototype-evidence/project-catalog.json
             .prototype-evidence/new-project.json
             .prototype-evidence/launch-preflight.json
+            .prototype-evidence/resources-observer.json
             .prototype-evidence/maintenance.json
           include-hidden-files: true
           if-no-files-found: warn

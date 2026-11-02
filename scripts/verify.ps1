@@ -101,6 +101,7 @@ try {
     Invoke-Check 'catalog-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/catalog-smoke.mjs')
     Invoke-Check 'new-project-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/new-project-smoke.mjs')
     Invoke-Check 'launch-preflight-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/launch-preflight-smoke.mjs')
+    Invoke-Check 'resources-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/resources-smoke.mjs')
     Invoke-Check 'maintenance-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/maintenance-smoke.mjs')
     $report.executable = [ordered]@{
         path = 'target/debug/shinatama-desktop.exe'

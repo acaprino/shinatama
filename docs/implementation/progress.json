@@ -717,8 +717,8 @@
       ]
     },
     "FS03": {
-      "status": "verified",
-      "commit_sha": null,
+      "status": "committed",
+      "commit_sha": "23b28a9e65a3bdd2b260f88245518fa1c8013e7b",
       "platforms": [
         "Windows 11 x64 build 26200"
       ],
@@ -747,11 +747,35 @@
       "commit_sha": null,
       "units": {
         "C09R.1": {
+          "status": "verified",
+          "commit_sha": null,
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-02-C09R-observer.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine -j1 -- --test-threads=1",
+            "cargo clippy --offline -p shinatama-desktop -p shinatama-engine --all-targets --features custom-protocol -j1 -- -D warnings",
+            "npm run build",
+            "cargo build --offline -p shinatama-desktop -p shinatama-cli --features custom-protocol -j1",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/resources-smoke.mjs",
+            "python scripts/dependencies.py check --offline",
+            "cargo fmt --all --check"
+          ],
+          "limits": [
+            "Observer measurements do not qualify native workload limits, adaptive admission/intervention, crash recovery or complete RES1-RES4.",
+            "Workload/terminal queue counters are explicitly unavailable until their owning components connect them; owned descendants are not a host/renderer baseline.",
+            "12-second Windows observer proof only; fault injection and prolonged qualification remain required."
+          ]
+        },
+        "C09R.2": {
           "status": "in_progress",
           "commit_sha": null
         }
       },
-      "next_action": "Integrate bounded native resource sampling and one non-blocking monitor for host/owned processes; qualify identity, missing samples and overhead before admission/limits."
+      "next_action": "Integrate persisted aggregate resource reservations and pre-execution per-workload Windows Job limits, with exact identity/session-bound cleanup proofs and fail-closed retained budgets."
     }
   },
   "blockers": [],
