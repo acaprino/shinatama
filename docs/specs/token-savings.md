@@ -402,9 +402,11 @@ input and output must be compressed):
   `promptRewrite.mode = "auto"`.
 - Output: `compress.outputSteering.enabled = true`, with `verbosityLevel` 0 to 4 (default 2) and
   `effortRouting` (default true once enabled). The key lives inside the `compress` block
-  (`src/config.ts`, the compress key whitelist), not at the top level of `config.json`. Read on
-  2026-11-01: this was **not active**; the live `config.json` has no such key and the kernel
-  default is `enabled: false` (`kernel/src/output-steering.ts`). The verbosity lever appends one
+  (`src/config.ts`, the compress key whitelist), not at the top level of `config.json`. The live
+  `config.json` carries it since 2026-11-02 (level 2, `effortRouting: false`), read at start or
+  on `POST /__bili/config/reload`; the kernel default stays `enabled: false`
+  (`kernel/src/output-steering.ts`). Requests with `max_tokens` of 200 or less are side requests
+  and are not steered. The verbosity lever appends one
   frozen directive to the tail of the system prompt and rewrites no past text, so it does not
   break the goal that text is never rewritten. The effort lever lowers reasoning effort on
   tool-result continuation turns only, so it flips the field at every boundary between a user
