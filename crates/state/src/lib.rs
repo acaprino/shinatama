@@ -6,5 +6,6 @@ pub mod location;
 pub mod maintenance;
 mod migrations;
 pub mod projects;
+pub mod records;
 mod schema;
 pub mod store_roots;

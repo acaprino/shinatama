@@ -2,7 +2,9 @@
 
 use rusqlite::Connection;
 
-pub const CURRENT_VERSION: u32 = 2;
+pub const CURRENT_VERSION: u32 = 3;
+
+const MAX_SCHEMA_OBJECTS: usize = 5 + crate::records::schema::OBJECTS.len();
 
 /// Call after BEGIN IMMEDIATE: another window may have upgraded since open().
 /// The write reservation prevents a newer migration racing this check/commit.
@@ -48,10 +50,10 @@ fn read_schema(connection: &Connection) -> rusqlite::Result<Vec<(String, String)
         "SELECT CASE WHEN octet_length(name)<=64 THEN name END AS bounded_name,
                 CASE WHEN octet_length(sql)<=4096 THEN sql END
          FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*'
-         ORDER BY bounded_name LIMIT 6",
+         ORDER BY bounded_name LIMIT ?1",
     )?;
     statement
-        .query_map([], |row| {
+        .query_map([MAX_SCHEMA_OBJECTS as i64 + 1], |row| {
             let name = row
                 .get::<_, Option<String>>(0)?
                 .ok_or(rusqlite::Error::InvalidQuery)?;
@@ -75,7 +77,7 @@ fn validate_definitions(actual: Vec<(String, String)>, version: u32) -> rusqlite
         .into_iter()
         .zip(CREATE_V1.split(';').filter(|sql| !sql.trim().is_empty()))
         .collect::<Vec<_>>();
-    if version == 2 {
+    if version >= 2 {
         expected.push((
             "setting_json_insert",
             crate::migrations::SETTING_JSON_INSERT_TRIGGER,
@@ -85,7 +87,11 @@ fn validate_definitions(actual: Vec<(String, String)>, version: u32) -> rusqlite
             crate::migrations::SETTING_JSON_UPDATE_TRIGGER,
         ));
     }
-    if !matches!(version, 1 | 2)
+    if version == 3 {
+        expected.extend_from_slice(crate::records::schema::OBJECTS);
+    }
+    expected.sort_by_key(|(name, _)| *name);
+    if !matches!(version, 1..=3)
         || actual.len() != expected.len()
         || !actual
             .iter()
@@ -153,14 +159,17 @@ mod tests {
     }
 
     #[test]
-    fn schema_projection_never_materializes_more_than_six_objects() {
+    fn schema_projection_never_materializes_more_than_known_objects_plus_one() {
         let connection = Connection::open_in_memory().unwrap();
         for index in 0..30 {
             connection
                 .execute_batch(&format!("CREATE TABLE extra_{index}(value TEXT)"))
                 .unwrap();
         }
-        assert_eq!(read_schema(&connection).unwrap().len(), 6);
+        assert_eq!(
+            read_schema(&connection).unwrap().len(),
+            MAX_SCHEMA_OBJECTS + 1
+        );
         assert!(validate_version(&connection, CURRENT_VERSION).is_err());
         assert_eq!(
             connection

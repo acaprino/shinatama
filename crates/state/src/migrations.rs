@@ -50,6 +50,11 @@ const MIGRATIONS: &[Migration] = &[
         to: 2,
         sql: &[SETTING_JSON_INSERT_TRIGGER, SETTING_JSON_UPDATE_TRIGGER],
     },
+    Migration {
+        from: 2,
+        to: 3,
+        sql: crate::records::schema::MIGRATION_V3,
+    },
 ];
 
 /// The caller holds the private crash-released schema.lock across this operation.
@@ -416,6 +421,72 @@ mod fault_tests {
     }
 
     #[test]
+    fn fs03_ddl_failure_rolls_back_to_v2_and_retry_keeps_the_verified_backup() {
+        let root = root();
+        let location = location(&root);
+        location.prepare_private_directory().unwrap();
+        let mut connection = Connection::open(location.database_path()).unwrap();
+        connection.execute_batch(schema::CREATE_V1).unwrap();
+        connection
+            .execute_batch(SETTING_JSON_INSERT_TRIGGER)
+            .unwrap();
+        connection
+            .execute_batch(SETTING_JSON_UPDATE_TRIGGER)
+            .unwrap();
+        connection
+            .execute("INSERT INTO setting VALUES('saved','\"before FS03\"')", [])
+            .unwrap();
+        connection.pragma_update(None, "user_version", 2).unwrap();
+        let result = initialize_impl(
+            &mut connection,
+            &location,
+            |_, _| Ok(()),
+            |version, _| {
+                assert_eq!(version, 3);
+                Err(DatabaseError::Io(std::io::Error::other(
+                    "synthetic FS03 fault",
+                )))
+            },
+        );
+        assert!(matches!(result, Err(DatabaseError::Io(_))));
+        schema::validate_version(&connection, 2).unwrap();
+        assert_eq!(
+            connection
+                .pragma_query_value::<u32, _>(None, "user_version", |row| row.get(0))
+                .unwrap(),
+            2
+        );
+        assert_eq!(
+            connection
+                .query_row::<String, _, _>(
+                    "SELECT value FROM setting WHERE key='saved'",
+                    [],
+                    |row| row.get(0)
+                )
+                .unwrap(),
+            "\"before FS03\""
+        );
+        let backups = fs::read_dir(location.directory())
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .filter(|path| path.to_string_lossy().ends_with(".backup.db"))
+            .collect::<Vec<_>>();
+        assert_eq!(backups.len(), 1);
+        let backup =
+            Connection::open_with_flags(&backups[0], OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+        schema::validate_version(&backup, 2).unwrap();
+        ensure_integrity(&backup).unwrap();
+        drop(backup);
+        initialize(&mut connection, &location).unwrap();
+        schema::validate_version(&connection, 3).unwrap();
+        ensure_integrity(&connection).unwrap();
+        assert!(backups[0].is_file());
+        drop(connection);
+        drop(location);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn a_commit_after_backup_defers_the_migration_without_losing_new_work() {
         let root = root();
         let location = location(&root);
@@ -644,7 +715,7 @@ mod fault_tests {
             connection
                 .pragma_query_value::<u32, _>(None, "user_version", |row| row.get(0))
                 .unwrap(),
-            2
+            schema::CURRENT_VERSION
         );
         ensure_integrity(&connection).unwrap();
         drop(connection);

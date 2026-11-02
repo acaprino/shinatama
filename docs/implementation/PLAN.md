@@ -42,12 +42,12 @@ macOS e Linux sono fuori dallo scope su decisione dell utente: solo Windows e su
 | [C04](#c04) | Configurare le radici e individuare i progetti con un selettore nativo | B02, C03 | committed | 10–20 |
 | [C05](#c05) | Creare progetti in modo atomico sotto la radice scelta | C04 | committed | 8–16 |
 | [C10](#c10) | Definire contratti degli adattatori, capacità e verifiche di versione | C02, C03 | committed | 10–18 |
-| [C11](#c11) | Costruire piani di avvio sicuri e cartelle private degli agenti | C01, C10 | verified | 16–32 |
+| [C11](#c11) | Costruire piani di avvio sicuri e cartelle private degli agenti | C01, C10 | committed | 16–32 |
 | [C12](#c12) | Integrare il sorgente del sidecar e il suo ambiente privato | C11 | pending | 20–40 |
-| [C09R](#c09r) | Proteggere l host con budget e recupero adattivi | C03, FS03, C11, C03M | pending | 24–48 |
+| [C09R](#c09r) | Proteggere l host con budget e recupero adattivi | C03, FS03, C11, C03M | in_progress | 24–48 |
 | [C13](#c13) | Supervisionare i sidecar distinguendo occupazione e recupero | C12, C09R | pending | 20–40 |
 | [C14](#c14) | Preparare checkup, manifest e set generici di avvio | C11, C13 | pending | 6–12 |
-| [FS03](#fs03) | Separazione degli schemi autorevoli e operativi e record dei progetti | C03, C11 | in_progress | 4–10 |
+| [FS03](#fs03) | Separazione degli schemi autorevoli e operativi e record dei progetti | C03, C11 | verified | 4–10 |
 | [C06](#c06) | Introdurre un modello validato ad albero per le suddivisioni | B02, FS03, TL1-proof | pending | 10–20 |
 | [C07](#c07) | Disegnare l'albero di pannelli e completare i comandi da tastiera | C06 | pending | 15–30 |
 | [C08](#c08) | Rendere configurabili i temi e i profili versionati dei terminali | C07 | pending | 12–20 |

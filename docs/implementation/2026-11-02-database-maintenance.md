@@ -31,9 +31,18 @@ Ogni feature che introduce una tabella operativa, una cache o una coda deve
 registrare proprietario, schema/versione, indice di selezione, stato cancellabile,
 retention, conteggio e budget in byte prima dell'abilitazione. Non si aggiungono
 tabelle vuote per feature future e non si eseguono `DELETE` su nomi scoperti per
-somiglianza. Il nucleo attuale conosce soltanto `project` e `setting`, entrambi
-autorevoli: non ne cancella righe. I limiti operativi futuri diventano verifiche
+somiglianza. Con FS03 lo schema corrente comprende `project`, `setting`,
+`store_root` e `workspace`, tutti autorevoli: i job non ne cancellano righe.
+Le radici rimosse diventano non disponibili; revisioni e riferimenti storici
+restano conservati. I limiti operativi futuri diventano verifiche
 del passo che introduce il componente, oltre alle prove C03M.
+
+Le nuove scritture FS03 passano dall'ammissione globale esistente prima della
+transazione e ricontrollano la versione sotto `BEGIN IMMEDIATE`. Layout: 256 KiB
+per documento, versione supportata e revisione/proprietario verificati; letture
+radici: pagine di massimo 100 record con campi limitati prima della copia.
+Non si riempiono tabelle operative future per provare la classificazione e non
+si ricostruisce o elimina una tabella autorevole durante la manutenzione.
 
 Per i backup si propone una futura selezione di candidati all'archiviazione dopo
 30 giorni, mantenendo almeno tre copie verificate e la copia prima dell'ultima

@@ -603,8 +603,8 @@
       ]
     },
     "C11": {
-      "status": "verified",
-      "commit_sha": null,
+      "status": "committed",
+      "commit_sha": "9b86397e29775cb440393278d45ba3299734dac8",
       "units": {
         "C11.1": {
           "status": "committed",
@@ -668,8 +668,8 @@
           ]
         },
         "C11.4": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "9b86397e29775cb440393278d45ba3299734dac8",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -717,9 +717,41 @@
       ]
     },
     "FS03": {
+      "status": "verified",
+      "commit_sha": null,
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-FS03-records.md"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-state -j1 -- --test-threads=1",
+        "cargo clippy --offline -p shinatama-state --all-targets -j1 -- -D warnings",
+        "cargo fmt --all --check",
+        "python scripts/dependencies.py check --offline",
+        "npm run build",
+        "cargo build --offline -p shinatama-desktop -p shinatama-cli --features custom-protocol -j1",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/state-smoke.mjs",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/launch-preflight-smoke.mjs"
+      ],
+      "limits": [
+        "Current authoritative root/workspace records and data-only restore qualified; full layout tree, UI ownership recovery and TL3 belong to C06.",
+        "Future authoritative/operational feature tables and their scoped rebuild/retention are not pre-created or enabled; no generic cleanup API exists.",
+        "Full S9/native SS5 and non-Windows qualification remain open."
+      ],
+      "next_action": "Proceed immediately to mandatory C09R resource sampling, aggregate admission and native fault containment before dependent native execution."
+    },
+    "C09R": {
       "status": "in_progress",
       "commit_sha": null,
-      "next_action": "Integrate bounded authoritative root/workspace records with a verified-backup v2-to-v3 migration; qualify root scoping, ownership/revision CAS and preservation."
+      "units": {
+        "C09R.1": {
+          "status": "in_progress",
+          "commit_sha": null
+        }
+      },
+      "next_action": "Integrate bounded native resource sampling and one non-blocking monitor for host/owned processes; qualify identity, missing samples and overhead before admission/limits."
     }
   },
   "blockers": [],

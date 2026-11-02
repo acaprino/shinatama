@@ -97,9 +97,9 @@ fn new_database_creates_ordered_verified_backups_and_current_reopen_is_idempoten
     let fixture = Fixture::new();
     let location = fixture.location();
     let database = Database::open(&location, None).unwrap();
-    assert_eq!(database.diagnostics().unwrap().schema_version, 2);
+    assert_eq!(database.diagnostics().unwrap().schema_version, 3);
     let saved = backups(&location);
-    assert_eq!(saved.len(), 2);
+    assert_eq!(saved.len(), 3);
     let mut versions = Vec::new();
     for file in &saved {
         location.verify_private_file(file).unwrap();
@@ -108,11 +108,11 @@ fn new_database_creates_ordered_verified_backups_and_current_reopen_is_idempoten
         versions.push(version(&backup));
     }
     versions.sort();
-    assert_eq!(versions, [0, 1]);
+    assert_eq!(versions, [0, 1, 2]);
     database.integrity_check().unwrap();
     drop(database);
     let reopened = Database::open(&location, None).unwrap();
-    assert_eq!(reopened.diagnostics().unwrap().schema_version, 2);
+    assert_eq!(reopened.diagnostics().unwrap().schema_version, 3);
     assert_eq!(backups(&location), saved);
 }
 
@@ -128,13 +128,13 @@ fn v1_migration_preserves_authoritative_rows_and_backs_up_uncheckpointed_wal() {
             > 32
     );
     let database = Database::open(&location, None).unwrap();
-    assert_eq!(database.diagnostics().unwrap().schema_version, 2);
+    assert_eq!(database.diagnostics().unwrap().schema_version, 3);
     let recent = database.recent().unwrap();
     assert_eq!(recent.len(), 1);
     assert_eq!(recent[0].id, "p_abcdefghijkl");
     assert_eq!(recent[0].last_opened, 100);
     let saved = backups(&location);
-    assert_eq!(saved.len(), 1);
+    assert_eq!(saved.len(), 2);
     let backup = Connection::open_with_flags(&saved[0], OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
     assert_eq!(version(&backup), 1);
     assert_eq!(
@@ -168,6 +168,93 @@ fn v1_migration_preserves_authoritative_rows_and_backs_up_uncheckpointed_wal() {
             params!["true"],
         )
         .unwrap();
+}
+
+#[test]
+fn v2_to_v3_preserves_rows_and_verifies_a_complete_v2_backup_before_new_records() {
+    let fixture = Fixture::new();
+    let location = fixture.location();
+    let writer = seed_v1(&location, r#"{"saved":"before FS03"}"#);
+    writer
+        .execute_batch(
+            "CREATE TRIGGER setting_json_insert
+BEFORE INSERT ON setting WHEN NOT json_valid(NEW.value)
+BEGIN SELECT RAISE(ABORT, 'setting value must be JSON'); END;
+CREATE TRIGGER setting_json_update
+BEFORE UPDATE OF value ON setting WHEN NOT json_valid(NEW.value)
+BEGIN SELECT RAISE(ABORT, 'setting value must be JSON'); END;",
+        )
+        .unwrap();
+    writer.pragma_update(None, "user_version", 2).unwrap();
+
+    let database = Database::open(&location, None).unwrap();
+    assert_eq!(database.diagnostics().unwrap().schema_version, 3);
+    assert_eq!(database.recent().unwrap()[0].id, "p_abcdefghijkl");
+    let saved = backups(&location);
+    assert_eq!(saved.len(), 1);
+    let backup = Connection::open_with_flags(&saved[0], OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+    assert_eq!(version(&backup), 2);
+    integrity(&backup);
+    assert_eq!(
+        backup
+            .query_row::<String, _, _>("SELECT value FROM setting WHERE key='saved'", [], |row| row
+                .get(0))
+            .unwrap(),
+        r#"{"saved":"before FS03"}"#
+    );
+    assert_eq!(
+        backup
+            .query_row::<u32, _, _>(
+                "SELECT count(*) FROM sqlite_schema WHERE name IN ('store_root','workspace')",
+                [],
+                |row| row.get(0)
+            )
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        writer
+            .query_row::<String, _, _>("SELECT value FROM setting WHERE key='saved'", [], |row| row
+                .get(0))
+            .unwrap(),
+        r#"{"saved":"before FS03"}"#
+    );
+    assert_eq!(
+        writer
+            .query_row::<i64, _, _>(
+                "SELECT recent_sequence FROM project WHERE id='p_abcdefghijkl'",
+                [],
+                |row| row.get(0)
+            )
+            .unwrap(),
+        7
+    );
+    assert_eq!(
+        writer
+            .query_row::<u32, _, _>(
+                "SELECT (SELECT count(*) FROM store_root)+(SELECT count(*) FROM workspace)",
+                [],
+                |row| row.get(0)
+            )
+            .unwrap(),
+        0
+    );
+    assert!(
+        writer
+            .prepare("PRAGMA foreign_key_check")
+            .unwrap()
+            .query([])
+            .unwrap()
+            .next()
+            .unwrap()
+            .is_none()
+    );
+    drop(backup);
+    drop(database);
+    drop(writer);
+    let reopened = Database::open(&location, None).unwrap();
+    assert_eq!(reopened.diagnostics().unwrap().schema_version, 3);
+    assert_eq!(backups(&location), saved);
 }
 
 #[test]
@@ -263,15 +350,15 @@ fn newer_database_is_readonly_without_schema_changes_or_backup() {
     let location = fixture.location();
     location.prepare_private_directory().unwrap();
     let original = Connection::open(location.database_path()).unwrap();
-    original.execute_batch("CREATE TABLE future_history(body TEXT); INSERT INTO future_history VALUES('future saved work'); PRAGMA user_version=3;").unwrap();
+    original.execute_batch("CREATE TABLE future_history(body TEXT); INSERT INTO future_history VALUES('future saved work'); PRAGMA user_version=999;").unwrap();
     drop(original);
     let bytes = fs::read(location.database_path()).unwrap();
     let database = Database::open(&location, None).unwrap();
     assert_eq!(
         database.access(),
         &DatabaseAccess::ReadOnlyNewer {
-            found: 3,
-            supported: 2
+            found: 999,
+            supported: 3
         }
     );
     assert!(database.set_appearance(&Default::default()).is_err());
