@@ -20,6 +20,7 @@ serde.workspace = true
 shinatama-terminal.workspace = true
 shinatama-projects.workspace = true
 shinatama-state.workspace = true
+shinatama-engine.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 windows-sys.workspace = true

@@ -1,4 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod launch;
 pub mod maintenance;
 mod new_project;
 mod projects;
@@ -237,6 +238,7 @@ fn main() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(Arc::new(TerminalHost::default()))
+        .manage(shinatama_engine::Engine::new())
         .setup(|app| {
             let directory = std::env::var_os("SHINATAMA_HOME")
                 .map(PathBuf::from)
@@ -250,6 +252,7 @@ fn main() {
         });
     #[cfg(not(feature = "tl1-proof"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        launch::launch_preflight,
         storage_location,
         maintenance_activity,
         maintenance_status,
@@ -274,6 +277,7 @@ fn main() {
     ]);
     #[cfg(feature = "tl1-proof")]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        launch::launch_preflight,
         storage_location,
         maintenance_activity,
         maintenance_status,

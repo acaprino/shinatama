@@ -2961,6 +2961,7 @@ name = "shinatama-desktop"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "shinatama-engine",
  "shinatama-projects",
  "shinatama-state",
  "shinatama-terminal",

@@ -1,4 +1,6 @@
-//! Stable read-only doctor command. No config creation, migration or login.
+//! Read-only doctor and launch preflight. No config creation, migration or login.
+pub mod launch;
+pub use launch::run_launch_preflight;
 use shinatama_adapter::{AgentId, catalog::InstallationCatalog};
 use shinatama_engine::{
     Engine,
@@ -25,6 +27,7 @@ pub struct DoctorOptions {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Command {
     Doctor(DoctorOptions),
+    LaunchPreflight,
     Help,
 }
 
@@ -48,6 +51,13 @@ pub fn parse(args: &[String]) -> Result<Command, ParseError> {
     };
     if matches!(command.as_str(), "--help" | "-h" | "help") && args.len() == 1 {
         return Ok(Command::Help);
+    }
+    if command == "launch" {
+        return if args.len() == 3 && args[1] == "preflight" && args[2] == "--json" {
+            Ok(Command::LaunchPreflight)
+        } else {
+            Err(ParseError::UnknownOption)
+        };
     }
     if command != "doctor" {
         return Err(ParseError::UnknownCommand);
@@ -94,7 +104,7 @@ pub fn run_doctor(
     })
 }
 
-pub const HELP: &str = "shinatama doctor [--agent AGENT_ID] [--json]\nRead-only Windows installation/capability check. No login, update, config creation or agent launch.\nExit codes: 0 done; 2 refused; 3 user action; 4 failed unchanged; 5 recovery required.\n";
+pub const HELP: &str = "shinatama doctor [--agent AGENT_ID] [--json]\nRead-only Windows installation/capability check. No login, update, config creation or agent launch.\n\nshinatama launch preflight --json\nRead one JSON request (maximum 8192 bytes) from stdin: {\"agent\":\"codex\",\"action\":\"start\",\"placement\":{\"program\":\"system\",\"home\":\"box\"}}\nUse action \"resume\" for Resume through the same engine service. This is a read-only review: it never starts an agent or creates state. Pipe/redirect the JSON and close stdin; interactive stdin is refused.\nLaunch status/exit: available=0; refused=2; incomplete=3. Input/output IO failure=4. No argv, environment values or tokens are emitted.\n\nExit codes: 0 done; 2 refused; 3 user action; 4 failed unchanged; 5 recovery required.\n";
 
 fn write_text(report: &DoctorReport, output: &mut dyn Write) -> std::io::Result<()> {
     writeln!(
@@ -181,6 +191,14 @@ mod tests {
         assert_eq!(
             parse(&args(&["run", "codex"])),
             Err(ParseError::UnknownCommand)
+        );
+        assert_eq!(
+            parse(&args(&["launch", "preflight", "--json"])),
+            Ok(Command::LaunchPreflight)
+        );
+        assert_eq!(
+            parse(&args(&["launch", "preflight", "--run"])),
+            Err(ParseError::UnknownOption)
         );
     }
 

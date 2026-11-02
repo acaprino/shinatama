@@ -603,7 +603,7 @@
       ]
     },
     "C11": {
-      "status": "in_progress",
+      "status": "verified",
       "commit_sha": null,
       "units": {
         "C11.1": {
@@ -647,8 +647,8 @@
           ]
         },
         "C11.3": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "15c8eb582a81e7f0ee8965135e9fb4997c4da955",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -668,11 +668,58 @@
           ]
         },
         "C11.4": {
-          "status": "in_progress",
-          "commit_sha": null
+          "status": "verified",
+          "commit_sha": null,
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-02-C11-preflight.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-adapter -p shinatama-engine -p shinatama-cli -j1 -- --test-threads=1",
+            "cargo clippy --offline -p shinatama-desktop -p shinatama-adapter -p shinatama-engine -p shinatama-cli --all-targets --features custom-protocol -j1 -- -D warnings",
+            "cargo build --offline -p shinatama-desktop -p shinatama-cli --features custom-protocol -j1",
+            "npm run build",
+            "python scripts/dependencies.py check --offline",
+            "cargo fmt --all --check",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/launch-preflight-smoke.mjs"
+          ],
+          "limits": [
+            "Native execution remains unavailable until C09R, store registration, qualified program binding and sidecar requirements pass.",
+            "No native adapter/version or full P20 gate is certified by synthetic construction tests."
+          ]
         }
       },
-      "next_action": "Connect one bounded launch preflight and composed immutable plan shared by UI, CLI and resume; native execution remains gated by C09R."
+      "next_action": "Proceed to FS03 authoritative root/workspace records, then mandatory C09R resilience before dependent native execution.",
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-C11-environment.md",
+        "docs/verification/2026-11-02-C11-placement.md",
+        "docs/verification/2026-11-02-C11-identity-argv.md",
+        "docs/verification/2026-11-02-C11-preflight.md"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-adapter -p shinatama-engine -p shinatama-cli -j1 -- --test-threads=1",
+        "cargo clippy --offline -p shinatama-desktop -p shinatama-adapter -p shinatama-engine -p shinatama-cli --all-targets --features custom-protocol -j1 -- -D warnings",
+        "cargo build --offline -p shinatama-desktop -p shinatama-cli --features custom-protocol -j1",
+        "npm run build",
+        "python scripts/dependencies.py check --offline",
+        "cargo fmt --all --check",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/launch-preflight-smoke.mjs"
+      ],
+      "limits": [
+        "Pure construction, synthetic nested children/private ACL grants and real UI/CLI review qualified; native per-agent/version isolation/login and P20 remain open.",
+        "No native agent execution or full host resilience is claimed. Native qualification follows registered stores, C09R and sidecar integration.",
+        "Daodan remains deferred and is not an admission dependency."
+      ]
+    },
+    "FS03": {
+      "status": "in_progress",
+      "commit_sha": null,
+      "next_action": "Integrate bounded authoritative root/workspace records with a verified-backup v2-to-v3 migration; qualify root scoping, ownership/revision CAS and preservation."
     }
   },
   "blockers": [],

@@ -63,6 +63,7 @@ jobs:
             .prototype-evidence/projects-picker.png
             .prototype-evidence/project-catalog.json
             .prototype-evidence/new-project.json
+            .prototype-evidence/launch-preflight.json
             .prototype-evidence/maintenance.json
           include-hidden-files: true
           if-no-files-found: warn
@@ -75,6 +76,7 @@ jobs:
           name: shinatama-prototype-debug-windows-x64-${{ github.sha }}
           path: |
             target/debug/shinatama-desktop.exe
+            target/debug/shinatama.exe
             THIRD_PARTY_NOTICES.md
             .verification/THIRD_PARTY_LICENSES.txt
           include-hidden-files: true

@@ -1,7 +1,7 @@
 use shinatama_adapter::catalog::PathCatalog;
 use shinatama_cli::{Command, ExitCode, HELP};
 use shinatama_engine::Engine;
-use std::io::Write;
+use std::io::{IsTerminal, Write};
 
 fn main() -> std::process::ExitCode {
     // Bound collection as well as parsing. Refuse non-Unicode input rather than
@@ -36,6 +36,29 @@ fn main() -> std::process::ExitCode {
                 ExitCode::FailedUnchanged
             }
         },
+        Ok(Command::LaunchPreflight) => {
+            let stdin = std::io::stdin();
+            let result = if stdin.is_terminal() {
+                shinatama_cli::run_launch_preflight(
+                    &Engine::new(),
+                    &mut std::io::empty(),
+                    &mut std::io::stdout().lock(),
+                )
+            } else {
+                shinatama_cli::run_launch_preflight(
+                    &Engine::new(),
+                    &mut stdin.lock(),
+                    &mut std::io::stdout().lock(),
+                )
+            };
+            result.unwrap_or_else(|_| {
+                let _ = writeln!(
+                    std::io::stderr(),
+                    "Launch preflight output failed; no process was started or state changed."
+                );
+                ExitCode::FailedUnchanged
+            })
+        }
         Err(error) => {
             let _ = writeln!(std::io::stderr(), "Command refused: {error:?}\n{HELP}");
             ExitCode::Refused

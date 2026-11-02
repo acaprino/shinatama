@@ -90,7 +90,7 @@ try {
     Invoke-Check 'rust-clippy' 'cargo' @('clippy', '--locked', '--workspace', '--all-targets', '--features', 'custom-protocol', '--', '-D', 'warnings')
     Invoke-Check 'rust-tests' 'cargo' @('test', '--locked', '--workspace', '--all-targets', '--features', 'custom-protocol')
     Invoke-Check 'test-job-build' 'cargo' @('build', '--locked', '--manifest-path', 'verify/P14/Cargo.toml')
-    Invoke-Check 'desktop-build' 'cargo' @('build', '--locked', '-p', 'shinatama-desktop', '--features', 'custom-protocol')
+    Invoke-Check 'desktop-build' 'cargo' @('build', '--locked', '-p', 'shinatama-desktop', '-p', 'shinatama-cli', '--features', 'custom-protocol')
     $probe = Join-Path $workspaceRoot 'verify/P14/target/debug/p14-probe.exe'
     Invoke-Check 'pty-smoke' $probe @('wrap-run', 'cargo', 'run', '--locked', '-p', 'shinatama-terminal', '--example', 'smoke')
     # These share a checkout and use fixed CDP ports: keep them sequential.
@@ -100,6 +100,7 @@ try {
     Invoke-Check 'state-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/state-smoke.mjs')
     Invoke-Check 'catalog-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/catalog-smoke.mjs')
     Invoke-Check 'new-project-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/new-project-smoke.mjs')
+    Invoke-Check 'launch-preflight-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/launch-preflight-smoke.mjs')
     Invoke-Check 'maintenance-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/maintenance-smoke.mjs')
     $report.executable = [ordered]@{
         path = 'target/debug/shinatama-desktop.exe'
