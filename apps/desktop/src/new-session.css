@@ -2,6 +2,11 @@
 #new-session-dialog form { display: grid; gap: 10px; }
 #new-session-dialog .dialog-heading { margin-bottom: 6px; }
 #new-session-dialog label { color: var(--text-2); }
+.new-session-project-fields { display: grid; gap: 10px; }
+#new-session-project-context { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; }
+#new-session-project-context > span:first-child { color: var(--text-2); }
+#new-session-project-path { grid-column: 1; overflow-wrap: anywhere; min-width: 0; }
+#new-session-project-context button { grid-column: 2; grid-row: 1 / 3; }
 .new-session-folder { display: flex; align-items: stretch; gap: 8px; min-width: 0; }
 #new-session-project { flex: 1; min-width: 0; }
 #new-session-recent { width: 100%; min-width: 0; margin-bottom: 4px; }

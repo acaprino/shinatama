@@ -50,6 +50,12 @@ export function createNewSession(options: Options) {
   project.autocomplete = 'off'; project.spellcheck = false; project.placeholder = 'C:\\Projects\\my-project';
   const browse = document.createElement('button'); browse.type = 'button'; browse.textContent = 'Browse…'; browse.hidden = !options.browse; folderRow.append(project, browse);
   const recent = document.createElement('select'); recent.id = 'new-session-recent'; recent.setAttribute('aria-label', 'Recent projects');
+  const projectFields = document.createElement('div'); projectFields.className = 'new-session-project-fields'; projectFields.append(projectLabel, folderRow, recent);
+  const projectContext = document.createElement('div'); projectContext.id = 'new-session-project-context';
+  const contextLabel = document.createElement('span'); contextLabel.textContent = 'Project';
+  const contextPath = document.createElement('span'); contextPath.id = 'new-session-project-path';
+  const changeProject = document.createElement('button'); changeProject.type = 'button'; changeProject.textContent = 'Change project';
+  projectContext.append(contextLabel, contextPath, changeProject);
   const harnessLabel = document.createElement('label'); harnessLabel.htmlFor = 'new-session-harness'; harnessLabel.textContent = 'Agent';
   const harness = document.createElement('select'); harness.id = 'new-session-harness';
   for (const choice of choices) { const item = document.createElement('option'); item.value = choice.id; item.textContent = choice.label; harness.append(item); }
@@ -59,11 +65,11 @@ export function createNewSession(options: Options) {
   const actions = document.createElement('div'); actions.className = 'dialog-actions';
   const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = 'Cancel';
   const submit = document.createElement('button'); submit.type = 'submit'; submit.className = 'primary'; submit.textContent = 'Open'; actions.append(cancel, submit);
-  form.append(heading, projectLabel, folderRow, recent, harnessLabel, harness, status, error, actions); dialog.append(form);
+  form.append(heading, projectContext, projectFields, harnessLabel, harness, status, error, actions); dialog.append(form);
   (document.querySelector('#app') ?? document.body).append(dialog);
 
   let projects: NewSessionProject[] = []; let pending: 'projects' | 'browse' | 'open' | null = null;
-  let generation = 0; let destroyed = false;
+  let generation = 0; let destroyed = false; let choosingProject = true;
   function showError(message: string) { error.textContent = message; error.hidden = false; }
   function clearError() { error.textContent = ''; error.hidden = true; }
   function render() {
@@ -71,6 +77,8 @@ export function createNewSession(options: Options) {
     const opening = pending === 'open'; dialog.setAttribute('aria-busy', String(pending !== null));
     project.disabled = opening || pending === 'browse'; harness.disabled = opening || !choices.length;
     recent.disabled = pending !== null || !projects.length; browse.disabled = pending !== null || !options.browse;
+    projectFields.hidden = !choosingProject; projectContext.hidden = choosingProject;
+    contextPath.textContent = project.value; changeProject.disabled = pending !== null;
     submit.disabled = pending !== null || !choices.length; cancel.disabled = opening; closeButton.disabled = opening;
     status.textContent = opening ? 'Opening…' : pending === 'projects' ? 'Loading projects…' : pending === 'browse' ? 'Choose a project folder…' : '';
   }
@@ -133,10 +141,16 @@ export function createNewSession(options: Options) {
   function show(defaultProject?: string): boolean {
     if (destroyed || dialog.open || document.querySelector('dialog[open]')) return false;
     generation++; project.value = absoluteFolder(defaultProject) ? defaultProject : ''; projects = []; fillRecent(); clearError();
+    choosingProject = !project.value;
     if (!choices.some(choice => choice.id === harness.value)) harness.value = choices[0]?.id ?? '';
     if (!choices.length) showError('No agents are available yet.');
-    render(); openModal(dialog); project.focus(); if (!pending) void loadProjects(); return true;
+    render(); openModal(dialog); (choosingProject ? project : harness).focus();
+    if (choosingProject && !pending) void loadProjects(); return true;
   }
+  changeProject.onclick = () => {
+    if (pending) return;
+    choosingProject = true; clearError(); render(); project.focus(); void loadProjects();
+  };
   project.oninput = () => { clearError(); selectRecent(); };
   recent.onchange = () => {
     const selected = recent.value === '' ? null : projects[Number(recent.value)];

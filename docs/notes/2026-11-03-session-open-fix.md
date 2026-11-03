@@ -91,3 +91,21 @@ Una regressione usa la configurazione desktop effettiva: 40 GiB di commit con
 controlli di admission dopo la stabilizzazione. Il calo a 1 GiB di commit residuo
 deve rinviare nuovi avvii; il recupero a 5 GiB deve consentirli nuovamente solo
 dopo la finestra stabile. La prova è sorgente pronta, ancora da eseguire da root.
+
+## Progetto già selezionato: nessuna seconda scelta
+
+`New session` eredita il progetto selezionato nella sidebar o nella barra
+superiore. Il dialogo mostra il percorso come contesto e porta subito il focus
+sull'harness; campo cartella e progetti recenti compaiono solo senza progetto
+oppure premendo esplicitamente `Change project`. Non ricarica i recenti quando
+il progetto è già noto. Il percorso scelto nella barra è disponibile subito,
+anche prima del completamento asincrono della sidebar. La cartella iniziale
+del processo non viene considerata una scelta dell'utente.
+
+Build frontend e Windows riuscite. La prova nativa PowerShell aggiornata ha
+verificato prima apertura senza progetto, apertura nel progetto già scelto nella
+barra, scelta dalla sidebar fra due progetti senza nuova richiesta di cartella,
+focus sull'harness, thread e viste conservati, risposta della shell e chiusura
+delle sole sessioni di prova. Ricevuta:
+`.prototype-evidence/new-session-powershell.json`. Nessuna ripetizione delle
+qualifiche Claude/provider, non coinvolte nella modifica.

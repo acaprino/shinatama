@@ -42,6 +42,7 @@ let preferredAxis: 'columns' | 'rows' = 'columns';
 const bindings = new Map<string, HTMLElement>();
 const terminalMetrics = new Map<string, TerminalResourceStatus>();
 let projectPath = '';
+let selectedProjectPath = '';
 let threadSidebar: ReturnType<typeof createThreadSidebar> | null = null;
 let sidebarRevision = 0;
 let starting = false;
@@ -321,6 +322,7 @@ async function stopTerminal(view: View) {
 
 const projectPicker = createProjectPicker({ desktop, getPath: () => projectPath,
   onSelected: (path, chosen) => {
+    selectedProjectPath = path;
     const changed = path !== projectPath; setProject(path); render();
     if (changed && chosen) void refreshThreadProject();
     if (chosen && pendingStart) pendingStart.projectChosen = true;
@@ -346,6 +348,7 @@ const newSession = createNewSession({
     const started = await invoke<{session:SessionInfo;threadId:string}>(selection.harnessId === 'powershell' ? 'shell_open' : 'agent_open',
       {agentId:selection.harnessId,cwd:selected.path,rows:selection.rows,cols:selection.cols});
     setProject(selected.path);
+    selectedProjectPath = selected.path;
     threadSidebar?.setProject({projectId:selected.id,label:selected.path.replace(/[\\/]+$/, '').split(/[\\/]/).pop()});
     const group = tabGroups(workspaceLayout.root).some(group => group.id === newSessionGroup) ? newSessionGroup! : focusedGroup();
     attachTerminal(started.session, group, started.threadId);
@@ -358,7 +361,7 @@ const newSession = createNewSession({
 function openNewSession(group: string = focusedGroup(), path?: string) {
   if (starting) return;
   const selectedProject = threadSidebar?.currentProjectId();
-  const selectedPath = selectedProject ? recentThreadProjects.get(selectedProject) : undefined;
+  const selectedPath = selectedProject ? recentThreadProjects.get(selectedProject) : selectedProjectPath;
   newSessionGroup = group; newSession.show(path ?? selectedPath);
 }
 threadSidebar = createThreadSidebar({

@@ -102,13 +102,21 @@ async function redactDiagnostics() {
   } catch { result.service = 'unavailable'; }
   return result;
 }
-async function openFromDialog(projectPath, expectedCount) {
+async function openFromDialog(projectPath, expectedCount, selectedProject = false) {
   const before = await ids();
   await page.locator('#new-terminal').click();
   const dialog = page.locator('#new-session-dialog');
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Open', exact: true })).toBeEnabled();
-  await dialog.locator('#new-session-project').fill(projectPath);
+  if (selectedProject) {
+    await expect(dialog.locator('#new-session-project')).toBeHidden();
+    await expect(dialog.locator('#new-session-recent')).toBeHidden();
+    expect(pathKey(await dialog.locator('#new-session-project-path').textContent())).toBe(pathKey(projectPath));
+    await expect(dialog.locator('#new-session-harness')).toBeFocused();
+  } else {
+    await expect(dialog.locator('#new-session-project')).toBeVisible();
+    await dialog.locator('#new-session-project').fill(projectPath);
+  }
   await dialog.locator('#new-session-harness').selectOption(harness);
   expect(await ids()).toEqual(before);
   await dialog.getByRole('button', { name: 'Open', exact: true }).click();
@@ -201,12 +209,23 @@ try {
     }, {timeout:10000}).toBe(true);
     evidence.checks.localServicePreparedAutomatically = true;
   } else {
-    await openFromDialog(projectPaths[1], 2);
+    await page.locator('#project').click();
+    await page.locator('#folder').fill(projectPaths[1]);
+    await page.getByRole('button', {name:'Use folder',exact:true}).click();
+    await expect(page.locator('#project-dialog')).toBeHidden();
+    await openFromDialog(projectPaths[1], 2, true);
+    evidence.checks.headerProjectInheritedWithoutChoosingAgain = true;
     const stableIds = await ids(); const threadIds = opened.map(item => item.threadId).sort();
     const selector = page.locator('#thread-sidebar-project');
     for (const item of opened) {
       await expect(selector).toBeEnabled(); await selector.selectOption(item.projectId);
       await expect(page.locator(`.thread-sidebar button[data-thread-id="${item.threadId}"]`)).toBeVisible();
+      await page.locator('.thread-sidebar').getByRole('button', {name:'New session',exact:true}).click();
+      const dialog = page.locator('#new-session-dialog');
+      await expect(dialog.locator('#new-session-project')).toBeHidden();
+      expect(pathKey(await dialog.locator('#new-session-project-path').textContent())).toBe(pathKey(projectPaths[opened.indexOf(item)]));
+      await expect(dialog.locator('#new-session-harness')).toBeFocused();
+      await dialog.getByRole('button', {name:'Cancel',exact:true}).click();
       expect(await ids()).toEqual(stableIds);
       expect((await savedLayout()).views.map(view => view.resource.threadId).filter(Boolean).sort()).toEqual(threadIds);
     }
@@ -215,15 +234,17 @@ try {
     await ipc('terminal_write', { id: first.id, data: Array.from(Buffer.from("Write-Output ('SHINATAMA_' + 'HEALTHY')\r")) });
     await expect(pane(first.id).locator('.xterm-accessibility')).toContainText('SHINATAMA_HEALTHY');
     evidence.checks.twoProjectThreadsRemainInOneLayout = true;
+    evidence.checks.sidebarProjectInheritedWithoutChoosingAgain = true;
     evidence.checks.projectSelectionDoesNotRestartAndHealthyShellResponds = true;
   }
   expect(pageErrors).toBe(0);
   // Stop only sessions in this verified private app. No terminal contents or
   // screenshots are recorded, including the original Claude sign-in screen.
-  for (const item of opened) await ipc('terminal_stop', { id: item.id });
   for (const item of opened) {
-    await expect(pane(item.id).locator('.exit-banner')).toBeVisible();
-    await pane(item.id).getByRole('button', { name: 'Close terminal', exact: true }).click();
+    await page.locator(`.wm-tab[data-view-id="${item.id}"]`).click();
+    await pane(item.id).getByRole('button', { name: 'Stop terminal', exact: true }).click();
+    await page.locator('#confirm-dialog').getByRole('button', { name: 'Stop', exact: true }).click();
+    await expect(page.locator(`.wm-tab[data-view-id="${item.id}"]`)).toHaveCount(0);
   }
   await expect.poll(ids).toEqual([]);
   await closeFrame(); expect(app.exitCode).toBe(0);
