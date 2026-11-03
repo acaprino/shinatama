@@ -1,7 +1,8 @@
 # Claude: prova UI della ripresa nello stesso thread
 
-Stato: **parziale, non ancora qualificato**. La separazione dei servizi e la
-rinomina sono implementate; questa prova non chiude C25/F02 o l'intero prodotto.
+Stato: **prova UI superata il 3 novembre 2026** con la guardia upstream attiva e
+il bearer sintetico; restano aperti la prova di corsa fra due processi, il
+recupero dopo crash forzato e qualsiasi qualifica con account o provider reali.
 
 La prova manualmente eseguita `apps/desktop/tests/claude-resume-smoke.mjs` usa la
 vera app Windows, ConPTY, un progetto nuovo e un endpoint HTTP sintetico su
@@ -179,3 +180,55 @@ essere consumata. Le letture SQL sono limitate a 128 KiB/64 record per il journa
 e 64 KiB/64 slot per il ledger; FILETIME si confronta in SQLite senza convertirlo
 in un numero JavaScript. Questi controlli non sono stati ancora raggiunti e non
 provano il recupero dopo crash.
+
+## Controllo successivo: nessun nuovo avvio
+
+Prima di provare il pacchetto
+`.verification/portable/28dab120-3c4f-4d0b-9adf-4c7004055ddc`, un nuovo campione
+CIM, acquisito dopo oltre un minuto, rileva 1.933.600 KiB di capacità commit
+disponibile (circa 1,84 GiB), su 43.041.080 KiB totali; la memoria fisica
+disponibile è 5.824.596 KiB. Non è stata avviata un'altra prova con questo
+margine. La ricevuta del precedente tentativo rimane invariata: questo controllo
+non è un nuovo fallimento del prodotto né una prova positiva del percorso bearer.
+
+Nel frattempo, la query SQL effettiva della fixture è stata estratta ed eseguita
+su un database SQLite esclusivamente in memoria, con righe sintetiche. Riconosce
+il collegamento esatto proprietario/ticket e rifiuta una differenza di **un tick
+FILETIME (100 ns)** oltre il range intero sicuro di JavaScript. Questo verifica
+solo il controllo della fixture, non il ciclo nativo ancora da esercitare.
+
+## Esecuzione protetta del 3 novembre: PASS
+
+Con 6,8 GiB di commit disponibile sull'host (sopra la soglia del governatore),
+la stessa build debug contenente anche l'incremento Codex non ancora committato
+ha completato l'intero percorso. Ricevuta `.prototype-evidence/claude-resume-ui.json`,
+`status=passed`, `stage=complete`, tutti gli otto controlli veri:
+
+1. **New session → Claude → Open** con onboarding attraversato (tema, note di
+   sicurezza, consenso alla cartella); il bearer sintetico `ANTHROPIC_AUTH_TOKEN`
+   ha disattivato il preflight first-party come previsto dalla lettura del codice
+   pinned: nessuna uscita 1, primo turno completato.
+2. **Stop** con finalizzazione dell'attivazione; il join del journal cleanup
+   (PID/FILETIME esatti dell'attivazione collegati al ticket dell'host) è presente
+   durante l'attivazione e consumato dopo lo Stop — il controllo SQL prima solo
+   sintetico è ora esercitato sul ciclo nativo reale.
+3. **Resume dallo stesso thread**: nessuna ripetizione dell'onboarding, stesso
+   UUID nativo, stesso thread e segmento; il provider locale ha ricevuto il
+   messaggio assistant precedente nel contesto (`priorAssistantInResumeContext`).
+4. Esattamente una richiesta al provider per turno; la guardia ha inoltrato 2
+   connessioni e rifiutato i soli due controlli negativi iniziali
+   (`deniedAbsolute=1`, `deniedConnect=1`, `overflow=0`); un unico thread e due
+   proprietari nativi, entrambi chiusi; frame proprietario chiuso con codice 0.
+
+Campioni `terminal_resources` prima di ciascun turno: fase `running`, commit
+privato 573.943.808 byte (start) e 432.533.504 byte (resume), zero rifiuti delle
+code, limiti invariati (1 GiB/job, 768 MiB/processo, 8 processi).
+
+La prova qualifica il percorso UI Resume di Shinatama con provider sintetico su
+loopback. **Non** qualifica: login OAuth o account reali, chiavi Anthropic
+first-party, strumenti/uso reale del modello, la corsa fra due processi concorrenti
+sulla stessa sessione, né il recupero dopo crash forzato. La guardia resta
+proxy-forwarding-only e non equivale a isolamento di rete a livello Windows.
+L'esecuzione valida anche come regressione del percorso tracked Claude rispetto
+all'incremento Codex condiviso (transport eventi, hook PowerShell, observer)
+incluso nella stessa build.
