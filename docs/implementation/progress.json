@@ -2,7 +2,7 @@
   "schema_version": 1,
   "updated_at": "2026-11-03",
   "base_head": "46435ab",
-  "git_state": "C15.3 one-Open flow verified in actual Windows UI: Claude starts with automatic service/preparation; two PowerShell projects keep separate saved threads in one global workspace. Global state CAS and real-default resource-pressure regression pass. C25.1 is checkpointed in7e5a2030a3adbddfa85f8171b421b5766999d847. Provider/auth, further harnesses, native resume, floating windows and full product completion remain open; Daodan remains deferred. Independent C46/widget work is preserved.",
+  "git_state": "C15.3 one-Open flow checkpointed in dffb2695239776fbfbb6d552e725c3c010bd9b0c and verified in actual Windows UI: Claude starts with automatic service/preparation; two PowerShell projects keep separate saved threads in one global workspace. Global state CAS and real-default resource-pressure regression pass. C25.1 is checkpointed in7e5a2030a3adbddfa85f8171b421b5766999d847. Provider/auth, further harnesses, native resume, floating windows and full product completion remain open; Daodan remains deferred. Independent C46/widget work is preserved.",
   "steps": {
     "B00": {
       "status": "committed",
@@ -1261,8 +1261,8 @@
           ]
         },
         "C15.3": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "dffb2695239776fbfbb6d552e725c3c010bd9b0c",
           "evidence": [
             "docs/notes/2026-11-03-project-thread-workspace.md",
             "docs/notes/2026-11-03-session-open-fix.md"

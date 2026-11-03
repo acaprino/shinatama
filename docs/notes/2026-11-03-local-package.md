@@ -62,3 +62,20 @@ La lettura JSON conserva esplicitamente le stringhe al livello principale
 mediante `JsonDocument`: PowerShell converte altrimenti `createdUtc` in una data
 e rifiuta erroneamente il manifest valido. Il controllo dello schema resta
 rigoroso e il lettore continua a supportare PowerShell 7.4.
+
+## Copia aggiornata con apertura unica
+
+Lo stage `.verification/portable/ab7f42ce-5198-4c86-b8b7-c3bdf4c122c0` è stato
+creato e verificato dopo il checkpoint
+`dffb2695239776fbfbb6d552e725c3c010bd9b0c`: 620 file, 221.661.788 byte.
+La verifica interna alla creazione è passata; nessuna seconda scansione identica
+è stata aggiunta. I file copiati corrispondono ai byte e alle impronte degli
+input verificati. Rimangono vere le distinzioni del manifest fra build debug
+esistente, HEAD registrato e revisione dei binari non certificata.
+
+Le prove del percorso utente sulla build Windows sono passate per Claude Code
+e per due progetti PowerShell nello stesso workspace, come registrato in
+`docs/notes/2026-11-03-session-open-fix.md`. Una copia è stata aperta visibilmente
+per l'utente e risultava in esecuzione e responsiva. Nessun contenuto del suo
+terminale o accesso è stato letto. Il percorso normale ora è **New session →
+progetto e harness → Open**. L'eventuale accesso resta nella TUI originale.
