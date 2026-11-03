@@ -11,6 +11,12 @@ pub const MAX_FRAME: usize = 128 * 1024;
 pub const MAX_INPUT: usize = 65536;
 pub const MAX_OUTPUT: usize = 8192;
 pub const MAX_ERROR: usize = 1024;
+/// Single argument-count bound shared by the owner-side configuration check,
+/// the wire encoder/decoder and the contained command-line builder. Sealed
+/// harness recipes (tracked Codex currently composes 21 arguments) must fit;
+/// raising this bound is a deliberate, reviewed protocol change because both
+/// endpoints enforce it independently.
+pub const MAX_LAUNCH_ARGUMENTS: usize = 32;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LaunchConfig {
@@ -161,7 +167,7 @@ fn config_payload(config: &LaunchConfig) -> io::Result<Vec<u8>> {
     size(config.rows, config.cols)?;
     if !config.cwd.is_absolute()
         || !config.executable.is_absolute()
-        || config.args.len() > 16
+        || config.args.len() > MAX_LAUNCH_ARGUMENTS
         || config.owned.job_key == [0; 16]
         || config.owned.owner.pid == 0
         || config.owned.owner.created_at_100ns == 0
@@ -221,7 +227,7 @@ pub fn read_command(input: &mut impl Read) -> io::Result<Option<HostCommand>> {
             let cwd = PathBuf::from(read.wide(32767)?);
             let executable = PathBuf::from(read.wide(32767)?);
             let count = read.u16()?;
-            if count > 16 {
+            if count as usize > MAX_LAUNCH_ARGUMENTS {
                 return Err(invalid());
             }
             let mut args = Vec::new();
@@ -349,5 +355,62 @@ mod tests {
         assert!(
             write_command(&mut Vec::new(), &HostCommand::Input(vec![0; MAX_INPUT + 1])).is_err()
         );
+    }
+    #[test]
+    fn sealed_tracked_recipes_roundtrip_and_both_ends_share_one_argument_bound() {
+        let base = LaunchConfig {
+            rows: 24,
+            cols: 80,
+            cwd: PathBuf::from("C:\\synthetic\\project"),
+            executable: PathBuf::from("C:\\synthetic\\codex.exe"),
+            args: Vec::new(),
+            owned: OwnedJobKey {
+                job_key: [2; 16],
+                owner: ProcessKey {
+                    pid: 3,
+                    created_at_100ns: 4,
+                },
+                owner_windows_session_id: 0,
+            },
+        };
+        // The tracked Codex recipe: 15 fixed arguments plus 6 hook arguments
+        // whose values embed quotes, regex metacharacters, TOML/JSON syntax
+        // and a long base64 payload. Every layer must carry it unchanged.
+        let mut tracked = base.clone();
+        tracked.args = (0..15)
+            .map(|index| OsString::from(format!("--fixed{index}=\"unelevated\"")))
+            .chain([
+                OsString::from("-c"),
+                OsString::from("features.hooks=true"),
+                OsString::from("-c"),
+                OsString::from(
+                    "hooks.SessionStart=[{matcher=\"^(startup|resume|clear|compact|fork)$\",hooks=[{type=\"command\",command=\"C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -NoProfile -NonInteractive -EncodedCommand JABFAHIAcgBvAHIAQQBjAHQAaQBvAG4A\",timeout=5,async=false}]}]",
+                ),
+                OsString::from("-c"),
+                OsString::from(
+                    "hooks.state.\"C:\\\\<session-flags>\\\\config.toml:session_start:0:0\"={enabled=true,trusted_hash=\"sha256:0000000000000000000000000000000000000000000000000000000000000000\"}",
+                ),
+            ])
+            .collect();
+        assert_eq!(tracked.args.len(), 21);
+        let command = HostCommand::Configure(tracked.clone());
+        let mut bytes = Vec::new();
+        write_command(&mut bytes, &command).unwrap();
+        assert_eq!(read_command(&mut bytes.as_slice()).unwrap(), Some(command));
+        // One bound, both endpoints: the shared limit roundtrips, one more
+        // argument fails closed on encode and on decode.
+        let mut at_bound = base.clone();
+        at_bound.args = (0..MAX_LAUNCH_ARGUMENTS)
+            .map(|index| OsString::from(format!("-c{index}")))
+            .collect();
+        let command = HostCommand::Configure(at_bound);
+        let mut bytes = Vec::new();
+        write_command(&mut bytes, &command).unwrap();
+        assert_eq!(read_command(&mut bytes.as_slice()).unwrap(), Some(command));
+        let mut over_bound = base;
+        over_bound.args = (0..MAX_LAUNCH_ARGUMENTS + 1)
+            .map(|index| OsString::from(format!("-c{index}")))
+            .collect();
+        assert!(write_command(&mut Vec::new(), &HostCommand::Configure(over_bound)).is_err());
     }
 }

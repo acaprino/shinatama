@@ -195,6 +195,10 @@ pub struct WindowsTerminalConfig {
     pub startup_timeout: Duration,
     pub cleanup_timeout: Duration,
 }
+/// The prepared-launch entry, the configuration validator and the wire
+/// protocol share this single bound so a sealed recipe can never be refused
+/// after qualification by a drifted local limit.
+pub use crate::protocol::MAX_LAUNCH_ARGUMENTS as SHELL_ARGUMENT_LIMIT;
 impl WindowsTerminalConfig {
     fn copy_with_admission(&self, admission: Arc<dyn WindowsTerminalAdmission>) -> Self {
         Self {
@@ -221,7 +225,7 @@ impl WindowsTerminalConfig {
             }
         }
         let mut count = 0;
-        if self.shell_arguments.len() > 32 {
+        if self.shell_arguments.len() > SHELL_ARGUMENT_LIMIT {
             bail!("Too many shell arguments");
         }
         for argument in &self.shell_arguments {
@@ -616,7 +620,7 @@ impl WindowsTerminalHost {
                 .get()
                 .context("Native launch admission is not configured")?,
         );
-        if launch.command().argv().len() > 16 {
+        if launch.command().argv().len() > SHELL_ARGUMENT_LIMIT {
             bail!("Native launch exceeds the contained helper argument bound");
         }
         let cwd = launch.command().working_directory().to_owned();
@@ -1861,6 +1865,39 @@ mod tests {
         assert!(host.configure(config()).is_ok());
         assert!(host.configure(config()).is_err());
         assert!(host.list().is_empty());
+    }
+    #[test]
+    fn the_prepared_launch_argument_bound_is_exactly_the_configuration_bound() {
+        // Sealed tracked recipes carry more arguments than the historical
+        // plain shells: tracked Codex currently composes 21 (15 fixed plus 6
+        // hook configuration arguments). The prepared-launch entry and the
+        // configuration validator must share one bound so a sealed recipe can
+        // never be refused after qualification, and raising the bound stays a
+        // deliberate, reviewed decision.
+        assert_eq!(SHELL_ARGUMENT_LIMIT, 32);
+        let mut at_bound = config();
+        at_bound.shell_arguments = (0..SHELL_ARGUMENT_LIMIT)
+            .map(|index| OsString::from(format!("-c{index}")))
+            .collect();
+        assert!(at_bound.validate().is_ok());
+        let mut over_bound = config();
+        over_bound.shell_arguments = (0..SHELL_ARGUMENT_LIMIT + 1)
+            .map(|index| OsString::from(format!("-c{index}")))
+            .collect();
+        let error = over_bound
+            .validate()
+            .err()
+            .expect("over-bound arguments must refuse");
+        assert_eq!(error.to_string(), "Too many shell arguments");
+        // The contained command-line builder enforces the same shared bound.
+        let executable = Path::new(r"C:\synthetic\codex.exe");
+        let at_limit: Vec<OsString> = (0..SHELL_ARGUMENT_LIMIT)
+            .map(|index| OsString::from(format!("-c{index}")))
+            .collect();
+        assert!(crate::windows_pty::command_line(executable, &at_limit).is_ok());
+        let mut over_limit = at_limit;
+        over_limit.push(OsString::from("-c-extra"));
+        assert!(crate::windows_pty::command_line(executable, &over_limit).is_err());
     }
     struct RefusedNativeAdmission;
     impl WindowsNativeAdmission for RefusedNativeAdmission {

@@ -819,12 +819,23 @@ fn session_hook_arguments(
         serde_json::to_string(matcher).map_err(|_| CodexLaunchError::Configuration)?;
     // SessionFlags is its own discovery layer. Existing project/user hooks and
     // their trust remain untouched; no global trust bypass or user-file write.
-    let key = serde_json::to_string(r"C:\<session-flags>\config.toml:session_start:0:0")
-        .map_err(|_| CodexLaunchError::Configuration)?;
+    //
+    // Codex parses `-c` keys by splitting the raw string on '.' (utils/cli
+    // config_override + config/overrides apply_toml_override), so a quoted
+    // dotted key such as hooks.state."…config.toml:session_start:0:0" is torn
+    // apart and silently ignored, leaving the hook untrusted. Carry the state
+    // inside a single-segment `hooks` table instead; the TOML literal-string
+    // key survives parsing intact. Verified against real Codex 0.166.0
+    // (hooks/list: exact key, matching hash, trustStatus=trusted). Order is
+    // significant: the single-segment override must precede the definition,
+    // because a later one would replace the whole `hooks` table.
     Ok(vec![
         "-c".into(), "features.hooks=true".into(),
+        "-c".into(),
+        format!(
+            "hooks={{state={{'C:\\<session-flags>\\config.toml:session_start:0:0'={{enabled=true,trusted_hash=\"{hash}\"}}}}}}"
+        ).into(),
         "-c".into(), format!("hooks.SessionStart=[{{matcher={quoted_matcher},hooks=[{{type=\"command\",command={quoted_command},timeout=5,async=false}}]}}]").into(),
-        "-c".into(), format!("hooks.state.{key}={{enabled=true,trusted_hash=\"{hash}\"}}").into(),
     ])
 }
 
@@ -1165,17 +1176,23 @@ mod tests {
         assert_eq!(arguments.len(), 6);
         assert_eq!(arguments[0], "-c");
         assert_eq!(arguments[1], "features.hooks=true");
-        let definition = arguments[3].to_str().unwrap();
+        // Single-segment hooks table carrying the trust state; Codex's `-c`
+        // parser would tear a quoted dotted hooks.state key apart.
+        let trust = arguments[3].to_str().unwrap();
+        assert!(trust.starts_with(
+            "hooks={state={'C:\\<session-flags>\\config.toml:session_start:0:0'={enabled=true,trusted_hash=\"sha256:"
+        ));
+        assert!(trust.ends_with("\"}}}"));
+        let definition = arguments[5].to_str().unwrap();
         assert!(definition.starts_with("hooks.SessionStart=[{matcher=\"^(startup|resume|clear|compact|fork)$\",hooks=[{type=\"command\",command="));
         assert!(definition.ends_with(",timeout=5,async=false}]}]"));
-        let trust = arguments[5].to_str().unwrap();
-        assert!(trust.starts_with(r#"hooks.state."C:\\<session-flags>\\config.toml:session_start:0:0"={enabled=true,trusted_hash="sha256:"#));
         assert!(
             !arguments
                 .iter()
                 .any(|value| value.to_string_lossy().contains("bypass"))
         );
         let other_port = session_hook_arguments(&version, helper, shell, 43211).unwrap();
+        assert_ne!(arguments[3], other_port[3]);
         assert_ne!(arguments[5], other_port[5]);
         assert_eq!(
             session_hook_arguments(&Version::parse("0.167.0").unwrap(), helper, shell, 43210),
@@ -1199,6 +1216,10 @@ mod tests {
         let baseline = fixed_arguments();
         assert_eq!(&command.argv()[..baseline.len()], baseline);
         assert_eq!(&command.argv()[baseline.len()..], arguments);
+        // The terminal host refuses sealed launches above its shared argument
+        // bound (SHELL_ARGUMENT_LIMIT = 32). Track the exact tracked-recipe
+        // count so any growth toward that bound is a visible, reviewed change.
+        assert_eq!(command.argv().len(), 21);
         assert!(
             CodexSessionOperation::resume_native("01a17e07-93f7-7a73-85c7-9f0205836600")
                 .unwrap()

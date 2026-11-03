@@ -82,7 +82,7 @@ pub(crate) fn wide(value: impl AsRef<OsStr>) -> Vec<u16> {
     value.as_ref().encode_wide().chain(Some(0)).collect()
 }
 pub(crate) fn command_line(executable: &Path, args: &[OsString]) -> Result<Vec<u16>> {
-    if !executable.is_absolute() || args.len() > 16 {
+    if !executable.is_absolute() || args.len() > crate::protocol::MAX_LAUNCH_ARGUMENTS {
         bail!("Invalid native executable arguments");
     }
     let mut result = Vec::new();

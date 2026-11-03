@@ -210,7 +210,9 @@ impl fmt::Debug for NativeLaunchBinding {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("NativeLaunchBinding")
             .field("agent", &self.agent)
-            .field("version", &self.version)
+            // Human-readable exact version; the derived struct debug would hide
+            // the SemVer text this opaque summary is allowed to show.
+            .field("version", &self.version.to_string())
             .field("operation", &self.operation)
             .field("instance_id", &self.instance_id)
             .finish_non_exhaustive()
@@ -356,6 +358,7 @@ pub enum NativeStartupScope {
     SafeModeEmptySet,
     NormalToolsSessionHooks,
     WorkspaceWriteNoDaemon,
+    WorkspaceWriteNoDaemonSessionHooks,
     StandaloneEmptySet,
 }
 fn startup_scope(agent: &AgentId, profile: &NativeAdmissionProfile) -> Option<NativeStartupScope> {
@@ -368,6 +371,9 @@ fn startup_scope(agent: &AgentId, profile: &NativeAdmissionProfile) -> Option<Na
         }
         ("codex", "codex-system-box-no-daemon-workspace-tui-v1") => {
             Some(NativeStartupScope::WorkspaceWriteNoDaemon)
+        }
+        ("codex", "codex-system-box-tracked-no-daemon-workspace-tui-v1") => {
+            Some(NativeStartupScope::WorkspaceWriteNoDaemonSessionHooks)
         }
         ("opencode", "opencode-system-box-standalone-tui-v1") => {
             Some(NativeStartupScope::StandaloneEmptySet)
@@ -967,6 +973,18 @@ mod tests {
             Some(NativeStartupScope::WorkspaceWriteNoDaemon)
         );
         assert_eq!(startup_scope(&claude, &profile), None);
+        let tracked = NativeAdmissionProfile::new(
+            "codex-system-box-tracked-no-daemon-workspace-tui-v1",
+            1,
+            budget(),
+            256 * 1024 * 1024,
+        )
+        .unwrap();
+        assert_eq!(
+            startup_scope(&codex, &tracked),
+            Some(NativeStartupScope::WorkspaceWriteNoDaemonSessionHooks)
+        );
+        assert_eq!(startup_scope(&claude, &tracked), None);
         let screen = b"welcome to codex\nsign in with chatgpt";
         assert!(startup_screen_seen("codex", screen));
         assert!(!startup_screen_seen("claude_code", screen));
