@@ -12,4 +12,6 @@ apps/desktop/src-tauri/gen/
 __pycache__/
 # the bench regenerates its evidence: sources, captures, resumes, matrices
 verify/*/out/
+# indexer tooling scratch artifact
+effectiveness-metrics.json.tmp
 
