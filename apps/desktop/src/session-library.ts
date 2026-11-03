@@ -123,11 +123,17 @@ export function createSessionLibrary(options: Options) {
   const status = document.createElement('p'); status.id = 'session-library-status'; status.setAttribute('role', 'status');
   const filterLabel = document.createElement('label'); filterLabel.htmlFor = 'session-library-filter'; filterLabel.textContent = 'Filter this page';
   const filter = document.createElement('input'); filter.id = 'session-library-filter'; filter.type = 'search'; filter.maxLength = 128; filter.autocomplete = 'off';
+  const views = document.createElement('div'); views.className = 'session-library-views'; views.setAttribute('role', 'group'); views.setAttribute('aria-label', 'Current page view');
+  const listView = document.createElement('button'); listView.type = 'button'; listView.textContent = 'List'; listView.setAttribute('aria-controls', 'session-library-list');
+  const projectView = document.createElement('button'); projectView.type = 'button'; projectView.textContent = 'Projects / sessions'; projectView.setAttribute('aria-controls', 'session-library-projects');
+  views.append(listView, projectView);
+  const viewScope = document.createElement('p'); viewScope.className = 'hint session-library-view-scope';
   const scroll = document.createElement('div'); scroll.className = 'session-library-table';
-  const table = document.createElement('table'); table.setAttribute('aria-label', 'Session metadata');
+  const table = document.createElement('table'); table.id = 'session-library-list'; table.setAttribute('aria-label', 'Session metadata');
   const head = document.createElement('thead'); const header = document.createElement('tr');
   for (const label of ['Session ID', 'Title', 'Working folder', 'Updated']) { const cell = document.createElement('th'); cell.scope = 'col'; cell.textContent = label; header.append(cell); }
   head.append(header); const body = document.createElement('tbody'); table.append(head, body); scroll.append(table);
+  const projects = document.createElement('div'); projects.id = 'session-library-projects'; projects.setAttribute('aria-label', 'Projects and sessions on this page'); scroll.append(projects);
   const pagination = document.createElement('div'); pagination.className = 'session-library-pagination';
   const previous = document.createElement('button'); previous.type = 'button'; previous.textContent = 'Previous';
   const position = document.createElement('span'); const next = document.createElement('button'); next.type = 'button'; next.textContent = 'Next'; pagination.append(previous, position, next);
@@ -136,15 +142,28 @@ export function createSessionLibrary(options: Options) {
   const actions = document.createElement('div'); actions.className = 'dialog-actions';
   const detail = document.createElement('button'); detail.type = 'button'; detail.textContent = options.openDetail ? 'Open detail' : 'Detail unavailable'; detail.disabled = true; actions.append(detail);
   for (const label of ['Resume unavailable', 'Hop unavailable']) { const action = document.createElement('button'); action.type = 'button'; action.disabled = true; action.textContent = label; actions.append(action); }
-  dialog.append(heading, description, tools, archive, source, status, filterLabel, filter, scroll, pagination, metadata, unavailable, actions);
+  dialog.append(heading, description, tools, archive, source, status, filterLabel, filter, views, viewScope, scroll, pagination, metadata, unavailable, actions);
   (document.querySelector('#app') ?? document.body).append(dialog);
   let roots: SessionLibraryRoot[] = []; let page: SessionListPage | null = null; let cursor: SessionCursor | null = null;
   let history: (SessionCursor | null)[] = []; let selected: SessionMetadataRow | null = null;
+  let view: 'list' | 'projects' = 'list'; const expandedProjects = new Set<string | null>();
+  const renderedProjects = new Map<HTMLDetailsElement, { folder: string | null; owner: SessionListPage }>();
   let busy: 'roots' | 'list' | 'archive' | null = null; let generation = 0; let destroyed = false;
   let message = 'Load archives to choose an explicit store.'; let failed = false;
   const currentRoot = () => rootSelect.value === '' ? null : roots[Number(rootSelect.value)] ?? null;
   function metadataRow(label: string, value: string | number | boolean | null) {
     const term = document.createElement('dt'); term.textContent = label; const detail = document.createElement('dd'); detail.textContent = value === null || value === '' ? 'Unknown' : String(value); metadata.append(term, detail);
+  }
+  function chooseSession(row: SessionMetadataRow, owner: SessionListPage) {
+    const choose = document.createElement('button'); choose.type = 'button'; choose.textContent = row.nativeId;
+    choose.dataset.nativeId = row.nativeId; choose.disabled = busy !== null;
+    choose.setAttribute('aria-pressed', String(selected === row));
+    choose.onclick = () => {
+      const root = currentRoot();
+      if (busy || !dialog.open || page !== owner || !root || !same(root, owner.root) || !owner.rows.includes(row)) return;
+      selected = row; render();
+    };
+    return choose;
   }
   function render() {
     if (destroyed) return;
@@ -156,12 +175,54 @@ export function createSessionLibrary(options: Options) {
     source.textContent = root ? `Archive: ${root.storeRootId} · revision ${root.configurationRevision} · ${root.kind} · ${root.access === 'read_only' ? 'read only' : 'metadata reads only'}` : 'No archive selected.';
     status.textContent = busy ? busy === 'roots' ? 'Loading archives…' : busy === 'archive' ? 'Registering read-only archive…' : 'Reading bounded session metadata…' : message;
     status.dataset.state = failed ? 'error' : 'ready';
-    const query = filter.value.toLocaleLowerCase(); body.replaceChildren();
+    listView.setAttribute('aria-pressed', String(view === 'list')); projectView.setAttribute('aria-pressed', String(view === 'projects'));
+    table.hidden = view !== 'list'; projects.hidden = view !== 'projects';
+    viewScope.textContent = view === 'projects'
+      ? `Current page only: ${page?.rows.length ?? 0} sessions, grouped by the exact recorded working folder. Unknown project means the reader supplied no working folder. These groups are not linked to saved projects.`
+      : 'List of session metadata on the current page.';
+    // Native toggle events are queued; capture the actual open attributes before
+    // rebuilding so immediate selection/filtering cannot lose an expansion.
+    for (const [group, state] of renderedProjects) {
+      if (group.isConnected && state.owner === page) {
+        if (group.open) expandedProjects.add(state.folder); else expandedProjects.delete(state.folder);
+      }
+    }
+    renderedProjects.clear();
+    const query = filter.value.toLocaleLowerCase(); body.replaceChildren(); projects.replaceChildren();
     const visible = page?.rows.filter(row => [row.nativeId, row.title, row.workingDirectory, row.updatedAt].some(value => value?.toLocaleLowerCase().includes(query))) ?? [];
-    for (const row of visible) {
-      const line = document.createElement('tr'); const id = document.createElement('td'); const choose = document.createElement('button'); choose.type = 'button'; choose.textContent = row.nativeId;
-      choose.setAttribute('aria-pressed', String(selected === row)); choose.onclick = () => { selected = row; render(); }; id.append(choose); line.append(id);
-      for (const value of [row.title, row.workingDirectory, row.updatedAt]) { const cell = document.createElement('td'); cell.textContent = value || 'Unknown'; line.append(cell); } body.append(line);
+    if (page && view === 'list') {
+      for (const row of visible) {
+        const line = document.createElement('tr'); const id = document.createElement('td'); id.append(chooseSession(row, page)); line.append(id);
+        for (const value of [row.title, row.workingDirectory, row.updatedAt]) { const cell = document.createElement('td'); cell.textContent = value || 'Unknown'; line.append(cell); } body.append(line);
+      }
+    } else if (page) {
+      const owner = page; const groups = new Map<string | null, SessionMetadataRow[]>();
+      for (const row of visible) {
+        // No path resolution, case folding or relationship to saved projects.
+        const folder = row.workingDirectory?.trim() ? row.workingDirectory : null;
+        const members = groups.get(folder) ?? []; members.push(row); groups.set(folder, members);
+      }
+      for (const [folder, members] of groups) {
+        const group = document.createElement('details'); group.className = 'session-project-group'; group.open = expandedProjects.has(folder);
+        const summary = document.createElement('summary');
+        const name = document.createElement('span'); name.className = 'session-project-name'; name.textContent = folder ?? 'Unknown project';
+        const count = document.createElement('span'); count.className = 'session-project-count'; count.textContent = `${members.length} on this page`; summary.append(name, count);
+        const items = document.createElement('ul');
+        for (const row of members) {
+          const item = document.createElement('li'); const choose = chooseSession(row, owner); choose.className = 'session-project-session';
+          const fields = document.createElement('div'); fields.className = 'session-project-fields';
+          const rowTitle = document.createElement('span'); rowTitle.textContent = row.title || 'Unknown title';
+          const updated = document.createElement('span'); updated.textContent = row.updatedAt || 'Unknown update time';
+          fields.append(rowTitle, updated); item.append(choose, fields); items.append(item);
+        }
+        group.append(summary, items);
+        group.ontoggle = () => {
+          if (!group.isConnected || page !== owner) return;
+          if (group.open) expandedProjects.add(folder); else expandedProjects.delete(folder);
+        };
+        renderedProjects.set(group, { folder, owner });
+        projects.append(group);
+      }
     }
     position.textContent = page ? `${page.total ? (cursor?.offset ?? 0) + 1 : 0}–${(cursor?.offset ?? 0) + page.rows.length} of ${page.total} · ${visible.length} shown${!history.length && (cursor?.offset ?? 0) > 0 ? ' · Reload for first page' : ''}` : 'No page loaded';
     metadata.replaceChildren();
@@ -172,7 +233,7 @@ export function createSessionLibrary(options: Options) {
       if (selected.metadataTruncated) metadataRow('Some metadata', 'Unavailable because its fixed field limits were exceeded');
     }
   }
-  function reset() { page = null; cursor = null; history = []; selected = null; filter.value = ''; failed = false; }
+  function reset() { page = null; cursor = null; history = []; selected = null; expandedProjects.clear(); renderedProjects.clear(); filter.value = ''; failed = false; }
   function replaceRoots(received: SessionLibraryRoot[], selectedRoot: SessionRootSelector | null) {
     roots = received; reset(); rootSelect.replaceChildren();
     const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'Choose an archive explicitly'; rootSelect.append(placeholder);
@@ -223,7 +284,7 @@ export function createSessionLibrary(options: Options) {
       if (direction === 'reload') history = [];
       else if (direction === 'next') { history.push(cursor); if (history.length > 64) history.shift(); }
       else history.pop();
-      page = received; cursor = requested; selected = null;
+      page = received; cursor = requested; selected = null; expandedProjects.clear();
       message = page.total ? 'Metadata only. Select a session ID to inspect the listed fields.' : 'This archive contains no listed sessions.';
     } catch (error) {
       if (!destroyed && at === generation && dialog.open) { reset(); failed = true; message = failureText(error); options.reportError(message); }
@@ -239,6 +300,7 @@ export function createSessionLibrary(options: Options) {
   archiveForm.onsubmit = event => { event.preventDefault(); void registerArchive(); };
   previous.onclick = () => { if (history.length) void readPage(history.at(-1) ?? null, 'previous'); };
   next.onclick = () => { if (page?.next) void readPage(page.next, 'next'); }; filter.oninput = render;
+  listView.onclick = () => { view = 'list'; render(); }; projectView.onclick = () => { view = 'projects'; render(); };
   button.onclick = show; closeButton.onclick = close;
   detail.onclick = () => { const root = currentRoot(); if (!busy && root?.available && selected) options.openDetail?.({storeRootId:root.storeRootId,configurationRevision:root.configurationRevision},selected.nativeId); };
   dialog.addEventListener('close', () => { if (!dialog.open) { generation++; options.restoreFocus?.(); } });

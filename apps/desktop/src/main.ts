@@ -21,6 +21,8 @@ import { createNewSession } from './new-session.ts';
 import { beginMutation, browseFolder, createRequestId } from './project-catalog.ts';
 import { createSessionLibrary } from './session-library.ts';
 import { createSessionDetail } from './session-detail.ts';
+import { createSessionRaw } from './session-raw.ts';
+import { createSessionFind } from './session-find.ts';
 import { createThreadSidebar, type ThreadSidebarState } from './thread-sidebar.ts';
 import './styles.css';
 
@@ -415,8 +417,21 @@ threadSidebar = createThreadSidebar({
   reportError: notify,
 });
 $('#work-area').prepend(threadSidebar.element);
+const sessionRaw = createSessionRaw({
+  read: request => desktop ? invoke('session_raw', {request}) : Promise.reject({issue:'read_unavailable'}),
+  reportError: notify,
+  restoreFocus: () => setFocus(focusedGroup()),
+});
+const sessionFind = createSessionFind({
+  read: request => desktop ? invoke('session_find', {request}) : Promise.reject({issue:'read_unavailable'}),
+  onSelectHit: hit => { sessionDetail.show(hit.root, hit.nativeId, {offset:hit.eventOrdinal,fingerprint:hit.fingerprint}); },
+  reportError: notify,
+  restoreFocus: () => setFocus(focusedGroup()),
+});
 const sessionDetail = createSessionDetail({
   read: request => desktop ? invoke('session_detail', { request }) : Promise.reject({ issue: 'read_unavailable' }),
+  openRaw: selection => {sessionRaw.show(selection);},
+  openFind: request => {sessionFind.show(request);},
   reportError: notify,
   restoreFocus: () => setFocus(focusedGroup()),
 });

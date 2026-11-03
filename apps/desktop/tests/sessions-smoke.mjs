@@ -46,7 +46,7 @@ for (let index = 0; index < 53; index++) {
 const output = resolve(workspace, '.prototype-evidence'); await mkdir(output, { recursive: true });
 const resultPath = resolve(output, 'sessions-library.json');
 const evidence = { check: 'C22-C23-native-session-library-and-detail', status: 'running', checks: {},
-  scope: '53 synthetic Claude JSONL sessions; one 53-event canonical detail; bounded read-only metadata/detail; no native agent start' };
+  scope: '53 synthetic Claude sessions; 53-event detail, explicit RAW with mocked clipboard, full-session literal search and read-only jump; no native agent start' };
 const save = () => writeFile(resultPath, `${JSON.stringify(evidence, null, 2)}\n`);
 await save();
 const reservation = createServer();
@@ -106,7 +106,16 @@ try {
     catch { await delay(250); }
   }
   if (!browser) throw new Error('Owned sessions-test WebView startup exceeded 30 seconds.');
-  const context = browser.contexts()[0]; page = context.pages()[0] || await context.waitForEvent('page', { timeout: 5000 });
+  const context = browser.contexts()[0];
+  const mainDeadline = Date.now() + 10000;
+  while (Date.now() < mainDeadline && !page) {
+    page = context.pages().find(candidate => {
+      try { const url = new URL(candidate.url()); return url.hostname === 'tauri.localhost' && ['/', '/index.html'].includes(url.pathname); }
+      catch { return false; }
+    });
+    if (!page) await delay(100);
+  }
+  if (!page) throw new Error('Owned main workspace WebView was not found.');
   await page.waitForURL(url => url.hostname === 'tauri.localhost', { timeout: 10000 });
   await expect(page.locator('#runtime-status')).toContainText('Local runtime', { timeout: 30000 });
   const storage = await ipc('storage_location');
@@ -184,13 +193,89 @@ try {
   await expect(detail.locator('.session-detail-overview')).toContainText('Unknown');
   await detail.getByRole('button', { name: 'Lineage', exact: true }).click();
   await expect(detail.locator('section[aria-label="Lineage"]')).toContainText('Parent session ID: Unknown');
+  await expect(detail.locator('section[aria-label="Lineage"]')).toContainText('Direct children recorded: Unknown');
   await detail.getByRole('button', { name: 'Transcript', exact: true }).click();
   await expect(events.first().locator('pre')).toContainText(detailSentinel);
   await page.screenshot({ path: resolve(output, 'sessions-detail.png'), timeout: 3000 });
+  await page.evaluate(() => {
+    // Tauri's invoke property is immutable. Observe the real custom-protocol
+    // transport without replacing results or recording payloads/headers.
+    const original=window.fetch.bind(window);
+    globalThis.__rawReads=0; globalThis.__findReads=0; globalThis.__listReads=0;
+    window.fetch=(input,...args)=>{
+      const url=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);
+      if(url.hostname==='ipc.localhost'){
+        if(url.pathname==='/session_raw')globalThis.__rawReads++;
+        if(url.pathname==='/session_find')globalThis.__findReads++;
+        if(url.pathname==='/session_list')globalThis.__listReads++;
+      }
+      return original(input,...args);
+    };
+    Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{globalThis.__rawCopyText=value;}}});
+  });
+  await detail.getByRole('button',{name:'RAW entry',exact:true}).first().click();
+  const raw=page.locator('#session-raw-dialog');
+  await expect(raw).toBeVisible();
+  await expect(raw.locator('#session-raw-content')).toHaveText('');
+  await expect(raw.locator('#session-raw-load')).toBeDisabled();
+  expect(await page.evaluate(()=>globalThis.__rawReads)).toBe(0);
+  await raw.locator('#session-raw-confirm').check();
+  expect(await page.evaluate(()=>globalThis.__rawReads)).toBe(0);
+  await raw.locator('#session-raw-load').click();
+  await expect(raw.locator('#session-raw-content')).toContainText(rawSentinel,{timeout:15000});
+  expect(await page.evaluate(()=>globalThis.__rawReads)).toBe(1);
+  await expect(raw.locator('img,script')).toHaveCount(0);
+  await raw.locator('#session-raw-copy').click();
+  expect(await page.evaluate(sentinel=>typeof globalThis.__rawCopyText==='string'&&globalThis.__rawCopyText.includes(sentinel),rawSentinel)).toBe(true);
+  await raw.getByRole('button',{name:'Close RAW entry',exact:true}).click();
+  await expect(raw).toBeHidden(); await expect(raw.locator('#session-raw-content')).toHaveText('');
+  await expect(detail).not.toContainText(rawSentinel);
+  evidence.checks.rawExplicitConfirmationAndCloseWipe=true;
+  evidence.checks.rawCopyContractMockedWithoutSystemClipboardWrite=true;
+  await detail.getByRole('button',{name:'Find in conversation',exact:true}).click();
+  const find=page.locator('#session-find-dialog');
+  await expect(find).toBeVisible();
+  expect(await page.evaluate(()=>globalThis.__findReads)).toBe(0);
+  await find.locator('#session-find-query').fill('SHINATAMA_DETAIL_');
+  expect(await page.evaluate(()=>globalThis.__findReads)).toBe(0);
+  await find.getByRole('button',{name:'Search this session',exact:true}).click();
+  const hits=find.locator('.session-find-match');
+  await expect(hits).toHaveCount(50,{timeout:15000});
+  await expect(find.locator('.session-find-pagination')).toContainText('1–50 of 52');
+  await expect(find).not.toContainText(rawSentinel); await expect(find).not.toContainText(reasoningSentinel);
+  await expect(find.locator('img,script')).toHaveCount(0);
+  await find.getByRole('button',{name:'Next matches',exact:true}).click();
+  await expect(hits).toHaveCount(2,{timeout:15000});
+  await expect(find.locator('.session-find-pagination')).toContainText('51–52 of 52');
+  await hits.last().click(); await expect(find).toBeHidden();
+  await expect(events).toHaveCount(1,{timeout:15000});
+  await expect(events.first().locator('pre')).toContainText('SHINATAMA_DETAIL_ASSISTANT_25');
+  await expect(detail.locator('.session-detail-pagination')).toContainText('53–53 of 53 events');
+  await detail.getByRole('button',{name:'Find in conversation',exact:true}).click();
+  await expect(find.locator('#session-find-query')).toHaveValue('');
+  await expect(hits).toHaveCount(0);
+  await find.locator('#session-find-query').fill(rawSentinel);
+  await find.getByRole('button',{name:'Search this session',exact:true}).click();
+  await expect(find.locator('.session-find-status')).toContainText('No matching canonical text',{timeout:15000});
+  await expect(hits).toHaveCount(0);
+  await find.getByRole('button',{name:'Close session search',exact:true}).click();
+  evidence.checks.fullSessionSearchPagesAndReadOnlyJump=[50,2,53];
+  evidence.checks.searchExplicitOnlyAndRawExcluded=true;
   expect(await ipc('terminal_list')).toEqual([]);
   await detail.getByRole('button', { name: 'Close session detail', exact: true }).click();
   await expect(detail).toBeHidden(); await expect(dialog).toBeVisible();
   await expect(openDetail).toBeEnabled();
+  await dialog.getByRole('button',{name:'Projects / sessions',exact:true}).click();
+  const groups=dialog.locator('#session-library-projects details.session-project-group');
+  await expect(groups).toHaveCount(1);
+  await expect(groups.first().locator('summary')).toContainText('C:\\synthetic-session-project');
+  await groups.first().locator('summary').click();
+  await groups.first().getByRole('button',{name:firstId,exact:true}).click();
+  await expect(openDetail).toBeEnabled();
+  expect(await page.evaluate(()=>globalThis.__listReads)).toBe(0);
+  await dialog.getByRole('button',{name:'List',exact:true}).click();
+  await expect(rows).toHaveCount(1);
+  evidence.checks.currentPageProjectGroupsAreLocalAndPreserveSelection=true;
   evidence.checks.detailPages = [50, 3, 50]; evidence.checks.detailOverviewAndLineageUnknown = true;
   evidence.checks.literalHtmlInertAndNoRawOrReasoning = true; evidence.checks.detailReturnsToLibraryWithoutLaunch = true;
 
@@ -215,7 +300,7 @@ try {
   await closing; expect(app.exitCode).toBe(0);
   expect(await assertSourceUnchanged()).toBe(sourceBefore);
   evidence.status = 'passed'; await save();
-  console.log('PASS: explicit archive, 53 sessions in 50/3 pages, canonical detail in 50/3 pages, inert literal HTML, Unknown metadata/lineage, no raw/reasoning, unchanged sources, no agent startup, owned frame close.');
+  console.log('PASS: bounded archive/detail pages, inert HTML, default privacy, explicit RAW and mocked copy, complete-session search and read-only jump, unchanged sources, no agent startup, owned frame close.');
 } catch (error) {
   evidence.status = 'failed'; evidence.failure = String(error.message).slice(0, 4096);
   if (owned && page && !page.isClosed()) {

@@ -3,6 +3,9 @@
 #session-library-dialog .session-library-tools label { margin: 0; }
 #session-library-root { flex: 1; min-width: 170px; max-width: 100%; }
 .session-library-source { overflow-wrap: anywhere; }
+.session-library-views { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.session-library-views button[aria-pressed=true] { border-color: var(--accent); color: var(--accent); }
+.session-library-view-scope { margin: 8px 0 0; }
 #session-library-status { min-height: 2em; color: var(--text-2); }
 #session-library-status[data-state=error] { color: var(--error); }
 .session-library-table { max-height: min(38vh, 360px); overflow: auto; border: 1px solid var(--line); margin-top: 10px; }
@@ -11,6 +14,15 @@
 .session-library-table th { position: sticky; top: 0; background: var(--chrome); color: var(--muted); font-weight: 500; }
 .session-library-table td button { width: 100%; min-height: 28px; padding: 5px; text-align: left; white-space: normal; overflow-wrap: anywhere; }
 .session-library-table td button[aria-pressed=true] { border-color: var(--accent); color: var(--accent); }
+.session-project-group { border-bottom: 1px solid var(--line); }
+.session-project-group summary { cursor: pointer; padding: 11px; overflow-wrap: anywhere; color: var(--text); font-size: 12px; }
+.session-project-count { margin-left: 10px; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.session-project-group ul { display: grid; gap: 8px; margin: 0; padding: 0 12px 12px 26px; list-style: none; }
+.session-project-group li { display: grid; gap: 5px; min-width: 0; }
+.session-project-session { width: 100%; text-align: left; overflow-wrap: anywhere; white-space: normal; }
+.session-project-session[aria-pressed=true] { border-color: var(--accent); color: var(--accent); }
+.session-project-fields { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; color: var(--text-2); font-size: 12px; overflow-wrap: anywhere; }
+.session-project-fields span { min-width: 0; }
 .session-library-pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0; }
 .session-library-pagination span { color: var(--muted); font: 12px var(--mono); }
 .session-library-metadata { display: grid; grid-template-columns: minmax(85px, 1fr) minmax(130px, 4fr); gap: 7px 12px; font-size: 12px; }

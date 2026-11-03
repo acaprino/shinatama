@@ -1,9 +1,11 @@
 //! Explicit archive registration and one contained, retained metadata worker.
-//! No transcript read, ambient home lookup, native archive write or agent start.
+//! Explicit detail/confirmed RAW share that worker. No implicit home or writes.
 #![cfg(windows)]
 use crate::{storage::Services, terminal_runtime::Runtime};
 use serde::{Deserialize, Serialize};
 use shinatama_engine::session_detail::{DetailReply, DetailRequest};
+use shinatama_engine::session_find::{FindReply, FindRequest};
+use shinatama_engine::session_raw::{RawReply, RawRequest};
 use shinatama_engine::session_roots::{
     PreparedSessionList, RootSelector, SessionCursor, SessionListPage, SessionListRead,
     SessionReadIssue, metadata_worker_budget,
@@ -244,6 +246,46 @@ impl Controller {
         })
         .await
     }
+    pub async fn raw(self: &Arc<Self>, request: RawRequest) -> Result<RawReply> {
+        // Reject an unconfirmed request before services/archive work or retries.
+        if !request.confirmed_raw {
+            return Err(SessionReadIssue::InvalidRequest);
+        }
+        self.worker(move |controller| {
+            let state = controller
+                .services
+                .load()
+                .map_err(|_| SessionReadIssue::ReadUnavailable)?;
+            controller.retry_retained(&state.store)?;
+            let prepared =
+                PreparedSessionList::resolve_raw(&state.store, &state.location, request)?;
+            controller
+                .read_prepared(state, &prepared)?
+                .raw()
+                .cloned()
+                .ok_or(SessionReadIssue::ReadUnavailable)
+        })
+        .await
+    }
+    pub async fn find(self: &Arc<Self>, request: FindRequest) -> Result<FindReply> {
+        shinatama_engine::session_find::validate_request(&request)
+            .map_err(|_| SessionReadIssue::InvalidRequest)?;
+        self.worker(move |controller| {
+            let state = controller
+                .services
+                .load()
+                .map_err(|_| SessionReadIssue::ReadUnavailable)?;
+            controller.retry_retained(&state.store)?;
+            let prepared =
+                PreparedSessionList::resolve_find(&state.store, &state.location, request)?;
+            controller
+                .read_prepared(state, &prepared)?
+                .find()
+                .cloned()
+                .ok_or(SessionReadIssue::ReadUnavailable)
+        })
+        .await
+    }
     pub async fn add_archive(
         self: &Arc<Self>,
         request: ArchiveRequest,
@@ -400,4 +442,22 @@ pub async fn session_detail(
 ) -> Result<DetailReply> {
     local(&window)?;
     controller.inner().detail(request).await
+}
+#[tauri::command]
+pub async fn session_raw(
+    window: WebviewWindow,
+    controller: State<'_, Arc<Controller>>,
+    request: RawRequest,
+) -> Result<RawReply> {
+    local(&window)?;
+    controller.inner().raw(request).await
+}
+#[tauri::command]
+pub async fn session_find(
+    window: WebviewWindow,
+    controller: State<'_, Arc<Controller>>,
+    request: FindRequest,
+) -> Result<FindReply> {
+    local(&window)?;
+    controller.inner().find(request).await
 }

@@ -7,6 +7,10 @@ const FOCUSABLE = 'a[href],button:not(:disabled),input:not(:disabled),select:not
 type Entry = { dialog: HTMLDialogElement; restore: HTMLElement | null };
 let stack: Entry[] = [];
 
+export function topModal(): HTMLDialogElement | null {
+  return stack.filter(entry => entry.dialog.open).at(-1)?.dialog ?? null;
+}
+
 function sync() {
   const top = stack.at(-1)?.dialog;
   for (const element of document.querySelectorAll<HTMLElement>(INERT_WHILE_OPEN)) element.inert = !!top;

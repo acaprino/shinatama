@@ -1,8 +1,12 @@
 //! C22 explicit store binding and pinned Mukade metadata worker protocol.
 //! Reader::list materializes a Vec at this pin: ONLY the contained helper calls it.
-//! No transcript/export/write/CLI reader, ambient StoreRoots, or credential read.
+//! Explicit detail/confirmed RAW share this worker; no ambient roots or writes.
 #[cfg(windows)]
 use crate::session_detail::{DetailReply, DetailRequest, TrustedRootSnapshot};
+#[cfg(windows)]
+use crate::session_find::{FindIssue, FindReply, FindRequest};
+#[cfg(windows)]
+use crate::session_raw::{MAX_RAW_BYTES, RawIssue, RawReply, RawRequest};
 use mukade::{HarnessId, reader::SessionInfo, roots::StoreRoots};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -123,6 +127,12 @@ struct WorkerRequest {
     #[cfg(windows)]
     #[serde(default)]
     detail: Option<DetailRequest>,
+    #[cfg(windows)]
+    #[serde(default)]
+    raw: Option<RawRequest>,
+    #[cfg(windows)]
+    #[serde(default)]
+    find: Option<FindRequest>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -132,12 +142,20 @@ struct WorkerReply {
     page: Option<SessionListPage>,
     #[cfg(windows)]
     detail: Option<DetailReply>,
+    #[cfg(windows)]
+    raw: Option<RawReply>,
+    #[cfg(windows)]
+    find: Option<FindReply>,
     issue: Option<SessionReadIssue>,
 }
 enum SessionPayload {
     List(SessionListPage),
     #[cfg(windows)]
     Detail(DetailReply),
+    #[cfg(windows)]
+    Raw(RawReply),
+    #[cfg(windows)]
+    Find(FindReply),
 }
 
 /// No public path constructor. SQL identity/revision precede all filesystem reads.
@@ -146,6 +164,10 @@ pub struct PreparedSessionList {
     request: Vec<u8>,
     #[cfg(windows)]
     detail_request: Option<DetailRequest>,
+    #[cfg(windows)]
+    raw_request: Option<RawRequest>,
+    #[cfg(windows)]
+    find_request: Option<FindRequest>,
 }
 impl PreparedSessionList {
     pub fn resolve(
@@ -207,6 +229,10 @@ impl PreparedSessionList {
             include_children,
             #[cfg(windows)]
             detail: None,
+            #[cfg(windows)]
+            raw: None,
+            #[cfg(windows)]
+            find: None,
         })
         .map_err(|_| SessionReadIssue::InvalidRequest)?;
         if request.len() > MAX_REQUEST_BYTES {
@@ -217,6 +243,10 @@ impl PreparedSessionList {
             request,
             #[cfg(windows)]
             detail_request: None,
+            #[cfg(windows)]
+            raw_request: None,
+            #[cfg(windows)]
+            find_request: None,
         })
     }
     /// Same contained worker and SQL binding as metadata; never reads a transcript
@@ -253,6 +283,61 @@ impl PreparedSessionList {
         prepared.detail_request = Some(request);
         Ok(prepared)
     }
+    /// Confirmation and the visible source fingerprint are required before
+    /// resolving archive paths. The same worker/owner reads one native entry.
+    #[cfg(windows)]
+    pub fn resolve_raw(
+        database: &Database,
+        base: &StorageLocation,
+        request: RawRequest,
+    ) -> Result<Self> {
+        if !request.confirmed_raw
+            || request
+                .detail
+                .cursor
+                .as_ref()
+                .is_none_or(|cursor| cursor.offset != 0 || !fingerprint(&cursor.fingerprint))
+        {
+            return Err(SessionReadIssue::InvalidRequest);
+        }
+        let mut prepared = Self::resolve_detail(database, base, request.detail.clone())?;
+        let mut wire: WorkerRequest = serde_json::from_slice(&prepared.request)
+            .map_err(|_| SessionReadIssue::InvalidRequest)?;
+        wire.detail = None;
+        wire.raw = Some(request.clone());
+        prepared.request =
+            serde_json::to_vec(&wire).map_err(|_| SessionReadIssue::InvalidRequest)?;
+        if prepared.request.len() > MAX_REQUEST_BYTES {
+            return Err(SessionReadIssue::InvalidRequest);
+        }
+        prepared.detail_request = None;
+        prepared.raw_request = Some(request);
+        Ok(prepared)
+    }
+    /// An explicit search pins the visible source before resolving archive paths.
+    /// It shares the existing contained worker and retained cleanup owner.
+    #[cfg(windows)]
+    pub fn resolve_find(
+        database: &Database,
+        base: &StorageLocation,
+        request: FindRequest,
+    ) -> Result<Self> {
+        crate::session_find::validate_request(&request)
+            .map_err(|_| SessionReadIssue::InvalidRequest)?;
+        let mut prepared = Self::resolve_detail(database, base, request.detail.clone())?;
+        let mut wire: WorkerRequest = serde_json::from_slice(&prepared.request)
+            .map_err(|_| SessionReadIssue::InvalidRequest)?;
+        wire.detail = None;
+        wire.find = Some(request.clone());
+        prepared.request =
+            serde_json::to_vec(&wire).map_err(|_| SessionReadIssue::InvalidRequest)?;
+        if prepared.request.len() > MAX_REQUEST_BYTES {
+            return Err(SessionReadIssue::InvalidRequest);
+        }
+        prepared.detail_request = None;
+        prepared.find_request = Some(request);
+        Ok(prepared)
+    }
     pub fn selector(&self) -> RootSelector {
         selector(&self.root)
     }
@@ -263,7 +348,9 @@ impl PreparedSessionList {
         match self.decode_payload(database, bytes)? {
             SessionPayload::List(page) => Ok(page),
             #[cfg(windows)]
-            SessionPayload::Detail(_) => Err(SessionReadIssue::InvalidRequest),
+            SessionPayload::Detail(_) | SessionPayload::Raw(_) | SessionPayload::Find(_) => {
+                Err(SessionReadIssue::InvalidRequest)
+            }
         }
     }
     fn decode_payload(&self, database: &Database, bytes: &[u8]) -> Result<SessionPayload> {
@@ -281,8 +368,101 @@ impl PreparedSessionList {
         if reply.protocol != 1 || reply.revision != MUKADE_REVISION {
             return Err(SessionReadIssue::WorkerUnavailable);
         }
+        #[cfg(windows)]
+        let payload_count = usize::from(reply.page.is_some())
+            + usize::from(reply.detail.is_some())
+            + usize::from(reply.raw.is_some())
+            + usize::from(reply.find.is_some())
+            + usize::from(reply.issue.is_some());
+        #[cfg(not(windows))]
+        let payload_count = usize::from(reply.page.is_some()) + usize::from(reply.issue.is_some());
+        if payload_count != 1 {
+            return Err(SessionReadIssue::WorkerUnavailable);
+        }
         if let Some(issue) = reply.issue {
             return Err(issue);
+        }
+        #[cfg(windows)]
+        if let Some(request) = &self.find_request {
+            let find = reply.find.ok_or(SessionReadIssue::WorkerUnavailable)?;
+            if find.root != self.selector()
+                || find.native_id != request.detail.native_id
+                || find.page.is_some() == find.issue.is_some()
+            {
+                return Err(SessionReadIssue::WorkerUnavailable);
+            }
+            if let Some(page) = &find.page {
+                let source = request
+                    .detail
+                    .cursor
+                    .as_ref()
+                    .ok_or(SessionReadIssue::InvalidRequest)?;
+                let offset = request.cursor.as_ref().map_or(0, |cursor| cursor.offset);
+                let end = offset
+                    .checked_add(page.hits.len())
+                    .ok_or(SessionReadIssue::WorkerUnavailable)?;
+                let input_bound = crate::session_detail::MAX_INPUT_BYTES as usize;
+                if page.root != self.selector()
+                    || page.native_id != request.detail.native_id
+                    || page.source_fingerprint != source.fingerprint
+                    || page.query != request.query
+                    || page.hits.len() > crate::session_find::MAX_FIND_HITS
+                    || page.total_hits > input_bound.saturating_mul(3)
+                    || end > page.total_hits
+                    || page.hits.len()
+                        != crate::session_find::MAX_FIND_HITS
+                            .min(page.total_hits.saturating_sub(offset))
+                    || page.hits.iter().enumerate().any(|(index, hit)| {
+                        hit.match_ordinal != offset.saturating_add(index)
+                            || hit.snippet.len() > crate::session_find::MAX_SNIPPET_BYTES
+                            || hit.entry_ordinal > input_bound
+                            || hit.event_ordinal > input_bound
+                    })
+                    || page.hits.windows(2).any(|pair| {
+                        pair[0].entry_ordinal > pair[1].entry_ordinal
+                            || pair[0].event_ordinal > pair[1].event_ordinal
+                    })
+                    || page.next.is_some() != (end < page.total_hits)
+                    || page.next.as_ref().is_some_and(|next| {
+                        next.fingerprint != source.fingerprint
+                            || next.offset != end
+                            || next.offset >= page.total_hits
+                    })
+                {
+                    return Err(SessionReadIssue::WorkerUnavailable);
+                }
+            }
+            return Ok(SessionPayload::Find(find));
+        }
+        #[cfg(windows)]
+        if reply.find.is_some() {
+            return Err(SessionReadIssue::WorkerUnavailable);
+        }
+        #[cfg(windows)]
+        if let Some(request) = &self.raw_request {
+            let raw = reply.raw.ok_or(SessionReadIssue::WorkerUnavailable)?;
+            let expected_fingerprint = request
+                .detail
+                .cursor
+                .as_ref()
+                .map(|cursor| cursor.fingerprint.as_str());
+            if raw.root != self.selector()
+                || raw.native_id != request.detail.native_id
+                || raw.entry_ordinal != request.entry_ordinal
+                || raw.raw_json.is_some() == raw.issue.is_some()
+                || raw.raw_json.as_ref().is_some_and(|json| {
+                    json.len() > MAX_RAW_BYTES
+                        || raw.source_fingerprint.as_deref() != expected_fingerprint
+                })
+                || (raw.issue.is_some() && raw.source_fingerprint.is_some())
+            {
+                return Err(SessionReadIssue::WorkerUnavailable);
+            }
+            return Ok(SessionPayload::Raw(raw));
+        }
+        #[cfg(windows)]
+        if reply.raw.is_some() {
+            return Err(SessionReadIssue::WorkerUnavailable);
         }
         #[cfg(windows)]
         if let Some(request) = &self.detail_request {
@@ -794,6 +974,30 @@ pub fn helper_main() {
             return Err(SessionReadIssue::InvalidRequest);
         }
         #[cfg(windows)]
+        if usize::from(request.raw.is_some())
+            + usize::from(request.detail.is_some())
+            + usize::from(request.find.is_some())
+            > 1
+        {
+            return Err(SessionReadIssue::InvalidRequest);
+        }
+        #[cfg(windows)]
+        if let Some(find) = &request.find {
+            let reply = match TrustedRootSnapshot::from_record(&request.root, &find.detail.root) {
+                Ok(snapshot) => crate::session_find::read_find(&snapshot, find),
+                Err(issue) => FindReply::refuse(find, FindIssue::Detail(issue)),
+            };
+            return Ok(SessionPayload::Find(reply));
+        }
+        #[cfg(windows)]
+        if let Some(raw) = &request.raw {
+            let reply = match TrustedRootSnapshot::from_record(&request.root, &raw.detail.root) {
+                Ok(snapshot) => crate::session_raw::read_raw(&snapshot, raw),
+                Err(issue) => RawReply::refuse(raw, RawIssue::Detail(issue)),
+            };
+            return Ok(SessionPayload::Raw(reply));
+        }
+        #[cfg(windows)]
         if let Some(detail) = &request.detail {
             let reply = match TrustedRootSnapshot::from_record(&request.root, &detail.root) {
                 Ok(snapshot) => crate::session_detail::read_detail(&snapshot, detail),
@@ -810,6 +1014,10 @@ pub fn helper_main() {
             page: Some(page),
             #[cfg(windows)]
             detail: None,
+            #[cfg(windows)]
+            raw: None,
+            #[cfg(windows)]
+            find: None,
             issue: None,
         },
         #[cfg(windows)]
@@ -818,6 +1026,28 @@ pub fn helper_main() {
             revision: MUKADE_REVISION.into(),
             page: None,
             detail: Some(detail),
+            raw: None,
+            find: None,
+            issue: None,
+        },
+        #[cfg(windows)]
+        Ok(SessionPayload::Raw(raw)) => WorkerReply {
+            protocol: 1,
+            revision: MUKADE_REVISION.into(),
+            page: None,
+            detail: None,
+            raw: Some(raw),
+            find: None,
+            issue: None,
+        },
+        #[cfg(windows)]
+        Ok(SessionPayload::Find(find)) => WorkerReply {
+            protocol: 1,
+            revision: MUKADE_REVISION.into(),
+            page: None,
+            detail: None,
+            raw: None,
+            find: Some(find),
             issue: None,
         },
         Err(issue) => WorkerReply {
@@ -826,6 +1056,10 @@ pub fn helper_main() {
             page: None,
             #[cfg(windows)]
             detail: None,
+            #[cfg(windows)]
+            raw: None,
+            #[cfg(windows)]
+            find: None,
             issue: Some(issue),
         },
     };
@@ -887,6 +1121,18 @@ mod execution {
         pub fn detail(&self) -> Option<&DetailReply> {
             match self.payload.as_ref() {
                 Some(SessionPayload::Detail(reply)) => Some(reply),
+                _ => None,
+            }
+        }
+        pub fn raw(&self) -> Option<&RawReply> {
+            match self.payload.as_ref() {
+                Some(SessionPayload::Raw(reply)) => Some(reply),
+                _ => None,
+            }
+        }
+        pub fn find(&self) -> Option<&FindReply> {
+            match self.payload.as_ref() {
+                Some(SessionPayload::Find(reply)) => Some(reply),
                 _ => None,
             }
         }
@@ -1317,10 +1563,134 @@ mod tests {
                 revision: MUKADE_REVISION.into(),
                 page: Some(page),
                 detail: None,
+                raw: None,
+                find: None,
                 issue: None,
             })
             .unwrap();
             bindings.push(read.decode_reply(&database, &reply).unwrap().root);
+            if revision == 1 {
+                // A compromised/mismatched worker reply must not turn a visible
+                // entry selection into a different archive, entry or payload.
+                let raw_request = RawRequest {
+                    detail: DetailRequest {
+                        root: selector(&record),
+                        native_id: "same-native-id".into(),
+                        cursor: Some(crate::session_detail::DetailCursor {
+                            offset: 0,
+                            fingerprint: "a".repeat(64),
+                        }),
+                        limit: 1,
+                    },
+                    entry_ordinal: 3,
+                    confirmed_raw: true,
+                };
+                let raw_read =
+                    PreparedSessionList::resolve_raw(&database, &location, raw_request.clone())
+                        .unwrap();
+                let valid = serde_json::json!({
+                    "protocol":1,"revision":MUKADE_REVISION,"page":null,"detail":null,"issue":null,
+                    "raw":{
+                        "root":raw_request.detail.root,"nativeId":"same-native-id","entryOrdinal":3,
+                        "sourceFingerprint":"a".repeat(64),"rawJson":"{\"synthetic\":true}","issue":null
+                    }
+                });
+                let accepts = |wire: &serde_json::Value| {
+                    matches!(
+                        raw_read.decode_payload(&database, &serde_json::to_vec(wire).unwrap()),
+                        Ok(SessionPayload::Raw(_))
+                    )
+                };
+                assert!(accepts(&valid));
+                for (field, value) in [
+                    (
+                        "root",
+                        serde_json::json!({"storeRootId":"other-root","configurationRevision":1}),
+                    ),
+                    ("nativeId", serde_json::json!("other-native-id")),
+                    ("entryOrdinal", serde_json::json!(4)),
+                    ("sourceFingerprint", serde_json::json!("b".repeat(64))),
+                    ("rawJson", serde_json::json!("x".repeat(MAX_RAW_BYTES + 1))),
+                    ("issue", serde_json::json!({"code":"raw_unavailable"})),
+                ] {
+                    let mut forged = valid.clone();
+                    forged["raw"][field] = value;
+                    assert!(!accepts(&forged));
+                }
+                let mut mixed = valid;
+                mixed["issue"] = serde_json::json!("read_unavailable");
+                assert!(!accepts(&mixed));
+                let mut unconfirmed = raw_request.clone();
+                unconfirmed.confirmed_raw = false;
+                unconfirmed.detail.root.store_root_id = "missing-root".into();
+                assert!(matches!(
+                    PreparedSessionList::resolve_raw(&database, &location, unconfirmed),
+                    Err(SessionReadIssue::InvalidRequest)
+                ));
+                let find_request = FindRequest {
+                    detail: raw_request.detail.clone(),
+                    query: "synthetic".into(),
+                    cursor: None,
+                };
+                let find_read =
+                    PreparedSessionList::resolve_find(&database, &location, find_request.clone())
+                        .unwrap();
+                let valid_find = serde_json::json!({
+                    "protocol":1,"revision":MUKADE_REVISION,"page":null,"detail":null,"raw":null,"issue":null,
+                    "find":{
+                        "root":find_request.detail.root,"nativeId":"same-native-id","issue":null,
+                        "page":{
+                            "root":find_request.detail.root,"nativeId":"same-native-id",
+                            "sourceFingerprint":"a".repeat(64),"query":"synthetic","totalHits":1,
+                            "hits":[{"entryOrdinal":3,"eventOrdinal":5,"matchOrdinal":0,"snippet":"synthetic","truncated":false}],
+                            "next":null
+                        }
+                    }
+                });
+                let accepts_find = |wire: &serde_json::Value| {
+                    matches!(
+                        find_read.decode_payload(&database, &serde_json::to_vec(wire).unwrap()),
+                        Ok(SessionPayload::Find(_))
+                    )
+                };
+                assert!(accepts_find(&valid_find));
+                for (field, value) in [
+                    ("query", serde_json::json!("other query")),
+                    ("sourceFingerprint", serde_json::json!("b".repeat(64))),
+                    ("totalHits", serde_json::json!(0)),
+                    (
+                        "next",
+                        serde_json::json!({"offset":0,"fingerprint":"a".repeat(64)}),
+                    ),
+                ] {
+                    let mut forged = valid_find.clone();
+                    forged["find"]["page"][field] = value;
+                    assert!(!accepts_find(&forged));
+                }
+                let mut oversized_snippet = valid_find.clone();
+                oversized_snippet["find"]["page"]["hits"][0]["snippet"] =
+                    serde_json::json!("x".repeat(crate::session_find::MAX_SNIPPET_BYTES + 1));
+                assert!(!accepts_find(&oversized_snippet));
+                let mut mixed_find = valid_find;
+                mixed_find["raw"] = serde_json::json!({
+                    "root":find_request.detail.root,"nativeId":"same-native-id","entryOrdinal":3,
+                    "sourceFingerprint":"a".repeat(64),"rawJson":"{}","issue":null
+                });
+                assert!(!accepts_find(&mixed_find));
+                let mut invalid_find = find_request;
+                invalid_find.query.clear();
+                invalid_find.detail.root.store_root_id = "missing-root".into();
+                assert!(matches!(
+                    PreparedSessionList::resolve_find(&database, &location, invalid_find),
+                    Err(SessionReadIssue::InvalidRequest)
+                ));
+                let mut path_id = raw_request;
+                path_id.detail.native_id = "../same-native-id".into();
+                assert!(matches!(
+                    PreparedSessionList::resolve_raw(&database, &location, path_id),
+                    Err(SessionReadIssue::InvalidRequest)
+                ));
+            }
             sources.push((source, bytes.to_vec()));
         }
         assert_ne!(bindings[0], bindings[1]);

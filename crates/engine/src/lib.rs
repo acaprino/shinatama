@@ -15,6 +15,12 @@ pub mod resources;
 pub mod session_roots;
 #[cfg(all(windows, feature = "session-reader"))]
 pub mod session_detail;
+#[cfg(all(windows, feature = "session-reader"))]
+pub mod session_lineage;
+#[cfg(all(windows, feature = "session-reader"))]
+pub mod session_raw;
+#[cfg(all(windows, feature = "session-reader"))]
+pub mod session_find;
 #[cfg(windows)]
 pub mod check_scratch;
 #[cfg(windows)]

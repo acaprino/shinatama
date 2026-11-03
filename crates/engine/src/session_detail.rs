@@ -1,8 +1,11 @@
 //! Worker-only projection of the reviewed Mukade whole-session reader. Input is
 //! capped BEFORE list/read; raw records, reasoning and attachment contents never
-//! leave the contained worker. No native export, auth read, parser or command.
+//! leave the default detail projection. RAW has a separate confirmed request.
+//! No native export, auth read, alternate parser or command.
 use crate::session_roots::{MUKADE_REVISION, RootSelector, SessionReadIssue, pin_reader_namespace};
-use mukade::{Entry, HarnessId, Kind, Session, model::ResultContent, roots::StoreRoots};
+use mukade::{
+    Entry, HarnessId, Kind, Session, model::ResultContent, reader::SessionInfo, roots::StoreRoots,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use shinatama_state::records::StoreRootRecord;
@@ -13,7 +16,7 @@ pub const MAX_INPUT_FILES: usize = 4096;
 pub const MAX_DETAIL_EVENTS: usize = 50;
 pub const MAX_TEXT_BYTES: usize = 4096;
 pub const MAX_DETAIL_REPLY_BYTES: usize = 256 * 1024;
-const EVENT_PAGE_BYTES: usize = MAX_DETAIL_REPLY_BYTES - 32 * 1024;
+const EVENT_PAGE_BYTES: usize = MAX_DETAIL_REPLY_BYTES - 48 * 1024;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DetailIssue {
@@ -139,6 +142,7 @@ pub struct DetailPage {
     pub events: Vec<DetailEvent>,
     pub next: Option<DetailCursor>,
     pub notices: Vec<String>,
+    pub lineage: crate::session_lineage::SessionLineage,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -219,6 +223,22 @@ fn read(
     snapshot: &TrustedRootSnapshot,
     request: &DetailRequest,
 ) -> Result<DetailPage, DetailIssue> {
+    let (session, catalog) = read_verified_session(snapshot, request)?;
+    // The pinned Claude/Codex/Pi list readers do not supply session-parent
+    // metadata. A complete list must never turn this into "zero children".
+    let lineage = crate::session_lineage::derive_lineage(
+        &catalog, &request.native_id, crate::session_lineage::ParentMetadata::Unavailable,
+    )
+        .map_err(|_| DetailIssue::InvalidRequest)?;
+    project(snapshot, request, &session, lineage)
+}
+/// Shared ONLY by confirmed in-worker projections. Returns actual Mukade data,
+/// never a host/default payload. All root, size, candidate, identity and source
+/// checks remain common to normal detail and the explicitly requested RAW entry.
+pub(crate) fn read_verified_session(
+    snapshot: &TrustedRootSnapshot,
+    request: &DetailRequest,
+) -> Result<(Session, Vec<SessionInfo>), DetailIssue> {
     if request.root != snapshot.root
         || !native_id(&request.native_id)
         || !(1..=MAX_DETAIL_EVENTS).contains(&request.limit)
@@ -263,13 +283,14 @@ fn read(
     if session.meta.id != request.native_id || session.meta.harness != snapshot.harness {
         return Err(DetailIssue::SourceChanged);
     }
-    project(snapshot, request, &session)
+    session_fingerprint(snapshot, request, &session)?;
+    Ok((session, catalog))
 }
-fn project(
+pub(crate) fn session_fingerprint(
     snapshot: &TrustedRootSnapshot,
     request: &DetailRequest,
     session: &Session,
-) -> Result<DetailPage, DetailIssue> {
+) -> Result<String, DetailIssue> {
     let source = session
         .meta
         .source_sha256
@@ -290,6 +311,15 @@ fn project(
     {
         return Err(DetailIssue::SourceChanged);
     }
+    Ok(fingerprint)
+}
+fn project(
+    snapshot: &TrustedRootSnapshot,
+    request: &DetailRequest,
+    session: &Session,
+    lineage: crate::session_lineage::SessionLineage,
+) -> Result<DetailPage, DetailIssue> {
+    let fingerprint = session_fingerprint(snapshot, request, session)?;
     let offset = request.cursor.as_ref().map_or(0, |cursor| cursor.offset);
     let mut projection = Projection {
         offset,
@@ -300,6 +330,49 @@ fn project(
         full: false,
     };
     for (index, entry) in session.entries.iter().enumerate() {
+        project_entry(&mut projection, index, entry);
+    }
+    if offset > projection.total {
+        return Err(DetailIssue::SourceChanged);
+    }
+    let end = offset + projection.events.len();
+    Ok(DetailPage {
+        root: request.root.clone(),
+        native_id: request.native_id.clone(),
+        harness: snapshot.harness,
+        overview: DetailOverview {
+            title: optional(session.meta.title.as_deref(), 512),
+            working_directory: optional(session.meta.cwd.as_deref(), 1024),
+            created_at: optional(session.meta.created.as_deref(), 64),
+            updated_at: optional(session.meta.updated.as_deref(), 64),
+            parent_native_id: optional(session.meta.parent.as_deref(), 256),
+            harness_version: optional((session.meta.harness_version != "unknown").then_some(session.meta.harness_version.as_str()), 64),
+        },
+        fingerprint: fingerprint.clone(),
+        total_events: projection.total,
+        events: projection.events,
+        next: (end < projection.total).then_some(DetailCursor {
+            offset: end,
+            fingerprint,
+        }),
+        notices: [
+            "Detail reads are limited to archives up to 16 MiB.",
+            "Raw records, reasoning, tool arguments and attachment content are omitted.",
+            "Appends remain allowed; renaming or deleting pinned files may fail briefly during the read.",
+        ].into_iter().map(str::to_owned).collect(),
+        lineage,
+    })
+}
+// Detail and Find share the exact event projection, including omitted markers.
+// A count-only projection never evaluates text callbacks or allocates event data.
+pub(crate) fn visible_event_count(entry: &Entry) -> usize {
+    let mut projection = Projection {
+        offset: usize::MAX, limit: 0, events: Vec::new(), total: 0, bytes: 0, full: false,
+    };
+    project_entry(&mut projection, 0, entry);
+    projection.total
+}
+fn project_entry(projection: &mut Projection, index: usize, entry: &Entry) {
         match &entry.kind {
             Kind::User { text, attachments } => {
                 projection.push(index, entry, DetailEventKind::UserText, false, || {
@@ -353,36 +426,6 @@ fn project(
                 clip(["Native metadata record; raw content is not displayed."])
             }),
         }
-    }
-    if offset > projection.total {
-        return Err(DetailIssue::SourceChanged);
-    }
-    let end = offset + projection.events.len();
-    Ok(DetailPage {
-        root: request.root.clone(),
-        native_id: request.native_id.clone(),
-        harness: snapshot.harness,
-        overview: DetailOverview {
-            title: optional(session.meta.title.as_deref(), 512),
-            working_directory: optional(session.meta.cwd.as_deref(), 1024),
-            created_at: optional(session.meta.created.as_deref(), 64),
-            updated_at: optional(session.meta.updated.as_deref(), 64),
-            parent_native_id: optional(session.meta.parent.as_deref(), 256),
-            harness_version: optional((session.meta.harness_version != "unknown").then_some(session.meta.harness_version.as_str()), 64),
-        },
-        fingerprint: fingerprint.clone(),
-        total_events: projection.total,
-        events: projection.events,
-        next: (end < projection.total).then_some(DetailCursor {
-            offset: end,
-            fingerprint,
-        }),
-        notices: [
-            "Detail reads are limited to archives up to 16 MiB.",
-            "Raw records, reasoning, tool arguments and attachment content are omitted.",
-            "Appends remain allowed; renaming or deleting pinned files may fail briefly during the read.",
-        ].into_iter().map(str::to_owned).collect(),
-    })
 }
 struct Projection {
     offset: usize,

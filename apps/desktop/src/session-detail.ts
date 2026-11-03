@@ -1,17 +1,22 @@
-import { openModal } from './modal.ts';
+import { openModal, topModal } from './modal.ts';
 import type { SessionRootSelector } from './session-library.ts';
+import type { RawSelection } from './session-raw.ts';
 import './session-detail.css';
 
 export type DetailCursor = { offset: number; fingerprint: string };
 export type DetailRequest = { root: SessionRootSelector; nativeId: string; cursor: DetailCursor | null; limit: 50 };
 type EventKind = 'user_text' | 'assistant_text' | 'tool_call' | 'tool_result' | 'compaction' | 'meta' | 'attachment_omitted' | 'reasoning_omitted';
+type LineageState = 'unknown_parent' | 'unknown_links' | 'unresolved_in_selected_archive' | 'cycle' | 'ambiguous' | 'truncated' | 'resolved';
+type LineageNode = {nativeId:string;state:LineageState;canSelect:boolean};
+type Lineage = {nativeId:string;state:LineageState;selectedState:LineageState;ancestorState:LineageState;childrenState:LineageState;ancestors:LineageNode[];children:LineageNode[];totalDirectChildren:number|null};
 export type DetailEvent = { ordinal: number; entryOrdinal: number; sourceEntryId: string | null; timestamp: string | null;
   kind: EventKind; text: string; truncated: boolean; payloadOmitted: boolean };
 export type DetailPage = { root: SessionRootSelector; nativeId: string; harness: string; fingerprint: string; totalEvents: number;
   overview: { title: string | null; workingDirectory: string | null; createdAt: string | null; updatedAt: string | null; parentNativeId: string | null; harnessVersion: string | null };
-  events: DetailEvent[]; next: DetailCursor | null; notices: string[] };
+  events: DetailEvent[]; next: DetailCursor | null; notices: string[]; lineage: Lineage };
 export type DetailReply = { root: SessionRootSelector; nativeId: string; page: DetailPage | null; issue: string | null };
-type Options = { read: (request: DetailRequest) => Promise<DetailReply>; reportError: (message: string) => void; restoreFocus?: () => void };
+type Options = { read: (request: DetailRequest) => Promise<DetailReply>; openRaw?: (selection:RawSelection)=>void;
+  openFind?: (request:DetailRequest)=>void; reportError: (message: string) => void; restoreFocus?: () => void };
 const KINDS: Record<EventKind, string> = { user_text: 'User', assistant_text: 'Assistant', tool_call: 'Tool call', tool_result: 'Tool result',
   compaction: 'Compaction summary', meta: 'Metadata', attachment_omitted: 'Attachment omitted', reasoning_omitted: 'Reasoning omitted' };
 const ERRORS: Record<string, string> = {
@@ -33,6 +38,22 @@ const rootValue = (value: unknown): value is SessionRootSelector => record(value
   && integer(value.configurationRevision) && value.configurationRevision > 0;
 const sameRoot = (a: SessionRootSelector, b: SessionRootSelector) => a.storeRootId === b.storeRootId && a.configurationRevision === b.configurationRevision;
 const encoder = new TextEncoder();
+const lineageStates: Record<LineageState,string> = {unknown_parent:'Unknown parent',unknown_links:'Relationships unknown',unresolved_in_selected_archive:'Not resolved in this archive',cycle:'Cycle detected',ambiguous:'Ambiguous reference',truncated:'Fixed limit reached',resolved:'Recorded in this archive'};
+function lineageValue(value:unknown,id:string):Lineage {
+  const state=(v:unknown):v is LineageState=>typeof v==='string'&&Object.hasOwn(lineageStates,v);
+  if(!record(value)||value.nativeId!==id||!state(value.state)||!state(value.selectedState)||!state(value.ancestorState)||!state(value.childrenState)
+    ||(value.totalDirectChildren!==null&&!integer(value.totalDirectChildren))) throw new Error('read_unavailable');
+  const nodes=(items:unknown,cap:number):LineageNode[]=>{
+    if(!Array.isArray(items)||items.length>cap) throw new Error('read_unavailable');
+    return items.map(item=>{
+      if(!record(item)||!scalar(item.nativeId,256)||!item.nativeId||!state(item.state)||typeof item.canSelect!=='boolean'
+        ||(item.canSelect&&(item.state!=='resolved'||!nativeId(item.nativeId)))) throw new Error('read_unavailable');
+      return {nativeId:item.nativeId,state:item.state,canSelect:item.canSelect};
+    });
+  };
+  return {nativeId:id,state:value.state,selectedState:value.selectedState,ancestorState:value.ancestorState,childrenState:value.childrenState,
+    ancestors:nodes(value.ancestors,32),children:nodes(value.children,50),totalDirectChildren:value.totalDirectChildren as number|null};
+}
 function decode(value: unknown, request: DetailRequest): DetailPage {
   if (!record(value) || !rootValue(value.root) || !sameRoot(value.root, request.root) || value.nativeId !== request.nativeId) throw new Error('read_unavailable');
   if (value.issue !== null) throw new Error(typeof value.issue === 'string' && Object.hasOwn(ERRORS, value.issue) ? value.issue : 'read_unavailable');
@@ -65,7 +86,7 @@ function decode(value: unknown, request: DetailRequest): DetailPage {
   }
   if (end < page.totalEvents && !next) throw new Error('read_unavailable');
   return { root: { ...request.root }, nativeId: request.nativeId, harness: page.harness, fingerprint: page.fingerprint,
-    totalEvents: page.totalEvents, events, next, notices: [...page.notices] as string[], overview: {
+    totalEvents: page.totalEvents, events, next, lineage:lineageValue(page.lineage,request.nativeId), notices: [...page.notices] as string[], overview: {
       title: overview.title as string | null, workingDirectory: overview.workingDirectory as string | null,
       createdAt: overview.createdAt as string | null, updatedAt: overview.updatedAt as string | null,
       parentNativeId: overview.parentNativeId as string | null, harnessVersion: overview.harnessVersion as string | null } };
@@ -81,6 +102,8 @@ export function createSessionDetail(options: Options) {
   const status = document.createElement('p'); status.id = 'session-detail-status'; status.setAttribute('role', 'status');
   const tools = document.createElement('div'); tools.className = 'session-detail-tools';
   const reload = document.createElement('button'); reload.type = 'button'; reload.textContent = 'Reload detail'; tools.append(reload);
+  const find = document.createElement('button'); find.type = 'button'; find.textContent = 'Find in conversation';
+  if (options.openFind) tools.append(find);
   const panels = new Map<string, HTMLElement>(); let activeTab = 'transcript';
   for (const name of ['overview', 'transcript', 'lineage']) {
     const button = document.createElement('button'); button.type = 'button'; button.textContent = name[0].toUpperCase() + name.slice(1);
@@ -89,12 +112,12 @@ export function createSessionDetail(options: Options) {
   }
   const overview = document.createElement('dl'); overview.className = 'session-detail-overview'; panels.get('overview')!.append(overview);
   const events = document.createElement('div'); events.className = 'session-detail-events'; panels.get('transcript')!.append(events);
-  const lineage = document.createElement('p'); lineage.className = 'hint'; panels.get('lineage')!.append(lineage);
+  const lineage = document.createElement('div'); lineage.className = 'session-lineage'; panels.get('lineage')!.append(lineage);
   const pager = document.createElement('div'); pager.className = 'session-detail-pagination';
   const previous = document.createElement('button'); previous.type = 'button'; previous.textContent = 'Previous';
   const position = document.createElement('span'); const next = document.createElement('button'); next.type = 'button'; next.textContent = 'Next'; pager.append(previous, position, next);
   const notices = document.createElement('ul'); notices.className = 'session-detail-notices';
-  const unavailable = document.createElement('p'); unavailable.className = 'hint'; unavailable.textContent = 'Raw view, export, resume and hop are separate and unavailable here. Attachments and remote content are never opened.';
+  const unavailable = document.createElement('p'); unavailable.className = 'hint'; unavailable.textContent = 'RAW requires an explicit privacy confirmation. Export, resume and hop remain unavailable. Attachment files stay closed.';
   dialog.append(heading, source, status, tools, ...panels.values(), pager, notices, unavailable); (document.querySelector('#app') ?? document.body).append(dialog);
   let current: { root: SessionRootSelector; nativeId: string } | null = null;
   let page: DetailPage | null = null; let cursor: DetailCursor | null = null; let history: (DetailCursor | null)[] = [];
@@ -105,23 +128,54 @@ export function createSessionDetail(options: Options) {
   function render() {
     if (destroyed) return; dialog.setAttribute('aria-busy', String(busy));
     reload.disabled = busy || !current; previous.disabled = busy || !history.length; next.disabled = busy || !page?.next;
+    find.disabled = busy || !page;
     source.textContent = current ? `Session ${current.nativeId} · Archive ${current.root.storeRootId} · revision ${current.root.configurationRevision}` : '';
     status.textContent = busy ? 'Reading bounded session detail…' : message; status.dataset.state = failed ? 'error' : 'ready';
     for (const [name, panel] of panels) panel.hidden = name !== activeTab;
     overview.replaceChildren(); events.replaceChildren(); notices.replaceChildren();
     if (page) {
+      const shownPage=page;
       field('Harness', page.harness); field('Harness version', page.overview.harnessVersion); field('Title', page.overview.title);
       field('Working folder', page.overview.workingDirectory); field('Created', page.overview.createdAt); field('Updated', page.overview.updatedAt);
       for (const event of page.events) {
         const article = document.createElement('article'); const label = document.createElement('h2'); label.textContent = KINDS[event.kind];
         const provenance = document.createElement('small'); provenance.textContent = `Entry ${event.entryOrdinal} · ID ${event.sourceEntryId ?? 'Unknown'} · time ${event.timestamp ?? 'Unknown'}`;
-        const body = document.createElement('pre'); body.textContent = event.text || '(No visible text recorded)'; article.append(label, provenance, body);
-        if (event.truncated || event.payloadOmitted) { const note = document.createElement('p'); note.className = 'hint'; note.textContent = event.truncated ? 'Displayed text is truncated at its fixed limit.' : 'Sensitive or raw payload is omitted.'; article.append(note); }
+        const body = document.createElement('pre'); body.textContent = event.text || '(No visible text recorded)';
+        let content: HTMLElement = article;
+        if (event.kind === 'tool_call' || event.kind === 'tool_result') {
+          const disclosure = document.createElement('details'); const summary = document.createElement('summary'); summary.textContent = KINDS[event.kind];
+          disclosure.open = cursor !== null && event.ordinal === cursor.offset;
+          disclosure.append(summary); article.append(disclosure); content = disclosure;
+        } else content.append(label);
+        content.append(provenance, body);
+        if(options.openRaw){
+          const raw=document.createElement('button'); raw.type='button'; raw.textContent='RAW entry'; raw.disabled=busy;
+          raw.onclick=()=>{if(!busy&&page===shownPage)options.openRaw?.({root:{...shownPage.root},nativeId:shownPage.nativeId,entryOrdinal:event.entryOrdinal,fingerprint:shownPage.fingerprint});};
+          content.append(raw);
+        }
+        if (event.truncated || event.payloadOmitted) { const note = document.createElement('p'); note.className = 'hint'; note.textContent = event.truncated ? 'Displayed text is truncated at its fixed limit.' : 'Sensitive or raw payload is omitted.'; content.append(note); }
         events.append(article);
       }
       for (const notice of page.notices) { const item = document.createElement('li'); item.textContent = notice; notices.append(item); }
     }
-    lineage.textContent = `Parent session ID: ${page?.overview.parentNativeId ?? 'Unknown'}. Only the recorded parent is shown; lineage navigation is not qualified.`;
+    lineage.replaceChildren();
+    const parent=document.createElement('p'); parent.textContent=`Parent session ID: ${page?.overview.parentNativeId ?? 'Unknown'}`; lineage.append(parent);
+    if(page){
+      const report=page.lineage;
+      const addBranch=(label:string,items:LineageNode[],state:LineageState)=>{
+        const heading=document.createElement('h2'); heading.textContent=`${label} · ${lineageStates[state]}`;
+        const list=document.createElement('ul');
+        for(const node of items){
+          const item=document.createElement('li'); const button=document.createElement('button'); button.type='button'; button.textContent=node.nativeId;
+          button.disabled=busy||!node.canSelect; button.title=lineageStates[node.state];
+          button.onclick=()=>{if(!busy&&current&&page?.lineage===report)show({...current.root},node.nativeId);};
+          const note=document.createElement('span'); note.textContent=` · ${lineageStates[node.state]}`; item.append(button,note); list.append(item);
+        }
+        lineage.append(heading,list);
+      };
+      addBranch('Ancestors',report.ancestors,report.ancestorState); addBranch('Direct children',report.children,report.childrenState);
+      const count=document.createElement('p'); count.className='hint'; count.textContent=`Direct children recorded: ${report.totalDirectChildren??'Unknown'}. Links open read-only detail in this archive.`; lineage.append(count);
+    }
     position.textContent = page ? `${page.totalEvents ? (cursor?.offset ?? 0) + 1 : 0}–${(cursor?.offset ?? 0) + page.events.length} of ${page.totalEvents} events${!history.length && (cursor?.offset ?? 0) > 0 ? ' · Reload for first page' : ''}` : 'No detail loaded';
   }
   async function load(requested: DetailCursor | null, direction: 'reload' | 'next' | 'previous') {
@@ -141,14 +195,18 @@ export function createSessionDetail(options: Options) {
     } finally { busy = false; if (!destroyed && at !== generation && dialog.open) message = 'The previous read finished. Reload the selected session explicitly.'; render(); }
   }
   function close() { generation++; current = null; page = null; cursor = null; history = []; render(); if (dialog.open) dialog.close(); }
-  function show(root: SessionRootSelector, id: string) {
-    if (destroyed || !rootValue(root) || !nativeId(id)) { if (!destroyed) options.reportError('This session selector cannot be read safely.'); return false; }
-    const other = [...document.querySelectorAll<HTMLDialogElement>('dialog[open]')].at(-1);
+  function show(root: SessionRootSelector, id: string, jump: DetailCursor | null = null) {
+    if (destroyed || !rootValue(root) || !nativeId(id) || (jump && (!integer(jump.offset) || !digest(jump.fingerprint)))) { if (!destroyed) options.reportError('This session selector cannot be read safely.'); return false; }
+    const other = topModal();
     if (!dialog.open && other && other.id !== 'session-library-dialog') return false;
     generation++; current = { root: { storeRootId: root.storeRootId, configurationRevision: root.configurationRevision }, nativeId: id };
     page = null; cursor = null; history = []; failed = false; activeTab = 'transcript'; message = busy ? 'The previous read is still returning; no replacement was started.' : 'Reading the selected session…';
-    render(); if (!dialog.open) openModal(dialog); closeButton.focus(); if (!busy) void load(null, 'reload'); return true;
+    render(); if (!dialog.open) openModal(dialog); closeButton.focus(); if (!busy) void load(jump, 'reload'); return true;
   }
+  find.onclick = () => {
+    if (!busy && page) options.openFind?.({ root: { ...page.root }, nativeId: page.nativeId,
+      cursor: { offset: 0, fingerprint: page.fingerprint }, limit: 50 });
+  };
   reload.onclick = () => { void load(null, 'reload'); }; previous.onclick = () => { if (history.length) void load(history.at(-1) ?? null, 'previous'); };
   next.onclick = () => { if (page?.next) void load(page.next, 'next'); }; closeButton.onclick = close;
   dialog.addEventListener('close', () => { if (!dialog.open) { generation++; current = null; page = null; cursor = null; history = []; render(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); } });
