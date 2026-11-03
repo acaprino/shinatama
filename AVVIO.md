@@ -1,11 +1,11 @@
 # Avviare Shinatama
 
 1. Fai doppio clic su `Shinatama.cmd` nella cartella del progetto.
-2. Premi **New session**, scegli la cartella del progetto e l'harness.
+2. Premi **New session** e scegli l'harness. Il progetto selezionato è già impostato; puoi cambiarlo.
 3. Premi **Open**. Se Claude richiede l'accesso, completalo nel suo terminale.
 
 Preparazione e servizio locale partono automaticamente con **Open**. Non serve
-eseguire un controllo separato. La scelta attuale comprende Claude Code e PowerShell.
+eseguire un controllo separato. Sono disponibili Claude Code, Codex, OpenCode e PowerShell.
 
 **Split** divide i pannelli; **Find** cerca nel
 testo del terminale. La scelta del tema e il layout vengono salvati automaticamente.
@@ -23,7 +23,8 @@ stesso dialogo con il progetto selezionato. **Reload threads** rilegge quelli sa
 ridimensiona il pannello; la freccia lo comprime. Dimensioni e stato sono salvati.
 Il workspace può mostrare viste di progetti diversi: cambiare il progetto nel
 pannello Threads non cambia la disposizione. Chiudere una vista conserva il thread.
-La riapertura nativa di una sessione terminata e le finestre flottanti restano da implementare.
+La ripresa delle conversazioni Claude è collegata al comando **Resume**, quando disponibile,
+ma la prova completa con una conversazione reale resta aperta. Le finestre flottanti restano da implementare.
 
 Per consultare un archivio esistente, apri **Sessions** e **Add a read-only archive**.
 Scegli Claude Code, Codex o Pi e indica la cartella archivio dell'agente; premi
