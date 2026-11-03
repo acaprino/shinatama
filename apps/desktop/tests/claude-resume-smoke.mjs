@@ -31,6 +31,63 @@ const fail = code => { throw proofError(code); };
 const require = (condition, code) => { if (!condition) fail(code); };
 const pathKey = path => path.replace(/^\\\\\?\\/, '').replaceAll('/', '\\').replace(/\\+$/, '').toLowerCase();
 const inside = (child, parent) => pathKey(child).startsWith(`${pathKey(parent)}\\`);
+// Fixed error families only: no native output, paths, URLs, keys or request
+// payloads leave this function. The screen itself is already bounded to 32 KiB.
+function nativeErrorFamilies(text) {
+  return Object.entries({
+    anthropicStartupConnection: /(?:unable|failed) to connect to Anthropic (?:services|API)/i,
+    unsupportedLocation: /(?:not available|not supported|unsupported).{0,80}(?:country|region)|(?:country|region).{0,80}(?:not available|not supported|unsupported)/i,
+    connectionFailure: /(?:unable|failed) to connect|fetch failed|network error|connection (?:refused|reset|closed)/i,
+    proxyRefusal: /proxy.{0,80}(?:403|forbidden|refused|failed)|(?:CONNECT|tunnel).{0,80}(?:403|forbidden|refused|failed)/i,
+    tlsCertificate: /certificate|CERT_|TLS handshake|SSL error/i,
+    timeout: /timed?\s*out|timeout|deadline/i,
+    authentication: /invalid (?:API |authentication )?key|authentication (?:failed|error)|unauthorized|API Error:\s*401/i,
+    forbidden: /forbidden|API Error:\s*403/i,
+    apiResponse: /API Error|invalid (?:API )?response|unexpected (?:status|response)/i,
+    processSpawn: /spawn|CreateProcess|failed to start|failed to launch/i,
+    gitBash: /git.bash|CLAUDE_CODE_GIT_BASH_PATH|bash\.exe/i,
+    permission: /permission denied|access denied|not permitted|EACCES|EPERM/i,
+    missingFile: /no such file|file not found|ENOENT/i,
+    memory: /out of memory|heap.{0,80}(?:exhausted|limit)|allocation (?:failed|failure)|ENOMEM/i,
+    malformedConfiguration: /invalid (?:config|settings)|(?:config|settings).{0,80}(?:parse|malformed)|JSON.{0,80}(?:parse|syntax)|SyntaxError/i,
+    runtimeFailure: /panic|segmentation fault|assertion (?:failed|failure)|unhandled (?:exception|rejection)|TypeError|ReferenceError/i,
+    shellFailure: /shell.{0,80}(?:failed|error)|command not found|not recognized as/i,
+    invalidArgument: /unknown option|invalid argument|unrecognized option|invalid value/i,
+  }).filter(([, pattern]) => pattern.test(text)).map(([family]) => family);
+}
+function serviceErrorFamilies(text) {
+  if (typeof text !== 'string' || text.length > 2048) return ['unavailable'];
+  return Object.entries({
+    privateStorage: /private.{0,80}(?:config|storage|directory)|owner lock.{0,80}verification/i,
+    resourceAdmission: /resource|process slot|admission|memory/i,
+    packageIdentity: /fingerprint|pinned package|runtime inventory|runtime is missing/i,
+    anotherOwner: /another Shinatama|already retained|owner is busy/i,
+    localAddress: /local proxy address|local proxy port/i,
+    preparation: /preparation failed|launch environment/i,
+    startup: /confirm startup|could not start|exited twice/i,
+    cleanup: /cleanup|saved files were preserved/i,
+    qualification: /qualification|version probe|canary|fixed time budget/i,
+  }).filter(([, pattern]) => pattern.test(text)).map(([family]) => family);
+}
+// Product-owned static messages only. Never persist an arbitrary native error.
+const knownServiceErrors = new Set([
+  'Private proxy configuration could not be verified; existing files were preserved.',
+  'No local proxy address is available.', 'The local proxy address is unavailable.', 'The local proxy address is invalid.',
+  'The proxy owner lock is unavailable.', 'The proxy owner lock could not be created.',
+  'The proxy owner lock failed private-storage verification.', 'Another Shinatama window owns this proxy. Its process was preserved.',
+  'The proxy package is missing or its fingerprint differs. Prepare the pinned package before opening an agent.',
+  'The bundled runtime inventory is invalid.', 'The runtime inventory is incomplete.', 'The runtime fingerprint is unavailable.',
+  'The bundled runtime is missing or its fingerprint differs.', 'The private proxy launch environment could not be verified.',
+  'Proxy resource admission is unavailable.', 'Resources are not yet ready for the local service. Wait and retry Start; no process was created.',
+  'Proxy preparation was cancelled; saved files were preserved.', 'A proxy owner is already retained or could not start; no duplicate was created.',
+  'A proxy owner is already retained.', 'The proxy owner is unavailable.', 'Proxy start could not be delivered.',
+  'Proxy preparation failed. Saved data was preserved.',
+  'Resources or a free process slot are unavailable. Wait or close unused terminals, then retry Start. Existing sessions keep their limits.',
+  'The local service could not confirm startup. Existing files were preserved; retry explicitly.',
+  'The local service exited twice. Automatic recovery has stopped; saved sessions were preserved.',
+  'Cleanup is not confirmed. Its reservation remains held; retry cleanup before another start.',
+  'The local service exceeded its own resource budget and was stopped. Saved sessions were preserved.',
+]);
 let aborted = false; const began = Date.now();
 function checkDeadline() { if (aborted || Date.now() - began > 180000) fail('overall-proof-deadline'); }
 async function poll(check, milliseconds, code) {
@@ -381,6 +438,7 @@ async function ready(id, operation) {
   evidence.onboardingShapes ??= {};
   await poll(async () => {
     const text = await screen(id);
+    require(await pane(id).locator('.exit-banner').count() === 0, 'native-process-exited-before-readiness');
     const shape = {
       customKey: /Detected a custom API key in your environment/.test(text) && /Do you want to use this API key\?/.test(text),
       loginChoices: /Select login method:/.test(text),
@@ -555,10 +613,28 @@ try {
   evidence.provider = { ...requests, priorAssistantInResumeContext: previousContextObserved };
   evidence.guard = { ...guardCounts, scope: 'proxy-forwarding-only', osFirewallQualified: false };
   if (owned && page && !page.isClosed()) {
+    try {
+      const resources = await within(ipc('resources_status'), 3000, 'diagnostic-resource-deadline');
+      const numbers = ['completed_cycles', 'cycle_age_ms', 'cycle_elapsed_us', 'sampling_elapsed_us',
+        'discovery_enumerated_processes', 'discovery_unavailable_candidates', 'discovery_rejected_ancestry',
+        'observed_processes', 'measured_processes', 'host_private_commit_bytes', 'owned_private_commit_bytes',
+        'system_remaining_commit_bytes', 'system_available_physical_bytes'];
+      evidence.hostResources = Object.fromEntries(numbers.map(key => [key,
+        Number.isSafeInteger(resources[key]) && resources[key] >= 0 ? resources[key] : null]));
+      evidence.hostResources.complete = resources.complete === true;
+      evidence.hostResources.discoveryComplete = resources.discovery_complete === true;
+      evidence.hostResources.discoveryDeadlineReached = resources.discovery_deadline_reached === true;
+    } catch { evidence.hostResources = { unavailable: true }; }
+    try {
+      const inline = page.locator('#new-session-error');
+      if (await inline.isVisible()) evidence.openErrorFamilies = serviceErrorFamilies(await inline.innerText());
+    } catch { evidence.openErrorFamilies = ['unavailable']; }
     if (activeTerminal) {
       try {
         const text = await within(screen(activeTerminal), 2000, 'classified-screen-deadline');
         evidence.terminalShape = {
+          errorFamilies: nativeErrorFamilies(text),
+          errorCodes: ['ECONNREFUSED', 'ECONNRESET', 'ENOTFOUND', 'ETIMEDOUT', 'EPIPE', 'EACCES', 'EPERM', 'ENOENT', 'ENOMEM', 'ERR_TLS_CERT_ALTNAME_INVALID', 'CERT_HAS_EXPIRED', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE'].filter(code => text.includes(code)),
           promptAVisible: text.includes(PROMPT_A), promptBVisible: text.includes(PROMPT_B),
           replyAVisible: text.includes(MARKER_A), replyBVisible: text.includes(MARKER_B),
           loginChoice: /Select login method:|Paste (?:the )?(?:authentication|authorization) code/i.test(text),
@@ -578,7 +654,9 @@ try {
     }
     try {
       const service = await within(ipc('sidecar_status'), 3000, 'diagnostic-deadline');
-      evidence.service = { phase: service.phase, healthy: service.healthy };
+      evidence.service = { phase: service.phase, healthy: service.healthy, errorFamilies: serviceErrorFamilies(service.message),
+        staticMessage: knownServiceErrors.has(service.message) ? service.message : null,
+        reason: typeof service.observation?.reason === 'string' && /^[a-z_]{1,48}$/.test(service.observation.reason) ? service.observation.reason : null };
     } catch { evidence.service = { unavailable: true }; }
   }
   await save(); process.exitCode = 1; console.error(`FAIL: ${evidence.failure}`);

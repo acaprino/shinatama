@@ -77,7 +77,7 @@ questo percorso copre il modello Anthropic osservato e i tunnel ausiliari; un
 rifiuto non provoca fallback diretto. Il provider sintetico rifiuta anche
 connessioni locali che non provengono dalla guardia.
 
-## Ultima esecuzione protetta: esito incompleto
+## Esecuzione protetta precedente: uscita nativa incompleta
 
 La prova ha rifiutato cinque CONNECT (uno è il controllo negativo iniziale) e
 una richiesta assoluta negativa; nessuna connessione è stata inoltrata e nessun
@@ -89,8 +89,8 @@ attivi su sette avviati, zero rifiuti delle code; limiti invariati a 1 GiB/job,
 768 MiB/processo e otto processi. Questi contatori non spiegano da soli l'errore
 interno del CLI e non certificano tutta la sua stabilità.
 
-Ricevuta corrente: `.prototype-evidence/claude-resume-ui.json`, `status=failed`,
-fase `first-onboarding`. Non promuovere C25.2/C25.3 o F02 sulla base della sola
+La ricevuta di questa esecuzione riportava `status=failed`, fase
+`first-onboarding`. Non promuovere C25.2/C25.3 o F02 sulla base della sola
 esecuzione positiva parziale precedente. Alla ripresa, acquisire la categoria
 di errore nativo nella fixture protetta prima della chiusura; non ripetere
 aperture prive della guardia e non aumentare limiti senza una causa osservata.
@@ -101,3 +101,39 @@ al completamento del piano. Le prove native headless di hook/Resume e TLS già
 superate restano documentate separatamente in
 [claude-native-resume](2026-11-03-claude-native-resume.md) e
 [claude-proxy-tls](2026-11-03-claude-proxy-tls.md).
+
+## Ripresa del 3 novembre: avvio rinviato per risorse
+
+Due nuove esecuzioni protette si sono fermate prima di avviare il sidecar o
+Claude. La seconda conserva la causa esatta, verificata contro una whitelist di
+messaggi statici del prodotto:
+
+> Resources are not yet ready for the local service. Wait and retry Start; no process was created.
+
+Il messaggio viene da `Runtime::wait_for_admission()` nel percorso di preparazione
+del sidecar. La ricevuta corrente `.prototype-evidence/claude-resume-ui.json`
+riporta `status=failed`, fase `new-session`, `open-session-inline-refusal`,
+`service.phase=failed` e categoria `resourceAdmission`. Entrambi i run hanno zero
+richieste al provider e zero connessioni inoltrate dalla guardia; i soli rifiuti
+sono i due controlli negativi iniziali. App della prova e guardia sono chiuse.
+
+Un campione Windows **successivo**, distinto dalla ricevuta del test, rileva
+32.983.768 KiB di memoria fisica totale e 10.335.804 KiB disponibili; capacità
+commit di 38.569.004 KiB e 3.024.516 KiB disponibili, circa 2,88 GiB. La pressione
+commit del campione è circa 92,2%, sopra la soglia d'ingresso del 90% del
+governatore. È compatibile con il rinvio osservato, ma non sostituisce lo stato
+del governatore durante il run e non identifica la causa dell'uscita Claude
+precedente. Nessun limite è stato aumentato e nessuna applicazione personale è
+stata arrestata.
+
+La fixture ora raccoglie famiglie d'errore native, codici di rete enumerati,
+messaggi statici del prodotto in whitelist e contatori numerici limitati di
+`resources_status` prima della chiusura. Non salva testo del terminale, percorsi,
+credenziali o corpi delle richieste. Un `exit-banner` prima della disponibilità
+del prompt interrompe subito l'attesa. Il controllo sintattico Node passa;
+la nuova cattura dei contatori host non è stata ancora esercitata in un run.
+
+La prossima prova richiede risorse sufficienti e deve mantenere la guardia:
+acquisire la famiglia dell'errore Claude se ricompare, oppure completare
+New session → Stop → Resume nello stesso thread. Il rinvio corrente non dimostra
+che l'uscita nativa precedente sia risolta.
