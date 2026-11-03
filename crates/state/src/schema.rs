@@ -2,9 +2,10 @@
 
 use rusqlite::Connection;
 
-pub const CURRENT_VERSION: u32 = 3;
+pub const CURRENT_VERSION: u32 = 4;
 
-const MAX_SCHEMA_OBJECTS: usize = 5 + crate::records::schema::OBJECTS.len();
+const MAX_SCHEMA_OBJECTS: usize =
+    5 + crate::records::schema::OBJECTS.len() + crate::threads::schema::OBJECTS.len();
 
 /// Call after BEGIN IMMEDIATE: another window may have upgraded since open().
 /// The write reservation prevents a newer migration racing this check/commit.
@@ -87,11 +88,14 @@ fn validate_definitions(actual: Vec<(String, String)>, version: u32) -> rusqlite
             crate::migrations::SETTING_JSON_UPDATE_TRIGGER,
         ));
     }
-    if version == 3 {
+    if version >= 3 {
         expected.extend_from_slice(crate::records::schema::OBJECTS);
     }
+    if version >= 4 {
+        expected.extend_from_slice(crate::threads::schema::OBJECTS);
+    }
     expected.sort_by_key(|(name, _)| *name);
-    if !matches!(version, 1..=3)
+    if !matches!(version, 1..=4)
         || actual.len() != expected.len()
         || !actual
             .iter()

@@ -537,6 +537,30 @@ impl Controller {
         self.runtime
             .configure(host)
             .map_err(|_| "Contained native terminal admission is unavailable.")?;
+        let project_record = state
+            .store
+            .select(project)
+            .map_err(|_| "The selected project could not be saved. No agent was started.")?;
+        let saved_at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .ok()
+            .and_then(|time| i64::try_from(time.as_millis()).ok())
+            .ok_or("The thread timestamp is unavailable. No agent was started.")?;
+        state
+            .store
+            .create_thread(&shinatama_state::threads::ThreadRecord {
+                id: thread_id.clone(),
+                project_id: project_record.id,
+                kind: shinatama_state::records::ThreadKind::Work,
+                parent_thread_id: None,
+                companion_worker_thread_id: None,
+                title: None,
+                archived: false,
+                revision: 1,
+                created_at: saved_at,
+                updated_at: saved_at,
+            })
+            .map_err(|_| "The work thread could not be saved. No agent was started.")?;
         let session = host.start_prepared(prepared.launch, prepared.permit, rows, cols)
             .map_err(|error| {
                 if let Ok(mut failure) = self.last_start_failure.lock() { *failure = Some(error.to_string().chars().filter(|c| !c.is_control()).take(240).collect()); }

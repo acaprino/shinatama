@@ -1,4 +1,4 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(windows, windows_subsystem = "windows")]
 #[cfg(windows)]
 mod agents;
 mod launch;
@@ -13,6 +13,7 @@ mod sessions;
 #[cfg(windows)]
 mod sidecar;
 mod storage;
+mod threads;
 #[cfg(windows)]
 mod terminal_runtime;
 #[cfg(feature = "tl1-proof")]
@@ -440,6 +441,7 @@ fn main() {
             app.manage(Arc::new(projects::ProjectCatalog::new(services.clone())));
             app.manage(Arc::new(workspace::Controller::new(services.clone())));
             app.manage(Arc::new(presentation::Controller::new(services.clone())));
+            app.manage(Arc::new(threads::Controller::new(services.clone())));
             #[cfg(windows)]
             {
                 let (monitor, governor) = app.state::<resources::Resources>().admission_inputs();
@@ -473,6 +475,10 @@ fn main() {
         workspace::workspace_allow_close,
         presentation::presentation_load,
         presentation::presentation_save,
+        threads::thread_list,
+        threads::thread_create,
+        threads::thread_sidebar_load,
+        threads::thread_sidebar_save,
         sidecar_status,
         sidecar_start,
         sidecar_stop,
@@ -523,6 +529,10 @@ fn main() {
         workspace::workspace_allow_close,
         presentation::presentation_load,
         presentation::presentation_save,
+        threads::thread_list,
+        threads::thread_create,
+        threads::thread_sidebar_load,
+        threads::thread_sidebar_save,
         sidecar_status,
         sidecar_start,
         sidecar_stop,

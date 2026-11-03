@@ -23,10 +23,14 @@ been performed here. **SC16 remains open.**
 
 `pwsh -NoProfile -File sidecar/prepare-runtime.ps1 -Mode Prepare` copies the pinned
 local Node executable into ignored `sidecar/runtime` after SHA-256, PE-machine and
-file-version checks. Node is not invoked. Its current local installation has no
-complete Node license notice; the receipt therefore sets `distributionReady` to
-false. The ABI and builtin SQLite remain unqualified. This is an internal
-development copy, not a release-ready runtime distribution.
+file-version checks. Node is not invoked. It also verifies and copies the complete
+official Node 24.14.1 `LICENSE` beside the executable; archive, executable, checksum
+and license fingerprints are bound in `sidecar/runtime.lock.json` and
+`sidecar/licenses/node-v24.14.1/provenance.json`. The receipt sets
+`licenseBundleComplete=true` and `distributionReady=true` only for the complete
+publisher-provided Node license bundle. This is not legal release approval or
+runtime qualification; the ABI/SQLite execution proofs are separate. See
+[the license provenance](../licenses/README.md).
 
 Shinatama incorporates [billion-context](https://github.com/ranxianglei/billion-context)
 and [acp-kernel](https://github.com/ranxianglei/acp-kernel) by ranxianglei.

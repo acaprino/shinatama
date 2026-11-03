@@ -55,6 +55,11 @@ const MIGRATIONS: &[Migration] = &[
         to: 3,
         sql: crate::records::schema::MIGRATION_V3,
     },
+    Migration {
+        from: 3,
+        to: 4,
+        sql: crate::threads::schema::MIGRATION_V4,
+    },
 ];
 
 /// The caller holds the private crash-released schema.lock across this operation.
@@ -478,7 +483,7 @@ mod fault_tests {
         ensure_integrity(&backup).unwrap();
         drop(backup);
         initialize(&mut connection, &location).unwrap();
-        schema::validate_version(&connection, 3).unwrap();
+        schema::validate_version(&connection, schema::CURRENT_VERSION).unwrap();
         ensure_integrity(&connection).unwrap();
         assert!(backups[0].is_file());
         drop(connection);

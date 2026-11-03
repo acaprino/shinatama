@@ -2,7 +2,7 @@
   "schema_version": 1,
   "updated_at": "2026-11-03",
   "base_head": "46435ab",
-  "git_state": "Working archive checkpoint d84ac08152f71a750d6c73df23723eb86483a3e0 is saved. C23 bounded read-only detail now passes its real native UI flow and is ready for a separate checkpoint. C25 thread metadata/sidebar sources remain isolated and unqualified; the full product is not complete.",
+  "git_state": "C23 conversation detail checkpoint b41390a54a79df8a4ef0e347061050344a2e9e3d is saved. Working C25.1 schema4 durable drafts/sidebar passes state/migration/native DB-only UI checks. Actual-Claude integration is deferred by resource policy, not bypassed. Node publisher license bundle is pinned and verified; portable local packaging is being prepared. Full product completion remains open.",
   "steps": {
     "B00": {
       "status": "committed",
@@ -1025,7 +1025,7 @@
       "limits": [
         "Actual pinned Node/CLI, schema9/six indexes, canonical source incremental storage and local child-only TLS pass. Full SC16 and per-agent provider traffic remain open.",
         "Selected canonical-source tiers/adaptive/rewrite/output/effort-off controls pass; running-CLI effective controls and targetRatio/growthWindow consumption remain open.",
-        "Node license notice absent from local install; public distribution readiness remains false."
+        "Complete publisher Node license bundle is now pinned and verified against the exact official Windows package; product release/legal X3 and remaining runtime/provider gates stay open."
       ],
       "next_action": "Resolve the remaining canonical-source/CLI effective-control gap; independent archive reading proceeds through C09R without waiting for provider qualification."
     },
@@ -1334,8 +1334,8 @@
       "commit_sha": null,
       "units": {
         "C23.1": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "b41390a54a79df8a4ef0e347061050344a2e9e3d",
           "evidence": [
             "docs/notes/2026-11-03-session-detail.md"
           ],
@@ -1373,6 +1373,36 @@
         "Only synthetic Claude detail is observed; full lineage, raw/privacy actions and all-harness parent acceptance remain open."
       ],
       "next_action": "Checkpoint contained detail; connect durable thread metadata and sidebar without exposing resume before qualification."
+    },
+    "C25": {
+      "status": "pending",
+      "commit_sha": null,
+      "units": {
+        "C25.1": {
+          "status": "verified",
+          "commit_sha": null,
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-03-thread-storage.md"
+          ],
+          "checks": [
+            "cargo test --offline --locked -p shinatama-state -j1 --lib threads::tests -- --test-threads=1",
+            "cargo test --offline --locked -p shinatama-state -j1 --lib migrations::fault_tests::fs03_ddl_failure_rolls_back_to_v2_and_retry_keeps_the_verified_backup -- --test-threads=1",
+            "npm run build",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/threads-smoke.mjs"
+          ],
+          "limits": [
+            "Manual thread persistence/sidebar pass; activation exclusivity is metadata tested with two SQLite connections, not a qualified native resume path.",
+            "Separate actual-Claude integration attempt was deferred by unchanged global resource pressure before any native start; its new persistence hook remains unqualified in a real start."
+          ]
+        }
+      },
+      "next_action": "Checkpoint durable drafts/sidebar; integrate exact native-session discovery and resume after search/dependencies, then qualify the native-start persistence hook when resource admission is healthy.",
+      "limits": [
+        "No automatic resume, native ID fabrication, TTL ownership stealing or native activity claims. Parent C25 remains open."
+      ]
     }
   },
   "blockers": [],

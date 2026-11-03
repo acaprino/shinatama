@@ -111,7 +111,8 @@ kbd { font: 12px var(--mono); color: var(--muted); letter-spacing: 0; text-trans
 .spring { flex: 1; }
 
 /* Panes */
-#workspace { display: flex; min-height: 0; min-width: 0; padding: 8px; gap: 0; overflow: auto; background: var(--stage); }
+#work-area { display: flex; min-height: 0; min-width: 0; overflow: hidden; }
+#workspace { display: flex; flex: 1; min-height: 0; min-width: 0; padding: 8px; gap: 0; overflow: auto; background: var(--stage); }
 #workspace.rows { flex-direction: column; }
 .pane { display: flex; flex: 1; flex-direction: column; min-width: 200px; min-height: 150px; overflow: hidden; border: 1px solid var(--line); border-top-width: 2px; background: var(--terminal); }
 .pane.focused { border-color: var(--line-strong); border-top-color: var(--accent); }

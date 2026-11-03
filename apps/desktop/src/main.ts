@@ -20,6 +20,7 @@ import { createSidecarControl } from './sidecar-control.ts';
 import { createAgentSetup } from './agent-setup.ts';
 import { createSessionLibrary } from './session-library.ts';
 import { createSessionDetail } from './session-detail.ts';
+import { createThreadSidebar, type ThreadSidebarState } from './thread-sidebar.ts';
 import './styles.css';
 
 type SessionInfo = { id: string; cwd: string; shell: string };
@@ -41,6 +42,8 @@ let preferredAxis: 'columns' | 'rows' = 'columns';
 const bindings = new Map<string, HTMLElement>();
 const terminalMetrics = new Map<string, TerminalResourceStatus>();
 let projectPath = '';
+let threadSidebar: ReturnType<typeof createThreadSidebar> | null = null;
+let sidebarRevision = 0;
 let starting = false;
 /** An Open terminal waiting for a project choice; a dismissed picker forgets it. */
 let pendingStart: { group: string; projectChosen: boolean } | null = null;
@@ -58,6 +61,7 @@ $('#notice button').onclick = () => { $('#notice').hidden = true; };
 createSidecarControl(desktop, notify);
 function modalOpen() { return !!document.querySelector('dialog[open]'); }
 function setProject(path: string) {
+  if (path.trim() !== projectPath) threadSidebar?.setProject(null);
   projectPath = path.trim();
   $('#project-name').textContent = projectPath.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || 'Choose project';
   $('#project').title = projectPath || 'Choose project folder';
@@ -178,6 +182,7 @@ async function connectWorkspace() {
     const key = (path: string) => path.replace(/^\\\\\?\\/, '').replace(/[\\/]+$/, '').toLowerCase();
     const project = recent.find(project => key(project.path) === key(projectPath));
     if (!project) return;
+    threadSidebar?.setProject({projectId:project.id,label:projectPath.replace(/[\\/]+$/, '').split(/[\\/]/).pop()});
     const controller = createWorkspacePersistence({ scope: { projectId: project.id, workspaceId: 'main' }, initialLayout: workspaceLayout,
       transport: createTauriWorkspaceTransport((command, args) => invoke(command, args)),
       onStatus(status) {
@@ -323,11 +328,27 @@ createAgentSetup({
     if (!projectPath || !projectPicker.canStart()) throw new Error('Choose a project first.');
     const started = await invoke<{ session: SessionInfo; threadId: string }>('agent_start', { agentId, cwd: projectPath, rows: 24, cols: 80 });
     attachTerminal(started.session, focusedGroup(), started.threadId);
+    void threadSidebar?.refresh();
   },
   login: () => Promise.reject(new Error('Sign-in is not available until this build is qualified.')),
   reportError: notify,
   restoreFocus: () => setFocus(focusedGroup()),
 });
+threadSidebar = createThreadSidebar({
+  host: $('#work-area'),
+  list: request => desktop ? invoke('thread_list', {request}) : Promise.resolve({rows:[],next:null}),
+  create: desktop ? request => invoke('thread_create', {request}) : undefined,
+  loadState: desktop ? async () => {
+    const snapshot = await invoke<{revision:number;settings:ThreadSidebarState}>('thread_sidebar_load');
+    sidebarRevision = snapshot.revision; return snapshot.settings;
+  } : undefined,
+  saveState: desktop ? async settings => {
+    const snapshot = await invoke<{revision:number;settings:ThreadSidebarState}>('thread_sidebar_save', {request:{expectedRevision:sidebarRevision,settings}});
+    sidebarRevision = snapshot.revision;
+  } : undefined,
+  reportError: notify,
+});
+$('#work-area').prepend(threadSidebar.element);
 const sessionDetail = createSessionDetail({
   read: request => desktop ? invoke('session_detail', { request }) : Promise.reject({ issue: 'read_unavailable' }),
   reportError: notify,

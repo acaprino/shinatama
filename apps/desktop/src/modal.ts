@@ -1,7 +1,7 @@
 // A native showModal() makes the custom titlebar inert and covers it, which leaves a
 // borderless window with no way to move, minimize or close. Only the content below the
 // titlebar becomes inert here; containment and Escape are provided explicitly instead.
-const INERT_WHILE_OPEN = '.toolbar,#workspace,.statusbar';
+const INERT_WHILE_OPEN = '.toolbar,#work-area,#workspace,.statusbar';
 const FOCUSABLE = 'a[href],button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex]:not([tabindex="-1"])';
 
 type Entry = { dialog: HTMLDialogElement; restore: HTMLElement | null };

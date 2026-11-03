@@ -10,6 +10,11 @@
 testo del terminale. La scelta del tema e il layout vengono salvati automaticamente.
 Chiudendo la finestra con terminali aperti puoi annullare oppure confermare l'arresto.
 
+Nel pannello **Threads**, **New thread** salva un nuovo thread nel progetto senza
+avviare un agente. **Reload threads** rilegge quelli salvati. Il bordo destro
+ridimensiona il pannello; la freccia lo comprime. Dimensioni e stato sono salvati.
+La ripresa nativa dai thread resta da implementare.
+
 Per consultare un archivio esistente, apri **Sessions** e **Add a read-only archive**.
 Scegli Claude Code, Codex o Pi e indica la cartella archivio dell'agente; premi
 **Add archive**, poi **Reload sessions**. Le pagine contengono fino a 50 sessioni;

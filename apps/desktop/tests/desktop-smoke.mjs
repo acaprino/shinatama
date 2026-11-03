@@ -259,12 +259,42 @@ try {
   const agentLayout = JSON.parse((await saved()).layoutJson);
   expect(agentLayout.views.find(view => view.id === native)?.resource.instanceId).toBe(native);
   expect(agentLayout.views.find(view => view.id === native)?.resource.threadId).toMatch(/^t_[a-z2-7]{12}$/);
+  const threadId = agentLayout.views.find(view => view.id === native).resource.threadId;
+  const sidebar = page.locator('.thread-sidebar');
+  await expect(sidebar.locator(`button[data-thread-id="${threadId}"]`)).toBeVisible({timeout:10000});
+  const nativeBeforeSelection = await ids();
+  await sidebar.locator(`button[data-thread-id="${threadId}"]`).click();
+  await expect(sidebar.locator('.thread-sidebar-detail')).toContainText('No native session linked');
+  expect(await ids()).toEqual(nativeBeforeSelection);
+  const durableThreads = await ipc('thread_list', {request:{projectId:project.id,cursor:null,limit:50}});
+  expect(durableThreads.rows.map(row => row.id)).toContain(threadId);
+  expect(durableThreads.rows.find(row => row.id === threadId).nativeAvailable).toBe(null);
   await ipc('terminal_stop', { id: native });
   await expect(pane(native).locator('.exit-banner')).toBeVisible({ timeout: 15000 });
   await expect(page.locator('#notice[data-tone="error"]')).toBeHidden();
   await expect(pane(native).getByRole('button', { name: 'Check agent again', exact: true })).toBeVisible();
   await pane(native).getByRole('button', { name: 'Close terminal', exact: true }).click();
   await expect.poll(ids).toHaveLength(healthyCount);
+  if (agentOnly) {
+    const separator = sidebar.getByRole('separator', {name:'Thread sidebar width'});
+    await separator.focus(); await separator.press('ArrowRight');
+    await expect(separator).toHaveAttribute('aria-valuenow','280');
+    await sidebar.getByRole('button',{name:'Collapse threads',exact:true}).click();
+    await expect.poll(async()=> (await ipc('thread_sidebar_load')).settings,{timeout:10000})
+      .toEqual({version:1,width:280,collapsed:true});
+    await page.reload();
+    await expect(page.locator('#runtime-status')).toContainText('Local runtime');
+    await expect(sidebar).toHaveClass(/is-collapsed/);
+    await sidebar.getByRole('button',{name:'Expand threads',exact:true}).click();
+    await expect(sidebar.getByRole('separator',{name:'Thread sidebar width'})).toHaveAttribute('aria-valuenow','280');
+    await expect(sidebar.locator('#thread-sidebar-project')).toHaveValue(project.id,{timeout:10000});
+    await sidebar.getByRole('button',{name:'Reload threads',exact:true}).click();
+    await expect(sidebar.locator(`button[data-thread-id="${threadId}"]`)).toBeVisible();
+    expect(await ids()).toEqual([]);
+    await expect.poll(async()=> (await ipc('thread_sidebar_load')).settings.collapsed).toBe(false);
+    await page.screenshot({path:resolve(output,'c25-thread-sidebar.png'),timeout:3000});
+    console.log('PASS: durable real-start thread, read-only selection, sidebar width/collapse saved and restored; no auto-resume.');
+  }
 
   if (healthyCount > 0) {
     await page.getByRole('button', { name: 'Close window', exact: true }).click();

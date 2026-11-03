@@ -436,7 +436,7 @@ def markdown(entries: list[dict], assets: list[dict]) -> str:
         'This inventory is not release legal approval and does not close X3. MPL-2.0 entries require release review of obligations and source availability.',
         'Runtime and build-tool reachability are conservative package-level classifications, not a binary link map. Proc macros are classified as build tools.',
         'Full packaged LICENSE/COPYRIGHT/NOTICE texts and reviewed supplements are generated in `.verification/THIRD_PARTY_LICENSES.txt`; distribute that file with prototype artifacts.',
-        'System WebView2 and system fonts are external dependencies, not bundled assets. npm, Python and the Rust toolchain are build/test tools. The separately pinned sidecar source/runtime preparation is outside this Cargo/npm inventory; its Node runtime is not distribution-ready until its required license bundle is provided.', '',
+        'System WebView2 and system fonts are external dependencies, not bundled assets. npm, Python and the Rust toolchain are build/test tools. The separately pinned sidecar source/runtime preparation is outside this Cargo/npm inventory. Its complete publisher Node license bundle is verified by sidecar/prepare-runtime.ps1; that check does not close X3 or certify a product release.', '',
         f'Target: `{TARGET}`. Indexed packages: {len(entries)}.', '',
         '| Ecosystem | Package | Version | Reachability | Declared license | Policy | License text files |',
         '| --- | --- | --- | --- | --- | --- | --- |']
