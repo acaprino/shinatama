@@ -68,6 +68,7 @@ pub enum ClaudeLaunchError {
     Configuration,
     Composition,
     Identity,
+    InvalidNativeSession,
     QualificationRequired,
     Permit,
 }
@@ -80,6 +81,64 @@ impl std::error::Error for ClaudeLaunchError {}
 impl From<NativeLaunchError> for ClaudeLaunchError {
     fn from(_: NativeLaunchError) -> Self {
         Self::Permit
+    }
+}
+
+/// Exact initial native conversation selection from trusted Rust. No picker,
+/// name, path, latest-session fallback or caller-supplied argv is accepted.
+/// This does not prove conversation presence, resume success or a later TUI
+/// session switch; SHINATAMA_INSTANCE remains the stable process identity.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ClaudeSessionOperation {
+    operation: Operation,
+    native_id: String,
+}
+impl ClaudeSessionOperation {
+    /// The caller generates and durably records this UUID before releasing the
+    /// child. This function never invents a replacement ID on failure.
+    pub fn start_new(uuid: &str) -> Result<Self, ClaudeLaunchError> {
+        Self::new(Operation::StartNew, uuid)
+    }
+    /// The caller resolves this exact ID from its authoritative segment, checks
+    /// the native source/cwd and acquires exclusive activation before release.
+    pub fn resume_native(native_id: &str) -> Result<Self, ClaudeLaunchError> {
+        Self::new(Operation::ResumeNative, native_id)
+    }
+    fn new(operation: Operation, value: &str) -> Result<Self, ClaudeLaunchError> {
+        if value.len() != 36 {
+            return Err(ClaudeLaunchError::InvalidNativeSession);
+        }
+        let uuid =
+            uuid::Uuid::parse_str(value).map_err(|_| ClaudeLaunchError::InvalidNativeSession)?;
+        // Preserve exact identity: reject alternate spellings rather than
+        // normalizing a stored ID into a potentially different source lookup.
+        if uuid.hyphenated().to_string() != value
+            || uuid.get_variant() != uuid::Variant::RFC4122
+            || uuid.get_version().is_none()
+        {
+            return Err(ClaudeLaunchError::InvalidNativeSession);
+        }
+        Ok(Self {
+            operation,
+            native_id: value.into(),
+        })
+    }
+    pub fn operation(&self) -> Operation {
+        self.operation
+    }
+    pub fn native_id(&self) -> &str {
+        &self.native_id
+    }
+    fn arguments(&self) -> [OsString; 2] {
+        [
+            match self.operation {
+                Operation::StartNew => "--session-id",
+                Operation::ResumeNative => "--resume",
+                _ => unreachable!("Claude session constructors only accept new or resume"),
+            }
+            .into(),
+            self.native_id.clone().into(),
+        ]
     }
 }
 
@@ -198,6 +257,7 @@ pub fn prepare_trial(
         },
         None,
         true,
+        None,
     )?;
     let (permit, tracker) = NativeTuiPermit::issue_trial(
         &prepared.launch,
@@ -214,6 +274,25 @@ pub fn prepare_trial(
 pub fn prepare_start(
     context: ClaudeStartContext<'_>,
     receipt: &NativeTrialReceipt,
+) -> Result<PreparedClaudeStart, ClaudeLaunchError> {
+    prepare_for_operation(context, receipt, None)
+}
+
+/// Compose an exact new/resume invocation with the existing qualified startup
+/// protections. The receipt covers TUI startup, not native transcript fidelity;
+/// this function does not acquire or release a durable thread activation.
+pub fn prepare_session(
+    context: ClaudeStartContext<'_>,
+    receipt: &NativeTrialReceipt,
+    session: &ClaudeSessionOperation,
+) -> Result<PreparedClaudeStart, ClaudeLaunchError> {
+    prepare_for_operation(context, receipt, Some(session))
+}
+
+fn prepare_for_operation(
+    context: ClaudeStartContext<'_>,
+    receipt: &NativeTrialReceipt,
+    session: Option<&ClaudeSessionOperation>,
 ) -> Result<PreparedClaudeStart, ClaudeLaunchError> {
     let prepared = prepare(
         Context {
@@ -233,6 +312,7 @@ pub fn prepare_start(
         },
         Some(receipt),
         false,
+        session,
     )?;
     let permit = NativeTuiPermit::issue_after_trial(
         &prepared.launch,
@@ -257,8 +337,10 @@ fn prepare(
     context: Context<'_>,
     receipt: Option<&NativeTrialReceipt>,
     trial: bool,
+    session: Option<&ClaudeSessionOperation>,
 ) -> Result<Prepared, ClaudeLaunchError> {
     let deadline = Instant::now() + PREPARE_BUDGET;
+    let operation = session.map_or(Operation::StartNew, ClaudeSessionOperation::operation);
     if context.candidate.agent.as_str() != "claude_code"
         || context.candidate.kind != ProgramKind::DirectExe
     {
@@ -349,7 +431,12 @@ fn prepare(
     }
     let resource_profile = profile()?;
     if let Some(receipt) = receipt {
-        if !receipt.matches(&context.candidate.agent, &pinned.identity, &version, &resource_profile) {
+        if !receipt.matches(
+            &context.candidate.agent,
+            &pinned.identity,
+            &version,
+            &resource_profile,
+        ) {
             return Err(ClaudeLaunchError::QualificationRequired);
         }
     } else if !trial {
@@ -533,7 +620,7 @@ fn prepare(
             .as_os_str()
             .to_owned(),
     );
-    let descriptor = descriptor(&version)?;
+    let descriptor = descriptor(&version, operation)?;
     let mode = Placement::new(ProgramPlacement::System, HomePlacement::Box)
         .map_err(|_| ClaudeLaunchError::Composition)?;
     let placement_recipe = QualifiedPlacementRecipe::qualify(
@@ -557,7 +644,7 @@ fn prepare(
         evidence(&descriptor)?,
     )
     .map_err(|_| ClaudeLaunchError::Composition)?;
-    let args = vec![
+    let mut args = vec![
         "--setting-sources".into(),
         "project,local".into(),
         "--settings".into(),
@@ -566,9 +653,12 @@ fn prepare(
         mcp_path.into_os_string(),
         "--strict-mcp-config".into(),
     ];
+    if let Some(session) = session {
+        args.extend(session.arguments());
+    }
     let arguments_recipe = QualifiedArgvRecipe::qualify(
         &descriptor,
-        Operation::StartNew,
+        operation,
         CommandForm::NativeExe(pinned.path),
         args,
         evidence(&descriptor)?,
@@ -584,7 +674,7 @@ fn prepare(
         &identity,
     )
     .with_private_paths(&private_paths);
-    let mut launch = compose_launch(&descriptor, Operation::StartNew, mode, &inputs)
+    let mut launch = compose_launch(&descriptor, operation, mode, &inputs)
         .map_err(|_| ClaudeLaunchError::Composition)?;
     let binding = if let Some(root) = &root {
         NativeLaunchBinding::for_qualified_launch(&launch, pinned.identity, root)?
@@ -632,7 +722,10 @@ fn verify_sidecar(sidecar: &SidecarSupervisor) -> Result<(), ClaudeLaunchError> 
     }
     Ok(())
 }
-fn descriptor(version: &Version) -> Result<AdapterDescriptor, ClaudeLaunchError> {
+fn descriptor(
+    version: &Version,
+    operation: Operation,
+) -> Result<AdapterDescriptor, ClaudeLaunchError> {
     let mut descriptor = AdapterDescriptor {
         agent: AgentId::new("claude_code").map_err(|_| ClaudeLaunchError::Composition)?,
         version: version.clone(),
@@ -643,11 +736,7 @@ fn descriptor(version: &Version) -> Result<AdapterDescriptor, ClaudeLaunchError>
     };
     // Private invocation schema for the qualification path. It is NOT registered
     // in Engine or returned as a publicly supported native capability.
-    for operation in [
-        Operation::StartNew,
-        Operation::Placement,
-        Operation::InheritedMarkers,
-    ] {
+    for operation in [operation, Operation::Placement, Operation::InheritedMarkers] {
         descriptor
             .capabilities
             .qualify(
@@ -885,6 +974,46 @@ fn pin_program(path: &Path, deadline: Instant) -> Result<ProgramPin, ClaudeLaunc
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn explicit_session_operations_preserve_exact_uuid_and_reject_ambiguous_targets() {
+        let native_id = "12cc3a11-45db-4f1e-89c8-40d5c6be1dd3";
+        let new = ClaudeSessionOperation::start_new(native_id).unwrap();
+        let resume = ClaudeSessionOperation::resume_native(native_id).unwrap();
+        assert_eq!(new.operation(), Operation::StartNew);
+        assert_eq!(resume.operation(), Operation::ResumeNative);
+        assert_eq!(new.native_id(), native_id);
+        assert_eq!(resume.native_id(), native_id);
+        assert_eq!(
+            new.arguments(),
+            [OsString::from("--session-id"), native_id.into()]
+        );
+        assert_eq!(
+            resume.arguments(),
+            [OsString::from("--resume"), native_id.into()]
+        );
+        for invalid in [
+            "",
+            "latest",
+            "--continue",
+            "session name",
+            "../session.jsonl",
+            "12cc3a1145db4f1e89c840d5c6be1dd3",
+            "12CC3A11-45DB-4F1E-89C8-40D5C6BE1DD3",
+            "{12cc3a11-45db-4f1e-89c8-40d5c6be1dd3}",
+            "00000000-0000-0000-0000-000000000000",
+            "12cc3a11-45db-4f1e-89c8-40d5c6be1dd3 --fork-session",
+        ] {
+            assert_eq!(
+                ClaudeSessionOperation::start_new(invalid),
+                Err(ClaudeLaunchError::InvalidNativeSession)
+            );
+            assert_eq!(
+                ClaudeSessionOperation::resume_native(invalid),
+                Err(ClaudeLaunchError::InvalidNativeSession)
+            );
+        }
+    }
+
     #[test]
     fn narrow_profile_is_fixed_and_failure_never_increases_it() {
         let first = profile().unwrap();

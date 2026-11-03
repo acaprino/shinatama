@@ -60,6 +60,17 @@ pub trait WindowsTerminalAdmission: Send + Sync {
 pub trait WindowsNativeAdmission: Send + Sync {
     fn for_launch(&self, permit: &NativeTuiPermit) -> Result<Arc<dyn WindowsTerminalAdmission>>;
 }
+/// Trusted Rust-only persistence hooks, never executable IPC input. Implementors
+/// must use bounded local transactions; after_cleanup must be idempotent because
+/// a failed/panicking transaction can be retried after native release is proved.
+pub trait WindowsNativeSessionLifecycle: Send + Sync {
+    /// The exact shell is suspended inside the sealed job. Returning an error
+    /// prevents ResumeShell and enters the ordinary owned cleanup path.
+    fn before_run(&self, instance_id: &str, process: ProcessKey) -> Result<()>;
+    /// Called only after confirmed native/host cleanup, including a failed
+    /// before_run attempt that may have persisted its activation before failing.
+    fn after_cleanup(&self, instance_id: &str, process: ProcessKey) -> Result<()>;
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TerminalDirective {
     Continue,
@@ -88,6 +99,7 @@ pub enum TerminalResourceReason {
     AdmissionRefused,
     LocalFailure,
     CleanupUnconfirmed,
+    BindingFinalizationPending,
     Released,
     CacheBusy,
 }
@@ -274,6 +286,79 @@ struct NativeSessionPins {
     launch: PreparedLaunch,
     permit: NativeTuiPermit,
     admission: Arc<dyn WindowsNativeAdmission>,
+    lifecycle: Option<NativeLifecycleGate>,
+}
+const BINDING_NATIVE_PENDING: u8 = 0;
+const BINDING_END_PENDING: u8 = 1;
+const BINDING_END_RUNNING: u8 = 2;
+const BINDING_ENDED: u8 = 3;
+struct NativeLifecycleGate {
+    callbacks: Arc<dyn WindowsNativeSessionLifecycle>,
+    attempted: OnceLock<ProcessKey>,
+    cleanup: AtomicU8,
+}
+impl NativeLifecycleGate {
+    fn new(callbacks: Arc<dyn WindowsNativeSessionLifecycle>) -> Self {
+        Self {
+            callbacks,
+            attempted: OnceLock::new(),
+            cleanup: AtomicU8::new(BINDING_NATIVE_PENDING),
+        }
+    }
+    fn before_run(&self, instance_id: &str, process: ProcessKey) -> Result<()> {
+        self.attempted
+            .set(process)
+            .map_err(|_| anyhow!("Session ownership was already attempted"))?;
+        // Catch here, inside the owner worker, so a callback panic still reaches
+        // owned cleanup instead of unwinding past the cleanup sequence.
+        catch_unwind(AssertUnwindSafe(|| {
+            self.callbacks.before_run(instance_id, process)
+        }))
+        .map_err(|_| anyhow!("Session ownership registration failed"))?
+    }
+    fn after_cleanup(&self, instance_id: &str, native_released: bool) -> Result<bool> {
+        if !native_released {
+            return Ok(false);
+        }
+        let Some(process) = self.attempted.get().copied() else {
+            return Ok(true);
+        };
+        let _ = self.cleanup.compare_exchange(
+            BINDING_NATIVE_PENDING,
+            BINDING_END_PENDING,
+            Ordering::AcqRel,
+            Ordering::Acquire,
+        );
+        match self.cleanup.compare_exchange(
+            BINDING_END_PENDING,
+            BINDING_END_RUNNING,
+            Ordering::AcqRel,
+            Ordering::Acquire,
+        ) {
+            Ok(_) => {}
+            Err(BINDING_ENDED) => return Ok(true),
+            Err(_) => bail!("Session ownership finalization is already in progress"),
+        }
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            self.callbacks.after_cleanup(instance_id, process)
+        }))
+        .unwrap_or_else(|_| Err(anyhow!("Session ownership finalization failed")));
+        self.cleanup.store(
+            if result.is_ok() {
+                BINDING_ENDED
+            } else {
+                BINDING_END_PENDING
+            },
+            Ordering::Release,
+        );
+        result.map(|()| true)
+    }
+    fn native_released_with_pending_binding(&self) -> bool {
+        matches!(
+            self.cleanup.load(Ordering::Acquire),
+            BINDING_END_PENDING | BINDING_END_RUNNING
+        )
+    }
 }
 impl Session {
     fn error(&self, text: &str) {
@@ -296,6 +381,35 @@ impl Session {
             ) || reason == TerminalResourceReason::ResourceLimit
             {
                 cached.reason = reason;
+            }
+        }
+    }
+    fn binding_finalization_pending(&self) -> bool {
+        self._native
+            .as_ref()
+            .and_then(|native| native.lifecycle.as_ref())
+            .is_some_and(NativeLifecycleGate::native_released_with_pending_binding)
+    }
+    fn finish_binding(&self, native_released: bool) -> bool {
+        let Some(lifecycle) = self
+            ._native
+            .as_ref()
+            .and_then(|native| native.lifecycle.as_ref())
+        else {
+            return native_released;
+        };
+        match lifecycle.after_cleanup(&self.info.id, native_released) {
+            Ok(released) => released,
+            Err(_) => {
+                // Native resources are released; only the persisted activation
+                // is pending. Preserve the slot and report the actual remedy.
+                if let Ok(mut cached) = self.resources.lock() {
+                    cached.reason = TerminalResourceReason::BindingFinalizationPending;
+                }
+                if let Ok(mut error) = self.error.lock() {
+                    *error = Some("The terminal stopped, but its saved session could not be closed. Retry Close to finish saving its status.".into());
+                }
+                false
             }
         }
     }
@@ -376,7 +490,13 @@ impl Session {
     fn finish(&self, released: bool) {
         if let Ok(mut cached) = self.resources.lock() {
             cached.queues = self.credits.get().map(|credits| credits.status().into());
-            if !released && cached.reason != TerminalResourceReason::ResourceLimit {
+            if !released
+                && !matches!(
+                    cached.reason,
+                    TerminalResourceReason::ResourceLimit
+                        | TerminalResourceReason::BindingFinalizationPending
+                )
+            {
                 cached.reason = TerminalResourceReason::CleanupUnconfirmed;
             } else if released
                 && matches!(
@@ -385,6 +505,7 @@ impl Session {
                         | TerminalResourceReason::Observed
                         | TerminalResourceReason::PartialSample
                         | TerminalResourceReason::ObservationUnavailable
+                        | TerminalResourceReason::BindingFinalizationPending
                 )
             {
                 cached.reason = TerminalResourceReason::Released;
@@ -460,6 +581,16 @@ impl WindowsTerminalHost {
         rows: u16,
         cols: u16,
     ) -> Result<SessionInfo> {
+        self.start_prepared_with_lifecycle(launch, permit, rows, cols, None)
+    }
+    pub fn start_prepared_with_lifecycle(
+        &self,
+        launch: PreparedLaunch,
+        permit: NativeTuiPermit,
+        rows: u16,
+        cols: u16,
+        lifecycle: Option<Arc<dyn WindowsNativeSessionLifecycle>>,
+    ) -> Result<SessionInfo> {
         validate_size(rows, cols)?;
         permit.validate(&launch)?;
         let base = self
@@ -489,6 +620,7 @@ impl WindowsTerminalHost {
                 launch,
                 permit,
                 admission,
+                lifecycle: lifecycle.map(NativeLifecycleGate::new),
             }),
         )
     }
@@ -736,6 +868,16 @@ impl WindowsTerminalHost {
             .map(|config| config.startup_timeout + config.cleanup_timeout + IO_WAIT)
             .unwrap_or(IO_WAIT);
         if !session.wait_finished(Instant::now() + wait)? {
+            if session.binding_finalization_pending() {
+                if !session.finish_binding(true) {
+                    bail!(
+                        "The terminal stopped, but its saved session status is still pending. Retry Close."
+                    );
+                }
+                session.finish(true);
+                self.remove_released(id);
+                return Ok(());
+            }
             bail!("Terminal cleanup is unconfirmed; its resource reservation remains retained");
         }
         self.remove_released(id);
@@ -1336,6 +1478,19 @@ fn owner_worker(
         workload
             .seal_assignments()
             .map_err(|_| anyhow!("Terminal launch admission could not be sealed"))?;
+        if let Some(lifecycle) = session
+            ._native
+            .as_ref()
+            .and_then(|native| native.lifecycle.as_ref())
+        {
+            if let Err(error) = lifecycle.before_run(&session.info.id, key) {
+                const MESSAGE: &str =
+                    "The session could not be saved before startup. No agent was allowed to run.";
+                session.error(MESSAGE);
+                let _ = started.try_send(Err(MESSAGE.into()));
+                return Err(error);
+            }
+        }
         session.send(HostCommand::ResumeShell, 0)?;
         Ok((helper.process, events_rx))
     })();
@@ -1417,7 +1572,7 @@ fn owner_worker(
             let _ = started.try_send(Err("Contained terminal startup failed".into()));
         }
     }
-    let released = cleanup(
+    let native_released = cleanup(
         &config,
         &session,
         &mut workload,
@@ -1440,16 +1595,98 @@ fn owner_worker(
             }
         }
     }
-    if !released {
+    if !native_released {
         session
             .error("Terminal stopped with unconfirmed cleanup; its reservation remains retained");
     }
+    let released = session.finish_binding(native_released);
     session.finish(released);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    const LIFECYCLE_PROCESS: ProcessKey = ProcessKey {
+        pid: 321,
+        created_at_100ns: 987654321,
+    };
+    struct RecordedLifecycle {
+        calls: Mutex<Vec<&'static str>>,
+        refuse_start: bool,
+        panic_start: bool,
+        refuse_end: AtomicBool,
+    }
+    impl WindowsNativeSessionLifecycle for RecordedLifecycle {
+        fn before_run(&self, instance_id: &str, process: ProcessKey) -> Result<()> {
+            assert_eq!(instance_id, "synthetic-instance");
+            assert_eq!(process, LIFECYCLE_PROCESS);
+            self.calls.lock().unwrap().push("before");
+            assert!(!self.panic_start, "synthetic callback panic");
+            if self.refuse_start {
+                bail!("synthetic registration refusal");
+            }
+            Ok(())
+        }
+        fn after_cleanup(&self, instance_id: &str, process: ProcessKey) -> Result<()> {
+            assert_eq!(instance_id, "synthetic-instance");
+            assert_eq!(process, LIFECYCLE_PROCESS);
+            self.calls.lock().unwrap().push("after");
+            if self.refuse_end.load(Ordering::Acquire) {
+                bail!("synthetic finalization refusal");
+            }
+            Ok(())
+        }
+    }
+    #[test]
+    fn lifecycle_waits_for_native_release_and_retries_only_pending_binding() {
+        let callbacks = Arc::new(RecordedLifecycle {
+            calls: Mutex::new(Vec::new()),
+            refuse_start: false,
+            panic_start: false,
+            refuse_end: AtomicBool::new(true),
+        });
+        let gate = NativeLifecycleGate::new(callbacks.clone());
+        assert!(!gate.after_cleanup("synthetic-instance", false).unwrap());
+        assert!(callbacks.calls.lock().unwrap().is_empty());
+        gate.before_run("synthetic-instance", LIFECYCLE_PROCESS)
+            .unwrap();
+        assert!(
+            gate.before_run("synthetic-instance", LIFECYCLE_PROCESS)
+                .is_err()
+        );
+        assert!(!gate.after_cleanup("synthetic-instance", false).unwrap());
+        assert_eq!(*callbacks.calls.lock().unwrap(), vec!["before"]);
+        assert!(gate.after_cleanup("synthetic-instance", true).is_err());
+        assert!(gate.native_released_with_pending_binding());
+        callbacks.refuse_end.store(false, Ordering::Release);
+        assert!(gate.after_cleanup("synthetic-instance", true).unwrap());
+        assert!(!gate.native_released_with_pending_binding());
+        assert!(gate.after_cleanup("synthetic-instance", true).unwrap());
+        assert_eq!(
+            *callbacks.calls.lock().unwrap(),
+            vec!["before", "after", "after"]
+        );
+    }
+    #[test]
+    fn lifecycle_registration_failure_finishes_only_after_native_release() {
+        for panic_start in [false, true] {
+            let callbacks = Arc::new(RecordedLifecycle {
+                calls: Mutex::new(Vec::new()),
+                refuse_start: true,
+                panic_start,
+                refuse_end: AtomicBool::new(false),
+            });
+            let gate = NativeLifecycleGate::new(callbacks.clone());
+            assert!(
+                gate.before_run("synthetic-instance", LIFECYCLE_PROCESS)
+                    .is_err()
+            );
+            assert!(!gate.after_cleanup("synthetic-instance", false).unwrap());
+            assert_eq!(*callbacks.calls.lock().unwrap(), vec!["before"]);
+            assert!(gate.after_cleanup("synthetic-instance", true).unwrap());
+            assert_eq!(*callbacks.calls.lock().unwrap(), vec!["before", "after"]);
+        }
+    }
     fn resource_session() -> Session {
         let (input, _) = mpsc::sync_channel(1);
         let (_, output) = mpsc::sync_channel(1);

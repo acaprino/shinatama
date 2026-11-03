@@ -14,7 +14,7 @@ pub mod windows_pty;
 pub use windows_host::{
     TerminalDirective, TerminalResourceLimits, TerminalResourceObservation, TerminalResourcePhase,
     TerminalResourceQueues, TerminalResourceReason, TerminalResourceStatus, WindowsNativeAdmission,
-    WindowsTerminalAdmission, WindowsTerminalConfig,
+    WindowsNativeSessionLifecycle, WindowsTerminalAdmission, WindowsTerminalConfig,
 };
 pub type TerminalResult<T> = anyhow::Result<T>;
 
@@ -134,6 +134,20 @@ impl TerminalHost {
         cols: u16,
     ) -> Result<SessionInfo> {
         self.windows.start_prepared(launch, permit, rows, cols)
+    }
+    /// Optional trusted lifecycle binding. Initial callbacks run on the blocking
+    /// owner worker; a failed finalization can be retried by the blocking Close
+    /// caller, after native cleanup has already been confirmed.
+    pub fn start_prepared_with_lifecycle(
+        &self,
+        launch: shinatama_engine::launch::PreparedLaunch,
+        permit: shinatama_engine::native_launch::NativeTuiPermit,
+        rows: u16,
+        cols: u16,
+        lifecycle: Option<std::sync::Arc<dyn WindowsNativeSessionLifecycle>>,
+    ) -> Result<SessionInfo> {
+        self.windows
+            .start_prepared_with_lifecycle(launch, permit, rows, cols, lifecycle)
     }
     pub fn configure_windows(&self, config: WindowsTerminalConfig) -> Result<()> {
         self.windows.configure(config)
