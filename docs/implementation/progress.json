@@ -2,7 +2,7 @@
   "schema_version": 1,
   "updated_at": "2026-11-03",
   "base_head": "46435ab",
-  "git_state": "Codex 0.166.0 opens through New session in checkpoint 3242ee86bf2a5344aab1d5d4ff1f55e1fda91e36; actual Windows UI proof passed. Conversation navigator/detail/search/explicit RAW checkpoint 3fc7661687ca917bf2317587bb020301948edb07 passed 7 targeted reader tests and native synthetic UI flow. Claude/PowerShell single-Open flow and global workspace remain available. Next product work: OpenCode launch and exact thread/native-session binding. Full providers/auth/tool execution, native resume and floating windows remain open; Daodan remains deferred.",
+  "git_state": "Codex 0.166.0 launch and bounded conversation search/RAW remain checkpointed. Exact resume targets (2d7735f), native lifecycle barriers (86e0054), authenticated Claude event transport (ac4b62f), and schema 5 activation history (f7eba14) retain their committed evidence. The integrated harness service passed frontend/backend all-binaries builds, two agents tests, one event-drain test and one Claude helper program-pin filesystem regression. Fresh-private-app startup and owned cleanup passed for Codex 0.166.0, OpenCode 2.2.5 and Claude Code 2.1.317; Claude additionally passed sealed conversation ownership and finalization after native cleanup. No user database, authenticated session or provider prompt was used. Actual harness hook observations, native Resume, provider/tools, full resilience and floating windows remain open; Daodan remains deferred. C11S and both units are committed in 454f75a4292343b77395fd8e720ede9ffa44869e; engine profiles are committed in 7bc716f78332b1c0af41bdb89e3181251fe6b0bc. C12 remains the sole active parent. PowerShell user-flow regression also passed: selected project reused, two-project thread separation with unchanged layout, and healthy shell responsiveness.",
   "steps": {
     "B00": {
       "status": "committed",
@@ -1284,9 +1284,20 @@
         }
       },
       "limits": [
-        "Only exact Claude2.1.316 safe-mode empty-set TUI startup on Windows is observed; authentication, provider traffic, login operation, resume/fork and full QA remain open."
+        "Historical Claude 2.1.316 safe-mode startup remains recorded separately. Shared-service Claude Code 2.1.317 startup/cleanup now passed, including sealed conversation live ownership and finalization after native cleanup.",
+        "Actual harness-emitted hook observation, authentication, provider traffic/tools, login operation, native resume/fork and full QA remain open; no C15 parent completion."
       ],
-      "next_action": "Checkpoint the verified one-Open path; deliver the runnable local copy for manual sign-in, then C15.4 provider/auth qualification and further harness implementations."
+      "next_action": "Checkpoint the verified one-Open path; deliver the runnable local copy for manual sign-in, then C15.4 provider/auth qualification and further harness implementations.",
+      "evidence": [
+        "docs/notes/2026-11-03-harness-services.md"
+      ],
+      "checks": [
+        "native-new-session-user-path: Claude Code 2.1.317 PASS including sealed conversation ownership and finalization after native cleanup; .prototype-evidence/new-session-claude_code.json"
+      ],
+      "checkpoint_commits": [
+        "7bc716f78332b1c0af41bdb89e3181251fe6b0bc",
+        "454f75a4292343b77395fd8e720ede9ffa44869e"
+      ]
     },
     "C22": {
       "status": "pending",
@@ -1465,9 +1476,31 @@
             "Manual thread persistence/sidebar pass; activation exclusivity is metadata tested with two SQLite connections, not a qualified native resume path.",
             "Separate actual-Claude integration attempt was deferred by unchanged global resource pressure before any native start; its new persistence hook remains unqualified in a real start."
           ]
+        },
+        "C25.2": {
+          "status": "pending",
+          "commit_sha": null,
+          "checkpoint_commits": [
+            "2d7735fc375b20ad8f1fb35bb9f0db79acc1a7b0",
+            "86e0054cbcf843c75fc4359c831d485740231429",
+            "f7eba14eff6147efb9a8cb4c9f5876ce3e5f8caa"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-03-thread-resume-target.md",
+            "docs/notes/2026-11-03-native-thread-lifecycle.md",
+            "docs/notes/2026-11-03-native-activation-history.md"
+          ],
+          "checks": [
+            "cargo test --offline --locked -p shinatama-state -j1 --lib threads::tests -- --test-threads=1",
+            "cargo test --offline --locked -p shinatama-terminal -j1 --lib lifecycle_ -- --test-threads=1",
+            "cargo test --offline --locked -p shinatama-state -j1 --lib migrations::fault_tests::v5_activation_history_migration_is_lossless_and_rolls_back_after_sql_failure -- --test-threads=1"
+          ],
+          "limits": [
+            "Trusted resolution, atomic native-switch history and pre-run/post-cleanup callbacks pass; real native Resume and controller integration remain open."
+          ]
         }
       },
-      "next_action": "Implement exact saved thread/native identity resolution and exclusive lifecycle binding; do not infer conversation presence from root availability.",
+      "next_action": "Connect authenticated Claude events and terminal ownership; verify exact source/cwd before exposing explicit Resume.",
       "limits": [
         "No automatic resume, native ID fabrication, TTL ownership stealing or native activity claims. Parent C25 remains open."
       ]
@@ -1495,13 +1528,15 @@
       "status": "pending",
       "commit_sha": null,
       "evidence": [
-        "docs/notes/2026-11-03-codex-open.md"
+        "docs/notes/2026-11-03-codex-open.md",
+        "docs/notes/2026-11-03-harness-services.md"
       ],
       "checks": [
         "npm run build",
         "cargo test --offline --locked -p shinatama-engine --features session-reader -j1 --lib codex_ -- --test-threads=1",
         "cargo test --offline --locked -p shinatama-adapter -j1 --lib codex_requires_a_specific_verified_home_budget_and_excludes_elevated_sandbox -- --test-threads=1",
-        "SHINATAMA_SMOKE_SESSION_HARNESS=codex verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/new-session-smoke.mjs"
+        "SHINATAMA_SMOKE_SESSION_HARNESS=codex verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/new-session-smoke.mjs",
+        "native-new-session-user-path: Codex 0.166.0 PASS; .prototype-evidence/new-session-codex.json"
       ],
       "limits": [
         "Actual installed Codex 0.166.0 TUI startup and cleanup passed; authentication stays unknown/manual in original TUI.",
@@ -1549,7 +1584,127 @@
             "Provider traffic/TLS, effective tools, native binding/resume and managed installation remain unqualified; no C16 parent completion."
           ]
         }
-      }
+      },
+      "checkpoint_commits": [
+        "7bc716f78332b1c0af41bdb89e3181251fe6b0bc",
+        "454f75a4292343b77395fd8e720ede9ffa44869e"
+      ]
+    },
+    "F02": {
+      "status": "pending",
+      "commit_sha": null,
+      "checkpoint_commits": [
+        "ac4b62f7d0d443df061023af5f8fb82319ac9950",
+        "f7eba14eff6147efb9a8cb4c9f5876ce3e5f8caa",
+        "7bc716f78332b1c0af41bdb89e3181251fe6b0bc",
+        "454f75a4292343b77395fd8e720ede9ffa44869e"
+      ],
+      "evidence": [
+        "docs/notes/2026-11-03-claude-session-events.md",
+        "docs/notes/2026-11-03-native-activation-history.md"
+      ],
+      "checks": [
+        "cargo test --offline --locked -p shinatama-engine -j1 --bin shinatama-hook",
+        "cargo test --offline --locked -p shinatama-engine -j1 --lib claude_session_events::tests::loopback_authentication_bounds_and_stop_preserve_only_session_metadata -- --test-threads=1"
+      ],
+      "limits": [
+        "Transport/state groundwork only; current user-facing Claude profile still disables hooks. Durable event feed, crash recovery and actual native hook observation remain open."
+      ],
+      "next_action": "Connect the separately identified tracked Claude profile and its lifecycle consumer, then prove native SessionStart and exact Resume."
+    },
+    "C11S": {
+      "status": "committed",
+      "commit_sha": "454f75a4292343b77395fd8e720ede9ffa44869e",
+      "evidence": [
+        "docs/notes/2026-11-03-harness-services.md",
+        "docs/notes/2026-11-03-opencode-open.md"
+      ],
+      "checks": [
+        "Frontend build: PASS (coordinator-run on integrated harness service)",
+        "Backend all-binaries build: PASS (coordinator-run on integrated harness service)",
+        "agents::tests: 2 passed (coordinator-run)",
+        "claude_session_events::tests: 1 event-drain test passed (coordinator-run)",
+        "Claude helper program-pin filesystem regression: 1 passed (coordinator-run)",
+        "native-new-session-user-path: Codex 0.166.0 PASS; .prototype-evidence/new-session-codex.json",
+        "native-new-session-user-path: OpenCode 2.2.5 PASS; .prototype-evidence/new-session-opencode.json",
+        "native-new-session-user-path: Claude Code 2.1.317 PASS including sealed conversation ownership and finalization after native cleanup; .prototype-evidence/new-session-claude_code.json",
+        "native-new-session-user-path: PowerShell PASS; selected project reused from header/sidebar, two-project threads preserve layout, healthy shell responds; .prototype-evidence/new-session-powershell.json"
+      ],
+      "requirements_note": "docs/notes/2026-11-03-harness-services.md",
+      "limits": [
+        "Shared-service startup, persisted project/thread/view and owned cleanup passed for Codex 0.166.0, OpenCode 2.2.5 and Claude Code 2.1.317 using fresh private app state and synthetic projects.",
+        "Claude sealed conversation live ownership and finalization after native cleanup passed; actual harness-emitted hook events, authentication, provider traffic/tools and native Resume are not qualified.",
+        "Codex/OpenCode native resume remains unsupported; archive/provider and complete resilience gates remain separate."
+      ],
+      "next_action": "Shared service and registered drivers are committed. Continue harness-specific native events, Resume and provider/tool qualification without duplicating the lifecycle or repeating unchanged passing startup proofs.",
+      "units": {
+        "C11S.1": {
+          "status": "committed",
+          "commit_sha": "454f75a4292343b77395fd8e720ede9ffa44869e",
+          "evidence": [
+            "docs/notes/2026-11-03-harness-services.md"
+          ],
+          "checks": [
+            "Frontend build: PASS (coordinator-run on integrated harness service)",
+            "Backend all-binaries build: PASS (coordinator-run on integrated harness service)",
+            "agents::tests: 2 passed (coordinator-run)",
+            "claude_session_events::tests: 1 event-drain test passed (coordinator-run)",
+            "Claude helper program-pin filesystem regression: 1 passed (coordinator-run)"
+          ],
+          "next_action": "Shared service and registered drivers are committed. Continue harness-specific native events, Resume and provider/tool qualification without duplicating the lifecycle or repeating unchanged passing startup proofs.",
+          "platforms": [
+            "Windows 11 x64"
+          ]
+        },
+        "C11S.2": {
+          "status": "committed",
+          "commit_sha": "454f75a4292343b77395fd8e720ede9ffa44869e",
+          "evidence": [
+            "docs/notes/2026-11-03-harness-services.md",
+            "docs/notes/2026-11-03-opencode-open.md"
+          ],
+          "checks": [
+            "native-new-session-user-path: Codex 0.166.0 PASS; .prototype-evidence/new-session-codex.json",
+            "native-new-session-user-path: OpenCode 2.2.5 PASS; .prototype-evidence/new-session-opencode.json",
+            "native-new-session-user-path: Claude Code 2.1.317 PASS including sealed conversation ownership and finalization after native cleanup; .prototype-evidence/new-session-claude_code.json",
+            "native-new-session-user-path: PowerShell PASS; selected project reused from header/sidebar, two-project threads preserve layout, healthy shell responds; .prototype-evidence/new-session-powershell.json"
+          ],
+          "next_action": "Shared service and registered drivers are committed. Continue harness-specific native events, Resume and provider/tool qualification without duplicating the lifecycle or repeating unchanged passing startup proofs.",
+          "platforms": [
+            "Windows 11 x64"
+          ]
+        }
+      },
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checkpoint_commits": [
+        "7bc716f78332b1c0af41bdb89e3181251fe6b0bc",
+        "454f75a4292343b77395fd8e720ede9ffa44869e"
+      ]
+    },
+    "C17": {
+      "status": "pending",
+      "commit_sha": null,
+      "evidence": [
+        "docs/notes/2026-11-03-opencode-open.md",
+        "docs/notes/2026-11-03-harness-services.md"
+      ],
+      "checks": [
+        "native-new-session-user-path: OpenCode 2.2.5 PASS; .prototype-evidence/new-session-opencode.json"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "limits": [
+        "Actual OpenCode 2.2.5 TUI startup and owned cleanup passed through the shared service with fresh private app state; one Open saved project, thread and view.",
+        "No login responses or provider prompts were sent. Authentication, effective tools/provider TLS, archive/export, native binding/Resume and full C17 qualification remain open."
+      ],
+      "next_action": "Preserve the verified OpenCode startup path; qualify remaining C17 capabilities separately and record the actual commit SHA.",
+      "checkpoint_commits": [
+        "7bc716f78332b1c0af41bdb89e3181251fe6b0bc",
+        "454f75a4292343b77395fd8e720ede9ffa44869e"
+      ]
     }
   },
   "blockers": [],

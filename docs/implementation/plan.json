@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "date": "2026-11-02",
+  "date": "2026-11-03",
   "source": "FRD-0001–FRD-0017 Markdown accepted requirements, current prototype and user authorization",
   "milestones": [
     {
@@ -1020,6 +1020,123 @@
       ],
       "deferred_clauses": [
         "La clausola di installazione Daodan nella home system di FRD-0002/R19 e rinviata; la scelta della home resta attiva."
+      ]
+    },
+    {
+      "id": "C11S",
+      "title": "Separare i servizi harness dietro un contratto Rust comune",
+      "requirements": [
+        "FRD-0001/R08",
+        "FRD-0001/R09",
+        "FRD-0001/R59",
+        "FRD-0001/R62",
+        "FRD-0002/R30",
+        "FRD-0002/R32",
+        "FRD-0002/R33",
+        "FRD-0002/R41"
+      ],
+      "depends_on": [
+        "C11",
+        "C09",
+        "C09R"
+      ],
+      "deliverable": "Servizi Rust interni distinti per harness, implementati da Service<D> sopra HarnessDriver e selezionati tramite dyn HarnessService e registro. Un solo flusso comune di avvio e pulizia; nessun daemon aggiuntivo. Richiesta utente e confini in docs/notes/2026-11-03-harness-services.md.",
+      "acceptance": [
+        "Nuovo seguito di C11 senza riaprire o falsificare il passo già committed; C11S è prerequisito del completamento delle integrazioni C15-C20.",
+        "Claude, Codex e OpenCode espongono solo discovery, probe, richiesta storage, preparazione e hook lifecycle opzionale; proprietà delle richieste, risorse e pulizia resta nel servizio comune.",
+        "L'utente apre una sessione con progetto e harness scelti. Nessun nuovo Check manuale e nessuna associazione della disposizione di tab/pannelli/finestre all'identità dei thread.",
+        "Capacità, ricevute e dati privati restano separati per harness e build. Codex conserva il profilo no-daemon; OpenCode conserva database-file/XDG privati, standalone e ripristino ambiente strumenti.",
+        "Solo prove effettive qualificano avvio, lifecycle e resume; Claude tracciato e OpenCode in prova restano esplicitamente parziali. Daodan rimane deferred."
+      ],
+      "checks": [
+        "cargo build --offline --locked -p shinatama-desktop --features custom-protocol -j1",
+        "pianificato: sole fixture mirate del servizio comune per ownership, rifiuto e pulizia conservata",
+        "pianificato: prova New session e chiusura sul binario aggiornato con harness già qualificato, poi tentativi isolati degli altri harness autorizzati",
+        "python scripts/implementation.py validate",
+        "python scripts/implementation.py render"
+      ],
+      "files": [
+        "apps/desktop/src-tauri/src/agents.rs",
+        "apps/desktop/src-tauri/src/agents/service.rs",
+        "apps/desktop/src-tauri/src/agents/claude.rs",
+        "apps/desktop/src-tauri/src/agents/codex.rs",
+        "apps/desktop/src-tauri/src/agents/opencode.rs",
+        "apps/desktop/src-tauri/src/agents/resume.rs",
+        "apps/desktop/src-tauri/src/agents/thread_lifecycle.rs",
+        "docs/notes/2026-11-03-harness-services.md",
+        "docs/implementation/plan.json",
+        "docs/implementation/progress.json"
+      ],
+      "gates": [
+        "D7 (percorso comune; non qualificazione completa)",
+        "P14 (solo build/harness provati)",
+        "RES4 (ownership e cleanup; gate completo ancora separato)"
+      ],
+      "hours": [
+        3,
+        7
+      ],
+      "scope": "v1",
+      "commit": "refactor(c11s): separare i servizi harness e centralizzare il ciclo di vita",
+      "resume": "Leggere docs/notes/2026-11-03-harness-services.md e progress.json/C11S; ispezionare il diff dei servizi nel checkout condiviso, integrare la prima unità non verificata e conservare C12 come unico padre attivo finché non cambia il suo checkpoint.",
+      "commit_units": [
+        {
+          "id": "C11S.1",
+          "title": "Centralizzare il servizio e migrare i tre driver mantenendo la build avviabile",
+          "deliverable": "HarnessDriver tipizzato, Service<D>, registro dyn HarnessService e driver Claude/Codex/OpenCode integrati nello stesso incremento compilabile; controller Tauri ridotto alla proprietà della richiesta e all'inoltro.",
+          "acceptance": [
+            "Il servizio comune possiede osservazioni, ammissione, prova TUI, avvio e pulizia; i moduli harness contengono solo ricette, adattamento dei tipi e classificazione degli errori, senza copie di Facts/check/open/canary.",
+            "Le API UI conservano progetto e harness scelti. Open non introduce un Check manuale. Servizi Rust interni senza nuovi daemon; subprocessi e budget dei motori non cambiano.",
+            "ProbeEvidence conserva l'outcome opaco e la diagnostica esistente; ricevute e SealedSession non possono essere costruite dalla UI. Il lifecycle è opzionale e Codex/OpenCode non dichiarano resume senza prova.",
+            "Un proprietario con pulizia non confermata resta conservato. La perdita della richiesta UI non rilascia il lavoro nativo o consente una sostituzione duplicata. Una verifica mirata del percorso comune copre questi confini."
+          ],
+          "checks": [
+            "cargo build --offline --locked -p shinatama-desktop --features custom-protocol -j1",
+            "pianificato: sole fixture mirate del servizio comune per ownership, rifiuto e pulizia conservata"
+          ],
+          "files": [
+            "apps/desktop/src-tauri/src/agents.rs",
+            "apps/desktop/src-tauri/src/agents/service.rs",
+            "apps/desktop/src-tauri/src/agents/claude.rs",
+            "apps/desktop/src-tauri/src/agents/codex.rs",
+            "apps/desktop/src-tauri/src/agents/opencode.rs",
+            "apps/desktop/src-tauri/src/agents/resume.rs",
+            "apps/desktop/src-tauri/src/agents/thread_lifecycle.rs"
+          ],
+          "hours": [
+            2,
+            4
+          ],
+          "commit": "refactor(c11s.1): centralizzare i servizi harness e separare i driver"
+        },
+        {
+          "id": "C11S.2",
+          "title": "Verificare il flusso preservato e registrare capacità e limiti effettivi",
+          "deliverable": "Evidenza essenziale del servizio comune nel flusso New session, con checkpoint riprendibile, esiti per build/harness e capacità non qualificate esplicite.",
+          "acceptance": [
+            "L'apertura delle capacità già supportate usa il progetto scelto, salva il thread e chiude il solo subprocesso posseduto; pannelli e finestre non diventano proprietà del progetto.",
+            "Le prove native autorizzate si eseguono in sequenza su dati privati con limiti congelati; si registrano esiti, eventuali rifiuti e risorse conservate senza attribuire prove storiche al nuovo binario.",
+            "Il profilo Claude tracciato richiede osservazione nativa distinta; OpenCode resta in prova finché la TUI reale non passa. Le parti non dimostrate restano nei rispettivi C15-C20 e non sono abilitate dal solo refactor.",
+            "I nuovi checkpoint riportano solo SHA, comandi ed evidenze reali; C11 e i commit storici restano invariati, un solo padre è attivo e Daodan resta deferred."
+          ],
+          "checks": [
+            "pianificato: prova New session e chiusura sul binario aggiornato con harness già qualificato, poi tentativi isolati degli altri harness autorizzati",
+            "python scripts/implementation.py validate",
+            "python scripts/implementation.py render"
+          ],
+          "files": [
+            "apps/desktop/tests/new-session-smoke.mjs",
+            "docs/notes/2026-11-03-harness-services.md",
+            "docs/verification/**",
+            "docs/implementation/progress.json",
+            "docs/implementation/PLAN.md"
+          ],
+          "hours": [
+            1,
+            3
+          ],
+          "commit": "test(c11s.2): registrare regressioni e limiti dei servizi harness"
+        }
       ]
     },
     {
@@ -2056,7 +2173,8 @@
         "C10",
         "C11",
         "C13",
-        "C14"
+        "C14",
+        "C11S"
       ],
       "deliverable": "Avvio Claude, stato di accesso e login tramite l'unico percorso verificato, con home privata predefinita e capacità dichiarate correttamente. L’ingresso normale è New session → Project + Harness → Open: il checkup è preparazione interna, non una procedura manuale aggiuntiva.",
       "acceptance": [
@@ -2100,7 +2218,7 @@
       ],
       "scope": "v1",
       "commit": "feat(c15): Avviare il primo adattatore Claude attraverso il checkup",
-      "resume": "Priorità utente del 2026-11-03: completare C15.3 dal dialogo New session e qualificare il singolo Open nel terminale originale; leggere docs/notes/2026-11-03-project-thread-workspace.md. Solo dopo riprendere login/capacità C15.4 e le funzioni avanzate; il passo padre resta aperto fino ai suoi gate.",
+      "resume": "Completare prima C11S e leggere docs/notes/2026-11-03-harness-services.md. Priorità utente del 2026-11-03: completare C15.3 dal dialogo New session e qualificare il singolo Open nel terminale originale; leggere docs/notes/2026-11-03-project-thread-workspace.md. Solo dopo riprendere login/capacità C15.4 e le funzioni avanzate; il passo padre resta aperto fino ai suoi gate.",
       "commit_units": [
         {
           "id": "C15.1",
@@ -3021,7 +3139,8 @@
         "FRD-0006/R48"
       ],
       "depends_on": [
-        "C15"
+        "C15",
+        "C11S"
       ],
       "deliverable": "Avvio, autenticazione, collegamento e segnali Codex attraverso lo stesso contratto, applicando i vincoli su HOME, socket e insiemi.",
       "acceptance": [
@@ -3048,7 +3167,7 @@
       ],
       "scope": "v1",
       "commit": "feat(c16): Aggiungere l'adattatore Codex",
-      "resume": "Leggere la scheda e le dipendenze; aprire crates/adapter/src/codex/**, verify/CX/**. Preparare la prima prova di accettazione prima di modificare il comportamento.",
+      "resume": "Completare prima C11S e leggere docs/notes/2026-11-03-harness-services.md. Leggere la scheda e le dipendenze; aprire crates/adapter/src/codex/**, verify/CX/**. Preparare la prima prova di accettazione prima di modificare il comportamento.",
       "commit_units": [
         {
           "id": "C16.1",
@@ -3145,7 +3264,8 @@
         "FRD-0006/R48"
       ],
       "depends_on": [
-        "C15"
+        "C15",
+        "C11S"
       ],
       "deliverable": "Ciclo di vita del terminale e server OpenCode, rilevamento dell'autenticazione e contesto di avvio isolato.",
       "acceptance": [
@@ -3171,7 +3291,7 @@
       ],
       "scope": "v1",
       "commit": "feat(c17): Aggiungere l'adattatore OpenCode",
-      "resume": "Leggere la scheda e le dipendenze; aprire crates/adapter/src/opencode/**, verify/OC/**. Preparare la prima prova di accettazione prima di modificare il comportamento.",
+      "resume": "Completare prima C11S e leggere docs/notes/2026-11-03-harness-services.md. Leggere la scheda e le dipendenze; aprire crates/adapter/src/opencode/**, verify/OC/**. Preparare la prima prova di accettazione prima di modificare il comportamento.",
       "commit_units": [
         {
           "id": "C17.1",
@@ -3267,7 +3387,8 @@
         "FRD-0006/R48"
       ],
       "depends_on": [
-        "C15"
+        "C15",
+        "C11S"
       ],
       "deliverable": "Pi avviato tramite node e vettore di argomenti, con capacità esplicite per skill, estensioni e RPC.",
       "acceptance": [
@@ -3293,7 +3414,7 @@
       ],
       "scope": "v1",
       "commit": "feat(c18): Aggiungere l'adattatore Pi",
-      "resume": "Leggere la scheda e le dipendenze; aprire crates/adapter/src/pi/**, verify/PI/**. Preparare la prima prova di accettazione prima di modificare il comportamento.",
+      "resume": "Completare prima C11S e leggere docs/notes/2026-11-03-harness-services.md. Leggere la scheda e le dipendenze; aprire crates/adapter/src/pi/**, verify/PI/**. Preparare la prima prova di accettazione prima di modificare il comportamento.",
       "commit_units": [
         {
           "id": "C18.1",
@@ -3398,7 +3519,8 @@
         "FRD-0006/R48"
       ],
       "depends_on": [
-        "C15"
+        "C15",
+        "C11S"
       ],
       "deliverable": "Chat, autenticazione e gateway Hermes soltanto dove le fixture della versione installata passano; assenze di pacchetti e lettori sono visibili.",
       "acceptance": [
@@ -3423,7 +3545,7 @@
       ],
       "scope": "v1",
       "commit": "feat(c19): Aggiungere Hermes Agent con capacità non supportate esplicite",
-      "resume": "Leggere la scheda e le dipendenze; aprire crates/adapter/src/hermes/**, verify/HM/**. Preparare la prima prova di accettazione prima di modificare il comportamento.",
+      "resume": "Completare prima C11S e leggere docs/notes/2026-11-03-harness-services.md. Leggere la scheda e le dipendenze; aprire crates/adapter/src/hermes/**, verify/HM/**. Preparare la prima prova di accettazione prima di modificare il comportamento.",
       "commit_units": [
         {
           "id": "C19.1",
@@ -3527,7 +3649,8 @@
         "FRD-0006/R48"
       ],
       "depends_on": [
-        "C15"
+        "C15",
+        "C11S"
       ],
       "deliverable": "Un client ACP mostra messaggi, strumenti e permessi reali dell'agente e avvia dsh web soltanto su azione esplicita dell'utente.",
       "acceptance": [
@@ -3553,7 +3676,7 @@
       ],
       "scope": "v1",
       "commit": "feat(c20): Aggiungere il pannello ACP DeepSeek",
-      "resume": "Leggere la scheda e le dipendenze; aprire crates/adapter/src/deepseek/**, apps/desktop/src/acp/**. Preparare la prima prova di accettazione prima di modificare il comportamento.",
+      "resume": "Completare prima C11S e leggere docs/notes/2026-11-03-harness-services.md. Leggere la scheda e le dipendenze; aprire crates/adapter/src/deepseek/**, apps/desktop/src/acp/**. Preparare la prima prova di accettazione prima di modificare il comportamento.",
       "commit_units": [
         {
           "id": "C20.1",
