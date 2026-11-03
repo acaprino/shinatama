@@ -9,11 +9,13 @@ export type ThreadSummary = {
 };
 export type ThreadListPage = { rows: ThreadSummary[]; next: ThreadCursor | null };
 export type ThreadListRequest = { projectId: string; cursor: ThreadCursor | null; limit: 50 };
+export type ThreadRenameRequest = { projectId: string; threadId: string; expectedRevision: number; title: string };
 export type ThreadSidebarState = { version: 1; width: number; collapsed: boolean };
 export type ThreadSidebarOptions = {
   host: HTMLElement;
   list: (request: ThreadListRequest) => Promise<unknown>;
   create?: (request: {projectId:string}) => Promise<unknown>;
+  rename?: (request: ThreadRenameRequest) => Promise<unknown>;
   /** Request the shared New session dialog for this explicit project. */
   onNewSession?: (projectId: string) => void;
   loadState?: () => Promise<unknown>;
@@ -82,6 +84,15 @@ function resumeFailureText(error: unknown) {
   if (code === 'source_changed' || code === 'conflict') return 'This conversation changed. Reload threads and try again.';
   return 'The conversation could not be resumed. Try again.';
 }
+function validTitle(value: string): boolean {
+  return value.trim().length > 0 && utf8.encode(value).length <= 256 && !/[\u0000-\u001f\u007f-\u009f]/.test(value);
+}
+function renamedValue(value: unknown, before: ThreadSummary, title: string): ThreadSummary | null {
+  if (!record(value) || value.id !== before.id || value.projectId !== before.projectId || value.kind !== before.kind
+    || value.title !== title || value.revision !== before.revision + 1 || !integer(value.revision)
+    || !integer(value.updatedAt) || value.updatedAt < before.updatedAt || value.archived !== (before.status === 'archived')) return null;
+  return { ...before, title, revision: value.revision, updatedAt: value.updatedAt };
+}
 
 /** One explicit operation, one latest pending UI-state save, no launch replay. */
 export function createThreadSidebar(options: ThreadSidebarOptions) {
@@ -106,8 +117,18 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
   limitation.textContent = 'Native session activity is unknown. Selecting a thread does not start an agent.';
   const actions = document.createElement('div'); actions.className = 'thread-sidebar-actions';
   const resume = document.createElement('button'); resume.type = 'button'; resume.textContent = 'Resume'; resume.hidden = true; actions.append(resume);
+  const rename = document.createElement('button'); rename.type = 'button'; rename.textContent = 'Rename'; rename.hidden = true; actions.append(rename);
+  const renameForm = document.createElement('form'); renameForm.className = 'thread-sidebar-rename'; renameForm.hidden = true;
+  const renameLabel = document.createElement('label'); renameLabel.htmlFor = 'thread-rename-title'; renameLabel.textContent = 'Thread name';
+  const renameInput = document.createElement('input'); renameInput.id = 'thread-rename-title'; renameInput.type = 'text'; renameInput.maxLength = 256; renameInput.autocomplete = 'off';
+  const renameError = document.createElement('p'); renameError.id = 'thread-rename-error'; renameError.setAttribute('role', 'alert'); renameError.hidden = true;
+  renameInput.setAttribute('aria-describedby', renameError.id);
+  const renameButtons = document.createElement('div');
+  const renameSave = document.createElement('button'); renameSave.type = 'submit'; renameSave.textContent = 'Save';
+  const renameCancel = document.createElement('button'); renameCancel.type = 'button'; renameCancel.textContent = 'Cancel';
+  renameButtons.append(renameSave, renameCancel); renameForm.append(renameLabel, renameInput, renameError, renameButtons);
   for (const text of ['Hop unavailable']) { const button = document.createElement('button'); button.type = 'button'; button.disabled = true; button.textContent = text; actions.append(button); }
-  body.append(scopeLabel, scopeSelect, create, reload, status, list, pagination, detail, limitation, actions);
+  body.append(scopeLabel, scopeSelect, create, reload, status, list, pagination, detail, limitation, actions, renameForm);
   const separator = document.createElement('div'); separator.className = 'thread-sidebar-resize'; separator.tabIndex = 0;
   separator.setAttribute('role', 'separator'); separator.setAttribute('aria-label', 'Thread sidebar width'); separator.setAttribute('aria-orientation', 'vertical');
   separator.setAttribute('aria-valuemin', String(MIN_WIDTH)); separator.setAttribute('aria-valuemax', String(MAX_WIDTH));
@@ -115,8 +136,10 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
   let display = { ...initialState }; let projects: CurrentThreadProject[] = []; let selectedProject: string | null = null;
   let page: ThreadListPage | null = null; let cursor: ThreadCursor | null = null; let history: (ThreadCursor | null)[] = [];
   let selected: string | null = null; let generation = 0; let uiGeneration = 0; let destroyed = false;
-  let busy: 'load_state' | 'list' | 'save_state' | 'create' | 'resume' | null = null; let message = 'Choose a project, then load its saved threads.'; let failed = false;
+  let busy: 'load_state' | 'list' | 'save_state' | 'create' | 'resume' | 'rename' | null = null; let message = 'Choose a project, then load its saved threads.'; let failed = false;
+  let editing: ThreadSummary | null = null; let renameNeedsReload = false;
   let pendingState: ThreadSidebarState | null = null; let saveTimer = 0;
+  let pendingProjectRead = false;
   let drag: { pointer: number; x: number; before: ThreadSidebarState } | null = null;
   const anchors = new Map<string, HTMLLIElement>();
   const renderedRows = new WeakMap<HTMLLIElement, ThreadSummary>();
@@ -133,7 +156,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     create.disabled = busy !== null || selectedProject === null;
     previous.disabled = busy !== null || !history.length; next.disabled = busy !== null || !page?.next;
     body.setAttribute('aria-busy', String(busy !== null));
-    status.textContent = busy === 'list' ? 'Reading saved threads…' : busy === 'create' ? 'Saving a new thread…' : busy === 'resume' ? 'Resuming conversation…' : busy === 'load_state' ? 'Restoring sidebar display…' : message;
+    status.textContent = busy === 'list' ? 'Reading saved threads…' : busy === 'create' ? 'Saving a new thread…' : busy === 'resume' ? 'Resuming conversation…' : busy === 'rename' ? 'Saving thread name…' : busy === 'load_state' ? 'Restoring sidebar display…' : message;
     status.dataset.state = failed ? 'error' : 'ready';
     const retained = new Set(page?.rows.map(row => row.id) ?? []);
     for (const [id, node] of anchors) if (!retained.has(id)) { node.remove(); anchors.delete(id); }
@@ -150,12 +173,15 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
         const source = document.createElement('span'); source.className = 'thread-sidebar-source';
         anchor.append(label, id, agent, updated, source); node.append(anchor); anchors.set(row.id, node);
         anchor.onclick = () => {
+          if (busy) return;
           const actual = page?.rows.find(thread => thread.id === row.id); if (!actual || actual.projectId !== selectedProject) return;
+          editing = null;
           selected = actual.id; render();
           try { options.onSelect?.(Object.freeze({ ...actual })); } catch { options.reportError('Thread selection could not be shown. No agent was started.'); }
         };
       }
       const anchor = node.firstElementChild as HTMLButtonElement;
+      anchor.disabled = busy !== null;
       const pressed = String(selected === row.id);
       if (anchor.getAttribute('aria-pressed') !== pressed) anchor.setAttribute('aria-pressed', pressed);
       if (renderedRows.get(node) !== row) {
@@ -175,6 +201,12 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     detail.replaceChildren(); const chosen = page?.rows.find(row => row.id === selected);
     resume.hidden = !options.onResume || !chosen || chosen.status !== 'inactive' || options.canResume?.(chosen) !== true || chosen.nativeAvailable !== true;
     resume.disabled = busy !== null || resume.hidden;
+    rename.hidden = !options.rename || !chosen || editing !== null;
+    rename.disabled = busy !== null || renameNeedsReload;
+    renameForm.hidden = editing === null;
+    renameInput.disabled = busy !== null || renameNeedsReload;
+    renameSave.disabled = busy !== null || renameNeedsReload || !validTitle(renameInput.value);
+    renameCancel.disabled = busy !== null;
     if (chosen) {
       metadata('Thread ID', chosen.id); metadata('Agent', chosen.harness ?? 'Unknown'); metadata('Title', chosen.title || 'Unknown');
       metadata('Updated', updatedText(chosen.updatedAt)); metadata('Source', sourceText(chosen.nativeAvailable));
@@ -182,9 +214,12 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
       metadata('Saved status', { unbound: 'No native session linked', inactive: 'Recorded inactive', recorded_open: 'Recorded open; activity unknown', archived: 'Archived' }[chosen.status]);
     }
   }
-  function reset() { page = null; cursor = null; history = []; selected = null; failed = false; }
+  function reset() { page = null; cursor = null; history = []; selected = null; editing = null; renameNeedsReload = false; failed = false; }
   function afterOperation() {
     busy = null; render();
+    if (!destroyed && pendingProjectRead && selectedProject) {
+      pendingProjectRead = false; void read(null, 'reload'); return;
+    }
     if (!destroyed && pendingState) scheduleSave();
   }
   function scheduleSave() {
@@ -204,7 +239,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
   }
   async function read(requested: ThreadCursor | null, direction: 'reload' | 'previous' | 'next') {
     if (destroyed || busy || !selectedProject) return false;
-    const project = selectedProject; const at = generation; busy = 'list'; failed = false; render();
+    const project = selectedProject; const at = generation; editing = null; busy = 'list'; failed = false; render();
     try {
       const result = pageValue(await options.list({ projectId: project, cursor: requested, limit: 50 }), project, requested);
       if (!result) throw new Error('Invalid bounded thread projection');
@@ -212,8 +247,8 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
       if (direction === 'reload') history = [];
       else if (direction === 'next') { history.push(cursor); if (history.length > 64) history.shift(); }
       else history.pop();
-      page = result; cursor = requested; selected = null;
-      message = page.rows.length ? 'Saved records only. Select a thread to inspect its metadata.' : 'No saved threads in this project.';
+      page = result; cursor = requested; selected = null; renameNeedsReload = false;
+      message = page.rows.length ? 'Select a thread to view its details.' : 'No saved threads in this project.';
       return true;
     } catch (error) {
       if (!destroyed && at === generation && selectedProject === project) {
@@ -256,8 +291,11 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
       const next = { ...previous, ...value };
       projects = [next, ...projects.filter(project => project.projectId !== value.projectId)].slice(0, 100);
     }
-    renderProjects(); message = selectedProject ? 'Load threads for this project.' : 'Choose a project, then load its saved threads.';
-    render(); if (!valid) options.reportError('The current project is unavailable. No other project was used.'); return valid;
+    pendingProjectRead = selectedProject !== null;
+    renderProjects(); message = selectedProject ? 'Loading threads…' : 'Choose a project to see its threads.';
+    render();
+    if (pendingProjectRead && !busy) { pendingProjectRead = false; void read(null, 'reload'); }
+    if (!valid) options.reportError('The current project is unavailable. No other project was used.'); return valid;
   }
   function cancelDrag() {
     if (!drag) return; const before = drag; drag = null; display = before.before;
@@ -295,6 +333,65 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     if (selectedProject) void read(null, 'reload');
   };
   reload.onclick = () => { void read(null, 'reload'); };
+  rename.onclick = () => {
+    if (destroyed || busy || renameNeedsReload || !options.rename) return;
+    const chosen = page?.rows.find(row => row.id === selected && row.projectId === selectedProject);
+    if (!chosen) return;
+    editing = { ...chosen }; renameInput.value = chosen.title ?? ''; renameError.hidden = true;
+    render(); renameInput.focus(); renameInput.select();
+  };
+  renameInput.oninput = () => { renameError.hidden = true; render(); };
+  function cancelRename() {
+    if (busy) return;
+    editing = null; render();
+    if (renameNeedsReload) reload.focus(); else rename.focus();
+  }
+  renameCancel.onclick = cancelRename;
+  renameForm.onkeydown = event => {
+    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); cancelRename(); }
+  };
+  renameForm.onsubmit = event => {
+    event.preventDefault();
+    if (destroyed || busy || renameNeedsReload || !editing || !options.rename || !validTitle(renameInput.value)) return;
+    const before = editing; const title = renameInput.value.trim(); const at = generation;
+    if (before.projectId !== selectedProject || before.id !== selected) return;
+    busy = 'rename'; failed = false; renameError.hidden = true; render();
+    void (async () => {
+      let saved = false;
+      try {
+        const response = await options.rename!({projectId:before.projectId,threadId:before.id,expectedRevision:before.revision,title});
+        if (destroyed || at !== generation || selectedProject !== before.projectId) return;
+        const renamed = renamedValue(response, before, title);
+        if (!renamed) { renameNeedsReload = true; throw {code:'conflict'}; }
+        saved = true; editing = null; selected = renamed.id;
+        // Keep the acknowledged title even if the subsequent bounded refresh
+        // fails. Old page cursors cannot be reused after its sort key changes.
+        page = {rows: (page?.rows ?? []).map(row => row.id === renamed.id ? renamed : row), next:null}; cursor = null; history = [];
+        message = 'Thread renamed.';
+        try {
+          const received = pageValue(await options.list({projectId:before.projectId,cursor:null,limit:50}), before.projectId, null);
+          if (destroyed || at !== generation || selectedProject !== before.projectId) return;
+          if (!received || !received.rows.some(row => row.id === renamed.id)) throw new Error('Reload required');
+          page = received;
+        } catch {
+          if (!destroyed && at === generation) message = 'Thread renamed. Reload threads to refresh the list.';
+        }
+      } catch (error) {
+        if (!destroyed && at === generation && selectedProject === before.projectId) {
+          const code = record(error) ? error.code ?? error.issue : error;
+          renameNeedsReload = code === 'conflict' || code === 'source_changed';
+          message = renameNeedsReload ? 'This thread changed. Reload threads before renaming again.'
+            : code === 'invalid' ? 'Use a shorter name without line breaks.' : 'The thread name could not be saved. Try again.';
+          failed = true; renameError.textContent = message; renameError.hidden = false; options.reportError(message);
+        }
+      } finally {
+        afterOperation();
+        if (!destroyed && at === generation && selectedProject === before.projectId) {
+          if (renameNeedsReload) reload.focus(); else if (saved) rename.focus(); else renameInput.focus();
+        }
+      }
+    })();
+  };
   resume.onclick = () => {
     if (destroyed || busy || !options.onResume || !selectedProject) return;
     const chosen = page?.rows.find(row => row.id === selected && row.projectId === selectedProject);

@@ -46,6 +46,14 @@ pub struct Save {
 pub struct Create {
     project_id: String,
 }
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Rename {
+    project_id: String,
+    thread_id: String,
+    expected_revision: u64,
+    title: String,
+}
 pub struct Controller {
     services: Arc<Services>,
     busy: AtomicBool,
@@ -163,6 +171,50 @@ pub async fn thread_create(
                 created_at: at,
                 updated_at: at,
             })
+        })
+        .await
+}
+
+#[tauri::command]
+pub async fn thread_rename(
+    window: WebviewWindow,
+    controller: State<'_, Arc<Controller>>,
+    request: Rename,
+) -> Result<shinatama_state::threads::ThreadRecord, Error> {
+    local(&window)?;
+    controller
+        .inner()
+        .work(move |db| {
+            // Bound the raw input before trimming. Preserve every other saved
+            // field; neither archive state nor native binding comes from IPC.
+            if request.title.len() > 256 || request.title.chars().any(char::is_control) {
+                return Err(ThreadError::Invalid);
+            }
+            let title = request.title.trim();
+            if title.is_empty() {
+                return Err(ThreadError::Invalid);
+            }
+            let current = db
+                .thread_record(&request.thread_id)?
+                .ok_or(ThreadError::NotFound)?;
+            if current.project_id != request.project_id {
+                return Err(ThreadError::Invalid);
+            }
+            if current.revision != request.expected_revision {
+                return Err(ThreadError::Conflict);
+            }
+            let at = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .ok()
+                .and_then(|time| i64::try_from(time.as_millis()).ok())
+                .ok_or(ThreadError::Storage)?;
+            db.update_thread_metadata(
+                &request.thread_id,
+                request.expected_revision,
+                Some(title),
+                current.archived,
+                at,
+            )
         })
         .await
 }

@@ -36,6 +36,13 @@
 .thread-sidebar-limitation { margin: 0; color: var(--muted); font-size: 11px; }
 .thread-sidebar-actions { display: flex; flex-wrap: wrap; gap: 5px; }
 .thread-sidebar-actions button { padding: 0 6px; font-size: 10px; }
+.thread-sidebar-rename { display: grid; gap: 6px; }
+.thread-sidebar-rename[hidden] { display: none; }
+.thread-sidebar-rename label { color: var(--muted); font-size: 12px; }
+.thread-sidebar-rename input { min-width: 0; width: 100%; box-sizing: border-box; padding: 7px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: 13px var(--display); }
+.thread-sidebar-rename input:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
+.thread-sidebar-rename > div { display: flex; gap: 6px; }
+.thread-sidebar-rename p { margin: 0; color: var(--error); font-size: 12px; }
 .thread-sidebar-resize { position: absolute; top: 0; bottom: 0; right: -3px; z-index: 2; width: 6px; cursor: col-resize; touch-action: none; }
 .thread-sidebar-resize:hover, .thread-sidebar-resize:focus-visible { background: var(--line-strong); }
 .thread-sidebar.is-collapsed { width: 40px; min-width: 40px; max-width: 40px; flex-basis: 40px; }

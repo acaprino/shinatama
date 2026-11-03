@@ -18,8 +18,10 @@ Questa prima versione riceve i segnali di attenzione nativi del terminale e la
 fine del processo mentre Shinatama è aperta. La disponibilità delle notifiche
 dipende dall'harness; la domanda completa si legge e si risponde nel terminale.
 
-Il progetto contiene i thread. Nel pannello **Threads**, **New session** apre lo
-stesso dialogo con il progetto selezionato. **Reload threads** rilegge quelli salvati. Il bordo destro
+Il progetto contiene i thread, caricati automaticamente quando lo selezioni.
+Nel pannello **Threads**, **New session** apre lo stesso dialogo con il progetto
+selezionato. Seleziona un thread e premi **Rename** per cambiarne il nome:
+Invio salva, Esc annulla. **Reload threads** rilegge quelli salvati. Il bordo destro
 ridimensiona il pannello; la freccia lo comprime. Dimensioni e stato sono salvati.
 Il workspace può mostrare viste di progetti diversi: cambiare il progetto nel
 pannello Threads non cambia la disposizione. Chiudere una vista conserva il thread.
@@ -34,6 +36,6 @@ Seleziona un ID e premi **Open detail** per leggere la conversazione. Il dettagl
 attuale accetta archivi fino a 16 MiB; quelli più grandi vengono rifiutati prima
 della lettura. **Close session detail** torna all'elenco.
 
-Questa build locale abilita il primo avvio Claude in modalità safe con set vuoto.
-Autenticazione, copertura dei provider, avvio degli altri agenti, ricerca globale e hop
-restano distinti: non sono certificati dalla sola apertura della TUI.
+Claude conserva i propri strumenti e le richieste di permesso nel terminale.
+Autenticazione, copertura dei provider, ripresa per ogni harness, ricerca globale
+e hop restano distinti: non sono certificati dalla sola apertura della TUI.
