@@ -2,7 +2,7 @@
   "schema_version": 1,
   "updated_at": "2026-11-03",
   "base_head": "46435ab",
-  "git_state": "Harness services are committed in 454f75a; engine profiles in 7bc716f. Fresh private startup/owned cleanup passed for Claude 2.1.317, Codex 0.166.0, OpenCode 2.2.5 and PowerShell. Commit 2f72e7c adds shared native proof ownership and demonstrates genuine authenticated Claude hooks plus exact same-UUID headless resume with prior assistant history; TLS regression also passes. Commit 265ac39 adds thread rename and automatic selected-project thread loading, verified in the real UI with the same responsive PowerShell session and unchanged semantic layout. Actual UI/ConPTY Claude Resume proof remains in progress; no user session, credentials or personal database was used. C12 is the sole active parent; running-CLI effective controls, full resilience/crash recovery, remaining harness capabilities and floating windows remain open. Daodan stays deferred.",
+  "git_state": "Harness services are committed in 454f75a; engine profiles in 7bc716f. Fresh private startup/owned cleanup passed for Claude 2.1.317, Codex 0.166.0, OpenCode 2.2.5 and PowerShell. Commit 2f72e7c adds shared native proof ownership and demonstrates genuine authenticated Claude hooks plus exact same-UUID headless resume with prior assistant history; TLS regression also passes. Commit 265ac39 adds thread rename and automatic selected-project thread loading, verified in the real UI with the same responsive PowerShell session and unchanged semantic layout. Actual UI/ConPTY Claude Resume proof remains in progress; no user session, credentials or personal database was used. C12 is the sole active parent; running-CLI effective controls, full resilience/crash recovery, remaining harness capabilities and floating windows remain open. Daodan stays deferred. New commits: 2b3d32b centralizes normal/delayed trial finalization; 904ce8a documents Rust trait/composition extension; 5e24fb2 records guarded UI Resume diagnostics. A partial UI run proved same thread/native UUID/history and two closed owners, but its obsolete immutable IPC counter failed. Later protected run exited Claude with code 1 before onboarding; no full UI PASS or C25/F02 completion is claimed. Auto-review initially refused an unguarded rerun; after a local upstream guard and private configuration were implemented and independently source-reviewed, guard-only passed and protected execution was approved. The latest protected run forwarded zero connections, left sidecar healthy and retained fixed resource budgets. Verified local package e4fba2a6-64ee-43a3-9db8-206c90425131 contains functional code through 2b3d32b, 621 files and 227392932 bytes; no personal app instance was opened or modified.",
   "steps": {
     "B00": {
       "status": "committed",
@@ -1309,18 +1309,22 @@
       "evidence": [
         "docs/notes/2026-11-03-harness-services.md",
         "docs/notes/2026-11-03-claude-proxy-tls.md",
-        "docs/notes/2026-11-03-claude-native-resume.md"
+        "docs/notes/2026-11-03-claude-native-resume.md",
+        "docs/notes/2026-11-03-claude-resume-ui.md"
       ],
       "checks": [
         "native-new-session-user-path: Claude Code 2.1.317 PASS including sealed conversation ownership and finalization after native cleanup; .prototype-evidence/new-session-claude_code.json",
         "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls -- --ignored --test-threads=1: PASS 1/1, 9.27s; actual Claude 2.1.317 rejected missing CA, received synthetic marker through canonical sidecar with private child CA; all owners Released and ledger empty",
-        "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls --test claude_native_resume -- --ignored --test-threads=1: PASS native resume 1/1 in 9.78s and TLS 1/1 in 9.18s; two genuine SessionStart hooks, same saved UUID and prior assistant turn received by synthetic provider, all owners Released"
+        "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls --test claude_native_resume -- --ignored --test-threads=1: PASS native resume 1/1 in 9.78s and TLS 1/1 in 9.18s; two genuine SessionStart hooks, same saved UUID and prior assistant turn received by synthetic provider, all owners Released",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/claude-resume-smoke.mjs --guard-only: PASS local absolute/CONNECT refusal and owner-only private configuration, no app executed",
+        "guarded claude-resume-smoke.mjs on portable e4fba2a6-64ee-43a3-9db8-206c90425131: INCOMPLETE, Claude exit 1 before onboarding; phase Released/reason process_ended, sidecar healthy, zero forwarded connections and zero synthetic messages; no parent/unit promotion"
       ],
       "checkpoint_commits": [
         "7bc716f78332b1c0af41bdb89e3181251fe6b0bc",
         "454f75a4292343b77395fd8e720ede9ffa44869e",
         "885db6da4abf6c643ab6aa02f8c7d655317214b6",
-        "2f72e7c4ce7badd65c173cf04f3bb16666951a5e"
+        "2f72e7c4ce7badd65c173cf04f3bb16666951a5e",
+        "5e24fb26d1acf1d667c1899a73e7511a478e2911"
       ]
     },
     "C22": {
@@ -1508,19 +1512,23 @@
             "2d7735fc375b20ad8f1fb35bb9f0db79acc1a7b0",
             "86e0054cbcf843c75fc4359c831d485740231429",
             "f7eba14eff6147efb9a8cb4c9f5876ce3e5f8caa",
-            "2f72e7c4ce7badd65c173cf04f3bb16666951a5e"
+            "2f72e7c4ce7badd65c173cf04f3bb16666951a5e",
+            "5e24fb26d1acf1d667c1899a73e7511a478e2911"
           ],
           "evidence": [
             "docs/notes/2026-11-03-thread-resume-target.md",
             "docs/notes/2026-11-03-native-thread-lifecycle.md",
             "docs/notes/2026-11-03-native-activation-history.md",
-            "docs/notes/2026-11-03-claude-native-resume.md"
+            "docs/notes/2026-11-03-claude-native-resume.md",
+            "docs/notes/2026-11-03-claude-resume-ui.md"
           ],
           "checks": [
             "cargo test --offline --locked -p shinatama-state -j1 --lib threads::tests -- --test-threads=1",
             "cargo test --offline --locked -p shinatama-terminal -j1 --lib lifecycle_ -- --test-threads=1",
             "cargo test --offline --locked -p shinatama-state -j1 --lib migrations::fault_tests::v5_activation_history_migration_is_lossless_and_rolls_back_after_sql_failure -- --test-threads=1",
-            "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls --test claude_native_resume -- --ignored --test-threads=1: PASS native resume 1/1 in 9.78s and TLS 1/1 in 9.18s; two genuine SessionStart hooks, same saved UUID and prior assistant turn received by synthetic provider, all owners Released"
+            "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls --test claude_native_resume -- --ignored --test-threads=1: PASS native resume 1/1 in 9.78s and TLS 1/1 in 9.18s; two genuine SessionStart hooks, same saved UUID and prior assistant turn received by synthetic provider, all owners Released",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/claude-resume-smoke.mjs --guard-only: PASS local absolute/CONNECT refusal and owner-only private configuration, no app executed",
+            "guarded claude-resume-smoke.mjs on portable e4fba2a6-64ee-43a3-9db8-206c90425131: INCOMPLETE, Claude exit 1 before onboarding; phase Released/reason process_ended, sidecar healthy, zero forwarded connections and zero synthetic messages; no parent/unit promotion"
           ],
           "limits": [
             "Trusted resolution, atomic native-switch history, lifecycle callbacks and actual headless native resume pass. Controller is connected; full UI/ConPTY resume and two-process race proof remain open."
@@ -1531,25 +1539,33 @@
           "commit_sha": null,
           "checkpoint_commits": [
             "454f75a4292343b77395fd8e720ede9ffa44869e",
-            "265ac39ce3bc56b89cc3cbb9d1ac98a4cb52cbc6"
+            "265ac39ce3bc56b89cc3cbb9d1ac98a4cb52cbc6",
+            "5e24fb26d1acf1d667c1899a73e7511a478e2911"
           ],
           "evidence": [
             "docs/notes/2026-11-03-harness-services.md",
-            "docs/notes/2026-11-03-thread-rename.md"
+            "docs/notes/2026-11-03-thread-rename.md",
+            "docs/notes/2026-11-03-claude-resume-ui.md"
           ],
           "checks": [
             "npm run build",
             "cargo build --offline --locked -p shinatama-desktop --features custom-protocol -j1",
-            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/thread-rename-smoke.mjs: PASS title persistence, concurrent revision conflict, same responsive shell and layout, automatic project thread load, owned cleanup"
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/thread-rename-smoke.mjs: PASS title persistence, concurrent revision conflict, same responsive shell and layout, automatic project thread load, owned cleanup",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/claude-resume-smoke.mjs --guard-only: PASS local absolute/CONNECT refusal and owner-only private configuration, no app executed",
+            "guarded claude-resume-smoke.mjs on portable e4fba2a6-64ee-43a3-9db8-206c90425131: INCOMPLETE, Claude exit 1 before onboarding; phase Released/reason process_ended, sidecar healthy, zero forwarded connections and zero synthetic messages; no parent/unit promotion"
           ],
           "limits": [
             "Sidebar Resume is connected to the registered service; actual UI resume proof remains open. Rename and automatic project thread reads pass without changing identity, running terminal or workspace arrangement. No product headless resume or automatic native launch has been added."
-          ]
+          ],
+          "next_action": "Diagnose the exact native CLI exit category in the guarded UI fixture before rerunning Resume; preserve headless PASS and partial UI history evidence without claiming complete UI qualification."
         }
       },
-      "next_action": "Prove actual New session, synthetic conversation, Stop and explicit Resume through the production UI, retaining exact native identity and history.",
+      "next_action": "Diagnose the exact native CLI exit category in the guarded UI fixture before rerunning Resume; preserve headless PASS and partial UI history evidence without claiming complete UI qualification.",
       "limits": [
         "No automatic resume, native ID fabrication, TTL ownership stealing or native activity claims. Parent C25 remains open."
+      ],
+      "evidence": [
+        "docs/notes/2026-11-03-native-owner-recovery-gap.md"
       ]
     },
     "C46": {
@@ -1645,29 +1661,35 @@
         "f7eba14eff6147efb9a8cb4c9f5876ce3e5f8caa",
         "7bc716f78332b1c0af41bdb89e3181251fe6b0bc",
         "454f75a4292343b77395fd8e720ede9ffa44869e",
-        "2f72e7c4ce7badd65c173cf04f3bb16666951a5e"
+        "2f72e7c4ce7badd65c173cf04f3bb16666951a5e",
+        "5e24fb26d1acf1d667c1899a73e7511a478e2911"
       ],
       "evidence": [
         "docs/notes/2026-11-03-claude-session-events.md",
         "docs/notes/2026-11-03-native-activation-history.md",
-        "docs/notes/2026-11-03-claude-native-resume.md"
+        "docs/notes/2026-11-03-claude-native-resume.md",
+        "docs/notes/2026-11-03-claude-resume-ui.md",
+        "docs/notes/2026-11-03-native-owner-recovery-gap.md"
       ],
       "checks": [
         "cargo test --offline --locked -p shinatama-engine -j1 --bin shinatama-hook",
         "cargo test --offline --locked -p shinatama-engine -j1 --lib claude_session_events::tests::loopback_authentication_bounds_and_stop_preserve_only_session_metadata -- --test-threads=1",
-        "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls --test claude_native_resume -- --ignored --test-threads=1: PASS native resume 1/1 in 9.78s and TLS 1/1 in 9.18s; two genuine SessionStart hooks, same saved UUID and prior assistant turn received by synthetic provider, all owners Released"
+        "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls --test claude_native_resume -- --ignored --test-threads=1: PASS native resume 1/1 in 9.78s and TLS 1/1 in 9.18s; two genuine SessionStart hooks, same saved UUID and prior assistant turn received by synthetic provider, all owners Released",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/claude-resume-smoke.mjs --guard-only: PASS local absolute/CONNECT refusal and owner-only private configuration, no app executed",
+        "guarded claude-resume-smoke.mjs on portable e4fba2a6-64ee-43a3-9db8-206c90425131: INCOMPLETE, Claude exit 1 before onboarding; phase Released/reason process_ended, sidecar healthy, zero forwarded connections and zero synthetic messages; no parent/unit promotion"
       ],
       "limits": [
         "Tracked normal Claude profile and lifecycle consumer are connected. Actual headless Claude SessionStart hooks and exact native resume pass with synthetic local data. Durable event feed, real UI resume qualification and identity-safe crash recovery remain open; no PID-only or TTL ownership unlock."
       ],
-      "next_action": "Complete actual UI/ConPTY Stop-to-Resume proof; separately persist sufficient exact ownership and cleanup evidence for explicit crash recovery."
+      "next_action": "Diagnose the exact native CLI exit category in the guarded UI fixture before rerunning Resume; preserve headless PASS and partial UI history evidence without claiming complete UI qualification. Exact crash recovery remains a separate persisted ownership/cleanup-evidence task."
     },
     "C11S": {
       "status": "committed",
       "commit_sha": "454f75a4292343b77395fd8e720ede9ffa44869e",
       "evidence": [
         "docs/notes/2026-11-03-harness-services.md",
-        "docs/notes/2026-11-03-opencode-open.md"
+        "docs/notes/2026-11-03-opencode-open.md",
+        "docs/notes/2026-11-03-retained-canary-cleanup.md"
       ],
       "checks": [
         "Frontend build: PASS (coordinator-run on integrated harness service)",
@@ -1678,13 +1700,16 @@
         "native-new-session-user-path: Codex 0.166.0 PASS; .prototype-evidence/new-session-codex.json",
         "native-new-session-user-path: OpenCode 2.2.5 PASS; .prototype-evidence/new-session-opencode.json",
         "native-new-session-user-path: Claude Code 2.1.317 PASS including sealed conversation ownership and finalization after native cleanup; .prototype-evidence/new-session-claude_code.json",
-        "native-new-session-user-path: PowerShell PASS; selected project reused from header/sidebar, two-project threads preserve layout, healthy shell responds; .prototype-evidence/new-session-powershell.json"
+        "native-new-session-user-path: PowerShell PASS; selected project reused from header/sidebar, two-project threads preserve layout, healthy shell responds; .prototype-evidence/new-session-powershell.json",
+        "cargo build --offline --locked -p shinatama-desktop --features custom-protocol -j1: PASS 24.06s after common retained cleanup fix",
+        "rustfmt --edition 2024 apps/desktop/src-tauri/src/agents.rs"
       ],
       "requirements_note": "docs/notes/2026-11-03-harness-services.md",
       "limits": [
         "Shared-service startup, persisted project/thread/view and owned cleanup passed for Codex 0.166.0, OpenCode 2.2.5 and Claude Code 2.1.317 using fresh private app state and synthetic projects.",
         "Claude sealed conversation live ownership and finalization after native cleanup passed; actual harness-emitted hook events, authentication, provider traffic/tools and native Resume are not qualified.",
-        "Codex/OpenCode native resume remains unsupported; archive/provider and complete resilience gates remain separate."
+        "Codex/OpenCode native resume remains unsupported; archive/provider and complete resilience gates remain separate.",
+        "Delayed release now consumes an available authentic receipt before dropping owner; its dedicated delayed-release native regression remains open. No failed-trial receipt is fabricated."
       ],
       "next_action": "Shared service and registered drivers are committed. Continue harness-specific native events, Resume and provider/tool qualification without duplicating the lifecycle or repeating unchanged passing startup proofs.",
       "units": {
@@ -1730,7 +1755,9 @@
       ],
       "checkpoint_commits": [
         "7bc716f78332b1c0af41bdb89e3181251fe6b0bc",
-        "454f75a4292343b77395fd8e720ede9ffa44869e"
+        "454f75a4292343b77395fd8e720ede9ffa44869e",
+        "2b3d32be2c1afa617fc83f7175e946c33b12a6f1",
+        "904ce8afa6490b4f0c7e2402e4880297ad522a61"
       ]
     },
     "C17": {
