@@ -19,6 +19,7 @@ setlocal
 if not exist "%~dp0shinatama-desktop.exe" goto missing
 if not exist "%~dp0shinatama-terminal-helper.exe" goto missing
 if not exist "%~dp0shinatama-session-helper.exe" goto missing
+if not exist "%~dp0shinatama-hook.exe" goto missing
 start "" /d "%~dp0" "%~dp0shinatama-desktop.exe"
 exit /b 0
 :missing
@@ -237,7 +238,7 @@ function Plan([string]$ResourcesRoot) {
     }
     $plan.Add('resources/sidecar/runtime/node.exe', @{ source = 'runtime/node.exe'; expected = @{ bytes = $runtime.bytes; sha256 = $runtime.sha256 } })
     $plan.Add('resources/sidecar/runtime/LICENSE', @{ source = 'runtime/LICENSE'; expected = @{ bytes = $runtime.license.bytes; sha256 = $runtime.license.sha256 } })
-    foreach ($name in @('shinatama-desktop.exe', 'shinatama-terminal-helper.exe', 'shinatama-session-helper.exe', 'AVVIO.md', 'Shinatama.cmd')) {
+    foreach ($name in @('shinatama-desktop.exe', 'shinatama-terminal-helper.exe', 'shinatama-session-helper.exe', 'shinatama-hook.exe', 'AVVIO.md', 'Shinatama.cmd')) {
         $plan.Add($name, @{ source = $name; expected = $null })
     }
     return ,$plan
@@ -287,7 +288,7 @@ function Verify-Package([string]$Directory) {
     $actual = Files-Bounded $directory
     if ($actual.Count -ne $seen.Count + 1) { throw 'Package has missing or additional files.' }
     foreach ($relative in $actual) { if ($relative -cne 'package-manifest.json' -and -not $seen.Contains($relative)) { throw 'Unlisted package file refused.' } }
-    foreach ($name in @('shinatama-desktop.exe', 'shinatama-terminal-helper.exe', 'shinatama-session-helper.exe')) { Assert-Native (Regular $directory $name) ($name -ceq 'shinatama-desktop.exe') }
+    foreach ($name in @('shinatama-desktop.exe', 'shinatama-terminal-helper.exe', 'shinatama-session-helper.exe', 'shinatama-hook.exe')) { Assert-Native (Regular $directory $name) ($name -ceq 'shinatama-desktop.exe') }
     return [ordered]@{ status = 'verified'; directory = $directory; packageId = $id; files = $seen.Count; bytes = $total; gitHead = $manifest.gitHead; buildMode = $manifest.buildMode; nativeAppExecuted = $false; releaseApproved = $false }
 }
 
@@ -309,7 +310,7 @@ if ($preparedFiles.Count -ne 610) { throw 'Prepared sidecar must contain the exa
 $expectedPrepared = Expected-Prepared (Read-Json (Regular $resources 'source-build/provenance.lock.json'))
 foreach ($relative in $preparedFiles) { if (-not $expectedPrepared.ContainsKey($relative)) { throw 'Unexpected prepared sidecar file.' } }
 $gitHead = Git-Head
-foreach ($name in @('shinatama-desktop.exe', 'shinatama-terminal-helper.exe', 'shinatama-session-helper.exe')) { Assert-Native (Regular $workspace "target/debug/$name") ($name -ceq 'shinatama-desktop.exe') }
+foreach ($name in @('shinatama-desktop.exe', 'shinatama-terminal-helper.exe', 'shinatama-session-helper.exe', 'shinatama-hook.exe')) { Assert-Native (Regular $workspace "target/debug/$name") ($name -ceq 'shinatama-desktop.exe') }
 foreach ($directory in @((Join-Path $workspace '.verification'), $portableRoot)) {
     if (Test-Path -LiteralPath $directory) { [void](Assert-NoLink $directory) }
     else { [void](Assert-NoLink ([IO.Path]::GetDirectoryName($directory))); [void][IO.Directory]::CreateDirectory($directory); [void](Assert-NoLink $directory) }

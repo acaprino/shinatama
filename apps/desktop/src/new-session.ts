@@ -36,7 +36,7 @@ function plainFailure(value: unknown, fallback: string): string {
 /** Drafting and folder selection never open a terminal. The single explicit
  * Open action owns its request until settlement; it cannot be hidden or repeated. */
 export function createNewSession(options: Options) {
-  const choices = options.harnesses.length <= 32 ? options.harnesses.filter((item, index, all) =>
+  let choices = options.harnesses.length <= 32 ? options.harnesses.filter((item, index, all) =>
     /^[a-z0-9_-]{1,64}$/i.test(item.id) && scalar(item.label, 128) && all.findIndex(candidate => candidate.id === item.id) === index
   ).map(item => ({ ...item })) : [];
   const dialog = document.createElement('dialog'); dialog.id = 'new-session-dialog'; dialog.setAttribute('aria-labelledby', 'new-session-title');
@@ -148,6 +148,16 @@ export function createNewSession(options: Options) {
     render(); openModal(dialog); (choosingProject ? project : harness).focus();
     if (choosingProject && !pending) void loadProjects(); return true;
   }
+  function setHarnesses(values: readonly NewSessionHarness[]): boolean {
+    if (destroyed || pending === 'open' || !Array.isArray(values) || values.length > 32
+      || values.some(item => !record(item) || !scalar(item.id, 64) || !/^[a-z0-9_-]+$/i.test(item.id) || !scalar(item.label, 128))
+      || new Set(values.map(item => item.id)).size !== values.length) return false;
+    const selected = harness.value; choices = values.map(item => ({ id: item.id, label: item.label }));
+    harness.replaceChildren();
+    for (const choice of choices) { const item = document.createElement('option'); item.value = choice.id; item.textContent = choice.label; harness.append(item); }
+    harness.value = choices.some(choice => choice.id === selected) ? selected : choices[0]?.id ?? '';
+    render(); return true;
+  }
   changeProject.onclick = () => {
     if (pending) return;
     choosingProject = true; clearError(); render(); project.focus(); void loadProjects();
@@ -165,5 +175,5 @@ export function createNewSession(options: Options) {
     if (!dialog.open) { generation++; project.value = ''; projects = []; fillRecent(); clearError(); options.restoreFocus?.(); }
   });
   fillRecent(); render();
-  return { show, close, destroy: (): boolean => { if (!close()) return false; destroyed = true; dialog.remove(); return true; } };
+  return { show, close, setHarnesses, destroy: (): boolean => { if (!close()) return false; destroyed = true; dialog.remove(); return true; } };
 }

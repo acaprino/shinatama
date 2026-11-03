@@ -10,7 +10,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 if (process.platform !== 'win32') throw new Error('This proof requires Windows.');
 const harness = process.env.SHINATAMA_SMOKE_SESSION_HARNESS || 'claude_code';
-if (!['claude_code', 'codex', 'powershell'].includes(harness)) throw new Error('Choose claude_code, codex or powershell for this proof.');
+if (!['claude_code', 'codex', 'opencode', 'powershell'].includes(harness)) throw new Error('Choose claude_code, codex, opencode or powershell for this proof.');
 const workspace = process.cwd();
 const packageExecutable = process.env.SHINATAMA_SMOKE_APP_EXE;
 if (packageExecutable && !isAbsolute(packageExecutable)) throw new Error('The package executable must be an explicit absolute path.');
@@ -86,10 +86,10 @@ async function redactDiagnostics() {
   } catch { result.resources = 'unavailable'; }
   try {
     const status = await ipc('agent_status');
-    const facts = harness === 'codex' ? status.codex : status;
-    result.agent = { checking: status.checking, blocked: status.blocked,
+    const facts = status.harnesses?.[harness];
+    result.agent = { checking: facts?.checking, blocked: facts?.blocked,
       canaryCount: Array.isArray(facts?.canary) ? facts.canary.length : 0,
-      startupFailure: typeof status.startupFailure === 'string' ? status.startupFailure.replace(/[\r\n]/g, ' ').slice(0, 240) : null,
+      startupFailure: typeof facts?.startupFailure === 'string' ? facts.startupFailure.replace(/[\r\n]/g, ' ').slice(0, 240) : null,
       versionProbe: facts?.versionProbe ? {
         issue: facts.versionProbe.issue, elapsedMs: facts.versionProbe.elapsed_ms,
         preparationMs: facts.versionProbe.preparation_elapsed_ms,
@@ -148,6 +148,11 @@ async function openFromDialog(projectPath, expectedCount, selectedProject = fals
   expect(project?.id).toMatch(/^p_[a-z2-7]{12}$/);
   const stored = await ipc('thread_list', { request: { projectId: project.id, cursor: null, limit: 50 } });
   expect(stored.rows).toHaveLength(1); expect(stored.rows[0].id).toBe(panel.resource.threadId);
+  if (harness === 'claude_code') {
+    expect(stored.rows[0].status).toBe('recorded_open');
+    expect(stored.rows[0].harness).toBe(harness);
+    evidence.checks.sealedConversationHasLiveOwner = true;
+  }
   const sidebar = page.locator('.thread-sidebar');
   await expect(sidebar.locator('#thread-sidebar-project')).toHaveValue(project.id);
   await expect(sidebar.locator(`button[data-thread-id="${panel.resource.threadId}"]`)).toBeVisible();
@@ -210,7 +215,7 @@ try {
     }, {timeout:10000}).toBe(true);
     evidence.checks.localServicePreparedAutomatically = true;
     const status = await ipc('agent_status');
-    evidence.version = (harness === 'codex' ? status.codex : status)?.versionProbe?.version ?? null;
+    evidence.version = status.harnesses?.[harness]?.versionProbe?.version ?? null;
   } else {
     await page.locator('#project').click();
     await page.locator('#folder').fill(projectPaths[1]);
@@ -248,6 +253,13 @@ try {
     await pane(item.id).getByRole('button', { name: 'Stop terminal', exact: true }).click();
     await page.locator('#confirm-dialog').getByRole('button', { name: 'Stop', exact: true }).click();
     await expect(page.locator(`.wm-tab[data-view-id="${item.id}"]`)).toHaveCount(0);
+    if (harness === 'claude_code') {
+      await expect.poll(async () => {
+        const page = await ipc('thread_list', {request:{projectId:item.projectId,cursor:null,limit:50}});
+        return page.rows.find(thread => thread.id === item.threadId)?.status;
+      }).toBe('inactive');
+      evidence.checks.threadOwnerFinalizedAfterNativeCleanup = true;
+    }
   }
   await expect.poll(ids).toEqual([]);
   await closeFrame(); expect(app.exitCode).toBe(0);

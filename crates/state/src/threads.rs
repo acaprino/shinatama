@@ -136,6 +136,9 @@ pub struct NativeSessionTransition {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ThreadResumeTarget {
     pub thread: ThreadRecord,
+    /// Saved project path from the same snapshot, not supplied by a resume UI.
+    /// Its availability and canonical cwd still require filesystem verification.
+    pub project_path: String,
     pub segment: SegmentRecord,
     pub root: StoreRootRecord,
     /// Absence is not a native
@@ -548,6 +551,10 @@ impl Database {
         if thread.archived {
             return Err(ThreadResumeError::Archived);
         }
+        let project_path: String = tx.query_row(
+            "SELECT path FROM project WHERE id=?1 AND length(CAST(path AS BLOB)) BETWEEN 1 AND 4096",
+            [&thread.project_id], |row| row.get(0),
+        ).optional()?.ok_or(ThreadResumeError::Invalid)?;
         let segment = tx.query_row(
             "SELECT id,thread_id,ordinal,harness,store_root_id,store_revision,native_id,archived,revision,created_at FROM segment WHERE id=coalesce((SELECT segment_id FROM activation WHERE thread_id=?1 ORDER BY activation_sequence DESC LIMIT 1),(SELECT id FROM segment WHERE thread_id=?1 ORDER BY ordinal DESC LIMIT 1))",
             [key], segment_row,
@@ -603,6 +610,7 @@ impl Database {
         tx.commit()?;
         Ok(ThreadResumeTarget {
             thread,
+            project_path,
             segment,
             root,
             recorded_activation,

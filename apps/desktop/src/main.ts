@@ -27,6 +27,7 @@ import { createThreadSidebar, type ThreadSidebarState } from './thread-sidebar.t
 import './styles.css';
 
 type SessionInfo = { id: string; cwd: string; shell: string };
+type HarnessCapabilities = { id: string; label: string; nativeResume: boolean };
 type OutputBatch = { chunks: number[][]; eof: boolean; exit_code: number | null; error: string | null };
 type View = {
   info: SessionInfo; terminal: Terminal; fit: FitAddon; element: HTMLDivElement;
@@ -36,11 +37,11 @@ type View = {
 type Tone = 'info' | 'error';
 const $ = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
 const desktop = isTauri();
-const sessionHarnesses = [
-  { id: 'claude_code', label: 'Claude Code' },
-  { id: 'codex', label: 'Codex' },
-  { id: 'powershell', label: 'PowerShell' },
-];
+const builtinHarness: HarnessCapabilities = { id: 'powershell', label: 'PowerShell', nativeResume: false };
+let sessionHarnesses: HarnessCapabilities[] = [builtinHarness];
+let harnessCatalogLoaded = false;
+let harnessCatalogLoading: Promise<boolean> | null = null;
+let openingSessionDialog = false;
 const views = new Map<string, View>();
 const profiles = PROFILES;
 let workspaceLayout = emptyWorkspace();
@@ -382,11 +383,16 @@ const newSession = createNewSession({
   },
   restoreFocus: () => setFocus(focusedGroup()),
 });
-function openNewSession(group: string = focusedGroup(), path?: string, harness?: string) {
-  if (starting) return;
+async function openNewSession(group: string = focusedGroup(), path?: string, harness?: string) {
+  if (starting || openingSessionDialog) return;
   const selectedProject = threadSidebar?.currentProjectId();
   const selectedPath = selectedProject ? recentThreadProjects.get(selectedProject) : selectedProjectPath;
-  newSessionGroup = group; newSession.show(path ?? selectedPath, harness);
+  openingSessionDialog = true;
+  try {
+    await loadHarnessCatalog();
+    newSession.setHarnesses(sessionHarnesses);
+    newSessionGroup = group; newSession.show(path ?? selectedPath, harness);
+  } finally { openingSessionDialog = false; }
 }
 threadSidebar = createThreadSidebar({
   host: $('#work-area'),
@@ -397,7 +403,9 @@ threadSidebar = createThreadSidebar({
     openNewSession(focusedGroup(), path);
   },
   onSelect: thread => {
-    const panel = workspaceLayout.views.find(panel => panel.resource.kind === 'terminal' && panel.resource.threadId === thread.id);
+    const panels = workspaceLayout.views.filter(panel => panel.resource.kind === 'terminal' && panel.resource.threadId === thread.id);
+    const panel = panels.find(panel => { const view = views.get(panel.id); return view && !view.disposed && !view.ended; })
+      ?? panels.find(panel => { const view = views.get(panel.id); return view && !view.disposed; });
     if (!panel) return;
     const group = tabGroups(workspaceLayout.root).find(group => group.tabs.includes(panel.id));
     if (!group || !views.has(panel.id)) return;
@@ -406,6 +414,20 @@ threadSidebar = createThreadSidebar({
     changeLayout({type:'activate',groupId:group.id,viewId:panel.id});
     setFocus(group.id);
   },
+  canResume: thread => sessionHarnesses.some(harness => harness.id === thread.harness && harness.nativeResume),
+  onResume: desktop ? async thread => {
+    if (starting) throw { code: 'busy' };
+    if (thread.projectId !== threadSidebar?.currentProjectId()) throw { code: 'source_changed' };
+    const requestedGroup = focusedGroup();
+    starting = true; $<HTMLButtonElement>('#new-terminal').disabled = true;
+    try {
+      const started = await invoke<{ session: SessionInfo; threadId: string }>('thread_resume', {
+        request: { threadId: thread.id, projectId: thread.projectId, expectedRevision: thread.revision, rows: 24, cols: 80 },
+      });
+      const group = tabGroups(workspaceLayout.root).some(candidate => candidate.id === requestedGroup) ? requestedGroup : focusedGroup();
+      attachTerminal(started.session, group, started.threadId);
+    } finally { starting = false; $<HTMLButtonElement>('#new-terminal').disabled = false; }
+  } : undefined,
   loadState: desktop ? async () => {
     const snapshot = await invoke<{revision:number;settings:ThreadSidebarState}>('thread_sidebar_load');
     sidebarRevision = snapshot.revision; return snapshot.settings;
@@ -417,6 +439,31 @@ threadSidebar = createThreadSidebar({
   reportError: notify,
 });
 $('#work-area').prepend(threadSidebar.element);
+async function loadHarnessCatalog(): Promise<boolean> {
+  if (!desktop || harnessCatalogLoaded) return true;
+  if (harnessCatalogLoading) return harnessCatalogLoading;
+  const loading = (async () => {
+    try {
+      const value = await invoke<unknown>('harness_catalog');
+      if (!Array.isArray(value) || value.length > 31) throw new Error('Invalid harness catalog');
+      const seen = new Set<string>(); const received: HarnessCapabilities[] = [];
+      for (const item of value) {
+        if (!item || typeof item !== 'object' || Array.isArray(item)
+          || typeof item.id !== 'string' || !/^[a-z0-9_]{1,64}$/.test(item.id) || item.id === builtinHarness.id || seen.has(item.id)
+          || typeof item.label !== 'string' || !item.label.length || item.label.length > 128 || /[\u0000-\u001f\u007f-\u009f]/.test(item.label)
+          || typeof item.nativeResume !== 'boolean') throw new Error('Invalid harness catalog');
+        seen.add(item.id); received.push({ id: item.id, label: item.label, nativeResume: item.nativeResume });
+      }
+      sessionHarnesses = [...received, builtinHarness]; harnessCatalogLoaded = true;
+      newSession.setHarnesses(sessionHarnesses); threadSidebar?.refreshCapabilities(); render(); return true;
+    } catch {
+      notify('Agent choices could not be loaded. Open New session to try again.'); return false;
+    }
+  })();
+  harnessCatalogLoading = loading;
+  try { return await loading; }
+  finally { if (harnessCatalogLoading === loading) harnessCatalogLoading = null; }
+}
 const sessionRaw = createSessionRaw({
   read: request => desktop ? invoke('session_raw', {request}) : Promise.reject({issue:'read_unavailable'}),
   reportError: notify,
@@ -493,6 +540,7 @@ async function initialize() {
     return;
   }
   try {
+    await loadHarnessCatalog();
     await attentionControl.initialize();
     await listen<{sessionId: string | null}>('attention-focus', ({ payload }) => {
       if (!payload.sessionId) return;

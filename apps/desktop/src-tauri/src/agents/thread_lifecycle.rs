@@ -1,0 +1,454 @@
+//! Trusted Claude ownership; hook observations never prove native cleanup.
+use shinatama_engine::{
+    claude_session_events::{ClaudeSessionEventReceiver, ReadError, SessionEventKind},
+    launch::identity::LaunchIdentityRecord,
+    resources::sampling::ProcessKey,
+};
+use shinatama_state::{
+    database::Database,
+    records::{CanonicalIdKind, NativeSessionKey, StoreRootRecord, new_id, validate_id},
+    threads::{
+        ActivationOwner, ActivationRecord, NativeSessionStart, SegmentRecord, ThreadError,
+        ThreadRecord, ThreadResumeError, ThreadResumeTarget,
+    },
+};
+use shinatama_terminal::{TerminalResult, WindowsNativeSessionLifecycle};
+use std::{
+    sync::{
+        Arc, Mutex, OnceLock,
+        atomic::{AtomicBool, Ordering},
+    },
+    thread::{self, Thread},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+};
+
+type Result<T> = std::result::Result<T, &'static str>;
+const TRACKING: &str = "Thread tracking is incomplete; its saved activation remains reserved.";
+const BINDING: &str = "The exact thread, native session or process binding changed.";
+const WAIT: Duration = Duration::from_secs(2);
+const POLL: Duration = Duration::from_millis(10);
+
+/// Rust-only inputs from the sealed launch recipe, never UI or hook selectors.
+pub(super) enum PendingThread {
+    Start {
+        thread: ThreadRecord,
+        root: StoreRootRecord,
+        native_id: String,
+    },
+    Resume(ThreadResumeTarget),
+}
+struct State {
+    thread: ThreadRecord,
+    owner: Option<ActivationOwner>,
+    activation: Option<ActivationRecord>,
+    attempted: bool,
+    complete: bool,
+}
+struct Core {
+    database: Arc<Database>,
+    identity: LaunchIdentityRecord,
+    root: StoreRootRecord,
+    requested: String,
+    resume: Option<SegmentRecord>,
+    process: OnceLock<ProcessKey>,
+    state: Mutex<State>,
+    stop: AtomicBool,
+    failed: AtomicBool,
+    done: AtomicBool,
+    deadline: Mutex<Option<Instant>>,
+}
+pub(super) struct ThreadLifecycle {
+    core: Arc<Core>,
+    receiver: Mutex<Option<ClaudeSessionEventReceiver>>,
+    worker: Mutex<Option<Thread>>,
+}
+impl ThreadLifecycle {
+    pub(super) fn new(
+        database: Arc<Database>,
+        pending: PendingThread,
+        identity: LaunchIdentityRecord,
+        receiver: ClaudeSessionEventReceiver,
+    ) -> Result<Arc<Self>> {
+        let (thread, root, requested, resume) = match pending {
+            PendingThread::Start {
+                thread,
+                root,
+                native_id,
+            } => (thread, root, native_id, None),
+            PendingThread::Resume(target) => {
+                if target.recorded_activation.is_some()
+                    || !target.segment.native.matches_root(&target.root)
+                    || target.segment.harness != "claude_code"
+                {
+                    return Err(BINDING);
+                }
+                (
+                    target.thread,
+                    target.root,
+                    target.segment.native.native_id.clone(),
+                    Some(target.segment),
+                )
+            }
+        };
+        let uuid = uuid::Uuid::parse_str(&requested).map_err(|_| BINDING)?;
+        if uuid.hyphenated().to_string() != requested
+            || uuid.get_variant() != uuid::Variant::RFC4122
+            || uuid.get_version().is_none()
+            || thread.id != identity.thread_id
+            || thread.archived
+            || root.harness != "claude_code"
+            || identity.ended_at_utc_ms.is_some()
+            || identity.token_sha256 == [0; 32]
+        {
+            return Err(BINDING);
+        }
+        root.validate().map_err(|_| BINDING)?;
+        validate_id(&identity.instance_id, CanonicalIdKind::Instance).map_err(|_| BINDING)?;
+        if identity.started_at_utc_ms < 0 {
+            return Err(BINDING);
+        }
+        Ok(Arc::new(Self {
+            core: Arc::new(Core {
+                database,
+                identity,
+                root,
+                requested,
+                resume,
+                process: OnceLock::new(),
+                state: Mutex::new(State {
+                    thread,
+                    owner: None,
+                    activation: None,
+                    attempted: false,
+                    complete: false,
+                }),
+                stop: AtomicBool::new(false),
+                failed: AtomicBool::new(false),
+                done: AtomicBool::new(true),
+                deadline: Mutex::new(None),
+            }),
+            receiver: Mutex::new(Some(receiver)),
+            worker: Mutex::new(None),
+        }))
+    }
+    fn prepare(&self, instance: &str, process: ProcessKey) -> Result<()> {
+        let core = &self.core;
+        if instance != core.identity.instance_id
+            || process.pid == 0
+            || process.created_at_100ns == 0
+        {
+            return Err(BINDING);
+        }
+        core.process.set(process).map_err(|_| BINDING)?;
+        let mut state = core.state.lock().map_err(|_| TRACKING)?;
+        if state.owner.is_some() {
+            return Err(BINDING);
+        }
+        state.owner = Some(ActivationOwner {
+            instance_id: instance.into(),
+            pid: process.pid,
+            created_at_100ns: process.created_at_100ns,
+        });
+        if core
+            .database
+            .store_root(&core.root.id)
+            .map_err(|_| TRACKING)?
+            .as_ref()
+            != Some(&core.root)
+        {
+            return Err(BINDING);
+        }
+        initial_target(core, &state.thread.id)?;
+        // Reserve the explicitly sealed UUID before ResumeShell. This is not a
+        // hook observation or proof of a persisted native conversation.
+        state.attempted = true;
+        if apply(core, &mut state, &core.requested).is_err() {
+            core.failed.store(true, Ordering::Release);
+            return Err(TRACKING);
+        }
+        drop(state);
+        let receiver = self
+            .receiver
+            .lock()
+            .map_err(|_| TRACKING)?
+            .take()
+            .ok_or(TRACKING)?;
+        core.done.store(false, Ordering::Release);
+        let shared = Arc::clone(core);
+        let spawned = thread::Builder::new()
+            .name("claude-thread-events".into())
+            .spawn(move || {
+                if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    consume(&shared, receiver)
+                }))
+                .is_err()
+                {
+                    shared.failed.store(true, Ordering::Release);
+                }
+                shared.done.store(true, Ordering::Release);
+            });
+        match spawned {
+            Ok(worker) => {
+                *self.worker.lock().map_err(|_| TRACKING)? = Some(worker.thread().clone());
+                Ok(())
+            }
+            Err(_) => {
+                core.failed.store(true, Ordering::Release);
+                core.done.store(true, Ordering::Release);
+                Err(TRACKING)
+            }
+        }
+    }
+    fn finish(&self, instance: &str, process: ProcessKey) -> Result<()> {
+        let core = &self.core;
+        if instance != core.identity.instance_id || core.process.get() != Some(&process) {
+            return Err(BINDING);
+        }
+        let deadline = Instant::now() + WAIT;
+        core.deadline
+            .lock()
+            .map_err(|_| TRACKING)?
+            .get_or_insert(deadline);
+        core.stop.store(true, Ordering::Release);
+        if let Some(worker) = self.worker.lock().map_err(|_| TRACKING)?.as_ref() {
+            worker.unpark();
+        }
+        // A failed before_run can leave the receiver here, without a consumer.
+        if let Some(receiver) = self.receiver.lock().map_err(|_| TRACKING)?.take() {
+            receiver.stop();
+            while !receiver.status().stopped && Instant::now() < deadline {
+                thread::sleep(POLL);
+            }
+            if !receiver.status().stopped
+                || receiver.status().failed
+                || receiver.status().queue_overflowed
+                || matches!(receiver.try_next(), Ok(Some(_)))
+            {
+                core.failed.store(true, Ordering::Release);
+            }
+        }
+        // Never wait on the state mutex while a worker may be inside SQLite.
+        // An in-flight local transaction cannot be cancelled; retain ownership
+        // on timeout and allow the terminal owner to retry finalization later.
+        while !core.done.load(Ordering::Acquire) && Instant::now() < deadline {
+            thread::sleep(POLL);
+        }
+        if !core.done.load(Ordering::Acquire) {
+            return Err(TRACKING);
+        }
+        let mut state = core.state.lock().map_err(|_| TRACKING)?;
+        let owner = state.owner.as_ref().ok_or(BINDING)?.clone();
+        if owner.pid != process.pid || owner.created_at_100ns != process.created_at_100ns {
+            return Err(BINDING);
+        }
+        if state.complete {
+            return Ok(());
+        }
+        let Some(active) = state.activation.clone() else {
+            if state.attempted
+                && core
+                    .database
+                    .thread_activation(instance)
+                    .map_err(|_| TRACKING)?
+                    .is_some()
+            {
+                return Err(TRACKING);
+            }
+            state.complete = true;
+            return Ok(());
+        };
+        if core.failed.load(Ordering::Acquire) {
+            return Err(TRACKING);
+        }
+        let at = now()?.max(active.started_at);
+        let ended = match core
+            .database
+            .end_thread_activation_exact(&owner, active.version(), at)
+        {
+            Ok(ended) => ended,
+            Err(_) => {
+                // A previous commit may have succeeded before its receipt was
+                // lost. Accept only that exact interval's single close update.
+                let ended = core
+                    .database
+                    .thread_activation(instance)
+                    .map_err(|_| TRACKING)?
+                    .ok_or(TRACKING)?;
+                if ended.owner != owner
+                    || ended.sequence != active.sequence
+                    || ended.native != active.native
+                    || ended.thread_id != active.thread_id
+                    || ended.segment_id != active.segment_id
+                    || ended.started_at != active.started_at
+                    || Some(ended.revision) != active.revision.checked_add(1)
+                    || ended.ended_at.is_none()
+                {
+                    return Err(TRACKING);
+                }
+                ended
+            }
+        };
+        state.activation = Some(ended);
+        state.complete = true;
+        Ok(())
+    }
+}
+impl WindowsNativeSessionLifecycle for ThreadLifecycle {
+    fn before_run(&self, instance_id: &str, process: ProcessKey) -> TerminalResult<()> {
+        self.prepare(instance_id, process)
+            .map_err(anyhow::Error::msg)
+    }
+    fn after_cleanup(&self, instance_id: &str, process: ProcessKey) -> TerminalResult<()> {
+        self.finish(instance_id, process)
+            .map_err(anyhow::Error::msg)
+    }
+}
+impl Drop for ThreadLifecycle {
+    fn drop(&mut self) {
+        self.core.stop.store(true, Ordering::Release);
+        if let Ok(worker) = self.worker.get_mut()
+            && let Some(worker) = worker
+        {
+            worker.unpark();
+        }
+        // Drop stops the receiver/consumer, but never closes a saved activation.
+    }
+}
+fn now() -> Result<i64> {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|value| i64::try_from(value.as_millis()).ok())
+        .ok_or(TRACKING)
+}
+fn same_thread_except_title(previous: &ThreadRecord, fresh: &ThreadRecord) -> bool {
+    let mut expected = previous.clone();
+    expected.title = fresh.title.clone();
+    expected.revision = fresh.revision;
+    expected.updated_at = fresh.updated_at;
+    expected == *fresh && !fresh.archived
+}
+fn initial_target(core: &Core, thread: &str) -> Result<()> {
+    let target = core.database.thread_resume_target(thread);
+    match (&core.resume, target) {
+        (Some(expected), Ok(target))
+            if target.recorded_activation.is_none()
+                && target.root == core.root
+                && target.segment == *expected =>
+        {
+            Ok(())
+        }
+        (None, Err(ThreadResumeError::Unbound)) => Ok(()),
+        _ => Err(BINDING),
+    }
+}
+fn apply(core: &Core, state: &mut State, session: &str) -> Result<()> {
+    let native = NativeSessionKey {
+        store_root_id: core.root.id.clone(),
+        store_revision: core.root.config_revision,
+        native_id: session.into(),
+    };
+    let candidate = new_id(CanonicalIdKind::Segment);
+    let owner = state.owner.as_ref().ok_or(BINDING)?;
+    let at = now()?.max(state.thread.updated_at).max(
+        state
+            .activation
+            .as_ref()
+            .map_or(0, |active| active.started_at),
+    );
+    for attempt in 0..2 {
+        let result = core
+            .database
+            .observe_native_session_start(&NativeSessionStart {
+                thread_id: &state.thread.id,
+                expected_thread_revision: state.thread.revision,
+                candidate_segment_id: &candidate,
+                harness: "claude_code",
+                native: &native,
+                owner,
+                expected_activation: state.activation.as_ref().map(ActivationRecord::version),
+                observed_at: at,
+            });
+        match result {
+            Ok(value) => {
+                state.thread = value.thread;
+                state.activation = Some(value.activation);
+                return Ok(());
+            }
+            Err(ThreadError::Conflict) if attempt == 0 => {
+                let fresh = core
+                    .database
+                    .thread_record(&state.thread.id)
+                    .map_err(|_| TRACKING)?
+                    .ok_or(BINDING)?;
+                let active = core
+                    .database
+                    .thread_activation(&owner.instance_id)
+                    .map_err(|_| TRACKING)?;
+                if !same_thread_except_title(&state.thread, &fresh) || active != state.activation {
+                    return Err(BINDING);
+                }
+                if state.activation.is_none() {
+                    initial_target(core, &state.thread.id)?;
+                }
+                state.thread = fresh;
+            }
+            Err(_) => return Err(TRACKING),
+        }
+    }
+    Err(TRACKING)
+}
+fn consume(core: &Core, receiver: ClaudeSessionEventReceiver) {
+    loop {
+        let stopping = core.stop.load(Ordering::Acquire);
+        if stopping {
+            receiver.stop();
+        }
+        let status = receiver.status();
+        if status.failed || status.queue_overflowed {
+            core.failed.store(true, Ordering::Release);
+            receiver.stop();
+        }
+        match receiver.try_next() {
+            Ok(Some(event)) => {
+                let expired = core.deadline.lock().map_or(true, |deadline| {
+                    deadline.is_some_and(|end| Instant::now() >= end)
+                });
+                if expired
+                    || core.failed.load(Ordering::Acquire)
+                    || event.instance_id != core.identity.instance_id
+                    || event.thread_id != core.identity.thread_id
+                {
+                    core.failed.store(true, Ordering::Release);
+                    receiver.stop();
+                } else if event.kind == SessionEventKind::SessionStart {
+                    let result = core
+                        .state
+                        .lock()
+                        .map_err(|_| TRACKING)
+                        .and_then(|mut state| apply(core, &mut state, &event.session_id));
+                    if result.is_err() {
+                        core.failed.store(true, Ordering::Release);
+                        receiver.stop();
+                    }
+                }
+                // SessionEnd describes the harness, never process/job cleanup.
+            }
+            Ok(None) => {}
+            Err(ReadError::Stopped) => {
+                let final_status = receiver.status();
+                if final_status.failed || final_status.queue_overflowed {
+                    core.failed.store(true, Ordering::Release);
+                }
+                if final_status.stopped {
+                    return;
+                }
+            }
+            Err(ReadError::WorkerUnavailable) => {
+                core.failed.store(true, Ordering::Release);
+                return;
+            }
+        }
+        thread::park_timeout(POLL);
+    }
+}

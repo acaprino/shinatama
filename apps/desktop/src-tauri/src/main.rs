@@ -366,6 +366,39 @@ fn agent_status(window: tauri::WebviewWindow) -> Result<serde_json::Value, Strin
     #[cfg(not(windows))]
     Ok(serde_json::json!({"checking":false,"blocked":false}))
 }
+#[cfg(windows)]
+#[tauri::command]
+fn harness_catalog(
+    window: tauri::WebviewWindow,
+) -> Result<Vec<agents::HarnessCapabilities>, String> {
+    local(&window)?;
+    Ok(window.state::<Arc<agents::Controller>>().catalog())
+}
+#[cfg(not(windows))]
+#[tauri::command]
+fn harness_catalog(window: tauri::WebviewWindow) -> Result<Vec<serde_json::Value>, String> {
+    local(&window)?;
+    Ok(Vec::new())
+}
+#[cfg(windows)]
+#[tauri::command]
+async fn thread_resume(
+    window: tauri::WebviewWindow,
+    host: State<'_, Host>,
+    request: agents::resume::Request,
+) -> Result<agents::AgentStarted, agents::resume::Error> {
+    local(&window).map_err(|_| agents::resume::Error {
+        code: "invalid_request",
+    })?;
+    if window.state::<ExitIntent>().0.load(Ordering::Acquire) {
+        return Err(agents::resume::Error {
+            code: "unavailable",
+        });
+    }
+    let owner = window.state::<Arc<agents::Controller>>().inner().clone();
+    let reader = window.state::<Arc<sessions::Controller>>().inner().clone();
+    owner.resume(host.inner().clone(), reader, request).await
+}
 #[tauri::command]
 async fn agent_check(
     window: tauri::WebviewWindow,
@@ -588,6 +621,9 @@ fn main() {
         agent_status,
         agent_start,
         agent_open,
+        harness_catalog,
+        #[cfg(windows)]
+        thread_resume,
         shell_open,
         #[cfg(windows)]
         sessions::session_roots,
@@ -656,6 +692,9 @@ fn main() {
         agent_status,
         agent_start,
         agent_open,
+        harness_catalog,
+        #[cfg(windows)]
+        thread_resume,
         shell_open,
         #[cfg(windows)]
         sessions::session_roots,
