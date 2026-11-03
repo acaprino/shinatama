@@ -228,6 +228,9 @@ fn launch_error(issue: CodexLaunchError) -> DriverError {
         CodexLaunchError::Configuration => {
             DriverError::Failed("The private Codex launch configuration could not be prepared.")
         }
+        CodexLaunchError::InvalidNativeSession => {
+            DriverError::Failed("The saved Codex conversation identifier is invalid.")
+        }
         CodexLaunchError::Identity => {
             DriverError::Failed("The Codex launch identity could not be prepared.")
         }

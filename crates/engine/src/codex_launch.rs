@@ -67,6 +67,7 @@ pub enum CodexLaunchError {
     InvalidCa,
     UnsupportedSet,
     Configuration,
+    InvalidNativeSession,
     Composition,
     Identity,
     QualificationRequired,
@@ -81,6 +82,85 @@ impl std::error::Error for CodexLaunchError {}
 impl From<NativeLaunchError> for CodexLaunchError {
     fn from(_: NativeLaunchError) -> Self {
         Self::Permit
+    }
+}
+
+/// A bounded selection, not a native launch permit or evidence of a saved
+/// conversation. New lets Codex choose its UUID; Resume preserves an exact
+/// recorded UUID. There is deliberately no public Resume preparation entry
+/// point until its native identity capture and qualification are implemented.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CodexSessionOperation {
+    selection: CodexSessionSelection,
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum CodexSessionSelection {
+    New,
+    Resume(String),
+}
+impl CodexSessionOperation {
+    pub fn start_new() -> Self {
+        Self {
+            selection: CodexSessionSelection::New,
+        }
+    }
+    pub fn resume_native(native_id: &str) -> Result<Self, CodexLaunchError> {
+        if native_id.len() != 36 {
+            return Err(CodexLaunchError::InvalidNativeSession);
+        }
+        let uuid =
+            uuid::Uuid::parse_str(native_id).map_err(|_| CodexLaunchError::InvalidNativeSession)?;
+        // Codex also accepts names and prefixes in some entry points. Those are
+        // not exact durable identities; never normalize or resolve one here.
+        if uuid.hyphenated().to_string() != native_id
+            || uuid.get_variant() != uuid::Variant::RFC4122
+            || uuid.get_version().is_none()
+        {
+            return Err(CodexLaunchError::InvalidNativeSession);
+        }
+        Ok(Self {
+            selection: CodexSessionSelection::Resume(native_id.into()),
+        })
+    }
+    pub fn operation(&self) -> Operation {
+        match self.selection {
+            CodexSessionSelection::New => Operation::StartNew,
+            CodexSessionSelection::Resume(_) => Operation::ResumeNative,
+        }
+    }
+    pub fn native_id(&self) -> Option<&str> {
+        match &self.selection {
+            CodexSessionSelection::New => None,
+            CodexSessionSelection::Resume(native_id) => Some(native_id),
+        }
+    }
+    fn arguments(&self) -> Vec<OsString> {
+        let mut arguments = Vec::new();
+        if let CodexSessionSelection::Resume(native_id) = &self.selection {
+            arguments.extend([OsString::from("resume"), native_id.into()]);
+        }
+        arguments.extend(fixed_arguments());
+        arguments
+    }
+    fn qualify_arguments(
+        &self,
+        descriptor: &AdapterDescriptor,
+        executable: PathBuf,
+    ) -> Result<QualifiedArgvRecipe, CodexLaunchError> {
+        // The existing receipt covers StartNew only. In particular, do not put
+        // resume argv inside a StartNew recipe or reuse its native qualification.
+        // A future Resume path needs separate operation evidence and admission.
+        if self.operation() != Operation::StartNew {
+            return Err(CodexLaunchError::QualificationRequired);
+        }
+        QualifiedArgvRecipe::qualify(
+            descriptor,
+            self.operation(),
+            CommandForm::NativeExe(executable),
+            self.arguments(),
+            evidence(descriptor)?,
+        )
+        .map_err(|_| CodexLaunchError::Composition)
     }
 }
 
@@ -570,15 +650,8 @@ fn prepare(
         evidence(&descriptor)?,
     )
     .map_err(|_| CodexLaunchError::Composition)?;
-    let args = fixed_arguments();
-    let arguments_recipe = QualifiedArgvRecipe::qualify(
-        &descriptor,
-        Operation::StartNew,
-        CommandForm::NativeExe(pinned.path),
-        args,
-        evidence(&descriptor)?,
-    )
-    .map_err(|_| CodexLaunchError::Composition)?;
+    let session = CodexSessionOperation::start_new();
+    let arguments_recipe = session.qualify_arguments(&descriptor, pinned.path)?;
     let database_path = context.base.database_path();
     let inputs = LaunchInputs::new(
         &placement_recipe,
@@ -589,7 +662,7 @@ fn prepare(
         &identity,
     )
     .with_private_paths(&private_paths);
-    let mut launch = compose_launch(&descriptor, Operation::StartNew, mode, &inputs)
+    let mut launch = compose_launch(&descriptor, session.operation(), mode, &inputs)
         .map_err(|_| CodexLaunchError::Composition)?;
     let binding = if let Some(root) = &root {
         NativeLaunchBinding::for_qualified_launch(&launch, pinned.identity, root)?
@@ -861,6 +934,88 @@ fn pin_program(path: &Path, deadline: Instant) -> Result<ProgramPin, CodexLaunch
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn codex_new_recipe_preserves_existing_arguments_and_operation() {
+        let new = CodexSessionOperation::start_new();
+        let baseline: Vec<OsString> = [
+            "--no-daemon",
+            "--sandbox",
+            "workspace-write",
+            "--ask-for-approval",
+            "on-request",
+            "-c",
+            "windows.sandbox=\"unelevated\"",
+            "-c",
+            "cli_auth_credentials_store=\"file\"",
+            "-c",
+            "check_for_update_on_startup=false",
+            "-c",
+            "analytics.enabled=false",
+            "-c",
+            "feedback.enabled=false",
+        ]
+        .into_iter()
+        .map(OsString::from)
+        .collect();
+        assert_eq!(new.operation(), Operation::StartNew);
+        assert_eq!(new.native_id(), None);
+        assert_eq!(new.arguments(), baseline);
+        let descriptor = descriptor(&Version::parse("0.166.0").unwrap()).unwrap();
+        let recipe = new
+            .qualify_arguments(&descriptor, PathBuf::from(r"C:\synthetic\codex.exe"))
+            .unwrap();
+        let command = shinatama_adapter::launch::arguments::plan_arguments(
+            &descriptor,
+            Operation::StartNew,
+            Path::new(r"C:\synthetic\project"),
+            Some(&recipe),
+        )
+        .unwrap();
+        assert_eq!(command.operation(), Operation::StartNew);
+        assert_eq!(command.argv(), baseline);
+        assert!(
+            descriptor
+                .capabilities
+                .require(Operation::ResumeNative)
+                .is_err()
+        );
+    }
+    #[test]
+    fn codex_resume_selection_is_exact_and_cannot_use_startup_qualification() {
+        let id = "01a17e07-93f7-7a73-85c7-9f0205836600";
+        let resume = CodexSessionOperation::resume_native(id).unwrap();
+        assert_eq!(resume.operation(), Operation::ResumeNative);
+        assert_eq!(resume.native_id(), Some(id));
+        let arguments = resume.arguments();
+        assert_eq!(&arguments[..2], &[OsString::from("resume"), id.into()]);
+        assert_eq!(
+            &arguments[2..],
+            CodexSessionOperation::start_new().arguments()
+        );
+        let descriptor = descriptor(&Version::parse("0.166.0").unwrap()).unwrap();
+        assert!(matches!(
+            resume.qualify_arguments(&descriptor, PathBuf::from(r"C:\synthetic\codex.exe")),
+            Err(CodexLaunchError::QualificationRequired)
+        ));
+        for invalid in [
+            "",
+            "latest",
+            "--last",
+            "session name",
+            "../session.jsonl",
+            "01a17e07",
+            "01a17e0793f77a7385c79f0205836600",
+            "01A17E07-93F7-7A73-85C7-9F0205836600",
+            "{01a17e07-93f7-7a73-85c7-9f0205836600}",
+            "00000000-0000-0000-0000-000000000000",
+            "01a17e07-93f7-7a73-85c7-9f0205836600 --last",
+        ] {
+            assert_eq!(
+                CodexSessionOperation::resume_native(invalid),
+                Err(CodexLaunchError::InvalidNativeSession)
+            );
+        }
+    }
     #[test]
     fn narrow_profile_is_fixed_and_failure_never_increases_it() {
         let first = profile().unwrap();
