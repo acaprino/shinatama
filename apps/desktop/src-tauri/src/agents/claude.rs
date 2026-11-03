@@ -3,8 +3,9 @@
 use super::{
     hook_executable,
     service::{
-        BindingContext, DriverError, HarnessDescriptor, HarnessDriver, HarnessPolicy, PreparedTrial, ProbeContext,
-        ProbeEvidence, ProbeProjection, SealedSession, SessionContext, SessionOperation, TrialContext,
+        BindingContext, DriverError, HarnessDescriptor, HarnessDriver, HarnessPolicy,
+        PreparedTrial, ProbeContext, ProbeEvidence, ProbeProjection, SealedSession, SessionContext,
+        SessionOperation, TrialContext,
     },
     thread_lifecycle::{PendingThread, ThreadLifecycle},
 };
@@ -12,10 +13,12 @@ use shinatama_adapter::catalog::ProgramCandidate;
 use shinatama_engine::{
     check_scratch::ScratchKind,
     claude_launch::{
-        ClaudeLaunchError, ClaudeSessionOperation, ClaudeStartContext, ClaudeTrialContext, PreparedClaudeStart,
-        prepare_tracked_session, prepare_tracked_trial,
+        ClaudeLaunchError, ClaudeSessionOperation, ClaudeStartContext, ClaudeTrialContext,
+        PreparedClaudeStart, prepare_tracked_session, prepare_tracked_trial,
     },
-    claude_probe::{ClaudeProbeOutcome, PreparedClaudeProbe, ProbeIssue, discover_claude, probe_budget},
+    claude_probe::{
+        ClaudeProbeOutcome, PreparedClaudeProbe, ProbeIssue, discover_claude, probe_budget,
+    },
     native_launch::NativeTrialReceipt,
     resources::admission::PreparedWorkload,
 };
@@ -31,8 +34,14 @@ pub(super) struct PreparedClaudeSession {
 }
 impl From<PreparedClaudeSession> for SealedSession {
     fn from(prepared: PreparedClaudeSession) -> Self {
-        assert!(prepared.bound, "Claude lifecycle must be bound before startup.");
-        Self { launch: prepared.inner.launch, permit: prepared.inner.permit }
+        assert!(
+            prepared.bound,
+            "Claude lifecycle must be bound before startup."
+        );
+        Self {
+            launch: prepared.inner.launch,
+            permit: prepared.inner.permit,
+        }
     }
 }
 impl ProbeEvidence for ClaudeProbeOutcome {
@@ -56,7 +65,11 @@ impl HarnessDriver for ClaudeDriver {
     type PreparedSession = PreparedClaudeSession;
 
     fn descriptor(&self) -> HarnessDescriptor {
-        HarnessDescriptor { id: "claude_code", label: "Claude Code", native_resume: true }
+        HarnessDescriptor {
+            id: "claude_code",
+            label: "Claude Code",
+            native_resume: true,
+        }
     }
     fn policy(&self) -> HarnessPolicy {
         HarnessPolicy {
@@ -77,7 +90,8 @@ impl HarnessDriver for ClaudeDriver {
         context: ProbeContext<'_>,
         admit: &mut dyn FnMut() -> Result<PreparedWorkload, DriverError>,
     ) -> Result<Self::Probe, DriverError> {
-        let prepared = PreparedClaudeProbe::prepare(context.candidate, context.base).map_err(probe_error)?;
+        let prepared =
+            PreparedClaudeProbe::prepare(context.candidate, context.base).map_err(probe_error)?;
         let mut admission_error = None;
         prepared
             .run_with(context.database, || {
@@ -88,7 +102,10 @@ impl HarnessDriver for ClaudeDriver {
             })
             .map_err(|error| admission_error.unwrap_or_else(|| probe_error(error)))
     }
-    fn prepare_trial(&self, context: TrialContext<'_, Self::Probe>) -> Result<PreparedTrial, DriverError> {
+    fn prepare_trial(
+        &self,
+        context: TrialContext<'_, Self::Probe>,
+    ) -> Result<PreparedTrial, DriverError> {
         let hook = hook_executable().map_err(DriverError::from)?;
         let prepared = prepare_tracked_trial(
             ClaudeTrialContext {
@@ -111,7 +128,9 @@ impl HarnessDriver for ClaudeDriver {
             launch: prepared.launch,
             permit: prepared.permit,
             tracker: prepared.tracker,
-            keep_alive: prepared.session_events.map(|receiver| Box::new(receiver) as Box<dyn Send>),
+            keep_alive: prepared
+                .session_events
+                .map(|receiver| Box::new(receiver) as Box<dyn Send>),
         })
     }
     fn prepare_session(
@@ -123,7 +142,8 @@ impl HarnessDriver for ClaudeDriver {
         let (selection, pending) = match operation {
             SessionOperation::New => {
                 let selection =
-                    ClaudeSessionOperation::start_new(&uuid::Uuid::new_v4().to_string()).map_err(launch_error)?;
+                    ClaudeSessionOperation::start_new(&uuid::Uuid::new_v4().to_string())
+                        .map_err(launch_error)?;
                 let pending = PendingThread::Start {
                     thread: context.thread.clone(),
                     root: context.root.clone(),
@@ -137,10 +157,13 @@ impl HarnessDriver for ClaudeDriver {
                     || target.recorded_activation.is_some()
                     || target.segment.harness != "claude_code"
                 {
-                    return Err(DriverError::Failed("The saved conversation changed. Reload threads and try again."));
+                    return Err(DriverError::Failed(
+                        "The saved conversation changed. Reload threads and try again.",
+                    ));
                 }
                 let selection =
-                    ClaudeSessionOperation::resume_native(&target.segment.native.native_id).map_err(launch_error)?;
+                    ClaudeSessionOperation::resume_native(&target.segment.native.native_id)
+                        .map_err(launch_error)?;
                 (selection, PendingThread::Resume(target.clone()))
             }
         };
@@ -165,34 +188,51 @@ impl HarnessDriver for ClaudeDriver {
             &hook,
         )
         .map_err(launch_error)?;
-        Ok(PreparedClaudeSession { inner, pending: Some(pending), bound: false })
+        Ok(PreparedClaudeSession {
+            inner,
+            pending: Some(pending),
+            bound: false,
+        })
     }
     fn bind_lifecycle(
         &self,
         prepared: &mut Self::PreparedSession,
         binding: BindingContext<'_>,
     ) -> Result<Option<Arc<dyn WindowsNativeSessionLifecycle>>, DriverError> {
-        let pending = prepared.pending.take().ok_or(DriverError::Failed("This Claude launch was already bound."))?;
+        let pending = prepared
+            .pending
+            .take()
+            .ok_or(DriverError::Failed("This Claude launch was already bound."))?;
         let matches = match (&pending, binding.operation) {
             (PendingThread::Start { thread, root, .. }, SessionOperation::New) => {
                 thread == binding.thread && root == binding.root
             }
             (PendingThread::Resume(expected), SessionOperation::Resume(actual)) => {
-                expected == actual && expected.thread == *binding.thread && expected.root == *binding.root
+                expected == actual
+                    && expected.thread == *binding.thread
+                    && expected.root == *binding.root
             }
             _ => false,
         };
         if !matches {
-            return Err(DriverError::Failed("The Claude thread binding changed before startup."));
+            return Err(DriverError::Failed(
+                "The Claude thread binding changed before startup.",
+            ));
         }
         let receiver = prepared
             .inner
             .session_events
             .take()
-            .ok_or(DriverError::Failed("Claude session tracking is unavailable."))?;
-        let lifecycle =
-            ThreadLifecycle::new(binding.database, pending, prepared.inner.launch.identity_record().clone(), receiver)
-                .map_err(DriverError::from)?;
+            .ok_or(DriverError::Failed(
+                "Claude session tracking is unavailable.",
+            ))?;
+        let lifecycle = ThreadLifecycle::new(
+            binding.database,
+            pending,
+            prepared.inner.launch.identity_record().clone(),
+            receiver,
+        )
+        .map_err(DriverError::from)?;
         prepared.bound = true;
         Ok(Some(lifecycle))
     }
@@ -204,9 +244,9 @@ fn probe_error(error: ProbeIssue) -> DriverError {
         ProbeIssue::Busy | ProbeIssue::CleanupUnconfirmed => {
             DriverError::Failed("Claude cleanup is still finishing. Retry after cleanup.")
         }
-        ProbeIssue::Ambiguous => {
-            DriverError::Failed("Multiple Claude installations were found. Choose one before opening a session.")
-        }
+        ProbeIssue::Ambiguous => DriverError::Failed(
+            "Multiple Claude installations were found. Choose one before opening a session.",
+        ),
         ProbeIssue::WrapperUnresolved => {
             DriverError::Failed("The Claude executable could not be resolved from its launcher.")
         }
@@ -216,9 +256,15 @@ fn probe_error(error: ProbeIssue) -> DriverError {
         ProbeIssue::PrivateRootUnavailable => {
             DriverError::Failed("Claude's private version-check folder is unavailable.")
         }
-        ProbeIssue::Expired => DriverError::Failed("Claude's version check timed out. Retry after cleanup."),
-        ProbeIssue::SpawnFailed => DriverError::Failed("Claude's contained version check could not start."),
-        ProbeIssue::OutputLimit => DriverError::Failed("Claude's version check exceeded its output limit."),
+        ProbeIssue::Expired => {
+            DriverError::Failed("Claude's version check timed out. Retry after cleanup.")
+        }
+        ProbeIssue::SpawnFailed => {
+            DriverError::Failed("Claude's contained version check could not start.")
+        }
+        ProbeIssue::OutputLimit => {
+            DriverError::Failed("Claude's version check exceeded its output limit.")
+        }
         ProbeIssue::InvalidOutput | ProbeIssue::NonzeroExit => {
             DriverError::Failed("Claude did not return a valid successful version.")
         }
@@ -235,6 +281,8 @@ fn launch_error(error: ClaudeLaunchError) -> DriverError {
         ClaudeLaunchError::InvalidNativeSession => {
             DriverError::Failed("The saved Claude conversation identifier is invalid.")
         }
-        _ => DriverError::Failed("Claude startup no longer matches its qualified configuration. Try Open again."),
+        _ => DriverError::Failed(
+            "Claude startup no longer matches its qualified configuration. Try Open again.",
+        ),
     }
 }

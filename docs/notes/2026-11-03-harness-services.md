@@ -35,6 +35,28 @@ per istanza e plugin di ripristino dell'ambiente. I pin dell'eseguibile npm e il
 controllo del numero osservato di hardlink restano nel motore. Le ricevute
 restano legate a harness, versione, byte del programma e profilo esatto.
 
+## Corrispondenza con il modello Java
+
+`HarnessDriver` svolge il ruolo dell'interfaccia con hook predefiniti;
+`Service<D>` contiene il comportamento condiviso che in Java starebbe nella
+classe astratta. Rust combina i due tramite composizione e generici, senza
+ereditarietà fra classi. I moduli dei singoli harness implementano solo le
+parti variabili. Il registro espone `dyn HarnessService` alla UI, che non deve
+conoscere i tipi concreti né costruirne i comandi.
+
+Per aggiungere un harness:
+
+1. Implementare il driver in un modulo proprio, usando le ricette tipizzate
+   del suo motore e dichiarando soltanto le capacità realmente supportate.
+2. Registrare `Service::new(context, Driver)` nel catalogo. Il dialogo riceve
+   nome e capacità dal registro; non richiede una nuova copia del flusso UI.
+3. Verificare apertura e cleanup del nuovo harness nel ciclo comune. Eventuali
+   hook aggiuntivi estendono il contratto quando servono a un comportamento
+   concreto; non copiano stato, code o regole di proprietà nel driver.
+
+Il servizio è un modulo indipendente all'interno di Shinatama. L'eseguibile
+dell'harness resta un subprocesso separato; ogni servizio non aggiunge un daemon.
+
 ## Piano committabile e ripresa
 
 Il nuovo **C11S** è un seguito di C11, non una riscrittura del suo risultato
