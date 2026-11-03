@@ -21,6 +21,10 @@ pub mod check_scratch;
 pub mod claude_probe;
 #[cfg(windows)]
 pub mod claude_launch;
+#[cfg(windows)]
+pub mod codex_probe;
+#[cfg(windows)]
+pub mod codex_launch;
 pub mod sidecar_config;
 pub mod sidecar_runtime;
 #[cfg(windows)]

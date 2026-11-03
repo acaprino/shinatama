@@ -147,6 +147,7 @@ pub enum RecipeFeature {
     ClaudeMcpLogsSuppressed,
     ClaudeMcpLogLeakDisclosed,
     PrivateCodexDaemon,
+    CodexDaemonDisabled,
     CodexElevatedSandboxExcluded,
     CodexDenybinLeakDisclosed,
     OpenCodeXdgRestorePlugin,
@@ -543,13 +544,13 @@ fn check_definition(
             if definition.codex_sandbox == Some(CodexSandbox::Elevated) {
                 return Err(PlacementError::UnsupportedIsolation);
             }
-            required(&[
-                RecipeFeature::PrivateCodexDaemon,
-                RecipeFeature::CodexElevatedSandboxExcluded,
-            ]) && definition
-                .limits
-                .iter()
-                .any(|limit| limit.role == PathRole::Home)
+            (required(&[RecipeFeature::PrivateCodexDaemon])
+                || required(&[RecipeFeature::CodexDaemonDisabled]))
+                && required(&[RecipeFeature::CodexElevatedSandboxExcluded])
+                && definition
+                    .limits
+                    .iter()
+                    .any(|limit| limit.role == PathRole::Home)
                 && match definition.codex_sandbox {
                     Some(CodexSandbox::Disabled) => true,
                     Some(CodexSandbox::UnelevatedDisclosed) => {
@@ -627,9 +628,10 @@ fn feature_belongs(
         ClaudeMcpLogAttempt | ClaudeMcpLogsSuppressed | ClaudeMcpLogLeakDisclosed => {
             mapping == HomeMapping::Claude
         }
-        PrivateCodexDaemon | CodexElevatedSandboxExcluded | CodexDenybinLeakDisclosed => {
-            mapping == HomeMapping::Codex
-        }
+        PrivateCodexDaemon
+        | CodexDaemonDisabled
+        | CodexElevatedSandboxExcluded
+        | CodexDenybinLeakDisclosed => mapping == HomeMapping::Codex,
         OpenCodeXdgRestorePlugin
         | OwnedOpenCodeService
         | OpenCodeClaudeReadsDisabled
@@ -982,6 +984,40 @@ mod tests {
             )
             .unwrap_err(),
             PlacementError::IncompleteRecipe
+        );
+        let mut no_daemon = definition.clone();
+        no_daemon
+            .features
+            .remove(&RecipeFeature::PrivateCodexDaemon);
+        no_daemon
+            .features
+            .insert(RecipeFeature::CodexDaemonDisabled);
+        no_daemon.limits.push(PathLimit {
+            role: PathRole::Home,
+            unit: PathUnit::Utf16Units,
+            maximum: NonZeroUsize::new(200).unwrap(),
+        });
+        no_daemon.codex_sandbox = Some(CodexSandbox::UnelevatedDisclosed);
+        assert!(
+            QualifiedPlacementRecipe::qualify(
+                &descriptor,
+                mode(HomePlacement::Box),
+                no_daemon.clone(),
+                proof()
+            )
+            .is_err()
+        );
+        no_daemon
+            .features
+            .insert(RecipeFeature::CodexDenybinLeakDisclosed);
+        assert!(
+            QualifiedPlacementRecipe::qualify(
+                &descriptor,
+                mode(HomePlacement::Box),
+                no_daemon,
+                proof()
+            )
+            .is_ok()
         );
         let mut elevated = definition;
         elevated.codex_sandbox = Some(CodexSandbox::Elevated);

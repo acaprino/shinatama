@@ -34,6 +34,11 @@ type View = {
 type Tone = 'info' | 'error';
 const $ = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
 const desktop = isTauri();
+const sessionHarnesses = [
+  { id: 'claude_code', label: 'Claude Code' },
+  { id: 'codex', label: 'Codex' },
+  { id: 'powershell', label: 'PowerShell' },
+];
 const views = new Map<string, View>();
 const profiles = PROFILES;
 let workspaceLayout = emptyWorkspace();
@@ -96,7 +101,7 @@ const renderer = createWorkspaceRenderer({
   dispatch(action, expected) { if (expected === workspaceLayout) changeLayout(action); },
   onFocusView(id) { if (!modalOpen()) views.get(id)?.terminal.focus(); },
   onVisibilityChange(id, visible) { const view = views.get(id); if (view) { view.visible = visible; if (visible) scheduleFit(view); } },
-  labelForView(panel) { const view = views.get(panel.id); return view ? `${view.info.shell === 'claude_code' ? 'Claude Code' : view.info.shell} ${[...views.keys()].indexOf(panel.id) + 1}${view.ended ? ' · exited' : ''}` : 'Saved terminal · unavailable'; },
+  labelForView(panel) { const view = views.get(panel.id); return view ? `${sessionHarnesses.find(item => item.id === view.info.shell)?.label ?? view.info.shell} ${[...views.keys()].indexOf(panel.id) + 1}${view.ended ? ' · exited' : ''}` : 'Saved terminal · unavailable'; },
   isInputBlocked: modalOpen,
   onError: () => notify('That layout change is unavailable. The current workspace was preserved.'),
 });
@@ -312,11 +317,9 @@ async function drain(view: View) {
 function showExit(view: View, code: number | null) {
   const banner = document.createElement('div'); banner.className = 'exit-banner'; banner.setAttribute('role', 'status');
   const text = document.createElement('span'); text.textContent = code === null ? 'Process exited' : `Process exited · code ${code}`;
-  const restart = document.createElement('button'); restart.type = 'button'; restart.textContent = 'Restart terminal';
-  if (/^i_[a-z2-7]{12}$/.test(view.info.id)) {
-    restart.textContent = 'Check agent again';
-    restart.onclick = () => document.getElementById('agents')?.click();
-  } else restart.onclick = async () => { if (await startTerminal(view.group, view.info.cwd)) await stopTerminal(view); };
+  const restart = document.createElement('button'); restart.type = 'button'; restart.textContent = 'New session';
+  restart.onclick = () => openNewSession(view.group, view.info.cwd,
+    view.info.shell === 'PowerShell' ? 'powershell' : view.info.shell);
   const close = document.createElement('button'); close.type = 'button'; close.textContent = 'Close terminal';
   close.onclick = () => void stopTerminal(view);
   banner.append(text, restart, close); view.element.append(banner);
@@ -352,7 +355,7 @@ let newSessionGroup: string | null = null;
 const recentThreadProjects = new Map<string,string>();
 const newSession = createNewSession({
   projects: () => desktop ? invoke('project_recent') : Promise.resolve([]),
-  harnesses: [{ id: 'claude_code', label: 'Claude Code' }, { id: 'powershell', label: 'PowerShell' }],
+  harnesses: sessionHarnesses,
   browse: desktop ? async () => {
     const requestId = createRequestId(); await beginMutation(requestId);
     const selected = await browseFolder('project', undefined, requestId);
@@ -377,11 +380,11 @@ const newSession = createNewSession({
   },
   restoreFocus: () => setFocus(focusedGroup()),
 });
-function openNewSession(group: string = focusedGroup(), path?: string) {
+function openNewSession(group: string = focusedGroup(), path?: string, harness?: string) {
   if (starting) return;
   const selectedProject = threadSidebar?.currentProjectId();
   const selectedPath = selectedProject ? recentThreadProjects.get(selectedProject) : selectedProjectPath;
-  newSessionGroup = group; newSession.show(path ?? selectedPath);
+  newSessionGroup = group; newSession.show(path ?? selectedPath, harness);
 }
 threadSidebar = createThreadSidebar({
   host: $('#work-area'),

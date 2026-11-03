@@ -153,7 +153,7 @@ impl NativeLaunchBinding {
         launch: &PreparedLaunch,
         program: NativeProgramIdentity,
     ) -> Result<Self, NativeLaunchError> {
-        if launch.command().agent().as_str() != "claude_code"
+        if !matches!(launch.command().agent().as_str(), "claude_code" | "codex")
             || launch.command().operation() != Operation::StartNew
             || launch.placement().placement().home() != HomePlacement::Box
         {
@@ -324,6 +324,36 @@ pub struct NativeLaunchSummary {
 #[serde(rename_all = "snake_case")]
 pub enum NativeStartupScope {
     SafeModeEmptySet,
+    WorkspaceWriteNoDaemon,
+}
+fn startup_scope(agent: &AgentId, profile: &NativeAdmissionProfile) -> Option<NativeStartupScope> {
+    match (agent.as_str(), profile.id.as_str()) {
+        ("claude_code", "claude-system-box-safe-empty-tui-v1") => {
+            Some(NativeStartupScope::SafeModeEmptySet)
+        }
+        ("codex", "codex-system-box-no-daemon-workspace-tui-v1") => {
+            Some(NativeStartupScope::WorkspaceWriteNoDaemon)
+        }
+        _ => None,
+    }
+}
+fn startup_screen_seen(agent: &str, lower: &[u8]) -> bool {
+    let contains = |needle: &[u8]| lower.windows(needle.len()).any(|part| part == needle);
+    let name: &[u8] = match agent {
+        "claude_code" => b"claude",
+        "codex" => b"codex",
+        _ => return false,
+    };
+    contains(name)
+        && [
+            b"welcome".as_slice(),
+            b"theme",
+            b"trust",
+            b"sign in",
+            b"log in",
+        ]
+        .iter()
+        .any(|needle| contains(needle))
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -420,7 +450,7 @@ impl NativeTuiPermit {
         pins: NativeLaunchPins,
         receipt: &NativeTrialReceipt,
     ) -> Result<Self, NativeLaunchError> {
-        if !receipt.matches(&binding.program, &binding.version, &profile) {
+        if !receipt.matches(&binding.agent, &binding.program, &binding.version, &profile) {
             return Err(NativeLaunchError::BindingMismatch);
         }
         let mut permit = Self::issue(launch, binding, profile, pins)?;
@@ -449,8 +479,7 @@ impl NativeTuiPermit {
             tui_startup_observed: self.startup_observed,
             provider_traffic: NativeCoverage::Unknown,
             effective_sidecar_configuration: NativeCoverage::Unknown,
-            startup_scope: (self.profile.id == "claude-system-box-safe-empty-tui-v1")
-                .then_some(NativeStartupScope::SafeModeEmptySet),
+            startup_scope: startup_scope(&self.binding.agent, &self.profile),
         }
     }
 }
@@ -484,16 +513,18 @@ impl NativeTrialReceipt {
             tui_startup_observed: true,
             provider_traffic: NativeCoverage::Unknown,
             effective_sidecar_configuration: NativeCoverage::Unknown,
-            startup_scope: Some(NativeStartupScope::SafeModeEmptySet),
+            startup_scope: startup_scope(&self.binding.agent, &self.profile),
         }
     }
     pub(crate) fn matches(
         &self,
+        agent: &AgentId,
         program: &NativeProgramIdentity,
         version: &Version,
         profile: &NativeAdmissionProfile,
     ) -> bool {
-        self.binding.agent.as_str() == "claude_code"
+        self.binding.agent == *agent
+            && startup_scope(agent, profile).is_some()
             && self.binding.version == *version
             && self.binding.program == *program
             && self.binding.operation == Operation::StartNew
@@ -628,17 +659,7 @@ impl NativeTuiPermit {
             state.tail.drain(..excess);
         }
         let lower: Vec<u8> = state.tail.iter().map(u8::to_ascii_lowercase).collect();
-        let contains = |needle: &[u8]| lower.windows(needle.len()).any(|part| part == needle);
-        state.tui_seen |= contains(b"claude")
-            && [
-                b"welcome".as_slice(),
-                b"theme",
-                b"trust",
-                b"sign in",
-                b"log in",
-            ]
-            .iter()
-            .any(|needle| contains(needle));
+        state.tui_seen |= startup_screen_seen(state.binding.agent.as_str(), &lower);
     }
     /// Called after bounded cleanup. Released is an actual native+queue+SQL state,
     /// not a user assertion; Retired never produces a qualification receipt.
@@ -816,6 +837,32 @@ fn verify_directory_pin(_: &File) -> Result<(), NativeLaunchError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn codex_startup_is_agent_bound_and_does_not_claim_claude_safe_mode() {
+        let codex = AgentId::new("codex").unwrap();
+        let claude = AgentId::new("claude_code").unwrap();
+        let profile = NativeAdmissionProfile::new(
+            "codex-system-box-no-daemon-workspace-tui-v1",
+            1,
+            budget(),
+            256 * 1024 * 1024,
+        )
+        .unwrap();
+        assert_eq!(
+            startup_scope(&codex, &profile),
+            Some(NativeStartupScope::WorkspaceWriteNoDaemon)
+        );
+        assert_eq!(startup_scope(&claude, &profile), None);
+        let screen = b"welcome to codex\nsign in with chatgpt";
+        assert!(startup_screen_seen("codex", screen));
+        assert!(!startup_screen_seen("claude_code", screen));
+        assert!(!startup_screen_seen("codex", b"codex-cli 0.164.0"));
+        assert!(!startup_screen_seen(
+            "codex",
+            b"error: unexpected argument --no-daemon"
+        ));
+        assert!(!startup_screen_seen("codex", b"welcome to claude code"));
+    }
     fn budget() -> Budget {
         Budget {
             memory_bytes: 512 * 1024 * 1024,

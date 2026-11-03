@@ -138,10 +138,11 @@ export function createNewSession(options: Options) {
       if (opened && !destroyed && at === generation) close(); else render();
     }
   }
-  function show(defaultProject?: string): boolean {
+  function show(defaultProject?: string, defaultHarness?: string): boolean {
     if (destroyed || dialog.open || document.querySelector('dialog[open]')) return false;
     generation++; project.value = absoluteFolder(defaultProject) ? defaultProject : ''; projects = []; fillRecent(); clearError();
     choosingProject = !project.value;
+    if (choices.some(choice => choice.id === defaultHarness)) harness.value = defaultHarness!;
     if (!choices.some(choice => choice.id === harness.value)) harness.value = choices[0]?.id ?? '';
     if (!choices.length) showError('No agents are available yet.');
     render(); openModal(dialog); (choosingProject ? project : harness).focus();

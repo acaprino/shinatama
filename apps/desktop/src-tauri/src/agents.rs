@@ -1,6 +1,7 @@
 //! One-click original-TUI startup with private prerequisites prepared internally.
 //! Diagnostic checks remain available; no auth query, installation or message.
 #![cfg(windows)]
+mod codex;
 use crate::{sidecar, storage::Services, terminal_runtime::Runtime};
 use serde::Serialize;
 use shinatama_adapter::sets::{SET_SCHEMA_VERSION, SetManifest};
@@ -37,6 +38,7 @@ use std::{
 };
 
 const CLAUDE: &str = "claude_code";
+const CODEX: &str = "codex";
 const ROOT_SCAN_LIMIT: usize = 100;
 #[derive(Clone, Copy, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -187,6 +189,7 @@ pub struct Controller {
     busy: AtomicBool,
     blocked: AtomicBool,
     facts: Mutex<Facts>,
+    codex_facts: Mutex<codex::Facts>,
     last_start_failure: Mutex<Option<String>>,
 }
 struct RequestSlot(Arc<Controller>);
@@ -209,6 +212,7 @@ impl Controller {
             "trialReadyForCleanup": owner.as_ref().map(|owner| owner.tracker.ready_for_cleanup()),
             "startupFailure": self.last_start_failure.try_lock().ok().and_then(|value| value.clone()),
             "versionProbe": self.facts.try_lock().ok().and_then(|facts| facts.last_probe.clone()),
+            "codex": self.codex_diagnostics(),
         })
     }
     pub fn new(
@@ -223,6 +227,7 @@ impl Controller {
             busy: AtomicBool::new(false),
             blocked: AtomicBool::new(false),
             facts: Mutex::new(Facts::default()),
+            codex_facts: Mutex::new(codex::Facts::default()),
             last_start_failure: Mutex::new(None),
         }
     }
@@ -231,14 +236,14 @@ impl Controller {
     pub async fn check(self: &Arc<Self>, agent_id: &str) -> Result<AgentCheckup, &'static str> {
         let (id, name) = match agent_id {
             CLAUDE => (CLAUDE, "Claude Code"),
-            "codex" => ("codex", "Codex"),
+            CODEX => (CODEX, "Codex"),
             "opencode" => ("opencode", "OpenCode"),
             "pi" => ("pi", "Pi"),
             "hermes_agent" => ("hermes_agent", "Hermes Agent"),
             "deepseek_harness" => ("deepseek_harness", "DeepSeek Harness"),
             _ => return Err("This agent is not registered."),
         };
-        if id != CLAUDE {
+        if !matches!(id, CLAUDE | CODEX) {
             let mut report = AgentCheckup::empty(id, name);
             report.issue("This agent has not been qualified for native use in this build.");
             return Ok(report);
@@ -258,7 +263,13 @@ impl Controller {
         tauri::async_runtime::spawn_blocking(move || {
             let slot = slot;
             let owner = &slot.0;
-            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| owner.check_claude())) {
+            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                if id == CODEX {
+                    owner.check_codex()
+                } else {
+                    owner.check_claude()
+                }
+            })) {
                 Ok(report) => report,
                 Err(_) => {
                     owner.blocked.store(true, Ordering::Release);
@@ -358,7 +369,7 @@ impl Controller {
             }
         };
         report.program.state = ProgramState::Found;
-        match prepare_box(&state.store, &state.location) {
+        match prepare_box(&state.store, &state.location, CLAUDE) {
             Ok(home) => {
                 report.home.state = StepState::Ready;
                 self.facts
@@ -501,9 +512,10 @@ impl Controller {
         cols: u16,
         prepare_internally: bool,
     ) -> Result<AgentStarted, &'static str> {
-        if agent_id != CLAUDE {
+        if !matches!(agent_id, CLAUDE | CODEX) {
             return Err("This agent is not qualified for native startup.");
         }
+        let codex = agent_id == CODEX;
         shinatama_terminal::validate_size(rows, cols)
             .map_err(|_| "The agent terminal size is invalid.")?;
         if self.blocked.load(Ordering::Acquire) {
@@ -520,7 +532,13 @@ impl Controller {
             let slot = slot;
             let owner = &slot.0;
             match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                if prepare_internally {
+                if codex {
+                    if prepare_internally {
+                        owner.open_codex(&host, &project, rows, cols)
+                    } else {
+                        owner.start_codex(&host, &project, rows, cols, false)
+                    }
+                } else if prepare_internally {
                     owner.open_claude(&host, &project, rows, cols)
                 } else {
                     owner.start_claude(&host, &project, rows, cols, false)
@@ -742,7 +760,7 @@ impl Controller {
             .location
             .validate_project(project)
             .map_err(|_| "The selected project cannot be used for this agent.")?;
-        let home = prepare_box(&state.store, &state.location)?;
+        let home = prepare_box(&state.store, &state.location, CLAUDE)?;
         if home.record != observation.root {
             if refresh_stale {
                 self.qualify_for_open()?;
@@ -1003,11 +1021,15 @@ fn probe_issue(issue: ProbeIssue) -> &'static str {
         }
     }
 }
-fn prepare_box(database: &Database, location: &StorageLocation) -> Result<BoxHome, &'static str> {
+fn prepare_box(
+    database: &Database,
+    location: &StorageLocation,
+    harness: &str,
+) -> Result<BoxHome, &'static str> {
     let plan = PrivateStorePlan::resolve(
         location,
-        AgentStoreKey::new(CLAUDE).map_err(|_| "The private agent namespace is invalid.")?,
-        PrivateStoreRequest::default(),
+        AgentStoreKey::new(harness).map_err(|_| "The private agent namespace is invalid.")?,
+        private_store_request(harness),
     )
     .map_err(
         |_| "The boxed home failed local/private path verification. No system home was used.",
@@ -1015,7 +1037,7 @@ fn prepare_box(database: &Database, location: &StorageLocation) -> Result<BoxHom
     // Inspect the authoritative binding BEFORE prepare() can recreate a child.
     // A missing or disconnected home needs an explicit reconnect, preserving its
     // previous identity and native session references.
-    if let Some(root) = latest_box(database)? {
+    if let Some(root) = latest_box(database, harness)? {
         let expected = plan
             .paths()
             .home()
@@ -1050,7 +1072,7 @@ fn prepare_box(database: &Database, location: &StorageLocation) -> Result<BoxHom
     let ordinary = path.strip_prefix(r"\\?\").unwrap_or(path);
     let prepared = PreparedStoreRoot::resolve(StoreRootRecord {
         id: uuid::Uuid::new_v4().to_string(),
-        harness: CLAUDE.into(),
+        harness: harness.into(),
         kind: RootKind::Box,
         scope: RootScope::Primary,
         resolved_path: ordinary.into(),
@@ -1061,7 +1083,7 @@ fn prepare_box(database: &Database, location: &StorageLocation) -> Result<BoxHom
     })
     .map_err(|_| "The boxed home could not be resolved for its authoritative store record.")?;
     let find = || -> Result<Option<StoreRootRecord>, &'static str> {
-        let latest = latest_box(database)?;
+        let latest = latest_box(database, harness)?;
         match latest {
             Some(root)
                 if root.available
@@ -1094,7 +1116,13 @@ fn prepare_box(database: &Database, location: &StorageLocation) -> Result<BoxHom
         record,
     })
 }
-fn latest_box(database: &Database) -> Result<Option<StoreRootRecord>, &'static str> {
+fn private_store_request(harness: &str) -> PrivateStoreRequest {
+    PrivateStoreRequest {
+        home_path_limit: (harness == CODEX).then(shinatama_engine::codex_launch::home_path_limit),
+        ..PrivateStoreRequest::default()
+    }
+}
+fn latest_box(database: &Database, harness: &str) -> Result<Option<StoreRootRecord>, &'static str> {
     let records = database
         .list_store_roots(None, ROOT_SCAN_LIMIT)
         .map_err(|_| "Saved agent roots could not be read safely.")?;
@@ -1104,7 +1132,9 @@ fn latest_box(database: &Database) -> Result<Option<StoreRootRecord>, &'static s
     Ok(records
         .into_iter()
         .filter(|root| {
-            root.harness == CLAUDE && root.kind == RootKind::Box && root.scope == RootScope::Primary
+            root.harness == harness
+                && root.kind == RootKind::Box
+                && root.scope == RootScope::Primary
         })
         .max_by_key(|root| root.config_revision))
 }

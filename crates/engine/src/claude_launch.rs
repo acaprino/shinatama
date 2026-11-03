@@ -349,7 +349,7 @@ fn prepare(
     }
     let resource_profile = profile()?;
     if let Some(receipt) = receipt {
-        if !receipt.matches(&pinned.identity, &version, &resource_profile) {
+        if !receipt.matches(&context.candidate.agent, &pinned.identity, &version, &resource_profile) {
             return Err(ClaudeLaunchError::QualificationRequired);
         }
     } else if !trial {

@@ -10,7 +10,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 if (process.platform !== 'win32') throw new Error('This proof requires Windows.');
 const harness = process.env.SHINATAMA_SMOKE_SESSION_HARNESS || 'claude_code';
-if (!['claude_code', 'powershell'].includes(harness)) throw new Error('Choose claude_code or powershell for this proof.');
+if (!['claude_code', 'codex', 'powershell'].includes(harness)) throw new Error('Choose claude_code, codex or powershell for this proof.');
 const workspace = process.cwd();
 const packageExecutable = process.env.SHINATAMA_SMOKE_APP_EXE;
 if (packageExecutable && !isAbsolute(packageExecutable)) throw new Error('The package executable must be an explicit absolute path.');
@@ -86,14 +86,15 @@ async function redactDiagnostics() {
   } catch { result.resources = 'unavailable'; }
   try {
     const status = await ipc('agent_status');
+    const facts = harness === 'codex' ? status.codex : status;
     result.agent = { checking: status.checking, blocked: status.blocked,
-      canaryCount: Array.isArray(status.canary) ? status.canary.length : 0,
+      canaryCount: Array.isArray(facts?.canary) ? facts.canary.length : 0,
       startupFailure: typeof status.startupFailure === 'string' ? status.startupFailure.replace(/[\r\n]/g, ' ').slice(0, 240) : null,
-      versionProbe: status.versionProbe ? {
-        issue: status.versionProbe.issue, elapsedMs: status.versionProbe.elapsed_ms,
-        preparationMs: status.versionProbe.preparation_elapsed_ms,
-        admissionMs: status.versionProbe.admission_elapsed_ms,
-        executionMs: status.versionProbe.execution_elapsed_ms,
+      versionProbe: facts?.versionProbe ? {
+        issue: facts.versionProbe.issue, elapsedMs: facts.versionProbe.elapsed_ms,
+        preparationMs: facts.versionProbe.preparation_elapsed_ms,
+        admissionMs: facts.versionProbe.admission_elapsed_ms,
+        executionMs: facts.versionProbe.execution_elapsed_ms,
       } : null };
   } catch { result.agent = 'unavailable'; }
   try {
@@ -134,14 +135,14 @@ async function openFromDialog(projectPath, expectedCount, selectedProject = fals
   const created = now.find(session => !before.includes(session.id));
   if (!created || now.filter(session => !before.includes(session.id)).length !== 1) throw new Error('One Open did not create exactly one session.');
   expect(pathKey(created.cwd)).toBe(pathKey(projectPath));
-  if (harness === 'claude_code') {
-    expect(created.id).toMatch(/^i_[a-z2-7]{12}$/); expect(created.shell).toBe('claude_code');
+  if (harness !== 'powershell') {
+    expect(created.id).toMatch(/^i_[a-z2-7]{12}$/); expect(created.shell).toBe(harness);
   } else expect(created.shell).toBe('PowerShell');
   await expect.poll(async () => (await savedLayout())?.views.find(view => view.id === created.id)?.resource.threadId ?? null,
     { timeout: 15000 }).toMatch(/^t_[a-z2-7]{12}$/);
   const layout = await savedLayout();
   const panel = layout.views.find(view => view.id === created.id);
-  if (harness === 'claude_code') expect(panel.resource.instanceId).toBe(created.id);
+  if (harness !== 'powershell') expect(panel.resource.instanceId).toBe(created.id);
   const recent = await ipc('project_recent');
   const project = recent.find(item => pathKey(item.path) === pathKey(projectPath));
   expect(project?.id).toMatch(/^p_[a-z2-7]{12}$/);
@@ -203,11 +204,13 @@ try {
   evidence.checks.noPreparatoryControlsOrAutoStartup = true;
   const first = await openFromDialog(projectPaths[0], 1);
   evidence.checks.oneOpenSavedProjectThreadAndView = true;
-  if (harness === 'claude_code') {
+  if (harness !== 'powershell') {
     await expect.poll(async () => {
       const status = await ipc('sidecar_status'); return status.healthy && ['ready','busy'].includes(status.phase);
     }, {timeout:10000}).toBe(true);
     evidence.checks.localServicePreparedAutomatically = true;
+    const status = await ipc('agent_status');
+    evidence.version = (harness === 'codex' ? status.codex : status)?.versionProbe?.version ?? null;
   } else {
     await page.locator('#project').click();
     await page.locator('#folder').fill(projectPaths[1]);

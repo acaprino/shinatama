@@ -59,12 +59,16 @@ const LIST: u32 = 1;
 pub enum ScratchKind {
     ClaudeProbe,
     ClaudeTuiTrial,
+    CodexProbe,
+    CodexTuiTrial,
 }
 impl ScratchKind {
     fn prefix(self) -> &'static str {
         match self {
             Self::ClaudeProbe => "claude-probe-",
             Self::ClaudeTuiTrial => "claude-tui-trial-",
+            Self::CodexProbe => "codex-probe-",
+            Self::CodexTuiTrial => "codex-tui-trial-",
         }
     }
 }
@@ -171,10 +175,15 @@ fn shape(base: &Path, path: &Path) -> Result<(), Issue> {
         .file_name()
         .and_then(OsStr::to_str)
         .ok_or(Issue::InvalidPath)?;
-    let id = [ScratchKind::ClaudeProbe, ScratchKind::ClaudeTuiTrial]
-        .into_iter()
-        .find_map(|kind| name.strip_prefix(kind.prefix()))
-        .ok_or(Issue::InvalidPath)?;
+    let id = [
+        ScratchKind::ClaudeProbe,
+        ScratchKind::ClaudeTuiTrial,
+        ScratchKind::CodexProbe,
+        ScratchKind::CodexTuiTrial,
+    ]
+    .into_iter()
+    .find_map(|kind| name.strip_prefix(kind.prefix()))
+    .ok_or(Issue::InvalidPath)?;
     let parsed = uuid::Uuid::parse_str(id).map_err(|_| Issue::InvalidPath)?;
     if parsed.get_version_num() != 4 || parsed.hyphenated().to_string() != id {
         return Err(Issue::InvalidPath);
@@ -655,11 +664,12 @@ mod tests {
         // successfully without accumulating scratch. Released here is a local
         // filesystem-test input; it never produces a native launch authority.
         for index in 0..9 {
-            let kind = if index % 2 == 0 {
-                ScratchKind::ClaudeProbe
-            } else {
-                ScratchKind::ClaudeTuiTrial
-            };
+            let kind = [
+                ScratchKind::ClaudeProbe,
+                ScratchKind::ClaudeTuiTrial,
+                ScratchKind::CodexProbe,
+                ScratchKind::CodexTuiTrial,
+            ][index % 4];
             let (location, mut receipt) = create(&base, kind).unwrap().into_parts();
             fs::create_dir(location.directory().join("nested")).unwrap();
             fs::write(
@@ -682,7 +692,10 @@ mod tests {
                     .any(|entry| {
                         let name = entry.unwrap().file_name();
                         let name = name.to_string_lossy();
-                        name.starts_with("claude-probe-") || name.starts_with("claude-tui-trial-")
+                        name.starts_with("claude-probe-")
+                            || name.starts_with("claude-tui-trial-")
+                            || name.starts_with("codex-probe-")
+                            || name.starts_with("codex-tui-trial-")
                     })
             );
         }
