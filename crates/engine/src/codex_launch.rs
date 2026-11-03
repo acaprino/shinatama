@@ -159,12 +159,11 @@ impl CodexSessionOperation {
         executable: PathBuf,
         hook_arguments: &[OsString],
     ) -> Result<QualifiedArgvRecipe, CodexLaunchError> {
-        // The existing receipt covers StartNew only. In particular, do not put
-        // resume argv inside a StartNew recipe or reuse its native qualification.
-        // A future Resume path needs separate operation evidence and admission.
-        if self.operation() != Operation::StartNew {
-            return Err(CodexLaunchError::QualificationRequired);
-        }
+        // The recipe records its own exact operation and the sealed launch
+        // permit binds the argv digest, so resume argv can never ride a
+        // StartNew permit or its native qualification. The shared trial
+        // receipt covers contained TUI startup only; resume fidelity is
+        // proved by the lifecycle's exact sealed-UUID hook confirmation.
         let mut arguments = self.arguments();
         arguments.extend_from_slice(hook_arguments);
         QualifiedArgvRecipe::qualify(
@@ -172,7 +171,14 @@ impl CodexSessionOperation {
             self.operation(),
             CommandForm::NativeExe(executable),
             arguments,
-            evidence(descriptor)?,
+            evidence(
+                descriptor,
+                if hook_arguments.is_empty() {
+                    RECIPE
+                } else {
+                    TRACKED_RECIPE
+                },
+            )?,
         )
         .map_err(|_| CodexLaunchError::Composition)
     }
@@ -344,6 +350,7 @@ fn prepare_trial_with_hooks(
         },
         None,
         true,
+        None,
         trusted_hook_exe,
     )?;
     let (permit, tracker) = NativeTuiPermit::issue_trial(
@@ -363,7 +370,7 @@ pub fn prepare_start(
     context: CodexStartContext<'_>,
     receipt: &NativeTrialReceipt,
 ) -> Result<PreparedCodexStart, CodexLaunchError> {
-    prepare_start_with_hooks(context, receipt, None)
+    prepare_for_operation(context, receipt, None, None)
 }
 /// Codex chooses the native UUID. The lifecycle must consume the authenticated
 /// SessionStart event; this function does not invent or reserve a native ID.
@@ -372,11 +379,25 @@ pub fn prepare_tracked_start(
     receipt: &NativeTrialReceipt,
     trusted_hook_exe: &Path,
 ) -> Result<PreparedCodexStart, CodexLaunchError> {
-    prepare_start_with_hooks(context, receipt, Some(trusted_hook_exe))
+    prepare_for_operation(context, receipt, None, Some(trusted_hook_exe))
 }
-fn prepare_start_with_hooks(
+/// Compose an exact new/resume invocation with the existing qualified startup
+/// protections. The receipt covers contained TUI startup, not native transcript
+/// fidelity; a Resume selection carries its exact recorded UUID into the sealed
+/// argv recipe and launch binding, and the lifecycle confirms it through the
+/// authenticated SessionStart(source=resume) hook event.
+pub fn prepare_tracked_session(
     context: CodexStartContext<'_>,
     receipt: &NativeTrialReceipt,
+    session: &CodexSessionOperation,
+    trusted_hook_exe: &Path,
+) -> Result<PreparedCodexStart, CodexLaunchError> {
+    prepare_for_operation(context, receipt, Some(session), Some(trusted_hook_exe))
+}
+fn prepare_for_operation(
+    context: CodexStartContext<'_>,
+    receipt: &NativeTrialReceipt,
+    session: Option<&CodexSessionOperation>,
     trusted_hook_exe: Option<&Path>,
 ) -> Result<PreparedCodexStart, CodexLaunchError> {
     let prepared = prepare(
@@ -397,6 +418,7 @@ fn prepare_start_with_hooks(
         },
         Some(receipt),
         false,
+        session,
         trusted_hook_exe,
     )?;
     let permit = NativeTuiPermit::issue_after_trial(
@@ -424,9 +446,16 @@ fn prepare(
     context: Context<'_>,
     receipt: Option<&NativeTrialReceipt>,
     trial: bool,
+    session: Option<&CodexSessionOperation>,
     trusted_hook_exe: Option<&Path>,
 ) -> Result<Prepared, CodexLaunchError> {
     let deadline = Instant::now() + PREPARE_BUDGET;
+    let default_session = CodexSessionOperation::start_new();
+    let session = session.unwrap_or(&default_session);
+    // The contained canary only ever qualifies the fresh-session startup.
+    if trial && session.operation() != Operation::StartNew {
+        return Err(CodexLaunchError::QualificationRequired);
+    }
     if context.candidate.agent.as_str() != "codex"
         || context.candidate.kind != ProgramKind::DirectExe
     {
@@ -693,7 +722,12 @@ fn prepare(
         "CODEX_SQLITE_HOME",
         home.as_os_str().to_owned(),
     );
-    let descriptor = descriptor(&version)?;
+    let recipe_id = if trusted_hook_exe.is_some() {
+        TRACKED_RECIPE
+    } else {
+        RECIPE
+    };
+    let descriptor = descriptor(&version, session.operation(), recipe_id)?;
     let mode = Placement::new(ProgramPlacement::System, HomePlacement::Box)
         .map_err(|_| CodexLaunchError::Composition)?;
     let placement_recipe = QualifiedPlacementRecipe::qualify(
@@ -719,10 +753,9 @@ fn prepare(
             pi_skills: None,
             codex_sandbox: Some(CodexSandbox::UnelevatedDisclosed),
         },
-        evidence(&descriptor)?,
+        evidence(&descriptor, recipe_id)?,
     )
     .map_err(|_| CodexLaunchError::Composition)?;
-    let session = CodexSessionOperation::start_new();
     let arguments_recipe = if session_events.is_some() {
         session.qualify_arguments_with_hooks(&descriptor, pinned.path, &hook_arguments)?
     } else {
@@ -930,7 +963,11 @@ fn verify_sidecar(sidecar: &SidecarSupervisor) -> Result<(), CodexLaunchError> {
     }
     Ok(())
 }
-fn descriptor(version: &Version) -> Result<AdapterDescriptor, CodexLaunchError> {
+fn descriptor(
+    version: &Version,
+    operation: Operation,
+    recipe: &str,
+) -> Result<AdapterDescriptor, CodexLaunchError> {
     let mut descriptor = AdapterDescriptor {
         agent: AgentId::new("codex").map_err(|_| CodexLaunchError::Composition)?,
         version: version.clone(),
@@ -941,11 +978,7 @@ fn descriptor(version: &Version) -> Result<AdapterDescriptor, CodexLaunchError> 
     };
     // Private invocation schema for the qualification path. It is NOT registered
     // in Engine or returned as a publicly supported native capability.
-    for operation in [
-        Operation::StartNew,
-        Operation::Placement,
-        Operation::InheritedMarkers,
-    ] {
+    for operation in [operation, Operation::Placement, Operation::InheritedMarkers] {
         descriptor
             .capabilities
             .qualify(
@@ -953,17 +986,20 @@ fn descriptor(version: &Version) -> Result<AdapterDescriptor, CodexLaunchError> 
                 &descriptor.agent,
                 version,
                 false,
-                evidence(&descriptor)?,
+                evidence(&descriptor, recipe)?,
             )
             .map_err(|_| CodexLaunchError::Composition)?;
     }
     Ok(descriptor)
 }
-fn evidence(descriptor: &AdapterDescriptor) -> Result<FixtureEvidence, CodexLaunchError> {
+fn evidence(
+    descriptor: &AdapterDescriptor,
+    recipe: &str,
+) -> Result<FixtureEvidence, CodexLaunchError> {
     FixtureEvidence::new(
         descriptor.agent.clone(),
         descriptor.version.clone(),
-        RECIPE,
+        recipe,
         EvidenceKind::InstalledRuntimeFixture,
     )
     .map_err(|_| CodexLaunchError::Composition)
@@ -1198,7 +1234,7 @@ mod tests {
             session_hook_arguments(&Version::parse("0.167.0").unwrap(), helper, shell, 43210),
             Err(CodexLaunchError::QualificationRequired)
         );
-        let descriptor = descriptor(&version).unwrap();
+        let descriptor = descriptor(&version, Operation::StartNew, TRACKED_RECIPE).unwrap();
         let recipe = CodexSessionOperation::start_new()
             .qualify_arguments_with_hooks(
                 &descriptor,
@@ -1302,7 +1338,12 @@ mod tests {
         assert_eq!(new.operation(), Operation::StartNew);
         assert_eq!(new.native_id(), None);
         assert_eq!(new.arguments(), baseline);
-        let descriptor = descriptor(&Version::parse("0.166.0").unwrap()).unwrap();
+        let descriptor = descriptor(
+            &Version::parse("0.166.0").unwrap(),
+            Operation::StartNew,
+            RECIPE,
+        )
+        .unwrap();
         let recipe = new
             .qualify_arguments(&descriptor, PathBuf::from(r"C:\synthetic\codex.exe"))
             .unwrap();
@@ -1323,7 +1364,7 @@ mod tests {
         );
     }
     #[test]
-    fn codex_resume_selection_is_exact_and_cannot_use_startup_qualification() {
+    fn codex_resume_selection_is_exact_and_qualifies_only_its_own_operation() {
         let id = "01a17e07-93f7-7a73-85c7-9f0205836600";
         let resume = CodexSessionOperation::resume_native(id).unwrap();
         assert_eq!(resume.operation(), Operation::ResumeNative);
@@ -1334,11 +1375,62 @@ mod tests {
             &arguments[2..],
             CodexSessionOperation::start_new().arguments()
         );
-        let descriptor = descriptor(&Version::parse("0.166.0").unwrap()).unwrap();
+        let version = Version::parse("0.166.0").unwrap();
+        let startup = descriptor(&version, Operation::StartNew, RECIPE).unwrap();
+        // A StartNew qualification never requires or plans resume argv.
+        assert!(
+            startup
+                .capabilities
+                .require(Operation::ResumeNative)
+                .is_err()
+        );
         assert!(matches!(
-            resume.qualify_arguments(&descriptor, PathBuf::from(r"C:\synthetic\codex.exe")),
-            Err(CodexLaunchError::QualificationRequired)
+            resume.qualify_arguments(&startup, PathBuf::from(r"C:\synthetic\codex.exe")),
+            Err(CodexLaunchError::Composition)
         ));
+        // Its own operation qualifies the exact sealed argv, untracked and
+        // tracked (resume 2 + fixed 15 + hook 6 = 23, inside the shared bound).
+        let resume_descriptor = descriptor(&version, Operation::ResumeNative, RECIPE).unwrap();
+        let recipe = resume
+            .qualify_arguments(&resume_descriptor, PathBuf::from(r"C:\synthetic\codex.exe"))
+            .unwrap();
+        let command = shinatama_adapter::launch::arguments::plan_arguments(
+            &resume_descriptor,
+            Operation::ResumeNative,
+            Path::new(r"C:\synthetic\project"),
+            Some(&recipe),
+        )
+        .unwrap();
+        assert_eq!(command.operation(), Operation::ResumeNative);
+        assert_eq!(command.argv(), arguments);
+        let hook_arguments = session_hook_arguments(
+            &version,
+            Path::new(r"C:\App\shinatama-hook.exe"),
+            Path::new(r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"),
+            43210,
+        )
+        .unwrap();
+        let tracked_descriptor =
+            descriptor(&version, Operation::ResumeNative, TRACKED_RECIPE).unwrap();
+        let tracked_recipe = resume
+            .qualify_arguments_with_hooks(
+                &tracked_descriptor,
+                PathBuf::from(r"C:\synthetic\codex.exe"),
+                &hook_arguments,
+            )
+            .unwrap();
+        let tracked_command = shinatama_adapter::launch::arguments::plan_arguments(
+            &tracked_descriptor,
+            Operation::ResumeNative,
+            Path::new(r"C:\synthetic\project"),
+            Some(&tracked_recipe),
+        )
+        .unwrap();
+        assert_eq!(tracked_command.argv().len(), 23);
+        assert_eq!(
+            &tracked_command.argv()[..2],
+            &[OsString::from("resume"), id.into()]
+        );
         for invalid in [
             "",
             "latest",

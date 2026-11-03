@@ -12,8 +12,8 @@ use shinatama_adapter::catalog::ProgramCandidate;
 use shinatama_engine::{
     check_scratch::ScratchKind,
     codex_launch::{
-        CodexLaunchError, CodexStartContext, CodexTrialContext, PreparedCodexStart,
-        prepare_tracked_start, prepare_tracked_trial,
+        CodexLaunchError, CodexSessionOperation, CodexStartContext, CodexTrialContext,
+        PreparedCodexStart, prepare_tracked_session, prepare_tracked_trial,
     },
     codex_probe::{
         CodexProbeOutcome, PreparedCodexProbe, ProbeIssue, discover_codex, probe_budget,
@@ -40,7 +40,7 @@ impl HarnessDriver for CodexDriver {
         HarnessDescriptor {
             id: "codex",
             label: "Codex",
-            native_resume: false,
+            native_resume: true,
         }
     }
 
@@ -122,18 +122,33 @@ impl HarnessDriver for CodexDriver {
         receipt: &NativeTrialReceipt,
         operation: &SessionOperation,
     ) -> Result<Self::PreparedSession, DriverError> {
-        if !matches!(operation, SessionOperation::New) {
-            return Err(DriverError::Failed(
-                "Native resume has not been qualified for Codex.",
-            ));
-        }
-        let pending = PendingThread::Start {
-            thread: context.thread.clone(),
-            root: context.root.clone(),
-            native_id: None,
+        let (selection, pending) = match operation {
+            SessionOperation::New => {
+                let pending = PendingThread::Start {
+                    thread: context.thread.clone(),
+                    root: context.root.clone(),
+                    native_id: None,
+                };
+                (CodexSessionOperation::start_new(), pending)
+            }
+            SessionOperation::Resume(target) => {
+                if target.thread != *context.thread
+                    || target.root != context.root
+                    || target.recorded_activation.is_some()
+                    || target.segment.harness != "codex"
+                {
+                    return Err(DriverError::Failed(
+                        "The saved conversation changed. Reload threads and try again.",
+                    ));
+                }
+                let selection =
+                    CodexSessionOperation::resume_native(&target.segment.native.native_id)
+                        .map_err(launch_error)?;
+                (selection, PendingThread::Resume(target.clone()))
+            }
         };
         let hook = hook_executable().map_err(DriverError::from)?;
-        let inner = prepare_tracked_start(
+        let inner = prepare_tracked_session(
             CodexStartContext {
                 candidate: context.candidate,
                 observation: context.observation,
@@ -149,6 +164,7 @@ impl HarnessDriver for CodexDriver {
                 thread_id: &context.thread.id,
             },
             receipt,
+            &selection,
             &hook,
         )
         .map_err(launch_error)?;
@@ -167,11 +183,23 @@ impl HarnessDriver for CodexDriver {
             .pending
             .take()
             .ok_or(DriverError::Failed("This Codex launch was already bound."))?;
-        if !matches!(
-            (&pending, binding.operation),
-            (PendingThread::Start { thread, root, native_id: None }, SessionOperation::New)
-                if thread == binding.thread && root == binding.root
-        ) {
+        let matches = match (&pending, binding.operation) {
+            (
+                PendingThread::Start {
+                    thread,
+                    root,
+                    native_id: None,
+                },
+                SessionOperation::New,
+            ) => thread == binding.thread && root == binding.root,
+            (PendingThread::Resume(expected), SessionOperation::Resume(actual)) => {
+                expected == actual
+                    && expected.thread == *binding.thread
+                    && expected.root == *binding.root
+            }
+            _ => false,
+        };
+        if !matches {
             return Err(DriverError::Failed(
                 "The Codex thread binding changed before startup.",
             ));

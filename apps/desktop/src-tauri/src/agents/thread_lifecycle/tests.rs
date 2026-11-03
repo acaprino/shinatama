@@ -197,16 +197,27 @@ impl Fixture {
         kind: SessionEventKind,
         source: Option<SessionStartSource>,
     ) {
+        self.send_as(harness, port, &self.identity, session, kind, source)
+    }
+    fn send_as(
+        &self,
+        harness: HarnessKind,
+        port: u16,
+        identity: &LaunchIdentity,
+        session: &str,
+        kind: SessionEventKind,
+        source: Option<SessionStartSource>,
+    ) {
         let mut body = serde_json::json!({ "session_id": session, "hook_event_name": kind, "cwd": self.project.to_str().unwrap() });
         if let Some(source) = source {
             body["source"] = serde_json::to_value(source).unwrap();
         }
         let body = serde_json::to_vec(&body).unwrap();
-        let secret = self.identity.child_secret_override();
+        let secret = identity.child_secret_override();
         let request = format!(
             "POST {}{} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nAuthorization: Bearer {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
             harness.route_prefix(),
-            self.identity.instance_id(),
+            identity.instance_id(),
             secret.value().to_str().unwrap(),
             body.len()
         );
@@ -424,4 +435,272 @@ fn claude_keeps_its_sealed_uuid_and_requires_the_same_durable_cleanup_barrier() 
         None,
     );
     finish_with_receipt(&fixture, &lifecycle);
+}
+
+/// Second, resume-shaped owner over the same saved thread: fresh identity,
+/// fresh reservation and PendingThread::Resume from the persisted target.
+struct ResumeOwner {
+    lifecycle: Arc<ThreadLifecycle>,
+    port: u16,
+    identity: LaunchIdentity,
+    ticket: ReservationTicket,
+    process: ProcessKey,
+    target: ThreadResumeTarget,
+    notifications: Arc<Mutex<Vec<Option<bool>>>>,
+}
+fn start_resume_owner(fixture: &Fixture) -> ResumeOwner {
+    let target = fixture
+        .db()
+        .thread_resume_target(&fixture.thread.id)
+        .unwrap();
+    assert!(target.recorded_activation.is_none());
+    let identity = LaunchIdentity::generate(&fixture.thread.id).unwrap();
+    let at = now().unwrap();
+    let revision = fixture
+        .db()
+        .resource_reservations()
+        .unwrap()
+        .unwrap()
+        .revision;
+    let budget = Budget {
+        memory_bytes: 1024,
+        processes: 1,
+        cpu_basis_points: 10,
+        queue_bytes: 64,
+        queue_items: 1,
+    };
+    let reserved = fixture
+        .db()
+        .reserve_resources(
+            &fixture.stamp,
+            revision,
+            &ReservationRequest {
+                id: uuid::Uuid::new_v4().to_string(),
+                job_key: uuid::Uuid::new_v4().to_string(),
+                owner: ReservationOwner {
+                    pid: 404,
+                    created_at_100ns: 4004,
+                    windows_session_id: 1,
+                    nonce: uuid::Uuid::new_v4().to_string(),
+                },
+                budget,
+                now_ms: at,
+                lease_expires_at_ms: at + 300_000,
+            },
+        )
+        .unwrap();
+    let ticket = fixture
+        .db()
+        .activate_reservation(&fixture.stamp, &reserved, at, at + 300_000)
+        .unwrap();
+    let receiver =
+        SessionEventReceiver::start_for(HarnessKind::Codex, identity.record(), &fixture.project)
+            .unwrap();
+    let port = receiver.port();
+    let database = Arc::clone(fixture.db());
+    let observer_db = Arc::clone(fixture.db());
+    let notifications = Arc::new(Mutex::new(Vec::new()));
+    let recorder = Arc::clone(&notifications);
+    let expected_project = fixture.thread.project_id.clone();
+    let expected_thread = fixture.thread.id.clone();
+    let lifecycle = ThreadLifecycle::new(
+        database,
+        PendingThread::Resume(target.clone()),
+        identity.record(),
+        receiver,
+        Arc::new(move |project, thread| {
+            // Same contract as the primary fixture observer: record only the
+            // committed ownership state, never control the transition.
+            let committed = (project == expected_project && thread == expected_thread)
+                .then(|| observer_db.thread_resume_target(thread).ok())
+                .flatten()
+                .map(|saved| saved.recorded_activation.is_none());
+            recorder.lock().unwrap().push(committed);
+        }),
+    )
+    .unwrap();
+    let process = ProcessKey {
+        pid: 404,
+        created_at_100ns: 4004,
+    };
+    lifecycle
+        .before_run(identity.instance_id(), process, &ticket)
+        .unwrap();
+    ResumeOwner {
+        lifecycle,
+        port,
+        identity,
+        ticket,
+        process,
+        target,
+        notifications,
+    }
+}
+fn release_resume(fixture: &Fixture, owner: &ResumeOwner) {
+    let at = now().unwrap();
+    let proof = EmptyJobProof::from_trusted_closed_empty_job(
+        &owner.ticket,
+        &owner.ticket.owner,
+        &owner.ticket.job_key,
+        at,
+    )
+    .unwrap();
+    fixture
+        .db()
+        .release_reservation(&fixture.stamp, &owner.ticket, &proof, at)
+        .unwrap();
+}
+impl ResumeOwner {
+    fn active(&self, fixture: &Fixture) -> Option<ActivationRecord> {
+        fixture
+            .db()
+            .thread_activation(self.identity.instance_id())
+            .unwrap()
+    }
+}
+
+#[test]
+fn codex_resume_seals_the_saved_uuid_and_confirms_with_source_resume() {
+    let fixture = Fixture::new(HarnessKind::Codex);
+    // Phase 1: the original StartNew owner records the native UUID and closes.
+    let (first, port) = fixture.lifecycle(HarnessKind::Codex, None);
+    fixture.send(
+        HarnessKind::Codex,
+        port,
+        CODEX_NATIVE,
+        SessionEventKind::SessionStart,
+        Some(SessionStartSource::Startup),
+    );
+    eventually(|| first.core.state.lock().unwrap().observed_start);
+    finish_with_receipt(&fixture, &first);
+    let sealed = fixture.active().unwrap();
+    assert!(sealed.ended_at.is_some());
+    // Phase 2: Resume seals the exact saved UUID before the shell resumes.
+    let owner = start_resume_owner(&fixture);
+    assert_eq!(owner.target.segment.native.native_id, CODEX_NATIVE);
+    let reserved = owner.active(&fixture).unwrap();
+    assert_eq!(reserved.native.native_id, CODEX_NATIVE);
+    assert_eq!(reserved.sequence, sealed.sequence + 1);
+    assert!(reserved.ended_at.is_none());
+    // The authenticated resume confirmation must carry source=resume and the
+    // exact sealed UUID; it never creates another segment or activation.
+    fixture.send_as(
+        HarnessKind::Codex,
+        owner.port,
+        &owner.identity,
+        CODEX_NATIVE,
+        SessionEventKind::SessionStart,
+        Some(SessionStartSource::Resume),
+    );
+    eventually(|| owner.lifecycle.core.state.lock().unwrap().observed_start);
+    let confirmed = owner.active(&fixture).unwrap();
+    assert_eq!(confirmed.sequence, reserved.sequence);
+    assert_eq!(confirmed.native.native_id, CODEX_NATIVE);
+    assert!(confirmed.ended_at.is_none());
+    assert!(
+        fixture
+            .db()
+            .thread_resume_target(&fixture.thread.id)
+            .unwrap()
+            .recorded_activation
+            .is_some()
+    );
+    assert!(!owner.lifecycle.core.failed.load(Ordering::Acquire));
+    // The same durable barrier closes the resumed owner: no receipt, no close.
+    assert!(
+        owner
+            .lifecycle
+            .after_cleanup(owner.identity.instance_id(), owner.process)
+            .is_err()
+    );
+    release_resume(&fixture, &owner);
+    owner
+        .lifecycle
+        .after_cleanup(owner.identity.instance_id(), owner.process)
+        .unwrap();
+    let ended = owner.active(&fixture).unwrap();
+    assert_eq!(ended.sequence, reserved.sequence);
+    assert!(ended.ended_at.is_some());
+    assert!(
+        fixture
+            .db()
+            .native_session_cleanup(owner.identity.instance_id())
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(
+        *owner.notifications.lock().unwrap(),
+        vec![Some(false), Some(true)]
+    );
+    assert!(matches!(
+        fixture.db().thread_resume_target(&fixture.thread.id),
+        Ok(target) if target.recorded_activation.is_none()
+    ));
+}
+
+#[test]
+fn codex_resume_rejects_wrong_source_or_uuid_and_retains_the_sealed_owner() {
+    const OTHER_NATIVE: &str = "018fba11-45db-7f1e-89c8-40d5c6be9999";
+    for (source, session, label) in [
+        (
+            Some(SessionStartSource::Startup),
+            CODEX_NATIVE,
+            "startup-source",
+        ),
+        (
+            Some(SessionStartSource::Resume),
+            OTHER_NATIVE,
+            "foreign-uuid",
+        ),
+    ] {
+        let fixture = Fixture::new(HarnessKind::Codex);
+        let (first, port) = fixture.lifecycle(HarnessKind::Codex, None);
+        fixture.send(
+            HarnessKind::Codex,
+            port,
+            CODEX_NATIVE,
+            SessionEventKind::SessionStart,
+            Some(SessionStartSource::Startup),
+        );
+        eventually(|| first.core.state.lock().unwrap().observed_start);
+        finish_with_receipt(&fixture, &first);
+        let owner = start_resume_owner(&fixture);
+        let sealed = owner.active(&fixture).unwrap();
+        assert!(sealed.ended_at.is_none());
+        fixture.send_as(
+            HarnessKind::Codex,
+            owner.port,
+            &owner.identity,
+            session,
+            SessionEventKind::SessionStart,
+            source,
+        );
+        eventually(|| owner.lifecycle.core.failed.load(Ordering::Acquire));
+        // The sealed activation stays open and owned; a failed confirmation
+        // never closes history, and cleanup stays retained for recovery.
+        release_resume(&fixture, &owner);
+        assert!(
+            owner
+                .lifecycle
+                .after_cleanup(owner.identity.instance_id(), owner.process)
+                .is_err(),
+            "{label}: failed tracking must not finalize"
+        );
+        let retained = owner.active(&fixture).unwrap();
+        assert_eq!(retained.sequence, sealed.sequence, "{label}");
+        assert!(retained.ended_at.is_none(), "{label}");
+        assert!(
+            fixture
+                .db()
+                .native_session_cleanup(owner.identity.instance_id())
+                .unwrap()
+                .is_some(),
+            "{label}: the cleanup receipt must remain retained"
+        );
+        assert_eq!(
+            owner.active(&fixture).unwrap().native.native_id,
+            CODEX_NATIVE,
+            "{label}: a foreign UUID must never be recorded"
+        );
+    }
 }
