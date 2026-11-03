@@ -54,6 +54,13 @@ pub struct Rename {
     expected_revision: u64,
     title: String,
 }
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Recover {
+    project_id: String,
+    thread_id: String,
+    expected_revision: u64,
+}
 pub struct Controller {
     services: Arc<Services>,
     busy: AtomicBool,
@@ -77,6 +84,13 @@ impl Controller {
         + Send
         + 'static,
     ) -> Result<T, Error> {
+        self.work_result(move |database| work(database).map_err(Into::into))
+            .await
+    }
+    async fn work_result<T: Send + 'static>(
+        self: &Arc<Self>,
+        work: impl FnOnce(&shinatama_state::database::Database) -> Result<T, Error> + Send + 'static,
+    ) -> Result<T, Error> {
         self.busy
             .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
             .map_err(|_| Error { code: "busy" })?;
@@ -85,13 +99,103 @@ impl Controller {
             let state = slot.0.services.load().map_err(|_| Error {
                 code: "unavailable",
             })?;
-            work(&state.store).map_err(Into::into)
+            work(&state.store)
         })
         .await
         .map_err(|_| Error {
             code: "unavailable",
         })?
     }
+}
+/// Explicit metadata recovery only. This command has no process-start/stop authority.
+#[tauri::command]
+pub async fn thread_recover(
+    window: WebviewWindow,
+    controller: State<'_, Arc<Controller>>,
+    request: Recover,
+) -> Result<(), Error> {
+    local(&window)?;
+    controller
+        .inner()
+        .work_result(move |db| {
+            use shinatama_state::{
+                native_session_cleanup::probe_native_session_cleanup,
+                records::{
+                    CanonicalIdKind, MAX_SAFE_REVISION, recovery::OwnerObservation, validate_id,
+                },
+            };
+            validate_id(&request.project_id, CanonicalIdKind::Project)
+                .map_err(|_| Error { code: "invalid" })?;
+            validate_id(&request.thread_id, CanonicalIdKind::Thread)
+                .map_err(|_| Error { code: "invalid" })?;
+            if !(1..=MAX_SAFE_REVISION).contains(&request.expected_revision) {
+                return Err(Error { code: "invalid" });
+            }
+            let saved = db
+                .thread_resume_target(&request.thread_id)
+                .map_err(|_| Error {
+                    code: "source_changed",
+                })?;
+            if saved.thread.project_id != request.project_id
+                || saved.thread.revision != request.expected_revision
+            {
+                return Err(Error {
+                    code: "source_changed",
+                });
+            }
+            let active = saved.recorded_activation.ok_or(Error {
+                code: "source_changed",
+            })?;
+            let receipt = db
+                .native_session_cleanup(&active.owner.instance_id)
+                .map_err(|_| Error {
+                    code: "unavailable",
+                })?
+                .ok_or(Error {
+                    code: "cleanup_unproven",
+                })?;
+            if receipt.owner.activation != active.owner {
+                return Err(Error {
+                    code: "source_changed",
+                });
+            }
+            // Native observations run without a SQL transaction and never signal a
+            // process. The final transaction rechecks receipt, owner and revisions.
+            let probe = probe_native_session_cleanup(&receipt).map_err(|_| Error {
+                code: "unavailable",
+            })?;
+            if probe.shell == OwnerObservation::AliveExact {
+                return Err(Error {
+                    code: "session_alive",
+                });
+            }
+            if probe.host == OwnerObservation::AliveExact {
+                return Err(Error {
+                    code: "owner_alive",
+                });
+            }
+            let proof = probe.proof.ok_or(Error {
+                code: "cleanup_unproven",
+            })?;
+            let at = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .ok()
+                .and_then(|time| i64::try_from(time.as_millis()).ok())
+                .ok_or(Error {
+                    code: "unavailable",
+                })?;
+            db.recover_native_session_cleanup(
+                &proof,
+                request.expected_revision,
+                &active,
+                at.max(receipt.released_at_ms).max(active.started_at),
+            )
+            .map_err(|_| Error {
+                code: "source_changed",
+            })?;
+            Ok(())
+        })
+        .await
 }
 fn local(window: &WebviewWindow) -> Result<(), Error> {
     crate::local(window).map_err(|_| Error { code: "invalid" })?;

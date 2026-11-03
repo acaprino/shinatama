@@ -870,7 +870,7 @@ fn inspect_records(
         (
             "setting",
             state.setting_cursor,
-            "SELECT rowid,octet_length(key)+octet_length(value),octet_length(key)>256 OR octet_length(value)>65536 FROM setting WHERE rowid>?1 AND key NOT IN ('maintenance.lease.v1','maintenance.state.v1') ORDER BY rowid LIMIT ?2",
+            "SELECT rowid,octet_length(key)+octet_length(value),octet_length(key)>256 OR octet_length(value)>CASE WHEN key='operational.native_session_cleanup.v1' THEN 131072 ELSE 65536 END FROM setting WHERE rowid>?1 AND key NOT IN ('maintenance.lease.v1','maintenance.state.v1') ORDER BY rowid LIMIT ?2",
         )
     } else {
         (
@@ -992,11 +992,12 @@ fn validate_record(
 ) -> Result<Option<(i64, Option<String>)>> {
     let sql = if settings {
         "SELECT octet_length(key)+octet_length(value),CASE
-        WHEN octet_length(key)>256 OR octet_length(value)>65536 THEN 'oversized'
+        WHEN octet_length(key)>256 OR octet_length(value)>CASE WHEN key='operational.native_session_cleanup.v1' THEN 131072 ELSE 65536 END THEN 'oversized'
         WHEN octet_length(key)+octet_length(value)>?2 THEN '__quota'
         WHEN NOT json_valid(value) THEN 'invalid_json'
         WHEN key='ui.appearance.v1' AND (json_type(value)!='object' OR coalesce(json_type(value,'$.terminal_font_size'),'')!='integer' OR json_extract(value,'$.terminal_font_size') NOT BETWEEN 8 AND 40 OR coalesce(json_type(value,'$.reduced_motion'),'') NOT IN ('true','false') OR (SELECT count(*) FROM json_each(value))!=2) THEN 'appearance_shape'
         WHEN key='migration.projects_json.v1' AND coalesce(json_type(value,'$.completed'),'')!='true' THEN 'import_marker_shape'
+        WHEN key='operational.native_session_cleanup.v1' AND (coalesce(json_type(value),'')!='object' OR coalesce(json_extract(value,'$.format_version'),0)!=1 OR coalesce(json_type(value,'$.entries'),'')!='array' OR json_array_length(value,'$.entries')>64 OR (SELECT count(*) FROM json_each(value))!=2) THEN 'native_cleanup_shape'
         ELSE NULL END FROM setting WHERE rowid=?1"
     } else {
         "SELECT octet_length(id)+octet_length(path)+octet_length(path_key)+octet_length(name),CASE

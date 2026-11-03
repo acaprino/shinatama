@@ -1,8 +1,10 @@
 # Recupero del proprietario nativo dopo crash: limite C25/F02
 
-Stato: **mancanza reale ancora aperta**, rilevata con audit del codice. Questa nota
-non attesta implementazione o prove del recupero e non blocca gli altri incrementi.
-Nessuna modifica a prodotto, piano o checkpoint accompagna la nota.
+Stato al momento dell'audit: **mancanza reale rilevata nel codice**. La finestra
+pulizia provata → finalizzazione interrotta è stata successivamente affrontata
+dall'[incremento di recupero con ricevuta durevole](2026-11-03-native-cleanup-recovery.md).
+Questa nota conserva l'analisi precedente e i limiti del crash prima della pulizia;
+implementazione e risultati aggiornati sono registrati nella nuova nota.
 
 Dopo un arresto improvviso di Shinatama, un'attivazione senza `ended_at` può restare
 salvata. `agents/resume.rs::target` rifiuta qualsiasi `recorded_activation` presente:

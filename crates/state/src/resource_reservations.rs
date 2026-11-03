@@ -116,7 +116,7 @@ pub struct PolicyStamp {
     pub id: String,
 }
 impl PolicyStamp {
-    fn validate(&self) -> Result<()> {
+    pub(crate) fn validate(&self) -> Result<()> {
         if self.version == 0
             || self.id.is_empty()
             || self.id.len() > 64
@@ -201,7 +201,7 @@ pub struct ReservationTicket {
     pub revision: u64,
 }
 impl ReservationTicket {
-    fn validate(&self) -> Result<()> {
+    pub(crate) fn validate(&self) -> Result<()> {
         validate_uuid(&self.id)?;
         validate_uuid(&self.job_key)?;
         self.owner.validate()?;
@@ -277,7 +277,7 @@ impl ReservationSnapshot {
             .ok_or(ReservationError::Capacity)?;
         Ok(self.revision)
     }
-    fn require_policy(&self, stamp: &PolicyStamp) -> Result<()> {
+    pub(crate) fn require_policy(&self, stamp: &PolicyStamp) -> Result<()> {
         stamp.validate()?;
         if &self.policy.stamp == stamp {
             Ok(())
@@ -285,7 +285,7 @@ impl ReservationSnapshot {
             Err(ReservationError::PolicyMismatch)
         }
     }
-    fn ticket_index(&self, expected: &ReservationTicket) -> Result<usize> {
+    pub(crate) fn ticket_index(&self, expected: &ReservationTicket) -> Result<usize> {
         expected.validate()?;
         let index = self
             .slots
@@ -377,7 +377,7 @@ fn validate_lease(policy: &ReservationPolicy, now_ms: i64, expires_at_ms: i64) -
     Ok(())
 }
 
-fn read_ledger(connection: &rusqlite::Connection) -> Result<Option<ReservationSnapshot>> {
+pub(crate) fn read_ledger(connection: &rusqlite::Connection) -> Result<Option<ReservationSnapshot>> {
     let value: Option<Option<String>> = connection
         .query_row(
             "SELECT CASE WHEN octet_length(value)<=65536 THEN value END FROM setting WHERE key=?1",
@@ -450,7 +450,7 @@ impl Database {
         validate_uuid(&request.job_key)?;
         request.owner.validate()?;
         request.budget.validate(true)?;
-        self.mutate_reservations(stamp, |ledger| {
+        self.mutate_reservations(stamp, |_connection, ledger| {
             if ledger.revision != expected_revision {
                 return Err(ReservationError::Conflict);
             }
@@ -492,7 +492,7 @@ impl Database {
         now_ms: i64,
         lease_expires_at_ms: i64,
     ) -> Result<ReservationTicket> {
-        self.mutate_reservations(stamp, |ledger| {
+        self.mutate_reservations(stamp, |_connection, ledger| {
             let index = ledger.ticket_index(expected)?;
             validate_lease(&ledger.policy, now_ms, lease_expires_at_ms)?;
             if expected.state != ReservationState::Reserved
@@ -516,7 +516,7 @@ impl Database {
         now_ms: i64,
         lease_expires_at_ms: i64,
     ) -> Result<ReservationTicket> {
-        self.mutate_reservations(stamp, |ledger| {
+        self.mutate_reservations(stamp, |_connection, ledger| {
             let index = ledger.ticket_index(expected)?;
             validate_lease(&ledger.policy, now_ms, lease_expires_at_ms)?;
             if expected.state == ReservationState::Retired {
@@ -535,7 +535,7 @@ impl Database {
         stamp: &PolicyStamp,
         expected: &ReservationTicket,
     ) -> Result<ReservationTicket> {
-        self.mutate_reservations(stamp, |ledger| {
+        self.mutate_reservations(stamp, |_connection, ledger| {
             let index = ledger.ticket_index(expected)?;
             if expected.state == ReservationState::Retired {
                 return Ok(expected.clone());
@@ -556,8 +556,9 @@ impl Database {
         now_ms: i64,
     ) -> Result<ReservationSnapshot> {
         proof.verify(expected, now_ms)?;
-        self.mutate_reservations(stamp, |ledger| {
+        self.mutate_reservations(stamp, |connection, ledger| {
             let index = ledger.ticket_index(expected)?;
+            crate::native_session_cleanup::record_cleanup(connection, stamp, expected, now_ms)?;
             ledger.slots.remove(index);
             ledger.next_revision()?;
             Ok(ledger.clone())
@@ -584,7 +585,7 @@ impl Database {
                 return Err(ReservationError::Invalid);
             }
         }
-        self.mutate_reservations(stamp, |ledger| {
+        self.mutate_reservations(stamp, |connection, ledger| {
             // Validate the entire batch before changing any slot.
             for observation in observations {
                 ledger.ticket_index(&observation.expected)?;
@@ -596,6 +597,7 @@ impl Database {
                 let index = ledger.ticket_index(&observation.expected)?;
                 if let Some(proof) = &observation.closed_empty_job {
                     proof.verify(&observation.expected, now_ms)?;
+                    crate::native_session_cleanup::record_cleanup(connection, stamp, &observation.expected, now_ms)?;
                     ledger.slots.remove(index);
                     ledger.next_revision()?;
                 } else if ledger.slots[index].state != ReservationState::Retired {
@@ -611,7 +613,7 @@ impl Database {
     fn mutate_reservations<T>(
         &self,
         stamp: &PolicyStamp,
-        operation: impl FnOnce(&mut ReservationSnapshot) -> Result<T>,
+        operation: impl FnOnce(&rusqlite::Connection, &mut ReservationSnapshot) -> Result<T>,
     ) -> Result<T> {
         stamp.validate()?;
         self.require_writable()?;
@@ -621,7 +623,7 @@ impl Database {
         let mut ledger = read_ledger(&transaction)?.ok_or(ReservationError::NotFound)?;
         ledger.require_policy(stamp)?;
         let prior_revision = ledger.revision;
-        let result = operation(&mut ledger)?;
+        let result = operation(&transaction, &mut ledger)?;
         // Alive/unknown observations and already-retired tickets are read-only:
         // repeated monitoring must not grow WAL merely by rewriting identical JSON.
         if ledger.revision != prior_revision {

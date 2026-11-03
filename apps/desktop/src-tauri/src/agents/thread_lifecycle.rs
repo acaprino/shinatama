@@ -7,6 +7,7 @@ use shinatama_engine::{
 use shinatama_state::{
     database::Database,
     records::{CanonicalIdKind, NativeSessionKey, StoreRootRecord, new_id, validate_id},
+    resource_reservations::ReservationTicket,
     threads::{
         ActivationOwner, ActivationRecord, NativeSessionStart, SegmentRecord, ThreadError,
         ThreadRecord, ThreadResumeError, ThreadResumeTarget,
@@ -51,6 +52,7 @@ struct Core {
     requested: String,
     resume: Option<SegmentRecord>,
     process: OnceLock<ProcessKey>,
+    reservation: OnceLock<ReservationTicket>,
     state: Mutex<State>,
     stop: AtomicBool,
     failed: AtomicBool,
@@ -115,6 +117,7 @@ impl ThreadLifecycle {
                 requested,
                 resume,
                 process: OnceLock::new(),
+                reservation: OnceLock::new(),
                 state: Mutex::new(State {
                     thread,
                     owner: None,
@@ -131,7 +134,12 @@ impl ThreadLifecycle {
             worker: Mutex::new(None),
         }))
     }
-    fn prepare(&self, instance: &str, process: ProcessKey) -> Result<()> {
+    fn prepare(
+        &self,
+        instance: &str,
+        process: ProcessKey,
+        reservation: &ReservationTicket,
+    ) -> Result<()> {
         let core = &self.core;
         if instance != core.identity.instance_id
             || process.pid == 0
@@ -140,6 +148,9 @@ impl ThreadLifecycle {
             return Err(BINDING);
         }
         core.process.set(process).map_err(|_| BINDING)?;
+        core.reservation
+            .set(reservation.clone())
+            .map_err(|_| BINDING)?;
         let mut state = core.state.lock().map_err(|_| TRACKING)?;
         if state.owner.is_some() {
             return Err(BINDING);
@@ -159,6 +170,12 @@ impl ThreadLifecycle {
             return Err(BINDING);
         }
         initial_target(core, &state.thread.id)?;
+        // Persist the exact host/job/shell association while the shell is still
+        // suspended. A crash after cleanup can then be distinguished from a
+        // missing ticket; no authority is inferred from the UI or a hook.
+        core.database
+            .bind_native_session_owner(reservation, state.owner.as_ref().ok_or(BINDING)?, now()?)
+            .map_err(|_| TRACKING)?;
         // Reserve the explicitly sealed UUID before ResumeShell. This is not a
         // hook observation or proof of a persisted native conversation.
         state.attempted = true;
@@ -244,6 +261,17 @@ impl ThreadLifecycle {
         if state.complete {
             return Ok(());
         }
+        let receipt = core
+            .database
+            .native_session_cleanup(instance)
+            .map_err(|_| TRACKING)?;
+        if let Some(receipt) = &receipt {
+            if receipt.owner.activation != owner
+                || core.reservation.get() != Some(&receipt.owner.reservation)
+            {
+                return Err(BINDING);
+            }
+        }
         let Some(active) = state.activation.clone() else {
             if state.attempted
                 && core
@@ -254,17 +282,25 @@ impl ThreadLifecycle {
             {
                 return Err(TRACKING);
             }
+            if let Some(receipt) = &receipt {
+                core.database
+                    .acknowledge_native_session_cleanup(receipt)
+                    .map_err(|_| TRACKING)?;
+            }
             state.complete = true;
             return Ok(());
         };
         if core.failed.load(Ordering::Acquire) {
             return Err(TRACKING);
         }
-        let at = now()?.max(active.started_at);
-        let ended = match core
-            .database
-            .end_thread_activation_exact(&owner, active.version(), at)
-        {
+        let at = now()?
+            .max(active.started_at)
+            .max(receipt.as_ref().map_or(0, |value| value.released_at_ms));
+        let ended = match receipt.as_ref().ok_or(TRACKING).and_then(|receipt| {
+            core.database
+                .finish_native_session_cleanup(receipt, &active, at)
+                .map_err(|_| TRACKING)
+        }) {
             Ok(ended) => ended,
             Err(_) => {
                 // A previous commit may have succeeded before its receipt was
@@ -294,8 +330,13 @@ impl ThreadLifecycle {
     }
 }
 impl WindowsNativeSessionLifecycle for ThreadLifecycle {
-    fn before_run(&self, instance_id: &str, process: ProcessKey) -> TerminalResult<()> {
-        self.prepare(instance_id, process)
+    fn before_run(
+        &self,
+        instance_id: &str,
+        process: ProcessKey,
+        reservation: &ReservationTicket,
+    ) -> TerminalResult<()> {
+        self.prepare(instance_id, process, reservation)
             .map_err(anyhow::Error::msg)
     }
     fn after_cleanup(&self, instance_id: &str, process: ProcessKey) -> TerminalResult<()> {

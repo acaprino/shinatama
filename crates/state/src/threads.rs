@@ -339,7 +339,7 @@ impl ThreadRecord {
     }
 }
 impl ActivationOwner {
-    fn validate(&self) -> Result<()> {
+    pub(crate) fn validate(&self) -> Result<()> {
         id(&self.instance_id, CanonicalIdKind::Instance)?;
         if self.pid == 0 || self.created_at_100ns == 0 || self.created_at_100ns > i64::MAX as u64 {
             return Err(ThreadError::Invalid);
@@ -362,7 +362,7 @@ fn thread_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ThreadRecord> {
         updated_at: row.get(9)?,
     })
 }
-fn load_thread(connection: &Connection, key: &str) -> Result<ThreadRecord> {
+pub(crate) fn load_thread(connection: &Connection, key: &str) -> Result<ThreadRecord> {
     let record = connection
         .query_row(
             &format!("SELECT {THREAD_COLUMNS} FROM thread WHERE id=?1"),
@@ -439,8 +439,44 @@ fn activation_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ActivationRecord>
         ended_at: row.get(10)?,
     })
 }
-fn activation(connection: &Connection, key: &str) -> Result<ActivationRecord> {
+pub(crate) fn activation(connection: &Connection, key: &str) -> Result<ActivationRecord> {
     connection.query_row("SELECT instance_id,owner_pid,owner_created_at_100ns,thread_id,segment_id,store_root_id,store_revision,native_id,revision,started_at,ended_at,activation_sequence FROM activation WHERE instance_id=?1 ORDER BY activation_sequence DESC LIMIT 1",[key],activation_row).optional()?.ok_or(ThreadError::NotFound)
+}
+
+/// Shared transaction body: ordinary cleanup and durable-receipt recovery must
+/// update the same exact interval and touch the same thread/segment atomically.
+pub(crate) fn end_activation(
+    connection: &Connection,
+    owner: &ActivationOwner,
+    expected_sequence: Option<u64>,
+    expected_revision: u64,
+    at: i64,
+) -> Result<ActivationRecord> {
+    owner.validate()?;
+    revision(expected_revision)?;
+    millis(at)?;
+    let current = activation(connection, &owner.instance_id)?;
+    if current.owner != *owner {
+        return Err(ThreadError::OwnedElsewhere);
+    }
+    if current.revision != expected_revision
+        || expected_sequence.is_some_and(|sequence| sequence != current.sequence)
+        || current.ended_at.is_some()
+        || at < current.started_at
+    {
+        return Err(ThreadError::Conflict);
+    }
+    if connection.execute("UPDATE activation SET ended_at=?2,revision=revision+1 WHERE instance_id=?1 AND revision=?3 AND activation_sequence=?4 AND ended_at IS NULL AND revision<9007199254740991",params![owner.instance_id,at,revision(expected_revision)?,revision(current.sequence)?])? != 1 {
+        return Err(ThreadError::Conflict);
+    }
+    if connection.execute(
+        "UPDATE segment SET revision=revision+1 WHERE id=?1 AND revision<9007199254740991",
+        [&current.segment_id],
+    )? != 1 {
+        return Err(ThreadError::Conflict);
+    }
+    touch(connection, &current.thread_id, at)?;
+    activation(connection, &owner.instance_id)
 }
 
 fn validate_resume_segment(record: &SegmentRecord, thread: &ThreadRecord) -> Result<()> {
@@ -970,27 +1006,7 @@ impl Database {
         let mut connection = self.lock()?;
         let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         crate::schema::require_write_version(&tx)?;
-        let current = activation(&tx, &owner.instance_id)?;
-        if current.owner != *owner {
-            return Err(ThreadError::OwnedElsewhere);
-        }
-        if current.revision != expected_revision
-            || expected_sequence.is_some_and(|sequence| sequence != current.sequence)
-            || current.ended_at.is_some()
-            || at < current.started_at
-        {
-            return Err(ThreadError::Conflict);
-        }
-        if tx.execute("UPDATE activation SET ended_at=?2,revision=revision+1 WHERE instance_id=?1 AND revision=?3 AND activation_sequence=?4 AND ended_at IS NULL AND revision<9007199254740991",params![owner.instance_id,at,revision(expected_revision)?,revision(current.sequence)?])?!=1 {return Err(ThreadError::Conflict);}
-        if tx.execute(
-            "UPDATE segment SET revision=revision+1 WHERE id=?1 AND revision<9007199254740991",
-            [&current.segment_id],
-        )? != 1
-        {
-            return Err(ThreadError::Conflict);
-        }
-        touch(&tx, &current.thread_id, at)?;
-        let result = activation(&tx, &owner.instance_id)?;
+        let result = end_activation(&tx, owner, expected_sequence, expected_revision, at)?;
         tx.commit()?;
         Ok(result)
     }

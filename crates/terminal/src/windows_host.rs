@@ -9,7 +9,9 @@ use crate::{
 use anyhow::{Context, Result, anyhow, bail};
 use serde::Serialize;
 use shinatama_engine::resources::{
-    admission::{CleanupStatus, PreparedWorkload, QueueCredit, QueueCredits, QueueStatus},
+    admission::{
+        CleanupStatus, PreparedWorkload, QueueCredit, QueueCredits, QueueStatus, ReservationTicket,
+    },
     job::{JobSnapshot, OwnedJobKey},
     sampling::{Measurement, ProcessKey, WindowsSampler},
 };
@@ -64,9 +66,16 @@ pub trait WindowsNativeAdmission: Send + Sync {
 /// must use bounded local transactions; after_cleanup must be idempotent because
 /// a failed/panicking transaction can be retried after native release is proved.
 pub trait WindowsNativeSessionLifecycle: Send + Sync {
-    /// The exact shell is suspended inside the sealed job. Returning an error
-    /// prevents ResumeShell and enters the ordinary owned cleanup path.
-    fn before_run(&self, instance_id: &str, process: ProcessKey) -> Result<()>;
+    /// The exact shell is suspended inside the sealed job. `reservation` is the
+    /// active ticket owned by that job, including its exact host identity and
+    /// nonce. Persist the association before allowing execution. Returning an
+    /// error prevents ResumeShell and enters the ordinary owned cleanup path.
+    fn before_run(
+        &self,
+        instance_id: &str,
+        process: ProcessKey,
+        reservation: &ReservationTicket,
+    ) -> Result<()>;
     /// Called only after confirmed native/host cleanup, including a failed
     /// before_run attempt that may have persisted its activation before failing.
     fn after_cleanup(&self, instance_id: &str, process: ProcessKey) -> Result<()>;
@@ -305,14 +314,19 @@ impl NativeLifecycleGate {
             cleanup: AtomicU8::new(BINDING_NATIVE_PENDING),
         }
     }
-    fn before_run(&self, instance_id: &str, process: ProcessKey) -> Result<()> {
+    fn before_run(
+        &self,
+        instance_id: &str,
+        process: ProcessKey,
+        reservation: &ReservationTicket,
+    ) -> Result<()> {
         self.attempted
             .set(process)
             .map_err(|_| anyhow!("Session ownership was already attempted"))?;
         // Catch here, inside the owner worker, so a callback panic still reaches
         // owned cleanup instead of unwinding past the cleanup sequence.
         catch_unwind(AssertUnwindSafe(|| {
-            self.callbacks.before_run(instance_id, process)
+            self.callbacks.before_run(instance_id, process, reservation)
         }))
         .map_err(|_| anyhow!("Session ownership registration failed"))?
     }
@@ -1483,7 +1497,7 @@ fn owner_worker(
             .as_ref()
             .and_then(|native| native.lifecycle.as_ref())
         {
-            if let Err(error) = lifecycle.before_run(&session.info.id, key) {
+            if let Err(error) = lifecycle.before_run(&session.info.id, key, workload.ticket()) {
                 const MESSAGE: &str =
                     "The session could not be saved before startup. No agent was allowed to run.";
                 session.error(MESSAGE);
@@ -1610,6 +1624,29 @@ mod tests {
         pid: 321,
         created_at_100ns: 987654321,
     };
+    fn lifecycle_reservation() -> ReservationTicket {
+        use shinatama_state::resource_reservations::{Budget, ReservationOwner, ReservationState};
+        ReservationTicket {
+            id: "11111111-1111-4111-8111-111111111111".into(),
+            job_key: "22222222-2222-4222-8222-222222222222".into(),
+            owner: ReservationOwner {
+                pid: 123,
+                created_at_100ns: 123456789,
+                windows_session_id: 2,
+                nonce: "33333333-3333-4333-8333-333333333333".into(),
+            },
+            budget: Budget {
+                memory_bytes: 1024 * 1024,
+                processes: 8,
+                cpu_basis_points: 1000,
+                queue_bytes: 4096,
+                queue_items: 16,
+            },
+            state: ReservationState::Active,
+            lease_expires_at_ms: 1000,
+            revision: 7,
+        }
+    }
     struct RecordedLifecycle {
         calls: Mutex<Vec<&'static str>>,
         refuse_start: bool,
@@ -1617,9 +1654,15 @@ mod tests {
         refuse_end: AtomicBool,
     }
     impl WindowsNativeSessionLifecycle for RecordedLifecycle {
-        fn before_run(&self, instance_id: &str, process: ProcessKey) -> Result<()> {
+        fn before_run(
+            &self,
+            instance_id: &str,
+            process: ProcessKey,
+            reservation: &ReservationTicket,
+        ) -> Result<()> {
             assert_eq!(instance_id, "synthetic-instance");
             assert_eq!(process, LIFECYCLE_PROCESS);
+            assert_eq!(reservation, &lifecycle_reservation());
             self.calls.lock().unwrap().push("before");
             assert!(!self.panic_start, "synthetic callback panic");
             if self.refuse_start {
@@ -1648,11 +1691,19 @@ mod tests {
         let gate = NativeLifecycleGate::new(callbacks.clone());
         assert!(!gate.after_cleanup("synthetic-instance", false).unwrap());
         assert!(callbacks.calls.lock().unwrap().is_empty());
-        gate.before_run("synthetic-instance", LIFECYCLE_PROCESS)
-            .unwrap();
+        gate.before_run(
+            "synthetic-instance",
+            LIFECYCLE_PROCESS,
+            &lifecycle_reservation(),
+        )
+        .unwrap();
         assert!(
-            gate.before_run("synthetic-instance", LIFECYCLE_PROCESS)
-                .is_err()
+            gate.before_run(
+                "synthetic-instance",
+                LIFECYCLE_PROCESS,
+                &lifecycle_reservation()
+            )
+            .is_err()
         );
         assert!(!gate.after_cleanup("synthetic-instance", false).unwrap());
         assert_eq!(*callbacks.calls.lock().unwrap(), vec!["before"]);
@@ -1678,8 +1729,12 @@ mod tests {
             });
             let gate = NativeLifecycleGate::new(callbacks.clone());
             assert!(
-                gate.before_run("synthetic-instance", LIFECYCLE_PROCESS)
-                    .is_err()
+                gate.before_run(
+                    "synthetic-instance",
+                    LIFECYCLE_PROCESS,
+                    &lifecycle_reservation()
+                )
+                .is_err()
             );
             assert!(!gate.after_cleanup("synthetic-instance", false).unwrap());
             assert_eq!(*callbacks.calls.lock().unwrap(), vec!["before"]);

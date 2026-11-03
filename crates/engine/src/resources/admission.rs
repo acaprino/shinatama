@@ -11,8 +11,11 @@ use super::sampling::{ProcessKey, WindowsSampler};
 use shinatama_state::database::Database;
 use shinatama_state::resource_reservations::{
     Budget, EmptyJobProof, MAX_SLOTS, PolicyStamp, ReservationError, ReservationOwner,
-    ReservationRequest, ReservationState, ReservationTicket,
+    ReservationRequest, ReservationState,
 };
+// Admission exposes this immutable snapshot to trusted lifecycle persistence at
+// the suspended-shell barrier; it is not executable UI or hook authority.
+pub use shinatama_state::resource_reservations::ReservationTicket;
 use std::os::windows::io::BorrowedHandle;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, Ordering};

@@ -416,6 +416,18 @@ threadSidebar = createThreadSidebar({
     setFocus(group.id);
   },
   canResume: thread => sessionHarnesses.some(harness => harness.id === thread.harness && harness.nativeResume),
+  canRecover: thread => sessionHarnesses.some(harness => harness.id === thread.harness && harness.nativeResume)
+    && !workspaceLayout.views.some(panel => {
+      if (panel.resource.kind !== 'terminal' || panel.resource.threadId !== thread.id) return false;
+      const view = views.get(panel.id); return view && !view.disposed && !view.ended;
+    }),
+  onRecover: desktop ? async thread => {
+    if (starting) throw { code: 'busy' };
+    if (thread.projectId !== threadSidebar?.currentProjectId()) throw { code: 'source_changed' };
+    await invoke('thread_recover', {
+      request: { threadId: thread.id, projectId: thread.projectId, expectedRevision: thread.revision },
+    });
+  } : undefined,
   onResume: desktop ? async thread => {
     if (starting) throw { code: 'busy' };
     if (thread.projectId !== threadSidebar?.currentProjectId()) throw { code: 'source_changed' };

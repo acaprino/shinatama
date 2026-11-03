@@ -28,6 +28,11 @@ pannello Threads non cambia la disposizione. Chiudere una vista conserva il thre
 La ripresa delle conversazioni Claude è collegata al comando **Resume**, quando disponibile,
 ma la prova completa con una conversazione reale resta aperta. Le finestre flottanti restano da implementare.
 
+Se dopo un arresto dell'app un thread risulta ancora aperto senza terminale,
+**Recover session** tenta di recuperarlo. Quando riesce, premi **Resume**.
+Se la fine della sessione precedente non può essere verificata, il recupero
+viene rifiutato e la conversazione salvata viene conservata.
+
 Per consultare un archivio esistente, apri **Sessions** e **Add a read-only archive**.
 Scegli Claude Code, Codex o Pi e indica la cartella archivio dell'agente; premi
 **Add archive**, poi **Reload sessions**. Le pagine contengono fino a 50 sessioni;

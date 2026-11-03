@@ -24,6 +24,9 @@ export type ThreadSidebarOptions = {
   onSelect?: (thread: Readonly<ThreadSummary>) => void;
   /** Explicit Resume button only; selection and display restoration never call it. */
   onResume?: (thread: Readonly<ThreadSummary>) => Promise<void>;
+  /** Explicit recovery closes only a proven stopped owner; it never starts an agent. */
+  onRecover?: (thread: Readonly<ThreadSummary>) => Promise<void>;
+  canRecover?: (thread: Readonly<ThreadSummary>) => boolean;
   /** Capability supplied by the backend harness catalog, never inferred from a name. */
   canResume?: (thread: Readonly<ThreadSummary>) => boolean;
   reportError: (message: string) => void;
@@ -84,6 +87,15 @@ function resumeFailureText(error: unknown) {
   if (code === 'source_changed' || code === 'conflict') return 'This conversation changed. Reload threads and try again.';
   return 'The conversation could not be resumed. Try again.';
 }
+function recoveryFailureText(error: unknown) {
+  const code = typeof error === 'string' ? error : record(error) ? error.code ?? error.issue : null;
+  if (code === 'session_alive') return 'This session is still open. Stop it in its terminal before resuming.';
+  if (code === 'owner_alive') return 'The app instance that owns this session is still running. Close that instance before recovering it.';
+  if (code === 'cleanup_unproven') return 'This session could not be recovered because its shutdown was not confirmed. Its saved conversation is preserved.';
+  if (code === 'source_changed' || code === 'conflict') return 'This thread changed. Reload threads before recovering it.';
+  if (code === 'busy') return 'Another thread operation is in progress. Try again when it finishes.';
+  return 'The previous session could not be verified. Its saved conversation is preserved.';
+}
 function validTitle(value: string): boolean {
   return value.trim().length > 0 && utf8.encode(value).length <= 256 && !/[\u0000-\u001f\u007f-\u009f]/.test(value);
 }
@@ -117,6 +129,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
   limitation.textContent = 'Native session activity is unknown. Selecting a thread does not start an agent.';
   const actions = document.createElement('div'); actions.className = 'thread-sidebar-actions';
   const resume = document.createElement('button'); resume.type = 'button'; resume.textContent = 'Resume'; resume.hidden = true; actions.append(resume);
+  const recover = document.createElement('button'); recover.type = 'button'; recover.textContent = 'Recover session'; recover.hidden = true; actions.append(recover);
   const rename = document.createElement('button'); rename.type = 'button'; rename.textContent = 'Rename'; rename.hidden = true; actions.append(rename);
   const renameForm = document.createElement('form'); renameForm.className = 'thread-sidebar-rename'; renameForm.hidden = true;
   const renameLabel = document.createElement('label'); renameLabel.htmlFor = 'thread-rename-title'; renameLabel.textContent = 'Thread name';
@@ -136,7 +149,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
   let display = { ...initialState }; let projects: CurrentThreadProject[] = []; let selectedProject: string | null = null;
   let page: ThreadListPage | null = null; let cursor: ThreadCursor | null = null; let history: (ThreadCursor | null)[] = [];
   let selected: string | null = null; let generation = 0; let uiGeneration = 0; let destroyed = false;
-  let busy: 'load_state' | 'list' | 'save_state' | 'create' | 'resume' | 'rename' | null = null; let message = 'Choose a project, then load its saved threads.'; let failed = false;
+  let busy: 'load_state' | 'list' | 'save_state' | 'create' | 'resume' | 'recover' | 'rename' | null = null; let message = 'Choose a project, then load its saved threads.'; let failed = false;
   let editing: ThreadSummary | null = null; let renameNeedsReload = false;
   let pendingState: ThreadSidebarState | null = null; let saveTimer = 0;
   let pendingProjectRead = false;
@@ -156,7 +169,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     create.disabled = busy !== null || selectedProject === null;
     previous.disabled = busy !== null || !history.length; next.disabled = busy !== null || !page?.next;
     body.setAttribute('aria-busy', String(busy !== null));
-    status.textContent = busy === 'list' ? 'Reading saved threads…' : busy === 'create' ? 'Saving a new thread…' : busy === 'resume' ? 'Resuming conversation…' : busy === 'rename' ? 'Saving thread name…' : busy === 'load_state' ? 'Restoring sidebar display…' : message;
+    status.textContent = busy === 'list' ? 'Reading saved threads…' : busy === 'create' ? 'Saving a new thread…' : busy === 'resume' ? 'Resuming conversation…' : busy === 'recover' ? 'Recovering stopped session…' : busy === 'rename' ? 'Saving thread name…' : busy === 'load_state' ? 'Restoring sidebar display…' : message;
     status.dataset.state = failed ? 'error' : 'ready';
     const retained = new Set(page?.rows.map(row => row.id) ?? []);
     for (const [id, node] of anchors) if (!retained.has(id)) { node.remove(); anchors.delete(id); }
@@ -201,6 +214,8 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     detail.replaceChildren(); const chosen = page?.rows.find(row => row.id === selected);
     resume.hidden = !options.onResume || !chosen || chosen.status !== 'inactive' || options.canResume?.(chosen) !== true || chosen.nativeAvailable !== true;
     resume.disabled = busy !== null || resume.hidden;
+    recover.hidden = !options.onRecover || !chosen || chosen.status !== 'recorded_open' || options.canRecover?.(chosen) !== true;
+    recover.disabled = busy !== null || recover.hidden;
     rename.hidden = !options.rename || !chosen || editing !== null;
     rename.disabled = busy !== null || renameNeedsReload;
     renameForm.hidden = editing === null;
@@ -421,6 +436,41 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
           failed = true; message = resumeFailureText(error); options.reportError(message);
         }
       } finally { afterOperation(); }
+    })();
+  };
+  recover.onclick = () => {
+    if (destroyed || busy || !selectedProject || !options.onRecover) return;
+    const chosen = page?.rows.find(row => row.id === selected && row.projectId === selectedProject);
+    if (!chosen || chosen.status !== 'recorded_open' || options.canRecover?.(chosen) !== true) return;
+    const project = selectedProject; const at = generation;
+    busy = 'recover'; failed = false; render();
+    void (async () => {
+      let recovered = false;
+      try {
+        await options.onRecover!(Object.freeze({ ...chosen }));
+        recovered = true;
+        if (destroyed || at !== generation || selectedProject !== project) return;
+        // Finalization updates the sort key. Old page cursors cannot locate the
+        // recovered thread reliably; keep it selected on the refreshed first page.
+        cursor = null; history = [];
+        const received = pageValue(await options.list({ projectId: project, cursor: null, limit: 50 }), project, null);
+        if (destroyed || at !== generation || selectedProject !== project) return;
+        if (!received) throw new Error('Invalid thread page');
+        page = received;
+        if (!page.rows.some(row => row.id === selected)) selected = null;
+        message = 'Session recovered. Choose Resume to reopen the saved conversation.';
+      } catch (error) {
+        if (!destroyed && at === generation && selectedProject === project) {
+          failed = !recovered;
+          message = recovered ? 'Session recovered. Reload threads to show Resume.' : recoveryFailureText(error);
+          if (!recovered) options.reportError(message);
+        }
+      } finally {
+        afterOperation();
+        if (!destroyed && at === generation && selectedProject === project && recovered) {
+          if (!resume.hidden) resume.focus(); else reload.focus();
+        }
+      }
     })();
   };
   create.onclick = () => {
