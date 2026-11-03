@@ -2,7 +2,7 @@
   "schema_version": 1,
   "updated_at": "2026-11-03",
   "base_head": "46435ab",
-  "git_state": "Shared harness services and one-Open startup remain committed; Claude, Codex, OpenCode and PowerShell startup have prior native evidence. c003838 adds durable native-owner joins and atomic cleanup receipts with explicit thread recovery; 516325a proves Recover session through real UI/IPC using synthetic private metadata. Four state recovery tests, two terminal lifecycle tests and full desktop/helper/hook build pass. No schema migration or personal data change was required. Verified portable 28dab120-3c4f-4d0b-9adf-4c7004055ddc contains functional code through c003838, 621 files/227576007 bytes; actual recovery UI passes on that package. 12221f2/3c6e342 identify the guarded Claude bootstrap failure as first-party connectivity preflights; a synthetic bearer gateway fixture preserves the guard, but its run was deferred by renewed host resource pressure and full UI Resume remains open. Headless authenticated Claude hooks, exact same-UUID resume and TLS have prior PASS evidence; this is distinct from UI/provider/login qualification. 755618b adds exact typed Codex Resume selection and blocks reuse of StartNew qualification; three targeted tests and desktop check pass, capability remains disabled. C12 is still the sole active parent. Effective sidecar controls, pre-cleanup crash recovery, remaining harness capabilities and floating windows remain open. Daodan remains deferred; no whole-product completion is claimed. 14b07ba qualifies the tracked Codex recipe end to end: the native StartNew proof exposed and fixed three product defects (stale 16-argument contained-launch bounds unified as shared MAX_LAUNCH_ARGUMENTS=32 across host/wire/PTY against the 21-argument tracked recipe; missing startup_scope entry for the tracked Codex profile; Codex -c parser tore the dotted hooks.state key so hook trust now ships as a single-segment hooks table override verified trusted by real hooks/list), plus a pre-existing failing opaque-binding Debug test. codex-native-smoke.mjs passes twice on guarded synthetic credentials with no completed model turn; Claude resume smoke re-passes as the shared-path regression. Desktop rebuilds require --features custom-protocol and the terminal helper must be rebuilt with the host. bf6bf2f adds the duplicate-resume race smoke; it passes on the main and on an isolated worktree build (one winner, bounded busy/owned_elsewhere/source_changed refusals, three exact owners closed, prior context retained), and the Codex native smoke re-passes on the same isolated binaries. Concurrent agent activity on the shared target directory invalidated mid-flight runs; definitive proofs ran from .jcode/local/worktrees/race-proof at the exact proof commit.",
+  "git_state": "Shared harness services and one-Open startup remain committed; Claude, Codex, OpenCode and PowerShell startup have prior native evidence. c003838 adds durable native-owner joins and atomic cleanup receipts with explicit thread recovery; 516325a proves Recover session through real UI/IPC using synthetic private metadata. Four state recovery tests, two terminal lifecycle tests and full desktop/helper/hook build pass. No schema migration or personal data change was required. Verified portable 28dab120-3c4f-4d0b-9adf-4c7004055ddc contains functional code through c003838, 621 files/227576007 bytes; actual recovery UI passes on that package. 12221f2/3c6e342 identify the guarded Claude bootstrap failure as first-party connectivity preflights; a synthetic bearer gateway fixture preserves the guard, but its run was deferred by renewed host resource pressure and full UI Resume remains open. Headless authenticated Claude hooks, exact same-UUID resume and TLS have prior PASS evidence; this is distinct from UI/provider/login qualification. 755618b adds exact typed Codex Resume selection and blocks reuse of StartNew qualification; three targeted tests and desktop check pass, capability remains disabled. C12 is still the sole active parent. Effective sidecar controls, pre-cleanup crash recovery, remaining harness capabilities and floating windows remain open. Daodan remains deferred; no whole-product completion is claimed. 14b07ba qualifies the tracked Codex recipe end to end: the native StartNew proof exposed and fixed three product defects (stale 16-argument contained-launch bounds unified as shared MAX_LAUNCH_ARGUMENTS=32 across host/wire/PTY against the 21-argument tracked recipe; missing startup_scope entry for the tracked Codex profile; Codex -c parser tore the dotted hooks.state key so hook trust now ships as a single-segment hooks table override verified trusted by real hooks/list), plus a pre-existing failing opaque-binding Debug test. codex-native-smoke.mjs passes twice on guarded synthetic credentials with no completed model turn; Claude resume smoke re-passes as the shared-path regression. Desktop rebuilds require --features custom-protocol and the terminal helper must be rebuilt with the host. bf6bf2f adds the duplicate-resume race smoke; it passes on the main and on an isolated worktree build (one winner, bounded busy/owned_elsewhere/source_changed refusals, three exact owners closed, prior context retained), and the Codex native smoke re-passes on the same isolated binaries. Concurrent agent activity on the shared target directory invalidated mid-flight runs; definitive proofs ran from .jcode/local/worktrees/race-proof at the exact proof commit. 97e904a exposes the Codex Resume path end to end: exact-UUID sealed launch recipe (23 argv, ResumeNative capability separated from StartNew), lifecycle confirmation via SessionStart(source=resume), catalog native_resume=true, two new lifecycle tests and codex-resume-smoke.mjs PASS twice on an isolated worktree build with the StartNew smoke re-passing on the same binaries.",
   "steps": {
     "B00": {
       "status": "committed",
@@ -1511,8 +1511,8 @@
           ]
         },
         "C25.2": {
-          "status": "pending",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "97e904a5a7a138d8ae4e09d754b8092a533444d8",
           "checkpoint_commits": [
             "2d7735fc375b20ad8f1fb35bb9f0db79acc1a7b0",
             "86e0054cbcf843c75fc4359c831d485740231429",
@@ -1526,7 +1526,8 @@
             "755618b3a9d85f27287dae2dd0359af24b4fae83",
             "f8df5af3f764636bc98886f63e49754c45267529",
             "14b07ba25e6312e416974e985f1876c18f07a084",
-            "bf6bf2f8d7324a8ddf612319e229ac5aa8ad704d"
+            "bf6bf2f8d7324a8ddf612319e229ac5aa8ad704d",
+            "97e904a5a7a138d8ae4e09d754b8092a533444d8"
           ],
           "evidence": [
             "docs/notes/2026-11-03-thread-resume-target.md",
@@ -1537,7 +1538,8 @@
             "docs/notes/2026-11-03-native-cleanup-recovery.md",
             "docs/notes/2026-11-03-codex-resume-recipe.md",
             "docs/notes/2026-11-03-codex-thread-tracking.md",
-            "docs/notes/2026-11-03-claude-resume-race.md"
+            "docs/notes/2026-11-03-claude-resume-race.md",
+            "docs/notes/2026-11-03-codex-native-resume.md"
           ],
           "checks": [
             "cargo test --offline --locked -p shinatama-state -j1 --lib threads::tests -- --test-threads=1",
@@ -1563,14 +1565,16 @@
             "cargo test -p shinatama-desktop --features custom-protocol --bins: PASS 28/28 (agents::thread_lifecycle 3/3); shinatama-hook bin 4/4; claude-resume-smoke.mjs rerun on the final build: PASS (tracked Claude regression for the shared argument-bound change)",
             "node apps/desktop/tests/claude-resume-race-smoke.mjs (guarded, synthetic bearer, P14 wrap-run): PASS on the main build and on the definitive isolated worktree build (bf6bf2f, dedicated target) - two same-tick thread_resume attempts bound exactly one owner (winner 6.85s, loser refused busy at 7ms with verified overlap), foreign projectId and stale revision refused source_changed with nothing started, duplicate after commit refused owned_elsewhere (winner binding bumped revision 3->4), winner stopped cleanly with receipt consumed and thread resumable, functional UI Resume kept thread/native UUID/prior context (third exact owner), all three receipts consumed, guard 2 forwards 0 overflow, provider 1 start + 1 resume with prior context",
             "codex-native-smoke.mjs repeated on the same isolated worktree build: PASS 11/11 including the sidecar readiness prewarm now shared by both smokes",
-            "concurrent-session interference identified and isolated: runs executed while another agent session rebuilt shared target/debug binaries mid-flight were invalidated (product correctly refused with its stale-qualification message); the definitive proofs ran from .jcode/local/worktrees/race-proof with binaries built from the exact proof commit"
+            "concurrent-session interference identified and isolated: runs executed while another agent session rebuilt shared target/debug binaries mid-flight were invalidated (product correctly refused with its stale-qualification message); the definitive proofs ran from .jcode/local/worktrees/race-proof with binaries built from the exact proof commit",
+            "node apps/desktop/tests/codex-resume-smoke.mjs (guarded, synthetic OpenAI key, P14 wrap-run): PASS twice on the isolated worktree build of 97e904a - UI Resume sealed the exact saved UUID as activation #2 before any hook (same single segment, distinct owner, active cleanup receipt), Codex itself rendered the prior conversation (PROMPT_A visible before typing) and appended its own rollout under the same UUID (118439 -> 130999 bytes, session_meta match, both prompts), source=resume confirmation enforced through the clean stop (a mismatch retains owner and receipt; unit-proven), limits exactly the tracked profile, guard 0 allowed / 98 denied, provider 0 hits, no repeated onboarding, frame exit 0",
+            "codex-native-smoke.mjs StartNew regression on the same build: PASS (third run); engine lib 103/103 with the reworked resume qualification test (exact argv, StartNew/ResumeNative capability separation, 23 tracked argv, invalid IDs refused); desktop bins 30/30 including two new lifecycle tests: codex_resume_seals_the_saved_uuid_and_confirms_with_source_resume and codex_resume_rejects_wrong_source_or_uuid_and_retains_the_sealed_owner"
           ],
           "limits": [
             "Trusted resolution, atomic native-switch history, lifecycle callbacks, headless native resume, the full UI/ConPTY resume proof and the duplicate-resume race (in-app concurrent IPC requests; cross-process double binding is excluded by the data-owner lock and the activation uniqueness indexes with unit evidence) pass. The in-app race exercises the request-slot refusal first; the SQL indexes remain the proven backstop, not the observed first refusal. Forced-crash recovery remains open.",
             "Recovery covers cleanup already proven before interrupted activation finalization. Records without a durable linked receipt remain blocked. UI proof seeds synthetic private metadata; it is not a real forced-crash/job-cleanup proof.",
-            "Codex SessionStart identity capture is native-proven for StartNew on real 0.166.0 (trust recognition, UUID delivery, segment commit, contained PowerShell hook chain, cleanup receipts, no cross-binding). Not proven: a completed model turn (Codex 0.166.0 honors no loopback base-URL env override; the guard refuses every external route), the folder-trust screen (skipped by Codex for the synthetic projectless folder), real accounts/ChatGPT OAuth (synthetic key stored in-box via product onboarding) and Codex resume continuity; catalog native_resume remains false and no launchable Resume preparation is exposed."
+            "Codex SessionStart identity capture AND native resume are proven on real 0.166.0: StartNew (trust recognition, UUID delivery, limits, receipts, no cross-binding) and Resume (sealed exact UUID, prior transcript rendered by Codex, rollout appended under the same UUID, source=resume confirmation, receipts consumed). No completed model turn is proven for Codex (0.166.0 honors no loopback base-URL override; the guard refuses every external route) and the hook confirmation has no positive DB delta (negative enforcement only). Catalog native_resume is now true for Codex."
           ],
-          "next_action": "Expose a launchable Codex Resume preparation with its own qualification and prove resume continuity natively (same UUID, prior context); only then enable catalog native_resume. Forced-crash recovery stays tracked by the recovery gap note with its own qualified protocol."
+          "next_action": "None for this unit; forced-crash recovery remains tracked by the recovery gap note with its own qualified protocol."
         },
         "C25.3": {
           "status": "committed",
@@ -1609,9 +1613,9 @@
           "next_action": "None for this unit; remaining resume scope (race proof, Codex native identity capture, forced-crash recovery) is tracked under C25.2 and the recovery gap note."
         }
       },
-      "next_action": "Codex StartNew native proof and the duplicate-resume race proof passed (guarded smokes, isolated worktree build). Remaining: launchable Codex Resume qualification plus continuity proof and native forced-crash recovery. Claude UI resume is proven; do not repeat it without relevant changes.",
+      "next_action": "Remaining C25 scope: native forced-crash recovery with its own qualified protocol (gap note). Claude and Codex native resume plus the duplicate-resume race are proven; do not repeat them without relevant changes.",
       "limits": [
-        "No automatic resume, native ID fabrication, TTL ownership stealing or native activity claims. Parent C25 remains open until Codex resume continuity and forced-crash recovery pass; the Codex StartNew native event proof and the duplicate-resume race proof are done.",
+        "No automatic resume, native ID fabrication, TTL ownership stealing or native activity claims. Parent C25 remains open until forced-crash recovery passes; the race proof, Codex StartNew and Codex native resume continuity proofs are done.",
         "Recovery covers cleanup already proven before interrupted activation finalization. Records without a durable linked receipt remain blocked. UI proof seeds synthetic private metadata; it is not a real forced-crash/job-cleanup proof."
       ],
       "evidence": [
@@ -1619,14 +1623,16 @@
         "docs/notes/2026-11-03-native-cleanup-recovery.md",
         "docs/notes/2026-11-03-claude-resume-ui.md",
         "docs/notes/2026-11-03-codex-thread-tracking.md",
-        "docs/notes/2026-11-03-claude-resume-race.md"
+        "docs/notes/2026-11-03-claude-resume-race.md",
+        "docs/notes/2026-11-03-codex-native-resume.md"
       ],
       "checkpoint_commits": [
         "c003838fe600d71ae5c7da4216347d0afffdbcb2",
         "516325a672277a598ffeca7407663188ba9e8704",
         "f8df5af3f764636bc98886f63e49754c45267529",
         "14b07ba25e6312e416974e985f1876c18f07a084",
-        "bf6bf2f8d7324a8ddf612319e229ac5aa8ad704d"
+        "bf6bf2f8d7324a8ddf612319e229ac5aa8ad704d",
+        "97e904a5a7a138d8ae4e09d754b8092a533444d8"
       ],
       "checks": [
         "cargo test --offline --locked -p shinatama-state -j1 native_session_cleanup::tests: PASS 4/4, 0.56s; durable receipt/reopen, live owner and missing receipt refusal, exact concurrent recovery, rollback and bounded retention",

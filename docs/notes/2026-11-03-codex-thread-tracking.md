@@ -228,3 +228,10 @@ va ricostruito insieme al desktop perché condivide il bound del wire protocol.
 - `native_resume` Codex resta **false**: questa prova copre solo StartNew.
   Servono preparazione Resume lanciabile con qualifica propria e prova di
   continuità (stesso UUID, contesto precedente) prima dell'abilitazione.
+
+## Aggiornamento (sera tarda, commit 97e904a)
+
+La prova nativa StartNew sopra è **PASS** e il percorso Resume è stato esposto,
+qualificato e provato nativamente: vedere `2026-11-03-codex-native-resume.md`.
+`native_resume` per Codex è ora **true**; i limiti di questa nota restano
+validi per la parte StartNew qui documentata.
