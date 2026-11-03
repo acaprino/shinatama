@@ -616,6 +616,11 @@ impl WindowsTerminalHost {
             }
         }
     }
+    /// Retained identity includes ended terminals until explicitly removed.
+    /// This is metadata, never a claim that a process is still alive.
+    pub fn info(&self, id: &str) -> Result<SessionInfo> {
+        self.session(id).map(|session| session.info.clone())
+    }
     pub fn list(&self) -> Vec<SessionInfo> {
         self.sessions
             .lock()

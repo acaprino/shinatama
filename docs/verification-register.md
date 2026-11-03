@@ -461,7 +461,7 @@ These gates cover functional design 5.16 (sessions surface) and technical design
 | W7 | G0 | GPT Image 2.5: the model name, variants and parameters from OpenAI's current documentation (the spec's claims come from secondary articles); transparent output with no halo; identity consistency across frames by a rubric; pilot of three frames (base, a mouth edit, an arm edit) before generating all | Generate the pilot | Rubric passed; cost recorded | main 5.8 |
 | W8 | G1 | The sprite pipeline: atlas, premultiplied alpha, 1x and 2x, size budget, seamless idle loop | Build | Within budget | main 5.8 |
 | W9 | G1 | Terms for using Bungie's character in a distributed build (legal decision) | Read terms; user decides | Decision written | main 5.8; README |
-| W10 | G2 | Reduced-motion setting honoured; a mute and disable switch | Test | Works | main 5.8 |
+| W10 | G2 | Configurable brief sound for input, completion and meaningful updates; no sound replay for duplicate events or streamed tokens; mute retains visual alerts; reduced-motion setting honoured and a separate disable switch | Replay duplicate events, stream tokens and exercise sound/mute/disable/reduced-motion settings | Each eligible event alerts once; muted alerts remain visible; disable and reduced motion work | main 5.8; FRD-0010/R30 |
 
 ## 16. Roundtable (R)
 

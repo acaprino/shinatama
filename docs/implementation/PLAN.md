@@ -155,6 +155,7 @@ macOS e Linux sono fuori dallo scope su decisione dell utente: solo Windows e su
 | [F27](#f27) | Selezione degli strumenti differiti senza invalidare la cache | F25, C15 | pending | 4–12 |
 | [F28](#f28) | Installazione facoltativa TokenEconomizer e rimozione degli strumenti solo su proposta | F20, C15, C13 | pending | 6–16 |
 | [F29](#f29) | TokenEconomizer: envfacts e protezione dai cicli subordinata alle verifiche | F28, F07 | pending | 4–12 |
+| [C46](#c46) | Widget desktop anticipato Windows | B00, B02, C01, C07, C08 | pending | 1–4 |
 | [F30](#f30) | Widget finale della V1: prova per piattaforma e avvisi di consultazione | F02, F05, F06, C29, C15, F16, F19, F24, F27, F29, C30, C33, C36, C37, C43, C44 | pending | 6–16 |
 | [F31](#f31) | Widget: risposte rapide legate alla richiesta e pipeline delle animazioni revisionata | F30, C11 | pending | 6–16 |
 | [F32PKG](#f32pkg) | Programmi di installazione, fornitura dei runtime e primo hop su sistema pulito | F32CI, C29, C14, C13, C16 | pending | 6–18 |
@@ -174,7 +175,7 @@ macOS e Linux sono fuori dallo scope su decisione dell utente: solo Windows e su
 | [QSET-deepseek](#qset-deepseek) | Provare set e tool reali per deepseek | C14, C20 | pending | 3–6 |
 | [QA-deepseek-windows](#qa-deepseek-windows) | Certificare il pannello ACP DeepSeek su windows | C09, C20 | pending | 4–8 |
 | [F32SIGN](#f32sign) | Artefatti di rilascio firmati e notarizzazione | F32PKG, QSET-claude, QA-claude-windows, QSET-codex, QA-codex-windows, QSET-opencode, QA-opencode-windows, QSET-pi, QA-pi-windows, QSET-hermes, QA-hermes-windows, QSET-deepseek, QA-deepseek-windows | pending | 4–12 |
-| [V1-acceptance](#v1-acceptance) | Verificare e distribuire il candidato dello scope attivo | B00, C01, C02, C03, B02, C04, C05, C06, C07, C08, C09, C10, C11, C12, C13, C14, C15, C16, C17, C18, C19, C20, C21, C22, C23, C24, C25, C26, C27, C28, C29, C30, C31, C32, C33, C36, C37, C40, C41, C42, C43, C44, FS03, F02, F03P, F03H, F04, F05, F06, F07, F08, F09, F10, F11-windows, F12, F13, F14-codex, F14-opencode, F14-pi, F14-hermes, F14-deepseek, F15, F16, F17, F18, F19, F20, F21, F22, F23-codex, F23-opencode, F23-pi, F23-hermes, F23-deepseek, F24, F25, F26, F27, F28, F29, F30, F31, F32CI, F32PKG, F32SIGN, F33, B01, QSET-claude, QA-claude-windows, QSET-codex, QA-codex-windows, QSET-opencode, QA-opencode-windows, QSET-pi, QA-pi-windows, QSET-hermes, QA-hermes-windows, QSET-deepseek, QA-deepseek-windows, C09R | pending | 8–16 |
+| [V1-acceptance](#v1-acceptance) | Verificare e distribuire il candidato dello scope attivo | B00, C01, C02, C03, B02, C04, C05, C06, C07, C08, C09, C10, C11, C12, C13, C14, C15, C16, C17, C18, C19, C20, C21, C22, C23, C24, C25, C26, C27, C28, C29, C30, C31, C32, C33, C36, C37, C40, C41, C42, C43, C44, C46, FS03, F02, F03P, F03H, F04, F05, F06, F07, F08, F09, F10, F11-windows, F12, F13, F14-codex, F14-opencode, F14-pi, F14-hermes, F14-deepseek, F15, F16, F17, F18, F19, F20, F21, F22, F23-codex, F23-opencode, F23-pi, F23-hermes, F23-deepseek, F24, F25, F26, F27, F28, F29, F30, F31, F32CI, F32PKG, F32SIGN, F33, B01, QSET-claude, QA-claude-windows, QSET-codex, QA-codex-windows, QSET-opencode, QA-opencode-windows, QSET-pi, QA-pi-windows, QSET-hermes, QA-hermes-windows, QSET-deepseek, QA-deepseek-windows, C09R | pending | 8–16 |
 | [D01](#d01) | Integrare pacchetti e marketplace Daodan | C14, C15 | deferred | 4–8 |
 | [D02](#d02) | Collegare i partecipanti bare-model della roundtable a Daodan | C33, D01 | deferred | 4–8 |
 | [D03](#d03) | Mostrare gli avvisi dei task Daodan nel widget | C34, F30 | deferred | 4–8 |
@@ -4189,10 +4190,36 @@ Envfacts basati soltanto su modelli fissi e protezione dai cicli per Claude/Pi v
 
 **Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/modules/tokeneconomizer/, docs/verification/. Preparare la prima prova di accettazione prima di modificare il comportamento.
 
+<a id="c46"></a>
+## C46 · Widget desktop anticipato Windows
+
+Prima versione Windows anticipata su richiesta utente del 2026-11-03: finestra trasparente sopra il desktop con viso di Shinatama, fumetto, suono disattivabile e apertura della sessione. La preview usa il processo Tauri esistente e avvisi locali transitori limitati; F30/F31 conservano processo separato, feed condiviso e risposte rapide legate alla richiesta.
+
+**Ambito:** v1. **Dipendenze:** B00, B02, C01, C07, C08. **Stima:** 1–4 ore.
+
+**File/componenti:** `apps/desktop/widget.html`; `apps/desktop/src/attention-*`; `apps/desktop/src-tauri/src/attention*`; `apps/desktop/src-tauri/src/main.rs`; `apps/desktop/src-tauri/tauri.conf.json`; `apps/desktop/src-tauri/capabilities/`; `apps/desktop/tests/`; `docs/implementation/2026-11-03-widget-preview.md`; `docs/verification/`.
+
+**Accettazione osservabile:**
+
+- La comparsa del viso e del fumetto non prende il focus né sottrae la digitazione; un clic esplicito apre soltanto la sessione associata all'avviso ancora valido.
+- Collegare soltanto gli eventi nativi e gli aggiornamenti applicativi effettivamente supportati; distinguere la richiesta di input dalla fine del turno e dichiarare la copertura per harness senza dedurla dal testo del terminale.
+- Limitare testo e coda, non ripetere il suono per duplicati o token in streaming e trattare il testo come contenuto; verificare silenziamento con avviso visivo, disattivazione e movimento ridotto.
+- La preview termina con l'app; dimostrazione e segnali sintetici restano distinguibili dagli eventi reali. Non dichiarare completati R25, F30/F31 o i gate finali del widget.
+
+**Catalogo verifiche (applicare la policy essenziale):** `npm run build`; `planned: Compilazione desktop Windows e prove mirate di coda, duplicati, richieste obsolete e controlli IPC.`; `planned: Prova nell'app Windows di comparsa senza focus, apertura sessione, suono/silenziamento e chiusura; registrare separatamente i segnali reali qualificati per harness.`.
+
+**Gate collegati, da registrare separatamente:** partial W1/W3/W4/W6/W10 only.
+
+**Requisiti coperti dal piano:** FRD-0010/R24, FRD-0010/R26, FRD-0010/R28, FRD-0010/R29, FRD-0010/R30.
+
+**Commit proposto:** `feat(c46): Widget desktop anticipato Windows`.
+
+**Prima azione alla ripresa:** Leggere il record della preview e verificare il checkpoint. Implementare e provare la finestra senza focus e gli avvisi collegati; registrare prove e limiti prima di segnare C46 verificato.
+
 <a id="f30"></a>
 ## F30 · Widget finale della V1: prova per piattaforma e avvisi di consultazione
 
-Widget in un processo separato alimentato dagli eventi, senza sottrarre il focus, con apertura della sessione su clic e ripiego per compositor.
+Widget in un processo separato alimentato dagli eventi: viso di Shinatama in sovraimpressione come in Oni, fumetto con harness/sessione e richiesta o aggiornamento, breve suono configurabile, senza sottrarre il focus, con apertura della sessione su clic e ripiego per compositor.
 
 **Ambito:** v1. **Dipendenze:** F02, F05, F06, C29, C15, F16, F19, F24, F27, F29, C30, C33, C36, C37, C43, C44. **Stima:** 6–16 ore.
 
@@ -4203,9 +4230,9 @@ Widget in un processo separato alimentato dagli eventi, senza sottrarre il focus
 - Verificare risorse a riposo e posizionamento del toolkit sulle piattaforme previste prima dell’abilitazione.
 - La bolla deve ricevere gli eventi entro un secondo e non sottrarre mai la digitazione.
 - Funzionare senza finestra principale e riconciliare l’identità con più finestre.
-- Verificare silenziamento, disattivazione, movimento ridotto e ripiego Wayland su sole notifiche.
+- Verificare suono breve configurabile per richieste di input, completamenti e aggiornamenti importanti; nessuna ripetizione per eventi duplicati o token in streaming. Il silenziamento conserva gli avvisi visivi; verificare anche disattivazione, movimento ridotto e ripiego Wayland su sole notifiche.
 
-**Catalogo verifiche (applicare la policy essenziale):** `planned: Toolkit idle resources/placement tested on target platforms before enablement.`; `planned: Bubble receives events under one second and never steals typing.`; `planned: No main window required; multiple windows reconcile identity.`; `planned: Muted/disabled/reduced-motion and Wayland notification-only fallback verified.`.
+**Catalogo verifiche (applicare la policy essenziale):** `planned: Toolkit idle resources/placement tested on target platforms before enablement.`; `planned: Bubble receives events under one second and never steals typing.`; `planned: No main window required; multiple windows reconcile identity.`; `planned: Configurable attention sound on input/completion/meaningful updates; duplicate events and streamed tokens never replay it. Mute retains visual alerts; disabled/reduced-motion and Wayland notification-only fallback verified.`.
 
 **Gate collegati, da registrare separatamente:** W1, W2, W3, W4, W6, W10.
 
@@ -4728,7 +4755,7 @@ Firma e checksum dei rilasci Windows, con distribuzione delle risorse grafiche r
 
 Candidato verificato dello scope attualmente autorizzato, con esclusione esplicita dell integrazione Daodan rinviata dall utente.
 
-**Ambito:** v1. **Dipendenze:** B00, C01, C02, C03, B02, C04, C05, C06, C07, C08, C09, C10, C11, C12, C13, C14, C15, C16, C17, C18, C19, C20, C21, C22, C23, C24, C25, C26, C27, C28, C29, C30, C31, C32, C33, C36, C37, C40, C41, C42, C43, C44, FS03, F02, F03P, F03H, F04, F05, F06, F07, F08, F09, F10, F11-windows, F12, F13, F14-codex, F14-opencode, F14-pi, F14-hermes, F14-deepseek, F15, F16, F17, F18, F19, F20, F21, F22, F23-codex, F23-opencode, F23-pi, F23-hermes, F23-deepseek, F24, F25, F26, F27, F28, F29, F30, F31, F32CI, F32PKG, F32SIGN, F33, B01, QSET-claude, QA-claude-windows, QSET-codex, QA-codex-windows, QSET-opencode, QA-opencode-windows, QSET-pi, QA-pi-windows, QSET-hermes, QA-hermes-windows, QSET-deepseek, QA-deepseek-windows, C09R. **Stima:** 8–16 ore.
+**Ambito:** v1. **Dipendenze:** B00, C01, C02, C03, B02, C04, C05, C06, C07, C08, C09, C10, C11, C12, C13, C14, C15, C16, C17, C18, C19, C20, C21, C22, C23, C24, C25, C26, C27, C28, C29, C30, C31, C32, C33, C36, C37, C40, C41, C42, C43, C44, C46, FS03, F02, F03P, F03H, F04, F05, F06, F07, F08, F09, F10, F11-windows, F12, F13, F14-codex, F14-opencode, F14-pi, F14-hermes, F14-deepseek, F15, F16, F17, F18, F19, F20, F21, F22, F23-codex, F23-opencode, F23-pi, F23-hermes, F23-deepseek, F24, F25, F26, F27, F28, F29, F30, F31, F32CI, F32PKG, F32SIGN, F33, B01, QSET-claude, QA-claude-windows, QSET-codex, QA-codex-windows, QSET-opencode, QA-opencode-windows, QSET-pi, QA-pi-windows, QSET-hermes, QA-hermes-windows, QSET-deepseek, QA-deepseek-windows, C09R. **Stima:** 8–16 ore.
 
 **File/componenti:** `docs/verification/release-v1/**`; `docs/releases/**`; `release-manifest.json`.
 

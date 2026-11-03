@@ -16,6 +16,7 @@ import { createTerminalFind } from './terminal-find.ts';
 import { createPresentation, PROFILES } from './presentation.ts';
 import './presentation.css';
 import { startTerminalResources, formatTerminalResources, type TerminalResourceStatus } from './terminal-resources.ts';
+import { createAttentionControl } from './attention-control.ts';
 import { createNewSession } from './new-session.ts';
 import { beginMutation, browseFolder, createRequestId } from './project-catalog.ts';
 import { createSessionLibrary } from './session-library.ts';
@@ -48,6 +49,7 @@ let sidebarRevision = 0;
 let starting = false;
 /** An Open terminal waiting for a project choice; a dismissed picker forgets it. */
 let pendingStart: { group: string; projectChosen: boolean } | null = null;
+let pendingAttentionFocus: string | null = null;
 const workspace = $('#workspace');
 const confirmDialog = $<HTMLDialogElement>('#confirm-dialog');
 
@@ -59,7 +61,23 @@ function notify(message: unknown, tone: Tone = 'error') {
   notice.hidden = false;
 }
 $('#notice button').onclick = () => { $('#notice').hidden = true; };
+const attentionControl = createAttentionControl(desktop, notify);
 function modalOpen() { return !!document.querySelector('dialog[open]'); }
+function focusAttentionSession(id: string) {
+  if (modalOpen()) { pendingAttentionFocus = id; return; }
+  pendingAttentionFocus = null;
+  const view = views.get(id);
+  const group = tabGroups(workspaceLayout.root).find(candidate => candidate.tabs.includes(id));
+  if (!view || !group) { notify('This terminal is no longer in the workspace.', 'info'); return; }
+  changeLayout({ type: 'hide', viewId: id, hidden: false });
+  changeLayout({ type: 'collapse', groupId: group.id, collapsed: false });
+  changeLayout({ type: 'maximize', groupId: null });
+  changeLayout({ type: 'activate', groupId: group.id, viewId: id });
+  setFocus(group.id);
+}
+document.addEventListener('close', () => {
+  if (pendingAttentionFocus && !modalOpen()) focusAttentionSession(pendingAttentionFocus);
+}, true);
 function setProject(path: string) {
   if (path.trim() !== projectPath) threadSidebar?.setProject(null);
   projectPath = path.trim();
@@ -252,7 +270,8 @@ function attachTerminal(info: SessionInfo, group: string, threadId: string | nul
     allowProposedApi: false, allowTransparency: false, screenReaderMode: true });
   const fit = new FitAddon(); terminal.loadAddon(fit);
   workspace.append(element); terminal.open(element);
-  // No clipboard, link opener or image addon. Terminal escape data never reaches HTML or IPC.
+  // No clipboard, link opener or image addon. Escape text never reaches HTML;
+  // bounded native attention controls are observed by Rust before rendering.
   for (const osc of [0, 1, 2, 7, 8, 9, 52, 777]) terminal.parser.registerOscHandler(osc, () => true);
   terminal.parser.registerCsiHandler({ final: 't' }, () => true);
   const view: View = { info, terminal, fit, element, group, hidden: false, visible: false, ended: false, disposed: false,
@@ -456,6 +475,11 @@ async function initialize() {
     return;
   }
   try {
+    await attentionControl.initialize();
+    await listen<{sessionId: string | null}>('attention-focus', ({ payload }) => {
+      if (!payload.sessionId) return;
+      focusAttentionSession(payload.sessionId);
+    });
     setProject(await invoke<string>('project_path'));
     // A development frontend reload reattaches existing processes; it never starts a new one.
     const existing = await invoke<SessionInfo[]>('terminal_list');

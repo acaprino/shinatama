@@ -1427,6 +1427,25 @@
       "limits": [
         "No automatic resume, native ID fabrication, TTL ownership stealing or native activity claims. Parent C25 remains open."
       ]
+    },
+    "C46": {
+      "status": "pending",
+      "commit_sha": null,
+      "evidence": [
+        "docs/implementation/2026-11-03-widget-preview.md",
+        "docs/verification/2026-11-03-C46-widget-preview.md"
+      ],
+      "checks": [
+        "npm run build",
+        "cargo build --locked -p shinatama-desktop --features custom-protocol -j1",
+        "cargo test --locked -p shinatama-desktop --bin shinatama-desktop attention",
+        "node apps/desktop/tests/attention-smoke.mjs --surface-only"
+      ],
+      "limits": [
+        "Preview Windows autorizzata il 2026-11-03: finestra nel processo Tauri e avvisi transitori; F30/F31 e i gate finali restano aperti.",
+        "Superficie nativa e otto test Rust passano. Percorso PTY/clic/EOF collegato ma prova live rifiutata dal controllo risorse normale; nessun harness/provider qualificato. C12 rimane il solo checkpoint in_progress."
+      ],
+      "next_action": "Quando l'ammissione risorse normale consente un terminale, eseguire node apps/desktop/tests/attention-smoke.mjs e registrare il percorso PTY/clic/EOF prima della promozione."
     }
   },
   "blockers": [],

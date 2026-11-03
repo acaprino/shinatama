@@ -144,6 +144,9 @@ impl TerminalHost {
     pub fn list(&self) -> Vec<SessionInfo> {
         self.windows.list()
     }
+    pub fn info(&self, id: &str) -> Result<SessionInfo> {
+        self.windows.info(id)
+    }
     pub fn resources(&self) -> Vec<TerminalResourceStatus> {
         self.windows.resources()
     }
@@ -319,6 +322,9 @@ impl TerminalHost {
             .get(id)
             .cloned()
             .context("Terminal no longer exists")
+    }
+    pub fn info(&self, id: &str) -> Result<SessionInfo> {
+        self.session(id).map(|session| session.info.clone())
     }
     pub fn list(&self) -> Vec<SessionInfo> {
         self.sessions

@@ -67,17 +67,25 @@ low-cost model, branch and collision facts, and the widget's rules.
 
 | ID | Requirement | Origin | Slice | Proof | ADR |
 |---|---|---|---|---|---|
-| R24 | V1 includes a desktop widget: a small borderless, transparent, always-on-top window showing Shinatama as an assistant that speaks in a bubble, animates and alerts when an agent needs input, an operation finishes or something important happens (the context filling up). It is built last within v1, after the core it listens to. | U (in v1); A ("assistant" scope, open O3) | V1 | W1 | 0027 |
+| R24 | V1 includes a desktop widget: a small borderless, transparent, always-on-top window that brings up Shinatama's face like her communications portrait in Oni, with an animated expression and a short bubble identifying the harness/session and its question or update. It alerts when an agent needs input, an operation finishes or something important happens (the context filling up). The full event-feed client is built last within v1; the user brought forward a first Windows preview on 2026-11-03 (C46), in the Tauri process with bounded transient local alerts. The preview does not satisfy R25's separate-process/shared-feed requirement. | U (in v1; portrait, alerts and early preview 2026-11-03); A ("assistant" scope, open O3) | V1 | W1 | 0027 |
 | R25 | The widget is a separate process and just another client: it reads the `event` table after its last `seq`, with an optional socket or pipe used only as a wake-up ping and no other channel; it works with no Shinatama window running and with several windows; an alert reaches the bubble in under 1 s. | A | V1 | W4 | 0027, 0008 |
 | R26 | Clicking an alert focuses the right session. | A | V1 | W4 | 0027 |
 | R27 | Quick-answer buttons (allow, deny), which send keystrokes to the agent, exist only for prompts reported by a native event; a quick answer goes only to the instance and prompt it was offered for, the bubble shows the real command from the native event, and a prompt that changed between the event and the click is refused. | A | V1 | W5 (SEC) | 0027 |
 | R28 | The widget never takes keyboard focus and never steals keystrokes when an alert appears. | A | V1 | W3 (SEC) | 0027 |
 | R29 | Bubble text comes from titles or the last assistant text, redacted, bounded in length and in the interface language. | S | V1 | W6 | 0027 |
-| R30 | The reduced-motion setting is honoured; a mute and a disable switch exist. | A | V1 | W10 | 0027 |
+| R30 | A configurable brief attention sound accompanies alerts; mute suppresses sound while keeping visual alerts, and a separate switch disables the widget. The reduced-motion setting is honoured. Input requests, completion and meaningful updates may alert; streamed tokens and duplicate deliveries of an event do not replay the sound. Spoken voice remains later scope. | U 2026-11-03 (attention sound); A (controls and event deduplication) | V1 | W10 | 0027 |
 | R31 | Where always-on-top or free placement fails on Wayland, the widget falls back to a notification-only mode; always-on-top and placement are expected to work on macOS and Windows and are verified per compositor. | A | V1 | W1, W2 | 0027 |
 | R32 | A task with unanswered Daodan questions is a widget alert (FRD-0008). | U 2026-11-01 | V1 | — | 0033 |
 
 ### 2.6 Widget animation assets
+
+C46's early Windows preview now uses three friendly ImageGen portraits based on
+the canonical Oni reference, at the user's request on 2026-11-03: smile, happy
+and curious. The first notice uses smile; new notices randomly select another
+expression without immediate repeats. Refreshing the same notice keeps its
+portrait. Assets and exact prompts are in `docs/assets/widget/generation.md`.
+These are static expression variants; the animation frames below remain future
+work. The removed invented SVG does not count as Shinatama animation assets.
 
 | ID | Requirement | Origin | Slice | Proof | ADR |
 |---|---|---|---|---|---|

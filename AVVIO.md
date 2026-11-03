@@ -11,6 +11,13 @@ eseguire un controllo separato. La scelta attuale comprende Claude Code e PowerS
 testo del terminale. La scelta del tema e il layout vengono salvati automaticamente.
 Chiudendo la finestra con terminali aperti puoi annullare oppure confermare l'arresto.
 
+**Shinatama alerts** → **Prova viso e suono** mostra il viso in sovraimpressione.
+Nello stesso pannello puoi disattivare il suono o gli avvisi. La comparsa lascia
+il focus nella finestra in uso; **Apri sessione** torna al terminale associato.
+Questa prima versione riceve i segnali di attenzione nativi del terminale e la
+fine del processo mentre Shinatama è aperta. La disponibilità delle notifiche
+dipende dall'harness; la domanda completa si legge e si risponde nel terminale.
+
 Il progetto contiene i thread. Nel pannello **Threads**, **New session** apre lo
 stesso dialogo con il progetto selezionato. **Reload threads** rilegge quelli salvati. Il bordo destro
 ridimensiona il pannello; la freccia lo comprime. Dimensioni e stato sono salvati.

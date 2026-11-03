@@ -10,10 +10,13 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [{ "label": "main", "title": "Shinatama — terminal workspace", "width": 1440, "height": 920, "minWidth": 760, "minHeight": 500, "decorations": false, "backgroundColor": "#09111d" }],
+    "windows": [
+      { "label": "main", "title": "Shinatama — terminal workspace", "width": 1440, "height": 920, "minWidth": 760, "minHeight": 500, "decorations": false, "backgroundColor": "#09111d" },
+      { "label": "attention", "url": "widget.html", "title": "Shinatama — avvisi", "width": 440, "height": 190, "decorations": false, "transparent": true, "backgroundColor": "#00000000", "shadow": false, "alwaysOnTop": true, "skipTaskbar": true, "resizable": false, "focus": false, "focusable": false, "visible": false }
+    ],
     "security": {
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost; img-src 'self' data:; font-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'",
-      "capabilities": ["main"]
+      "capabilities": ["main", "attention"]
     }
   },
   "bundle": { "active": false }

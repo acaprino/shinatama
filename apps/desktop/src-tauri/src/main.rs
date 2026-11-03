@@ -1,6 +1,8 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
 #[cfg(windows)]
 mod agents;
+mod attention;
+mod attention_signals;
 mod launch;
 pub mod maintenance;
 mod new_project;
@@ -275,7 +277,11 @@ fn terminal_read(
     id: String,
 ) -> Result<OutputBatch, String> {
     local(&window)?;
-    host.read(&id).map_err(|e| e.to_string())
+    let batch = host.read(&id).map_err(|e| e.to_string())?;
+    if let Ok(session) = host.info(&id) {
+        window.state::<attention::Controller>().observe(window.app_handle(), &session, &batch);
+    }
+    Ok(batch)
 }
 #[tauri::command]
 fn terminal_write(
@@ -310,10 +316,13 @@ async fn terminal_stop(
 ) -> Result<(), String> {
     local(&window)?;
     let host = host.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || host.stop(&id))
+    let stopped_id = id.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || host.stop(&id))
         .await
         .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string());
+    if result.is_ok() { window.state::<attention::Controller>().forget(window.app_handle(), &stopped_id); }
+    result
 }
 #[tauri::command]
 async fn terminal_shutdown(
@@ -508,6 +517,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .manage(Arc::new(TerminalHost::default()))
         .manage(ExitIntent::default())
+        .manage(attention::Controller::default())
         .manage(shinatama_engine::Engine::new())
         .manage(resources::Resources::start())
         .setup(|app| {
@@ -547,6 +557,11 @@ fn main() {
         });
     #[cfg(not(feature = "tl1-proof"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        attention::attention_current,
+        attention::attention_configure,
+        attention::attention_preview,
+        attention::attention_open,
+        attention::attention_dismiss,
         launch::launch_preflight,
         resources::resources_status,
         resources::resources_telemetry,
@@ -607,6 +622,11 @@ fn main() {
     ]);
     #[cfg(feature = "tl1-proof")]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        attention::attention_current,
+        attention::attention_configure,
+        attention::attention_preview,
+        attention::attention_open,
+        attention::attention_dismiss,
         launch::launch_preflight,
         resources::resources_status,
         resources::resources_telemetry,
@@ -669,6 +689,17 @@ fn main() {
     ]);
     builder
         .on_window_event(|window, event| {
+            if window.label() == "attention" {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+                return;
+            }
+            if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
+                if let Some(widget) = window.app_handle().get_webview_window("attention") { let _ = widget.destroy(); }
+                return;
+            }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event
                 && !window.state::<ExitIntent>().0.load(Ordering::Acquire)
                 && (!window.state::<Host>().list().is_empty()

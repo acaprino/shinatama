@@ -8116,6 +8116,57 @@
       ]
     },
     {
+      "id": "C46",
+      "title": "Widget desktop anticipato Windows",
+      "requirements": [
+        "FRD-0010/R24",
+        "FRD-0010/R26",
+        "FRD-0010/R28",
+        "FRD-0010/R29",
+        "FRD-0010/R30"
+      ],
+      "depends_on": [
+        "B00",
+        "B02",
+        "C01",
+        "C07",
+        "C08"
+      ],
+      "deliverable": "Prima versione Windows anticipata su richiesta utente del 2026-11-03: finestra trasparente sopra il desktop con viso di Shinatama, fumetto, suono disattivabile e apertura della sessione. La preview usa il processo Tauri esistente e avvisi locali transitori limitati; F30/F31 conservano processo separato, feed condiviso e risposte rapide legate alla richiesta.",
+      "acceptance": [
+        "La comparsa del viso e del fumetto non prende il focus né sottrae la digitazione; un clic esplicito apre soltanto la sessione associata all'avviso ancora valido.",
+        "Collegare soltanto gli eventi nativi e gli aggiornamenti applicativi effettivamente supportati; distinguere la richiesta di input dalla fine del turno e dichiarare la copertura per harness senza dedurla dal testo del terminale.",
+        "Limitare testo e coda, non ripetere il suono per duplicati o token in streaming e trattare il testo come contenuto; verificare silenziamento con avviso visivo, disattivazione e movimento ridotto.",
+        "La preview termina con l'app; dimostrazione e segnali sintetici restano distinguibili dagli eventi reali. Non dichiarare completati R25, F30/F31 o i gate finali del widget."
+      ],
+      "checks": [
+        "npm run build",
+        "planned: Compilazione desktop Windows e prove mirate di coda, duplicati, richieste obsolete e controlli IPC.",
+        "planned: Prova nell'app Windows di comparsa senza focus, apertura sessione, suono/silenziamento e chiusura; registrare separatamente i segnali reali qualificati per harness."
+      ],
+      "files": [
+        "apps/desktop/widget.html",
+        "apps/desktop/src/attention-*",
+        "apps/desktop/src-tauri/src/attention*",
+        "apps/desktop/src-tauri/src/main.rs",
+        "apps/desktop/src-tauri/tauri.conf.json",
+        "apps/desktop/src-tauri/capabilities/",
+        "apps/desktop/tests/",
+        "docs/implementation/2026-11-03-widget-preview.md",
+        "docs/verification/"
+      ],
+      "gates": [
+        "partial W1/W3/W4/W6/W10 only"
+      ],
+      "hours": [
+        1,
+        4
+      ],
+      "scope": "v1",
+      "commit": "feat(c46): Widget desktop anticipato Windows",
+      "resume": "Leggere il record della preview e verificare il checkpoint. Implementare e provare la finestra senza focus e gli avvisi collegati; registrare prove e limiti prima di segnare C46 verificato."
+    },
+    {
       "id": "F30",
       "title": "Widget finale della V1: prova per piattaforma e avvisi di consultazione",
       "requirements": [
@@ -8148,18 +8199,18 @@
         "C43",
         "C44"
       ],
-      "deliverable": "Widget in un processo separato alimentato dagli eventi, senza sottrarre il focus, con apertura della sessione su clic e ripiego per compositor.",
+      "deliverable": "Widget in un processo separato alimentato dagli eventi: viso di Shinatama in sovraimpressione come in Oni, fumetto con harness/sessione e richiesta o aggiornamento, breve suono configurabile, senza sottrarre il focus, con apertura della sessione su clic e ripiego per compositor.",
       "acceptance": [
         "Verificare risorse a riposo e posizionamento del toolkit sulle piattaforme previste prima dell’abilitazione.",
         "La bolla deve ricevere gli eventi entro un secondo e non sottrarre mai la digitazione.",
         "Funzionare senza finestra principale e riconciliare l’identità con più finestre.",
-        "Verificare silenziamento, disattivazione, movimento ridotto e ripiego Wayland su sole notifiche."
+        "Verificare suono breve configurabile per richieste di input, completamenti e aggiornamenti importanti; nessuna ripetizione per eventi duplicati o token in streaming. Il silenziamento conserva gli avvisi visivi; verificare anche disattivazione, movimento ridotto e ripiego Wayland su sole notifiche."
       ],
       "checks": [
         "planned: Toolkit idle resources/placement tested on target platforms before enablement.",
         "planned: Bubble receives events under one second and never steals typing.",
         "planned: No main window required; multiple windows reconcile identity.",
-        "planned: Muted/disabled/reduced-motion and Wayland notification-only fallback verified."
+        "planned: Configurable attention sound on input/completion/meaningful updates; duplicate events and streamed tokens never replay it. Mute retains visual alerts; disabled/reduced-motion and Wayland notification-only fallback verified."
       ],
       "files": [
         "apps/widget/",
@@ -9223,6 +9274,7 @@
         "C42",
         "C43",
         "C44",
+        "C46",
         "FS03",
         "F02",
         "F03P",

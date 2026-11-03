@@ -78,7 +78,8 @@ automatic replay of agent commands. See FRD-0001/R59-R63 and the
 7. Skinnable UI whose default is the pink Shinatama theme (5.7).
 8. Easy install on Windows (macOS and Linux deferred, 2026-11-02).
 9. A desktop widget with Shinatama as an assistant that talks, moves and alerts
-   (5.8) — decided for v1; built last within v1, after the core it listens to.
+   (5.8) — decided for v1; the full event-feed client comes last, with a first
+   Windows preview brought forward at the user's request on 2026-11-03 (C46).
 10. A roundtable: several hosted agent instances, each with its own model, converse
     and compare positions on a topic (5.10). The shape is decided (5.10, confirmed by
     the user 2026-11-01); scheduling and the free-form variant are **open**.
@@ -505,6 +506,24 @@ shadows.
 A small borderless, transparent, always-on-top window showing Shinatama as an
 assistant: it speaks in a bubble, animates, and alerts when an agent needs input,
 an operation finishes, or something important happens (e.g. the context filling up).
+
+**Presentation refinement (user, 2026-11-03):** the alert brings up Shinatama's
+face over the desktop, like her communications portrait in *Oni*, beside a short
+bubble identifying the harness/session and its question or update. A configurable
+brief sound calls attention to the alert; muting it keeps the visual alert available.
+Implementation default: notify on input requests, completion and meaningful updates,
+not every streamed token, and do not replay the sound for a duplicate event. Spoken
+voice remains the separate later scope in section 7; the attention sound needs no TTS.
+**Early delivery (user, 2026-11-03):** bring forward a first Windows version
+(C46), as a second window in the existing Tauri process, using bounded transient
+local alerts and only the native harness signals actually connected and tested.
+The preview closes with the app. It does not require the future persistent event
+feed or claim support for every harness. F30/F31 retain the final separate-process
+widget, shared event feed, operation without the main window, and request-bound
+quick answers. Scope and verification status: [preview record](implementation/2026-11-03-widget-preview.md).
+The visual preview and its controls now pass native Windows checks; the live
+terminal path remains unqualified because normal resource admission refused the
+test terminal ([verification](verification/2026-11-03-C46-widget-preview.md)).
 
 My calls for the shape: the widget reads the event feed in the shared SQLite database
 (the `event` table, after its last `seq`; engine 3, 4.6 and 8.3), with an optional local
