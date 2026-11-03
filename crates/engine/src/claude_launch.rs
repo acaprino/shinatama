@@ -8,12 +8,11 @@ use crate::{
     launch::{LaunchInputs, PreparedLaunch, compose_launch, identity::LaunchIdentity},
     native_launch::{
         NativeAdmissionProfile, NativeLaunchBinding, NativeLaunchError, NativeLaunchPins,
-        NativeProgramIdentity, NativeTrialReceipt, NativeTrialTracker, NativeTuiPermit,
+        NativeTrialReceipt, NativeTrialTracker, NativeTuiPermit,
     },
     sidecar_supervisor::{Phase, SidecarSupervisor},
 };
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 use shinatama_adapter::{
     AdapterDescriptor, AgentId, Capabilities, ConnectionArchitecture, EvidenceKind,
     FixtureEvidence, HomePlacement, Operation, Placement, ProgramPlacement, Version,
@@ -38,7 +37,7 @@ use std::{
     collections::BTreeMap,
     ffi::OsString,
     fs::{File, OpenOptions},
-    io::{Read, Seek, SeekFrom, Write},
+    io::{Read, Write},
     num::NonZeroU16,
     os::windows::{fs::OpenOptionsExt, io::AsRawHandle},
     path::{Path, PathBuf},
@@ -962,26 +961,6 @@ fn pin_file(path: &Path) -> Result<File, ClaudeLaunchError> {
     }
     Ok(file)
 }
-fn pin_hook_file(path: &Path) -> Result<File, ClaudeLaunchError> {
-    // Cargo can install the trusted helper as a hardlink to its deps binary.
-    // Denying WRITE/DELETE sharing pins the bytes through every alias and the
-    // selected filename; ancestor handles separately pin its parent path.
-    // Other alias names need not survive, but the count must stay consistent
-    // during validation. Private configuration and Claude itself use pin_file.
-    let file = OpenOptions::new()
-        .read(true)
-        .share_mode(FILE_SHARE_READ)
-        .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
-        .open(path)
-        .map_err(|_| ClaudeLaunchError::UnsafeProgram)?;
-    let info = file_info(&file)?;
-    if info.dwFileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY) != 0
-        || info.nNumberOfLinks == 0
-    {
-        return Err(ClaudeLaunchError::UnsafeProgram);
-    }
-    Ok(file)
-}
 fn pin_directory(path: &Path) -> Result<(File, Vec<File>), ClaudeLaunchError> {
     StorageLocation::preflight(path).map_err(|_| ClaudeLaunchError::PrivateHome)?;
     let parents: Vec<_> = path.ancestors().take(65).collect();
@@ -1009,119 +988,29 @@ fn pin_directory(path: &Path) -> Result<(File, Vec<File>), ClaudeLaunchError> {
     let root = pins.pop().ok_or(ClaudeLaunchError::PrivateHome)?;
     Ok((root, pins))
 }
-struct ProgramPin {
-    path: PathBuf,
-    file: File,
-    ancestors: Vec<File>,
-    identity: NativeProgramIdentity,
-    hash: String,
-    bytes: u64,
-}
+type ProgramPin = crate::harness_hooks::PinnedExecutable;
 fn pin_program(path: &Path, deadline: Instant) -> Result<ProgramPin, ClaudeLaunchError> {
-    pin_executable(path, "claude.exe", deadline, pin_file)
+    use crate::harness_hooks::ExecutablePinError;
+    crate::harness_hooks::pin_executable(path, "claude.exe", deadline, false).map_err(|error| {
+        match error {
+            ExecutablePinError::InvalidCandidate => ClaudeLaunchError::InvalidCandidate,
+            ExecutablePinError::PrivateHome => ClaudeLaunchError::PrivateHome,
+            ExecutablePinError::UnsafeProgram => ClaudeLaunchError::UnsafeProgram,
+            ExecutablePinError::ProgramChanged => ClaudeLaunchError::ProgramChanged,
+            ExecutablePinError::Expired => ClaudeLaunchError::Expired,
+            ExecutablePinError::Identity => ClaudeLaunchError::Permit,
+        }
+    })
 }
 fn pin_session_hook(path: &Path, deadline: Instant) -> Result<ProgramPin, ClaudeLaunchError> {
-    // A helper fault is local configuration, not stale Claude qualification.
-    // The helper's returned identity is unused: only its held file/path enter
-    // NativeLaunchPins; NativeLaunchBinding keeps Claude's strict identity.
-    pin_executable(path, "shinatama-hook.exe", deadline, pin_hook_file)
+    crate::harness_hooks::pin_session_hook(path, deadline)
         .map_err(|_| ClaudeLaunchError::Configuration)
-}
-fn pin_executable(
-    path: &Path,
-    name: &str,
-    deadline: Instant,
-    pin: fn(&Path) -> Result<File, ClaudeLaunchError>,
-) -> Result<ProgramPin, ClaudeLaunchError> {
-    if !path
-        .file_name()
-        .is_some_and(|filename| filename.eq_ignore_ascii_case(name))
-    {
-        return Err(ClaudeLaunchError::InvalidCandidate);
-    }
-    let (_parent, mut ancestors) =
-        pin_directory(path.parent().ok_or(ClaudeLaunchError::InvalidCandidate)?)?;
-    ancestors.push(_parent);
-    let mut file = pin(path)?;
-    let before = file_info(&file)?;
-    let bytes = (u64::from(before.nFileSizeHigh) << 32) | u64::from(before.nFileSizeLow);
-    if !(64..=512 * MIB).contains(&bytes) {
-        return Err(ClaudeLaunchError::UnsafeProgram);
-    }
-    let mut dos = [0; 64];
-    file.read_exact(&mut dos)
-        .map_err(|_| ClaudeLaunchError::UnsafeProgram)?;
-    let offset = u32::from_le_bytes(dos[60..64].try_into().unwrap()) as u64;
-    if &dos[..2] != b"MZ" || offset > MIB || offset + 4 > bytes {
-        return Err(ClaudeLaunchError::UnsafeProgram);
-    }
-    file.seek(SeekFrom::Start(offset))
-        .map_err(|_| ClaudeLaunchError::UnsafeProgram)?;
-    let mut pe = [0; 4];
-    file.read_exact(&mut pe)
-        .map_err(|_| ClaudeLaunchError::UnsafeProgram)?;
-    if pe != *b"PE\0\0" {
-        return Err(ClaudeLaunchError::UnsafeProgram);
-    }
-    file.seek(SeekFrom::Start(0))
-        .map_err(|_| ClaudeLaunchError::UnsafeProgram)?;
-    let mut hash = Sha256::new();
-    let mut read = 0u64;
-    let mut buffer = [0; 65536];
-    loop {
-        if Instant::now() >= deadline {
-            return Err(ClaudeLaunchError::Expired);
-        }
-        let count = file
-            .read(&mut buffer)
-            .map_err(|_| ClaudeLaunchError::UnsafeProgram)?;
-        if count == 0 {
-            break;
-        }
-        read += count as u64;
-        if read > bytes {
-            return Err(ClaudeLaunchError::ProgramChanged);
-        }
-        hash.update(&buffer[..count]);
-    }
-    let digest: [u8; 32] = hash.finalize().into();
-    let after = file_info(&file)?;
-    if read != bytes
-        || before.dwFileAttributes != after.dwFileAttributes
-        || before.dwVolumeSerialNumber != after.dwVolumeSerialNumber
-        || before.nFileIndexHigh != after.nFileIndexHigh
-        || before.nFileIndexLow != after.nFileIndexLow
-        || before.nFileSizeHigh != after.nFileSizeHigh
-        || before.nFileSizeLow != after.nFileSizeLow
-        || before.nNumberOfLinks != after.nNumberOfLinks
-        || before.ftLastWriteTime.dwLowDateTime != after.ftLastWriteTime.dwLowDateTime
-        || before.ftLastWriteTime.dwHighDateTime != after.ftLastWriteTime.dwHighDateTime
-    {
-        return Err(ClaudeLaunchError::ProgramChanged);
-    }
-    let identity = NativeProgramIdentity::new(
-        before.dwVolumeSerialNumber,
-        (u64::from(before.nFileIndexHigh) << 32) | u64::from(before.nFileIndexLow),
-        bytes,
-        (u64::from(before.ftLastWriteTime.dwHighDateTime) << 32)
-            | u64::from(before.ftLastWriteTime.dwLowDateTime),
-        digest,
-    )?;
-    Ok(ProgramPin {
-        path: path
-            .canonicalize()
-            .map_err(|_| ClaudeLaunchError::UnsafeProgram)?,
-        file,
-        ancestors,
-        identity,
-        hash: digest.iter().map(|byte| format!("{byte:02x}")).collect(),
-        bytes,
-    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sha2::{Digest, Sha256};
     #[test]
     fn tracked_hook_hardlink_keeps_bytes_and_selected_path_pinned() {
         let directory =

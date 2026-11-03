@@ -1,14 +1,19 @@
 //! Codex supplies its typed engine recipes to the shared harness service.
-use super::service::{
-    DriverError, HarnessDescriptor, HarnessDriver, HarnessPolicy, PreparedTrial, ProbeContext,
-    ProbeEvidence, ProbeProjection, SealedSession, SessionContext, SessionOperation, TrialContext,
+use super::{
+    hook_executable,
+    service::{
+        BindingContext, DriverError, HarnessDescriptor, HarnessDriver, HarnessPolicy,
+        PreparedTrial, ProbeContext, ProbeEvidence, ProbeProjection, SealedSession, SessionContext,
+        SessionOperation, TrialContext,
+    },
+    thread_lifecycle::{PendingThread, ThreadLifecycle},
 };
 use shinatama_adapter::catalog::ProgramCandidate;
 use shinatama_engine::{
     check_scratch::ScratchKind,
     codex_launch::{
-        CodexLaunchError, CodexStartContext, CodexTrialContext, PreparedCodexStart, prepare_start,
-        prepare_trial,
+        CodexLaunchError, CodexStartContext, CodexTrialContext, PreparedCodexStart,
+        prepare_tracked_start, prepare_tracked_trial,
     },
     codex_probe::{
         CodexProbeOutcome, PreparedCodexProbe, ProbeIssue, discover_codex, probe_budget,
@@ -17,12 +22,19 @@ use shinatama_engine::{
     resources::admission::PreparedWorkload,
 };
 use shinatama_state::{database::Database, store_roots::PrivateStoreRequest};
+use shinatama_terminal::WindowsNativeSessionLifecycle;
+use std::sync::Arc;
 
 pub(super) struct CodexDriver;
+pub(super) struct PreparedCodexSession {
+    inner: PreparedCodexStart,
+    pending: Option<PendingThread>,
+    bound: bool,
+}
 
 impl HarnessDriver for CodexDriver {
     type Probe = CodexProbeOutcome;
-    type PreparedSession = PreparedCodexStart;
+    type PreparedSession = PreparedCodexSession;
 
     fn descriptor(&self) -> HarnessDescriptor {
         HarnessDescriptor {
@@ -76,25 +88,31 @@ impl HarnessDriver for CodexDriver {
         &self,
         context: TrialContext<'_, Self::Probe>,
     ) -> Result<PreparedTrial, DriverError> {
-        let prepared = prepare_trial(CodexTrialContext {
-            candidate: context.candidate,
-            observation: context.observation,
-            base: context.base,
-            trial_base: context.trial_base,
-            private_home: context.private_home,
-            project: context.project,
-            sidecar: context.sidecar,
-            proxy_port: context.proxy_port,
-            ca_file: context.ca_file,
-            selected_set: context.selected_set,
-            thread_id: context.thread_id,
-        })
+        let hook = hook_executable().map_err(DriverError::from)?;
+        let prepared = prepare_tracked_trial(
+            CodexTrialContext {
+                candidate: context.candidate,
+                observation: context.observation,
+                base: context.base,
+                trial_base: context.trial_base,
+                private_home: context.private_home,
+                project: context.project,
+                sidecar: context.sidecar,
+                proxy_port: context.proxy_port,
+                ca_file: context.ca_file,
+                selected_set: context.selected_set,
+                thread_id: context.thread_id,
+            },
+            &hook,
+        )
         .map_err(launch_error)?;
         Ok(PreparedTrial {
             launch: prepared.launch,
             permit: prepared.permit,
             tracker: prepared.tracker,
-            keep_alive: None,
+            keep_alive: prepared
+                .session_events
+                .map(|receiver| Box::new(receiver) as Box<dyn Send>),
         })
     }
 
@@ -109,7 +127,13 @@ impl HarnessDriver for CodexDriver {
                 "Native resume has not been qualified for Codex.",
             ));
         }
-        prepare_start(
+        let pending = PendingThread::Start {
+            thread: context.thread.clone(),
+            root: context.root.clone(),
+            native_id: None,
+        };
+        let hook = hook_executable().map_err(DriverError::from)?;
+        let inner = prepare_tracked_start(
             CodexStartContext {
                 candidate: context.candidate,
                 observation: context.observation,
@@ -125,18 +149,62 @@ impl HarnessDriver for CodexDriver {
                 thread_id: &context.thread.id,
             },
             receipt,
+            &hook,
         )
-        .map_err(launch_error)
+        .map_err(launch_error)?;
+        Ok(PreparedCodexSession {
+            inner,
+            pending: Some(pending),
+            bound: false,
+        })
     }
-    // The default bind_lifecycle returns None: native thread ownership and
-    // resume are not qualified by a successful Codex startup alone.
+    fn bind_lifecycle(
+        &self,
+        prepared: &mut Self::PreparedSession,
+        binding: BindingContext<'_>,
+    ) -> Result<Option<Arc<dyn WindowsNativeSessionLifecycle>>, DriverError> {
+        let pending = prepared
+            .pending
+            .take()
+            .ok_or(DriverError::Failed("This Codex launch was already bound."))?;
+        if !matches!(
+            (&pending, binding.operation),
+            (PendingThread::Start { thread, root, native_id: None }, SessionOperation::New)
+                if thread == binding.thread && root == binding.root
+        ) {
+            return Err(DriverError::Failed(
+                "The Codex thread binding changed before startup.",
+            ));
+        }
+        let receiver = prepared
+            .inner
+            .session_events
+            .take()
+            .ok_or(DriverError::Failed(
+                "Codex session tracking is unavailable.",
+            ))?;
+        let lifecycle = ThreadLifecycle::new(
+            binding.database,
+            pending,
+            prepared.inner.launch.identity_record().clone(),
+            receiver,
+            binding.thread_observer,
+        )
+        .map_err(DriverError::from)?;
+        prepared.bound = true;
+        Ok(Some(lifecycle))
+    }
 }
 
-impl From<PreparedCodexStart> for SealedSession {
-    fn from(prepared: PreparedCodexStart) -> Self {
+impl From<PreparedCodexSession> for SealedSession {
+    fn from(prepared: PreparedCodexSession) -> Self {
+        assert!(
+            prepared.bound,
+            "Codex lifecycle must be bound before startup."
+        );
         Self {
-            launch: prepared.launch,
-            permit: prepared.permit,
+            launch: prepared.inner.launch,
+            permit: prepared.inner.permit,
         }
     }
 }

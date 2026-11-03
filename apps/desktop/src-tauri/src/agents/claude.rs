@@ -147,7 +147,7 @@ impl HarnessDriver for ClaudeDriver {
                 let pending = PendingThread::Start {
                     thread: context.thread.clone(),
                     root: context.root.clone(),
-                    native_id: selection.native_id().into(),
+                    native_id: Some(selection.native_id().into()),
                 };
                 (selection, pending)
             }
@@ -231,6 +231,7 @@ impl HarnessDriver for ClaudeDriver {
             pending,
             prepared.inner.launch.identity_record().clone(),
             receiver,
+            binding.thread_observer,
         )
         .map_err(DriverError::from)?;
         prepared.bound = true;

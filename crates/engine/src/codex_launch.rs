@@ -3,8 +3,11 @@
 //! reads/writes; only the owned ConPTY canary can qualify the exact build/profile.
 //! No provider request, login, user credential read, shell or marketplace install.
 #![cfg(windows)]
+#[cfg(test)]
+mod native_hook_test;
 use crate::{
     codex_probe::{CodexProbeOutcome, ProbeCleanup},
+    harness_session_events::{HarnessKind, SessionEventReceiver},
     launch::{LaunchInputs, PreparedLaunch, compose_launch, identity::LaunchIdentity},
     native_launch::{
         NativeAdmissionProfile, NativeLaunchBinding, NativeLaunchError, NativeLaunchPins,
@@ -53,6 +56,7 @@ use windows_sys::Win32::Storage::FileSystem::{
 const MIB: u64 = 1024 * 1024;
 const PREPARE_BUDGET: Duration = Duration::from_secs(10);
 const RECIPE: &str = "codex-system-box-no-daemon-workspace-tui-v1";
+const TRACKED_RECIPE: &str = "codex-system-box-tracked-no-daemon-workspace-tui-v1";
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CodexLaunchError {
     InvalidCandidate,
@@ -147,17 +151,27 @@ impl CodexSessionOperation {
         descriptor: &AdapterDescriptor,
         executable: PathBuf,
     ) -> Result<QualifiedArgvRecipe, CodexLaunchError> {
+        self.qualify_arguments_with_hooks(descriptor, executable, &[])
+    }
+    fn qualify_arguments_with_hooks(
+        &self,
+        descriptor: &AdapterDescriptor,
+        executable: PathBuf,
+        hook_arguments: &[OsString],
+    ) -> Result<QualifiedArgvRecipe, CodexLaunchError> {
         // The existing receipt covers StartNew only. In particular, do not put
         // resume argv inside a StartNew recipe or reuse its native qualification.
         // A future Resume path needs separate operation evidence and admission.
         if self.operation() != Operation::StartNew {
             return Err(CodexLaunchError::QualificationRequired);
         }
+        let mut arguments = self.arguments();
+        arguments.extend_from_slice(hook_arguments);
         QualifiedArgvRecipe::qualify(
             descriptor,
             self.operation(),
             CommandForm::NativeExe(executable),
-            self.arguments(),
+            arguments,
             evidence(descriptor)?,
         )
         .map_err(|_| CodexLaunchError::Composition)
@@ -184,6 +198,8 @@ pub struct PreparedCodexTrial {
     pub launch: PreparedLaunch,
     pub permit: NativeTuiPermit,
     pub tracker: NativeTrialTracker,
+    /// Retained through trial cleanup; presence is not proof of event delivery.
+    pub session_events: Option<SessionEventReceiver>,
 }
 pub struct CodexTrialContext<'a> {
     pub candidate: &'a ProgramCandidate,
@@ -216,6 +232,8 @@ struct Context<'a> {
 pub struct PreparedCodexStart {
     pub launch: PreparedLaunch,
     pub permit: NativeTuiPermit,
+    /// Owned by the session lifecycle through native cleanup, never sent to IPC.
+    pub session_events: Option<SessionEventReceiver>,
 }
 
 /// A conservative local-path budget for this no-daemon recipe. It is not
@@ -253,9 +271,9 @@ fn fixed_arguments() -> Vec<OsString> {
 
 /// This is the fixed finite trial profile, not inferred from a growing
 /// process and never raised on failure. Issuance is sealed inside this qualifier.
-fn profile() -> Result<NativeAdmissionProfile, CodexLaunchError> {
+fn profile(tracked: bool) -> Result<NativeAdmissionProfile, CodexLaunchError> {
     Ok(NativeAdmissionProfile::new(
-        RECIPE,
+        if tracked { TRACKED_RECIPE } else { RECIPE },
         1,
         Budget {
             memory_bytes: 1024 * MIB,
@@ -269,6 +287,20 @@ fn profile() -> Result<NativeAdmissionProfile, CodexLaunchError> {
 }
 pub fn prepare_trial(
     context: CodexTrialContext<'_>,
+) -> Result<PreparedCodexTrial, CodexLaunchError> {
+    prepare_trial_with_hooks(context, None)
+}
+/// Qualifies startup for the distinct tracked profile. Native event delivery
+/// and resume fidelity still require their own observations.
+pub fn prepare_tracked_trial(
+    context: CodexTrialContext<'_>,
+    trusted_hook_exe: &Path,
+) -> Result<PreparedCodexTrial, CodexLaunchError> {
+    prepare_trial_with_hooks(context, Some(trusted_hook_exe))
+}
+fn prepare_trial_with_hooks(
+    context: CodexTrialContext<'_>,
+    trusted_hook_exe: Option<&Path>,
 ) -> Result<PreparedCodexTrial, CodexLaunchError> {
     // Filename presence only: never read a credential store for this canary.
     if context
@@ -312,6 +344,7 @@ pub fn prepare_trial(
         },
         None,
         true,
+        trusted_hook_exe,
     )?;
     let (permit, tracker) = NativeTuiPermit::issue_trial(
         &prepared.launch,
@@ -323,11 +356,28 @@ pub fn prepare_trial(
         launch: prepared.launch,
         permit,
         tracker,
+        session_events: prepared.session_events,
     })
 }
 pub fn prepare_start(
     context: CodexStartContext<'_>,
     receipt: &NativeTrialReceipt,
+) -> Result<PreparedCodexStart, CodexLaunchError> {
+    prepare_start_with_hooks(context, receipt, None)
+}
+/// Codex chooses the native UUID. The lifecycle must consume the authenticated
+/// SessionStart event; this function does not invent or reserve a native ID.
+pub fn prepare_tracked_start(
+    context: CodexStartContext<'_>,
+    receipt: &NativeTrialReceipt,
+    trusted_hook_exe: &Path,
+) -> Result<PreparedCodexStart, CodexLaunchError> {
+    prepare_start_with_hooks(context, receipt, Some(trusted_hook_exe))
+}
+fn prepare_start_with_hooks(
+    context: CodexStartContext<'_>,
+    receipt: &NativeTrialReceipt,
+    trusted_hook_exe: Option<&Path>,
 ) -> Result<PreparedCodexStart, CodexLaunchError> {
     let prepared = prepare(
         Context {
@@ -347,6 +397,7 @@ pub fn prepare_start(
         },
         Some(receipt),
         false,
+        trusted_hook_exe,
     )?;
     let permit = NativeTuiPermit::issue_after_trial(
         &prepared.launch,
@@ -358,6 +409,7 @@ pub fn prepare_start(
     Ok(PreparedCodexStart {
         launch: prepared.launch,
         permit,
+        session_events: prepared.session_events,
     })
 }
 struct Prepared {
@@ -365,12 +417,14 @@ struct Prepared {
     binding: NativeLaunchBinding,
     profile: NativeAdmissionProfile,
     pins: NativeLaunchPins,
+    session_events: Option<SessionEventReceiver>,
 }
 
 fn prepare(
     context: Context<'_>,
     receipt: Option<&NativeTrialReceipt>,
     trial: bool,
+    trusted_hook_exe: Option<&Path>,
 ) -> Result<Prepared, CodexLaunchError> {
     let deadline = Instant::now() + PREPARE_BUDGET;
     if context.candidate.agent.as_str() != "codex"
@@ -461,7 +515,7 @@ fn prepare(
     {
         return Err(CodexLaunchError::ProgramChanged);
     }
-    let resource_profile = profile()?;
+    let resource_profile = profile(trusted_hook_exe.is_some())?;
     if let Some(receipt) = receipt {
         if !receipt.matches(
             &context.candidate.agent,
@@ -521,6 +575,24 @@ fn prepare(
         locations.push(trial_base.clone());
     }
     let mut artifacts = Vec::new();
+    let mut hook_arguments = Vec::new();
+    let session_events = if let Some(helper_path) = trusted_hook_exe {
+        let mut helper = crate::harness_hooks::pin_session_hook(helper_path, deadline)
+            .map_err(|_| CodexLaunchError::Configuration)?;
+        let mut hook_shell = pin_hook_shell(deadline)?;
+        let receiver =
+            SessionEventReceiver::start_for(HarnessKind::Codex, identity.record(), &project)
+                .map_err(|_| CodexLaunchError::Configuration)?;
+        hook_arguments =
+            session_hook_arguments(&version, &helper.path, &hook_shell.path, receiver.port())?;
+        pinned.ancestors.append(&mut helper.ancestors);
+        pinned.ancestors.append(&mut hook_shell.ancestors);
+        artifacts.push(helper.file);
+        artifacts.push(hook_shell.file);
+        Some(receiver)
+    } else {
+        None
+    };
     create_json(
         &instance_directory,
         "set-manifest.json",
@@ -651,7 +723,11 @@ fn prepare(
     )
     .map_err(|_| CodexLaunchError::Composition)?;
     let session = CodexSessionOperation::start_new();
-    let arguments_recipe = session.qualify_arguments(&descriptor, pinned.path)?;
+    let arguments_recipe = if session_events.is_some() {
+        session.qualify_arguments_with_hooks(&descriptor, pinned.path, &hook_arguments)?
+    } else {
+        session.qualify_arguments(&descriptor, pinned.path)?
+    };
     let database_path = context.base.database_path();
     let inputs = LaunchInputs::new(
         &placement_recipe,
@@ -689,8 +765,141 @@ fn prepare(
         binding,
         profile: resource_profile,
         pins,
+        session_events,
     })
 }
+fn pin_hook_shell(
+    deadline: Instant,
+) -> Result<crate::harness_hooks::PinnedExecutable, CodexLaunchError> {
+    // Ask Windows, not the caller's PATH/SystemRoot/COMSPEC. The held executable
+    // and ancestor handles keep this trampoline stable through native cleanup.
+    let mut directory = [0u16; 32768];
+    let length = unsafe {
+        windows_sys::Win32::System::SystemInformation::GetSystemDirectoryW(
+            directory.as_mut_ptr(),
+            directory.len() as u32,
+        )
+    } as usize;
+    if length == 0 || length >= directory.len() {
+        return Err(CodexLaunchError::Configuration);
+    }
+    let directory =
+        String::from_utf16(&directory[..length]).map_err(|_| CodexLaunchError::Configuration)?;
+    let path = PathBuf::from(directory).join("WindowsPowerShell/v1.0/powershell.exe");
+    crate::harness_hooks::pin_executable(&path, "powershell.exe", deadline, true)
+        .map_err(|_| CodexLaunchError::Configuration)
+}
+
+fn session_hook_arguments(
+    version: &Version,
+    helper: &Path,
+    shell: &Path,
+    port: u16,
+) -> Result<Vec<OsString>, CodexLaunchError> {
+    // This schema/hash is pinned to the source tag rust-v0.166.0, not inferred
+    // from a successful version probe. Other versions need schema validation.
+    if version != &Version::parse("0.166.0").map_err(|_| CodexLaunchError::Configuration)? {
+        return Err(CodexLaunchError::QualificationRequired);
+    }
+    let command = session_hook_command(helper, shell, port)?;
+    let matcher = "^(startup|resume|clear|compact|fork)$";
+    // Codex hooks/engine/discovery.rs normalizes one handler to TOML, then
+    // config/fingerprint.rs hashes its recursively sorted JSON. None fields
+    // disappear in TOML; the default async=false remains part of the identity.
+    let mut identity = serde_json::json!({
+        "event_name": "session_start", "matcher": matcher,
+        "hooks": [{"type":"command", "command":command, "timeout":5, "async":false}]
+    });
+    identity.sort_all_objects();
+    let normalized = serde_json::to_vec(&identity).map_err(|_| CodexLaunchError::Configuration)?;
+    let hash = format!("sha256:{:x}", Sha256::digest(normalized));
+    let quoted_command =
+        serde_json::to_string(&command).map_err(|_| CodexLaunchError::Configuration)?;
+    let quoted_matcher =
+        serde_json::to_string(matcher).map_err(|_| CodexLaunchError::Configuration)?;
+    // SessionFlags is its own discovery layer. Existing project/user hooks and
+    // their trust remain untouched; no global trust bypass or user-file write.
+    let key = serde_json::to_string(r"C:\<session-flags>\config.toml:session_start:0:0")
+        .map_err(|_| CodexLaunchError::Configuration)?;
+    Ok(vec![
+        "-c".into(), "features.hooks=true".into(),
+        "-c".into(), format!("hooks.SessionStart=[{{matcher={quoted_matcher},hooks=[{{type=\"command\",command={quoted_command},timeout=5,async=false}}]}}]").into(),
+        "-c".into(), format!("hooks.state.{key}={{enabled=true,trusted_hash=\"{hash}\"}}").into(),
+    ])
+}
+
+fn session_hook_command(
+    helper: &Path,
+    shell: &Path,
+    port: u16,
+) -> Result<String, CodexLaunchError> {
+    let helper = helper.to_str().ok_or(CodexLaunchError::Configuration)?;
+    let helper = helper
+        .strip_prefix(r"\\?\")
+        .unwrap_or(helper)
+        .replace('\\', "/");
+    let shell = shell.to_str().ok_or(CodexLaunchError::Configuration)?;
+    let shell = shell
+        .strip_prefix(r"\\?\")
+        .unwrap_or(shell)
+        .replace('\\', "/");
+    let drive_path = |path: &str| {
+        path.len() > 3
+            && path.as_bytes()[0].is_ascii_alphabetic()
+            && &path.as_bytes()[1..3] == b":/"
+    };
+    if port == 0
+        || helper.len() > 4096
+        || !drive_path(&helper)
+        || helper.chars().any(char::is_control)
+        || !drive_path(&shell)
+        || !shell
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b":/_.-".contains(&byte))
+    {
+        return Err(CodexLaunchError::Configuration);
+    }
+    // The outer command is valid in Cmd, PowerShell and Git Bash. Only the
+    // trusted Windows path and base64 enter that parser; helper path quoting is
+    // handled once by a no-profile PowerShell trampoline. No policy bypass.
+    let script = session_hook_script(&helper, port);
+    let bytes: Vec<_> = script.encode_utf16().flat_map(u16::to_le_bytes).collect();
+    let encoded = encode_base64(&bytes);
+    Ok(format!(
+        "{shell} -NoProfile -NonInteractive -EncodedCommand {encoded}"
+    ))
+}
+
+fn session_hook_script(helper: &str, port: u16) -> String {
+    format!(
+        "$ErrorActionPreference='Stop'; & '{}' codex-session {port}; exit $LASTEXITCODE",
+        helper.replace('\'', "''")
+    )
+}
+
+fn encode_base64(bytes: &[u8]) -> String {
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut output = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let value = (u32::from(chunk[0]) << 16)
+            | (u32::from(*chunk.get(1).unwrap_or(&0)) << 8)
+            | u32::from(*chunk.get(2).unwrap_or(&0));
+        output.push(ALPHABET[((value >> 18) & 63) as usize] as char);
+        output.push(ALPHABET[((value >> 12) & 63) as usize] as char);
+        output.push(if chunk.len() > 1 {
+            ALPHABET[((value >> 6) & 63) as usize] as char
+        } else {
+            '='
+        });
+        output.push(if chunk.len() > 2 {
+            ALPHABET[(value & 63) as usize] as char
+        } else {
+            '='
+        });
+    }
+    output
+}
+
 fn verify_sidecar(sidecar: &SidecarSupervisor) -> Result<(), CodexLaunchError> {
     let status = sidecar
         .status()
@@ -935,6 +1144,118 @@ fn pin_program(path: &Path, deadline: Instant) -> Result<ProgramPin, CodexLaunch
 mod tests {
     use super::*;
     #[test]
+    fn tracked_codex_uses_a_distinct_profile_with_unchanged_limits() {
+        let baseline = profile(false).unwrap();
+        let tracked = profile(true).unwrap();
+        assert_eq!(baseline.id(), RECIPE);
+        assert_eq!(tracked.id(), TRACKED_RECIPE);
+        assert_ne!(baseline.id(), tracked.id());
+        assert_eq!(baseline.budget(), tracked.budget());
+        assert_eq!(
+            baseline.process_commit_bytes(),
+            tracked.process_commit_bytes()
+        );
+    }
+    #[test]
+    fn tracked_codex_trust_is_scoped_to_its_definition_and_supported_schema() {
+        let version = Version::parse("0.166.0").unwrap();
+        let helper = Path::new(r"C:\App\shinatama-hook.exe");
+        let shell = Path::new(r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe");
+        let arguments = session_hook_arguments(&version, helper, shell, 43210).unwrap();
+        assert_eq!(arguments.len(), 6);
+        assert_eq!(arguments[0], "-c");
+        assert_eq!(arguments[1], "features.hooks=true");
+        let definition = arguments[3].to_str().unwrap();
+        assert!(definition.starts_with("hooks.SessionStart=[{matcher=\"^(startup|resume|clear|compact|fork)$\",hooks=[{type=\"command\",command="));
+        assert!(definition.ends_with(",timeout=5,async=false}]}]"));
+        let trust = arguments[5].to_str().unwrap();
+        assert!(trust.starts_with(r#"hooks.state."C:\\<session-flags>\\config.toml:session_start:0:0"={enabled=true,trusted_hash="sha256:"#));
+        assert!(
+            !arguments
+                .iter()
+                .any(|value| value.to_string_lossy().contains("bypass"))
+        );
+        let other_port = session_hook_arguments(&version, helper, shell, 43211).unwrap();
+        assert_ne!(arguments[5], other_port[5]);
+        assert_eq!(
+            session_hook_arguments(&Version::parse("0.167.0").unwrap(), helper, shell, 43210),
+            Err(CodexLaunchError::QualificationRequired)
+        );
+        let descriptor = descriptor(&version).unwrap();
+        let recipe = CodexSessionOperation::start_new()
+            .qualify_arguments_with_hooks(
+                &descriptor,
+                PathBuf::from(r"C:\App\codex.exe"),
+                &arguments,
+            )
+            .unwrap();
+        let command = shinatama_adapter::launch::arguments::plan_arguments(
+            &descriptor,
+            Operation::StartNew,
+            Path::new(r"C:\Project"),
+            Some(&recipe),
+        )
+        .unwrap();
+        let baseline = fixed_arguments();
+        assert_eq!(&command.argv()[..baseline.len()], baseline);
+        assert_eq!(&command.argv()[baseline.len()..], arguments);
+        assert!(
+            CodexSessionOperation::resume_native("01a17e07-93f7-7a73-85c7-9f0205836600")
+                .unwrap()
+                .qualify_arguments_with_hooks(
+                    &descriptor,
+                    PathBuf::from(r"C:\App\codex.exe"),
+                    &arguments
+                )
+                .is_err()
+        );
+    }
+    #[test]
+    fn tracked_codex_bridge_has_no_outer_shell_interpolation() {
+        let helper = r"C:/Program Files/O'Neil/$name`$(x)/shinatama-hook.exe";
+        assert_eq!(
+            session_hook_script(helper, 43210),
+            "$ErrorActionPreference='Stop'; & 'C:/Program Files/O''Neil/$name`$(x)/shinatama-hook.exe' codex-session 43210; exit $LASTEXITCODE"
+        );
+        let shell = Path::new(r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe");
+        let command = session_hook_command(Path::new(helper), shell, 43210).unwrap();
+        let prefix = "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -NoProfile -NonInteractive -EncodedCommand ";
+        assert!(
+            command
+                .strip_prefix(prefix)
+                .unwrap()
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"+/=".contains(&b))
+        );
+        for invalid in [
+            "relative.exe",
+            r"\\server\share\shinatama-hook.exe",
+            "C:/bad\nname.exe",
+        ] {
+            assert!(session_hook_command(Path::new(invalid), shell, 43210).is_err());
+        }
+        assert!(
+            session_hook_command(
+                Path::new(helper),
+                Path::new(r"C:\bad path\powershell.exe"),
+                43210
+            )
+            .is_err()
+        );
+        assert!(session_hook_command(Path::new(helper), shell, 0).is_err());
+        for (input, encoded) in [
+            ("", ""),
+            ("f", "Zg=="),
+            ("fo", "Zm8="),
+            ("foo", "Zm9v"),
+            ("foob", "Zm9vYg=="),
+            ("fooba", "Zm9vYmE="),
+            ("foobar", "Zm9vYmFy"),
+        ] {
+            assert_eq!(encode_base64(input.as_bytes()), encoded);
+        }
+    }
+    #[test]
     fn codex_new_recipe_preserves_existing_arguments_and_operation() {
         let new = CodexSessionOperation::start_new();
         let baseline: Vec<OsString> = [
@@ -1018,8 +1339,8 @@ mod tests {
     }
     #[test]
     fn narrow_profile_is_fixed_and_failure_never_increases_it() {
-        let first = profile().unwrap();
-        let second = profile().unwrap();
+        let first = profile(false).unwrap();
+        let second = profile(false).unwrap();
         assert_eq!(first.budget(), second.budget());
         assert_eq!(first.budget().processes, 8);
         assert_eq!(first.process_commit_bytes(), 768 * MIB);

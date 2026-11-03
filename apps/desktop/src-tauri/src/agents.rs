@@ -36,6 +36,15 @@ use std::{
     time::Duration,
 };
 const ROOT_SCAN_LIMIT: usize = 100;
+/// Notification only: project/thread selectors have no database or process
+/// authority. Callbacks must enqueue UI work without waiting for a response.
+pub(crate) type ThreadObserver = Arc<dyn Fn(&str, &str) + Send + Sync>;
+
+pub(super) fn notify_thread_changed(observer: &ThreadObserver, project: &str, thread: &str) {
+    // Notification failure must never turn a committed lifecycle mutation into
+    // failed tracking or retain native ownership. The UI may reload later.
+    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| observer(project, thread)));
+}
 #[derive(Clone, Copy, Serialize)]
 #[serde(rename_all = "snake_case")]
 enum Authentication {
@@ -258,8 +267,14 @@ impl Controller {
         services: Arc<Services>,
         runtime: Arc<Runtime>,
         sidecar: Arc<sidecar::Controller>,
+        thread_observer: ThreadObserver,
     ) -> Self {
-        let context = Arc::new(ServiceContext::new(Arc::clone(&services), runtime, sidecar));
+        let context = Arc::new(ServiceContext::new(
+            Arc::clone(&services),
+            runtime,
+            sidecar,
+            thread_observer,
+        ));
         let implementations: [Arc<dyn HarnessService>; 3] = [
             Arc::new(Service::new(Arc::clone(&context), claude::ClaudeDriver)),
             Arc::new(Service::new(Arc::clone(&context), codex::CodexDriver)),

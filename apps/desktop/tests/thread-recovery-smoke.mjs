@@ -21,7 +21,7 @@ const data = resolve(fixture, 'data'), projectPath = resolve(fixture, 'project')
 for (const path of [projectPath, otherPath, resolve(fixture, 'native-store'), resolve(fixture, 'tmp')]) await mkdir(path);
 const output = resolve(workspace, '.prototype-evidence'); await mkdir(output, { recursive: true });
 const evidence = { check: 'thread-recovery-ui', status: 'running', stage: 'prepare', checks: {},
-  scope: 'Actual Recover session UI and IPC with synthetic metadata in a fresh private DB. No harness, account, native crash or real job-cleanup qualification.' };
+  scope: 'Actual Recover session UI and IPC with synthetic metadata in a fresh private DB. Refresh is injected into the already registered frontend callback; backend event delivery is not covered. No harness, account, native event, native crash or real job-cleanup qualification.' };
 const save = () => writeFile(resolve(output, 'thread-recovery.json'), `${JSON.stringify(evidence, null, 2)}\n`);
 const stage = async value => { evidence.stage = value; await save(); };
 const pathKey = path => path.replace(/^\\\\\?\\/, '').replaceAll('/', '\\').replace(/\\+$/, '').toLowerCase();
@@ -162,6 +162,37 @@ try {
   const repeated = await reply('thread_recover', { request: { ...request(dead), expectedRevision: 2 } }); require(!repeated.ok && saved(dead).revision === 2, 'recovery-repeated');
   require((await read('terminal_list')).length === 0 && JSON.parse(database.prepare('SELECT value FROM setting WHERE key=?').get(ledgerKey).value).slots.length === 0, 'unexpected-native-launch');
   evidence.checks.recoverClosesOnceConsumesExactReceiptAndShowsResumeWithoutLaunching = true;
+  await stage('notification-refresh');
+  // Mutate only this fixture's acknowledged thread metadata. Production permits
+  // event listen/unlisten, deliberately not frontend emit. Tauri 2.12.5's pinned
+  // event/listener.rs and scripts/core.js expose this internal callback seam.
+  // It exercises the registered UI listener, not Rust emission or a DOM patch.
+  database.prepare('UPDATE thread SET title=?,revision=revision+1,updated_at=max(updated_at,?) WHERE id=?').run('Synthetic lifecycle update', Date.now(), dead.thread);
+  // Bounded reason codes only: fixed strings plus entry counts. No native data,
+  // event names beyond the two the fixture itself registered, or payload leaves.
+  // Tauri defines listener entries with Object.defineProperty (non-enumerable),
+  // so own property names are the only complete view.
+  const delivered = await page.evaluate(payload => {
+    const root = window.__internal_unstable_listeners_object_id__;
+    if (root === undefined) return 'no-listeners-object';
+    const listeners = root['thread-changed'];
+    if (listeners === undefined) return `thread-changed-absent:${Object.getOwnPropertyNames(root).length}`;
+    const ids = Object.getOwnPropertyNames(listeners);
+    if (ids.length !== 1) return `unexpected-entry-count:${ids.length}`;
+    const listener = listeners[ids[0]];
+    if (!Number.isSafeInteger(Number(ids[0]))) return 'non-integer-event-id';
+    if (!Number.isSafeInteger(listener?.handlerId)) return 'non-integer-handler-id';
+    if (!window.__TAURI_INTERNALS__?.callbacks?.has(listener.handlerId)) return 'callback-not-registered';
+    window.__TAURI_INTERNALS__.runCallback(listener.handlerId, { event: 'thread-changed', id: Number(ids[0]), payload });
+    return 'delivered';
+  }, { projectId, threadId: dead.thread });
+  require(delivered === 'delivered', `registered-notification-callback-unavailable:${delivered}`);
+  evidence.notificationDeliveryMode = 'synthetic-registered-frontend-callback';
+  const selectedAnchor = sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${dead.thread}"]`);
+  await expect(selectedAnchor.locator('.thread-sidebar-title')).toHaveText('Synthetic lifecycle update');
+  evidence.checks.notificationRefresh = true;
+  await expect(selectedAnchor).toHaveAttribute('aria-pressed', 'true');
+  evidence.checks.selectionPreserved = true;
   require(pageErrors === 0, 'webview-script-error'); database.close(); database = null;
   await closeFrame(); require(app.exitCode === 0, 'owned-app-exit-code'); evidence.checks.ownedFrameExit = true;
   evidence.status = 'passed'; evidence.stage = 'complete'; await save(); console.log('PASS: synthetic Recover session UI, refusals, exact finalization and no harness launch.');

@@ -1,7 +1,7 @@
 //! Shared blocking harness workflow. Tauri schedules it; drivers supply recipes.
 use super::{
     AgentCheckup, AgentStarted, BoxHome, CanaryOwner, CursorReplies, ProgramState, StepState,
-    check_directory_budget, empty_set, prepare_box,
+    ThreadObserver, check_directory_budget, empty_set, prepare_box,
 };
 use crate::{sidecar, storage::Services, terminal_runtime::Runtime};
 use serde_json::Value;
@@ -132,6 +132,7 @@ pub(super) struct BindingContext<'a> {
     pub thread: &'a ThreadRecord,
     pub root: &'a StoreRootRecord,
     pub operation: &'a SessionOperation,
+    pub thread_observer: ThreadObserver,
 }
 pub(super) struct PreparedTrial {
     pub launch: PreparedLaunch,
@@ -191,17 +192,20 @@ pub(super) struct ServiceContext {
     pub services: Arc<Services>,
     pub runtime: Arc<Runtime>,
     pub sidecar: Arc<sidecar::Controller>,
+    pub thread_observer: ThreadObserver,
 }
 impl ServiceContext {
     pub(super) fn new(
         services: Arc<Services>,
         runtime: Arc<Runtime>,
         sidecar: Arc<sidecar::Controller>,
+        thread_observer: ThreadObserver,
     ) -> Self {
         Self {
             services,
             runtime,
             sidecar,
+            thread_observer,
         }
     }
     fn ensure_sidecar(&self) -> Result<(), ServiceError> {
@@ -748,6 +752,7 @@ impl<D: HarnessDriver> Service<D> {
                     thread: &thread,
                     root: &root,
                     operation: &operation,
+                    thread_observer: Arc::clone(&self.context.thread_observer),
                 },
             )?;
             let prepared: SealedSession = prepared.into();

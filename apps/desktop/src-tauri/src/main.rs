@@ -577,10 +577,19 @@ fn main() {
                 ));
                 let sidecar = Arc::new(sidecar::Controller::new(services.clone(), runtime.clone()));
                 app.manage(Arc::new(sessions::Controller::new(services.clone(), runtime.clone())));
+                let thread_window = app.handle().clone();
                 app.manage(Arc::new(agents::Controller::new(
                     services.clone(),
                     runtime.clone(),
                     sidecar.clone(),
+                    Arc::new(move |project_id, thread_id| {
+                        // Only saved selectors leave the lifecycle observer. The
+                        // frontend re-reads bounded metadata; no native data or
+                        // action authority is carried by this notification.
+                        let _ = thread_window.emit_to("main", "thread-changed", serde_json::json!({
+                            "projectId": project_id, "threadId": thread_id,
+                        }));
+                    }),
                 )));
                 app.manage(sidecar);
                 app.manage(runtime);

@@ -153,6 +153,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
   let editing: ThreadSummary | null = null; let renameNeedsReload = false;
   let pendingState: ThreadSidebarState | null = null; let saveTimer = 0;
   let pendingProjectRead = false;
+  let pendingChangedProject: string | null = null; let changeTimer = 0;
   let drag: { pointer: number; x: number; before: ThreadSidebarState } | null = null;
   const anchors = new Map<string, HTMLLIElement>();
   const renderedRows = new WeakMap<HTMLLIElement, ThreadSummary>();
@@ -191,6 +192,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
           editing = null;
           selected = actual.id; render();
           try { options.onSelect?.(Object.freeze({ ...actual })); } catch { options.reportError('Thread selection could not be shown. No agent was started.'); }
+          scheduleThreadRead();
         };
       }
       const anchor = node.firstElementChild as HTMLButtonElement;
@@ -229,13 +231,31 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
       metadata('Saved status', { unbound: 'No native session linked', inactive: 'Recorded inactive', recorded_open: 'Recorded open; activity unknown', archived: 'Archived' }[chosen.status]);
     }
   }
-  function reset() { page = null; cursor = null; history = []; selected = null; editing = null; renameNeedsReload = false; failed = false; }
+  function reset() { page = null; cursor = null; history = []; selected = null; editing = null; renameNeedsReload = false; failed = false; pendingChangedProject = null; window.clearTimeout(changeTimer); changeTimer = 0; }
   function afterOperation() {
     busy = null; render();
     if (!destroyed && pendingProjectRead && selectedProject) {
       pendingProjectRead = false; void read(null, 'reload'); return;
     }
     if (!destroyed && pendingState) scheduleSave();
+    scheduleThreadRead();
+  }
+  // One pending refresh per selected project, driven only by committed backend
+  // notifications. Editing and in-flight operations keep their current state;
+  // after they finish, a single bounded read consumes the pending change.
+  function scheduleThreadRead() {
+    if (destroyed || busy || editing || renameNeedsReload || changeTimer || !selectedProject || pendingChangedProject !== selectedProject) return;
+    changeTimer = window.setTimeout(() => {
+      changeTimer = 0;
+      if (destroyed || busy || editing || renameNeedsReload || !selectedProject || pendingChangedProject !== selectedProject) return;
+      pendingChangedProject = null;
+      void read(null, 'reload', true);
+    }, 100);
+  }
+  function notifyThreadChanged(value: unknown) {
+    if (destroyed || !record(value) || !projectId(value.projectId) || !threadId(value.threadId) || value.projectId !== selectedProject) return;
+    pendingChangedProject = value.projectId;
+    scheduleThreadRead();
   }
   function scheduleSave() {
     if (destroyed || !options.saveState || saveTimer) return;
@@ -252,9 +272,11 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     catch { if (!destroyed) options.reportError('Sidebar display could not be saved. The current display is preserved.'); }
     finally { afterOperation(); }
   }
-  async function read(requested: ThreadCursor | null, direction: 'reload' | 'previous' | 'next') {
+  async function read(requested: ThreadCursor | null, direction: 'reload' | 'previous' | 'next', preserveSelection = false) {
     if (destroyed || busy || !selectedProject) return false;
-    const project = selectedProject; const at = generation; editing = null; busy = 'list'; failed = false; render();
+    const project = selectedProject; const at = generation; const previousSelection = selected;
+    pendingChangedProject = null; window.clearTimeout(changeTimer); changeTimer = 0;
+    editing = null; busy = 'list'; failed = false; render();
     try {
       const result = pageValue(await options.list({ projectId: project, cursor: requested, limit: 50 }), project, requested);
       if (!result) throw new Error('Invalid bounded thread projection');
@@ -262,12 +284,15 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
       if (direction === 'reload') history = [];
       else if (direction === 'next') { history.push(cursor); if (history.length > 64) history.shift(); }
       else history.pop();
-      page = result; cursor = requested; selected = null; renameNeedsReload = false;
-      message = page.rows.length ? 'Select a thread to view its details.' : 'No saved threads in this project.';
+      page = result; cursor = requested;
+      selected = preserveSelection && result.rows.some(row => row.id === previousSelection) ? previousSelection : null;
+      renameNeedsReload = false;
+      message = selected ? 'Saved threads updated.' : page.rows.length ? 'Select a thread to view its details.' : 'No saved threads in this project.';
       return true;
     } catch (error) {
       if (!destroyed && at === generation && selectedProject === project) {
-        reset(); failed = true; message = failureText(error); options.reportError(message);
+        if (!preserveSelection) reset();
+        failed = true; message = preserveSelection ? 'Saved thread updates are unavailable. Reload threads.' : failureText(error); options.reportError(message);
       }
       return false;
     } finally { afterOperation(); }
@@ -360,6 +385,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     if (busy) return;
     editing = null; render();
     if (renameNeedsReload) reload.focus(); else rename.focus();
+    scheduleThreadRead();
   }
   renameCancel.onclick = cancelRename;
   renameForm.onkeydown = event => {
@@ -514,7 +540,8 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
   return {
     element, setProject, setProjects, currentProjectId: (): string | null => selectedProject,
     refreshCapabilities: render,
+    notifyThreadChanged,
     refresh: () => read(null, 'reload'), state: (): Readonly<ThreadSidebarState> => Object.freeze({ ...display }),
-    destroy() { destroyed = true; generation++; window.clearTimeout(saveTimer); pendingState = null; cancelDrag(); anchors.clear(); element.remove(); },
+    destroy() { destroyed = true; generation++; window.clearTimeout(saveTimer); window.clearTimeout(changeTimer); pendingState = null; pendingChangedProject = null; cancelDrag(); anchors.clear(); element.remove(); },
   };
 }

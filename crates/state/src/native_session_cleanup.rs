@@ -409,6 +409,19 @@ impl Database {
         Ok(owner)
     }
 
+    /// Bounded exact join lookup for the owning runtime's idempotent cleanup.
+    /// Absence does not prove native cleanup or authorize recovery.
+    pub fn native_session_owner(&self, instance_id: &str) -> Result<Option<NativeSessionOwner>> {
+        validate_id(instance_id, CanonicalIdKind::Instance).map_err(|_| CleanupError::Invalid)?;
+        let connection = self.lock()?;
+        crate::schema::require_write_version(&connection)?;
+        Ok(read(&connection)?
+            .entries
+            .iter()
+            .find(|entry| entry.owner.activation.instance_id == instance_id)
+            .map(|entry| entry.owner.clone()))
+    }
+
     pub fn native_session_cleanup(
         &self,
         instance_id: &str,

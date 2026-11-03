@@ -11,6 +11,9 @@ pub mod checkup;
 pub mod launch;
 pub mod native_launch;
 pub mod claude_session_events;
+pub mod harness_session_events;
+#[cfg(windows)]
+pub(crate) mod harness_hooks;
 pub mod resources;
 #[cfg(feature = "session-reader")]
 pub mod session_roots;

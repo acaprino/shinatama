@@ -554,6 +554,10 @@ async function initialize() {
   }
   try {
     await loadHarnessCatalog();
+    const stopThreadUpdates = await listen<unknown>('thread-changed', ({ payload }) => {
+      threadSidebar?.notifyThreadChanged(payload);
+    }).catch(() => null);
+    window.addEventListener('pagehide', () => { stopThreadUpdates?.(); }, { once: true });
     await attentionControl.initialize();
     await listen<{sessionId: string | null}>('attention-focus', ({ payload }) => {
       if (!payload.sessionId) return;

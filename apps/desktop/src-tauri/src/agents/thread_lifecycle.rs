@@ -1,6 +1,12 @@
-//! Trusted Claude ownership; hook observations never prove native cleanup.
+//! Shared trusted harness ownership; hook observations never prove native cleanup.
+#[cfg(test)]
+mod tests;
+use super::{ThreadObserver, notify_thread_changed};
 use shinatama_engine::{
-    claude_session_events::{ClaudeSessionEventReceiver, ReadError, SessionEventKind},
+    harness_session_events::{
+        HarnessKind, ReadError, SessionEvent, SessionEventKind, SessionEventReceiver,
+        SessionStartSource,
+    },
     launch::identity::LaunchIdentityRecord,
     resources::sampling::ProcessKey,
 };
@@ -34,7 +40,9 @@ pub(super) enum PendingThread {
     Start {
         thread: ThreadRecord,
         root: StoreRootRecord,
-        native_id: String,
+        /// Claude seals its UUID before launch; Codex reports its own UUID in
+        /// the first authenticated SessionStart. Never manufacture that ID.
+        native_id: Option<String>,
     },
     Resume(ThreadResumeTarget),
 }
@@ -43,13 +51,17 @@ struct State {
     owner: Option<ActivationOwner>,
     activation: Option<ActivationRecord>,
     attempted: bool,
+    observed_start: bool,
+    owner_bound: bool,
+    ack_attempted: bool,
     complete: bool,
 }
 struct Core {
     database: Arc<Database>,
     identity: LaunchIdentityRecord,
     root: StoreRootRecord,
-    requested: String,
+    requested: Option<String>,
+    harness: HarnessKind,
     resume: Option<SegmentRecord>,
     process: OnceLock<ProcessKey>,
     reservation: OnceLock<ReservationTicket>,
@@ -58,10 +70,11 @@ struct Core {
     failed: AtomicBool,
     done: AtomicBool,
     deadline: Mutex<Option<Instant>>,
+    thread_observer: ThreadObserver,
 }
 pub(super) struct ThreadLifecycle {
     core: Arc<Core>,
-    receiver: Mutex<Option<ClaudeSessionEventReceiver>>,
+    receiver: Mutex<Option<SessionEventReceiver>>,
     worker: Mutex<Option<Thread>>,
 }
 impl ThreadLifecycle {
@@ -69,7 +82,8 @@ impl ThreadLifecycle {
         database: Arc<Database>,
         pending: PendingThread,
         identity: LaunchIdentityRecord,
-        receiver: ClaudeSessionEventReceiver,
+        receiver: SessionEventReceiver,
+        thread_observer: ThreadObserver,
     ) -> Result<Arc<Self>> {
         let (thread, root, requested, resume) = match pending {
             PendingThread::Start {
@@ -80,25 +94,33 @@ impl ThreadLifecycle {
             PendingThread::Resume(target) => {
                 if target.recorded_activation.is_some()
                     || !target.segment.native.matches_root(&target.root)
-                    || target.segment.harness != "claude_code"
+                    || target.segment.harness != target.root.harness
                 {
                     return Err(BINDING);
                 }
                 (
                     target.thread,
                     target.root,
-                    target.segment.native.native_id.clone(),
+                    Some(target.segment.native.native_id.clone()),
                     Some(target.segment),
                 )
             }
         };
-        let uuid = uuid::Uuid::parse_str(&requested).map_err(|_| BINDING)?;
-        if uuid.hyphenated().to_string() != requested
-            || uuid.get_variant() != uuid::Variant::RFC4122
-            || uuid.get_version().is_none()
-            || thread.id != identity.thread_id
+        let harness = receiver.harness();
+        if let Some(requested) = &requested {
+            let uuid = uuid::Uuid::parse_str(requested).map_err(|_| BINDING)?;
+            if uuid.hyphenated().to_string() != *requested
+                || uuid.get_variant() != uuid::Variant::RFC4122
+                || uuid.get_version().is_none()
+            {
+                return Err(BINDING);
+            }
+        } else if harness != HarnessKind::Codex || resume.is_some() {
+            return Err(BINDING);
+        }
+        if thread.id != identity.thread_id
             || thread.archived
-            || root.harness != "claude_code"
+            || root.harness != harness.id()
             || identity.ended_at_utc_ms.is_some()
             || identity.token_sha256 == [0; 32]
         {
@@ -115,6 +137,7 @@ impl ThreadLifecycle {
                 identity,
                 root,
                 requested,
+                harness,
                 resume,
                 process: OnceLock::new(),
                 reservation: OnceLock::new(),
@@ -123,12 +146,16 @@ impl ThreadLifecycle {
                     owner: None,
                     activation: None,
                     attempted: false,
+                    observed_start: false,
+                    owner_bound: false,
+                    ack_attempted: false,
                     complete: false,
                 }),
                 stop: AtomicBool::new(false),
                 failed: AtomicBool::new(false),
                 done: AtomicBool::new(true),
                 deadline: Mutex::new(None),
+                thread_observer,
             }),
             receiver: Mutex::new(Some(receiver)),
             worker: Mutex::new(None),
@@ -176,12 +203,14 @@ impl ThreadLifecycle {
         core.database
             .bind_native_session_owner(reservation, state.owner.as_ref().ok_or(BINDING)?, now()?)
             .map_err(|_| TRACKING)?;
-        // Reserve the explicitly sealed UUID before ResumeShell. This is not a
-        // hook observation or proof of a persisted native conversation.
-        state.attempted = true;
-        if apply(core, &mut state, &core.requested).is_err() {
-            core.failed.store(true, Ordering::Release);
-            return Err(TRACKING);
+        state.owner_bound = true;
+        // Reserve an explicitly sealed UUID before ResumeShell. A fresh Codex
+        // launch has no native ID yet: only its exact owner is recorded now.
+        if let Some(requested) = &core.requested {
+            if apply(core, &mut state, requested).is_err() {
+                core.failed.store(true, Ordering::Release);
+                return Err(TRACKING);
+            }
         }
         drop(state);
         let receiver = self
@@ -193,7 +222,7 @@ impl ThreadLifecycle {
         core.done.store(false, Ordering::Release);
         let shared = Arc::clone(core);
         let spawned = thread::Builder::new()
-            .name("claude-thread-events".into())
+            .name("harness-thread-events".into())
             .spawn(move || {
                 if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     consume(&shared, receiver)
@@ -282,7 +311,22 @@ impl ThreadLifecycle {
             {
                 return Err(TRACKING);
             }
+            if state.owner_bound && receipt.is_none() {
+                // Codex may exit before reporting its UUID. Its saved job join
+                // still needs a cleanup receipt. Absence is acceptable only
+                // when retrying our own uncertain acknowledgement commit.
+                if !state.ack_attempted
+                    || core
+                        .database
+                        .native_session_owner(instance)
+                        .map_err(|_| TRACKING)?
+                        .is_some()
+                {
+                    return Err(TRACKING);
+                }
+            }
             if let Some(receipt) = &receipt {
+                state.ack_attempted = true;
                 core.database
                     .acknowledge_native_session_cleanup(receipt)
                     .map_err(|_| TRACKING)?;
@@ -326,6 +370,11 @@ impl ThreadLifecycle {
         };
         state.activation = Some(ended);
         state.complete = true;
+        notify_thread_changed(
+            &core.thread_observer,
+            &state.thread.project_id,
+            &state.thread.id,
+        );
         Ok(())
     }
 }
@@ -384,6 +433,7 @@ fn initial_target(core: &Core, thread: &str) -> Result<()> {
     }
 }
 fn apply(core: &Core, state: &mut State, session: &str) -> Result<()> {
+    state.attempted = true;
     let native = NativeSessionKey {
         store_root_id: core.root.id.clone(),
         store_revision: core.root.config_revision,
@@ -404,7 +454,7 @@ fn apply(core: &Core, state: &mut State, session: &str) -> Result<()> {
                 thread_id: &state.thread.id,
                 expected_thread_revision: state.thread.revision,
                 candidate_segment_id: &candidate,
-                harness: "claude_code",
+                harness: core.harness.id(),
                 native: &native,
                 owner,
                 expected_activation: state.activation.as_ref().map(ActivationRecord::version),
@@ -414,6 +464,13 @@ fn apply(core: &Core, state: &mut State, session: &str) -> Result<()> {
             Ok(value) => {
                 state.thread = value.thread;
                 state.activation = Some(value.activation);
+                if value.changed {
+                    notify_thread_changed(
+                        &core.thread_observer,
+                        &state.thread.project_id,
+                        &state.thread.id,
+                    );
+                }
                 return Ok(());
             }
             Err(ThreadError::Conflict) if attempt == 0 => {
@@ -439,7 +496,33 @@ fn apply(core: &Core, state: &mut State, session: &str) -> Result<()> {
     }
     Err(TRACKING)
 }
-fn consume(core: &Core, receiver: ClaudeSessionEventReceiver) {
+fn observe_start(core: &Core, state: &mut State, event: &SessionEvent) -> Result<()> {
+    if event.kind != SessionEventKind::SessionStart
+        || event.instance_id != core.identity.instance_id
+        || event.thread_id != core.identity.thread_id
+    {
+        return Err(BINDING);
+    }
+    if core.harness == HarnessKind::Codex && !state.observed_start {
+        let expected = if core.resume.is_some() {
+            SessionStartSource::Resume
+        } else {
+            SessionStartSource::Startup
+        };
+        if event.source != Some(expected)
+            || core
+                .requested
+                .as_ref()
+                .is_some_and(|id| id != &event.session_id)
+        {
+            return Err(BINDING);
+        }
+    }
+    apply(core, state, &event.session_id)?;
+    state.observed_start = true;
+    Ok(())
+}
+fn consume(core: &Core, receiver: SessionEventReceiver) {
     loop {
         let stopping = core.stop.load(Ordering::Acquire);
         if stopping {
@@ -467,7 +550,7 @@ fn consume(core: &Core, receiver: ClaudeSessionEventReceiver) {
                         .state
                         .lock()
                         .map_err(|_| TRACKING)
-                        .and_then(|mut state| apply(core, &mut state, &event.session_id));
+                        .and_then(|mut state| observe_start(core, &mut state, &event));
                     if result.is_err() {
                         core.failed.store(true, Ordering::Release);
                         receiver.stop();
