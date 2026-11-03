@@ -4,7 +4,7 @@ type Policy = {
   stage: 'normal' | 'reduce_optional' | 'defer_starts';
   reason: string;
   reduce_optional: boolean;
-  native_launch_enabled: boolean;
+  defer_new_starts: boolean;
 };
 export type ResourceTelemetryReply = {
   accepted: boolean;
@@ -41,6 +41,6 @@ export function renderResourceStatus(reply: ResourceTelemetryReply) {
     `System commit headroom: ${memory(reply.resources.system_remaining_commit_bytes)}`,
     `Observed processes: ${reply.resources.observed_processes ?? 'unavailable'}`,
     `Optional background work: ${policy?.reduce_optional ? 'paused' : checking ? 'waiting for measurements' : 'available'}`,
-    `Native agent launches: ${policy?.native_launch_enabled ? 'available' : 'unavailable'}`,
+    `New sessions: ${checking ? 'waiting for measurements' : policy?.defer_new_starts ? 'waiting for resources' : 'checked individually against available limits'}`,
   ].join('\n');
 }

@@ -151,6 +151,12 @@ pub struct ResourceGovernor {
     #[cfg(windows)]
     worker: Thread,
 }
+#[derive(Clone)]
+pub struct GovernorReader {
+    shared: Arc<Shared>,
+    #[cfg(windows)]
+    monitor: Arc<ResourceMonitor>,
+}
 impl ResourceGovernor {
     /// Start once with explicit, unqualified configuration. The callback must be
     /// cheap, nonblocking and contain no native/SQL work. No launch is enabled.
@@ -232,6 +238,18 @@ impl ResourceGovernor {
     }
     /// No native reads, joins, SQL or waiting on the worker/monitor mutex. A read
     /// error is unavailable advice: callers must keep new starts deferred.
+    pub fn status(&self) -> Result<Snapshot, ReadError> {
+        self.reader().status()
+    }
+    pub fn reader(&self) -> GovernorReader {
+        GovernorReader {
+            shared: Arc::clone(&self.shared),
+            #[cfg(windows)]
+            monitor: Arc::clone(&self.monitor),
+        }
+    }
+}
+impl GovernorReader {
     pub fn status(&self) -> Result<Snapshot, ReadError> {
         let snapshot = match self.shared.latest.try_lock() {
             Ok(latest) => *latest,

@@ -1,7 +1,7 @@
 // Presentation and opaque resource references only. This module has no runtime,
 // filesystem, PTY, process, browser or persistence effects.
 export const WORKSPACE_LIMITS = Object.freeze({ views: 64, groups: 32, nodes: 63, depth: 12, jsonBytes: 262_144 });
-export const MIN_PANE_SIZE = Object.freeze({ width: 160, height: 96 });
+export const MIN_PANE_SIZE = Object.freeze({ width: 160, height: 144 });
 export type Axis = 'columns' | 'rows';
 export type Direction = 'left' | 'right' | 'up' | 'down';
 export type GatedPanelKind = 'acp' | 'companion' | 'sessions' | 'files' | 'markdown' | 'preview' | 'browser' | 'mini-app';
@@ -35,6 +35,7 @@ export type NativeCapabilities = typeof NATIVE_CAPABILITIES;
 
 type Edge = { readonly axis: Axis; readonly side: 'before' | 'after'; readonly newGroupId: string; readonly newSplitId: string };
 export type LayoutAction =
+  | { readonly type: 'remove-view'; readonly viewId: string }
   | { readonly type: 'add-view'; readonly groupId: string; readonly view: PanelView; readonly index?: number }
   | ({ readonly type: 'split'; readonly groupId: string; readonly view: PanelView } & Edge)
   | { readonly type: 'move'; readonly viewId: string; readonly groupId: string; readonly index?: number; readonly edge?: Edge }
@@ -209,6 +210,12 @@ export function reduceWorkspaceLayout(original: WorkspaceLayout, action: LayoutA
     const group = (groupId: string): TabGroup => { const found = tabGroups(root).find(group => group.id === groupId); if (!found) fail('unknown-target'); return found; };
     const panel = (viewId: string): PanelView => { const found = views.find(view => view.id === viewId); if (!found) fail('unknown-target'); return found; };
     switch (action.type) {
+      case 'remove-view': {
+        panel(action.viewId);
+        views = views.filter(view => view.id !== action.viewId);
+        root = mapNode(root, node => node.kind === 'group' ? { ...node, tabs: node.tabs.filter(tab => tab !== action.viewId) } : node);
+        break;
+      }
       case 'add-view': case 'split': {
         const target = group(action.groupId); const added = view(action.view); views.push(added);
         root = mapNode(root, node => node.id !== target.id ? node : action.type === 'add-view'

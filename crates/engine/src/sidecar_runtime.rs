@@ -392,16 +392,44 @@ pub fn prepare_runtime(
     held[2]
         .verify_private_file(&config)
         .map_err(|_| PreparationError::PrivateRootUnavailable)?;
-    let environment = environment(root, &node.executable, os_snapshot)?;
-    let argv = arguments(&bundle.entry, &config, port);
+    // Node's Windows main-module realpath rejects canonical \\?\ drive spelling
+    // (EISDIR at the drive). Keep canonical identity checks and file grants;
+    // use only an equivalent local DOS spelling at the child boundary.
+    let child_root = node_path(root)?;
+    let child_entry = node_path(&bundle.entry)?;
+    let child_config = node_path(&config)?;
+    let child_node = node_path(&node.executable)?;
+    let environment = environment(&child_root, &child_node, os_snapshot)?;
+    let argv = arguments(&child_entry, &child_config, port);
     Ok(SidecarRuntimeRecipe {
         bundle,
         node,
         _private_locations: held,
-        cwd: root.to_path_buf(),
+        cwd: child_root,
         argv,
         environment,
     })
+}
+fn node_path(path: &Path) -> Result<PathBuf, PreparationError> {
+    valid_absolute(path)?;
+    #[cfg(windows)]
+    {
+        use std::path::Prefix;
+        let Some(Component::Prefix(prefix)) = path.components().next() else {
+            return Err(PreparationError::InvalidPath);
+        };
+        match prefix.kind() {
+            Prefix::Disk(_) => Ok(path.to_owned()),
+            Prefix::VerbatimDisk(drive) => {
+                let mut compatible = PathBuf::from(format!("{}:", char::from(drive)));
+                compatible.extend(path.components().skip(1).map(|part| part.as_os_str()));
+                Ok(compatible)
+            }
+            _ => Err(PreparationError::InvalidPath),
+        }
+    }
+    #[cfg(not(windows))]
+    Ok(path.to_owned())
 }
 fn arguments(entry: &Path, config: &Path, port: NonZeroU16) -> Vec<OsString> {
     // Exact canonical cli.ts parser: start (398-405), --host/--port/--config
@@ -660,6 +688,22 @@ mod tests {
                 "private.json",
                 "--no-auto-update"
             ]
+        );
+    }
+    #[cfg(windows)]
+    #[test]
+    fn node_child_paths_use_equivalent_dos_spelling_without_losing_unicode() {
+        assert_eq!(
+            node_path(Path::new(r"\\?\D:\synthetic\資料 ü\index.js")).unwrap(),
+            PathBuf::from(r"D:\synthetic\資料 ü\index.js")
+        );
+        assert_eq!(
+            node_path(Path::new(r"C:\synthetic\config.json")).unwrap(),
+            PathBuf::from(r"C:\synthetic\config.json")
+        );
+        assert_eq!(
+            node_path(Path::new(r"\\?\UNC\server\share\index.js")),
+            Err(PreparationError::InvalidPath)
         );
     }
     #[cfg(windows)]

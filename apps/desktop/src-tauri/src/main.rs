@@ -1,21 +1,36 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#[cfg(windows)]
+mod agents;
 mod launch;
 pub mod maintenance;
 mod new_project;
+mod presentation;
 mod projects;
 mod resource_governor;
 mod resources;
+#[cfg(windows)]
+mod sidecar;
 mod storage;
-mod workspace;
+#[cfg(windows)]
+mod terminal_runtime;
 #[cfg(feature = "tl1-proof")]
 mod tl1;
+mod workspace;
 use shinatama_state::database::{DatabaseAccess, ProjectRecord as ProjectEntry};
 use shinatama_terminal::{OutputBatch, SessionInfo, TerminalHost};
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    path::PathBuf,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+};
 use tauri::{Emitter, Manager, State};
 type Host = Arc<TerminalHost>;
 type Services = Arc<storage::Services>;
 type Maintenance = Arc<maintenance::Controller>;
+#[derive(Default)]
+struct ExitIntent(AtomicBool);
 
 #[tauri::command]
 fn maintenance_activity(
@@ -156,14 +171,26 @@ async fn terminal_start(
     cols: u16,
 ) -> Result<SessionInfo, String> {
     local(&window)?;
+    if window.state::<ExitIntent>().0.load(Ordering::Acquire) {
+        return Err("This window is closing; no new terminal was started.".into());
+    }
     let host = host.inner().clone();
     let services = services.inner().clone();
+    #[cfg(windows)]
+    let runtime = window
+        .state::<Arc<terminal_runtime::Runtime>>()
+        .inner()
+        .clone();
     tauri::async_runtime::spawn_blocking(move || {
         services
             .load()?
             .location
             .validate_project(&PathBuf::from(&cwd))
             .map_err(|e| e.to_string())?;
+        #[cfg(windows)]
+        runtime.configure(&host)?;
+        #[cfg(windows)]
+        runtime.wait_for_admission()?;
         host.start(&PathBuf::from(cwd), rows, cols)
             .map_err(|e| format!("{e:#}"))
     })
@@ -178,6 +205,18 @@ fn terminal_list(
 ) -> Result<Vec<SessionInfo>, String> {
     local(&window)?;
     Ok(host.list())
+}
+#[tauri::command]
+fn terminal_resources(
+    window: tauri::WebviewWindow,
+    host: State<'_, Host>,
+) -> Result<serde_json::Value, String> {
+    local(&window)?;
+    #[cfg(windows)]
+    return serde_json::to_value(host.resources())
+        .map_err(|_| "Terminal resource information is unavailable.".into());
+    #[cfg(not(windows))]
+    Ok(serde_json::json!([]))
 }
 #[tauri::command]
 fn terminal_read(
@@ -233,14 +272,157 @@ async fn terminal_shutdown(
 ) -> Result<(), String> {
     local(&window)?;
     let host = host.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || host.shutdown())
-        .await
-        .map_err(|e| e.to_string())
+    #[cfg(windows)]
+    let sidecar = window.state::<Arc<sidecar::Controller>>().inner().clone();
+    #[cfg(windows)]
+    window
+        .state::<Arc<terminal_runtime::Runtime>>()
+        .request_shutdown();
+    tauri::async_runtime::spawn_blocking(move || {
+        host.shutdown();
+        #[cfg(windows)]
+        sidecar.stop_and_wait(std::time::Duration::from_secs(6));
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    // Explicit shutdown has already performed bounded cleanup. Unconfirmed jobs
+    // retain reservations; they must not trap the user in a close-confirm loop.
+    window
+        .state::<ExitIntent>()
+        .0
+        .store(true, Ordering::Release);
+    Ok(())
+}
+fn sidecar_active(window: &tauri::Window) -> bool {
+    #[cfg(windows)]
+    return window.state::<Arc<sidecar::Controller>>().is_active();
+    #[cfg(not(windows))]
+    false
+}
+#[tauri::command]
+fn agent_status(window: tauri::WebviewWindow) -> Result<serde_json::Value, String> {
+    local(&window)?;
+    #[cfg(windows)]
+    return Ok(window.state::<Arc<agents::Controller>>().diagnostics());
+    #[cfg(not(windows))]
+    Ok(serde_json::json!({"checking":false,"blocked":false}))
+}
+#[tauri::command]
+async fn agent_check(
+    window: tauri::WebviewWindow,
+    agent_id: String,
+) -> Result<serde_json::Value, String> {
+    local(&window)?;
+    if window.state::<ExitIntent>().0.load(Ordering::Acquire) {
+        return Err("This window is closing.".into());
+    }
+    #[cfg(windows)]
+    {
+        let owner = window.state::<Arc<agents::Controller>>().inner().clone();
+        let checked = owner.check(&agent_id).await.map_err(str::to_owned)?;
+        return serde_json::to_value(checked).map_err(|_| "Agent status is unavailable.".into());
+    }
+    #[cfg(not(windows))]
+    Err("Agent checks are available on Windows.".into())
+}
+#[tauri::command]
+async fn agent_start(
+    window: tauri::WebviewWindow,
+    host: State<'_, Host>,
+    agent_id: String,
+    cwd: String,
+    rows: u16,
+    cols: u16,
+) -> Result<serde_json::Value, String> {
+    local(&window)?;
+    if window.state::<ExitIntent>().0.load(Ordering::Acquire) {
+        return Err("This window is closing.".into());
+    }
+    if cwd.len() > 4096 {
+        return Err("The selected project path is invalid.".into());
+    }
+    #[cfg(windows)]
+    {
+        let owner = window.state::<Arc<agents::Controller>>().inner().clone();
+        let started = owner
+            .start(
+                &agent_id,
+                host.inner().clone(),
+                PathBuf::from(cwd),
+                rows,
+                cols,
+            )
+            .await
+            .map_err(str::to_owned)?;
+        return serde_json::to_value(started)
+            .map_err(|_| "Agent startup status is unavailable.".into());
+    }
+    #[cfg(not(windows))]
+    Err("Agent startup is available on Windows.".into())
+}
+#[tauri::command]
+fn sidecar_status(window: tauri::WebviewWindow) -> Result<serde_json::Value, String> {
+    local(&window)?;
+    #[cfg(windows)]
+    return serde_json::to_value(window.state::<Arc<sidecar::Controller>>().status())
+        .map_err(|_| "Session index status is unavailable.".into());
+    #[cfg(not(windows))]
+    Err("The session index is available on Windows.".into())
+}
+#[tauri::command]
+fn sidecar_start(window: tauri::WebviewWindow) -> Result<serde_json::Value, String> {
+    local(&window)?;
+    if window.state::<ExitIntent>().0.load(Ordering::Acquire) {
+        return Err("This window is closing.".into());
+    }
+    #[cfg(windows)]
+    return window
+        .state::<Arc<sidecar::Controller>>()
+        .inner()
+        .start()
+        .map_err(str::to_owned)
+        .and_then(|status| {
+            serde_json::to_value(status).map_err(|_| "Session index status is unavailable.".into())
+        });
+    #[cfg(not(windows))]
+    Err("The session index is available on Windows.".into())
+}
+#[tauri::command]
+fn sidecar_stop(window: tauri::WebviewWindow) -> Result<serde_json::Value, String> {
+    local(&window)?;
+    #[cfg(windows)]
+    return window
+        .state::<Arc<sidecar::Controller>>()
+        .stop()
+        .map_err(str::to_owned)
+        .and_then(|status| {
+            serde_json::to_value(status).map_err(|_| "Session index status is unavailable.".into())
+        });
+    #[cfg(not(windows))]
+    Err("The session index is available on Windows.".into())
+}
+#[tauri::command]
+fn sidecar_retry(window: tauri::WebviewWindow) -> Result<serde_json::Value, String> {
+    local(&window)?;
+    if window.state::<ExitIntent>().0.load(Ordering::Acquire) {
+        return Err("This window is closing.".into());
+    }
+    #[cfg(windows)]
+    return window
+        .state::<Arc<sidecar::Controller>>()
+        .retry()
+        .map_err(str::to_owned)
+        .and_then(|status| {
+            serde_json::to_value(status).map_err(|_| "Session index status is unavailable.".into())
+        });
+    #[cfg(not(windows))]
+    Err("The session index is available on Windows.".into())
 }
 fn main() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(Arc::new(TerminalHost::default()))
+        .manage(ExitIntent::default())
         .manage(shinatama_engine::Engine::new())
         .manage(resources::Resources::start())
         .setup(|app| {
@@ -255,6 +437,24 @@ fn main() {
             app.manage(maintenance);
             app.manage(Arc::new(projects::ProjectCatalog::new(services.clone())));
             app.manage(Arc::new(workspace::Controller::new(services.clone())));
+            app.manage(Arc::new(presentation::Controller::new(services.clone())));
+            #[cfg(windows)]
+            {
+                let (monitor, governor) = app.state::<resources::Resources>().admission_inputs();
+                let runtime = Arc::new(terminal_runtime::Runtime::new(
+                    services.clone(),
+                    monitor,
+                    governor,
+                ));
+                let sidecar = Arc::new(sidecar::Controller::new(services.clone(), runtime.clone()));
+                app.manage(Arc::new(agents::Controller::new(
+                    services.clone(),
+                    runtime.clone(),
+                    sidecar.clone(),
+                )));
+                app.manage(sidecar);
+                app.manage(runtime);
+            }
             app.manage(services);
             Ok(())
         });
@@ -268,6 +468,15 @@ fn main() {
         workspace::workspace_release,
         workspace::workspace_recover,
         workspace::workspace_allow_close,
+        presentation::presentation_load,
+        presentation::presentation_save,
+        sidecar_status,
+        sidecar_start,
+        sidecar_stop,
+        sidecar_retry,
+        agent_check,
+        agent_status,
+        agent_start,
         storage_location,
         maintenance_activity,
         maintenance_status,
@@ -284,6 +493,7 @@ fn main() {
         new_project::new_project_create,
         terminal_start,
         terminal_list,
+        terminal_resources,
         terminal_read,
         terminal_write,
         terminal_resize,
@@ -300,6 +510,15 @@ fn main() {
         workspace::workspace_release,
         workspace::workspace_recover,
         workspace::workspace_allow_close,
+        presentation::presentation_load,
+        presentation::presentation_save,
+        sidecar_status,
+        sidecar_start,
+        sidecar_stop,
+        sidecar_retry,
+        agent_check,
+        agent_status,
+        agent_start,
         storage_location,
         maintenance_activity,
         maintenance_status,
@@ -316,6 +535,7 @@ fn main() {
         new_project::new_project_create,
         terminal_start,
         terminal_list,
+        terminal_resources,
         terminal_read,
         terminal_write,
         terminal_resize,
@@ -327,8 +547,10 @@ fn main() {
     builder
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event
+                && !window.state::<ExitIntent>().0.load(Ordering::Acquire)
                 && (!window.state::<Host>().list().is_empty()
-                    || window.state::<Arc<workspace::Controller>>().owns_layout())
+                    || window.state::<Arc<workspace::Controller>>().owns_layout()
+                    || sidecar_active(window))
             {
                 api.prevent_close();
                 let _ = window.emit("confirm-close", ());

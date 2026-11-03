@@ -1,13 +1,35 @@
-//! Window-owned PTYs for the experimental desktop shell. No UI or agent-store access.
+//! Window-owned terminals. Windows requires explicit resource admission and runs
+//! ConPTY only inside a contained helper. No UI or agent-store access.
+#[cfg(not(windows))]
 mod process_tree;
+#[cfg(windows)]
+pub mod protocol;
+#[cfg(windows)]
+pub mod windows_helper;
+#[cfg(windows)]
+mod windows_host;
+#[cfg(windows)]
+pub mod windows_pty;
+#[cfg(windows)]
+pub use windows_host::{
+    TerminalDirective, TerminalResourceLimits, TerminalResourceObservation, TerminalResourcePhase,
+    TerminalResourceQueues, TerminalResourceReason, TerminalResourceStatus, WindowsNativeAdmission,
+    WindowsTerminalAdmission, WindowsTerminalConfig,
+};
+pub type TerminalResult<T> = anyhow::Result<T>;
 
-use anyhow::{Context, Result, bail};
-use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
+#[cfg(not(windows))]
+use anyhow::Context;
+use anyhow::{Result, bail};
+use portable_pty::PtySize;
+#[cfg(not(windows))]
+use portable_pty::{Child, CommandBuilder, MasterPty, native_pty_system};
 use serde::Serialize;
+use std::path::Path;
+#[cfg(not(windows))]
 use std::{
     collections::BTreeMap,
     io::{Read, Write},
-    path::Path,
     sync::{
         Arc, Mutex,
         mpsc::{self, Receiver, SyncSender, TryRecvError},
@@ -55,11 +77,16 @@ pub struct OutputBatch {
     pub eof: bool,
     pub exit_code: Option<u32>,
     pub error: Option<String>,
+    #[cfg(windows)]
+    #[serde(skip)]
+    _queue_credits: Vec<shinatama_engine::resources::admission::QueueCredit>,
 }
+#[cfg(not(windows))]
 enum Output {
     Bytes(Vec<u8>),
     Error(String),
 }
+#[cfg(not(windows))]
 struct Session {
     info: SessionInfo,
     // Drop the receiver before closing ConPTY: a reader blocked on a full queue
@@ -70,6 +97,7 @@ struct Session {
     child: Mutex<Box<dyn Child + Send + Sync>>,
     tree: process_tree::ProcessTree,
 }
+#[cfg(not(windows))]
 impl Drop for Session {
     fn drop(&mut self) {
         self.tree.terminate();
@@ -79,9 +107,64 @@ impl Drop for Session {
         }
     }
 }
+#[cfg(not(windows))]
 #[derive(Default)]
 pub struct TerminalHost {
     sessions: Mutex<BTreeMap<String, Arc<Session>>>,
+}
+#[cfg(windows)]
+#[derive(Default)]
+pub struct TerminalHost {
+    windows: windows_host::WindowsTerminalHost,
+}
+#[cfg(windows)]
+impl TerminalHost {
+    pub fn configure_native_admission(
+        &self,
+        admission: std::sync::Arc<dyn WindowsNativeAdmission>,
+    ) -> Result<()> {
+        self.windows.configure_native_admission(admission)
+    }
+    /// Prepared plans and sealed permits are Rust-only and consumed per launch.
+    pub fn start_prepared(
+        &self,
+        launch: shinatama_engine::launch::PreparedLaunch,
+        permit: shinatama_engine::native_launch::NativeTuiPermit,
+        rows: u16,
+        cols: u16,
+    ) -> Result<SessionInfo> {
+        self.windows.start_prepared(launch, permit, rows, cols)
+    }
+    pub fn configure_windows(&self, config: WindowsTerminalConfig) -> Result<()> {
+        self.windows.configure(config)
+    }
+    pub fn start(&self, cwd: &Path, rows: u16, cols: u16) -> Result<SessionInfo> {
+        self.windows.start(cwd, rows, cols)
+    }
+    pub fn list(&self) -> Vec<SessionInfo> {
+        self.windows.list()
+    }
+    pub fn resources(&self) -> Vec<TerminalResourceStatus> {
+        self.windows.resources()
+    }
+    pub fn fully_released(&self) -> Option<bool> {
+        self.windows.fully_released()
+    }
+    pub fn write(&self, id: &str, data: Vec<u8>) -> Result<()> {
+        self.windows.write(id, data)
+    }
+    pub fn resize(&self, id: &str, rows: u16, cols: u16) -> Result<()> {
+        self.windows.resize(id, rows, cols)
+    }
+    pub fn read(&self, id: &str) -> Result<OutputBatch> {
+        self.windows.read(id)
+    }
+    pub fn stop(&self, id: &str) -> Result<()> {
+        self.windows.stop(id)
+    }
+    pub fn shutdown(&self) {
+        self.windows.shutdown();
+    }
 }
 
 pub fn validate_size(rows: u16, cols: u16) -> Result<PtySize> {
@@ -95,6 +178,7 @@ pub fn validate_size(rows: u16, cols: u16) -> Result<PtySize> {
         pixel_height: 0,
     })
 }
+#[cfg(not(windows))]
 fn shell_command() -> (CommandBuilder, String) {
     #[cfg(windows)]
     {
@@ -121,6 +205,7 @@ fn shell_command() -> (CommandBuilder, String) {
         (CommandBuilder::new(shell), name)
     }
 }
+#[cfg(not(windows))]
 impl TerminalHost {
     pub fn start(&self, cwd: &Path, rows: u16, cols: u16) -> Result<SessionInfo> {
         let size = validate_size(rows, cols)?;

@@ -7,10 +7,18 @@ use shinatama_adapter::{
 use std::collections::BTreeMap;
 
 pub mod doctor;
+pub mod checkup;
 pub mod launch;
+pub mod native_launch;
 pub mod resources;
+#[cfg(windows)]
+pub mod claude_probe;
+#[cfg(windows)]
+pub mod claude_launch;
 pub mod sidecar_config;
 pub mod sidecar_runtime;
+#[cfg(windows)]
+pub mod sidecar_supervisor;
 
 #[derive(Default)]
 pub struct Engine {

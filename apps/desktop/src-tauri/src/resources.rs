@@ -33,8 +33,8 @@ impl Resources {
         maintenance.inhibit_optional_work(true);
         #[cfg(windows)]
         if let Some(monitor) = &self.monitor {
-            // Explicit conservative observer policy. Native workload profiles are
-            // still absent and this does not authorize or certify native launches.
+            // Conservative host-observer policy. Per-workload native limits are
+            // separately admitted; this monitor never authorizes a launch alone.
             let config = GovernorConfig {
                 policy: PolicyConfig {
                     physical_available_floor_bytes: 512 * 1024 * 1024,
@@ -76,6 +76,18 @@ impl Resources {
         self.governor
             .get()
             .and_then(|governor| governor.status().ok())
+    }
+    #[cfg(windows)]
+    pub fn admission_inputs(
+        &self,
+    ) -> (
+        Option<Arc<ResourceMonitor>>,
+        Option<crate::resource_governor::GovernorReader>,
+    ) {
+        (
+            self.monitor.clone(),
+            self.governor.get().map(ResourceGovernor::reader),
+        )
     }
 }
 

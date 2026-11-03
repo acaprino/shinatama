@@ -4,6 +4,7 @@ import tempfile
 import unittest
 import subprocess
 import shutil
+import os
 
 import dependencies
 
@@ -51,6 +52,55 @@ class DependencyPolicyTests(unittest.TestCase):
         self.assertEqual(dependencies.validate_npm(self.root), [])
         self.write('apps/desktop/package.json', {})
         self.assertTrue(any('Second npm manifest' in error for error in dependencies.validate_npm(self.root)))
+
+    def prepared_sidecar_fixture(self):
+        self.npm_fixture()
+        entries = []
+        for name in sorted(dependencies.SIDECAR_MANIFESTS):
+            relative = dependencies.SIDECAR_MIRROR/name
+            self.write(relative, {'name':'synthetic-upstream', 'license':'MIT'})
+            body = (self.root/relative).read_bytes()
+            entries.append({'path':name, 'bytes':len(body), 'sha256':dependencies.sha256(body)})
+        pin = {'formatVersion':1, 'packageName':'billion-context', 'sourceFiles':entries[:2], 'artifactFiles':entries[2:]}
+        self.write(dependencies.SIDECAR_PIN, pin)
+        return pin
+
+    def test_prepared_sidecar_manifests_require_exact_paths_and_pinned_hashes(self):
+        pin = self.prepared_sidecar_fixture()
+        self.assertEqual(dependencies.validate_npm(self.root), [])
+        manifest = dependencies.SIDECAR_MIRROR/'kernel/package.json'
+        original = (self.root/manifest).read_bytes()
+        (self.root/manifest).write_bytes(original.replace(b'MIT', b'ISC'))  # Same length, different SHA-256.
+        self.assertTrue(any('provenance failed' in error for error in dependencies.validate_npm(self.root)))
+        (self.root/manifest).write_bytes(original)
+        unknown = 'dist/unreviewed/package.json'
+        self.write(dependencies.SIDECAR_MIRROR/unknown, {})
+        body = (self.root/dependencies.SIDECAR_MIRROR/unknown).read_bytes()
+        pin['artifactFiles'].append({'path':unknown, 'bytes':len(body), 'sha256':dependencies.sha256(body)})
+        self.write(dependencies.SIDECAR_PIN, pin)
+        self.assertTrue(any('Second npm manifest' in error and unknown in error for error in dependencies.validate_npm(self.root)))
+
+    def test_prepared_sidecar_pin_rejects_escape_and_unbounded_file_lists(self):
+        pin = self.prepared_sidecar_fixture()
+        pin['sourceFiles'][0]['path'] = '../package.json'
+        self.write(dependencies.SIDECAR_PIN, pin)
+        self.assertTrue(any('provenance failed' in error for error in dependencies.validate_npm(self.root)))
+        pin = self.prepared_sidecar_fixture()
+        pin['sourceFiles'] *= dependencies.SIDECAR_MAX_ENTRIES
+        self.write(dependencies.SIDECAR_PIN, pin)
+        self.assertTrue(any('provenance failed' in error for error in dependencies.validate_npm(self.root)))
+
+    def test_prepared_sidecar_reparse_parent_cannot_gain_a_manifest_exception(self):
+        self.prepared_sidecar_fixture()
+        parent = self.root/dependencies.SIDECAR_MIRROR/'kernel'
+        outside = self.root/'synthetic-outside'
+        parent.rename(outside)
+        try:
+            os.symlink(outside, parent, target_is_directory=True)
+        except OSError:
+            self.skipTest('Creating a synthetic directory symlink is unavailable on this host')
+        self.addCleanup(lambda: parent.unlink())
+        self.assertTrue(any('provenance failed' in error for error in dependencies.validate_npm(self.root)))
 
     def test_cargo_target_and_build_dependencies_must_inherit(self):
         self.write('Cargo.toml', '[workspace]\nmembers=["crate"]\n[workspace.dependencies]\nserde="1"\n')

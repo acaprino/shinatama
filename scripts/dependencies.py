@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 import sys
 import tomllib
@@ -26,6 +27,10 @@ KNOWN_LICENSES = {'MIT', 'MIT-0', 'Apache-2.0', 'BSD-2-Clause', 'BSD-3-Clause', 
 REVIEW_LICENSES = {'MPL-2.0'}
 NPM_LICENSE_WRAPPERS = {'@rolldown/binding-win32-x64-msvc':'rolldown', '@tauri-apps/cli-win32-x64-msvc':'@tauri-apps/cli'}
 DEPENDENCY_SECTIONS = ('dependencies', 'dev-dependencies', 'build-dependencies')
+SIDECAR_MIRROR = Path('sidecar/source-build/prepared')
+SIDECAR_PIN = Path('sidecar/source-build/provenance.lock.json')
+SIDECAR_MANIFESTS = frozenset({'package.json', 'kernel/package.json', 'pi-subagents/package.json'})
+SIDECAR_MAX_ENTRIES = 1024
 
 
 def sha256(data: str | bytes) -> str:
@@ -34,6 +39,99 @@ def sha256(data: str | bytes) -> str:
 
 def read_json(path: Path):
     return json.loads(path.read_text(encoding='utf-8-sig'))
+
+
+def checked_mirror_path(root: Path, relative: Path, directory=False) -> Path:
+    """Static build metadata only; reject every reparse component before reading."""
+    if relative.is_absolute() or not relative.parts or any(part in {'.', '..'} or ':' in part or '\\' in part for part in relative.parts):
+        raise ValueError('Invalid prepared mirror path')
+    path = root
+    for index, part in enumerate(relative.parts):
+        path /= part
+        info = path.lstat()
+        if stat.S_ISLNK(info.st_mode) or getattr(info, 'st_file_attributes', 0) & getattr(stat, 'FILE_ATTRIBUTE_REPARSE_POINT', 0):
+            raise ValueError('Prepared mirror reparse point is forbidden')
+        expected_directory = index < len(relative.parts)-1 or directory
+        if not (stat.S_ISDIR(info.st_mode) if expected_directory else stat.S_ISREG(info.st_mode)):
+            raise ValueError('Prepared mirror entry type is invalid')
+    if not path.resolve().is_relative_to(root.resolve()):
+        raise ValueError('Prepared mirror escapes the repository')
+    return path
+
+
+def bounded_mirror_bytes(root: Path, relative: Path, maximum: int) -> bytes:
+    path = checked_mirror_path(root, relative)
+    before = path.stat()
+    if before.st_size > maximum:
+        raise ValueError('Prepared mirror metadata exceeds its byte bound')
+    with path.open('rb') as source:
+        opened = os.fstat(source.fileno())
+        if (before.st_dev, before.st_ino, before.st_size) != (opened.st_dev, opened.st_ino, opened.st_size):
+            raise ValueError('Prepared mirror entry changed while opening')
+        checked_mirror_path(root, relative)
+        data = source.read(maximum+1)
+    if len(data) != before.st_size or len(data) > maximum:
+        raise ValueError('Prepared mirror metadata changed or exceeds its byte bound')
+    return data
+
+
+def validate_prepared_sidecar(root: Path) -> tuple[bool, list[str]]:
+    """Only three hash-pinned upstream manifests may share this source mirror."""
+    try:
+        prepared = checked_mirror_path(root, SIDECAR_MIRROR, directory=True)
+    except FileNotFoundError:
+        return False, []  # The ignored prepared runtime is optional in a clean checkout.
+    except (OSError, ValueError):
+        return False, ['Prepared sidecar mirror is not a contained regular directory']
+    try:
+        pin = json.loads(bounded_mirror_bytes(root, SIDECAR_PIN, 256*1024).decode('utf-8-sig'))
+        if pin.get('formatVersion') != 1 or pin.get('packageName') != 'billion-context':
+            raise ValueError('Invalid prepared source identity')
+        entries = []
+        for section in ('sourceFiles', 'artifactFiles'):
+            group = pin.get(section)
+            if not isinstance(group, list) or len(group) > SIDECAR_MAX_ENTRIES-len(entries):
+                raise ValueError('Prepared source file list exceeds its bound')
+            entries.extend(group)
+        pinned = {}
+        for entry in entries:
+            name = entry['path']
+            if not isinstance(name, str) or not name or len(name) > 4096 or '\\' in name or ':' in name or '\x00' in name or any(part in {'', '.', '..'} for part in name.split('/')):
+                raise ValueError('Invalid prepared source relative path')
+            if name in pinned or not isinstance(entry['bytes'], int) or not 0 <= entry['bytes'] <= 32*1024*1024 or not isinstance(entry['sha256'], str) or not re.fullmatch('[0-9a-f]{64}', entry['sha256']):
+                raise ValueError('Invalid or duplicate prepared source fingerprint')
+            pinned[name] = entry
+        for name in sorted(SIDECAR_MANIFESTS):
+            entry = pinned[name]
+            body = bounded_mirror_bytes(root, SIDECAR_MIRROR/name, 256*1024)
+            if len(body) != entry['bytes'] or sha256(body) != entry['sha256']:
+                raise ValueError('Prepared upstream manifest fingerprint changed')
+        # Unlike a blanket directory exclusion, this walk still rejects unknown
+        # manifests. Include dist; node_modules retains the existing dependency
+        # exclusion and is not treated as another first-party package declaration.
+        pending = [(prepared, 0)]
+        count = 0
+        while pending:
+            directory, depth = pending.pop()
+            if depth > 32:
+                raise ValueError('Prepared mirror exceeds its depth bound')
+            with os.scandir(directory) as children:
+                for child in children:
+                    count += 1
+                    if count > SIDECAR_MAX_ENTRIES:
+                        raise ValueError('Prepared mirror exceeds its entry bound')
+                    info = child.stat(follow_symlinks=False)
+                    if stat.S_ISLNK(info.st_mode) or getattr(info, 'st_file_attributes', 0) & getattr(stat, 'FILE_ATTRIBUTE_REPARSE_POINT', 0):
+                        raise ValueError('Prepared mirror reparse point is forbidden')
+                    path = Path(child.path)
+                    if stat.S_ISDIR(info.st_mode):
+                        if child.name != 'node_modules':
+                            pending.append((path, depth+1))
+                    elif child.name == 'package.json' and path.relative_to(prepared).as_posix() not in SIDECAR_MANIFESTS:
+                        return False, [f'Second npm manifest is forbidden: {path.relative_to(root).as_posix()}']
+        return True, []
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return False, ['Prepared sidecar manifest provenance failed: bounded pin, path, file or SHA-256 validation']
 
 
 def clean_url(value) -> str | None:
@@ -120,8 +218,14 @@ def validate_npm(root: Path) -> list[str]:
             locked = lock.get('packages', {}).get(f'node_modules/{name}', {})
             if locked.get('version') != version:
                 errors.append(f'package-lock.json: {name} resolved version differs from its declaration')
+    mirror_verified, prepared_errors = validate_prepared_sidecar(root)
+    errors.extend(prepared_errors)
+    if prepared_errors:
+        return errors
     for current, directories, files in os.walk(root, followlinks=False):
-        directories[:] = sorted(d for d in directories if d not in SKIP_DIRECTORIES and not (Path(current) / d).is_symlink())
+        # This exact mirror was already checked with a finite walk and per-file
+        # fingerprints. No other source directory gains an exclusion.
+        directories[:] = sorted(d for d in directories if d not in SKIP_DIRECTORIES and not (Path(current) / d).is_symlink() and not (mirror_verified and (Path(current)/d).relative_to(root) == SIDECAR_MIRROR))
         if 'package.json' in files and Path(current) != root:
             errors.append(f'Second npm manifest is forbidden: {(Path(current)/"package.json").relative_to(root).as_posix()}')
     return errors
@@ -332,7 +436,7 @@ def markdown(entries: list[dict], assets: list[dict]) -> str:
         'This inventory is not release legal approval and does not close X3. MPL-2.0 entries require release review of obligations and source availability.',
         'Runtime and build-tool reachability are conservative package-level classifications, not a binary link map. Proc macros are classified as build tools.',
         'Full packaged LICENSE/COPYRIGHT/NOTICE texts and reviewed supplements are generated in `.verification/THIRD_PARTY_LICENSES.txt`; distribute that file with prototype artifacts.',
-        'System WebView2 and system fonts are external dependencies, not bundled assets. Node/npm, Python and the Rust toolchain are build/test tools and are not shipped by this application.', '',
+        'System WebView2 and system fonts are external dependencies, not bundled assets. npm, Python and the Rust toolchain are build/test tools. The separately pinned sidecar source/runtime preparation is outside this Cargo/npm inventory; its Node runtime is not distribution-ready until its required license bundle is provided.', '',
         f'Target: `{TARGET}`. Indexed packages: {len(entries)}.', '',
         '| Ecosystem | Package | Version | Reachability | Declared license | Policy | License text files |',
         '| --- | --- | --- | --- | --- | --- | --- |']
@@ -342,7 +446,7 @@ def markdown(entries: list[dict], assets: list[dict]) -> str:
     lines += ['', '## Project-owned bundled assets', '', '| Asset | Origin | SHA-256 |', '| --- | --- | --- |']
     for asset in assets:
         lines.append('| ' + ' | '.join(cell(asset[key]) for key in ('path', 'origin', 'sha256')) + ' |')
-    lines += ['', 'The icon source and generated variants are project-owned geometric artwork. No Oni-derived art, remote font, model, sidecar or Mukade code is bundled by the current desktop slice.', '',
+    lines += ['', 'The icon source and generated variants are project-owned geometric artwork. No Oni-derived art, remote font or model is bundled. Prepared sidecar and Mukade sources are separately pinned third-party inputs, not project-owned assets or additional first-party npm packages; this table does not certify their transitive license completeness.', '',
         '## Review boundary', '',
         'Recognized SPDX identifiers are not a conclusion that every obligation has been discharged. Full texts do not replace a release review of source-disclosure, attribution, NOTICE and other applicable requirements.',
         'Missing or unknown declarations, unavailable required text, changed supplement provenance, manifest violations and stale notices fail the check. See `docs/implementation/dependency-policy.md` for reviewed missing-text sources.', '']

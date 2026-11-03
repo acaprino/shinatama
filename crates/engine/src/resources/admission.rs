@@ -391,6 +391,10 @@ impl PreparedWorkload {
     pub fn ticket(&self) -> &ReservationTicket {
         &self.ticket
     }
+    /// Verified native limits; callers may cache these before owned-job cleanup.
+    pub fn applied_budget(&self) -> Option<JobBudget> {
+        self.job.as_ref().map(WorkloadJob::budget)
+    }
     pub fn owned_key(&self) -> OwnedJobKey {
         self.owned
     }
@@ -439,6 +443,34 @@ impl PreparedWorkload {
             .as_ref()
             .ok_or(AdmissionError::AdmissionClosed)?
             .query(sampler)?)
+    }
+    /// Trusted owner-worker only, after the final verified launch has closed its
+    /// startup attribute lists and temporary ASSIGN handles. No IPC caller may
+    /// assert this barrier; subsequent startup_binding calls are refused forever.
+    pub fn seal_assignments(&mut self) -> Result<(), AdmissionError> {
+        if self.phase != WorkloadPhase::Active {
+            return Err(AdmissionError::AdmissionClosed);
+        }
+        Ok(self
+            .job
+            .as_mut()
+            .ok_or(AdmissionError::AdmissionClosed)?
+            .seal_assignments()?)
+    }
+    /// Single owner worker only. Keep the same active ticket/owner/budget;
+    /// replace the local CAS ticket only after the persisted renewal succeeds.
+    pub fn renew(
+        &mut self,
+        database: &Database,
+        now_ms: i64,
+        lease_until_ms: i64,
+    ) -> Result<(), AdmissionError> {
+        if self.phase != WorkloadPhase::Active {
+            return Err(AdmissionError::AdmissionClosed);
+        }
+        self.ticket =
+            database.renew_reservation(&self.stamp, &self.ticket, now_ms, lease_until_ms)?;
+        Ok(())
     }
     /// Explicit recovery on the owner worker: one new bounded cleanup attempt
     /// against the SAME retained job. Never creates a replacement or starts work.

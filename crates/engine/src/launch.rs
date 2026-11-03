@@ -220,6 +220,7 @@ pub struct PreparedLaunch {
     placement: PlacementPlan,
     environment: ChildEnvironment,
     identity: LaunchIdentityRecord,
+    native_binding: Option<crate::native_launch::NativeLaunchBinding>,
 }
 impl PreparedLaunch {
     pub fn command(&self) -> &CommandPlan {
@@ -233,6 +234,17 @@ impl PreparedLaunch {
     }
     pub fn identity_record(&self) -> &LaunchIdentityRecord {
         &self.identity
+    }
+    pub fn native_binding(&self) -> Option<&crate::native_launch::NativeLaunchBinding> {
+        self.native_binding.as_ref()
+    }
+    /// Only the future C15 qualifier binds a prepared plan to its native pins.
+    #[allow(dead_code)]
+    pub(crate) fn set_native_binding(
+        &mut self,
+        binding: crate::native_launch::NativeLaunchBinding,
+    ) {
+        self.native_binding = Some(binding);
     }
 }
 impl fmt::Debug for PreparedLaunch {
@@ -255,6 +267,9 @@ impl LaunchPreflight {
     }
     pub fn prepared(&self) -> Option<&PreparedLaunch> {
         self.prepared.as_ref()
+    }
+    pub fn into_prepared(self) -> Option<PreparedLaunch> {
+        self.prepared
     }
 }
 impl fmt::Debug for LaunchPreflight {
@@ -371,123 +386,12 @@ impl Engine {
                 prepared: None,
             };
         }
-        let composed = (|| -> Result<PreparedLaunch, LaunchIssueCode> {
-            let placement = plan_placement(
-                descriptor,
-                intent.placement,
-                inputs.private_paths,
-                Some(inputs.placement_recipe),
-            )
-            .map_err(|_| LaunchIssueCode::PlacementRejected)?;
-            let command = plan_arguments(
-                descriptor,
-                intent.action.operation(),
-                inputs.working_directory,
-                Some(inputs.arguments_recipe),
-            )
-            .map_err(|_| LaunchIssueCode::ArgumentsRejected)?;
-            if !absolute_database_path(inputs.database_path) {
-                return Err(LaunchIssueCode::DatabasePathRejected);
-            }
-            let record = inputs.identity.record();
-            let secret = inputs.identity.child_secret_override();
-            let wire = secret
-                .value()
-                .to_str()
-                .ok_or(LaunchIssueCode::IdentityRejected)?;
-            verify_record(&record.instance_id, wire, Some(&record))
-                .map_err(|_| LaunchIssueCode::IdentityRejected)?;
-            if command
-                .argv()
-                .iter()
-                .any(|token| contains_wire(token, wire))
-                || contains_wire(command.executable().as_os_str(), wire)
-                || contains_wire(command.working_directory().as_os_str(), wire)
-                || contains_wire(inputs.database_path.as_os_str(), wire)
-                || placement
-                    .overrides()
-                    .iter()
-                    .any(|item| contains_wire(item.value(), wire))
-            {
-                return Err(LaunchIssueCode::SecretOutsideIdentityEnvironment);
-            }
-            // Admit the names-only copy before allocating it. Values are still
-            // validated and copied only by the bounded environment component.
-            if inputs.inherited_environment.len() > 2048
-                || inputs
-                    .inherited_environment
-                    .keys()
-                    .try_fold(0usize, |bytes, name| {
-                        let bytes = bytes.saturating_add(name.len());
-                        if name.len() > 4096 || bytes > 1024 * 1024 {
-                            None
-                        } else {
-                            Some(bytes)
-                        }
-                    })
-                    .is_none()
-            {
-                return Err(LaunchIssueCode::EnvironmentRejected);
-            }
-            let names: Vec<_> = inputs.inherited_environment.keys().cloned().collect();
-            let editor = git_editor(inputs.inherited_environment);
-            let scrub = ChildEnvironmentPlan::build(&names, editor, inputs.claude_editor, vec![])
-                .map_err(|_| LaunchIssueCode::EnvironmentRejected)?;
-            let clean = scrub
-                .child_from(inputs.inherited_environment)
-                .map_err(|_| LaunchIssueCode::EnvironmentRejected)?;
-            let mut placed: BTreeMap<OsString, OsString> = clean
-                .entries()
-                .map(|(name, value)| (name.to_owned(), value.to_owned()))
-                .collect();
-            for item in placement.overrides() {
-                if is_identity_name(item.name()) {
-                    return Err(LaunchIssueCode::EnvironmentRejected);
-                }
-                placed.retain(|name, _| !name.eq_ignore_ascii_case(item.name()));
-                placed.insert(item.name().into(), item.value().to_owned());
-            }
-            // Identity is derived solely from the authenticated record and is
-            // applied last. No external custom override can shadow these fields.
-            let overrides = vec![
-                ChildOverride::new(OverrideName::Instance, record.instance_id.clone().into()),
-                ChildOverride::new(OverrideName::Thread, record.thread_id.clone().into()),
-                ChildOverride::new(
-                    OverrideName::Database,
-                    inputs.database_path.as_os_str().to_owned(),
-                ),
-                Ok(secret.clone()),
-                ChildOverride::new(OverrideName::Terminal, "xterm-256color".into()),
-                ChildOverride::new(OverrideName::ColorTerminal, "truecolor".into()),
-            ]
-            .into_iter()
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|_| LaunchIssueCode::EnvironmentRejected)?;
-            let names: Vec<_> = placed.keys().cloned().collect();
-            let environment = ChildEnvironmentPlan::build(
-                &names,
-                git_editor(&placed),
-                inputs.claude_editor,
-                overrides,
-            )
-            .and_then(|plan| plan.child_from(&placed))
-            .map_err(|_| LaunchIssueCode::EnvironmentRejected)?;
-            // The bounded final child block is the last authority on token
-            // placement, including accidental copies inherited from the caller.
-            if environment.entries().any(|(name, value)| {
-                contains_wire(name, wire)
-                    || (!name.eq_ignore_ascii_case("SHINATAMA_INSTANCE_TOKEN")
-                        && contains_wire(value, wire))
-            }) {
-                return Err(LaunchIssueCode::SecretOutsideIdentityEnvironment);
-            }
-            Ok(PreparedLaunch {
-                command,
-                placement,
-                environment,
-                identity: record,
-            })
-        })();
+        let composed = compose_launch(
+            descriptor,
+            intent.action.operation(),
+            intent.placement,
+            inputs,
+        );
         match composed {
             Ok(plan) => {
                 summary.status = LaunchStatus::Available;
@@ -507,6 +411,126 @@ impl Engine {
     }
 }
 
+/// Shared C11 composition; this function grants no runtime authority.
+pub(crate) fn compose_launch(
+    descriptor: &shinatama_adapter::AdapterDescriptor,
+    operation: Operation,
+    mode: Placement,
+    inputs: &LaunchInputs<'_>,
+) -> Result<PreparedLaunch, LaunchIssueCode> {
+    let placement = plan_placement(
+        descriptor,
+        mode,
+        inputs.private_paths,
+        Some(inputs.placement_recipe),
+    )
+    .map_err(|_| LaunchIssueCode::PlacementRejected)?;
+    let command = plan_arguments(
+        descriptor,
+        operation,
+        inputs.working_directory,
+        Some(inputs.arguments_recipe),
+    )
+    .map_err(|_| LaunchIssueCode::ArgumentsRejected)?;
+    if !absolute_database_path(inputs.database_path) {
+        return Err(LaunchIssueCode::DatabasePathRejected);
+    }
+    let record = inputs.identity.record();
+    let secret = inputs.identity.child_secret_override();
+    let wire = secret
+        .value()
+        .to_str()
+        .ok_or(LaunchIssueCode::IdentityRejected)?;
+    verify_record(&record.instance_id, wire, Some(&record))
+        .map_err(|_| LaunchIssueCode::IdentityRejected)?;
+    if command
+        .argv()
+        .iter()
+        .any(|token| contains_wire(token, wire))
+        || contains_wire(command.executable().as_os_str(), wire)
+        || contains_wire(command.working_directory().as_os_str(), wire)
+        || contains_wire(inputs.database_path.as_os_str(), wire)
+        || placement
+            .overrides()
+            .iter()
+            .any(|item| contains_wire(item.value(), wire))
+    {
+        return Err(LaunchIssueCode::SecretOutsideIdentityEnvironment);
+    }
+    // Admit the names-only copy before allocating it. Values are still
+    // validated and copied only by the bounded environment component.
+    if inputs.inherited_environment.len() > 2048
+        || inputs
+            .inherited_environment
+            .keys()
+            .try_fold(0usize, |bytes, name| {
+                let bytes = bytes.saturating_add(name.len());
+                if name.len() > 4096 || bytes > 1024 * 1024 {
+                    None
+                } else {
+                    Some(bytes)
+                }
+            })
+            .is_none()
+    {
+        return Err(LaunchIssueCode::EnvironmentRejected);
+    }
+    let names: Vec<_> = inputs.inherited_environment.keys().cloned().collect();
+    let editor = git_editor(inputs.inherited_environment);
+    let scrub = ChildEnvironmentPlan::build(&names, editor, inputs.claude_editor, vec![])
+        .map_err(|_| LaunchIssueCode::EnvironmentRejected)?;
+    let clean = scrub
+        .child_from(inputs.inherited_environment)
+        .map_err(|_| LaunchIssueCode::EnvironmentRejected)?;
+    let mut placed: BTreeMap<OsString, OsString> = clean
+        .entries()
+        .map(|(name, value)| (name.to_owned(), value.to_owned()))
+        .collect();
+    for item in placement.overrides() {
+        if is_identity_name(item.name()) {
+            return Err(LaunchIssueCode::EnvironmentRejected);
+        }
+        placed.retain(|name, _| !name.eq_ignore_ascii_case(item.name()));
+        placed.insert(item.name().into(), item.value().to_owned());
+    }
+    // Identity is derived solely from the authenticated record and is
+    // applied last. No external custom override can shadow these fields.
+    let overrides = vec![
+        ChildOverride::new(OverrideName::Instance, record.instance_id.clone().into()),
+        ChildOverride::new(OverrideName::Thread, record.thread_id.clone().into()),
+        ChildOverride::new(
+            OverrideName::Database,
+            inputs.database_path.as_os_str().to_owned(),
+        ),
+        Ok(secret.clone()),
+        ChildOverride::new(OverrideName::Terminal, "xterm-256color".into()),
+        ChildOverride::new(OverrideName::ColorTerminal, "truecolor".into()),
+    ]
+    .into_iter()
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(|_| LaunchIssueCode::EnvironmentRejected)?;
+    let names: Vec<_> = placed.keys().cloned().collect();
+    let environment =
+        ChildEnvironmentPlan::build(&names, git_editor(&placed), inputs.claude_editor, overrides)
+            .and_then(|plan| plan.child_from(&placed))
+            .map_err(|_| LaunchIssueCode::EnvironmentRejected)?;
+    // The bounded final child block is the last authority on token
+    // placement, including accidental copies inherited from the caller.
+    if environment.entries().any(|(name, value)| {
+        contains_wire(name, wire)
+            || (!name.eq_ignore_ascii_case("SHINATAMA_INSTANCE_TOKEN")
+                && contains_wire(value, wire))
+    }) {
+        return Err(LaunchIssueCode::SecretOutsideIdentityEnvironment);
+    }
+    Ok(PreparedLaunch {
+        command,
+        placement,
+        environment,
+        identity: record,
+        native_binding: None,
+    })
+}
 fn git_editor(environment: &BTreeMap<OsString, OsString>) -> Option<&OsStr> {
     environment
         .iter()

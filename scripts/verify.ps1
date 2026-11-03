@@ -90,9 +90,10 @@ try {
     Invoke-Check 'rust-clippy' 'cargo' @('clippy', '--locked', '--workspace', '--all-targets', '--features', 'custom-protocol', '--', '-D', 'warnings')
     Invoke-Check 'rust-tests' 'cargo' @('test', '--locked', '--workspace', '--all-targets', '--features', 'custom-protocol')
     Invoke-Check 'test-job-build' 'cargo' @('build', '--locked', '--manifest-path', 'verify/P14/Cargo.toml')
-    Invoke-Check 'desktop-build' 'cargo' @('build', '--locked', '-p', 'shinatama-desktop', '-p', 'shinatama-cli', '--features', 'custom-protocol')
+    Invoke-Check 'desktop-build' 'cargo' @('build', '--locked', '-p', 'shinatama-desktop', '-p', 'shinatama-cli', '-p', 'shinatama-terminal', '--bins', '--features', 'custom-protocol')
     $probe = Join-Path $workspaceRoot 'verify/P14/target/debug/p14-probe.exe'
-    Invoke-Check 'pty-smoke' $probe @('wrap-run', 'cargo', 'run', '--locked', '-p', 'shinatama-terminal', '--example', 'smoke')
+    # The real desktop check below covers ConPTY through its admitted helper.
+    # A default unconfigured Windows host deliberately cannot spawn a process.
     # These share a checkout and use fixed CDP ports: keep them sequential.
     Invoke-Check 'desktop-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/desktop-smoke.mjs')
     Invoke-Check 'projects-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/projects-smoke.mjs')

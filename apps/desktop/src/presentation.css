@@ -1,0 +1,9 @@
+.presentation-skin { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font: 12px var(--mono); white-space: nowrap; }
+.toolbar:has(.presentation-skin) { overflow-x: auto; scrollbar-width: thin; }
+.toolbar > button, .presentation-skin { flex-shrink: 0; }
+.terminal-resources { color: var(--text-2); white-space: nowrap; }
+@media (max-width: 1100px) { .toolbar .workspace-name, .toolbar .spring { display: none; } }
+.presentation-skin select { height: 28px; max-width: 130px; border: 1px solid var(--line-strong); background: var(--chrome); color: var(--text); font: 12px var(--mono); }
+#presentation-dialog .presentation-follow { display: flex; align-items: center; gap: 8px; line-height: 1.5; }
+#presentation-follow { width: 16px; height: 16px; accent-color: var(--accent); }
+#presentation-status { min-height: 2em; color: var(--text-2); font-size: 12px; }

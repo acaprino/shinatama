@@ -8,10 +8,16 @@ Shinatama: a local-first desktop workspace, with a Rust engine and a Tauri shell
 
 Status: implementation started. Windows is the only officially supported platform for now, and
 Tauri is the definitive V1 shell. The
-current build is a **terminal prototype**, not the completed first milestone or a
-supported agent launcher.
+current build includes contained shells and an explicitly checked Claude TUI
+startup path. It remains an incomplete V1; provider/model traffic, other agents,
+session search and hop are not certified by opening that TUI.
 
 ## Run the prototype
+
+For the compiled local Windows build, double-click `Shinatama.cmd` and follow the
+[quick start in Italian](AVVIO.md): project → Session index / Start → Agents /
+Claude Code / Check / Open agent. The qualified startup slice uses safe mode and
+an empty set; sign-in stays in Claude's own terminal interface.
 
 Implementation is tracked in the [complete resumable plan](docs/implementation/PLAN.md).
 Daodan integration is temporarily deferred at the user's request (2026-11-02);
@@ -40,14 +46,23 @@ npm run desktop
 
 The borderless window has themed minimize, maximize/restore and close controls.
 Drag its title bar to move it; double-click the bar to maximize or restore.
-Choose a project folder, then **New terminal**. Two resizable panes host real
-shells. Move tabs, hide/restore views, maximize a pane, change the split direction
+Choose a project folder, then **New terminal**. Split panes in any direction,
+move tabs, hide/restore views, maximize a pane, search its retained terminal text
 or select a color profile without restarting a process. Stopping a live terminal
 or closing the window asks for confirmation. No terminal starts on launch.
 
-Only the split direction and proportion are restored. **Profiles are colors, not
-agent launchers.** Agent adapters, isolated homes, sidecar routing, search, hop and
-Learning are not wired up yet. Windows is the only platform exercised so far.
+The full project workspace tree, proportions, visibility and presentation settings
+are saved. Reload reconnects existing live terminal IDs; saved views never replay
+commands. Five application skins and per-terminal profiles change presentation.
+**Profiles are colors, not agent launchers.** Use Agents for the qualified Claude
+startup path. Session search, hop and Learning are still being connected. Windows
+is the supported platform.
+Native terminal jobs have fixed limits, a raw process census and finite queues;
+uncertain cleanup keeps its reservation. Full release qualification remains open.
+
+For the existing local embedded build, double-click `Shinatama.cmd`. It opens the
+current compiled application and requires its adjacent terminal helper; it does
+not compile, install anything or launch a terminal automatically.
 The independent Rust engine now has versioned adapter contracts and an in-memory
 test adapter. `cargo run -p shinatama-cli -- doctor --json` inspects local program
 locations without starting agents or creating state. Exit 2 reports missing or

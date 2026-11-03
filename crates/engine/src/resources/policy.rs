@@ -187,6 +187,10 @@ pub struct ResourcePolicy {
     recovery_since_ms: Option<u64>,
     last_pressure_ms: Option<u64>,
     last_termination_ms: Option<u64>,
+    // Unknown telemetry is not itself a memory/CPU pressure episode. A genuine
+    // entry latches only its own dimension until stable Normal recovery.
+    memory_pressure_latched: bool,
+    cpu_pressure_latched: bool,
 }
 
 impl ResourcePolicy {
@@ -247,6 +251,8 @@ impl ResourcePolicy {
             recovery_since_ms: None,
             last_pressure_ms: None,
             last_termination_ms: None,
+            memory_pressure_latched: false,
+            cpu_pressure_latched: false,
         })
     }
     /// A recommendation for a FUTURE launch, never a permission or live OS update.
@@ -344,14 +350,31 @@ impl ResourcePolicy {
         let memory_emergency =
             headroom_missing || memory_pressure >= self.config.emergency_basis_points;
         let cpu_emergency = cpu_pressure >= self.config.emergency_basis_points;
+        if headroom_missing || memory_pressure >= self.config.pressure_enter_basis_points {
+            self.memory_pressure_latched = true;
+        }
+        if cpu_pressure >= self.config.pressure_enter_basis_points {
+            self.cpu_pressure_latched = true;
+        }
+        let memory_reentry = if self.memory_pressure_latched {
+            memory_pressure <= self.config.pressure_exit_basis_points
+        } else {
+            memory_pressure < self.config.pressure_enter_basis_points
+        };
+        let cpu_reentry = if self.cpu_pressure_latched {
+            cpu_pressure <= self.config.pressure_exit_basis_points
+        } else {
+            cpu_pressure < self.config.pressure_enter_basis_points
+        };
         self.update_stage(
             now_ms,
             warning,
-            !headroom_missing
-                && !host_unresponsive
-                && memory_pressure <= self.config.pressure_exit_basis_points
-                && cpu_pressure <= self.config.pressure_exit_basis_points,
+            !headroom_missing && !host_unresponsive && memory_reentry && cpu_reentry,
         );
+        if self.stage == Stage::Normal {
+            self.memory_pressure_latched = false;
+            self.cpu_pressure_latched = false;
+        }
 
         self.jobs
             .retain(|old| frame.jobs.iter().any(|job| job.identity == old.identity));
@@ -1030,5 +1053,73 @@ mod tests {
         let later = tick(&mut policy, 20, 5000, &[job(&profile, 20, 1200)]);
         assert!(later.defer_new_starts);
         assert!(later.terminate.is_none());
+    }
+    #[test]
+    fn recovery_requires_exit_only_for_dimensions_that_actually_entered_pressure() {
+        let mut frozen = config();
+        frozen.pressure_enter_basis_points = 8500;
+        frozen.pressure_exit_basis_points = 7500;
+        let evaluate = |policy: &mut ResourcePolicy, now, available, cpu, coverage| {
+            let mut sample = system(now, available);
+            sample.observed_group_cpu_busy_basis_points = Some(cpu);
+            policy
+                .evaluate(
+                    now,
+                    &Frame {
+                        system: &sample,
+                        cpu_coverage: coverage,
+                        host_responsive: Some(true),
+                        jobs: &[],
+                    },
+                )
+                .unwrap()
+        };
+        // Startup telemetry was unknown, but 80% memory never crossed 85% entry.
+        let mut startup = ResourcePolicy::new(frozen, vec![]).unwrap();
+        assert_eq!(
+            evaluate(&mut startup, 0, 2000, 1000, CpuCoverage::Missing).stage,
+            Stage::DeferStarts
+        );
+        assert_eq!(
+            evaluate(&mut startup, 10, 2000, 1000, CpuCoverage::CompleteMachine).stage,
+            Stage::DeferStarts
+        );
+        assert_eq!(
+            evaluate(&mut startup, 30, 2000, 1000, CpuCoverage::CompleteMachine).stage,
+            Stage::ReduceOptional
+        );
+        assert_eq!(
+            evaluate(&mut startup, 50, 2000, 1000, CpuCoverage::CompleteMachine).stage,
+            Stage::Normal
+        );
+
+        // A real CPU incident requires CPU below 75%, while memory may stay 80%.
+        let mut cpu = ResourcePolicy::new(frozen, vec![]).unwrap();
+        evaluate(&mut cpu, 0, 2000, 9000, CpuCoverage::CompleteMachine);
+        evaluate(&mut cpu, 10, 2000, 9000, CpuCoverage::CompleteMachine);
+        assert_eq!(
+            evaluate(&mut cpu, 20, 2000, 8000, CpuCoverage::CompleteMachine).stage,
+            Stage::DeferStarts
+        );
+        evaluate(&mut cpu, 30, 2000, 7000, CpuCoverage::CompleteMachine);
+        assert_eq!(
+            evaluate(&mut cpu, 50, 2000, 7000, CpuCoverage::CompleteMachine).stage,
+            Stage::ReduceOptional
+        );
+        assert_eq!(
+            evaluate(&mut cpu, 70, 2000, 7000, CpuCoverage::CompleteMachine).stage,
+            Stage::Normal
+        );
+
+        // Actual memory pressure keeps the original 75% exit threshold latched.
+        let mut memory = ResourcePolicy::new(frozen, vec![]).unwrap();
+        evaluate(&mut memory, 0, 1000, 1000, CpuCoverage::CompleteMachine);
+        evaluate(&mut memory, 10, 1000, 1000, CpuCoverage::CompleteMachine);
+        for now in [20, 40, 60] {
+            assert_eq!(
+                evaluate(&mut memory, now, 2000, 1000, CpuCoverage::CompleteMachine).stage,
+                Stage::DeferStarts
+            );
+        }
     }
 }

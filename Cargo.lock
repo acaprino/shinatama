@@ -2960,7 +2960,10 @@ dependencies = [
 name = "shinatama-desktop"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "serde",
+ "serde_json",
+ "shinatama-adapter",
  "shinatama-engine",
  "shinatama-projects",
  "shinatama-state",
@@ -2968,6 +2971,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
+ "uuid",
  "windows-sys 0.61.2",
 ]
 
@@ -3018,6 +3022,8 @@ dependencies = [
  "libc",
  "portable-pty",
  "serde",
+ "shinatama-engine",
+ "shinatama-state",
  "uuid",
  "windows-sys 0.61.2",
 ]

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-11-02",
+  "updated_at": "2026-11-03",
   "base_head": "46435ab",
   "git_state": "B00-B02 bootstrap and current specification amendments committed together at 266fb1e043f834f0cf4a2e71976028d5f54c2186 by explicit commit-all request on 2026-11-02. No historical per-step SHA is inferred; preserve unrelated verify/T6 work.",
   "steps": {
@@ -889,16 +889,86 @@
       }
     },
     "C07": {
-      "status": "in_progress",
-      "commit_sha": null
+      "status": "verified",
+      "commit_sha": null,
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-03-C07-C08-workspace.md"
+      ],
+      "checks": [
+        "npm run build",
+        "node apps/desktop/tests/ui-flow-smoke.mjs",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
+        "node --experimental-strip-types --test apps/desktop/tests/workspace-model.test.ts apps/desktop/tests/workspace-persistence.test.ts"
+      ],
+      "units": {
+        "C07.1": {
+          "status": "verified",
+          "commit_sha": null,
+          "evidence": [
+            "docs/verification/2026-11-03-C07-C08-workspace.md"
+          ],
+          "checks": [
+            "npm run build",
+            "node apps/desktop/tests/ui-flow-smoke.mjs",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
+            "node --experimental-strip-types --test apps/desktop/tests/workspace-model.test.ts apps/desktop/tests/workspace-persistence.test.ts"
+          ]
+        },
+        "C07.2": {
+          "status": "verified",
+          "commit_sha": null,
+          "evidence": [
+            "docs/verification/2026-11-03-C07-C08-workspace.md"
+          ],
+          "checks": [
+            "npm run build",
+            "node apps/desktop/tests/ui-flow-smoke.mjs",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
+            "node --experimental-strip-types --test apps/desktop/tests/workspace-model.test.ts apps/desktop/tests/workspace-persistence.test.ts"
+          ]
+        },
+        "C07.3": {
+          "status": "verified",
+          "commit_sha": null,
+          "evidence": [
+            "docs/verification/2026-11-03-C07-C08-workspace.md"
+          ],
+          "checks": [
+            "npm run build",
+            "node apps/desktop/tests/ui-flow-smoke.mjs",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
+            "node --experimental-strip-types --test apps/desktop/tests/workspace-model.test.ts apps/desktop/tests/workspace-persistence.test.ts"
+          ]
+        },
+        "C07.4": {
+          "status": "verified",
+          "commit_sha": null,
+          "evidence": [
+            "docs/verification/2026-11-03-C07-C08-workspace.md"
+          ],
+          "checks": [
+            "npm run build",
+            "node apps/desktop/tests/ui-flow-smoke.mjs",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
+            "node --experimental-strip-types --test apps/desktop/tests/workspace-model.test.ts apps/desktop/tests/workspace-persistence.test.ts"
+          ]
+        }
+      },
+      "limits": [
+        "No layout, theme or find action starts/restarts a process. Full native-agent and release gates remain separate."
+      ],
+      "next_action": "Continue C09 native fault qualification and visible applied resource limits, then finish sidecar/checkup integration."
     },
     "C12": {
-      "status": "pending",
+      "status": "in_progress",
       "commit_sha": null,
       "units": {
         "C12.1": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "cf53d9e270286cf790c3d21e91450b5af15a3944",
           "evidence": [
             "docs/verification/2026-11-03-C12-preparation.md"
           ],
@@ -910,8 +980,8 @@
           ]
         },
         "C12.2": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "cf53d9e270286cf790c3d21e91450b5af15a3944",
           "evidence": [
             "docs/verification/2026-11-03-C12-preparation.md"
           ],
@@ -921,13 +991,265 @@
             "pwsh -NoProfile -File sidecar/prepare-runtime.ps1 -Mode Prepare",
             "cargo test --offline -p shinatama-engine -j1 --lib sidecar_ -- --test-threads=1"
           ]
+        },
+        "C12.3": {
+          "status": "verified",
+          "commit_sha": null,
+          "platforms": [
+            "Windows 11 x64 build 26200; pinned Node 24.14.1"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-03-C12-runtime-tls.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine --test sidecar_runtime -j1 -- --ignored --test-threads=1 --nocapture"
+          ],
+          "limits": [
+            "Only the pinned Node runtime is TLS-qualified here. Actual native agent runtime trust and full SC16 remain separate."
+          ]
         }
       },
       "limits": [
-        "Preparation only; actual runtime, TLS and effective-configuration qualification follow. No native agent gate is opened.",
-        "Node license notice absent from local install; distribution readiness remains false."
+        "Actual pinned Node/CLI, schema9/six indexes, canonical source incremental storage and local child-only TLS pass. Full SC16 and per-agent provider traffic remain open.",
+        "CCR and Absorb are observed; remaining effective compression knobs stay unknown until C12.4.",
+        "Node license notice absent from local install; public distribution readiness remains false."
       ],
-      "next_action": "Run the contained actual Node/bundle/storage integration proof, then finish child-only TLS and effective traffic/configuration in C12.3–C12.4."
+      "next_action": "Complete the actual supervisor/UI path and C12.4 effective traffic/configuration proof without promoting unknown knobs."
+    },
+    "C08": {
+      "status": "verified",
+      "commit_sha": null,
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-03-C07-C08-workspace.md"
+      ],
+      "checks": [
+        "npm run build",
+        "node apps/desktop/tests/ui-flow-smoke.mjs",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
+        "node --experimental-strip-types --test apps/desktop/tests/presentation.test.ts",
+        "cargo test --offline -p shinatama-state --test presentation -j1 -- --test-threads=1"
+      ],
+      "units": {
+        "C08.1": {
+          "status": "verified",
+          "commit_sha": null,
+          "evidence": [
+            "docs/verification/2026-11-03-C07-C08-workspace.md"
+          ],
+          "checks": [
+            "npm run build",
+            "node apps/desktop/tests/ui-flow-smoke.mjs",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
+            "node --experimental-strip-types --test apps/desktop/tests/presentation.test.ts",
+            "cargo test --offline -p shinatama-state --test presentation -j1 -- --test-threads=1"
+          ]
+        },
+        "C08.2": {
+          "status": "verified",
+          "commit_sha": null,
+          "evidence": [
+            "docs/verification/2026-11-03-C07-C08-workspace.md"
+          ],
+          "checks": [
+            "npm run build",
+            "node apps/desktop/tests/ui-flow-smoke.mjs",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
+            "node --experimental-strip-types --test apps/desktop/tests/presentation.test.ts",
+            "cargo test --offline -p shinatama-state --test presentation -j1 -- --test-threads=1"
+          ]
+        },
+        "C08.3": {
+          "status": "verified",
+          "commit_sha": null,
+          "evidence": [
+            "docs/verification/2026-11-03-C07-C08-workspace.md"
+          ],
+          "checks": [
+            "npm run build",
+            "node apps/desktop/tests/ui-flow-smoke.mjs",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
+            "node --experimental-strip-types --test apps/desktop/tests/presentation.test.ts",
+            "cargo test --offline -p shinatama-state --test presentation -j1 -- --test-threads=1"
+          ]
+        }
+      },
+      "limits": [
+        "No layout, theme or find action starts/restarts a process. Full native-agent and release gates remain separate."
+      ],
+      "next_action": "Continue C09 native fault qualification and visible applied resource limits, then finish sidecar/checkup integration."
+    },
+    "C09": {
+      "status": "verified",
+      "commit_sha": null,
+      "evidence": [
+        "docs/verification/2026-11-03-C09-contained-terminals.md"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-terminal --lib -j1 -- --test-threads=1",
+        "cargo test --offline -p shinatama-terminal --test contained_terminal -j1 -- --test-threads=1 --nocapture",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs"
+      ],
+      "next_action": "Checkpoint the working Windows terminal/UI and first Claude startup slice, then finish C12.4 and S1 session metadata integration.",
+      "limits": [
+        "Contained Windows shells and the exact safe-mode empty-set Claude startup slice are proved; provider traffic, other-agent calibration and release soak stay separate."
+      ],
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ]
+    },
+    "C13": {
+      "status": "pending",
+      "commit_sha": null,
+      "units": {
+        "C13.1": {
+          "status": "verified",
+          "commit_sha": null,
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-03-C13-sidecar-supervision.md",
+            "docs/verification/2026-11-03-C12-runtime-tls.md",
+            "docs/verification/2026-11-03-C15-first-tui.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine --test sidecar_supervisor -j1 -- --ignored --test-threads=1 --nocapture",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs"
+          ]
+        },
+        "C13.2": {
+          "status": "verified",
+          "commit_sha": null,
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-03-C13-sidecar-supervision.md",
+            "docs/verification/2026-11-03-C12-runtime-tls.md",
+            "docs/verification/2026-11-03-C15-first-tui.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine --test sidecar_supervisor -j1 -- --ignored --test-threads=1 --nocapture",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs"
+          ]
+        },
+        "C13.3": {
+          "status": "verified",
+          "commit_sha": null,
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-03-C13-sidecar-supervision.md",
+            "docs/verification/2026-11-03-C12-runtime-tls.md",
+            "docs/verification/2026-11-03-C15-first-tui.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine --test sidecar_supervisor -j1 -- --ignored --test-threads=1 --nocapture",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs"
+          ]
+        },
+        "C13.4": {
+          "status": "verified",
+          "commit_sha": null,
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-03-C13-sidecar-supervision.md",
+            "docs/verification/2026-11-03-C12-runtime-tls.md",
+            "docs/verification/2026-11-03-C15-first-tui.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine --test sidecar_supervisor -j1 -- --ignored --test-threads=1 --nocapture",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs"
+          ]
+        },
+        "C13.5": {
+          "status": "verified",
+          "commit_sha": null,
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-03-C13-sidecar-supervision.md",
+            "docs/verification/2026-11-03-C12-runtime-tls.md",
+            "docs/verification/2026-11-03-C15-first-tui.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine --test sidecar_supervisor -j1 -- --ignored --test-threads=1 --nocapture",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs"
+          ]
+        }
+      },
+      "limits": [
+        "The local owner/Busy/recovery/storage/UI slices pass. Full SC16 soak, effective compression/provider coverage and the dependency C12.4 remain open."
+      ],
+      "next_action": "Finish C12.4 effective configuration and retain explicit unknown coverage; then close the C13 parent checkpoint."
+    },
+    "C14": {
+      "status": "pending",
+      "commit_sha": null,
+      "evidence": [
+        "docs/verification/2026-11-03-C15-first-tui.md"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-adapter --lib sets::tests -j1 -- --test-threads=1",
+        "cargo test --offline -p shinatama-engine --lib checkup::tests -j1 -- --test-threads=1"
+      ],
+      "limits": [
+        "Bounded set manifests, shared preflight service and the default empty Claude set exist. Nonempty-set activation/selection and the remaining generic checkup scope stay open."
+      ],
+      "next_action": "Connect generic set selection and qualified capability states without opening unproved native operations."
+    },
+    "C15": {
+      "status": "pending",
+      "commit_sha": null,
+      "units": {
+        "C15.1": {
+          "status": "verified",
+          "commit_sha": null,
+          "platforms": [
+            "Windows 11 x64 build 26200; Claude2.1.316"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-03-C15-first-tui.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine --test claude_probe -j1 -- --ignored --test-threads=1 --nocapture",
+            "cargo test --offline -p shinatama-engine --test sealed_rundown -j1 -- --ignored --test-threads=1 --nocapture",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs"
+          ],
+          "limits": [
+            "Startup qualification only; provider traffic and authentication remain Unknown."
+          ]
+        },
+        "C15.2": {
+          "status": "verified",
+          "commit_sha": null,
+          "platforms": [
+            "Windows 11 x64 build 26200; Claude2.1.316"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-03-C15-first-tui.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine --test claude_probe -j1 -- --ignored --test-threads=1 --nocapture",
+            "cargo test --offline -p shinatama-engine --test sealed_rundown -j1 -- --ignored --test-threads=1 --nocapture",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs"
+          ],
+          "limits": [
+            "Startup qualification only; provider traffic and authentication remain Unknown."
+          ]
+        }
+      },
+      "limits": [
+        "Only exact Claude2.1.316 safe-mode empty-set TUI startup on Windows is observed; authentication, provider traffic, login operation, resume/fork and full QA remain open."
+      ],
+      "next_action": "Complete the C14 dependency and qualify the next explicit Claude capabilities; continue S1 bounded native archive readers."
     }
   },
   "blockers": [],

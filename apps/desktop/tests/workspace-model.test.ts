@@ -34,11 +34,11 @@ test('nested panes, keyboard focus and atomic moves preserve resource identity a
   layout = apply(layout, { type: 'move', viewId: 'view-b', groupId: 'group-bottom', index: 0 });
   assert.deepEqual(tabGroups(layout.root).find(group => group.id === 'group-bottom')?.tabs, ['view-b', 'view-d']);
   assert.deepEqual(layout.views.map(view => view.resource), originalReferences);
-  layout = apply(layout, { type: 'remember-size', groupId: 'group-bottom', size: { width: 240, height: 140 } });
+  layout = apply(layout, { type: 'remember-size', groupId: 'group-bottom', size: { width: 240, height: 180 } });
   layout = apply(layout, { type: 'hide', viewId: 'view-b', hidden: true });
   assert.equal(tabGroups(layout.root).find(group => group.id === 'group-bottom')?.activeTabId, 'view-d');
   layout = apply(layout, { type: 'collapse', groupId: 'group-bottom', collapsed: true });
-  assert.deepEqual(tabGroups(layout.root).find(group => group.id === 'group-bottom')?.lastUsableSize, { width: 240, height: 140 });
+  assert.deepEqual(tabGroups(layout.root).find(group => group.id === 'group-bottom')?.lastUsableSize, { width: 240, height: 180 });
   const tree = layout.root;
   layout = apply(layout, { type: 'maximize', groupId: 'group-main' });
   layout = apply(layout, { type: 'maximize', groupId: null });

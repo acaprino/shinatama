@@ -123,8 +123,8 @@ impl WorkloadSlot {
 
 #[cfg(windows)]
 pub use native::{
-    CleanupOutcome, ClosedEmptyJobProof, JobSnapshot, MemberObservation, OwnedJobKey,
-    ReconcileOutcome, StartupJobBinding, WorkloadJob, reconcile_dead_owner,
+    CleanupOutcome, ClosedEmptyJobProof, InheritedJobBinding, JobSnapshot, MemberObservation,
+    OwnedJobKey, ReconcileOutcome, StartupJobBinding, WorkloadJob, reconcile_dead_owner,
 };
 
 #[cfg(windows)]
@@ -146,9 +146,10 @@ mod native {
     use windows_sys::Win32::System::JobObjects::*;
     use windows_sys::Win32::System::RemoteDesktop::ProcessIdToSessionId;
     use windows_sys::Win32::System::Threading::{
-        GetCurrentProcessId, GetProcessId, GetProcessTimes, LPPROC_THREAD_ATTRIBUTE_LIST,
-        OpenProcess, PROC_THREAD_ATTRIBUTE_JOB_LIST, PROCESS_QUERY_LIMITED_INFORMATION,
-        PROCESS_SYNCHRONIZE, UpdateProcThreadAttribute, WaitForSingleObject,
+        GetCurrentProcess, GetCurrentProcessId, GetProcessId, GetProcessTimes,
+        LPPROC_THREAD_ATTRIBUTE_LIST, OpenProcess, PROC_THREAD_ATTRIBUTE_JOB_LIST,
+        PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE, UpdateProcThreadAttribute,
+        WaitForSingleObject,
     };
 
     struct Handle(HANDLE);
@@ -213,6 +214,8 @@ mod native {
         owner: ProcessKey,
         owner_windows_session_id: u32,
         phase: Phase,
+        assignments_sealed: bool,
+        termination_confirmed: bool,
         census: Mutex<Census>,
     }
     // The unique handle can be used on another worker. Shared references expose
@@ -384,6 +387,20 @@ mod native {
             && u64::from(info.TotalProcesses) == verified_total
     }
 
+    fn sealed_rundown(
+        info: &JOBOBJECT_BASIC_ACCOUNTING_INFORMATION,
+        verified_total: u64,
+        unsignaled_handles: usize,
+        assignments_sealed: bool,
+        termination_confirmed: bool,
+    ) -> bool {
+        assignments_sealed
+            && termination_confirmed
+            && info.ActiveProcesses == 0
+            && unsignaled_handles == 0
+            && u64::from(info.TotalProcesses) >= verified_total
+    }
+
     impl WorkloadJob {
         pub fn create(
             slot: &WorkloadSlot,
@@ -440,6 +457,8 @@ mod native {
                     owner,
                     owner_windows_session_id,
                     phase: Phase::Active,
+                    assignments_sealed: false,
+                    termination_confirmed: false,
                     census: Mutex::new(Census::default()),
                 }),
                 Err(error) => {
@@ -474,7 +493,7 @@ mod native {
         /// Pin this guard before applying it. The guard must outlive the ENTIRE
         /// attribute list, including DeleteProcThreadAttributeList, not only spawn.
         pub fn startup_binding(&self) -> Result<StartupJobBinding<'_>, JobError> {
-            if self.phase != Phase::Active {
+            if self.phase != Phase::Active || self.assignments_sealed {
                 return Err(JobError::AdmissionClosed);
             }
             Ok(StartupJobBinding {
@@ -482,6 +501,19 @@ mod native {
                 handles: [self.handle().0],
                 _pinned: PhantomPinned,
             })
+        }
+
+        /// Irreversible owner-worker barrier, never accepted from IPC. The caller
+        /// must have destroyed every startup attribute list/temporary ASSIGN
+        /// handle, excluded job handles from child inheritance, and received any
+        /// trusted helper's confirmation that its temporary ASSIGN handles closed.
+        /// This does not stop child creation inside the job or itself prove exit.
+        pub fn seal_assignments(&mut self) -> Result<(), JobError> {
+            if self.phase != Phase::Active {
+                return Err(JobError::AdmissionClosed);
+            }
+            self.assignments_sealed = true;
+            Ok(())
         }
 
         pub fn query(&self, sampler: &WindowsSampler) -> Result<JobSnapshot, JobError> {
@@ -503,7 +535,10 @@ mod native {
             {
                 return Err(os_error());
             }
-            if ids.count > self.budget.max_processes || ids.assigned != ids.count {
+            // Read storage is bounded independently of the workload quota:
+            // Windows can attach console helpers beyond ActiveProcessLimit.
+            // Refusing that very observation would hide an attributable breach.
+            if ids.count > MAX_JOB_PROCESSES || ids.assigned > MAX_JOB_PROCESSES {
                 return Err(JobError::IncompleteMembership);
             }
             let mut members = Vec::new();
@@ -557,6 +592,7 @@ mod native {
                 observed_resident_bytes: resident,
                 membership_complete: before.ActiveProcesses == after.ActiveProcesses
                     && before.TotalProcesses == after.TotalProcesses
+                    && ids.assigned == ids.count
                     && after.ActiveProcesses == ids.count
                     && available == ids.count as usize,
                 members,
@@ -681,6 +717,24 @@ mod native {
                 .lock()
                 .map_err(|_| JobError::RundownUnverified)?;
             census.reap_signaled()?;
+            if self.assignments_sealed {
+                // Query the SAME held job after successful explicit termination,
+                // never a reopened name or NotFound result. No root can be newly
+                // assigned; every observed exact handle must still be signaled.
+                // Current native membership may be zero despite a historical
+                // census gap caused by already-exited short-lived descendants.
+                // https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-jobobject_basic_accounting_information
+                if u64::from(info.TotalProcesses) < census.verified_total {
+                    return Err(JobError::RundownUnverified);
+                }
+                return Ok(sealed_rundown(
+                    &info,
+                    census.verified_total,
+                    census.live.len(),
+                    self.assignments_sealed,
+                    self.termination_confirmed,
+                ));
+            }
             if info.ActiveProcesses == 0 && u64::from(info.TotalProcesses) != census.verified_total
             {
                 // A finished but never observed member cannot be recovered by
@@ -718,11 +772,12 @@ mod native {
                 }
                 return Ok(CleanupOutcome::Retired { error: Some(error) });
             }
-            let failure = if unsafe { TerminateJobObject(self.handle().0, 1) } == 0 {
-                Some(os_error())
-            } else {
-                None
-            };
+            self.termination_confirmed = unsafe { TerminateJobObject(self.handle().0, 1) } != 0;
+            if !self.termination_confirmed {
+                return Ok(CleanupOutcome::Retired {
+                    error: Some(os_error()),
+                });
+            }
             loop {
                 if let Err(error) = self.observe_current_members() {
                     return Ok(CleanupOutcome::Retired { error: Some(error) });
@@ -738,7 +793,7 @@ mod native {
                 let remaining = timeout.saturating_sub(started.elapsed());
                 if remaining.is_zero() {
                     return Ok(CleanupOutcome::Retired {
-                        error: failure.or(Some(JobError::RundownUnverified)),
+                        error: Some(JobError::RundownUnverified),
                     });
                 }
                 std::thread::sleep(remaining.min(Duration::from_millis(10)));
@@ -788,9 +843,7 @@ mod native {
             // No retry loop or destructor wait. Only a confirmed empty AND closed
             // job frees the local slot; otherwise it remains persistently retired.
             let observed = self.observe_current_members().is_ok();
-            unsafe {
-                TerminateJobObject(self.handle().0, 1);
-            }
+            self.termination_confirmed = unsafe { TerminateJobObject(self.handle().0, 1) } != 0;
             let confirmed = observed && matches!(self.rundown_complete(), Ok(true));
             if let Some(handle) = self.handle.take()
                 && handle.close().is_ok()
@@ -798,6 +851,104 @@ mod native {
             {
                 self.slot.set(SlotState::Free);
             }
+        }
+    }
+
+    /// Bootstrap capability for a helper already atomically inside this job.
+    /// QUERY/ASSIGN only: no termination, limit changes, cleanup or release proof.
+    pub struct InheritedJobBinding {
+        handle: Handle,
+        handles: [HANDLE; 1],
+        _pinned: PhantomPinned,
+    }
+    impl InheritedJobBinding {
+        pub fn open(owned: OwnedJobKey) -> Result<Self, JobError> {
+            let name = name(owned.job_key)?;
+            if current_session_id()? != owned.owner_windows_session_id {
+                return Err(JobError::OwnerSessionMismatch);
+            }
+            if WindowsSampler::identify(owned.owner.pid) != Ok(owned.owner) {
+                return Err(JobError::OwnerUnknown);
+            }
+            let raw = unsafe { OpenJobObjectW(0x0001 | 0x0004, 0, name.as_ptr()) };
+            if raw.is_null() {
+                return Err(os_error());
+            }
+            let handle = Handle(raw);
+            let mut member = 0;
+            if unsafe { IsProcessInJob(GetCurrentProcess(), handle.0, &mut member) } == 0 {
+                return Err(os_error());
+            }
+            if member == 0 {
+                return Err(JobError::IncompleteMembership);
+            }
+            Ok(Self {
+                handle,
+                handles: [raw],
+                _pinned: PhantomPinned,
+            })
+        }
+        /// # Safety
+        /// Same pinned-storage/list-lifetime and suspended-start requirements as
+        /// StartupJobBinding::apply_to. This helper must never inherit this handle.
+        pub unsafe fn apply_to(
+            self: Pin<&Self>,
+            list: LPPROC_THREAD_ATTRIBUTE_LIST,
+        ) -> Result<(), JobError> {
+            if list.is_null() {
+                return Err(JobError::AdmissionClosed);
+            }
+            if unsafe {
+                UpdateProcThreadAttribute(
+                    list,
+                    0,
+                    PROC_THREAD_ATTRIBUTE_JOB_LIST as usize,
+                    self.handles.as_ptr().cast(),
+                    size_of::<HANDLE>(),
+                    std::ptr::null_mut(),
+                    std::ptr::null(),
+                )
+            } == 0
+            {
+                Err(os_error())
+            } else {
+                Ok(())
+            }
+        }
+        pub fn verify_membership(
+            &self,
+            process: BorrowedHandle<'_>,
+        ) -> Result<ProcessKey, JobError> {
+            let raw = process.as_raw_handle() as HANDLE;
+            let mut member = 0;
+            if unsafe { IsProcessInJob(raw, self.handle.0, &mut member) } == 0 {
+                return Err(os_error());
+            }
+            if member == 0 {
+                return Err(JobError::IncompleteMembership);
+            }
+            let pid = unsafe { GetProcessId(raw) };
+            let (mut creation, mut exit, mut kernel, mut user) = (
+                FILETIME::default(),
+                FILETIME::default(),
+                FILETIME::default(),
+                FILETIME::default(),
+            );
+            if pid == 0
+                || unsafe { GetProcessTimes(raw, &mut creation, &mut exit, &mut kernel, &mut user) }
+                    == 0
+            {
+                return Err(os_error());
+            }
+            let key = ProcessKey {
+                pid,
+                created_at_100ns: (u64::from(creation.dwHighDateTime) << 32)
+                    | u64::from(creation.dwLowDateTime),
+            };
+            if WindowsSampler::identify(pid) != Ok(key) {
+                return Err(JobError::IncompleteMembership);
+            }
+            Ok(key)
         }
     }
 
@@ -1023,6 +1174,43 @@ mod native {
                 "counter mismatch fails closed in either direction"
             );
             assert!(census_proves_rundown(&info, 2, 0));
+        }
+        #[test]
+        fn a_sealed_launcher_requires_native_termination_zero_members_and_signaled_handles() {
+            let mut info = JOBOBJECT_BASIC_ACCOUNTING_INFORMATION {
+                ActiveProcesses: 0,
+                TotalProcesses: 7,
+                ..Default::default()
+            };
+            assert!(sealed_rundown(&info, 3, 0, true, true));
+            assert!(!sealed_rundown(&info, 3, 0, false, true));
+            assert!(!sealed_rundown(&info, 3, 0, true, false));
+            assert!(!sealed_rundown(&info, 3, 1, true, true));
+            info.ActiveProcesses = 1;
+            assert!(!sealed_rundown(&info, 3, 0, true, true));
+            info.ActiveProcesses = 0;
+            assert!(!sealed_rundown(&info, 8, 0, true, true));
+        }
+        #[test]
+        fn sealing_assignments_irreversibly_refuses_new_startup_bindings() {
+            let slot = WorkloadSlot::new();
+            let mut job = WorkloadJob::create(&slot, key(), budget()).unwrap();
+            assert!(job.startup_binding().is_ok());
+            job.seal_assignments().unwrap();
+            assert!(matches!(
+                job.startup_binding(),
+                Err(JobError::AdmissionClosed)
+            ));
+            assert_eq!(
+                job.terminate_and_wait(Duration::ZERO).unwrap(),
+                CleanupOutcome::EmptyConfirmed
+            );
+            assert!(matches!(
+                job.seal_assignments(),
+                Err(JobError::AdmissionClosed)
+            ));
+            assert!(job.close_after_empty().is_ok());
+            assert_eq!(slot.state(), SlotState::Free);
         }
         #[test]
         fn a_retained_census_gap_prevents_cleanup_close_and_replacement_even_for_an_empty_job() {

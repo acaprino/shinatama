@@ -82,6 +82,7 @@ pub fn prepare_private_sidecar(
         "temp",
         "cache/node-compile",
         "data/sessions",
+        "data/ca",
         "state/dumps",
         "home/AppData/Roaming",
         "home/AppData/Local",

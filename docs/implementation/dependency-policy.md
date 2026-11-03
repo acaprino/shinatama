@@ -6,6 +6,18 @@ This is build-time inventory tooling for the Windows prototype, not release lega
 
 The root npm manifest is the sole package declaration and uses exact versions matching its lockfile. Production Rust workspace crates inherit direct dependencies from the workspace list. Git dependencies need full revision pins. The locked Windows graph is classified by runtime, build-tool and dev-test reachability; proc macros belong to build-tool paths.
 
+The prepared C12 upstream mirror has one narrow metadata exception: only
+`sidecar/source-build/prepared/{package.json,kernel/package.json,pi-subagents/package.json}`
+are accepted after each file's bytes and SHA-256 match `sourceFiles` or
+`artifactFiles` in `sidecar/source-build/provenance.lock.json`. Reparse components,
+path escapes, malformed or oversized pins, and unknown nested manifests are
+rejected. The mirror walk is capped at 1,024 entries and depth 32; metadata reads
+are capped at 256 KiB each. The existing `node_modules` dependency exclusion
+remains. This is an upstream source mirror, not another first-party npm project.
+The Cargo/npm notices do not certify the separate sidecar's transitive inventory.
+The prepared Node runtime remains **not distribution-ready** while its required
+license bundle is absent; the exception gives no legal release approval.
+
 Recognized permissive SPDX identifiers are inventoried, not declared legally approved. MPL-2.0 is explicitly release-review-required. Missing/unknown declarations or missing required license text are errors. Current project code is excluded from third-party checks. Hosted WebView2 and system fonts are external runtime resources and are not bundled package licenses.
 
 `python scripts/dependencies.py generate` updates the deterministic metadata notice. `check` verifies it without changing it. Both create sanitized `.verification/dependencies.json` and a full local `.verification/THIRD_PARTY_LICENSES.txt`; neither performs license downloads. Normal locked Cargo/npm restore must run first.

@@ -1,0 +1,30 @@
+/* Workspace chrome follows the active skin. Terminal pixels remain xterm's. */
+.wm-host { position: relative; min-width: 0; min-height: 0; overflow: auto; background: var(--stage); }
+#workspace.wm-host { display: block; padding: 0; }
+.wm-pane.pane { min-width: 0; min-height: 0; }
+.wm-canvas { position: relative; min-width: 100%; min-height: 100%; isolation: isolate; }
+.wm-pane { position: absolute; display: flex; flex-direction: column; min-width: 0; min-height: 0; border: 1px solid var(--line); background: var(--terminal); }
+.wm-pane.wm-focused { border-color: var(--ice); }
+.wm-header { display: flex; flex: 0 0 30px; min-width: 0; align-items: stretch; background: var(--chrome); border-bottom: 1px solid var(--line); }
+.wm-control { min-height: 28px; padding: 0 7px; font-size: 12px; letter-spacing: .04em; flex: none; }
+.wm-pane-focus { color: var(--muted); padding: 0 7px; border: 0; font: 12px var(--mono); }
+.wm-tabs { display: flex; align-items: stretch; min-width: 0; flex: 1; overflow: auto; scrollbar-width: thin; }
+.wm-tab { max-width: 190px; border-top: 0; border-bottom: 0; text-overflow: ellipsis; overflow: hidden; text-transform: none; font: 12px var(--mono); }
+.wm-tab[aria-selected="true"] { color: var(--ice); background: var(--surface); box-shadow: inset 0 -2px var(--accent); }
+.wm-controls { flex: 0 0 29px; display: flex; gap: 3px; align-items: center; overflow: auto; scrollbar-width: thin; background: var(--chrome-2); border-bottom: 1px solid var(--line); }
+.wm-target { max-width: 110px; min-width: 58px; background: var(--chrome); border: 1px solid var(--line); font: 12px var(--mono); color: var(--text-2); }
+.wm-body { flex: 1; position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+.wm-body > .terminal-view { position: absolute; inset: 0; }
+.wm-placeholder { display: grid; align-content: center; justify-items: center; min-height: 100%; padding: 10px; color: var(--muted); font: 12px var(--mono); text-align: center; overflow-wrap: anywhere; }
+.wm-collapsed .wm-tabs, .wm-collapsed .wm-pane-focus, .wm-collapsed .wm-header > :last-child { display: none; }
+.wm-collapsed .wm-header { flex: 1; justify-content: center; border: 0; }
+.wm-splitter { position: absolute; z-index: 3; touch-action: none; background: transparent; }
+.wm-splitter[data-axis="columns"] { cursor: col-resize; }
+.wm-splitter[data-axis="rows"] { cursor: row-resize; }
+.wm-splitter:hover, .wm-splitter:focus-visible { background: var(--line-strong); }
+.wm-drop-preview { position: absolute; z-index: 5; pointer-events: none; border: 2px solid var(--accent); background: var(--scrim); }
+.wm-changing { user-select: none; }
+.wm-status { position: absolute; left: 8px; bottom: 8px; max-width: calc(100% - 16px); color: var(--warning); background: var(--chrome); pointer-events: none; font: 12px var(--mono); }
+.wm-footer { flex: 0 0 28px; }
+.wm-footer select { max-width: 100px; font: 12px var(--mono); }
+.wm-status:empty { display: none; }

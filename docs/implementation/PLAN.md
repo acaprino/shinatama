@@ -78,15 +78,15 @@ macOS e Linux sono fuori dallo scope su decisione dell utente: solo Windows e su
 | [C05](#c05) | Creare progetti in modo atomico sotto la radice scelta | C04 | committed | 8–16 |
 | [C10](#c10) | Definire contratti degli adattatori, capacità e verifiche di versione | C02, C03 | committed | 10–18 |
 | [C11](#c11) | Costruire piani di avvio sicuri e cartelle private degli agenti | C01, C10 | committed | 16–32 |
-| [C12](#c12) | Integrare il sorgente del sidecar e il suo ambiente privato | C11 | pending | 20–40 |
+| [C12](#c12) | Integrare il sorgente del sidecar e il suo ambiente privato | C11 | in_progress | 20–40 |
 | [C09R](#c09r) | Proteggere l host con budget e recupero adattivi | C03, FS03, C11, C03M | committed | 24–48 |
 | [C13](#c13) | Supervisionare i sidecar distinguendo occupazione e recupero | C12, C09R | pending | 20–40 |
 | [C14](#c14) | Preparare checkup, manifest e set generici di avvio | C11, C13 | pending | 6–12 |
 | [FS03](#fs03) | Separazione degli schemi autorevoli e operativi e record dei progetti | C03, C11 | committed | 4–10 |
 | [C06](#c06) | Introdurre un modello validato ad albero per le suddivisioni | B02, FS03, TL1-proof | committed | 10–20 |
-| [C07](#c07) | Disegnare l'albero di pannelli e completare i comandi da tastiera | C06 | in_progress | 15–30 |
-| [C08](#c08) | Rendere configurabili i temi e i profili versionati dei terminali | C07 | pending | 12–20 |
-| [C09](#c09) | Rendere robusti terminale e contenimento con fixture sintetiche | C07, C08, C09R | pending | 8–16 |
+| [C07](#c07) | Disegnare l'albero di pannelli e completare i comandi da tastiera | C06 | verified | 15–30 |
+| [C08](#c08) | Rendere configurabili i temi e i profili versionati dei terminali | C07 | verified | 12–20 |
+| [C09](#c09) | Rendere robusti terminale e contenimento con fixture sintetiche | C07, C08, C09R | verified | 8–16 |
 | [C15](#c15) | Avviare il primo adattatore Claude attraverso il checkup | C09, C10, C11, C13, C14 | pending | 12–24 |
 | [QA-claude-windows](#qa-claude-windows) | Certificare terminale claude su windows | C09, C15 | pending | 4–8 |
 | [C22](#c22) | Risolvere le radici persistenti degli archivi e collegare una revisione verificata di Mukade | C03, C11, C15 | pending | 14–28 |

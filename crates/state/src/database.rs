@@ -416,6 +416,79 @@ impl Database {
         Ok(())
     }
 
+    /// C08's sole settings namespace. Reads never allocate an oversized value.
+    pub fn presentation_json(&self) -> Result<Option<String>> {
+        let connection = self.lock()?;
+        let saved: Option<Option<String>> = connection.query_row(
+            "SELECT CASE WHEN octet_length(value)<=8192 THEN value ELSE NULL END FROM setting WHERE key='ui.presentation.v1'",
+            [], |row| row.get(0),
+        ).optional()?;
+        match saved {
+            Some(Some(json)) => Ok(Some(json)),
+            None => Ok(None),
+            Some(None) => Err(DatabaseError::InvalidAppearance),
+        }
+    }
+
+    /// Typed adapters validate the presentation DTO. This fixed-key boundary
+    /// additionally bounds JSON and atomically compares its monotonic revision.
+    pub fn set_presentation_json(&self, expected_revision: u64, json: &str) -> Result<()> {
+        self.require_writable()?;
+        if json.len() > 8192 || expected_revision >= 9_007_199_254_740_991 {
+            return Err(DatabaseError::InvalidAppearance);
+        }
+        let incoming: serde_json::Value =
+            serde_json::from_str(json).map_err(|_| DatabaseError::InvalidAppearance)?;
+        if incoming.as_object().is_none_or(|object| object.len() != 2)
+            || incoming
+                .get("settings")
+                .is_none_or(|value| !value.is_object())
+            || incoming
+                .get("settings")
+                .and_then(|value| value.get("version"))
+                .and_then(serde_json::Value::as_u64)
+                != Some(1)
+            || incoming.get("revision").and_then(serde_json::Value::as_u64)
+                != Some(expected_revision + 1)
+        {
+            return Err(DatabaseError::InvalidAppearance);
+        }
+        let mut connection = self.lock()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        schema::require_write_version(&transaction)?;
+        let current: Option<Option<String>>=transaction.query_row(
+            "SELECT CASE WHEN octet_length(value)<=8192 THEN value ELSE NULL END FROM setting WHERE key='ui.presentation.v1'", [], |row|row.get(0),
+        ).optional()?;
+        let revision = match current {
+            None => 0,
+            Some(None) => return Err(DatabaseError::InvalidAppearance),
+            Some(Some(json)) => {
+                let value = serde_json::from_str::<serde_json::Value>(&json)
+                    .map_err(|_| DatabaseError::InvalidAppearance)?;
+                if value
+                    .get("settings")
+                    .and_then(|value| value.get("version"))
+                    .and_then(serde_json::Value::as_u64)
+                    != Some(1)
+                {
+                    return Err(DatabaseError::InvalidAppearance);
+                }
+                value
+                    .get("revision")
+                    .and_then(serde_json::Value::as_u64)
+                    .ok_or(DatabaseError::InvalidAppearance)?
+            }
+        };
+        if revision != expected_revision {
+            return Err(DatabaseError::Busy(
+                "Presentation preferences changed; reload before saving",
+            ));
+        }
+        transaction.execute("INSERT INTO setting(key,value) VALUES('ui.presentation.v1',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value",[json])?;
+        transaction.commit()?;
+        Ok(())
+    }
+
     /// This check never rebuilds or deletes authoritative data.
     pub fn integrity_check(&self) -> Result<()> {
         let connection = self.lock()?;
