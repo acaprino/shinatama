@@ -60,6 +60,11 @@ const MIGRATIONS: &[Migration] = &[
         to: 4,
         sql: crate::threads::schema::MIGRATION_V4,
     },
+    Migration {
+        from: 4,
+        to: 5,
+        sql: crate::threads::schema::MIGRATION_V5,
+    },
 ];
 
 /// The caller holds the private crash-released schema.lock across this operation.
@@ -489,6 +494,104 @@ mod fault_tests {
         drop(connection);
         drop(location);
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn v5_activation_history_migration_is_lossless_and_rolls_back_after_sql_failure() {
+        use rusqlite::types::Value;
+
+        fn rows(connection: &Connection, sql: &str) -> Vec<Vec<Value>> {
+            let mut statement = connection.prepare(sql).unwrap();
+            let columns = statement.column_count();
+            statement
+                .query_map([], |row| {
+                    (0..columns).map(|column| row.get(column)).collect()
+                })
+                .unwrap()
+                .collect::<rusqlite::Result<Vec<Vec<Value>>>>()
+                .unwrap()
+        }
+        fn records(connection: &Connection) -> Vec<Vec<Vec<Value>>> {
+            ["project", "setting", "store_root", "workspace", "thread", "segment"]
+                .into_iter()
+                .map(|table| rows(connection, &format!("SELECT * FROM {table} ORDER BY rowid")))
+                .collect()
+        }
+        const HISTORY: &str = "SELECT instance_id,owner_pid,owner_created_at_100ns,thread_id,segment_id,store_root_id,store_revision,native_id,revision,started_at,ended_at FROM activation ORDER BY instance_id";
+
+        let root = root();
+        let owned_root = fs::canonicalize(&root).unwrap();
+        assert!(owned_root.starts_with(fs::canonicalize(std::env::temp_dir()).unwrap()));
+        let location = location(&root);
+        location.prepare_private_directory().unwrap();
+        let mut connection = Connection::open(location.database_path()).unwrap();
+        connection.pragma_update(None, "foreign_keys", true).unwrap();
+        connection.pragma_update(None, "journal_mode", "WAL").unwrap();
+        for migration in MIGRATIONS.iter().filter(|step| step.to <= 4) {
+            for sql in migration.sql {
+                connection.execute_batch(sql).unwrap();
+            }
+        }
+        connection.pragma_update(None, "user_version", 4).unwrap();
+        connection.execute_batch(
+            r#"INSERT INTO project VALUES('p_aaaaaaaaaaaa','C:\synthetic-project','synthetic-project','Saved project',10,1);
+             INSERT INTO setting VALUES('saved','{"kept":true}');
+             INSERT INTO store_root VALUES('migration-root','claude_code','box','primary','C:\synthetic-home','configured',7,'read_write',1,NULL);
+             INSERT INTO workspace VALUES('p_aaaaaaaaaaaa','saved-workspace',4,1,'{"saved":true}',NULL,NULL,NULL,50);
+             INSERT INTO thread VALUES('t_aaaaaaaaaaaa','p_aaaaaaaaaaaa','work',NULL,NULL,'Saved thread',0,8,10,50);
+             INSERT INTO segment VALUES('s_aaaaaaaaaaaa','t_aaaaaaaaaaaa',1,'claude_code','migration-root',7,'01234567-89ab-4def-8123-456789abcdef',0,9,20);
+             INSERT INTO activation(instance_id,owner_pid,owner_created_at_100ns,thread_id,segment_id,store_root_id,store_revision,native_id,revision,started_at,ended_at)
+             VALUES('i_aaaaaaaaaaaa',101,1001,'t_aaaaaaaaaaaa','s_aaaaaaaaaaaa','migration-root',7,'01234567-89ab-4def-8123-456789abcdef',3,30,40),
+                   ('i_bbbbbbbbbbbb',202,2002,'t_aaaaaaaaaaaa','s_aaaaaaaaaaaa','migration-root',7,'01234567-89ab-4def-8123-456789abcdef',4,50,NULL);"#,
+        ).unwrap();
+        schema::validate_version(&connection, 4).unwrap();
+        let history = rows(&connection, HISTORY);
+        let saved_records = records(&connection);
+        assert_eq!(history.len(), 2);
+        assert!(history.iter().all(|row| row.len() == 11));
+        let result = initialize_impl(
+            &mut connection,
+            &location,
+            |_, _| Ok(()),
+            |version, transaction| {
+                assert_eq!(version, 5);
+                assert_eq!(rows(transaction, HISTORY), history);
+                Err(DatabaseError::Io(std::io::Error::other("synthetic v5 fault")))
+            },
+        );
+        assert!(matches!(result, Err(DatabaseError::Io(_))));
+        assert_eq!(connection.pragma_query_value::<u32, _>(None, "user_version", |row| row.get(0)).unwrap(), 4);
+        schema::validate_version(&connection, 4).unwrap();
+        assert_eq!(rows(&connection, HISTORY), history);
+        assert_eq!(records(&connection), saved_records);
+
+        let backups = fs::read_dir(location.directory()).unwrap()
+            .map(|entry| entry.unwrap().path())
+            .filter(|path| path.file_name().unwrap().to_string_lossy().starts_with("shinatama-before-v4-to-v5-")
+                && path.to_string_lossy().ends_with(".backup.db"))
+            .collect::<Vec<_>>();
+        assert_eq!(backups.len(), 1);
+        let backup = Connection::open_with_flags(&backups[0], OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+        schema::validate_version(&backup, 4).unwrap();
+        ensure_integrity(&backup).unwrap();
+        assert_eq!(rows(&backup, HISTORY), history);
+        assert_eq!(records(&backup), saved_records);
+        drop(backup);
+
+        initialize(&mut connection, &location).unwrap();
+        assert_eq!(connection.pragma_query_value::<u32, _>(None, "user_version", |row| row.get(0)).unwrap(), 5);
+        schema::validate_version(&connection, 5).unwrap();
+        ensure_integrity(&connection).unwrap();
+        assert_eq!(rows(&connection, HISTORY), history);
+        assert_eq!(records(&connection), saved_records);
+        assert_eq!(rows(&connection, "SELECT activation_sequence FROM activation ORDER BY started_at,instance_id"),
+            vec![vec![Value::Integer(1)], vec![Value::Integer(2)]]);
+        assert_eq!(connection.query_row::<i64, _, _>("SELECT count(*) FROM pragma_foreign_key_check", [], |row| row.get(0)).unwrap(), 0);
+        assert!(backups[0].is_file());
+        drop(connection);
+        drop(location);
+        assert_eq!(fs::canonicalize(&root).unwrap(), owned_root);
+        fs::remove_dir_all(owned_root).unwrap();
     }
 
     #[test]

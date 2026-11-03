@@ -2,7 +2,7 @@
 
 use rusqlite::Connection;
 
-pub const CURRENT_VERSION: u32 = 4;
+pub const CURRENT_VERSION: u32 = 5;
 
 const MAX_SCHEMA_OBJECTS: usize =
     5 + crate::records::schema::OBJECTS.len() + crate::threads::schema::OBJECTS.len();
@@ -91,11 +91,13 @@ fn validate_definitions(actual: Vec<(String, String)>, version: u32) -> rusqlite
     if version >= 3 {
         expected.extend_from_slice(crate::records::schema::OBJECTS);
     }
-    if version >= 4 {
+    if version == 4 {
+        expected.extend_from_slice(crate::threads::schema::OBJECTS_V4);
+    } else if version >= 5 {
         expected.extend_from_slice(crate::threads::schema::OBJECTS);
     }
     expected.sort_by_key(|(name, _)| *name);
-    if !matches!(version, 1..=4)
+    if !(1..=CURRENT_VERSION).contains(&version)
         || actual.len() != expected.len()
         || !actual
             .iter()

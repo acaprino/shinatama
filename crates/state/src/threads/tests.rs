@@ -6,6 +6,331 @@ use crate::{
 use std::fs;
 
 #[test]
+fn authenticated_native_switches_preserve_history_and_reject_stale_or_foreign_owners() {
+    let parent = fs::canonicalize(std::env::temp_dir()).unwrap();
+    let fixture = parent.join(format!("shinatama-native-switch-{}", uuid::Uuid::new_v4()));
+    let location = StorageLocation::resolve(LocationRequest {
+        local_data_directory: parent.clone(),
+        home_override: Some(fixture.clone()),
+        project_roots: vec![],
+        synchronized_roots: vec![],
+    })
+    .unwrap();
+    location.prepare_private_directory().unwrap();
+    let db = Database::open(&location, None).unwrap();
+    db.lock().unwrap().execute("INSERT INTO project VALUES('p_aaaaaaaaaaaa','C:\\synthetic-project','synthetic-project','Project',10,1)", []).unwrap();
+    let thread = ThreadRecord {
+        id: "t_aaaaaaaaaaaa".into(),
+        project_id: "p_aaaaaaaaaaaa".into(),
+        kind: ThreadKind::Work,
+        parent_thread_id: None,
+        companion_worker_thread_id: None,
+        title: None,
+        archived: false,
+        revision: 1,
+        created_at: 10,
+        updated_at: 10,
+    };
+    db.create_thread(&thread).unwrap();
+    let archive = location
+        .resolve_related_directory(&location.directory().join("native-fixture"))
+        .unwrap();
+    archive.prepare_private_directory().unwrap();
+    let root_record = StoreRootRecord {
+        id: "fixture-root".into(),
+        harness: "claude_code".into(),
+        kind: RootKind::Box,
+        scope: RootScope::Primary,
+        resolved_path: archive
+            .directory()
+            .to_string_lossy()
+            .trim_start_matches(r"\\?\")
+            .into(),
+        origin: RootOrigin::Configured,
+        config_revision: 1,
+        access: RootAccess::ReadWrite,
+        available: true,
+    };
+    db.register_store_root(&PreparedStoreRoot::resolve(root_record.clone()).unwrap())
+        .unwrap();
+    let key_a = NativeSessionKey {
+        store_root_id: root_record.id.clone(),
+        store_revision: 1,
+        native_id: "12cc3a11-45db-4f1e-89c8-40d5c6be1dd3".into(),
+    };
+    let key_b = NativeSessionKey {
+        native_id: "22cc3a11-45db-4f1e-89c8-40d5c6be1dd3".into(),
+        ..key_a.clone()
+    };
+    let owner_a = ActivationOwner {
+        instance_id: "i_aaaaaaaaaaaa".into(),
+        pid: 10,
+        created_at_100ns: 100,
+    };
+    let owner_b = ActivationOwner {
+        instance_id: "i_bbbbbbbbbbbb".into(),
+        pid: 11,
+        created_at_100ns: 200,
+    };
+    let other = Database::open(&location, None).unwrap();
+    let first_request = NativeSessionStart {
+        thread_id: &thread.id,
+        expected_thread_revision: 1,
+        candidate_segment_id: "s_aaaaaaaaaaaa",
+        harness: "claude_code",
+        native: &key_a,
+        owner: &owner_a,
+        expected_activation: None,
+        observed_at: 20,
+    };
+    let competing_request = NativeSessionStart {
+        owner: &owner_b,
+        candidate_segment_id: "s_dddddddddddd",
+        ..first_request
+    };
+    let barrier = std::sync::Barrier::new(2);
+    let (first, competing) = std::thread::scope(|scope| {
+        let left = scope.spawn(|| {
+            barrier.wait();
+            db.observe_native_session_start(&first_request)
+        });
+        let right = scope.spawn(|| {
+            barrier.wait();
+            other.observe_native_session_start(&competing_request)
+        });
+        (left.join().unwrap(), right.join().unwrap())
+    });
+    let (a, owner, rejected_owner) = match (first, competing) {
+        (Ok(active), Err(_)) => (active, owner_a, owner_b),
+        (Err(_), Ok(active)) => (active, owner_b, owner_a),
+        result => panic!("Exactly one competing writer must acquire the session: {result:?}"),
+    };
+    assert_eq!(a.thread.revision, 2);
+    assert_eq!(a.activation.revision, 1);
+    assert_eq!(a.segment.ordinal, 1);
+    let repeat_request = NativeSessionStart {
+        thread_id: &thread.id,
+        expected_thread_revision: a.thread.revision,
+        candidate_segment_id: "s_eeeeeeeeeeee",
+        harness: "claude_code",
+        native: &key_a,
+        owner: &owner,
+        expected_activation: Some(a.activation.version()),
+        observed_at: 21,
+    };
+    let repeated = db.observe_native_session_start(&repeat_request).unwrap();
+    assert!(!repeated.changed);
+    assert_eq!(repeated.activation, a.activation);
+    assert_eq!(repeated.thread, a.thread);
+    assert!(matches!(
+        other.observe_native_session_start(&NativeSessionStart {
+            owner: &rejected_owner,
+            expected_activation: None,
+            ..repeat_request
+        }),
+        Err(ThreadError::OwnedElsewhere)
+    ));
+    let reused_pid = ActivationOwner {
+        created_at_100ns: owner.created_at_100ns + 1,
+        ..owner.clone()
+    };
+    assert!(matches!(
+        db.observe_native_session_start(&NativeSessionStart {
+            owner: &reused_pid,
+            ..repeat_request
+        }),
+        Err(ThreadError::OwnedElsewhere)
+    ));
+
+    let replacement = PreparedStoreRoot::resolve(StoreRootRecord {
+        id: "fixture-root-v2".into(),
+        config_revision: 2,
+        ..root_record.clone()
+    })
+    .unwrap();
+    db.register_store_root_revision(&root_record.id, 1, &replacement)
+        .unwrap();
+    let wrong_root = NativeSessionKey {
+        store_root_id: replacement.record().id.clone(),
+        store_revision: 2,
+        ..key_b.clone()
+    };
+    assert!(matches!(
+        db.observe_native_session_start(&NativeSessionStart {
+            native: &wrong_root,
+            ..repeat_request
+        }),
+        Err(ThreadError::RootUnavailable)
+    ));
+    let b = db
+        .observe_native_session_start(&NativeSessionStart {
+            native: &key_b,
+            candidate_segment_id: "s_bbbbbbbbbbbb",
+            observed_at: 30,
+            ..repeat_request
+        })
+        .unwrap();
+    assert_eq!(
+        b.previous_activation.as_ref().unwrap().sequence,
+        a.activation.sequence
+    );
+    assert_eq!(b.previous_activation.as_ref().unwrap().ended_at, Some(30));
+    assert!(b.activation.sequence > a.activation.sequence);
+    assert_eq!(b.activation.revision, 3);
+    assert_eq!(b.segment.ordinal, 2);
+    assert!(matches!(
+        other.observe_native_session_start(&repeat_request),
+        Err(ThreadError::Conflict)
+    ));
+    assert!(matches!(
+        other.end_thread_activation(&owner, a.activation.revision, 31),
+        Err(ThreadError::Conflict)
+    ));
+    assert!(matches!(
+        other.end_thread_activation_exact(
+            &owner,
+            ActivationVersion {
+                sequence: a.activation.sequence,
+                revision: b.activation.revision,
+            },
+            31
+        ),
+        Err(ThreadError::Conflict)
+    ));
+
+    let foreign_thread = ThreadRecord {
+        id: "t_bbbbbbbbbbbb".into(),
+        ..thread.clone()
+    };
+    db.create_thread(&foreign_thread).unwrap();
+    let foreign_key = NativeSessionKey {
+        native_id: "32cc3a11-45db-4f1e-89c8-40d5c6be1dd3".into(),
+        ..key_a.clone()
+    };
+    db.attach_thread_segment(
+        &SegmentRecord {
+            id: "s_cccccccccccc".into(),
+            thread_id: foreign_thread.id,
+            ordinal: 1,
+            harness: "claude_code".into(),
+            native: foreign_key.clone(),
+            archived: false,
+            revision: 1,
+            created_at: 20,
+        },
+        1,
+    )
+    .unwrap();
+    let switch_back = NativeSessionStart {
+        expected_thread_revision: b.thread.revision,
+        expected_activation: Some(b.activation.version()),
+        observed_at: 40,
+        ..repeat_request
+    };
+    assert!(matches!(
+        other.observe_native_session_start(&NativeSessionStart {
+            native: &foreign_key,
+            ..switch_back
+        }),
+        Err(ThreadError::OwnedElsewhere)
+    ));
+    assert_eq!(
+        db.thread_activation(&owner.instance_id).unwrap(),
+        Some(b.activation.clone())
+    );
+    let back = db.observe_native_session_start(&switch_back).unwrap();
+    assert_eq!(back.segment.id, a.segment.id);
+    assert_eq!(back.segment.ordinal, 1);
+    assert_eq!(back.activation.revision, 5);
+    assert!(back.activation.sequence > b.activation.sequence);
+    assert_eq!(
+        back.previous_activation.as_ref().unwrap().ended_at,
+        Some(40)
+    );
+    assert_eq!(
+        db.thread_resume_target(&thread.id).unwrap().segment.id,
+        a.segment.id
+    );
+    {
+        let connection = db.lock().unwrap();
+        let mut query = connection.prepare("SELECT native_id,started_at,ended_at,revision FROM activation WHERE instance_id=?1 ORDER BY activation_sequence").unwrap();
+        let history = query
+            .query_map([&owner.instance_id], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, Option<i64>>(2)?,
+                    row.get::<_, i64>(3)?,
+                ))
+            })
+            .unwrap()
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(
+            history,
+            vec![
+                (key_a.native_id.clone(), 20, Some(30), 2),
+                (key_b.native_id.clone(), 30, Some(40), 4),
+                (key_a.native_id.clone(), 40, None, 5)
+            ]
+        );
+        assert_eq!(
+            connection
+                .query_row::<i64, _, _>(
+                    "SELECT count(*) FROM segment WHERE thread_id=?1",
+                    [&thread.id],
+                    |row| row.get(0)
+                )
+                .unwrap(),
+            2
+        );
+        assert_eq!(
+            connection
+                .query_row::<i64, _, _>(
+                    "SELECT count(*) FROM pragma_foreign_key_check",
+                    [],
+                    |row| row.get(0)
+                )
+                .unwrap(),
+            0
+        );
+    }
+    let ended = db
+        .end_thread_activation_exact(&owner, back.activation.version(), 50)
+        .unwrap();
+    assert_eq!(ended.sequence, back.activation.sequence);
+    assert_eq!(ended.ended_at, Some(50));
+    let saved = db.thread_record(&thread.id).unwrap().unwrap();
+    assert!(matches!(
+        db.observe_native_session_start(&NativeSessionStart {
+            expected_thread_revision: saved.revision,
+            expected_activation: Some(ended.version()),
+            observed_at: 51,
+            ..switch_back
+        }),
+        Err(ThreadError::Conflict)
+    ));
+    drop(other);
+    drop(db);
+    let reopened = Database::open(&location, None).unwrap();
+    let target = reopened.thread_resume_target(&thread.id).unwrap();
+    assert_eq!(target.segment.id, a.segment.id);
+    assert_eq!(target.recorded_activation, None);
+    drop(reopened);
+    drop(archive);
+    drop(location);
+    assert_eq!(fixture.parent(), Some(parent.as_path()));
+    assert!(
+        fixture
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .starts_with("shinatama-native-switch-")
+    );
+    fs::remove_dir_all(fixture).unwrap();
+}
+
+#[test]
 fn resume_target_keeps_thread_root_and_owner_identity_exact() {
     let parent = fs::canonicalize(std::env::temp_dir()).unwrap();
     let fixture = parent.join(format!("shinatama-resume-target-{}", uuid::Uuid::new_v4()));
@@ -105,7 +430,7 @@ fn resume_target_keeps_thread_root_and_owner_identity_exact() {
         .activate_thread_segment(&older.id, 1, &owner, 30)
         .unwrap();
     let target = db.thread_resume_target(&first.id).unwrap();
-    assert_eq!(target.segment, latest);
+    assert_eq!(target.segment.id, older.id);
     assert_eq!(target.recorded_activation, Some(active.clone()));
     assert_eq!(
         db.thread_resume_target(&second.id)
@@ -145,7 +470,7 @@ fn resume_target_keeps_thread_root_and_owner_identity_exact() {
         connection
             .execute(
                 "UPDATE segment SET store_revision=2 WHERE id=?1",
-                [&latest.id],
+                [&older.id],
             )
             .unwrap();
         connection
@@ -157,7 +482,7 @@ fn resume_target_keeps_thread_root_and_owner_identity_exact() {
         ThreadResumeError::RootChanged
     );
     assert_eq!(
-        db.segment_record(&latest.id)
+        db.segment_record(&older.id)
             .unwrap()
             .unwrap()
             .native
@@ -166,7 +491,7 @@ fn resume_target_keeps_thread_root_and_owner_identity_exact() {
     );
     db.lock()
         .unwrap()
-        .pragma_update(None, "user_version", 5)
+        .pragma_update(None, "user_version", crate::schema::CURRENT_VERSION + 1)
         .unwrap();
     assert_eq!(
         db.thread_resume_target(&first.id).unwrap_err(),
@@ -177,7 +502,7 @@ fn resume_target_keeps_thread_root_and_owner_identity_exact() {
             .unwrap()
             .pragma_query_value::<u32, _>(None, "user_version", |row| row.get(0))
             .unwrap(),
-        5
+        crate::schema::CURRENT_VERSION + 1
     );
     drop(db);
     drop(archive);
@@ -234,7 +559,10 @@ fn v3_upgrade_preserves_saved_work_and_thread_exclusivity_survives_reopen() {
     drop(connection);
 
     let db = Database::open(&location, None).unwrap();
-    assert_eq!(db.diagnostics().unwrap().schema_version, 4);
+    assert_eq!(
+        db.diagnostics().unwrap().schema_version,
+        crate::schema::CURRENT_VERSION
+    );
     {
         let connection = db.lock().unwrap();
         assert_eq!(
