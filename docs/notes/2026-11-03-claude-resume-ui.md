@@ -137,3 +137,45 @@ La prossima prova richiede risorse sufficienti e deve mantenere la guardia:
 acquisire la famiglia dell'errore Claude se ricompare, oppure completare
 New session → Stop → Resume nello stesso thread. Il rinvio corrente non dimostra
 che l'uscita nativa precedente sia risolta.
+
+## Causa dell'uscita Claude osservata dopo aver liberato memoria
+
+La build debug con il protocollo di cleanup del commit `c003838` ha superato
+l'ammissione e avviato Claude. La nuova diagnostica ha rilevato precisamente
+`anthropicStartupConnection` e `connectionFailure`, seguite da uscita 1 prima
+dell'onboarding. Durante il fallimento erano disponibili 5.667.622.912 byte di
+commit e 12.846.632.960 byte fisici, con campionamento completo; il sidecar era
+`ready` e sano. Il job è terminato spontaneamente, picco commit 306.536.448 byte,
+nessun rifiuto delle code o arresto del supervisore. La guardia non ha inoltrato
+connessioni; oltre ai controlli negativi ha rifiutato due CONNECT nativi.
+
+La lettura del codice JavaScript incorporato nel binario pinned Claude 2.1.317
+identifica la causa della fixture. La funzione di onboarding `zt` include il
+preflight quando `Ca()` abilita il login OAuth. Il preflight `re` richiede HTTP
+200 da `/api/hello` sull'origine API first-party e da `/v1/oauth/hello`
+sull'origine token first-party: `api.anthropic.com` e `platform.claude.com`.
+Questi URL non usano `ANTHROPIC_BASE_URL`. La chiave sintetica ancora non
+approvata lascia attivo quel percorso, che la guardia deve rifiutare.
+
+La fixture è quindi configurata con **`ANTHROPIC_AUTH_TOKEN` sintetico**, al posto
+di `ANTHROPIC_API_KEY`: è il normale percorso bearer per un gateway. Nel codice
+pinned `Oy()` legge quel token e `Ca()` disabilita il percorso OAuth quando è la
+credenziale attiva. Il provider locale già verifica il bearer esatto. Non vengono
+modificati il prodotto, TLS, le destinazioni ammesse, i budget o il profilo
+personale. La prova non qualifica login OAuth, account reali o onboarding con
+chiave Anthropic first-party.
+
+La prima esecuzione con questa sola variazione è stata nuovamente rinviata
+dall'ammissione **prima dell'avvio del sidecar**: il campione del run aveva
+3.923.656.704 byte di commit disponibili e 11.146.244.096 byte fisici; il messaggio
+statico è lo stesso `Resources are not yet ready...`. Il percorso bearer non è
+stato ancora esercitato e la ricevuta corrente riporta questo rinvio, non il
+precedente errore di bootstrap.
+
+Sono inoltre pronti due controlli d'integrazione nel percorso positivo: durante
+ogni sessione il journal cleanup deve collegare PID e FILETIME esatti
+dell'attivazione al ticket/job attivo dell'host; dopo Stop la registrazione deve
+essere consumata. Le letture SQL sono limitate a 128 KiB/64 record per il journal
+e 64 KiB/64 slot per il ledger; FILETIME si confronta in SQLite senza convertirlo
+in un numero JavaScript. Questi controlli non sono stati ancora raggiunti e non
+provano il recupero dopo crash.

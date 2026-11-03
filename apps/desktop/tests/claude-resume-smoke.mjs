@@ -354,7 +354,10 @@ Object.assign(environment, { SystemRoot: system, WINDIR: system,
   TEMP: resolve(fixture, 'tmp'), TMP: resolve(fixture, 'tmp'), SHINATAMA_HOME: data,
   WEBVIEW2_USER_DATA_FOLDER: resolve(fixture, 'webview-profile'),
   WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --remote-debugging-address=127.0.0.1`,
-  ANTHROPIC_API_KEY: DUMMY_KEY, ANTHROPIC_BASE_URL: `http://127.0.0.1:${providerPort}`, ANTHROPIC_MODEL: 'claude-sonnet-4-6',
+  // Normal custom-gateway bearer authentication avoids the first-party OAuth
+  // onboarding preflight. The token is synthetic and accepted only by this local
+  // fixture; this does not qualify a real account or first-party sign-in.
+  ANTHROPIC_AUTH_TOKEN: DUMMY_KEY, ANTHROPIC_BASE_URL: `http://127.0.0.1:${providerPort}`, ANTHROPIC_MODEL: 'claude-sonnet-4-6',
   CLAUDE_CODE_GIT_BASH_PATH: bash, CLAUDE_CODE_MAX_RETRIES: '0', API_TIMEOUT_MS: '5000',
   CLAUDE_CODE_GZIP_REQUEST_BODIES: '0', CLAUDE_CODE_MAX_OUTPUT_TOKENS: '128', MAX_THINKING_TOKENS: '0',
   CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1', DISABLE_TELEMETRY: '1', DISABLE_ERROR_REPORTING: '1', DISABLE_AUTOUPDATER: '1',
@@ -486,8 +489,37 @@ async function snapshot(threadId) {
     db.exec('PRAGMA query_only=ON; PRAGMA busy_timeout=1000; BEGIN');
     const segments = db.prepare('SELECT s.id,s.thread_id,s.native_id,s.store_root_id,s.store_revision,r.resolved_path FROM segment s JOIN store_root r ON r.id=s.store_root_id AND r.config_revision=s.store_revision WHERE s.thread_id=? ORDER BY s.ordinal LIMIT 3').all(threadId);
     const activations = db.prepare('SELECT activation_sequence,instance_id,owner_pid,CAST(owner_created_at_100ns AS TEXT) AS owner_created,segment_id,native_id,ended_at FROM activation WHERE thread_id=? ORDER BY activation_sequence LIMIT 3').all(threadId);
-    db.exec('COMMIT'); return { segments, activations };
+    for (const [key, maximum, array] of [
+      ['operational.native_session_cleanup.v1', 131072, 'entries'],
+      ['operational.resource_reservations.v1', 65536, 'slots'],
+    ]) {
+      const size = db.prepare('SELECT octet_length(value) AS bytes FROM setting WHERE key=?').get(key);
+      require(size && size.bytes <= maximum, 'bounded-cleanup-owner-setting');
+      const shape = db.prepare('SELECT json_extract(value,\'$.format_version\') AS version,json_array_length(value,?) AS count FROM setting WHERE key=?').get(`$.${array}`, key);
+      require(shape.version === 1 && Number.isInteger(shape.count) && shape.count >= 0 && shape.count <= 64, 'bounded-cleanup-owner-records');
+    }
+    // Keep FILETIME equality in SQLite; JavaScript numbers would round it.
+    const cleanupOwners = db.prepare(`SELECT json_extract(entry.value,'$.owner.activation.instanceId') AS instance_id,
+      json_type(entry.value,'$.cleanup') AS cleanup_type,
+      json_extract(entry.value,'$.owner.reservation.owner.pid') AS host_pid,
+      EXISTS(SELECT 1 FROM activation a WHERE a.thread_id=? AND a.instance_id=json_extract(entry.value,'$.owner.activation.instanceId')
+        AND a.owner_pid=json_extract(entry.value,'$.owner.activation.pid')
+        AND a.owner_created_at_100ns=json_extract(entry.value,'$.owner.activation.createdAt100ns') AND a.ended_at IS NULL) AS exact_activation,
+      EXISTS(SELECT 1 FROM setting ledger,json_each(ledger.value,'$.slots') slot WHERE ledger.key='operational.resource_reservations.v1'
+        AND json_extract(slot.value,'$.id')=json_extract(entry.value,'$.owner.reservation.id')
+        AND json_extract(slot.value,'$.job_key')=json_extract(entry.value,'$.owner.reservation.job_key')
+        AND json_extract(slot.value,'$.owner')=json_extract(entry.value,'$.owner.reservation.owner')
+        AND json_extract(slot.value,'$.budget')=json_extract(entry.value,'$.owner.reservation.budget')
+        AND json_extract(slot.value,'$.state')='active') AS exact_ticket
+      FROM setting journal,json_each(journal.value,'$.entries') entry
+      WHERE journal.key='operational.native_session_cleanup.v1' LIMIT 64`).all(threadId);
+    db.exec('COMMIT'); return { segments, activations, cleanupOwners };
   } finally { db.close(); }
+}
+function requireActiveCleanupOwner(snapshot, instance) {
+  const entries = snapshot.cleanupOwners.filter(entry => entry.instance_id === instance);
+  require(entries.length === 1 && entries[0].cleanup_type === 'null' && entries[0].host_pid === app.pid
+    && entries[0].exact_activation === 1 && entries[0].exact_ticket === 1, 'active-owner-linked-to-exact-process-and-ticket');
 }
 async function nativeFile(segment, bothTurns) {
   require(/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(segment.native_id), 'canonical-native-uuid');
@@ -570,10 +602,12 @@ try {
   await poll(async () => requests.start === 1 && (await screen(first.id)).includes(MARKER_A), 30000, 'first-marker-not-observed');
   await poll(async () => (await snapshot(threadId)).activations.length === 1, 10000, 'first-activation-not-recorded');
   const initial = await snapshot(threadId); require(initial.segments.length === 1 && initial.activations[0].instance_id === first.id && initial.activations[0].ended_at === null, 'first-exact-native-owner');
+  requireActiveCleanupOwner(initial, first.id);
   await stage('stop-first'); await stop(first.id);
   await poll(async () => (await rows()).find(row => row.id === threadId)?.status === 'inactive', 10000, 'first-thread-not-inactive');
   const firstFile = await nativeFile(initial.segments[0], false);
   const stopped = await snapshot(threadId); require(stopped.activations[0].ended_at !== null, 'first-owner-history-not-ended');
+  require(!stopped.cleanupOwners.some(entry => entry.instance_id === first.id), 'first-cleanup-receipt-consumed-after-stop');
   evidence.checks.newSessionSavedNativeConversationAndClosedOwner = true;
   providerPhase = 'resume'; await stage('resume-button');
   const sidebar = page.locator('.thread-sidebar'); await sidebar.getByRole('button', { name: 'Reload threads', exact: true }).click();
@@ -590,10 +624,12 @@ try {
   const current = await snapshot(threadId); require(current.segments.length === 1 && current.segments[0].id === initial.segments[0].id && current.segments[0].native_id === initial.segments[0].native_id, 'resume-same-segment-native-id');
   require(current.activations.length === 2 && current.activations[1].instance_id === resumed.id && current.activations[1].ended_at === null
     && current.activations[1].native_id === initial.segments[0].native_id && current.activations[1].owner_created !== current.activations[0].owner_created, 'resume-exact-second-owner');
+  requireActiveCleanupOwner(current, resumed.id);
   require((await rows()).length === 1, 'resume-created-extra-thread');
   evidence.checks.resumeUiRetainedThreadNativeUuidAndPriorContext = true;
   await stage('stop-resumed'); await stop(resumed.id);
   const final = await snapshot(threadId); require(final.activations.length === 2 && final.activations.every(row => row.ended_at !== null), 'two-closed-native-intervals');
+  require(!final.cleanupOwners.some(entry => [first.id, resumed.id].includes(entry.instance_id)), 'both-cleanup-receipts-consumed-after-stop');
   require(await nativeFile(final.segments[0], true) === firstFile, 'same-native-file-both-turns');
   // Tauri's invoke property is immutable; verify actual persisted effects
   // rather than a wrapper assignment that silently leaves counters at zero.
@@ -602,6 +638,7 @@ try {
   require(guardCounts.allowed >= 2 && guardCounts.overflow === 0, 'both-turns-guarded-and-bounded');
   evidence.checks.explicitUiActionsCreatedOneThreadAndTwoNativeOwners = true;
   evidence.checks.twoExactNativeOwnersClosedAndBothTurnsPersisted = true;
+  evidence.checks.normalCleanupOwnerJoinsPresentWhileActiveAndConsumedAfterStop = true;
   evidence.provider = { startRequests: requests.start, resumeRequests: requests.resume, priorAssistantInResumeContext: previousContextObserved, syntheticLoopbackOnly: true };
   evidence.guard = { ...guardCounts, scope: 'proxy-forwarding-only', osFirewallQualified: false };
   await stage('frame-close'); await closeFrame(); require(app.exitCode === 0, 'owned-app-clean-exit');
