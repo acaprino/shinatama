@@ -2,7 +2,7 @@
   "schema_version": 1,
   "updated_at": "2026-11-03",
   "base_head": "46435ab",
-  "git_state": "B00-B02 bootstrap and current specification amendments committed together at 266fb1e043f834f0cf4a2e71976028d5f54c2186 by explicit commit-all request on 2026-11-02. No historical per-step SHA is inferred; preserve unrelated verify/T6 work.",
+  "git_state": "Core Windows checkpoint c0f535e0e783f2ec5297536280dbc34029af62b3 remains saved. Working C22 adds full-revision Git Mukade, contained read-only metadata and explicit archive UI; native Check scratch cleanup passes its focused real app flow. C23 detail and C25.1 persistence are separate source work, not yet qualified.",
   "steps": {
     "B00": {
       "status": "committed",
@@ -889,8 +889,8 @@
       }
     },
     "C07": {
-      "status": "verified",
-      "commit_sha": null,
+      "status": "committed",
+      "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
       "platforms": [
         "Windows 11 x64 build 26200"
       ],
@@ -905,8 +905,8 @@
       ],
       "units": {
         "C07.1": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
           "evidence": [
             "docs/verification/2026-11-03-C07-C08-workspace.md"
           ],
@@ -918,8 +918,8 @@
           ]
         },
         "C07.2": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
           "evidence": [
             "docs/verification/2026-11-03-C07-C08-workspace.md"
           ],
@@ -931,8 +931,8 @@
           ]
         },
         "C07.3": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
           "evidence": [
             "docs/verification/2026-11-03-C07-C08-workspace.md"
           ],
@@ -944,8 +944,8 @@
           ]
         },
         "C07.4": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
           "evidence": [
             "docs/verification/2026-11-03-C07-C08-workspace.md"
           ],
@@ -993,8 +993,8 @@
           ]
         },
         "C12.3": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
           "platforms": [
             "Windows 11 x64 build 26200; pinned Node 24.14.1"
           ],
@@ -1007,18 +1007,31 @@
           "limits": [
             "Only the pinned Node runtime is TLS-qualified here. Actual native agent runtime trust and full SC16 remain separate."
           ]
+        },
+        "C12.4": {
+          "status": "pending",
+          "commit_sha": null,
+          "evidence": [
+            "docs/notes/2026-11-03-sidecar-effective-config.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine --test effective_sidecar -j1 -- --ignored --test-threads=1 --nocapture"
+          ],
+          "limits": [
+            "Selected canonical-source controls pass with synthetic local traffic and Released cleanup. Running CLI configuration/provider traffic remain unverified; targetRatio/growthWindow are parsed but not consumed as requested."
+          ]
         }
       },
       "limits": [
         "Actual pinned Node/CLI, schema9/six indexes, canonical source incremental storage and local child-only TLS pass. Full SC16 and per-agent provider traffic remain open.",
-        "CCR and Absorb are observed; remaining effective compression knobs stay unknown until C12.4.",
+        "Selected canonical-source tiers/adaptive/rewrite/output/effort-off controls pass; running-CLI effective controls and targetRatio/growthWindow consumption remain open.",
         "Node license notice absent from local install; public distribution readiness remains false."
       ],
-      "next_action": "Complete the actual supervisor/UI path and C12.4 effective traffic/configuration proof without promoting unknown knobs."
+      "next_action": "Resolve the remaining canonical-source/CLI effective-control gap; independent archive reading proceeds through C09R without waiting for provider qualification."
     },
     "C08": {
-      "status": "verified",
-      "commit_sha": null,
+      "status": "committed",
+      "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
       "platforms": [
         "Windows 11 x64 build 26200"
       ],
@@ -1034,8 +1047,8 @@
       ],
       "units": {
         "C08.1": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
           "evidence": [
             "docs/verification/2026-11-03-C07-C08-workspace.md"
           ],
@@ -1048,8 +1061,8 @@
           ]
         },
         "C08.2": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
           "evidence": [
             "docs/verification/2026-11-03-C07-C08-workspace.md"
           ],
@@ -1062,8 +1075,8 @@
           ]
         },
         "C08.3": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
           "evidence": [
             "docs/verification/2026-11-03-C07-C08-workspace.md"
           ],
@@ -1082,8 +1095,8 @@
       "next_action": "Continue C09 native fault qualification and visible applied resource limits, then finish sidecar/checkup integration."
     },
     "C09": {
-      "status": "verified",
-      "commit_sha": null,
+      "status": "committed",
+      "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
       "evidence": [
         "docs/verification/2026-11-03-C09-contained-terminals.md"
       ],
@@ -1105,8 +1118,8 @@
       "commit_sha": null,
       "units": {
         "C13.1": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -1121,8 +1134,8 @@
           ]
         },
         "C13.2": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -1137,8 +1150,8 @@
           ]
         },
         "C13.3": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -1153,8 +1166,8 @@
           ]
         },
         "C13.4": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -1169,8 +1182,8 @@
           ]
         },
         "C13.5": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -1210,8 +1223,8 @@
       "commit_sha": null,
       "units": {
         "C15.1": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
           "platforms": [
             "Windows 11 x64 build 26200; Claude2.1.316"
           ],
@@ -1228,8 +1241,8 @@
           ]
         },
         "C15.2": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
           "platforms": [
             "Windows 11 x64 build 26200; Claude2.1.316"
           ],
@@ -1250,6 +1263,71 @@
         "Only exact Claude2.1.316 safe-mode empty-set TUI startup on Windows is observed; authentication, provider traffic, login operation, resume/fork and full QA remain open."
       ],
       "next_action": "Complete the C14 dependency and qualify the next explicit Claude capabilities; continue S1 bounded native archive readers."
+    },
+    "C22": {
+      "status": "pending",
+      "commit_sha": null,
+      "units": {
+        "C22.1": {
+          "status": "verified",
+          "commit_sha": null,
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-03-session-reader.md"
+          ],
+          "checks": [
+            "cargo test --offline --locked -p shinatama-engine --features session-reader -j1 --lib session_roots::tests -- --test-threads=1",
+            "cargo test --offline --locked -p shinatama-engine --features session-reader --test session_reader -j1 -- --ignored --test-threads=1 --nocapture",
+            "npm run build"
+          ],
+          "limits": [
+            "Metadata reader/root binding only; no native resume, provider, OpenCode export or full C22 completion is certified."
+          ]
+        },
+        "C22.2": {
+          "status": "verified",
+          "commit_sha": null,
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-03-session-reader.md"
+          ],
+          "checks": [
+            "cargo test --offline --locked -p shinatama-engine --features session-reader -j1 --lib session_roots::tests -- --test-threads=1",
+            "cargo test --offline --locked -p shinatama-engine --features session-reader --test session_reader -j1 -- --ignored --test-threads=1 --nocapture",
+            "npm run build"
+          ],
+          "limits": [
+            "Metadata reader/root binding only; no native resume, provider, OpenCode export or full C22 completion is certified."
+          ]
+        },
+        "C22.3": {
+          "status": "verified",
+          "commit_sha": null,
+          "limits": [
+            "Bounded metadata slice and synthetic Claude UI pass; complete C22 harness conformance and hostile-writer namespace isolation remain open."
+          ],
+          "evidence": [
+            "docs/notes/2026-11-03-session-reader.md"
+          ],
+          "checks": [
+            "npm run build",
+            "cargo build --offline --locked -p shinatama-desktop --features custom-protocol -j1",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/sessions-smoke.mjs"
+          ]
+        }
+      },
+      "evidence": [
+        "docs/notes/2026-11-03-session-reader.md"
+      ],
+      "limits": [
+        "Pinned reader materializes metadata in one contained worker. Host replies are bounded; hostile concurrent additions still need a handle-based reader or private snapshot for complete namespace isolation.",
+        "OpenCode file-root contract, Hermes/DeepSeek readers, complete pin conformance and parent acceptance remain open."
+      ],
+      "next_action": "Checkpoint the working explicit archive metadata flow; connect contained C23 detail while preserving pending full parent acceptance."
     }
   },
   "blockers": [],

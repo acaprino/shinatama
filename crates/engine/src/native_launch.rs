@@ -3,7 +3,7 @@
 use crate::launch::{PreparedLaunch, identity::verify_record};
 use crate::resources::job::JobBudget;
 use crate::resources::{
-    admission::{PreparedWorkload, WorkloadPhase},
+    admission::{CleanupStatus, PreparedWorkload, WorkloadPhase},
     job::{JobSnapshot, OwnedJobKey},
     sampling::Measurement,
 };
@@ -462,8 +462,13 @@ pub struct NativeTrialReceipt {
     binding: NativeLaunchBinding,
     profile: NativeAdmissionProfile,
     output_bytes: u64,
+    cleanup: CleanupStatus,
 }
 impl NativeTrialReceipt {
+    /// Produced only after the owned workload's real native/queue/SQL release.
+    pub fn cleanup_status(&self) -> CleanupStatus {
+        self.cleanup
+    }
     pub fn summary(&self) -> NativeLaunchSummary {
         NativeLaunchSummary {
             agent: self.binding.agent.clone(),
@@ -657,6 +662,9 @@ impl NativeTuiPermit {
                 binding: state.binding.clone(),
                 profile: state.profile.clone(),
                 output_bytes: state.output_bytes,
+                cleanup: workload
+                    .released_status()
+                    .expect("released trial has its ledger revision"),
             });
         }
         state.tail.fill(0);

@@ -9,6 +9,8 @@ mod projects;
 mod resource_governor;
 mod resources;
 #[cfg(windows)]
+mod sessions;
+#[cfg(windows)]
 mod sidecar;
 mod storage;
 #[cfg(windows)]
@@ -447,6 +449,7 @@ fn main() {
                     governor,
                 ));
                 let sidecar = Arc::new(sidecar::Controller::new(services.clone(), runtime.clone()));
+                app.manage(Arc::new(sessions::Controller::new(services.clone(), runtime.clone())));
                 app.manage(Arc::new(agents::Controller::new(
                     services.clone(),
                     runtime.clone(),
@@ -477,6 +480,12 @@ fn main() {
         agent_check,
         agent_status,
         agent_start,
+        #[cfg(windows)]
+        sessions::session_roots,
+        #[cfg(windows)]
+        sessions::session_list,
+        #[cfg(windows)]
+        sessions::session_archive_add,
         storage_location,
         maintenance_activity,
         maintenance_status,
@@ -519,6 +528,12 @@ fn main() {
         agent_check,
         agent_status,
         agent_start,
+        #[cfg(windows)]
+        sessions::session_roots,
+        #[cfg(windows)]
+        sessions::session_list,
+        #[cfg(windows)]
+        sessions::session_archive_add,
         storage_location,
         maintenance_activity,
         maintenance_status,

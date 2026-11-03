@@ -2,7 +2,7 @@
 // Run only after the coordinated desktop/helper build.
 import { chromium, expect } from '@playwright/test';
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, opendir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -40,6 +40,20 @@ function shape(node) {
 }
 function groupCount(node) { return node.kind === 'group' ? 1 : node.children.reduce((sum, child) => sum + groupCount(child), 0); }
 function groups(node) { return node.kind === 'group' ? [node] : node.children.flatMap(groups); }
+const pathKey = path => path.replace(/^\\\\\?\\/, '').replaceAll('/', '\\').toLowerCase();
+async function checkScratchNames(directory) {
+  const counts = { probe: 0, trial: 0 };
+  let inspected = 0;
+  // Inspect only child names in this run's verified synthetic C01 root. No file
+  // contents, prior app directories, persistent home or archive are read.
+  for await (const entry of await opendir(directory)) {
+    if (++inspected > 512) throw new Error('Synthetic Check scratch name scan exceeded its bound.');
+    const name = entry.name.toLowerCase();
+    if (name.startsWith('claude-probe-')) counts.probe++;
+    if (name.startsWith('claude-tui-trial-')) counts.trial++;
+  }
+  return counts;
+}
 try {
   for (let attempt = 0; attempt < 60; attempt++) {
     if (app.exitCode !== null) throw new Error('Desktop exited: ' + app.exitCode + '\n' + diagnostics);
@@ -74,6 +88,10 @@ try {
   };
   await expect(page.locator('#runtime-status')).toContainText('Local runtime', { timeout: 30000 });
   expect(new URL(page.url()).hostname).toBe('tauri.localhost');
+  const storage = await ipc('storage_location');
+  expect(pathKey(storage.directory)).toBe(pathKey(resolve(fixture, 'data')));
+  const noScratch = { probe: 0, trial: 0 };
+  expect(await checkScratchNames(storage.directory)).toEqual(noScratch);
   expect(await ids()).toEqual([]);
   // Register a real canonical project ID before loading its workspace scope.
   const project = await ipc('project_select', { path: projectPath });
@@ -220,6 +238,11 @@ try {
   expect(checkup).toContain('Found'); expect(checkup).toContain('Unknown');
   const openAgent = page.locator('#agent-setup-dialog').getByRole('button', { name: 'Open agent', exact: true });
   if (await openAgent.isDisabled()) throw new Error('Claude check refused: ' + (await page.locator('.agent-issues').innerText()).slice(0, 3000));
+  await expect.poll(() => checkScratchNames(storage.directory), {
+    timeout: 2000, intervals: [50, 100, 200],
+    message: 'A successful Check must remove its released version-probe and TUI-canary scratch.',
+  }).toEqual(noScratch);
+  console.log('Check scratch names: fresh baseline zero; after successful Check zero.');
   await openAgent.click();
   await expect.poll(async () => {
     if ((await page.locator('#agent-setup-status').textContent()).includes('action did not complete')) {

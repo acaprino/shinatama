@@ -84,12 +84,12 @@ macOS e Linux sono fuori dallo scope su decisione dell utente: solo Windows e su
 | [C14](#c14) | Preparare checkup, manifest e set generici di avvio | C11, C13 | pending | 6–12 |
 | [FS03](#fs03) | Separazione degli schemi autorevoli e operativi e record dei progetti | C03, C11 | committed | 4–10 |
 | [C06](#c06) | Introdurre un modello validato ad albero per le suddivisioni | B02, FS03, TL1-proof | committed | 10–20 |
-| [C07](#c07) | Disegnare l'albero di pannelli e completare i comandi da tastiera | C06 | verified | 15–30 |
-| [C08](#c08) | Rendere configurabili i temi e i profili versionati dei terminali | C07 | verified | 12–20 |
-| [C09](#c09) | Rendere robusti terminale e contenimento con fixture sintetiche | C07, C08, C09R | verified | 8–16 |
+| [C07](#c07) | Disegnare l'albero di pannelli e completare i comandi da tastiera | C06 | committed | 15–30 |
+| [C08](#c08) | Rendere configurabili i temi e i profili versionati dei terminali | C07 | committed | 12–20 |
+| [C09](#c09) | Rendere robusti terminale e contenimento con fixture sintetiche | C07, C08, C09R | committed | 8–16 |
 | [C15](#c15) | Avviare il primo adattatore Claude attraverso il checkup | C09, C10, C11, C13, C14 | pending | 12–24 |
 | [QA-claude-windows](#qa-claude-windows) | Certificare terminale claude su windows | C09, C15 | pending | 4–8 |
-| [C22](#c22) | Risolvere le radici persistenti degli archivi e collegare una revisione verificata di Mukade | C03, C11, C15 | pending | 14–28 |
+| [C22](#c22) | Risolvere le radici persistenti degli archivi e collegare una revisione verificata di Mukade | C03, C11, C09R | pending | 14–28 |
 | [C23](#c23) | Costruire il dettaglio delle sessioni e trascrizioni canoniche limitate | C22, C07 | pending | 18–36 |
 | [C24](#c24) | Indicizzare e cercare le sessioni in modo incrementale | C23 | pending | 12–24 |
 | [F02](#f02) | Proprietà del runtime, flusso degli eventi e rilevamento della presenza | FS03, C15, C11 | pending | 4–10 |
@@ -1323,9 +1323,9 @@ Evidenza riproducibile per un vero claude su windows, separata dalle altre combi
 
 Catalogo esplicito di cartelle private, di sistema e in sola lettura, con elenchi limitati e in sola lettura ottenuti dall'adattatore tramite Mukade fissato.
 
-**Ambito:** v1. **Dipendenze:** C03, C11, C15. **Stima:** 14–28 ore.
+**Ambito:** v1. **Dipendenze:** C03, C11, C09R. **Stima:** 14–28 ore.
 
-**File/componenti:** `crates/sessions/src/roots.rs`; `crates/sessions/src/readers.rs`; `Cargo.toml`; `Cargo.lock`.
+**File/componenti:** `crates/engine/src/session_roots.rs`; `crates/engine/src/bin/shinatama-session-helper.rs`; `apps/desktop/src-tauri/src/sessions.rs`; `Cargo.toml`; `Cargo.lock`.
 
 **Accettazione osservabile:**
 
@@ -1341,7 +1341,7 @@ Catalogo esplicito di cartelle private, di sistema e in sola lettura, con elench
 
 **Commit proposto:** `feat(c22): Risolvere le radici persistenti degli archivi e collegare una revisione verificata di Mukade`.
 
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/sessions/src/roots.rs, crates/sessions/src/readers.rs. Preparare la prima prova di accettazione prima di modificare il comportamento.
+**Prima azione alla ripresa:** La lettura degli archivi usa FS03 e il contenimento C09R; non attende login e traffico provider C15. Avvio e resume degli agenti mantengono i propri vincoli C15. Riprendere session_roots.rs, helper e sessions.rs; compilare i componenti cambiati e una prova reale mirata con archivio sintetico, senza ripetere suite generali.
 
 **Unita di commit sequenziali (ognuna lascia l’app avviabile):**
 
@@ -1349,7 +1349,7 @@ Catalogo esplicito di cartelle private, di sistema e in sola lettura, con elench
 
 Revisione Git, lockfile e adattatore di lettura tramite API effettivamente presenti.
 
-Stima: 4–8 ore. File: `Cargo.toml`, `Cargo.lock`, `crates/sessions/src/readers.rs`.
+Stima: 4–8 ore. File: `Cargo.toml`, `Cargo.lock`, `crates/engine/src/session_roots.rs`.
 
 Accettazione: Una capacità non presente nel pin è rifiutata; nessun convertitore terzo o checkout ambientale. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
 
@@ -1361,7 +1361,7 @@ Commit: `feat(c22.1): Fissare e verificare la dipendenza Mukade`. Registrare sta
 
 Catalogo box/system/read_only con identità e revisione separate.
 
-Stima: 5–10 ore. File: `crates/sessions/src/roots.rs`, `crates/state/src/store_roots.rs`.
+Stima: 5–10 ore. File: `crates/engine/src/session_roots.rs`, `crates/state/src/store_roots.rs`.
 
 Accettazione: Stesso ID nativo in radici diverse resta distinto; radici mancanti non usano fallback ambientali. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
 
@@ -1373,7 +1373,7 @@ Commit: `feat(c22.2): Persistire e risolvere radici esplicite degli archivi`. Re
 
 Metadati limitati e sottoprocessi export isolati, disponibili solo per adattatori implementati.
 
-Stima: 5–10 ore. File: `crates/sessions/src/list.rs`, `crates/adapter/src/**/sessions.rs`.
+Stima: 5–10 ore. File: `crates/engine/src/session_roots.rs`, `crates/engine/src/bin/shinatama-session-helper.rs`, `apps/desktop/src-tauri/src/sessions.rs`.
 
 Accettazione: Campi ignoti restano ignoti e l’elenco non legge un intero transcript per riga; archivi nativi invariati. La compilazione e l'avvio dell'app esistente restano funzionanti; le capacità successive restano indisponibili.
 

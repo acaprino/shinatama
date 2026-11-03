@@ -18,6 +18,7 @@ import './presentation.css';
 import { startTerminalResources, formatTerminalResources, type TerminalResourceStatus } from './terminal-resources.ts';
 import { createSidecarControl } from './sidecar-control.ts';
 import { createAgentSetup } from './agent-setup.ts';
+import { createSessionLibrary } from './session-library.ts';
 import './styles.css';
 
 type SessionInfo = { id: string; cwd: string; shell: string };
@@ -323,6 +324,13 @@ createAgentSetup({
     attachTerminal(started.session, focusedGroup(), started.threadId);
   },
   login: () => Promise.reject(new Error('Sign-in is not available until this build is qualified.')),
+  reportError: notify,
+  restoreFocus: () => setFocus(focusedGroup()),
+});
+createSessionLibrary({
+  roots: () => desktop ? invoke('session_roots') : Promise.reject({ issue: 'read_unavailable' }),
+  list: request => desktop ? invoke('session_list', { request }) : Promise.reject({ issue: 'worker_unavailable' }),
+  addArchive: desktop ? request => invoke('session_archive_add', { request }) : undefined,
   reportError: notify,
   restoreFocus: () => setFocus(focusedGroup()),
 });

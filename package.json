@@ -6,10 +6,10 @@
   "scripts": {
     "dev": "vite --config apps/desktop/vite.config.ts",
     "build": "tsc --noEmit && vite build --config apps/desktop/vite.config.ts",
-    "desktop": "cargo build --locked -p shinatama-terminal --bin shinatama-terminal-helper -j1 && cd apps/desktop && tauri dev",
-    "desktop:build": "cargo build --locked --release -p shinatama-terminal --bin shinatama-terminal-helper -j1 && cd apps/desktop && tauri build --no-bundle --features custom-protocol",
+    "desktop": "cargo build --locked -p shinatama-terminal --bin shinatama-terminal-helper -p shinatama-engine --bin shinatama-session-helper --features shinatama-engine/session-reader -j1 && cd apps/desktop && tauri dev",
+    "desktop:build": "cargo build --locked --release -p shinatama-terminal --bin shinatama-terminal-helper -p shinatama-engine --bin shinatama-session-helper --features shinatama-engine/session-reader -j1 && cd apps/desktop && tauri build --no-bundle --features custom-protocol",
     "build:tl1": "tsc --noEmit --project apps/desktop/tests/tl1/tsconfig.json && vite build --config apps/desktop/tests/tl1/vite.config.ts",
-    "desktop:tl1": "cargo build --locked -p shinatama-terminal --bin shinatama-terminal-helper -j1 && cd apps/desktop && tauri build --debug --no-bundle --features tl1-proof,custom-protocol --config tests/tl1/tauri.tl1.conf.json",
+    "desktop:tl1": "cargo build --locked -p shinatama-terminal --bin shinatama-terminal-helper -p shinatama-engine --bin shinatama-session-helper --features shinatama-engine/session-reader -j1 && cd apps/desktop && tauri build --debug --no-bundle --features tl1-proof,custom-protocol --config tests/tl1/tauri.tl1.conf.json",
     "test:tl1": "node apps/desktop/tests/tl1/proof.mjs",
     "test": "node --experimental-strip-types --test apps/desktop/tests/*.test.ts",
     "test:desktop": "node apps/desktop/tests/desktop-smoke.mjs",

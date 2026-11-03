@@ -11,6 +11,10 @@ pub mod checkup;
 pub mod launch;
 pub mod native_launch;
 pub mod resources;
+#[cfg(feature = "session-reader")]
+pub mod session_roots;
+#[cfg(windows)]
+pub mod check_scratch;
 #[cfg(windows)]
 pub mod claude_probe;
 #[cfg(windows)]

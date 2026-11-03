@@ -1,0 +1,245 @@
+import { openModal } from './modal.ts';
+import './session-library.css';
+
+export type SessionRootSelector = { storeRootId: string; configurationRevision: number };
+export type SessionCursor = { offset: number; fingerprint: string };
+export type SessionLibraryRoot = SessionRootSelector & {
+  harness: string; kind: 'box' | 'system'; access: 'read_only' | 'read_write'; available: boolean; label?: string;
+};
+export type SessionMetadataRow = {
+  nativeId: string; title: string | null; workingDirectory: string | null; updatedAt: string | null;
+  createdAt: string | null; turns: number | null; bytes: number | null; parentNativeId: string | null;
+  archived: boolean | null; metadataTruncated: boolean;
+};
+export type SessionListPage = {
+  root: SessionRootSelector; harness: string; fingerprint: string; total: number;
+  rows: SessionMetadataRow[]; next: SessionCursor | null;
+};
+export type SessionListRequest = { root: SessionRootSelector; cursor: SessionCursor | null; limit: 50; includeChildren: true };
+export type SessionArchiveAddRequest = { harness: 'claude_code' | 'codex' | 'pi'; path: string };
+type Options = {
+  roots: () => Promise<readonly SessionLibraryRoot[]>;
+  list: (request: SessionListRequest) => Promise<SessionListPage>;
+  addArchive?: (request: SessionArchiveAddRequest) => Promise<SessionLibraryRoot>;
+  /** Reserved for a separately proved read capability; never invoked here. */
+  detail?: (request: { root: SessionRootSelector; nativeId: string }) => Promise<unknown>;
+  reportError: (message: string) => void;
+  restoreFocus?: () => void;
+};
+const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
+const text = (value: unknown, cap: number): value is string => typeof value === 'string' && value.length <= cap && !/[\u0000-\u001f\u007f]/.test(value);
+const integer = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) >= 0;
+const fingerprint = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{64}$/i.test(value);
+const nullableText = (value: unknown, cap: number) => value === null || text(value, cap);
+const nullableInteger = (value: unknown) => value === null || integer(value);
+function selector(value: unknown): value is SessionRootSelector & Record<string, unknown> {
+  return record(value) && text(value.storeRootId, 256) && value.storeRootId.length > 0
+    && integer(value.configurationRevision) && value.configurationRevision > 0;
+}
+const same = (a: SessionRootSelector, b: SessionRootSelector) => a.storeRootId === b.storeRootId && a.configurationRevision === b.configurationRevision;
+function rootsValue(value: unknown): SessionLibraryRoot[] | null {
+  if (!Array.isArray(value) || value.length > 100) return null;
+  const result: SessionLibraryRoot[] = [];
+  for (const item of value) {
+    if (!selector(item) || !record(item) || !text(item.harness, 64) || !/^[a-z0-9_]+$/.test(item.harness)
+      || typeof item.kind !== 'string' || !['box', 'system'].includes(item.kind)
+      || typeof item.access !== 'string' || !['read_only', 'read_write'].includes(item.access)
+      || typeof item.available !== 'boolean' || (item.label !== undefined && !text(item.label, 128))
+      || result.some(root => same(root, item))) return null;
+    result.push({ storeRootId: item.storeRootId, configurationRevision: item.configurationRevision, harness: item.harness,
+      kind: item.kind as 'box' | 'system', access: item.access as 'read_only' | 'read_write', available: item.available,
+      ...(item.label !== undefined ? { label: item.label as string } : {}) });
+  }
+  return result;
+}
+function pageValue(value: unknown, root: SessionLibraryRoot, requested: SessionCursor | null): SessionListPage | null {
+  if (!record(value) || !selector(value.root) || !same(value.root, root) || value.harness !== root.harness
+    || !fingerprint(value.fingerprint) || !integer(value.total) || !Array.isArray(value.rows) || value.rows.length > 50
+    || (requested !== null && requested.fingerprint !== value.fingerprint)) return null;
+  const rows: SessionMetadataRow[] = [];
+  for (const item of value.rows) {
+    if (!record(item) || !text(item.nativeId, 256) || !item.nativeId || rows.some(row => row.nativeId === item.nativeId)
+      || !nullableText(item.title, 512) || !nullableText(item.workingDirectory, 1024) || !nullableText(item.updatedAt, 64)
+      || !nullableText(item.createdAt, 64) || !nullableText(item.parentNativeId, 256) || !nullableInteger(item.turns)
+      || !nullableInteger(item.bytes) || (item.archived !== null && typeof item.archived !== 'boolean') || typeof item.metadataTruncated !== 'boolean') return null;
+    rows.push({ nativeId: item.nativeId, title: item.title as string | null, workingDirectory: item.workingDirectory as string | null,
+      updatedAt: item.updatedAt as string | null, createdAt: item.createdAt as string | null, parentNativeId: item.parentNativeId as string | null,
+      turns: item.turns as number | null, bytes: item.bytes as number | null, archived: item.archived as boolean | null, metadataTruncated: item.metadataTruncated });
+  }
+  const offset = requested?.offset ?? 0;
+  if (offset + rows.length > value.total || (rows.length === 0 && value.total > offset)) return null;
+  let next: SessionCursor | null = null;
+  if (value.next !== null) {
+    if (!record(value.next) || !integer(value.next.offset) || value.next.offset !== offset + rows.length
+      || value.next.offset <= offset || value.next.offset >= value.total || value.next.fingerprint !== value.fingerprint) return null;
+    next = { offset: value.next.offset, fingerprint: value.fingerprint };
+  }
+  if (offset + rows.length < value.total && !next) return null;
+  return { root: { storeRootId: root.storeRootId, configurationRevision: root.configurationRevision }, harness: root.harness,
+    fingerprint: value.fingerprint, total: value.total, rows, next };
+}
+const FAILURES: Record<string, string> = {
+  root_unavailable: 'The selected archive is unavailable. No other archive was used.', root_changed: 'The archive configuration changed. Reload archives and select it explicitly.',
+  source_changed: 'Session metadata changed while paging. Reload sessions to start again.', unsupported_harness: 'This agent has no reader in the reviewed Mukade version.',
+  unsupported_root_shape: 'This archive shape is not supported by the reviewed reader.', unsafe_root: 'The archive failed read-only path verification.',
+  metadata_too_large: 'Session metadata exceeds the fixed limits.', timed_out: 'The metadata reader reached its time limit.',
+  output_limit: 'The metadata reader reached its output limit.', cleanup_unconfirmed: 'Reader cleanup is unconfirmed. Its resources remain reserved. Reload archives or sessions to retry only that cleanup.',
+  invalid_request: 'Choose a supported agent and an existing absolute archive folder.',
+  read_unavailable: 'Archive storage is busy or unavailable. Retry explicitly.', worker_unavailable: 'The contained metadata reader is unavailable. Retry explicitly when resources are ready.',
+};
+function failureText(value: unknown) {
+  const code = typeof value === 'string' ? value : record(value) ? value.issue ?? value.code : null;
+  return typeof code === 'string' && Object.hasOwn(FAILURES, code) ? FAILURES[code] : 'Session information could not be loaded. Retry explicitly.';
+}
+
+/** Metadata only; one callback outstanding, including across close/root changes. */
+export function createSessionLibrary(options: Options) {
+  const button = document.createElement('button'); button.id = 'sessions'; button.type = 'button'; button.textContent = 'Sessions';
+  document.querySelector('.toolbar')?.append(button);
+  const dialog = document.createElement('dialog'); dialog.id = 'session-library-dialog'; dialog.setAttribute('aria-labelledby', 'session-library-title');
+  const heading = document.createElement('div'); heading.className = 'dialog-heading';
+  const title = document.createElement('h1'); title.id = 'session-library-title'; title.textContent = 'Sessions';
+  const closeButton = document.createElement('button'); closeButton.type = 'button'; closeButton.textContent = '×'; closeButton.setAttribute('aria-label', 'Close sessions'); heading.append(title, closeButton);
+  const description = document.createElement('p'); description.textContent = 'Browse the metadata of an explicitly selected archive. Browsing never starts or resumes an agent.';
+  const tools = document.createElement('div'); tools.className = 'session-library-tools';
+  const loadRoots = document.createElement('button'); loadRoots.type = 'button'; loadRoots.textContent = 'Load archives';
+  const rootLabel = document.createElement('label'); rootLabel.htmlFor = 'session-library-root'; rootLabel.textContent = 'Archive';
+  const rootSelect = document.createElement('select'); rootSelect.id = 'session-library-root';
+  const reload = document.createElement('button'); reload.type = 'button'; reload.textContent = 'Reload sessions'; tools.append(loadRoots, rootLabel, rootSelect, reload);
+  const archive = document.createElement('details'); archive.hidden = !options.addArchive;
+  const archiveHeading = document.createElement('summary'); archiveHeading.textContent = 'Add a read-only archive';
+  const archiveHelp = document.createElement('p'); archiveHelp.className = 'hint'; archiveHelp.textContent = 'Choose an agent and its existing archive folder. Files stay in place and browsing does not change them.';
+  const archiveForm = document.createElement('form'); archiveForm.className = 'session-library-tools';
+  const harnessLabel = document.createElement('label'); harnessLabel.htmlFor = 'session-archive-agent'; harnessLabel.textContent = 'Agent';
+  const harness = document.createElement('select'); harness.id = 'session-archive-agent'; harness.required = true;
+  for (const [value, label] of [['', 'Choose agent'], ['claude_code', 'Claude Code'], ['codex', 'Codex'], ['pi', 'Pi']]) {
+    const option = document.createElement('option'); option.value = value; option.textContent = label; harness.append(option);
+  }
+  const archivePathLabel = document.createElement('label'); archivePathLabel.htmlFor = 'session-archive-path'; archivePathLabel.textContent = 'Archive folder';
+  const archivePath = document.createElement('input'); archivePath.id = 'session-archive-path'; archivePath.type = 'text'; archivePath.maxLength = 4096;
+  archivePath.autocomplete = 'off'; archivePath.spellcheck = false; archivePath.required = true;
+  const addArchive = document.createElement('button'); addArchive.type = 'submit'; addArchive.textContent = 'Add archive';
+  archiveForm.append(harnessLabel, harness, archivePathLabel, archivePath, addArchive); archive.append(archiveHeading, archiveHelp, archiveForm);
+  const source = document.createElement('p'); source.className = 'hint session-library-source';
+  const status = document.createElement('p'); status.id = 'session-library-status'; status.setAttribute('role', 'status');
+  const filterLabel = document.createElement('label'); filterLabel.htmlFor = 'session-library-filter'; filterLabel.textContent = 'Filter this page';
+  const filter = document.createElement('input'); filter.id = 'session-library-filter'; filter.type = 'search'; filter.maxLength = 128; filter.autocomplete = 'off';
+  const scroll = document.createElement('div'); scroll.className = 'session-library-table';
+  const table = document.createElement('table'); table.setAttribute('aria-label', 'Session metadata');
+  const head = document.createElement('thead'); const header = document.createElement('tr');
+  for (const label of ['Session ID', 'Title', 'Working folder', 'Updated']) { const cell = document.createElement('th'); cell.scope = 'col'; cell.textContent = label; header.append(cell); }
+  head.append(header); const body = document.createElement('tbody'); table.append(head, body); scroll.append(table);
+  const pagination = document.createElement('div'); pagination.className = 'session-library-pagination';
+  const previous = document.createElement('button'); previous.type = 'button'; previous.textContent = 'Previous';
+  const position = document.createElement('span'); const next = document.createElement('button'); next.type = 'button'; next.textContent = 'Next'; pagination.append(previous, position, next);
+  const metadata = document.createElement('dl'); metadata.className = 'session-library-metadata'; metadata.setAttribute('aria-label', 'Selected session metadata');
+  const unavailable = document.createElement('p'); unavailable.className = 'hint'; unavailable.textContent = 'Transcript detail, resume and hop are not yet qualified in this build.';
+  const actions = document.createElement('div'); actions.className = 'dialog-actions';
+  for (const label of ['Detail unavailable', 'Resume unavailable', 'Hop unavailable']) { const action = document.createElement('button'); action.type = 'button'; action.disabled = true; action.textContent = label; actions.append(action); }
+  dialog.append(heading, description, tools, archive, source, status, filterLabel, filter, scroll, pagination, metadata, unavailable, actions);
+  (document.querySelector('#app') ?? document.body).append(dialog);
+  let roots: SessionLibraryRoot[] = []; let page: SessionListPage | null = null; let cursor: SessionCursor | null = null;
+  let history: (SessionCursor | null)[] = []; let selected: SessionMetadataRow | null = null;
+  let busy: 'roots' | 'list' | 'archive' | null = null; let generation = 0; let destroyed = false;
+  let message = 'Load archives to choose an explicit store.'; let failed = false;
+  const currentRoot = () => rootSelect.value === '' ? null : roots[Number(rootSelect.value)] ?? null;
+  function metadataRow(label: string, value: string | number | boolean | null) {
+    const term = document.createElement('dt'); term.textContent = label; const detail = document.createElement('dd'); detail.textContent = value === null || value === '' ? 'Unknown' : String(value); metadata.append(term, detail);
+  }
+  function render() {
+    if (destroyed) return;
+    const root = currentRoot(); loadRoots.disabled = busy !== null; rootSelect.disabled = busy === 'roots' || busy === 'archive' || !roots.length;
+    harness.disabled = busy !== null; archivePath.disabled = busy !== null; addArchive.disabled = busy !== null || !options.addArchive;
+    reload.disabled = busy !== null || !root?.available; previous.disabled = busy !== null || history.length === 0; next.disabled = busy !== null || !page?.next;
+    filter.disabled = page === null; dialog.setAttribute('aria-busy', String(busy !== null));
+    source.textContent = root ? `Archive: ${root.storeRootId} · revision ${root.configurationRevision} · ${root.kind} · ${root.access === 'read_only' ? 'read only' : 'metadata reads only'}` : 'No archive selected.';
+    status.textContent = busy ? busy === 'roots' ? 'Loading archives…' : busy === 'archive' ? 'Registering read-only archive…' : 'Reading bounded session metadata…' : message;
+    status.dataset.state = failed ? 'error' : 'ready';
+    const query = filter.value.toLocaleLowerCase(); body.replaceChildren();
+    const visible = page?.rows.filter(row => [row.nativeId, row.title, row.workingDirectory, row.updatedAt].some(value => value?.toLocaleLowerCase().includes(query))) ?? [];
+    for (const row of visible) {
+      const line = document.createElement('tr'); const id = document.createElement('td'); const choose = document.createElement('button'); choose.type = 'button'; choose.textContent = row.nativeId;
+      choose.setAttribute('aria-pressed', String(selected === row)); choose.onclick = () => { selected = row; render(); }; id.append(choose); line.append(id);
+      for (const value of [row.title, row.workingDirectory, row.updatedAt]) { const cell = document.createElement('td'); cell.textContent = value || 'Unknown'; line.append(cell); } body.append(line);
+    }
+    position.textContent = page ? `${page.total ? (cursor?.offset ?? 0) + 1 : 0}–${(cursor?.offset ?? 0) + page.rows.length} of ${page.total} · ${visible.length} shown${!history.length && (cursor?.offset ?? 0) > 0 ? ' · Reload for first page' : ''}` : 'No page loaded';
+    metadata.replaceChildren();
+    if (selected) {
+      metadataRow('Native ID', selected.nativeId); metadataRow('Title', selected.title); metadataRow('Created', selected.createdAt);
+      metadataRow('Updated', selected.updatedAt); metadataRow('Working folder', selected.workingDirectory); metadataRow('Parent ID', selected.parentNativeId);
+      metadataRow('Turns', selected.turns); metadataRow('Bytes', selected.bytes); metadataRow('Archived', selected.archived);
+      if (selected.metadataTruncated) metadataRow('Some metadata', 'Unavailable because its fixed field limits were exceeded');
+    }
+  }
+  function reset() { page = null; cursor = null; history = []; selected = null; filter.value = ''; failed = false; }
+  function replaceRoots(received: SessionLibraryRoot[], selectedRoot: SessionRootSelector | null) {
+    roots = received; reset(); rootSelect.replaceChildren();
+    const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'Choose an archive explicitly'; rootSelect.append(placeholder);
+    roots.forEach((root, index) => { const option = document.createElement('option'); option.value = String(index); option.textContent = `${root.label || root.harness} · ${root.kind} · revision ${root.configurationRevision}${root.available ? '' : ' · Unavailable'}`; rootSelect.append(option); });
+    const retained = selectedRoot ? roots.findIndex(root => same(root, selectedRoot)) : -1; rootSelect.value = retained >= 0 ? String(retained) : '';
+    loadRoots.textContent = 'Reload archives';
+  }
+  async function readRoots() {
+    if (busy) return; const at = generation; const before = currentRoot(); busy = 'roots'; failed = false; render();
+    try {
+      const received = rootsValue(await options.roots()); if (!received) throw new Error('Invalid archive projection');
+      if (destroyed || at !== generation || !dialog.open) return;
+      replaceRoots(received, before); message = roots.length ? 'Choose an archive to read its metadata.' : 'No registered archives. No ambient home was searched.';
+    } catch (error) {
+      if (!destroyed && at === generation && dialog.open) { reset(); failed = true; message = failureText(error); options.reportError(message); }
+    } finally { busy = null; render(); }
+  }
+  async function registerArchive() {
+    if (busy || !options.addArchive) return;
+    const agent = harness.value; const path = archivePath.value.trim();
+    if (!['claude_code', 'codex', 'pi'].includes(agent) || !path || !text(path, 4096)) {
+      failed = true; message = FAILURES.invalid_request; render(); options.reportError(message); return;
+    }
+    const at = generation; busy = 'archive'; failed = false; render(); let registered = false;
+    try {
+      const added = rootsValue([await options.addArchive({ harness: agent as SessionArchiveAddRequest['harness'], path })]);
+      if (!added || added[0].harness !== agent) throw new Error('Invalid archive projection');
+      registered = true;
+      if (destroyed || at !== generation || !dialog.open) return;
+      const received = rootsValue(await options.roots()); if (!received) throw new Error('Invalid archive projection');
+      if (destroyed || at !== generation || !dialog.open) return;
+      replaceRoots(received, added[0]); archivePath.value = ''; archive.open = false;
+      message = added[0].available ? 'Archive registered. Use Reload sessions to browse metadata; the archive files remain unchanged.'
+        : 'This archive is already registered but unavailable. Reconnect it explicitly; its history was preserved.';
+    } catch (error) {
+      if (!destroyed && at === generation && dialog.open) {
+        failed = true; message = registered ? 'The archive was registered, but its list could not be refreshed. Load archives explicitly.' : failureText(error);
+        options.reportError(message);
+      }
+    } finally { busy = null; render(); }
+  }
+  async function readPage(requested: SessionCursor | null, direction: 'reload' | 'next' | 'previous') {
+    const root = currentRoot(); if (busy || !root?.available) return; const at = generation; busy = 'list'; failed = false; render();
+    try {
+      const received = pageValue(await options.list({ root: { storeRootId: root.storeRootId, configurationRevision: root.configurationRevision }, cursor: requested, limit: 50, includeChildren: true }), root, requested);
+      if (!received) throw new Error('Invalid metadata projection');
+      if (destroyed || at !== generation || !dialog.open || !currentRoot() || !same(root, currentRoot()!)) return;
+      if (direction === 'reload') history = [];
+      else if (direction === 'next') { history.push(cursor); if (history.length > 64) history.shift(); }
+      else history.pop();
+      page = received; cursor = requested; selected = null;
+      message = page.total ? 'Metadata only. Select a session ID to inspect the listed fields.' : 'This archive contains no listed sessions.';
+    } catch (error) {
+      if (!destroyed && at === generation && dialog.open) { reset(); failed = true; message = failureText(error); options.reportError(message); }
+    } finally { busy = null; render(); }
+  }
+  function close() { generation++; if (dialog.open) dialog.close(); }
+  function show() {
+    if (destroyed || dialog.open || document.querySelector('dialog[open]')) return;
+    generation++; reset(); rootSelect.value = ''; message = busy ? 'The previous read is still returning; no replacement was started.' : 'Load archives to choose an explicit store.'; render(); openModal(dialog); closeButton.focus();
+  }
+  rootSelect.onchange = () => { generation++; reset(); const root = currentRoot(); message = root ? root.available ? 'Ready to read this explicit archive.' : 'This archive is unavailable. No other archive was used.' : 'Choose an archive explicitly.'; render(); if (!busy && root?.available) void readPage(null, 'reload'); };
+  loadRoots.onclick = () => { void readRoots(); }; reload.onclick = () => { void readPage(null, 'reload'); };
+  archiveForm.onsubmit = event => { event.preventDefault(); void registerArchive(); };
+  previous.onclick = () => { if (history.length) void readPage(history.at(-1) ?? null, 'previous'); };
+  next.onclick = () => { if (page?.next) void readPage(page.next, 'next'); }; filter.oninput = render;
+  button.onclick = show; closeButton.onclick = close;
+  dialog.addEventListener('close', () => { if (!dialog.open) { generation++; options.restoreFocus?.(); } });
+  render();
+  return { show, close, destroy: () => { destroyed = true; close(); button.remove(); dialog.remove(); } };
+}

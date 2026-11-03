@@ -142,6 +142,7 @@ fn prepared_probe_pins_the_exact_binary_and_ancestor_without_running_it() {
     assert!(!format!("{prepared:?}").contains("synthetic-program"));
     drop(prepared);
     fs::rename(&program, program_dir.join("replaced.exe")).unwrap();
+    fs::rename(&program_dir, fixture.root.join("swapped-program")).unwrap();
 }
 
 /// Explicitly scheduled by the coordinator; never a normal test-suite side effect.

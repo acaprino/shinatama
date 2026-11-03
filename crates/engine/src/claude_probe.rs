@@ -4,6 +4,7 @@
 //! https://code.claude.com/docs/en/env-vars. A private version probe does not prove
 //! credential-store isolation for auth status, so that operation is not invoked.
 #![cfg(windows)]
+use crate::check_scratch::{self, CleanupReport, Disposition, OwnedScratch, ScratchKind};
 use crate::resources::{
     admission::{AdmissionCoordinator, CleanupStatus, PrepareRequest, PreparedWorkload},
     process::{ContainedProcess, NativeCommand, spawn_contained},
@@ -36,8 +37,9 @@ use windows_sys::Win32::{
     Foundation::{ERROR_BROKEN_PIPE, ERROR_NO_DATA},
     Storage::FileSystem::{
         BY_HANDLE_FILE_INFORMATION, FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT,
-        FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_READ_ATTRIBUTES,
-        FILE_SHARE_READ, FILE_SHARE_WRITE, GetFileInformationByHandle, ReadFile,
+        FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_LIST_DIRECTORY,
+        FILE_READ_ATTRIBUTES, FILE_SHARE_READ, FILE_SHARE_WRITE, GetFileInformationByHandle,
+        ReadFile,
     },
     System::Pipes::PeekNamedPipe,
 };
@@ -189,7 +191,9 @@ fn pin(path: &Path, deadline: Instant) -> Result<ProgramPin, ProbeIssue> {
     for parent in parents.into_iter().rev() {
         let file = OpenOptions::new()
             .read(true)
-            .access_mode(FILE_READ_ATTRIBUTES)
+            // Attribute-only handles do not participate in Windows sharing
+            // checks; LIST makes this no-DELETE-share pin block renaming.
+            .access_mode(FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES)
             .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE)
             .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)
             .open(parent)
@@ -275,6 +279,8 @@ pub struct PreparedClaudeProbe {
     program: ProgramPin,
     root: StorageLocation,
     _private: Vec<StorageLocation>,
+    base: StorageLocation,
+    scratch: OwnedScratch,
     started: Instant,
     deadline: Instant,
     environment: BTreeMap<OsString, OsString>,
@@ -303,22 +309,9 @@ impl PreparedClaudeProbe {
         let program = pin(&candidate.path, deadline)?;
         base.verify_private_directory()
             .map_err(|_| ProbeIssue::PrivateRootUnavailable)?;
-        let root = base
-            .resolve_related_directory(
-                &base
-                    .directory()
-                    .join(format!("claude-probe-{}", uuid::Uuid::new_v4())),
-            )
-            .map_err(|_| ProbeIssue::PrivateRootUnavailable)?;
-        if root
-            .directory()
-            .try_exists()
+        let (root, scratch) = check_scratch::create(base, ScratchKind::ClaudeProbe)
             .map_err(|_| ProbeIssue::PrivateRootUnavailable)?
-        {
-            return Err(ProbeIssue::PrivateRootUnavailable);
-        }
-        root.prepare_private_directory()
-            .map_err(|_| ProbeIssue::PrivateRootUnavailable)?;
+            .into_parts();
         let mut private = Vec::new();
         for role in ["home", "config", "cwd", "tmp", "local", "roaming"] {
             let location = root
@@ -378,6 +371,8 @@ impl PreparedClaudeProbe {
             program,
             root,
             _private: private,
+            base: base.clone(),
+            scratch,
             started,
             deadline,
             environment,
@@ -563,15 +558,13 @@ impl PreparedClaudeProbe {
         drop(credits);
         drop(owned.stdout);
         drop(owned.stderr);
-        let released = matches!(
-            owned.process.finish_cleanup(
-                database,
-                self.deadline
-                    .saturating_duration_since(Instant::now())
-                    .min(Duration::from_secs(1))
-            ),
-            Ok(CleanupStatus::Released { .. })
+        let cleanup = owned.process.finish_cleanup(
+            database,
+            self.deadline
+                .saturating_duration_since(Instant::now())
+                .min(Duration::from_secs(1)),
         );
+        let released = matches!(cleanup, Ok(CleanupStatus::Released { .. }));
         report.cleanup = if released {
             ProbeCleanup::Released
         } else {
@@ -581,11 +574,23 @@ impl PreparedClaudeProbe {
             report.issue = Some(ProbeIssue::CleanupUnconfirmed);
         }
         report.elapsed_ms = self.started.elapsed().as_millis() as u64;
-        Ok(ClaudeProbeOutcome {
-            summary: report,
-            retained: (!released).then_some(Retained::Process(owned.process)),
-            _probe: (!released).then_some(self),
-        })
+        if let Ok(status @ CleanupStatus::Released { .. }) = cleanup {
+            drop(owned.process);
+            let scratch = self.cleanup_scratch(status);
+            Ok(ClaudeProbeOutcome {
+                summary: report,
+                retained: None,
+                _probe: None,
+                scratch,
+            })
+        } else {
+            Ok(ClaudeProbeOutcome {
+                summary: report,
+                retained: Some(Retained::Process(owned.process)),
+                _probe: Some(self),
+                scratch: None,
+            })
+        }
     }
     fn prepared_failure(
         self,
@@ -593,27 +598,78 @@ impl PreparedClaudeProbe {
         mut workload: PreparedWorkload,
         mut report: ClaudeProbeSummary,
     ) -> ClaudeProbeOutcome {
-        let released = matches!(
-            workload.finish_cleanup(
-                database,
-                self.deadline
-                    .saturating_duration_since(Instant::now())
-                    .min(Duration::from_secs(1))
-            ),
-            Ok(CleanupStatus::Released { .. })
+        let cleanup = workload.finish_cleanup(
+            database,
+            self.deadline
+                .saturating_duration_since(Instant::now())
+                .min(Duration::from_secs(1)),
         );
+        let released = matches!(cleanup, Ok(CleanupStatus::Released { .. }));
         report.cleanup = if released {
             ProbeCleanup::Released
         } else {
             ProbeCleanup::Retained
         };
         report.elapsed_ms = self.started.elapsed().as_millis() as u64;
-        ClaudeProbeOutcome {
-            summary: report,
-            retained: (!released).then_some(Retained::Prepared(workload)),
-            _probe: (!released).then_some(self),
+        if let Ok(status @ CleanupStatus::Released { .. }) = cleanup {
+            drop(workload);
+            let scratch = self.cleanup_scratch(status);
+            ClaudeProbeOutcome {
+                summary: report,
+                retained: None,
+                _probe: None,
+                scratch,
+            }
+        } else {
+            ClaudeProbeOutcome {
+                summary: report,
+                retained: Some(Retained::Prepared(workload)),
+                _probe: Some(self),
+                scratch: None,
+            }
         }
     }
+    fn cleanup_scratch(self, native: CleanupStatus) -> Option<ReleasedScratch> {
+        let Self {
+            program,
+            root,
+            _private,
+            base,
+            mut scratch,
+            ..
+        } = self;
+        // No C01/name/program pin from this probe remains when DELETE is opened.
+        drop(program);
+        drop(_private);
+        drop(root);
+        let report = cleanup_owned_scratch(&base, &mut scratch, native);
+        (report.disposition != Disposition::Removed).then_some(ReleasedScratch {
+            base,
+            receipt: scratch,
+            native,
+        })
+    }
+}
+
+fn cleanup_owned_scratch(
+    base: &StorageLocation,
+    scratch: &mut OwnedScratch,
+    native: CleanupStatus,
+) -> CleanupReport {
+    let mut report = check_scratch::cleanup(base, scratch, native);
+    // Sharing races can outlive the finished owner worker by a few instructions.
+    // Only retry this exact in-memory receipt, at most its three fixed attempts.
+    while report.issue == Some(check_scratch::Issue::InUse) && report.attempts_remaining > 0 {
+        std::thread::sleep(Duration::from_millis(5));
+        report = check_scratch::cleanup(base, scratch, native);
+    }
+    report
+}
+
+struct ReleasedScratch {
+    base: StorageLocation,
+    receipt: OwnedScratch,
+    native: CleanupStatus,
 }
 fn utc_ms() -> Result<i64, ProbeIssue> {
     SystemTime::now()
@@ -684,6 +740,7 @@ pub struct ClaudeProbeOutcome {
     summary: ClaudeProbeSummary,
     retained: Option<Retained>,
     _probe: Option<PreparedClaudeProbe>,
+    scratch: Option<ReleasedScratch>,
 }
 impl ClaudeProbeOutcome {
     pub fn summary(&self) -> &ClaudeProbeSummary {
@@ -692,23 +749,39 @@ impl ClaudeProbeOutcome {
     pub fn cleanup_retained(&self) -> bool {
         self.retained.is_some()
     }
+    pub fn scratch_retained(&self) -> bool {
+        self.scratch.is_some()
+    }
     pub fn retry_cleanup(&mut self, database: &Database) -> bool {
-        let released = match self.retained.as_mut() {
-            None => true,
-            Some(Retained::Prepared(workload)) => matches!(
-                workload.retry_cleanup(database, Duration::from_secs(1)),
-                Ok(CleanupStatus::Released { .. })
-            ),
-            Some(Retained::Process(process)) => matches!(
-                process.retry_cleanup(database, Duration::from_secs(1)),
-                Ok(CleanupStatus::Released { .. })
-            ),
+        let status = match self.retained.as_mut() {
+            None => None,
+            Some(Retained::Prepared(workload)) => workload
+                .retry_cleanup(database, Duration::from_secs(1))
+                .ok(),
+            Some(Retained::Process(process)) => {
+                process.retry_cleanup(database, Duration::from_secs(1)).ok()
+            }
         };
-        if released {
+        if let Some(native @ CleanupStatus::Released { .. }) = status {
+            // Close exact process/workload handles before releasing C01 pins.
             self.retained = None;
-            self._probe = None;
+            self.scratch = self
+                ._probe
+                .take()
+                .and_then(|probe| probe.cleanup_scratch(native));
             self.summary.cleanup = ProbeCleanup::Released;
         }
-        released
+        if self.retained.is_none() {
+            if let Some(scratch) = self.scratch.as_mut() {
+                let report =
+                    cleanup_owned_scratch(&scratch.base, &mut scratch.receipt, scratch.native);
+                if report.disposition == Disposition::Removed {
+                    self.scratch = None;
+                }
+            }
+            true
+        } else {
+            false
+        }
     }
 }

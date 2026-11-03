@@ -401,6 +401,13 @@ impl PreparedWorkload {
     pub fn phase(&self) -> WorkloadPhase {
         self.phase
     }
+    /// Actual completed native/queue/ledger release, including its persisted CAS
+    /// revision. A phase projection or a caller-provided boolean is insufficient.
+    pub fn released_status(&self) -> Option<CleanupStatus> {
+        (self.phase == WorkloadPhase::Released).then_some(CleanupStatus::Released {
+            ledger_revision: self.released_revision,
+        })
+    }
     pub fn queue_credits(&self) -> QueueCredits {
         self.queues.clone()
     }

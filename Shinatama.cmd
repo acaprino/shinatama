@@ -2,6 +2,7 @@
 setlocal
 if not exist "%~dp0target\debug\shinatama-desktop.exe" goto missing
 if not exist "%~dp0target\debug\shinatama-terminal-helper.exe" goto missing
+if not exist "%~dp0target\debug\shinatama-session-helper.exe" goto missing
 start "" /d "%~dp0" "%~dp0target\debug\shinatama-desktop.exe"
 exit /b 0
 :missing

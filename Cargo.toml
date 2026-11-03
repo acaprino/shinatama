@@ -36,3 +36,4 @@ shinatama-projects = { path = "crates/projects" }
 shinatama-state = { path = "crates/state" }
 shinatama-adapter = { path = "crates/adapter" }
 shinatama-engine = { path = "crates/engine" }
+mukade = { git = "https://github.com/acaprino/mukade", rev = "4124b1f880f49a8f958801195324628752e35c4a" }

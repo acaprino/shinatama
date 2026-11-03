@@ -1877,6 +1877,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "mukade"
+version = "0.1.0"
+source = "git+https://github.com/acaprino/mukade?rev=4124b1f880f49a8f958801195324628752e35c4a#4124b1f880f49a8f958801195324628752e35c4a"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "embed-resource",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
 name = "ndk"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2980,6 +2994,7 @@ name = "shinatama-engine"
 version = "0.1.0"
 dependencies = [
  "getrandom 0.4.3",
+ "mukade",
  "serde",
  "serde_json",
  "sha2",

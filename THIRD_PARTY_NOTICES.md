@@ -6,7 +6,7 @@ Runtime and build-tool reachability are conservative package-level classificatio
 Full packaged LICENSE/COPYRIGHT/NOTICE texts and reviewed supplements are generated in `.verification/THIRD_PARTY_LICENSES.txt`; distribute that file with prototype artifacts.
 System WebView2 and system fonts are external dependencies, not bundled assets. npm, Python and the Rust toolchain are build/test tools. The separately pinned sidecar source/runtime preparation is outside this Cargo/npm inventory; its Node runtime is not distribution-ready until its required license bundle is provided.
 
-Target: `x86_64-pc-windows-msvc`. Indexed packages: 293.
+Target: `x86_64-pc-windows-msvc`. Indexed packages: 294.
 
 | Ecosystem | Package | Version | Reachability | Declared license | Policy | License text files |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -124,6 +124,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 293.
 | Rust | miniz_oxide | 0.9.1 | build-tool | MIT OR Zlib OR Apache-2.0 | recognized | LICENSE; LICENSE-APACHE.md; LICENSE-MIT.md; LICENSE-ZLIB.md |
 | Rust | mio | 1.2.4 | runtime | MIT | recognized | LICENSE |
 | Rust | muda | 0.20.0 | runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT; LICENSE.spdx |
+| Rust | mukade | 0.1.0 | runtime | MIT | recognized | LICENSE |
 | Rust | new_debug_unreachable | 1.0.6 | build-tool, runtime | MIT | recognized | LICENSE-MIT |
 | Rust | nix | 0.28.0 | runtime | MIT | recognized | LICENSE |
 | Rust | num-conv | 0.2.2 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-Apache; LICENSE-MIT |

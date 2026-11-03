@@ -2250,7 +2250,7 @@
       "depends_on": [
         "C03",
         "C11",
-        "C15"
+        "C09R"
       ],
       "deliverable": "Catalogo esplicito di cartelle private, di sistema e in sola lettura, con elenchi limitati e in sola lettura ottenuti dall'adattatore tramite Mukade fissato.",
       "acceptance": [
@@ -2263,8 +2263,9 @@
         "Mukade pin conformance corpus"
       ],
       "files": [
-        "crates/sessions/src/roots.rs",
-        "crates/sessions/src/readers.rs",
+        "crates/engine/src/session_roots.rs",
+        "crates/engine/src/bin/shinatama-session-helper.rs",
+        "apps/desktop/src-tauri/src/sessions.rs",
         "Cargo.toml",
         "Cargo.lock"
       ],
@@ -2282,7 +2283,7 @@
       ],
       "scope": "v1",
       "commit": "feat(c22): Risolvere le radici persistenti degli archivi e collegare una revisione verificata di Mukade",
-      "resume": "Leggere la scheda e le dipendenze; aprire crates/sessions/src/roots.rs, crates/sessions/src/readers.rs. Preparare la prima prova di accettazione prima di modificare il comportamento.",
+      "resume": "La lettura degli archivi usa FS03 e il contenimento C09R; non attende login e traffico provider C15. Avvio e resume degli agenti mantengono i propri vincoli C15. Riprendere session_roots.rs, helper e sessions.rs; compilare i componenti cambiati e una prova reale mirata con archivio sintetico, senza ripetere suite generali.",
       "commit_units": [
         {
           "id": "C22.1",
@@ -2303,7 +2304,7 @@
           "files": [
             "Cargo.toml",
             "Cargo.lock",
-            "crates/sessions/src/readers.rs"
+          "crates/engine/src/session_roots.rs"
           ],
           "commit": "feat(c22.1): Fissare e verificare la dipendenza Mukade"
         },
@@ -2324,7 +2325,7 @@
             10
           ],
           "files": [
-            "crates/sessions/src/roots.rs",
+          "crates/engine/src/session_roots.rs",
             "crates/state/src/store_roots.rs"
           ],
           "commit": "feat(c22.2): Persistire e risolvere radici esplicite degli archivi"
@@ -2346,8 +2347,9 @@
             10
           ],
           "files": [
-            "crates/sessions/src/list.rs",
-            "crates/adapter/src/**/sessions.rs"
+          "crates/engine/src/session_roots.rs",
+          "crates/engine/src/bin/shinatama-session-helper.rs",
+          "apps/desktop/src-tauri/src/sessions.rs"
           ],
           "commit": "feat(c22.3): Elencare sessioni senza caricare le trascrizioni"
         }

@@ -9,6 +9,7 @@ use shinatama_engine::claude_probe::{
     ProgramCandidate, discover_claude, probe_budget,
 };
 use shinatama_engine::{
+    check_scratch::{self, OwnedScratch, ScratchKind},
     claude_launch::{ClaudeStartContext, ClaudeTrialContext, prepare_start, prepare_trial},
     native_launch::{NativeTrialReceipt, NativeTrialTracker},
 };
@@ -129,9 +130,27 @@ struct CanaryOwner {
     host: Arc<TerminalHost>,
     tracker: NativeTrialTracker,
     session_id: Mutex<Option<String>>,
-    _base: StorageLocation,
+    _base: Mutex<Option<StorageLocation>>,
+    scratch: Mutex<OwnedScratch>,
 }
 impl CanaryOwner {
+    fn cleanup_scratch(&self, base: &StorageLocation, receipt: &NativeTrialReceipt) {
+        // Successful receipt is issued only after real native/queue/SQL release.
+        // Drop our C01 owner before opening DELETE; no prior directory is adopted.
+        let Ok(mut location) = self._base.lock() else {
+            return;
+        };
+        drop(location.take());
+        drop(location);
+        let Ok(mut scratch) = self.scratch.lock() else {
+            return;
+        };
+        let mut report = check_scratch::cleanup(base, &mut scratch, receipt.cleanup_status());
+        while report.issue == Some(check_scratch::Issue::InUse) && report.attempts_remaining > 0 {
+            std::thread::sleep(Duration::from_millis(5));
+            report = check_scratch::cleanup(base, &mut scratch, receipt.cleanup_status());
+        }
+    }
     fn stop(&self) -> bool {
         let id = self.session_id.lock().ok().and_then(|id| id.clone());
         if let Some(id) = id {
@@ -540,23 +559,9 @@ impl Controller {
             .map_err(|_| "Storage admission changed; no TUI check was started.")?;
         let (sidecar, port, ca) = self.sidecar.qualified_owner()?;
         check_directory_budget(base, "claude-tui-trial-")?;
-        let trial = base
-            .resolve_related_directory(
-                &base
-                    .directory()
-                    .join(format!("claude-tui-trial-{}", uuid::Uuid::new_v4())),
-            )
-            .map_err(|_| "The private TUI-check location is unavailable.")?;
-        if trial
-            .directory()
-            .try_exists()
-            .map_err(|_| "The TUI-check location could not be inspected.")?
-        {
-            return Err("A new private TUI-check location could not be reserved.");
-        }
-        trial
-            .prepare_private_directory()
-            .map_err(|_| "The TUI-check location could not be created privately.")?;
+        let (trial, scratch) = check_scratch::create(base, ScratchKind::ClaudeTuiTrial)
+            .map_err(|_| "The private TUI-check location is unavailable.")?
+            .into_parts();
         let project = trial
             .resolve_related_directory(&trial.directory().join("project"))
             .map_err(|_| "The synthetic check project is unavailable.")?;
@@ -587,7 +592,8 @@ impl Controller {
             host,
             tracker: prepared.tracker,
             session_id: Mutex::new(None),
-            _base: trial,
+            _base: Mutex::new(Some(trial)),
+            scratch: Mutex::new(scratch),
         });
         self.facts
             .lock()
@@ -652,6 +658,10 @@ impl Controller {
         }
         let released = owner.stop();
         let receipt = released.then(|| owner.tracker.take_receipt()).flatten();
+        drop(project);
+        if let Some(receipt) = receipt.as_ref() {
+            owner.cleanup_scratch(base, receipt);
+        }
         if released {
             self.facts
                 .lock()

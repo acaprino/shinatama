@@ -10,6 +10,11 @@
 testo del terminale. La scelta del tema e il layout vengono salvati automaticamente.
 Chiudendo la finestra con terminali aperti puoi annullare oppure confermare l'arresto.
 
+Per consultare un archivio esistente, apri **Sessions** e **Add a read-only archive**.
+Scegli Claude Code, Codex o Pi e indica la cartella archivio dell'agente; premi
+**Add archive**, poi **Reload sessions**. Le pagine contengono fino a 50 sessioni;
+il filtro cerca nella pagina corrente. La consultazione non modifica l'archivio.
+
 Questa build locale abilita il primo avvio Claude in modalità safe con set vuoto.
-Autenticazione, copertura dei provider, altri agenti, ricerca negli archivi e hop
+Autenticazione, copertura dei provider, avvio degli altri agenti, ricerca globale e hop
 restano distinti: non sono certificati dalla sola apertura della TUI.

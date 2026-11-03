@@ -45,8 +45,8 @@ use std::{
 };
 use windows_sys::Win32::Storage::FileSystem::{
     BY_HANDLE_FILE_INFORMATION, FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT,
-    FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_READ_ATTRIBUTES,
-    FILE_SHARE_READ, FILE_SHARE_WRITE, GetFileInformationByHandle,
+    FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_LIST_DIRECTORY,
+    FILE_READ_ATTRIBUTES, FILE_SHARE_READ, FILE_SHARE_WRITE, GetFileInformationByHandle,
 };
 
 const MIB: u64 = 1024 * 1024;
@@ -774,7 +774,8 @@ fn pin_directory(path: &Path) -> Result<(File, Vec<File>), ClaudeLaunchError> {
     for parent in parents.into_iter().rev() {
         let file = OpenOptions::new()
             .read(true)
-            .access_mode(FILE_READ_ATTRIBUTES)
+            // Participate in sharing checks without enumerating any contents.
+            .access_mode(FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES)
             .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE)
             .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)
             .open(parent)
