@@ -1156,7 +1156,7 @@ Temi Shinatama, Section9, TCTF e Sumi per la cornice, profili per tutti gli agen
 
 **Commit proposto:** `feat(c08): Rendere configurabili i temi e i profili versionati dei terminali`.
 
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire apps/desktop/src/theme/**, apps/desktop/src/profiles/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
+**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire apps/desktop/src/theme/**, apps/desktop/src/profiles/**. Preparare la prima prova di accettazione prima di modificare il comportamento. Direttiva utente 2026-11-03: il workspace normale usa disposizione globale indipendente dal filtro progetto; i layout per progetto già salvati restano conservati. Il riallineamento operativo è tracciato in C15.3, non in una nuova unità sotto C08 già committato.
 
 **Unita di commit sequenziali (ognuna lascia l’app avviabile):**
 

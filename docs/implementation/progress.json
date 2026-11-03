@@ -2,7 +2,7 @@
   "schema_version": 1,
   "updated_at": "2026-11-03",
   "base_head": "46435ab",
-  "git_state": "C15.3 one-Open flow checkpointed in dffb2695239776fbfbb6d552e725c3c010bd9b0c and verified in actual Windows UI: Claude starts with automatic service/preparation; two PowerShell projects keep separate saved threads in one global workspace. Global state CAS and real-default resource-pressure regression pass. C25.1 is checkpointed in7e5a2030a3adbddfa85f8171b421b5766999d847. Provider/auth, further harnesses, native resume, floating windows and full product completion remain open; Daodan remains deferred. Independent C46/widget work is preserved.",
+  "git_state": "Codex 0.166.0 opens through New session in checkpoint 3242ee86bf2a5344aab1d5d4ff1f55e1fda91e36; actual Windows UI proof passed. Conversation navigator/detail/search/explicit RAW checkpoint 3fc7661687ca917bf2317587bb020301948edb07 passed 7 targeted reader tests and native synthetic UI flow. Claude/PowerShell single-Open flow and global workspace remain available. Next product work: OpenCode launch and exact thread/native-session binding. Full providers/auth/tool execution, native resume and floating windows remain open; Daodan remains deferred.",
   "steps": {
     "B00": {
       "status": "committed",
@@ -1373,19 +1373,63 @@
           ]
         },
         "C23.3": {
-          "status": "pending",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "3fc7661687ca917bf2317587bb020301948edb07",
+          "platforms": [
+            "Windows 11 x64"
+          ],
           "evidence": [
-            "docs/notes/2026-11-03-session-detail.md"
+            "docs/notes/2026-11-03-session-find.md"
           ],
           "checks": [
-            "cargo test --offline --locked -p shinatama-engine --features session-reader -j1 --lib session_detail::tests -- --test-threads=1",
             "npm run build",
+            "cargo test --offline --locked -p shinatama-engine --features session-reader -j1 --lib session_ -- --test-threads=1",
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/sessions-smoke.mjs"
           ],
           "limits": [
-            "Bounded detail only; no full C23, raw payload/copy, native resume, export or provider qualification.",
-            "Working transcript slice and visual topmost-dialog assertion pass. Full navigator predecessor and session search acceptance remain open."
+            "Explicit selected archive only; entire input bounded to 16 MiB/4096 files, no streaming input/global search.",
+            "Project grouping uses current page only; native parent metadata unavailable is shown as unknown.",
+            "Clipboard contract mocked without system clipboard access; no native resume/provider or full C23 qualification."
+          ]
+        },
+        "C23.2": {
+          "status": "committed",
+          "commit_sha": "3fc7661687ca917bf2317587bb020301948edb07",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-03-session-find.md"
+          ],
+          "checks": [
+            "npm run build",
+            "cargo test --offline --locked -p shinatama-engine --features session-reader -j1 --lib session_ -- --test-threads=1",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/sessions-smoke.mjs"
+          ],
+          "limits": [
+            "Explicit selected archive only; entire input bounded to 16 MiB/4096 files, no streaming input/global search.",
+            "Project grouping uses current page only; native parent metadata unavailable is shown as unknown.",
+            "Clipboard contract mocked without system clipboard access; no native resume/provider or full C23 qualification."
+          ]
+        },
+        "C23.4": {
+          "status": "committed",
+          "commit_sha": "3fc7661687ca917bf2317587bb020301948edb07",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-03-session-find.md"
+          ],
+          "checks": [
+            "npm run build",
+            "cargo test --offline --locked -p shinatama-engine --features session-reader -j1 --lib session_ -- --test-threads=1",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/sessions-smoke.mjs"
+          ],
+          "limits": [
+            "Explicit selected archive only; entire input bounded to 16 MiB/4096 files, no streaming input/global search.",
+            "Project grouping uses current page only; native parent metadata unavailable is shown as unknown.",
+            "Clipboard contract mocked without system clipboard access; no native resume/provider or full C23 qualification."
           ]
         }
       },
@@ -1396,7 +1440,7 @@
         "Whole effective archive namespace must fit 16 MiB/4096 files before the pinned whole-session reader runs.",
         "Only synthetic Claude detail is observed; full lineage, raw/privacy actions and all-harness parent acceptance remain open."
       ],
-      "next_action": "Checkpoint contained detail; connect durable thread metadata and sidebar without exposing resume before qualification."
+      "next_action": "Conversation search/raw/navigation are checkpointed; global persistent search is C24 and native thread binding/resume is C25. Preserve missing native parent metadata as unknown."
     },
     "C25": {
       "status": "pending",
@@ -1423,7 +1467,7 @@
           ]
         }
       },
-      "next_action": "Thread e sidebar salvati nel checkpoint 7e5a203; collegare prima il nuovo Open al progetto proprietario e al workspace globale. Riprendere discovery nativa e resume dopo la priorità utente e le dipendenze.",
+      "next_action": "Implement exact saved thread/native identity resolution and exclusive lifecycle binding; do not infer conversation presence from root availability.",
       "limits": [
         "No automatic resume, native ID fabrication, TTL ownership stealing or native activity claims. Parent C25 remains open."
       ]
@@ -1446,6 +1490,66 @@
         "Superficie nativa e otto test Rust passano. Percorso PTY/clic/EOF collegato ma prova live rifiutata dal controllo risorse normale; nessun harness/provider qualificato. C12 rimane il solo checkpoint in_progress."
       ],
       "next_action": "Quando l'ammissione risorse normale consente un terminale, eseguire node apps/desktop/tests/attention-smoke.mjs e registrare il percorso PTY/clic/EOF prima della promozione."
+    },
+    "C16": {
+      "status": "pending",
+      "commit_sha": null,
+      "evidence": [
+        "docs/notes/2026-11-03-codex-open.md"
+      ],
+      "checks": [
+        "npm run build",
+        "cargo test --offline --locked -p shinatama-engine --features session-reader -j1 --lib codex_ -- --test-threads=1",
+        "cargo test --offline --locked -p shinatama-adapter -j1 --lib codex_requires_a_specific_verified_home_budget_and_excludes_elevated_sandbox -- --test-threads=1",
+        "SHINATAMA_SMOKE_SESSION_HARNESS=codex verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/new-session-smoke.mjs"
+      ],
+      "limits": [
+        "Actual installed Codex 0.166.0 TUI startup and cleanup passed; authentication stays unknown/manual in original TUI.",
+        "Provider traffic/TLS, effective tools, native binding/resume and managed installation remain unqualified; no C16 parent completion."
+      ],
+      "next_action": "Preserve working Codex Open; connect exact native-session binding and provider/tool qualification after the next installed harness.",
+      "units": {
+        "C16.1": {
+          "status": "committed",
+          "commit_sha": "3242ee86bf2a5344aab1d5d4ff1f55e1fda91e36",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-03-codex-open.md"
+          ],
+          "checks": [
+            "npm run build",
+            "cargo test --offline --locked -p shinatama-engine --features session-reader -j1 --lib codex_ -- --test-threads=1",
+            "cargo test --offline --locked -p shinatama-adapter -j1 --lib codex_requires_a_specific_verified_home_budget_and_excludes_elevated_sandbox -- --test-threads=1",
+            "SHINATAMA_SMOKE_SESSION_HARNESS=codex verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/new-session-smoke.mjs"
+          ],
+          "limits": [
+            "Actual installed Codex 0.166.0 TUI startup and cleanup passed; authentication stays unknown/manual in original TUI.",
+            "Provider traffic/TLS, effective tools, native binding/resume and managed installation remain unqualified; no C16 parent completion."
+          ]
+        },
+        "C16.2": {
+          "status": "committed",
+          "commit_sha": "3242ee86bf2a5344aab1d5d4ff1f55e1fda91e36",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-03-codex-open.md"
+          ],
+          "checks": [
+            "npm run build",
+            "cargo test --offline --locked -p shinatama-engine --features session-reader -j1 --lib codex_ -- --test-threads=1",
+            "cargo test --offline --locked -p shinatama-adapter -j1 --lib codex_requires_a_specific_verified_home_budget_and_excludes_elevated_sandbox -- --test-threads=1",
+            "SHINATAMA_SMOKE_SESSION_HARNESS=codex verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/new-session-smoke.mjs"
+          ],
+          "limits": [
+            "Actual installed Codex 0.166.0 TUI startup and cleanup passed; authentication stays unknown/manual in original TUI.",
+            "Provider traffic/TLS, effective tools, native binding/resume and managed installation remain unqualified; no C16 parent completion."
+          ]
+        }
+      }
     }
   },
   "blockers": [],
