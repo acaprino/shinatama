@@ -5,25 +5,29 @@ import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
-import { resolve } from 'node:path';
+import { dirname, isAbsolute, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
 if (process.platform !== 'win32') throw new Error('This proof requires Windows.');
 const workspace = process.cwd();
+const packageExecutable = process.env.SHINATAMA_SMOKE_APP_EXE;
+if (packageExecutable && !isAbsolute(packageExecutable)) throw new Error('The package executable must be an explicit absolute path.');
+const executable = packageExecutable || resolve(workspace, 'target/debug/shinatama-desktop.exe');
+const receiptName = packageExecutable ? 'package-threads-sidebar' : 'threads-sidebar';
 const fixture = await mkdtemp(resolve(tmpdir(), 'shinatama-threads-smoke-'));
 const data = resolve(fixture, 'data'); const projectPath = resolve(fixture, 'synthetic-project');
 await mkdir(projectPath, { recursive: true });
 const output = resolve(workspace, '.prototype-evidence'); await mkdir(output, { recursive: true });
 const evidence = { check: 'C25-native-manual-thread-sidebar', status: 'running', checks: {},
   scope: 'Synthetic project and saved draft only; no terminal, agent, resource-policy override or native resume' };
-const save = () => writeFile(resolve(output, 'threads-sidebar.json'), `${JSON.stringify(evidence, null, 2)}\n`);
+const save = () => writeFile(resolve(output, `${receiptName}.json`), `${JSON.stringify(evidence, null, 2)}\n`);
 await save();
 const reservation = createServer();
 await new Promise((accept, reject) => { reservation.once('error', reject); reservation.listen({ host: '127.0.0.1', port: 0, exclusive: true }, accept); });
 const port = reservation.address().port;
 await new Promise((accept, reject) => reservation.close(error => error ? reject(error) : accept()));
-const app = spawn(resolve(workspace, 'target/debug/shinatama-desktop.exe'), [], {
-  cwd: workspace, windowsHide: true, stdio: 'ignore', env: { ...process.env,
+const app = spawn(executable, [], {
+  cwd: packageExecutable ? dirname(executable) : workspace, windowsHide: true, stdio: 'ignore', env: { ...process.env,
     SHINATAMA_HOME: data, WEBVIEW2_USER_DATA_FOLDER: resolve(fixture, 'webview-profile'),
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --remote-debugging-address=127.0.0.1` },
 });
@@ -134,7 +138,7 @@ try {
   await expect.poll(async () => (await ipc('thread_sidebar_load')).settings, { timeout: 15000 })
     .toEqual({ version: 1, width: 280, collapsed: false });
   evidence.checks.sameDraftAfterReloadAndNoAutoResume = true;
-  await page.screenshot({ path: resolve(output, 'threads-sidebar.png'), timeout: 3000 });
+  await page.screenshot({ path: resolve(output, `${receiptName}.png`), timeout: 3000 });
   const closing = Promise.all([page.waitForEvent('close', { timeout: 15000 }), exitWithin(15000)]); void closing.catch(() => {});
   await page.getByRole('button', { name: 'Close window', exact: true }).click();
   await closing; expect(app.exitCode).toBe(0); evidence.checks.ownedFrameClose = true;
