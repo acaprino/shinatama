@@ -55,6 +55,21 @@ fn root_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<StoreRootRecord> {
     })
 }
 
+/// Reuse the bounded decoder inside an existing snapshot transaction.
+pub(crate) fn read_store_root(
+    connection: &rusqlite::Connection,
+    id: &str,
+) -> Result<Option<StoreRootRecord>> {
+    validate_key(id)?;
+    let record = connection
+        .query_row(ROOT_BY_ID, [id], root_row)
+        .optional()?;
+    if let Some(record) = &record {
+        record.validate()?;
+    }
+    Ok(record)
+}
+
 fn insert_root(
     connection: &rusqlite::Connection,
     record: &StoreRootRecord,
@@ -165,13 +180,7 @@ impl Database {
     pub fn store_root(&self, id: &str) -> Result<Option<StoreRootRecord>> {
         validate_key(id)?;
         let connection = self.lock()?;
-        let record = connection
-            .query_row(ROOT_BY_ID, [id], root_row)
-            .optional()?;
-        if let Some(record) = &record {
-            record.validate()?;
-        }
-        Ok(record)
+        read_store_root(&connection, id)
     }
 
     /// Keyset pagination includes unavailable bindings and performs no FS probes.

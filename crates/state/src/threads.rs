@@ -5,8 +5,8 @@ mod tests;
 use crate::{
     database::{Database, DatabaseError},
     records::{
-        CanonicalIdKind, MAX_SAFE_REVISION, NativeSessionKey, ThreadKind, ThreadRelations,
-        validate_id,
+        CanonicalIdKind, MAX_SAFE_REVISION, NativeSessionKey, RootAccess, StoreRootRecord,
+        ThreadKind, ThreadRelations, validate_id,
     },
 };
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
@@ -90,6 +90,61 @@ pub struct ActivationRecord {
     pub revision: u64,
     pub started_at: i64,
     pub ended_at: Option<i64>,
+}
+/// Trusted Rust metadata snapshot, not a resume permit. Root availability does
+/// not establish that the native conversation exists. The caller must verify
+/// its source/cwd and acquire an activation before starting another process.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ThreadResumeTarget {
+    pub thread: ThreadRecord,
+    pub segment: SegmentRecord,
+    pub root: StoreRootRecord,
+    /// May own an earlier segment of the same thread. Absence is not a native
+    /// liveness assertion; presence must never be expired or silently cleared.
+    pub recorded_activation: Option<ActivationRecord>,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ThreadResumeError {
+    Invalid,
+    NotFound,
+    Unbound,
+    Archived,
+    RootChanged,
+    RootUnavailable,
+    UnsupportedSchema,
+    Storage,
+}
+impl fmt::Display for ThreadResumeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Invalid => "The saved thread binding is invalid.",
+            Self::NotFound => "The saved thread is unavailable.",
+            Self::Unbound => "The thread has no recorded native conversation.",
+            Self::Archived => "The thread or its latest segment is archived.",
+            Self::RootChanged => "The recorded native root no longer matches its binding.",
+            Self::RootUnavailable => "The recorded native root is unavailable or read-only.",
+            Self::UnsupportedSchema => "The saved thread schema is unsupported.",
+            Self::Storage => "The saved thread binding could not be read.",
+        })
+    }
+}
+impl std::error::Error for ThreadResumeError {}
+impl From<ThreadError> for ThreadResumeError {
+    fn from(error: ThreadError) -> Self {
+        match error {
+            ThreadError::Invalid | ThreadError::Conflict | ThreadError::OwnedElsewhere => {
+                Self::Invalid
+            }
+            ThreadError::NotFound => Self::NotFound,
+            ThreadError::RootUnavailable => Self::RootUnavailable,
+            ThreadError::Storage => Self::Storage,
+        }
+    }
+}
+impl From<rusqlite::Error> for ThreadResumeError {
+    fn from(_: rusqlite::Error) -> Self {
+        Self::Storage
+    }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -345,6 +400,26 @@ fn activation(connection: &Connection, key: &str) -> Result<ActivationRecord> {
     connection.query_row("SELECT instance_id,owner_pid,owner_created_at_100ns,thread_id,segment_id,store_root_id,store_revision,native_id,revision,started_at,ended_at FROM activation WHERE instance_id=?1",[key],activation_row).optional()?.ok_or(ThreadError::NotFound)
 }
 
+fn validate_resume_segment(record: &SegmentRecord, thread: &ThreadRecord) -> Result<()> {
+    id(&record.id, CanonicalIdKind::Segment)?;
+    record.native.validate().map_err(|_| ThreadError::Invalid)?;
+    revision(record.revision)?;
+    millis(record.created_at)?;
+    if record.thread_id != thread.id
+        || record.ordinal == 0
+        || record.created_at < thread.created_at
+        || record.harness.is_empty()
+        || record.harness.len() > 64
+        || !record
+            .harness
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+    {
+        return Err(ThreadError::Invalid);
+    }
+    Ok(())
+}
+
 impl Database {
     pub fn thread_sidebar_snapshot(&self) -> Result<SidebarSnapshot> {
         let connection = self.lock()?;
@@ -412,6 +487,86 @@ impl Database {
             Err(ThreadError::NotFound) => Ok(None),
             Err(error) => Err(error),
         }
+    }
+    /// Bounded, read-only snapshot of exactly the named thread's latest segment.
+    /// It never falls back to an earlier segment, another root revision or a
+    /// different thread. This performs no filesystem, liveness or launch work.
+    pub fn thread_resume_target(
+        &self,
+        key: &str,
+    ) -> std::result::Result<ThreadResumeTarget, ThreadResumeError> {
+        id(key, CanonicalIdKind::Thread)?;
+        let mut connection = self.lock().map_err(|_| ThreadResumeError::Storage)?;
+        let tx = connection.transaction_with_behavior(TransactionBehavior::Deferred)?;
+        crate::schema::require_write_version(&tx).map_err(|error| match error {
+            DatabaseError::NewerSchema { .. } | DatabaseError::UnsupportedSchema => {
+                ThreadResumeError::UnsupportedSchema
+            }
+            _ => ThreadResumeError::Storage,
+        })?;
+        let thread = load_thread(&tx, key)?;
+        if thread.archived {
+            return Err(ThreadResumeError::Archived);
+        }
+        let segment = tx.query_row(
+            "SELECT id,thread_id,ordinal,harness,store_root_id,store_revision,native_id,archived,revision,created_at FROM segment WHERE thread_id=?1 ORDER BY ordinal DESC LIMIT 1",
+            [key], segment_row,
+        ).optional()?.ok_or(ThreadResumeError::Unbound)?;
+        validate_resume_segment(&segment, &thread)?;
+        if segment.archived {
+            return Err(ThreadResumeError::Archived);
+        }
+        let root = crate::records::read_store_root(&tx, &segment.native.store_root_id)
+            .map_err(|_| ThreadResumeError::Storage)?
+            .ok_or(ThreadResumeError::RootUnavailable)?;
+        if !segment.native.matches_root(&root) || root.harness != segment.harness {
+            return Err(ThreadResumeError::RootChanged);
+        }
+        if !root.available || root.access != RootAccess::ReadWrite {
+            return Err(ThreadResumeError::RootUnavailable);
+        }
+        let recorded_activation = {
+            let mut query = tx.prepare("SELECT instance_id,owner_pid,owner_created_at_100ns,thread_id,segment_id,store_root_id,store_revision,native_id,revision,started_at,ended_at FROM activation WHERE ended_at IS NULL AND (thread_id=?1 OR segment_id=?2 OR (store_root_id=?3 AND store_revision=?4 AND native_id=?5)) ORDER BY instance_id LIMIT 2")?;
+            let mut rows = query.query_map(
+                params![
+                    key,
+                    segment.id,
+                    segment.native.store_root_id,
+                    revision(segment.native.store_revision)?,
+                    segment.native.native_id
+                ],
+                activation_row,
+            )?;
+            let owner = rows.next().transpose()?;
+            if rows.next().transpose()?.is_some() {
+                return Err(ThreadResumeError::Invalid);
+            }
+            owner
+        };
+        if let Some(active) = &recorded_activation {
+            active.owner.validate()?;
+            active
+                .native
+                .validate()
+                .map_err(|_| ThreadResumeError::Invalid)?;
+            millis(active.started_at)?;
+            if active.thread_id != thread.id || active.ended_at.is_some() {
+                return Err(ThreadResumeError::Invalid);
+            }
+            let owned_segment = self::segment(&tx, &active.segment_id)?;
+            validate_resume_segment(&owned_segment, &thread)?;
+            if owned_segment.native != active.native || active.started_at < owned_segment.created_at
+            {
+                return Err(ThreadResumeError::Invalid);
+            }
+        }
+        tx.commit()?;
+        Ok(ThreadResumeTarget {
+            thread,
+            segment,
+            root,
+            recorded_activation,
+        })
     }
     pub fn update_thread_metadata(
         &self,

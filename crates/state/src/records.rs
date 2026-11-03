@@ -2,6 +2,7 @@
 //! These operations restore data and never start a process or qualify an adapter.
 
 mod database;
+pub(crate) use database::read_store_root;
 pub mod recovery;
 pub(crate) mod schema;
 
