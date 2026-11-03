@@ -525,6 +525,11 @@ try {
   }, 30000, 'main-workspace-webview-missing');
   page.setDefaultTimeout(15000); page.on('pageerror', () => { pageErrors++; });
   await poll(async () => (await page.locator('#runtime-status').textContent()).includes('Local runtime'), 10000, 'runtime-unavailable');
+  // Open refuses while the sidecar is still starting; start it through the
+  // real UI command seam when stopped, then wait for its qualified ready phase
+  // instead of racing the fixed five-second preparation window.
+  if ((await ipc('sidecar_status')).phase === 'stopped') await ipc('sidecar_start').catch(() => {});
+  await poll(async () => { const status = await ipc('sidecar_status'); return status.phase === 'ready' && status.healthy === true; }, 45000, 'sidecar-not-ready-before-open');
   require(pathKey((await ipc('storage_location')).directory) === pathKey(data), 'private-app-storage-mismatch'); owned = true;
   require((await sessions()).length === 0, 'no-session-before-user-action');
   await stage('first-session-open');
