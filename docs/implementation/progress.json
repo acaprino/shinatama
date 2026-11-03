@@ -2,7 +2,7 @@
   "schema_version": 1,
   "updated_at": "2026-11-03",
   "base_head": "46435ab",
-  "git_state": "Core Windows checkpoint c0f535e0e783f2ec5297536280dbc34029af62b3 remains saved. Working C22 adds full-revision Git Mukade, contained read-only metadata and explicit archive UI; native Check scratch cleanup passes its focused real app flow. C23 detail and C25.1 persistence are separate source work, not yet qualified.",
+  "git_state": "Working archive checkpoint d84ac08152f71a750d6c73df23723eb86483a3e0 is saved. C23 bounded read-only detail now passes its real native UI flow and is ready for a separate checkpoint. C25 thread metadata/sidebar sources remain isolated and unqualified; the full product is not complete.",
   "steps": {
     "B00": {
       "status": "committed",
@@ -1269,8 +1269,8 @@
       "commit_sha": null,
       "units": {
         "C22.1": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "d84ac08152f71a750d6c73df23723eb86483a3e0",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -1287,8 +1287,8 @@
           ]
         },
         "C22.2": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "d84ac08152f71a750d6c73df23723eb86483a3e0",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -1305,8 +1305,8 @@
           ]
         },
         "C22.3": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "d84ac08152f71a750d6c73df23723eb86483a3e0",
           "limits": [
             "Bounded metadata slice and synthetic Claude UI pass; complete C22 harness conformance and hostile-writer namespace isolation remain open."
           ],
@@ -1328,6 +1328,51 @@
         "OpenCode file-root contract, Hermes/DeepSeek readers, complete pin conformance and parent acceptance remain open."
       ],
       "next_action": "Checkpoint the working explicit archive metadata flow; connect contained C23 detail while preserving pending full parent acceptance."
+    },
+    "C23": {
+      "status": "pending",
+      "commit_sha": null,
+      "units": {
+        "C23.1": {
+          "status": "verified",
+          "commit_sha": null,
+          "evidence": [
+            "docs/notes/2026-11-03-session-detail.md"
+          ],
+          "checks": [
+            "cargo test --offline --locked -p shinatama-engine --features session-reader -j1 --lib session_detail::tests -- --test-threads=1",
+            "npm run build",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/sessions-smoke.mjs"
+          ],
+          "limits": [
+            "Bounded detail only; no full C23, raw payload/copy, native resume, export or provider qualification."
+          ]
+        },
+        "C23.3": {
+          "status": "pending",
+          "commit_sha": null,
+          "evidence": [
+            "docs/notes/2026-11-03-session-detail.md"
+          ],
+          "checks": [
+            "cargo test --offline --locked -p shinatama-engine --features session-reader -j1 --lib session_detail::tests -- --test-threads=1",
+            "npm run build",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/sessions-smoke.mjs"
+          ],
+          "limits": [
+            "Bounded detail only; no full C23, raw payload/copy, native resume, export or provider qualification.",
+            "Working transcript slice and visual topmost-dialog assertion pass. Full navigator predecessor and session search acceptance remain open."
+          ]
+        }
+      },
+      "evidence": [
+        "docs/notes/2026-11-03-session-detail.md"
+      ],
+      "limits": [
+        "Whole effective archive namespace must fit 16 MiB/4096 files before the pinned whole-session reader runs.",
+        "Only synthetic Claude detail is observed; full lineage, raw/privacy actions and all-harness parent acceptance remain open."
+      ],
+      "next_action": "Checkpoint contained detail; connect durable thread metadata and sidebar without exposing resume before qualification."
     }
   },
   "blockers": [],

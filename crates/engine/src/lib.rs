@@ -13,6 +13,8 @@ pub mod native_launch;
 pub mod resources;
 #[cfg(feature = "session-reader")]
 pub mod session_roots;
+#[cfg(all(windows, feature = "session-reader"))]
+pub mod session_detail;
 #[cfg(windows)]
 pub mod check_scratch;
 #[cfg(windows)]

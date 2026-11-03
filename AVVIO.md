@@ -14,6 +14,9 @@ Per consultare un archivio esistente, apri **Sessions** e **Add a read-only arch
 Scegli Claude Code, Codex o Pi e indica la cartella archivio dell'agente; premi
 **Add archive**, poi **Reload sessions**. Le pagine contengono fino a 50 sessioni;
 il filtro cerca nella pagina corrente. La consultazione non modifica l'archivio.
+Seleziona un ID e premi **Open detail** per leggere la conversazione. Il dettaglio
+attuale accetta archivi fino a 16 MiB; quelli più grandi vengono rifiutati prima
+della lettura. **Close session detail** torna all'elenco.
 
 Questa build locale abilita il primo avvio Claude in modalità safe con set vuoto.
 Autenticazione, copertura dei provider, avvio degli altri agenti, ricerca globale e hop

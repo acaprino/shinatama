@@ -19,6 +19,7 @@ import { startTerminalResources, formatTerminalResources, type TerminalResourceS
 import { createSidecarControl } from './sidecar-control.ts';
 import { createAgentSetup } from './agent-setup.ts';
 import { createSessionLibrary } from './session-library.ts';
+import { createSessionDetail } from './session-detail.ts';
 import './styles.css';
 
 type SessionInfo = { id: string; cwd: string; shell: string };
@@ -327,10 +328,16 @@ createAgentSetup({
   reportError: notify,
   restoreFocus: () => setFocus(focusedGroup()),
 });
+const sessionDetail = createSessionDetail({
+  read: request => desktop ? invoke('session_detail', { request }) : Promise.reject({ issue: 'read_unavailable' }),
+  reportError: notify,
+  restoreFocus: () => setFocus(focusedGroup()),
+});
 createSessionLibrary({
   roots: () => desktop ? invoke('session_roots') : Promise.reject({ issue: 'read_unavailable' }),
   list: request => desktop ? invoke('session_list', { request }) : Promise.reject({ issue: 'worker_unavailable' }),
   addArchive: desktop ? request => invoke('session_archive_add', { request }) : undefined,
+  openDetail: (root, nativeId) => { sessionDetail.show(root, nativeId); },
   reportError: notify,
   restoreFocus: () => setFocus(focusedGroup()),
 });

@@ -10,7 +10,12 @@ let stack: Entry[] = [];
 function sync() {
   const top = stack.at(-1)?.dialog;
   for (const element of document.querySelectorAll<HTMLElement>(INERT_WHILE_OPEN)) element.inert = !!top;
-  for (const { dialog } of stack) dialog.inert = dialog !== top;
+  for (const [index, { dialog }] of stack.entries()) {
+    dialog.inert = dialog !== top;
+    // Opening order, rather than document creation order, determines which
+    // custom dialog is visible. The borderless frame remains available above.
+    dialog.style.zIndex = String(20 + index);
+  }
   document.querySelector<HTMLElement>('#modal-scrim')!.hidden = !top;
 }
 

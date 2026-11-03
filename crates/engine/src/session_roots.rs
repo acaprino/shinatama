@@ -1,6 +1,8 @@
 //! C22 explicit store binding and pinned Mukade metadata worker protocol.
 //! Reader::list materializes a Vec at this pin: ONLY the contained helper calls it.
 //! No transcript/export/write/CLI reader, ambient StoreRoots, or credential read.
+#[cfg(windows)]
+use crate::session_detail::{DetailReply, DetailRequest, TrustedRootSnapshot};
 use mukade::{HarnessId, reader::SessionInfo, roots::StoreRoots};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -118,6 +120,9 @@ struct WorkerRequest {
     limit: usize,
     cursor: Option<SessionCursor>,
     include_children: bool,
+    #[cfg(windows)]
+    #[serde(default)]
+    detail: Option<DetailRequest>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -125,13 +130,22 @@ struct WorkerReply {
     protocol: u8,
     revision: String,
     page: Option<SessionListPage>,
+    #[cfg(windows)]
+    detail: Option<DetailReply>,
     issue: Option<SessionReadIssue>,
+}
+enum SessionPayload {
+    List(SessionListPage),
+    #[cfg(windows)]
+    Detail(DetailReply),
 }
 
 /// No public path constructor. SQL identity/revision precede all filesystem reads.
 pub struct PreparedSessionList {
     root: StoreRootRecord,
     request: Vec<u8>,
+    #[cfg(windows)]
+    detail_request: Option<DetailRequest>,
 }
 impl PreparedSessionList {
     pub fn resolve(
@@ -191,12 +205,53 @@ impl PreparedSessionList {
             limit,
             cursor,
             include_children,
+            #[cfg(windows)]
+            detail: None,
         })
         .map_err(|_| SessionReadIssue::InvalidRequest)?;
         if request.len() > MAX_REQUEST_BYTES {
             return Err(SessionReadIssue::InvalidRequest);
         }
-        Ok(Self { root, request })
+        Ok(Self {
+            root,
+            request,
+            #[cfg(windows)]
+            detail_request: None,
+        })
+    }
+    /// Same contained worker and SQL binding as metadata; never reads a transcript
+    /// in this host. The helper independently checks the whole-input bound.
+    #[cfg(windows)]
+    pub fn resolve_detail(
+        database: &Database,
+        base: &StorageLocation,
+        request: DetailRequest,
+    ) -> Result<Self> {
+        if request.native_id.is_empty()
+            || request.native_id.len() > 256
+            || !request
+                .native_id
+                .bytes()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'-' | b'_'))
+            || !(1..=MAX_ROWS).contains(&request.limit)
+            || request
+                .cursor
+                .as_ref()
+                .is_some_and(|cursor| !fingerprint(&cursor.fingerprint))
+        {
+            return Err(SessionReadIssue::InvalidRequest);
+        }
+        let mut prepared = Self::resolve(database, base, &request.root, None, 1, true)?;
+        let mut wire: WorkerRequest = serde_json::from_slice(&prepared.request)
+            .map_err(|_| SessionReadIssue::InvalidRequest)?;
+        wire.detail = Some(request.clone());
+        prepared.request =
+            serde_json::to_vec(&wire).map_err(|_| SessionReadIssue::InvalidRequest)?;
+        if prepared.request.len() > MAX_REQUEST_BYTES {
+            return Err(SessionReadIssue::InvalidRequest);
+        }
+        prepared.detail_request = Some(request);
+        Ok(prepared)
     }
     pub fn selector(&self) -> RootSelector {
         selector(&self.root)
@@ -205,6 +260,13 @@ impl PreparedSessionList {
         &self.request
     }
     pub fn decode_reply(&self, database: &Database, bytes: &[u8]) -> Result<SessionListPage> {
+        match self.decode_payload(database, bytes)? {
+            SessionPayload::List(page) => Ok(page),
+            #[cfg(windows)]
+            SessionPayload::Detail(_) => Err(SessionReadIssue::InvalidRequest),
+        }
+    }
+    fn decode_payload(&self, database: &Database, bytes: &[u8]) -> Result<SessionPayload> {
         if bytes.len() > MAX_REPLY_BYTES {
             return Err(SessionReadIssue::OutputLimit);
         }
@@ -222,6 +284,50 @@ impl PreparedSessionList {
         if let Some(issue) = reply.issue {
             return Err(issue);
         }
+        #[cfg(windows)]
+        if let Some(request) = &self.detail_request {
+            let detail = reply.detail.ok_or(SessionReadIssue::WorkerUnavailable)?;
+            if reply.page.is_some()
+                || detail.root != self.selector()
+                || detail.native_id != request.native_id
+                || detail.page.is_some() == detail.issue.is_some()
+            {
+                return Err(SessionReadIssue::WorkerUnavailable);
+            }
+            if let Some(page) = &detail.page {
+                let offset = request.cursor.as_ref().map_or(0, |cursor| cursor.offset);
+                if page.root != self.selector()
+                    || page.native_id != request.native_id
+                    || page.harness.as_str() != self.root.harness
+                    || page.events.len() > request.limit
+                    || !fingerprint(&page.fingerprint)
+                    || request
+                        .cursor
+                        .as_ref()
+                        .is_some_and(|cursor| cursor.fingerprint != page.fingerprint)
+                    || page.events.iter().enumerate().any(|(i, event)| {
+                        event.ordinal != offset.saturating_add(i) || event.text.len() > 4096
+                    })
+                    || offset
+                        .checked_add(page.events.len())
+                        .is_none_or(|end| end > page.total_events)
+                    || page.notices.len() > 6
+                    || page.notices.iter().any(|notice| !text(notice, 240))
+                    || page.next.as_ref().is_some_and(|next| {
+                        next.fingerprint != page.fingerprint
+                            || next.offset != offset.saturating_add(page.events.len())
+                            || next.offset >= page.total_events
+                    })
+                {
+                    return Err(SessionReadIssue::WorkerUnavailable);
+                }
+            }
+            return Ok(SessionPayload::Detail(detail));
+        }
+        #[cfg(windows)]
+        if reply.detail.is_some() {
+            return Err(SessionReadIssue::WorkerUnavailable);
+        }
         let page = reply.page.ok_or(SessionReadIssue::WorkerUnavailable)?;
         if page.root != self.selector()
             || page.harness.as_str() != self.root.harness
@@ -234,7 +340,7 @@ impl PreparedSessionList {
         {
             return Err(SessionReadIssue::WorkerUnavailable);
         }
-        Ok(page)
+        Ok(SessionPayload::List(page))
     }
 }
 fn selector(root: &StoreRootRecord) -> RootSelector {
@@ -658,10 +764,12 @@ fn list_in_worker(request: WorkerRequest) -> Result<SessionListPage> {
 /// stderr/stdout, including OOM/reader errors. The parent treats process loss as
 /// unavailable and retains a reservation whenever native cleanup is unconfirmed.
 pub fn helper_main() {
-    let result = (|| -> Result<SessionListPage> {
+    let result = (|| -> Result<SessionPayload> {
         #[cfg(windows)]
         {
-            use windows_sys::Win32::System::{JobObjects::IsProcessInJob, Threading::GetCurrentProcess};
+            use windows_sys::Win32::System::{
+                JobObjects::IsProcessInJob, Threading::GetCurrentProcess,
+            };
             let mut contained = 0;
             if unsafe { IsProcessInJob(GetCurrentProcess(), std::ptr::null_mut(), &mut contained) }
                 == 0
@@ -680,21 +788,44 @@ pub fn helper_main() {
         if input.len() > MAX_REQUEST_BYTES {
             return Err(SessionReadIssue::InvalidRequest);
         }
-        let request =
+        let request: WorkerRequest =
             serde_json::from_slice(&input).map_err(|_| SessionReadIssue::InvalidRequest)?;
-        list_in_worker(request)
+        if request.protocol != 1 || request.revision != MUKADE_REVISION {
+            return Err(SessionReadIssue::InvalidRequest);
+        }
+        #[cfg(windows)]
+        if let Some(detail) = &request.detail {
+            let reply = match TrustedRootSnapshot::from_record(&request.root, &detail.root) {
+                Ok(snapshot) => crate::session_detail::read_detail(&snapshot, detail),
+                Err(issue) => DetailReply::refuse(detail, issue),
+            };
+            return Ok(SessionPayload::Detail(reply));
+        }
+        list_in_worker(request).map(SessionPayload::List)
     })();
     let reply = match result {
-        Ok(page) => WorkerReply {
+        Ok(SessionPayload::List(page)) => WorkerReply {
             protocol: 1,
             revision: MUKADE_REVISION.into(),
             page: Some(page),
+            #[cfg(windows)]
+            detail: None,
+            issue: None,
+        },
+        #[cfg(windows)]
+        Ok(SessionPayload::Detail(detail)) => WorkerReply {
+            protocol: 1,
+            revision: MUKADE_REVISION.into(),
+            page: None,
+            detail: Some(detail),
             issue: None,
         },
         Err(issue) => WorkerReply {
             protocol: 1,
             revision: MUKADE_REVISION.into(),
             page: None,
+            #[cfg(windows)]
+            detail: None,
             issue: Some(issue),
         },
     };
@@ -742,13 +873,22 @@ mod execution {
     /// Keep this owner if cleanup is unconfirmed. Neither Drop nor retries issue
     /// another read or release an unrelated ticket/job/process.
     pub struct SessionListRead {
-        page: Option<SessionListPage>,
+        payload: Option<SessionPayload>,
         pub issue: Option<SessionReadIssue>,
         retained: Option<Retained>,
     }
     impl SessionListRead {
         pub fn page(&self) -> Option<&SessionListPage> {
-            self.page.as_ref()
+            match self.payload.as_ref() {
+                Some(SessionPayload::List(page)) => Some(page),
+                _ => None,
+            }
+        }
+        pub fn detail(&self) -> Option<&DetailReply> {
+            match self.payload.as_ref() {
+                Some(SessionPayload::Detail(reply)) => Some(reply),
+                _ => None,
+            }
         }
         pub fn cleanup_retained(&self) -> bool {
             self.retained.is_some()
@@ -781,7 +921,7 @@ mod execution {
             Ok(CleanupStatus::Released { .. })
         );
         SessionListRead {
-            page: None,
+            payload: None,
             issue: Some(issue),
             retained: (!released).then_some(Retained::Prepared(workload)),
         }
@@ -902,11 +1042,11 @@ mod execution {
                 let _ = owned.process.sample(&WindowsSampler::new());
                 std::thread::sleep(Duration::from_millis(5));
             }
-            let mut page = None;
+            let mut payload = None;
             if issue.is_none() {
                 if exit == Some(0) {
-                    match self.decode_reply(database, &output) {
-                        Ok(value) => page = Some(value),
+                    match self.decode_payload(database, &output) {
+                        Ok(value) => payload = Some(value),
                         Err(error) => issue = Some(error),
                     }
                 } else {
@@ -927,11 +1067,11 @@ mod execution {
                 Ok(CleanupStatus::Released { .. })
             );
             if !released {
-                page = None;
+                payload = None;
                 issue = Some(SessionReadIssue::CleanupUnconfirmed);
             }
             SessionListRead {
-                page,
+                payload,
                 issue,
                 retained: (!released).then_some(Retained::Process(owned.process)),
             }
@@ -1176,6 +1316,7 @@ mod tests {
                 protocol: 1,
                 revision: MUKADE_REVISION.into(),
                 page: Some(page),
+                detail: None,
                 issue: None,
             })
             .unwrap();

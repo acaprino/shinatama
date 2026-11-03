@@ -16,17 +16,37 @@ const data = resolve(fixture, 'data');
 const archive = resolve(fixture, 'synthetic-claude');
 const project = resolve(archive, 'projects/fixture-project');
 await mkdir(project, { recursive: true });
+const detailSentinel = 'SHINATAMA_DETAIL_SAFE_TEXT';
+const literalHtml = '<img id="detail-untrusted-image" src="data:," onerror="globalThis.__sessionDetailExecuted=true"><script>globalThis.__sessionDetailExecuted=true</script>';
+const rawSentinel = 'SHINATAMA_DETAIL_RAW_NEVER_RENDER';
+const reasoningSentinel = 'SHINATAMA_DETAIL_REASONING_NEVER_RENDER';
+const opaqueSentinel = 'SHINATAMA_DETAIL_OPAQUE_NEVER_RENDER';
+function canonicalDetail(id) {
+  const records = []; let parent = null;
+  for (let turn = 0; turn < 26; turn++) {
+    const suffix = String(turn).padStart(2, '0'); const user = `entry-user-${suffix}`; const assistant = `entry-assistant-${suffix}`;
+    records.push({ type: 'user', uuid: user, parentUuid: parent, sessionId: id, cwd: 'C:\\synthetic-session-project',
+      timestamp: `2026-11-03T00:00:${suffix}Z`, rawOnlySentinel: rawSentinel,
+      message: { role: 'user', content: turn === 0 ? `${detailSentinel} ${literalHtml}` : `SHINATAMA_DETAIL_USER_${suffix}` } });
+    records.push({ type: 'assistant', uuid: assistant, parentUuid: user, sessionId: id,
+      message: { id: `message-${suffix}`, role: 'assistant', model: 'fixture-model', stop_reason: 'end_turn',
+        content: [{ type: 'text', text: `SHINATAMA_DETAIL_ASSISTANT_${suffix}` },
+          ...(turn === 0 ? [{ type: 'thinking', thinking: reasoningSentinel, signature: opaqueSentinel }] : [])] } });
+    parent = assistant;
+  }
+  return `${records.map(record => JSON.stringify(record)).join('\n')}\n`;
+}
 const originals = new Map();
 for (let index = 0; index < 53; index++) {
   const id = `idsession-${String(index).padStart(2, '0')}`;
   const name = `${id}.jsonl`;
-  const bytes = Buffer.from(`${JSON.stringify({ sessionId: id, cwd: 'C:\\synthetic-session-project' })}\n`);
+  const bytes = Buffer.from(index === 0 ? canonicalDetail(id) : `${JSON.stringify({ sessionId: id, cwd: 'C:\\synthetic-session-project' })}\n`);
   originals.set(name, bytes); await writeFile(resolve(project, name), bytes);
 }
 const output = resolve(workspace, '.prototype-evidence'); await mkdir(output, { recursive: true });
 const resultPath = resolve(output, 'sessions-library.json');
-const evidence = { check: 'C22-native-session-metadata-library', status: 'running', checks: {},
-  scope: '53 tiny synthetic Claude JSONL sessions; metadata only; no native agent start or transcript detail' };
+const evidence = { check: 'C22-C23-native-session-library-and-detail', status: 'running', checks: {},
+  scope: '53 synthetic Claude JSONL sessions; one 53-event canonical detail; bounded read-only metadata/detail; no native agent start' };
 const save = () => writeFile(resultPath, `${JSON.stringify(evidence, null, 2)}\n`);
 await save();
 const reservation = createServer();
@@ -118,7 +138,7 @@ try {
   const rows = dialog.locator('tbody tr');
   await expect(rows).toHaveCount(50, { timeout: 15000 });
   await expect(dialog.locator('.session-library-pagination')).toContainText('1–50 of 53');
-  const firstId = await rows.first().getByRole('button').textContent(); expect(firstId).toMatch(/^idsession-\d{2}$/);
+  const firstId = await rows.first().getByRole('button').textContent(); expect(firstId).toBe('idsession-00');
   await dialog.getByRole('button', { name: 'Next', exact: true }).click();
   await expect(rows).toHaveCount(3, { timeout: 15000 });
   await expect(dialog.locator('.session-library-pagination')).toContainText('51–53 of 53');
@@ -128,9 +148,51 @@ try {
   await expect(rows).toHaveCount(1);
   await rows.getByRole('button', { name: firstId, exact: true }).click();
   await expect(dialog.locator('.session-library-metadata')).toContainText('Unknown');
-  await expect(dialog.getByRole('button', { name: 'Detail unavailable', exact: true })).toBeDisabled();
+  const openDetail = dialog.getByRole('button', { name: 'Open detail', exact: true });
+  await expect(openDetail).toBeEnabled();
   await expect(dialog.getByRole('button', { name: 'Resume unavailable', exact: true })).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: 'Hop unavailable', exact: true })).toBeDisabled();
   evidence.checks.pages = [50, 3, 50]; evidence.checks.localFilterAndUnknownMetadata = true;
+
+  const originalUrl = page.url();
+  expect(await page.evaluate(() => Boolean(globalThis.__sessionDetailExecuted))).toBe(false);
+  await openDetail.click();
+  const detail = page.locator('#session-detail-dialog');
+  const events = detail.locator('.session-detail-events article');
+  await expect(detail).toBeVisible();
+  expect(await detail.locator('h1').evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    return document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)?.closest('dialog')?.id;
+  })).toBe('session-detail-dialog');
+  await expect(events).toHaveCount(50, { timeout: 15000 });
+  await expect(detail.locator('.session-detail-pagination')).toContainText('1–50 of 53 events');
+  await expect(events.first().locator('pre')).toContainText(detailSentinel);
+  await expect(events.first().locator('pre')).toContainText(literalHtml);
+  await expect(detail.locator('img,script')).toHaveCount(0);
+  await expect(detail).not.toContainText(rawSentinel);
+  await expect(detail).not.toContainText(reasoningSentinel);
+  await expect(detail).not.toContainText(opaqueSentinel);
+  expect(await page.evaluate(() => Boolean(globalThis.__sessionDetailExecuted))).toBe(false);
+  expect(page.url()).toBe(originalUrl);
+  await detail.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(events).toHaveCount(3, { timeout: 15000 });
+  await expect(detail.locator('.session-detail-pagination')).toContainText('51–53 of 53 events');
+  await detail.getByRole('button', { name: 'Previous', exact: true }).click();
+  await expect(events).toHaveCount(50, { timeout: 15000 });
+  await detail.getByRole('button', { name: 'Overview', exact: true }).click();
+  await expect(detail.locator('section[aria-label="Overview"]')).toBeVisible();
+  await expect(detail.locator('.session-detail-overview')).toContainText('Unknown');
+  await detail.getByRole('button', { name: 'Lineage', exact: true }).click();
+  await expect(detail.locator('section[aria-label="Lineage"]')).toContainText('Parent session ID: Unknown');
+  await detail.getByRole('button', { name: 'Transcript', exact: true }).click();
+  await expect(events.first().locator('pre')).toContainText(detailSentinel);
+  await page.screenshot({ path: resolve(output, 'sessions-detail.png'), timeout: 3000 });
+  expect(await ipc('terminal_list')).toEqual([]);
+  await detail.getByRole('button', { name: 'Close session detail', exact: true }).click();
+  await expect(detail).toBeHidden(); await expect(dialog).toBeVisible();
+  await expect(openDetail).toBeEnabled();
+  evidence.checks.detailPages = [50, 3, 50]; evidence.checks.detailOverviewAndLineageUnknown = true;
+  evidence.checks.literalHtmlInertAndNoRawOrReasoning = true; evidence.checks.detailReturnsToLibraryWithoutLaunch = true;
 
   const duplicate = await ipc('session_archive_add', { request: { harness: 'claude_code', path: archive } });
   expect(duplicate.storeRootId).toBe(root.storeRootId); expect(duplicate.configurationRevision).toBe(root.configurationRevision);
@@ -153,7 +215,7 @@ try {
   await closing; expect(app.exitCode).toBe(0);
   expect(await assertSourceUnchanged()).toBe(sourceBefore);
   evidence.status = 'passed'; await save();
-  console.log('PASS: explicit read-only archive, 53 synthetic sessions in 50/3 pages, filter/Unknown metadata, duplicate identity, missing/stale refusal, unchanged source bytes, no agent startup, owned frame close.');
+  console.log('PASS: explicit archive, 53 sessions in 50/3 pages, canonical detail in 50/3 pages, inert literal HTML, Unknown metadata/lineage, no raw/reasoning, unchanged sources, no agent startup, owned frame close.');
 } catch (error) {
   evidence.status = 'failed'; evidence.failure = String(error.message).slice(0, 4096);
   if (owned && page && !page.isClosed()) {
@@ -162,6 +224,9 @@ try {
         status: document.querySelector('#session-library-status')?.textContent?.slice(0, 2048),
         rowCount: document.querySelectorAll('#session-library-dialog tbody tr').length,
         pagination: document.querySelector('.session-library-pagination')?.textContent?.slice(0, 256),
+        detailStatus: document.querySelector('#session-detail-status')?.textContent?.slice(0, 2048),
+        detailEventCount: document.querySelectorAll('.session-detail-events article').length,
+        detailPagination: document.querySelector('.session-detail-pagination')?.textContent?.slice(0, 256),
         resourceStatus: document.querySelector('#resource-status')?.textContent?.slice(0, 256),
       })), 2000, 'Synthetic UI diagnostics');
       await page.screenshot({ path: resolve(output, 'sessions-library-failure.png'), timeout: 2000 });

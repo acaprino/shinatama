@@ -21,8 +21,7 @@ type Options = {
   roots: () => Promise<readonly SessionLibraryRoot[]>;
   list: (request: SessionListRequest) => Promise<SessionListPage>;
   addArchive?: (request: SessionArchiveAddRequest) => Promise<SessionLibraryRoot>;
-  /** Reserved for a separately proved read capability; never invoked here. */
-  detail?: (request: { root: SessionRootSelector; nativeId: string }) => Promise<unknown>;
+  openDetail?: (root: SessionRootSelector, nativeId: string) => void;
   reportError: (message: string) => void;
   restoreFocus?: () => void;
 };
@@ -133,9 +132,10 @@ export function createSessionLibrary(options: Options) {
   const previous = document.createElement('button'); previous.type = 'button'; previous.textContent = 'Previous';
   const position = document.createElement('span'); const next = document.createElement('button'); next.type = 'button'; next.textContent = 'Next'; pagination.append(previous, position, next);
   const metadata = document.createElement('dl'); metadata.className = 'session-library-metadata'; metadata.setAttribute('aria-label', 'Selected session metadata');
-  const unavailable = document.createElement('p'); unavailable.className = 'hint'; unavailable.textContent = 'Transcript detail, resume and hop are not yet qualified in this build.';
+  const unavailable = document.createElement('p'); unavailable.className = 'hint'; unavailable.textContent = 'Resume and hop require separately qualified native operations.';
   const actions = document.createElement('div'); actions.className = 'dialog-actions';
-  for (const label of ['Detail unavailable', 'Resume unavailable', 'Hop unavailable']) { const action = document.createElement('button'); action.type = 'button'; action.disabled = true; action.textContent = label; actions.append(action); }
+  const detail = document.createElement('button'); detail.type = 'button'; detail.textContent = options.openDetail ? 'Open detail' : 'Detail unavailable'; detail.disabled = true; actions.append(detail);
+  for (const label of ['Resume unavailable', 'Hop unavailable']) { const action = document.createElement('button'); action.type = 'button'; action.disabled = true; action.textContent = label; actions.append(action); }
   dialog.append(heading, description, tools, archive, source, status, filterLabel, filter, scroll, pagination, metadata, unavailable, actions);
   (document.querySelector('#app') ?? document.body).append(dialog);
   let roots: SessionLibraryRoot[] = []; let page: SessionListPage | null = null; let cursor: SessionCursor | null = null;
@@ -149,6 +149,7 @@ export function createSessionLibrary(options: Options) {
   function render() {
     if (destroyed) return;
     const root = currentRoot(); loadRoots.disabled = busy !== null; rootSelect.disabled = busy === 'roots' || busy === 'archive' || !roots.length;
+    detail.disabled = busy !== null || !selected || !root?.available || !options.openDetail;
     harness.disabled = busy !== null; archivePath.disabled = busy !== null; addArchive.disabled = busy !== null || !options.addArchive;
     reload.disabled = busy !== null || !root?.available; previous.disabled = busy !== null || history.length === 0; next.disabled = busy !== null || !page?.next;
     filter.disabled = page === null; dialog.setAttribute('aria-busy', String(busy !== null));
@@ -239,6 +240,7 @@ export function createSessionLibrary(options: Options) {
   previous.onclick = () => { if (history.length) void readPage(history.at(-1) ?? null, 'previous'); };
   next.onclick = () => { if (page?.next) void readPage(page.next, 'next'); }; filter.oninput = render;
   button.onclick = show; closeButton.onclick = close;
+  detail.onclick = () => { const root = currentRoot(); if (!busy && root?.available && selected) options.openDetail?.({storeRootId:root.storeRootId,configurationRevision:root.configurationRevision},selected.nativeId); };
   dialog.addEventListener('close', () => { if (!dialog.open) { generation++; options.restoreFocus?.(); } });
   render();
   return { show, close, destroy: () => { destroyed = true; close(); button.remove(); dialog.remove(); } };

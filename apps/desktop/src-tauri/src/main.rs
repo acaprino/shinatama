@@ -485,6 +485,8 @@ fn main() {
         #[cfg(windows)]
         sessions::session_list,
         #[cfg(windows)]
+        sessions::session_detail,
+        #[cfg(windows)]
         sessions::session_archive_add,
         storage_location,
         maintenance_activity,
@@ -532,6 +534,8 @@ fn main() {
         sessions::session_roots,
         #[cfg(windows)]
         sessions::session_list,
+        #[cfg(windows)]
+        sessions::session_detail,
         #[cfg(windows)]
         sessions::session_archive_add,
         storage_location,

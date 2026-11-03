@@ -3,6 +3,7 @@
 #![cfg(windows)]
 use crate::{storage::Services, terminal_runtime::Runtime};
 use serde::{Deserialize, Serialize};
+use shinatama_engine::session_detail::{DetailReply, DetailRequest};
 use shinatama_engine::session_roots::{
     PreparedSessionList, RootSelector, SessionCursor, SessionListPage, SessionListRead,
     SessionReadIssue, metadata_worker_budget,
@@ -193,27 +194,51 @@ impl Controller {
                 request.limit,
                 request.include_children,
             )?;
-            let helper = helper_path()?;
-            controller
-                .runtime
-                .wait_for_admission()
-                .map_err(|_| SessionReadIssue::WorkerUnavailable)?;
-            let workload = controller
-                .runtime
-                .prepare_background_workload(metadata_worker_budget(), 768 * MIB, 15_000)
-                .map_err(|_| SessionReadIssue::WorkerUnavailable)?;
-            let read = prepared.run_contained(&state.store, &helper, &state.location, workload);
-            if read.cleanup_retained() {
-                *controller
-                    .retained
-                    .lock()
-                    .map_err(|_| SessionReadIssue::CleanupUnconfirmed)? = Some(read);
-                return Err(SessionReadIssue::CleanupUnconfirmed);
-            }
-            if let Some(issue) = read.issue {
-                return Err(issue);
-            }
+            let read = controller.read_prepared(state, &prepared)?;
             read.page()
+                .cloned()
+                .ok_or(SessionReadIssue::ReadUnavailable)
+        })
+        .await
+    }
+    fn read_prepared(
+        &self,
+        state: &crate::storage::WorkspaceServices,
+        prepared: &PreparedSessionList,
+    ) -> Result<SessionListRead> {
+        let helper = helper_path()?;
+        self.runtime
+            .wait_for_admission()
+            .map_err(|_| SessionReadIssue::WorkerUnavailable)?;
+        let workload = self
+            .runtime
+            .prepare_background_workload(metadata_worker_budget(), 768 * MIB, 15_000)
+            .map_err(|_| SessionReadIssue::WorkerUnavailable)?;
+        let read = prepared.run_contained(&state.store, &helper, &state.location, workload);
+        if read.cleanup_retained() {
+            *self
+                .retained
+                .lock()
+                .map_err(|_| SessionReadIssue::CleanupUnconfirmed)? = Some(read);
+            return Err(SessionReadIssue::CleanupUnconfirmed);
+        }
+        if let Some(issue) = read.issue {
+            return Err(issue);
+        }
+        Ok(read)
+    }
+    pub async fn detail(self: &Arc<Self>, request: DetailRequest) -> Result<DetailReply> {
+        self.worker(move |controller| {
+            let state = controller
+                .services
+                .load()
+                .map_err(|_| SessionReadIssue::ReadUnavailable)?;
+            controller.retry_retained(&state.store)?;
+            let prepared =
+                PreparedSessionList::resolve_detail(&state.store, &state.location, request)?;
+            controller
+                .read_prepared(state, &prepared)?
+                .detail()
                 .cloned()
                 .ok_or(SessionReadIssue::ReadUnavailable)
         })
@@ -366,4 +391,13 @@ pub async fn session_archive_add(
 ) -> Result<SessionLibraryRoot> {
     local(&window)?;
     controller.inner().add_archive(request).await
+}
+#[tauri::command]
+pub async fn session_detail(
+    window: WebviewWindow,
+    controller: State<'_, Arc<Controller>>,
+    request: DetailRequest,
+) -> Result<DetailReply> {
+    local(&window)?;
+    controller.inner().detail(request).await
 }
