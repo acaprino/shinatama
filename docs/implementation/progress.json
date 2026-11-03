@@ -2,7 +2,7 @@
   "schema_version": 1,
   "updated_at": "2026-11-03",
   "base_head": "46435ab",
-  "git_state": "Codex 0.166.0 launch and bounded conversation search/RAW remain checkpointed. Exact resume targets (2d7735f), native lifecycle barriers (86e0054), authenticated Claude event transport (ac4b62f), and schema 5 activation history (f7eba14) retain their committed evidence. The integrated harness service passed frontend/backend all-binaries builds, two agents tests, one event-drain test and one Claude helper program-pin filesystem regression. Fresh-private-app startup and owned cleanup passed for Codex 0.166.0, OpenCode 2.2.5 and Claude Code 2.1.317; Claude additionally passed sealed conversation ownership and finalization after native cleanup. No user database, authenticated session or provider prompt was used. Actual harness hook observations, native Resume, provider/tools, full resilience and floating windows remain open; Daodan remains deferred. C11S and both units are committed in 454f75a4292343b77395fd8e720ede9ffa44869e; engine profiles are committed in 7bc716f78332b1c0af41bdb89e3181251fe6b0bc. C12 remains the sole active parent. PowerShell user-flow regression also passed: selected project reused, two-project thread separation with unchanged layout, and healthy shell responsiveness.",
+  "git_state": "Codex 0.166.0 launch and bounded conversation search/RAW remain checkpointed. Exact resume targets (2d7735f), native lifecycle barriers (86e0054), authenticated Claude event transport (ac4b62f), and schema 5 activation history (f7eba14) retain their committed evidence. The integrated harness service passed frontend/backend all-binaries builds, two agents tests, one event-drain test and one Claude helper program-pin filesystem regression. Fresh-private-app startup and owned cleanup passed for Codex 0.166.0, OpenCode 2.2.5 and Claude Code 2.1.317; Claude additionally passed sealed conversation ownership and finalization after native cleanup. No user database, authenticated session or provider prompt was used. Actual harness hook observations, native Resume, provider/tools, full resilience and floating windows remain open; Daodan remains deferred. C11S and both units are committed in 454f75a4292343b77395fd8e720ede9ffa44869e; engine profiles are committed in 7bc716f78332b1c0af41bdb89e3181251fe6b0bc. C12 remains the sole active parent. PowerShell user-flow regression also passed: selected project reused, two-project thread separation with unchanged layout, and healthy shell responsiveness. Separate actual Claude/Bun TLS proof is committed in 885db6da4abf6c643ab6aa02f8c7d655317214b6: private child CA positive, missing CA negative, synthetic local API only, all owners released. Native hook and Resume proof is the next independent F02/C25 task; C12.4 effective-control gap remains open.",
   "steps": {
     "B00": {
       "status": "committed",
@@ -1013,13 +1013,18 @@
           "status": "pending",
           "commit_sha": null,
           "evidence": [
-            "docs/notes/2026-11-03-sidecar-effective-config.md"
+            "docs/notes/2026-11-03-sidecar-effective-config.md",
+            "docs/notes/2026-11-03-claude-proxy-tls.md"
           ],
           "checks": [
-            "cargo test --offline -p shinatama-engine --test effective_sidecar -j1 -- --ignored --test-threads=1 --nocapture"
+            "cargo test --offline -p shinatama-engine --test effective_sidecar -j1 -- --ignored --test-threads=1 --nocapture",
+            "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls -- --ignored --test-threads=1: PASS 1/1, 9.27s; actual Claude 2.1.317 rejected missing CA, received synthetic marker through canonical sidecar with private child CA; all owners Released and ledger empty"
           ],
           "limits": [
-            "Selected canonical-source controls pass with synthetic local traffic and Released cleanup. Running CLI configuration/provider traffic remain unverified; targetRatio/growthWindow are parsed but not consumed as requested."
+            "Selected canonical-source controls and actual Claude/Bun TLS pass with synthetic local traffic and Released cleanup. Running CLI effective configuration and real provider authentication/tools remain unverified; targetRatio/growthWindow are parsed but not consumed as requested. The separate headless TLS profile does not qualify the tracked ConPTY profile."
+          ],
+          "checkpoint_commits": [
+            "885db6da4abf6c643ab6aa02f8c7d655317214b6"
           ]
         }
       },
@@ -1028,7 +1033,16 @@
         "Selected canonical-source tiers/adaptive/rewrite/output/effort-off controls pass; running-CLI effective controls and targetRatio/growthWindow consumption remain open.",
         "Complete publisher Node license bundle is now pinned and verified against the exact official Windows package; product release/legal X3 and remaining runtime/provider gates stay open."
       ],
-      "next_action": "Resolve the remaining canonical-source/CLI effective-control gap; independent archive reading proceeds through C09R without waiting for provider qualification."
+      "next_action": "Resolve the remaining canonical-source/CLI effective-control gap; independent archive reading proceeds through C09R without waiting for provider qualification.",
+      "checkpoint_commits": [
+        "885db6da4abf6c643ab6aa02f8c7d655317214b6"
+      ],
+      "evidence": [
+        "docs/notes/2026-11-03-claude-proxy-tls.md"
+      ],
+      "checks": [
+        "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls -- --ignored --test-threads=1: PASS 1/1, 9.27s; actual Claude 2.1.317 rejected missing CA, received synthetic marker through canonical sidecar with private child CA; all owners Released and ledger empty"
+      ]
     },
     "C08": {
       "status": "committed",
@@ -1289,14 +1303,17 @@
       ],
       "next_action": "Checkpoint the verified one-Open path; deliver the runnable local copy for manual sign-in, then C15.4 provider/auth qualification and further harness implementations.",
       "evidence": [
-        "docs/notes/2026-11-03-harness-services.md"
+        "docs/notes/2026-11-03-harness-services.md",
+        "docs/notes/2026-11-03-claude-proxy-tls.md"
       ],
       "checks": [
-        "native-new-session-user-path: Claude Code 2.1.317 PASS including sealed conversation ownership and finalization after native cleanup; .prototype-evidence/new-session-claude_code.json"
+        "native-new-session-user-path: Claude Code 2.1.317 PASS including sealed conversation ownership and finalization after native cleanup; .prototype-evidence/new-session-claude_code.json",
+        "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls -- --ignored --test-threads=1: PASS 1/1, 9.27s; actual Claude 2.1.317 rejected missing CA, received synthetic marker through canonical sidecar with private child CA; all owners Released and ledger empty"
       ],
       "checkpoint_commits": [
         "7bc716f78332b1c0af41bdb89e3181251fe6b0bc",
-        "454f75a4292343b77395fd8e720ede9ffa44869e"
+        "454f75a4292343b77395fd8e720ede9ffa44869e",
+        "885db6da4abf6c643ab6aa02f8c7d655317214b6"
       ]
     },
     "C22": {
