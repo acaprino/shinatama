@@ -10,6 +10,7 @@ pub mod doctor;
 pub mod checkup;
 pub mod launch;
 pub mod native_launch;
+pub mod claude_session_events;
 pub mod resources;
 #[cfg(feature = "session-reader")]
 pub mod session_roots;
