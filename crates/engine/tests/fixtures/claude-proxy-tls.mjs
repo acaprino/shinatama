@@ -9,11 +9,16 @@ import https from 'node:https';
 import net from 'node:net';
 import path from 'node:path';
 
-const [privateRoot, proxyPortText] = process.argv.slice(2);
+const [privateRoot, proxyPortText, scenario] = process.argv.slice(2);
 assert.ok(path.isAbsolute(privateRoot));
+assert.ok(scenario === 'tls' || scenario === 'native-resume');
 const proxyPort = Number(proxyPortText);
 assert.ok(Number.isInteger(proxyPort) && proxyPort > 0 && proxyPort < 65536);
 const marker = 'SHINATAMA_SYNTHETIC_CLAUDE_TLS_OK';
+const startPrompt = 'SHINATAMA_SYNTHETIC_START_PROMPT_A';
+const resumePrompt = 'SHINATAMA_SYNTHETIC_RESUME_PROMPT_B';
+const startMarker = 'SHINATAMA_SYNTHETIC_START_REPLY_A';
+const resumeMarker = 'SHINATAMA_SYNTHETIC_RESUME_REPLY_B';
 const dummyKey = 'shinatama-synthetic-no-provider-key';
 let stage = 'certificate-fixture';
 let expectedCase = null;
@@ -110,22 +115,31 @@ async function localJson(port, pathname, method = 'GET') {
     request.setTimeout(800, () => request.destroy()); request.on('error', () => reject(new Error('local-request'))); request.end();
   });
 }
-function streamMessage(response, model) {
+function streamMessage(response, model, replyMarker) {
   const usage = { input_tokens: 7, output_tokens: 8 };
-  const message = { id: 'msg_shinatama_synthetic', type: 'message', role: 'assistant', model,
+  const message = { id: messageId(), type: 'message', role: 'assistant', model,
     content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 7, output_tokens: 0 } };
   response.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'close' });
   for (const event of [
     { type: 'message_start', message },
     { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
-    { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: marker } },
+    { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: replyMarker } },
     { type: 'content_block_stop', index: 0 },
     { type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null }, usage },
     { type: 'message_stop' },
   ]) response.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
   response.end();
 }
+function messageId() {
+  return scenario === 'tls' ? 'msg_shinatama_synthetic' : `msg_shinatama_synthetic_${expectedCase}`;
+}
 let originMessages = 0; let wrongCredentials = 0; let wrongOriginPath = 0;
+let wrongHistory = 0; let resumeHistoryObserved = false;
+function hasMessage(messages, role, text) {
+  return Array.isArray(messages) && messages.some(message => message?.role === role &&
+    (typeof message.content === 'string' ? message.content.includes(text)
+      : Array.isArray(message.content) && message.content.some(block => block?.type === 'text' && typeof block.text === 'string' && block.text.includes(text))));
+}
 const origin = https.createServer({ cert: leafPem, key: leafKeys.privateKey.export({ format: 'pem', type: 'pkcs8' }) }, (request, response) => {
   const pathname = new URL(request.url, 'https://localhost').pathname;
   let body = Buffer.alloc(0);
@@ -138,10 +152,20 @@ const origin = https.createServer({ cert: leafPem, key: leafKeys.privateKey.expo
     if (pathname === '/v1/models') { response.setHeader('content-type', 'application/json'); response.end(JSON.stringify({ data: [{ id: 'claude-sonnet-4-6', type: 'model', display_name: 'Synthetic test', created_at: '2026-01-01T00:00:00Z' }], has_more: false })); return; }
     if (pathname !== '/v1/messages' || request.method !== 'POST') { wrongOriginPath++; response.writeHead(404); response.end(); return; }
     let value; try { value = JSON.parse(body); } catch { response.writeHead(400); response.end(); return; }
-    originMessages++; if (expectedCase !== 'private-ca') { response.writeHead(409); response.end(); return; }
-    if (value.stream) streamMessage(response, value.model);
-    else { response.setHeader('content-type', 'application/json'); response.end(JSON.stringify({ id: 'msg_shinatama_synthetic', type: 'message', role: 'assistant', model: value.model,
-      content: [{ type: 'text', text: marker }], stop_reason: 'end_turn', stop_sequence: null, usage: { input_tokens: 7, output_tokens: 8 } })); }
+    originMessages++;
+    let replyMarker = marker;
+    if (scenario === 'tls') {
+      if (expectedCase !== 'private-ca') { response.writeHead(409); response.end(); return; }
+    } else {
+      const valid = expectedCase === 'start' ? hasMessage(value.messages, 'user', startPrompt)
+        : expectedCase === 'resume' && hasMessage(value.messages, 'assistant', startMarker) && hasMessage(value.messages, 'user', resumePrompt);
+      if (!valid) { wrongHistory++; response.writeHead(409); response.end(); return; }
+      if (expectedCase === 'resume') resumeHistoryObserved = true;
+      replyMarker = expectedCase === 'start' ? startMarker : resumeMarker;
+    }
+    if (value.stream) streamMessage(response, value.model, replyMarker);
+    else { response.setHeader('content-type', 'application/json'); response.end(JSON.stringify({ id: messageId(), type: 'message', role: 'assistant', model: value.model,
+      content: [{ type: 'text', text: replyMarker }], stop_reason: 'end_turn', stop_sequence: null, usage: { input_tokens: 7, output_tokens: 8 } })); }
   });
 });
 origin.on('tlsClientError', () => {});
@@ -187,6 +211,7 @@ try {
   }
   assert.equal(health?.pid, sidecarPid, 'canonical-sidecar-health');
   const cases = [];
+  if (scenario === 'tls') {
   for (const privateCa of [false, true]) {
     expectedCase = privateCa ? 'private-ca' : 'no-ca'; stage = expectedCase;
     const beforeMessages = originMessages; const beforeTunnels = frontTunnels;
@@ -204,6 +229,22 @@ try {
     else { assert.notEqual(exitCode, 0, 'untrusted-claude-exit'); assert.equal(certificateRefusal, true, 'negative-must-be-certificate-refusal'); assert.equal(markerObserved, false); assert.equal(record.messageRequests, 0); }
     cases.push(record); send({ phase: 'case-finished', ...record });
   }
+  } else {
+    for (const operation of ['start', 'resume']) {
+      expectedCase = operation; stage = operation;
+      const beforeMessages = originMessages; const beforeTunnels = frontTunnels;
+      send({ phase: 'case-ready', operation });
+      const result = await command(['operation', 'exitCode', 'markerObserved', 'ownerReleased', 'hookObserved', 'nativeIdMatches', 'outputBounded']);
+      assert.equal(result.operation, operation); assert.equal(result.exitCode, 0);
+      for (const name of ['markerObserved', 'ownerReleased', 'hookObserved', 'nativeIdMatches', 'outputBounded']) assert.equal(result[name], true);
+      const record = { ...result, messageRequests: originMessages - beforeMessages,
+        guardedTunnels: frontTunnels - beforeTunnels, resumeHistoryObserved: operation === 'resume' && resumeHistoryObserved };
+      assert.ok(record.messageRequests > 0); assert.ok(record.guardedTunnels > 0);
+      assert.equal(wrongHistory, 0);
+      if (operation === 'resume') assert.equal(resumeHistoryObserved, true);
+      cases.push(record); send({ phase: 'case-finished', ...record });
+    }
+  }
   stage = 'cleanup';
   assert.equal(wrongCredentials, 0); assert.equal(wrongOriginPath, 0); assert.ok(backTunnels > 0);
   await localJson(proxyPort, '/__bili/shutdown', 'POST');
@@ -211,7 +252,7 @@ try {
   const stopped = await command(['sidecarReleased', 'exitCode', 'outputBounded']);
   assert.equal(stopped.sidecarReleased, true); assert.equal(stopped.exitCode, 0);
   assert.equal(stopped.outputBounded, true, 'sidecar-output-cap');
-  send({ phase: 'complete', cases, canonicalSidecar: true, guardDenied, loopbackOnlyForwarding: true,
+  send({ phase: 'complete', scenario, cases, canonicalSidecar: true, guardDenied, loopbackOnlyForwarding: true,
     freshSyntheticCa: true, osTrustChanged: false, syntheticLoopbackEndpoint: true, guardForwardedRemote: false, userAuthenticationRead: false,
     normalC11AuthorityQualified: false, nativeTuiQualified: false });
 } catch {

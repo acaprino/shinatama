@@ -8,6 +8,22 @@ sidecar canonico. La prova è ignorata nella suite ordinaria.
 Richiede la lettura e la programmazione esplicita del coordinatore. Non abilita
 capacità del prodotto o autorità C11.
 
+La baseline superata è conservata nel commit `885db6d`. Il supporto di avvio,
+pin, budget, lettura limitata e cleanup è ora estratto in
+`crates/engine/tests/support/claude_native.rs`: la ricetta TLS mantiene argv,
+ambiente e condizioni negative/positive. La regressione dopo l'estrazione è
+**superata**, 1/1 in 9,18 secondi, nella stessa esecuzione sequenziale della
+prova nativa di ripresa. La ricevuta locale è aggiornata al supporto condiviso.
+
+La fixture ha anche una modalità esplicita `native-resume`, distinta dalla prova
+TLS: due prompt e due risposte sintetiche diversi, strumenti e MCP disabilitati,
+CA privata in entrambe le invocazioni. Il server accetta la seconda richiesta
+solo se contiene la prima risposta assistant e il secondo prompt user; registra
+soltanto il booleano `resumeHistoryObserved`. Gli eventi autenticati del comando
+hook vengono verificati dal test Rust dedicato, non dedotti dal server finto.
+La prova dedicata di hook, persistenza e ripresa è superata in 9,78 secondi;
+per il suo perimetro headless vedere [la nota](2026-11-03-claude-native-resume.md).
+
 La ricetta TUI C11 resta chiusa: `claude_launch::prepare_trial` fissa argv,
 home vuota e CA obbligatoria. Questa prova usa invece il launcher C09 già
 contenuto per una ricetta headless distinta; non sostituisce la qualifica del
