@@ -134,6 +134,22 @@ struct CanaryOwner {
     _keep_alive: Mutex<Option<Box<dyn Send>>>,
 }
 impl CanaryOwner {
+    /// Call only after stop confirms release and temporary caller C01 pins have
+    /// been dropped. A failed/unqualified trial has no receipt: preserve it.
+    fn finish_released(
+        &self,
+        base: &StorageLocation,
+    ) -> Result<Option<NativeTrialReceipt>, &'static str> {
+        self._keep_alive
+            .lock()
+            .map_err(|_| "Canary attachment ownership is unavailable.")?
+            .take();
+        let receipt = self.tracker.take_receipt();
+        if let Some(receipt) = receipt.as_ref() {
+            self.cleanup_scratch(base, receipt);
+        }
+        Ok(receipt)
+    }
     fn cleanup_scratch(&self, base: &StorageLocation, receipt: &NativeTrialReceipt) {
         // Successful receipt is issued only after real native/queue/SQL release.
         // Drop our C01 owner before opening DELETE; no prior directory is adopted.

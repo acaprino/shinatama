@@ -410,6 +410,9 @@ impl<D: HarnessDriver> Service<D> {
                 report.issue(error.message());
                 return Ok(report);
             }
+            // A previous stop may have returned before the terminal worker
+            // published its release receipt. Consume it before dropping owner.
+            prior.finish_released(&state.location)?;
             self.facts()?.canary = None;
         }
         let retained = self.facts()?.retained_probe.take();
@@ -841,6 +844,8 @@ impl<D: HarnessDriver> Service<D> {
             Err(error) => {
                 self.native_failure(error);
                 if owner.stop() {
+                    drop(project);
+                    owner.finish_released(base)?;
                     self.facts()?.canary = None;
                 }
                 return Err(DriverError::Failed(
@@ -877,22 +882,15 @@ impl<D: HarnessDriver> Service<D> {
             std::thread::sleep(Duration::from_millis(20));
         }
         let released = owner.stop();
-        let receipt = released.then(|| owner.tracker.take_receipt()).flatten();
         // Pins/listeners must be dropped before attempting owned scratch cleanup.
         drop(project);
-        if released {
-            owner
-                ._keep_alive
-                .lock()
-                .map_err(|_| DriverError::Failed("Canary attachment ownership is unavailable."))?
-                .take();
-        }
-        if let Some(receipt) = receipt.as_ref() {
-            owner.cleanup_scratch(base, receipt);
-        }
-        if released {
+        let receipt = if released {
+            let receipt = owner.finish_released(base)?;
             self.facts()?.canary = None;
-        }
+            receipt
+        } else {
+            None
+        };
         receipt.ok_or(DriverError::Failed(if released {
             "The TUI check did not produce a qualified startup receipt. No provider message was sent."
         } else { "TUI-check cleanup is unconfirmed. Its budget and owner remain retained; opening is unavailable." }))
