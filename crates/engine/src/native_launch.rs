@@ -53,6 +53,7 @@ pub struct NativeProgramIdentity {
     file_index: u64,
     bytes: u64,
     last_write_100ns: u64,
+    link_count: u32,
     sha256: [u8; 32],
 }
 impl NativeProgramIdentity {
@@ -73,8 +74,33 @@ impl NativeProgramIdentity {
             file_index,
             bytes,
             last_write_100ns,
+            link_count: 1,
             sha256,
         })
+    }
+
+    /// OpenCode's npm installer hardlinks the platform binary into cli/bin.
+    /// Only a held READ handle without WRITE/DELETE sharing may issue this
+    /// identity. This prevents content writes through every alias and removal
+    /// of the opened name. Windows can unlink another alias: the observed link
+    /// count is rechecked before launch, without relying on alias-name locking.
+    /// Any positive observed count is valid: aliases are never enumerated and
+    /// this check allocates no work proportional to their number.
+    /// Private homes/artifacts retain their separate single-link requirement.
+    pub(crate) fn opencode_program(
+        volume_serial: u32,
+        file_index: u64,
+        bytes: u64,
+        last_write_100ns: u64,
+        sha256: [u8; 32],
+        link_count: u32,
+    ) -> Result<Self, NativeLaunchError> {
+        if link_count == 0 {
+            return Err(NativeLaunchError::InvalidProgram);
+        }
+        let mut identity = Self::new(volume_serial, file_index, bytes, last_write_100ns, sha256)?;
+        identity.link_count = link_count;
+        Ok(identity)
     }
 }
 impl fmt::Debug for NativeProgramIdentity {
@@ -111,6 +137,7 @@ impl NativeLaunchBinding {
         let command = launch.command();
         let placement = launch.placement();
         if command.agent().as_str().starts_with("fake_")
+            || (program.link_count != 1 && command.agent().as_str() != "opencode")
             || command.agent() != placement.agent()
             || command.version() != placement.version()
             || !matches!(
@@ -153,7 +180,10 @@ impl NativeLaunchBinding {
         launch: &PreparedLaunch,
         program: NativeProgramIdentity,
     ) -> Result<Self, NativeLaunchError> {
-        if !matches!(launch.command().agent().as_str(), "claude_code" | "codex")
+        if !matches!(
+            launch.command().agent().as_str(),
+            "claude_code" | "codex" | "opencode"
+        ) || (program.link_count != 1 && launch.command().agent().as_str() != "opencode")
             || launch.command().operation() != Operation::StartNew
             || launch.placement().placement().home() != HomePlacement::Box
         {
@@ -324,21 +354,40 @@ pub struct NativeLaunchSummary {
 #[serde(rename_all = "snake_case")]
 pub enum NativeStartupScope {
     SafeModeEmptySet,
+    NormalToolsSessionHooks,
     WorkspaceWriteNoDaemon,
+    StandaloneEmptySet,
 }
 fn startup_scope(agent: &AgentId, profile: &NativeAdmissionProfile) -> Option<NativeStartupScope> {
     match (agent.as_str(), profile.id.as_str()) {
         ("claude_code", "claude-system-box-safe-empty-tui-v1") => {
             Some(NativeStartupScope::SafeModeEmptySet)
         }
+        ("claude_code", "claude-system-box-tracked-tui-v1") => {
+            Some(NativeStartupScope::NormalToolsSessionHooks)
+        }
         ("codex", "codex-system-box-no-daemon-workspace-tui-v1") => {
             Some(NativeStartupScope::WorkspaceWriteNoDaemon)
+        }
+        ("opencode", "opencode-system-box-standalone-tui-v1") => {
+            Some(NativeStartupScope::StandaloneEmptySet)
         }
         _ => None,
     }
 }
 fn startup_screen_seen(agent: &str, lower: &[u8]) -> bool {
     let contains = |needle: &[u8]| lower.windows(needle.len()).any(|part| part == needle);
+    if agent == "opencode" {
+        return contains(b"opencode")
+            && [
+                b"ask anything".as_slice(),
+                b"connect a provider",
+                b"welcome",
+                b"sign in",
+            ]
+            .iter()
+            .any(|needle| contains(needle));
+    }
     let name: &[u8] = match agent {
         "claude_code" => b"claude",
         "codex" => b"codex",
@@ -784,7 +833,7 @@ fn launch_digest(launch: &PreparedLaunch) -> Result<[u8; 32], NativeLaunchError>
 }
 
 #[cfg(windows)]
-fn verify_program_pin(
+pub(crate) fn verify_program_pin(
     file: &File,
     identity: &NativeProgramIdentity,
 ) -> Result<(), NativeLaunchError> {
@@ -796,7 +845,7 @@ fn verify_program_pin(
     let mut info = BY_HANDLE_FILE_INFORMATION::default();
     if unsafe { GetFileInformationByHandle(file.as_raw_handle(), &mut info) } == 0
         || info.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT) != 0
-        || info.nNumberOfLinks != 1
+        || info.nNumberOfLinks != identity.link_count
         || info.dwVolumeSerialNumber != identity.volume_serial
         || ((u64::from(info.nFileIndexHigh) << 32) | u64::from(info.nFileIndexLow))
             != identity.file_index
@@ -810,7 +859,10 @@ fn verify_program_pin(
     Ok(())
 }
 #[cfg(not(windows))]
-fn verify_program_pin(_: &File, _: &NativeProgramIdentity) -> Result<(), NativeLaunchError> {
+pub(crate) fn verify_program_pin(
+    _: &File,
+    _: &NativeProgramIdentity,
+) -> Result<(), NativeLaunchError> {
     Err(NativeLaunchError::PinsUnavailable)
 }
 #[cfg(windows)]
@@ -837,6 +889,68 @@ fn verify_directory_pin(_: &File) -> Result<(), NativeLaunchError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn tracked_claude_receipt_cannot_cross_the_safe_baseline() {
+        let agent = AgentId::new("claude_code").unwrap();
+        let version = Version::parse("2.1.316").unwrap();
+        let program = NativeProgramIdentity::new(1, 2, 3, 4, [5; 32]).unwrap();
+        let profile =
+            |name| NativeAdmissionProfile::new(name, 1, budget(), 256 * 1024 * 1024).unwrap();
+        let safe = profile("claude-system-box-safe-empty-tui-v1");
+        let tracked = profile("claude-system-box-tracked-tui-v1");
+        assert_eq!(
+            startup_scope(&agent, &safe),
+            Some(NativeStartupScope::SafeModeEmptySet)
+        );
+        assert_eq!(
+            startup_scope(&agent, &tracked),
+            Some(NativeStartupScope::NormalToolsSessionHooks)
+        );
+        let mut receipt = NativeTrialReceipt {
+            binding: NativeLaunchBinding {
+                agent: agent.clone(),
+                version: version.clone(),
+                operation: Operation::StartNew,
+                placement: Placement::new(
+                    shinatama_adapter::ProgramPlacement::System,
+                    HomePlacement::Box,
+                )
+                .unwrap(),
+                instance_id: "i_abcdefghijkl".into(),
+                thread_id: "t_abcdefghijkl".into(),
+                program: program.clone(),
+                root: StoreBinding {
+                    id: "trial_i_abcdefghijkl".into(),
+                    revision: 1,
+                    ephemeral: true,
+                },
+                launch_digest: [6; 32],
+            },
+            profile: safe.clone(),
+            output_bytes: 64,
+            cleanup: CleanupStatus::Released { ledger_revision: 1 },
+        };
+        assert!(receipt.matches(&agent, &program, &version, &safe));
+        assert!(!receipt.matches(&agent, &program, &version, &tracked));
+        receipt.profile = tracked.clone();
+        assert!(receipt.matches(&agent, &program, &version, &tracked));
+        assert!(!receipt.matches(&agent, &program, &version, &safe));
+    }
+    #[test]
+    fn opencode_link_count_is_exact_and_startup_requires_its_own_tui() {
+        let ordinary = NativeProgramIdentity::new(1, 2, 3, 4, [1; 32]).unwrap();
+        let linked = NativeProgramIdentity::opencode_program(1, 2, 3, 4, [1; 32], 2).unwrap();
+        assert_ne!(ordinary, linked);
+        assert!(NativeProgramIdentity::opencode_program(1, 2, 3, 4, [1; 32], 3).is_ok());
+        assert!(NativeProgramIdentity::opencode_program(1, 2, 3, 4, [1; 32], 0).is_err());
+        assert!(startup_screen_seen("opencode", b"opencode\nask anything"));
+        assert!(!startup_screen_seen("opencode", b"2.2.5"));
+        assert!(!startup_screen_seen("opencode", b"welcome to codex"));
+        assert!(!startup_screen_seen(
+            "claude_code",
+            b"opencode\nask anything"
+        ));
+    }
     #[test]
     fn codex_startup_is_agent_bound_and_does_not_claim_claude_safe_mode() {
         let codex = AgentId::new("codex").unwrap();

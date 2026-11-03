@@ -61,6 +61,8 @@ pub enum ScratchKind {
     ClaudeTuiTrial,
     CodexProbe,
     CodexTuiTrial,
+    OpenCodeProbe,
+    OpenCodeTuiTrial,
 }
 impl ScratchKind {
     fn prefix(self) -> &'static str {
@@ -69,6 +71,8 @@ impl ScratchKind {
             Self::ClaudeTuiTrial => "claude-tui-trial-",
             Self::CodexProbe => "codex-probe-",
             Self::CodexTuiTrial => "codex-tui-trial-",
+            Self::OpenCodeProbe => "opencode-probe-",
+            Self::OpenCodeTuiTrial => "opencode-tui-trial-",
         }
     }
 }
@@ -180,6 +184,8 @@ fn shape(base: &Path, path: &Path) -> Result<(), Issue> {
         ScratchKind::ClaudeTuiTrial,
         ScratchKind::CodexProbe,
         ScratchKind::CodexTuiTrial,
+        ScratchKind::OpenCodeProbe,
+        ScratchKind::OpenCodeTuiTrial,
     ]
     .into_iter()
     .find_map(|kind| name.strip_prefix(kind.prefix()))
@@ -669,7 +675,9 @@ mod tests {
                 ScratchKind::ClaudeTuiTrial,
                 ScratchKind::CodexProbe,
                 ScratchKind::CodexTuiTrial,
-            ][index % 4];
+                ScratchKind::OpenCodeProbe,
+                ScratchKind::OpenCodeTuiTrial,
+            ][index % 6];
             let (location, mut receipt) = create(&base, kind).unwrap().into_parts();
             fs::create_dir(location.directory().join("nested")).unwrap();
             fs::write(
@@ -696,6 +704,8 @@ mod tests {
                             || name.starts_with("claude-tui-trial-")
                             || name.starts_with("codex-probe-")
                             || name.starts_with("codex-tui-trial-")
+                            || name.starts_with("opencode-probe-")
+                            || name.starts_with("opencode-tui-trial-")
                     })
             );
         }

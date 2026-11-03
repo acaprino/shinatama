@@ -4,6 +4,7 @@
 #![cfg(windows)]
 use crate::{
     claude_probe::{ClaudeProbeOutcome, ProbeCleanup},
+    claude_session_events::ClaudeSessionEventReceiver,
     launch::{LaunchInputs, PreparedLaunch, compose_launch, identity::LaunchIdentity},
     native_launch::{
         NativeAdmissionProfile, NativeLaunchBinding, NativeLaunchError, NativeLaunchPins,
@@ -52,6 +53,7 @@ use windows_sys::Win32::Storage::FileSystem::{
 const MIB: u64 = 1024 * 1024;
 const PREPARE_BUDGET: Duration = Duration::from_secs(10);
 const RECIPE: &str = "claude-system-box-safe-empty-tui-v1";
+const TRACKED_RECIPE: &str = "claude-system-box-tracked-tui-v1";
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ClaudeLaunchError {
     InvalidCandidate,
@@ -162,6 +164,9 @@ pub struct PreparedClaudeTrial {
     pub launch: PreparedLaunch,
     pub permit: NativeTuiPermit,
     pub tracker: NativeTrialTracker,
+    /// Keep alive while the trial runs. Presence configures hooks; it is not
+    /// evidence that Claude emitted a session event.
+    pub session_events: Option<ClaudeSessionEventReceiver>,
 }
 pub struct ClaudeTrialContext<'a> {
     pub candidate: &'a ProgramCandidate,
@@ -194,13 +199,15 @@ struct Context<'a> {
 pub struct PreparedClaudeStart {
     pub launch: PreparedLaunch,
     pub permit: NativeTuiPermit,
+    /// Owned by the session controller through cleanup, never exposed to IPC.
+    pub session_events: Option<ClaudeSessionEventReceiver>,
 }
 
 /// This is the ROOT-approved finite trial profile, not inferred from a growing
 /// process and never raised on failure. Issuance is sealed inside this qualifier.
-fn profile() -> Result<NativeAdmissionProfile, ClaudeLaunchError> {
+fn profile(tracked: bool) -> Result<NativeAdmissionProfile, ClaudeLaunchError> {
     Ok(NativeAdmissionProfile::new(
-        RECIPE,
+        if tracked { TRACKED_RECIPE } else { RECIPE },
         1,
         Budget {
             memory_bytes: 1024 * MIB,
@@ -214,6 +221,20 @@ fn profile() -> Result<NativeAdmissionProfile, ClaudeLaunchError> {
 }
 pub fn prepare_trial(
     context: ClaudeTrialContext<'_>,
+) -> Result<PreparedClaudeTrial, ClaudeLaunchError> {
+    prepare_trial_with_hooks(context, None)
+}
+/// A separate exact-build trial for normal tools and session command hooks.
+/// No safe-mode receipt qualifies this profile, or proves an event was emitted.
+pub fn prepare_tracked_trial(
+    context: ClaudeTrialContext<'_>,
+    trusted_hook_exe: &Path,
+) -> Result<PreparedClaudeTrial, ClaudeLaunchError> {
+    prepare_trial_with_hooks(context, Some(trusted_hook_exe))
+}
+fn prepare_trial_with_hooks(
+    context: ClaudeTrialContext<'_>,
+    trusted_hook_exe: Option<&Path>,
 ) -> Result<PreparedClaudeTrial, ClaudeLaunchError> {
     // Filename presence only: never read a credential store for this canary.
     if context
@@ -258,6 +279,7 @@ pub fn prepare_trial(
         None,
         true,
         None,
+        trusted_hook_exe,
     )?;
     let (permit, tracker) = NativeTuiPermit::issue_trial(
         &prepared.launch,
@@ -269,13 +291,14 @@ pub fn prepare_trial(
         launch: prepared.launch,
         permit,
         tracker,
+        session_events: prepared.session_events,
     })
 }
 pub fn prepare_start(
     context: ClaudeStartContext<'_>,
     receipt: &NativeTrialReceipt,
 ) -> Result<PreparedClaudeStart, ClaudeLaunchError> {
-    prepare_for_operation(context, receipt, None)
+    prepare_for_operation(context, receipt, None, None)
 }
 
 /// Compose an exact new/resume invocation with the existing qualified startup
@@ -286,13 +309,26 @@ pub fn prepare_session(
     receipt: &NativeTrialReceipt,
     session: &ClaudeSessionOperation,
 ) -> Result<PreparedClaudeStart, ClaudeLaunchError> {
-    prepare_for_operation(context, receipt, Some(session))
+    prepare_for_operation(context, receipt, Some(session), None)
+}
+
+/// Trusted helper path and exact native operation only. The returned receiver
+/// must be retained and observed by the session owner; this does not activate SQL
+/// ownership or qualify hook delivery, permissions, tool execution or resume.
+pub fn prepare_tracked_session(
+    context: ClaudeStartContext<'_>,
+    receipt: &NativeTrialReceipt,
+    session: &ClaudeSessionOperation,
+    trusted_hook_exe: &Path,
+) -> Result<PreparedClaudeStart, ClaudeLaunchError> {
+    prepare_for_operation(context, receipt, Some(session), Some(trusted_hook_exe))
 }
 
 fn prepare_for_operation(
     context: ClaudeStartContext<'_>,
     receipt: &NativeTrialReceipt,
     session: Option<&ClaudeSessionOperation>,
+    trusted_hook_exe: Option<&Path>,
 ) -> Result<PreparedClaudeStart, ClaudeLaunchError> {
     let prepared = prepare(
         Context {
@@ -313,6 +349,7 @@ fn prepare_for_operation(
         Some(receipt),
         false,
         session,
+        trusted_hook_exe,
     )?;
     let permit = NativeTuiPermit::issue_after_trial(
         &prepared.launch,
@@ -324,6 +361,7 @@ fn prepare_for_operation(
     Ok(PreparedClaudeStart {
         launch: prepared.launch,
         permit,
+        session_events: prepared.session_events,
     })
 }
 struct Prepared {
@@ -331,6 +369,7 @@ struct Prepared {
     binding: NativeLaunchBinding,
     profile: NativeAdmissionProfile,
     pins: NativeLaunchPins,
+    session_events: Option<ClaudeSessionEventReceiver>,
 }
 
 fn prepare(
@@ -338,8 +377,11 @@ fn prepare(
     receipt: Option<&NativeTrialReceipt>,
     trial: bool,
     session: Option<&ClaudeSessionOperation>,
+    trusted_hook_exe: Option<&Path>,
 ) -> Result<Prepared, ClaudeLaunchError> {
     let deadline = Instant::now() + PREPARE_BUDGET;
+    let tracked = trusted_hook_exe.is_some();
+    let recipe = if tracked { TRACKED_RECIPE } else { RECIPE };
     let operation = session.map_or(Operation::StartNew, ClaudeSessionOperation::operation);
     if context.candidate.agent.as_str() != "claude_code"
         || context.candidate.kind != ProgramKind::DirectExe
@@ -429,7 +471,7 @@ fn prepare(
     {
         return Err(ClaudeLaunchError::ProgramChanged);
     }
-    let resource_profile = profile()?;
+    let resource_profile = profile(tracked)?;
     if let Some(receipt) = receipt {
         if !receipt.matches(
             &context.candidate.agent,
@@ -489,10 +531,24 @@ fn prepare(
         locations.push(trial_base.clone());
     }
     let mut artifacts = Vec::new();
-    let settings = if trial {
+    let mut settings = if trial {
         serde_json::json!({})
     } else {
         read_settings(context.private_home.paths().home().join("settings.json"))?
+    };
+    let session_events = if let Some(helper_path) = trusted_hook_exe {
+        let mut helper = pin_session_hook(helper_path, deadline)?;
+        let receiver = ClaudeSessionEventReceiver::start(identity.record(), &project)
+            .map_err(|_| ClaudeLaunchError::Configuration)?;
+        let command = session_hook_command(&helper.path, receiver.port())?;
+        merge_session_hooks(&mut settings, &command)?;
+        // The helper's content and chosen path stay pinned for this invocation.
+        // No bearer token is put in argv or settings; it is inherited from C11.
+        pinned.ancestors.append(&mut helper.ancestors);
+        artifacts.push(helper.file);
+        Some(receiver)
+    } else {
+        None
     };
     let settings_path = create_json(
         &instance_directory,
@@ -599,12 +655,10 @@ fn prepare(
         "DISABLE_ERROR_REPORTING",
         "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL",
         "CLAUDE_CODE_SKIP_MCP_DEBUG_LOG_FILES",
-        // Narrow initial recipe: the canary and normal entry BOTH retain safe
-        // mode, so a safe-mode observation cannot qualify unobserved hooks/tools.
-        "CLAUDE_CODE_SAFE_MODE",
     ] {
         set(&mut environment, name, "1".into());
     }
+    configure_safe_mode(&mut environment, tracked);
     set(
         &mut environment,
         "CLAUDE_CODE_AUTO_CONNECT_IDE",
@@ -620,7 +674,7 @@ fn prepare(
             .as_os_str()
             .to_owned(),
     );
-    let descriptor = descriptor(&version, operation)?;
+    let descriptor = descriptor(&version, operation, recipe)?;
     let mode = Placement::new(ProgramPlacement::System, HomePlacement::Box)
         .map_err(|_| ClaudeLaunchError::Composition)?;
     let placement_recipe = QualifiedPlacementRecipe::qualify(
@@ -641,7 +695,7 @@ fn prepare(
             pi_skills: None,
             codex_sandbox: None,
         },
-        evidence(&descriptor)?,
+        evidence(&descriptor, recipe)?,
     )
     .map_err(|_| ClaudeLaunchError::Composition)?;
     let mut args = vec![
@@ -661,7 +715,7 @@ fn prepare(
         operation,
         CommandForm::NativeExe(pinned.path),
         args,
-        evidence(&descriptor)?,
+        evidence(&descriptor, recipe)?,
     )
     .map_err(|_| ClaudeLaunchError::Composition)?;
     let database_path = context.base.database_path();
@@ -701,6 +755,7 @@ fn prepare(
         binding,
         profile: resource_profile,
         pins,
+        session_events,
     })
 }
 fn verify_sidecar(sidecar: &SidecarSupervisor) -> Result<(), ClaudeLaunchError> {
@@ -725,6 +780,7 @@ fn verify_sidecar(sidecar: &SidecarSupervisor) -> Result<(), ClaudeLaunchError> 
 fn descriptor(
     version: &Version,
     operation: Operation,
+    recipe: &str,
 ) -> Result<AdapterDescriptor, ClaudeLaunchError> {
     let mut descriptor = AdapterDescriptor {
         agent: AgentId::new("claude_code").map_err(|_| ClaudeLaunchError::Composition)?,
@@ -744,17 +800,20 @@ fn descriptor(
                 &descriptor.agent,
                 version,
                 false,
-                evidence(&descriptor)?,
+                evidence(&descriptor, recipe)?,
             )
             .map_err(|_| ClaudeLaunchError::Composition)?;
     }
     Ok(descriptor)
 }
-fn evidence(descriptor: &AdapterDescriptor) -> Result<FixtureEvidence, ClaudeLaunchError> {
+fn evidence(
+    descriptor: &AdapterDescriptor,
+    recipe: &str,
+) -> Result<FixtureEvidence, ClaudeLaunchError> {
     FixtureEvidence::new(
         descriptor.agent.clone(),
         descriptor.version.clone(),
-        RECIPE,
+        recipe,
         EvidenceKind::InstalledRuntimeFixture,
     )
     .map_err(|_| ClaudeLaunchError::Composition)
@@ -762,6 +821,56 @@ fn evidence(descriptor: &AdapterDescriptor) -> Result<FixtureEvidence, ClaudeLau
 fn set(environment: &mut BTreeMap<OsString, OsString>, name: &str, value: OsString) {
     environment.retain(|key, _| !key.eq_ignore_ascii_case(name));
     environment.insert(name.into(), value);
+}
+fn configure_safe_mode(environment: &mut BTreeMap<OsString, OsString>, tracked: bool) {
+    if tracked {
+        environment.retain(|name, _| !name.eq_ignore_ascii_case("CLAUDE_CODE_SAFE_MODE"));
+    } else {
+        set(environment, "CLAUDE_CODE_SAFE_MODE", "1".into());
+    }
+}
+/// Claude's Windows command hooks run in Git Bash. A quoted ordinary drive path
+/// avoids extended Windows prefixes and shell expansion, including apostrophes.
+fn session_hook_command(path: &Path, port: u16) -> Result<String, ClaudeLaunchError> {
+    let path = path.to_str().ok_or(ClaudeLaunchError::Configuration)?;
+    let ordinary = path.strip_prefix(r"\\?\").unwrap_or(path);
+    let bytes = ordinary.as_bytes();
+    if port == 0
+        || ordinary.len() > 4096
+        || ordinary.chars().any(char::is_control)
+        || bytes.len() < 3
+        || !bytes[0].is_ascii_alphabetic()
+        || bytes[1] != b':'
+        || !matches!(bytes[2], b'\\' | b'/')
+    {
+        return Err(ClaudeLaunchError::Configuration);
+    }
+    let escaped = ordinary.replace('\\', "/").replace('\'', "'\"'\"'");
+    Ok(format!("'{escaped}' claude-session {port}"))
+}
+fn merge_session_hooks(settings: &mut Value, command: &str) -> Result<(), ClaudeLaunchError> {
+    let object = settings
+        .as_object_mut()
+        .ok_or(ClaudeLaunchError::Configuration)?;
+    // The tracked profile needs its hooks enabled. Existing hook events and
+    // entries remain intact; only this invocation receives the two additions.
+    object.insert("disableAllHooks".into(), Value::Bool(false));
+    let hooks = object
+        .entry("hooks")
+        .or_insert_with(|| serde_json::json!({}))
+        .as_object_mut()
+        .ok_or(ClaudeLaunchError::Configuration)?;
+    for event in ["SessionStart", "SessionEnd"] {
+        let entries = hooks
+            .entry(event)
+            .or_insert_with(|| serde_json::json!([]))
+            .as_array_mut()
+            .ok_or(ClaudeLaunchError::Configuration)?;
+        entries.push(
+            serde_json::json!({"hooks": [{"type": "command", "command": command, "timeout": 5}]}),
+        );
+    }
+    Ok(())
 }
 fn same_path(left: &Path, right: &Path) -> Result<bool, ClaudeLaunchError> {
     Ok(left
@@ -853,6 +962,26 @@ fn pin_file(path: &Path) -> Result<File, ClaudeLaunchError> {
     }
     Ok(file)
 }
+fn pin_hook_file(path: &Path) -> Result<File, ClaudeLaunchError> {
+    // Cargo can install the trusted helper as a hardlink to its deps binary.
+    // Denying WRITE/DELETE sharing pins the bytes through every alias and the
+    // selected filename; ancestor handles separately pin its parent path.
+    // Other alias names need not survive, but the count must stay consistent
+    // during validation. Private configuration and Claude itself use pin_file.
+    let file = OpenOptions::new()
+        .read(true)
+        .share_mode(FILE_SHARE_READ)
+        .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+        .open(path)
+        .map_err(|_| ClaudeLaunchError::UnsafeProgram)?;
+    let info = file_info(&file)?;
+    if info.dwFileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY) != 0
+        || info.nNumberOfLinks == 0
+    {
+        return Err(ClaudeLaunchError::UnsafeProgram);
+    }
+    Ok(file)
+}
 fn pin_directory(path: &Path) -> Result<(File, Vec<File>), ClaudeLaunchError> {
     StorageLocation::preflight(path).map_err(|_| ClaudeLaunchError::PrivateHome)?;
     let parents: Vec<_> = path.ancestors().take(65).collect();
@@ -889,16 +1018,31 @@ struct ProgramPin {
     bytes: u64,
 }
 fn pin_program(path: &Path, deadline: Instant) -> Result<ProgramPin, ClaudeLaunchError> {
+    pin_executable(path, "claude.exe", deadline, pin_file)
+}
+fn pin_session_hook(path: &Path, deadline: Instant) -> Result<ProgramPin, ClaudeLaunchError> {
+    // A helper fault is local configuration, not stale Claude qualification.
+    // The helper's returned identity is unused: only its held file/path enter
+    // NativeLaunchPins; NativeLaunchBinding keeps Claude's strict identity.
+    pin_executable(path, "shinatama-hook.exe", deadline, pin_hook_file)
+        .map_err(|_| ClaudeLaunchError::Configuration)
+}
+fn pin_executable(
+    path: &Path,
+    name: &str,
+    deadline: Instant,
+    pin: fn(&Path) -> Result<File, ClaudeLaunchError>,
+) -> Result<ProgramPin, ClaudeLaunchError> {
     if !path
         .file_name()
-        .is_some_and(|name| name.eq_ignore_ascii_case("claude.exe"))
+        .is_some_and(|filename| filename.eq_ignore_ascii_case(name))
     {
         return Err(ClaudeLaunchError::InvalidCandidate);
     }
     let (_parent, mut ancestors) =
         pin_directory(path.parent().ok_or(ClaudeLaunchError::InvalidCandidate)?)?;
     ancestors.push(_parent);
-    let mut file = pin_file(path)?;
+    let mut file = pin(path)?;
     let before = file_info(&file)?;
     let bytes = (u64::from(before.nFileSizeHigh) << 32) | u64::from(before.nFileSizeLow);
     if !(64..=512 * MIB).contains(&bytes) {
@@ -943,9 +1087,13 @@ fn pin_program(path: &Path, deadline: Instant) -> Result<ProgramPin, ClaudeLaunc
     let digest: [u8; 32] = hash.finalize().into();
     let after = file_info(&file)?;
     if read != bytes
+        || before.dwFileAttributes != after.dwFileAttributes
         || before.dwVolumeSerialNumber != after.dwVolumeSerialNumber
         || before.nFileIndexHigh != after.nFileIndexHigh
         || before.nFileIndexLow != after.nFileIndexLow
+        || before.nFileSizeHigh != after.nFileSizeHigh
+        || before.nFileSizeLow != after.nFileSizeLow
+        || before.nNumberOfLinks != after.nNumberOfLinks
         || before.ftLastWriteTime.dwLowDateTime != after.ftLastWriteTime.dwLowDateTime
         || before.ftLastWriteTime.dwHighDateTime != after.ftLastWriteTime.dwHighDateTime
     {
@@ -974,6 +1122,163 @@ fn pin_program(path: &Path, deadline: Instant) -> Result<ProgramPin, ClaudeLaunc
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn tracked_hook_hardlink_keeps_bytes_and_selected_path_pinned() {
+        let directory =
+            std::env::temp_dir().join(format!("shn-claude-hook-pin-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&directory).unwrap();
+        let hook = directory.join("shinatama-hook.exe");
+        let alias = directory.join("claude.exe");
+        // A PE-shaped byte fixture only: this test never executes a program.
+        let mut bytes = [0u8; 96];
+        bytes[..2].copy_from_slice(b"MZ");
+        bytes[60..64].copy_from_slice(&64u32.to_le_bytes());
+        bytes[64..68].copy_from_slice(b"PE\0\0");
+        std::fs::write(&hook, bytes).unwrap();
+        std::fs::hard_link(&hook, &alias).unwrap();
+        let held = pin_session_hook(&hook, Instant::now() + PREPARE_BUDGET).unwrap();
+        assert_eq!(held.path, hook.canonicalize().unwrap());
+        assert_eq!(held.bytes, bytes.len() as u64);
+        assert_eq!(file_info(&held.file).unwrap().nNumberOfLinks, 2);
+        assert_eq!(
+            held.hash,
+            Sha256::digest(bytes)
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
+        );
+        assert!(OpenOptions::new().write(true).open(&alias).is_err());
+        assert!(OpenOptions::new().write(true).open(&hook).is_err());
+        assert!(std::fs::remove_file(&hook).is_err());
+        assert!(std::fs::rename(&directory, directory.with_extension("moved")).is_err());
+        assert!(matches!(
+            pin_file(&hook),
+            Err(ClaudeLaunchError::UnsafeProgram)
+        ));
+        assert!(matches!(
+            pin_program(&alias, Instant::now() + PREPARE_BUDGET),
+            Err(ClaudeLaunchError::UnsafeProgram)
+        ));
+        drop(held);
+        assert!(OpenOptions::new().write(true).open(&alias).is_ok());
+        std::fs::remove_file(&alias).unwrap();
+        std::fs::remove_file(&hook).unwrap();
+        std::fs::remove_dir(&directory).unwrap();
+    }
+    #[test]
+    fn tracked_claude_hooks_preserve_existing_entries_and_reject_malformed_settings() {
+        let mut settings = serde_json::json!({
+            "disableAllHooks": true,
+            "permissions": {"defaultMode": "default"},
+            "hooks": {
+                "SessionStart": [{"matcher":"resume", "hooks":[{"type":"command", "command":"existing-start"}]}],
+                "SessionEnd": [{"hooks":[{"type":"command", "command":"existing-end"}]}],
+                "PreToolUse": [{"hooks":[{"type":"command", "command":"existing-tool"}]}]
+            }
+        });
+        let original = settings.clone();
+        merge_session_hooks(
+            &mut settings,
+            "'C:/Shinatama/shinatama-hook.exe' claude-session 43210",
+        )
+        .unwrap();
+        assert_eq!(settings["disableAllHooks"], false);
+        assert_eq!(settings["permissions"], original["permissions"]);
+        assert_eq!(
+            settings["hooks"]["PreToolUse"],
+            original["hooks"]["PreToolUse"]
+        );
+        for event in ["SessionStart", "SessionEnd"] {
+            assert_eq!(settings["hooks"][event][0], original["hooks"][event][0]);
+            assert_eq!(settings["hooks"][event].as_array().unwrap().len(), 2);
+            assert_eq!(settings["hooks"][event][1]["hooks"][0]["type"], "command");
+            assert_eq!(settings["hooks"][event][1]["hooks"][0]["timeout"], 5);
+        }
+        assert!(
+            !serde_json::to_string(&settings)
+                .unwrap()
+                .contains("SHINATAMA_INSTANCE_TOKEN")
+        );
+        for mut malformed in [
+            serde_json::json!([]),
+            serde_json::json!({"hooks":[]}),
+            serde_json::json!({"hooks":{"SessionStart":{}}}),
+        ] {
+            assert_eq!(
+                merge_session_hooks(&mut malformed, "fixed"),
+                Err(ClaudeLaunchError::Configuration)
+            );
+        }
+    }
+    #[test]
+    fn tracked_claude_hook_command_quotes_shell_characters_and_rejects_controls() {
+        assert_eq!(
+            session_hook_command(
+                Path::new(r"\\?\C:\Program Files\O'Neil\$name`$(x)\shinatama-hook.exe"),
+                43210
+            )
+            .unwrap(),
+            "'C:/Program Files/O'\"'\"'Neil/$name`$(x)/shinatama-hook.exe' claude-session 43210"
+        );
+        for path in [
+            "C:\\bad\nname\\shinatama-hook.exe",
+            "C:\\bad\0name\\shinatama-hook.exe",
+            r"\\server\share\shinatama-hook.exe",
+            "relative/shinatama-hook.exe",
+        ] {
+            assert_eq!(
+                session_hook_command(Path::new(path), 43210),
+                Err(ClaudeLaunchError::Configuration)
+            );
+        }
+        assert!(session_hook_command(Path::new(r"C:\Shinatama\shinatama-hook.exe"), 0).is_err());
+    }
+    #[test]
+    fn tracked_claude_profile_changes_only_safe_mode_and_keeps_fixed_limits() {
+        let baseline = profile(false).unwrap();
+        let tracked = profile(true).unwrap();
+        assert_eq!(baseline.id(), RECIPE);
+        assert_eq!(tracked.id(), TRACKED_RECIPE);
+        assert_ne!(baseline.id(), tracked.id());
+        assert_eq!(baseline.budget(), tracked.budget());
+        assert_eq!(
+            baseline.process_commit_bytes(),
+            tracked.process_commit_bytes()
+        );
+        let mut environment = BTreeMap::from([
+            (OsString::from("claude_code_safe_mode"), OsString::from("1")),
+            (OsString::from("DISABLE_AUTOUPDATER"), OsString::from("1")),
+            (
+                OsString::from("CLAUDE_CODE_TMPDIR"),
+                OsString::from("private"),
+            ),
+        ]);
+        configure_safe_mode(&mut environment, true);
+        assert!(
+            !environment
+                .keys()
+                .any(|name| name.eq_ignore_ascii_case("CLAUDE_CODE_SAFE_MODE"))
+        );
+        assert_eq!(
+            environment
+                .get(&OsString::from("DISABLE_AUTOUPDATER"))
+                .unwrap(),
+            "1"
+        );
+        assert_eq!(
+            environment
+                .get(&OsString::from("CLAUDE_CODE_TMPDIR"))
+                .unwrap(),
+            "private"
+        );
+        configure_safe_mode(&mut environment, false);
+        assert_eq!(
+            environment
+                .get(&OsString::from("CLAUDE_CODE_SAFE_MODE"))
+                .unwrap(),
+            "1"
+        );
+    }
     #[test]
     fn explicit_session_operations_preserve_exact_uuid_and_reject_ambiguous_targets() {
         let native_id = "12cc3a11-45db-4f1e-89c8-40d5c6be1dd3";
@@ -1016,8 +1321,8 @@ mod tests {
 
     #[test]
     fn narrow_profile_is_fixed_and_failure_never_increases_it() {
-        let first = profile().unwrap();
-        let second = profile().unwrap();
+        let first = profile(false).unwrap();
+        let second = profile(false).unwrap();
         assert_eq!(first.budget(), second.budget());
         assert_eq!(first.budget().processes, 8);
         assert_eq!(first.process_commit_bytes(), 768 * MIB);

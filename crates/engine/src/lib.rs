@@ -32,6 +32,10 @@ pub mod claude_launch;
 pub mod codex_probe;
 #[cfg(windows)]
 pub mod codex_launch;
+#[cfg(windows)]
+pub mod opencode_probe;
+#[cfg(windows)]
+pub mod opencode_launch;
 pub mod sidecar_config;
 pub mod sidecar_runtime;
 #[cfg(windows)]

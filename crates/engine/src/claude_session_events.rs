@@ -164,11 +164,13 @@ impl ClaudeSessionEventReceiver {
         self.address.port()
     }
     pub fn try_next(&self) -> Result<Option<SessionEvent>, ReadError> {
-        if self.shared.stop.load(Ordering::Acquire) {
-            return Err(ReadError::Stopped);
-        }
         match self.events.try_recv() {
             Ok(event) => Ok(Some(event)),
+            // Stop is complete only after the sender is gone and every queued
+            // event has been read. An in-flight request can still enqueue while
+            // the nonblocking worker observes the stop signal.
+            Err(TryRecvError::Disconnected)
+                if self.shared.stop.load(Ordering::Acquire) => Err(ReadError::Stopped),
             Err(TryRecvError::Empty) => Ok(None),
             Err(TryRecvError::Disconnected) => Err(ReadError::WorkerUnavailable),
         }
@@ -622,6 +624,9 @@ mod tests {
         }
         assert!(receiver.status().stopped);
         assert!(!receiver.status().failed);
+        for _ in 0..EVENT_QUEUE_CAPACITY {
+            assert_eq!(receiver.try_next().unwrap().unwrap().session_id, native_id);
+        }
         assert_eq!(receiver.try_next(), Err(ReadError::Stopped));
     }
 }

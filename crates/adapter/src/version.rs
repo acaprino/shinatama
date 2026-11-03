@@ -153,7 +153,12 @@ pub fn parse_version_output(agent: &str, output: &[u8]) -> Result<Version, Versi
         "codex" => line
             .strip_prefix("codex-cli ")
             .ok_or(VersionError::InvalidFormat)?,
-        "opencode" => line.strip_prefix('v').unwrap_or(line),
+        "opencode" => {
+            // Native @opencode/cli 2.2.5 prints "opencode v2.2.5". Keep the
+            // previously observed bare/v forms, with the same single-line bound.
+            let version = line.strip_prefix("opencode ").unwrap_or(line);
+            version.strip_prefix('v').unwrap_or(version)
+        }
         "pi" => line.strip_prefix("pi ").unwrap_or(line),
         // Their installed version formats and isolation remain unqualified.
         "hermes_agent" | "deepseek_harness" => return Err(VersionError::InvalidFormat),
@@ -202,6 +207,27 @@ mod tests {
         assert!(parse_version_output("codex", b"node 24.14.1\ncodex-cli 0.164.0").is_err());
         assert!(parse_version_output("claude_code", b"warning token=secret 2.1.316").is_err());
         assert!(parse_version_output("opencode", &vec![b'x'; 513]).is_err());
+        assert_eq!(
+            parse_version_output("opencode", b"opencode v2.2.5\n")
+                .unwrap()
+                .to_string(),
+            "2.2.5"
+        );
+        assert_eq!(
+            parse_version_output("opencode", b"2.2.5\r\n")
+                .unwrap()
+                .to_string(),
+            "2.2.5"
+        );
+        for output in [
+            b"warning\nopencode v2.2.5".as_slice(),
+            b"opencode v2.2.5\nwarning",
+            b"codex-cli 2.2.5",
+            b"OpenCode 2.2.5",
+            b"opencode-cli 2.2.5",
+        ] {
+            assert!(parse_version_output("opencode", output).is_err());
+        }
         assert!(parse_version_output("hermes_agent", b"hermes-agent 1.0.0").is_err());
         assert!(parse_version_output("deepseek_harness", b"dsh 1.0.0").is_err());
     }
