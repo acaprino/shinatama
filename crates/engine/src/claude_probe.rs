@@ -45,6 +45,9 @@ use windows_sys::Win32::{
 };
 
 pub const WALL_LIMIT: Duration = Duration::from_secs(10);
+const PREPARATION_LIMIT: Duration = Duration::from_secs(10);
+const ADMISSION_LIMIT: Duration = Duration::from_secs(5);
+const CLEANUP_LIMIT: Duration = Duration::from_secs(1);
 pub const MAX_OUTPUT_BYTES: usize = 32 * 1024;
 const MAX_BINARY_BYTES: u64 = 512 * 1024 * 1024;
 const MIB: u64 = 1024 * 1024;
@@ -106,6 +109,9 @@ pub struct ClaudeProbeSummary {
     pub cleanup: ProbeCleanup,
     pub issue: Option<ProbeIssue>,
     pub elapsed_ms: u64,
+    pub preparation_elapsed_ms: u64,
+    pub admission_elapsed_ms: u64,
+    pub execution_elapsed_ms: u64,
     pub capabilities: BTreeMap<Operation, CapabilitySupport>,
 }
 /// Reuses the doctor's bounded PATH catalog. Wrappers are observed, never run.
@@ -305,7 +311,7 @@ impl PreparedClaudeProbe {
             .map_err(|_| ProbeIssue::Busy)?;
         let slot = ProbeSlot;
         let started = Instant::now();
-        let deadline = started + WALL_LIMIT;
+        let deadline = started + PREPARATION_LIMIT;
         let program = pin(&candidate.path, deadline)?;
         base.verify_private_directory()
             .map_err(|_| ProbeIssue::PrivateRootUnavailable)?;
@@ -436,6 +442,9 @@ impl PreparedClaudeProbe {
             cleanup: ProbeCleanup::Retained,
             issue: None,
             elapsed_ms: 0,
+            preparation_elapsed_ms: self.started.elapsed().as_millis() as u64,
+            admission_elapsed_ms: 0,
+            execution_elapsed_ms: 0,
             capabilities: Operation::ALL
                 .into_iter()
                 .map(|operation| {
@@ -448,7 +457,9 @@ impl PreparedClaudeProbe {
                 })
                 .collect(),
         };
+        let admission_started = Instant::now();
         let workload = prepare()?;
+        report.admission_elapsed_ms = admission_started.elapsed().as_millis() as u64;
         let valid_budget = workload.ticket().budget == probe_budget()
             && workload.applied_budget().is_some_and(|budget| {
                 budget.job_commit_bytes() == probe_budget().memory_bytes
@@ -456,7 +467,7 @@ impl PreparedClaudeProbe {
                     && budget.max_processes() == 8
                     && budget.cpu_hard_cap_basis_points() == 1000
             });
-        if !valid_budget || Instant::now() >= self.deadline {
+        if !valid_budget || admission_started.elapsed() >= ADMISSION_LIMIT {
             report.issue = Some(if valid_budget {
                 ProbeIssue::Expired
             } else {
@@ -481,6 +492,11 @@ impl PreparedClaudeProbe {
                 return Ok(self.prepared_failure(database, failure.workload, report));
             }
         };
+        // Hashing, private ACL preparation and admission have their own finite
+        // budgets. The child receives its full observation window, rather than
+        // inheriting the time already spent before CreateProcess.
+        let execution_started = Instant::now();
+        let execution_deadline = execution_started + WALL_LIMIT;
         drop(owned.stdin);
         let mut output = Vec::with_capacity(MAX_OUTPUT_BYTES);
         let mut scratch = [0u8; 8192];
@@ -536,7 +552,7 @@ impl PreparedClaudeProbe {
                 if exit.is_some() && stdout_done && stderr_done {
                     break;
                 }
-                if Instant::now() >= self.deadline {
+                if Instant::now() >= execution_deadline {
                     report.issue = Some(ProbeIssue::Expired);
                     break;
                 }
@@ -558,12 +574,8 @@ impl PreparedClaudeProbe {
         drop(credits);
         drop(owned.stdout);
         drop(owned.stderr);
-        let cleanup = owned.process.finish_cleanup(
-            database,
-            self.deadline
-                .saturating_duration_since(Instant::now())
-                .min(Duration::from_secs(1)),
-        );
+        report.execution_elapsed_ms = execution_started.elapsed().as_millis() as u64;
+        let cleanup = owned.process.finish_cleanup(database, CLEANUP_LIMIT);
         let released = matches!(cleanup, Ok(CleanupStatus::Released { .. }));
         report.cleanup = if released {
             ProbeCleanup::Released
@@ -598,12 +610,7 @@ impl PreparedClaudeProbe {
         mut workload: PreparedWorkload,
         mut report: ClaudeProbeSummary,
     ) -> ClaudeProbeOutcome {
-        let cleanup = workload.finish_cleanup(
-            database,
-            self.deadline
-                .saturating_duration_since(Instant::now())
-                .min(Duration::from_secs(1)),
-        );
+        let cleanup = workload.finish_cleanup(database, CLEANUP_LIMIT);
         let released = matches!(cleanup, Ok(CleanupStatus::Released { .. }));
         report.cleanup = if released {
             ProbeCleanup::Released

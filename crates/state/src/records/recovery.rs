@@ -46,6 +46,20 @@ pub struct DeadWorkspaceOwnerProof {
     #[cfg(windows)]
     _process: Option<std::os::windows::io::OwnedHandle>,
 }
+/// Shared native death observation, bound to the exact saved owner. Not IPC data.
+pub(crate) struct DeadOwnerIdentityProof {
+    owner: WorkspaceOwner,
+    observation: OwnerObservation,
+    #[cfg(windows)]
+    _process: Option<std::os::windows::io::OwnedHandle>,
+}
+impl DeadOwnerIdentityProof {
+    pub(crate) fn matches(&self, owner: &WorkspaceOwner) -> bool { self.owner == *owner }
+}
+pub(crate) struct OwnerIdentityProbe {
+    pub observation: OwnerObservation,
+    pub proof: Option<DeadOwnerIdentityProof>,
+}
 impl fmt::Debug for DeadWorkspaceOwnerProof {
     fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
         out.debug_struct("DeadWorkspaceOwnerProof")
@@ -81,20 +95,33 @@ pub fn probe_workspace_owner(record: &WorkspaceRecord) -> Result<OwnerProbe> {
         .owner
         .as_ref()
         .ok_or(RecordsError::Invalid("workspace senza proprietario"))?;
+    let probe = probe_owner_identity(owner)?;
+    Ok(OwnerProbe {
+        observation: probe.observation,
+        proof: probe.proof.map(|death| DeadWorkspaceOwnerProof {
+            project_id: record.project_id.clone(), workspace_id: record.workspace_id.clone(), revision: record.revision,
+            owner: death.owner, observation: death.observation,
+            #[cfg(windows)]
+            _process: death._process,
+        }),
+    })
+}
+pub(crate) fn probe_owner_identity(owner: &WorkspaceOwner) -> Result<OwnerIdentityProbe> {
+    owner.validate()?;
     let Some(expected) = windows_creation_time(&owner.start_time) else {
-        return Ok(OwnerProbe {
+        return Ok(OwnerIdentityProbe {
             observation: OwnerObservation::Unknown(UnknownReason::InvalidFingerprint),
             proof: None,
         });
     };
     #[cfg(windows)]
     {
-        Ok(native::probe(record, owner, expected))
+        Ok(native::probe(owner, expected))
     }
     #[cfg(not(windows))]
     {
         let _ = expected;
-        Ok(OwnerProbe {
+        Ok(OwnerIdentityProbe {
             observation: OwnerObservation::Unknown(UnknownReason::UnsupportedPlatform),
             proof: None,
         })
@@ -136,10 +163,9 @@ mod native {
         }
     }
     pub(super) fn probe(
-        record: &WorkspaceRecord,
         owner: &WorkspaceOwner,
         expected: u64,
-    ) -> OwnerProbe {
+    ) -> OwnerIdentityProbe {
         let raw = unsafe {
             OpenProcess(
                 PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SYNCHRONIZE,
@@ -183,10 +209,7 @@ mod native {
                 | OwnerObservation::PidMissing
                 | OwnerObservation::PidReused
         ) {
-            Some(DeadWorkspaceOwnerProof {
-                project_id: record.project_id.clone(),
-                workspace_id: record.workspace_id.clone(),
-                revision: record.revision,
+            Some(DeadOwnerIdentityProof {
                 owner: owner.clone(),
                 observation,
                 _process: process,
@@ -194,7 +217,7 @@ mod native {
         } else {
             None
         };
-        OwnerProbe { observation, proof }
+        OwnerIdentityProbe { observation, proof }
     }
 
     #[cfg(test)]

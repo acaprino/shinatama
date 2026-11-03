@@ -493,6 +493,7 @@ fn serialize_policy<S: Serializer>(value: &PolicyConfig, out: S) -> Result<S::Ok
 #[cfg(test)]
 mod tests {
     use super::*;
+    use shinatama_engine::resources::sampling::{SystemCounters, SystemCpuCounters};
     fn config() -> GovernorConfig {
         GovernorConfig {
             policy: PolicyConfig {
@@ -523,6 +524,69 @@ mod tests {
             frame_time_us: Some(10_000),
             ipc_roundtrip_us: Some(5000),
         }
+    }
+    #[test]
+    fn desktop_defaults_allow_measured_headroom_and_recover_after_acute_pressure() {
+        const GIB: u64 = 1024 * 1024 * 1024;
+        let config = crate::resources::default_governor_config();
+        let mut policy = ResourcePolicy::new(config.policy, Vec::new()).unwrap();
+        let startup = evaluate(
+            &mut policy,
+            config,
+            0,
+            None,
+            false,
+            None,
+            CpuCoverage::Missing,
+        );
+        assert!(startup.defer_new_starts);
+        let sample = |policy: &mut ResourcePolicy, at, remaining_commit| {
+            let mut aggregate = missing(at);
+            aggregate.process_samples_complete = true;
+            aggregate.system = Measurement::Available(SystemCounters {
+                physical_total_bytes: 32 * GIB,
+                physical_available_bytes: 8 * GIB,
+                commit_limit_bytes: 40 * GIB,
+                commit_total_bytes: 40 * GIB - remaining_commit,
+                observed_group_cpu: Measurement::Available(SystemCpuCounters {
+                    processor_group: 0,
+                    idle_100ns: 790,
+                    kernel_including_idle_100ns: 790,
+                    user_100ns: 210,
+                }),
+            });
+            aggregate.remaining_commit_bytes = Some(remaining_commit);
+            aggregate.observed_group_cpu_busy_basis_points = Some(2100);
+            evaluate(
+                policy,
+                config,
+                at,
+                Some(&aggregate),
+                true,
+                Some(caller(at)),
+                CpuCoverage::CompleteMachine,
+            )
+        };
+        // Five GiB free commit on a forty-GiB host, with eight GiB physical,
+        // complete counters and a responsive UI, supports fresh admission checks.
+        assert!(sample(&mut policy, 500, 5 * GIB).defer_new_starts);
+        let available = sample(&mut policy, 3500, 5 * GIB);
+        assert!(!available.defer_new_starts);
+        assert_eq!(sample(&mut policy, 6500, 5 * GIB).stage, Stage::Normal);
+
+        // Genuine pressure still escalates, without attributing an invented job.
+        sample(&mut policy, 7000, GIB);
+        let acute = sample(&mut policy, 7500, GIB);
+        assert!(acute.defer_new_starts);
+        assert_eq!(acute.reason, Reason::Pressure);
+        assert!(!acute.termination_recommended_but_not_executed);
+
+        assert!(sample(&mut policy, 8000, 5 * GIB).defer_new_starts);
+        assert!(sample(&mut policy, 10_999, 5 * GIB).defer_new_starts);
+        let recovered = sample(&mut policy, 11_000, 5 * GIB);
+        assert!(!recovered.defer_new_starts);
+        assert!(recovered.advice_only && !recovered.native_launch_enabled);
+        assert_eq!(sample(&mut policy, 14_000, 5 * GIB).stage, Stage::Normal);
     }
     #[test]
     fn absent_future_stale_and_partial_observations_defer_without_a_native_permit() {

@@ -4,7 +4,7 @@
 import { parseWorkspaceLayout, serializeWorkspaceLayout, WORKSPACE_LIMITS } from './workspace-model.ts';
 import type { LayoutResult, WorkspaceLayout } from './workspace-model.ts';
 
-export interface WorkspaceScope { readonly projectId: string; readonly workspaceId: string }
+export interface WorkspaceScope { readonly projectId?: string; readonly workspaceId: string }
 export type WorkspaceOwnership = 'unclaimed' | 'ours' | 'other';
 export interface WorkspaceSnapshot extends WorkspaceScope {
   readonly revision: number; readonly schemaVersion: number; readonly layoutJson: string;
@@ -17,14 +17,18 @@ export interface WorkspaceTransport {
   claim(request: WorkspaceWrite): Promise<unknown>;
   save(request: WorkspaceWrite): Promise<unknown>;
   release(request: WorkspaceRelease): Promise<unknown>;
+  recover?(request: WorkspaceRelease): Promise<unknown>;
 }
 export type WorkspaceInvoke = (command: string, args: { readonly request: unknown }) => Promise<unknown>;
 export function createTauriWorkspaceTransport(invoke: WorkspaceInvoke): WorkspaceTransport {
+  const command = (request: WorkspaceScope, operation: 'load' | 'save' | 'release' | 'recover'): string =>
+    `${request.projectId === undefined ? 'global_workspace' : 'workspace'}_${operation}`;
   return {
-    load: request => invoke('workspace_load', { request }),
-    claim: request => invoke('workspace_save', { request }),
-    save: request => invoke('workspace_save', { request }),
-    release: request => invoke('workspace_release', { request }),
+    load: request => invoke(command(request, 'load'), { request }),
+    claim: request => invoke(command(request, 'save'), { request }),
+    save: request => invoke(command(request, 'save'), { request }),
+    release: request => invoke(command(request, 'release'), { request }),
+    recover: request => invoke(command(request, 'recover'), { request }),
   };
 }
 export type WorkspaceFailureCode = 'busy' | 'conflict' | 'owned_elsewhere' | 'read_only' | 'invalid' | 'unavailable' | 'uncertain' | 'timeout' | 'not_loaded' | 'not_owned' | 'disposed';
@@ -84,7 +88,8 @@ function readSnapshot(value: unknown, scope: WorkspaceScope): { readonly snapsho
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
   if (Object.keys(record).some(key => !['projectId', 'workspaceId', 'revision', 'schemaVersion', 'layoutJson', 'ownership', 'readOnly'].includes(key))
-    || record.projectId !== scope.projectId || record.workspaceId !== scope.workspaceId || !isRevision(record.revision)
+    || (scope.projectId === undefined ? Object.hasOwn(record, 'projectId') : record.projectId !== scope.projectId)
+    || record.workspaceId !== scope.workspaceId || !isRevision(record.revision)
     || record.schemaVersion !== 1 || typeof record.layoutJson !== 'string' || record.layoutJson.length > WORKSPACE_LIMITS.jsonBytes
     || new TextEncoder().encode(record.layoutJson).byteLength > WORKSPACE_LIMITS.jsonBytes || typeof record.readOnly !== 'boolean'
     || !['unclaimed', 'ours', 'other'].includes(String(record.ownership))) return null;
@@ -98,12 +103,14 @@ function readSnapshot(value: unknown, scope: WorkspaceScope): { readonly snapsho
 }
 
 export function createWorkspacePersistence(options: WorkspacePersistenceOptions): WorkspacePersistence {
-  if (!/^p_[a-z2-7]{12}$/.test(options.scope.projectId) || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(options.scope.workspaceId)) throw new Error('Invalid workspace scope.');
+  if (options.scope.projectId === undefined ? options.scope.workspaceId !== 'main'
+    : !/^p_[a-z2-7]{12}$/.test(options.scope.projectId) || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(options.scope.workspaceId)) throw new Error('Invalid workspace scope.');
   const initial = parseWorkspaceLayout(options.initialLayout); const initialJson = initial.ok && serializeWorkspaceLayout(initial.value);
   if (!initial.ok || !initialJson || !initialJson.ok) throw new Error('Invalid initial workspace layout.');
   const debounceMs = options.debounceMs ?? 250;
   if (!Number.isInteger(debounceMs) || debounceMs < 0 || debounceMs > 2000) throw new Error('Invalid workspace debounce.');
-  const scope = Object.freeze({ ...options.scope });
+  const scope: WorkspaceScope = Object.freeze(options.scope.projectId === undefined
+    ? { workspaceId: options.scope.workspaceId } : { projectId: options.scope.projectId, workspaceId: options.scope.workspaceId });
   let live = initial.value; let liveJson = initialJson.value; let savedJson: string | null = null;
   let phase: WorkspacePhase = 'idle'; let revision: number | null = null; let ownership: WorkspaceOwnership = 'unclaimed';
   let readOnly = false; let loaded = false; let localEdits = false; let editVersion = 0;

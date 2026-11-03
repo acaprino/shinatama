@@ -14,6 +14,8 @@ export type ThreadSidebarOptions = {
   host: HTMLElement;
   list: (request: ThreadListRequest) => Promise<unknown>;
   create?: (request: {projectId:string}) => Promise<unknown>;
+  /** Request the shared New session dialog for this explicit project. */
+  onNewSession?: (projectId: string) => void;
   loadState?: () => Promise<unknown>;
   saveState?: (state: Readonly<ThreadSidebarState>) => Promise<void>;
   /** Select already saved metadata only; this sidebar has no launch authority. */
@@ -81,7 +83,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
   const scopeLabel = document.createElement('label'); scopeLabel.htmlFor = 'thread-sidebar-project'; scopeLabel.textContent = 'Project';
   const scopeSelect = document.createElement('select'); scopeSelect.id = 'thread-sidebar-project';
   const reload = document.createElement('button'); reload.type = 'button'; reload.textContent = 'Reload threads';
-  const create = document.createElement('button'); create.type = 'button'; create.textContent = 'New thread'; create.hidden = !options.create;
+  const create = document.createElement('button'); create.type = 'button'; create.textContent = options.onNewSession ? 'New session' : 'New thread'; create.hidden = !options.onNewSession && !options.create;
   const status = document.createElement('p'); status.className = 'thread-sidebar-status'; status.setAttribute('role', 'status');
   const list = document.createElement('ul'); list.className = 'thread-sidebar-list'; list.setAttribute('aria-label', 'Saved threads');
   const pagination = document.createElement('div'); pagination.className = 'thread-sidebar-pagination';
@@ -98,7 +100,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
   separator.setAttribute('role', 'separator'); separator.setAttribute('aria-label', 'Thread sidebar width'); separator.setAttribute('aria-orientation', 'vertical');
   separator.setAttribute('aria-valuemin', String(MIN_WIDTH)); separator.setAttribute('aria-valuemax', String(MAX_WIDTH));
   element.append(heading, body, separator); options.host.append(element);
-  let display = { ...initialState }; let current: CurrentThreadProject | null = null; let selectedProject: string | null = null;
+  let display = { ...initialState }; let projects: CurrentThreadProject[] = []; let selectedProject: string | null = null;
   let page: ThreadListPage | null = null; let cursor: ThreadCursor | null = null; let history: (ThreadCursor | null)[] = [];
   let selected: string | null = null; let generation = 0; let uiGeneration = 0; let destroyed = false;
   let busy: 'load_state' | 'list' | 'save_state' | 'create' | null = null; let message = 'Choose a project, then load its saved threads.'; let failed = false;
@@ -115,7 +117,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     body.hidden = display.collapsed; separator.hidden = display.collapsed; separator.setAttribute('aria-valuenow', String(display.width));
     collapse.textContent = display.collapsed ? '›' : '‹'; collapse.setAttribute('aria-label', display.collapsed ? 'Expand threads' : 'Collapse threads');
     collapse.setAttribute('aria-expanded', String(!display.collapsed));
-    reload.disabled = busy !== null || selectedProject === null; scopeSelect.disabled = current === null || busy === 'list';
+    reload.disabled = busy !== null || selectedProject === null; scopeSelect.disabled = !projects.length || busy !== null;
     create.disabled = busy !== null || selectedProject === null;
     previous.disabled = busy !== null || !history.length; next.disabled = busy !== null || !page?.next;
     body.setAttribute('aria-busy', String(busy !== null));
@@ -206,14 +208,41 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
       return false;
     } finally { afterOperation(); }
   }
-  function setProject(value: CurrentThreadProject | null) {
-    const valid = value === null || (record(value) && projectId(value.projectId) && (value.label === undefined || safeText(value.label, 128)));
-    generation++; current = valid ? value : null; selectedProject = current?.projectId ?? null; reset();
-    scopeSelect.replaceChildren(); const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'Choose current project'; scopeSelect.append(placeholder);
-    if (current) {
-      const option = document.createElement('option'); option.value = current.projectId; option.textContent = `Current project: ${current.label || current.projectId}`; scopeSelect.append(option);
+  function validProject(value: unknown): value is CurrentThreadProject {
+    return record(value) && projectId(value.projectId) && (value.label === undefined || safeText(value.label, 128));
+  }
+  function renderProjects() {
+    const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'Choose a project'; scopeSelect.replaceChildren(placeholder);
+    for (const project of projects) {
+      const option = document.createElement('option'); option.value = project.projectId; option.textContent = project.label || project.projectId; scopeSelect.append(option);
     }
-    scopeSelect.value = selectedProject ?? ''; message = current ? 'Load threads for this project.' : 'Choose a project, then load its saved threads.';
+    scopeSelect.value = selectedProject ?? '';
+  }
+  function setProjects(values: readonly CurrentThreadProject[]): boolean {
+    if (destroyed) return false;
+    if (!Array.isArray(values) || values.length > 100 || values.some(value => !validProject(value))
+      || new Set(values.map(value => value.projectId)).size !== values.length) {
+      options.reportError('The project list could not be shown. The selected project is preserved.'); return false;
+    }
+    const retained = projects.find(project => project.projectId === selectedProject);
+    projects = values.map(value => ({ ...value }));
+    // A recent-project refresh does not silently change an explicitly chosen
+    // scope, including one that has fallen outside the recent-project window.
+    if (retained && !projects.some(project => project.projectId === retained.projectId)) {
+      if (projects.length === 100) projects.pop(); projects.push(retained);
+    }
+    renderProjects(); render(); return true;
+  }
+  function setProject(value: CurrentThreadProject | null) {
+    if (destroyed) return false;
+    const valid = value === null || validProject(value);
+    generation++; selectedProject = valid && value ? value.projectId : null; reset();
+    if (valid && value) {
+      const previous = projects.find(project => project.projectId === value.projectId);
+      const next = { ...previous, ...value };
+      projects = [next, ...projects.filter(project => project.projectId !== value.projectId)].slice(0, 100);
+    }
+    renderProjects(); message = selectedProject ? 'Load threads for this project.' : 'Choose a project, then load its saved threads.';
     render(); if (!valid) options.reportError('The current project is unavailable. No other project was used.'); return valid;
   }
   function cancelDrag() {
@@ -245,10 +274,21 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     event.preventDefault(); display.width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, width)); changedDisplay();
   };
   collapse.onclick = () => { cancelDrag(); display.collapsed = !display.collapsed; changedDisplay(); };
-  scopeSelect.onchange = () => { generation++; selectedProject = current && scopeSelect.value === current.projectId ? current.projectId : null; reset(); message = selectedProject ? 'Load threads for this project.' : 'Choose the current project explicitly.'; render(); };
+  scopeSelect.onchange = () => {
+    if (busy || destroyed) return;
+    generation++; selectedProject = projects.find(project => project.projectId === scopeSelect.value)?.projectId ?? null; reset();
+    message = selectedProject ? 'Load threads for this project.' : 'Choose a project explicitly.'; render();
+    if (selectedProject) void read(null, 'reload');
+  };
   reload.onclick = () => { void read(null, 'reload'); };
   create.onclick = () => {
-    if (busy || !selectedProject || !options.create) return;
+    if (busy || !selectedProject || destroyed) return;
+    if (options.onNewSession) {
+      try { options.onNewSession(selectedProject); }
+      catch { options.reportError('The new session window could not be opened.'); }
+      return;
+    }
+    if (!options.create) return;
     const project=selectedProject; const at=generation; busy='create'; failed=false; render();
     void (async()=>{
       try {
@@ -280,7 +320,8 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     })();
   }
   return {
-    element, setProject, refresh: () => read(null, 'reload'), state: (): Readonly<ThreadSidebarState> => Object.freeze({ ...display }),
+    element, setProject, setProjects, currentProjectId: (): string | null => selectedProject,
+    refresh: () => read(null, 'reload'), state: (): Readonly<ThreadSidebarState> => Object.freeze({ ...display }),
     destroy() { destroyed = true; generation++; window.clearTimeout(saveTimer); pendingState = null; cancelDrag(); anchors.clear(); element.remove(); },
   };
 }

@@ -2058,7 +2058,7 @@
         "C13",
         "C14"
       ],
-      "deliverable": "Avvio Claude, stato di accesso e login tramite l'unico percorso verificato, con home privata predefinita e capacità dichiarate correttamente.",
+      "deliverable": "Avvio Claude, stato di accesso e login tramite l'unico percorso verificato, con home privata predefinita e capacità dichiarate correttamente. L’ingresso normale è New session → Project + Harness → Open: il checkup è preparazione interna, non una procedura manuale aggiuntiva.",
       "acceptance": [
         "La TUI interattiva parte nel progetto scelto con sidecar e set generico selezionato, anche senza Daodan.",
         "SignedOut, Unknown, Degraded e le domande iniziali di fiducia sono visibili; le credenziali restano nel flusso dell'agente.",
@@ -2072,7 +2072,20 @@
       ],
       "files": [
         "crates/adapter/src/claude/**",
-        "verify/CL/**"
+        "verify/CL/**",
+        "apps/desktop/src/new-session.ts",
+        "apps/desktop/src/new-session.css",
+        "apps/desktop/src/main.ts",
+        "apps/desktop/src-tauri/src/agents.rs",
+        "apps/desktop/src-tauri/src/main.rs",
+        "apps/desktop/src-tauri/src/workspace.rs",
+        "apps/desktop/src-tauri/src/terminal_runtime.rs",
+        "crates/engine/src/claude_probe.rs",
+        "apps/desktop/src/workspace-persistence.ts",
+        "crates/state/src/global_workspace.rs",
+        "crates/state/src/records/recovery.rs",
+        "apps/desktop/tests/new-session-smoke.mjs",
+        "docs/notes/2026-11-03-project-thread-workspace.md"
       ],
       "gates": [
         "CL1/CL4/CL8: sottoinsieme avvio/stato",
@@ -2082,12 +2095,12 @@
         "CL13"
       ],
       "hours": [
-        12,
-        24
+        14,
+        28
       ],
       "scope": "v1",
       "commit": "feat(c15): Avviare il primo adattatore Claude attraverso il checkup",
-      "resume": "Leggere la scheda e le dipendenze; aprire crates/adapter/src/claude/**, verify/CL/**. Preparare la prima prova di accettazione prima di modificare il comportamento.",
+      "resume": "Priorità utente del 2026-11-03: completare C15.3 dal dialogo New session e qualificare il singolo Open nel terminale originale; leggere docs/notes/2026-11-03-project-thread-workspace.md. Solo dopo riprendere login/capacità C15.4 e le funzioni avanzate; il passo padre resta aperto fino ai suoi gate.",
       "commit_units": [
         {
           "id": "C15.1",
@@ -2135,6 +2148,45 @@
         },
         {
           "id": "C15.3",
+          "title": "Aprire una sessione scegliendo progetto e harness",
+          "deliverable": "Un solo flusso New session → Project + Harness → Open. Il progetto possiede il thread; la disposizione globale contiene viste di thread anche di progetti diversi. Controlli, preparazione e riuso delle osservazioni ancora valide sono interni all’Open esplicito, senza New agent, Check o Session index obbligatori nella UI.",
+          "acceptance": [
+            "Open conserva progetto e harness scelti fino al terminale originale; errori e rifiuti di risorse sono comprensibili nello stesso dialogo, senza creare sessioni duplicate o aggirare C09R. Le osservazioni di versione e preparazione si riusano solo finché l’identità fissata resta valida.",
+            "Il thread resta appartenente al progetto scelto. Cambiare il filtro progetto non sostituisce il layout, non chiude viste e non avvia processi. Un workspace globale può contenere viste di thread di progetti diversi; chiudere la vista non elimina il thread.",
+            "Se l’harness richiede accesso o fiducia, li gestisce l’utente nel terminale originale; nessun ulteriore wizard Shinatama e nessuna risposta automatica. All’avvio dell’app non compare una PowerShell senza thread.",
+            "I dati dei precedenti workspace per progetto restano conservati. Questo incremento non certifica login, traffico provider, resume o capacità degli altri harness."
+          ],
+          "checks": [
+            "npm run build",
+            "planned: cargo test --offline --locked -p shinatama-state -j1 --lib global_workspace::tests -- --test-threads=1",
+            "planned: verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/new-session-smoke.mjs"
+          ],
+          "hours": [
+            2,
+            4
+          ],
+          "files": [
+            "apps/desktop/src/new-session.ts",
+            "apps/desktop/src/new-session.css",
+            "apps/desktop/src/main.ts",
+            "apps/desktop/src-tauri/src/agents.rs",
+            "apps/desktop/src-tauri/src/main.rs",
+            "apps/desktop/src-tauri/src/workspace.rs",
+            "apps/desktop/src-tauri/src/terminal_runtime.rs",
+            "crates/engine/src/claude_probe.rs",
+            "apps/desktop/src/workspace-persistence.ts",
+            "crates/state/src/global_workspace.rs",
+            "crates/state/src/records/recovery.rs",
+            "apps/desktop/tests/new-session-smoke.mjs",
+            "docs/notes/2026-11-03-project-thread-workspace.md",
+            "Cargo.toml",
+            "apps/desktop/src-tauri/src/resources.rs",
+            "apps/desktop/src-tauri/src/resource_governor.rs"
+          ],
+          "commit": "feat(c15.3): Aprire una sessione scegliendo progetto e harness"
+        },
+        {
+          "id": "C15.4",
           "title": "Collegare login e capacità Claude provate",
           "deliverable": "Flusso di login dell’agente, segnali iniziali e dichiarazioni di supporto limitate alle fixture passate.",
           "acceptance": [
@@ -2153,7 +2205,7 @@
             "crates/adapter/src/claude/**",
             "verify/CL/**"
           ],
-          "commit": "feat(c15.3): Collegare login e capacità Claude provate"
+          "commit": "feat(c15.4): Collegare login e capacità Claude provate"
         }
       ],
       "deferred_clauses": [
@@ -2304,7 +2356,7 @@
           "files": [
             "Cargo.toml",
             "Cargo.lock",
-          "crates/engine/src/session_roots.rs"
+            "crates/engine/src/session_roots.rs"
           ],
           "commit": "feat(c22.1): Fissare e verificare la dipendenza Mukade"
         },
@@ -2325,7 +2377,7 @@
             10
           ],
           "files": [
-          "crates/engine/src/session_roots.rs",
+            "crates/engine/src/session_roots.rs",
             "crates/state/src/store_roots.rs"
           ],
           "commit": "feat(c22.2): Persistire e risolvere radici esplicite degli archivi"
@@ -2347,9 +2399,9 @@
             10
           ],
           "files": [
-          "crates/engine/src/session_roots.rs",
-          "crates/engine/src/bin/shinatama-session-helper.rs",
-          "apps/desktop/src-tauri/src/sessions.rs"
+            "crates/engine/src/session_roots.rs",
+            "crates/engine/src/bin/shinatama-session-helper.rs",
+            "apps/desktop/src-tauri/src/sessions.rs"
           ],
           "commit": "feat(c22.3): Elencare sessioni senza caricare le trascrizioni"
         }
@@ -10363,7 +10415,8 @@
     "2026-11-02 FRD-0009/R24 storage latency; docs/notes/2026-11-02-sidecar-storage-latency.md",
     "2026-11-02 FRD-0001/R22 and R51 Tauri shell; ADR-0005 v2, ADR-0047 v2",
     "2026-11-02 Windows only; FRD-0001/R15 R50 R51 R55, FRD-0017/R01 R02 R03 R05 R09; ADR-0047, ADR-0005, ADR-0048",
-    "2026-11-02 FRD-0001/R59-R63 host resilience; docs/implementation/2026-11-02-host-resilience.md"
+    "2026-11-02 FRD-0001/R59-R63 host resilience; docs/implementation/2026-11-02-host-resilience.md",
+    "2026-11-03 direttiva utente progetto/thread/workspace: unico New session → Project + Harness → Open, preparazione interna, workspace globale multiprogetto; docs/notes/2026-11-03-project-thread-workspace.md. C15.3 introdotto dopo C15.2; la precedente unità login/capacità pending è conservata come C15.4. Nessun nuovo requisito FRD inventato."
   ],
   "scope_overrides": [
     {
@@ -10490,7 +10543,7 @@
     "target_window": "morning",
     "timezone": "Europe/Rome",
     "user_requested_scope": "Prodotto completato e pronto per essere usato entro domattina.",
-    "execution_priority": "Portare prima a una build utilizzabile il percorso del milestone first-agent, preservando la priorita vincolante C09R e tutte le dipendenze.",
+    "execution_priority": "Priorità esplicita aggiornata il 2026-11-03: rendere utilizzabile il singolo New session → Project + Harness → Open con thread posseduti dai progetti e workspace globale multiprogetto. Prima dimostrare questo percorso; le funzioni avanzate attendono, la stabilità C09R resta vincolante e Daodan resta rinviato.",
     "scope_rule": "Nessun requisito V1 e rinviato o dichiarato completo soltanto per rispettare la data. La data e una richiesta di consegna; non una certificazione o garanzia gia ottenuta.",
     "ready_criteria": [
       "Build Windows avviabile da un percorso documentato.",

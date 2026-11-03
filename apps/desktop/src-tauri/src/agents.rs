@@ -1,5 +1,5 @@
-//! Explicit checkup and original-TUI startup. Checks use a fresh credential-free
-//! canary; no auth query, installation, message or implicit proxy start occurs.
+//! One-click original-TUI startup with private prerequisites prepared internally.
+//! Diagnostic checks remain available; no auth query, installation or message.
 #![cfg(windows)]
 use crate::{sidecar, storage::Services, terminal_runtime::Runtime};
 use serde::Serialize;
@@ -10,8 +10,11 @@ use shinatama_engine::claude_probe::{
 };
 use shinatama_engine::{
     check_scratch::{self, OwnedScratch, ScratchKind},
-    claude_launch::{ClaudeStartContext, ClaudeTrialContext, prepare_start, prepare_trial},
+    claude_launch::{
+        ClaudeLaunchError, ClaudeStartContext, ClaudeTrialContext, prepare_start, prepare_trial,
+    },
     native_launch::{NativeTrialReceipt, NativeTrialTracker},
+    sidecar_supervisor::SidecarSupervisor,
 };
 use shinatama_state::{
     database::{Database, DatabaseAccess},
@@ -24,6 +27,7 @@ use shinatama_state::{
 };
 use shinatama_terminal::{SessionInfo, TerminalHost};
 use std::{
+    num::NonZeroU16,
     path::PathBuf,
     sync::{
         Arc, Mutex,
@@ -125,6 +129,7 @@ struct Facts {
     observed: Option<ClaudeObservation>,
     receipt: Option<Arc<NativeTrialReceipt>>,
     canary: Option<Arc<CanaryOwner>>,
+    last_probe: Option<ClaudeProbeSummary>,
 }
 struct CanaryOwner {
     host: Arc<TerminalHost>,
@@ -203,6 +208,7 @@ impl Controller {
             "canary": owner.as_ref().map(|owner| owner.host.resources()),
             "trialReadyForCleanup": owner.as_ref().map(|owner| owner.tracker.ready_for_cleanup()),
             "startupFailure": self.last_start_failure.try_lock().ok().and_then(|value| value.clone()),
+            "versionProbe": self.facts.try_lock().ok().and_then(|facts| facts.last_probe.clone()),
         })
     }
     pub fn new(
@@ -271,6 +277,7 @@ impl Controller {
                 .map_err(|_| "Agent ownership information is unavailable.")?;
             facts.observed = None;
             facts.receipt = None;
+            facts.last_probe = None;
         }
         let mut report = AgentCheckup::empty(CLAUDE, "Claude Code");
         let sidecar = self.sidecar.status();
@@ -369,6 +376,13 @@ impl Controller {
         let prepared = match PreparedClaudeProbe::prepare(&candidate, &state.location) {
             Ok(prepared) => prepared,
             Err(issue) => {
+                if let Ok(mut failure) = self.last_start_failure.lock() {
+                    *failure = Some(if issue == ProbeIssue::Expired {
+                        "Claude executable preparation timed out before starting the version process."
+                    } else {
+                        probe_issue(issue)
+                    }.to_owned());
+                }
                 report.issue(probe_issue(issue));
                 return Ok(report);
             }
@@ -380,11 +394,24 @@ impl Controller {
         }) {
             Ok(outcome) => outcome,
             Err(issue) => {
+                if let Ok(mut failure) = self.last_start_failure.lock() {
+                    *failure = Some(
+                        if issue == ProbeIssue::Expired {
+                            "The prepared Claude version check expired before process startup."
+                        } else {
+                            probe_issue(issue)
+                        }
+                        .to_owned(),
+                    );
+                }
                 report.issue(probe_issue(issue));
                 return Ok(report);
             }
         };
         self.project_probe(&mut report, outcome.summary());
+        if let Ok(mut facts) = self.facts.lock() {
+            facts.last_probe = Some(outcome.summary().clone());
+        }
         let observation = {
             let mut facts = self
                 .facts
@@ -449,6 +476,31 @@ impl Controller {
         rows: u16,
         cols: u16,
     ) -> Result<AgentStarted, &'static str> {
+        self.start_request(agent_id, host, project, rows, cols, false)
+            .await
+    }
+    /// One explicit product action. Preparation and exact-build qualification
+    /// stay behind this worker; the UI supplies only a registered agent/project.
+    pub async fn open(
+        self: &Arc<Self>,
+        agent_id: &str,
+        host: Arc<TerminalHost>,
+        project: PathBuf,
+        rows: u16,
+        cols: u16,
+    ) -> Result<AgentStarted, &'static str> {
+        self.start_request(agent_id, host, project, rows, cols, true)
+            .await
+    }
+    async fn start_request(
+        self: &Arc<Self>,
+        agent_id: &str,
+        host: Arc<TerminalHost>,
+        project: PathBuf,
+        rows: u16,
+        cols: u16,
+        prepare_internally: bool,
+    ) -> Result<AgentStarted, &'static str> {
         if agent_id != CLAUDE {
             return Err("This agent is not qualified for native startup.");
         }
@@ -461,11 +513,18 @@ impl Controller {
             .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
             .map_err(|_| "An agent action is still returning. No duplicate was started.")?;
         let slot = RequestSlot(Arc::clone(self));
+        if let Ok(mut failure) = self.last_start_failure.lock() {
+            *failure = None;
+        }
         tauri::async_runtime::spawn_blocking(move || {
             let slot = slot;
             let owner = &slot.0;
             match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                owner.start_claude(&host, &project, rows, cols)
+                if prepare_internally {
+                    owner.open_claude(&host, &project, rows, cols)
+                } else {
+                    owner.start_claude(&host, &project, rows, cols, false)
+                }
             })) {
                 Ok(result) => {
                     if let Err(message) = &result {
@@ -486,12 +545,177 @@ impl Controller {
         .await
         .map_err(|_| "The agent startup worker is unavailable; no replacement was started.")?
     }
+    fn ensure_sidecar(&self) -> Result<(), &'static str> {
+        if self.sidecar.qualified_owner().is_ok() {
+            return Ok(());
+        }
+        let previous = self.sidecar.status();
+        let previous_observed = previous
+            .observation
+            .as_ref()
+            .and_then(|snapshot| snapshot.observed_at_unix_ms);
+        self.sidecar.start().map_err(|message| {
+            if let Ok(mut failure) = self.last_start_failure.lock() {
+                *failure = Some(message.to_owned());
+            }
+            "This session could not be prepared. Try Open again."
+        })?;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        loop {
+            let status = self.sidecar.status();
+            let changed = status.phase != previous.phase
+                || status
+                    .observation
+                    .as_ref()
+                    .and_then(|snapshot| snapshot.observed_at_unix_ms)
+                    != previous_observed;
+            if status.phase == "ready" && status.healthy {
+                return self
+                    .sidecar
+                    .qualified_owner()
+                    .map(|_| ())
+                    .map_err(|_| "This session could not be prepared. Try Open again.");
+            }
+            if changed
+                && status.observation.as_ref().is_some_and(|snapshot| {
+                    matches!(
+                        snapshot.reason,
+                        shinatama_engine::sidecar_supervisor::Reason::AdmissionDeferred
+                            | shinatama_engine::sidecar_supervisor::Reason::ResourceLimit
+                    )
+                })
+            {
+                return Err("Windows is low on resources. Close an unused app and try Open again.");
+            }
+            if changed && matches!(status.phase, "failed" | "retired") {
+                if let Ok(mut failure) = self.last_start_failure.lock() {
+                    *failure = status.message.map(str::to_owned);
+                }
+                if status.message.is_some_and(|message| {
+                    message.starts_with("Resources are not yet ready for the local service.")
+                        || message == "Proxy resource admission is unavailable."
+                }) {
+                    return Err(
+                        "Windows is low on resources. Close an unused app and try Open again.",
+                    );
+                }
+                return Err("This session could not be prepared. Try Open again.");
+            }
+            if Instant::now() >= deadline {
+                return Err(
+                    "Session preparation is still finishing. Try Open again in a few seconds.",
+                );
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+    }
+    /// Observe only this controller's retained owner. A temporarily unavailable
+    /// health sample must not require another user click or another process.
+    /// This never starts/restarts the sidecar, launches a canary or retries input.
+    fn wait_for_qualified_sidecar(
+        &self,
+    ) -> Result<(&SidecarSupervisor, NonZeroU16, PathBuf), &'static str> {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            match self.sidecar.qualified_owner() {
+                Ok(owner) => return Ok(owner),
+                Err(message) => {
+                    let status = self.sidecar.status();
+                    if matches!(status.phase, "stopped" | "failed" | "retired")
+                        || Instant::now() >= deadline
+                    {
+                        return Err(message);
+                    }
+                }
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+    }
+    fn qualify_for_open(&self) -> Result<(), &'static str> {
+        let report = self.check_claude().map_err(|message| {
+            if let Ok(mut failure) = self.last_start_failure.lock() {
+                *failure = Some(message.to_owned());
+            }
+            "This session could not be prepared. Try Open again."
+        })?;
+        if report.can_open {
+            return Ok(());
+        }
+        if matches!(report.program.state, ProgramState::Missing) {
+            return Err("Claude Code is not installed. Install it and try Open again.");
+        }
+        let resource_refused = self.facts.lock().ok().is_some_and(|facts| {
+            facts
+                .last_probe
+                .as_ref()
+                .is_some_and(|probe| probe.issue == Some(ProbeIssue::AdmissionRefused))
+        }) || report.issues.iter().any(|issue| {
+            issue.starts_with("Resources are not ready")
+                || *issue == probe_issue(ProbeIssue::AdmissionRefused)
+        });
+        if resource_refused {
+            return Err("Windows is low on resources. Close an unused app and try Open again.");
+        }
+        Err("Claude Code did not finish starting. Try Open again.")
+    }
+    fn open_claude(
+        &self,
+        host: &TerminalHost,
+        project: &std::path::Path,
+        rows: u16,
+        cols: u16,
+    ) -> Result<AgentStarted, &'static str> {
+        // Validate the chosen project before preparing any process. No fallback
+        // to an ambient directory or to a different harness is permitted.
+        self.services
+            .load()
+            .map_err(|_| "Saved projects are unavailable.")?
+            .location
+            .validate_project(project)
+            .map_err(|_| "Choose an existing project folder and try Open again.")?;
+        self.ensure_sidecar()?;
+        let current_candidate = discover_claude().ok();
+        let reusable = {
+            let facts = self
+                .facts
+                .lock()
+                .map_err(|_| "This session is still finishing another action.")?;
+            facts.canary.is_none()
+                && facts.retained_probe.is_none()
+                && facts.receipt.is_some()
+                && facts
+                    .observed
+                    .as_ref()
+                    .zip(current_candidate.as_ref())
+                    .is_some_and(|(observed, current)| {
+                        observed.candidate.path == current.path
+                            && observed.candidate.kind == current.kind
+                    })
+        };
+        if !reusable {
+            self.qualify_for_open()?;
+        }
+        self.start_claude(host, project, rows, cols, true)
+            .map_err(|message| {
+                if let Ok(mut failure) = self.last_start_failure.lock() {
+                    if failure.is_none() {
+                        *failure = Some(message.to_owned());
+                    }
+                }
+                if message.starts_with("Resources are not ready") {
+                    "Windows is low on resources. Close an unused app and try Open again."
+                } else {
+                    "Claude Code did not finish starting. Try Open again."
+                }
+            })
+    }
     fn start_claude(
         &self,
         host: &TerminalHost,
         project: &std::path::Path,
         rows: u16,
         cols: u16,
+        refresh_stale: bool,
     ) -> Result<AgentStarted, &'static str> {
         let (observation, receipt) = {
             let facts = self
@@ -520,19 +744,57 @@ impl Controller {
             .map_err(|_| "The selected project cannot be used for this agent.")?;
         let home = prepare_box(&state.store, &state.location)?;
         if home.record != observation.root {
+            if refresh_stale {
+                self.qualify_for_open()?;
+                return self.start_claude(host, project, rows, cols, false);
+            }
             return Err(
                 "The saved agent home changed after its check. Check the agent again before opening it.",
             );
         }
-        let (sidecar, port, ca) = self.sidecar.qualified_owner()?;
+        let (sidecar, port, ca) = self.wait_for_qualified_sidecar()?;
         let selected_set = empty_set()?;
         let thread_id = new_id(CanonicalIdKind::Thread);
-        let prepared = prepare_start(ClaudeStartContext {
-            candidate: &observation.candidate, observation: &observation.outcome, base: &state.location,
-            database: &state.store, private_home: home._grant, root: home.record, project, sidecar,
-            proxy_port: port, ca_file: &ca, selected_set: &selected_set, thread_id: &thread_id,
-        }, &receipt).map_err(|_| "Claude startup no longer matches its qualified build, home or resource profile. Check the agent again.")?;
-        self.sidecar.qualified_owner()?;
+        let prepared = match prepare_start(
+            ClaudeStartContext {
+                candidate: &observation.candidate,
+                observation: &observation.outcome,
+                base: &state.location,
+                database: &state.store,
+                private_home: home._grant,
+                root: home.record,
+                project,
+                sidecar,
+                proxy_port: port,
+                ca_file: &ca,
+                selected_set: &selected_set,
+                thread_id: &thread_id,
+            },
+            &receipt,
+        ) {
+            Ok(prepared) => prepared,
+            Err(issue)
+                if refresh_stale
+                    && matches!(
+                        issue,
+                        ClaudeLaunchError::ProgramChanged
+                            | ClaudeLaunchError::RootChanged
+                            | ClaudeLaunchError::ObservationRequired
+                            | ClaudeLaunchError::QualificationRequired
+                            | ClaudeLaunchError::InvalidCandidate
+                            | ClaudeLaunchError::UnsafeProgram
+                    ) =>
+            {
+                self.qualify_for_open()?;
+                return self.start_claude(host, project, rows, cols, false);
+            }
+            Err(_) => {
+                return Err(
+                    "Claude startup no longer matches its qualified build, home or resource profile. Check the agent again.",
+                );
+            }
+        };
+        self.wait_for_qualified_sidecar()?;
         self.runtime.wait_for_admission().map_err(|_| "Resources are not ready for a new agent. Existing sessions keep their limits; retry explicitly.")?;
         self.runtime
             .configure(host)
@@ -581,7 +843,7 @@ impl Controller {
         database
             .check_write_admission()
             .map_err(|_| "Storage admission changed; no TUI check was started.")?;
-        let (sidecar, port, ca) = self.sidecar.qualified_owner()?;
+        let (sidecar, port, ca) = self.wait_for_qualified_sidecar()?;
         check_directory_budget(base, "claude-tui-trial-")?;
         let (trial, scratch) = check_scratch::create(base, ScratchKind::ClaudeTuiTrial)
             .map_err(|_| "The private TUI-check location is unavailable.")?
@@ -606,7 +868,7 @@ impl Controller {
             private_home: grant, project: project.directory(), sidecar, proxy_port: port, ca_file: &ca,
             selected_set: &selected_set, thread_id: &thread_id,
         }).map_err(|_| "The exact Claude build could not prepare its isolated TUI check. Opening remains unavailable.")?;
-        self.sidecar.qualified_owner()?;
+        self.wait_for_qualified_sidecar()?;
         self.runtime.wait_for_admission().map_err(|_| "Resources are not ready for the isolated TUI check. No replacement was started; retry explicitly.")?;
         let host = Arc::new(TerminalHost::default());
         self.runtime

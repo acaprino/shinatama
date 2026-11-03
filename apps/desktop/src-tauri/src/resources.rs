@@ -11,6 +11,33 @@ use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 use tauri::{State, WebviewWindow};
 
+pub(crate) fn default_governor_config() -> GovernorConfig {
+    GovernorConfig {
+        policy: PolicyConfig {
+            physical_available_floor_bytes: 512 * 1024 * 1024,
+            commit_available_floor_bytes: 1024 * 1024 * 1024,
+            // Percentage pressure complements the fresh per-launch byte reserve;
+            // it must not latch out a healthy host with several GiB available.
+            pressure_enter_basis_points: 9000,
+            pressure_exit_basis_points: 8750,
+            emergency_basis_points: 9500,
+            max_sample_age_ms: 3000,
+            calibration_window_ms: 30_000,
+            calibration_samples: 30,
+            minimum_healthy_samples: 5,
+            stable_ms: 3000,
+            reduce_before_defer_ms: 500,
+            defer_before_terminate_ms: 1000,
+            cooldown_ms: 3000,
+            learned_headroom_basis_points: 12_500,
+            maximum_upward_step_basis_points: 1000,
+        },
+        update_period: Duration::from_millis(500),
+        max_frame_time_us: 1_500_000,
+        max_ipc_roundtrip_us: 1_500_000,
+    }
+}
+
 pub struct Resources {
     #[cfg(windows)]
     monitor: Option<Arc<ResourceMonitor>>,
@@ -35,28 +62,7 @@ impl Resources {
         if let Some(monitor) = &self.monitor {
             // Conservative host-observer policy. Per-workload native limits are
             // separately admitted; this monitor never authorizes a launch alone.
-            let config = GovernorConfig {
-                policy: PolicyConfig {
-                    physical_available_floor_bytes: 512 * 1024 * 1024,
-                    commit_available_floor_bytes: 1024 * 1024 * 1024,
-                    pressure_enter_basis_points: 8500,
-                    pressure_exit_basis_points: 7500,
-                    emergency_basis_points: 9500,
-                    max_sample_age_ms: 3000,
-                    calibration_window_ms: 30_000,
-                    calibration_samples: 30,
-                    minimum_healthy_samples: 5,
-                    stable_ms: 3000,
-                    reduce_before_defer_ms: 500,
-                    defer_before_terminate_ms: 1000,
-                    cooldown_ms: 3000,
-                    learned_headroom_basis_points: 12_500,
-                    maximum_upward_step_basis_points: 1000,
-                },
-                update_period: Duration::from_millis(500),
-                max_frame_time_us: 1_500_000,
-                max_ipc_roundtrip_us: 1_500_000,
-            };
+            let config = default_governor_config();
             let maintenance = Arc::downgrade(maintenance);
             if let Ok(governor) = ResourceGovernor::start(
                 Arc::clone(monitor),

@@ -41,7 +41,7 @@ Un commit funzionale con breve evidenza e prossimo passo; non fermarsi a ogni ch
 
 Prodotto completato e pronto per essere usato entro domattina.
 
-Portare prima a una build utilizzabile il percorso del milestone first-agent, preservando la priorita vincolante C09R e tutte le dipendenze.
+Priorità esplicita aggiornata il 2026-11-03: rendere utilizzabile il singolo New session → Project + Harness → Open con thread posseduti dai progetti e workspace globale multiprogetto. Prima dimostrare questo percorso; le funzioni avanzate attendono, la stabilità C09R resta vincolante e Daodan resta rinviato.
 
 1. Build Windows avviabile da un percorso documentato.
 2. Progetti, workspace/terminale e percorso del primo agente funzionanti per il perimetro effettivamente implementato.
@@ -87,7 +87,7 @@ macOS e Linux sono fuori dallo scope su decisione dell utente: solo Windows e su
 | [C07](#c07) | Disegnare l'albero di pannelli e completare i comandi da tastiera | C06 | committed | 15–30 |
 | [C08](#c08) | Rendere configurabili i temi e i profili versionati dei terminali | C07 | committed | 12–20 |
 | [C09](#c09) | Rendere robusti terminale e contenimento con fixture sintetiche | C07, C08, C09R | committed | 8–16 |
-| [C15](#c15) | Avviare il primo adattatore Claude attraverso il checkup | C09, C10, C11, C13, C14 | pending | 12–24 |
+| [C15](#c15) | Avviare il primo adattatore Claude attraverso il checkup | C09, C10, C11, C13, C14 | pending | 14–28 |
 | [QA-claude-windows](#qa-claude-windows) | Certificare terminale claude su windows | C09, C15 | pending | 4–8 |
 | [C22](#c22) | Risolvere le radici persistenti degli archivi e collegare una revisione verificata di Mukade | C03, C11, C09R | pending | 14–28 |
 | [C23](#c23) | Costruire il dettaglio delle sessioni e trascrizioni canoniche limitate | C22, C07 | pending | 18–36 |
@@ -1228,11 +1228,11 @@ Meccanismi terminali riusabili e fixture sintetiche per I/O, Unicode, input/focu
 <a id="c15"></a>
 ## C15 · Avviare il primo adattatore Claude attraverso il checkup
 
-Avvio Claude, stato di accesso e login tramite l'unico percorso verificato, con home privata predefinita e capacità dichiarate correttamente.
+Avvio Claude, stato di accesso e login tramite l'unico percorso verificato, con home privata predefinita e capacità dichiarate correttamente. L’ingresso normale è New session → Project + Harness → Open: il checkup è preparazione interna, non una procedura manuale aggiuntiva.
 
-**Ambito:** v1. **Dipendenze:** C09, C10, C11, C13, C14. **Stima:** 12–24 ore.
+**Ambito:** v1. **Dipendenze:** C09, C10, C11, C13, C14. **Stima:** 14–28 ore.
 
-**File/componenti:** `crates/adapter/src/claude/**`; `verify/CL/**`.
+**File/componenti:** `crates/adapter/src/claude/**`; `verify/CL/**`; `apps/desktop/src/new-session.ts`; `apps/desktop/src/new-session.css`; `apps/desktop/src/main.ts`; `apps/desktop/src-tauri/src/agents.rs`; `apps/desktop/src-tauri/src/main.rs`; `apps/desktop/src-tauri/src/workspace.rs`; `apps/desktop/src-tauri/src/terminal_runtime.rs`; `crates/engine/src/claude_probe.rs`; `apps/desktop/src/workspace-persistence.ts`; `crates/state/src/global_workspace.rs`; `crates/state/src/records/recovery.rs`; `apps/desktop/tests/new-session-smoke.mjs`; `docs/notes/2026-11-03-project-thread-workspace.md`.
 
 **Accettazione osservabile:**
 
@@ -1251,7 +1251,7 @@ Avvio Claude, stato di accesso e login tramite l'unico percorso verificato, con 
 
 **Commit proposto:** `feat(c15): Avviare il primo adattatore Claude attraverso il checkup`.
 
-**Prima azione alla ripresa:** Leggere la scheda e le dipendenze; aprire crates/adapter/src/claude/**, verify/CL/**. Preparare la prima prova di accettazione prima di modificare il comportamento.
+**Prima azione alla ripresa:** Priorità utente del 2026-11-03: completare C15.3 dal dialogo New session e qualificare il singolo Open nel terminale originale; leggere docs/notes/2026-11-03-project-thread-workspace.md. Solo dopo riprendere login/capacità C15.4 e le funzioni avanzate; il passo padre resta aperto fino ai suoi gate.
 
 **Unita di commit sequenziali (ognuna lascia l’app avviabile):**
 
@@ -1279,7 +1279,19 @@ Verifiche pianificate: `planned: smoke Claude firmato-out e avvio sicuro`; `npm 
 
 Commit: `feat(c15.2): Avviare la TUI Claude dal piano verificato`. Registrare stato e prove sotto `progress.json` → `steps` → `C15` → `units` → `C15.2`.
 
-### C15.3 · Collegare login e capacità Claude provate
+### C15.3 · Aprire una sessione scegliendo progetto e harness
+
+Un solo flusso New session → Project + Harness → Open. Il progetto possiede il thread; la disposizione globale contiene viste di thread anche di progetti diversi. Controlli, preparazione e riuso delle osservazioni ancora valide sono interni all’Open esplicito, senza New agent, Check o Session index obbligatori nella UI.
+
+Stima: 2–4 ore. File: `apps/desktop/src/new-session.ts`, `apps/desktop/src/new-session.css`, `apps/desktop/src/main.ts`, `apps/desktop/src-tauri/src/agents.rs`, `apps/desktop/src-tauri/src/main.rs`, `apps/desktop/src-tauri/src/workspace.rs`, `apps/desktop/src-tauri/src/terminal_runtime.rs`, `crates/engine/src/claude_probe.rs`, `apps/desktop/src/workspace-persistence.ts`, `crates/state/src/global_workspace.rs`, `crates/state/src/records/recovery.rs`, `apps/desktop/tests/new-session-smoke.mjs`, `docs/notes/2026-11-03-project-thread-workspace.md`, `Cargo.toml`, `apps/desktop/src-tauri/src/resources.rs`, `apps/desktop/src-tauri/src/resource_governor.rs`.
+
+Accettazione: Open conserva progetto e harness scelti fino al terminale originale; errori e rifiuti di risorse sono comprensibili nello stesso dialogo, senza creare sessioni duplicate o aggirare C09R. Le osservazioni di versione e preparazione si riusano solo finché l’identità fissata resta valida. Il thread resta appartenente al progetto scelto. Cambiare il filtro progetto non sostituisce il layout, non chiude viste e non avvia processi. Un workspace globale può contenere viste di thread di progetti diversi; chiudere la vista non elimina il thread. Se l’harness richiede accesso o fiducia, li gestisce l’utente nel terminale originale; nessun ulteriore wizard Shinatama e nessuna risposta automatica. All’avvio dell’app non compare una PowerShell senza thread. I dati dei precedenti workspace per progetto restano conservati. Questo incremento non certifica login, traffico provider, resume o capacità degli altri harness.
+
+Verifiche pianificate: `npm run build`; `planned: cargo test --offline --locked -p shinatama-state -j1 --lib global_workspace::tests -- --test-threads=1`; `planned: verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/new-session-smoke.mjs`.
+
+Commit: `feat(c15.3): Aprire una sessione scegliendo progetto e harness`. Registrare stato e prove sotto `progress.json` → `steps` → `C15` → `units` → `C15.3`.
+
+### C15.4 · Collegare login e capacità Claude provate
 
 Flusso di login dell’agente, segnali iniziali e dichiarazioni di supporto limitate alle fixture passate.
 
@@ -1289,7 +1301,7 @@ Accettazione: Login usa soltanto il flusso dell’agente; canary reali solo con 
 
 Verifiche pianificate: `planned: contratto Claude e login in home di test`; `npm run build`.
 
-Commit: `feat(c15.3): Collegare login e capacità Claude provate`. Registrare stato e prove sotto `progress.json` → `steps` → `C15` → `units` → `C15.3`.
+Commit: `feat(c15.4): Collegare login e capacità Claude provate`. Registrare stato e prove sotto `progress.json` → `steps` → `C15` → `units` → `C15.4`.
 
 <a id="qa-claude-windows"></a>
 ## QA-claude-windows · Certificare terminale claude su windows

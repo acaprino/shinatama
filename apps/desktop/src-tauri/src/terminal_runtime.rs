@@ -71,7 +71,9 @@ pub struct Runtime {
 }
 impl Runtime {
     pub fn wait_for_admission(&self) -> Result<(), String> {
-        let deadline = std::time::Instant::now() + Duration::from_secs(3);
+        // Startup needs two complete samples plus the governor's stable window.
+        // Wait for that observation; resource thresholds and limits stay unchanged.
+        let deadline = std::time::Instant::now() + Duration::from_secs(8);
         loop {
             match self.admission.current_headroom() {
                 Ok(_) => return Ok(()),

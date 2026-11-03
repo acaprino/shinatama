@@ -201,6 +201,53 @@ async fn terminal_start(
     .map_err(|e| e.to_string())?
     .map_err(|e| format!("{e:#}"))
 }
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ThreadStarted {
+    session: SessionInfo,
+    thread_id: String,
+}
+#[tauri::command]
+async fn shell_open(
+    window: tauri::WebviewWindow,
+    host: State<'_, Host>,
+    services: State<'_, Services>,
+    cwd: String,
+    rows: u16,
+    cols: u16,
+) -> Result<ThreadStarted, String> {
+    local(&window)?;
+    if window.state::<ExitIntent>().0.load(Ordering::Acquire) {
+        return Err("This window is closing.".into());
+    }
+    let saved_services = services.inner().clone();
+    let project_path = PathBuf::from(&cwd);
+    let thread_id = tauri::async_runtime::spawn_blocking(move || {
+        let state = saved_services.load().map_err(anyhow::Error::msg)?;
+        state.location.validate_project(&project_path)?;
+        let project = state.store.select(&project_path)?;
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?;
+        let timestamp = i64::try_from(timestamp.as_millis())?;
+        let thread = state.store.create_thread(&shinatama_state::threads::ThreadRecord {
+            id: shinatama_state::records::new_id(shinatama_state::records::CanonicalIdKind::Thread),
+            project_id: project.id,
+            kind: shinatama_state::records::ThreadKind::Work,
+            parent_thread_id: None,
+            companion_worker_thread_id: None,
+            title: Some("PowerShell".into()),
+            archived: false,
+            revision: 1,
+            created_at: timestamp,
+            updated_at: timestamp,
+        })?;
+        Ok::<_, anyhow::Error>(thread.id)
+    }).await.map_err(|_| "The thread could not be saved.".to_owned())?
+        .map_err(|_| "The project or thread could not be saved. No session was started.".to_owned())?;
+    // A failed start leaves the saved thread intact; closing a view never deletes it.
+    let session = terminal_start(window, host, services, cwd, rows, cols).await?;
+    Ok(ThreadStarted { session, thread_id })
+}
 #[tauri::command]
 fn terminal_list(
     window: tauri::WebviewWindow,
@@ -364,6 +411,41 @@ async fn agent_start(
     Err("Agent startup is available on Windows.".into())
 }
 #[tauri::command]
+async fn agent_open(
+    window: tauri::WebviewWindow,
+    host: State<'_, Host>,
+    agent_id: String,
+    cwd: String,
+    rows: u16,
+    cols: u16,
+) -> Result<serde_json::Value, String> {
+    local(&window)?;
+    if window.state::<ExitIntent>().0.load(Ordering::Acquire) {
+        return Err("This window is closing.".into());
+    }
+    if cwd.len() > 4096 {
+        return Err("The selected project path is invalid.".into());
+    }
+    #[cfg(windows)]
+    {
+        let owner = window.state::<Arc<agents::Controller>>().inner().clone();
+        let started = owner
+            .open(
+                &agent_id,
+                host.inner().clone(),
+                PathBuf::from(cwd),
+                rows,
+                cols,
+            )
+            .await
+            .map_err(str::to_owned)?;
+        return serde_json::to_value(started)
+            .map_err(|_| "Agent startup status is unavailable.".into());
+    }
+    #[cfg(not(windows))]
+    Err("Agent startup is available on Windows.".into())
+}
+#[tauri::command]
 fn sidecar_status(window: tauri::WebviewWindow) -> Result<serde_json::Value, String> {
     local(&window)?;
     #[cfg(windows)]
@@ -472,6 +554,10 @@ fn main() {
         workspace::workspace_save,
         workspace::workspace_release,
         workspace::workspace_recover,
+        workspace::global_workspace_load,
+        workspace::global_workspace_save,
+        workspace::global_workspace_release,
+        workspace::global_workspace_recover,
         workspace::workspace_allow_close,
         presentation::presentation_load,
         presentation::presentation_save,
@@ -486,6 +572,8 @@ fn main() {
         agent_check,
         agent_status,
         agent_start,
+        agent_open,
+        shell_open,
         #[cfg(windows)]
         sessions::session_roots,
         #[cfg(windows)]
@@ -526,6 +614,10 @@ fn main() {
         workspace::workspace_save,
         workspace::workspace_release,
         workspace::workspace_recover,
+        workspace::global_workspace_load,
+        workspace::global_workspace_save,
+        workspace::global_workspace_release,
+        workspace::global_workspace_recover,
         workspace::workspace_allow_close,
         presentation::presentation_load,
         presentation::presentation_save,
@@ -540,6 +632,8 @@ fn main() {
         agent_check,
         agent_status,
         agent_start,
+        agent_open,
+        shell_open,
         #[cfg(windows)]
         sessions::session_roots,
         #[cfg(windows)]

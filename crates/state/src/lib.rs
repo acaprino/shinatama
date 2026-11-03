@@ -2,6 +2,7 @@
 
 pub mod cancellation;
 pub mod database;
+pub mod global_workspace;
 pub mod location;
 pub mod maintenance;
 mod migrations;

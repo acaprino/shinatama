@@ -37,3 +37,8 @@ shinatama-state = { path = "crates/state" }
 shinatama-adapter = { path = "crates/adapter" }
 shinatama-engine = { path = "crates/engine" }
 mukade = { git = "https://github.com/acaprino/mukade", rev = "4124b1f880f49a8f958801195324628752e35c4a" }
+
+# Local debug builds verify large native executables inside a fixed deadline.
+# Optimize the digest implementation while keeping application debug symbols.
+[profile.dev.package.sha2]
+opt-level = 3

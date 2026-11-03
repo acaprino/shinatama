@@ -16,8 +16,8 @@ import { createTerminalFind } from './terminal-find.ts';
 import { createPresentation, PROFILES } from './presentation.ts';
 import './presentation.css';
 import { startTerminalResources, formatTerminalResources, type TerminalResourceStatus } from './terminal-resources.ts';
-import { createSidecarControl } from './sidecar-control.ts';
-import { createAgentSetup } from './agent-setup.ts';
+import { createNewSession } from './new-session.ts';
+import { beginMutation, browseFolder, createRequestId } from './project-catalog.ts';
 import { createSessionLibrary } from './session-library.ts';
 import { createSessionDetail } from './session-detail.ts';
 import { createThreadSidebar, type ThreadSidebarState } from './thread-sidebar.ts';
@@ -58,7 +58,6 @@ function notify(message: unknown, tone: Tone = 'error') {
   notice.hidden = false;
 }
 $('#notice button').onclick = () => { $('#notice').hidden = true; };
-createSidecarControl(desktop, notify);
 function modalOpen() { return !!document.querySelector('dialog[open]'); }
 function setProject(path: string) {
   if (path.trim() !== projectPath) threadSidebar?.setProject(null);
@@ -121,8 +120,8 @@ function render() {
     const group = tabGroups(workspaceLayout.root).find(group => group.id === pane.dataset.groupId); if (!group) continue;
     pane.classList.add('pane'); pane.classList.toggle('focused', workspaceLayout.focusedGroupId === group.id);
     const controls = pane.querySelector<HTMLElement>('.wm-controls')!;
-    const open = document.createElement('button'); open.type = 'button'; open.dataset.newTerminal = ''; open.textContent = '+ Terminal'; open.setAttribute('aria-label', 'Open terminal');
-    open.onclick = () => void startTerminal(group.id); controls.prepend(open);
+    const open = document.createElement('button'); open.type = 'button'; open.dataset.newTerminal = ''; open.textContent = '+ Session'; open.setAttribute('aria-label', 'Open session');
+    open.onclick = () => openNewSession(group.id); controls.prepend(open);
     const active = group.activeTabId ? views.get(group.activeTabId) : null;
     const stop = document.createElement('button'); stop.type = 'button';
     stop.textContent = active ? 'Stop' : 'Remove saved view';
@@ -171,19 +170,25 @@ function scheduleFit(view: View) {
     }).catch(error => { view.lastSize = ''; if (!view.disposed) notify(error); });
   }, 80);
 }
+async function refreshThreadProject() {
+  if (!desktop) return;
+  try {
+    const recent = await invoke<{id:string;path:string}[]>('project_recent');
+    recentThreadProjects.clear();
+    for (const project of recent) recentThreadProjects.set(project.id, project.path);
+    threadSidebar?.setProjects(recent.map(project => ({projectId:project.id,label:project.path.replace(/[\\/]+$/, '').split(/[\\/]/).pop()})));
+    const key = (path:string) => path.replace(/^\\\\\?\\/, '').replace(/[\\/]+$/, '').toLowerCase();
+    const project = recent.find(project => key(project.path) === key(projectPath));
+    if (project) threadSidebar?.setProject({projectId:project.id,label:project.path.replace(/[\\/]+$/, '').split(/[\\/]/).pop()});
+  } catch { notify('Saved project threads are unavailable.'); }
+}
 async function connectWorkspace() {
   if (!desktop) return;
   const generation = ++scopeRevision;
   const previous = persistence; persistence = null;
   if (previous) { const released = await previous.release(); if (!released.ok || released.dirty) notify('The previous layout could not be fully saved.'); previous.dispose(); }
   try {
-    const recent = await invoke<{ id: string; path: string }[]>('project_recent');
-    if (generation !== scopeRevision) return;
-    const key = (path: string) => path.replace(/^\\\\\?\\/, '').replace(/[\\/]+$/, '').toLowerCase();
-    const project = recent.find(project => key(project.path) === key(projectPath));
-    if (!project) return;
-    threadSidebar?.setProject({projectId:project.id,label:projectPath.replace(/[\\/]+$/, '').split(/[\\/]/).pop()});
-    const controller = createWorkspacePersistence({ scope: { projectId: project.id, workspaceId: 'main' }, initialLayout: workspaceLayout,
+    const controller = createWorkspacePersistence({ scope: { workspaceId: 'main' }, initialLayout: workspaceLayout,
       transport: createTauriWorkspaceTransport((command, args) => invoke(command, args)),
       onStatus(status) {
         if (generation !== scopeRevision) return;
@@ -214,7 +219,7 @@ async function connectWorkspace() {
       recover.onclick = async () => {
         recover.disabled = true;
         try {
-          await invoke('workspace_recover', { request: { projectId: project.id, workspaceId: 'main', expectedRevision: loaded.revision } });
+          await invoke('global_workspace_recover', { request: { workspaceId: 'main', expectedRevision: loaded.revision } });
           controller.dispose(); persistence = null; recover.remove(); await connectWorkspace();
         } catch (error) { notify(typeof error === 'object' && error && 'message' in error ? error.message : 'Layout recovery was refused.'); recover.disabled = false; }
       };
@@ -317,27 +322,63 @@ async function stopTerminal(view: View) {
 const projectPicker = createProjectPicker({ desktop, getPath: () => projectPath,
   onSelected: (path, chosen) => {
     const changed = path !== projectPath; setProject(path); render();
-    if (changed && chosen) void connectWorkspace();
+    if (changed && chosen) void refreshThreadProject();
     if (chosen && pendingStart) pendingStart.projectChosen = true;
   }, onCreate: () => { newProject.open(); }, reportError: notify });
 const newProject = createNewProjectDialog({ desktop, onCreated: project => projectPicker.acceptCreated(project),
   prepareOpen: () => projectPicker.prepareForCreation(), notify });
-createAgentSetup({
-  check: agentId => invoke('agent_check', { agentId }),
-  async open(agentId) {
-    if (!projectPath || !projectPicker.canStart()) throw new Error('Choose a project first.');
-    const started = await invoke<{ session: SessionInfo; threadId: string }>('agent_start', { agentId, cwd: projectPath, rows: 24, cols: 80 });
-    attachTerminal(started.session, focusedGroup(), started.threadId);
+let newSessionGroup: string | null = null;
+const recentThreadProjects = new Map<string,string>();
+const newSession = createNewSession({
+  projects: () => desktop ? invoke('project_recent') : Promise.resolve([]),
+  harnesses: [{ id: 'claude_code', label: 'Claude Code' }, { id: 'powershell', label: 'PowerShell' }],
+  browse: desktop ? async () => {
+    const requestId = createRequestId(); await beginMutation(requestId);
+    const selected = await browseFolder('project', undefined, requestId);
+    return selected.kind === 'project' ? selected.project.path : null;
+  } : undefined,
+  async open(selection) {
+    if (!desktop) throw new Error('Open the desktop app to start a session.');
+    if (starting) throw new Error('A session is already opening.');
+    starting = true; $<HTMLButtonElement>('#new-terminal').disabled = true;
+    try {
+    const selected = await invoke<{id:string;path:string}>('project_select', {path:selection.projectPath});
+    const started = await invoke<{session:SessionInfo;threadId:string}>(selection.harnessId === 'powershell' ? 'shell_open' : 'agent_open',
+      {agentId:selection.harnessId,cwd:selected.path,rows:selection.rows,cols:selection.cols});
+    setProject(selected.path);
+    threadSidebar?.setProject({projectId:selected.id,label:selected.path.replace(/[\\/]+$/, '').split(/[\\/]/).pop()});
+    const group = tabGroups(workspaceLayout.root).some(group => group.id === newSessionGroup) ? newSessionGroup! : focusedGroup();
+    attachTerminal(started.session, group, started.threadId);
+    await refreshThreadProject();
     void threadSidebar?.refresh();
+    } finally { starting = false; $<HTMLButtonElement>('#new-terminal').disabled = false; }
   },
-  login: () => Promise.reject(new Error('Sign-in is not available until this build is qualified.')),
-  reportError: notify,
   restoreFocus: () => setFocus(focusedGroup()),
 });
+function openNewSession(group: string = focusedGroup(), path?: string) {
+  if (starting) return;
+  const selectedProject = threadSidebar?.currentProjectId();
+  const selectedPath = selectedProject ? recentThreadProjects.get(selectedProject) : undefined;
+  newSessionGroup = group; newSession.show(path ?? selectedPath);
+}
 threadSidebar = createThreadSidebar({
   host: $('#work-area'),
   list: request => desktop ? invoke('thread_list', {request}) : Promise.resolve({rows:[],next:null}),
-  create: desktop ? request => invoke('thread_create', {request}) : undefined,
+  onNewSession: projectId => {
+    const path = recentThreadProjects.get(projectId);
+    if (!path) { notify('Choose the project folder for this session.'); openNewSession(); return; }
+    openNewSession(focusedGroup(), path);
+  },
+  onSelect: thread => {
+    const panel = workspaceLayout.views.find(panel => panel.resource.kind === 'terminal' && panel.resource.threadId === thread.id);
+    if (!panel) return;
+    const group = tabGroups(workspaceLayout.root).find(group => group.tabs.includes(panel.id));
+    if (!group || !views.has(panel.id)) return;
+    changeLayout({type:'hide',viewId:panel.id,hidden:false});
+    changeLayout({type:'collapse',groupId:group.id,collapsed:false});
+    changeLayout({type:'activate',groupId:group.id,viewId:panel.id});
+    setFocus(group.id);
+  },
   loadState: desktop ? async () => {
     const snapshot = await invoke<{revision:number;settings:ThreadSidebarState}>('thread_sidebar_load');
     sidebarRevision = snapshot.revision; return snapshot.settings;
@@ -378,7 +419,7 @@ confirmDialog.addEventListener('close', () => {
   else settlePendingStart();
 });
 $('#project').onclick = openProjectDialog;
-$('#new-terminal').onclick = () => void startTerminal(focusedGroup());
+$('#new-terminal').onclick = () => openNewSession();
 $('#restore').onclick = () => { for (const view of workspaceLayout.views.filter(view => view.hidden)) changeLayout({ type: 'hide', viewId: view.id, hidden: false }); setFocus(focusedGroup()); };
 $('#layout-toggle').onclick = () => {
   preferredAxis = preferredAxis === 'columns' ? 'rows' : 'columns';
@@ -400,7 +441,7 @@ document.addEventListener('keydown', event => {
   }
   if (modalOpen() || !event.ctrlKey || !event.shiftKey) return;
   if (event.key.toLowerCase() === 'f') { event.preventDefault(); terminalFind.open(); }
-  if (event.key.toLowerCase() === 't') { event.preventDefault(); void startTerminal(focusedGroup()); }
+  if (event.key.toLowerCase() === 't') { event.preventDefault(); openNewSession(); }
   if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
     event.preventDefault(); const neighbor = keyboardNeighbor(workspaceLayout, focusedGroup(), event.key === 'ArrowLeft' ? 'left' : 'right', { width: workspace.clientWidth, height: workspace.clientHeight }); if (neighbor) setFocus(neighbor);
   }
@@ -463,6 +504,7 @@ async function initialize() {
     }
     // Window controls stay usable while missing/removable paths are checked.
     await projectPicker.restore();
+    await refreshThreadProject();
     await connectWorkspace();
   } catch (error) { $('#runtime-status').textContent = 'Runtime unavailable'; notify(error); }
 }

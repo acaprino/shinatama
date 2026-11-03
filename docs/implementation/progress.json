@@ -2,7 +2,7 @@
   "schema_version": 1,
   "updated_at": "2026-11-03",
   "base_head": "46435ab",
-  "git_state": "C23 conversation detail checkpoint b41390a54a79df8a4ef0e347061050344a2e9e3d is saved. Working C25.1 schema4 durable drafts/sidebar passes state/migration/native DB-only UI checks. Actual-Claude integration is deferred by resource policy, not bypassed. Node publisher license bundle is pinned and verified; portable local packaging is being prepared. Full product completion remains open.",
+  "git_state": "C15.3 one-Open flow verified in actual Windows UI: Claude starts with automatic service/preparation; two PowerShell projects keep separate saved threads in one global workspace. Global state CAS and real-default resource-pressure regression pass. C25.1 is checkpointed in7e5a2030a3adbddfa85f8171b421b5766999d847. Provider/auth, further harnesses, native resume, floating windows and full product completion remain open; Daodan remains deferred. Independent C46/widget work is preserved.",
   "steps": {
     "B00": {
       "status": "committed",
@@ -839,7 +839,8 @@
         "docs/verification/2026-11-02-C09R-faults.md"
       ],
       "limits": [
-        "Generic resource infrastructure and bounded synthetic qualification only. Dependent C09/C13 must apply and qualify it in actual terminals/sidecars; no full product resilience or native agent readiness is claimed."
+        "Generic resource infrastructure and bounded synthetic qualification only. Dependent C09/C13 must apply and qualify it in actual terminals/sidecars; no full product resilience or native agent readiness is claimed.",
+        "C15.3 calibrates desktop pressure entry/recovery to90%/87.5% with an actual-default regression;95% emergency, fixed native quotas, memory reserves and culprit-only intervention remain unchanged."
       ],
       "checks": [
         "cargo test --offline -p shinatama-engine --test resource_faults -j1 -- --test-threads=1 --nocapture",
@@ -1090,9 +1091,10 @@
         }
       },
       "limits": [
-        "No layout, theme or find action starts/restarts a process. Full native-agent and release gates remain separate."
+        "No layout, theme or find action starts/restarts a process. Full native-agent and release gates remain separate.",
+        "Direttiva utente 2026-11-03: per il workspace normale lo storage globale ui.workspace.main.v1 sostituisce l’accoppiamento layout/progetto. Il filtro dei progetti non cambia la disposizione; viste di thread da progetti diversi possono coesistere. API e record dei layout per progetto già salvati sono conservati. Riallineamento e prova tracciati in C15.3; nessuna nuova unità pending aggiunta a C08 già committato."
       ],
-      "next_action": "Continue C09 native fault qualification and visible applied resource limits, then finish sidecar/checkup integration."
+      "next_action": "Applicare la disposizione globale in C15.3 conservando i record legacy; temi e profili già verificati restano al checkpoint C08."
     },
     "C09": {
       "status": "committed",
@@ -1257,12 +1259,34 @@
           "limits": [
             "Startup qualification only; provider traffic and authentication remain Unknown."
           ]
+        },
+        "C15.3": {
+          "status": "verified",
+          "commit_sha": null,
+          "evidence": [
+            "docs/notes/2026-11-03-project-thread-workspace.md",
+            "docs/notes/2026-11-03-session-open-fix.md"
+          ],
+          "checks": [
+            "npm run build",
+            "cargo test --offline --locked -p shinatama-state -j1 --lib global_workspace::tests -- --test-threads=1",
+            "cargo test --offline --locked -p shinatama-desktop --features custom-protocol -j1 --bin shinatama-desktop resource_governor::tests::desktop_defaults_allow_measured_headroom_and_recover_after_acute_pressure -- --test-threads=1",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/new-session-smoke.mjs (claude_code and powershell)"
+          ],
+          "limits": [
+            "Claude Code 2.1.316 original TUI in the qualified safe profile and PowerShell; no login response, real provider request or other harness qualification.",
+            "Global workspace and saved project threads pass the actual two-project UI flow; native resume and floating windows remain open."
+          ],
+          "next_action": "Registrare l’esito reale della prova Open corretta e dell’indipendenza del layout dal filtro progetto; promuovere soltanto il perimetro dimostrato, poi creare il checkpoint funzionale.",
+          "platforms": [
+            "Windows 11 x64"
+          ]
         }
       },
       "limits": [
         "Only exact Claude2.1.316 safe-mode empty-set TUI startup on Windows is observed; authentication, provider traffic, login operation, resume/fork and full QA remain open."
       ],
-      "next_action": "Complete the C14 dependency and qualify the next explicit Claude capabilities; continue S1 bounded native archive readers."
+      "next_action": "Checkpoint the verified one-Open path; deliver the runnable local copy for manual sign-in, then C15.4 provider/auth qualification and further harness implementations."
     },
     "C22": {
       "status": "pending",
@@ -1379,8 +1403,8 @@
       "commit_sha": null,
       "units": {
         "C25.1": {
-          "status": "verified",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "7e5a2030a3adbddfa85f8171b421b5766999d847",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -1399,7 +1423,7 @@
           ]
         }
       },
-      "next_action": "Checkpoint durable drafts/sidebar; integrate exact native-session discovery and resume after search/dependencies, then qualify the native-start persistence hook when resource admission is healthy.",
+      "next_action": "Thread e sidebar salvati nel checkpoint 7e5a203; collegare prima il nuovo Open al progetto proprietario e al workspace globale. Riprendere discovery nativa e resume dopo la priorità utente e le dipendenze.",
       "limits": [
         "No automatic resume, native ID fabrication, TTL ownership stealing or native activity claims. Parent C25 remains open."
       ]

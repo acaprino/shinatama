@@ -1,0 +1,10 @@
+#new-session-dialog { width: min(560px, calc(100vw - 32px)); }
+#new-session-dialog form { display: grid; gap: 10px; }
+#new-session-dialog .dialog-heading { margin-bottom: 6px; }
+#new-session-dialog label { color: var(--text-2); }
+.new-session-folder { display: flex; align-items: stretch; gap: 8px; min-width: 0; }
+#new-session-project { flex: 1; min-width: 0; }
+#new-session-recent { width: 100%; min-width: 0; margin-bottom: 4px; }
+#new-session-status { min-height: 1.5em; margin: 0; color: var(--text-2); }
+#new-session-error { margin: 0; color: var(--error); overflow-wrap: anywhere; }
+#new-session-dialog .dialog-actions { margin-top: 4px; }
