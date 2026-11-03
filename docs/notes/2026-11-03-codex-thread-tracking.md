@@ -135,3 +135,96 @@ tracked Claude rispetto a transport condiviso, hook PowerShell e observer di
 questo incremento. I 15 test mirati elencati sopra sono stati rieseguiti e
 passano sullo stesso albero prima del commit. Restano richieste le prove native
 Codex dell'elenco precedente prima di qualsiasi promozione.
+
+## Esiti nativi del 3 novembre sera: prova StartNew PASS
+
+`apps/desktop/tests/codex-native-smoke.mjs` (nuova, protetta; evidenza in
+`.prototype-evidence/codex-native.json`) esegue l'elenco rimasto aperto con
+Codex reale 0.166.0 sotto `p14-probe.exe wrap-run`: **PASS**, ripetuto sulla
+build finale dopo il revert dei diagnostici temporanei. Undici controlli:
+
+1. apertura tracked senza UUID fabbricato: thread `unbound`, zero segmenti e
+   zero attivazioni prima del turno; onboarding reale guidata (scelta login →
+   "Provide your own API key" prefilled da `OPENAI_API_KEY` sintetica, salvata
+   nel box; nessun'altra schermata);
+2. primo `SessionStart` autenticato (`source=startup`) consegna l'UUID scelto da
+   Codex al primo turno: segmento e attivazione committati con identità esatta
+   (instance/thread/native), ricevuta di cleanup attiva collegata a processo e
+   ticket esatti;
+3. limiti: `applied` coincide col profilo tracked (1 GiB job, 768 MiB processo,
+   8 processi, 1000 bp CPU, code 4 MiB/512), phase `running`/reason `observed`,
+   nessun `resource_limit`, zero rifiuti di coda; la catena hook gira dentro il
+   job (contatori job 13→17 processi totali: cmd→PowerShell→helper);
+4. controprova nativa: il rollout di Codex `sessions/…/rollout-…-<uuid>.jsonl`
+   nel box privato porta lo stesso UUID e `session_meta.id` corrisponde;
+5. chiusura: owner chiuso, ricevuta consumata, thread `inactive`;
+6. ripetizione: seconda sessione sullo stesso progetto senza onboarding
+   ripetuta (credenziali e fiducia nel box persistono), nuovo UUID distinto,
+   nessuna associazione incrociata (voce di journal `exact` solo contro il
+   proprio thread), seconda ricevuta consumata, frame chiuso con exit 0;
+7. perimetro provider: guardia solo-inoltro, 103 CONNECT/absolute-form negati,
+   0 inoltri, 0 colpi al provider sintetico, nessun turno di modello completato.
+
+### Difetti di prodotto trovati e corretti dalla prova (commit 14b07ba)
+
+Nessuno era visibile ai test esistenti; tutti bloccavano il lancio tracked reale:
+
+1. **Bound argv obsoleto a 16** in tre punti indipendenti (pre-check
+   `start_prepared_with_lifecycle`, codifica/decodifica del frame `Configure`
+   in `protocol.rs`, `command_line` in `windows_pty.rs`): la ricetta tracked
+   Codex compone 21 argomenti (15 fissi + 6 hook). Unificati in un solo
+   `MAX_LAUNCH_ARGUMENTS = 32` condiviso, con roundtrip del wire frame per la
+   ricetta reale e verifica del builder PTY; la ricetta engine ora fissa il
+   conteggio esatto 21.
+2. **`startup_scope` senza la ricetta tracked Codex**: `receipt.matches` restava
+   falso (`QualificationRequired`) nonostante il canary superato. Aggiunta
+   `WorkspaceWriteNoDaemonSessionHooks` per
+   `codex-system-box-tracked-no-daemon-workspace-tui-v1`.
+3. **Chiave di fiducia strappata dal parser `-c` di Codex**:
+   `hooks.state."C:\<session-flags>\config.toml:session_start:0:0"` non arriva
+   mai allo stato perché `config_override.rs` spezza al primo `=` e
+   `apply_toml_override` splitta il path sui punti senza riconoscere le quoted
+   key (il punto di `config.toml` lacera la chiave); l'hook risultava untrusted
+   e la TUI apriva la schermata di review bloccando il turno. Sostituita con
+   override a segmento singolo
+   `hooks={state={'C:\<session-flags>\config.toml:session_start:0:0'={enabled=true,trusted_hash="sha256:…"}}}`
+   posizionato **prima** della definizione `hooks.SessionStart` (un override a
+   segmento singolo successivo rimpiazzerebbe l'intera tabella). Verificato su
+   Codex reale via `codex app-server` + `hooks/list`: chiave esatta,
+   `currentHash` identico al digest engine, `trustStatus=trusted`, nessun
+   warning di impostazione ignorata. Il digest resta quello della definizione
+   normalizzata già verificata staticamente.
+4. **Test committato già fallente** `opaque_binding_debug_…` (suite engine rossa
+   a HEAD, fuori dai 15 test mirati): `NativeLaunchBinding::Debug` formattava la
+   versione col derive struct invece del Display SemVer atteso; corretto il
+   Debug, suite engine 103/103.
+
+Verifiche di contorno sulla build finale: engine lib 103/103, terminal lib
+14/14, desktop bins 28/28 (lifecycle 3/3), hook bin 4/4, e
+`claude-resume-smoke.mjs` rieseguita **PASS** come regressione del percorso
+tracked Claude sul bound argv condiviso. Ricostruzione desktop valida solo con
+`cargo build -p shinatama-desktop --features custom-protocol` (senza, il WebView
+mostra `chrome-error://chromewebdata/`); il binario `shinatama-terminal-helper`
+va ricostruito insieme al desktop perché condivide il bound del wire protocol.
+
+### Limiti di questa prova (non dichiarare superati)
+
+- Nessun turno di modello completato: Codex 0.166.0 non onora alcun override
+  env del base URL di loopback (`OPENAI_BASE_URL` ignorato; `OPENAI_API_KEY`
+  non è una credenziale per la TUI, `enable_codex_api_key_env=false`, solo
+  prefill dell'onboarding), quindi ogni rotta esterna è rifiutata dalla guardia
+  e la qualità/modello reale resta fuori perimetro. Il gancio `SessionStart`
+  è dimostrato perché Codex lo esegue a inizio turno, prima della richiesta
+  al modello.
+- La schermata di fiducia cartella non è comparsa (progetto sintetico senza
+  marcatori: Codex la salta per cartelle projectless); il percorso trust-persist
+  non è esercitato da questa prova.
+- Credenziali sintetiche salvate nel box tramite l'onboarding reale del
+  prodotto; nessun account reale, nessun OAuth ChatGPT.
+- La guardia è proxy-forwarding-only, non un firewall OS: tutti i tentativi
+  osservati hanno raggiunto la guardia (103 dinieghi), ma un bypass diretto
+  non è escluso a livello di sistema; con credenziale sintetica un'eventuale
+  uscita diretta fallirebbe l'autenticazione prima dell'invio del prompt.
+- `native_resume` Codex resta **false**: questa prova copre solo StartNew.
+  Servono preparazione Resume lanciabile con qualifica propria e prova di
+  continuità (stesso UUID, contesto precedente) prima dell'abilitazione.
