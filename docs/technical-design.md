@@ -10,9 +10,9 @@ means a pane drawn by Shinatama, not a Rust UI toolkit. The full TL1 gate remain
 
 **Hop decision, 2026-11-03 (Accepted 2026-11-04):** native import and native fork are out of
 scope in every version; a handoff always carries the seed document and native stores stay
-read-only except through the agent's own commands (ADR-0016 v2, ADR-0022 v2). Text below that
-calls native import or handoff "post-v1" or gated describes the withdrawn route, preserved as
-historical design (see the note at 5.4).
+read-only except through the agent's own commands (ADR-0016 v2, ADR-0022 v2). The closed
+write route survives only in [the Mukade handover record](mukade-handover.md), as the re-entry
+design a future decision would have to update.
 
 Date: 2026-10-26; native tiling revision: 2026-10-29; last revised 2026-11-01.
 Status: draft, not approved. Companion of
@@ -59,9 +59,6 @@ they must hold.
    on both (6.2).
 2. **The source records are never modified.** Shinatama never edits, deletes or moves
    the source session's records. "Archived" is a mark in Shinatama's own database.
-   A post-v1, gated same-store handoff may create only a new session with a distinct
-   id in the authorized destination store; creating that session is not permission to
-   alter the source records.
 3. **Every step is journaled before its effect and idempotent after it** (6.3), keyed by
    the hop id, so a crash at any point is recovered by reading the journal.
 4. **What the destination receives is exactly what the user previewed**, stored
@@ -70,12 +67,12 @@ they must hold.
    launch manifest.
 6. **A message from another agent is quoted data**, never an instruction and never an
    authorization (7.6).
-7. **Native stores are read-only in v1**, except through the agent's own commands. The
+7. **Native stores are read-only in every version**, except through the agent's own commands. The
    invariant covers the user's system homes, read-only roots and the agents' boxes; a companion's
    scratch home (companion spec 6 B) is a store Shinatama creates, owns and deletes on Close, and
    is outside it (decided 2026-11-01, ADR-0012 v2).
-   V1 hops use only `seed_prompt` or `native_resume`. Writing a foreign session file
-   is post-v1 and needs its own pair/version, privacy, store and recovery gates (5.4).
+   Hops use only `seed_prompt` or `native_resume` in every version; writing a foreign session
+   file is out of scope (decision 2026-11-03, ADR-0016 v2; 5.4).
 
 Host-resilience amendment, user 2026-11-02: subprocess instability must remain
 local; adaptive resource control and emergency termination of only the responsible
@@ -232,8 +229,7 @@ bounded native reader; limiting cache or rendering alone is not sufficient. Each
 asynchronous result carries `(request_id, panel_revision, store_root_id,
 native_session_id)` and is discarded after cancellation or a revision change. Child-process readers inherit the adapter's isolated launch context, timeout
 and cleanup. Opening is read-only and must not resume or write. Live seed hops and
-historical handoffs are separate explicit commands; post-v1 native writes additionally
-require confirmation, journal and a reserved destination for reconciliation. Restoring
+historical handoffs are separate explicit commands. Restoring
 a panel never replays a command. Raw display and copy use redaction by default and are
 never logged or persisted by the UI. Lineage distinguishes the thread chain, native
 parent and native children and does not infer missing or ambiguous relations.
@@ -555,148 +551,70 @@ files. SQLite serves only an opt-in search index. There is no list or export com
 listing is a walk of the directory (or ACP `session/list`); the web UI's `/export` zip is not
 used. The shapes inside `data` are [U].
 
-### 5.4 Writing into a native store: stages
+### 5.4 Writing into a native store: a closed route
 
-> **Decision 2026-11-03 (user; ADR-0016 v2, ADR-0022 v2, Accepted 2026-11-04):** native import
-> is out of scope in every version; a handoff always carries the seed document (ADR-0019).
-> Stages 2–3 below, the "`hop()` and native writers are post-v1" framing of 5.4.1, and the
-> `native_import` branches of 6.2/6.3 are preserved as historical design; no code path may
-> select them. Mukade's read-side APIs (5.4.1, `session-reader` feature) are unaffected.
+**Decision 2026-11-03 (user; ADR-0016 v2, ADR-0022 v2, Accepted 2026-11-04):** Shinatama
+writes no agent's native store in any version. Every handoff carries the seed document (5.6,
+ADR-0019) through the destination's normal prompt channel. The former stage model — stage 2
+"use an agent's own import", stage 3 "Shinatama writes a native file or rows" — is withdrawn,
+together with the `native_import` branches of 5.5 C, 6.2 and 6.3. The reviewed design of the
+write route, its gates and its failure handling is preserved in
+[the Mukade handover record](mukade-handover.md) as the re-entry design that a future decision
+superseding ADR-0016 v2 would have to update; ADR-0022 v1's rules survive as the mandatory
+re-entry preconditions (ADR-0022 v2).
 
-The stages below preserve the research history, not three implemented release stages. For the
-current proposed Mukade integration, its actual API, its limits and the host's responsibilities,
-see [Mukade handover integration](mukade-handover.md). In particular `hop()` writes a new native
-session; it does not implement Shinatama's verification, journal or switch.
+The capability facts established by the first-milestone probes are preserved because register
+rows and decision records cite them. None of them enables a route:
 
-1. **Stage 1 (v1): never write.** The destination gets a seed (5.6) through its normal
-   prompt channel.
-2. **Stage 2: use an agent's own import.** Candidates: Codex **already imported 296 Claude
-   Code sessions as native Codex threads** [V: `~/.codex/external_agent_session_imports.json`
-   holds, per record, `source_path`, `content_sha256`, `imported_thread_id`, `imported_at`,
-   `source_modified_at`, `title`, `connector_names`; all 296 sources are under
-   `~/.claude/projects/`]. How that import is triggered (a Desktop app action, an app
-   server method, a command), whether tool calls survive as tool items, and whether the
-   imported thread can be resumed from the command line are all **[U]**; they are the first
-   things to prove for the Claude → Codex pair. Other candidates found by research
-   (details in 5.7):
-   - **Codex app server:** `thread/start` then `thread/inject_items{threadId, items}`
-     appends raw Responses items to a thread **without starting a turn**, and the Codex TUI
-     can attach to that server with `--remote ws://…|unix://` [R-S]. This is the most
-     promising route to a *native-looking* Codex destination; whether injected items are
-     persisted to the rollout file and survive `codex resume` is **[U]** (the research
-     did not trace the write).
-   - **OpenCode:** the official `opencode session import <file> --directory <D>` (HTTP 409 if
-     the id exists) or `POST /api/experimental/session/import`, with a JSON interchange
-     format `{info, messages[]}` [R-S]; import is **event-sourced** (a `Created` event plus
-     inserts with sequence numbers), so writing the SQLite rows directly is wrong and
-     never done. Also `POST /api/session {id}` then `/synthetic` admits messages without
-     running the agent loop [R-S].
-      **Run on 2026-10-27 ([OC2 record](verification/2026-10-27-OC2-opencode-session-interchange.md)):** in scratch
-      DBs on 2.1.4 the interchange is exactly `{info, messages[]}` and the round trip is
-      lossless for every kind tested — `user`, `assistant` (text and **tool parts**: name,
-      state, input and content all preserved), `compaction`, `system`, `synthetic`, `shell`;
-      `POST /api/session {id}` accepts a chosen `ses_` id and a second import of the same id
-      answers **409 ConflictError** ("Session already exists"); the CLI
-      `session import <file> --directory <D>` / `session export <id>` speak the same JSON.
-      Caveat: `/synthetic` with `resume:false` admits an **inbox** item, not a transcript
-      message — it is not in the export until executed.
-   - **The `mukade` interchange library — Shinatama's own (decided 2026-10-27; published as its own
-     repository on 2026-10-28).** Readers and writers for Claude Code, Codex, OpenCode and Pi are
-     written and owned in the [`mukade`](https://github.com/acaprino/mukade) repository (Rust,
-     MIT); Shinatama links the crate in-process for harness hops. No third-party session converter
-     is a dependency. Implementation spec: [`session-interchange-spec.md`](https://github.com/acaprino/mukade/blob/master/docs/session-interchange-spec.md);
-     tool mapping: [`tool-conversion-tables.md`](https://github.com/acaprino/mukade/blob/master/docs/tool-conversion-tables.md); evidence: register
-     row H27 (the bench used an external converter only as a probe of the destinations).
-   - **UniSessions** (third-party, MIT, Python 3.11+; PyPI `unisessions` 0.5.0, GitHub
-     vibheksoni/session-export): converter with 110+ directions across Codex, Claude, Pi,
-     OpenCode, Devin, Factory, Windsurf, Grok, Freebuff, OMP, Command Code and T3, plus trace
-     export and an MCP search server. Trial on 2026-10-27 (record
-     [UNI1](verification/2026-10-27-UNI1-unisessions-trial.md)): a synthetic Claude session converts cleanly to a
-     Pi v3 JSONL (text and compaction markers preserved); its **OpenCode legs target the v1
-     export shape** — the output is rejected by 2.1.4's import (400: missing `info.cost`, then
-     `messages[0]` is not a v2 message) and a v2 export is read as nearly empty (1 record, cwd
-     empty, messages silently dropped); each `--write` mints a new `ses_` id, so re-runs
-     duplicate. Not used as the converter (the `mukade` library above); kept as a cross-check and
-     for the OC2 record (the OpenCode import itself is the official `session import`).
-   - **Pi:** no import command; its SDK says external history is restored by constructing
-     the session with a manager that holds those entries [R-D]; writing a v3 JSONL is
-     feasible but is stage 3.
-   - **Claude Code:** its SDK doc says restoring `<id>.jsonl` under a folder in `projects/`
-     before `resume` works [R-D]; whether the CLI accepts synthetic content is **not
-     established** (closed source). Stage 3. **`claude import [source]`** exists
-     [H: `claude import --help` on 2.1.310] with `--dry-run` and `--yes`; its source is one
-     of `codex`, `gemini`, `cursor`; its own description is "**Import config** from another
-     AI coding agent into Claude Code" — **configuration, not conversations**. A second
-     document (the user's paste of 2026-10-26, secondary sources) describes it as the
-     migration path from Codex but also speaks only of configuration; no evidence it
-     imports sessions. Treat it as **not a session import** until a fixture shows
-     otherwise; it is useful to the checkup (5.5 `install_daodan`) only in so far as it
-     moves the user's own Codex or Gemini configuration, which Shinatama never does
-     unasked.
-   - **Codex external-agent migration** (user's paste of 2026-10-26, **secondary sources:
-     third-party blogs, an issue, a docs mirror; not the primary docs**): a module
-     `external-agent-migration` exists in the `rust-v0.164.0` tree and JSON-RPC methods
-     `externalAgentConfig/detect` and `externalAgentConfig/import` were introduced in 0.128–
-     0.130; they scan Claude Code session JSONL files **of the last 30 days** and rebuild
-     them as Codex rollout entries, recording the result in
-     `~/.codex/external_agent_session_imports.json` [V for that file and its 296 records].
-     So Shinatama does not have to write a Codex rollout itself: for Claude → Codex it can
-     **ask Codex's own migration to import** the Claude session (through the app server)
-     and then `codex resume <imported_thread_id>`. Not established: the exact request and
-     response of `externalAgentConfig/import` (no example found), whether it can import one
-     named session, whether the **30-day window** is a hard limit, how it treats the
-     session of a *still-running* Claude instance, whether tool calls arrive as tool
-     items or as text, and what the post-import stale-hook-snapshot issue means in practice.
-     **The protocol itself can be read from the installed binary:** `codex app-server
-     generate-json-schema` and `generate-ts` [H: listed in `codex app-server --help`] emit
-     the real request and response types for 0.164.0 without starting a session, which turns
-     most of this paragraph into a milestone-1 check, not a guess.
+- **Codex's own Claude import (CX4, passed 2026-10-27):** in a scratch
+  `USERPROFILE`/`CODEX_HOME`, `externalAgentConfig/detect` + `import` imports one named Claude
+  session as a Codex thread and `thread/resume` loads it back. Tool calls arrive as **text
+  markers** inside assistant messages (`[external_agent_tool_call: …]`,
+  `[external_agent_tool_result]`), not native tool items — the declared loss of that pair. The
+  30-day window is the detector's `maxSessionAgeDays` filter; an already-imported session is
+  not re-detected; a session still being appended imports without error. The field observation
+  that 296 real Claude sessions had already been imported
+  (`~/.codex/external_agent_session_imports.json` [V]) remains the evidence that the module
+  exists; `thread/items/list` answers `-32601 not supported yet` on 0.164.0.
+- **OpenCode's own import (OC2, passed 2026-10-27):** `opencode session import <file>
+  --directory <D>` and `POST /api/experimental/session/import` speak `{info, messages[]}`; on
+  scratch DBs at 2.1.4 the round trip is lossless for every kind tested. Import is
+  **event-sourced**, so writing the SQLite rows directly is wrong and never done. A second
+  import of the same id answers **409 ConflictError** ("Session already exists");
+  `/synthetic` with `resume:false` admits an inbox item, not a transcript message.
+- **Claude Code:** `claude import [source]` is a **configuration** import, not a conversation
+  import; whether the CLI resumes a hand-built `<uuid>.jsonl` stays an open capability
+  question (section 10 item 14) with no route to consume it.
+- **Pi:** no import command; the SDK's restore path would have meant writing a v3 JSONL
+  (stage 3, withdrawn).
+- **Hermes Agent:** an official `hermes sessions import --from claude|codex` exists (5.7);
+  no route consumes it either.
 
-     **Run on 2026-10-27 ([CX4 record](verification/2026-10-27-CX4-codex-claude-import.md)):** in a scratch
-     `USERPROFILE`/`CODEX_HOME`, `externalAgentConfig/detect` → `import` works for one named
-     Claude session and `thread/resume` loads it back from disk; the 30-day window is the
-     detector's `maxSessionAgeDays` filter (40 days excluded by default, included with 90 and
-     importable); an already-imported session is no longer detected (import history); a session
-     still being appended imports without error. Tool calls arrive as **text markers**
-     (`[external_agent_tool_call: …]`, `[external_agent_tool_result]`) inside assistant
-     messages, not as native tool items, and a Claude `tool_result` turn is rendered as an
-     assistant message: that is the declared loss for this pair. `thread/items/list` answers
-     `-32601 not supported yet` on 0.164.0.
-3. **Stage 3: Shinatama writes a native file or rows itself.** Only for an agent with no
-   import of its own, or whose own import loses what Mukade's writer keeps (Codex: tool
-   calls become text markers, CX4; decided by the user 2026-11-01, see 5.4.1), only if its fixtures pass against the real binary, only into a
-   **new** file or new rows (never editing an existing one), only after a backup of any
-   index the agent keeps, and never while that agent runs against the same store.
-   Verification: list the session with the agent's own list command and dry-run a resume in
-   a scratch home. Until all of this is true for a destination, it stays on stage 1.
+The UniSessions trial (UNI1) stays on record as an external-converter cross-check; no
+third-party session converter is used (5.4.1). The `mukade` library and its read-side role
+are described in 5.4.1.
 
 ### 5.4.1 The `mukade` interchange library (decided 2026-10-27; own repository since 2026-10-28)
 
-For native handovers, reading and writing are delegated to the `mukade` library: Rust, MIT,
-repository [`acaprino/mukade`](https://github.com/acaprino/mukade). It started here as an
-in-house interchange crate informed by the H27 bench and was published on its own on 2026-10-28, spec,
-tool tables, fixtures and conformance report included. Shinatama depends on the `mukade` crate —
-to be declared in `[workspace.dependencies]` when the runtime's first crate exists. In v1 only its
-readers and read-side APIs are used through the adapters; `hop()` and native writers are post-v1.
-Post-v1 the library is called in-process through `hop()` on top of one reader and one writer per
-agent. The H27 bench
+Session reading is delegated to the `mukade` library: Rust, MIT, repository
+[`acaprino/mukade`](https://github.com/acaprino/mukade). It started here as an in-house
+interchange crate informed by the H27 bench and was published on its own on 2026-10-28, spec,
+tool tables, fixtures and conformance report included. Shinatama depends on the `mukade` crate,
+declared in `[workspace.dependencies]` at a reviewed pin with an offline evidence snapshot
+(mukade-handover 1). In every version only its readers and read-side APIs are used through the
+adapters; its writers and `hop()`/`hop_into()` are never called (ADR-0016 v2). The H27 bench
 probed the harnesses using an external converter, not this current API. **No third-party session
 converter is used** (the user's decision of 2026-10-27;
 it replaces the earlier plan to link an external converter).
 
 - **Spec:** [`session-interchange-spec.md`](https://github.com/acaprino/mukade/blob/master/docs/session-interchange-spec.md) — the `Session` model
-  (semantic core + each source record kept verbatim), the reader and writer requirements L1–L14,
-  the hop options (whole history or portable summary, optional resume prompt, reasoning policy).
-  `DestinationNative` is currently refused by Mukade: the host must trigger native compaction
-  after importing the full history. A portable summary can also be generated by the source's
-  model; its live evidence and limitations are in [the integration guide](mukade-handover.md).
-- **Tools:** [`tool-conversion-tables.md`](https://github.com/acaprino/mukade/blob/master/docs/tool-conversion-tables.md) — translated into the
-  destination's equivalent tool where one exists, else carried as text; dated tables.
-- **Where the agent has its own import, the writer uses it:** OpenCode `session import`
-  (OC2, lossless), always with `--standalone`. Codex's importer turns tool calls into text
-  markers (CX4), so the Codex writer writes the rollout; Claude Code and Pi have no import and
-  their writers write the session file. Every write is a new session, in the agent's default
-  store or in a scratch root for tests, never while the agent runs against the same store.
+  (semantic core + each source record kept verbatim) and the reader requirements are what
+  Shinatama consumes. The writer requirements, the hop options (compaction modes, resume prompt,
+  reasoning policy) and their live evidence describe the closed write route and are preserved in
+  [the handover record](mukade-handover.md).
+- **Tools:** [`tool-conversion-tables.md`](https://github.com/acaprino/mukade/blob/master/docs/tool-conversion-tables.md) — the write-side tool
+  mapping (the destination's equivalent tool where one exists, else text); part of the closed
+  route, dated tables.
 - **Evidence:** H27 (the probe record of 2026-10-27, since removed from Mukade's documentation
   in its reorganization; its current records are indexed in
   [docs/README.md](https://github.com/acaprino/mukade/blob/master/docs/README.md#verification-records);
@@ -704,9 +622,10 @@ it replaces the earlier plan to link an external converter).
   record shapes of the four agents, what each sends to the model on resume and after its own
   compaction, and how each destination reacts to wrongly shaped sessions. Mukade's own tests
   and fixtures are separate from that external-converter probe.
-- Mukade returns its own receipt and manifest; `verify_import`, interactive `resume`, the seed
-  fallback (6.4), the nonce acknowledgement and the state machine (6.3) are Shinatama's.
-  No Shinatama runtime integration has been implemented yet.
+- Interactive `resume`, the seed fallback (6.4), the nonce acknowledgement and the state
+  machine (6.3) are Shinatama's; Mukade's receipt and manifest belong to the closed write
+  route. The read side is built (`shinatama-engine` behind its `session-reader` feature); the
+  hop runtime is not implemented yet.
 
 ### 5.5 The adapter contract (per agent)
 
@@ -714,7 +633,8 @@ Each adapter declares its **capabilities** (shown to the user, never hidden) and
 implements these operations. Anything not implemented is declared `unsupported`, not faked.
 
 The user's requirement (decided): **every supported agent has an adapter with export,
-import, resume and handover functions, and the rest of what is needed.** The engine
+import, resume and handover functions, and the rest of what is needed.** (The import
+capability was withdrawn by the decision of 2026-11-03; ADR-0016 v2, C below.) The engine
 depends only on this contract, never on a particular agent. Language-neutral sketch (the
 builder writes it as a Rust trait):
 
@@ -731,8 +651,9 @@ install_or_update(); install_daodan()                 -- the checkup; install_or
                                                       -- an Own program (side by side, rollback);
                                                       -- System program: report the update with
                                                       -- its owner's command, never run it
-system_homes() -> [home]                              -- read-only: search and import of the
-                                                      -- user's sessions while in a Box
+system_homes() -> [home]                              -- read-only: search of the user's
+                                                      -- sessions while in a Box; historical
+                                                      -- handoff is seed-only (6.2)
 
 B. Read side: list and EXPORT
 list_sessions(store_root_id, filter, include_children) -> [SessionSummary{
@@ -747,32 +668,26 @@ read_transcript(native_ref, from_cursor?, max_bytes, max_records) -> TranscriptP
 export(native_ref | thread, opts) -> an interchange file (5.5.1) + attachment files
 export_native(native_ref) -> the agent's OWN export where it has one       -- backup (opencode)
 
-C. Write side: IMPORT (post-v1 only)
-import_support() -> None | Official | Experimental | Stage3                 -- 5.4
-import(transcript, cwd, opts) -> native_ref    -- the agent's official import where it exists;
-                                                -- stage 3 only when gated; never edits a session.
-                                                -- Claude Code, Codex, OpenCode, Pi: Shinatama's
-                                                -- own writers do the write (5.4.1);
-                                                -- Hermes: its official import, Claude Code and
-                                                -- Codex sources only; DeepSeek Harness: None
-verify_import(native_ref, transcript) -> Report  -- the agent's own list command, a dry-run resume
-                                                -- in a scratch home, first and last items compared
+C. Write side: WITHDRAWN (decision 2026-11-03, ADR-0016 v2)
+import_support() -> None                       -- the import capability is out of scope in
+                                                -- every version, reported `unsupported` (5.4);
+                                                -- `import`/`verify_import` belong to the closed
+                                                -- route preserved in mukade-handover.md
 
 D. Run side: start, RESUME, fork
 start_new(cwd, spec) -> Instance     -- spec: seed channel, instance env, launch overrides,
                                      -- chosen session id when the agent allows it (5.7)
 resume(native_ref, cwd, catch_up?) -> Instance      -- native, same agent only
-fork(native_ref) -> native_ref                      -- optional; post-v1 fork hops (6.2): a NEW native
-                                                   -- session id, never a resume of a live session,
-                                                   -- and never a modification of source records
+fork(native_ref)                                    -- withdrawn (ADR-0016 v2): a fork hop always
+                                                   -- creates its distinct new session through
+                                                   -- `seed_prompt` (6.2), never an agent fork
 attach_backend(...) -> Instance                     -- optional, 5.7 item 4
 
 E. HANDOVER (the adapter's part of a hop; the engine owns the state machine, 6.3)
 handover_out(instance) -> Snapshot   -- check idle, read transcript, cursor, attachments, git state
 handover_in(snapshot, strategy) -> Instance
-                                      -- strategy native_resume | native_import | seed_prompt;
-                                      -- v1: native_resume | seed_prompt only; native_import is post-v1
-                                      -- post-v1 native_import uses Mukade's new native session and receipt;
+                                      -- strategy native_resume | seed_prompt in every version;
+                                      -- native_import is withdrawn (ADR-0016 v2);
 confirm_receipt(instance, nonce) -> Receipt         -- technical evidence + the nonce reply
 catch_up(instance, turns) -> ok                     -- 6.6
 release(instance) -> ok              -- close the source instance; never touches its native session
@@ -801,9 +716,10 @@ what it could not establish is listed there and in section 10.
 
 #### 5.5.1 Interchange format: `.stx.jsonl` ("Shinatama transcript", version 1) [C]
 
-What `export` writes and `import` reads, so that any agent can be exported and any agent
-can be imported through the same file, and so that a thread can be backed up, kept after
-the agent deleted it (Claude does after 30 days, 5.7) or moved between machines.
+What `export` writes, so that any agent's history can be backed up, kept after the agent
+deleted it (Claude does after 30 days, 5.7) or moved between machines as a readable file.
+The `import` leg of the format is withdrawn with the native write route (decision
+2026-11-03, ADR-0016 v2).
 
 - Line 1, header: `{"format":"shinatama-transcript","version":1,"thread","source":
   {"agent","agent_version","native_ref","session_id"},"cwd","git":{"branch","worktree",
@@ -817,9 +733,9 @@ the agent deleted it (Claude does after 30 days, 5.7) or moved between machines.
   `portable` (redacted, for sharing). Secrets are redacted in both before writing (6.4).
 - `reasoning` items are never exported. Attachments are exported as references with hashes;
   the files are copied only with `--with-attachments`.
-- **Round-trip law, tested per adapter:** `read_transcript(import(export(x)))` has the same
-  `user_text`, `assistant_text` and `compaction` items, in order, and the same tool items as
-  digests. What an agent cannot represent natively on import is listed in the report.
+- **Round-trip law: withdrawn with capability C (ADR-0016 v2).** It was
+  `read_transcript(import(export(x)))`; what remains tested per adapter is the export
+  fidelity: `read → export → read` stability (5.5.3) and the declared losses in the report.
 
 The file is Shinatama's redacted projection of the canonical transcript; Mukade's interchange
 JSON (`mukade dump`, the "portable Mukade JSON" export of main 5.16) is Mukade's own document.
@@ -834,7 +750,7 @@ shinatama sessions [--agent A] [--project P] [--json]       -> list_sessions
 shinatama find "text" [--agent A] [--json]                  -> the text index
 shinatama export <thread | agent:session> [-o file.stx.jsonl] [--mode full|portable]
                       [--format stx|mukade|native|md] [--with-attachments]         -> export
-shinatama import <file> --agent A [--cwd DIR] [--dry-run]   -> import (+ verify_import); post-v1
+shinatama import <file> --agent A [--cwd DIR] [--dry-run]   -> withdrawn (2026-11-03, ADR-0016 v2)
 shinatama resume <thread | agent:session> [--agent A]       -> resume, or a hop if A differs
 shinatama hop <thread> --to A [--preview] [--yes]           -> handover (6)
 shinatama doctor [--agent A]                                -> detect, fixture_gate, auth_status
@@ -852,8 +768,8 @@ is needed (`shinatama hop --recover`). [C]
 
 Every adapter ships with a contract test suite run against **recorded fixtures per agent
 version** (structure-only and synthetic, never the user's real conversations):
-`list_sessions` matches; `read → export → read` is stable; the round-trip law of 5.5.1 where
-import is supported; the canary hop of 11.2 against every other adapter, in both directions;
+`list_sessions` matches; `read → export → read` is stable; the canary hop of 11.2 against
+every other adapter, in both directions;
 refusal and degraded paths (`fixture_gate`, signed out, session deleted by retention,
 agent still working); every capability it declares is exercised and every one it does not
 declare is refused. An agent that fails its suite for the installed version is `Degraded`:
@@ -896,7 +812,6 @@ An adapter's `seed_channel` is one of:
 - `paste`: after the agent's input is ready, Shinatama writes the seed into the PTY as a
   bracketed paste followed by Enter. No size limit from the command line, but it depends
   on the agent's UI and on its input being ready. [U]
-- `native_import`: stage 2 above.
 
 ### 5.7 Per-agent facts from the research task [R] (versions: Claude Code 2.1.310, Codex 0.164.0, OpenCode 2.1.4, Pi 1.2.0; added 2026-10-31: Hermes Agent 0.22.5, DeepSeek Harness 0.2.1-rc.5)
 
@@ -1093,8 +1008,9 @@ its own script with a bundled uv; docs hermes-agent.nousresearch.com) [R: resear
 - Export and import: `hermes sessions export <out|-> --session-id <id> --format
   jsonl|md|html|trace` (`trace` is Claude Code JSONL). **Official import:** `hermes sessions
   import --from claude|codex [path]`, and `hermes --resume @claude` imports and resumes in one
-  step; tool activity is condensed into short notes. This is Hermes's own
-  `import_support = Official` for Claude Code and Codex sources (post-v1, 6.2), not Mukade's.
+  step; tool activity is condensed into short notes. This is Hermes's own import capability
+  for Claude Code and Codex sources, not Mukade's; like every import capability it has no
+  route to consume it (5.4, ADR-0016 v2).
 - Headless: `hermes chat --oneshot -q` (or `-q` without a TTY) answers and exits; `-z
   "<prompt>"` prints only the final text; `--format stream-json` emits JSONL (`system`,
   `text`, `tool_use`, `tool_result`, `result`; `result` with `exit_code` ends the turn).
@@ -1275,15 +1191,13 @@ reasoning. Those are listed in the hop dialog as lost.
 
 ### 6.2 Strategies, per (source, destination)
 
-V1 permits only `native_resume` and `seed_prompt`. `native_import` and native fork are
-post-v1 strategies and cannot be selected until their pair/version, privacy, store and
-recovery gates pass.
+Every version permits only `native_resume` and `seed_prompt`. `native_import` and native fork
+are withdrawn (decision 2026-11-03, ADR-0016 v2) and cannot be selected at all.
 
 | strategy | when | what the destination gets |
 |---|---|---|
 | `native_resume` | destination = an agent that already has a segment of this thread | its own earlier session, plus a catch-up message (6.6) |
-| `native_import` | **post-v1:** Mukade supports the pair and Shinatama's version, privacy, store and recovery gates pass | a new native session plus Mukade receipt and manifest (5.4.1) |
-| `seed_prompt` | every other supported v1 handoff | a new native session started with the seed |
+| `seed_prompt` | every other supported handoff, in every version | a new native session started with the seed |
 | `refuse` | destination not installed/signed in and cannot be fixed, or agent is launch-only | an explanation and, where possible, the login flow |
 
 **Live hop and historical handoff.** `hop_live` starts from a hosted instance/segment and
@@ -1292,8 +1206,8 @@ uses the cursor, idle, close/fork and catch-up rules below. `handoff_history` st
 transaction the host creates or reuses the project mapping and persists a derived thread
 and historical source segment, with no live activation. It never closes a source process,
 waits for idle or performs live catch-up. The source fingerprint is captured for the
-preview and checked again before use; a mismatch restarts preview instead of writing. V1
-historical handoff uses `seed_prompt`; native conversion is post-v1. The source session
+preview and checked again before use; a mismatch restarts preview instead of writing.
+Historical handoff uses `seed_prompt` in every version (ADR-0016 v2). The source session
 and its store records remain untouched.
 
 **Close or fork (decided 2026-10-27, user).** Every hop has a `mode`: `close` or `fork`.
@@ -1306,17 +1220,17 @@ In `fork` mode:
   invariant 1 keeps holding while both stay live;
 - the source instance, thread and activation stay live and untouched;
 - the destination **never resumes the source's live native session** — two processes
-  would write one session (5.7: two terminals interleave turns). In v1 it gets a new
-  native session through `seed_prompt`. Post-v1 it may use the adapter's
-  `fork(native_ref)` where the agent has one (5.5 D), or gated `native_import`; either
-  must create a distinct session without modifying the source records (invariant 2);
+  would write one session (5.7: two terminals interleave turns). It gets a new native
+  session through `seed_prompt` in every version; the adapter's `fork(native_ref)` and
+  native import are withdrawn (ADR-0016 v2). The fork never modifies the source records
+  (invariant 2);
 - after the fork the two threads diverge on purpose; nothing synchronizes them, and the
   10-minute UNDO of 6.3 does not apply (the source is still there).
 
 CX4 proved Codex's separate official Claude import in a scratch home; it is not Mukade's Codex
-writer, and its text-marker result must not be attributed to Mukade. Mukade's own evidence and
-outstanding checks are linked in [the integration guide](mukade-handover.md). Pair support is
-not by itself approval to use a real store.
+writer, and its text-marker result must not be attributed to Mukade. The evidence documents an
+agent capability; no strategy consumes it, since the write route is closed (5.4, ADR-0016 v2).
+Mukade's own evidence and open points are linked in [the handover record](mukade-handover.md).
 
 ### 6.3 State machine
 
@@ -1327,44 +1241,29 @@ PLANNED -> PREVIEWED -> CONFIRMED -> PREPARING -> READY -> SWITCHING -> COMMITTE
                       ABORTED / FAILED(error)
 ```
 
-In v1 the state machine can be entered only with `native_resume` or `seed_prompt`; the
-`native_import` branches below are post-v1 and remain unreachable until their gates pass.
+In every version the state machine can be entered only with `native_resume` or `seed_prompt`;
+the former `native_import` branches are removed (ADR-0016 v2), and the write-side journal and
+reconciliation rules survive only as the re-entry preconditions of ADR-0022 v2.
 
 Each arrow is one SQLite transaction that updates `hop.state` and inserts a `hop_event`.
 Effects outside the database (spawning a process, writing a file, pasting into a PTY)
 happen **between** transactions and are journaled under `hop.id`. A journal key does not make
-an external effect idempotent: in particular an uncertain Mukade write must be investigated,
-not repeated automatically.
+an external effect idempotent: an uncertain spawn is observed by recovery and never relaunched
+automatically ("Recovery at start", below).
 
 - **PLANNED**: user opened `^H` and picked a destination. Compute: mode (close/fork, from
   the `hop.source_mode` setting unless overridden for this hop), strategy, source
   cursor, snapshot text (4.2 `snapshot`), budget, loss list. Takes the database uniqueness
   of invariant 1; fails if another hop of the thread is active.
 - **PREVIEWED**: the snapshot and loss list were shown. (`tab` opens the exact text.)
-- For `native_import`, the preview must describe the selected policy and known or estimated
-  losses; Mukade's authoritative manifest is produced only after writing. A source-model summary
-  is not generated before explicit confirmation. If the exact content or losses cannot be previewed
-  before any disclosure or write, that path does not satisfy 6.1.5 yet and remains gated; see
-  [integration guide](mukade-handover.md#5-preview-privacy-and-concurrency-gates).
 - **CONFIRMED**: the user pressed Enter. Nothing has run in the destination yet.
 - **PREPARING**: for `seed_prompt`, start the destination in a hidden pane (or take the warm
-  standby) and deliver the seed. For post-v1 `native_import`, persist the reviewed source
-  fingerprint and reserve and journal the destination id/path where Mukade supports them
-  before the call. The host rechecks the source fingerprint immediately before invoking
-  Mukade against the intended stores with that reservation; a mismatch aborts before the
-  call. Then persist Mukade's receipt and manifest and create the segment, then start
-  the destination through its adapter with the returned native reference and instance
-  overrides. `SourceChanged`, where returned by a staged path, also aborts before any
-  destination write. `WriteUncertain` retains
-  the reserved identity for reconciliation and never triggers another write automatically.
-  The written session must not be concurrently opened by another writer. Record the session
-  as soon as its id is known; a failed resume can still return a written session.
+  standby) and deliver the seed; for `native_resume`, resume the earlier session through the
+  agent's own command and prepare the catch-up (6.6). Record the session as soon as its id is
+  known.
 - **READY** when both hold: **technical** (the process is alive and the native session exists;
-  for a seed, its first user entry hashes to the seed sent; for a native import, the adapter
-  verifies the returned session and the selected content against the receipt and manifest) and
-  **receipt** (the destination's first reply contains the hop's `nonce`, requested by the seed
-  or, for a native import, by a separate host acknowledgement message). The adapter must not
-  mistake Mukade's write receipt for this reply. Timeout 90 s → FAILED. [C]
+  for a seed, its first user entry hashes to the seed sent) and **receipt** (the destination's
+  first reply contains the hop's `nonce`, requested by the seed). Timeout 90 s → FAILED. [C]
 - **SWITCHING**: requires the source to be **idle** (turn finished; if it is working,
   wait or, if the user chooses, interrupt it). If the source gained turns after the
   snapshot cursor, send the destination a catch-up note (6.6) and re-check, at most twice;
@@ -1492,7 +1391,6 @@ is simply still live, and hopping to it later is an ordinary hop between two thr
 | agent fails to start or exits | process exit during PREPARING | FAILED; show its last output; source untouched |
 | session id never appears | timeout waiting for the store | FAILED; kill the destination |
 | seed not found in the new session (hash mismatch) | technical check | FAILED; show the diff |
-| Mukade writes a session but optional resume fails | `ResumeFailed` carries a receipt | persist the receipt and manifest, keep the source live and recover or resume that destination; never blindly repeat the import |
 | no receipt (`nonce` missing) | timeout | one retry (re-ask for the receipt); then FAILED, offering to switch anyway |
 | source busy | no turn-end signal | wait / interrupt / cancel |
 | source gained turns | cursor compare | catch-up, max 2 rounds |
@@ -1932,9 +1830,9 @@ agent session or read conversation contents.
    refused network/synchronized location.
 2. For each agent: start with an initial prompt, learn the new session id, resume it, and
    get a clear turn-end signal; capture fixtures with the agent version.
-3. The Claude → Codex native import (post-v1 since 2026-10-31): CX4 proved Codex's own
-   detect, import and resume in a scratch home, with tool calls as text markers; what
-   remains is Mukade's Codex writer and the pair gates (5.4.1, 6.2).
+3. The Claude → Codex import capability: CX4 proved Codex's own detect, import and resume in
+   a scratch home, with tool calls as text markers. The route that would consume it is
+   withdrawn (decision 2026-11-03, ADR-0016 v2); nothing remains to prove (5.4).
 4. Delivering a seed of 2 KB bootstrap + a file reference, and of a pasted 30 KB seed, to
    each agent, including a path with spaces and parentheses; the destination's sandbox
    reading the handoff file.
@@ -1946,27 +1844,23 @@ agent session or read conversation contents.
    plugins, bili, `shinatama mcp`), as a baseline for the Code Mode decision (7.5a).
 9. The title-quality gate of 8.4: local 0.8B model against a provider low-cost model on
    real activity snapshots, plus its CPU and latency cost with four agents running.
-10. The open items of 5.7: Codex `thread/inject_items` persistence and resume; whether the
-    Claude CLI resumes a hand-built `<uuid>.jsonl`; per-launch MCP injection for each agent;
-    answer-only flags for each headless mode; seed-size limits; Codex `-c` and hooks.
+10. The open items of 5.7: per-launch MCP injection for each agent; answer-only flags for
+    each headless mode; seed-size limits; Codex `-c` and hooks. (The import-side questions —
+    Codex `thread/inject_items` persistence, the Claude CLI on a hand-built `<uuid>.jsonl` —
+    are moot since ADR-0016 v2 and remain capability facts only.)
 11. **Backend-attach mode** (5.7 item 4) for Codex, OpenCode and Pi: attach the real TUI to a
     Shinatama-owned backend and compare behaviour with the stand-alone agent. Decide
     before the adapters are written, because it changes how state, queueing and seeding work.
 12. Claude retention: confirm how `cleanupPeriodDays` is applied on the installed version, and
     that the text index keeps an aged-out session searchable and usable as a seed.
-13. **Codex's own import for Claude → Codex:** run `codex app-server generate-json-schema`
-    into a scratch folder to read the real `externalAgentConfig/*` and `thread/inject_items`
-    types; then, in a scratch `CODEX_HOME` with a synthetic Claude session, drive
-    `detect` + `import` and check: resumable by `codex resume`, tool items kept, a named
-    single session, the 30-day window, a session that is still being appended to. If it
-    works it becomes the Claude → Codex `native_import` (stage 2) and the first strategy
-    above `seed_prompt` for that pair. **Run 2026-10-27 (CX4, passed):** one named session
-    imports and resumes; tool calls arrive as text markers; the window is the detector's
-    `maxSessionAgeDays`. With v1 seed-only (6.2) it is a post-v1 strategy, and Mukade's Codex
-    writer writes the rollout instead (5.4.1).
-14. `claude import` and `claude --resume <absolute .jsonl path>` against a hand-built
-    synthetic transcript in a scratch `CLAUDE_CONFIG_DIR`: does the CLI accept it and resume.
-    Only then does any pair with Claude as destination move above `seed_prompt` (post-v1, 6.2).
+13. **Codex's own import for Claude → Codex:** **run 2026-10-27 (CX4, passed):** one named
+    session imports and resumes; tool calls arrive as text markers; the window is the
+    detector's `maxSessionAgeDays`. No strategy consumes this capability: the write route is
+    closed (5.4, ADR-0016 v2); the item stays as the capability record.
+14. `claude --resume <absolute .jsonl path>` against a hand-built synthetic transcript in a
+    scratch `CLAUDE_CONFIG_DIR`: does the CLI accept it and resume. A capability question
+    only — with the write route closed (ADR-0016 v2) no pair moves above `seed_prompt`
+    whatever the result.
 15. Browser integration B1–B10 (7.9): one-shot Moli correctness and optional rendering;
     the bounded MCP use case; explicit Patchright startup; endpoint and hostile-content
     isolation; profile/artifact privacy; control handover; whole-tree cleanup; and a
@@ -1986,7 +1880,7 @@ agent session or read conversation contents.
 2. **Canary hop:** in the source, state a fact that appears once, in turn 3 (a made-up
    project codename). Hop to each of the other agents. Ask the destination for the
    codename without repeating it. Pass = correct answer, for every ordered pair among the
-   six agents, at stage 1; a pair whose source is Hermes Agent or DeepSeek Harness counts
+   six agents; a pair whose source is Hermes Agent or DeepSeek Harness counts
    from the day Mukade reads that source (engine 5).
 3. **Hop back:** hop A → B, do two turns in B, hop back to A. A's native session is
    resumed (its id is the old one) and its catch-up names B's two turns.
@@ -2029,4 +1923,5 @@ None block the design. These are my defaults; change any of them:
   2026-11-01), unless a per-project setting broadens the scope (my default); they cannot
   hop, start instances or start roundtables. (7.2, 7.7)
 - Titles: cap $0.50 per day, one line, off switch. (8.4)
-- Native store writing (stage 3) is not in v1. (5.4)
+- Native store writing is out of scope in every version (user decision 2026-11-03, replacing
+  the author's staged default). (5.4, ADR-0016 v2)

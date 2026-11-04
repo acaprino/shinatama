@@ -10,9 +10,9 @@ mockup style. This does not approve every draft detail or complete the first mil
 
 **Hop decision, 2026-11-03 (Accepted 2026-11-04):** native import and native fork are out of
 scope in every version; a handoff always carries the seed document and native stores stay
-read-only except through the agent's own commands (ADR-0016 v2, ADR-0022 v2). Text below that
-calls native import or handoff "post-v1" or gated describes the withdrawn route, preserved as
-historical design (see the note at 5.2).
+read-only except through the agent's own commands (ADR-0016 v2, ADR-0022 v2). The closed
+write route survives only in [the Mukade handover record](mukade-handover.md), as the re-entry
+design a future decision would have to update.
 
 Date: 2026-10-26; native tiling revision: 2026-10-29
 Status: overall design draft. Accepted FRD records and the shell decision above
@@ -187,7 +187,7 @@ automatic replay of agent commands. See FRD-0001/R59-R63 and the
 Native Rust desktop surfaces: project manager, tiled workspace with agent tabs
 and side panes (5.16), hop dialog and preview, find (search), Daodan
 palette, first-run setup. Command line: `shinatama find`, `resume`, `hop`,
-`doctor` and the rest of engine 5.5.2 (`sessions`, `export`, `import` post-v1), plus `forget`
+`doctor` and the rest of engine 5.5.2 (`sessions`, `export`; `import` withdrawn 2026-11-03, ADR-0016 v2), plus `forget`
 (engine 4.7); names are my call. Browser access: `/browse` with `read`, `preview`
 and explicit `open-ui` operations (5.15; spelling is my call). Desktop widget:
 separate process (5.8).
@@ -284,30 +284,26 @@ and thread stay live and usable, and the destination continues the work as a **n
 thread** whose parent is the source thread. A user setting (`hop.source_mode`) picks the
 default (default: close); the hop dialog offers the other mode for that hop only.
 Forking never resumes the source's live native session in the destination: the
-destination gets a new native session, started with a seed in v1 (the agent's own fork
-or an import only post-v1, once their gates pass), so two processes never write one
-session. After a fork the two threads diverge on purpose; nothing synchronizes them.
+destination always gets a new native session started with a seed — the agent's own
+fork and native import are withdrawn (decision 2026-11-03, ADR-0016 v2) — so two
+processes never write one session. After a fork the two threads diverge on purpose; nothing synchronizes them.
 Details: engine spec 6.2 and 6.3.
 
-How the history reaches the destination — **v1 is seed-only (decided 2026-10-31,
-user).** V1 ships the text hand-off for every pair of agents, with the preview, and
-never writes a native session through Shinatama or Mukade. Native import is post-v1:
-it is added one destination agent and version at a time, only when its fixtures,
-privacy, store and recovery gates pass, because it writes into another agent's
-session store. The hybrid remains the end state: where the destination's session
-format can be written reliably, import the converted history as a real native
-session; otherwise fall back to a readable text export. Native import is done by the
-`mukade` interchange library — Shinatama's own reader and writer for the hosted
-harnesses (four today; Hermes Agent and DeepSeek Harness are new Mukade work,
-[mukade-handover.md](mukade-handover.md) section 9), published as its own repository and linked in-process (technical design
-5.4.1). Until that post-v1 gate opens, every hop uses `seed_prompt` or
-`native_resume`; a fork also uses a seed, never a native fork or import.
-**Decision 2026-11-03 (user; ADR-0016 v2, ADR-0022 v2, Accepted 2026-11-04):** native import is out of
-scope in every version — the post-v1 gated route and the hybrid end state described here are
-withdrawn, and every handoff carries the seed document (ADR-0019).
+How the history reaches the destination — **seed-only in every version (decided
+2026-10-31 for v1; made permanent 2026-11-03, user).** Every hop ships the text
+hand-off with the preview and never writes a native session through Shinatama or
+Mukade: the handoff carries the seed document (ADR-0019), and every hop uses
+`seed_prompt` or `native_resume`; a fork also uses a seed, never a native fork or
+import. Native import — formerly the gated post-v1 route with the hybrid end state —
+is withdrawn (ADR-0016 v2). The `mukade` interchange library serves only as the
+reader for the hosted harnesses (four today; Hermes Agent and DeepSeek Harness are
+new Mukade work, [mukade-handover.md](mukade-handover.md) section 9), published as
+its own repository and linked in-process for its read side (technical design 5.4.1).
+The closed write route is preserved in
+[mukade-handover.md](mukade-handover.md) as the re-entry design (ADR-0022 v2).
 
 What carries over, as the hop dialog must show it: conversation (text),
-tool calls (summarized unless native import preserves them), files (same folder;
+tool calls (always summarized; native import is withdrawn), files (same folder;
 git state unchanged), attachments (paths handed over), project instructions (e.g.
 CLAUDE.md ↔ AGENTS.md linked; what exactly that does is still to be decided and tested,
 and no file is created in the user's repository without consent: my call; register H18).
@@ -652,8 +648,7 @@ login detection; (3) sidecar; (4) project manager and launch; (5) search and
 resume within the same agent; (6) hop: seed/text for every pair with the preview;
 (7) roundtable; (8) widget (the user generates the animation assets in parallel);
 (9) browser fast path, then the optional UI path after its gates (5.15). Native
-import is post-v1 and is then enabled one destination agent and version at a time
-after its fixtures and privacy, store and recovery gates (5.2). The overview (5.13)
+import is withdrawn in every version (decision 2026-11-03; ADR-0016 v2, 5.2). The overview (5.13)
 grows alongside: the instance
 table right after (1), the summaries and flows once hop (6) and the roundtable (7)
 exist.
@@ -664,7 +659,7 @@ The first usable release slice adds read-only store browsing/search and same-age
 resume. The next slice is
 the live seed hop. These slices do not drop the other v1 goals, but no downstream surface
 is treated as deliverable in the same baseline before its dependencies and G0/G1 gates
-are closed. Native import is post-v1; Daodan task handover, browser UI, roundtable and
+are closed. Native import is withdrawn (ADR-0016 v2); Daodan task handover, browser UI, roundtable and
 widget each follow their own gates rather than blocking the first usable slice.
 
 Audience: build as if other people will install it (the install instructions of
@@ -975,7 +970,7 @@ browser for what the pane lacks (the web UI's fork and export), never embedded (
 browse the sessions of every harness Mukade reads and open one in a detail panel. It is not
 part of the first terminal-first milestone. Read-only browsing is the first slice;
 live seed hops follow after their hop gates. Native Import and native handoff are
-post-v1 capabilities and remain unavailable until their separate gates pass (5.2).
+withdrawn in every version (decision 2026-11-03, ADR-0016 v2; 5.2).
 The supported Mukade revision must provide a listing reader for every harness shown (four
 today; Hermes Agent and DeepSeek Harness appear in the tree once Mukade reads them); the declared
 dependency pin, not an arbitrary local checkout, defines that capability. Mukade
@@ -1028,18 +1023,16 @@ advanced and rechecked ([mukade-handover.md](mukade-handover.md), section 8).
   (5.2). `handoff_history` operates on a historical native session: it creates a
   derived thread and source segment without closing a process, waiting for idle or
   inventing a live activation; its source fingerprint is rechecked before use. In
-  v1 both paths use only seed delivery; native Import and native handoff are
-  post-v1. Before any post-v1 write, the dialog shows the exact staged payload and
-  known losses, obtains consent and journals the reserved destination id/path
-  where supported. The receipt is persisted even when launch fails; uncertain
-  writes are reconciled against that reservation, never blindly retried. A
-  headless resume is a separate, cost-warned action.
-- **Stores and executables.** Home and write destination are configured per agent
-  (box/system), not per instance (5.14). Additional system roots are read-only and
-  cannot become a box's write destination. A same-harness transfer between two homes (box to
-  system, or into a portable installation) is not offered until SS5 verifies it; Mukade
-  revisions after the pin address two stores of one harness (`hop_into`), so the gate is
-  Shinatama's verification, no longer the library's shape. Executable overrides are adapter facts.
+  every version both paths use only seed delivery; native Import and native handoff
+  are withdrawn (decision 2026-11-03, ADR-0016 v2), and the staged-write dialog,
+  reservation and reconciliation rules survive only as re-entry preconditions
+  (ADR-0022 v2). A headless resume is a separate, cost-warned action.
+- **Stores and executables.** Home and store roots are configured per agent
+  (box/system), not per instance (5.14). Additional system roots are read-only; with
+  the write route closed (ADR-0016 v2) no root is a write destination at all. A
+  same-harness transfer between two homes (box to system, or into a portable
+  installation) is never offered: it belonged to the withdrawn native route (SS5's
+  store-catalog part stays open, its staged-transfer part is closed). Executable overrides are adapter facts.
   Settings persist in the shared database; unresolved roots, missing executables
   and refused stores are reported, not replaced by ambient defaults.
 - **Lineage.** The tab distinguishes the Shinatama thread chain, native parent and
@@ -1095,10 +1088,11 @@ install and update the agent (only Shinatama's `own` copy, never the user's prog
 and the Daodan plugins in the home chosen in 5.14; the per-instance launch switches for
 plugins and skills (5.14); login and sign-in status;
 start it in a PTY in a folder; list and read its sessions; **export** a session to a
-portable file (`.stx.jsonl`); **import** such a file as a native session where the
-agent allows it (post-v1, engine 5.5 C); **resume** a session natively; **handover**: the adapter's part of a hop,
+portable file (`.stx.jsonl`); **resume** a session natively; **handover**: the adapter's part of a hop,
 including seeding a new session with a thread and confirming it arrived; and, where the
 agent exposes it, report "needs input" and "turn finished" without screen parsing.
+The **import** capability is withdrawn (decision 2026-11-03; ADR-0016 v2, engine 5.5 C)
+and is reported `unsupported`.
 Capability differences per agent are declared and shown to the user, never hidden.
 The full contract, the interchange format, the command line mapping and the conformance
 suite are in section 5.5 of the [engine spec](technical-design.md).
@@ -1128,10 +1122,11 @@ suite are in section 5.5 of the [engine spec](technical-design.md).
 
 - Native Rust desktop tiling supersedes the earlier terminal-only decision
   (2026-10-29, 5.16); real agent PTYs and CLI mode remain. Sessions browsing is a
-  later surface: read-only first, live seed hops after their gates, native import
-  and native handoff post-v1 (user; revised 2026-10-31, 5.16).
-- Hop: v1 is seed/text-only for every pair, with preview (2026-10-31, user);
-  native import is post-v1, enabled agent by agent and version by version (5.2).
+  later surface: read-only first, live seed hops after their gates (user; revised
+  2026-10-31; native import and native handoff withdrawn 2026-11-03, ADR-0016 v2, 5.16).
+- Hop: seed/text-only for every pair, with preview (2026-10-31, user); made
+  permanent in every version on 2026-11-03 — native import is withdrawn
+  (ADR-0016 v2, 5.2).
 - Store discovery reuses Mukade's catalog and installation scan; Shinatama decides what
   each root is used for (5.14, 5.16).
 - Hop: close or fork the source at each hop, with a user setting for the default
