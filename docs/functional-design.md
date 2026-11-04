@@ -8,6 +8,12 @@ engine (ADR-0005 v2, ADR-0047 v2), after a
 [Tauri + Rust terminal prototype](implementation/tauri-prototype.md) in the existing
 mockup style. This does not approve every draft detail or complete the first milestone.
 
+**Hop decision, 2026-11-03 (Accepted 2026-11-04):** native import and native fork are out of
+scope in every version; a handoff always carries the seed document and native stores stay
+read-only except through the agent's own commands (ADR-0016 v2, ADR-0022 v2). Text below that
+calls native import or handoff "post-v1" or gated describes the withdrawn route, preserved as
+historical design (see the note at 5.2).
+
 Date: 2026-10-26; native tiling revision: 2026-10-29
 Status: overall design draft. Accepted FRD records and the shell decision above
 govern the initial implementation; the full draft is not approved.
@@ -296,7 +302,7 @@ harnesses (four today; Hermes Agent and DeepSeek Harness are new Mukade work,
 [mukade-handover.md](mukade-handover.md) section 9), published as its own repository and linked in-process (technical design
 5.4.1). Until that post-v1 gate opens, every hop uses `seed_prompt` or
 `native_resume`; a fork also uses a seed, never a native fork or import.
-**Decision 2026-11-03 (user; ADR-0016 v2, ADR-0022 v2, Proposed):** native import is out of
+**Decision 2026-11-03 (user; ADR-0016 v2, ADR-0022 v2, Accepted 2026-11-04):** native import is out of
 scope in every version — the post-v1 gated route and the hybrid end state described here are
 withdrawn, and every handoff carries the seed document (ADR-0019).
 

@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Version | 1 (Markdown record; JSON record version 1 at `c84d28e`) |
-| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
-| Date | 2026-11-01 |
+| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`). Amended by hand 2026-11-04: native import and native handoff are out of scope in every version (user decision 2026-11-03; ADR-0016 v2, ADR-0022 v2, Accepted 2026-11-04); R28 and R30 withdrawn, R12/R36/R40 amended |
+| Date | 2026-11-01, amended 2026-11-04 |
 | Sources | functional-design goal 3, 4, 5.3, 5.16 (sessions surface); technical-design 4.2 (`session_index`, `session_text`), 5, 5.1 to 5.3, 5.5 B, 5.5.1, 5.5.2, 5.7 (Claude retention), 6.2 (historical handoff); mukade-handover 1, 3, 8, 9 |
-| Governing ADRs | ADR-0011, ADR-0020, ADR-0021, ADR-0023, ADR-0049 |
+| Governing ADRs | ADR-0011, ADR-0016 v2, ADR-0020, ADR-0021, ADR-0022 v2, ADR-0023, ADR-0049 |
 | Register sections | SS1 to SS6, S6, S7, CL6, CL7, CX10, OC3, PI3, HM3, DS3, H15, H27 |
 | Related records | FRD-0005 (live hop), FRD-0002 (store roots per home), FRD-0014 (index tables and `forget`) |
 
@@ -44,7 +44,7 @@ Reading is delegated to the Mukade library; everything here is read-only in v1.
 
 | ID | Requirement | Origin | Slice | Proof | ADR |
 |---|---|---|---|---|---|
-| R12 | The workspace browses the sessions of every harness the declared Mukade pin reads and opens one in a detail panel. It is not part of the terminal-first milestone: read-only browsing is the first slice, live seed hops follow their gates, native import and handoff are post-v1. | U 2026-10-30; revised 2026-10-31 | S1 | SS1 | 0023, 0040 |
+| R12 | The workspace browses the sessions of every harness the declared Mukade pin reads and opens one in a detail panel. It is not part of the terminal-first milestone: read-only browsing is the first slice, live seed hops follow their gates, native import and handoff are out of scope in every version (2026-11-03). | U 2026-10-30; revised 2026-10-31; U 2026-11-03 | S1 | SS1 | 0023, 0040, 0016 v2 |
 | R13 | A Projects/Sessions switch in the navigator; harness nodes expand to their sessions, with one metadata-only incremental filter and a manual rescan (`r`) that works only while the navigator has focus; arrow keys move in the tree and never steal input from a terminal pane. | U 2026-10-30 | S1 | SS1 | 0023 |
 | R14 | A catalog of persisted `store_root` records identifies box and system roots with harness, kind, origin, configuration revision and access. Discovery may use Mukade's harness catalog and installation scan, one recognition rule set; which root becomes a box or a read-only system root is Shinatama's decision, recorded in the catalog. The tree reads an agent's box and the read-only system roots and never a root from an arbitrary instance or ambient defaults. | U 2026-10-30; A (Mukade discovery) | S1 | SS5 (SEC) | 0023, 0020 |
 | R15 | A session panel is identified by `(harness, native_session_id, store_root_id)`, never by a file path. Every read names an explicit `store_root_id`. | A | S1 | SS5 | 0023 |
@@ -65,9 +65,9 @@ Reading is delegated to the Mukade library; everything here is read-only in v1.
 | R25 | Resume starts a PTY through the adapter: native, same agent only; a Claude session is resumed only in its own cwd and never in two instances at once. | U 2026-10-30; S (Claude rules) | S1 | CL4, CL15 | 0011, 0023 |
 | R26 | `hop_live` operates on a hosted instance and segment and follows the close/fork, cursor, idle and catch-up rules of FRD-0005. | U 2026-10-30 | S2 | SS4 | 0023 |
 | R27 | `handoff_history` operates on any `(store_root_id, native_session_id)`: in one transaction it creates or reuses the project mapping and persists a derived thread and a historical source segment without a live activation; it never closes a process, waits for idle or performs live catch-up; the source fingerprint is captured for the preview and rechecked before use, and a mismatch restarts the preview. In v1 it uses `seed_prompt` only. | U 2026-10-30 | S2 | SS4 (SEC) | 0023 |
-| R28 | Before any post-v1 native write the dialog shows the exact staged payload and known losses, obtains consent and journals the reserved destination where supported; the receipt is persisted even when launch fails; uncertain writes are reconciled, never blindly retried, so a double-click or retry never creates a duplicate session. | U 2026-10-30 | P1 | SS4 | 0022, 0023 |
+| R28 | **Withdrawn 2026-11-03 (user; ADR-0016 v2, ADR-0022 v2).** Was: the staged preview, consent, journal, receipt and reconciliation rules before any post-v1 native write. No version writes a native store; the rules survive only as re-entry preconditions (ADR-0022 v2). The number is kept and never reused. | U 2026-11-03 (withdrawal); U 2026-10-30 (original) | — | — | 0016 v2, 0022 v2 |
 | R29 | A headless resume is a separate, cost-warned action. | U 2026-10-30 | V1 | — | 0023 |
-| R30 | A same-harness transfer between two homes (box to system, or into a portable installation) is not offered until SS5 verifies it, even though Mukade revisions after the pin represent it (`hop_into`). | U 2026-10-30 | P1 | SS5 | 0023, 0022 |
+| R30 | **Withdrawn 2026-11-03 (user; ADR-0016 v2).** Was: a same-harness transfer between two homes is not offered until SS5 verifies it. The native handover route is closed in every version, so the transfer is never offered; SS5's store-catalog part stays open. The number is kept and never reused. | U 2026-11-03 (withdrawal); U 2026-10-30 (original) | — | — | 0016 v2, 0023 |
 
 ### 2.5 Export formats
 
@@ -83,7 +83,7 @@ Reading is delegated to the Mukade library; everything here is read-only in v1.
 
 | ID | Requirement | Origin | Slice | Proof | ADR |
 |---|---|---|---|---|---|
-| R36 | The command line mirrors the UI for scripts and calls the same adapter operations: `shinatama sessions [--agent A] [--project P] [--json]`, `find "text" [--agent A] [--json]`, `export <thread \| agent:session> [-o file] [--mode full\|portable] [--format stx\|mukade\|native\|md] [--with-attachments]`, `resume <thread \| agent:session> [--agent A]` (a hop when A differs), `hop <thread> --to A [--preview] [--yes]`, `doctor [--agent A]`, `forget <thread>`; `import <file> --agent A [--cwd DIR] [--dry-run]` is post-v1. Names are the author's call. | U (scriptable mode); A (names) | S1 (sessions, find, export, resume, doctor, forget); S2 (hop); P1 (import) | — | 0011 |
+| R36 | The command line mirrors the UI for scripts and calls the same adapter operations: `shinatama sessions [--agent A] [--project P] [--json]`, `find "text" [--agent A] [--json]`, `export <thread \| agent:session> [-o file] [--mode full\|portable] [--format stx\|mukade\|native\|md] [--with-attachments]`, `resume <thread \| agent:session> [--agent A]` (a hop when A differs), `hop <thread> --to A [--preview] [--yes]`, `doctor [--agent A]`, `forget <thread>`; `import <file> --agent A [--cwd DIR] [--dry-run]` is withdrawn (2026-11-03; ADR-0016 v2 — no version imports into a native store). Names are the author's call. | U (scriptable mode); A (names); U 2026-11-03 (import withdrawn) | S1 (sessions, find, export, resume, doctor, forget); S2 (hop) | — | 0011, 0016 v2 |
 | R37 | `--json` output has a stable schema and exit codes: 0 done, 2 refused with a reason, 3 needs the user (login, a first-run prompt), 4 failed and nothing changed, 5 failed and recovery is needed (`shinatama hop --recover`). | A | S1 | — | 0011 |
 | R38 | `doctor` reports per agent: installed, version against the fixture gate, sign-in status, unknown-record counts; it can run `integrity_check` and rebuild the index tables. | A | S1 | — | 0009, 0011 |
 | R39 | `--format md` is the seed rendering of FRD-0005; `native` is the agent's own export (`export_native`) where it has one. | A | S1 | — | 0021 |
@@ -92,7 +92,7 @@ Reading is delegated to the Mukade library; everything here is read-only in v1.
 
 | ID | Requirement | Origin | Slice | Proof | ADR |
 |---|---|---|---|---|---|
-| R40 | Every supported agent has an adapter with export, import, resume and handover plus the rest of the contract: identity and environment (A), read and export (B), import post-v1 (C), run (D), handover (E), signals and messages (F), injection and capabilities (G). Capability differences are declared and shown, never hidden; anything not implemented is `unsupported`, not faked. | U (the requirement); A (shape) | X | — | 0011 |
+| R40 | Every supported agent has an adapter with export, resume and handover plus the rest of the contract: identity and environment (A), read and export (B), run (D), handover (E), signals and messages (F), injection and capabilities (G); the import capability (C) is withdrawn (2026-11-03; ADR-0016 v2) and is reported `unsupported`. Capability differences are declared and shown, never hidden; anything not implemented is `unsupported`, not faked. | U (the requirement); A (shape); U 2026-11-03 (C withdrawn) | X | — | 0011, 0016 v2 |
 | R41 | Each adapter passes a contract suite on recorded fixtures per agent version, structure-only and synthetic: `list_sessions` matches; read → export → read is stable; the round-trip law where import exists; the canary hop against every other adapter in both directions; refusal and degraded paths; every declared capability exercised and every undeclared one refused. | S | X | E1, E5 | 0011 |
 | R42 | An agent that fails its suite for the installed version is `Degraded`: failing capabilities `unsupported`, launch-only plus its own export command, hops by seed or refused, the UI says why. | U 2026-11-01 | X | AT-10 | 0011 |
 | R43 | The engine compiles and passes its tests with no adapter at all and with a fake in-memory adapter; adding an agent changes only its adapter and fixtures. | S | X | — | 0011 |
@@ -105,7 +105,7 @@ Reading is delegated to the Mukade library; everything here is read-only in v1.
 ## 3. Open questions
 
 1. Whether the sessions surface should offer only actions both adapters support (register O7).
-2. SS5, reopened by the Mukade pin advance to `14edbf3` (2026-11-03; installation scan and `hop_into` are in the pin): the gate itself has not been run. Its staged-transfer part is now closed by the user decision of 2026-11-03 (native handover out of scope in every version; ADR-0016 v2, ADR-0022 v2, Proposed); the store-catalog identity part stays open, and R30 needs write-back with FRD-0005 R12/R16/R17.
+2. SS5, reopened by the Mukade pin advance to `14edbf3` (2026-11-03; installation scan and `hop_into` are in the pin): the gate itself has not been run. Its staged-transfer part is closed by the user decision of 2026-11-03 (native handover out of scope in every version; ADR-0016 v2, ADR-0022 v2, Accepted 2026-11-04); the store-catalog identity part stays open. Write-back done 2026-11-04: this record's R12/R28/R30/R36/R40 and FRD-0005's R04/R07/R12/R14/R16/R17 and 2.10.
 
 ## 4. Acceptance
 

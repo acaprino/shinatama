@@ -2,7 +2,7 @@
 adr_id: ADR-0016
 version: 2
 title: Handoff always carries a seed; native import and native fork are out of scope in every version; native stores stay read-only
-status: Proposed
+status: Accepted
 author: Alfio Caprino
 scope:
   paths:
@@ -21,8 +21,8 @@ depends_on:
 created_from_task: user-decision-2026-11-03
 proposed_on: 2026-11-03
 proposed_at_sha: ca72385451d6196c0e0c0968640f1e9d94e3e0ff
-accepted_on: null
-accepted_at_sha: null
+accepted_on: 2026-11-04
+accepted_at_sha: 4818caa5596cb07e8ecf5b14a6a2d791aaf64e5d
 last_verified_sha: null
 retired_on: null
 retired_reason: null
@@ -39,7 +39,7 @@ changes:
 # ADR-0016: Handoff always carries a seed; native import and native fork are out of scope in every version; native stores stay read-only
 
 <!-- adr-header:start -->
-Version 2 · Proposed 2026-11-03 by Alfio Caprino
+Version 2 · Accepted 2026-11-04 at 4818caa · proposed 2026-11-03 by Alfio Caprino
 <!-- adr-header:end -->
 
 ## Context and Problem Statement

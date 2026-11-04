@@ -578,7 +578,7 @@ Next runs, no decision needed. These are listed in priority order:
 5. The Pi rows recorded on 1.2.0, rerun on 1.4.0.
 6. The untested switches: `CLAUDE_CODE_SKIP_MCP_DEBUG_LOG_FILES`, `CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL` and `CLAUDE_CODE_TMPDIR`.
 7. Everything on macOS and Linux (deferred 2026-11-02).
-8. Withdrawn 2026-11-03 (was: SS5 against Mukade's `hop_into` after the pin advance to `14edbf3`): the user decided native handover is out of scope in every version (ADR-0016 v2, ADR-0022 v2, Proposed). SS4's post-v1 native-write verifications and SS5's same-harness staged-transfer part close with that decision; SS5's store-catalog identity/origin/access part stays open (read side).
+8. Withdrawn 2026-11-03 (was: SS5 against Mukade's `hop_into` after the pin advance to `14edbf3`): the user decided native handover is out of scope in every version (ADR-0016 v2, ADR-0022 v2, Accepted 2026-11-04). SS4's post-v1 native-write verifications and SS5's same-harness staged-transfer part close with that decision; SS5's store-catalog identity/origin/access part stays open (read side).
 9. Install Hermes Agent 0.22.5 and DeepSeek Harness 0.2.1-rc.5 in scratch homes (this machine has neither), then HM1, HM2, HM14, DS1, DS2 and DS15.
 
 ## 21. Runs so far

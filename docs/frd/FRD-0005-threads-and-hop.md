@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Version | 1 (Markdown record; JSON record version 1 at `c84d28e`) |
-| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
-| Date | 2026-11-01 |
+| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`). Amended by hand 2026-11-04: native import and native fork are out of scope in every version (user decision 2026-11-03; ADR-0016 v2, ADR-0022 v2, Accepted 2026-11-04); R16, R17 and 2.10 (R52–R59) withdrawn, R04/R07/R12/R14 amended |
+| Date | 2026-11-01, amended 2026-11-04 |
 | Sources | functional-design goal 2, 5.1, 5.2, 7; technical-design 1, 2, 4.2 to 4.4, 5.4, 5.6, 6.1 to 6.8, 9, 11, 12; mukade-handover 2 to 7; daodan-native-support 4.3 |
-| Governing ADRs | ADR-0015, ADR-0016, ADR-0017, ADR-0018, ADR-0019, ADR-0022, ADR-0034 |
+| Governing ADRs | ADR-0015, ADR-0016 v2, ADR-0017, ADR-0018, ADR-0019, ADR-0022 v2, ADR-0034 |
 | Register sections | H1 to H27, S4, S10, SC9, Q5, Q9, D13 |
 | Related records | FRD-0006 (historical handoff from the sessions surface), FRD-0008 (task across a hop), FRD-0009 (seed through the sidecar), FRD-0014 (journal and tables) |
 
@@ -15,7 +15,7 @@
 A **thread** is the user's unit of work across agents; a **hop** moves the live work of a thread
 from one agent to another. This record states what a thread is on disk, what "seamless" means,
 the two modes (close and fork), the v1 strategies, the seed, the state machine with its
-recovery, the failure handling and the post-v1 native path. The sessions-surface entry points
+recovery, the failure handling and the native path closed on 2026-11-03 (2.10, withdrawn). The sessions-surface entry points
 (`hop_live`, `handoff_history`) are in FRD-0006.
 
 Vocabulary (technical-design 2): **segment** `s_…` is Shinatama's record that a thread lived in
@@ -32,7 +32,7 @@ the **seed** is the text a destination receives.
 | R01 | A thread is Shinatama's own record on disk: an id, the project, the chain of segments (agent, store root, native session id, time span), and enough to rebuild the hand-over context. It survives the agent and the terminal; closing Shinatama loses no thread. | S | S1 | S4 | 0009 |
 | R02 | A thread has at most one live segment; two hops of the same thread never run at once, enforced in the database (invariant I1). When two processes try to hop one thread exactly one wins and the loser gets a clear message. | S | S2 | S10, AT-4, H25 | 0009, 0018 |
 | R03 | Shinatama never edits, deletes or moves the source session's records; "archived" is a mark in Shinatama's database (invariant I2). | A | X | AT-1 | 0015, 0016 |
-| R04 | Native stores are read-only in v1 except through the agent's own commands (invariant I7); v1 never writes a native session through Shinatama or Mukade. | U 2026-10-31 | X | — | 0016, 0040 |
+| R04 | Native stores are read-only in every version except through the agent's own commands (invariant I7); Shinatama never writes a native session through itself or Mukade. | U 2026-10-31; U 2026-11-03 | X | — | 0016 v2, 0040 |
 
 ### 2.2 What a hop is and what "seamless" means
 
@@ -40,7 +40,7 @@ the **seed** is the text a destination receives.
 |---|---|---|---|---|---|
 | R05 | A hop starts a new native session in the destination with the thread's content, with the loss declared; no live session is moved between different agents. Resuming within the same agent is native and lossless, and "native resume" is used only for that case. | U ("truly seamless"); S (what exists) | S2 | H1 | 0015 |
 | R06 | Seamless is five testable criteria: one key, a destination, Enter, nothing to type or copy; destination ready under 8 s with a warm standby and under 25 s without, with visible progress and the source usable throughout; the destination answers correctly a question whose answer exists only in the history; hopping back resumes the earlier native session and tells it what it missed; the user sees before sending exactly what is carried and lost. | A (targets to measure) | S2 | H1, H6, H10, H21, AT-2, AT-3 | 0015 |
-| R07 | The hop dialog states what carries over (conversation text; tool calls as digests unless native import preserves them; files, same folder, git state unchanged; attachments as paths; project instructions linked) and what is lost (the live process, permissions, model state, hidden reasoning). The UI never promises a lossless transfer. | S | S2 | H2 | 0015 |
+| R07 | The hop dialog states what carries over (conversation text; tool calls always as digests, native import being out of scope; files, same folder, git state unchanged; attachments as paths; project instructions linked) and what is lost (the live process, permissions, model state, hidden reasoning). The UI never promises a lossless transfer. | S; U 2026-11-03 (digests clause) | S2 | H2 | 0015, 0016 v2 |
 | R08 | Linking project instructions (CLAUDE.md, AGENTS.md) never creates a file in the user's repository without consent; what "linked" does exactly is decided and tested under H18. | A | S2 | H18 | 0015 |
 | R09 | The destination receives the whole thread, not a fixed excerpt, bounded by the destination model's window and by what the sidecar lets through, with the budget computed for the destination. | A | S2 | H3, AT-5 | 0019 |
 
@@ -50,17 +50,17 @@ the **seed** is the text a destination receives.
 |---|---|---|---|---|---|
 | R10 | Every hop has a mode, `close` or `fork`; the setting `hop.source_mode` holds the default (`close`) and the hop dialog offers the other mode for that hop only without changing the setting. | U 2026-10-27 | S2 | H26 | 0017 |
 | R11 | In close mode the destination continues the same thread; the source instance is closed at COMMITTED, after asking if it has a draft or a running command; the source's native session stays on disk. | U 2026-10-27 | S2 | H26 | 0017 |
-| R12 | In fork mode the destination is a new thread with `parent_thread_id` = the source thread; the source instance, thread and activation stay live and untouched; the destination never resumes the source's live native session (two processes never write one session); in v1 it gets a new session through a seed, and post-v1 may use the adapter's `fork()` or gated native import, either creating a distinct session. | U 2026-10-27 | S2 | H26 | 0017 |
+| R12 | In fork mode the destination is a new thread with `parent_thread_id` = the source thread; the source instance, thread and activation stay live and untouched; the destination never resumes the source's live native session (two processes never write one session); it always gets a new session through a seed — the adapter's `fork()` and gated native import are withdrawn (2026-11-03). | U 2026-10-27; U 2026-11-03 | S2 | H26 | 0017, 0016 v2 |
 | R13 | After a fork the two threads diverge on purpose; nothing synchronizes them, UNDO does not apply, and hopping to the source later is an ordinary hop between two threads. | U 2026-10-27 | S2 | H26 | 0017 |
 
 ### 2.4 Strategies in v1 and after
 
 | ID | Requirement | Origin | Slice | Proof | ADR |
 |---|---|---|---|---|---|
-| R14 | V1 permits only `native_resume` (the destination already has a segment of the thread), `seed_prompt` (every other supported pair) and `refuse` (destination not installed or signed in and not fixable, or launch-only). `native_import` and native fork are unreachable in v1. | U 2026-10-31 | S2 | H1 | 0016 |
+| R14 | Every version permits only `native_resume` (the destination already has a segment of the thread), `seed_prompt` (every other supported pair) and `refuse` (destination not installed or signed in and not fixable, or launch-only). `native_import` and native fork are unreachable in every version and are never implemented. | U 2026-10-31; U 2026-11-03 | S2 | H1 | 0016 v2 |
 | R15 | V1 ships the text hand-off for every ordered pair among the six agents, with the preview; a pair whose source is Hermes Agent or DeepSeek Harness counts from the day Mukade reads that source. Until then those two resume natively and receive seeds but are not hop sources. | U 2026-10-31; A (Hermes and DeepSeek sources) | S2 | H1, HM3, DS3 | 0006, 0016 |
-| R16 | Native import is post-v1, enabled one destination agent and version at a time, only when its fixtures, privacy, store and recovery gates pass; a passing pair probe alone does not enable it. The end state is a hybrid: a real native session where the format can be written reliably, otherwise the text hand-off. | U 2026-10-31 | P1 | H27, SS4 | 0016, 0022 |
-| R17 | Post-v1 writes follow the stages of technical-design 5.4: the agent's own import where it exists (OpenCode `session import`, lossless; Hermes's own import for Claude and Codex sources); a native file or rows written by Mukade's writer only for an agent with no import, or whose own import loses what Mukade's writer keeps (Codex turns tool calls into text markers), only into a new file or rows, after a backup of any agent index, and never while that agent runs against the same store. | U 2026-11-01 (stage 3 for Codex) | P1 | H27, CX4, OC2 | 0016, 0020 |
+| R16 | **Withdrawn 2026-11-03 (user; ADR-0016 v2).** Was: native import post-v1, enabled one destination agent and version at a time behind gates, hybrid end state. Native import is out of scope in every version; the number is kept and never reused. | U 2026-11-03 (withdrawal); U 2026-10-31 (original) | — | — | 0016 v2 |
+| R17 | **Withdrawn 2026-11-03 (user; ADR-0016 v2).** Was: post-v1 native writes following the stages of technical-design 5.4 (agent's own import; Mukade-written files or rows). No version writes a native store; the number is kept and never reused. | U 2026-11-03 (withdrawal); U 2026-11-01 (original) | — | — | 0016 v2 |
 | R18 | An agent whose installed version fails its fixtures drops every hop to or from it to `seed_prompt` or `refuse`, with the reason shown. | U 2026-11-01 | S2 | AT-10 | 0011 |
 | R19 | A hop whose destination window cannot hold the minimum seed (header, task statement, last turn) is refused with the numbers. | S | S2 | H3 | 0019 |
 
@@ -122,6 +122,12 @@ the **seed** is the text a destination receives.
 | R51 | Shinatama crash: recovery per state. Database locked or full: R43. Agent version unknown: the pair drops to seed or refuse. Context window too small: refuse with numbers. | S | S2 | AT-1, AT-10 | 0018 |
 
 ### 2.10 Post-v1 native handover
+
+**Closed 2026-11-03 (user decision; ADR-0016 v2, ADR-0022 v2, Accepted 2026-11-04).** The
+native handover route is out of scope in every version: R52–R59 are **withdrawn**, their numbers
+kept and never reused; their rules survive only as the re-entry preconditions of ADR-0022 v2
+(mukade-handover.md is the design record of the closed route). The rows below are the withdrawn
+text, kept for traceability; their `P1` slice no longer commits anything.
 
 | ID | Requirement | Origin | Slice | Proof | ADR |
 |---|---|---|---|---|---|

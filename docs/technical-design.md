@@ -8,6 +8,12 @@ engine (ADR-0005 v2, ADR-0047 v2), after a
 [prototype](implementation/tauri-prototype.md). Any remaining "native" wording below
 means a pane drawn by Shinatama, not a Rust UI toolkit. The full TL1 gate remains open.
 
+**Hop decision, 2026-11-03 (Accepted 2026-11-04):** native import and native fork are out of
+scope in every version; a handoff always carries the seed document and native stores stay
+read-only except through the agent's own commands (ADR-0016 v2, ADR-0022 v2). Text below that
+calls native import or handoff "post-v1" or gated describes the withdrawn route, preserved as
+historical design (see the note at 5.4).
+
 Date: 2026-10-26; native tiling revision: 2026-10-29; last revised 2026-11-01.
 Status: draft, not approved. Companion of
 [the functional design](functional-design.md); sections 5.2, 5.10
@@ -551,11 +557,11 @@ used. The shapes inside `data` are [U].
 
 ### 5.4 Writing into a native store: stages
 
-> **Decision 2026-11-03 (user; ADR-0016 v2, ADR-0022 v2, Proposed):** native import is out of
-> scope in every version; a handoff always carries the seed document (ADR-0019). Stages 2–3
-> below, the "`hop()` and native writers are post-v1" framing of 5.4.1, and the `native_import`
-> branches of 6.2/6.3 are preserved as historical design pending the records' approval; no code
-> path may select them. Mukade's read-side APIs (5.4.1, `session-reader` feature) are unaffected.
+> **Decision 2026-11-03 (user; ADR-0016 v2, ADR-0022 v2, Accepted 2026-11-04):** native import
+> is out of scope in every version; a handoff always carries the seed document (ADR-0019).
+> Stages 2–3 below, the "`hop()` and native writers are post-v1" framing of 5.4.1, and the
+> `native_import` branches of 6.2/6.3 are preserved as historical design; no code path may
+> select them. Mukade's read-side APIs (5.4.1, `session-reader` feature) are unaffected.
 
 The stages below preserve the research history, not three implemented release stages. For the
 current proposed Mukade integration, its actual API, its limits and the host's responsibilities,

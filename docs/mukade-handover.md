@@ -5,7 +5,8 @@ that native handover is out of scope in every version: a handoff always carries 
 document (ADR-0019) and Shinatama calls only Mukade's read-side APIs — those are built
 (`shinatama-engine` links Mukade behind its `session-reader` feature). Sections 2 to 7 below
 describe the native write route as reviewed against the pin; they are kept as the re-entry
-design for any future decision that supersedes ADR-0016 v2 / ADR-0022 v2 (both Proposed), not
+design for any future decision that supersedes ADR-0016 v2 / ADR-0022 v2 (both Accepted
+2026-11-04), not
 as work to do. This document describes the Mukade checkout at
 `14edbf3cf71424a48b057e52c5532d6d4ab7d8a4` and the work Shinatama must do around it; it is not
 evidence that the two products have been integrated. This revision includes the installation scan,
@@ -14,7 +15,7 @@ reasoning proofs, on top of the OpenCode listing, `SourceChanged`, `WriteUncerta
 destination ids/paths required by the Sessions and recovery design. Updating the pin still
 requires rechecking the complete API, harness versions and acceptance evidence. Shinatama uses
 only read-side Mukade APIs through its adapters; native writes are out of scope in every
-version (ADR-0016 v2, Proposed). The upstream [README](https://github.com/acaprino/mukade/blob/master/README.md),
+version (ADR-0016 v2, Accepted 2026-11-04). The upstream [README](https://github.com/acaprino/mukade/blob/master/README.md),
 [specification](https://github.com/acaprino/mukade/blob/master/docs/session-interchange-spec.md),
 [usage guide](https://github.com/acaprino/mukade/blob/master/docs/usage.md) and
 [open points](https://github.com/acaprino/mukade/blob/master/next.md) remain authoritative for
@@ -48,7 +49,7 @@ compatibility or automatic redaction between them is assumed.
 
 ## 2. Handover sequence and ownership
 
-> **Closed route (decision 2026-11-03, user; ADR-0016 v2, ADR-0022 v2, Proposed).** Every
+> **Closed route (decision 2026-11-03, user; ADR-0016 v2, ADR-0022 v2, Accepted 2026-11-04).** Every
 > transfer is a host seed operation (ADR-0019); the sequence below is preserved as the re-entry
 > design and describes no reachable Shinatama path.
 
@@ -327,7 +328,7 @@ it is committed, pushed and pinned: section 4's table gains a `Native` row (the
 `DestinationNative` row is unchanged — that variant still means the destination's own compaction,
 run by the host), `ImportOpts` gains a `native_budget` field and `Compaction` a variant;
 Shinatama constructs neither type today, so the read side is unaffected. Shinatama will not
-consume this mode: ADR-0016 v2 (Proposed, 2026-11-03) closes the native handover route; the
+consume this mode: ADR-0016 v2 (Accepted 2026-11-04) closes the native handover route; the
 capability serves hosts that write OpenCode sessions, such as JanuraCode's session bridge.
 
 Hermes Agent and DeepSeek Harness remain at Mukade's ADR-0002 (read-first proposal): the pin has
