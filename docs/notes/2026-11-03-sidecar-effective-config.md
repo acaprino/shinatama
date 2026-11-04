@@ -202,3 +202,16 @@ i due campi come controlli indipendenti funzionanti.
 4. Ogni modifica canonica richiede nuovo artefatto/pin e regressioni C12/C13.
    Una prova source non qualifica automaticamente il CLI, Claude/Bun o l'effetto
    della configurazione nel prodotto.
+
+## Esito percorso B — 4 novembre 2026
+
+Percorso B eseguito e **PASS** con Claude reale 2.1.318 (auto-update notturno
+da 2.1.317; pin aggiornato e tutte le prove native rieseguite). Steering L2
+osservato sui byte upstream vivi (`[output-steering] applied (steering:L2)`);
+la prima versione falliva perché `CLAUDE_CODE_MAX_OUTPUT_TOKENS=128` faceva
+classificare la richiesta come side (passthrough senza steering): solo la
+prova è stata corretta, nessun fork canonico. Registrato come più debole
+della lettera dell'accettazione 2 (nessuna introspezione in-process; percorso
+A resta pendente da decisione/coordinamento con horness-launcher).
+Dettagli, comandi e limiti:
+[docs/verification/2026-11-04-C12.4-effective-config-live.md](../verification/2026-11-04-C12.4-effective-config-live.md).

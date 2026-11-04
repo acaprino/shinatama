@@ -11,7 +11,7 @@ import path from 'node:path';
 
 const [privateRoot, proxyPortText, scenario] = process.argv.slice(2);
 assert.ok(path.isAbsolute(privateRoot));
-assert.ok(scenario === 'tls' || scenario === 'native-resume');
+assert.ok(scenario === 'tls' || scenario === 'native-resume' || scenario === 'effective-config');
 const proxyPort = Number(proxyPortText);
 assert.ok(Number.isInteger(proxyPort) && proxyPort > 0 && proxyPort < 65536);
 const marker = 'SHINATAMA_SYNTHETIC_CLAUDE_TLS_OK';
@@ -135,10 +135,23 @@ function messageId() {
 }
 let originMessages = 0; let wrongCredentials = 0; let wrongOriginPath = 0;
 let wrongHistory = 0; let resumeHistoryObserved = false;
+// Effective-config observations on the live upstream bodies. Bounded booleans
+// and counters only; request content never leaves this process.
+let steeringSentinelObserved = false; let rewriteNoteObserved = false;
+let mainPromptRequests = 0; let auxRequests = 0; let mainSystemShape = 'none';
 function hasMessage(messages, role, text) {
   return Array.isArray(messages) && messages.some(message => message?.role === role &&
     (typeof message.content === 'string' ? message.content.includes(text)
       : Array.isArray(message.content) && message.content.some(block => block?.type === 'text' && typeof block.text === 'string' && block.text.includes(text))));
+}
+function systemHasSentinel(system) {
+  if (typeof system === 'string') return system.includes('<bili_output_steering>');
+  return Array.isArray(system) && system.some(block => typeof block?.text === 'string' && block.text.includes('<bili_output_steering>'));
+}
+function messagesHaveRewriteNote(messages) {
+  return Array.isArray(messages) && messages.some(message =>
+    (typeof message.content === 'string' ? message.content.includes('<musashi_terminal_prompt_rewrite')
+      : Array.isArray(message.content) && message.content.some(block => typeof block?.text === 'string' && block.text.includes('<musashi_terminal_prompt_rewrite'))));
 }
 const origin = https.createServer({ cert: leafPem, key: leafKeys.privateKey.export({ format: 'pem', type: 'pkcs8' }) }, (request, response) => {
   const pathname = new URL(request.url, 'https://localhost').pathname;
@@ -154,7 +167,19 @@ const origin = https.createServer({ cert: leafPem, key: leafKeys.privateKey.expo
     let value; try { value = JSON.parse(body); } catch { response.writeHead(400); response.end(); return; }
     originMessages++;
     let replyMarker = marker;
-    if (scenario === 'tls') {
+    if (scenario === 'effective-config') {
+      // The sidecar sits between Claude and this origin: the main request body
+      // arrives already transformed. Classification is by the fixed synthetic
+      // prompt; auxiliary rewrite completions never carry it.
+      if (hasMessage(value.messages, 'user', startPrompt)) {
+        mainPromptRequests++;
+        mainSystemShape = value.system === undefined ? 'absent'
+          : typeof value.system === 'string' ? 'string'
+            : Array.isArray(value.system) ? 'array' : 'other';
+        if (systemHasSentinel(value.system)) steeringSentinelObserved = true;
+        if (messagesHaveRewriteNote(value.messages)) rewriteNoteObserved = true;
+      } else auxRequests++;
+    } else if (scenario === 'tls') {
       if (expectedCase !== 'private-ca') { response.writeHead(409); response.end(); return; }
     } else {
       const valid = expectedCase === 'start' ? hasMessage(value.messages, 'user', startPrompt)
@@ -229,7 +254,7 @@ try {
     else { assert.notEqual(exitCode, 0, 'untrusted-claude-exit'); assert.equal(certificateRefusal, true, 'negative-must-be-certificate-refusal'); assert.equal(markerObserved, false); assert.equal(record.messageRequests, 0); }
     cases.push(record); send({ phase: 'case-finished', ...record });
   }
-  } else {
+  } else if (scenario === 'native-resume') {
     for (const operation of ['start', 'resume']) {
       expectedCase = operation; stage = operation;
       const beforeMessages = originMessages; const beforeTunnels = frontTunnels;
@@ -244,6 +269,28 @@ try {
       if (operation === 'resume') assert.equal(resumeHistoryObserved, true);
       cases.push(record); send({ phase: 'case-finished', ...record });
     }
+  } else {
+    expectedCase = 'main'; stage = 'main';
+    const beforeMessages = originMessages; const beforeTunnels = frontTunnels;
+    send({ phase: 'case-ready', operation: 'main' });
+    const result = await command(['operation', 'exitCode', 'markerObserved', 'ownerReleased', 'outputBounded']);
+    stage = 'main-record';
+    assert.equal(result.operation, 'main'); assert.equal(result.exitCode, 0);
+    for (const name of ['markerObserved', 'ownerReleased', 'outputBounded']) assert.equal(result[name], true);
+    const record = { ...result, messageRequests: originMessages - beforeMessages,
+      guardedTunnels: frontTunnels - beforeTunnels,
+      steeringSentinelObserved, rewriteNoteObserved, mainPromptRequests, auxRequests, mainSystemShape };
+    assert.ok(record.messageRequests > 0, 'live-upstream-traffic-required');
+    assert.ok(record.guardedTunnels > 0, 'claude-must-use-proxy');
+    assert.equal(record.mainPromptRequests, 1, 'exactly-one-main-request');
+    stage = steeringSentinelObserved ? 'main-steering'
+      : mainSystemShape === 'absent' ? 'main-steering-system-absent' : 'main-steering-system-present';
+    // The pinned product baseline enables L2 output steering; the sentinel in
+    // the live upstream system prompt is the running-CLI effect proof. The
+    // rewrite note is recorded, not yet required: its auxiliary chain is the
+    // softer dependency under observation.
+    assert.equal(steeringSentinelObserved, true, 'steering-sentinel-on-live-upstream-body');
+    cases.push(record); send({ phase: 'case-finished', ...record });
   }
   stage = 'cleanup';
   assert.equal(wrongCredentials, 0); assert.equal(wrongOriginPath, 0); assert.ok(backTunnels > 0);

@@ -40,8 +40,8 @@ const CAP: usize = 64 * 1024;
 const DUMMY_KEY: &str = "shinatama-synthetic-no-provider-key";
 // Read-only PE metadata and the byte-identical installer version file identify
 // this exact installation. The ignored proof still pins the executable at run time.
-const CLAUDE_VERSION: &str = "2.1.317";
-const CLAUDE_SHA: &str = "26b01ec22df2c17ac7f5703aa547d36706e8d58412136ced0344a8ced4d86038";
+const CLAUDE_VERSION: &str = "2.1.318";
+const CLAUDE_SHA: &str = "b9aa5b08dc2cc46ea77d334dce792d1b8fdbb3a43bb290efdebdc905b1181082";
 const NODE_SHA: &str = "58e74bf02fc5bbacc41dcb8bef089961cd5bddd37830b87784e4fc624d145d1f";
 pub fn checked<T, E>(value: std::result::Result<T, E>, code: &'static str) -> Result<T> {
     value.map_err(|_| code)
@@ -312,7 +312,11 @@ impl Proof {
                         Some("no-ca") => "synthetic-no-ca-case-refused",
                         Some("private-ca") => "synthetic-private-ca-case-refused",
                         Some("cleanup") => "synthetic-shutdown-refused",
-                        _ => "synthetic-fixture-refused",
+                        Some("main-record") => "synthetic-main-record-refused",
+                    Some("main-steering") => "synthetic-main-steering-refused",
+                    Some("main-steering-system-absent") => "synthetic-steering-live-system-absent",
+                    Some("main-steering-system-present") => "synthetic-steering-live-system-unsteered",
+                    _ => "synthetic-fixture-refused",
                     });
                 }
                 require(
@@ -380,12 +384,14 @@ fn proxy_environment(environment: &mut BTreeMap<OsString, OsString>, port: u16) 
 pub enum Scenario {
     Tls,
     NativeResume,
+    EffectiveConfig,
 }
 impl Scenario {
     fn name(self) -> &'static str {
         match self {
             Self::Tls => "tls",
             Self::NativeResume => "native-resume",
+            Self::EffectiveConfig => "effective-config",
         }
     }
 }
@@ -431,7 +437,7 @@ impl Fixture {
         )?;
         require(
             pin.executable_sha256() == CLAUDE_SHA,
-            "exact-claude-2.1.317-hash",
+            "exact-claude-2.1.318-hash",
         )?;
         let listener = checked(
             TcpListener::bind(("127.0.0.1", 0)),
@@ -677,12 +683,25 @@ impl Fixture {
             ("CLAUDE_STREAM_FIRST_BYTE_TIMEOUT_MS", "3000"),
             ("CLAUDE_CODE_MAX_RETRIES", "0"),
             ("CLAUDE_CODE_GZIP_REQUEST_BODIES", "0"),
-            ("CLAUDE_CODE_MAX_OUTPUT_TOKENS", "128"),
             ("MAX_THINKING_TOKENS", "0"),
         ] {
             environment.insert(name.into(), value.into());
         }
-        if self.scenario == Scenario::Tls {
+        // The canonical sidecar treats max_tokens<=200 as a side request and
+        // forwards it untouched (kernel state, output steering included). The
+        // effective-config proof observes the main lane, so only that scenario
+        // gets an output cap above the side threshold; the other scenarios
+        // keep the tight synthetic bound.
+        environment.insert(
+            "CLAUDE_CODE_MAX_OUTPUT_TOKENS".into(),
+            if self.scenario == Scenario::EffectiveConfig {
+                "1024"
+            } else {
+                "128"
+            }
+            .into(),
+        );
+        if matches!(self.scenario, Scenario::Tls | Scenario::EffectiveConfig) {
             environment.insert("CLAUDE_CODE_SAFE_MODE".into(), "1".into());
         }
         environment.insert(
@@ -798,9 +817,17 @@ impl Fixture {
         )
     }
     pub fn evidence(&self, child: Value) -> Result<Value> {
+        // tls/native-resume run two Claude owners (negative+positive, start+resume);
+        // effective-config runs one main-lane Claude owner beside fixture and sidecar.
+        let expected_owners = if self.scenario == Scenario::EffectiveConfig {
+            3
+        } else {
+            4
+        };
         require(
-            self.proof.owners.len() == 4 && self.proof.owners.iter().all(|owner| owner.released),
-            "four-released-proof-owners",
+            self.proof.owners.len() == expected_owners
+                && self.proof.owners.iter().all(|owner| owner.released),
+            "expected-released-proof-owners",
         )?;
         require(
             checked(
@@ -825,7 +852,15 @@ impl Fixture {
     }
 }
 pub fn tls_arguments() -> Vec<OsString> {
-    [
+    restricted_arguments("Reply with the fixed synthetic marker.")
+}
+/// Same restricted headless recipe with the fixed synthetic start prompt the
+/// effective-config fixture classifies main requests by.
+pub fn ec_arguments() -> Vec<OsString> {
+    restricted_arguments("SHINATAMA_SYNTHETIC_START_PROMPT_A")
+}
+fn restricted_arguments(prompt: &str) -> Vec<OsString> {
+    let mut argv: Vec<OsString> = [
         "--restricted",
         "--safe-mode",
         "--tools",
@@ -848,14 +883,18 @@ pub fn tls_arguments() -> Vec<OsString> {
         "--output-format",
         "json",
         "-p",
-        "Reply with the fixed synthetic marker.",
     ]
     .map(OsString::from)
-    .to_vec()
+    .to_vec();
+    argv.push(OsString::from(prompt));
+    argv
 }
 pub fn write_evidence(name: &str, value: &Value) -> Result<()> {
     require(
-        matches!(name, "claude-proxy-tls.json" | "claude-native-resume.json"),
+        matches!(
+            name,
+            "claude-proxy-tls.json" | "claude-native-resume.json" | "claude-effective-config.json"
+        ),
         "fixed-proof-evidence-name",
     )?;
     let directory = workspace().join(".prototype-evidence");
