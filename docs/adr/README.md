@@ -3,8 +3,10 @@
 **2026-11-02 decisions:** Windows is the only officially supported platform for now, and Tauri is
 the definitive V1 shell over a Rust engine (ADR-0005, ADR-0047, ADR-0048), after a [prototype](../implementation/tauri-prototype.md).
 
-**2026-11-04 decision:** a handoff always carries the seed document; native import and native
+**2026-11-04 decisions:** a handoff always carries the seed document; native import and native
 fork are out of scope in every version and native stores stay read-only (ADR-0016 v2, ADR-0022 v2).
+Requirements records are Markdown only: the JSON evidence records of `frd_tool.py` are retired
+and deleted from `docs/frd/` (ADR-0050 v2).
 
 One record per version of a decision: ADR-NNNN-<slug>.md, then ADR-NNNN-vN-<slug>.md.
 A record is Proposed when the interview produces it, Accepted when the user
@@ -69,7 +71,7 @@ run `index`; do not edit this block by hand.
 | [ADR-0047 v3](<ADR-0047-v3-rust-platforms-dependency-policy.md>) | Rust engine and TypeScript frontend; Windows the only officially supported platform, macOS and Linux deferred; one allowed-dependency list per ecosystem, each addition a decision | `docs/functional-design.md`, `docs/technical-design.md`, `Cargo.toml`, `package.json`, `package-lock.json`, `language`, `platforms`, `dependency-policy`, `rust-toolkit` | 0 | `65bee163e43b0b9f7b2d71f4e353b9fe4c580df2` |
 | [ADR-0048 v3](<ADR-0048-v3-install-distribution-and-updates.md>) | Built for others to install; signed Windows release builds; Shinatama's own updates never touch the sidecar's rule; no unintended outbound connection; Oni art is a separate distribution decision | `docs/functional-design.md`, `docs/verification-register.md`, `install`, `distribution`, `release`, `updates`, `licensing` | 0 | `65bee163e43b0b9f7b2d71f4e353b9fe4c580df2` |
 | [ADR-0049](<ADR-0049-text-index-outlives-native-retention.md>) | Shinatama's text index outlives an agent's retention; an aged-out session is searchable and can seed, never natively resumed; retention is never edited | `docs/technical-design.md`, `docs/functional-design.md`, `session-search`, `retention`, `text-index`, `native-resume` | 0 | `202a34e2675cfe7e8d7ba1d5e7ecf88bf2299182` |
-| [ADR-0050](<ADR-0050-frd-and-adr-govern-requirements-and-decisions.md>) | Requirements live in FRD records and decisions in ADR records, both Proposed until the user approves the text; design documents keep the design, the register alone says what is proved | `docs/frd/README.md`, `docs/adr/README.md`, `docs/codebase-map.md`, `docs/verification-register.md`, `documentation-method`, `decision-records`, `requirements-records`, `approval` | 0 | `202a34e2675cfe7e8d7ba1d5e7ecf88bf2299182` |
+| [ADR-0050 v2](<ADR-0050-v2-frd-and-adr-govern-requirements-and-decisions.md>) | Requirements live in FRD records and decisions in ADR records, both Proposed until the user approves the text; design documents keep the design, the register alone says what is proved; requirements records are Markdown only | `docs/frd/README.md`, `docs/adr/README.md`, `docs/codebase-map.md`, `docs/verification-register.md`, `documentation-method`, `decision-records`, `requirements-records`, `approval` | 0 | `e6e452d44c9d90a744f5e81e3151ca05cd8af5a3` |
 | [ADR-0051](<ADR-0051-pre-receipt-crash-recovery-termination-certificate.md>) | Pre-receipt native crash recovery is unlocked only by a qualified whole-group termination certificate derived from the named kill-on-close job | `crates/engine/src/resources/job.rs`, `crates/state/src/native_session_cleanup.rs`, `crates/state/src/records/recovery.rs`, `apps/desktop/src-tauri/src/agents/thread_lifecycle.rs`, `apps/desktop/src-tauri/src/agents/threads.rs`, `native-containment`, `crash-recovery`, `resource-admission` | 0 | `c9deab5bbf161c9aa04d21b8d19d245f42394811` |
 
 ## Proposed
@@ -99,6 +101,7 @@ run `index`; do not edit this block by hand.
 | [ADR-0047 v2](<ADR-0047-v2-rust-platforms-dependency-policy.md>) | Rust engine and TypeScript frontend; macOS and Linux required, Windows assumed; one allowed-dependency list per ecosystem, each addition a decision | ADR-0047 v3 |
 | [ADR-0048](<ADR-0048-install-distribution-and-updates.md>) | Built for others to install; signed and notarized release builds; Shinatama's own updates never touch the sidecar's rule; no unintended outbound connection; Oni art is a separate distribution decision | ADR-0048 v2 |
 | [ADR-0048 v2](<ADR-0048-v2-install-distribution-and-updates.md>) | Built for others to install; signed and notarized release builds; Shinatama's own updates never touch the sidecar's rule; no unintended outbound connection; Oni art is a separate distribution decision | ADR-0048 v3 |
+| [ADR-0050](<ADR-0050-frd-and-adr-govern-requirements-and-decisions.md>) | Requirements live in FRD records and decisions in ADR records, both Proposed until the user approves the text; design documents keep the design, the register alone says what is proved | ADR-0050 v2 |
 
 ## Abandoned
 

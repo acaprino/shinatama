@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Version | 1 (Markdown record; JSON record version 1 at `c84d28e`) |
-| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
+| Version | 1 |
+| Status | Accepted 2026-11-01 (this Markdown text) |
 | Date | 2026-11-01; R24 amended 2026-11-02 at the user's request |
 | Sources | functional-design goal 6, 2 (anti-goal), 3, 5.6, 5.9; technical-design 9; specs/token-savings 7.2 (baseline); records of 2026-10-31 and 2026-11-01 on proxy stalls; [2026-11-02 storage fix](../notes/2026-11-02-sidecar-storage-latency.md) |
 | Governing ADRs | ADR-0029, ADR-0030 |
@@ -95,11 +95,3 @@ launcher; the sidecar has not been qualified under Shinatama. The storage fix wa
 verified and activated in Musashi Terminal on 2026-11-02; its results are evidence for
 inheritance, not a passed Shinatama SC16. See the [amendment and acceptance
 procedure](../notes/2026-11-02-sidecar-storage-latency.md).
-
-## 5. Relation to the JSON record
-
-FRD-0009.json holds 38 extracted sentences; this record covers them all and adds the baseline
-configuration (2.6), which the JSON set kept in FRD-0013. The 2026-11-02 R24 amendment
-is recorded in this Markdown requirement and its linked note. The existing Proposed
-JSON snapshot has not been re-extracted or promoted; its stale source spans remain
-the known evidence-refresh defect described in [README](README.md), not current proof.

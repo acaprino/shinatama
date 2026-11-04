@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Version | 1 (Markdown record; JSON record version 1 at `c84d28e`) |
-| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
+| Version | 1 |
+| Status | Accepted 2026-11-01 (this Markdown text) |
 | Date | 2026-11-01 |
 | Sources | functional-design goal 4, 5.4, 5.13 (worktree option), 7; technical-design 4.2 (`project`); daodan-native-support 4.1, 4.7 |
 | Governing ADRs | ADR-0046, ADR-0033 (Daodan rows and offers) |
@@ -77,8 +77,3 @@ appears in it.
 ## 4. Acceptance
 
 PM1 to PM8 pass; D14 for the onboarding parity; U3 for the keys. Nothing has run.
-
-## 5. Relation to the JSON record
-
-FRD-0004.json holds 27 extracted sentences; this record covers them all and adds R10, R18,
-R21 and R22, which the JSON set kept in other records.

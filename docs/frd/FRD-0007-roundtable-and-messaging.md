@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Version | 1 (Markdown record; JSON record version 1 at `c84d28e`) |
-| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
+| Version | 1 |
+| Status | Accepted 2026-11-01 (this Markdown text) |
 | Date | 2026-11-01 |
 | Sources | functional-design goal 10, 2 (non-goals), 5.10, 7; technical-design 1 (I6), 4.2 (`message`, `roundtable`), 7.1 to 7.8, 7.5a, 11.7, 11.8, 12 |
 | Governing ADRs | ADR-0024, ADR-0025, ADR-0026 |
@@ -107,9 +107,3 @@ messages expire; nothing outlives the sessions.
 
 AT-7 (messages: offline recipient, duplicate, ping-pong, cross-project) and AT-8 (roundtable
 caps); register M1 to M15 and R1 to R7. Nothing has run.
-
-## 5. Relation to the JSON record
-
-FRD-0007.json holds 51 extracted sentences (REQ-010 absent); this record covers them all,
-moves the instance-identity rules to FRD-0002 and keeps the hook command (R25) as a cross
-reference to FRD-0010.

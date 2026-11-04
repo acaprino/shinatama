@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Version | 1 (new Markdown record; no JSON record yet) |
-| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
+| Version | 1 |
+| Status | Accepted 2026-11-01 (this Markdown text) |
 | Date | 2026-11-01 |
 | Sources | docs/notes/2026-11-01-tokeneconomizer-beside-billioncontext.md 1 to 10; specs/token-savings 7.2; records TE5, TE12, TE13 |
 | Governing ADRs | ADR-0045 v3 |
@@ -83,8 +83,3 @@ adaptation, and the checks that precede enabling it on each harness.
 
 TE1 to TE13 of the study; today TE5 and TE13 passed (one trial per case) and TE12 failed as designed
 with its cause settled and replaced by TE13; the rest is open.
-
-## 5. Relation to the JSON records
-
-No JSON record covers this area; FRD-0013.json predates the study. A JSON record should be
-produced with the tool from the note and ADR-0045 v3 when this record is reviewed.

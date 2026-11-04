@@ -2,7 +2,7 @@
 adr_id: ADR-0050
 version: 1
 title: Requirements live in FRD records and decisions in ADR records, both Proposed until the user approves the text; design documents keep the design, the register alone says what is proved
-status: Accepted
+status: Superseded
 author: Alfio Caprino
 scope:
   paths:
@@ -28,14 +28,14 @@ last_verified_sha: null
 retired_on: null
 retired_reason: null
 supersedes:
-superseded_by: null
+superseded_by: ADR-0050 v2
 changes:
 ---
 
 # ADR-0050: Requirements live in FRD records and decisions in ADR records, both Proposed until the user approves the text; design documents keep the design, the register alone says what is proved
 
 <!-- adr-header:start -->
-Version 1 · Accepted 2026-11-01 at 202a34e · proposed 2026-11-01 by Alfio Caprino
+Version 1 · Superseded by ADR-0050 v2 · proposed 2026-11-01 by Alfio Caprino
 <!-- adr-header:end -->
 
 ## Context and Problem Statement

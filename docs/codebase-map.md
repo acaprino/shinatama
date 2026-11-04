@@ -85,7 +85,7 @@ README ──► functional-design ◄──► technical-design ──► mukad
    └► verification-register ◄── every design doc; ──► verification/*.md (all 18 records)
 specs/companion-explainer, specs/token-savings ──► technical-design sections they change
 docs/adr/ ──► the sections listed in each record's scope.paths
-docs/frd/ ──► exact spans of the design documents (path, sha256, code-point offsets)
+docs/frd/ ──► the design-document sections and register rows each requirement cites (Markdown records)
 ```
 
 ## 3. Domains and where each is specified
@@ -146,39 +146,37 @@ Decision, Examples, Rejected Alternatives, Invariants, Consequences and Confirma
 
 ## 4a. Functional requirements documents
 
-`docs/frd/` holds the FRDs of Daodan's project-delivery `frd-method` (`frd_tool.py`): one JSON
-record per area. Every requirement carries at least one evidence span, an exact excerpt
-bound to the source file's SHA-256 and code-point offsets. Each requirement text ends with
-its origin: decided by the user (with the date when the documents give one), author's call,
-proposed, or unmarked in the design. Open questions are not requirements.
+`docs/frd/` holds one readable Markdown requirements record per area
+(`FRD-NNNN-<slug>.md`, 17 areas). Each requirement row names its origin (U: decided by the
+user, with the date when the documents give one; A: author's call; P: proposed in a
+specification; S: unmarked in the design), its delivery slice and its proof row or `—`;
+`docs/frd/README.md` states the conventions. Open questions are not requirements.
 
 | FRD | Area | Requirements |
 |---|---|---:|
-| FRD-0001 | Workspace and agent hosting | 100 |
-| FRD-0002 | Agent placement, homes and per-instance sets | 54 |
-| FRD-0003 | Accounts and login | 26 |
-| FRD-0004 | Project manager | 27 |
-| FRD-0005 | Threads and hop | 74 |
-| FRD-0006 | Search, sessions and resume | 66 |
-| FRD-0007 | Roundtable and messages between instances | 51 |
-| FRD-0008 | Daodan preinstalled and native task support | 57 |
-| FRD-0009 | BillionContext sidecar | 38 |
-| FRD-0010 | Overview, instance state and desktop widget | 53 |
-| FRD-0011 | Browser integration | 72 |
-| FRD-0012 | Companion pane, decision cards and web grounding (spec revision 4) | 201 |
-| FRD-0013 | Token savings | 47 |
+| FRD-0001 | Workspace and agent hosting | 58 |
+| FRD-0002 | Agent placement, homes and per-instance sets | 41 |
+| FRD-0003 | Accounts and login | 20 |
+| FRD-0004 | Project manager | 25 |
+| FRD-0005 | Threads and hop | 62 |
+| FRD-0006 | Search, sessions, resume and the command line | 48 |
+| FRD-0007 | Roundtable and messages between instances | 42 |
+| FRD-0008 | Daodan preinstalled and native task support | 42 |
+| FRD-0009 | BillionContext sidecar | 30 |
+| FRD-0010 | Overview, instance state and desktop widget | 44 |
+| FRD-0011 | Browser integration | 52 |
+| FRD-0012 | Companion pane, decision cards and web grounding (spec revision 4) | 96 |
+| FRD-0013 | Token savings | 40 |
+| FRD-0014 | Shared state, privacy and data retention | 32 |
+| FRD-0015 | Model routing and the tool chooser | 26 |
+| FRD-0016 | TokenEconomizer as an optional module | 24 |
+| FRD-0017 | Installation, distribution, updates and release | 22 |
 
-Since 2026-11-01 each area also has a readable Markdown record beside the JSON
-(`FRD-NNNN-<slug>.md`), and four areas the extraction had left inside other records have their own:
-FRD-0014 (shared state and privacy), FRD-0015 (model routing and the tool chooser), FRD-0016
-(TokenEconomizer) and FRD-0017 (install and release). The Markdown is the text a person reviews;
-the JSON is the evidence binding; `docs/frd/README.md` states the conventions (origin, slice, proof).
-
-All 13 JSON records are **Proposed**, extracted on 2026-11-01 and last refreshed at `c84d28e`, after the
-inconsistency fixes and the user's three rounds of answers that day (866 requirements); items are `extracted`, not
-reviewed. `frd_tool.py validate` passes. An FRD becomes Accepted only through `promote`
-after the user approves its exact text. Because evidence is bound to file hashes, any edit
-to a cited document makes the spans in it stale until the FRD is refreshed.
+The JSON evidence records of Daodan's `frd-method` (`frd_tool.py`) that stood beside 14 of
+these records were retired and deleted on 2026-11-04 (user decision; ADR-0050 v2): their
+spans, bound to file hashes, had been stale since the 2026-11-01 coherence fixes and the tool
+is not in this repository. They remain in the Git history (last refreshed at `c84d28e`). A
+record is Accepted when the user approves its Markdown text.
 
 ## 5. The verification bench (`verify/`)
 

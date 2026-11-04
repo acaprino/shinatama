@@ -15,8 +15,8 @@ choices and open proofs are in [the resilience amendment](../implementation/2026
 
 | | |
 |---|---|
-| Version | 1 (Markdown record; the JSON record is version 1 at `c84d28e`) |
-| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
+| Version | 1 |
+| Status | Accepted 2026-11-01 (this Markdown text) |
 | Date | 2026-11-01; R15, R22, R50, R51 and R55 amended 2026-11-02 for shell/platform; R29 amended and R59-R63 added for the user's resilience decision |
 | Sources | functional-design 1, 2, 3, 4, 5.1, 5.7, 5.9, 5.12, 5.16, 6; technical-design 3, 3.1, 5.5.3, 5.7 |
 | Governing ADRs | ADR-0004, ADR-0005, ADR-0006, ADR-0007, ADR-0011, ADR-0039, ADR-0040, ADR-0047 |
@@ -158,15 +158,3 @@ The native tiling gates TL1 to TL6, the terminal rows P1 to P20 and the skin row
 the acceptance of this record; functional-design 5.16 "Acceptance" and technical-design 3.1
 "Prototype verification gate" are their short form. Nothing here is claimed implemented.
 RES1-RES4 additionally qualify R59-R63; the plan amendment does not close these gates.
-
-## 5. Relation to the JSON record
-
-FRD-0001.json holds 100 extracted sentences. This record consolidates them: its 2.1 covers
-REQ-001 to REQ-013 and REQ-087 to REQ-097; 2.2 covers REQ-008 to REQ-011, REQ-025 to REQ-034
-and REQ-098 to REQ-100; 2.3 and 2.4 cover REQ-049 to REQ-086; 2.5 covers REQ-035 to REQ-048;
-2.6 covers REQ-014 to REQ-022. The install and release sentences (REQ-018, REQ-019) moved to
-FRD-0017.
-
-R59-R63 and the R29 emergency exception were added from the user's 2026-11-02
-resilience request. The older JSON evidence snapshot has not been refreshed or
-promoted and does not yet contain this amendment.

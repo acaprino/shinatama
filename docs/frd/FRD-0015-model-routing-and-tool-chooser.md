@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Version | 1 (new Markdown record; no JSON record yet) |
-| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
+| Version | 1 |
+| Status | Accepted 2026-11-01 (this Markdown text) |
 | Date | 2026-11-01 |
 | Sources | docs/notes/2026-11-01-model-routing-decision-model.md 1 to 10; specs/token-savings 4.4.3, 6.5; harness-tools (seams) |
 | Governing ADRs | ADR-0044, ADR-0031 v2, ADR-0037 v2 |
@@ -90,8 +90,3 @@ the short description of one candidate label.
 
 MR1 to MR4 of the routing note, to be given register ids. Nothing has run; the installed Claude
 Code binary was only checked for the relevant strings.
-
-## 5. Relation to the JSON records
-
-No JSON record covers this area; FRD-0013.json predates the decision. A JSON record should be
-produced with the tool from the note and ADR-0044 when this record is reviewed.

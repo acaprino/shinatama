@@ -8,8 +8,8 @@ and [implementation plan](../implementation/PLAN.md). Resume only on a new user 
 
 | | |
 |---|---|
-| Version | 1 (Markdown record; JSON record version 1 at `c84d28e`) |
-| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
+| Version | 1 |
+| Status | Accepted 2026-11-01 (this Markdown text) |
 | Date | 2026-11-01 |
 | Sources | functional-design goal 5, 2 (non-goals), 5.5, 7; daodan-native-support 1 to 7; README (marketplaces) |
 | Governing ADRs | ADR-0032, ADR-0033, ADR-0034 |
@@ -111,8 +111,3 @@ it: Shinatama reads and types; Daodan's scripts stay the only writer of Daodan s
 
 D2 to D14 and D20 pass with records; D1 is done. daodan-native-support 6 lists D9 to D14 and D4
 as the gates of the native support.
-
-## 5. Relation to the JSON record
-
-FRD-0008.json holds 57 extracted sentences; this record covers them all and adds R09, R10 and
-R42, which the JSON set kept in other records or in the register only.

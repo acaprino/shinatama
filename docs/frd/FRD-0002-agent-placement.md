@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Version | 1 (Markdown record; JSON record version 1 at `c84d28e`) |
-| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
+| Version | 1 |
+| Status | Accepted 2026-11-01 (this Markdown text) |
 | Date | 2026-11-01 |
 | Sources | functional-design 3 (isolation), 5.14, 7; technical-design 3, 5.5 A; records D15 to D19, P20 |
 | Governing ADRs | ADR-0012 v2, ADR-0013, ADR-0014 |
@@ -105,8 +105,3 @@ identity, and the removal of inherited agent markers.
 
 D15 to D19 on the three systems (today Windows only, partial), HM9, HM10, HM13, DS9, DS13 and
 SS5; P20 with a real nested interactive start for Codex, OpenCode and Pi.
-
-## 5. Relation to the JSON record
-
-FRD-0002.json holds 54 extracted sentences; this record covers all of them in 2.1 to 2.7 and
-adds the instance-identity rules (2.5) that the JSON set kept in FRD-0007.

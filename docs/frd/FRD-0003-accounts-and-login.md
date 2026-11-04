@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Version | 1 (Markdown record; JSON record version 1 at `c84d28e`) |
-| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
+| Version | 1 |
+| Status | Accepted 2026-11-01 (this Markdown text) |
 | Date | 2026-11-01 |
 | Sources | functional-design goal 11, 5.11, 7; technical-design 5.5 A, 5.7, 6.7; records CL13, CX11, OC8, PI9 |
 | Governing ADRs | ADR-0031 v2 |
@@ -68,8 +68,3 @@ not, and holds no credential of its own.
 D5, CL13, CX11, OC8, PI9 and DS9 pass with records. Today CL13, CX11 and PI9 are partial, OC8
 is running with its criterion not met on the real home, and nothing about login has passed:
 the 2026-10-27 runs performed no login.
-
-## 5. Relation to the JSON record
-
-FRD-0003.json holds 26 extracted sentences; this record covers them all and adds R18 to R20,
-which the JSON set had not reached (the router key is a decision of 2026-11-01).

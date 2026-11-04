@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Version | 1 (new Markdown record; no JSON record yet) |
-| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
+| Version | 1 |
+| Status | Accepted 2026-11-01 (this Markdown text) |
 | Date | 2026-11-01 |
 | Sources | functional-design 3, 5.1, 8; technical-design 1 (invariants), 3, 4.1 to 4.7, 8.3; companion spec 9.7 (new tables) |
 | Governing ADRs | ADR-0008, ADR-0009 |
@@ -16,7 +16,8 @@ Every Shinatama process (windows, widget, command line, `shinatama mcp`, `shinat
 coordinates through one SQLite database per user. This record states the process model that
 needs it, where the database lives, what it holds and which tables are authoritative, the
 constraints that enforce the engine's invariants, how processes wake, what is sensitive and how
-the user removes it. The JSON set spread these rules over FRD-0005, FRD-0006 and FRD-0010.
+the user removes it. The retired JSON extraction of 2026-11-01 (deleted 2026-11-04, ADR-0050
+v2) spread these rules over FRD-0005, FRD-0006 and FRD-0010; this record consolidates them.
 
 ## 2. Requirements
 
@@ -110,7 +111,3 @@ to qualify on Windows. This amendment does not claim working scheduling or a pas
 ## 4. Acceptance
 
 S1 to S11 on the three systems; AT-1, AT-4, AT-6; X4 and X5.
-
-## 5. Relation to the JSON records
-
-The accompanying JSON evidence snapshot was created on 2026-11-02 from the exact current Markdown spans, including R33-R37. It remains Proposed and unverified; it does not imply approval of numerical maintenance policies or passing runtime gates. Earlier extractions in FRD-0005, FRD-0006 and FRD-0010 retain their own historical status.

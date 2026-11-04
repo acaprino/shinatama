@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Version | 1 (Markdown record; JSON record version 1 at `c84d28e`) |
-| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
+| Version | 1 |
+| Status | Accepted 2026-11-01 (this Markdown text) |
 | Date | 2026-11-01 |
 | Sources | specs/token-savings 1 to 9; technical-design 7.5a, 8.4, 9; functional-design 3 (no claimed saving); record T5 |
 | Governing ADRs | ADR-0025, ADR-0037, ADR-0038 |
@@ -99,7 +99,7 @@ FRD-0009 2.6; model routing and the tool chooser are FRD-0015; TokenEconomizer i
 | R37 | A code-mode gateway in front of MCP servers is not in v1: evaluated after T1 (tool-definition tokens per agent) and built only past the threshold the user sets with no fall in task success (T3). Where code mode is used direct calls stay available, and a session that needs both keeps tool search and programmatic calling. | U 2026-11-01 | EV | T1, T2, T3 | 0025 |
 | R38 | Before anything is claimed: the ledger on at least ten real sessions per harness; the re-run rate before and after each milestone; the latency of one incremental scoring pass on the target CPU while four agents run; that the function-hook plugin loads on the installed Claude Code and `session.compact` receives main and sub-agent transcripts; for each adapter that the cache hit rate is unchanged and native compaction does not run behind it; for Hermes Agent, what stands its compaction down. Register rows T10 to T16 (added 2026-11-01). | S | V1 | T10 to T16 | 0010, 0038 |
 | R39 | Verification records go under `docs/verification/` and the register, as for the other designs. | S | X | — | 0010 |
-| R40 | Open editorial items of the inconsistency worklist on this spec (#10, #84, #106, #107, #108, #114) are closed before the record is promoted. | S | — | — | 0050 |
+| R40 | Open editorial items of the inconsistency worklist on this spec (#10, #84, #106, #107, #108, #114) are closed before the record's text is next approved by the user (the tool `promote` step is retired; ADR-0050 v2). | S | — | — | 0050 |
 
 ## 3. Open questions
 
@@ -110,9 +110,3 @@ are gaps that bear on it.
 
 The six checks of token-savings 9.2, T1 to T9, TE5 and TE12 (passed and failed as designed).
 Nothing of the design has run beyond T5, TE5 and TE12.
-
-## 5. Relation to the JSON record
-
-FRD-0013.json holds 47 extracted sentences; this record covers them all, moves the sidecar
-baseline to FRD-0009 2.6, and refers routing, the tool chooser and TokenEconomizer to
-FRD-0015 and FRD-0016, which the JSON set does not have.

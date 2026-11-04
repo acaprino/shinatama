@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Version | 1 (Markdown record; JSON record version 1 at `c84d28e`) |
-| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`). Amended by hand 2026-11-04: native import and native fork are out of scope in every version (user decision 2026-11-03; ADR-0016 v2, ADR-0022 v2, Accepted 2026-11-04); R16, R17 and 2.10 (R52–R59) withdrawn, R04/R07/R12/R14 amended |
+| Version | 1 |
+| Status | Accepted 2026-11-01 (this Markdown text). Amended 2026-11-04: native import and native fork are out of scope in every version (user decision 2026-11-03; ADR-0016 v2, ADR-0022 v2, Accepted 2026-11-04); R16, R17 and 2.10 (R52–R59) withdrawn, R04/R07/R12/R14 amended |
 | Date | 2026-11-01, amended 2026-11-04 |
 | Sources | functional-design goal 2, 5.1, 5.2, 7; technical-design 1, 2, 4.2 to 4.4, 5.4, 5.6, 6.1 to 6.8, 9, 11, 12; mukade-handover 2 to 7; daodan-native-support 4.3 |
 | Governing ADRs | ADR-0015, ADR-0016 v2, ADR-0017, ADR-0018, ADR-0019, ADR-0022 v2, ADR-0034 |
@@ -160,9 +160,3 @@ AT-1 (journal and crash), AT-2 (canary hop for every ordered pair), AT-3 (hop ba
 (concurrency), AT-5 (budget), AT-6 (redaction), AT-10 (unknown version) of technical-design
 11, and register H1 to H27. Nothing has run on the Shinatama runtime; CX4 and OC2 are agent
 probes, H27 a harness probe with an external converter that was not adopted.
-
-## 5. Relation to the JSON record
-
-FRD-0005.json holds 74 extracted sentences; this record covers them all and adds 2.10 (the
-post-v1 native handover rules, which the JSON set left to the hand-over document) and 2.11
-(the task across a hop, which the JSON set kept in FRD-0008).

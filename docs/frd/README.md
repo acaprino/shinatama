@@ -4,40 +4,36 @@ Date of this set: 2026-11-01, written at commit `620bcf9` from every design docu
 repository (`functional-design.md`, `technical-design.md`, `browser-integration.md`,
 `mukade-handover.md`, `daodan-native-support.md`, `harness-tools.md`, `specs/companion-explainer.md`,
 `specs/token-savings.md`, the two notes of 2026-11-01 and the verification register). Status of
-every Markdown record: **Accepted** by the user on 2026-11-01. The JSON evidence records stay
-Proposed until `frd_tool.py promote` runs; their spans into `functional-design.md`,
-`technical-design.md`, `companion-explainer.md` and `token-savings.md` are stale after the
-coherence fixes of that day and need a refresh with the tool. The user-requested
-2026-11-02 storage amendment is explicit in FRD-0009/R24 and its linked evidence note;
-this update does not claim to have refreshed or promoted those JSON snapshots.
-The 2026-11-02 shell decision amends FRD-0001/R22 and R51 on the same terms.
-The user's 2026-11-02 host-resilience and adaptive-resource decision adds
-FRD-0001/R59-R63 and the emergency-stop exception in R29; its
-[amendment](../implementation/2026-11-02-host-resilience.md) is recorded in Markdown.
-The historical JSON evidence snapshot has not been refreshed or promoted.
+every record: **Accepted** by the user on 2026-11-01.
+
+**Method decision, user, 2026-11-04:** the JSON evidence records of Daodan's `frd-method`
+(`frd_tool.py`) are retired and deleted from this directory; the Markdown records are the only
+requirements records (ADR-0050 v2). The JSON set (14 files beside FRD-0001 to FRD-0014,
+extracted 2026-11-01, last refreshed at `c84d28e`) remains in the Git history; its spans had
+been stale since the coherence fixes of 2026-11-01 and the tool is not in this repository.
+
+The user-requested 2026-11-02 storage amendment is explicit in FRD-0009/R24 and its linked
+evidence note; the 2026-11-02 shell decision amends FRD-0001/R22 and R51; the 2026-11-02
+host-resilience and adaptive-resource decision adds FRD-0001/R59-R63 and the emergency-stop
+exception in R29 ([amendment](../implementation/2026-11-02-host-resilience.md)). The hop
+decision of 2026-11-03 (Accepted 2026-11-04) amends FRD-0005 and FRD-0006 as stated in their
+headers.
 
 **Platform decision, user, 2026-11-02:** Windows is the only officially supported platform for now
 (ADR-0047). FRD-0001 and FRD-0017 are amended; any other clause that names macOS or Linux is
 deferred with those platforms and binds nothing in the active cycle.
 
-## 1. Two representations, one set
+## 1. One representation per area
 
-Each area has two files with the same number:
+Each area has one file, `FRD-NNNN-<slug>.md`: the readable requirements document. This is what
+a person reviews, approves and builds from. It groups the requirements by behaviour, says who
+decided each one, in which delivery slice it lands, which register row or acceptance test
+proves it, and which decision records govern it.
 
-- `FRD-NNNN-<slug>.md`: the readable requirements document. This is what a person reviews,
-  approves and builds from. It groups the requirements by behaviour, says who decided each one,
-  in which delivery slice it lands, which register row or acceptance test proves it, and which
-  decision records govern it.
-- `FRD-NNNN-<slug>.json` (FRD-0001 to FRD-0013 only): the evidence record of Daodan's
-  `frd-method` (`frd_tool.py`). Every requirement there carries exact spans of the design
-  documents, bound to the file's SHA-256 and code-point offsets. The JSON is the machine proof
-  that a requirement comes from the specification; the Markdown is the specification of the
-  requirements.
-
-When the two disagree, the disagreement is a defect to fix in one of them, not a precedence
-rule. The Markdown consolidates the 866 extracted sentences of the JSON set into fewer, complete
-statements and adds four areas (FRD-0014 to FRD-0017) that the extraction had left inside other
-records or had not reached.
+When a record and a design document disagree, the disagreement is a defect to fix in one of
+them, not a precedence rule. The records consolidate the 866 sentences extracted by the retired
+JSON method into fewer, complete statements and add four areas (FRD-0014 to FRD-0017) that the
+extraction had left inside other records or had not reached.
 
 ## 2. Conventions used in every record
 
@@ -79,7 +75,7 @@ and is a gap the register has to close.
 Open questions are not requirements. Each record lists them at the end, with the register's
 `O` ids where they exist.
 
-## 3. Index of the readable records
+## 3. Index of the records
 
 | FRD | Title | Requirements | Slices | Governing ADRs |
 |---|---|---|---|---|
@@ -112,28 +108,4 @@ holds the requirements, not the reasoning: when a statement here needs its "why"
 the section that has it. The verification register remains the only place that says whether a
 requirement is proved; a record never claims a pass.
 
-Any edit to a cited document changes its hash, so the JSON evidence pointing into it is stale
-until the FRD is refreshed with the tool; the Markdown records are refreshed by hand in the same
-commit as the change they follow.
-
-<!-- frd-index:start -->
-
-Generated by frd_tool.py. Edit records through the CLI, not this block.
-
-| FRD | Version | Title | Status | Requirements | Open conflicts | Verified at |
-|---|---:|---|---|---:|---:|---|
-| [FRD-0001](<FRD-0001-workspace-and-agent-hosting.json>) | 1 | Workspace and agent hosting | Proposed | 100 | 0 | `` |
-| [FRD-0002](<FRD-0002-agent-placement.json>) | 1 | Agent placement, homes and per-instance sets | Proposed | 54 | 0 | `` |
-| [FRD-0003](<FRD-0003-accounts-and-login.json>) | 1 | Accounts and login | Proposed | 26 | 0 | `` |
-| [FRD-0004](<FRD-0004-project-manager.json>) | 1 | Project manager | Proposed | 27 | 0 | `` |
-| [FRD-0005](<FRD-0005-threads-and-hop.json>) | 1 | Threads and hop | Proposed | 74 | 0 | `` |
-| [FRD-0006](<FRD-0006-search-sessions-and-resume.json>) | 1 | Search, sessions and resume | Proposed | 66 | 0 | `` |
-| [FRD-0007](<FRD-0007-roundtable-and-messaging.json>) | 1 | Roundtable and messages between instances | Proposed | 51 | 0 | `` |
-| [FRD-0008](<FRD-0008-daodan.json>) | 1 | Daodan preinstalled and native task support | Proposed | 57 | 0 | `` |
-| [FRD-0009](<FRD-0009-billioncontext-sidecar.json>) | 1 | BillionContext sidecar | Proposed | 38 | 0 | `` |
-| [FRD-0010](<FRD-0010-overview-state-and-widget.json>) | 1 | Overview, instance state and desktop widget | Proposed | 53 | 0 | `` |
-| [FRD-0011](<FRD-0011-browser.json>) | 1 | Browser integration | Proposed | 72 | 0 | `` |
-| [FRD-0012](<FRD-0012-companion-pane.json>) | 1 | Companion pane, decision cards and web grounding | Proposed | 201 | 0 | `` |
-| [FRD-0013](<FRD-0013-token-savings.json>) | 1 | Token savings | Proposed | 47 | 0 | `` |
-
-<!-- frd-index:end -->
+The Markdown records are refreshed by hand in the same commit as the change they follow.

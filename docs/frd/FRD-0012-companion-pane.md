@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Version | 1 (Markdown record; JSON record version 1 at `c84d28e`, spec revision 4) |
-| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
+| Version | 1 |
+| Status | Accepted 2026-11-01 (this Markdown text) |
 | Date | 2026-11-01 |
 | Sources | specs/companion-explainer (revision 4.1 draft) 1 to 10; harness-tools 1 to 3; technical-design 5.5 (`ask_headless`), 7.6, 8.1, 8.3, 8.4 |
 | Governing ADRs | ADR-0002 v3, ADR-0003 v2, ADR-0041, ADR-0042, ADR-0043 |
@@ -218,9 +218,3 @@ sent first).
 
 Spec 9.3 examples EX-001 to EX-033 and the invariants INV-001 to INV-016 of 9.4; the rows of
 10.2 by release as 9.3 lists them. Nothing has run.
-
-## 5. Relation to the JSON record
-
-FRD-0012.json holds 201 extracted sentences from revision 4; this record consolidates them, adds
-revision 4.1's harness-tools facts (R62, R67, R85, R86), the required changes elsewhere (2.15)
-and the unresolved worklist items (R94).

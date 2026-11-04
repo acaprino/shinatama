@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Version | 1 (new Markdown record; no JSON record yet) |
-| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
+| Version | 1 |
+| Status | Accepted 2026-11-01 (this Markdown text) |
 | Date | 2026-11-01; R01, R02, R03, R05 and R09 amended 2026-11-02 after the user's platform decision |
 | Sources | functional-design goal 8, 3, 5.6 (Node), 5.8 (Oni IP), 5.12 (audience), 7, 8; technical-design 3.1 (toolkit pin), 11.12; Cargo.toml; register 17 (X1 to X6), SC13, W9, O4, O5 |
 | Governing ADRs | ADR-0047, ADR-0048, ADR-0040 |
@@ -82,8 +82,3 @@ and the legal decisions that stay separate from the code.
 
 X1 to X6, SC13, P17, P18, W7 to W9; AT-12 (portability: tests 1 to 11 pass on the three
 systems or the failing system is named in the release notes).
-
-## 5. Relation to the JSON records
-
-No JSON record covers this area; FRD-0001.json held two sentences (REQ-018, REQ-019). A JSON
-record should be produced with the tool when this record is reviewed.

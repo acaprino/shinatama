@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Version | 1 (Markdown record; JSON record version 1 at `c84d28e`) |
-| Status | Accepted 2026-11-01 (this Markdown text; the JSON evidence record, where one exists, stays Proposed until `frd_tool.py promote`) |
+| Version | 1 |
+| Status | Accepted 2026-11-01 (this Markdown text) |
 | Date | 2026-11-01 |
 | Sources | functional-design goal 13, 2 (non-goals), 4, 5.15, 7; technical-design 7.9; browser-integration 1 to 12 |
 | Governing ADRs | ADR-0035, ADR-0036 |
@@ -130,8 +130,3 @@ or `user`, exactly one for an interactive session.
 ## 4. Acceptance
 
 AT-11 (browser boundaries) and B1 to B10. Nothing has run.
-
-## 5. Relation to the JSON record
-
-FRD-0011.json holds 72 extracted sentences; this record covers them all, folding the
-non-goals into R21 and the gate rows into 2.7 and 2.9.
