@@ -1,12 +1,20 @@
 # Mukade: session handover integration
 
-**Status: technical integration proposal, not implemented or approved.** Shinatama has no runtime
-crate yet. This document describes the Mukade checkout at `4124b1f880f49a8f958801195324628752e35c4a`
-and the work Shinatama must do around it; it is not evidence that the two products have been
-integrated. This revision includes OpenCode listing, `SourceChanged`, `WriteUncertain` and
-reservable destination ids/paths required by the Sessions and recovery design. Updating the pin
-still requires rechecking the complete API, harness versions and acceptance evidence. V1 uses only
-read-side Mukade APIs through Shinatama's adapters; native writes are post-v1. The upstream [README](https://github.com/acaprino/mukade/blob/master/README.md),
+**Status: design record of a closed route, not implemented.** On 2026-11-03 the user decided
+that native handover is out of scope in every version: a handoff always carries the seed
+document (ADR-0019) and Shinatama calls only Mukade's read-side APIs — those are built
+(`shinatama-engine` links Mukade behind its `session-reader` feature). Sections 2 to 7 below
+describe the native write route as reviewed against the pin; they are kept as the re-entry
+design for any future decision that supersedes ADR-0016 v2 / ADR-0022 v2 (both Proposed), not
+as work to do. This document describes the Mukade checkout at
+`14edbf3cf71424a48b057e52c5532d6d4ab7d8a4` and the work Shinatama must do around it; it is not
+evidence that the two products have been integrated. This revision includes the installation scan,
+`StoreRoots::root`/`set_root`, `hop_into`, reader-reported session titles and preserved provider
+reasoning proofs, on top of the OpenCode listing, `SourceChanged`, `WriteUncertain` and reservable
+destination ids/paths required by the Sessions and recovery design. Updating the pin still
+requires rechecking the complete API, harness versions and acceptance evidence. Shinatama uses
+only read-side Mukade APIs through its adapters; native writes are out of scope in every
+version (ADR-0016 v2, Proposed). The upstream [README](https://github.com/acaprino/mukade/blob/master/README.md),
 [specification](https://github.com/acaprino/mukade/blob/master/docs/session-interchange-spec.md),
 [usage guide](https://github.com/acaprino/mukade/blob/master/docs/usage.md) and
 [open points](https://github.com/acaprino/mukade/blob/master/next.md) remain authoritative for
@@ -21,21 +29,28 @@ for one of those four harnesses. It returns a destination reference, resume comm
 It does not move a running process, copy credentials or permissions, update Shinatama's database,
 manage its instances, or guarantee that the destination understood the task.
 
-When the first Shinatama runtime crate is created, declare the Git dependency in the workspace
-and use it in-process; it is not on crates.io at the documented revision. Pin a reviewed commit
-and commit the resulting lockfile rather than silently tracking a moving branch. For example:
+The Git dependency is declared in the workspace and used in-process; it is not on crates.io at
+the documented revision. Pin a reviewed commit and commit the resulting lockfile rather than
+silently tracking a moving branch. The current pin:
 
 ```toml
 [workspace.dependencies]
-mukade = { git = "https://github.com/acaprino/mukade", rev = "4124b1f880f49a8f958801195324628752e35c4a" }
+mukade = { git = "https://github.com/acaprino/mukade", rev = "14edbf3cf71424a48b057e52c5532d6d4ab7d8a4" }
 ```
 
-This is a proposed dependency, not a change to the currently empty workspace. Updating the pin
-requires rechecking the API, harness versions and acceptance evidence. A Shinatama `.stx.jsonl`
+`shinatama-engine` links it behind its `session-reader` feature, and `MUKADE_REVISION`
+(`session_roots.rs`) carries the same value into the metadata worker protocol. The reviewed source
+is exported offline by `scripts/mukade-pin.ps1` (manifest `scripts/mukade-pin.json`, snapshot
+`.verification/mukade-pin-14edbf3`). Updating the pin requires rechecking the API, harness
+versions and acceptance evidence. A Shinatama `.stx.jsonl`
 export (engine 5.5.1) is a separate proposed format, not Mukade's interchange JSON; no direct
 compatibility or automatic redaction between them is assumed.
 
 ## 2. Handover sequence and ownership
+
+> **Closed route (decision 2026-11-03, user; ADR-0016 v2, ADR-0022 v2, Proposed).** Every
+> transfer is a host seed operation (ADR-0019); the sequence below is preserved as the re-entry
+> design and describes no reachable Shinatama path.
 
 The engine owns the hop state machine, `close`/`fork` semantics and source activation; the
 adapter owns harness capabilities, instance configuration and interactive launch. Mukade owns
@@ -130,10 +145,12 @@ means its configured store, so a boxed instance must explicitly resolve and vali
 and related `XDG_*` environment rather than accidentally target a user's store. Mukade's OpenCode
 store commands use `--standalone` to avoid a background service with a different environment.
 `StoreRoots::from_env()` is convenient for a controlled CLI environment, not a substitute for
-per-instance resolution. At the pin one `StoreRoots` has one root per harness and `hop()` reads
-and writes through the same value, so a same-harness transfer between two distinct homes is not
-representable there; revisions after the pin add `hop_into(&request, &destination)` for exactly
-that case (section 8). Either way the transfer stays behind Shinatama's own verification (SS5).
+per-instance resolution. At the pin `hop()` is `hop_into(req, &req.roots)`, and
+`StoreRoots::root`/`set_root` name one harness's store (an existing OpenCode folder means its
+`opencode.db`); `hop_into(&request, &destination)` reads and compacts with `request.roots` and
+writes with a second `StoreRoots`, so a same-harness transfer between two distinct homes (box to
+system, or into a portable JanuraCode) is representable at the library level (section 8). Either
+way the transfer stays behind Shinatama's own verification (SS5), which has not been run.
 
 `WriteDetails` supplies destination facts such as protocol, shell, offered tools, provider, model,
 project ID, version and executable override. Its `dest_id` and `dest_path` can carry a destination
@@ -146,6 +163,10 @@ environment variables for concurrent hops. Confirm that Mukade-launched children
 Shinatama's isolation, marker-removal and credential configuration before enabling the path.
 
 ## 4. Content and compaction policies
+
+These policies apply only to Mukade's write path, which Shinatama does not call (closed route,
+decision 2026-11-03; ADR-0016 v2). The seed document has its own budget and redaction rules
+(ADR-0019; engine 5.5.1); the table stays as the re-entry reference.
 
 | Request | Mukade behavior and host implications |
 |---|---|
@@ -242,32 +263,79 @@ native sessions, indexes or leftovers.
   Exercise real providers only with approved accounts and spending limits. Validate macOS/Linux
   and actual customer workflows separately; no such host tests have been run by this document.
 
-## 8. Revisions after the pin (local checkout read 2026-10-31)
+## 8. The pin advance to `14edbf3` (2026-11-03)
 
-The Mukade checkout at `D:\Projects\mukade` is five commits past the pin, with further
-uncommitted changes. None of this counts for Shinatama until the pin is advanced and sections
-1 to 7 are rechecked against it; it is listed so the recheck knows what to look at.
+The pin moved from `4124b1f` to `14edbf3cf71424a48b057e52c5532d6d4ab7d8a4` (Mukade `master` at
+the advance; no committed revision is after the pin — the working tree carries pending work
+listed at the end of this section). Everything the previous section 8 listed as
+after the pin is now in it: the installation scan (`detect::scan_installations(root, max_depth)`,
+`locate_installation(path, harness)`; CLI `mukade scan <dir> [--depth n]`, `--root` and
+`--dest-root` on `list`, `dump`, `write` and `hop`), `StoreRoots::root`/`set_root` and `hop_into`
+(section 3), Mukade's ADR-0001 (one recognition rule set, in the library) and the TUI work (no
+Shinatama impact). Shinatama's `detect()` and `system_homes()` (engine 5.5 A) can now delegate
+discovery to the scan instead of keeping a second rule set (main 5.14, 5.16). Committed after
+that record and also in the pin: reader lists name sessions by their own titles (Pi by display
+name or first prompt), reasoning keeps the complete provider proof through conversion, a
+destination's model can come from its own installation, and an unrepresentable `exe` deadline
+waits for exit instead of panicking.
 
-| Change | Where | What it means for Shinatama |
-|---|---|---|
-| `detect::scan_installations(root, max_depth) -> Scan { installations, visited, truncated }`, `locate_installation(path, harness)`; CLI `mukade scan <dir> [--depth n]` | commits `2db98a0`, `c59c178` (unpushed) | Recognizes every harness installation below a folder, portable ones included, from the embedded catalog: breadth first, no links or junctions, read-only, never into a store's own session folders. Shinatama's `detect()` and `system_homes()` (engine 5.5 A) can delegate discovery to it instead of keeping a second rule set (main 5.14, 5.16). |
-| `--root` and `--dest-root` on `list`, `dump`, `write` and `hop`: a store, or a folder holding exactly one installation | `c59c178` | The CLI equivalent of per-instance roots; the library path is `StoreRoots` plus `hop_into`. |
-| `StoreRoots::root(harness)` and `set_root(harness, path)` (an existing OpenCode folder means its `opencode.db`); `hop_into(&request, &destination_roots)` reads and compacts with `request.roots` and writes with the second `StoreRoots` | working tree, uncommitted | Two installations of one harness are representable: box to system, or into a portable JanuraCode. The "one root per harness" limit of section 3 is lifted at the library level; Shinatama's SS5 gate stays until it is run. |
-| ADR-0001: installation scanning is a library capability, the CLI exposes it first, `mukade-tui` never matches layouts itself | `docs/adr/ADR-0001-installation-scan-in-library-and-cli.md`, Accepted 2026-10-31 | The rule Shinatama adopts too: one recognition rule set, in Mukade. |
-| `mukade-tui` renders its first frame before the store scan returns; `mukade-tui/src/location.rs` (uncommitted) | `611a47b`, working tree | TUI only; no Shinatama impact. |
+Already in the previous pin and unchanged: `mukade harnesses` (a text inventory from the embedded
+`catalog/harnesses.json`: binary locations, default stores and layouts per OS, the lineage each
+harness records), `exe::resolve(harness, override)` (explicit override, then `MUKADE_*_EXE`, then
+`PATH`, then well-known locations) and `exe::run_within(command, timeout)`, which stops a harness
+child and everything it started at the deadline. `WriteDetails` also carries `dest_agent`,
+`metadata`, `tool_map`, `without_tools` and `now` beyond the fields named in section 3.
 
-Already in the pin and not described above: `mukade harnesses` (a text inventory from the
-embedded `catalog/harnesses.json`: binary locations, default stores and layouts per OS, the
-lineage each harness records), `exe::resolve(harness, override)` (explicit override, then
-`MUKADE_*_EXE`, then `PATH`, then well-known locations) and `exe::run_within(command, timeout)`,
-which stops a harness child and everything it started at the deadline. `WriteDetails` also
-carries `dest_agent`, `metadata`, `tool_map`, `without_tools` and `now` beyond the fields named
-in section 3.
+Recheck performed for the advance (2026-11-03): the API surface Shinatama uses is unchanged or
+additive — `reader/mod.rs` (`SessionInfo`, `Reader`, `Lookup`, `for_harness`), `model/kind.rs`
+(`Kind`) and `model/tool.rs` (`ResultContent`) are untouched between the two pins,
+`catalog::store_is_file` is present, and `StoreRoots` and `hop` gained only new members.
+`cargo test -p shinatama-engine --features session-reader` passes at the new pin (110 unit tests,
+0 failures); `scripts/mukade-pin.json` and the offline snapshot `.verification/mukade-pin-14edbf3`
+were regenerated from the reviewed object (141 files, blob-verified against Git). Harness-version
+and acceptance-evidence rechecks beyond that are not implied by this advance: SS5, now unblocked
+against `hop_into`, and the reader rows stay open until run.
 
-Open in Mukade's own [`next.md`](https://github.com/acaprino/mukade/blob/master/next.md) and
-relevant here: Codex paginated threads (0.165) read from hand-made files only, Codex subagent
-threads not linked to their root, native compaction records never written by a portable hop,
-the 100 MB read not re-measured after the speed work. CX10 and SS2 inherit them.
+The OpenCode-specific advance in this pin (commit `7bae1aa`, with Mukade's own record in
+`docs/verification/2026-11-02-opaque-reasoning.md`): the reader now preserves the **complete
+provider reasoning proof** instead of the first detail only — the whole `native/reasoningDetails`
+array from the Gateway as well as OpenRouter, a summary preceding the encrypted entry, several
+opaque entries per part, the `data` or `encrypted` key, per-array protocol detection that refuses
+mixed formats (`mixed-reasoning-details`) and recognizes `openai-native-responses-v1`.
+`Opaque.chat` (`ChatReasoning { provider, details }`) carries the envelope through document I/O;
+the scalar fields stay compatibility projections. `payload_fits` now refuses the envelope for a
+non-OpenCode destination unless an exact scalar Anthropic conversion exists, the new
+`chat_destination_fits` requires a receiving OpenCode provider to match the retained envelope's
+provider (never relabel native OpenAI ciphertext as OpenRouter's), and the OpenCode writer writes
+the retained array back. For Shinatama's current read-only surface none of this changes
+behaviour: the detail projection omits reasoning by construction (`ReasoningOmitted`), find does
+not search it, and RAW shows native records whose bytes are untouched. It matters post-v1, when
+the section 4 `ReasoningPolicy::Drop` choice meets an OpenCode destination that can now
+round-trip the full proof; keeping the envelope instead of dropping it is the separate Shinatama
+policy decision section 4 already names.
+
+Pending in Mukade's working tree on 2026-11-03 (**uncommitted**, therefore in no pin; listed so
+the next recheck knows what to look at, as earlier revisions of this section did):
+`Compaction::Native(NativeBudget)` and CLI `--compaction native` on `document` and `hop`
+(Mukade spec §4.4). For an OpenCode destination it writes the whole history plus one
+deterministic OpenCode `compaction` record with `metadata.keepID` — no model call anywhere; the
+caller supplies the destination facts (`--context-window`, `--max-output-tokens`,
+`--text-token-factor`, conservative chars/3 default), the summary is bounded per-user-message
+truncation, and the `document` response reports the boundary (`keep_id`, estimated and projected
+tokens, summarized counts, budget, `fits`). `dump` and non-OpenCode destinations refuse it. When
+it is committed, pushed and pinned: section 4's table gains a `Native` row (the
+`DestinationNative` row is unchanged — that variant still means the destination's own compaction,
+run by the host), `ImportOpts` gains a `native_budget` field and `Compaction` a variant;
+Shinatama constructs neither type today, so the read side is unaffected. Shinatama will not
+consume this mode: ADR-0016 v2 (Proposed, 2026-11-03) closes the native handover route; the
+capability serves hosts that write OpenCode sessions, such as JanuraCode's session bridge.
+
+Hermes Agent and DeepSeek Harness remain at Mukade's ADR-0002 (read-first proposal): the pin has
+no reader for either, so section 9 is unchanged. Open in Mukade's own
+[`next.md`](https://github.com/acaprino/mukade/blob/master/next.md) and relevant here: Codex
+paginated threads (0.165) read from hand-made files only, Codex subagent threads not linked to
+their root, native compaction records never written by a portable hop, the 100 MB read not
+re-measured after the speed work. CX10 and SS2 inherit them.
 
 ## 9. Hermes Agent and DeepSeek Harness (requested 2026-10-31)
 

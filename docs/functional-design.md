@@ -296,6 +296,9 @@ harnesses (four today; Hermes Agent and DeepSeek Harness are new Mukade work,
 [mukade-handover.md](mukade-handover.md) section 9), published as its own repository and linked in-process (technical design
 5.4.1). Until that post-v1 gate opens, every hop uses `seed_prompt` or
 `native_resume`; a fork also uses a seed, never a native fork or import.
+**Decision 2026-11-03 (user; ADR-0016 v2, ADR-0022 v2, Proposed):** native import is out of
+scope in every version — the post-v1 gated route and the hybrid end state described here are
+withdrawn, and every handoff carries the seed document (ADR-0019).
 
 What carries over, as the hop dialog must show it: conversation (text),
 tool calls (summarized unless native import preserves them), files (same folder;

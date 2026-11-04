@@ -73,6 +73,8 @@ run `index`; do not edit this block by hand.
 | ADR | Title | Governs | From task |
 |---|---|---|---|
 | [ADR-0002 v4](<ADR-0002-v4-companion-feed.md>) | Companion pane fed by the canonical transcript, harness chosen per companion; credentials only as read-only OS bindings, no shinatama mcp, overview row from its own record | `docs/specs/companion-explainer.md`, `docs/technical-design.md`, `docs/functional-design.md`, `companion`, `explain-mode`, `read-only-session`, `adapter-headless` | `TL1.2` |
+| [ADR-0016 v2](<ADR-0016-v2-seed-only-hops-in-v1.md>) | Handoff always carries a seed; native import and native fork are out of scope in every version; native stores stay read-only | `docs/functional-design.md`, `docs/technical-design.md`, `docs/mukade-handover.md`, `hop-strategy`, `v1-scope`, `native-import`, `native-store-write` | `user-decision-2026-11-03` |
+| [ADR-0022 v2](<ADR-0022-v2-mukade-native-handover-gates.md>) | The native handover route is closed; its rules survive only as the re-entry preconditions of a future decision | `docs/mukade-handover.md`, `docs/technical-design.md`, `docs/functional-design.md`, `native-handover`, `mukade-hop`, `write-recovery`, `store-roots`, `handover-privacy` | `user-decision-2026-11-03` |
 | [ADR-0040 v2](<ADR-0040-v2-delivery-baseline.md>) | Terminal-first baseline, then read-only browsing and resume, then the seed hop; first-milestone gates decide the design | `docs/functional-design.md`, `docs/technical-design.md`, `docs/verification-register.md`, `delivery-plan`, `milestones`, `verification-gates`, `release` | `TL1.2` |
 
 ## Superseded

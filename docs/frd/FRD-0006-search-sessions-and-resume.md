@@ -105,7 +105,7 @@ Reading is delegated to the Mukade library; everything here is read-only in v1.
 ## 3. Open questions
 
 1. Whether the sessions surface should offer only actions both adapters support (register O7).
-2. Advancing the Mukade pin past `4124b1f` (installation scan, `hop_into`), which reopens SS5.
+2. SS5, reopened by the Mukade pin advance to `14edbf3` (2026-11-03; installation scan and `hop_into` are in the pin): the gate itself has not been run. Its staged-transfer part is now closed by the user decision of 2026-11-03 (native handover out of scope in every version; ADR-0016 v2, ADR-0022 v2, Proposed); the store-catalog identity part stays open, and R30 needs write-back with FRD-0005 R12/R16/R17.
 
 ## 4. Acceptance
 
