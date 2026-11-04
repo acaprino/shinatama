@@ -1229,9 +1229,16 @@
         }
       },
       "limits": [
-        "The local owner/Busy/recovery/storage/UI slices pass. Full SC16 soak, effective compression/provider coverage and the dependency C12.4 remain open."
+        "The local owner/Busy/recovery/storage/UI slices pass. Full SC16 soak and effective compression/provider coverage remain open; the former C12.4 dependency is closed (5486709, with its own recorded limits).",
+        "2026-11-04 re-check at b9465e4: supervisor native proof re-passed (1/1, 4.66s); desktop-smoke was stale against the dffb269 global workspace scope and is now aligned (ownership probe green), but a full green smoke run is blocked by real system commit headroom (~1-2GiB free of ~44GiB; the C09R governor correctly reports reduced activity). The parent checkpoint stays open until one full green desktop-smoke run is recorded. The process-wrap refusal decision (C13.1 gate) is recorded in Cargo.toml [workspace.dependencies]."
       ],
-      "next_action": "Finish C12.4 effective configuration and retain explicit unknown coverage; then close the C13 parent checkpoint."
+      "evidence": [
+        "docs/verification/2026-11-04-C13-supervisor-recheck.md"
+      ],
+      "checks": [
+        "cargo test --offline --locked -p shinatama-engine -j1 --test sidecar_supervisor -- --ignored --test-threads=1 --nocapture: PASS 1/1, 4.66s re-run 2026-11-04 on HEAD b9465e4; busy kept exact owner, one restart on same address, repeated_exit failed phase, ledger released; first attempt AdmissionDeferred under ~1.8GiB system commit headroom (fail-closed admission working as specified)"
+      ],
+      "next_action": "Run one full green desktop-smoke (p14-probe wrap-run) under sufficient system commit headroom, record it, then close the C13 parent checkpoint; C12.4 is closed (5486709)."
     },
     "C14": {
       "status": "pending",
