@@ -93,18 +93,19 @@ try {
   const noScratch = { probe: 0, trial: 0 };
   expect(await checkScratchNames(storage.directory)).toEqual(noScratch);
   expect(await ids()).toEqual([]);
-  // Register a real canonical project ID before loading its workspace scope.
+  // Register a real canonical project ID; since dffb269 the layout persists in
+  // the global workspace scope, so ownership is read from the global record.
   const project = await ipc('project_select', { path: projectPath });
   expect(project.id).toMatch(/^p_[a-z2-7]{12}$/);
   await page.reload();
   await expect(page.locator('#runtime-status')).toContainText('Local runtime');
-  scope = { projectId: project.id, workspaceId: 'main' };
+  scope = { workspaceId: 'main' };
   const saved = async () => {
     // Observe the app's actual acknowledgement before the independent DB read.
     await expect.poll(() => page.locator('.workspace-name').evaluate(label => ({
       state: label.dataset.layoutState, dirty: label.dataset.layoutDirty, pending: label.dataset.layoutPending,
     })), { timeout: 10000 }).toEqual({ state: 'owned', dirty: 'false', pending: 'false' });
-    return ipc('workspace_load', { request: scope });
+    return ipc('global_workspace_load', { request: scope });
   };
   await expect.poll(async () => (await saved())?.ownership, { timeout: 15000 }).toBe('ours');
   await expect(page.locator('.wm-pane')).toHaveCount(1);
@@ -328,7 +329,7 @@ try {
             hidden: view.hidden, inputs: view.querySelectorAll('.xterm-helper-textarea').length,
           })),
           nativeSessions: await window.__TAURI_INTERNALS__.invoke('terminal_list'),
-          saved: scope ? await window.__TAURI_INTERNALS__.invoke('workspace_load', { request: scope }) : null,
+          saved: scope ? await window.__TAURI_INTERNALS__.invoke('global_workspace_load', { request: scope }) : null,
         }), scope),
         delay(2000).then(() => { throw new Error('UI diagnostic deadline exceeded'); }),
       ]);
