@@ -79,7 +79,7 @@ macOS e Linux sono fuori dallo scope su decisione dell utente: solo Windows e su
 | [C10](#c10) | Definire contratti degli adattatori, capacità e verifiche di versione | C02, C03 | committed | 10–18 |
 | [C11](#c11) | Costruire piani di avvio sicuri e cartelle private degli agenti | C01, C10 | committed | 16–32 |
 | [C11S](#c11s) | Separare i servizi harness dietro un contratto Rust comune | C11, C09, C09R | committed | 3–7 |
-| [C12](#c12) | Integrare il sorgente del sidecar e il suo ambiente privato | C11 | in_progress | 20–40 |
+| [C12](#c12) | Integrare il sorgente del sidecar e il suo ambiente privato | C11 | committed | 20–40 |
 | [C09R](#c09r) | Proteggere l host con budget e recupero adattivi | C03, FS03, C11, C03M | committed | 24–48 |
 | [C13](#c13) | Supervisionare i sidecar distinguendo occupazione e recupero | C12, C09R | pending | 20–40 |
 | [C14](#c14) | Preparare checkup, manifest e set generici di avvio | C11, C13 | pending | 6–12 |

@@ -964,8 +964,8 @@
       "next_action": "Continue C09 native fault qualification and visible applied resource limits, then finish sidecar/checkup integration."
     },
     "C12": {
-      "status": "in_progress",
-      "commit_sha": null,
+      "status": "committed",
+      "commit_sha": "548670982b841e778c7698d213a97c8c6aebd052",
       "units": {
         "C12.1": {
           "status": "committed",
@@ -1010,19 +1010,27 @@
           ]
         },
         "C12.4": {
-          "status": "pending",
-          "commit_sha": null,
+          "status": "committed",
+          "commit_sha": "548670982b841e778c7698d213a97c8c6aebd052",
+          "platforms": [
+            "Windows 11 x64 build 26200.9711; pinned Node 24.14.1; actual Claude 2.1.318 (b9aa5b08…1082)"
+          ],
           "evidence": [
             "docs/notes/2026-11-03-sidecar-effective-config.md",
-            "docs/notes/2026-11-03-claude-proxy-tls.md"
+            "docs/notes/2026-11-03-claude-proxy-tls.md",
+            "docs/verification/2026-11-04-C12.4-effective-config-live.md"
           ],
           "checks": [
             "cargo test --offline -p shinatama-engine --test effective_sidecar -j1 -- --ignored --test-threads=1 --nocapture",
             "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls -- --ignored --test-threads=1: PASS 1/1, 9.27s; actual Claude 2.1.317 rejected missing CA, received synthetic marker through canonical sidecar with private child CA; all owners Released and ledger empty",
-            "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls --test claude_native_resume -- --ignored --test-threads=1: PASS native resume 1/1 in 9.78s and TLS 1/1 in 9.18s; two genuine SessionStart hooks, same saved UUID and prior assistant turn received by synthetic provider, all owners Released"
+            "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls --test claude_native_resume -- --ignored --test-threads=1: PASS native resume 1/1 in 9.78s and TLS 1/1 in 9.18s; two genuine SessionStart hooks, same saved UUID and prior assistant turn received by synthetic provider, all owners Released",
+            "cargo test --offline --locked -p shinatama-engine -j1 --test claude_effective_config -- --ignored --test-threads=1 --nocapture: PASS 1/1, 5.76s (2026-11-04); actual Claude 2.1.318 through canonical sidecar v0.1.207: [output-steering] applied (steering:L2) in sidecar log, sentinel observed on the live upstream body, exactly 1 main request, 1 guarded tunnel, guardDenied=1, osTrustChanged=false, all owners Released and ledger empty",
+            "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls --test claude_native_resume -- --ignored --test-threads=1: re-run 2026-11-04 on re-pinned Claude 2.1.318 after user-install auto-update from 2.1.317: PASS native resume 1/1 in 9.85s and TLS 1/1 in 9.33s",
+            "npm run build: exit 0 (2026-11-04)"
           ],
           "limits": [
-            "Selected canonical-source controls and actual Claude/Bun TLS pass with synthetic local traffic and Released cleanup. Running CLI effective configuration and real provider authentication/tools remain unverified; targetRatio/growthWindow are parsed but not consumed as requested. The separate headless TLS profile does not qualify the tracked ConPTY profile."
+            "Selected canonical-source controls and actual Claude/Bun TLS pass with synthetic local traffic and Released cleanup. Running-CLI effective configuration is observed as live upstream steering effects (percorso B), weaker than the literal acceptance 2: no in-process opts introspection (percorso A stays pending a canonical horness-launcher change plus deliberate re-pin). Real provider authentication/tools remain unverified; targetRatio/growthWindow are parsed but not consumed as requested. The separate headless profile does not qualify the tracked ConPTY profile.",
+            "effortRouting-off with unchanged high effort is proven at source-runtime level only; the observed live Claude body carries no effort field to clamp. The catalog check 'seed bypass' has no dedicated executed fixture and stays open. The CLI pin follows the user installation's auto-update: every version drift requires re-running the native proofs (2.1.317→2.1.318 event documented 2026-11-04)."
           ],
           "checkpoint_commits": [
             "885db6da4abf6c643ab6aa02f8c7d655317214b6",
@@ -1032,20 +1040,22 @@
       },
       "limits": [
         "Actual pinned Node/CLI, schema9/six indexes, canonical source incremental storage and local child-only TLS pass. Full SC16 and per-agent provider traffic remain open.",
-        "Selected canonical-source tiers/adaptive/rewrite/output/effort-off controls pass; running-CLI effective controls and targetRatio/growthWindow consumption remain open.",
+        "Selected canonical-source tiers/adaptive/rewrite/output/effort-off controls pass; running-CLI effective configuration is qualified as live upstream steering effects (percorso B, weaker than literal acceptance 2); percorso A in-process introspection and targetRatio/growthWindow consumption remain open.",
         "Complete publisher Node license bundle is now pinned and verified against the exact official Windows package; product release/legal X3 and remaining runtime/provider gates stay open."
       ],
-      "next_action": "Resolve the remaining canonical-source/CLI effective-control gap; independent archive reading proceeds through C09R without waiting for provider qualification.",
+      "next_action": "C12 closed with recorded limits. Proceed with C13 sidecar supervision (occupancy vs recovery, single recovery, diagnostics separation) and, in the user-authorized alternation, the independent C22 archive-root thread; percorso A stays pending a canonical horness-launcher decision.",
       "checkpoint_commits": [
         "885db6da4abf6c643ab6aa02f8c7d655317214b6",
         "2f72e7c4ce7badd65c173cf04f3bb16666951a5e"
       ],
       "evidence": [
-        "docs/notes/2026-11-03-claude-proxy-tls.md"
+        "docs/notes/2026-11-03-claude-proxy-tls.md",
+        "docs/verification/2026-11-04-C12.4-effective-config-live.md"
       ],
       "checks": [
         "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls -- --ignored --test-threads=1: PASS 1/1, 9.27s; actual Claude 2.1.317 rejected missing CA, received synthetic marker through canonical sidecar with private child CA; all owners Released and ledger empty",
-        "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls --test claude_native_resume -- --ignored --test-threads=1: PASS native resume 1/1 in 9.78s and TLS 1/1 in 9.18s; two genuine SessionStart hooks, same saved UUID and prior assistant turn received by synthetic provider, all owners Released"
+        "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls --test claude_native_resume -- --ignored --test-threads=1: PASS native resume 1/1 in 9.78s and TLS 1/1 in 9.18s; two genuine SessionStart hooks, same saved UUID and prior assistant turn received by synthetic provider, all owners Released",
+        "cargo test --offline --locked -p shinatama-engine -j1 --test claude_effective_config -- --ignored --test-threads=1 --nocapture: PASS 1/1, 5.76s (2026-11-04, Claude 2.1.318); live upstream steering L2 sentinel observed; native resume 9.85s and TLS 9.33s re-passed on the re-pin; npm run build exit 0"
       ]
     },
     "C08": {
