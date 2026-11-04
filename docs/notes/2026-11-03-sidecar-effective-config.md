@@ -142,6 +142,51 @@ unità. Prima il fornitore deve definirne l'effetto oppure deprecarlo. Non
 convertire 20 in messaggi, turni o token; lo stato runtime deve indicare che
 attualmente non ha effetto.
 
+## Addendum 4 novembre 2026 — percorso operativo verso l'accettazione 2–3
+
+Verifiche odierne (sola lettura): `sidecar/prepare.ps1` (Verify) **PASS**;
+l'hash della sorgente canonica `src/web/api.ts` in
+`D:/Projects/horness-launcher` (`64dd0c79…`) è identico a quello pinato;
+**horness-launcher È il progetto Musashi** (`res/sidecar-prepare.mjs`,
+`sidecar/source-build`, `musashi-terminal.exe`). La catena operativa di C12.4
+coinvolge quindi due progetti, non tre, e l'ultimo commit sidecar canonico è
+`91ac78a` (2 nov), già dentro il pin corrente.
+
+Percorso A (accettazione 2 letterale — endpoint nel processo canonico):
+
+1. **horness-launcher**: aggiungere `GET /__bili/runtime-settings` in
+   `packages/billion-context/src/web/api.ts` secondo il contratto whitelist
+   proposto sopra (oggetti opts/config di processo, nessuna rilettura file o
+   credenziali) + test in quel repo. Richiede coordinamento: un'altra sessione
+   agente lavora su quel progetto.
+2. **Musashi artefatti**: rebuild del bundle tramite la pipeline esistente
+   `res/sidecar-prepare.mjs` (nessuna scorciatoia: l'artefatto va ricreato dal
+   sorgente modificato).
+3. **Shinatama re-pin**: `provenance.lock.json` è fail-closed (Verify/Prepare
+   non aggiornano il lock; identità, `upstreamCommit 7e69b49f…` e alberi sono
+   hardcoded in `prepare.ps1`). Il re-pin è un atto deliberato: nuova emissione
+   del lock + costanti aggiornate + diff revisionabile.
+4. **Prova Shinatama**: estendere la fixture `effective-sidecar` sotto
+   ammissione C09R per interrogare l'endpoint dal processo sidecar vivo
+   (identità di processo legata a porta/pid noti al supervisore) e confrontare
+   i valori whitelist con gli effetti sulle richieste sintetiche catturate da
+   upstream loopback (pattern `claude_proxy_tls` per l'accettazione 3).
+   Regressioni C12/C13 obbligatorie (accettazione 4).
+
+Percorso B (solo Shinatama, nessun cambio canonico): prova su **traffico vivo**
+— Claude CLI reale attraverso il sidecar canonico con provider sintetico
+guardato, catturando i byte upstream e asserendo gli effetti osservabili della
+configurazione effettiva (steering L2 sul corpo, ammissione prompt-rewrite,
+passthrough con compressione off). Soddisfa "il solo GET del file non basta"
+con effetti osservati, non introspezione di processo: più debole rispetto alla
+lettera dell'accettazione 2; va registrato come tale.
+
+In entrambi i percorsi resta la decisione pendente su `targetRatio`
+(precedenza rispetto a `compress.maxContextLimit`) e `growthWindow` (contratto
+con unità o deprecazione). Via conservativa già documentata: usare il
+controllo canonico effettivo `compress.maxContextLimit=0.75` e non presentare
+i due campi come controlli indipendenti funzionanti.
+
 ## Accettazione prima di chiudere C12.4
 
 1. **Superato:** fixture source nel job posseduto, con hash invariati, controlli
