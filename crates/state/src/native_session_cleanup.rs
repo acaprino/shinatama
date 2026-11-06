@@ -12,6 +12,7 @@ use crate::{
     },
     resource_reservations::{
         PolicyStamp, ReservationError, ReservationState, ReservationTicket, read_ledger,
+        write_ledger,
     },
     threads::{self, ActivationOwner, ActivationRecord, ThreadError},
 };
@@ -318,6 +319,87 @@ fn finish(
     Ok(ended)
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TerminationCertificateKind {
+    /// The durable job name is absent: with the pinned kill-on-close recipe,
+    /// the last handle close terminated the whole group already.
+    JobNameAbsent,
+    /// The named job was terminated by recovery, rundown reached zero active
+    /// processes and the name is absent afterwards.
+    TerminatedByRecovery,
+}
+
+/// ADR-0051: a whole-group termination certificate for the pre-receipt crash
+/// window. Built only after the exact host and agent identities were observed
+/// dead or PID-reused and the named kill-on-close job probe produced one of the
+/// two kinds. Not Clone, Serialize or Deserialize. Never supplied by UI, hook
+/// or a PID field.
+pub struct NativeTerminationCertificate {
+    pub owner: NativeSessionOwner,
+    pub kind: TerminationCertificateKind,
+    pub at: i64,
+}
+
+impl Database {
+    /// ADR-0051 recovery for a crash before any cleanup receipt. Releases the
+    /// dead host's ticket, writes the normal cleanup receipt, closes the exact
+    /// activation and consumes the association in ONE transaction. Existing
+    /// receipts belong to the normal path and are never re-consumed here.
+    pub fn certify_native_session_termination(
+        &self,
+        certificate: &NativeTerminationCertificate,
+        expected_thread_revision: u64,
+        expected: &ActivationRecord,
+        at: i64,
+    ) -> Result<ActivationRecord> {
+        certificate.owner.validate()?;
+        if !valid_time(certificate.at) || at < certificate.at || expected.ended_at.is_some() {
+            return Err(CleanupError::Invalid);
+        }
+        self.require_writable()?;
+        let mut connection = self.lock()?;
+        let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        crate::schema::require_write_version(&tx)?;
+        let thread = threads::load_thread(&tx, &expected.thread_id)?;
+        if thread.revision != expected_thread_revision || thread.archived {
+            return Err(CleanupError::Conflict);
+        }
+        if threads::activation(&tx, &expected.owner.instance_id)? != *expected {
+            return Err(CleanupError::Conflict);
+        }
+        let mut journal = read(&tx)?;
+        let index = journal
+            .entries
+            .iter()
+            .position(|entry| entry.owner.activation.instance_id == expected.owner.instance_id)
+            .ok_or(CleanupError::ReceiptRequired)?;
+        if journal.entries[index].owner != certificate.owner || journal.entries[index].cleanup.is_some() {
+            return Err(CleanupError::Conflict);
+        }
+        let owner = journal.entries[index].owner.clone();
+        let mut ledger = read_ledger(&tx)?.ok_or(CleanupError::ReceiptRequired)?;
+        ledger.require_policy(&owner.policy)?;
+        let ticket_index = ledger.ticket_index(&owner.reservation)?;
+        // The certificate substitutes EmptyJobProof ONLY for this exact record:
+        // the named kill-on-close job proved the whole group terminated. Write
+        // the same receipt a normal release would write, then release capacity.
+        record_cleanup(&tx, &owner.policy, &owner.reservation, certificate.at)?;
+        ledger.slots.remove(ticket_index);
+        ledger.next_revision()?;
+        write_ledger(&tx, &ledger)?;
+        let ended = threads::end_activation(
+            &tx,
+            &expected.owner,
+            Some(expected.sequence),
+            expected.revision,
+            at,
+        )?;
+        journal.entries.remove(index);
+        write(&tx, &journal)?;
+        tx.commit()?;
+        Ok(ended)
+    }
+}
 impl Database {
     pub fn bind_native_session_owner(
         &self,

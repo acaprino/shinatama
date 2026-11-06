@@ -123,8 +123,9 @@ impl WorkloadSlot {
 
 #[cfg(windows)]
 pub use native::{
-    CleanupOutcome, ClosedEmptyJobProof, InheritedJobBinding, JobSnapshot, MemberObservation,
-    OwnedJobKey, ReconcileOutcome, StartupJobBinding, WorkloadJob, reconcile_dead_owner,
+    CleanupOutcome, ClosedEmptyJobProof, InheritedJobBinding, JobRecoveryObservation, JobSnapshot,
+    MemberObservation, OwnedJobKey, ReconcileOutcome, StartupJobBinding, WorkloadJob,
+    probe_job_recovery, reconcile_dead_owner,
 };
 
 #[cfg(windows)]
@@ -1097,6 +1098,40 @@ mod native {
             assert_eq!(slot.state(), SlotState::Free);
         }
         #[test]
+        fn absent_job_name_after_last_handle_close_is_a_recovery_certificate() {
+            let slot = WorkloadSlot::new();
+            let job_key = key();
+            let job = WorkloadJob::create(&slot, job_key, budget()).unwrap();
+            drop(job);
+            // Last handle closed: the named object is gone, so the group was
+            // terminated by the OS through the pinned kill-on-close recipe.
+            assert!(matches!(
+                probe_job_recovery(job_key),
+                Ok(JobRecoveryObservation::Absent)
+            ));
+            assert!(matches!(
+                probe_job_recovery([0; 16]),
+                Err(JobError::InvalidJobKey)
+            ));
+        }
+        #[test]
+        fn surviving_job_name_with_another_holder_blocks_recovery() {
+            let slot = WorkloadSlot::new();
+            let job_key = key();
+            let job = WorkloadJob::create(&slot, job_key, budget()).unwrap();
+            // This test keeps its own handle alive: recovery must not certify
+            // a group while the name still has a live holder.
+            assert!(matches!(
+                probe_job_recovery(job_key),
+                Err(JobError::RundownUnverified)
+            ));
+            drop(job);
+            assert!(matches!(
+                probe_job_recovery(job_key),
+                Ok(JobRecoveryObservation::Absent)
+            ));
+        }
+        #[test]
         fn existing_name_is_refused_before_limits_on_the_existing_job_can_change() {
             let first_slot = WorkloadSlot::new();
             let second_slot = WorkloadSlot::new();
@@ -1230,6 +1265,57 @@ mod native {
                 Err(JobError::SlotRetired)
             ));
         }
+    }
+    /// Recovery probe for ADR-0051: inspect the durable job name only after
+    /// the exact host/shell identities were observed dead or PID-reused.
+    /// Absence of the name is the certificate that the last handle closed and
+    /// the pinned kill-on-close recipe already terminated the whole group.
+    /// Presence requires terminating the group and proving rundown before any
+    /// receipt exists; a surviving name afterwards is an explicit block.
+    pub enum JobRecoveryObservation {
+        Absent,
+        TerminatedByRecovery,
+    }
+    pub fn probe_job_recovery(job_key: [u8; 16]) -> Result<JobRecoveryObservation, JobError> {
+        let name = name(job_key)?;
+        // QUERY | TERMINATE only: this probe never assigns, never changes limits
+        // and never fabricates a receipt while the name survives.
+        let raw = unsafe { OpenJobObjectW(0x0004 | 0x0008, 0, name.as_ptr()) };
+        if raw.is_null() {
+            let error = unsafe { GetLastError() };
+            // ERROR_FILE_NOT_FOUND: no object with this name exists anymore.
+            if error == 2 {
+                return Ok(JobRecoveryObservation::Absent);
+            }
+            return Err(JobError::Os(error));
+        }
+        let handle = Handle(raw);
+        if unsafe { TerminateJobObject(handle.0, 1) } == 0 {
+            return Err(os_error());
+        }
+        let deadline = Instant::now() + MAX_CLEANUP_WAIT;
+        loop {
+            let info = accounting(&handle)?;
+            if info.ActiveProcesses == 0 {
+                break;
+            }
+            if Instant::now() >= deadline {
+                return Err(JobError::RundownUnverified);
+            }
+            std::thread::sleep(Duration::from_millis(25));
+        }
+        handle.close().map_err(|_| JobError::CloseFailed)?;
+        let raw = unsafe { OpenJobObjectW(0x0004, 0, name.as_ptr()) };
+        if !raw.is_null() {
+            unsafe { CloseHandle(raw) };
+            // Some other holder still exists: the group is not certified gone.
+            return Err(JobError::RundownUnverified);
+        }
+        let error = unsafe { GetLastError() };
+        if error != 2 {
+            return Err(JobError::Os(error));
+        }
+        Ok(JobRecoveryObservation::TerminatedByRecovery)
     }
 }
 

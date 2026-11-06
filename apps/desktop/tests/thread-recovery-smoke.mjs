@@ -21,7 +21,7 @@ const data = resolve(fixture, 'data'), projectPath = resolve(fixture, 'project')
 for (const path of [projectPath, otherPath, resolve(fixture, 'native-store'), resolve(fixture, 'tmp')]) await mkdir(path);
 const output = resolve(workspace, '.prototype-evidence'); await mkdir(output, { recursive: true });
 const evidence = { check: 'thread-recovery-ui', status: 'running', stage: 'prepare', checks: {},
-  scope: 'Actual Recover session UI and IPC with synthetic metadata in a fresh private DB. Refresh is injected into the already registered frontend callback; backend event delivery is not covered. No harness, account, native event, native crash or real job-cleanup qualification.' };
+  scope: 'Actual Recover session UI and IPC with synthetic metadata in a fresh private DB: receipt-backed recovery, pre-receipt crash recovered through the ADR-0051 JobNameAbsent termination certificate with ticket release, and a live owner refused. Refresh is injected into the already registered frontend callback; backend event delivery is not covered. No harness, account, native event, real job-cleanup qualification.' };
 const save = () => writeFile(resolve(output, 'thread-recovery.json'), `${JSON.stringify(evidence, null, 2)}\n`);
 const stage = async value => { evidence.stage = value; await save(); };
 const pathKey = path => path.replace(/^\\\\\?\\/, '').replaceAll('/', '\\').replace(/\\+$/, '').toLowerCase();
@@ -120,6 +120,10 @@ try {
     return { kind, thread: `t_${suffix}`, segment: `s_${suffix}`, native: randomUUID(), activation, ticket,
       entry: { owner: { activation, policy: ledger.policy.stamp, reservation: ticket, registered_at_ms: at }, cleanup: { released_ticket: ticket, released_at_ms: at + 1000 } } };
   });
+  // ADR-0051: the pre-receipt case ('missing') keeps its ticket in the ledger,
+  // exactly like a real crash before the durable release. The other cases
+  // model already-released or alive owners and must not hold ledger slots.
+  ledger.slots = [cases[0].ticket];
   await stage('seed-synthetic-metadata');
   database.exec('BEGIN IMMEDIATE');
   try {
@@ -130,7 +134,9 @@ try {
       database.prepare("INSERT INTO activation(instance_id,owner_pid,owner_created_at_100ns,thread_id,segment_id,store_root_id,store_revision,native_id,revision,started_at,ended_at) VALUES(?,?,?,?,?,'synthetic-recovery-root',1,?,1,?,NULL)").run(item.activation.instanceId, process.pid, item.activation.createdAt100ns, item.thread, item.segment, item.native, at);
     }
     database.prepare('INSERT INTO setting(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(ledgerKey, exactJson(ledger));
-    database.prepare('INSERT INTO setting(key,value) VALUES(?,?)').run(cleanupKey, exactJson({ format_version: 1, entries: cases.filter(item => item.kind !== 'missing').map(item => item.entry) }));
+    database.prepare('INSERT INTO setting(key,value) VALUES(?,?)').run(cleanupKey, exactJson({ format_version: 1, entries: cases.map(item => item.kind === 'missing'
+      ? { owner: item.entry.owner, cleanup: null }
+      : item.entry) }));
     database.exec('COMMIT');
   } catch { database.exec('ROLLBACK'); fail('synthetic-seed-failed'); }
   await page.reload(); await expect(page.locator('#runtime-status')).toContainText('Local runtime');
@@ -140,12 +146,23 @@ try {
   const saved = item => database.prepare('SELECT revision,ended_at FROM activation WHERE instance_id=?').get(item.activation.instanceId);
   const request = item => ({ projectId, threadId: item.thread, expectedRevision: 1 });
   await stage('refusals');
-  for (const item of cases.slice(0, 2)) {
+  for (const item of cases.filter(item => item.kind === 'alive')) {
     await sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${item.thread}"]`).click(); await expect(recover).toBeVisible(); await expect(resume).toBeHidden();
-    await recover.click(); await expect(sidebar.locator('.thread-sidebar-status')).toContainText(item.kind === 'missing' ? 'shutdown was not confirmed' : 'still open');
+    await recover.click(); await expect(sidebar.locator('.thread-sidebar-status')).toContainText('still open');
     require(saved(item).ended_at === null && saved(item).revision === 1, 'refused-activation-changed');
   }
-  evidence.checks.liveOwnerAndMissingReceiptRefusedWithActivationPreserved = true;
+  evidence.checks.liveOwnerRefusedWithActivationPreserved = true;
+  await stage('pre-receipt-recovery');
+  // ADR-0051: the pre-receipt crash ('missing') now recovers through the
+  // qualified JobNameAbsent certificate: dead host+agent, no job name left.
+  const missing = cases[0];
+  await sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${missing.thread}"]`).click(); await expect(recover).toBeVisible(); await recover.click();
+  await expect(sidebar.locator('.thread-sidebar-status')).toContainText('Session recovered.'); await expect(recover).toBeHidden(); await expect(resume).toBeVisible(); await expect(resume).toBeFocused();
+  require(saved(missing).ended_at !== null && saved(missing).revision === 2, 'certificate-activation-not-finalized');
+  require(JSON.parse(database.prepare('SELECT value FROM setting WHERE key=?').get(ledgerKey).value).slots.length === 0, 'certificate-ticket-not-released');
+  const missingRepeated = await reply('thread_recover', { request: { ...request(missing), expectedRevision: 2 } });
+  require(!missingRepeated.ok && saved(missing).revision === 2, 'certificate-repeated-recovery');
+  evidence.checks.preReceiptCrashRecoveredWithJobNameAbsentCertificateAndCapacityReleased = true;
   const dead = cases[2];
   const wrongProject = await reply('thread_recover', { request: { ...request(dead), projectId: other.value.id } });
   const stale = await reply('thread_recover', { request: { ...request(dead), expectedRevision: 2 } });

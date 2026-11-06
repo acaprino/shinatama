@@ -269,7 +269,7 @@ impl ReservationSnapshot {
         }
         Ok(())
     }
-    fn next_revision(&mut self) -> Result<u64> {
+    pub(crate) fn next_revision(&mut self) -> Result<u64> {
         self.revision = self
             .revision
             .checked_add(1)
@@ -395,7 +395,7 @@ pub(crate) fn read_ledger(connection: &rusqlite::Connection) -> Result<Option<Re
     Ok(Some(ledger))
 }
 
-fn write_ledger(connection: &rusqlite::Connection, ledger: &ReservationSnapshot) -> Result<()> {
+pub(crate) fn write_ledger(connection: &rusqlite::Connection, ledger: &ReservationSnapshot) -> Result<()> {
     ledger.validate()?;
     let json = serde_json::to_string(ledger).map_err(|_| ReservationError::Malformed)?;
     if json.len() > MAX_LEDGER_BYTES {

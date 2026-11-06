@@ -2,7 +2,7 @@
 adr_id: ADR-0051
 version: 1
 title: Pre-receipt native crash recovery is unlocked only by a qualified whole-group termination certificate derived from the named kill-on-close job
-status: Proposed
+status: Accepted
 author: Alfio Caprino
 scope:
   paths:
@@ -22,7 +22,7 @@ depends_on:
 created_from_task: forced-crash-recovery-2026-11-04
 proposed_on: 2026-11-04
 proposed_at_sha: c9deab5bbf161c9aa04d21b8d19d245f42394811
-accepted_on:
+accepted_on: 2026-11-06
 ---
 
 # ADR-0051: Pre-receipt native crash recovery is unlocked only by a qualified whole-group termination certificate derived from the named kill-on-close job

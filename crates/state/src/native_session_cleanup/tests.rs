@@ -450,3 +450,128 @@ fn pending_records_are_bounded_without_eviction_and_failed_before_run_can_acknow
         vec![new_ticket]
     );
 }
+
+#[test]
+fn termination_certificate_releases_ticket_closes_activation_and_consumes_association_once() {
+    let fixture = Fixture::new();
+    let db = fixture.open();
+    let (stamp, ticket, owner) = active_ticket(&db, false);
+    let association = bind(&db, &ticket, &owner);
+    let expected = activation(&db, &owner);
+    // Pre-receipt crash window: association exists, no cleanup receipt yet.
+    assert!(
+        db.native_session_cleanup(&owner.instance_id)
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(
+        db.resource_reservations().unwrap().unwrap().slots,
+        vec![ticket.clone()]
+    );
+    let certificate = NativeTerminationCertificate {
+        owner: association,
+        kind: TerminationCertificateKind::JobNameAbsent,
+        at: 300,
+    };
+    let ended = db
+        .certify_native_session_termination(&certificate, 1, &expected, 300)
+        .unwrap();
+    assert_eq!(ended.ended_at, Some(300));
+    // Association consumed, ledger capacity released, activation closed.
+    assert!(
+        db.native_session_owner(&owner.instance_id)
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        db.native_session_cleanup(&owner.instance_id)
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        db.resource_reservations()
+            .unwrap()
+            .unwrap()
+            .slots
+            .is_empty()
+    );
+    // A second certification of the same certificate is refused (closed record).
+    assert!(matches!(
+        db.certify_native_session_termination(&certificate, 1, &ended, 300),
+        Err(CleanupError::Invalid)
+    ));
+    drop(db);
+    let reopened = fixture.open();
+    let persisted = reopened
+        .thread_activation(&owner.instance_id)
+        .unwrap()
+        .unwrap();
+    assert_eq!(persisted.ended_at, Some(300));
+    assert!(
+        reopened
+            .resource_reservations()
+            .unwrap()
+            .unwrap()
+            .slots
+            .is_empty()
+    );
+}
+
+#[test]
+fn termination_certificate_refusal_matrix_preserves_every_record() {
+    let fixture = Fixture::new();
+    let db = fixture.open();
+    let (_stamp, ticket, owner) = active_ticket(&db, false);
+    let association = bind(&db, &ticket, &owner);
+    let expected = activation(&db, &owner);
+    let make = || NativeTerminationCertificate {
+        owner: association.clone(),
+        kind: TerminationCertificateKind::TerminatedByRecovery,
+        at: 300,
+    };
+    // Wrong expected thread revision: nothing changes.
+    assert!(matches!(
+        db.certify_native_session_termination(&make(), 99, &expected, 300),
+        Err(CleanupError::Conflict)
+    ));
+    assert_eq!(
+        db.thread_activation(&owner.instance_id).unwrap().unwrap(),
+        expected
+    );
+    assert_eq!(
+        db.resource_reservations().unwrap().unwrap().slots,
+        vec![ticket.clone()]
+    );
+    // A normal receipt is already present: the certificate path never consumes
+    // it again; it belongs to the normal recovery flow.
+    release(&db, &_stamp, &ticket);
+    assert!(
+        db.native_session_cleanup(&owner.instance_id)
+            .unwrap()
+            .is_some()
+    );
+    assert!(matches!(
+        db.certify_native_session_termination(&make(), 1, &expected, 300),
+        Err(CleanupError::Conflict)
+    ));
+    assert!(
+        db.native_session_cleanup(&owner.instance_id)
+            .unwrap()
+            .is_some()
+    );
+    assert!(
+        db.resource_reservations()
+            .unwrap()
+            .unwrap()
+            .slots
+            .is_empty()
+    );
+    // The association survives a release until the normal recovery consumes
+    // it; a foreign instance has no association and therefore no authority.
+    assert!(
+        db.native_session_owner(&owner.instance_id)
+            .unwrap()
+            .is_some()
+    );
+    assert!(db.native_session_owner("i_zzzzzzzzzzzz").unwrap().is_none());
+}

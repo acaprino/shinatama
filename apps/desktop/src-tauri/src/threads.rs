@@ -118,10 +118,16 @@ pub async fn thread_recover(
     controller
         .inner()
         .work_result(move |db| {
+            use shinatama_engine::resources::job::{JobRecoveryObservation, probe_job_recovery};
             use shinatama_state::{
-                native_session_cleanup::probe_native_session_cleanup,
+                native_session_cleanup::{
+                    NativeTerminationCertificate, TerminationCertificateKind,
+                    probe_native_session_cleanup,
+                },
                 records::{
-                    CanonicalIdKind, MAX_SAFE_REVISION, recovery::OwnerObservation, validate_id,
+                    CanonicalIdKind, MAX_SAFE_REVISION, WorkspaceOwner,
+                    recovery::{OwnerObservation, probe_owner_identity},
+                    validate_id,
                 },
             };
             validate_id(&request.project_id, CanonicalIdKind::Project)
@@ -150,33 +156,130 @@ pub async fn thread_recover(
                 .native_session_cleanup(&active.owner.instance_id)
                 .map_err(|_| Error {
                     code: "unavailable",
+                })?;
+            if let Some(receipt) = receipt {
+                if receipt.owner.activation != active.owner {
+                    return Err(Error {
+                        code: "source_changed",
+                    });
+                }
+                // Native observations run without a SQL transaction and never signal a
+                // process. The final transaction rechecks receipt, owner and revisions.
+                let probe = probe_native_session_cleanup(&receipt).map_err(|_| Error {
+                    code: "unavailable",
+                })?;
+                if probe.shell == OwnerObservation::AliveExact {
+                    return Err(Error {
+                        code: "session_alive",
+                    });
+                }
+                if probe.host == OwnerObservation::AliveExact {
+                    return Err(Error {
+                        code: "owner_alive",
+                    });
+                }
+                let proof = probe.proof.ok_or(Error {
+                    code: "cleanup_unproven",
+                })?;
+                let at = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .ok()
+                    .and_then(|time| i64::try_from(time.as_millis()).ok())
+                    .ok_or(Error {
+                        code: "unavailable",
+                    })?;
+                db.recover_native_session_cleanup(
+                    &proof,
+                    request.expected_revision,
+                    &active,
+                    at.max(receipt.released_at_ms).max(active.started_at),
+                )
+                .map_err(|_| Error {
+                    code: "source_changed",
+                })?;
+                return Ok(());
+            }
+            // ADR-0051: no cleanup receipt exists (crash before the durable
+            // release). The only unlock is a qualified whole-group termination
+            // certificate from the durable association's named kill-on-close job.
+            let owner = db
+                .native_session_owner(&active.owner.instance_id)
+                .map_err(|_| Error {
+                    code: "unavailable",
                 })?
                 .ok_or(Error {
                     code: "cleanup_unproven",
                 })?;
-            if receipt.owner.activation != active.owner {
+            if owner.activation != active.owner {
                 return Err(Error {
                     code: "source_changed",
                 });
             }
-            // Native observations run without a SQL transaction and never signal a
-            // process. The final transaction rechecks receipt, owner and revisions.
-            let probe = probe_native_session_cleanup(&receipt).map_err(|_| Error {
+            // Exact identity observations first: a live former host or agent
+            // blocks without touching the job. PID-reuse is accepted as dead.
+            let identity = |pid: u32, created: u64| WorkspaceOwner {
+                window_id: owner.activation.instance_id.clone(),
+                pid,
+                start_time: format!("win-{created}"),
+            };
+            let host_probe = probe_owner_identity(&identity(
+                owner.reservation.owner.pid,
+                owner.reservation.owner.created_at_100ns,
+            ))
+            .map_err(|_| Error {
                 code: "unavailable",
             })?;
-            if probe.shell == OwnerObservation::AliveExact {
-                return Err(Error {
-                    code: "session_alive",
-                });
-            }
-            if probe.host == OwnerObservation::AliveExact {
+            if host_probe.observation == OwnerObservation::AliveExact {
                 return Err(Error {
                     code: "owner_alive",
                 });
             }
-            let proof = probe.proof.ok_or(Error {
-                code: "cleanup_unproven",
+            let shell_probe = probe_owner_identity(&identity(
+                owner.activation.pid,
+                owner.activation.created_at_100ns,
+            ))
+            .map_err(|_| Error {
+                code: "unavailable",
             })?;
+            if shell_probe.observation == OwnerObservation::AliveExact {
+                return Err(Error {
+                    code: "session_alive",
+                });
+            }
+            if host_probe.proof.is_none() || shell_probe.proof.is_none() {
+                return Err(Error {
+                    code: "cleanup_unproven",
+                });
+            }
+            {
+                use windows_sys::Win32::System::{
+                    RemoteDesktop::ProcessIdToSessionId, Threading::GetCurrentProcessId,
+                };
+                let mut current = 0u32;
+                if unsafe { ProcessIdToSessionId(GetCurrentProcessId(), &mut current) } == 0
+                    || current != owner.reservation.owner.windows_session_id
+                {
+                    return Err(Error {
+                        code: "cleanup_unproven",
+                    });
+                }
+            }
+            let job_key = uuid::Uuid::parse_str(&owner.reservation.job_key)
+                .map(|uuid| *uuid.as_bytes())
+                .map_err(|_| Error {
+                    code: "cleanup_unproven",
+                })?;
+            let kind = match probe_job_recovery(job_key) {
+                Ok(JobRecoveryObservation::Absent) => TerminationCertificateKind::JobNameAbsent,
+                Ok(JobRecoveryObservation::TerminatedByRecovery) => {
+                    TerminationCertificateKind::TerminatedByRecovery
+                }
+                Err(_) => {
+                    return Err(Error {
+                        code: "cleanup_unproven",
+                    });
+                }
+            };
             let at = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .ok()
@@ -184,15 +287,15 @@ pub async fn thread_recover(
                 .ok_or(Error {
                     code: "unavailable",
                 })?;
-            db.recover_native_session_cleanup(
-                &proof,
-                request.expected_revision,
-                &active,
-                at.max(receipt.released_at_ms).max(active.started_at),
-            )
-            .map_err(|_| Error {
-                code: "source_changed",
-            })?;
+            let certificate = NativeTerminationCertificate {
+                owner,
+                kind,
+                at,
+            };
+            db.certify_native_session_termination(&certificate, request.expected_revision, &active, at)
+                .map_err(|_| Error {
+                    code: "source_changed",
+                })?;
             Ok(())
         })
         .await

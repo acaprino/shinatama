@@ -47,7 +47,7 @@ pub struct DeadWorkspaceOwnerProof {
     _process: Option<std::os::windows::io::OwnedHandle>,
 }
 /// Shared native death observation, bound to the exact saved owner. Not IPC data.
-pub(crate) struct DeadOwnerIdentityProof {
+pub struct DeadOwnerIdentityProof {
     owner: WorkspaceOwner,
     observation: OwnerObservation,
     #[cfg(windows)]
@@ -56,7 +56,7 @@ pub(crate) struct DeadOwnerIdentityProof {
 impl DeadOwnerIdentityProof {
     pub(crate) fn matches(&self, owner: &WorkspaceOwner) -> bool { self.owner == *owner }
 }
-pub(crate) struct OwnerIdentityProbe {
+pub struct OwnerIdentityProbe {
     pub observation: OwnerObservation,
     pub proof: Option<DeadOwnerIdentityProof>,
 }
@@ -106,7 +106,7 @@ pub fn probe_workspace_owner(record: &WorkspaceRecord) -> Result<OwnerProbe> {
         }),
     })
 }
-pub(crate) fn probe_owner_identity(owner: &WorkspaceOwner) -> Result<OwnerIdentityProbe> {
+pub fn probe_owner_identity(owner: &WorkspaceOwner) -> Result<OwnerIdentityProbe> {
     owner.validate()?;
     let Some(expected) = windows_creation_time(&owner.start_time) else {
         return Ok(OwnerIdentityProbe {
