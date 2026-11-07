@@ -215,3 +215,21 @@ della lettera dell'accettazione 2 (nessuna introspezione in-process; percorso
 A resta pendente da decisione/coordinamento con horness-launcher).
 Dettagli, comandi e limiti:
 [docs/verification/2026-11-04-C12.4-effective-config-live.md](../verification/2026-11-04-C12.4-effective-config-live.md).
+
+## Decisione 2026-11-07: `targetRatio` e `growthWindow` non sono controlli di prodotto
+
+Il parser canonico (`musashi-terminal/adaptive-pressure.ts`) li valida e riempie
+i default `0.75` e `20` quando mancano, ma nessun percorso di esecuzione li
+consuma (verificato nella prova source-runtime del 3 novembre e nella prova live
+del 4). Shinatama quindi **non li scrive più** nella configurazione privata di
+base (`crates/engine/src/sidecar_config.rs`): `adaptivePressure` contiene solo
+`enabled` e `maxTokens`.
+
+- Comportamento invariato: i default canonici coincidono con i valori scritti prima.
+- Il rapporto effettivo resta governato dal controllo canonico
+  `compress.maxContextLimit` (default 0.75 nel kernel); nessun altro rapporto è
+  presentato come funzionante.
+- Se il fornitore canonico un giorno li renderà efficaci, andranno riammessi con
+  una propria prova di effetto.
+- Verifica: test unitario `baseline_uses_canonical_storage_and_compression_keys_with_effort_locked_off`
+  (ora asserisce `enabled`, `maxTokens` e l'assenza dei due campi), 2/2 PASS.

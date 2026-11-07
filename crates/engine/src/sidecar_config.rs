@@ -168,7 +168,10 @@ fn baseline(root: &Path, port: NonZeroU16) -> Result<Vec<u8>, ConfigError> {
             "tiers": true,
             "absorb": { "enabled": true, "minToolTokens": 4000 },
             "ccr": { "enabled": true, "minToolTokens": 4000 },
-            "adaptivePressure": { "enabled": true, "maxTokens": 160000, "targetRatio": 0.75, "growthWindow": 20 },
+            // targetRatio and growthWindow are validated by the canonical parser but
+            // consumed by no code path; omitting them keeps its 0.75/20 defaults
+            // (identical behavior) without presenting them as Shinatama controls.
+            "adaptivePressure": { "enabled": true, "maxTokens": 160000 },
             "outputSteering": { "enabled": true, "verbosityLevel": 2, "effortRouting": false }
         }
     });
@@ -199,6 +202,19 @@ mod tests {
         assert_eq!(value["storage"]["sqliteAutoDownload"], false);
         assert_eq!(value["compress"]["ccr"]["minToolTokens"], 4000);
         assert_eq!(value["compress"]["outputSteering"]["effortRouting"], false);
+        assert_eq!(value["compress"]["adaptivePressure"]["enabled"], true);
+        assert_eq!(value["compress"]["adaptivePressure"]["maxTokens"], 160000);
+        // C12.5: the two unconsumed canonical fields are not product controls.
+        assert!(
+            value["compress"]["adaptivePressure"]
+                .get("targetRatio")
+                .is_none()
+        );
+        assert!(
+            value["compress"]["adaptivePressure"]
+                .get("growthWindow")
+                .is_none()
+        );
         assert_eq!(value["promptRewrite"]["mode"], "auto");
         assert!(value.get("providers").is_none());
         assert!(value.get("schemaVersion").is_none());

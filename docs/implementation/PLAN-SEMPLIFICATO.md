@@ -17,12 +17,13 @@ Sostituisce, come vista unica, le 51 voci sparse del register. Il register
 
 | Voce | Prova | Stato |
 | --- | --- | --- |
-| C13 | `desktop-smoke.mjs` completo, una volta, con commit libero sufficiente | unità tutte committate; prova riparata in `77934cc`, run finale mancante |
-| C25 | `forced-crash-recovery-smoke.mjs` (minima: 1 crash, 1 riavvio, 1 rifiuto) | comportamenti provati per-run; run unico mancante |
-| C46 | `attention-smoke.mjs` (PTY + attenzione UI) | mai eseguita: serve memoria |
-| F02 | prova UI Claude guardata + crash forzato nativo | bloccata da headroom |
+| C13 | `desktop-smoke.mjs` completo, una volta, con commit libero sufficiente | unità tutte committate; prova riparata in `77934cc`; tentata il 2026-11-07, fallita per memoria (commit libero 2,26 GiB al lancio, app ferma su "Connecting…"): parcheggiata |
+| C25 | `forced-crash-recovery-smoke.mjs` (minima: 1 crash, 1 riavvio, 1 recupero) | ADR-0051 implementato e provato su unit + UI sintetica; run reale tentato il 2026-11-07, fallito per memoria: parcheggiato |
+| C46 | `attention-smoke.mjs` (PTY + attenzione UI) | tentata il 2026-11-07, timeout per memoria: parcheggiata |
+| F02 | prova UI Claude guardata + crash forzato nativo | prova UI già superata (resume UI 3/11 + race isolata); il crash forzato è C25; **pronta per la tua accettazione del padre** |
 
 Regola: un run ciascuna, quando la macchina è ferma; nessun retry automatico.
+Una voce fallita per memoria resta parcheggiata finché non dici "vai" a macchina libera.
 
 ## B. Backlog di capacità (funzioni, non blocchi di prodotto)
 
@@ -34,8 +35,8 @@ Regola: un run ciascuna, quando la macchina è ferma; nessun retry automatico.
 | C17 | capability OpenCode residue | se serve di più dell'avvio verificato |
 | C22/C23 | archivio e dettaglio conversazione oltre il flusso funzionante | se serve navigazione avanzata |
 | C24 | ricerca globale persistente | se serve oltre la ricerca per progetto |
-| C12.5 | decisione targetRatio/growthWindow (precedenza o deprecazione) | decisione di prodotto, non tecnica |
-| ADR-0051 | implementazione del certificato di terminazione (recupero crash pre-ricevuta, ripristino capacità ledger) | dopo approvazione dell'ADR |
+| C12.5 | **FATTO 2026-11-07**: `targetRatio`/`growthWindow` tolti dalla base di prodotto (nessun codice li consuma; i default canonici 0.75/20 sono identici ai valori di prima, comportamento invariato) | chiusa |
+| ADR-0051 | **FATTO**: certificato di terminazione, recupero crash pre-ricevuta e ripristino capacità ledger (`85544c3`) | chiusa, resta solo il run reale in C25 |
 
 ## C. Piattaforme non coperte (ferme)
 
