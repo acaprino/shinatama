@@ -17,9 +17,9 @@ Sostituisce, come vista unica, le 51 voci sparse del register. Il register
 
 | Voce | Prova | Stato |
 | --- | --- | --- |
-| C13 | `desktop-smoke.mjs` completo, una volta, con commit libero sufficiente | unità tutte committate; prova riparata in `77934cc`; tentata il 2026-11-07, fallita per memoria (commit libero 2,26 GiB al lancio, app ferma su "Connecting…"): parcheggiata |
-| C25 | `forced-crash-recovery-smoke.mjs` (minima: 1 crash, 1 riavvio, 1 recupero) | ADR-0051 implementato e provato su unit + UI sintetica; run reale tentato il 2026-11-07, fallito per memoria: parcheggiato |
-| C46 | `attention-smoke.mjs` (PTY + attenzione UI) | tentata il 2026-11-07, timeout per memoria: parcheggiata |
+| C13 | `desktop-smoke.mjs` completo, una volta, con commit libero sufficiente | test riallineato il 2026-11-07 (usava "Session index" e "Agents", non più montati dopo `dffb269`: ora New session → Claude Code → Open); non ancora verde: il governatore era in "reduced activity" (commit libero 4,1–4,6 GiB, uscita a 5,17) |
+| C25 | `forced-crash-recovery-smoke.mjs` (minima: 1 crash, 1 riavvio, 1 recupero) | **crash vero recuperato dal certificato ADR-0051** (nel database della fixture: attivazione chiusa rev 2, journal vuoto); asserzione del test aggiornata e retry in lettura; run verde ancora da avere con commit libero ≥ 8 GiB |
+| C46 | `attention-smoke.mjs` (PTY + attenzione UI) | test corretto (campo progetto nascosto); non ancora verde: "New terminals are waiting for healthy resource measurements" |
 | F02 | prova UI Claude guardata + crash forzato nativo | prova UI già superata (resume UI 3/11 + race isolata); il crash forzato è C25; **pronta per la tua accettazione del padre** |
 
 Regola: un run ciascuna, quando la macchina è ferma; nessun retry automatico.

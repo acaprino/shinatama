@@ -23,7 +23,7 @@ const output = resolve(workspace, '.prototype-evidence'); await mkdir(output, { 
 const PROMPT = 'SHINATAMA_UI_CRASH_PROMPT_A';
 const DUMMY_KEY = 'sk-shinatama-synthetic-codex-no-provider-key';
 const evidence = { check: 'forced-crash-recovery', status: 'running', stage: 'prepare', checks: {},
-  scope: 'Minimal real crash: one TerminateProcess of the app before any cleanup receipt, one restart, one refused Recover, database intact. Synthetic loopback credential, guarded external routes, no completed model turn.' };
+  scope: 'Minimal real crash: one TerminateProcess of the app before any cleanup receipt, one restart, one ADR-0051 certificate recovery that closes the activation once and releases the dead host ticket. Synthetic loopback credential, guarded external routes, no completed model turn.' };
 const save = () => writeFile(resolve(output, 'forced-crash-recovery.json'), `${JSON.stringify(evidence, null, 2)}\n`);
 const stage = async name => { evidence.stage = name; await save(); };
 await save();
@@ -204,12 +204,21 @@ async function launchApp() {
   owned = true;
 }
 async function ipc(command, args = {}) {
-  const result = await page.evaluate(async ({ command, args }) => {
-    try { return { ok: true, value: await window.__TAURI_INTERNALS__.invoke(command, args) }; }
-    catch (error) { return { ok: false, code: typeof error?.code === 'string' ? error.code : 'refused' }; }
-  }, { command, args });
-  if (!result.ok) throw Object.assign(new Error(result.code), { ipcCode: result.code });
-  return result.value;
+  // Read-only metadata commands may answer busy/unavailable while the owner is
+  // starting; retry only those, briefly, and surface everything else at once.
+  const readOnly = ['terminal_list', 'global_workspace_load', 'storage_location', 'project_recent', 'sidecar_status', 'thread_list'].includes(command);
+  const deadline = Date.now() + 5000;
+  for (;;) {
+    const result = await page.evaluate(async ({ command, args }) => {
+      try { return { ok: true, value: await window.__TAURI_INTERNALS__.invoke(command, args) }; }
+      catch (error) { return { ok: false, code: typeof error?.code === 'string' ? error.code : 'refused' }; }
+    }, { command, args });
+    if (result.ok) return result.value;
+    if (!(readOnly && ['busy', 'unavailable'].includes(result.code)) || Date.now() >= deadline) {
+      throw Object.assign(new Error(`${command}:${result.code}`), { ipcCode: result.code, ipcCommand: command });
+    }
+    await delay(150);
+  }
 }
 const sessions = () => ipc('terminal_list');
 const pane = id => page.locator(`.wm-pane:has([data-view-id="${id}"])`);
@@ -276,12 +285,16 @@ try {
   await browser?.close().catch(() => {}); browser = null; page = null; app = null; owned = false;
   const crashed = dbQuery('SELECT ended_at,revision FROM activation WHERE instance_id=?', bound.session.id)[0];
   require(crashed.ended_at === null, 'activation-kept-open-without-receipt');
-  const booked = dbQuery('SELECT json_extract(entry.value,\'$.owner.reservation.id\') AS ticket FROM setting journal,json_each(journal.value,\'$.entries\') entry WHERE journal.key=?', cleanupKey)
-    .some(row => row.ticket && dbQuery('SELECT value FROM setting WHERE key=?', 'operational.resource_reservations.v1')[0]?.value.includes(row.ticket));
-  require(booked, 'crash-ticket-still-reserved');
+  const ledgerSlotIds = () => JSON.parse(dbQuery('SELECT value FROM setting WHERE key=?', 'operational.resource_reservations.v1')[0]?.value ?? '{"slots":[]}').slots.map(slot => slot.id);
+  const journalFor = () => dbQuery("SELECT entry.value AS entry FROM setting journal,json_each(journal.value,'$.entries') entry WHERE journal.key=?", cleanupKey)
+    .map(row => JSON.parse(row.entry)).filter(entry => entry.owner.activation.instanceId === bound.session.id);
+  const association = journalFor();
+  require(association.length === 1 && association[0].cleanup === null, 'association-without-receipt-after-crash');
+  const ticketId = association[0].owner.reservation.id;
+  require(ledgerSlotIds().includes(ticketId), 'crash-ticket-still-reserved');
   evidence.checks.crashLeftActivationOpenAndTicketReserved = true;
 
-  // ---- App #2: restart, the real Recover must refuse and change nothing ----
+  // ---- App #2: restart; ADR-0051 recovery closes it through the certificate ----
   await stage('app2-start'); await launchApp();
   require((await sessions()).length === 0, 'no-terminal-after-restart');
   const sidebar = page.locator('.thread-sidebar');
@@ -290,15 +303,20 @@ try {
   const recover = sidebar.getByRole('button', { name: 'Recover session', exact: true });
   await poll(async () => await recover.isVisible(), 10000, 'recover-button-missing');
   await recover.click();
-  await poll(async () => /shutdown was not confirmed/i.test(await sidebar.locator('.thread-sidebar-status').innerText().catch(() => '')), 15000, 'refusal-status-missing');
+  const statusText = async () => (await sidebar.locator('.thread-sidebar-status').innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 160);
+  await poll(async () => { const text = await statusText(); evidence.recoverStatus = text; return /Session recovered/i.test(text) || /not confirmed|still open|unavailable/i.test(text); }, 30000, 'recover-status-missing');
+  require(/Session recovered/i.test(evidence.recoverStatus), 'pre-receipt-recovery-refused');
   const after = dbQuery('SELECT ended_at,revision FROM activation WHERE instance_id=?', bound.session.id)[0];
-  require(after.ended_at === null && after.revision === crashed.revision, 'refused-recovery-changed-activation');
-  evidence.checks.restartRefusedRecoverWithoutReceiptAndDataIntact = true;
+  require(after.ended_at !== null && after.revision === crashed.revision + 1, 'activation-not-closed-exactly-once');
+  require(journalFor().length === 0, 'association-not-consumed');
+  require(!ledgerSlotIds().includes(ticketId), 'dead-host-ticket-not-released');
+  await poll(async () => await sidebar.getByRole('button', { name: 'Resume', exact: true }).isVisible(), 10000, 'resume-not-offered-after-recovery');
+  evidence.checks.preReceiptCrashRecoveredByCertificateWithTicketReleased = true;
   require(guardCounts.overflow === 0 && providerHits === 0 && pageErrors === 0, 'bounded-guard-and-ui-clean');
   evidence.guard = { ...guardCounts, scope: 'proxy-forwarding-only' };
   await stage('close'); await closeFrame(); require(app.exitCode === 0, 'owned-app-clean-exit');
   evidence.status = 'passed'; evidence.stage = 'complete'; await save();
-  console.log('PASS: real crash before receipt left the activation open and the ticket reserved; restart refused Recover and changed nothing.');
+  console.log('PASS: real crash before receipt left the activation open and the ticket reserved; restart recovered it through the ADR-0051 certificate, closed it once, released the ticket and offered Resume.');
 } catch (error) {
   evidence.status = 'failed'; evidence.failure = error.proofCode || error.ipcCode || `proof-failed-at-${evidence.stage}`;
   evidence.errorMessage = String(error.message).split('\n')[0].slice(0, 300);

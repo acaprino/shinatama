@@ -234,35 +234,34 @@ try {
   await expect.poll(ids).toHaveLength(2);
   }
 
-  // One complete explicit first-agent flow. No answers, sign-in or model request.
+  // One complete first-agent flow through the real New session dialog (project +
+  // Claude Code + Open); the session index and the qualification check start
+  // implicitly with Open. No answers, sign-in or model request.
   await expect(page.locator('#resource-status')).toContainText('Resources: available', { timeout: 20000 });
-  await page.locator('#session-index').click();
-  await page.locator('#session-index-dialog').getByRole('button', { name: 'Start', exact: true }).click();
+  if ((await ipc('sidecar_status')).phase !== 'ready') await ipc('sidecar_start').catch(() => {});
   await expect.poll(async () => {
     const status = await ipc('sidecar_status');
     if (['failed', 'retired'].includes(status.phase)) throw new Error('Session index refused: ' + JSON.stringify(status));
     return status.phase;
-  }, { timeout: 30000 }).toBe('ready');
-  await page.getByRole('button', { name: 'Close session index', exact: true }).click();
-  await page.locator('#agents').click();
-  await page.locator('#agent-setup-dialog').getByRole('button', { name: 'Check', exact: true }).click();
-  await expect(page.locator('#agent-setup-status')).toContainText('Check complete', { timeout: 60000 });
-  const checkup = await page.locator('.agent-checkup').innerText();
-  expect(checkup).toContain('Found'); expect(checkup).toContain('Unknown');
-  const openAgent = page.locator('#agent-setup-dialog').getByRole('button', { name: 'Open agent', exact: true });
-  if (await openAgent.isDisabled()) throw new Error('Claude check refused: ' + (await page.locator('.agent-issues').innerText()).slice(0, 3000));
-  await expect.poll(() => checkScratchNames(storage.directory), {
-    timeout: 2000, intervals: [50, 100, 200],
-    message: 'A successful Check must remove its released version-probe and TUI-canary scratch.',
-  }).toEqual(noScratch);
-  console.log('Check scratch names: fresh baseline zero; after successful Check zero.');
-  await openAgent.click();
+  }, { timeout: 45000 }).toBe('ready');
+  await page.locator('#new-terminal').click();
+  const newSession = page.locator('#new-session-dialog');
+  await expect(newSession).toBeVisible();
+  // A project already selected in the header shows a context line instead of the free-text field.
+  if (await newSession.locator('#new-session-project').isVisible()) await newSession.locator('#new-session-project').fill(projectPath);
+  await newSession.locator('#new-session-harness').selectOption('claude_code');
+  await newSession.getByRole('button', { name: 'Open', exact: true }).click();
   await expect.poll(async () => {
-    if ((await page.locator('#agent-setup-status').textContent()).includes('action did not complete')) {
-      throw new Error('Agent open refused: ' + JSON.stringify(await ipc('agent_status')));
+    if (await newSession.locator('#new-session-error').isVisible()) {
+      throw new Error('Agent open refused: ' + (await newSession.locator('#new-session-error').innerText()).slice(0, 300) + ' ' + JSON.stringify(await ipc('agent_status')));
     }
-    return page.locator('#agent-setup-dialog').isVisible();
-  }, { timeout: 30000 }).toBe(false);
+    return newSession.isVisible();
+  }, { timeout: 120000 }).toBe(false);
+  await expect.poll(() => checkScratchNames(storage.directory), {
+    timeout: 5000, intervals: [50, 100, 200],
+    message: 'A successful open must leave no released version-probe or TUI-canary scratch.',
+  }).toEqual(noScratch);
+  console.log('Check scratch names: fresh baseline zero; after the implicit check zero.');
   await expect.poll(ids, { timeout: 15000 }).toHaveLength(healthyCount + 1);
   const native = (await ids()).find(id => /^i_[a-z2-7]{12}$/.test(id));
   expect(native).toBeTruthy();
@@ -285,7 +284,6 @@ try {
   await ipc('terminal_stop', { id: native });
   await expect(pane(native).locator('.exit-banner')).toBeVisible({ timeout: 15000 });
   await expect(page.locator('#notice[data-tone="error"]')).toBeHidden();
-  await expect(pane(native).getByRole('button', { name: 'Check agent again', exact: true })).toBeVisible();
   await pane(native).getByRole('button', { name: 'Close terminal', exact: true }).click();
   await expect.poll(ids).toHaveLength(healthyCount);
   if (agentOnly) {

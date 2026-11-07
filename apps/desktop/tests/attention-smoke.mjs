@@ -91,7 +91,8 @@ try {
   await ipc('project_select',{path:project});await main.reload();await expect(main.locator('#runtime-status')).toContainText('Local runtime');
   // Real pointer/key events supply the normal latency measurements used by admission.
   await main.locator('#new-terminal').click();
-  await main.locator('#new-session-project').fill(project);
+  // A project already selected in the header shows a context line instead of the free-text field.
+  if (await main.locator('#new-session-project').isVisible()) await main.locator('#new-session-project').fill(project);
   await main.locator('#new-session-harness').selectOption('powershell');
   await main.locator('#new-session-dialog').getByRole('button',{name:'Open',exact:true}).click();
   await expect.poll(async()=>(await ipc('terminal_list')).length,{timeout:30000}).toBe(1);
