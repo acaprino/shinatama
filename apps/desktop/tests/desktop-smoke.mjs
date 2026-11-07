@@ -82,6 +82,18 @@ try {
   const shell = async id => {
     await expect(pane(id).locator('.xterm-accessibility')).toContainText('PS ', { timeout: 30000 });
   };
+  // Since dffb269 "New session" and the pane "Open terminal" button open the
+  // New session dialog; one explicit Open starts exactly one PowerShell.
+  const openShell = async trigger => {
+    await trigger.click();
+    const dialog = page.locator('#new-session-dialog');
+    await expect(dialog).toBeVisible();
+    const field = dialog.locator('#new-session-project');
+    if (await field.isVisible()) await field.fill(projectPath);
+    await dialog.locator('#new-session-harness').selectOption('powershell');
+    await dialog.getByRole('button', { name: 'Open', exact: true }).click();
+    await expect(dialog).toBeHidden({ timeout: 30000 });
+  };
   const type = async (id, command) => {
     await pane(id).locator('.xterm-helper-textarea').focus();
     await page.keyboard.type(command); await page.keyboard.press('Enter');
@@ -128,7 +140,7 @@ try {
   await page.locator('#project-dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
 
   await expect(page.locator('#resource-status')).toContainText('Resources: available', { timeout: 20000 });
-  await page.locator('#new-terminal').click();
+  await openShell(page.locator('#new-terminal'));
   await expect.poll(ids, { timeout: 30000 }).toHaveLength(1);
   const first = (await ids())[0]; await shell(first);
   await expect.poll(async () => (await ipc('terminal_resources')).find(row => row.id === first)?.applied?.jobCommitBytes).toBe(512 * 1024 * 1024);
@@ -155,7 +167,7 @@ try {
   await expect(page.locator('#terminal-find-dialog')).toBeHidden();
   await expect(pane(first).locator('.xterm-helper-textarea')).toBeFocused();
   expect(await ids()).toEqual(beforeFind);
-  await page.locator('#new-terminal').click();
+  await openShell(page.locator('#new-terminal'));
   await expect.poll(ids, { timeout: 30000 }).toHaveLength(2);
   const second = (await ids()).find(id => id !== first); await shell(second);
   await expect(page.locator('.wm-pane')).toHaveCount(1);
@@ -164,7 +176,7 @@ try {
   await expect(page.locator('.wm-pane')).toHaveCount(2);
   const pair = await ids();
 
-  await pane(second).getByRole('button', { name: 'Open terminal', exact: true }).click();
+  await openShell(pane(second).getByRole('button', { name: 'Open session', exact: true }));
   await expect.poll(ids, { timeout: 30000 }).toHaveLength(3);
   const third = (await ids()).find(id => !pair.includes(id)); await shell(third);
   const rightGroup = await pane(third).getAttribute('data-group-id');
