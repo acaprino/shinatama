@@ -457,11 +457,15 @@ pub(crate) fn compose_launch(
     {
         return Err(LaunchIssueCode::SecretOutsideIdentityEnvironment);
     }
+    // Windows processes can carry hidden bookkeeping names (cmd.exe's `=ExitCode`)
+    // and, rarely, malformed entries. They are never meaningful to a child, so they
+    // are dropped instead of failing the whole launch.
+    let sanitized = sanitize_inherited(inputs.inherited_environment);
+    let inherited = &sanitized;
     // Admit the names-only copy before allocating it. Values are still
     // validated and copied only by the bounded environment component.
-    if inputs.inherited_environment.len() > 2048
-        || inputs
-            .inherited_environment
+    if inherited.len() > 2048
+        || inherited
             .keys()
             .try_fold(0usize, |bytes, name| {
                 let bytes = bytes.saturating_add(name.len());
@@ -475,12 +479,12 @@ pub(crate) fn compose_launch(
     {
         return Err(LaunchIssueCode::EnvironmentRejected);
     }
-    let names: Vec<_> = inputs.inherited_environment.keys().cloned().collect();
-    let editor = git_editor(inputs.inherited_environment);
+    let names: Vec<_> = inherited.keys().cloned().collect();
+    let editor = git_editor(inherited);
     let scrub = ChildEnvironmentPlan::build(&names, editor, inputs.claude_editor, vec![])
         .map_err(|_| LaunchIssueCode::EnvironmentRejected)?;
     let clean = scrub
-        .child_from(inputs.inherited_environment)
+        .child_from(inherited)
         .map_err(|_| LaunchIssueCode::EnvironmentRejected)?;
     let mut placed: BTreeMap<OsString, OsString> = clean
         .entries()
@@ -530,6 +534,27 @@ pub(crate) fn compose_launch(
         identity: record,
         native_binding: None,
     })
+}
+/// Drops inherited entries no child can use: empty names, NULs, and names containing
+/// `=` other than Windows' drive pseudo-variables (`=C:`).
+fn sanitize_inherited(
+    environment: &BTreeMap<OsString, OsString>,
+) -> BTreeMap<OsString, OsString> {
+    environment
+        .iter()
+        .filter(|(name, value)| {
+            let encoded = name.as_encoded_bytes();
+            let drive_current_directory = encoded.len() == 3
+                && encoded[0] == b'='
+                && encoded[1].is_ascii_alphabetic()
+                && encoded[2] == b':';
+            !encoded.is_empty()
+                && !encoded.contains(&0)
+                && (!encoded.contains(&b'=') || drive_current_directory)
+                && !value.as_encoded_bytes().contains(&0)
+        })
+        .map(|(name, value)| (name.clone(), value.clone()))
+        .collect()
 }
 fn git_editor(environment: &BTreeMap<OsString, OsString>) -> Option<&OsStr> {
     environment
@@ -943,5 +968,30 @@ mod tests {
             assert!(!format!("{checked:?}").contains(wire));
             assert_eq!(parent, original);
         }
+    }
+}
+
+#[cfg(test)]
+mod sanitize_inherited_tests {
+    use super::sanitize_inherited;
+    use std::{collections::BTreeMap, ffi::OsString};
+
+    #[test]
+    fn hidden_and_malformed_entries_are_dropped_not_fatal() {
+        let mut environment: BTreeMap<OsString, OsString> = BTreeMap::new();
+        for (name, value) in [
+            ("PATH", "C:/Windows"),
+            ("=C:", "C:/work"),
+            ("=ExitCode", "00000000"),
+            ("=ExitCodeAscii", "0"),
+            ("A=B", "x"),
+            ("", "empty"),
+            ("OK", "value"),
+        ] {
+            environment.insert(name.into(), value.into());
+        }
+        let kept: Vec<_> = sanitize_inherited(&environment).into_keys().collect();
+        let kept: Vec<_> = kept.iter().map(|name| name.to_string_lossy().into_owned()).collect();
+        assert_eq!(kept, ["=C:", "OK", "PATH"]);
     }
 }

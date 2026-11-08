@@ -378,8 +378,20 @@ const newSession = createNewSession({
     starting = true; $<HTMLButtonElement>('#new-terminal').disabled = true;
     try {
     const selected = await invoke<{id:string;path:string}>('project_select', {path:selection.projectPath});
-    const started = await invoke<{session:SessionInfo;threadId:string}>(selection.harnessId === 'powershell' ? 'shell_open' : 'agent_open',
-      {agentId:selection.harnessId,cwd:selected.path,rows:selection.rows,cols:selection.cols});
+    // Right after launch the local service and resource measurements are still warming up.
+    // Those refusals are temporary: wait and retry instead of making the user press Open again.
+    const warmingUp = (failure: unknown) => /still finishing|not yet ready|waiting for healthy resource|Retry when Resources/i.test(
+      typeof failure === 'string' ? failure : failure instanceof Error ? failure.message : JSON.stringify(failure ?? ''));
+    let started: {session:SessionInfo;threadId:string} | undefined;
+    for (let attempt = 0; !started; attempt++) {
+      try {
+        started = await invoke<{session:SessionInfo;threadId:string}>(selection.harnessId === 'powershell' ? 'shell_open' : 'agent_open',
+          {agentId:selection.harnessId,cwd:selected.path,rows:selection.rows,cols:selection.cols});
+      } catch (failure) {
+        if (!warmingUp(failure) || attempt >= 30) throw failure;
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
     setProject(selected.path);
     selectedProjectPath = selected.path;
     threadSidebar?.setProject({projectId:selected.id,label:selected.path.replace(/[\\/]+$/, '').split(/[\\/]/).pop()});
