@@ -46,11 +46,13 @@ Nota ambiente: i proof vanno lanciati con `TEMP` fuori da qualsiasi repo Git
 
 ## Wave 2 — Uso quotidiano (solo se servono)
 
-| Voce | Cosa | Quando |
+| Voce | Stato | Serve da te |
 | --- | --- | --- |
-| C15.4 | autenticazione/provider reale per harness | se vuoi usare gli account veri nell'app |
-| C22/C23 | archivio e dettaglio conversazione | se serve navigare le vecchie sessioni |
-| C24 | ricerca globale persistente | se serve oltre la ricerca per progetto |
+| C15.4 | pacchetto pronto in `release\`; manca il login reale per harness | apri `release\Shinatama.cmd`, fai login in Claude/Codex/OpenCode, dimmi cosa non va |
+| C22/C23 | tutte le unità committate (archivio, dettaglio, navigazione) | accettazione dei padri, dopo che li hai provati in app |
+| C24 | ricerca globale persistente: 3 unità in `plan.json`, nessun codice | solo se la ricerca per progetto non ti basta (stima: giornata) |
+
+Si apre una voce solo dopo l'uso reale della v0.1: i difetti trovati vincono sulle funzioni nuove.
 
 ## Wave 3 — Capacità
 
