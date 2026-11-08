@@ -1234,14 +1234,15 @@
         "2026-11-04 re-check at b9465e4: supervisor native proof re-passed (1/1, 4.66s); desktop-smoke was stale against the dffb269 global workspace scope and is now aligned (ownership probe green), but a full green smoke run is blocked by real system commit headroom (~1-2GiB free of ~44GiB; the C09R governor correctly reports reduced activity). The parent checkpoint stays open until one full green desktop-smoke run is recorded. The process-wrap refusal decision (C13.1 gate) is recorded in Cargo.toml [workspace.dependencies]."
       ],
       "evidence": [
-        "docs/verification/2026-11-04-C13-supervisor-recheck.md"
+        "docs/verification/2026-11-04-C13-supervisor-recheck.md",
+        "2026-11-08 p14 wrap-run desktop-smoke.mjs: reached Claude open (line 260), refused by resource governor (Windows is low on resources); parked, not retried. Test fixed to drive the main window, not the widget overlay"
       ],
       "checks": [
         "cargo test --offline --locked -p shinatama-engine -j1 --test sidecar_supervisor -- --ignored --test-threads=1 --nocapture: PASS 1/1, 4.66s re-run 2026-11-04 on HEAD b9465e4; busy kept exact owner, one restart on same address, repeated_exit failed phase, ledger released; first attempt AdmissionDeferred under ~1.8GiB system commit headroom (fail-closed admission working as specified)",
         "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs: attempted ONCE on 2026-11-07, FAILED for host memory (commit free 2.26 GiB at launch, down from 9.2 GiB minutes earlier; app stuck at Connecting or waits timed out); no product defect observed; parked per the simplified-plan rule, not retried",
         "desktop-smoke.mjs REALIGNED 2026-11-07: the \"Session index\" and \"Agents\" panels are no longer mounted (dffb269), so the first-agent section now uses New session -> Claude Code -> Open, starts the sidecar by command and keeps the scratch-baseline assertion; two attempts failed before reaching it: the product resource governor (hysteresis: enter pressure below 4.13 GiB free commit, exit above 5.17 GiB) kept the app in reduced activity; each proof run itself consumes about 2 GiB of commit, so a start near 6 GiB is not enough. Not yet green."
       ],
-      "next_action": "Run once with at least 8 GiB of free commit at launch (other agent sessions and WSL closed): verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs. The test is fixed; do not loop."
+      "next_action": "Parked: Claude open refused by the resource governor at ~9.8 GiB free commit. Run once more only on a quiet machine; do not loop."
     },
     "C14": {
       "status": "pending",
@@ -1633,7 +1634,7 @@
           "next_action": "None for this unit; remaining resume scope (race proof, Codex native identity capture, forced-crash recovery) is tracked under C25.2 and the recovery gap note."
         }
       },
-      "next_action": "Run once with at least 8 GiB of free commit at launch: verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/forced-crash-recovery-smoke.mjs. Expect PASS with recovery through the ADR-0051 certificate; on PASS close C25. Do not loop.",
+      "next_action": "PASS 2026-11-08; ready for owner acceptance.",
       "limits": [
         "Parent C25 remains open only for a quiet-host real-crash run of the minimal forced-crash smoke (now expected to RECOVER the pre-receipt thread through the certificate, not to refuse it). The qualified protocol exists and is unit/UI-proven; Ledger(Capacity) is resolved by the atomic ticket release in the certificate transaction.",
         "Recovery covers cleanup already proven before interrupted activation finalization. Records without a durable linked receipt remain blocked. UI proof seeds synthetic private metadata; it is not a real forced-crash/job-cleanup proof."
@@ -1647,7 +1648,8 @@
         "docs/notes/2026-11-03-codex-native-resume.md",
         "docs/verification/2026-11-06-forced-crash-recovery-status.md",
         "docs/verification/2026-11-06-adr-0051-termination-certificate.md",
-        "docs/adr/ADR-0051-pre-receipt-crash-recovery-termination-certificate.md"
+        "docs/adr/ADR-0051-pre-receipt-crash-recovery-termination-certificate.md",
+        "2026-11-08 p14 wrap-run forced-crash-recovery-smoke.mjs on HEAD a8cc72d: PASS; real crash before receipt left activation open and ticket reserved; restart recovered via ADR-0051 certificate, closed once, released ticket, Resume offered"
       ],
       "checkpoint_commits": [
         "c003838fe600d71ae5c7da4216347d0afffdbcb2",
@@ -1677,7 +1679,8 @@
       "commit_sha": null,
       "evidence": [
         "docs/implementation/2026-11-03-widget-preview.md",
-        "docs/verification/2026-11-03-C46-widget-preview.md"
+        "docs/verification/2026-11-03-C46-widget-preview.md",
+        "2026-11-08 p14 wrap-run attention-smoke.mjs on HEAD a8cc72d: PASS native overlay and real PTY OSC/BEL/exit integration"
       ],
       "checks": [
         "npm run build",
@@ -1691,7 +1694,7 @@
         "Preview Windows autorizzata il 2026-11-03: finestra nel processo Tauri e avvisi transitori; F30/F31 e i gate finali restano aperti.",
         "Superficie nativa e otto test Rust passano. Percorso PTY/clic/EOF collegato ma prova live rifiutata dal controllo risorse normale; nessun harness/provider qualificato. C12 rimane il solo checkpoint in_progress."
       ],
-      "next_action": "Run once with at least 8 GiB of free commit at launch: verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/attention-smoke.mjs. The test is fixed; do not loop."
+      "next_action": "PASS 2026-11-08; ready for owner acceptance."
     },
     "C16": {
       "status": "pending",

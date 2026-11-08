@@ -1,57 +1,70 @@
-# Piano semplificato (2026-11-06)
+# Piano a wave (2026-11-08)
 
-Sostituisce, come vista unica, le 51 voci sparse del register. Il register
-(`progress.json`) resta la fonte dei dettagli; qui c'è solo ciò che conta.
+Vista unica. `progress.json` resta il registro dei dettagli.
+Ogni wave è utilizzabile da sola: si passa alla successiva solo se serve.
 
-## Regola generale
+## Regole
 
-- Una prova per comportamento. Se un comportamento è già provato, non si riprova
-  senza una modifica di codice che lo tocchi.
-- Niente cicli automatici di run. Una finestra di macchina quieta = un run; dopo
-  due fallimenti ambientali la voce va in parcheggio, non si ripete.
-- Preferire test unitari/engine alle smoke UI per tutto ciò che non richiede
-  ConPTY, WebView o crash reali.
-- Un parent si chiude solo con l'accettazione esplicita del proprietario.
+- Una prova per comportamento, un run per finestra di macchina quieta, niente retry automatici.
+- Un parent si chiude solo con la tua accettazione esplicita.
+- Windows soltanto. Nessuna prova su macOS/Linux finché non c'è una macchina.
 
-## A. Backlog di verifica (solo a macchina libera — non sono blocchi)
+## Wave 0 — Prima versione usabile OGGI (v0.1 portable, Windows)
+
+Obiettivo: avere un pacchetto che apri e usi, con i limiti dichiarati.
+
+| # | Azione | Tempo |
+| --- | --- | --- |
+| 0.1 | Run C25 e C46 verdi, C13 parcheggiata. **Non blocca** il pacchetto | fatto |
+| 0.2 | Rigenero il pacchetto dal HEAD pulito: `scripts/package-local.ps1` (include C12.5 e ADR-0051) | ~10 min |
+| 0.3 | Verifica del pacchetto: `scripts/package-local.ps1 -Verify -Package <id>` | ~5 min |
+| 0.4 | Tu apri il pacchetto: New session → Claude / Codex / OpenCode → Open | ~5 min |
+
+**Cosa funziona in v0.1** (già provato): apertura e resume nativi Claude e Codex (stesso UUID),
+OpenCode avviato, progetti, storage, ricerca per progetto, cleanup con ricevuta + Recover,
+recupero crash pre-ricevuta (ADR-0051), supervisore sidecar, overlay attenzione.
+
+**Limiti noti di v0.1** (da dichiarare, non da risolvere oggi):
+- sessioni Codex non completano un turno in test (provider sintetico), ma funzionano con account reale;
+- C25/C13/C46 come prove complete su macchina ferma potrebbero restare "parcheggiate";
+- un crash pre-ricevuta ora è recuperabile con Recover; fino al recupero trattiene 1 GiB nel ledger;
+- governatore risorse: con poca memoria libera (< ~5 GiB di commit) rifiuta nuove sessioni.
+
+Uscita Wave 0: pacchetto id registrato in `progress.json` + tuo OK di prova.
+
+## Wave 1 — Fiducia (prove rimaste, solo a macchina libera)
 
 | Voce | Prova | Stato |
 | --- | --- | --- |
-| C13 | `desktop-smoke.mjs` completo, una volta, con commit libero sufficiente | test riallineato il 2026-11-07 (usava "Session index" e "Agents", non più montati dopo `dffb269`: ora New session → Claude Code → Open); non ancora verde: il governatore era in "reduced activity" (commit libero 4,1–4,6 GiB, uscita a 5,17) |
-| C25 | `forced-crash-recovery-smoke.mjs` (minima: 1 crash, 1 riavvio, 1 recupero) | **crash vero recuperato dal certificato ADR-0051** (nel database della fixture: attivazione chiusa rev 2, journal vuoto); asserzione del test aggiornata e retry in lettura; run verde ancora da avere con commit libero ≥ 8 GiB |
-| C46 | `attention-smoke.mjs` (PTY + attenzione UI) | test corretto (campo progetto nascosto); non ancora verde: "New terminals are waiting for healthy resource measurements" |
-| F02 | prova UI Claude guardata + crash forzato nativo | prova UI già superata (resume UI 3/11 + race isolata); il crash forzato è C25; **pronta per la tua accettazione del padre** |
+| C25 | crash forzato → riavvio → Recover | **VERDE 2026-11-08** (crash vero, recupero via certificato ADR-0051); pronta per la tua accettazione |
+| C13 | `desktop-smoke.mjs` completo | parcheggiata: arriva fino ad aprire Claude, poi il governatore risorse rifiuta; un solo run in più a macchina ferma |
+| C46 | `attention-smoke.mjs` | **VERDE 2026-11-08**; pronta per la tua accettazione |
+| F02 | prova UI Claude + crash forzato | pronta per la tua accettazione del padre |
 
-Regola: un run ciascuna, quando la macchina è ferma; nessun retry automatico.
-Una voce fallita per memoria resta parcheggiata finché non dici "vai" a macchina libera.
+Nota ambiente: i proof vanno lanciati con `TEMP` fuori da qualsiasi repo Git
+(altrimenti "Storage unavailable"). Fatto nel run attuale.
 
-## B. Backlog di capacità (funzioni, non blocchi di prodotto)
+## Wave 2 — Uso quotidiano (solo se servono)
 
-| Voce | Cosa resta | Quando vale la pena |
+| Voce | Cosa | Quando |
 | --- | --- | --- |
-| C14 | set generici e stati di capability qualificati | quando serve un nuovo set |
-| C15.4 | autenticazione/provider reale per harness | quando si vuole usare l'account vero |
-| C16 | binding nativo Codex oltre l'Open già funzionante | Richiede il prossimo harness installato |
-| C17 | capability OpenCode residue | se serve di più dell'avvio verificato |
-| C22/C23 | archivio e dettaglio conversazione oltre il flusso funzionante | se serve navigazione avanzata |
+| C15.4 | autenticazione/provider reale per harness | se vuoi usare gli account veri nell'app |
+| C22/C23 | archivio e dettaglio conversazione | se serve navigare le vecchie sessioni |
 | C24 | ricerca globale persistente | se serve oltre la ricerca per progetto |
-| C12.5 | **FATTO 2026-11-07**: `targetRatio`/`growthWindow` tolti dalla base di prodotto (nessun codice li consuma; i default canonici 0.75/20 sono identici ai valori di prima, comportamento invariato) | chiusa |
-| ADR-0051 | **FATTO**: certificato di terminazione, recupero crash pre-ricevuta e ripristino capacità ledger (`85544c3`) | chiusa, resta solo il run reale in C25 |
 
-## C. Piattaforme non coperte (ferme)
+## Wave 3 — Capacità
 
-QA Claude/Codex/OpenCode/Pi/Hermes/DeepSeek su macOS e Linux: 22 voci deferred.
-Non si toccano finché non esiste una macchina di prova.
+| Voce | Cosa |
+| --- | --- |
+| C14 | set generici e stati di capability |
+| C16 | binding nativo Codex oltre Open |
+| C17 | capability OpenCode residue |
 
-## Cosa è già chiuso e non va riaperto
+## Wave 4 — Piattaforme (ferme)
 
-Claude/Codex open e resume nativi (stesso UUID, contesto), race duplicate-resume,
-supervisore sidecar, storage/threads/search, cleanup con ricevuta + Recover UI,
-C12.4 effective-config live (PASS dall'altra sessione), pacchetto portable
-`837f4345`. Prodotto invariato da `c9deab5`: i binari 10:42 sono validi.
+macOS/Linux: 22 voci deferred. Non si toccano senza una macchina di prova.
 
-## Limite di prodotto noto (da ADR-0051)
+## Già chiuso, non riaprire
 
-Un crash pre-ricevuta trattiene 1 GiB nel ledger (`MAX_TOTAL` 4 GiB): finché il
-thread non è recuperabile, nuove sessioni possono essere rifiutate con
-`Ledger(Capacity)`. Il recupero esiste solo con ADR-0051 approvato.
+Claude/Codex open+resume nativi, race duplicate-resume, supervisore sidecar,
+storage/threads/search, cleanup con ricevuta + Recover UI, C12.4, C12.5, ADR-0051.

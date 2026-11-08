@@ -62,7 +62,11 @@ try {
   }
   if (!browser) throw new Error('WebView2 unavailable.\n' + diagnostics);
   const context = browser.contexts()[0];
-  page = context.pages()[0] || await context.waitForEvent('page');
+  // The attention overlay (widget.html) is a second WebView; the proof drives the main window.
+  const mainPage = () => context.pages().find(candidate => candidate.url().includes('tauri.localhost') && !candidate.url().includes('widget.html'));
+  for (const deadline = Date.now() + 30000; !mainPage() && Date.now() < deadline;) await delay(250);
+  page = mainPage();
+  if (!page) throw new Error('Main window did not appear.');
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   const ipc = async (command, args = {}) => {
