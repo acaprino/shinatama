@@ -487,12 +487,8 @@ async function closeFrame() {
 }
 async function openCodexSession(expectedCount) {
   await page.locator('#new-terminal').click(); const dialog = page.locator('#new-session-dialog');
-  // A project already selected in the header replaces the free path field.
-  if (await dialog.locator('#new-session-project').isVisible()) {
-    await dialog.locator('#new-session-project').fill(projectPath);
-  } else {
-    require(pathKey(await dialog.locator('#new-session-project-path').textContent()) === pathKey(projectPath), 'inherited-project-mismatch');
-  }
+  // The project field is always visible; a project chosen in the header is prefilled.
+  if (!(pathKey(await dialog.locator('#new-session-project').inputValue()) === pathKey(projectPath))) await dialog.locator('#new-session-project').fill(projectPath);
   await dialog.locator('#new-session-harness').selectOption('codex');
   await dialog.getByRole('button', { name: 'Open', exact: true }).click();
   await poll(async () => { require(!await dialog.locator('#new-session-error').isVisible(), 'open-session-inline-refusal'); return !await dialog.isVisible(); }, 120000, 'new-session-deadline');

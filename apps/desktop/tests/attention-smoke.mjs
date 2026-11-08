@@ -46,14 +46,14 @@ try {
   const unmuted=(await ipc('attention_preview',{kind:'update'})).current;
   await ipc('attention_dismiss',{id:unmuted.id});
   evidence.checks.unmutedSystemSoundPathExercised=true;
-  await main.locator('#desktop-alerts').click();
+  await main.locator('#toolbar-more').click();await main.locator('#desktop-alerts').click();
   await main.locator('#attention-sound').uncheck();
   await expect.poll(async()=>(await ipc('attention_current')).muted).toBe(true);
   await main.getByRole('button',{name:'Chiudi impostazioni avvisi'}).click();
   await main.reload();await expect(main.locator('#runtime-status')).toContainText('Local runtime');
   expect((await ipc('attention_current')).muted).toBe(true);
   evidence.checks.preferencesReappliedAfterFrontendReload=true;
-  await main.locator('#desktop-alerts').click();
+  await main.locator('#toolbar-more').click();await main.locator('#desktop-alerts').click();
   const beforePreview=native().foreground;
   await main.locator('#attention-test').click();
   await expect(main.locator('#attention-settings')).not.toBeVisible();

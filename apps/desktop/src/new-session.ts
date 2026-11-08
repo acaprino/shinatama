@@ -17,6 +17,8 @@ const scalar = (value: unknown, limit: number): value is string => typeof value 
   && !/[\u0000-\u001f\u007f-\u009f]/.test(value);
 const absoluteFolder = (value: unknown): value is string => scalar(value, 4096)
   && (/^[a-z]:[\\/]/i.test(value) || /^\\\\[^\\/]+[\\/][^\\/]+(?:[\\/]|$)/.test(value));
+const folderName = (path: string) => path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || path;
+const samePath = (a: string, b: string) => a.replace(/[\\/]+$/, '').toLowerCase() === b.replace(/[\\/]+$/, '').toLowerCase();
 function projectList(value: unknown): NewSessionProject[] {
   if (!Array.isArray(value) || value.length > 100) throw new Error('Recent projects could not be loaded. Choose a folder to continue.');
   const result: NewSessionProject[] = [];
@@ -44,53 +46,71 @@ export function createNewSession(options: Options) {
   const heading = document.createElement('div'); heading.className = 'dialog-heading';
   const title = document.createElement('h1'); title.id = 'new-session-title'; title.textContent = 'New session';
   const closeButton = document.createElement('button'); closeButton.type = 'button'; closeButton.textContent = '×'; closeButton.setAttribute('aria-label', 'Close new session'); heading.append(title, closeButton);
-  const projectLabel = document.createElement('label'); projectLabel.htmlFor = 'new-session-project'; projectLabel.textContent = 'Project folder';
+
+  // 1. Project: pick from the list, or browse / type a folder.
+  const projectLabel = document.createElement('label'); projectLabel.htmlFor = 'new-session-project'; projectLabel.textContent = 'Project';
+  const list = document.createElement('div'); list.id = 'new-session-projects'; list.setAttribute('role', 'listbox'); list.setAttribute('aria-label', 'Recent projects');
   const folderRow = document.createElement('div'); folderRow.className = 'new-session-folder';
   const project = document.createElement('input'); project.id = 'new-session-project'; project.type = 'text'; project.maxLength = 4096;
-  project.autocomplete = 'off'; project.spellcheck = false; project.placeholder = 'C:\\Projects\\my-project';
+  project.autocomplete = 'off'; project.spellcheck = false; project.placeholder = 'Folder path, or pick one above';
   const browse = document.createElement('button'); browse.type = 'button'; browse.textContent = 'Browse…'; browse.hidden = !options.browse; folderRow.append(project, browse);
-  const recent = document.createElement('select'); recent.id = 'new-session-recent'; recent.setAttribute('aria-label', 'Recent projects');
-  const projectFields = document.createElement('div'); projectFields.className = 'new-session-project-fields'; projectFields.append(projectLabel, folderRow, recent);
-  const projectContext = document.createElement('div'); projectContext.id = 'new-session-project-context';
-  const contextLabel = document.createElement('span'); contextLabel.textContent = 'Project';
-  const contextPath = document.createElement('span'); contextPath.id = 'new-session-project-path';
-  const changeProject = document.createElement('button'); changeProject.type = 'button'; changeProject.textContent = 'Change project';
-  projectContext.append(contextLabel, contextPath, changeProject);
+
+  // 2. Agent: one tap. The select stays in the DOM (visually hidden) as the single source of truth.
   const harnessLabel = document.createElement('label'); harnessLabel.htmlFor = 'new-session-harness'; harnessLabel.textContent = 'Agent';
-  const harness = document.createElement('select'); harness.id = 'new-session-harness';
-  for (const choice of choices) { const item = document.createElement('option'); item.value = choice.id; item.textContent = choice.label; harness.append(item); }
+  const harness = document.createElement('select'); harness.id = 'new-session-harness'; harness.className = 'sr-only';
+  const tiles = document.createElement('div'); tiles.id = 'new-session-agents'; tiles.setAttribute('role', 'radiogroup'); tiles.setAttribute('aria-label', 'Agent');
   const status = document.createElement('p'); status.id = 'new-session-status'; status.setAttribute('role', 'status');
   const error = document.createElement('p'); error.id = 'new-session-error'; error.setAttribute('role', 'alert'); error.hidden = true;
   project.setAttribute('aria-describedby', error.id);
   const actions = document.createElement('div'); actions.className = 'dialog-actions';
   const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = 'Cancel';
   const submit = document.createElement('button'); submit.type = 'submit'; submit.className = 'primary'; submit.textContent = 'Open'; actions.append(cancel, submit);
-  form.append(heading, projectContext, projectFields, harnessLabel, harness, status, error, actions); dialog.append(form);
+  form.append(heading, projectLabel, list, folderRow, harnessLabel, harness, tiles, status, error, actions); dialog.append(form);
   (document.querySelector('#app') ?? document.body).append(dialog);
 
   let projects: NewSessionProject[] = []; let pending: 'projects' | 'browse' | 'open' | null = null;
-  let generation = 0; let destroyed = false; let choosingProject = true;
+  let generation = 0; let destroyed = false; let lastHarness = '';
   function showError(message: string) { error.textContent = message; error.hidden = false; }
   function clearError() { error.textContent = ''; error.hidden = true; }
+  function syncHarness() {
+    harness.replaceChildren();
+    for (const choice of choices) { const item = document.createElement('option'); item.value = choice.id; item.textContent = choice.label; harness.append(item); }
+  }
+  const agentOrder = (id: string) => { const rank = ['claude_code', 'codex', 'opencode'].indexOf(id); return rank < 0 ? (id === 'powershell' ? 99 : 50) : rank; };
+  function paintTiles() {
+    tiles.replaceChildren();
+    for (const choice of [...choices].sort((a, b) => agentOrder(a.id) - agentOrder(b.id))) {
+      const tile = document.createElement('button'); tile.type = 'button'; tile.className = 'new-session-agent'; tile.textContent = choice.label;
+      tile.dataset.agent = choice.id; tile.setAttribute('role', 'radio'); tile.setAttribute('aria-checked', String(harness.value === choice.id));
+      tile.disabled = pending === 'open';
+      tile.onclick = () => { if (pending === 'open') return; harness.value = choice.id; lastHarness = choice.id; clearError(); paintTiles(); };
+      tiles.append(tile);
+    }
+  }
+  function paintProjects() {
+    list.replaceChildren();
+    if (!projects.length) {
+      const empty = document.createElement('p'); empty.className = 'hint new-session-empty';
+      empty.textContent = pending === 'projects' ? 'Loading projects…' : 'No projects yet. Browse for a folder.'; list.append(empty); return;
+    }
+    for (const item of projects) {
+      const row = document.createElement('button'); row.type = 'button'; row.className = 'new-session-project-row'; row.setAttribute('role', 'option');
+      const selected = samePath(item.path, project.value.trim()); row.setAttribute('aria-selected', String(selected));
+      row.disabled = pending === 'open'; row.title = item.path;
+      const name = document.createElement('strong'); name.textContent = folderName(item.path);
+      const path = document.createElement('span'); path.textContent = item.path; row.append(name, path);
+      row.onclick = () => { if (pending) return; project.value = item.path; clearError(); paintProjects(); harness.focus(); };
+      list.append(row);
+    }
+  }
   function render() {
     if (destroyed) return;
     const opening = pending === 'open'; dialog.setAttribute('aria-busy', String(pending !== null));
     project.disabled = opening || pending === 'browse'; harness.disabled = opening || !choices.length;
-    recent.disabled = pending !== null || !projects.length; browse.disabled = pending !== null || !options.browse;
-    projectFields.hidden = !choosingProject; projectContext.hidden = choosingProject;
-    contextPath.textContent = project.value; changeProject.disabled = pending !== null;
+    browse.disabled = pending !== null || !options.browse;
     submit.disabled = pending !== null || !choices.length; cancel.disabled = opening; closeButton.disabled = opening;
-    status.textContent = opening ? 'Opening…' : pending === 'projects' ? 'Loading projects…' : pending === 'browse' ? 'Choose a project folder…' : '';
-  }
-  function fillRecent() {
-    const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'Recent projects';
-    recent.replaceChildren(placeholder);
-    projects.forEach((item, index) => { const option = document.createElement('option'); option.value = String(index); option.textContent = item.path; recent.append(option); });
-    selectRecent();
-  }
-  function selectRecent() {
-    const index = projects.findIndex(item => item.path === project.value);
-    recent.value = index < 0 ? '' : String(index);
+    status.textContent = opening ? 'Opening… the first session can take a few seconds.' : pending === 'projects' ? '' : pending === 'browse' ? 'Choose a project folder…' : '';
+    paintProjects(); paintTiles();
   }
   async function loadProjects() {
     if (destroyed || pending) return;
@@ -98,7 +118,9 @@ export function createNewSession(options: Options) {
     try {
       const received = projectList(await options.projects());
       if (destroyed || at !== generation || !dialog.open) return;
-      projects = received; fillRecent();
+      projects = received;
+      // Nothing chosen yet: preselect the most recent project.
+      if (!project.value.trim() && projects[0]) project.value = projects[0].path;
     } catch {
       if (!destroyed && at === generation && dialog.open) showError('Recent projects could not be loaded. Choose a folder to continue.');
     } finally { pending = null; render(); }
@@ -110,21 +132,22 @@ export function createNewSession(options: Options) {
       const received = await options.browse();
       if (destroyed || at !== generation || !dialog.open || received === null) return;
       if (!absoluteFolder(received)) throw new Error('Choose an existing project folder.');
-      project.value = received; selectRecent();
+      project.value = received;
+      if (!projects.some(item => samePath(item.path, received))) projects = [{ id: `browsed:${received}`, path: received }, ...projects];
     } catch (failure) {
       if (!destroyed && at === generation && dialog.open) showError(plainFailure(failure, 'The folder could not be selected. Enter its full path to continue.'));
-    } finally { pending = null; render(); if (!destroyed && at === generation && dialog.open) project.focus(); }
+    } finally { pending = null; render(); if (!destroyed && at === generation && dialog.open) submit.focus(); }
   }
   function close(): boolean {
     if (pending === 'open') return false;
     generation++; if (dialog.open) dialog.close();
-    project.value = ''; projects = []; fillRecent(); clearError(); render(); return true;
+    project.value = ''; projects = []; clearError(); render(); return true;
   }
   async function open() {
     if (destroyed || pending || !dialog.open) return;
     const path = project.value.trim(); const agent = choices.find(choice => choice.id === harness.value);
-    if (!absoluteFolder(path)) { showError('Choose a project folder or enter its full path.'); project.focus(); return; }
-    if (!agent) { showError('Choose an available agent.'); harness.focus(); return; }
+    if (!absoluteFolder(path)) { showError('Choose a project from the list, or browse for a folder.'); project.focus(); return; }
+    if (!agent) { showError('Choose an available agent.'); return; }
     const at = generation; pending = 'open'; clearError(); render(); let opened = false;
     try {
       await options.open({ projectPath: path, harnessId: agent.id, rows: 24, cols: 80 }); opened = true;
@@ -140,40 +163,33 @@ export function createNewSession(options: Options) {
   }
   function show(defaultProject?: string, defaultHarness?: string): boolean {
     if (destroyed || dialog.open || document.querySelector('dialog[open]')) return false;
-    generation++; project.value = absoluteFolder(defaultProject) ? defaultProject : ''; projects = []; fillRecent(); clearError();
-    choosingProject = !project.value;
+    generation++; project.value = absoluteFolder(defaultProject) ? defaultProject : ''; projects = []; clearError();
     if (choices.some(choice => choice.id === defaultHarness)) harness.value = defaultHarness!;
+    else if (choices.some(choice => choice.id === lastHarness)) harness.value = lastHarness;
+    else if (!lastHarness && choices.some(choice => choice.id === 'claude_code')) harness.value = 'claude_code';
     if (!choices.some(choice => choice.id === harness.value)) harness.value = choices[0]?.id ?? '';
     if (!choices.length) showError('No agents are available yet.');
-    render(); openModal(dialog); (choosingProject ? project : harness).focus();
-    if (choosingProject && !pending) void loadProjects(); return true;
+    render(); openModal(dialog); submit.focus();
+    if (!pending) void loadProjects(); return true;
   }
   function setHarnesses(values: readonly NewSessionHarness[]): boolean {
     if (destroyed || pending === 'open' || !Array.isArray(values) || values.length > 32
       || values.some(item => !record(item) || !scalar(item.id, 64) || !/^[a-z0-9_-]+$/i.test(item.id) || !scalar(item.label, 128))
       || new Set(values.map(item => item.id)).size !== values.length) return false;
     const selected = harness.value; choices = values.map(item => ({ id: item.id, label: item.label }));
-    harness.replaceChildren();
-    for (const choice of choices) { const item = document.createElement('option'); item.value = choice.id; item.textContent = choice.label; harness.append(item); }
+    syncHarness();
     harness.value = choices.some(choice => choice.id === selected) ? selected : choices[0]?.id ?? '';
     render(); return true;
   }
-  changeProject.onclick = () => {
-    if (pending) return;
-    choosingProject = true; clearError(); render(); project.focus(); void loadProjects();
-  };
-  project.oninput = () => { clearError(); selectRecent(); };
-  recent.onchange = () => {
-    const selected = recent.value === '' ? null : projects[Number(recent.value)];
-    if (selected && !pending) { project.value = selected.path; clearError(); project.focus(); }
-  };
-  harness.onchange = clearError; browse.onclick = () => { void browseFolder(); };
+  project.oninput = () => { clearError(); paintProjects(); };
+  harness.onchange = () => { clearError(); lastHarness = harness.value; paintTiles(); };
+  browse.onclick = () => { void browseFolder(); };
   form.onsubmit = event => { event.preventDefault(); void open(); };
   cancel.onclick = close; closeButton.onclick = close;
   dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
   dialog.addEventListener('close', () => {
-    if (!dialog.open) { generation++; project.value = ''; projects = []; fillRecent(); clearError(); options.restoreFocus?.(); }
+    if (!dialog.open) { generation++; project.value = ''; projects = []; clearError(); options.restoreFocus?.(); }
   });
-  fillRecent(); render();
+  syncHarness(); render();
   return { show, close, setHarnesses, destroy: (): boolean => { if (!close()) return false; destroyed = true; dialog.remove(); return true; } };
 }

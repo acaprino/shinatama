@@ -314,7 +314,7 @@ try {
   void closeCompleted.catch(() => {});
   await page.getByRole('button', { name: 'Close window', exact: true }).click();
   await expect(page.locator('#confirm-dialog')).toBeVisible();
-  await page.getByRole('button', { name: 'Stop', exact: true }).click();
+  await page.locator('.wm-tab-close').first().click();
   await closeCompleted;
   expect(app.exitCode).toBe(0); closedNormally = true;
   evidence.checks.themedCloseStopsOwnedTerminal = true;

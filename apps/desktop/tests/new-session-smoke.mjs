@@ -110,10 +110,8 @@ async function openFromDialog(projectPath, expectedCount, selectedProject = fals
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Open', exact: true })).toBeEnabled();
   if (selectedProject) {
-    await expect(dialog.locator('#new-session-project')).toBeHidden();
-    await expect(dialog.locator('#new-session-recent')).toBeHidden();
-    expect(pathKey(await dialog.locator('#new-session-project-path').textContent())).toBe(pathKey(projectPath));
-    await expect(dialog.locator('#new-session-harness')).toBeFocused();
+    await expect(dialog.locator('#new-session-project')).toBeVisible();
+    expect(pathKey(await dialog.locator('#new-session-project').inputValue())).toBe(pathKey(projectPath));
   } else {
     await expect(dialog.locator('#new-session-project')).toBeVisible();
     await dialog.locator('#new-session-project').fill(projectPath);
@@ -228,11 +226,10 @@ try {
     for (const item of opened) {
       await expect(selector).toBeEnabled(); await selector.selectOption(item.projectId);
       await expect(page.locator(`.thread-sidebar button[data-thread-id="${item.threadId}"]`)).toBeVisible();
-      await page.locator('.thread-sidebar').getByRole('button', {name:'New session',exact:true}).click();
+      await page.locator('#new-terminal').click();
       const dialog = page.locator('#new-session-dialog');
-      await expect(dialog.locator('#new-session-project')).toBeHidden();
-      expect(pathKey(await dialog.locator('#new-session-project-path').textContent())).toBe(pathKey(projectPaths[opened.indexOf(item)]));
-      await expect(dialog.locator('#new-session-harness')).toBeFocused();
+      await expect(dialog.locator('#new-session-project')).toBeVisible();
+      expect(pathKey(await dialog.locator('#new-session-project').inputValue())).toBe(pathKey(projectPaths[opened.indexOf(item)]));
       await dialog.getByRole('button', {name:'Cancel',exact:true}).click();
       expect(await ids()).toEqual(stableIds);
       expect((await savedLayout()).views.map(view => view.resource.threadId).filter(Boolean).sort()).toEqual(threadIds);

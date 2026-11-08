@@ -20,12 +20,16 @@ export interface WorkspaceRendererOptions {
   readonly labelForView?: (view: PanelView) => string;
   readonly isInputBlocked?: () => boolean;
   readonly onError?: (error: LayoutError) => void;
+  /** The pane's "+" button or empty-pane button: open a new session in this pane. */
+  readonly onNewTab?: (groupId: string) => void;
+  /** The tab's "×": close (stop) the view. */
+  readonly onCloseView?: (viewId: string) => void;
 }
 export interface WorkspaceRenderer {
   render(layout: WorkspaceLayout): LayoutResult<void>;
   destroy(): void;
 }
-interface GroupDom { readonly element: HTMLElement; readonly tabs: HTMLElement; readonly controls: HTMLElement; readonly body: HTMLElement; readonly focus: HTMLButtonElement; readonly collapse: HTMLButtonElement; readonly maximize: HTMLButtonElement }
+interface GroupDom { readonly element: HTMLElement; readonly tabs: HTMLElement; readonly controls: HTMLElement; readonly body: HTMLElement; readonly focus: HTMLButtonElement; readonly collapse: HTMLButtonElement; readonly maximize: HTMLButtonElement; readonly add: HTMLButtonElement; readonly more: HTMLButtonElement; advanced: boolean }
 interface Bounds { readonly x: number; readonly y: number; readonly width: number; readonly height: number }
 interface DragState { readonly viewId: string; readonly gesture: LayoutGesture; readonly groupId: string; readonly splitId: string; action: LayoutAction | null }
 interface ResizeState { readonly gesture: LayoutGesture; readonly split: SplitNode; readonly boundary: number; readonly start: number; readonly free: number; readonly firstFree: number; readonly handle: HTMLElement; readonly pointerId: number; action: LayoutAction | null }
@@ -131,8 +135,11 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
     const tabs = element('div', 'wm-tabs wm-chrome'); tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Pane tabs');
     const collapse = control('−', 'collapse', () => { const group = current && tabGroups(current.root).find(group => group.id === groupId); if (group) emit({ type: 'collapse', groupId, collapsed: !group.collapsed }); });
     const maximize = control('□', 'maximize', () => emit({ type: 'maximize', groupId: current?.maximizedGroupId === groupId ? null : groupId }));
-    header.append(focus, tabs, collapse, maximize);
-    const controls = element('div', 'wm-controls wm-chrome'); const body = element('div', 'wm-body'); body.id = `${namespace}-panel-${groupId}`; body.setAttribute('role', 'tabpanel');
+    const add = control('+', 'new-tab', () => options.onNewTab?.(groupId)); add.classList.add('wm-add'); add.title = 'New session in this pane'; add.setAttribute('aria-label', 'New session in this pane');
+    const more = control('⋯', 'more', () => { const dom = groups.get(groupId); if (!dom) return; dom.advanced = !dom.advanced; dom.controls.hidden = !dom.advanced || dom.element.classList.contains('wm-collapsed'); dom.more.setAttribute('aria-expanded', String(dom.advanced)); });
+    more.classList.add('wm-more'); more.title = 'Split, move and hide'; more.setAttribute('aria-label', 'Pane layout options'); more.setAttribute('aria-expanded', 'false');
+    header.append(focus, tabs, add, more, collapse, maximize);
+    const controls = element('div', 'wm-controls wm-chrome'); controls.hidden = true; const body = element('div', 'wm-body'); body.id = `${namespace}-panel-${groupId}`; body.setAttribute('role', 'tabpanel');
     pane.append(header, controls, body); canvas.appendChild(pane);
     pane.addEventListener('pointerdown', event => {
       if (blocked() || (event.target instanceof Element && event.target.closest('.wm-chrome'))) return;
@@ -153,13 +160,13 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
       else if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
     });
     pane.addEventListener('drop', event => { if (!drag) return; event.preventDefault(); event.stopPropagation(); const state = drag; commitGesture(state.gesture, state.action); });
-    return { element: pane, tabs, controls, body, focus, collapse, maximize };
+    return { element: pane, tabs, controls, body, focus, collapse, maximize, add, more, advanced: false };
   }
 
   function buildChrome(group: TabGroup, index: number, dom: GroupDom): void {
     if (!current) return;
     dom.element.classList.toggle('wm-collapsed', group.collapsed); dom.element.classList.toggle('wm-focused', current.focusedGroupId === group.id);
-    dom.focus.textContent = `Pane ${index + 1}`; dom.collapse.setAttribute('aria-label', group.collapsed ? 'Restore pane' : 'Collapse pane');
+    dom.focus.textContent = `Pane ${index + 1}`; dom.focus.hidden = tabGroups(current.root).length < 2; dom.collapse.hidden = dom.maximize.hidden = tabGroups(current.root).length < 2; dom.collapse.setAttribute('aria-label', group.collapsed ? 'Restore pane' : 'Collapse pane');
     dom.collapse.title = group.collapsed ? 'Restore pane' : 'Collapse pane'; dom.collapse.textContent = group.collapsed ? '+' : '−';
     dom.maximize.setAttribute('aria-label', current.maximizedGroupId === group.id ? 'Restore layout' : 'Maximize pane'); dom.maximize.title = dom.maximize.getAttribute('aria-label') ?? '';
     dom.maximize.disabled = group.collapsed || group.activeTabId === null;
@@ -175,7 +182,11 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
         cancelGesture(); drag = { viewId: view.id, gesture: beginLayoutGesture(current), groupId: freshId('group'), splitId: freshId('split'), action: null };
         options.host.classList.add('wm-changing'); if (event.dataTransfer) { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('application/x-shinatama-view', view.id); }
       });
-      tab.addEventListener('dragend', cancelGesture); tabs.push(tab);
+      tab.addEventListener('dragend', cancelGesture);
+      const wrap = element('span', 'wm-tabwrap'); wrap.classList.toggle('wm-tabwrap-active', group.activeTabId === view.id);
+      const close = control('×', `close:${view.id}`, () => options.onCloseView?.(view.id)); close.classList.add('wm-tab-close');
+      close.title = `Close ${label(view)}`; close.setAttribute('aria-label', `Close ${label(view)}`); close.tabIndex = -1;
+      wrap.append(tab, close); tabs.push(wrap);
     }
     dom.tabs.replaceChildren(...tabs);
     if (group.activeTabId !== null) dom.body.setAttribute('aria-labelledby', `${namespace}-tab-${group.activeTabId}`); else dom.body.removeAttribute('aria-labelledby');
@@ -204,7 +215,7 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
     for (const view of hidden) { const option = element('option', '', label(view)); option.value = view.id; option.selected = previousHidden === view.id; hiddenSelect.appendChild(option); }
     const show = control('Show', 'show', () => { const viewId = hiddenSelect.value; if (viewId) emit({ type: 'hide', viewId, hidden: false }); });
     hiddenSelect.hidden = show.hidden = hidden.length === 0;
-    dom.controls.replaceChildren(destinations, move, edge, split, earlier, later, hide, hiddenSelect, show); dom.controls.hidden = group.collapsed; dom.body.hidden = group.collapsed;
+    dom.controls.replaceChildren(destinations, move, edge, split, earlier, later, hide, hiddenSelect, show); dom.controls.hidden = group.collapsed || !dom.advanced; dom.body.hidden = group.collapsed;
   }
 
   function position(node: HTMLElement, rect: Bounds): void { Object.assign(node.style, { left: `${rect.x}px`, top: `${rect.y}px`, width: `${rect.width}px`, height: `${rect.height}px` }); }
@@ -326,7 +337,8 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
         if (binding && !group.collapsed && (layout.maximizedGroupId === null || layout.maximizedGroupId === group.id)) {
           for (const child of [...dom.body.children]) if (child !== binding) child.remove(); placeWorkspaceBinding(dom.body, binding, true);
         } else {
-          const placeholder = element('div', 'wm-placeholder', selected ? selected.resource.kind === 'terminal' ? 'Terminal unavailable. Your saved layout is preserved.' : 'This view is not available yet.' : 'No visible tabs. Use Show to restore a hidden view.');
+          const placeholder = element('div', 'wm-placeholder', selected ? selected.resource.kind === 'terminal' ? 'Terminal unavailable. Your saved layout is preserved.' : 'This view is not available yet.' : 'Nothing open in this pane.');
+          if (!selected) { const start = element('button', 'wm-empty-start', '+ New session'); start.type = 'button'; start.addEventListener('click', () => options.onNewTab?.(group.id)); placeholder.append(start); }
           dom.body.replaceChildren(placeholder);
         }
       });

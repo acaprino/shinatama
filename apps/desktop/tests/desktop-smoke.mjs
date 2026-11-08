@@ -164,7 +164,7 @@ try {
   await page.locator('#presentation-dialog').getByRole('button', { name: 'Close', exact: true }).click();
   expect(await ids()).toEqual(beforeAppearance);
   const beforeFind = await ids();
-  await page.locator('#find-terminal').click();
+  await page.locator('#toolbar-more').click(); await page.locator('#find-terminal').click();
   await page.locator('#terminal-find-query').fill('SHINATAMA_DESKTOP_OK');
   await expect(page.locator('#terminal-find-dialog [role="status"]')).toHaveText(/\d+ of \d+\+? matching lines/);
   await page.keyboard.press('Escape');

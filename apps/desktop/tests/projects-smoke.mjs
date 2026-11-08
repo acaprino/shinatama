@@ -41,7 +41,7 @@ async function closeApp(instance) {
   await instance.page.getByRole('button', { name: 'Close window', exact: true }).click();
   if (hasTerminals) {
     await expect(instance.page.locator('#confirm-dialog')).toBeVisible();
-    await instance.page.getByRole('button', { name: 'Stop', exact: true }).click();
+    await instance.page.locator('.wm-tab-close').first().click();
   }
   await closed; await exited;
   await instance.browser.close().catch(() => {});

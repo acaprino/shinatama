@@ -71,9 +71,10 @@ pub struct Runtime {
 }
 impl Runtime {
     pub fn wait_for_admission(&self) -> Result<(), String> {
-        // Startup needs two complete samples plus the governor's stable window.
-        // Wait for that observation; resource thresholds and limits stay unchanged.
-        let deadline = std::time::Instant::now() + Duration::from_secs(8);
+        // Right after launch the governor is still calibrating (up to ~30 s). An
+        // explicit Open waits for that observation instead of failing, so the first
+        // session opened just after starting the app works.
+        let deadline = std::time::Instant::now() + Duration::from_secs(45);
         loop {
             match self.admission.current_headroom() {
                 Ok(_) => return Ok(()),

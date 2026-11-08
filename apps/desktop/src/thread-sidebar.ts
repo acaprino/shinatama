@@ -114,10 +114,10 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
   const collapse = document.createElement('button'); collapse.type = 'button'; collapse.className = 'thread-sidebar-toggle';
   collapse.setAttribute('aria-controls', 'thread-sidebar-body'); heading.append(title, collapse);
   const body = document.createElement('div'); body.id = 'thread-sidebar-body'; body.className = 'thread-sidebar-body';
-  const scopeLabel = document.createElement('label'); scopeLabel.htmlFor = 'thread-sidebar-project'; scopeLabel.textContent = 'Project';
-  const scopeSelect = document.createElement('select'); scopeSelect.id = 'thread-sidebar-project';
-  const reload = document.createElement('button'); reload.type = 'button'; reload.textContent = 'Reload threads';
-  const create = document.createElement('button'); create.type = 'button'; create.textContent = options.onNewSession ? 'New session' : 'New thread'; create.hidden = !options.onNewSession && !options.create;
+  const scopeLabel = document.createElement('label'); scopeLabel.className = 'thread-sidebar-scope'; scopeLabel.htmlFor = 'thread-sidebar-project'; scopeLabel.textContent = 'Project';
+  const scopeSelect = document.createElement('select'); scopeSelect.id = 'thread-sidebar-project'; scopeSelect.className = 'thread-sidebar-scope';
+  const reload = document.createElement('button'); reload.type = 'button'; reload.className = 'thread-sidebar-reload'; reload.textContent = 'Reload threads';
+  const create = document.createElement('button'); create.type = 'button'; create.className = 'thread-sidebar-create'; create.textContent = options.onNewSession ? 'New session' : 'New thread'; create.hidden = !options.onNewSession && !options.create;
   const status = document.createElement('p'); status.className = 'thread-sidebar-status'; status.setAttribute('role', 'status');
   const list = document.createElement('ul'); list.className = 'thread-sidebar-list'; list.setAttribute('aria-label', 'Saved threads');
   const pagination = document.createElement('div'); pagination.className = 'thread-sidebar-pagination';

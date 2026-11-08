@@ -22,6 +22,7 @@ import { beginMutation, browseFolder, createRequestId } from './project-catalog.
 import { createSessionLibrary } from './session-library.ts';
 import { createSessionDetail } from './session-detail.ts';
 import { createSessionSearch } from './session-search.ts';
+import { createProjectMenu, organizeToolbar } from './toolbar-simple.ts';
 import { createSessionRaw } from './session-raw.ts';
 import { createSessionFind } from './session-find.ts';
 import { createThreadSidebar, type ThreadSidebarState } from './thread-sidebar.ts';
@@ -108,6 +109,12 @@ const renderer = createWorkspaceRenderer({
   labelForView(panel) { const view = views.get(panel.id); return view ? `${sessionHarnesses.find(item => item.id === view.info.shell)?.label ?? view.info.shell} ${[...views.keys()].indexOf(panel.id) + 1}${view.ended ? ' · exited' : ''}` : 'Saved terminal · unavailable'; },
   isInputBlocked: modalOpen,
   onError: () => notify('That layout change is unavailable. The current workspace was preserved.'),
+  onNewTab: groupId => { void openNewSession(groupId); },
+  onCloseView(id) {
+    const view = views.get(id);
+    if (view) void stopTerminal(view); // confirms before stopping a running session
+    else changeLayout({ type: 'remove-view', viewId: id });
+  },
 });
 const resizeObserver = new ResizeObserver(entries => {
   for (const entry of entries) { const view = [...views.values()].find(view => view.element === entry.target); if (view) scheduleFit(view); }
@@ -338,7 +345,7 @@ async function confirmStop(title: string, message: string): Promise<boolean> {
   }, { once: true }));
 }
 async function stopTerminal(view: View) {
-  if (!view.ended && !await confirmStop('Stop terminal?', 'This stops the shell and the programs it started. To keep them running, cancel and use Hide view instead.')) return;
+  if (!view.ended && !await confirmStop('Stop terminal?', 'This stops the shell and the programs it started. To keep them running, cancel and use ⋯ then Hide instead.')) return;
   try {
     await invoke('terminal_stop', { id: view.info.id });
     view.disposed = true; clearTimeout(view.resizeTimer); view.terminal.dispose(); view.element.remove();
@@ -517,6 +524,23 @@ createSessionSearch({
   restoreFocus: () => setFocus(focusedGroup()),
 });
 function openProjectDialog() { projectPicker.open(); }
+async function chooseProject(path: string) {
+  const selected = await invoke<{ id: string; path: string }>('project_select', { path });
+  selectedProjectPath = selected.path;
+  const changed = selected.path !== projectPath; setProject(selected.path); render();
+  if (changed) await refreshThreadProject();
+}
+organizeToolbar();
+createProjectMenu({
+  button: $('#project'),
+  load: () => desktop ? invoke('project_recent') : Promise.resolve([]),
+  current: () => projectPath,
+  choose: chooseProject,
+  browse: () => { projectPicker.open(); void projectPicker.browse(); },
+  create: () => { newProject.open(); },
+  manage: openProjectDialog,
+  reportError: notify,
+});
 function settlePendingStart() {
   if (modalOpen()) return;
   const request = pendingStart; pendingStart = null;
@@ -531,7 +555,6 @@ confirmDialog.addEventListener('close', () => {
   if (confirmDialog.returnValue === 'stop') pendingStart = null;
   else settlePendingStart();
 });
-$('#project').onclick = openProjectDialog;
 $('#new-terminal').onclick = () => openNewSession();
 $('#restore').onclick = () => { for (const view of workspaceLayout.views.filter(view => view.hidden)) changeLayout({ type: 'hide', viewId: view.id, hidden: false }); setFocus(focusedGroup()); };
 $('#layout-toggle').onclick = () => {
