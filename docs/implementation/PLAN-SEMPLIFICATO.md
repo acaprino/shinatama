@@ -36,9 +36,9 @@ Uscita Wave 0: pacchetto id registrato in `progress.json` + tuo OK di prova.
 
 | Voce | Prova | Stato |
 | --- | --- | --- |
-| C25 | crash forzato → riavvio → Recover | **VERDE 2026-11-08** (crash vero, recupero via certificato ADR-0051); pronta per la tua accettazione |
+| C25 | crash forzato → riavvio → Recover | **VERDE 2026-11-08** (crash vero, recupero via certificato ADR-0051); accettata dal proprietario 2026-11-08, chiusa |
 | C13 | `desktop-smoke.mjs` completo | parcheggiata: arriva fino ad aprire Claude, poi il governatore risorse rifiuta; un solo run in più a macchina ferma |
-| C46 | `attention-smoke.mjs` | **VERDE 2026-11-08**; pronta per la tua accettazione |
+| C46 | `attention-smoke.mjs` | **VERDE 2026-11-08**; accettata dal proprietario 2026-11-08, chiusa |
 | F02 | prova UI Claude + crash forzato | pronta per la tua accettazione del padre |
 
 Nota ambiente: i proof vanno lanciati con `TEMP` fuori da qualsiasi repo Git
