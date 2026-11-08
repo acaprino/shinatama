@@ -16,8 +16,8 @@ Obiettivo: avere un pacchetto che apri e usi, con i limiti dichiarati.
 | # | Azione | Tempo |
 | --- | --- | --- |
 | 0.1 | Run C25 e C46 verdi, C13 parcheggiata. **Non blocca** il pacchetto | fatto |
-| 0.2 | Rigenero il pacchetto dal HEAD pulito: `scripts/package-local.ps1` (include C12.5 e ADR-0051) | ~10 min |
-| 0.3 | Verifica del pacchetto: `scripts/package-local.ps1 -Verify -Package <id>` | ~5 min |
+| 0.2 | Pacchetto rigenerato da `5d17449`: `a398b73b-7b57-4036-8583-ec464eb5fa8e` (621 file, 219 MB) | fatto |
+| 0.3 | Verifica del pacchetto: `verified` (app non eseguita dallo script) | fatto |
 | 0.4 | Tu apri il pacchetto: New session → Claude / Codex / OpenCode → Open | ~5 min |
 
 **Cosa funziona in v0.1** (già provato): apertura e resume nativi Claude e Codex (stesso UUID),
