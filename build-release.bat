@@ -26,9 +26,15 @@ echo [4/4] Copy to release
 robocopy "%STAGE%" "%~dp0release" /MIR /NFL /NDL /NJH /NJS /NP >nul
 if errorlevel 8 (echo Copy to release failed. & goto fail)
 
+rem The product exe is Shinatama.exe; helpers stay beside it under their own names.
+if exist "%~dp0release\Shinatama.cmd" del /q "%~dp0release\Shinatama.cmd"
+if exist "%~dp0release\Shinatama.exe" del /q "%~dp0release\Shinatama.exe"
+move /y "%~dp0release\shinatama-desktop.exe" "%~dp0release\Shinatama.exe" >nul || (echo Could not create Shinatama.exe. & goto fail)
+pwsh -NoProfile -Command "$p='%~dp0release\AVVIO.md'; (Get-Content -Raw -LiteralPath $p) -replace 'Shinatama\.cmd','Shinatama.exe' | Set-Content -NoNewline -LiteralPath $p"
+
 echo.
 echo OK. Package %STAGE%
-echo Ready: %~dp0release\Shinatama.cmd
+echo Ready: %~dp0release\Shinatama.exe
 exit /b 0
 
 :fail
