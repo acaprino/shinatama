@@ -50,7 +50,7 @@ Nota ambiente: i proof vanno lanciati con `TEMP` fuori da qualsiasi repo Git
 | --- | --- | --- |
 | C15.4 | pacchetto pronto in `release\`; manca il login reale per harness | apri `release\Shinatama.cmd`, fai login in Claude/Codex/OpenCode, dimmi cosa non va |
 | C22/C23 | tutte le unità committate (archivio, dettaglio, navigazione) | accettazione dei padri, dopo che li hai provati in app |
-| C24 | ricerca globale persistente: 3 unità in `plan.json`, nessun codice | solo se la ricerca per progetto non ti basta (stima: giornata) |
+| C24 | **FATTO 2026-11-08**: ricerca globale persistente (pulsante Search): indice FTS5 incrementale in file separato, filtri agente/cartella/data, sorgente cancellata segnalata, forget/disattiva/ricostruisci; prova nativa `session-search-smoke.mjs` verde | provala in app: Search → Index sessions |
 
 Si apre una voce solo dopo l'uso reale della v0.1: i difetti trovati vincono sulle funzioni nuove.
 

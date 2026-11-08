@@ -30,6 +30,7 @@ use windows_sys::Win32::Storage::FileSystem::{
     FILE_FLAG_OPEN_REPARSE_POINT, FILE_SHARE_READ, FILE_SHARE_WRITE,
 };
 
+pub mod search;
 const ROOT_LIMIT: usize = 100;
 const MIB: u64 = 1024 * 1024;
 type Result<T> = std::result::Result<T, SessionReadIssue>;
@@ -91,6 +92,8 @@ pub struct Controller {
     busy: AtomicBool,
     blocked: AtomicBool,
     retained: Mutex<Option<SessionListRead>>,
+    search: Mutex<Option<Arc<shinatama_state::search_index::SearchIndex>>>,
+    run: Arc<search::RunState>,
 }
 struct WorkerSlot(Arc<Controller>);
 impl Drop for WorkerSlot {
@@ -106,6 +109,8 @@ impl Controller {
             busy: AtomicBool::new(false),
             blocked: AtomicBool::new(false),
             retained: Mutex::new(None),
+            search: Mutex::new(None),
+            run: Arc::new(search::RunState::default()),
         }
     }
     async fn worker<T: Send + 'static>(

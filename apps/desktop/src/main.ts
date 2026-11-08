@@ -21,6 +21,7 @@ import { createNewSession } from './new-session.ts';
 import { beginMutation, browseFolder, createRequestId } from './project-catalog.ts';
 import { createSessionLibrary } from './session-library.ts';
 import { createSessionDetail } from './session-detail.ts';
+import { createSessionSearch } from './session-search.ts';
 import { createSessionRaw } from './session-raw.ts';
 import { createSessionFind } from './session-find.ts';
 import { createThreadSidebar, type ThreadSidebarState } from './thread-sidebar.ts';
@@ -499,6 +500,18 @@ createSessionLibrary({
   roots: () => desktop ? invoke('session_roots') : Promise.reject({ issue: 'read_unavailable' }),
   list: request => desktop ? invoke('session_list', { request }) : Promise.reject({ issue: 'worker_unavailable' }),
   addArchive: desktop ? request => invoke('session_archive_add', { request }) : undefined,
+  openDetail: (root, nativeId) => { sessionDetail.show(root, nativeId); },
+  reportError: notify,
+  restoreFocus: () => setFocus(focusedGroup()),
+});
+const unavailable = () => Promise.reject({ issue: 'read_unavailable' });
+createSessionSearch({
+  search: request => desktop ? invoke('session_search', { request }) : unavailable(),
+  indexStatus: () => desktop ? invoke('session_index_status') : unavailable(),
+  indexStart: () => desktop ? invoke('session_index_start') : unavailable(),
+  indexCancel: () => desktop ? invoke('session_index_cancel') : unavailable(),
+  indexEnable: enabled => desktop ? invoke('session_index_enable', { enabled }) : unavailable(),
+  indexForget: () => desktop ? invoke('session_index_forget', { storeRootId: null }) : unavailable(),
   openDetail: (root, nativeId) => { sessionDetail.show(root, nativeId); },
   reportError: notify,
   restoreFocus: () => setFocus(focusedGroup()),

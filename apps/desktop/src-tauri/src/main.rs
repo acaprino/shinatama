@@ -647,6 +647,18 @@ fn main() {
         sessions::session_find,
         #[cfg(windows)]
         sessions::session_archive_add,
+        #[cfg(windows)]
+        sessions::search::session_search,
+        #[cfg(windows)]
+        sessions::search::session_index_start,
+        #[cfg(windows)]
+        sessions::search::session_index_cancel,
+        #[cfg(windows)]
+        sessions::search::session_index_status,
+        #[cfg(windows)]
+        sessions::search::session_index_enable,
+        #[cfg(windows)]
+        sessions::search::session_index_forget,
         storage_location,
         maintenance_activity,
         maintenance_status,
@@ -720,6 +732,18 @@ fn main() {
         sessions::session_find,
         #[cfg(windows)]
         sessions::session_archive_add,
+        #[cfg(windows)]
+        sessions::search::session_search,
+        #[cfg(windows)]
+        sessions::search::session_index_start,
+        #[cfg(windows)]
+        sessions::search::session_index_cancel,
+        #[cfg(windows)]
+        sessions::search::session_index_status,
+        #[cfg(windows)]
+        sessions::search::session_index_enable,
+        #[cfg(windows)]
+        sessions::search::session_index_forget,
         storage_location,
         maintenance_activity,
         maintenance_status,

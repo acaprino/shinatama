@@ -846,7 +846,8 @@ fn optional(value: Option<String>, cap: usize, truncated: &mut bool) -> Option<S
         valid
     })
 }
-fn row(info: SessionInfo, harness: HarnessId) -> Result<SessionRow> {
+/// `bytes` is the size of the exact pinned source file (C24 change detector).
+fn row(info: SessionInfo, harness: HarnessId, bytes: Option<u64>) -> Result<SessionRow> {
     if info.id.is_empty() || !text(&info.id, 256) {
         return Err(SessionReadIssue::MetadataTooLarge);
     }
@@ -858,7 +859,7 @@ fn row(info: SessionInfo, harness: HarnessId) -> Result<SessionRow> {
         updated_at: optional(info.updated, 64, &mut truncated),
         created_at: None,
         turns: None,
-        bytes: None,
+        bytes,
         parent_native_id: optional(info.parent, 256, &mut truncated),
         archived: (harness == HarnessId::OpenCode).then_some(info.archived),
         metadata_truncated: truncated,
@@ -924,7 +925,10 @@ fn list_in_worker(request: WorkerRequest) -> Result<SessionListPage> {
         .into_iter()
         .skip(offset)
         .take(request.limit)
-        .map(|info| row(info, harness))
+        .map(|info| {
+            let bytes = namespace.file_size(Path::new(&info.path)).ok();
+            row(info, harness, bytes)
+        })
         .collect::<Result<Vec<_>>>()?;
     verify_root(&request.root, harness)?;
     let end = offset + rows.len();
@@ -1556,7 +1560,7 @@ mod tests {
             assert_eq!(page.rows[0].title, None);
             assert_eq!(page.rows[0].created_at, None);
             assert_eq!(page.rows[0].turns, None);
-            assert_eq!(page.rows[0].bytes, None);
+            assert!(page.rows[0].bytes.is_some_and(|bytes| bytes > 0));
             assert_eq!(page.rows[0].archived, None);
             let reply = serde_json::to_vec(&WorkerReply {
                 protocol: 1,

@@ -13,7 +13,7 @@ call npm run build || goto fail
 
 echo [2/4] Native build ^(desktop, session-helper, hook, terminal-helper^)
 cargo build --locked -p shinatama-desktop --features custom-protocol || goto fail
-cargo build --locked -p shinatama-engine --bins || goto fail
+cargo build --locked -p shinatama-engine --features session-reader --bins || goto fail
 cargo build --locked -p shinatama-terminal --bins || goto fail
 
 echo [3/4] Verified package
