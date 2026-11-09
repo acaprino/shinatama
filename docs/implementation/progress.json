@@ -2158,8 +2158,8 @@
       "next_action": "Owner tries one real hop (session detail -> Hop -> Codex). Then C29: recovery UI, catch-up, UNDO, standby."
     },
     "C29": {
-      "status": "in_progress",
-      "commit_sha": null,
+      "status": "committed",
+      "commit_sha": "39db26c5c0575a5f570b0b02e4a6a801bd8d11cf",
       "units": {
         "C29.1": {
           "status": "committed",
@@ -2209,6 +2209,22 @@
           "limits": [
             "No desktop UNDO button yet."
           ]
+        },
+        "C29.4": {
+          "status": "committed",
+          "commit_sha": "39db26c5c0575a5f570b0b02e4a6a801bd8d11cf",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-recovery-catchup.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-hop"
+          ],
+          "limits": [
+            "No warm/cold latency measured on real agents; standby not wired to hidden panes."
+          ]
         }
       },
       "evidence": [
@@ -2221,7 +2237,7 @@
         "cargo test --offline -p shinatama-hop",
         "cargo test --offline -p shinatama-state --lib hops"
       ],
-      "next_action": "Commit C29.4 standby, then C30 matrix."
+      "next_action": "C30 ordered-pair matrix; desktop wiring of catch-up/UNDO/standby needs live hop sources."
     }
   },
   "blockers": [],
