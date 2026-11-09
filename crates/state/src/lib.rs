@@ -3,6 +3,7 @@
 pub mod cancellation;
 pub mod database;
 pub mod global_workspace;
+pub mod hops;
 pub mod location;
 pub mod maintenance;
 mod migrations;
