@@ -1,0 +1,17 @@
+[package]
+name = "shinatama-export"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+# Pure export formats (FRD-0006 R31-R39, ADR-0021). No session reader, no native store,
+# no network: callers project their own transcript into `model::Transcript`.
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+uuid.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys.workspace = true

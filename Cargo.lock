@@ -3006,6 +3006,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "shinatama-export"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+ "uuid",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "shinatama-projects"
 version = "0.1.0"
 dependencies = [
