@@ -11,6 +11,7 @@ pub mod files;
 pub mod git;
 pub mod history;
 pub mod preview;
+pub mod recovery;
 pub mod seed;
 
 pub use history::{HANDOFF_MARKER, History, normalize};

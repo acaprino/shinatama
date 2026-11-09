@@ -11,7 +11,8 @@ use crate::{Host, agents};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use shinatama_hop::preview::verify_send;
-use shinatama_state::hops::{HopJournal, HopMode, HopPlan, HopRecord, HopState, HopStrategy, RecoveryProbe};
+use shinatama_hop::recovery::{RecoveryRuntime, reconcile};
+use shinatama_state::hops::{HopJournal, HopMode, HopPlan, HopRecord, HopState, HopStrategy};
 use std::sync::{Arc, OnceLock};
 use tauri::{Manager, State, WebviewWindow};
 
@@ -19,10 +20,17 @@ fn now_ms() -> i64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as i64)
 }
 
-struct HostProbe<'a>(&'a Host);
-impl RecoveryProbe for HostProbe<'_> {
+struct HostRuntime<'a>(&'a Host);
+impl RecoveryRuntime for HostRuntime<'_> {
     fn destination_alive(&mut self, hop: &HopRecord) -> bool {
         hop.destination_instance.as_deref().is_some_and(|id| self.0.info(id).is_ok())
+    }
+    fn kill_destination(&mut self, instance: &str) {
+        let _ = self.0.stop(instance);
+    }
+    fn reopen_source(&mut self, _: &HopRecord) -> Result<(), String> {
+        // Hops from the desktop start from history and never end a live source activation.
+        Err("no live source activation is owned by desktop hops".into())
     }
 }
 
@@ -35,7 +43,7 @@ fn journal(window: &WebviewWindow) -> Result<&'static HopJournal, String> {
             let state = services.load()?;
             let journal = HopJournal::open(&state.location).map_err(|e| e.to_string())?;
             let host = window.state::<Host>();
-            let _ = journal.recover(&mut HostProbe(host.inner()), now_ms());
+            let _ = reconcile(&journal, &mut HostRuntime(host.inner()), now_ms());
             Ok(journal)
         })
         .as_ref()

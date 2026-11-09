@@ -466,6 +466,13 @@ impl HopJournal {
         })
     }
 
+    /// `PRAGMA integrity_check` on the journal file.
+    pub fn integrity_check(&self) -> Result<bool> {
+        let connection = self.lock()?;
+        let result: String = connection.query_row("PRAGMA integrity_check", [], |row| row.get(0)).map_err(storage)?;
+        Ok(result == "ok")
+    }
+
     pub fn hop(&self, hop_id: &str) -> Result<Option<HopRecord>> {
         let connection = self.lock()?;
         read_hop(&connection, hop_id)
@@ -701,6 +708,29 @@ mod tests {
         fn destination_alive(&mut self, _: &HopRecord) -> bool {
             self.0
         }
+    }
+
+    #[test]
+    fn a_kill_inside_a_transaction_leaves_the_previous_state() {
+        let dir = std::env::temp_dir().join(format!("shinatama-hops-tx-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join(FILE_NAME);
+        let journal = HopJournal::open_path(&path).unwrap();
+        let hop = journal.plan(&plan('1', "t_k", HopMode::Close), 1).unwrap();
+        drop(journal);
+        {
+            let raw = Connection::open(&path).unwrap();
+            raw.execute_batch("BEGIN IMMEDIATE; UPDATE hop SET state='ready',revision=9; INSERT INTO hop_event(hop_id,kind,at_ms) VALUES('11111111111111111111111111111111','half',0);").unwrap();
+            // Dropped without COMMIT: the process died mid-transaction.
+        }
+        let journal = HopJournal::open_path(&path).unwrap();
+        assert!(journal.integrity_check().unwrap());
+        let after = journal.hop(&hop.plan.id).unwrap().unwrap();
+        assert_eq!((after.state, after.revision), (HopState::Planned, 1));
+        assert_eq!(journal.events(&hop.plan.id).unwrap().len(), 1);
+        drop(journal);
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
