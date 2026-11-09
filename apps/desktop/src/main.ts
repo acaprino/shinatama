@@ -21,6 +21,7 @@ import { createNewSession } from './new-session.ts';
 import { beginMutation, browseFolder, createRequestId } from './project-catalog.ts';
 import { createSessionLibrary } from './session-library.ts';
 import { createSessionDetail } from './session-detail.ts';
+import { createSessionExport } from './session-export.ts';
 import { createSessionSearch } from './session-search.ts';
 import { createProjectMenu, organizeToolbar } from './toolbar-simple.ts';
 import { createSessionRaw } from './session-raw.ts';
@@ -508,10 +509,16 @@ const sessionFind = createSessionFind({
   reportError: notify,
   restoreFocus: () => setFocus(focusedGroup()),
 });
+const sessionExport = createSessionExport({
+  save: request => desktop ? invoke('session_export', { request }) : Promise.reject({ issue: 'read_unavailable' }),
+  reportError: notify,
+  restoreFocus: () => setFocus(focusedGroup()),
+});
 const sessionDetail = createSessionDetail({
   read: request => desktop ? invoke('session_detail', { request }) : Promise.reject({ issue: 'read_unavailable' }),
   openRaw: selection => {sessionRaw.show(selection);},
   openFind: request => {sessionFind.show(request);},
+  openExport: selection => { sessionExport.show(selection); },
   reportError: notify,
   restoreFocus: () => setFocus(focusedGroup()),
 });

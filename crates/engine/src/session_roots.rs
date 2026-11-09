@@ -7,6 +7,8 @@ use crate::session_detail::{DetailReply, DetailRequest, TrustedRootSnapshot};
 use crate::session_find::{FindIssue, FindReply, FindRequest};
 #[cfg(windows)]
 use crate::session_raw::{MAX_RAW_BYTES, RawIssue, RawReply, RawRequest};
+#[cfg(windows)]
+use crate::session_export::{ExportIssue, ExportReply, ExportRequest, MAX_EXPORT_REPLY_BYTES};
 use mukade::{HarnessId, reader::SessionInfo, roots::StoreRoots};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -133,6 +135,9 @@ struct WorkerRequest {
     #[cfg(windows)]
     #[serde(default)]
     find: Option<FindRequest>,
+    #[cfg(windows)]
+    #[serde(default)]
+    export: Option<ExportRequest>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -146,6 +151,9 @@ struct WorkerReply {
     raw: Option<RawReply>,
     #[cfg(windows)]
     find: Option<FindReply>,
+    #[cfg(windows)]
+    #[serde(default)]
+    export: Option<ExportReply>,
     issue: Option<SessionReadIssue>,
 }
 enum SessionPayload {
@@ -156,6 +164,8 @@ enum SessionPayload {
     Raw(RawReply),
     #[cfg(windows)]
     Find(FindReply),
+    #[cfg(windows)]
+    Export(ExportReply),
 }
 
 /// No public path constructor. SQL identity/revision precede all filesystem reads.
@@ -168,6 +178,8 @@ pub struct PreparedSessionList {
     raw_request: Option<RawRequest>,
     #[cfg(windows)]
     find_request: Option<FindRequest>,
+    #[cfg(windows)]
+    export_request: Option<ExportRequest>,
 }
 impl PreparedSessionList {
     pub fn resolve(
@@ -233,6 +245,8 @@ impl PreparedSessionList {
             raw: None,
             #[cfg(windows)]
             find: None,
+            #[cfg(windows)]
+            export: None,
         })
         .map_err(|_| SessionReadIssue::InvalidRequest)?;
         if request.len() > MAX_REQUEST_BYTES {
@@ -247,6 +261,8 @@ impl PreparedSessionList {
             raw_request: None,
             #[cfg(windows)]
             find_request: None,
+            #[cfg(windows)]
+            export_request: None,
         })
     }
     /// Same contained worker and SQL binding as metadata; never reads a transcript
@@ -338,6 +354,37 @@ impl PreparedSessionList {
         prepared.find_request = Some(request);
         Ok(prepared)
     }
+    /// C26 export: the same pinned detail read, rendered in the worker; the parent writes.
+    #[cfg(windows)]
+    pub fn resolve_export(
+        database: &Database,
+        base: &StorageLocation,
+        request: ExportRequest,
+    ) -> Result<Self> {
+        crate::session_export::validate_request(&request)
+            .map_err(|_| SessionReadIssue::InvalidRequest)?;
+        let mut prepared = Self::resolve_detail(database, base, request.detail.clone())?;
+        let mut wire: WorkerRequest = serde_json::from_slice(&prepared.request)
+            .map_err(|_| SessionReadIssue::InvalidRequest)?;
+        wire.detail = None;
+        wire.export = Some(request.clone());
+        prepared.request =
+            serde_json::to_vec(&wire).map_err(|_| SessionReadIssue::InvalidRequest)?;
+        if prepared.request.len() > MAX_REQUEST_BYTES {
+            return Err(SessionReadIssue::InvalidRequest);
+        }
+        prepared.detail_request = None;
+        prepared.export_request = Some(request);
+        Ok(prepared)
+    }
+    /// Export replies carry the rendered file; every other reply keeps the metadata bound.
+    pub fn reply_limit(&self) -> usize {
+        #[cfg(windows)]
+        if self.export_request.is_some() {
+            return MAX_EXPORT_REPLY_BYTES;
+        }
+        MAX_REPLY_BYTES
+    }
     pub fn selector(&self) -> RootSelector {
         selector(&self.root)
     }
@@ -348,13 +395,16 @@ impl PreparedSessionList {
         match self.decode_payload(database, bytes)? {
             SessionPayload::List(page) => Ok(page),
             #[cfg(windows)]
-            SessionPayload::Detail(_) | SessionPayload::Raw(_) | SessionPayload::Find(_) => {
+            SessionPayload::Detail(_)
+            | SessionPayload::Raw(_)
+            | SessionPayload::Find(_)
+            | SessionPayload::Export(_) => {
                 Err(SessionReadIssue::InvalidRequest)
             }
         }
     }
     fn decode_payload(&self, database: &Database, bytes: &[u8]) -> Result<SessionPayload> {
-        if bytes.len() > MAX_REPLY_BYTES {
+        if bytes.len() > self.reply_limit() {
             return Err(SessionReadIssue::OutputLimit);
         }
         let current = database
@@ -373,6 +423,7 @@ impl PreparedSessionList {
             + usize::from(reply.detail.is_some())
             + usize::from(reply.raw.is_some())
             + usize::from(reply.find.is_some())
+            + usize::from(reply.export.is_some())
             + usize::from(reply.issue.is_some());
         #[cfg(not(windows))]
         let payload_count = usize::from(reply.page.is_some()) + usize::from(reply.issue.is_some());
@@ -381,6 +432,44 @@ impl PreparedSessionList {
         }
         if let Some(issue) = reply.issue {
             return Err(issue);
+        }
+        #[cfg(windows)]
+        if let Some(request) = &self.export_request {
+            let export = reply.export.ok_or(SessionReadIssue::WorkerUnavailable)?;
+            let pinned = request.detail.cursor.as_ref().map(|cursor| cursor.fingerprint.as_str());
+            if export.root != self.selector()
+                || export.native_id != request.detail.native_id
+                || export.payload.is_some() == export.issue.is_some()
+            {
+                return Err(SessionReadIssue::WorkerUnavailable);
+            }
+            if let Some(payload) = &export.payload {
+                let report = &payload.report;
+                if report.native_id != request.detail.native_id
+                    || report.harness != self.root.harness
+                    || report.format != request.format
+                    || report.mode != request.mode
+                    || !fingerprint(&report.source_fingerprint)
+                    || pinned.is_some_and(|value| value != report.source_fingerprint)
+                    || report.content_bytes != payload.content.len() as u64
+                    || payload.content.len() > crate::session_export::MAX_EXPORT_CONTENT_BYTES
+                    || report.attachments_copied != payload.attachments.len() as u64
+                    || (!request.with_attachments && !payload.attachments.is_empty())
+                    || !text(&payload.suggested_name, 160)
+                    || payload.attachments.iter().any(|blob| {
+                        !text(&blob.name, 128)
+                            || blob.name.contains(['/', '\\', ':'])
+                            || blob.name.starts_with('.')
+                    })
+                {
+                    return Err(SessionReadIssue::WorkerUnavailable);
+                }
+            }
+            return Ok(SessionPayload::Export(export));
+        }
+        #[cfg(windows)]
+        if reply.export.is_some() {
+            return Err(SessionReadIssue::WorkerUnavailable);
         }
         #[cfg(windows)]
         if let Some(request) = &self.find_request {
@@ -981,9 +1070,18 @@ pub fn helper_main() {
         if usize::from(request.raw.is_some())
             + usize::from(request.detail.is_some())
             + usize::from(request.find.is_some())
+            + usize::from(request.export.is_some())
             > 1
         {
             return Err(SessionReadIssue::InvalidRequest);
+        }
+        #[cfg(windows)]
+        if let Some(export) = &request.export {
+            let reply = match TrustedRootSnapshot::from_record(&request.root, &export.detail.root) {
+                Ok(snapshot) => crate::session_export::read_export(&snapshot, export),
+                Err(issue) => ExportReply::refuse(export, ExportIssue::Detail(issue)),
+            };
+            return Ok(SessionPayload::Export(reply));
         }
         #[cfg(windows)]
         if let Some(find) = &request.find {
@@ -1022,6 +1120,8 @@ pub fn helper_main() {
             raw: None,
             #[cfg(windows)]
             find: None,
+            #[cfg(windows)]
+            export: None,
             issue: None,
         },
         #[cfg(windows)]
@@ -1032,6 +1132,7 @@ pub fn helper_main() {
             detail: Some(detail),
             raw: None,
             find: None,
+            export: None,
             issue: None,
         },
         #[cfg(windows)]
@@ -1042,6 +1143,7 @@ pub fn helper_main() {
             detail: None,
             raw: Some(raw),
             find: None,
+            export: None,
             issue: None,
         },
         #[cfg(windows)]
@@ -1052,6 +1154,18 @@ pub fn helper_main() {
             detail: None,
             raw: None,
             find: Some(find),
+            export: None,
+            issue: None,
+        },
+        #[cfg(windows)]
+        Ok(SessionPayload::Export(export)) => WorkerReply {
+            protocol: 1,
+            revision: MUKADE_REVISION.into(),
+            page: None,
+            detail: None,
+            raw: None,
+            find: None,
+            export: Some(export),
             issue: None,
         },
         Err(issue) => WorkerReply {
@@ -1064,11 +1178,17 @@ pub fn helper_main() {
             raw: None,
             #[cfg(windows)]
             find: None,
+            #[cfg(windows)]
+            export: None,
             issue: Some(issue),
         },
     };
+    #[cfg(windows)]
+    let limit = if reply.export.is_some() { MAX_EXPORT_REPLY_BYTES } else { MAX_REPLY_BYTES };
+    #[cfg(not(windows))]
+    let limit = MAX_REPLY_BYTES;
     if let Ok(bytes) = serde_json::to_vec(&reply)
-        && bytes.len() <= MAX_REPLY_BYTES
+        && bytes.len() <= limit
     {
         let _ = std::io::stdout().write_all(&bytes);
     }
@@ -1137,6 +1257,12 @@ mod execution {
         pub fn find(&self) -> Option<&FindReply> {
             match self.payload.as_ref() {
                 Some(SessionPayload::Find(reply)) => Some(reply),
+                _ => None,
+            }
+        }
+        pub fn export(&self) -> Option<&ExportReply> {
+            match self.payload.as_ref() {
+                Some(SessionPayload::Export(reply)) => Some(reply),
                 _ => None,
             }
         }
@@ -1243,8 +1369,9 @@ mod execution {
                 issue = Some(SessionReadIssue::WorkerUnavailable);
             }
             drop(owned.stdin);
+            let limit = self.reply_limit();
             let mut output = Vec::with_capacity(MAX_REPLY_BYTES);
-            let mut scratch = [0u8; 8192];
+            let mut scratch = vec![0u8; 64 * 1024];
             let (mut stdout_done, mut stderr_done) = (false, false);
             let mut total = 0usize;
             let mut exit = None;
@@ -1255,6 +1382,7 @@ mod execution {
                     &mut scratch,
                     &mut total,
                     true,
+                    limit,
                 ) {
                     Ok(done) => stdout_done |= done,
                     Err(error) => {
@@ -1268,6 +1396,7 @@ mod execution {
                     &mut scratch,
                     &mut total,
                     false,
+                    limit,
                 ) {
                     Ok(done) => stderr_done |= done,
                     Err(error) => {
@@ -1333,6 +1462,7 @@ mod execution {
         scratch: &mut [u8],
         total: &mut usize,
         keep: bool,
+        limit: usize,
     ) -> Result<bool> {
         let mut available = 0;
         if unsafe {
@@ -1358,7 +1488,7 @@ mod execution {
             return Ok(false);
         }
         let count = (available as usize).min(scratch.len());
-        if *total + count > MAX_REPLY_BYTES {
+        if *total + count > limit {
             return Err(SessionReadIssue::OutputLimit);
         }
         let read = file
@@ -1569,6 +1699,7 @@ mod tests {
                 detail: None,
                 raw: None,
                 find: None,
+                export: None,
                 issue: None,
             })
             .unwrap();

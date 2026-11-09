@@ -18,6 +18,7 @@ serde.workspace = true
 serde_json.workspace = true
 shinatama-adapter.workspace = true
 shinatama-state.workspace = true
+shinatama-export.workspace = true
 getrandom.workspace = true
 sha2.workspace = true
 subtle.workspace = true

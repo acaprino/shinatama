@@ -16,7 +16,8 @@ export type DetailPage = { root: SessionRootSelector; nativeId: string; harness:
   events: DetailEvent[]; next: DetailCursor | null; notices: string[]; lineage: Lineage };
 export type DetailReply = { root: SessionRootSelector; nativeId: string; page: DetailPage | null; issue: string | null };
 type Options = { read: (request: DetailRequest) => Promise<DetailReply>; openRaw?: (selection:RawSelection)=>void;
-  openFind?: (request:DetailRequest)=>void; reportError: (message: string) => void; restoreFocus?: () => void };
+  openFind?: (request:DetailRequest)=>void; openExport?: (selection:{root:SessionRootSelector;nativeId:string;fingerprint:string;harness:string})=>void;
+  reportError: (message: string) => void; restoreFocus?: () => void };
 const KINDS: Record<EventKind, string> = { user_text: 'User', assistant_text: 'Assistant', tool_call: 'Tool call', tool_result: 'Tool result',
   compaction: 'Compaction summary', meta: 'Metadata', attachment_omitted: 'Attachment omitted', reasoning_omitted: 'Reasoning omitted' };
 const ERRORS: Record<string, string> = {
@@ -104,6 +105,8 @@ export function createSessionDetail(options: Options) {
   const reload = document.createElement('button'); reload.type = 'button'; reload.textContent = 'Reload detail'; tools.append(reload);
   const find = document.createElement('button'); find.type = 'button'; find.textContent = 'Find in conversation';
   if (options.openFind) tools.append(find);
+  const exportButton = document.createElement('button'); exportButton.type = 'button'; exportButton.textContent = 'Export…';
+  if (options.openExport) tools.append(exportButton);
   const panels = new Map<string, HTMLElement>(); let activeTab = 'transcript';
   for (const name of ['overview', 'transcript', 'lineage']) {
     const button = document.createElement('button'); button.type = 'button'; button.textContent = name[0].toUpperCase() + name.slice(1);
@@ -117,7 +120,7 @@ export function createSessionDetail(options: Options) {
   const previous = document.createElement('button'); previous.type = 'button'; previous.textContent = 'Previous';
   const position = document.createElement('span'); const next = document.createElement('button'); next.type = 'button'; next.textContent = 'Next'; pager.append(previous, position, next);
   const notices = document.createElement('ul'); notices.className = 'session-detail-notices';
-  const unavailable = document.createElement('p'); unavailable.className = 'hint'; unavailable.textContent = 'RAW requires an explicit privacy confirmation. Export, resume and hop remain unavailable. Attachment files stay closed.';
+  const unavailable = document.createElement('p'); unavailable.className = 'hint'; unavailable.textContent = 'RAW requires an explicit privacy confirmation. Export redacts secrets and never includes reasoning. Attachment files stay closed.';
   dialog.append(heading, source, status, tools, ...panels.values(), pager, notices, unavailable); (document.querySelector('#app') ?? document.body).append(dialog);
   let current: { root: SessionRootSelector; nativeId: string } | null = null;
   let page: DetailPage | null = null; let cursor: DetailCursor | null = null; let history: (DetailCursor | null)[] = [];
@@ -128,7 +131,7 @@ export function createSessionDetail(options: Options) {
   function render() {
     if (destroyed) return; dialog.setAttribute('aria-busy', String(busy));
     reload.disabled = busy || !current; previous.disabled = busy || !history.length; next.disabled = busy || !page?.next;
-    find.disabled = busy || !page;
+    find.disabled = busy || !page; exportButton.disabled = busy || !page;
     source.textContent = current ? `Session ${current.nativeId} · Archive ${current.root.storeRootId} · revision ${current.root.configurationRevision}` : '';
     status.textContent = busy ? 'Reading bounded session detail…' : message; status.dataset.state = failed ? 'error' : 'ready';
     for (const [name, panel] of panels) panel.hidden = name !== activeTab;
@@ -206,6 +209,9 @@ export function createSessionDetail(options: Options) {
   find.onclick = () => {
     if (!busy && page) options.openFind?.({ root: { ...page.root }, nativeId: page.nativeId,
       cursor: { offset: 0, fingerprint: page.fingerprint }, limit: 50 });
+  };
+  exportButton.onclick = () => {
+    if (!busy && page) options.openExport?.({ root: { ...page.root }, nativeId: page.nativeId, fingerprint: page.fingerprint, harness: page.harness });
   };
   reload.onclick = () => { void load(null, 'reload'); }; previous.onclick = () => { if (history.length) void load(history.at(-1) ?? null, 'previous'); };
   next.onclick = () => { if (page?.next) void load(page.next, 'next'); }; closeButton.onclick = close;

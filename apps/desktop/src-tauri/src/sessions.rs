@@ -4,6 +4,7 @@
 use crate::{storage::Services, terminal_runtime::Runtime};
 use serde::{Deserialize, Serialize};
 use shinatama_engine::session_detail::{DetailReply, DetailRequest};
+use shinatama_engine::session_export::{ExportReply, ExportRequest};
 use shinatama_engine::session_find::{FindReply, FindRequest};
 use shinatama_engine::session_raw::{RawReply, RawRequest};
 use shinatama_engine::session_roots::{
@@ -30,6 +31,7 @@ use windows_sys::Win32::Storage::FileSystem::{
     FILE_FLAG_OPEN_REPARSE_POINT, FILE_SHARE_READ, FILE_SHARE_WRITE,
 };
 
+pub mod export;
 pub mod search;
 const ROOT_LIMIT: usize = 100;
 const MIB: u64 = 1024 * 1024;
@@ -286,6 +288,25 @@ impl Controller {
             controller
                 .read_prepared(state, &prepared)?
                 .find()
+                .cloned()
+                .ok_or(SessionReadIssue::ReadUnavailable)
+        })
+        .await
+    }
+    pub async fn export(self: &Arc<Self>, request: ExportRequest) -> Result<ExportReply> {
+        shinatama_engine::session_export::validate_request(&request)
+            .map_err(|_| SessionReadIssue::InvalidRequest)?;
+        self.worker(move |controller| {
+            let state = controller
+                .services
+                .load()
+                .map_err(|_| SessionReadIssue::ReadUnavailable)?;
+            controller.retry_retained(&state.store)?;
+            let prepared =
+                PreparedSessionList::resolve_export(&state.store, &state.location, request)?;
+            controller
+                .read_prepared(state, &prepared)?
+                .export()
                 .cloned()
                 .ok_or(SessionReadIssue::ReadUnavailable)
         })

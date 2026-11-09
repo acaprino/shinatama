@@ -646,6 +646,8 @@ fn main() {
         sessions::session_raw,
         sessions::session_find,
         #[cfg(windows)]
+        sessions::export::session_export,
+        #[cfg(windows)]
         sessions::session_archive_add,
         #[cfg(windows)]
         sessions::search::session_search,
@@ -730,6 +732,8 @@ fn main() {
         #[cfg(windows)]
         sessions::session_raw,
         sessions::session_find,
+        #[cfg(windows)]
+        sessions::export::session_export,
         #[cfg(windows)]
         sessions::session_archive_add,
         #[cfg(windows)]
