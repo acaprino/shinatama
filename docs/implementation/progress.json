@@ -2262,6 +2262,119 @@
         }
       },
       "next_action": "C30.2 live canaries need owner-authorized accounts/budget; C30.3 after C18-C20."
+    },
+    "C41": {
+      "status": "committed",
+      "commit_sha": "d016dc2786278f6dd6f897f08226d070db8e9eec",
+      "units": {
+        "C41.1": {
+          "status": "committed",
+          "commit_sha": "2361934f35b8df7530ff20671104b534940f8c06",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-project-files.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-files"
+          ],
+          "limits": []
+        },
+        "C41.2": {
+          "status": "committed",
+          "commit_sha": "d016dc2786278f6dd6f897f08226d070db8e9eec",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-project-files.md"
+          ],
+          "checks": [
+            "node apps/desktop/tests/files-smoke.mjs",
+            "npm run build"
+          ],
+          "limits": [
+            "Panel dialog, not workspace tabs."
+          ]
+        }
+      },
+      "evidence": [
+        "docs/notes/2026-11-09-project-files.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-files",
+        "node apps/desktop/tests/files-smoke.mjs"
+      ],
+      "next_action": "Owner acceptance."
+    },
+    "C42": {
+      "status": "committed",
+      "commit_sha": "d016dc2786278f6dd6f897f08226d070db8e9eec",
+      "units": {
+        "C42.1": {
+          "status": "committed",
+          "commit_sha": "2361934f35b8df7530ff20671104b534940f8c06",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-project-files.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-files"
+          ],
+          "limits": [
+            "Panel uses textarea undo; Rust Buffers tested only."
+          ]
+        },
+        "C42.2": {
+          "status": "committed",
+          "commit_sha": "d016dc2786278f6dd6f897f08226d070db8e9eec",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-project-files.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-files",
+            "node apps/desktop/tests/files-smoke.mjs"
+          ],
+          "limits": [
+            "No Mermaid renderer."
+          ]
+        },
+        "C42.3": {
+          "status": "committed",
+          "commit_sha": "d016dc2786278f6dd6f897f08226d070db8e9eec",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-project-files.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-files",
+            "node apps/desktop/tests/files-smoke.mjs"
+          ],
+          "limits": []
+        }
+      },
+      "evidence": [
+        "docs/notes/2026-11-09-project-files.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-files",
+        "node apps/desktop/tests/files-smoke.mjs"
+      ],
+      "next_action": "Owner acceptance; C43 visual editing needs a fidelity corpus."
     }
   },
   "blockers": [],
