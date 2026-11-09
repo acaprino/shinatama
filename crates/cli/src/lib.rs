@@ -1,5 +1,6 @@
 //! Read-only doctor and launch preflight. No config creation, migration or login.
 pub mod launch;
+pub mod sessions;
 pub use launch::run_launch_preflight;
 use shinatama_adapter::{AgentId, catalog::InstallationCatalog};
 use shinatama_engine::{
@@ -28,6 +29,7 @@ pub struct DoctorOptions {
 pub enum Command {
     Doctor(DoctorOptions),
     LaunchPreflight,
+    Sessions(sessions::SessionCommand),
     Help,
 }
 
@@ -43,6 +45,12 @@ pub enum ParseError {
 }
 
 pub fn parse(args: &[String]) -> Result<Command, ParseError> {
+    if args.len() > 16 || args.iter().any(|argument| argument.len() > 1024) {
+        return Err(ParseError::TooManyArguments);
+    }
+    if let Some(result) = sessions::parse(args) {
+        return result.map(Command::Sessions).map_err(|()| ParseError::UnknownOption);
+    }
     if args.len() > 6 || args.iter().any(|argument| argument.len() > 128) {
         return Err(ParseError::TooManyArguments);
     }
@@ -104,7 +112,7 @@ pub fn run_doctor(
     })
 }
 
-pub const HELP: &str = "shinatama doctor [--agent AGENT_ID] [--json]\nRead-only Windows installation/capability check. No login, update, config creation or agent launch.\n\nshinatama launch preflight --json\nRead one JSON request (maximum 8192 bytes) from stdin: {\"agent\":\"codex\",\"action\":\"start\",\"placement\":{\"program\":\"system\",\"home\":\"box\"}}\nUse action \"resume\" for Resume through the same engine service. This is a read-only review: it never starts an agent or creates state. Pipe/redirect the JSON and close stdin; interactive stdin is refused.\nLaunch status/exit: available=0; refused=2; incomplete=3. Input/output IO failure=4. No argv, environment values or tokens are emitted.\n\nExit codes: 0 done; 2 refused; 3 user action; 4 failed unchanged; 5 recovery required.\n";
+pub const HELP: &str = "shinatama doctor [--agent AGENT_ID] [--json]\nRead-only Windows installation/capability check. No login, update, config creation or agent launch.\n\nshinatama launch preflight --json\nRead one JSON request (maximum 8192 bytes) from stdin: {\"agent\":\"codex\",\"action\":\"start\",\"placement\":{\"program\":\"system\",\"home\":\"box\"}}\nUse action \"resume\" for Resume through the same engine service. This is a read-only review: it never starts an agent or creates state. Pipe/redirect the JSON and close stdin; interactive stdin is refused.\nLaunch status/exit: available=0; refused=2; incomplete=3. Input/output IO failure=4. No argv, environment values or tokens are emitted.\n\nSession commands (same contained reader and search index as the desktop):\n  shinatama sessions [--agent A] [--project DIR] [--json]\n  shinatama find \"text\" [--agent A] [--project DIR] [--json]\n  shinatama export AGENT:SESSION [-o FILE] [--format stx|mukade|native|md] [--mode full|portable] [--with-attachments] [--replace] [--json]\n  shinatama forget AGENT:SESSION [--json]\n  resume and hop open the agent in the desktop and are refused here. There is no import.\nAgents: claude (claude_code), codex, pi. Secrets are redacted in every export; reasoning is never exported.\n\nExit codes: 0 done; 2 refused; 3 user action; 4 failed unchanged; 5 recovery required.\n";
 
 fn write_text(report: &DoctorReport, output: &mut dyn Write) -> std::io::Result<()> {
     writeln!(

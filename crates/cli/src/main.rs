@@ -7,7 +7,7 @@ fn main() -> std::process::ExitCode {
     // Bound collection as well as parsing. Refuse non-Unicode input rather than
     // silently changing an agent ID; no untrusted argument is echoed back.
     let mut arguments = Vec::new();
-    for argument in std::env::args_os().skip(1).take(7) {
+    for argument in std::env::args_os().skip(1).take(17) {
         match argument.into_string() {
             Ok(argument) => arguments.push(argument),
             Err(_) => {
@@ -36,6 +36,12 @@ fn main() -> std::process::ExitCode {
                 ExitCode::FailedUnchanged
             }
         },
+        Ok(Command::Sessions(command)) => shinatama_cli::sessions::run(
+            &command,
+            &mut std::io::stdout().lock(),
+            &mut std::io::stderr().lock(),
+        )
+        .unwrap_or(ExitCode::FailedUnchanged),
         Ok(Command::LaunchPreflight) => {
             let stdin = std::io::stdin();
             let result = if stdin.is_terminal() {

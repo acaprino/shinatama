@@ -12,4 +12,6 @@ path = "src/main.rs"
 [dependencies]
 serde_json.workspace = true
 shinatama-adapter.workspace = true
-shinatama-engine.workspace = true
+shinatama-engine = { workspace = true, features = ["session-reader"] }
+shinatama-export.workspace = true
+shinatama-state.workspace = true

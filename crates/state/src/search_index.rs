@@ -472,6 +472,35 @@ impl SearchIndex {
         Ok(removed as u64)
     }
 
+    /// Archives whose index holds `native_id` (CLI selector resolution; no native read).
+    pub fn locate(&self, native_id: &str) -> Result<Vec<String>> {
+        let connection = self.lock()?;
+        let mut statement = connection
+            .prepare("SELECT DISTINCT root_id FROM doc WHERE native_id=?1 LIMIT 16")
+            .map_err(sql)?;
+        let rows = statement
+            .query_map([native_id], |row| row.get::<_, String>(0))
+            .map_err(sql)?;
+        rows.collect::<std::result::Result<Vec<_>, _>>().map_err(sql)
+    }
+
+    /// Removes one session's indexed copy; the agent's own session is never touched.
+    pub fn forget_session(&self, harness: &str, native_id: &str) -> Result<u64> {
+        let mut connection = self.lock()?;
+        let transaction = connection.transaction().map_err(sql)?;
+        transaction
+            .execute(
+                "DELETE FROM doc_fts WHERE rowid IN (SELECT id FROM doc WHERE harness=?1 AND native_id=?2)",
+                [harness, native_id],
+            )
+            .map_err(sql)?;
+        let removed = transaction
+            .execute("DELETE FROM doc WHERE harness=?1 AND native_id=?2", [harness, native_id])
+            .map_err(sql)?;
+        transaction.commit().map_err(sql)?;
+        Ok(removed as u64)
+    }
+
     pub fn status(&self) -> Result<IndexStatus> {
         let enabled = self.enabled()?;
         let (documents, source_deleted, body_bytes): (i64, i64, i64) = self

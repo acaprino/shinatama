@@ -2968,6 +2968,8 @@ dependencies = [
  "serde_json",
  "shinatama-adapter",
  "shinatama-engine",
+ "shinatama-export",
+ "shinatama-state",
 ]
 
 [[package]]
