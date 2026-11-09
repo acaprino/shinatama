@@ -1978,7 +1978,22 @@
           ]
         }
       },
-      "next_action": "Owner acceptance of the C26 parent after trying Export in the app; R34 round-trip law stays open (no import path in any version)."
+      "next_action": "Owner acceptance of the C26 parent after trying Export in the app; R34 round-trip law stays open (no import path in any version).",
+      "evidence": [
+        "docs/notes/2026-11-09-session-export.md"
+      ],
+      "checks": [
+        "cargo build -p shinatama-desktop",
+        "cargo test --offline -p shinatama-cli",
+        "cargo test --offline -p shinatama-cli --test sessions -- --ignored",
+        "cargo test --offline -p shinatama-engine --features session-reader --lib session_",
+        "cargo test --offline -p shinatama-engine --features session-reader --test session_export -- --ignored",
+        "cargo test --offline -p shinatama-export",
+        "npm run build"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ]
     }
   },
   "blockers": [],
