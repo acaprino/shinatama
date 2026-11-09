@@ -12,6 +12,7 @@ pub mod files;
 pub mod git;
 pub mod history;
 pub mod hop_back;
+pub mod pairs;
 pub mod preview;
 pub mod recovery;
 pub mod seed;

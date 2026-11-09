@@ -110,6 +110,9 @@ pub async fn hop_preview(
         if source.agent == destination {
             return Ok(refused("same_agent", "Resuming in the same agent is native; use Resume instead of a hop."));
         }
+        if let shinatama_hop::pairs::PairSupport::Refuse { reason } = shinatama_hop::pairs::support(&source.agent, &destination, &[]) {
+            return Ok(refused("pair_unsupported", reason));
+        }
         let project = source.cwd.as_deref().map(Path::new).filter(|p| p.is_dir());
         let (source_agent, source_native_id) = (source.agent.clone(), source.native_session_id.clone());
         let cwd = project.map(Path::to_path_buf);
