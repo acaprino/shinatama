@@ -249,7 +249,7 @@ pub fn render(history: &History, facts: &HeaderFacts, nonce: &str, window_tokens
     let turns = &history.turns;
     let first_index = turns.iter().position(|t| t.user.is_some());
     let first = first_index.map(|i| escape_hostile(&format!("[user] {}\n", turns[i].user.as_deref().unwrap_or_default()))).unwrap_or_default();
-    let separator = "--- history ---\n";
+    let separator = "=== history ===\n";
     let last = turns.len() - 1;
     let render_turn = |index: usize, verbatim_form: bool, clipped: &mut u64| {
         let skip_user = Some(index) == first_index;
@@ -318,7 +318,7 @@ pub fn render(history: &History, facts: &HeaderFacts, nonce: &str, window_tokens
 /// The whole conversation, every turn verbatim with full tool output: `full.md` (R24).
 pub fn render_full(history: &History, facts: &HeaderFacts, nonce: &str) -> String {
     let mut out = header(facts, nonce, &history.attachments);
-    out.push_str("--- full history ---\n");
+    out.push_str("=== full history ===\n");
     let mut ignored = 0;
     for turn in &history.turns {
         let mut text = String::new();

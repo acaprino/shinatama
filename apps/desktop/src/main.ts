@@ -22,6 +22,7 @@ import { beginMutation, browseFolder, createRequestId } from './project-catalog.
 import { createSessionLibrary } from './session-library.ts';
 import { createSessionDetail } from './session-detail.ts';
 import { createSessionExport } from './session-export.ts';
+import { createHopPreview } from './hop-preview.ts';
 import { createSessionSearch } from './session-search.ts';
 import { createProjectMenu, organizeToolbar } from './toolbar-simple.ts';
 import { createSessionRaw } from './session-raw.ts';
@@ -514,11 +515,17 @@ const sessionExport = createSessionExport({
   reportError: notify,
   restoreFocus: () => setFocus(focusedGroup()),
 });
+const hopPreview = createHopPreview({
+  prepare: request => desktop ? invoke('hop_preview', { request }) : Promise.reject({ issue: 'read_unavailable' }),
+  reportError: notify,
+  restoreFocus: () => setFocus(focusedGroup()),
+});
 const sessionDetail = createSessionDetail({
   read: request => desktop ? invoke('session_detail', { request }) : Promise.reject({ issue: 'read_unavailable' }),
   openRaw: selection => {sessionRaw.show(selection);},
   openFind: request => {sessionFind.show(request);},
   openExport: selection => { sessionExport.show(selection); },
+  openHop: selection => { hopPreview.show(selection); },
   reportError: notify,
   restoreFocus: () => setFocus(focusedGroup()),
 });

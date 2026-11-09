@@ -17,6 +17,7 @@ export type DetailPage = { root: SessionRootSelector; nativeId: string; harness:
 export type DetailReply = { root: SessionRootSelector; nativeId: string; page: DetailPage | null; issue: string | null };
 type Options = { read: (request: DetailRequest) => Promise<DetailReply>; openRaw?: (selection:RawSelection)=>void;
   openFind?: (request:DetailRequest)=>void; openExport?: (selection:{root:SessionRootSelector;nativeId:string;fingerprint:string;harness:string})=>void;
+  openHop?: (selection:{root:SessionRootSelector;nativeId:string;fingerprint:string;harness:string})=>void;
   reportError: (message: string) => void; restoreFocus?: () => void };
 const KINDS: Record<EventKind, string> = { user_text: 'User', assistant_text: 'Assistant', tool_call: 'Tool call', tool_result: 'Tool result',
   compaction: 'Compaction summary', meta: 'Metadata', attachment_omitted: 'Attachment omitted', reasoning_omitted: 'Reasoning omitted' };
@@ -107,6 +108,8 @@ export function createSessionDetail(options: Options) {
   if (options.openFind) tools.append(find);
   const exportButton = document.createElement('button'); exportButton.type = 'button'; exportButton.textContent = 'Export…';
   if (options.openExport) tools.append(exportButton);
+  const hopButton = document.createElement('button'); hopButton.type = 'button'; hopButton.textContent = 'Hop…';
+  if (options.openHop) tools.append(hopButton);
   const panels = new Map<string, HTMLElement>(); let activeTab = 'transcript';
   for (const name of ['overview', 'transcript', 'lineage']) {
     const button = document.createElement('button'); button.type = 'button'; button.textContent = name[0].toUpperCase() + name.slice(1);
@@ -131,7 +134,7 @@ export function createSessionDetail(options: Options) {
   function render() {
     if (destroyed) return; dialog.setAttribute('aria-busy', String(busy));
     reload.disabled = busy || !current; previous.disabled = busy || !history.length; next.disabled = busy || !page?.next;
-    find.disabled = busy || !page; exportButton.disabled = busy || !page;
+    find.disabled = busy || !page; exportButton.disabled = busy || !page; hopButton.disabled = busy || !page;
     source.textContent = current ? `Session ${current.nativeId} · Archive ${current.root.storeRootId} · revision ${current.root.configurationRevision}` : '';
     status.textContent = busy ? 'Reading bounded session detail…' : message; status.dataset.state = failed ? 'error' : 'ready';
     for (const [name, panel] of panels) panel.hidden = name !== activeTab;
@@ -212,6 +215,9 @@ export function createSessionDetail(options: Options) {
   };
   exportButton.onclick = () => {
     if (!busy && page) options.openExport?.({ root: { ...page.root }, nativeId: page.nativeId, fingerprint: page.fingerprint, harness: page.harness });
+  };
+  hopButton.onclick = () => {
+    if (!busy && page) options.openHop?.({ root: { ...page.root }, nativeId: page.nativeId, fingerprint: page.fingerprint, harness: page.harness });
   };
   reload.onclick = () => { void load(null, 'reload'); }; previous.onclick = () => { if (history.length) void load(history.at(-1) ?? null, 'previous'); };
   next.onclick = () => { if (page?.next) void load(page.next, 'next'); }; closeButton.onclick = close;

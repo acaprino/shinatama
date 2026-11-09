@@ -32,6 +32,7 @@ use windows_sys::Win32::Storage::FileSystem::{
 };
 
 pub mod export;
+pub mod hop;
 pub mod search;
 const ROOT_LIMIT: usize = 100;
 const MIB: u64 = 1024 * 1024;

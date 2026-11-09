@@ -648,6 +648,8 @@ fn main() {
         #[cfg(windows)]
         sessions::export::session_export,
         #[cfg(windows)]
+        sessions::hop::hop_preview,
+        #[cfg(windows)]
         sessions::session_archive_add,
         #[cfg(windows)]
         sessions::search::session_search,
@@ -734,6 +736,8 @@ fn main() {
         sessions::session_find,
         #[cfg(windows)]
         sessions::export::session_export,
+        #[cfg(windows)]
+        sessions::hop::hop_preview,
         #[cfg(windows)]
         sessions::session_archive_add,
         #[cfg(windows)]
