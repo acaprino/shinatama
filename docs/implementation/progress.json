@@ -2238,6 +2238,30 @@
         "cargo test --offline -p shinatama-state --lib hops"
       ],
       "next_action": "C30 ordered-pair matrix; desktop wiring of catch-up/UNDO/standby needs live hop sources."
+    },
+    "C30": {
+      "status": "pending",
+      "commit_sha": null,
+      "units": {
+        "C30.1": {
+          "status": "committed",
+          "commit_sha": "2e6a0d015db1e9a711d07a9fb6b5ba8052c9ad9f",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-recovery-catchup.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-hop",
+            "node apps/desktop/tests/hop-preview-smoke.mjs"
+          ],
+          "limits": [
+            "Pairs derived from qualified readers/launchers in this build; live canaries (C30.2) need an authorized synthetic budget and installed Pi/Hermes/DeepSeek."
+          ]
+        }
+      },
+      "next_action": "C30.2 live canaries need owner-authorized accounts/budget; C30.3 after C18-C20."
     }
   },
   "blockers": [],
