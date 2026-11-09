@@ -2074,6 +2074,88 @@
         "npm run build"
       ],
       "next_action": "C28 sends the frozen preview through the hop coordinator; owner acceptance of C27 after trying Hop in the app."
+    },
+    "C28": {
+      "status": "committed",
+      "commit_sha": "619dceeccb67fa4739b7c083e554a0fdfb7761cc",
+      "units": {
+        "C28.1": {
+          "status": "committed",
+          "commit_sha": "d7962a57c332d63ad679b633303400c8a6387ec4",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-coordinator.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-state --lib hops"
+          ],
+          "limits": []
+        },
+        "C28.2": {
+          "status": "committed",
+          "commit_sha": "e5beb1f863de1fc447eef2c13992e94e399ce70c",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-coordinator.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-hop"
+          ],
+          "limits": []
+        },
+        "C28.3": {
+          "status": "committed",
+          "commit_sha": "619dceeccb67fa4739b7c083e554a0fdfb7761cc",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-coordinator.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-hop",
+            "npm run build",
+            "node apps/desktop/tests/hop-preview-smoke.mjs"
+          ],
+          "limits": [
+            "Close mode proven on fake adapters only; app hops start from history."
+          ]
+        },
+        "C28.4": {
+          "status": "committed",
+          "commit_sha": "619dceeccb67fa4739b7c083e554a0fdfb7761cc",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-coordinator.md"
+          ],
+          "checks": [
+            "node apps/desktop/tests/hop-preview-smoke.mjs"
+          ],
+          "limits": [
+            "Paste channel; first-entry hash not verified.",
+            "No real signed-in agent hop was run automatically."
+          ]
+        }
+      },
+      "evidence": [
+        "docs/notes/2026-11-09-hop-coordinator.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-hop",
+        "cargo test --offline -p shinatama-state --lib hops",
+        "node apps/desktop/tests/hop-preview-smoke.mjs",
+        "npm run build"
+      ],
+      "next_action": "Owner tries one real hop (session detail -> Hop -> Codex). Then C29: recovery UI, catch-up, UNDO, standby."
     }
   },
   "blockers": [],
