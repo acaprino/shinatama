@@ -2156,6 +2156,72 @@
         "npm run build"
       ],
       "next_action": "Owner tries one real hop (session detail -> Hop -> Codex). Then C29: recovery UI, catch-up, UNDO, standby."
+    },
+    "C29": {
+      "status": "in_progress",
+      "commit_sha": null,
+      "units": {
+        "C29.1": {
+          "status": "committed",
+          "commit_sha": "a1434c68cba1f5ce818e7ba19d72d09a9bbd7887",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-recovery-catchup.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-hop",
+            "cargo test --offline -p shinatama-state --lib hops"
+          ],
+          "limits": [
+            "In-process kill matrix; no OS kill during a real hop."
+          ]
+        },
+        "C29.2": {
+          "status": "committed",
+          "commit_sha": "0aec6e7641f4cee27ec449c9d1e77bd3991ea3a5",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-recovery-catchup.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-hop"
+          ],
+          "limits": [
+            "Fake adapters; app hops have no live source."
+          ]
+        },
+        "C29.3": {
+          "status": "committed",
+          "commit_sha": "d1cc05fa556a74d320a99414d7225026f9a7e95a",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-recovery-catchup.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-hop"
+          ],
+          "limits": [
+            "No desktop UNDO button yet."
+          ]
+        }
+      },
+      "evidence": [
+        "docs/notes/2026-11-09-hop-recovery-catchup.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-hop",
+        "cargo test --offline -p shinatama-state --lib hops"
+      ],
+      "next_action": "Commit C29.4 standby, then C30 matrix."
     }
   },
   "blockers": [],

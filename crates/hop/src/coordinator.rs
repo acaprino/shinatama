@@ -587,7 +587,7 @@ mod tests {
         let ready = coordinator.prepare(&hop.plan.id, &f.preview, &mut destination).unwrap();
         assert_eq!(ready.state, HopState::Ready);
         assert_eq!(ready.destination_native_id.as_deref(), Some("dest-native"));
-        assert_eq!(destination.spawned, [f.preview.delivery.clone()]);
+        assert_eq!(destination.spawned, std::slice::from_ref(&f.preview.delivery));
         assert_eq!((source.ended, source.closed), (0, 0));
         coordinator.switch(&hop.plan.id, &mut source).unwrap();
         assert_eq!((source.ended, source.closed), (1, 0), "the source runs until COMMITTED");

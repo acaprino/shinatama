@@ -15,6 +15,7 @@ pub mod hop_back;
 pub mod preview;
 pub mod recovery;
 pub mod seed;
+pub mod standby;
 
 pub use history::{HANDOFF_MARKER, History, normalize};
 pub use seed::{Budget, HeaderFacts, Seed, SeedRefusal};
