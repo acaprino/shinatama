@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-11-03",
+  "updated_at": "2026-11-09",
   "base_head": "46435ab",
   "git_state": "Shared harness services and one-Open startup remain committed; Claude, Codex, OpenCode and PowerShell startup have prior native evidence. c003838 adds durable native-owner joins and atomic cleanup receipts with explicit thread recovery; 516325a proves Recover session through real UI/IPC using synthetic private metadata. Four state recovery tests, two terminal lifecycle tests and full desktop/helper/hook build pass. No schema migration or personal data change was required. Verified portable 28dab120-3c4f-4d0b-9adf-4c7004055ddc contains functional code through c003838, 621 files/227576007 bytes; actual recovery UI passes on that package. 12221f2/3c6e342 identify the guarded Claude bootstrap failure as first-party connectivity preflights; a synthetic bearer gateway fixture preserves the guard, but its run was deferred by renewed host resource pressure and full UI Resume remains open. Headless authenticated Claude hooks, exact same-UUID resume and TLS have prior PASS evidence; this is distinct from UI/provider/login qualification. 755618b adds exact typed Codex Resume selection and blocks reuse of StartNew qualification; three targeted tests and desktop check pass, capability remains disabled. C12 is still the sole active parent. Effective sidecar controls, pre-cleanup crash recovery, remaining harness capabilities and floating windows remain open. Daodan remains deferred; no whole-product completion is claimed. 14b07ba qualifies the tracked Codex recipe end to end: the native StartNew proof exposed and fixed three product defects (stale 16-argument contained-launch bounds unified as shared MAX_LAUNCH_ARGUMENTS=32 across host/wire/PTY against the 21-argument tracked recipe; missing startup_scope entry for the tracked Codex profile; Codex -c parser tore the dotted hooks.state key so hook trust now ships as a single-segment hooks table override verified trusted by real hooks/list), plus a pre-existing failing opaque-binding Debug test. codex-native-smoke.mjs passes twice on guarded synthetic credentials with no completed model turn; Claude resume smoke re-passes as the shared-path regression. Desktop rebuilds require --features custom-protocol and the terminal helper must be rebuilt with the host. bf6bf2f adds the duplicate-resume race smoke; it passes on the main and on an isolated worktree build (one winner, bounded busy/owned_elsewhere/source_changed refusals, three exact owners closed, prior context retained), and the Codex native smoke re-passes on the same isolated binaries. Concurrent agent activity on the shared target directory invalidated mid-flight runs; definitive proofs ran from .jcode/local/worktrees/race-proof at the exact proof commit. 97e904a exposes the Codex Resume path end to end: exact-UUID sealed launch recipe (23 argv, ResumeNative capability separated from StartNew), lifecycle confirmation via SessionStart(source=resume), catalog native_resume=true, two new lifecycle tests and codex-resume-smoke.mjs PASS twice on an isolated worktree build with the StartNew smoke re-passing on the same binaries. 2026-11-06: forced-crash smoke committed with per-run evidence (agent-kill live-host PASS, pre-receipt block PASS, dialog/preset and ceiling fixes); remaining single-run phases environmentally blocked; Ledger(Capacity) product limit documented. 2026-11-06b: forced-crash smoke simplified to one crash + one restart + one refusal (redundant phases removed); status note rewritten accordingly. 2026-11-06c: one-page simplified plan added (docs/implementation/PLAN-SEMPLIFICATO.md): verification backlog (C13, C25 minimal, C46, F02), capability backlog (C14, C15.4, C16, C17, C22/C23, C24, C12.5, ADR-0051), deferred platforms untouched; one proof per behaviour, no automatic run loops. 2026-11-06d: ADR-0051 accepted and implemented (engine probe, state certificate, desktop recover branch, UI smoke PASS); ledger capacity restored on pre-receipt recovery. 2026-11-07: portable package 3de12dc4-9bb3-45c0-8b55-fb1e1fdd30e8 regenerated on 85544c3 (621 files, 229492935 bytes, status verified, desktop exe 2026-11-06 12:06 with ADR-0051, helpers rebuilt 2026-11-07 09:37); supersedes 837f4345. No native test executed for it. 2026-11-07b: C12.5 decided (unconsumed adaptivePressure fields removed from the product baseline), six superseded unreferenced portable packages deleted, C13/C25/C46 attempted once and parked for host memory, F02 evidence collected and ready for owner acceptance. 2026-11-07c: C13/C25/C46 smokes fixed (obsolete UI selectors, hidden project field, stale refusal assertion, IPC read retry); a real forced crash was recovered by the ADR-0051 certificate (database evidence); green runs await 8 GiB of free commit at launch.",
   "steps": {
@@ -1917,6 +1917,68 @@
         "7bc716f78332b1c0af41bdb89e3181251fe6b0bc",
         "454f75a4292343b77395fd8e720ede9ffa44869e"
       ]
+    },
+    "C26": {
+      "status": "committed",
+      "commit_sha": "1e5e080378ac8dc3d06ecea8886173ca17af2235",
+      "units": {
+        "C26.1": {
+          "status": "committed",
+          "commit_sha": "8abfa5f1dcd9b98b12f8a733a3cccacf448e4fdb",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-session-export.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-export"
+          ],
+          "limits": [
+            "Pure formats crate; no reader."
+          ]
+        },
+        "C26.2": {
+          "status": "committed",
+          "commit_sha": "c2a65a40aab224449c6ce9753704d814a2b479d6",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-session-export.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine --features session-reader --lib session_",
+            "cargo test --offline -p shinatama-engine --features session-reader --test session_export -- --ignored",
+            "cargo build -p shinatama-desktop",
+            "npm run build"
+          ],
+          "limits": [
+            "Native export offered nowhere until proven.",
+            "No app-level smoke of the Export dialog; the native Save dialog is not automated.",
+            "OpenCode export refused with the detail path."
+          ]
+        },
+        "C26.3": {
+          "status": "committed",
+          "commit_sha": "1e5e080378ac8dc3d06ecea8886173ca17af2235",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-session-export.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-cli",
+            "cargo test --offline -p shinatama-cli --test sessions -- --ignored"
+          ],
+          "limits": [
+            "resume and hop are desktop-only and refused by the CLI.",
+            "CLI worker admission uses the shared ledger without the desktop headroom sampler."
+          ]
+        }
+      },
+      "next_action": "Owner acceptance of the C26 parent after trying Export in the app; R34 round-trip law stays open (no import path in any version)."
     }
   },
   "blockers": [],
