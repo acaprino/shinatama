@@ -14,6 +14,10 @@ pub struct Redactor {
     mode: Mode,
     home: Vec<String>,
     counts: Redactions,
+    /// `REDACTED` for exports, `redacted` for seeds (FRD-0005 R27).
+    marker: &'static str,
+    /// Long high-entropy tokens; on for seeds, off for exports.
+    high_entropy: bool,
 }
 
 /// Token prefixes with the shortest body that still looks like a credential.
@@ -95,7 +99,19 @@ impl Redactor {
             mode,
             home: forms,
             counts: Redactions::new(),
+            marker: "REDACTED",
+            high_entropy: false,
         }
+    }
+    /// The seed rule set (FRD-0005 R27): `[redacted:<kind>]` markers and the high-entropy rule.
+    pub fn for_seed() -> Self {
+        let mut redactor = Self::new(Mode::Full, None);
+        redactor.marker = "redacted";
+        redactor.high_entropy = true;
+        redactor
+    }
+    fn mark(&self, class: &str) -> String {
+        format!("[{}:{class}]", self.marker)
     }
     pub fn mode(&self) -> Mode {
         self.mode
@@ -139,7 +155,7 @@ impl Redactor {
                         && item.as_str().is_some_and(plausible_secret_value)
                     {
                         self.count("assignment");
-                        *item = serde_json::Value::String("[REDACTED:assignment]".into());
+                        *item = serde_json::Value::String(self.mark("assignment"));
                     } else {
                         self.redact_json(item);
                     }
@@ -172,7 +188,7 @@ impl Redactor {
             let Some(end) = rest[start..].find("-----END ") else {
                 // An unterminated block: redact to the end rather than leak half a key.
                 out.push_str(&rest[..start]);
-                out.push_str("[REDACTED:private_key]");
+                out.push_str(&self.mark("private_key"));
                 self.count("private_key");
                 return out;
             };
@@ -181,7 +197,7 @@ impl Redactor {
                 .find("-----")
                 .map_or(rest.len(), |i| end + 9 + i + 5);
             out.push_str(&rest[..start]);
-            out.push_str("[REDACTED:private_key]");
+            out.push_str(&self.mark("private_key"));
             self.count("private_key");
             rest = &rest[close..];
         }
@@ -198,19 +214,23 @@ impl Redactor {
             let boundary = i == 0 || !token_char(bytes[i - 1]);
             if boundary && let Some((len, class)) = self.token_at(bytes, i) {
                 out.push_str(&text[copied..i]);
-                out.push_str("[REDACTED:");
-                out.push_str(class);
-                out.push(']');
+                out.push_str(&self.mark(class));
                 self.count(class);
+                i += len;
+                copied = i;
+                continue;
+            }
+            if boundary && self.high_entropy && let Some(len) = high_entropy_at(bytes, i) {
+                out.push_str(&text[copied..i]);
+                out.push_str(&self.mark("high_entropy"));
+                self.count("high_entropy");
                 i += len;
                 copied = i;
                 continue;
             }
             if let Some((value_start, value_end, class)) = self.authorization_at(bytes, i) {
                 out.push_str(&text[copied..value_start]);
-                out.push_str("[REDACTED:");
-                out.push_str(class);
-                out.push(']');
+                out.push_str(&self.mark(class));
                 self.count(class);
                 i = value_end;
                 copied = i;
@@ -223,7 +243,7 @@ impl Redactor {
                 && let Some(at) = url_credentials(bytes, i + 3)
             {
                 out.push_str(&text[copied..i + 3]);
-                out.push_str("[REDACTED:url_credentials]");
+                out.push_str(&self.mark("url_credentials"));
                 self.count("url_credentials");
                 i = at;
                 copied = i;
@@ -233,7 +253,7 @@ impl Redactor {
                 && let Some((value_start, value_end)) = assignment_value(bytes, i)
             {
                 out.push_str(&text[copied..value_start]);
-                out.push_str("[REDACTED:assignment]");
+                out.push_str(&self.mark("assignment"));
                 self.count("assignment");
                 i = value_end;
                 copied = i;
@@ -310,7 +330,7 @@ impl Redactor {
             {
                 end += 1;
             }
-            if end - start >= 16 && !bytes[start..end].starts_with(b"[REDACTED") {
+            if end - start >= 16 {
                 return Some((start, end, class));
             }
         }
@@ -376,7 +396,7 @@ impl Redactor {
                 .is_some_and(|(host, tld)| !host.is_empty() && tld.len() >= 2 && tld.bytes().all(|c| c.is_ascii_alphabetic()));
             if start < i && tld_ok {
                 out.push_str(&text[copied..start]);
-                out.push_str("[REDACTED:email]");
+                out.push_str(&self.mark("email"));
                 self.count("email");
                 copied = end;
                 i = end;
@@ -387,6 +407,40 @@ impl Redactor {
         out.push_str(&text[copied..]);
         out
     }
+}
+
+/// A run of at least 32 base64/url-safe characters with upper, lower and digits and a Shannon
+/// entropy of at least 4.3 bits per character. Hex digests (at most 4 bits) and UUIDs never match.
+fn high_entropy_at(bytes: &[u8], start: usize) -> Option<usize> {
+    let run = |c: u8| c.is_ascii_alphanumeric() || matches!(c, b'+' | b'=' | b'_' | b'-');
+    let mut end = start;
+    while end < bytes.len() && run(bytes[end]) && end - start < 4096 {
+        end += 1;
+    }
+    let token = &bytes[start..end];
+    if token.len() < 32 || (end < bytes.len() && run(bytes[end])) {
+        return None;
+    }
+    if !token.iter().any(u8::is_ascii_uppercase)
+        || !token.iter().any(u8::is_ascii_lowercase)
+        || token.iter().filter(|c| c.is_ascii_digit()).count() < 2
+    {
+        return None;
+    }
+    let mut counts = [0u32; 256];
+    for &c in token {
+        counts[c as usize] += 1;
+    }
+    let n = token.len() as f64;
+    let entropy: f64 = counts
+        .iter()
+        .filter(|&&k| k > 0)
+        .map(|&k| {
+            let p = f64::from(k) / n;
+            -p * p.log2()
+        })
+        .sum();
+    (entropy >= 4.3).then_some(token.len())
 }
 
 /// `user:password@` right after `://`. Returns the index just past `@`.
@@ -411,7 +465,7 @@ fn url_credentials(bytes: &[u8], start: usize) -> Option<usize> {
 fn plausible_secret_value(value: &str) -> bool {
     let v = value.trim();
     v.len() >= 8
-        && !v.starts_with("[REDACTED")
+        && !v.get(..9).is_some_and(|p| p.eq_ignore_ascii_case("[redacted"))
         && !v.starts_with('$')
         && !v.starts_with('<')
         && !v.starts_with('{')
@@ -573,6 +627,27 @@ mod tests {
         assert_eq!(value["env"]["GITHUB_TOKEN"], "[REDACTED:assignment]");
         assert_eq!(value["env"]["PATH"], "C:/bin");
         assert_eq!(value["args"][1], "[REDACTED:github_token]");
+    }
+
+    #[test]
+    fn seed_rules_use_lowercase_markers_and_catch_high_entropy_tokens() {
+        let mut seed = Redactor::for_seed();
+        assert_eq!(seed.redact("k ghp_0123456789abcdefABCDEF0123456789abcd"), "k [redacted:github_token]");
+        let opaque = "Zx9QvR2mT8kLp4WnB7yHc3JdF6sGa1Ue5VtK0rYqXoNi";
+        assert_eq!(seed.redact(&format!("secret is {opaque} ok")), "secret is [redacted:high_entropy] ok");
+        for benign in [
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "550e8400-e29b-41d4-a716-446655440000",
+            "ThisIsAVeryLongCamelCaseIdentifierNameWithoutDigits",
+            "src/components/session/detail/renderer_component.ts",
+            "very_long_snake_case_identifier_used_in_rust_code_42",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1B2",
+        ] {
+            assert_eq!(seed.redact(benign), benign, "{benign}");
+        }
+        assert_eq!(seed.redact("[REDACTED:jwt] stays"), "[REDACTED:jwt] stays");
+        let mut export = Redactor::new(Mode::Full, None);
+        assert_eq!(export.redact(&format!("x {opaque}")), format!("x {opaque}"), "exports keep the rule off");
     }
 
     #[test]

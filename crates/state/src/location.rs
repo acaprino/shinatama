@@ -567,3 +567,54 @@ pub(crate) fn is_within(path: &Path, root: &Path) -> bool {
         })
     })
 }
+
+/// Owner-only folders and files at an explicit location the caller is allowed to use outside
+/// the application directory, such as `<git common dir>/shinatama/handoffs/<hop-id>`
+/// (FRD-0005 R24). The Git-project refusal of [`StorageLocation`] does not apply: these hold
+/// one hand-off, never shared state. Reparse points and multiply-linked files are refused.
+pub mod external {
+    use super::*;
+
+    /// Creates every missing folder with a current-user-only ACL and verifies `path`. The
+    /// returned handles deny delete-sharing on the chain while the caller writes.
+    pub fn prepare_private_directory(path: &Path) -> Result<Vec<fs::File>> {
+        if !path.is_absolute() {
+            return Err(LocationError::new(
+                LocationErrorKind::InvalidPath,
+                path,
+                "Il percorso deve essere assoluto.",
+            ));
+        }
+        #[cfg(windows)]
+        return windows::prepare_private_directory(path, || Ok(()));
+        #[cfg(not(windows))]
+        Err(LocationError::new(
+            LocationErrorKind::UnsupportedVolume,
+            path,
+            "Questa versione supporta Windows.",
+        ))
+    }
+
+    /// Applies owner-only permissions to a file just created inside such a folder.
+    pub fn secure_private_file(path: &Path) -> Result<()> {
+        #[cfg(windows)]
+        return windows::private_file(path, true);
+        #[cfg(not(windows))]
+        Err(LocationError::new(
+            LocationErrorKind::UnsupportedVolume,
+            path,
+            "Questa versione supporta Windows.",
+        ))
+    }
+
+    pub fn verify_private_file(path: &Path) -> Result<()> {
+        #[cfg(windows)]
+        return windows::private_file(path, false);
+        #[cfg(not(windows))]
+        Err(LocationError::new(
+            LocationErrorKind::UnsupportedVolume,
+            path,
+            "Questa versione supporta Windows.",
+        ))
+    }
+}
