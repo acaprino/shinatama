@@ -30,6 +30,14 @@ pub trait Destination {
     fn spawn(&mut self, plan: &HopPlan, delivery: &Delivery) -> Result<String, String>;
     fn evidence(&mut self, instance: &str) -> Evidence;
     fn kill(&mut self, instance: &str);
+    /// Sends one more user message (a catch-up) into a started destination.
+    fn deliver(&mut self, _instance: &str, _text: &str) -> Result<(), String> {
+        Err("this destination cannot receive a catch-up".into())
+    }
+    /// The destination's visible replies contain `needle`.
+    fn replied(&mut self, _instance: &str, _needle: &str) -> bool {
+        false
+    }
 }
 
 pub trait Source {
@@ -41,6 +49,23 @@ pub trait Source {
     fn end_activation(&mut self) -> Result<(), String>;
     /// Close mode at COMMITTED: close the source instance; its native session stays on disk.
     fn close_instance(&mut self) -> Result<(), String>;
+    /// Stops the source's current turn (its unfinished reply is lost).
+    fn interrupt(&mut self) -> Result<(), String> {
+        Err("this source cannot be interrupted".into())
+    }
+}
+
+/// The source conversation as canonical items, read again before the switch.
+pub trait SourceHistory {
+    fn items(&mut self) -> Result<Vec<shinatama_export::ExportItem>, String>;
+}
+
+/// What the user chose while the source was still working (R39, R50).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BusyDecision {
+    Wait,
+    Interrupt,
+    Cancel,
 }
 
 pub trait Clock {
@@ -77,6 +102,12 @@ pub enum CoordinatorError {
     /// A draft or running command needs the user's answer before the source closes (R40).
     SourceNeedsConfirmation,
     SourceAction(String),
+    Cancelled,
+    /// Still new turns after two catch-ups: the user decides.
+    SourceKeepsChanging,
+    /// The source no longer starts with what was carried.
+    SourceHistoryChanged,
+    DeliveryFailed(String),
 }
 impl From<HopError> for CoordinatorError {
     fn from(error: HopError) -> Self {
@@ -93,7 +124,11 @@ impl std::fmt::Display for CoordinatorError {
             CoordinatorError::SeedMismatch { .. } => write!(f, "The destination stored a different first message than the seed; the hop failed."),
             CoordinatorError::NoSession { .. } => write!(f, "The destination never created its session within 90 seconds; it was stopped."),
             CoordinatorError::ReceiptMissing => write!(f, "The destination did not confirm the hand-off. Ask it once more, switch anyway, or cancel."),
-            CoordinatorError::SourceBusy => write!(f, "The source is still working. Wait, interrupt it, or cancel the hop."),
+            CoordinatorError::SourceBusy => write!(f, "The source is still working. Wait for it, interrupt it (its current turn stops and that unfinished reply is lost), or cancel the hop."),
+            CoordinatorError::Cancelled => write!(f, "The hop was cancelled; the source is untouched."),
+            CoordinatorError::SourceKeepsChanging => write!(f, "The source kept changing after two catch-ups. Switch now, wait for it, or cancel."),
+            CoordinatorError::SourceHistoryChanged => write!(f, "The source conversation was rewritten after the preview; prepare a new preview."),
+            CoordinatorError::DeliveryFailed(message) => write!(f, "The catch-up could not be sent: {message}"),
             CoordinatorError::SourceNeedsConfirmation => write!(f, "The source has a draft or a running command. Confirm closing it, or keep it open."),
             CoordinatorError::SourceAction(message) => write!(f, "The source could not be updated: {message}"),
         }
@@ -290,6 +325,67 @@ impl<'a, C: Clock> Coordinator<'a, C> {
         Ok(hop)
     }
 
+    /// Catch-up rounds (at most two) for turns the source gained after the snapshot, each
+    /// confirmed by its own nonce, then SWITCHING (R39, R45, R50).
+    #[allow(clippy::too_many_arguments)]
+    pub fn catch_up_and_switch(
+        &mut self,
+        hop_id: &str,
+        preview: &Preview,
+        source: &mut dyn Source,
+        history: &mut dyn SourceHistory,
+        destination: &mut dyn Destination,
+        busy: BusyDecision,
+        window_tokens: Option<u64>,
+    ) -> Outcome<HopRecord> {
+        use crate::catchup::{self, MAX_CATCHUP_ROUNDS, NativeCursor};
+        let hop = self.current(hop_id)?;
+        if hop.state != HopState::Ready {
+            return Err(CoordinatorError::Journal(HopError::InvalidTransition { from: hop.state, to: HopState::Switching }));
+        }
+        let live_close = hop.plan.source_instance.is_some() && hop.plan.mode == HopMode::Close;
+        if live_close && !source.is_idle() {
+            match busy {
+                BusyDecision::Wait => return Err(CoordinatorError::SourceBusy),
+                BusyDecision::Cancel => {
+                    self.abort(hop_id, Some(destination), "cancelled while the source was busy")?;
+                    return Err(CoordinatorError::Cancelled);
+                }
+                BusyDecision::Interrupt => {
+                    let now = self.clock.now_ms();
+                    self.journal.record_effect(hop_id, "source_interrupt", None, now)?;
+                    source.interrupt().map_err(CoordinatorError::SourceAction)?;
+                }
+            }
+        }
+        let instance = hop.destination_instance.clone().ok_or(CoordinatorError::Journal(HopError::Invalid("destination")))?;
+        let mut cursor = preview.source_cursor.clone();
+        for round in 1..=MAX_CATCHUP_ROUNDS + 1 {
+            let items = history.items().map_err(CoordinatorError::SourceAction)?;
+            let new = catchup::items_since(&cursor, &items).map_err(|_| CoordinatorError::SourceHistoryChanged)?;
+            let nonce = catchup::round_nonce(&hop.plan.nonce, round);
+            let Some(message) = catchup::render(new, &hop.plan.source_agent, &nonce, window_tokens) else { break };
+            let now = self.clock.now_ms();
+            if round > MAX_CATCHUP_ROUNDS {
+                self.journal.record_effect(hop_id, "catchup_limit", None, now)?;
+                return Err(CoordinatorError::SourceKeepsChanging);
+            }
+            self.journal.record_effect(hop_id, "catchup_sent", Some(&format!("round {round}, {} turns", message.turns)), now)?;
+            destination.deliver(&instance, &message.text).map_err(CoordinatorError::DeliveryFailed)?;
+            let started = self.clock.now_ms();
+            while !destination.replied(&instance, &format!("ready {nonce}")) {
+                if self.clock.now_ms() - started >= self.ready_timeout_ms {
+                    let now = self.clock.now_ms();
+                    self.journal.record_effect(hop_id, "catchup_receipt_missing", None, now)?;
+                    return Err(CoordinatorError::ReceiptMissing);
+                }
+                self.clock.pause(self.poll_ms);
+            }
+            cursor = NativeCursor::at_end(&items);
+        }
+        self.switch(hop_id, source)
+    }
+
     /// COMMITTED: close mode closes the source after the draft check; fork never touches it (R40).
     pub fn commit(&mut self, hop_id: &str, source: &mut dyn Source, close_confirmed: bool) -> Outcome<HopRecord> {
         let hop = self.current(hop_id)?;
@@ -381,6 +477,7 @@ mod tests {
         draft: bool,
         ended: u32,
         closed: u32,
+        interrupted: u32,
     }
     impl Source for FakeSource {
         fn is_idle(&mut self) -> bool {
@@ -396,6 +493,45 @@ mod tests {
         fn close_instance(&mut self) -> Result<(), String> {
             self.closed += 1;
             Ok(())
+        }
+        fn interrupt(&mut self) -> Result<(), String> {
+            self.interrupted += 1;
+            self.busy = false;
+            Ok(())
+        }
+    }
+
+    /// Returns the given histories in order, repeating the last one.
+    struct FakeHistory(Vec<Vec<shinatama_export::ExportItem>>);
+    impl SourceHistory for FakeHistory {
+        fn items(&mut self) -> Result<Vec<shinatama_export::ExportItem>, String> {
+            Ok(if self.0.len() > 1 { self.0.remove(0) } else { self.0[0].clone() })
+        }
+    }
+
+    /// Records catch-ups and answers each with its nonce.
+    #[derive(Default)]
+    struct Echo {
+        inner: FakeDestination,
+        delivered: Vec<String>,
+        silent: bool,
+    }
+    impl Destination for Echo {
+        fn spawn(&mut self, plan: &HopPlan, delivery: &Delivery) -> Result<String, String> {
+            self.inner.spawn(plan, delivery)
+        }
+        fn evidence(&mut self, instance: &str) -> Evidence {
+            self.inner.evidence(instance)
+        }
+        fn kill(&mut self, instance: &str) {
+            self.inner.kill(instance)
+        }
+        fn deliver(&mut self, _: &str, text: &str) -> Result<(), String> {
+            self.delivered.push(text.to_owned());
+            Ok(())
+        }
+        fn replied(&mut self, _: &str, needle: &str) -> bool {
+            !self.silent && self.delivered.last().is_some_and(|t| t.contains(&needle.replace("ready ", "nonce=")))
         }
     }
 
@@ -527,6 +663,87 @@ mod tests {
         assert_eq!(source.closed, 0);
         coordinator.commit(&hop.plan.id, &mut source, true).unwrap();
         assert_eq!(source.closed, 1);
+    }
+
+    fn source_items(n: usize) -> Vec<shinatama_export::ExportItem> {
+        let mut items = vec![item(ItemKind::UserText, "do the thing"), item(ItemKind::AssistantText, "ok")];
+        for i in 0..n {
+            items.push(item(ItemKind::UserText, &format!("later {i}")));
+        }
+        items
+    }
+
+    fn ready_hop(f: &Fixture, destination: &mut Echo) -> String {
+        let mut coordinator = Coordinator::new(&f.journal, FakeClock(0));
+        let hop = coordinator.plan(&request(&f.preview, HopMode::Close)).unwrap();
+        coordinator.confirm(&hop.plan.id).unwrap();
+        coordinator.prepare(&hop.plan.id, &f.preview, destination).unwrap();
+        hop.plan.id
+    }
+
+    #[test]
+    fn new_source_turns_are_caught_up_at_most_twice() {
+        let f = fixture();
+        let mut destination = Echo { inner: FakeDestination::honest(&f.preview), ..Default::default() };
+        let id = ready_hop(&f, &mut destination);
+        let mut coordinator = Coordinator::new(&f.journal, FakeClock(0));
+        let mut source = FakeSource::default();
+        let mut history = FakeHistory(vec![source_items(1), source_items(1)]);
+        let hop = coordinator.catch_up_and_switch(&id, &f.preview, &mut source, &mut history, &mut destination, BusyDecision::Wait, None).unwrap();
+        assert_eq!(hop.state, HopState::Switching);
+        assert_eq!(destination.delivered.len(), 1);
+        assert!(destination.delivered[0].contains("While you were away (1 turn, via claude_code)"));
+        assert!(destination.delivered[0].contains("[user] later 0"));
+        // A source that keeps talking: two rounds, then the user decides; the hop stays READY.
+        let g = fixture();
+        let mut destination = Echo { inner: FakeDestination::honest(&g.preview), ..Default::default() };
+        let id = ready_hop(&g, &mut destination);
+        let mut coordinator = Coordinator::new(&g.journal, FakeClock(0));
+        let mut history = FakeHistory(vec![source_items(1), source_items(2), source_items(3)]);
+        assert_eq!(
+            coordinator.catch_up_and_switch(&id, &g.preview, &mut source, &mut history, &mut destination, BusyDecision::Wait, None),
+            Err(CoordinatorError::SourceKeepsChanging)
+        );
+        assert_eq!(destination.delivered.len(), 2);
+        assert!(destination.delivered[1].contains("[user] later 1") && !destination.delivered[1].contains("later 0"), "only the missed turns");
+        assert_eq!(g.journal.hop(&id).unwrap().unwrap().state, HopState::Ready);
+    }
+
+    #[test]
+    fn busy_source_waits_interrupts_or_cancels_and_rewritten_history_refuses() {
+        let f = fixture();
+        let mut destination = Echo { inner: FakeDestination::honest(&f.preview), ..Default::default() };
+        let id = ready_hop(&f, &mut destination);
+        let mut coordinator = Coordinator::new(&f.journal, FakeClock(0));
+        let mut source = FakeSource { busy: true, ..Default::default() };
+        let mut history = FakeHistory(vec![source_items(0)]);
+        assert_eq!(coordinator.catch_up_and_switch(&id, &f.preview, &mut source, &mut history, &mut destination, BusyDecision::Wait, None), Err(CoordinatorError::SourceBusy));
+        assert_eq!(source.interrupted, 0, "the source is never stopped silently");
+        coordinator.catch_up_and_switch(&id, &f.preview, &mut source, &mut history, &mut destination, BusyDecision::Interrupt, None).unwrap();
+        assert_eq!(source.interrupted, 1);
+        let g = fixture();
+        let mut destination = Echo { inner: FakeDestination::honest(&g.preview), ..Default::default() };
+        let id = ready_hop(&g, &mut destination);
+        let mut coordinator = Coordinator::new(&g.journal, FakeClock(0));
+        let mut source = FakeSource { busy: true, ..Default::default() };
+        assert_eq!(coordinator.catch_up_and_switch(&id, &g.preview, &mut source, &mut history, &mut destination, BusyDecision::Cancel, None), Err(CoordinatorError::Cancelled));
+        assert_eq!(g.journal.hop(&id).unwrap().unwrap().state, HopState::Aborted);
+        assert_eq!(destination.inner.killed, ["i_dest"]);
+        let h = fixture();
+        let mut destination = Echo { inner: FakeDestination::honest(&h.preview), ..Default::default() };
+        let id = ready_hop(&h, &mut destination);
+        let mut coordinator = Coordinator::new(&h.journal, FakeClock(0));
+        let mut rewritten = FakeHistory(vec![vec![item(ItemKind::UserText, "something else")]]);
+        assert_eq!(
+            coordinator.catch_up_and_switch(&id, &h.preview, &mut FakeSource::default(), &mut rewritten, &mut destination, BusyDecision::Wait, None),
+            Err(CoordinatorError::SourceHistoryChanged)
+        );
+        let mut silent = Echo { inner: FakeDestination::honest(&h.preview), silent: true, ..Default::default() };
+        let mut gained = FakeHistory(vec![source_items(1)]);
+        assert_eq!(
+            coordinator.catch_up_and_switch(&id, &h.preview, &mut FakeSource::default(), &mut gained, &mut silent, BusyDecision::Wait, None),
+            Err(CoordinatorError::ReceiptMissing)
+        );
     }
 
     #[test]

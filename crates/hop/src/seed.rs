@@ -189,7 +189,7 @@ fn tool_digest(name: &str, target: &str, status: &str) -> String {
 }
 
 /// The turn verbatim: user and assistant text, tool digests with clipped outputs.
-fn verbatim(turn: &Turn, skip_user: bool, clipped: &mut u64) -> String {
+pub(crate) fn verbatim(turn: &Turn, skip_user: bool, clipped: &mut u64) -> String {
     let mut out = String::new();
     if let (Some(user), false) = (&turn.user, skip_user) {
         out.push_str(&format!("[user] {user}\n"));
@@ -234,7 +234,7 @@ fn digest(turn: &Turn, skip_user: bool) -> String {
     out
 }
 
-fn omitted(count: usize) -> String {
+pub(crate) fn omitted(count: usize) -> String {
     format!("[{count} turn{} omitted]\n", if count == 1 { "" } else { "s" })
 }
 

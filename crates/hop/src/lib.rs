@@ -5,6 +5,7 @@
 //! redaction rules, [`seed`] renders the budgeted seed, [`files`] writes the private hand-off
 //! files, [`channel`] builds the bootstrap for each delivery channel and [`preview`] freezes the
 //! exact bytes the user confirms.
+pub mod catchup;
 pub mod channel;
 pub mod coordinator;
 pub mod files;

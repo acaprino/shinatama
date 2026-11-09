@@ -31,6 +31,8 @@ pub struct Preview {
     pub injected_context_dropped: u64,
     pub carried: Vec<String>,
     pub lost: Vec<String>,
+    /// What the seed carried, for catch-up (R47).
+    pub source_cursor: crate::catchup::NativeCursor,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -130,6 +132,7 @@ pub fn prepare(input: PreviewInput<'_>) -> Result<Preview, PreviewError> {
         injected_context_dropped: history.dropped.injected_context,
         carried,
         lost,
+        source_cursor: crate::catchup::NativeCursor::at_end(input.items),
     })
 }
 
