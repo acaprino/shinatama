@@ -27,6 +27,7 @@ shinatama-engine = { workspace = true, features = ["session-reader"] }
 shinatama-adapter.workspace = true
 shinatama-export.workspace = true
 shinatama-hop.workspace = true
+shinatama-files.workspace = true
 sha2.workspace = true
 
 [target.'cfg(windows)'.dependencies]

@@ -1,0 +1,24 @@
+#files-dialog { width: min(1180px, calc(100vw - 32px)); height: min(80vh, 820px); display: none; }
+#files-dialog[open] { display: flex; flex-direction: column; }
+.files-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(200px, 280px) 1fr; gap: 12px; margin-top: 8px; }
+.files-side { display: flex; flex-direction: column; min-height: 0; gap: 6px; }
+.files-side input { width: 100%; }
+.files-crumbs { font-size: 12px; color: var(--text-2); overflow-wrap: anywhere; }
+.files-list { list-style: none; margin: 0; padding: 0; overflow: auto; flex: 1; border: 1px solid var(--line); }
+.files-list button { width: 100%; text-align: left; border: 0; background: transparent; padding: 3px 8px; font: 13px/1.5 var(--mono); color: var(--text); }
+.files-list button:hover:not(:disabled) { background: var(--chrome); }
+.files-list button:disabled { color: var(--text-2); }
+.files-main { display: flex; flex-direction: column; min-height: 0; }
+.files-bar { display: flex; align-items: center; gap: 8px; }
+.files-name { flex: 1; font: 13px var(--mono); overflow-wrap: anywhere; color: var(--text); }
+.files-modes { display: flex; gap: 4px; }
+.files-modes button[aria-pressed=true] { outline: 2px solid var(--accent); }
+.files-panes { flex: 1; min-height: 0; display: flex; gap: 8px; margin-top: 8px; }
+.files-panes > * { flex: 1; min-width: 0; }
+.files-editor { resize: none; font: 13px/1.55 var(--mono); background: var(--chrome); color: var(--text); border: 1px solid var(--line); padding: 10px; }
+.files-preview { overflow: auto; border: 1px solid var(--line); padding: 10px 14px; color: var(--text); font-size: 14px; line-height: 1.6; user-select: text; }
+.files-preview pre { background: var(--chrome); padding: 8px; overflow: auto; }
+.files-preview a[data-path] { color: var(--accent); cursor: pointer; text-decoration: underline; }
+.files-preview .md-link, .files-preview .md-image { color: var(--text-2); }
+.files-status { min-height: 1.6em; margin: 6px 0 0; font-size: 13px; color: var(--text-2); }
+.files-status[data-state=error] { color: var(--error); }

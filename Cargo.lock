@@ -2983,6 +2983,7 @@ dependencies = [
  "shinatama-adapter",
  "shinatama-engine",
  "shinatama-export",
+ "shinatama-files",
  "shinatama-hop",
  "shinatama-projects",
  "shinatama-state",

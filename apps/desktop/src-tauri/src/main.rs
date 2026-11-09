@@ -3,6 +3,7 @@
 mod agents;
 mod attention;
 mod attention_signals;
+mod files;
 #[cfg(windows)]
 mod hop_run;
 mod launch;
@@ -647,6 +648,12 @@ fn main() {
         #[cfg(windows)]
         sessions::session_raw,
         sessions::session_find,
+        files::files_list,
+        files::files_search,
+        files::files_cancel,
+        files::files_read,
+        files::files_save,
+        files::files_markdown,
         #[cfg(windows)]
         sessions::export::session_export,
         #[cfg(windows)]
@@ -744,6 +751,12 @@ fn main() {
         #[cfg(windows)]
         sessions::session_raw,
         sessions::session_find,
+        files::files_list,
+        files::files_search,
+        files::files_cancel,
+        files::files_read,
+        files::files_save,
+        files::files_markdown,
         #[cfg(windows)]
         sessions::export::session_export,
         #[cfg(windows)]

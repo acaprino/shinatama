@@ -23,6 +23,7 @@ import { createSessionLibrary } from './session-library.ts';
 import { createSessionDetail } from './session-detail.ts';
 import { createSessionExport } from './session-export.ts';
 import { createHopPreview, type HopPreview } from './hop-preview.ts';
+import { createFilesPanel } from './files-panel.ts';
 import { createSessionSearch } from './session-search.ts';
 import { createProjectMenu, organizeToolbar } from './toolbar-simple.ts';
 import { createSessionRaw } from './session-raw.ts';
@@ -569,6 +570,19 @@ async function runHop(preview: HopPreview, progress: (message: string) => void, 
   const keep = !view.ended && await decide('No confirmation from the destination', `${preview.destination} did not reply "ready ${launched.nonce}" within 90 seconds. Keep it as the new session anyway, or mark the hop failed? Its pane stays open either way.`, 'Keep');
   await invoke('hop_finish', { hopId: launched.hopId, outcome: keep ? 'accept_without_receipt' : 'fail' });
   return keep ? 'Hop committed without confirmation.' : 'Hop marked failed; the destination pane stays open.';
+}
+const filesPanel = createFilesPanel({
+  invoke: (command, args) => desktop ? invoke(command, args) : Promise.reject('Open the desktop app to browse files.'),
+  project: () => projectPath || null,
+  reportError: notify,
+  decide: (title, message, accept) => decide(title, message, accept),
+  restoreFocus: () => setFocus(focusedGroup()),
+});
+{
+  const button = document.createElement('button'); button.type = 'button'; button.id = 'open-files'; button.textContent = 'Files';
+  button.title = 'Browse and edit the project files (nothing is run)';
+  button.onclick = () => { void filesPanel.show(); };
+  document.querySelector('#new-terminal')?.before(button);
 }
 const hopPreview = createHopPreview({
   prepare: request => desktop ? invoke('hop_preview', { request }) : Promise.reject({ issue: 'read_unavailable' }),
