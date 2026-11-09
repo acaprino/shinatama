@@ -11,6 +11,7 @@ pub mod coordinator;
 pub mod files;
 pub mod git;
 pub mod history;
+pub mod hop_back;
 pub mod preview;
 pub mod recovery;
 pub mod seed;
