@@ -6,6 +6,7 @@
 //! files, [`channel`] builds the bootstrap for each delivery channel and [`preview`] freezes the
 //! exact bytes the user confirms.
 pub mod channel;
+pub mod coordinator;
 pub mod files;
 pub mod git;
 pub mod history;
