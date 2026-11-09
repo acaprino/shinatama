@@ -11,7 +11,7 @@ export type HopPreview = { hop_id: string; nonce: string; destination: string; c
 export type HopPreviewOutcome = { state: 'ready'; preview: HopPreview } | { state: 'refused'; issue: string; message: string };
 type Options = {
   prepare: (request: { root: SessionRootSelector; nativeId: string; fingerprint: string; destination: string }) => Promise<HopPreviewOutcome>;
-  send?: (preview: HopPreview) => Promise<void>;
+  send?: (preview: HopPreview, progress: (message: string) => void, release: () => void) => Promise<string>;
   reportError: (message: string) => void; restoreFocus?: () => void };
 
 const AGENTS: [string, string][] = [['claude_code', 'Claude Code'], ['codex', 'Codex'], ['opencode', 'OpenCode'], ['pi', 'Pi'], ['hermes', 'Hermes Agent'], ['deepseek', 'DeepSeek Harness']];
@@ -83,7 +83,10 @@ export function createHopPreview(options: Options) {
   send.onclick = async () => {
     if (!current || !options.send || busy) return;
     const at = ++generation; busy = true; render();
-    try { await options.send(current); if (at === generation) dialog.close(); }
+    const progress = (message: string) => { if (at === generation && dialog.open) { status.dataset.state = 'ready'; status.textContent = message; } };
+    // The destination may need the user (a folder-trust question): free the screen for it.
+    const release = () => { if (at === generation && dialog.open) dialog.close(); };
+    try { const done = await options.send(current, progress, release); progress(done); if (at === generation) current = null; }
     catch (error) { if (at === generation) { status.dataset.state = 'error'; status.textContent = typeof error === 'string' ? error : 'The hop could not start; nothing changed in the source.'; } }
     finally { if (at === generation) { busy = false; render(); } }
   };

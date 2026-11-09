@@ -121,6 +121,29 @@ try {
   expect(status.split('\n').filter(Boolean).sort()).toEqual(['?? AGENTS.md', '?? notes.txt']);
   expect(await readFile(resolve(project, `${id}.jsonl`))).toEqual(source);
   evidence.checks.nothingInWorkingTreeAndSourceUnchanged = true;
+
+  // C28: a hop whose destination cannot open fails in the journal, after journaling the spawn.
+  const hermes = await ipc('hop_preview', { request: { root: selector, nativeId: id, fingerprint, destination: 'hermes' } }, 20);
+  expect(hermes.state).toBe('ready');
+  const launch = await reply('hop_launch', { request: { hopId: hermes.preview.hop_id, rows: 30, cols: 110 } });
+  expect(launch.ok).toBe(false);
+  const failed = await ipc('hop_status', { hopId: hermes.preview.hop_id });
+  expect(failed.record.state).toBe('failed');
+  expect(failed.record.plan.mode).toBe('fork');
+  expect(failed.record.plan.source_instance).toBeNull();
+  const kinds = failed.events.map(event => event.kind);
+  expect(kinds).toEqual(['planned', 'previewed', 'confirmed', 'preparing', 'spawn_attempted', 'failed']);
+  const deliver = await reply('hop_deliver', { hopId: hermes.preview.hop_id });
+  expect(deliver.ok).toBe(false);
+  evidence.checks.unavailableDestinationFailsInJournal = true;
+  // The failed hop freed the session: a new hop of it may be planned.
+  const again = await ipc('hop_preview', { request: { root: selector, nativeId: id, fingerprint, destination: 'hermes' } }, 20);
+  const second = await reply('hop_launch', { request: { hopId: again.preview.hop_id, rows: 30, cols: 110 } });
+  expect(second.ok).toBe(false);
+  expect(JSON.stringify(second.issue)).not.toMatch(/Another hop/);
+  expect((await ipc('hop_status', { hopId: again.preview.hop_id })).record.state).toBe('failed');
+  expect(await readFile(resolve(project, `${id}.jsonl`))).toEqual(source);
+  evidence.checks.failedHopFreesTheThreadAndSourceUnchanged = true;
   evidence.status = 'pass';
 } catch (error) {
   evidence.status = 'fail'; evidence.error = String(error?.message ?? error).slice(0, 2000);

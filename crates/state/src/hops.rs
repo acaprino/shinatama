@@ -123,7 +123,7 @@ pub struct HopPlan {
     /// 32 lowercase hex characters.
     pub id: String,
     pub thread_id: String,
-    /// The thread a fork creates; `None` for close.
+    /// The thread a fork creates (may be recorded later); always `None` for close.
     pub destination_thread_id: Option<String>,
     pub mode: HopMode,
     pub strategy: HopStrategy,
@@ -218,7 +218,8 @@ impl HopPlan {
         if !short(&self.thread_id, 64) || self.destination_thread_id.as_deref().is_some_and(|t| !short(t, 64) || t == self.thread_id) {
             return Err(HopError::Invalid("thread"));
         }
-        if (self.mode == HopMode::Fork) != self.destination_thread_id.is_some() {
+        // Close continues the same thread; a fork may learn its new thread only after launch.
+        if self.mode == HopMode::Close && self.destination_thread_id.is_some() {
             return Err(HopError::Invalid("mode"));
         }
         if !short(&self.source_agent, 64) || !short(&self.destination_agent, 64) || !short(&self.source_native_id, 256) {
@@ -256,7 +257,7 @@ CREATE TABLE IF NOT EXISTS hop(
   destination_native_id TEXT,
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL,
-  CHECK((mode='fork')=(destination_thread_id IS NOT NULL)),
+  CHECK(mode='fork' OR destination_thread_id IS NULL),
   CHECK(finished=(state IN ('committed','aborted','failed','rolled_back')))
 ) STRICT;
 CREATE UNIQUE INDEX IF NOT EXISTS hop_one_unfinished_per_thread ON hop(thread_id) WHERE finished=0;
@@ -436,7 +437,12 @@ impl HopJournal {
 
     /// Records which destination instance and native session the hop produced.
     pub fn set_destination(&self, hop_id: &str, instance: Option<&str>, native_id: Option<&str>, now_ms: i64) -> Result<()> {
-        if instance.is_some_and(|i| !short(i, 64)) || native_id.is_some_and(|n| !short(n, 256)) {
+        self.set_destination_with_thread(hop_id, instance, native_id, None, now_ms)
+    }
+
+    /// As [`Self::set_destination`], also recording a fork's new thread.
+    pub fn set_destination_with_thread(&self, hop_id: &str, instance: Option<&str>, native_id: Option<&str>, thread: Option<&str>, now_ms: i64) -> Result<()> {
+        if instance.is_some_and(|i| !short(i, 64)) || native_id.is_some_and(|n| !short(n, 256)) || thread.is_some_and(|t| !short(t, 64)) {
             return Err(HopError::Invalid("destination"));
         }
         self.with_retry(|connection| {
@@ -445,9 +451,13 @@ impl HopJournal {
             if state.terminal() {
                 return Err(HopError::InvalidTransition { from: state, to: state });
             }
+            if thread.is_some() && tx.query_row("SELECT mode FROM hop WHERE id=?1", [hop_id], |row| row.get::<_, String>(0)).map_err(storage)? != "fork" {
+                return Err(HopError::Invalid("only a fork has a new thread"));
+            }
             tx.execute(
-                "UPDATE hop SET destination_instance=coalesce(?2,destination_instance),destination_native_id=coalesce(?3,destination_native_id),updated_at_ms=?4 WHERE id=?1",
-                params![hop_id, instance, native_id, now_ms],
+                "UPDATE hop SET destination_instance=coalesce(?2,destination_instance),destination_native_id=coalesce(?3,destination_native_id),
+                   destination_thread_id=coalesce(?5,destination_thread_id),updated_at_ms=?4 WHERE id=?1",
+                params![hop_id, instance, native_id, now_ms, thread],
             )
             .map_err(storage)?;
             event(&tx, hop_id, "destination_recorded", None, None, native_id.or(instance), now_ms)?;
@@ -644,9 +654,15 @@ mod tests {
         let after = journal.hop(&hop.plan.id).unwrap().unwrap();
         assert_eq!((after.state, after.revision), (HopState::Planned, 1));
         assert_eq!(journal.events(&hop.plan.id).unwrap().len(), 1);
-        let mut bad = plan('3', "t_b", HopMode::Fork);
-        bad.destination_thread_id = None;
+        let mut bad = plan('3', "t_b", HopMode::Close);
+        bad.destination_thread_id = Some("t_other".into());
         assert_eq!(journal.plan(&bad, 1), Err(HopError::Invalid("mode")));
+        let mut late = plan('4', "t_c", HopMode::Fork);
+        late.destination_thread_id = None;
+        let late = journal.plan(&late, 1).unwrap();
+        journal.set_destination_with_thread(&late.plan.id, Some("i_x"), None, Some("t_new"), 2).unwrap();
+        assert_eq!(journal.hop(&late.plan.id).unwrap().unwrap().plan.destination_thread_id.as_deref(), Some("t_new"));
+        assert!(journal.set_destination_with_thread(&hop.plan.id, None, None, Some("t_new"), 2).is_ok(), "hop 1 is a fork too");
     }
 
     #[test]

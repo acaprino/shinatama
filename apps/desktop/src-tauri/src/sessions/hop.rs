@@ -18,16 +18,24 @@ const DESTINATIONS: [&str; 6] = ["claude_code", "codex", "opencode", "pi", "herm
 const KEPT_PREVIEWS: usize = 8;
 const INSTRUCTION_FILES: [&str; 4] = ["CLAUDE.md", "AGENTS.md", "GEMINI.md", ".github/copilot-instructions.md"];
 
-fn previews() -> &'static Mutex<VecDeque<Preview>> {
-    static PREVIEWS: OnceLock<Mutex<VecDeque<Preview>>> = OnceLock::new();
+/// A frozen preview with the source facts the hop needs; held only in this process.
+#[derive(Clone)]
+pub struct KeptPreview {
+    pub preview: Preview,
+    pub source_agent: String,
+    pub source_native_id: String,
+    pub source_root: RootSelector,
+    pub cwd: Option<PathBuf>,
+}
+
+fn previews() -> &'static Mutex<VecDeque<KeptPreview>> {
+    static PREVIEWS: OnceLock<Mutex<VecDeque<KeptPreview>>> = OnceLock::new();
     PREVIEWS.get_or_init(|| Mutex::new(VecDeque::new()))
 }
 
-/// The frozen preview the coordinator must send byte for byte.
-pub fn take_preview(hop_id: &str) -> Option<Preview> {
-    let mut kept = previews().lock().ok()?;
-    let index = kept.iter().position(|p| p.hop_id == hop_id)?;
-    kept.remove(index)
+/// The frozen preview the hop must send byte for byte.
+pub fn kept_preview(hop_id: &str) -> Option<KeptPreview> {
+    previews().lock().ok()?.iter().find(|p| p.preview.hop_id == hop_id).cloned()
 }
 
 #[derive(Deserialize)]
@@ -60,6 +68,7 @@ pub async fn hop_preview(
     if request.fingerprint.len() != 64 || !request.fingerprint.bytes().all(|c| c.is_ascii_hexdigit()) || !DESTINATIONS.contains(&request.destination.as_str()) {
         return Err(SessionReadIssue::InvalidRequest);
     }
+    let source_root = request.root.clone();
     let reply = match controller
         .inner()
         .export(ExportRequest {
@@ -102,6 +111,8 @@ pub async fn hop_preview(
             return Ok(refused("same_agent", "Resuming in the same agent is native; use Resume instead of a hop."));
         }
         let project = source.cwd.as_deref().map(Path::new).filter(|p| p.is_dir());
+        let (source_agent, source_native_id) = (source.agent.clone(), source.native_session_id.clone());
+        let cwd = project.map(Path::to_path_buf);
         let facts = project.map(git::facts).unwrap_or_default();
         let instruction_files = project
             .map(|p| INSTRUCTION_FILES.iter().filter(|f| p.join(f).is_file()).map(|f| (*f).to_owned()).collect())
@@ -136,7 +147,7 @@ pub async fn hop_preview(
                     if kept.len() >= KEPT_PREVIEWS {
                         kept.pop_front();
                     }
-                    kept.push_back(value.clone());
+                    kept.push_back(KeptPreview { preview: value.clone(), source_agent, source_native_id, source_root, cwd });
                 }
                 Ok(HopPreviewOutcome::Ready { preview: Box::new(value) })
             }

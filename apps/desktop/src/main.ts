@@ -22,7 +22,7 @@ import { beginMutation, browseFolder, createRequestId } from './project-catalog.
 import { createSessionLibrary } from './session-library.ts';
 import { createSessionDetail } from './session-detail.ts';
 import { createSessionExport } from './session-export.ts';
-import { createHopPreview } from './hop-preview.ts';
+import { createHopPreview, type HopPreview } from './hop-preview.ts';
 import { createSessionSearch } from './session-search.ts';
 import { createProjectMenu, organizeToolbar } from './toolbar-simple.ts';
 import { createSessionRaw } from './session-raw.ts';
@@ -515,8 +515,64 @@ const sessionExport = createSessionExport({
   reportError: notify,
   restoreFocus: () => setFocus(focusedGroup()),
 });
+function screenText(view: View): string {
+  const buffer = view.terminal.buffer.active; const lines: string[] = [];
+  for (let index = 0; index < buffer.length; index++) lines.push(buffer.getLine(index)?.translateToString(true) ?? '');
+  return lines.join('\n');
+}
+async function decide(title: string, message: string, accept: string): Promise<boolean> {
+  const button = confirmDialog.querySelector<HTMLButtonElement>('button[value="stop"]')!; const label = button.textContent;
+  button.textContent = accept; button.classList.remove('danger');
+  try { return await confirmStop(title, message); } finally { button.textContent = label; button.classList.add('danger'); }
+}
+/** C28: open the destination, paste the exact previewed bootstrap, wait for `ready <nonce>`. */
+async function runHop(preview: HopPreview, progress: (message: string) => void, release: () => void): Promise<string> {
+  progress(`Opening ${preview.destination}…`);
+  let launched: { hopId: string; nonce: string; started: { session: SessionInfo; threadId: string } } | undefined;
+  for (let attempt = 0; !launched; attempt++) {
+    try { launched = await invoke('hop_launch', { request: { hopId: preview.hop_id, rows: 30, cols: 110 } }); }
+    catch (failure) {
+      const text = typeof failure === 'string' ? failure : JSON.stringify(failure ?? '');
+      if (!/still finishing|not yet ready|waiting for healthy resource|Retry when Resources/i.test(text) || attempt >= 30) throw text;
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+  }
+  attachTerminal(launched.started.session, focusedGroup(), launched.started.threadId);
+  const view = views.get(launched.started.session.id);
+  if (!view) throw 'The destination pane could not be attached.';
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+  const trust = /trust (this|the files in this) folder|do you trust/i;
+  progress('Waiting for the destination to be ready for input…');
+  let last = ''; let stableSince = Date.now(); let released = false;
+  for (const deadline = Date.now() + 120000; ; await sleep(250)) {
+    if (view.ended) throw 'The destination exited before the seed was sent; the source is untouched.';
+    const now = screenText(view);
+    if (trust.test(now)) {
+      if (!released) { released = true; release(); notify(`Answer ${preview.destination}'s folder question in the new pane; the hop continues after it.`, 'info'); }
+      stableSince = Date.now(); last = now; continue;
+    }
+    if (now !== last) { last = now; stableSince = Date.now(); }
+    if (now.trim() && Date.now() - stableSince > 2000) break;
+    if (Date.now() > deadline) { await invoke('hop_finish', { hopId: launched.hopId, outcome: 'fail' }); throw 'The destination never became ready for input; the hop failed and its pane stays open.'; }
+  }
+  await invoke('hop_deliver', { hopId: launched.hopId });
+  progress('Seed sent. Waiting for the destination to confirm…');
+  const receipt = new RegExp(`(^|[^\`])ready ${launched.nonce}(?!\`)`);
+  const seen = () => screenText(view).split('\n').some(line => !/reply exactly/i.test(line) && receipt.test(line));
+  for (const deadline = Date.now() + 90000; Date.now() < deadline && !view.ended; await sleep(500)) {
+    if (seen()) {
+      await invoke('hop_finish', { hopId: launched.hopId, outcome: 'receipt' });
+      setFocus(view.group);
+      return `Hop committed: ${preview.destination} confirmed the hand-off. The source session is untouched.`;
+    }
+  }
+  const keep = !view.ended && await decide('No confirmation from the destination', `${preview.destination} did not reply "ready ${launched.nonce}" within 90 seconds. Keep it as the new session anyway, or mark the hop failed? Its pane stays open either way.`, 'Keep');
+  await invoke('hop_finish', { hopId: launched.hopId, outcome: keep ? 'accept_without_receipt' : 'fail' });
+  return keep ? 'Hop committed without confirmation.' : 'Hop marked failed; the destination pane stays open.';
+}
 const hopPreview = createHopPreview({
   prepare: request => desktop ? invoke('hop_preview', { request }) : Promise.reject({ issue: 'read_unavailable' }),
+  send: desktop ? runHop : undefined,
   reportError: notify,
   restoreFocus: () => setFocus(focusedGroup()),
 });

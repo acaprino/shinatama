@@ -3,6 +3,8 @@
 mod agents;
 mod attention;
 mod attention_signals;
+#[cfg(windows)]
+mod hop_run;
 mod launch;
 pub mod maintenance;
 mod new_project;
@@ -650,6 +652,14 @@ fn main() {
         #[cfg(windows)]
         sessions::hop::hop_preview,
         #[cfg(windows)]
+        hop_run::hop_launch,
+        #[cfg(windows)]
+        hop_run::hop_deliver,
+        #[cfg(windows)]
+        hop_run::hop_finish,
+        #[cfg(windows)]
+        hop_run::hop_status,
+        #[cfg(windows)]
         sessions::session_archive_add,
         #[cfg(windows)]
         sessions::search::session_search,
@@ -738,6 +748,14 @@ fn main() {
         sessions::export::session_export,
         #[cfg(windows)]
         sessions::hop::hop_preview,
+        #[cfg(windows)]
+        hop_run::hop_launch,
+        #[cfg(windows)]
+        hop_run::hop_deliver,
+        #[cfg(windows)]
+        hop_run::hop_finish,
+        #[cfg(windows)]
+        hop_run::hop_status,
         #[cfg(windows)]
         sessions::session_archive_add,
         #[cfg(windows)]
