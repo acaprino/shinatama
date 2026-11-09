@@ -1994,6 +1994,86 @@
       "platforms": [
         "Windows 11 x64"
       ]
+    },
+    "C27": {
+      "status": "committed",
+      "commit_sha": "0985476ea455d69c5dcbc188d15c3554e6f40cbe",
+      "units": {
+        "C27.1": {
+          "status": "committed",
+          "commit_sha": "e14871ec3b23e2416753497118bac385d4899aa0",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-seed-preview.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-hop",
+            "cargo test --offline -p shinatama-export"
+          ],
+          "limits": []
+        },
+        "C27.2": {
+          "status": "committed",
+          "commit_sha": "e14871ec3b23e2416753497118bac385d4899aa0",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-seed-preview.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-hop"
+          ],
+          "limits": []
+        },
+        "C27.3": {
+          "status": "committed",
+          "commit_sha": "e14871ec3b23e2416753497118bac385d4899aa0",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-seed-preview.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-hop"
+          ],
+          "limits": []
+        },
+        "C27.4": {
+          "status": "committed",
+          "commit_sha": "0985476ea455d69c5dcbc188d15c3554e6f40cbe",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-seed-preview.md"
+          ],
+          "checks": [
+            "npm run build",
+            "node apps/desktop/tests/hop-preview-smoke.mjs"
+          ],
+          "limits": [
+            "Unknown-window cap always applies: no qualified provider catalog.",
+            "Sidecar bypass marker (R33/SC9) not implemented."
+          ]
+        }
+      },
+      "evidence": [
+        "docs/notes/2026-11-09-hop-seed-preview.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-export",
+        "cargo test --offline -p shinatama-hop",
+        "node apps/desktop/tests/hop-preview-smoke.mjs",
+        "npm run build"
+      ],
+      "next_action": "C28 sends the frozen preview through the hop coordinator; owner acceptance of C27 after trying Hop in the app."
     }
   },
   "blockers": [],
