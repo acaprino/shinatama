@@ -4,7 +4,7 @@
 [workspace]
 resolver = "3"
 # The terminal engine remains independent of the Tauri shell (ADR-0005).
-members = ["crates/terminal", "crates/projects", "crates/state", "crates/adapter", "crates/engine", "crates/export", "crates/hop", "crates/cli", "apps/desktop/src-tauri"]
+members = ["crates/terminal", "crates/projects", "crates/state", "crates/adapter", "crates/engine", "crates/export", "crates/hop", "crates/files", "crates/cli", "apps/desktop/src-tauri"]
 default-members = ["crates/terminal"]
 
 [workspace.package]
@@ -50,6 +50,7 @@ shinatama-adapter = { path = "crates/adapter" }
 shinatama-engine = { path = "crates/engine" }
 shinatama-export = { path = "crates/export" }
 shinatama-hop = { path = "crates/hop" }
+shinatama-files = { path = "crates/files" }
 mukade = { git = "https://github.com/acaprino/mukade", rev = "14edbf3cf71424a48b057e52c5532d6d4ab7d8a4" }
 
 # Local debug builds verify large native executables inside a fixed deadline.
