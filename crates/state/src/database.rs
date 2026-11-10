@@ -466,6 +466,54 @@ impl Database {
         Ok(pins)
     }
 
+    fn setting_json<T: serde::de::DeserializeOwned + Default>(&self, key: &str) -> Result<T> {
+        let connection = self.lock()?;
+        let saved: Option<String> = connection
+            .query_row("SELECT value FROM setting WHERE key=?1 AND octet_length(value)<=65536", [key], |row| row.get(0))
+            .optional()?;
+        Ok(saved.and_then(|json| serde_json::from_str(&json).ok()).unwrap_or_default())
+    }
+
+    fn set_setting_json<T: serde::Serialize>(&self, key: &str, value: &T) -> Result<()> {
+        self.require_writable()?;
+        let json = serde_json::to_string(value).map_err(|_| DatabaseError::InvalidProject("setting"))?;
+        if json.len() > 65536 {
+            return Err(DatabaseError::InvalidProject("setting too large"));
+        }
+        let mut connection = self.lock()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        schema::require_write_version(&transaction)?;
+        transaction.execute("INSERT INTO setting(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value", params![key, json])?;
+        transaction.commit()?;
+        Ok(())
+    }
+
+    /// F06 titles switch; on by default (the verbatim titler sends nothing anywhere).
+    pub fn titles_enabled(&self) -> Result<bool> {
+        Ok(self.setting_json::<Option<bool>>("titles.enabled.v1")?.unwrap_or(true))
+    }
+    pub fn set_titles_enabled(&self, enabled: bool) -> Result<()> {
+        self.set_setting_json("titles.enabled.v1", &Some(enabled))
+    }
+
+    /// Threads whose transcript is never read for a title or summary (FRD-0010 R22).
+    pub fn summaries_excluded(&self) -> Result<Vec<String>> {
+        Ok(self.setting_json::<Vec<String>>("threads.summaries_excluded.v1")?.into_iter().take(1000).collect())
+    }
+    pub fn set_summaries_excluded(&self, thread_id: &str, excluded: bool) -> Result<Vec<String>> {
+        if thread_id.is_empty() || thread_id.len() > 64 || thread_id.chars().any(char::is_control) {
+            return Err(DatabaseError::InvalidProject("thread id"));
+        }
+        let mut list = self.summaries_excluded()?;
+        list.retain(|id| id != thread_id);
+        if excluded {
+            list.insert(0, thread_id.to_owned());
+        }
+        list.truncate(1000);
+        self.set_setting_json("threads.summaries_excluded.v1", &list)?;
+        Ok(list)
+    }
+
     /// C08's sole settings namespace. Reads never allocate an oversized value.
     pub fn presentation_json(&self) -> Result<Option<String>> {
         let connection = self.lock()?;

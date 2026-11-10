@@ -3,3 +3,5 @@
 .instances-table th { text-align: left; color: var(--text-2); font-weight: 600; padding: 6px; border-bottom: 1px solid var(--line); }
 .instances-table td { padding: 6px; border-bottom: 1px solid var(--line); color: var(--text); overflow-wrap: anywhere; }
 .instances-status { min-height: 1.6em; font-size: 13px; color: var(--text-2); }
+.instances-switch { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text); margin: 6px 0 10px; }
+.instances-table td button + button { margin-left: 6px; }

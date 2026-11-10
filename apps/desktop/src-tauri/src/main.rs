@@ -5,6 +5,8 @@ mod attention;
 mod attention_signals;
 mod files;
 mod instances;
+#[cfg(windows)]
+mod titles;
 mod project_overview;
 #[cfg(windows)]
 mod hop_run;
@@ -661,6 +663,12 @@ fn main() {
         files::files_visual_apply,
         project_overview::project_overview,
         instances::instances_overview,
+        #[cfg(windows)]
+        titles::instance_titles,
+        #[cfg(windows)]
+        titles::titles_set_enabled,
+        #[cfg(windows)]
+        titles::thread_summaries_pause,
         project_overview::project_pin,
         project_overview::project_worktree_plan,
         project_overview::project_worktree_create,
@@ -772,6 +780,12 @@ fn main() {
         files::files_visual_apply,
         project_overview::project_overview,
         instances::instances_overview,
+        #[cfg(windows)]
+        titles::instance_titles,
+        #[cfg(windows)]
+        titles::titles_set_enabled,
+        #[cfg(windows)]
+        titles::thread_summaries_pause,
         project_overview::project_pin,
         project_overview::project_worktree_plan,
         project_overview::project_worktree_create,

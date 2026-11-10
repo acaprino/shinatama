@@ -145,6 +145,8 @@ pub struct DetailPage {
     pub lineage: crate::session_lineage::SessionLineage,
     /// F20: the agent's own recorded usage for this session; claims no saving.
     pub ledger: shinatama_token_economy::SessionLedger,
+    /// F06: what the session did last, verbatim from its last tool call or message.
+    pub activity_title: Option<String>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -364,7 +366,33 @@ fn project(
         ].into_iter().map(str::to_owned).collect(),
         lineage,
         ledger: session_ledger(session),
+        activity_title: activity_title(session),
     })
+}
+/// FRD-0010 R17-R18 without a model: the last tool call (name and target) or the last
+/// non-empty line of the last assistant text, redacted, at most 12 words.
+pub fn activity_title(session: &Session) -> Option<String> {
+    let target = |input: &serde_json::Value| {
+        ["file_path", "path", "command", "cmd", "pattern", "query", "url", "description"]
+            .iter()
+            .find_map(|k| input.get(*k))
+            .map(|v| match v {
+                serde_json::Value::String(s) => s.clone(),
+                serde_json::Value::Array(a) => a.iter().filter_map(|x| x.as_str()).collect::<Vec<_>>().join(" "),
+                other => other.to_string(),
+            })
+            .unwrap_or_default()
+    };
+    let raw = session.entries.iter().rev().find_map(|entry| match &entry.kind {
+        Kind::Step { calls, text, .. } => calls
+            .last()
+            .map(|call| format!("{} {}", call.source_name, target(&call.input).lines().next().unwrap_or_default()))
+            .or_else(|| text.iter().rev().flat_map(|t| t.lines().rev()).find(|l| !l.trim().is_empty()).map(str::to_owned)),
+        _ => None,
+    })?;
+    let redacted = shinatama_export::Redactor::for_seed().redact(raw.trim());
+    let words: Vec<&str> = redacted.split_whitespace().take(12).collect();
+    (!words.is_empty()).then(|| words.join(" ").chars().take(160).collect())
 }
 /// Projects the session's native records into the token ledger (FRD-0013 R35).
 pub(crate) fn session_ledger(session: &Session) -> shinatama_token_economy::SessionLedger {
@@ -666,6 +694,7 @@ mod ledger_tests {
         ]))
         .unwrap();
         let ledger = super::session_ledger(&session);
+        assert_eq!(super::activity_title(&session).as_deref(), Some("Read a"), "the last tool call wins");
         assert_eq!(ledger.turns, 2);
         assert_eq!(ledger.requests, 2);
         assert_eq!(ledger.total.cache_read, 96);
