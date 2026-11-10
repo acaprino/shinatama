@@ -16,7 +16,7 @@ pub const MAX_INPUT_FILES: usize = 4096;
 pub const MAX_DETAIL_EVENTS: usize = 50;
 pub const MAX_TEXT_BYTES: usize = 4096;
 pub const MAX_DETAIL_REPLY_BYTES: usize = 256 * 1024;
-const EVENT_PAGE_BYTES: usize = MAX_DETAIL_REPLY_BYTES - 48 * 1024;
+const EVENT_PAGE_BYTES: usize = MAX_DETAIL_REPLY_BYTES - 80 * 1024;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DetailIssue {
@@ -143,6 +143,8 @@ pub struct DetailPage {
     pub next: Option<DetailCursor>,
     pub notices: Vec<String>,
     pub lineage: crate::session_lineage::SessionLineage,
+    /// F20: the agent's own recorded usage for this session; claims no saving.
+    pub ledger: shinatama_token_economy::SessionLedger,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -361,7 +363,27 @@ fn project(
             "Appends remain allowed; renaming or deleting pinned files may fail briefly during the read.",
         ].into_iter().map(str::to_owned).collect(),
         lineage,
+        ledger: session_ledger(session),
     })
+}
+/// Projects the session's native records into the token ledger (FRD-0013 R35).
+pub(crate) fn session_ledger(session: &Session) -> shinatama_token_economy::SessionLedger {
+    use shinatama_token_economy::LedgerEvent;
+    let mut events = Vec::with_capacity(session.entries.len() * 2);
+    for entry in &session.entries {
+        match &entry.kind {
+            Kind::User { .. } => events.push(LedgerEvent::UserTurn),
+            Kind::Step { calls, .. } => {
+                events.push(LedgerEvent::Step { records: &entry.raw });
+                for call in calls {
+                    events.push(LedgerEvent::ToolCall { name: &call.source_name, input: &call.input });
+                }
+            }
+            Kind::Compaction { .. } => events.push(LedgerEvent::Compaction),
+            Kind::Results { .. } | Kind::Meta { .. } => events.push(LedgerEvent::Other { records: &entry.raw }),
+        }
+    }
+    shinatama_token_economy::build(events)
 }
 // Detail and Find share the exact event projection, including omitted markers.
 // A count-only projection never evaluates text callbacks or allocates event data.
@@ -622,5 +644,32 @@ mod tests {
             read_detail(&snapshot, &request).issue,
             Some(DetailIssue::InputTooLarge)
         );
+    }
+}
+
+#[cfg(test)]
+mod ledger_tests {
+    #[test]
+    fn ledger_reads_the_agents_own_usage_records() {
+        let mut session = mukade::wire::from_document(&serde_json::json!({
+            "meta": {"harness": "claude_code", "harness_version": "2.1.0", "id": "s"}, "messages": []
+        }))
+        .unwrap();
+        session.entries = serde_json::from_value(serde_json::json!([
+            {"id": "u1", "kind": {"user": {"text": "go", "attachments": []}}, "raw": []},
+            {"id": "a1", "kind": {"step": {"reasoning": [], "text": ["ok"], "calls": [{"id": "c1", "source_name": "Read", "input": {"path": "a"}}], "end": "tool_use"}},
+             "raw": [{"message": {"id": "m1", "usage": {"input_tokens": 4, "cache_read_input_tokens": 96, "output_tokens": 3}}}]},
+            {"id": "k1", "kind": {"compaction": {"summary": "s", "trigger": "auto"}}, "raw": []},
+            {"id": "u2", "kind": {"user": {"text": "again", "attachments": []}}, "raw": []},
+            {"id": "a2", "kind": {"step": {"reasoning": [], "text": [], "calls": [{"id": "c2", "source_name": "Read", "input": {"path": "a"}}], "end": "tool_use"}},
+             "raw": [{"message": {"id": "m2", "usage": {"input_tokens": 50, "cache_creation_input_tokens": 50, "output_tokens": 1}}}]}
+        ]))
+        .unwrap();
+        let ledger = super::session_ledger(&session);
+        assert_eq!(ledger.turns, 2);
+        assert_eq!(ledger.requests, 2);
+        assert_eq!(ledger.total.cache_read, 96);
+        assert_eq!(ledger.hit_rate_permille, Some(480));
+        assert_eq!((ledger.compactions, ledger.reruns_after_compaction), (1, 1));
     }
 }

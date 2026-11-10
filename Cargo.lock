@@ -3017,6 +3017,7 @@ dependencies = [
  "shinatama-adapter",
  "shinatama-export",
  "shinatama-state",
+ "shinatama-token-economy",
  "subtle",
  "uuid",
  "windows-sys 0.61.2",
@@ -3092,6 +3093,14 @@ dependencies = [
  "shinatama-state",
  "uuid",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "shinatama-token-economy"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -1,0 +1,12 @@
+[package]
+name = "shinatama-token-economy"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+# Per-session token ledger (FRD-0013 R05, R35, R38). Pure: it reads the usage the agents
+# themselves recorded and claims no saving.
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true

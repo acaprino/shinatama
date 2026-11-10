@@ -31,7 +31,7 @@ for (let n = 0; n < 3; n++) {
   records.push({ type: 'user', uuid: `u-${s}`, parentUuid: parent, sessionId: id, cwd: repo, timestamp: `2026-11-09T00:00:${s}Z`,
     message: { role: 'user', content: n === 0 ? `refactor the parser, token ${KEY}` : n === 2 ? '/compact then finish the lexer' : 'continue' } });
   records.push({ type: 'assistant', uuid: `a-${s}`, parentUuid: `u-${s}`, sessionId: id,
-    message: { id: `m-${s}`, role: 'assistant', model: 'fixture-model', stop_reason: 'end_turn',
+    message: { id: `m-${s}`, role: 'assistant', model: 'fixture-model', stop_reason: 'end_turn', usage: { input_tokens: 5, cache_read_input_tokens: 95, output_tokens: 2 },
       content: [{ type: 'thinking', thinking: THINK, signature: 'opaque' }, { type: 'text', text: `step ${n} done` }] } });
   parent = `a-${s}`;
 }
@@ -83,6 +83,9 @@ try {
   expect(detail.issue).toBeNull();
   const fingerprint = detail.page.fingerprint;
   evidence.checks.detailRead = true;
+  expect(detail.page.ledger.requests).toBe(3); expect(detail.page.ledger.turns).toBe(3);
+  expect(detail.page.ledger.hitRatePermille).toBe(950); expect(detail.page.ledger.total.output).toBe(6);
+  evidence.checks.tokenLedgerFromRecordedUsage = true;
 
   const same = await ipc('hop_preview', { request: { root: selector, nativeId: id, fingerprint, destination: 'claude_code' } }, 20);
   expect(same.state).toBe('refused'); expect(same.issue).toBe('same_agent');

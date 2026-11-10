@@ -13,7 +13,10 @@ export type DetailEvent = { ordinal: number; entryOrdinal: number; sourceEntryId
   kind: EventKind; text: string; truncated: boolean; payloadOmitted: boolean };
 export type DetailPage = { root: SessionRootSelector; nativeId: string; harness: string; fingerprint: string; totalEvents: number;
   overview: { title: string | null; workingDirectory: string | null; createdAt: string | null; updatedAt: string | null; parentNativeId: string | null; harnessVersion: string | null };
-  events: DetailEvent[]; next: DetailCursor | null; notices: string[]; lineage: Lineage };
+  events: DetailEvent[]; next: DetailCursor | null; notices: string[]; lineage: Lineage; ledger: Ledger | null };
+type Usage = { input: number; cacheRead: number; cacheWrite: number; output: number };
+type Ledger = { turns: number; requests: number; total: Usage; hitRatePermille: number | null; compactions: number; toolCalls: number;
+  rerunsAfterCompaction: number; recordsWithoutUsage: number };
 export type DetailReply = { root: SessionRootSelector; nativeId: string; page: DetailPage | null; issue: string | null };
 type Options = { read: (request: DetailRequest) => Promise<DetailReply>; openRaw?: (selection:RawSelection)=>void;
   openFind?: (request:DetailRequest)=>void; openExport?: (selection:{root:SessionRootSelector;nativeId:string;fingerprint:string;harness:string})=>void;
@@ -56,6 +59,13 @@ function lineageValue(value:unknown,id:string):Lineage {
   return {nativeId:id,state:value.state,selectedState:value.selectedState,ancestorState:value.ancestorState,childrenState:value.childrenState,
     ancestors:nodes(value.ancestors,32),children:nodes(value.children,50),totalDirectChildren:value.totalDirectChildren as number|null};
 }
+function ledgerValue(value: unknown): Ledger | null {
+  if (!record(value) || !record(value.total)) return null;
+  const t = value.total; const n = (v: unknown) => integer(v) ? v : 0;
+  return { turns: n(value.turns), requests: n(value.requests), total: { input: n(t.input), cacheRead: n(t.cacheRead), cacheWrite: n(t.cacheWrite), output: n(t.output) },
+    hitRatePermille: integer(value.hitRatePermille) ? value.hitRatePermille : null, compactions: n(value.compactions), toolCalls: n(value.toolCalls),
+    rerunsAfterCompaction: n(value.rerunsAfterCompaction), recordsWithoutUsage: n(value.recordsWithoutUsage) };
+}
 function decode(value: unknown, request: DetailRequest): DetailPage {
   if (!record(value) || !rootValue(value.root) || !sameRoot(value.root, request.root) || value.nativeId !== request.nativeId) throw new Error('read_unavailable');
   if (value.issue !== null) throw new Error(typeof value.issue === 'string' && Object.hasOwn(ERRORS, value.issue) ? value.issue : 'read_unavailable');
@@ -88,7 +98,7 @@ function decode(value: unknown, request: DetailRequest): DetailPage {
   }
   if (end < page.totalEvents && !next) throw new Error('read_unavailable');
   return { root: { ...request.root }, nativeId: request.nativeId, harness: page.harness, fingerprint: page.fingerprint,
-    totalEvents: page.totalEvents, events, next, lineage:lineageValue(page.lineage,request.nativeId), notices: [...page.notices] as string[], overview: {
+    totalEvents: page.totalEvents, events, next, lineage:lineageValue(page.lineage,request.nativeId), ledger: ledgerValue(page.ledger), notices: [...page.notices] as string[], overview: {
       title: overview.title as string | null, workingDirectory: overview.workingDirectory as string | null,
       createdAt: overview.createdAt as string | null, updatedAt: overview.updatedAt as string | null,
       parentNativeId: overview.parentNativeId as string | null, harnessVersion: overview.harnessVersion as string | null } };
@@ -143,6 +153,16 @@ export function createSessionDetail(options: Options) {
       const shownPage=page;
       field('Harness', page.harness); field('Harness version', page.overview.harnessVersion); field('Title', page.overview.title);
       field('Working folder', page.overview.workingDirectory); field('Created', page.overview.createdAt); field('Updated', page.overview.updatedAt);
+      const ledger = page.ledger; const num = (v: number) => v.toLocaleString();
+      if (ledger && ledger.requests) {
+        const prompt = ledger.total.input + ledger.total.cacheRead + ledger.total.cacheWrite;
+        field('Model requests', `${num(ledger.requests)} over ${num(ledger.turns)} turns`);
+        field('Prompt tokens', `${num(prompt)} (uncached ${num(ledger.total.input)}, cache read ${num(ledger.total.cacheRead)}, cache write ${num(ledger.total.cacheWrite)})`);
+        field('Output tokens', num(ledger.total.output));
+        field('Cache hit rate', ledger.hitRatePermille === null ? 'Unknown' : `${(ledger.hitRatePermille / 10).toFixed(1)} %`);
+        field('Compactions', `${ledger.compactions}; tool calls repeated after a compaction: ${ledger.rerunsAfterCompaction} of ${ledger.toolCalls}`);
+        field('Token figures', 'As recorded by the agent. No saving is claimed until ten sessions per agent are measured.');
+      } else field('Token usage', ledger?.recordsWithoutUsage ? 'This agent did not record usage in the session.' : 'No model requests recorded.');
       for (const event of page.events) {
         const article = document.createElement('article'); const label = document.createElement('h2'); label.textContent = KINDS[event.kind];
         const provenance = document.createElement('small'); provenance.textContent = `Entry ${event.entryOrdinal} · ID ${event.sourceEntryId ?? 'Unknown'} · time ${event.timestamp ?? 'Unknown'}`;
