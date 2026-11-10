@@ -2911,7 +2911,8 @@
           ],
           "checks": [
             "cargo test --offline -p shinatama-adapter pi",
-            "cargo test --offline -p shinatama-engine --features session-reader --lib pi_"
+            "cargo test --offline -p shinatama-engine --features session-reader --lib pi_",
+            "cargo test --offline -p shinatama-engine --lib pi_probe -- --include-ignored: installed Pi 1.4.0 / Node 24.14.1 version probe PASS (contained, released)"
           ],
           "limits": []
         },
@@ -2930,9 +2931,42 @@
           "limits": [
             "Only the empty skill/extension set is launched; MCP refused."
           ]
+        },
+        "C18.3": {
+          "status": "committed",
+          "commit_sha": "3fd1bd459a013ec7d3c515509022f6c074cab102",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-pi-adapter.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-adapter pi:: (15 passed: rpc, capabilities, discovery, auth, run, sets)",
+            "cargo test --offline -p shinatama-engine --features session-reader --lib -- pi_ --include-ignored: installed_pi_rpc_reads_state_and_refuses_an_unsupported_command PASS on Pi 1.4.0 (get_state idle/0 messages, get_commands 0, unknown command refused, no event, released)",
+            "verify/PI/run.ps1"
+          ],
+          "limits": [
+            "RPC is a read-only contained control check; no user flow drives Pi over RPC and no prompt is encodable.",
+            "No model call: run events, ui_prompt, queued messages, headless answers, auth status in the UI and provider traffic remain unqualified."
+          ]
         }
       },
-      "next_action": "C18.3 RPC and capability qualification for Pi (needs sign-in for model calls)."
+      "next_action": "C18 units are committed. Remaining Pi work needs a signed-in provider (events, auth status, Mukade session read) or a per-instance set writer; C15 must be verified before the parent can close.",
+      "evidence": [
+        "docs/notes/2026-11-10-pi-adapter.md"
+      ],
+      "checks": [
+        "native-new-session-user-path: Pi 1.4.0 / Node 24.14.1 PASS; .prototype-evidence/new-session-pi.json (4 checks)"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "limits": [
+        "Pi opens its original TUI contained through the shared service and closes with owned cleanup; only the empty skill/extension set is launched, MCP per launch refused (PI7).",
+        "No sign-in, prompt or model call was made: authentication, provider traffic/TLS, tools, run events, native resume/thread binding and a real Pi session read by Mukade are not proven.",
+        "Parent stays pending: dependency C15 is not verified and the deferred Daodan checkup (FRD-0001/R08) is outside this cycle."
+      ]
     }
   },
   "blockers": [],

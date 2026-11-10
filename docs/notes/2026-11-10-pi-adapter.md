@@ -97,6 +97,7 @@ Commit integrati sul master come `5f10452` (C18.1) e `81ca416` (C18.2). Ripetuti
 `cargo test -p shinatama-adapter pi` (13), `cargo test -p shinatama-engine --features session-reader --lib pi_` (5),
 `SHINATAMA_SMOKE_SESSION_HARNESS=pi node apps/desktop/tests/new-session-smoke.mjs` PASS (4 controlli).
 C18.3 (RPC e capacità) è nella sezione seguente.
+
 ## C18.3 — Collegare RPC e provare le capacità Pi
 
 - `crates/adapter/src/pi/rpc.rs`: canale di controllo RPC (`--mode rpc
