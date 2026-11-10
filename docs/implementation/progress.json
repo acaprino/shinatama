@@ -2604,6 +2604,45 @@
         }
       },
       "next_action": "C32.3: register instances at launch, inject MCP + token per agent, hooks; qualify per agent version."
+    },
+    "C33": {
+      "status": "pending",
+      "commit_sha": null,
+      "units": {
+        "C33.2": {
+          "status": "committed",
+          "commit_sha": "bdec7b9d5ca239fa42c525948e65e0ee880b2664",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-roundtable.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-roundtable"
+          ],
+          "limits": [
+            "Fake headless participants only."
+          ]
+        },
+        "C33.3": {
+          "status": "committed",
+          "commit_sha": "bdec7b9d5ca239fa42c525948e65e0ee880b2664",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-roundtable.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-roundtable"
+          ],
+          "limits": [
+            "Caps not calibrated on real topics."
+          ]
+        }
+      },
+      "next_action": "C33.1 real ask_headless per agent with canaries (needs owner-authorized budget); C33.4 UI, roundtable thread and search."
     }
   },
   "blockers": [],
