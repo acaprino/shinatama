@@ -9,6 +9,7 @@ pub mod maintenance;
 pub mod messages;
 mod migrations;
 pub mod native_session_cleanup;
+pub mod privacy;
 pub mod projects;
 pub mod records;
 pub mod resource_reservations;

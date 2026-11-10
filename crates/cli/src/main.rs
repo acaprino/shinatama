@@ -62,6 +62,7 @@ fn main() -> std::process::ExitCode {
             }
         },
         Ok(Command::Mcp) => run_mcp(),
+        Ok(Command::CheckState { json }) => shinatama_cli::check_state::run(json, &mut std::io::stdout().lock()).unwrap_or(ExitCode::FailedUnchanged),
         Ok(Command::Sessions(command)) => shinatama_cli::sessions::run(
             &command,
             &mut std::io::stdout().lock(),

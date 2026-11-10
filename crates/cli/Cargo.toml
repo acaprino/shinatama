@@ -9,6 +9,9 @@ license.workspace = true
 name = "shinatama"
 path = "src/main.rs"
 
+[dev-dependencies]
+rusqlite.workspace = true
+
 [dependencies]
 serde_json.workspace = true
 shinatama-adapter.workspace = true

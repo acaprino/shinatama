@@ -1,4 +1,5 @@
 //! Read-only doctor and launch preflight. No config creation, migration or login.
+pub mod check_state;
 pub mod launch;
 pub mod mcp;
 pub mod sessions;
@@ -32,6 +33,7 @@ pub enum Command {
     LaunchPreflight,
     Sessions(sessions::SessionCommand),
     Mcp,
+    CheckState { json: bool },
     Help,
 }
 
@@ -49,6 +51,13 @@ pub enum ParseError {
 pub fn parse(args: &[String]) -> Result<Command, ParseError> {
     if args.len() > 16 || args.iter().any(|argument| argument.len() > 1024) {
         return Err(ParseError::TooManyArguments);
+    }
+    if args.first().map(String::as_str) == Some("check-state") {
+        return match &args[1..] {
+            [] => Ok(Command::CheckState { json: false }),
+            [flag] if flag == "--json" => Ok(Command::CheckState { json: true }),
+            _ => Err(ParseError::UnknownOption),
+        };
     }
     if args.len() == 1 && args[0] == "mcp" {
         return Ok(Command::Mcp);
