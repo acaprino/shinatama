@@ -54,6 +54,20 @@ Nota ambiente: i proof vanno lanciati con `TEMP` fuori da qualsiasi repo Git
 
 Si apre una voce solo dopo l'uso reale della v0.1: i difetti trovati vincono sulle funzioni nuove.
 
+## Wave 2b — Implementato 2026-11-09/10 (da provare in app)
+
+| Voce | Cosa c'è | Cosa resta |
+| --- | --- | --- |
+| C26 | **Export…** nel dettaglio sessione (STX, Mukade JSON, Markdown, segreti oscurati, scrittura atomica); CLI `sessions/find/export/forget` | export nativo per agente |
+| C27-C29 | **Hop…**: anteprima esatta del seed, file privati in `.git/shinatama/handoffs`, hop da archivio con registro `hops.sqlite`, recupero dopo crash, catch-up, UNDO, standby (logica) | un hop vero con il tuo account; close da terminale vivo |
+| C30.1 | matrice delle 36 coppie: offerte solo quelle con lettore e avvio qualificati | canary reali per coppia |
+| C31-C32 | API messaggi tra istanze, `shinatama mcp` con 4 strumenti e token per istanza | iniezione negli agenti (C32.3) |
+| C33 | coordinatore roundtable con limiti, stop e note | partecipanti headless reali, UI |
+| C36 | **Projects**: preferiti, branch e modifiche, ultimo thread, nuovo worktree confermato | — |
+| C41-C44 | **Files**: albero, ricerca, anteprima Markdown inerte, modalità Visual, salvataggio con controllo versione, immagini | lettore DOCX |
+| F04/F06 | **Instances**: stato osservato con la sua fonte, titoli verbatim, pausa riepiloghi | hook nativi per agente |
+| F09, F20, F03P | protocollo schede companion; registro token per sessione; `shinatama check-state` | pannello companion; 10 sessioni reali per agente |
+
 ## Wave 3 — Capacità
 
 | Voce | Cosa |
