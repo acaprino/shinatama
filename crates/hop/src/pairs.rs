@@ -10,8 +10,8 @@ pub const AGENTS: [&str; 6] = ["claude_code", "codex", "opencode", "pi", "hermes
 
 /// Sources whose sessions the contained reader can project (C22/C23 evidence).
 pub const QUALIFIED_READERS: [&str; 3] = ["claude_code", "codex", "pi"];
-/// Destinations the desktop opens through a qualified Open path (C15-C17 evidence).
-pub const QUALIFIED_LAUNCHERS: [&str; 3] = ["claude_code", "codex", "opencode"];
+/// Destinations the desktop opens through a qualified Open path (C15-C18 evidence).
+pub const QUALIFIED_LAUNCHERS: [&str; 4] = ["claude_code", "codex", "opencode", "pi"];
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case", tag = "support")]
@@ -83,8 +83,8 @@ mod tests {
         assert!(matches!(support("gemini", "codex", &[]), PairSupport::Refuse { .. }));
         let offered: Vec<_> = pairs.iter().filter(|p| p.support == PairSupport::SeedPrompt).map(|p| (p.source, p.destination)).collect();
         assert_eq!(offered, [
-            ("claude_code", "codex"), ("claude_code", "opencode"),
-            ("codex", "claude_code"), ("codex", "opencode"),
+            ("claude_code", "codex"), ("claude_code", "opencode"), ("claude_code", "pi"),
+            ("codex", "claude_code"), ("codex", "opencode"), ("codex", "pi"),
             ("pi", "claude_code"), ("pi", "codex"), ("pi", "opencode"),
         ]);
         for source in ["hermes", "deepseek", "opencode"] {

@@ -126,7 +126,7 @@ try {
   evidence.checks.nothingInWorkingTreeAndSourceUnchanged = true;
 
   // C30: pairs without a qualified launch or reader are refused before anything is prepared.
-  for (const destination of ['hermes', 'deepseek', 'pi']) {
+  for (const destination of ['hermes', 'deepseek']) {
     const refused = await ipc('hop_preview', { request: { root: selector, nativeId: id, fingerprint, destination } }, 20);
     expect(refused.state).toBe('refused'); expect(refused.issue).toBe('pair_unsupported');
   }
