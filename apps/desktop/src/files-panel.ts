@@ -6,6 +6,8 @@ type Listing = { path: string; entries: Entry[]; truncated: boolean };
 type Search = { query: string; hits: Entry[]; truncated: boolean; cancelled: boolean; timedOut: boolean };
 type TextFile = { path: string; text: string | null; binary: boolean; truncated: boolean; bytes: number; sha256: string };
 type SaveOutcome = { state: 'saved'; sha256: string } | { state: 'conflict'; disk_sha256: string } | { state: 'failed'; message: string };
+type VisualBlock = { kind: 'heading' | 'paragraph' | 'code' | 'blank' | 'preserved'; prefix: string; text: string; suffix: string; level: number; editable: boolean };
+type VisualDocument = { blocks: VisualBlock[]; exact: boolean; editableBlocks: number; preservedBlocks: number };
 type Buffer = { path: string; baseText: string; baseSha256: string; text: string; editable: boolean };
 type Invoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 type Options = { invoke: Invoke; project: () => string | null; reportError: (message: string) => void;
@@ -33,9 +35,9 @@ export function createFilesPanel(options: Options) {
   const name = document.createElement('span'); name.className = 'files-name';
   const modes = document.createElement('div'); modes.className = 'files-modes';
   const modeButtons = new Map<string, HTMLButtonElement>();
-  for (const mode of ['source', 'preview', 'split']) {
+  for (const mode of ['source', 'preview', 'split', 'visual']) {
     const button = document.createElement('button'); button.type = 'button'; button.textContent = mode[0].toUpperCase() + mode.slice(1);
-    button.onclick = () => { view = mode as typeof view; render(); }; modes.append(button); modeButtons.set(mode, button);
+    button.onclick = () => { view = mode as typeof view; render(); if (view === 'visual') void renderVisual(); else schedulePreview(); }; modes.append(button); modeButtons.set(mode, button);
   }
   const save = document.createElement('button'); save.type = 'button'; save.className = 'primary'; save.textContent = 'Save';
   bar.append(name, modes, save);
@@ -43,7 +45,8 @@ export function createFilesPanel(options: Options) {
   const editor = document.createElement('textarea'); editor.className = 'files-editor'; editor.spellcheck = false; editor.setAttribute('aria-label', 'File source');
   const preview = document.createElement('div'); preview.className = 'files-preview'; preview.setAttribute('aria-label', 'Rendered Markdown');
   const picture = document.createElement('div'); picture.className = 'files-picture'; picture.hidden = true;
-  panes.append(editor, preview, picture);
+  const visual = document.createElement('div'); visual.className = 'files-visual'; visual.hidden = true; visual.setAttribute('aria-label', 'Visual editor');
+  panes.append(editor, preview, picture, visual);
   const status = document.createElement('p'); status.className = 'files-status'; status.setAttribute('role', 'status');
   main.append(bar, panes, status);
   body.append(side, main);
@@ -51,7 +54,8 @@ export function createFilesPanel(options: Options) {
   (document.querySelector('#app') ?? document.body).append(dialog);
 
   const buffers = new Map<string, Buffer>();
-  let current: Buffer | null = null; let folder = ''; let view: 'source' | 'preview' | 'split' = 'source';
+  let current: Buffer | null = null; let folder = ''; let view: 'source' | 'preview' | 'split' | 'visual' = 'source';
+  let visualAvailable = false; let visualGeneration = 0;
   let pending: string | null = null; let renderGeneration = 0; let renderTimer = 0;
   const markdown = (path: string) => /\.(md|markdown)$/i.test(path);
   const setStatus = (text: string, error = false) => { status.textContent = text; status.dataset.state = error ? 'error' : 'ready'; };
@@ -60,8 +64,9 @@ export function createFilesPanel(options: Options) {
   function render() {
     const md = !!current && markdown(current.path);
     modes.hidden = !md; if (!md) view = 'source';
-    for (const [mode, button] of modeButtons) button.setAttribute('aria-pressed', String(mode === view));
-    editor.hidden = !current || view === 'preview'; preview.hidden = !current || view === 'source';
+    if (view === 'visual' && !visualAvailable) view = 'source';
+    for (const [mode, button] of modeButtons) { button.setAttribute('aria-pressed', String(mode === view)); if (mode === 'visual') { button.disabled = !visualAvailable; button.title = visualAvailable ? 'Edit headings, paragraphs and code; other Markdown is kept as source' : 'Not available: this document does not round-trip exactly'; } }
+    editor.hidden = !current || view === 'preview' || view === 'visual'; preview.hidden = !current || view === 'source' || view === 'visual'; visual.hidden = !current || view !== 'visual';
     save.disabled = !current?.editable || current.text === current.baseText;
     name.textContent = current ? `${current.path}${current.text !== current.baseText ? ' •' : ''}` : 'No file open';
     editor.readOnly = !current?.editable;
@@ -131,10 +136,47 @@ export function createFilesPanel(options: Options) {
       if (file.truncated) setStatus('This file is larger than 4 MiB: shown read-only, first part only.');
     }
     current = buffer; editor.value = buffer.text; preview.replaceChildren();
+    visualAvailable = false;
+    if (markdown(buffer.path) && buffer.editable) {
+      const doc = await options.invoke<VisualDocument>('files_visual_parse', { text: buffer.text }).catch(() => null);
+      visualAvailable = !!doc && doc.exact && doc.editableBlocks > 0;
+    }
     if (markdown(buffer.path) && view === 'source') view = 'split';
     setStatus(buffer.editable ? 'Opened for reading. Edit and press Save to write it.' : status.textContent ?? ''); render(); schedulePreview();
   }
   editor.addEventListener('input', () => { if (current?.editable) { current.text = editor.value; render(); schedulePreview(); } });
+  async function renderVisual() {
+    if (!current || view !== 'visual') return;
+    const at = ++visualGeneration;
+    const doc = await options.invoke<VisualDocument>('files_visual_parse', { text: current.text }).catch(() => null);
+    if (at !== visualGeneration || !current) return;
+    if (!doc || !doc.exact) { visualAvailable = false; view = 'source'; render(); setStatus('Visual mode is not available for this document; use Source.', true); return; }
+    visual.replaceChildren();
+    doc.blocks.forEach((block, index) => {
+      if (block.kind === 'blank') return;
+      if (!block.editable) {
+        const kept = document.createElement('pre'); kept.className = 'files-visual-kept'; kept.textContent = block.prefix + block.text + block.suffix;
+        kept.title = 'Kept as source: not part of the visual subset'; visual.append(kept); return;
+      }
+      const field = block.kind === 'heading' ? document.createElement('input') : document.createElement('textarea');
+      field.className = `files-visual-${block.kind}${block.kind === 'heading' ? ` level-${block.level}` : ''}`;
+      field.value = block.kind === 'code' ? block.text.replace(/\r?\n$/, '') : block.text;
+      field.setAttribute('aria-label', `${block.kind} ${index}`);
+      if (field instanceof HTMLTextAreaElement) field.rows = Math.min(12, Math.max(2, field.value.split('\n').length));
+      let timer = 0;
+      field.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = window.setTimeout(async () => {
+          if (!current) return;
+          try {
+            const text = await options.invoke<string>('files_visual_apply', { text: current.text, edits: [{ index, text: field.value }] });
+            current.text = text; editor.value = text; field.classList.remove('invalid'); setStatus('Edited visually; Save writes the file.'); render();
+          } catch (error) { field.classList.add('invalid'); setStatus(message(error), true); }
+        }, 300);
+      });
+      visual.append(field);
+    });
+  }
   preview.addEventListener('click', event => {
     const link = (event.target as HTMLElement).closest('a[data-path]');
     if (!link) return; event.preventDefault();

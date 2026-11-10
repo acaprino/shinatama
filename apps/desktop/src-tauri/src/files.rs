@@ -154,6 +154,35 @@ pub struct MarkdownView {
 }
 
 #[tauri::command]
+pub async fn files_visual_parse(window: WebviewWindow, text: String) -> Result<shinatama_files::visual::VisualDocument, String> {
+    crate::local(&window)?;
+    if text.len() > shinatama_files::buffers::MAX_BUFFER_BYTES {
+        return Err("The document is too large for visual editing.".into());
+    }
+    blocking(move || Ok(shinatama_files::visual::parse(&text))).await
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct VisualEdit {
+    index: usize,
+    text: String,
+}
+
+#[tauri::command]
+pub async fn files_visual_apply(window: WebviewWindow, text: String, edits: Vec<VisualEdit>) -> Result<String, String> {
+    crate::local(&window)?;
+    if text.len() > shinatama_files::buffers::MAX_BUFFER_BYTES || edits.len() > 64 {
+        return Err("The edit is too large.".into());
+    }
+    blocking(move || {
+        let edits: Vec<(usize, String)> = edits.into_iter().map(|e| (e.index, e.text)).collect();
+        shinatama_files::visual::apply(&text, &edits).map_err(|e| e.to_string())
+    })
+    .await
+}
+
+#[tauri::command]
 pub async fn files_markdown(window: WebviewWindow, text: String) -> Result<MarkdownView, String> {
     crate::local(&window)?;
     blocking(move || {

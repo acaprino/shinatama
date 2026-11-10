@@ -24,3 +24,11 @@
 .files-status[data-state=error] { color: var(--error); }
 .files-picture { overflow: auto; border: 1px solid var(--line); display: flex; align-items: flex-start; justify-content: center; padding: 10px; background: var(--chrome); }
 .files-picture img { max-width: 100%; height: auto; image-rendering: auto; }
+.files-visual { overflow: auto; border: 1px solid var(--line); padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; }
+.files-visual input, .files-visual textarea { width: 100%; border: 1px solid transparent; background: transparent; color: var(--text); font: 14px/1.6 inherit; resize: vertical; }
+.files-visual input:focus, .files-visual textarea:focus { border-color: var(--accent); outline: none; }
+.files-visual .files-visual-heading { font-weight: 700; font-size: 18px; }
+.files-visual .files-visual-heading.level-1 { font-size: 22px; }
+.files-visual .files-visual-code { font: 13px/1.5 var(--mono); background: var(--chrome); }
+.files-visual .invalid { border-color: var(--error); }
+.files-visual-kept { margin: 0; padding: 6px 8px; color: var(--text-2); background: var(--chrome); border-left: 3px solid var(--line); white-space: pre-wrap; font: 12px/1.5 var(--mono); }

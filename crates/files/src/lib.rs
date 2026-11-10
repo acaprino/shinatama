@@ -4,3 +4,4 @@ pub mod buffers;
 pub mod markdown;
 pub mod navigator;
 pub mod preview;
+pub mod visual;

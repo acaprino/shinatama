@@ -23,6 +23,7 @@ await writeFile(resolve(project, 'docs', 'dot.png'), Buffer.from('iVBORw0KGgoAAA
 const bomb = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ', 'base64'); bomb.writeUInt32BE(200000, 16); bomb.writeUInt32BE(200000, 20);
 await writeFile(resolve(project, 'docs', 'bomb.png'), bomb);
 await writeFile(resolve(project, 'docs', 'report.docx'), 'PK');
+await writeFile(resolve(project, 'docs', 'list.md'), '- only a list\n- nothing editable\n');
 const marker = resolve(fixture, 'ran.txt');
 await writeFile(resolve(project, 'run.bat'), `@echo ran > "${marker}"\n`);
 execFileSync('powershell', ['-NoProfile', '-Command', `New-Item -ItemType Junction -Path '${resolve(project, 'escape')}' -Target '${resolve(fixture, 'outside')}' | Out-Null`]);
@@ -103,11 +104,23 @@ try {
   await expect(page.locator('#files-dialog .files-status')).toHaveText('Saved.', { timeout: 10000 });
   expect(await readFile(resolve(project, 'README.md'), 'utf8')).toBe('# Edited\n\nbody');
   evidence.checks.panelPreviewEditSave = true;
+  await page.locator('#files-dialog .files-modes button', { hasText: 'Visual' }).click();
+  const headingField = page.locator('#files-dialog .files-visual input.files-visual-heading');
+  await expect(headingField).toHaveValue('Edited', { timeout: 10000 });
+  await headingField.fill('Visual title');
+  await expect(page.locator('#files-dialog .files-status')).toHaveText('Edited visually; Save writes the file.', { timeout: 10000 });
+  await page.locator('#files-dialog button.primary', { hasText: 'Save' }).click();
+  await expect(page.locator('#files-dialog .files-status')).toHaveText('Saved.', { timeout: 10000 });
+  expect(await readFile(resolve(project, 'README.md'), 'utf8')).toBe('# Visual title\n\nbody');
+  evidence.checks.visualHeadingEditSaved = true;
   await page.locator('#files-dialog .files-list button', { hasText: 'docs' }).click();
   await page.locator('#files-dialog .files-list button', { hasText: 'dot.png' }).click();
   await expect(page.locator('#files-dialog .files-picture img')).toBeVisible({ timeout: 10000 });
   await expect(page.locator('#files-dialog .files-status')).toContainText('1 x 1 pixels');
   evidence.checks.panelShowsImage = true;
+  await page.locator('#files-dialog .files-list button', { hasText: 'list.md' }).click();
+  await expect(page.locator('#files-dialog .files-modes button', { hasText: 'Visual' })).toBeDisabled({ timeout: 10000 });
+  evidence.checks.visualUnavailableForUnsupportedMarkdown = true;
   evidence.status = 'pass';
 } catch (error) {
   evidence.status = 'fail'; evidence.error = String(error?.message ?? error).slice(0, 2000); throw error;
