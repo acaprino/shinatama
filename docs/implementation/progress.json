@@ -2465,6 +2465,24 @@
         "node apps/desktop/tests/projects-overview-smoke.mjs"
       ],
       "next_action": "Owner acceptance."
+    },
+    "F09": {
+      "status": "committed",
+      "commit_sha": "682cecf79a3f04bf8cb3fc53eb80aed3a2ae2f0f",
+      "evidence": [
+        "docs/notes/2026-11-10-companion-cards.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-companion"
+      ],
+      "limits": [
+        "Compatibility fold instead of full NFKC.",
+        "Library only until the F10 pane."
+      ],
+      "next_action": "F10 companion pane (needs C15/C13/F04)."
     }
   },
   "blockers": [],
