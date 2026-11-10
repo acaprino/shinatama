@@ -5,6 +5,8 @@
 //! reads and writes, output, the cache hit rate, compactions and tool re-runs after a
 //! compaction. It is the baseline every later technique is measured against; it states no
 //! saving, and no claim may be made until ten real sessions per harness are recorded.
+pub mod decision;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashSet;
