@@ -2766,6 +2766,25 @@
         "node apps/desktop/tests/session-search-smoke.mjs"
       ],
       "next_action": "Owner acceptance (marked done 2026-11-08 in the simplified plan)."
+    },
+    "F03P": {
+      "status": "pending",
+      "commit_sha": null,
+      "evidence": [
+        "docs/notes/2026-11-10-check-state.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-state --lib privacy",
+        "cargo test --offline -p shinatama-cli --lib check_state",
+        "target/debug/shinatama.exe check-state"
+      ],
+      "limits": [
+        "check-state implemented at 0481eab9f7db4f985f8ab94e9a0660d20f6bfdae; companion forget, SEC second review and traffic capture checks open."
+      ],
+      "next_action": "SEC second-reader review of redaction and wrappers; X4/X5 capture checks."
     }
   },
   "blockers": [],
