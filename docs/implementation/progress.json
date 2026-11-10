@@ -2803,6 +2803,25 @@
         "Overview implemented at c171aa59cc4a8f083577b347d9895b8ec549ee03 from terminal observations only; native hooks per agent not connected."
       ],
       "next_action": "Connect native state hooks per agent (Claude first) as the trusted state_source."
+    },
+    "F06": {
+      "status": "committed",
+      "commit_sha": "88f509949638cc548b16b3b3898cc307763bb595",
+      "evidence": [
+        "docs/notes/2026-11-10-instances-overview.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-engine --features session-reader --lib ledger_tests",
+        "node apps/desktop/tests/instances-smoke.mjs"
+      ],
+      "limits": [
+        "Verbatim backend only; model backends are F07/F08.",
+        "No real agent thread title smoke."
+      ],
+      "next_action": "Owner acceptance."
     }
   },
   "blockers": [],
