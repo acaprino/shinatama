@@ -2399,6 +2399,72 @@
         }
       },
       "next_action": "C44.2 needs a DOCX reader choice with a fidelity corpus; until then DOCX stays unavailable (reported, never approximated)."
+    },
+    "C36": {
+      "status": "committed",
+      "commit_sha": "16cfb02fd2521e40d9956dc57718c582d89c3b88",
+      "units": {
+        "C36.1": {
+          "status": "committed",
+          "commit_sha": "16cfb02fd2521e40d9956dc57718c582d89c3b88",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-project-overview.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-projects --lib git::tests",
+            "cargo test --offline -p shinatama-state --test projects pinned",
+            "node apps/desktop/tests/projects-overview-smoke.mjs"
+          ],
+          "limits": []
+        },
+        "C36.2": {
+          "status": "committed",
+          "commit_sha": "16cfb02fd2521e40d9956dc57718c582d89c3b88",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-project-overview.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-projects --lib git::tests",
+            "cargo test --offline -p shinatama-state --test projects pinned",
+            "node apps/desktop/tests/projects-overview-smoke.mjs"
+          ],
+          "limits": []
+        },
+        "C36.3": {
+          "status": "committed",
+          "commit_sha": "16cfb02fd2521e40d9956dc57718c582d89c3b88",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-project-overview.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-projects --lib git::tests",
+            "cargo test --offline -p shinatama-state --test projects pinned",
+            "node apps/desktop/tests/projects-overview-smoke.mjs"
+          ],
+          "limits": []
+        }
+      },
+      "evidence": [
+        "docs/notes/2026-11-10-project-overview.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-projects --lib git::tests",
+        "cargo test --offline -p shinatama-state --test projects pinned",
+        "node apps/desktop/tests/projects-overview-smoke.mjs"
+      ],
+      "next_action": "Owner acceptance."
     }
   },
   "blockers": [],
