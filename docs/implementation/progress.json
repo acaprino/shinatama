@@ -2859,6 +2859,23 @@
         "Collision logic and git fixtures at 2516ab52575e48a9cc21e23d3b2d952e58984cdc; not shown in the overview yet (needs per-instance tool-call targets from native hooks or transcripts); usage vs provider reports and large-repo cost not measured."
       ],
       "next_action": "Feed tool-call targets per instance into collisions and show them in Instances; timeline of hops/rounds."
+    },
+    "F21": {
+      "status": "pending",
+      "commit_sha": null,
+      "evidence": [
+        "docs/notes/2026-11-10-token-ledger.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-token-economy"
+      ],
+      "limits": [
+        "Planner at abac2823cc25d895e6ba211a6c9949596c1caef1; not connected to Claude: the local rule endpoint, interception of native compaction (one owner) and the 60 % trigger need the sidecar seam (C13) and are unproven."
+      ],
+      "next_action": "Serve the planner behind the local endpoint the compaction plugin calls; prove native compaction stands down (T11, T13, T14)."
     }
   },
   "blockers": [],

@@ -16,3 +16,10 @@ Limits and deferred parts:
 - No aggregation across sessions, no tool-definition, verbosity-cache or image-weight
   measurements linked yet (T-rows stay open).
 - Daodan-related baseline parts stay deferred with Daodan (FRD-0013 R08-R12, R29).
+
+## F21 rule-only decision planner (2026-11-10)
+
+`crates/token-economy/src/decision.rs`: pairing, pinning, deterministic rules with recorded
+stages, apply with pairs kept together and text untouched, structured-fallback signal under a
+25 % reduction. 3 tests. Not connected to any agent: no endpoint, no interception of Claude's
+native compaction yet.
