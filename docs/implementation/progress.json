@@ -2822,6 +2822,25 @@
         "No real agent thread title smoke."
       ],
       "next_action": "Owner acceptance."
+    },
+    "F03H": {
+      "status": "committed",
+      "commit_sha": "dbb0e3a8db3f7e7fbfa40d59b024a71008164a34",
+      "evidence": [
+        "docs/notes/2026-11-10-hop-transactions.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-hop --test cross_process",
+        "cargo test --offline -p shinatama-state --lib hops",
+        "cargo test --offline -p shinatama-hop"
+      ],
+      "limits": [
+        "No OS kill of the desktop during a real hop."
+      ],
+      "next_action": "Owner acceptance."
     }
   },
   "blockers": [],
