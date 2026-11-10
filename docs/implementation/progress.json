@@ -2876,6 +2876,23 @@
         "Planner at abac2823cc25d895e6ba211a6c9949596c1caef1; not connected to Claude: the local rule endpoint, interception of native compaction (one owner) and the 60 % trigger need the sidecar seam (C13) and are unproven."
       ],
       "next_action": "Serve the planner behind the local endpoint the compaction plugin calls; prove native compaction stands down (T11, T13, T14)."
+    },
+    "F17": {
+      "status": "pending",
+      "commit_sha": null,
+      "evidence": [
+        "docs/notes/2026-11-10-browser-contract.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-browser"
+      ],
+      "limits": [
+        "Contract and routing at 0fd3e9d0a29d5c952f2c510f2204d274c1799a5f; no engine integration (F18 Moli, F19 Patchright), no session view (R14)."
+      ],
+      "next_action": "F18 Moli one-shot fetch behind this contract."
     }
   },
   "blockers": [],
