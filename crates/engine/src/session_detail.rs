@@ -147,6 +147,8 @@ pub struct DetailPage {
     pub ledger: shinatama_token_economy::SessionLedger,
     /// F06: what the session did last, verbatim from its last tool call or message.
     pub activity_title: Option<String>,
+    /// F05: paths named by this session's edit/write tool calls (evidence for collisions).
+    pub touched_paths: Vec<String>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -367,8 +369,38 @@ fn project(
         lineage,
         ledger: session_ledger(session),
         activity_title: activity_title(session),
+        touched_paths: touched_paths(session),
     })
 }
+/// Targets of edit/write tool calls, deduplicated, newest last, bounded to 200 paths / 16 KiB.
+pub fn touched_paths(session: &Session) -> Vec<String> {
+    const WRITERS: [&str; 9] = ["edit", "write", "multiedit", "apply_patch", "str_replace", "create", "notebookedit", "write_file", "edit_file"];
+    let mut out: Vec<String> = Vec::new();
+    let mut bytes = 0;
+    for entry in &session.entries {
+        let Kind::Step { calls, .. } = &entry.kind else { continue };
+        for call in calls {
+            if !WRITERS.contains(&call.source_name.to_ascii_lowercase().as_str()) {
+                continue;
+            }
+            let Some(path) = ["file_path", "path", "notebook_path"].iter().find_map(|k| call.input.get(*k).and_then(|v| v.as_str())) else { continue };
+            if path.is_empty() || path.len() > 512 || path.chars().any(char::is_control) {
+                continue;
+            }
+            out.retain(|p| p != path);
+            out.push(path.to_owned());
+        }
+    }
+    while out.len() > 200 {
+        out.remove(0);
+    }
+    out.retain(|p| {
+        bytes += p.len();
+        bytes <= 16 * 1024
+    });
+    out
+}
+
 /// FRD-0010 R17-R18 without a model: the last tool call (name and target) or the last
 /// non-empty line of the last assistant text, redacted, at most 12 words.
 pub fn activity_title(session: &Session) -> Option<String> {
@@ -695,6 +727,7 @@ mod ledger_tests {
         .unwrap();
         let ledger = super::session_ledger(&session);
         assert_eq!(super::activity_title(&session).as_deref(), Some("Read a"), "the last tool call wins");
+        assert!(super::touched_paths(&session).is_empty(), "reads are not writes");
         assert_eq!(ledger.turns, 2);
         assert_eq!(ledger.requests, 2);
         assert_eq!(ledger.total.cache_read, 96);

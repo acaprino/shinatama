@@ -204,6 +204,44 @@ pub fn plan_worktree(project: &Path, name: &str) -> Result<WorktreePlan, Worktre
     Ok(WorktreePlan { project: project.to_path_buf(), path, branch: format!("shinatama/{name}") })
 }
 
+/// The worktree root and its changed paths (relative), read-only. `None` outside Git.
+pub fn changes(path: &Path, timeout: Duration) -> Option<(String, Vec<String>)> {
+    let root = run_git(path, &["rev-parse".as_ref(), "--show-toplevel".as_ref()], timeout).ok()?;
+    let mut command = Command::new("git");
+    command
+        .arg("-C")
+        .arg(path)
+        .args(["status", "--porcelain=v1", "-z", "--untracked-files=normal"])
+        .env("GIT_OPTIONAL_LOCKS", "0")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x0800_0000);
+    }
+    let child = command.spawn().ok()?;
+    let started = Instant::now();
+    let output = child.wait_with_output().ok()?;
+    if !output.status.success() || started.elapsed() > timeout * 2 {
+        return None;
+    }
+    let mut paths = Vec::new();
+    let mut records = output.stdout.split(|b| *b == 0).filter(|r| r.len() > 3);
+    while let Some(record) = records.next() {
+        let text = String::from_utf8_lossy(record);
+        paths.push(text[3..].to_owned());
+        if text.starts_with('R') || text.starts_with('C') {
+            records.next();
+        }
+        if paths.len() >= 2000 {
+            break;
+        }
+    }
+    Some((root, paths))
+}
+
 fn run_git(dir: &Path, args: &[&std::ffi::OsStr], timeout: Duration) -> Result<String, String> {
     let mut command = Command::new("git");
     command.arg("-C").arg(dir).args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());

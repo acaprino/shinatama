@@ -81,6 +81,15 @@ try {
   const paused = await ipc('instance_titles', { requests: [{ instanceId: info.id, threadId: 't_aaaaaaaaaaaa', state: 'quiet' }] });
   expect(paused.rows[0].reason).toBe('summaries paused'); expect(paused.excluded).toContain('t_aaaaaaaaaaaa');
   evidence.checks.titlesSwitchAndPausedThreadNeverRead = true;
+  const alone = await ipc('instance_titles', { requests: [{ instanceId: info.id, threadId: null, state: 'quiet' }] });
+  expect(alone.collisions).toEqual([]);
+  const second = await ipc('terminal_start', { cwd: repo, rows: 24, cols: 100 }, 30);
+  const both = await ipc('instance_titles', { requests: [{ instanceId: info.id, threadId: null, state: 'quiet' }, { instanceId: second.id, threadId: null, state: 'quiet' }] });
+  expect(both.collisions).toEqual([{ kind: 'possible_collision', worktree: expect.any(String), path: 'a.txt' }]);
+  expect(JSON.stringify(both.collisions)).not.toContain(info.id);
+  expect(await ipc('hops_recent')).toEqual([]);
+  await ipc('terminal_stop', { id: second.id });
+  evidence.checks.unattributedChangeNamesNoInstance = true;
   await write(info.id, 'exit 3\r');
   const ended = await waitFor(info.id, r => r.certain === true, 'exit');
   expect(ended.state).toBe('error'); expect(ended.stateSource).toBe('process');

@@ -3,7 +3,10 @@ import './instances-overview.css';
 
 type Git = { state: 'known'; branch: string | null; dirty: number; untracked: number } | { state: 'not_repository' } | { state: 'unknown'; reason: string };
 type Row = { id: string; agent: string; cwd: string; state: string; stateSource: string; certain: boolean; git: Git; usage: string };
-type Titles = { enabled: boolean; excluded: string[]; rows: { instanceId: string; threadId: string | null; title: string | null; reason: string | null }[] };
+type Usage = { requests: number; promptTokens: number; outputTokens: number; hitRatePermille: number | null };
+type Collision = { kind: 'file_collision'; worktree: string; path: string; instances: string[] } | { kind: 'possible_collision'; worktree: string; path: string };
+type Titles = { enabled: boolean; excluded: string[]; collisions: Collision[]; rows: { instanceId: string; threadId: string | null; title: string | null; reason: string | null; touched: number; usage: Usage | null }[] };
+type HopLine = { id: string; state: string; mode: string; sourceAgent: string; destinationAgent: string; createdAtMs: number; updatedAtMs: number };
 type Options = { invoke: <T>(command: string, args?: Record<string, unknown>) => Promise<T>; focus: (id: string) => boolean;
   threadOf: (id: string) => string | null; restoreFocus?: () => void };
 
@@ -30,7 +33,10 @@ export function createInstancesOverview(options: Options) {
   titleBox.onchange = async () => { await options.invoke('titles_set_enabled', { enabled: titleBox.checked }).catch(() => {}); void load(); };
   const table = document.createElement('table'); table.className = 'instances-table';
   const status = document.createElement('p'); status.className = 'instances-status'; status.setAttribute('role', 'status');
-  dialog.append(heading, note, titleSwitch, table, status);
+  const warnings = document.createElement('ul'); warnings.className = 'instances-warnings';
+  const timelineHeading = document.createElement('h2'); timelineHeading.textContent = 'Recent hops'; timelineHeading.className = 'instances-subheading';
+  const timeline = document.createElement('ol'); timeline.className = 'instances-timeline';
+  dialog.append(heading, note, titleSwitch, warnings, table, status, timelineHeading, timeline);
   (document.querySelector('#app') ?? document.body).append(dialog);
   let timer = 0;
   function gitText(git: Git) {
@@ -43,12 +49,17 @@ export function createInstancesOverview(options: Options) {
       const head = document.createElement('tr');
       const titles = await options.invoke<Titles>('instance_titles', { requests: rows.map(r => ({ instanceId: r.id, threadId: options.threadOf(r.id), state: r.state })) }).catch(() => null);
       titleBox.checked = titles?.enabled ?? false;
-      for (const label of ['Agent', 'Folder', 'Branch', 'State', 'Doing', '']) { const th = document.createElement('th'); th.textContent = label; head.append(th); }
+      for (const label of ['Agent', 'Folder', 'Branch', 'State', 'Doing', 'Tokens', '']) { const th = document.createElement('th'); th.textContent = label; head.append(th); }
+      const name = (id: string) => { const r = rows.find(x => x.id === id); return r ? `${AGENTS[r.agent] ?? r.agent} (${id.slice(-4)})` : id; };
+      warnings.replaceChildren(...(titles?.collisions ?? []).map(c => { const li = document.createElement('li');
+        li.textContent = c.kind === 'file_collision' ? `Both ${c.instances.map(name).join(' and ')} changed ${c.path}` : `${c.path} changed and no instance's own edits name it (possible collision)`;
+        return li; }));
       const body = rows.map(row => {
         const tr = document.createElement('tr'); tr.dataset.instanceId = row.id;
         const cells = [AGENTS[row.agent] ?? row.agent, row.cwd, gitText(row.git), `${STATES[row.state] ?? row.state} (${SOURCES[row.stateSource] ?? row.stateSource})`];
         const t = titles?.rows.find(x => x.instanceId === row.id);
         cells.push(t?.title ?? (t?.reason ? `(${t.reason})` : '-'));
+        cells.push(t?.usage ? `${t.usage.promptTokens.toLocaleString()} in · ${t.usage.outputTokens.toLocaleString()} out · ${t.usage.requests} req${t.usage.hitRatePermille === null ? '' : ` · cache ${(t.usage.hitRatePermille / 10).toFixed(0)} %`}` : '-');
         for (const text of cells) { const td = document.createElement('td'); td.textContent = text; tr.append(td); }
         const action = document.createElement('td'); const focus = document.createElement('button'); focus.type = 'button'; focus.textContent = 'Focus';
         focus.onclick = () => { if (options.focus(row.id)) dialog.close(); else status.textContent = 'This instance has no pane in this window.'; };
@@ -66,6 +77,10 @@ export function createInstancesOverview(options: Options) {
       });
       table.replaceChildren(head, ...body);
       status.textContent = rows.length ? `${rows.length} instance${rows.length === 1 ? '' : 's'}.` : 'No instance is running.';
+      const hops = await options.invoke<HopLine[]>('hops_recent').catch(() => []);
+      timelineHeading.hidden = !hops.length;
+      timeline.replaceChildren(...hops.map(h => { const li = document.createElement('li');
+        li.textContent = `${new Date(h.updatedAtMs).toLocaleString()} · ${h.sourceAgent} → ${h.destinationAgent} · ${h.mode} · ${h.state}`; return li; }));
     } catch (error) { status.textContent = typeof error === 'string' ? error : 'The overview could not be read.'; }
   }
   closeButton.onclick = () => dialog.close();

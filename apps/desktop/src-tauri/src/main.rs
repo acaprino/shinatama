@@ -685,6 +685,8 @@ fn main() {
         #[cfg(windows)]
         hop_run::hop_status,
         #[cfg(windows)]
+        hop_run::hops_recent,
+        #[cfg(windows)]
         sessions::session_archive_add,
         #[cfg(windows)]
         sessions::search::session_search,
@@ -801,6 +803,8 @@ fn main() {
         hop_run::hop_finish,
         #[cfg(windows)]
         hop_run::hop_status,
+        #[cfg(windows)]
+        hop_run::hops_recent,
         #[cfg(windows)]
         sessions::session_archive_add,
         #[cfg(windows)]

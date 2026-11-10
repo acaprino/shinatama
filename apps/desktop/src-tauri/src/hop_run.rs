@@ -204,6 +204,39 @@ pub struct JournalView {
     events: Vec<shinatama_state::hops::HopEvent>,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HopLine {
+    id: String,
+    state: HopState,
+    mode: HopMode,
+    source_agent: String,
+    destination_agent: String,
+    created_at_ms: i64,
+    updated_at_ms: i64,
+}
+
+/// The newest hops for the overview timeline (FRD-0010 R10).
+#[tauri::command]
+pub async fn hops_recent(window: WebviewWindow) -> Result<Vec<HopLine>, String> {
+    crate::local(&window)?;
+    let journal = journal(&window)?;
+    Ok(journal
+        .recent(20)
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .map(|h| HopLine {
+            id: h.plan.id,
+            state: h.state,
+            mode: h.plan.mode,
+            source_agent: h.plan.source_agent,
+            destination_agent: h.plan.destination_agent,
+            created_at_ms: h.created_at_ms,
+            updated_at_ms: h.updated_at_ms,
+        })
+        .collect())
+}
+
 /// Read-only view of one hop for the dialog and proofs.
 #[tauri::command]
 pub async fn hop_status(window: WebviewWindow, hop_id: String) -> Result<JournalView, String> {

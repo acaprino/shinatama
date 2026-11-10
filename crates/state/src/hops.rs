@@ -511,6 +511,17 @@ impl HopJournal {
         rows.collect::<std::result::Result<Vec<_>, _>>().map_err(storage)
     }
 
+    /// The newest hops, finished or not, for the overview timeline.
+    pub fn recent(&self, limit: usize) -> Result<Vec<HopRecord>> {
+        let ids: Vec<String> = {
+            let connection = self.lock()?;
+            let mut statement = connection.prepare("SELECT id FROM hop ORDER BY updated_at_ms DESC LIMIT ?1").map_err(storage)?;
+            let rows = statement.query_map([limit.min(100) as i64], |row| row.get::<_, String>(0)).map_err(storage)?;
+            rows.collect::<std::result::Result<Vec<_>, _>>().map_err(storage)?
+        };
+        ids.iter().filter_map(|id| self.hop(id).transpose()).collect()
+    }
+
     pub fn unfinished(&self) -> Result<Vec<HopRecord>> {
         let ids: Vec<String> = {
             let connection = self.lock()?;
