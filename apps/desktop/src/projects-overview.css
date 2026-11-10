@@ -1,0 +1,11 @@
+#projects-overview-dialog { width: min(900px, calc(100vw - 32px)); }
+.projects-overview-status { min-height: 1.6em; font-size: 13px; color: var(--text-2); }
+.projects-overview-status[data-state=error] { color: var(--error); }
+.projects-overview-list { list-style: none; margin: 0; padding: 0; max-height: min(64vh, 640px); overflow: auto; }
+.projects-overview-row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 10px 4px; border-bottom: 1px solid var(--line); }
+.projects-pin { font-size: 18px; border: 0; background: transparent; color: var(--accent); width: 32px; }
+.projects-overview-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.projects-overview-info strong { color: var(--text); }
+.projects-overview-info small { color: var(--text-2); overflow-wrap: anywhere; }
+.projects-overview-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.projects-worktree { display: flex; gap: 6px; width: 100%; justify-content: flex-end; }

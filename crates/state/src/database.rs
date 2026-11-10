@@ -416,6 +416,56 @@ impl Database {
         Ok(())
     }
 
+    /// C36 pinned projects (FRD-0004 R07): project ids, newest pin first, at most 100.
+    pub fn pinned_projects(&self) -> Result<Vec<String>> {
+        let connection = self.lock()?;
+        let saved: Option<String> = connection
+            .query_row(
+                "SELECT value FROM setting WHERE key='projects.pinned.v1' AND octet_length(value)<=8192",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(saved
+            .and_then(|json| serde_json::from_str::<Vec<String>>(&json).ok())
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|id| id.len() <= 64 && !id.chars().any(char::is_control))
+            .take(100)
+            .collect())
+    }
+
+    /// Pins or unpins one recorded project; returns the new pin list.
+    pub fn set_project_pinned(&self, project_id: &str, pinned: bool) -> Result<Vec<String>> {
+        self.require_writable()?;
+        if project_id.is_empty() || project_id.len() > 64 || project_id.chars().any(char::is_control) {
+            return Err(DatabaseError::InvalidProject("id"));
+        }
+        let mut connection = self.lock()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        schema::require_write_version(&transaction)?;
+        let known: bool = transaction.query_row("SELECT EXISTS(SELECT 1 FROM project WHERE id=?1)", [project_id], |row| row.get(0))?;
+        if pinned && !known {
+            return Err(DatabaseError::InvalidProject("unknown project"));
+        }
+        let saved: Option<String> = transaction
+            .query_row("SELECT value FROM setting WHERE key='projects.pinned.v1' AND octet_length(value)<=8192", [], |row| row.get(0))
+            .optional()?;
+        let mut pins: Vec<String> = saved.and_then(|json| serde_json::from_str(&json).ok()).unwrap_or_default();
+        pins.retain(|id| id != project_id);
+        if pinned {
+            pins.insert(0, project_id.to_owned());
+        }
+        pins.truncate(100);
+        let json = serde_json::to_string(&pins).map_err(|_| DatabaseError::InvalidProject("pins"))?;
+        transaction.execute(
+            "INSERT INTO setting(key,value) VALUES('projects.pinned.v1',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            [json],
+        )?;
+        transaction.commit()?;
+        Ok(pins)
+    }
+
     /// C08's sole settings namespace. Reads never allocate an oversized value.
     pub fn presentation_json(&self) -> Result<Option<String>> {
         let connection = self.lock()?;

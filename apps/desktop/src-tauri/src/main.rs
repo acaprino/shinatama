@@ -4,6 +4,7 @@ mod agents;
 mod attention;
 mod attention_signals;
 mod files;
+mod project_overview;
 #[cfg(windows)]
 mod hop_run;
 mod launch;
@@ -655,6 +656,10 @@ fn main() {
         files::files_save,
         files::files_markdown,
         files::files_image,
+        project_overview::project_overview,
+        project_overview::project_pin,
+        project_overview::project_worktree_plan,
+        project_overview::project_worktree_create,
         #[cfg(windows)]
         sessions::export::session_export,
         #[cfg(windows)]
@@ -759,6 +764,10 @@ fn main() {
         files::files_save,
         files::files_markdown,
         files::files_image,
+        project_overview::project_overview,
+        project_overview::project_pin,
+        project_overview::project_worktree_plan,
+        project_overview::project_worktree_create,
         #[cfg(windows)]
         sessions::export::session_export,
         #[cfg(windows)]

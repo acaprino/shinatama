@@ -2,6 +2,7 @@
 //! This is not the authoritative database for sessions, threads or agent data.
 
 pub mod create;
+pub mod git;
 pub mod git_init;
 
 use anyhow::{Context, Result, bail};

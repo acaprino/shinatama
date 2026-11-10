@@ -24,6 +24,7 @@ import { createSessionDetail } from './session-detail.ts';
 import { createSessionExport } from './session-export.ts';
 import { createHopPreview, type HopPreview } from './hop-preview.ts';
 import { createFilesPanel } from './files-panel.ts';
+import { createProjectsOverview } from './projects-overview.ts';
 import { createSessionSearch } from './session-search.ts';
 import { createProjectMenu, organizeToolbar } from './toolbar-simple.ts';
 import { createSessionRaw } from './session-raw.ts';
@@ -583,6 +584,29 @@ const filesPanel = createFilesPanel({
   button.title = 'Browse and edit the project files (nothing is run)';
   button.onclick = () => { void filesPanel.show(); };
   document.querySelector('#new-terminal')?.before(button);
+}
+const projectsOverview = createProjectsOverview({
+  invoke: (command, args) => desktop ? invoke(command, args) : Promise.reject('Open the desktop app to manage projects.'),
+  newSession: path => { void openNewSession(focusedGroup(), path); },
+  resume: async (row, thread) => {
+    if (starting) throw 'A session is already opening.';
+    starting = true;
+    try {
+      const started = await invoke<{ session: SessionInfo; threadId: string }>('thread_resume', {
+        request: { threadId: thread.id, projectId: row.id, expectedRevision: thread.revision, rows: 24, cols: 80 },
+      });
+      attachTerminal(started.session, focusedGroup(), started.threadId);
+    } finally { starting = false; }
+  },
+  decide: (title, message, accept) => decide(title, message, accept),
+  reportError: notify,
+  restoreFocus: () => setFocus(focusedGroup()),
+});
+{
+  const button = document.createElement('button'); button.type = 'button'; button.id = 'open-projects'; button.textContent = 'Projects';
+  button.title = 'Pinned projects, Git status, last thread, new session or worktree';
+  button.onclick = () => { void projectsOverview.show(); };
+  document.querySelector('#open-files')?.before(button);
 }
 const hopPreview = createHopPreview({
   prepare: request => desktop ? invoke('hop_preview', { request }) : Promise.reject({ issue: 'read_unavailable' }),

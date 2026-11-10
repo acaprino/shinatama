@@ -485,3 +485,30 @@ fn history_failure_rolls_back_the_project_record_in_the_same_transaction() {
         original
     );
 }
+
+#[test]
+fn pinned_projects_persist_newest_first_and_refuse_unknown_ids() {
+    let parent = std::fs::canonicalize(std::env::temp_dir()).unwrap();
+    let home = parent.join(format!("shinatama-pins-{}", uuid::Uuid::new_v4()));
+    let location = shinatama_state::location::StorageLocation::resolve(shinatama_state::location::LocationRequest {
+        local_data_directory: parent.clone(), home_override: Some(home.clone()), project_roots: vec![], synchronized_roots: vec![],
+    }).unwrap();
+    location.prepare_private_directory().unwrap();
+    let database = shinatama_state::database::Database::open(&location, None).unwrap();
+    let a = parent.join(format!("shinatama-pin-a-{}", uuid::Uuid::new_v4()));
+    let b = parent.join(format!("shinatama-pin-b-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&a).unwrap();
+    std::fs::create_dir_all(&b).unwrap();
+    let pa = database.project_manager_select(&a).unwrap();
+    let pb = database.project_manager_select(&b).unwrap();
+    assert!(database.pinned_projects().unwrap().is_empty());
+    database.set_project_pinned(&pa.id, true).unwrap();
+    assert_eq!(database.set_project_pinned(&pb.id, true).unwrap(), [pb.id.clone(), pa.id.clone()]);
+    assert_eq!(database.set_project_pinned(&pa.id, false).unwrap(), [pb.id.clone()]);
+    assert!(database.set_project_pinned("p_unknownxxxxx", true).is_err());
+    drop(database);
+    let reopened = shinatama_state::database::Database::open(&location, None).unwrap();
+    assert_eq!(reopened.pinned_projects().unwrap(), [pb.id]);
+    drop(reopened);
+    for dir in [home, a, b] { let _ = std::fs::remove_dir_all(dir); }
+}
