@@ -25,6 +25,7 @@ import { createSessionExport } from './session-export.ts';
 import { createHopPreview, type HopPreview } from './hop-preview.ts';
 import { createFilesPanel } from './files-panel.ts';
 import { createProjectsOverview } from './projects-overview.ts';
+import { createInstancesOverview } from './instances-overview.ts';
 import { createSessionSearch } from './session-search.ts';
 import { createProjectMenu, organizeToolbar } from './toolbar-simple.ts';
 import { createSessionRaw } from './session-raw.ts';
@@ -607,6 +608,21 @@ const projectsOverview = createProjectsOverview({
   button.title = 'Pinned projects, Git status, last thread, new session or worktree';
   button.onclick = () => { void projectsOverview.show(); };
   document.querySelector('#open-files')?.before(button);
+}
+const instancesOverview = createInstancesOverview({
+  invoke: (command, args) => desktop ? invoke(command, args) : Promise.reject('Open the desktop app to see instances.'),
+  focus: id => {
+    const view = views.get(id); if (!view || view.disposed) return false;
+    changeLayout({ type: 'activate', groupId: view.group, viewId: id }); setFocus(view.group); return true;
+  },
+  threadOf: id => { const panel = workspaceLayout.views.find(p => p.id === id); return panel?.resource.kind === 'terminal' ? panel.resource.threadId ?? null : null; },
+  restoreFocus: () => setFocus(focusedGroup()),
+});
+{
+  const button = document.createElement('button'); button.type = 'button'; button.id = 'open-instances'; button.textContent = 'Instances';
+  button.title = 'Every running instance with its observed state';
+  button.onclick = () => { void instancesOverview.show(); };
+  document.querySelector('#open-projects')?.before(button);
 }
 const hopPreview = createHopPreview({
   prepare: request => desktop ? invoke('hop_preview', { request }) : Promise.reject({ issue: 'read_unavailable' }),

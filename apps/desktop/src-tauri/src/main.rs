@@ -4,6 +4,7 @@ mod agents;
 mod attention;
 mod attention_signals;
 mod files;
+mod instances;
 mod project_overview;
 #[cfg(windows)]
 mod hop_run;
@@ -659,6 +660,7 @@ fn main() {
         files::files_visual_parse,
         files::files_visual_apply,
         project_overview::project_overview,
+        instances::instances_overview,
         project_overview::project_pin,
         project_overview::project_worktree_plan,
         project_overview::project_worktree_create,
@@ -769,6 +771,7 @@ fn main() {
         files::files_visual_parse,
         files::files_visual_apply,
         project_overview::project_overview,
+        instances::instances_overview,
         project_overview::project_pin,
         project_overview::project_worktree_plan,
         project_overview::project_worktree_create,

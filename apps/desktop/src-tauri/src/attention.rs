@@ -43,6 +43,16 @@ struct Observed {
     parser: AttentionSignals,
     ended: bool,
     last_signal: Option<Instant>,
+    last_output: Option<Instant>,
+    exit_code: Option<u32>,
+}
+/// What the terminal stream alone says about one session (F04). Only `ended` is certain.
+#[derive(Clone, Copy, Debug)]
+pub struct TerminalObservation {
+    pub ended: bool,
+    pub exit_code: Option<u32>,
+    pub since_signal_ms: Option<u64>,
+    pub since_output_ms: Option<u64>,
 }
 struct Feed {
     enabled: bool,
@@ -238,6 +248,12 @@ impl Controller {
             }
         }
         let observed = feed.sessions.entry(session.id.clone()).or_default();
+        if batch.chunks.iter().any(|c| !c.is_empty()) {
+            observed.last_output = Some(Instant::now());
+        }
+        if batch.eof {
+            observed.exit_code = batch.exit_code;
+        }
         let mut signalled = false;
         for chunk in &batch.chunks {
             signalled |= observed
@@ -302,6 +318,18 @@ impl Controller {
         if pushed {
             present(app, self, true);
         }
+    }
+    pub fn observations(&self) -> HashMap<String, TerminalObservation> {
+        let Ok(feed) = lock(self) else { return HashMap::new() };
+        feed.sessions
+            .iter()
+            .map(|(id, o)| (id.clone(), TerminalObservation {
+                ended: o.ended,
+                exit_code: o.exit_code,
+                since_signal_ms: o.last_signal.map(|t| t.elapsed().as_millis() as u64),
+                since_output_ms: o.last_output.map(|t| t.elapsed().as_millis() as u64),
+            }))
+            .collect()
     }
     pub fn forget(&self, app: &tauri::AppHandle, id: &str) {
         if let Ok(mut feed) = lock(self) {
