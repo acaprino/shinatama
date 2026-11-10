@@ -182,7 +182,7 @@ impl NativeLaunchBinding {
     ) -> Result<Self, NativeLaunchError> {
         if !matches!(
             launch.command().agent().as_str(),
-            "claude_code" | "codex" | "opencode"
+            "claude_code" | "codex" | "opencode" | "pi"
         ) || (program.link_count != 1 && launch.command().agent().as_str() != "opencode")
             || launch.command().operation() != Operation::StartNew
             || launch.placement().placement().home() != HomePlacement::Box
@@ -360,6 +360,8 @@ pub enum NativeStartupScope {
     WorkspaceWriteNoDaemon,
     WorkspaceWriteNoDaemonSessionHooks,
     StandaloneEmptySet,
+    /// Pi with skill/extension/template discovery off and an empty set.
+    ExplicitSetNoDiscovery,
 }
 fn startup_scope(agent: &AgentId, profile: &NativeAdmissionProfile) -> Option<NativeStartupScope> {
     match (agent.as_str(), profile.id.as_str()) {
@@ -378,11 +380,17 @@ fn startup_scope(agent: &AgentId, profile: &NativeAdmissionProfile) -> Option<Na
         ("opencode", "opencode-system-box-standalone-tui-v1") => {
             Some(NativeStartupScope::StandaloneEmptySet)
         }
+        ("pi", "pi-system-box-explicit-set-tui-v1") => {
+            Some(NativeStartupScope::ExplicitSetNoDiscovery)
+        }
         _ => None,
     }
 }
 fn startup_screen_seen(agent: &str, lower: &[u8]) -> bool {
     let contains = |needle: &[u8]| lower.windows(needle.len()).any(|part| part == needle);
+    if agent == "pi" {
+        return shinatama_adapter::pi::run::startup_screen_seen(lower);
+    }
     if agent == "opencode" {
         return contains(b"opencode")
             && [
@@ -956,6 +964,29 @@ mod tests {
             "claude_code",
             b"opencode\nask anything"
         ));
+    }
+    #[test]
+    fn pi_startup_scope_and_screen_are_bound_to_its_own_profile() {
+        let pi = AgentId::new("pi").unwrap();
+        let profile = NativeAdmissionProfile::new(
+            shinatama_adapter::pi::run::TUI_PROFILE,
+            1,
+            budget(),
+            256 * 1024 * 1024,
+        )
+        .unwrap();
+        assert_eq!(
+            startup_scope(&pi, &profile),
+            Some(NativeStartupScope::ExplicitSetNoDiscovery)
+        );
+        assert_eq!(
+            startup_scope(&AgentId::new("opencode").unwrap(), &profile),
+            None
+        );
+        let frame = b"escape interrupt \xc2\xb7 ctrl+c/ctrl+d clear/exit\r\n press ctrl+o to show full startup help";
+        assert!(startup_screen_seen("pi", frame));
+        assert!(!startup_screen_seen("opencode", frame));
+        assert!(!startup_screen_seen("pi", b"1.4.0"));
     }
     #[test]
     fn codex_startup_is_agent_bound_and_does_not_claim_claude_safe_mode() {

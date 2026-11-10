@@ -740,11 +740,11 @@ fn evidence(descriptor: &AdapterDescriptor) -> Result<FixtureEvidence, OpenCodeL
     )
     .map_err(|_| OpenCodeLaunchError::Evidence)
 }
-fn set(environment: &mut BTreeMap<OsString, OsString>, name: &str, value: OsString) {
+pub(crate) fn set(environment: &mut BTreeMap<OsString, OsString>, name: &str, value: OsString) {
     environment.retain(|key, _| !key.eq_ignore_ascii_case(name));
     environment.insert(name.into(), value);
 }
-fn same_path(left: &Path, right: &Path) -> Result<bool, OpenCodeLaunchError> {
+pub(crate) fn same_path(left: &Path, right: &Path) -> Result<bool, OpenCodeLaunchError> {
     Ok(left
         .canonicalize()
         .map_err(|_| OpenCodeLaunchError::PrivateHome)?
@@ -756,7 +756,7 @@ fn same_path(left: &Path, right: &Path) -> Result<bool, OpenCodeLaunchError> {
                 .as_os_str(),
         ))
 }
-fn create_json(
+pub(crate) fn create_json(
     location: &StorageLocation,
     name: &str,
     value: &Value,
@@ -791,14 +791,14 @@ fn create_bytes(
     pins.push(pin_file(&path)?);
     Ok(path)
 }
-fn file_info(file: &File) -> Result<BY_HANDLE_FILE_INFORMATION, OpenCodeLaunchError> {
+pub(crate) fn file_info(file: &File) -> Result<BY_HANDLE_FILE_INFORMATION, OpenCodeLaunchError> {
     let mut info = BY_HANDLE_FILE_INFORMATION::default();
     if unsafe { GetFileInformationByHandle(file.as_raw_handle(), &mut info) } == 0 {
         return Err(OpenCodeLaunchError::UnsafeProgram);
     }
     Ok(info)
 }
-fn pin_file(path: &Path) -> Result<File, OpenCodeLaunchError> {
+pub(crate) fn pin_file(path: &Path) -> Result<File, OpenCodeLaunchError> {
     let file = OpenOptions::new()
         .read(true)
         .share_mode(FILE_SHARE_READ)
@@ -833,7 +833,7 @@ fn pin_program_file(path: &Path) -> Result<File, OpenCodeLaunchError> {
     }
     Ok(file)
 }
-fn pin_directory(path: &Path) -> Result<(File, Vec<File>), OpenCodeLaunchError> {
+pub(crate) fn pin_directory(path: &Path) -> Result<(File, Vec<File>), OpenCodeLaunchError> {
     StorageLocation::preflight(path).map_err(|_| OpenCodeLaunchError::PrivateHome)?;
     let parents: Vec<_> = path.ancestors().take(65).collect();
     if parents.len() > 64 {

@@ -10,7 +10,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 if (process.platform !== 'win32') throw new Error('This proof requires Windows.');
 const harness = process.env.SHINATAMA_SMOKE_SESSION_HARNESS || 'claude_code';
-if (!['claude_code', 'codex', 'opencode', 'powershell'].includes(harness)) throw new Error('Choose claude_code, codex, opencode or powershell for this proof.');
+if (!['claude_code', 'codex', 'opencode', 'pi', 'powershell'].includes(harness)) throw new Error('Choose claude_code, codex, opencode, pi or powershell for this proof.');
 const workspace = process.cwd();
 const packageExecutable = process.env.SHINATAMA_SMOKE_APP_EXE;
 if (packageExecutable && !isAbsolute(packageExecutable)) throw new Error('The package executable must be an explicit absolute path.');
@@ -247,7 +247,8 @@ try {
   // screenshots are recorded, including the original Claude sign-in screen.
   for (const item of opened) {
     await page.locator(`.wm-tab[data-view-id="${item.id}"]`).click();
-    await pane(item.id).getByRole('button', { name: 'Stop terminal', exact: true }).click();
+    // The tab's own close control confirms before stopping a running session.
+    await page.locator(`.wm-tabwrap:has(.wm-tab[data-view-id="${item.id}"]) .wm-tab-close`).click();
     await page.locator('#confirm-dialog').getByRole('button', { name: 'Stop', exact: true }).click();
     await expect(page.locator(`.wm-tab[data-view-id="${item.id}"]`)).toHaveCount(0);
     if (harness === 'claude_code') {

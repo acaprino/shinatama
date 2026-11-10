@@ -4,10 +4,15 @@ use super::service::{
     DriverError, HarnessDescriptor, HarnessDriver, HarnessPolicy, PreparedTrial, ProbeContext,
     ProbeEvidence, ProbeProjection, SealedSession, SessionContext, SessionOperation, TrialContext,
 };
-use shinatama_adapter::catalog::ProgramCandidate;
+use shinatama_adapter::{catalog::ProgramCandidate, launch::placement::PathRole};
 use shinatama_engine::{
     check_scratch::ScratchKind,
+    launch::LaunchIssueCode,
     native_launch::NativeTrialReceipt,
+    pi_launch::{
+        PiLaunchError, PiStartContext, PiTrialContext, PreparedPiStart, prepare_start,
+        prepare_trial,
+    },
     pi_probe::{PiProbeIssue, PiProbeOutcome, PreparedPiProbe, discover_pi, probe_budget},
     resources::admission::PreparedWorkload,
 };
@@ -16,19 +21,9 @@ use shinatama_state::{database::Database, store_roots::PrivateStoreRequest};
 
 pub(super) struct PiDriver;
 
-/// C18.1 observes Pi and its Node runtime; no launch recipe is qualified yet.
-pub(super) enum NoPreparedSession {}
-impl From<NoPreparedSession> for SealedSession {
-    fn from(never: NoPreparedSession) -> Self {
-        match never {}
-    }
-}
-const LAUNCH_UNQUALIFIED: DriverError =
-    DriverError::Failed("The Pi terminal launch is not qualified in this build.");
-
 impl HarnessDriver for PiDriver {
     type Probe = PiProbeOutcome;
-    type PreparedSession = NoPreparedSession;
+    type PreparedSession = PreparedPiStart;
 
     fn descriptor(&self) -> HarnessDescriptor {
         HarnessDescriptor {
@@ -80,18 +75,70 @@ impl HarnessDriver for PiDriver {
 
     fn prepare_trial(
         &self,
-        _context: TrialContext<'_, Self::Probe>,
+        context: TrialContext<'_, Self::Probe>,
     ) -> Result<PreparedTrial, DriverError> {
-        Err(LAUNCH_UNQUALIFIED)
+        let prepared = prepare_trial(PiTrialContext {
+            candidate: context.candidate,
+            observation: context.observation,
+            base: context.base,
+            trial_base: context.trial_base,
+            private_home: context.private_home,
+            project: context.project,
+            sidecar: context.sidecar,
+            proxy_port: context.proxy_port,
+            ca_file: context.ca_file,
+            selected_set: context.selected_set,
+            thread_id: context.thread_id,
+        })
+        .map_err(launch_error)?;
+        Ok(PreparedTrial {
+            launch: prepared.launch,
+            permit: prepared.permit,
+            tracker: prepared.tracker,
+            keep_alive: None,
+        })
     }
 
     fn prepare_session(
         &self,
-        _context: SessionContext<'_, Self::Probe>,
-        _receipt: &NativeTrialReceipt,
-        _operation: &SessionOperation,
+        context: SessionContext<'_, Self::Probe>,
+        receipt: &NativeTrialReceipt,
+        operation: &SessionOperation,
     ) -> Result<Self::PreparedSession, DriverError> {
-        Err(LAUNCH_UNQUALIFIED)
+        if !matches!(operation, SessionOperation::New) {
+            return Err(DriverError::Failed(
+                "Native resume has not been qualified for Pi.",
+            ));
+        }
+        prepare_start(
+            PiStartContext {
+                candidate: context.candidate,
+                observation: context.observation,
+                base: context.base,
+                database: context.database,
+                private_home: context.private_home,
+                root: context.root,
+                project: context.project,
+                sidecar: context.sidecar,
+                proxy_port: context.proxy_port,
+                ca_file: context.ca_file,
+                selected_set: context.selected_set,
+                thread_id: &context.thread.id,
+            },
+            receipt,
+        )
+        .map_err(launch_error)
+    }
+    // The default bind_lifecycle returns None: Pi has no qualified native
+    // thread binding, hook or resume; a successful startup proves none of them.
+}
+
+impl From<PreparedPiStart> for SealedSession {
+    fn from(prepared: PreparedPiStart) -> Self {
+        Self {
+            launch: prepared.launch,
+            permit: prepared.permit,
+        }
     }
 }
 
@@ -100,9 +147,7 @@ impl ProbeEvidence for PiProbeOutcome {
         let summary = self.summary();
         ProbeProjection {
             version: summary.version.as_ref().map(ToString::to_string),
-            // C18.1: a successful observation still has no qualified launch, so
-            // the service never starts a TUI check (and leaves no trial scratch).
-            issue: Some(summary.issue.map_or(LAUNCH_UNQUALIFIED, probe_error)),
+            issue: summary.issue.map(probe_error),
             // Bounded hashes, sizes and allowlisted version lines; no paths.
             diagnostics: serde_json::to_value(summary).unwrap_or(serde_json::Value::Null),
         }
@@ -156,5 +201,70 @@ fn probe_error(issue: PiProbeIssue) -> DriverError {
         PiProbeIssue::CleanupUnconfirmed => DriverError::Failed(
             "Version-probe cleanup is unconfirmed. Its resource reservation remains held.",
         ),
+    }
+}
+
+fn launch_error(issue: PiLaunchError) -> DriverError {
+    match issue {
+        PiLaunchError::ProgramChanged
+        | PiLaunchError::RootChanged
+        | PiLaunchError::ObservationRequired
+        | PiLaunchError::QualificationRequired
+        | PiLaunchError::InvalidCandidate
+        | PiLaunchError::Installation(_) => DriverError::StaleQualification,
+        PiLaunchError::Expired => {
+            DriverError::Failed("Pi launch preparation reached its fixed time budget.")
+        }
+        PiLaunchError::PrivateHome => {
+            DriverError::Failed("The Pi private home could not be prepared or pinned.")
+        }
+        PiLaunchError::InvalidProject => {
+            DriverError::Failed("The selected project cannot be used for Pi.")
+        }
+        PiLaunchError::SidecarUnavailable => {
+            DriverError::Failed("The local session service changed during Pi preparation.")
+        }
+        PiLaunchError::InvalidCa => {
+            DriverError::Failed("The local session service certificate could not be pinned for Pi.")
+        }
+        PiLaunchError::UnsupportedSet => {
+            DriverError::Failed("This Pi launch profile requires the empty optional set.")
+        }
+        PiLaunchError::Configuration => {
+            DriverError::Failed("The private Pi launch configuration could not be prepared.")
+        }
+        PiLaunchError::Identity => {
+            DriverError::Failed("The Pi launch identity could not be prepared.")
+        }
+        PiLaunchError::Permit => {
+            DriverError::Failed("The Pi native launch permit did not match its qualification.")
+        }
+        PiLaunchError::InheritedEnvironment => {
+            DriverError::Failed("Pi's bounded inherited environment is unavailable.")
+        }
+        PiLaunchError::Descriptor | PiLaunchError::Evidence => {
+            DriverError::Failed("The Pi launch recipe evidence is invalid.")
+        }
+        PiLaunchError::PlacementMode | PiLaunchError::PlacementRecipe(_) => {
+            DriverError::Failed("The Pi system-program and private-home placement is invalid.")
+        }
+        PiLaunchError::MissingPrivatePath(role) => DriverError::Failed(match role {
+            PathRole::NodeCompileCache => "Pi is missing its private Node compile-cache path.",
+            PathRole::Temporary => "Pi is missing its private temporary path.",
+            _ => "Pi is missing its private agent directory.",
+        }),
+        PiLaunchError::ArgumentsRecipe(_) => {
+            DriverError::Failed("The Pi node-and-script argument recipe was rejected.")
+        }
+        PiLaunchError::Composition(issue) => DriverError::Failed(match issue {
+            LaunchIssueCode::PlacementRejected => "Pi private-path placement was rejected.",
+            LaunchIssueCode::ArgumentsRejected => "Pi node-and-script arguments were rejected.",
+            LaunchIssueCode::EnvironmentRejected => "Pi child environment was rejected.",
+            LaunchIssueCode::IdentityRejected => "Pi launch identity was rejected.",
+            LaunchIssueCode::SecretOutsideIdentityEnvironment => {
+                "Pi identity data appeared outside its protected environment field."
+            }
+            _ => "Pi launch composition rejected its fixed recipe.",
+        }),
     }
 }
