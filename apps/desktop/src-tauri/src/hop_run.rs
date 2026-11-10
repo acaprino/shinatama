@@ -37,6 +37,11 @@ impl RecoveryRuntime for HostRuntime<'_> {
 /// Opens the journal once per process and runs startup recovery (R42) against live panes.
 fn journal(window: &WebviewWindow) -> Result<&'static HopJournal, String> {
     static JOURNAL: OnceLock<Result<HopJournal, String>> = OnceLock::new();
+    if JOURNAL.get().is_none() {
+        // Not ready yet: report it without caching the failure.
+        let services = crate::ready::<crate::storage::Services>(window)?;
+        services.load()?;
+    }
     JOURNAL
         .get_or_init(|| {
             let services = window.state::<Arc<crate::storage::Services>>();
@@ -110,7 +115,7 @@ pub async fn hop_launch(window: WebviewWindow, host: State<'_, Host>, request: L
         hop = journal.transition(&hop.plan.id, hop.state, hop.revision, next, None, now_ms()).map_err(|e| e.to_string())?;
     }
     journal.record_effect(&hop.plan.id, "spawn_attempted", Some(&preview.destination), now_ms()).map_err(|e| e.to_string())?;
-    let owner = window.state::<Arc<agents::Controller>>().inner().clone();
+    let owner = crate::ready::<agents::Controller>(&window)?;
     let started = match owner.open(&preview.destination, host.inner().clone(), cwd, request.rows, request.cols).await {
         Ok(started) => started,
         Err(message) => {

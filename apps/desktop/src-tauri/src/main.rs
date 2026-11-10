@@ -189,10 +189,7 @@ async fn terminal_start(
     let host = host.inner().clone();
     let services = services.inner().clone();
     #[cfg(windows)]
-    let runtime = window
-        .state::<Arc<terminal_runtime::Runtime>>()
-        .inner()
-        .clone();
+    let runtime = ready::<terminal_runtime::Runtime>(&window)?;
     tauri::async_runtime::spawn_blocking(move || {
         services
             .load()?
@@ -339,15 +336,17 @@ async fn terminal_shutdown(
     local(&window)?;
     let host = host.inner().clone();
     #[cfg(windows)]
-    let sidecar = window.state::<Arc<sidecar::Controller>>().inner().clone();
+    let sidecar = window.try_state::<Arc<sidecar::Controller>>().map(|s| s.inner().clone());
     #[cfg(windows)]
-    window
-        .state::<Arc<terminal_runtime::Runtime>>()
-        .request_shutdown();
+    if let Some(runtime) = window.try_state::<Arc<terminal_runtime::Runtime>>() {
+        runtime.request_shutdown();
+    }
     tauri::async_runtime::spawn_blocking(move || {
         host.shutdown();
         #[cfg(windows)]
-        sidecar.stop_and_wait(std::time::Duration::from_secs(6));
+        if let Some(sidecar) = &sidecar {
+            sidecar.stop_and_wait(std::time::Duration::from_secs(6));
+        }
     })
     .await
     .map_err(|e| e.to_string())?;
@@ -359,9 +358,20 @@ async fn terminal_shutdown(
         .store(true, Ordering::Release);
     Ok(())
 }
+/// Managed in setup; an IPC call can arrive while setup still runs. Never panic: say so.
+#[cfg(windows)]
+pub(crate) fn ready<T: Send + Sync + 'static>(window: &tauri::WebviewWindow) -> Result<std::sync::Arc<T>, String>
+where
+    std::sync::Arc<T>: Send + Sync,
+{
+    window
+        .try_state::<std::sync::Arc<T>>()
+        .map(|state| state.inner().clone())
+        .ok_or_else(|| "Shinatama is still finishing its start; not yet ready. Retry in a moment.".to_owned())
+}
 fn sidecar_active(window: &tauri::Window) -> bool {
     #[cfg(windows)]
-    return window.state::<Arc<sidecar::Controller>>().is_active();
+    return window.try_state::<Arc<sidecar::Controller>>().is_some_and(|c| c.is_active());
     #[cfg(not(windows))]
     false
 }
@@ -369,7 +379,7 @@ fn sidecar_active(window: &tauri::Window) -> bool {
 fn agent_status(window: tauri::WebviewWindow) -> Result<serde_json::Value, String> {
     local(&window)?;
     #[cfg(windows)]
-    return Ok(window.state::<Arc<agents::Controller>>().diagnostics());
+    return Ok(ready::<agents::Controller>(&window)?.diagnostics());
     #[cfg(not(windows))]
     Ok(serde_json::json!({"checking":false,"blocked":false}))
 }
@@ -379,7 +389,7 @@ fn harness_catalog(
     window: tauri::WebviewWindow,
 ) -> Result<Vec<agents::HarnessCapabilities>, String> {
     local(&window)?;
-    Ok(window.state::<Arc<agents::Controller>>().catalog())
+    Ok(ready::<agents::Controller>(&window)?.catalog())
 }
 #[cfg(not(windows))]
 #[tauri::command]
@@ -402,8 +412,9 @@ async fn thread_resume(
             code: "unavailable",
         });
     }
-    let owner = window.state::<Arc<agents::Controller>>().inner().clone();
-    let reader = window.state::<Arc<sessions::Controller>>().inner().clone();
+    let not_ready = |_| agents::resume::Error { code: "unavailable" };
+    let owner = ready::<agents::Controller>(&window).map_err(not_ready)?;
+    let reader = ready::<sessions::Controller>(&window).map_err(not_ready)?;
     owner.resume(host.inner().clone(), reader, request).await
 }
 #[tauri::command]
@@ -417,7 +428,7 @@ async fn agent_check(
     }
     #[cfg(windows)]
     {
-        let owner = window.state::<Arc<agents::Controller>>().inner().clone();
+        let owner = ready::<agents::Controller>(&window)?;
         let checked = owner.check(&agent_id).await.map_err(str::to_owned)?;
         return serde_json::to_value(checked).map_err(|_| "Agent status is unavailable.".into());
     }
@@ -442,7 +453,7 @@ async fn agent_start(
     }
     #[cfg(windows)]
     {
-        let owner = window.state::<Arc<agents::Controller>>().inner().clone();
+        let owner = ready::<agents::Controller>(&window)?;
         let started = owner
             .start(
                 &agent_id,
@@ -477,7 +488,7 @@ async fn agent_open(
     }
     #[cfg(windows)]
     {
-        let owner = window.state::<Arc<agents::Controller>>().inner().clone();
+        let owner = ready::<agents::Controller>(&window)?;
         let started = owner
             .open(
                 &agent_id,
@@ -498,7 +509,7 @@ async fn agent_open(
 fn sidecar_status(window: tauri::WebviewWindow) -> Result<serde_json::Value, String> {
     local(&window)?;
     #[cfg(windows)]
-    return serde_json::to_value(window.state::<Arc<sidecar::Controller>>().status())
+    return serde_json::to_value(ready::<sidecar::Controller>(&window)?.status())
         .map_err(|_| "Session index status is unavailable.".into());
     #[cfg(not(windows))]
     Err("The session index is available on Windows.".into())
@@ -510,9 +521,7 @@ fn sidecar_start(window: tauri::WebviewWindow) -> Result<serde_json::Value, Stri
         return Err("This window is closing.".into());
     }
     #[cfg(windows)]
-    return window
-        .state::<Arc<sidecar::Controller>>()
-        .inner()
+    return ready::<sidecar::Controller>(&window)?
         .start()
         .map_err(str::to_owned)
         .and_then(|status| {
@@ -525,8 +534,7 @@ fn sidecar_start(window: tauri::WebviewWindow) -> Result<serde_json::Value, Stri
 fn sidecar_stop(window: tauri::WebviewWindow) -> Result<serde_json::Value, String> {
     local(&window)?;
     #[cfg(windows)]
-    return window
-        .state::<Arc<sidecar::Controller>>()
+    return ready::<sidecar::Controller>(&window)?
         .stop()
         .map_err(str::to_owned)
         .and_then(|status| {
@@ -542,8 +550,7 @@ fn sidecar_retry(window: tauri::WebviewWindow) -> Result<serde_json::Value, Stri
         return Err("This window is closing.".into());
     }
     #[cfg(windows)]
-    return window
-        .state::<Arc<sidecar::Controller>>()
+    return ready::<sidecar::Controller>(&window)?
         .retry()
         .map_err(str::to_owned)
         .and_then(|status| {
