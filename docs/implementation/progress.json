@@ -2708,6 +2708,64 @@
         "Visual subset: headings, paragraphs, code bodies; inline markup stays literal text inside paragraphs."
       ],
       "next_action": "Owner acceptance."
+    },
+    "C24": {
+      "status": "committed",
+      "commit_sha": "ad04532cc5e59b995da641cbc98665f69cb7a1b4",
+      "units": {
+        "C24.1": {
+          "status": "committed",
+          "commit_sha": "ad04532cc5e59b995da641cbc98665f69cb7a1b4",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-session-search-recheck.md"
+          ],
+          "checks": [
+            "node apps/desktop/tests/session-search-smoke.mjs"
+          ],
+          "limits": []
+        },
+        "C24.2": {
+          "status": "committed",
+          "commit_sha": "ad04532cc5e59b995da641cbc98665f69cb7a1b4",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-session-search-recheck.md"
+          ],
+          "checks": [
+            "node apps/desktop/tests/session-search-smoke.mjs"
+          ],
+          "limits": []
+        },
+        "C24.3": {
+          "status": "committed",
+          "commit_sha": "ad04532cc5e59b995da641cbc98665f69cb7a1b4",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-session-search-recheck.md"
+          ],
+          "checks": [
+            "node apps/desktop/tests/session-search-smoke.mjs"
+          ],
+          "limits": []
+        }
+      },
+      "evidence": [
+        "docs/notes/2026-11-10-session-search-recheck.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "node apps/desktop/tests/session-search-smoke.mjs"
+      ],
+      "next_action": "Owner acceptance (marked done 2026-11-08 in the simplified plan)."
     }
   },
   "blockers": [],
