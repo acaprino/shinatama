@@ -22,7 +22,7 @@ use shinatama_adapter::{
     AgentId, CapabilitySupport, ObservedVersion, Operation, RefusalReason, Version, VersionUnknown,
     catalog::{ProgramCandidate, ProgramKind},
     pe_version::PeVersionMetadata,
-    pi::discovery,
+    pi::{capabilities, discovery, rpc},
 };
 use shinatama_state::{
     database::Database, location::StorageLocation, resource_reservations::Budget,
@@ -32,7 +32,7 @@ use std::{
     ffi::{OsStr, OsString},
     fmt,
     fs::{File, OpenOptions},
-    io::{Read, Seek, SeekFrom},
+    io::{Read, Seek, SeekFrom, Write},
     os::windows::fs::{MetadataExt, OpenOptionsExt},
     path::{Path, PathBuf},
     sync::atomic::{AtomicBool, Ordering},
@@ -148,6 +148,8 @@ pub struct PiProbeSummary {
     pub stdout: Option<VersionOutputSummary>,
     pub stderr: Option<VersionOutputSummary>,
     pub capabilities: BTreeMap<Operation, CapabilitySupport>,
+    /// Only for the explicit RPC control check; never part of app checks.
+    pub rpc_control: Option<rpc::ControlSummary>,
 }
 
 /// Bounded PATH search in command order. Only the exact reviewed npm shim is
@@ -498,6 +500,7 @@ pub struct PreparedPiProbe {
     started: Instant,
     deadline: Instant,
     environment: BTreeMap<OsString, OsString>,
+    rpc_control: bool,
     _slot: ProbeSlot,
 }
 impl fmt::Debug for PreparedPiProbe {
@@ -585,6 +588,7 @@ impl PreparedPiProbe {
             started,
             deadline,
             environment,
+            rpc_control: false,
             _slot: slot,
         })
     }
@@ -592,6 +596,18 @@ impl PreparedPiProbe {
         verify_program_pin(&self.node.file, &self.node.identity).is_ok()
             && verify_program_pin(&self.script.file, &self.script.identity).is_ok()
             && verify_program_pin(&self.manifest.file, &self.manifest.identity).is_ok()
+    }
+    /// Same pins, scratch and admission as the version probe, but the second
+    /// contained run is `--mode rpc` fed the fixed read-only control script
+    /// (state, command list, one unsupported command). No prompt is encodable,
+    /// so no model run or provider request can start. Not used by app checks.
+    pub fn run_rpc_control_with(
+        mut self,
+        database: &Database,
+        prepare: impl FnMut() -> Result<PreparedWorkload, PiProbeIssue>,
+    ) -> Result<PiProbeOutcome, PiProbeIssue> {
+        self.rpc_control = true;
+        self.run_with(database, prepare)
     }
     /// The desktop supplies its shared runtime admission once per contained run.
     /// Each run is admitted, observed and released before the next one starts.
@@ -627,6 +643,7 @@ impl PreparedPiProbe {
             exit_code: None,
             stdout: None,
             stderr: None,
+            rpc_control: None,
             capabilities: Operation::ALL
                 .into_iter()
                 .map(|operation| {
@@ -646,6 +663,7 @@ impl PreparedPiProbe {
             workload,
             admission.elapsed() >= ADMISSION_LIMIT,
             vec![OsString::from("--version")],
+            &[],
             self.environment.clone(),
         );
         report.node_exit_code = node.exit;
@@ -692,14 +710,23 @@ impl PreparedPiProbe {
         ] {
             environment.insert(OsString::from(name), value);
         }
+        let script = self.script.path.as_os_str().to_owned();
+        let (arguments, input) = if self.rpc_control {
+            (
+                std::iter::once(script)
+                    .chain(rpc::control_arguments())
+                    .collect(),
+                rpc::control_script(),
+            )
+        } else {
+            (vec![script, OsString::from("--version")], Vec::new())
+        };
         let pi = self.step(
             database,
             workload,
             admission.elapsed() >= ADMISSION_LIMIT,
-            vec![
-                self.script.path.as_os_str().to_owned(),
-                OsString::from("--version"),
-            ],
+            arguments,
+            &input,
             environment,
         );
         report.exit_code = pi.exit;
@@ -712,6 +739,15 @@ impl PreparedPiProbe {
                 return Ok(self.retained(report, retained));
             }
         };
+        if self.rpc_control {
+            let control = rpc::summarize(&pi.output);
+            report.issue = pi.issue.or(match pi.exit {
+                Some(0) => (!control.proven()).then_some(PiProbeIssue::InvalidOutput),
+                _ => Some(PiProbeIssue::NonzeroExit),
+            });
+            report.rpc_control = Some(control);
+            return Ok(self.released(report, released));
+        }
         report.issue = pi.issue.or(match pi.exit {
             Some(0) => {
                 report.version = discovery::parse_pi_version(&pi.output);
@@ -722,6 +758,18 @@ impl PreparedPiProbe {
             }
             _ => Some(PiProbeIssue::NonzeroExit),
         });
+        if let (None, Some(version)) = (report.issue, report.version.as_ref()) {
+            // Detection is proven by this run; launch operations still need the
+            // isolated TUI trial, so they stay refused in this projection.
+            report.capabilities = capabilities::report(
+                version,
+                capabilities::Observed {
+                    detected: true,
+                    tui_trial: false,
+                },
+            )
+            .complete_report();
+        }
         Ok(self.released(report, released))
     }
     fn step(
@@ -730,6 +778,7 @@ impl PreparedPiProbe {
         workload: PreparedWorkload,
         admission_slow: bool,
         arguments: Vec<OsString>,
+        input: &[u8],
         environment: BTreeMap<OsString, OsString>,
     ) -> Step {
         let early = |issue: PiProbeIssue, workload: PreparedWorkload| Step {
@@ -783,7 +832,13 @@ impl PreparedPiProbe {
             cleanup: Ok(CleanupStatus::Released { ledger_revision: 0 }),
         };
         let deadline = Instant::now() + WALL_LIMIT;
-        drop(owned.stdin);
+        // Bounded fixed input (a few hundred bytes) fits the pipe buffer;
+        // closing stdin afterwards ends Pi's RPC loop.
+        let mut stdin = owned.stdin;
+        if !input.is_empty() && stdin.write_all(input).and_then(|()| stdin.flush()).is_err() {
+            step.issue = Some(PiProbeIssue::SpawnFailed);
+        }
+        drop(stdin);
         let mut scratch = [0u8; 8192];
         let (mut stdout_done, mut stderr_done) = (false, false);
         let mut total = 0;
@@ -1063,8 +1118,18 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "explicit contained installed Pi RPC control check; no prompt, offline, private homes only"]
+    fn installed_pi_rpc_reads_state_and_refuses_an_unsupported_command() {
+        installed(true);
+    }
+
+    #[test]
     #[ignore = "explicit contained installed Pi --version diagnostic; private homes only"]
     fn installed_pi_version_and_node_floor_under_a_private_frozen_budget() {
+        installed(false);
+    }
+
+    fn installed(rpc_control: bool) {
         use shinatama_state::{
             location::LocationRequest, resource_reservations::ReservationPolicy,
         };
@@ -1098,30 +1163,34 @@ mod tests {
         let admission = AdmissionCoordinator::new(1).unwrap();
         let prepared = PreparedPiProbe::prepare(&candidate, &location)
             .unwrap_or_else(|issue| panic!("prepare={issue:?}"));
-        let mut outcome = prepared
-            .run_with(&database, || {
-                let now = utc_ms().map_err(PiProbeIssue::from)?;
-                let revision = database
-                    .resource_reservations()
-                    .ok()
-                    .flatten()
-                    .map(|ledger| ledger.revision)
-                    .ok_or(PiProbeIssue::AdmissionRefused)?;
-                admission
-                    .prepare(
-                        &database,
-                        &stamp,
-                        revision,
-                        PrepareRequest {
-                            budget: probe_budget(),
-                            process_commit_bytes: 256 * MIB,
-                            now_ms: now,
-                            lease_expires_at_ms: now + 10_000,
-                        },
-                    )
-                    .map_err(|_| PiProbeIssue::AdmissionRefused)
-            })
-            .unwrap_or_else(|issue| panic!("probe={issue:?}"));
+        let admit = || {
+            let now = utc_ms().map_err(PiProbeIssue::from)?;
+            let revision = database
+                .resource_reservations()
+                .ok()
+                .flatten()
+                .map(|ledger| ledger.revision)
+                .ok_or(PiProbeIssue::AdmissionRefused)?;
+            admission
+                .prepare(
+                    &database,
+                    &stamp,
+                    revision,
+                    PrepareRequest {
+                        budget: probe_budget(),
+                        process_commit_bytes: 256 * MIB,
+                        now_ms: now,
+                        lease_expires_at_ms: now + 10_000,
+                    },
+                )
+                .map_err(|_| PiProbeIssue::AdmissionRefused)
+        };
+        let mut outcome = if rpc_control {
+            prepared.run_rpc_control_with(&database, admit)
+        } else {
+            prepared.run_with(&database, admit)
+        }
+        .unwrap_or_else(|issue| panic!("probe={issue:?}"));
         if outcome.cleanup_retained() {
             outcome.retry_cleanup(&database);
         }
@@ -1133,12 +1202,23 @@ mod tests {
                 "issue": summary.issue, "nodeExitCode": summary.node_exit_code,
                 "exitCode": summary.exit_code, "stdout": summary.stdout,
                 "nodeStdout": summary.node_stdout, "cleanup": summary.cleanup,
-                "elapsedMs": summary.elapsed_ms,
+                "elapsedMs": summary.elapsed_ms, "rpcControl": summary.rpc_control,
             }))
             .unwrap()
         );
         assert_eq!(summary.issue, None);
-        assert!(summary.version.is_some() && summary.node_version.is_some());
+        assert!(summary.node_version.is_some());
+        if rpc_control {
+            assert!(
+                summary
+                    .rpc_control
+                    .as_ref()
+                    .is_some_and(rpc::ControlSummary::proven)
+            );
+            assert!(summary.version.is_none());
+        } else {
+            assert!(summary.version.is_some() && summary.rpc_control.is_none());
+        }
         assert_eq!(summary.cleanup, ProbeCleanup::Released);
         let preserve = outcome.cleanup_retained() || outcome.scratch_retained();
         drop(outcome);

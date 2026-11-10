@@ -96,4 +96,48 @@ Il ramo PowerShell della stessa prova resta fermo sul vecchio dialogo progetto
 Commit integrati sul master come `5f10452` (C18.1) e `81ca416` (C18.2). Ripetuti sul master:
 `cargo test -p shinatama-adapter pi` (13), `cargo test -p shinatama-engine --features session-reader --lib pi_` (5),
 `SHINATAMA_SMOKE_SESSION_HARNESS=pi node apps/desktop/tests/new-session-smoke.mjs` PASS (4 controlli).
-C18.3 (RPC e capacità) resta aperto.
+C18.3 (RPC e capacità) è nella sezione seguente.
+## C18.3 — Collegare RPC e provare le capacità Pi
+
+- `crates/adapter/src/pi/rpc.rs`: canale di controllo RPC (`--mode rpc
+  --no-session` più gli interruttori di scoperta) limitato alla sola lettura.
+  Sono codificabili solo `get_state`, `get_commands` e un comando fisso non
+  supportato (`shinatama_unsupported_probe`): prompt, steer, follow-up, bash,
+  modello o sessione non sono rappresentabili, quindi nessun run del modello
+  può partire da qui. Framing JSONL limitato (LF, CR opzionale, 16 KiB per
+  record, 64 record); U+2028/U+2029 restano dentro il record. La proiezione
+  conserva solo comando, esito, rifiuto chiuso, `isStreaming`, `messageCount`
+  e numero di comandi: modello, provider, costi, sessionId e testo d'errore
+  vengono scartati. Nessuna operazione ADR-0011 passa da questo canale:
+  `AttachBackend` rifiutata come non implementata (PI5), messaggi, headless ed
+  eventi rifiutati come non qualificati.
+- `crates/adapter/src/pi/capabilities.rs`: capacità dichiarate per la build
+  esatta osservata. `Detect` (fixture `pi-npm-shim-node-script-v1`) dopo la
+  sonda contenuta; `StartNew`, `Placement`, `InheritedMarkers` (fixture
+  `pi-system-box-explicit-set-tui-v1`) solo dopo il receipt della prova TUI.
+  Tutte le altre operazioni hanno un rifiuto esplicito; l'evidenza non vale
+  per un'altra versione. La sonda della app proietta ora `Detect` nelle sue
+  diagnostiche.
+- `crates/engine/src/pi_probe.rs`: `run_rpc_control_with` riusa pin, scratch
+  privato e ammissione della sonda; la seconda esecuzione contenuta è Pi in
+  RPC con lo script fisso su stdin, poi stdin chiuso. Non è usata dai controlli
+  dell'app. Test installato (ignorato, esplicito) superato su Pi 1.4.0:
+  `get_state` riuscito con `isStreaming=false` e `messageCount=0`,
+  `get_commands` riuscito con 0 comandi, comando non supportato rifiutato come
+  `unknown_command`, nessun evento, uscita 0, rilascio confermato (~2,4 s).
+- `verify/PI/run.ps1` riesegue le fixture installate (versione/Node e RPC).
+
+## Limiti
+
+- Nessun accesso, risposta di login o prompt è stato inviato: autenticazione
+  reale, traffico provider/TLS, strumenti, eventi di run (`agent_start`,
+  `agent_settled`), `ui_prompt`, coda messaggi e headless restano non provati.
+- Il contratto `auth check` (PI9) è testato su fixture ma l'app non lo esegue:
+  lo stato di accesso resta `unknown` nella UI.
+- Solo il set vuoto viene avviato; manca lo scrittore che materializza skill
+  ed estensioni per istanza. MCP per lancio (PI7) rifiutato.
+- Nessun resume nativo, binding di thread o hook Pi (`native_resume=false`).
+- La lettura Mukade di una sessione Pi reale non è provata: senza messaggi Pi
+  non scrive il file di sessione.
+- RPC non è collegato a un flusso utente: esiste solo come prova contenuta.
+- Supporto Windows soltanto; Daodan (FRD-0001/R08) rinviato.

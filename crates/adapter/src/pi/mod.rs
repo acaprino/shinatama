@@ -3,6 +3,8 @@
 //! capabilities. No file read, process, credential, shell string or network
 //! access lives here: the engine pins, contains and runs what these plan.
 pub mod auth;
+pub mod capabilities;
 pub mod discovery;
+pub mod rpc;
 pub mod run;
 pub mod sets;
