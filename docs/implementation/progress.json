@@ -2483,6 +2483,25 @@
         "Library only until the F10 pane."
       ],
       "next_action": "F10 companion pane (needs C15/C13/F04)."
+    },
+    "F20": {
+      "status": "pending",
+      "commit_sha": null,
+      "units": {},
+      "evidence": [
+        "docs/notes/2026-11-10-token-ledger.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-token-economy",
+        "node apps/desktop/tests/hop-preview-smoke.mjs"
+      ],
+      "limits": [
+        "Ledger implemented at 23dd200668f1e2df1db9c7f0e93191f28b408c40; ten real sessions per harness not measured, so the step stays open."
+      ],
+      "next_action": "Owner runs ten real sessions per harness; then aggregate baseline and close F20."
     }
   },
   "blockers": [],
