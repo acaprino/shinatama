@@ -288,6 +288,47 @@ mod tests {
     }
 
     #[test]
+    fn detached_linked_bare_submodule_and_non_git_folders_report_facts_not_guesses() {
+        let base = std::env::temp_dir().join(format!("shinatama-gitcases-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let repo = base.join("repo");
+        std::fs::create_dir_all(&repo).unwrap();
+        git(&repo, &["init", "-q", "-b", "main"]);
+        git(&repo, &["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "one"]);
+        // Detached HEAD: no branch is invented.
+        let head = String::from_utf8(Command::new("git").arg("-C").arg(&repo).args(["rev-parse", "HEAD"]).output().unwrap().stdout).unwrap();
+        git(&repo, &["checkout", "-q", "--detach", head.trim()]);
+        assert_eq!(facts(&repo, DEFAULT_TIMEOUT), GitFacts::Known { branch: None, dirty: 0, untracked: 0 });
+        git(&repo, &["checkout", "-q", "main"]);
+        // Linked worktree on its own branch.
+        let linked = base.join("linked");
+        git(&repo, &["worktree", "add", "-q", "-b", "feature", linked.to_str().unwrap()]);
+        assert!(matches!(facts(&linked, DEFAULT_TIMEOUT), GitFacts::Known { branch: Some(ref b), .. } if b == "feature"));
+        // Bare repository: status is not possible, so the answer is Unknown, not a guess.
+        let bare = base.join("bare.git");
+        std::fs::create_dir_all(&bare).unwrap();
+        git(&bare, &["init", "-q", "--bare"]);
+        assert!(matches!(facts(&bare, DEFAULT_TIMEOUT), GitFacts::Unknown { .. } | GitFacts::NotRepository), "{:?}", facts(&bare, DEFAULT_TIMEOUT));
+        // Submodule checkout reports its own branch state.
+        let sub_src = base.join("sub-src");
+        std::fs::create_dir_all(&sub_src).unwrap();
+        git(&sub_src, &["init", "-q", "-b", "main"]);
+        git(&sub_src, &["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "s"]);
+        let added = Command::new("git").arg("-C").arg(&repo).args(["-c", "protocol.file.allow=always", "submodule", "add", "-q"]).arg(&sub_src).arg("vendor/sub").stdout(Stdio::null()).stderr(Stdio::null()).status().unwrap();
+        if added.success() {
+            assert!(matches!(facts(&repo.join("vendor/sub"), DEFAULT_TIMEOUT), GitFacts::Known { .. }));
+        }
+        // Non-git folder outside any repository.
+        let plain = std::env::temp_dir().join(format!("shinatama-nogit-{}", std::process::id()));
+        std::fs::create_dir_all(&plain).unwrap();
+        if !plain.ancestors().any(|a| a.join(".git").exists()) {
+            assert_eq!(facts(&plain, DEFAULT_TIMEOUT), GitFacts::NotRepository);
+        }
+        let _ = std::fs::remove_dir_all(&plain);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
     fn parses_branch_dirty_and_untracked() {
         assert_eq!(
             parse_status(b"## main...origin/main [ahead 1]\0 M a.rs\0R  new.rs\0old.rs\0?? x\0?? y\0"),

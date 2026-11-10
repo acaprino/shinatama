@@ -1,6 +1,7 @@
 //! Small project-picker preferences in the platform configuration directory.
 //! This is not the authoritative database for sessions, threads or agent data.
 
+pub mod collisions;
 pub mod create;
 pub mod git;
 pub mod git_init;
