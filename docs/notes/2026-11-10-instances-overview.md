@@ -25,3 +25,9 @@ spends tokens yet), and a smoke on a real agent thread title.
 
 `crates/projects/src/collisions.rs` (3 tests) and git edge cases (detached, linked, bare,
 submodule, non-git) in `git::tests`. Not yet wired into the overview.
+
+## F05 wired into Instances (2026-11-10, 7dca2d7)
+
+Tokens column from the agent's own records, collision warnings from evidence (write-tool
+targets per instance thread vs `git status` of the shared worktree), Recent hops timeline from
+the hop journal. `instances-smoke.mjs` PASS with 6 checks.

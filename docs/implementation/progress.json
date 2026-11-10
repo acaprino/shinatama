@@ -2853,12 +2853,14 @@
       ],
       "checks": [
         "cargo test --offline -p shinatama-projects --lib collisions",
-        "cargo test --offline -p shinatama-projects --lib git::tests"
+        "cargo test --offline -p shinatama-projects --lib git::tests",
+        "node apps/desktop/tests/instances-smoke.mjs"
       ],
       "limits": [
-        "Collision logic and git fixtures at 2516ab52575e48a9cc21e23d3b2d952e58984cdc; not shown in the overview yet (needs per-instance tool-call targets from native hooks or transcripts); usage vs provider reports and large-repo cost not measured."
+        "Wired at 7dca2d73d6c6025c5b543293835f3ef53410d356: collisions from evidence and tokens per row in Instances; attribution needs each instance's thread to be readable (agents with native session binding).",
+        "Usage not compared with provider reports; large-repository status cost not measured."
       ],
-      "next_action": "Feed tool-call targets per instance into collisions and show them in Instances; timeline of hops/rounds."
+      "next_action": "Compare ledger usage with provider reports; measure git status cost on a large repository."
     },
     "F21": {
       "status": "pending",
