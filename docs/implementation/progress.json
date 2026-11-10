@@ -2841,6 +2841,24 @@
         "No OS kill of the desktop during a real hop."
       ],
       "next_action": "Owner acceptance."
+    },
+    "F05": {
+      "status": "pending",
+      "commit_sha": null,
+      "evidence": [
+        "docs/notes/2026-11-10-instances-overview.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-projects --lib collisions",
+        "cargo test --offline -p shinatama-projects --lib git::tests"
+      ],
+      "limits": [
+        "Collision logic and git fixtures at 2516ab52575e48a9cc21e23d3b2d952e58984cdc; not shown in the overview yet (needs per-instance tool-call targets from native hooks or transcripts); usage vs provider reports and large-repo cost not measured."
+      ],
+      "next_action": "Feed tool-call targets per instance into collisions and show them in Instances; timeline of hops/rounds."
     }
   },
   "blockers": [],

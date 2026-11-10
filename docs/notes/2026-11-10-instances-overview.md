@@ -20,3 +20,8 @@ state change or every 2 minutes, at most 8 reads per call. `instances-smoke.mjs`
 Open: the local GGUF and provider backends (F07/F08), the daily cost cap (only meaningful with
 a paid backend), the first-use privacy notice for provider backends, `summary_log` (no backend
 spends tokens yet), and a smoke on a real agent thread title.
+
+## F05 collisions and git fixtures (2026-11-10)
+
+`crates/projects/src/collisions.rs` (3 tests) and git edge cases (detached, linked, bare,
+submodule, non-git) in `git::tests`. Not yet wired into the overview.
