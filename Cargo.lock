@@ -3084,6 +3084,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "shinatama-roundtable"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "shinatama-export",
+]
+
+[[package]]
 name = "shinatama-state"
 version = "0.1.0"
 dependencies = [
