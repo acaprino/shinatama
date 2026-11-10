@@ -44,3 +44,21 @@ della lettura. **Close session detail** torna all'elenco.
 Claude conserva i propri strumenti e le richieste di permesso nel terminale.
 Autenticazione, copertura dei provider, ripresa per ogni harness, ricerca globale
 e hop restano distinti: non sono certificati dalla sola apertura della TUI.
+
+## Novità (novembre 2026)
+
+- **Projects** (barra in alto): progetti preferiti con la stella, branch e file modificati,
+  ultimo thread con **Resume last**, **New session**, **New in worktree…** (crea un worktree
+  Git solo dopo la tua conferma).
+- **Files**: albero e ricerca dei file del progetto. Aprire un file non lo esegue mai.
+  Markdown in Source, Preview, Split o **Visual** (titoli, paragrafi e codice; il resto resta
+  com'è). **Save** non sovrascrive mai in silenzio un file cambiato da un agente.
+- **Instances**: ogni terminale aperto con lo stato osservato e la sua fonte (gli stati in
+  corso sono incerti finché non sono collegati gli hook nativi), cosa sta facendo, token dai
+  record dell'agente, avvisi di collisione sui file, hop recenti. Unica azione: **Focus**.
+- Nel dettaglio di una sessione: **Export…** (STX, Mukade JSON, Markdown; i segreti sono
+  oscurati, il ragionamento non è mai esportato) e **Hop…** (anteprima esatta di cosa riceve
+  l'altro agente, poi **Hop** apre la destinazione e le consegna il riepilogo).
+- Riga di comando in `cli\shinatama.exe`: `sessions`, `find`, `export`, `forget`,
+  `check-state` (integrità e ricerca di credenziali nei dati di Shinatama, senza mai stamparle)
+  e `mcp` (gli strumenti di messaggistica tra istanze).
