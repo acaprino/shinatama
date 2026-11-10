@@ -9,6 +9,8 @@
 //! once with at most five retries; `delivered` never means read. A PTY paste is used only when
 //! the recipient is idle, nobody typed for ten seconds and no prompt, selection, search or
 //! draft is active, so a message can never answer a permission prompt.
+pub mod auth;
+
 use serde::{Deserialize, Serialize};
 use shinatama_export::Redactor;
 use shinatama_state::messages::{MessageState, MessageStore, StoreError, StoredMessage};

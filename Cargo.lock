@@ -2969,6 +2969,7 @@ dependencies = [
  "shinatama-adapter",
  "shinatama-engine",
  "shinatama-export",
+ "shinatama-messaging",
  "shinatama-state",
 ]
 
@@ -3063,8 +3064,10 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "sha2",
  "shinatama-export",
  "shinatama-state",
+ "subtle",
  "uuid",
 ]
 

@@ -1,5 +1,6 @@
 //! Read-only doctor and launch preflight. No config creation, migration or login.
 pub mod launch;
+pub mod mcp;
 pub mod sessions;
 pub use launch::run_launch_preflight;
 use shinatama_adapter::{AgentId, catalog::InstallationCatalog};
@@ -30,6 +31,7 @@ pub enum Command {
     Doctor(DoctorOptions),
     LaunchPreflight,
     Sessions(sessions::SessionCommand),
+    Mcp,
     Help,
 }
 
@@ -47,6 +49,9 @@ pub enum ParseError {
 pub fn parse(args: &[String]) -> Result<Command, ParseError> {
     if args.len() > 16 || args.iter().any(|argument| argument.len() > 1024) {
         return Err(ParseError::TooManyArguments);
+    }
+    if args.len() == 1 && args[0] == "mcp" {
+        return Ok(Command::Mcp);
     }
     if let Some(result) = sessions::parse(args) {
         return result.map(Command::Sessions).map_err(|()| ParseError::UnknownOption);

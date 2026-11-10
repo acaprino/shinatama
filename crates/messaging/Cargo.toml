@@ -12,5 +12,7 @@ license.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
+sha2.workspace = true
+subtle.workspace = true
 shinatama-export.workspace = true
 shinatama-state.workspace = true

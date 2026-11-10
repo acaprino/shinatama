@@ -12,7 +12,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 pub const FILE_NAME: &str = "messages.sqlite";
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -125,6 +125,16 @@ CREATE TABLE IF NOT EXISTS alert(
   id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, detail TEXT NOT NULL, at_ms INTEGER NOT NULL
 ) STRICT;
 ";
+/// v2: live instances that may use the messaging tools. Only the token's SHA-256 is kept.
+const SCHEMA_V2: &str = "
+CREATE TABLE IF NOT EXISTS instance(
+  id TEXT PRIMARY KEY NOT NULL CHECK(length(id) BETWEEN 1 AND 64),
+  agent TEXT NOT NULL, project TEXT NOT NULL, thread TEXT, roundtable TEXT,
+  token_sha256 TEXT NOT NULL CHECK(length(token_sha256)=64),
+  channels TEXT NOT NULL, heartbeat_ms INTEGER NOT NULL, ended INTEGER NOT NULL CHECK(ended IN (0,1))
+) STRICT;
+";
+
 
 pub struct MessageStore {
     connection: Mutex<Connection>,
@@ -178,7 +188,7 @@ impl MessageStore {
             return Err(StoreError::Storage("written by a newer Shinatama".into()));
         }
         if version < SCHEMA_VERSION {
-            connection.execute_batch(&format!("BEGIN IMMEDIATE;{SCHEMA}PRAGMA user_version={SCHEMA_VERSION};COMMIT;")).map_err(storage)?;
+            connection.execute_batch(&format!("BEGIN IMMEDIATE;{SCHEMA}{SCHEMA_V2}PRAGMA user_version={SCHEMA_VERSION};COMMIT;")).map_err(storage)?;
         }
         Ok(Self { connection: Mutex::new(connection) })
     }
@@ -263,6 +273,45 @@ impl MessageStore {
     /// Removes finished rows an hour after their expiry; no mailbox outlives that (R02).
     pub fn purge(&self, now_ms: i64) -> Result<u64> {
         self.lock()?.execute("DELETE FROM message WHERE expires_at_ms<=?1", [now_ms - 3_600_000]).map(|n| n as u64).map_err(storage)
+    }
+
+    /// Registers (or re-registers) a live instance with the hash of its launch token.
+    #[allow(clippy::too_many_arguments)]
+    pub fn register_instance(&self, id: &str, agent: &str, project: &str, thread: Option<&str>, roundtable: Option<&str>, token_sha256: &str, channels: &str, now_ms: i64) -> Result<()> {
+        if token_sha256.len() != 64 || !token_sha256.bytes().all(|c| c.is_ascii_hexdigit()) {
+            return Err(StoreError::Storage("token hash must be 64 hex characters".into()));
+        }
+        self.lock()?
+            .execute(
+                "INSERT INTO instance(id,agent,project,thread,roundtable,token_sha256,channels,heartbeat_ms,ended) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,0)
+                 ON CONFLICT(id) DO UPDATE SET agent=excluded.agent,project=excluded.project,thread=excluded.thread,roundtable=excluded.roundtable,
+                   token_sha256=excluded.token_sha256,channels=excluded.channels,heartbeat_ms=excluded.heartbeat_ms,ended=0",
+                params![id, agent, project, thread, roundtable, token_sha256, channels, now_ms],
+            )
+            .map(|_| ())
+            .map_err(storage)
+    }
+
+    pub fn heartbeat(&self, id: &str, now_ms: i64) -> Result<bool> {
+        self.lock()?.execute("UPDATE instance SET heartbeat_ms=?2 WHERE id=?1 AND ended=0", params![id, now_ms]).map(|n| n == 1).map_err(storage)
+    }
+
+    pub fn end_instance(&self, id: &str) -> Result<()> {
+        self.lock()?.execute("UPDATE instance SET ended=1 WHERE id=?1", [id]).map(|_| ()).map_err(storage)
+    }
+
+    /// Instances with a heartbeat newer than `stale_ms` and not ended:
+    /// (id, agent, project, thread, roundtable, token_sha256, channels JSON).
+    #[allow(clippy::type_complexity)]
+    pub fn live_instances(&self, now_ms: i64, stale_ms: i64) -> Result<Vec<(String, String, String, Option<String>, Option<String>, String, String)>> {
+        let connection = self.lock()?;
+        let mut statement = connection
+            .prepare("SELECT id,agent,project,thread,roundtable,token_sha256,channels FROM instance WHERE ended=0 AND heartbeat_ms>=?1 ORDER BY id LIMIT 256")
+            .map_err(storage)?;
+        let rows = statement
+            .query_map([now_ms - stale_ms], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?)))
+            .map_err(storage)?;
+        rows.collect::<std::result::Result<Vec<_>, _>>().map_err(storage)
     }
 
     pub fn raise_alert(&self, kind: &str, detail: &str, now_ms: i64) -> Result<()> {
