@@ -504,7 +504,7 @@ fn pinned_projects_persist_newest_first_and_refuse_unknown_ids() {
     assert!(database.pinned_projects().unwrap().is_empty());
     database.set_project_pinned(&pa.id, true).unwrap();
     assert_eq!(database.set_project_pinned(&pb.id, true).unwrap(), [pb.id.clone(), pa.id.clone()]);
-    assert_eq!(database.set_project_pinned(&pa.id, false).unwrap(), [pb.id.clone()]);
+    assert_eq!(database.set_project_pinned(&pa.id, false).unwrap(), std::slice::from_ref(&pb.id));
     assert!(database.set_project_pinned("p_unknownxxxxx", true).is_err());
     drop(database);
     let reopened = shinatama_state::database::Database::open(&location, None).unwrap();

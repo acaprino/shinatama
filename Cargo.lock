@@ -3058,6 +3058,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "shinatama-messaging"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "shinatama-export",
+ "shinatama-state",
+ "uuid",
+]
+
+[[package]]
 name = "shinatama-projects"
 version = "0.1.0"
 dependencies = [

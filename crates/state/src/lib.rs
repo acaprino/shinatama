@@ -6,6 +6,7 @@ pub mod global_workspace;
 pub mod hops;
 pub mod location;
 pub mod maintenance;
+pub mod messages;
 mod migrations;
 pub mod native_session_cleanup;
 pub mod projects;
