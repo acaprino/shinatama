@@ -2375,6 +2375,30 @@
         "node apps/desktop/tests/files-smoke.mjs"
       ],
       "next_action": "Owner acceptance; C43 visual editing needs a fidelity corpus."
+    },
+    "C44": {
+      "status": "pending",
+      "commit_sha": null,
+      "units": {
+        "C44.1": {
+          "status": "committed",
+          "commit_sha": "c49fbfe1c401f0464fa99467d27c65f962b38656",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-project-files.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-files",
+            "node apps/desktop/tests/files-smoke.mjs"
+          ],
+          "limits": [
+            "Images only; SVG shown as source text."
+          ]
+        }
+      },
+      "next_action": "C44.2 needs a DOCX reader choice with a fidelity corpus; until then DOCX stays unavailable (reported, never approximated)."
     }
   },
   "blockers": [],

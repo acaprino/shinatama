@@ -25,3 +25,11 @@ Windows 11 x64. Proofs run with `TEMP`/`TMP` at `C:\shinatama-tmp`.
 - Mermaid stays a code block; no diagram renderer exists.
 - Startup flake: twice the first app start after a rebuild exited before the WebView page
   loaded; the immediate rerun passed. Not diagnosed yet.
+
+## C44.1 image previews (2026-11-10)
+
+- `crates/files/src/preview.rs`: signature + header dimensions; 16 MiB and 40 MP caps before
+  decoding; DOCX reported unavailable. `files-smoke.mjs` PASS with 8 checks.
+- Environment: drive C: had 22 MB free during one run, which made the app refuse its storage
+  backup ("Lo spazio disponibile non lascia almeno 1 GiB libero"). Proofs now use
+  `TEMP=D:\shinatama-tmp`.
