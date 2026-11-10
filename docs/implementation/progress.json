@@ -2895,6 +2895,44 @@
         "Contract and routing at 0fd3e9d0a29d5c952f2c510f2204d274c1799a5f; no engine integration (F18 Moli, F19 Patchright), no session view (R14)."
       ],
       "next_action": "F18 Moli one-shot fetch behind this contract."
+    },
+    "C18": {
+      "status": "pending",
+      "commit_sha": null,
+      "units": {
+        "C18.1": {
+          "status": "committed",
+          "commit_sha": "5f1045264f703561c4fd339104ad9c1cb2ef829e",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-pi-adapter.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-adapter pi",
+            "cargo test --offline -p shinatama-engine --features session-reader --lib pi_"
+          ],
+          "limits": []
+        },
+        "C18.2": {
+          "status": "committed",
+          "commit_sha": "81ca416625b87e04d8c63172af133c09aab0114c",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-pi-adapter.md"
+          ],
+          "checks": [
+            "SHINATAMA_SMOKE_SESSION_HARNESS=pi node apps/desktop/tests/new-session-smoke.mjs"
+          ],
+          "limits": [
+            "Only the empty skill/extension set is launched; MCP refused."
+          ]
+        }
+      },
+      "next_action": "C18.3 RPC and capability qualification for Pi (needs sign-in for model calls)."
     }
   },
   "blockers": [],

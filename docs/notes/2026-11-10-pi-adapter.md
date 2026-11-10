@@ -90,3 +90,10 @@ barra del riquadro, nascosta dal workspace semplificato su master: ora chiude
 la scheda con il suo `×`, che chiede conferma prima di fermare la sessione.
 Il ramo PowerShell della stessa prova resta fermo sul vecchio dialogo progetto
 (`#folder`), problema preesistente fuori da C18.
+
+## Verifica sul master (10 novembre 2026)
+
+Commit integrati sul master come `5f10452` (C18.1) e `81ca416` (C18.2). Ripetuti sul master:
+`cargo test -p shinatama-adapter pi` (13), `cargo test -p shinatama-engine --features session-reader --lib pi_` (5),
+`SHINATAMA_SMOKE_SESSION_HARNESS=pi node apps/desktop/tests/new-session-smoke.mjs` PASS (4 controlli).
+C18.3 (RPC e capacità) resta aperto.
