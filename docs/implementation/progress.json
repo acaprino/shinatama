@@ -2502,6 +2502,68 @@
         "Ledger implemented at 23dd200668f1e2df1db9c7f0e93191f28b408c40; ten real sessions per harness not measured, so the step stays open."
       ],
       "next_action": "Owner runs ten real sessions per harness; then aggregate baseline and close F20."
+    },
+    "C31": {
+      "status": "committed",
+      "commit_sha": "6d4514b8586a8940e235fea01e431b7612b4668b",
+      "units": {
+        "C31.1": {
+          "status": "committed",
+          "commit_sha": "6d4514b8586a8940e235fea01e431b7612b4668b",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-messaging.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-messaging"
+          ],
+          "limits": []
+        },
+        "C31.2": {
+          "status": "committed",
+          "commit_sha": "6d4514b8586a8940e235fea01e431b7612b4668b",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-messaging.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-messaging"
+          ],
+          "limits": []
+        },
+        "C31.3": {
+          "status": "committed",
+          "commit_sha": "6d4514b8586a8940e235fea01e431b7612b4668b",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-messaging.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-messaging"
+          ],
+          "limits": []
+        }
+      },
+      "evidence": [
+        "docs/notes/2026-11-10-messaging.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-messaging"
+      ],
+      "limits": [
+        "Library only until C32 MCP tools and a live instance directory.",
+        "M4/M6 per-agent measurements not run."
+      ],
+      "next_action": "C32 MCP tools over this API."
     }
   },
   "blockers": [],
