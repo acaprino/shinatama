@@ -42,7 +42,8 @@ export function createFilesPanel(options: Options) {
   const panes = document.createElement('div'); panes.className = 'files-panes';
   const editor = document.createElement('textarea'); editor.className = 'files-editor'; editor.spellcheck = false; editor.setAttribute('aria-label', 'File source');
   const preview = document.createElement('div'); preview.className = 'files-preview'; preview.setAttribute('aria-label', 'Rendered Markdown');
-  panes.append(editor, preview);
+  const picture = document.createElement('div'); picture.className = 'files-picture'; picture.hidden = true;
+  panes.append(editor, preview, picture);
   const status = document.createElement('p'); status.className = 'files-status'; status.setAttribute('role', 'status');
   main.append(bar, panes, status);
   body.append(side, main);
@@ -108,8 +109,19 @@ export function createFilesPanel(options: Options) {
     if (!current || current.text === current.baseText) return true;
     return options.decide('Unsaved changes', `${current.path} has unsaved changes. They stay in this window while it is open; nothing is written until you press Save.`, 'Keep editing elsewhere');
   }
+  async function openImage(path: string) {
+    const project = projectPath(); if (!project) return;
+    const outcome = await options.invoke<{ state: 'ready'; image: { path: string; width: number; height: number; bytes: number; dataUrl: string } } | { state: 'refused'; message: string }>('files_image', { project, path });
+    current = null; editor.value = ''; preview.replaceChildren(); render(); editor.hidden = true; preview.hidden = true;
+    picture.replaceChildren(); picture.hidden = false;
+    if (outcome.state === 'refused') { name.textContent = path; setStatus(outcome.message, true); return; }
+    const img = document.createElement('img'); img.alt = outcome.image.path; img.src = outcome.image.dataUrl; picture.append(img);
+    name.textContent = outcome.image.path; setStatus(`${outcome.image.width} x ${outcome.image.height} pixels, ${outcome.image.bytes.toLocaleString()} bytes. Read-only.`);
+  }
   async function openFile(path: string) {
     const project = projectPath(); if (!project) throw new Error('Choose a project first.');
+    picture.hidden = true; picture.replaceChildren();
+    if (/\.(png|jpe?g|gif|webp|docx?)$/i.test(path)) { await openImage(path); return; }
     let buffer = buffers.get(path);
     if (!buffer) {
       const file = await options.invoke<TextFile>('files_read', { project, path });

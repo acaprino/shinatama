@@ -654,6 +654,7 @@ fn main() {
         files::files_read,
         files::files_save,
         files::files_markdown,
+        files::files_image,
         #[cfg(windows)]
         sessions::export::session_export,
         #[cfg(windows)]
@@ -757,6 +758,7 @@ fn main() {
         files::files_read,
         files::files_save,
         files::files_markdown,
+        files::files_image,
         #[cfg(windows)]
         sessions::export::session_export,
         #[cfg(windows)]

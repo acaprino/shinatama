@@ -22,3 +22,5 @@
 .files-preview .md-link, .files-preview .md-image { color: var(--text-2); }
 .files-status { min-height: 1.6em; margin: 6px 0 0; font-size: 13px; color: var(--text-2); }
 .files-status[data-state=error] { color: var(--error); }
+.files-picture { overflow: auto; border: 1px solid var(--line); display: flex; align-items: flex-start; justify-content: center; padding: 10px; background: var(--chrome); }
+.files-picture img { max-width: 100%; height: auto; image-rendering: auto; }

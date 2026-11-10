@@ -126,6 +126,27 @@ pub async fn files_save(window: WebviewWindow, services: State<'_, Services>, re
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase", tag = "state")]
+pub enum ImageOutcome {
+    Ready { image: shinatama_files::preview::ImagePreview },
+    Refused { message: String },
+}
+
+#[tauri::command]
+pub async fn files_image(window: WebviewWindow, services: State<'_, Services>, project: String, path: String) -> Result<ImageOutcome, String> {
+    crate::local(&window)?;
+    let services = services.inner().clone();
+    blocking(move || {
+        let root = root(&services, &project)?;
+        Ok(match shinatama_files::preview::image(&root, &path) {
+            Ok(image) => ImageOutcome::Ready { image },
+            Err(error) => ImageOutcome::Refused { message: error.to_string() },
+        })
+    })
+    .await
+}
+
+#[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MarkdownView {
     html: String,

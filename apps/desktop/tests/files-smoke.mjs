@@ -19,6 +19,10 @@ await mkdir(resolve(fixture, 'outside'), { recursive: true });
 await writeFile(resolve(fixture, 'outside', 'secret.txt'), 'outside-secret');
 await writeFile(resolve(project, 'README.md'), '# Hello\n\nSee [guide](docs/guide.md).\n\n<script>alert(1)</script>\n');
 await writeFile(resolve(project, 'docs', 'guide.md'), '## Guide\n');
+await writeFile(resolve(project, 'docs', 'dot.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64'));
+const bomb = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ', 'base64'); bomb.writeUInt32BE(200000, 16); bomb.writeUInt32BE(200000, 20);
+await writeFile(resolve(project, 'docs', 'bomb.png'), bomb);
+await writeFile(resolve(project, 'docs', 'report.docx'), 'PK');
 const marker = resolve(fixture, 'ran.txt');
 await writeFile(resolve(project, 'run.bat'), `@echo ran > "${marker}"\n`);
 execFileSync('powershell', ['-NoProfile', '-Command', `New-Item -ItemType Junction -Path '${resolve(project, 'escape')}' -Target '${resolve(fixture, 'outside')}' | Out-Null`]);
@@ -48,7 +52,8 @@ try {
     page = browser.contexts()[0].pages().find(p => p.url().includes('tauri.localhost') && !p.url().includes('widget.html'));
   }
   if (!page) throw new Error('Main WebView not found.');
-  await expect(page.locator('#runtime-status')).toContainText('Local runtime', { timeout: 30000 });
+  try { await expect(page.locator('#runtime-status')).toContainText('Local runtime', { timeout: 30000 }); }
+  catch (error) { throw new Error(`startup: ${JSON.stringify(await reply('storage_location'))} app exit ${app.exitCode}`); }
   const unknown = await reply('files_list', { project, path: '', requestId: 'r0' });
   expect(unknown.ok).toBe(false);
   expect(JSON.stringify(unknown.issue)).toContain('not one of your projects');
@@ -70,6 +75,13 @@ try {
   const md = await ipc('files_markdown', { text: '# T\n<script>x</script> [a](https://evil.example)' });
   expect(md.html).not.toContain('<script'); expect(md.html).not.toContain('href=');
   evidence.checks.searchAndInertMarkdown = true;
+  const dot = await ipc('files_image', { project: root, path: 'docs/dot.png' });
+  if (dot.state !== 'ready') throw new Error(JSON.stringify(dot)); expect(dot.image.width).toBe(1); expect(dot.image.dataUrl.startsWith('data:image/png;base64,')).toBe(true);
+  const refusedBomb = await ipc('files_image', { project: root, path: 'docs/bomb.png' });
+  expect(refusedBomb.state).toBe('refused'); expect(refusedBomb.message).toContain('40 megapixels');
+  const docx = await ipc('files_image', { project: root, path: 'docs/report.docx' });
+  expect(docx.state).toBe('refused'); expect(docx.message).toContain('DOCX preview is not available');
+  evidence.checks.boundedImagesAndDocxUnavailable = true;
   const readme = await ipc('files_read', { project: root, path: 'README.md' });
   await writeFile(resolve(project, 'README.md'), '# Changed by an agent\n');
   const conflict = await ipc('files_save', { request: { project: root, path: 'README.md', text: '# Mine\n', baseSha256: readme.sha256, overwrite: false } });
@@ -91,6 +103,11 @@ try {
   await expect(page.locator('#files-dialog .files-status')).toHaveText('Saved.', { timeout: 10000 });
   expect(await readFile(resolve(project, 'README.md'), 'utf8')).toBe('# Edited\n\nbody');
   evidence.checks.panelPreviewEditSave = true;
+  await page.locator('#files-dialog .files-list button', { hasText: 'docs' }).click();
+  await page.locator('#files-dialog .files-list button', { hasText: 'dot.png' }).click();
+  await expect(page.locator('#files-dialog .files-picture img')).toBeVisible({ timeout: 10000 });
+  await expect(page.locator('#files-dialog .files-status')).toContainText('1 x 1 pixels');
+  evidence.checks.panelShowsImage = true;
   evidence.status = 'pass';
 } catch (error) {
   evidence.status = 'fail'; evidence.error = String(error?.message ?? error).slice(0, 2000); throw error;
