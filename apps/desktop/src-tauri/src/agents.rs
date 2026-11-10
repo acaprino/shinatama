@@ -3,6 +3,7 @@
 mod claude;
 mod codex;
 mod opencode;
+mod pi;
 pub(crate) mod resume;
 mod service;
 #[cfg(test)]
@@ -275,10 +276,11 @@ impl Controller {
             sidecar,
             thread_observer,
         ));
-        let implementations: [Arc<dyn HarnessService>; 3] = [
+        let implementations: [Arc<dyn HarnessService>; 4] = [
             Arc::new(Service::new(Arc::clone(&context), claude::ClaudeDriver)),
             Arc::new(Service::new(Arc::clone(&context), codex::CodexDriver)),
-            Arc::new(Service::new(context, opencode::OpenCodeDriver)),
+            Arc::new(Service::new(Arc::clone(&context), opencode::OpenCodeDriver)),
+            Arc::new(Service::new(context, pi::PiDriver)),
         ];
         let mut registry = BTreeMap::new();
         for service in implementations {

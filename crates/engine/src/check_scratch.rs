@@ -63,6 +63,8 @@ pub enum ScratchKind {
     CodexTuiTrial,
     OpenCodeProbe,
     OpenCodeTuiTrial,
+    PiProbe,
+    PiTuiTrial,
 }
 impl ScratchKind {
     fn prefix(self) -> &'static str {
@@ -73,6 +75,8 @@ impl ScratchKind {
             Self::CodexTuiTrial => "codex-tui-trial-",
             Self::OpenCodeProbe => "opencode-probe-",
             Self::OpenCodeTuiTrial => "opencode-tui-trial-",
+            Self::PiProbe => "pi-probe-",
+            Self::PiTuiTrial => "pi-tui-trial-",
         }
     }
 }
@@ -186,6 +190,8 @@ fn shape(base: &Path, path: &Path) -> Result<(), Issue> {
         ScratchKind::CodexTuiTrial,
         ScratchKind::OpenCodeProbe,
         ScratchKind::OpenCodeTuiTrial,
+        ScratchKind::PiProbe,
+        ScratchKind::PiTuiTrial,
     ]
     .into_iter()
     .find_map(|kind| name.strip_prefix(kind.prefix()))

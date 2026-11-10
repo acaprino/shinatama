@@ -131,24 +131,24 @@ pub struct VersionOutputSummary {
     pub classification: &'static str,
     pub version_line: Option<String>,
 }
-struct BoundedVersionOutput {
+pub(crate) struct BoundedVersionOutput {
     bytes: usize,
     prefix: [u8; 128],
 }
 impl BoundedVersionOutput {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             bytes: 0,
             prefix: [0; 128],
         }
     }
-    fn observe(&mut self, bytes: &[u8]) {
+    pub(crate) fn observe(&mut self, bytes: &[u8]) {
         let kept = self.bytes.min(self.prefix.len());
         let count = bytes.len().min(self.prefix.len() - kept);
         self.prefix[kept..kept + count].copy_from_slice(&bytes[..count]);
         self.bytes += bytes.len();
     }
-    fn summary(&self) -> VersionOutputSummary {
+    pub(crate) fn summary(&self) -> VersionOutputSummary {
         let raw = &self.prefix[..self.bytes.min(self.prefix.len())];
         let mut classification = if self.bytes == 0 {
             "empty"
@@ -284,7 +284,7 @@ fn is_npm_shim(text: &str) -> bool {
 /// Follow at most eight LOCAL directory links, never a file link. Every parent
 /// stays open without delete sharing while its child is inspected. The returned
 /// physical directory is rechecked by the stricter no-reparse executable pin.
-fn resolve_local_directory(
+pub(crate) fn resolve_local_directory(
     input: &Path,
     deadline: Instant,
 ) -> Result<(PathBuf, Vec<File>), ProbeIssue> {
@@ -384,7 +384,7 @@ struct ProgramPin {
     bytes: u64,
     identity: NativeProgramIdentity,
 }
-fn info(file: &File) -> Result<BY_HANDLE_FILE_INFORMATION, ProbeIssue> {
+pub(crate) fn info(file: &File) -> Result<BY_HANDLE_FILE_INFORMATION, ProbeIssue> {
     let mut result = BY_HANDLE_FILE_INFORMATION::default();
     if unsafe { GetFileInformationByHandle(file.as_raw_handle(), &mut result) } == 0 {
         return Err(ProbeIssue::UnsafeProgram);
@@ -920,7 +920,7 @@ impl PreparedOpenCodeProbe {
     }
 }
 
-fn cleanup_owned_scratch(
+pub(crate) fn cleanup_owned_scratch(
     base: &StorageLocation,
     scratch: &mut OwnedScratch,
     native: CleanupStatus,
@@ -935,19 +935,19 @@ fn cleanup_owned_scratch(
     report
 }
 
-struct ReleasedScratch {
-    base: StorageLocation,
-    receipt: OwnedScratch,
-    native: CleanupStatus,
+pub(crate) struct ReleasedScratch {
+    pub(crate) base: StorageLocation,
+    pub(crate) receipt: OwnedScratch,
+    pub(crate) native: CleanupStatus,
 }
-fn utc_ms() -> Result<i64, ProbeIssue> {
+pub(crate) fn utc_ms() -> Result<i64, ProbeIssue> {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .ok()
         .and_then(|time| i64::try_from(time.as_millis()).ok())
         .ok_or(ProbeIssue::Expired)
 }
-fn drain(
+pub(crate) fn drain(
     file: &mut File,
     output: &mut Vec<u8>,
     scratch: &mut [u8],
@@ -1002,7 +1002,7 @@ fn drain(
     }
     Ok(read == 0)
 }
-enum Retained {
+pub(crate) enum Retained {
     Prepared(PreparedWorkload),
     Process(ContainedProcess),
 }

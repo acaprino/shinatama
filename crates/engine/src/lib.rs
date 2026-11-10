@@ -41,6 +41,8 @@ pub mod codex_launch;
 pub mod opencode_probe;
 #[cfg(windows)]
 pub mod opencode_launch;
+#[cfg(windows)]
+pub mod pi_probe;
 pub mod sidecar_config;
 pub mod sidecar_runtime;
 #[cfg(windows)]

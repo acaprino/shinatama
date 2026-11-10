@@ -336,7 +336,7 @@ fn absolute_windows_path(path: &Path) -> bool {
     disk || unc
 }
 
-fn version_at_least(actual: &Version, minimum: &Version) -> bool {
+pub(crate) fn version_at_least(actual: &Version, minimum: &Version) -> bool {
     match (actual.major(), actual.minor(), actual.patch()).cmp(&(
         minimum.major(),
         minimum.minor(),
