@@ -33,3 +33,11 @@ Windows 11 x64. Proofs run with `TEMP`/`TMP` at `C:\shinatama-tmp`.
 - Environment: drive C: had 22 MB free during one run, which made the app refuse its storage
   backup ("Lo spazio disponibile non lascia almeno 1 GiB libero"). Proofs now use
   `TEMP=D:\shinatama-tmp`.
+
+## C43 visual Markdown editing (2026-11-10)
+
+`crates/files/src/visual.rs`: block model with exact bytes; editable headings, paragraphs and
+code bodies; everything else preserved and read-only; visual mode only on an exact round trip.
+`cargo test -p shinatama-files visual` 5 passed (20-case corpus); `files-smoke.mjs` PASS with
+10 checks. Limit: inline markup (bold, links) is edited as literal Markdown text inside a
+paragraph, not as formatted text.

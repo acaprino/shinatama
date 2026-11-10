@@ -2643,6 +2643,71 @@
         }
       },
       "next_action": "C33.1 real ask_headless per agent with canaries (needs owner-authorized budget); C33.4 UI, roundtable thread and search."
+    },
+    "C43": {
+      "status": "committed",
+      "commit_sha": "8ce48013fea854daf7103d4fd6b08f6c1f08fb46",
+      "units": {
+        "C43.1": {
+          "status": "committed",
+          "commit_sha": "8ce48013fea854daf7103d4fd6b08f6c1f08fb46",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-project-files.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-files visual",
+            "node apps/desktop/tests/files-smoke.mjs"
+          ],
+          "limits": []
+        },
+        "C43.2": {
+          "status": "committed",
+          "commit_sha": "8ce48013fea854daf7103d4fd6b08f6c1f08fb46",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-project-files.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-files visual",
+            "node apps/desktop/tests/files-smoke.mjs"
+          ],
+          "limits": []
+        },
+        "C43.3": {
+          "status": "committed",
+          "commit_sha": "8ce48013fea854daf7103d4fd6b08f6c1f08fb46",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-project-files.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-files visual",
+            "node apps/desktop/tests/files-smoke.mjs"
+          ],
+          "limits": []
+        }
+      },
+      "evidence": [
+        "docs/notes/2026-11-09-project-files.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-files visual",
+        "node apps/desktop/tests/files-smoke.mjs"
+      ],
+      "limits": [
+        "Visual subset: headings, paragraphs, code bodies; inline markup stays literal text inside paragraphs."
+      ],
+      "next_action": "Owner acceptance."
     }
   },
   "blockers": [],
