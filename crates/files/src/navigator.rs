@@ -201,7 +201,7 @@ impl Root {
             name: path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
             path: self.relative_of(path),
             kind: if link { EntryKind::Link } else if meta.is_dir() { EntryKind::Directory } else { EntryKind::File },
-            size: (!link && meta.is_file()).then(|| meta.len()),
+            size: (!link && meta.is_file()).then_some(meta.len()),
             link_inside: link.then(|| fs::canonicalize(path).is_ok_and(|t| t.starts_with(&self.canonical))),
         }
     }
