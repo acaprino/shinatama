@@ -142,3 +142,13 @@ C18.3 (RPC e capacità) è nella sezione seguente.
   non scrive il file di sessione.
 - RPC non è collegato a un flusso utente: esiste solo come prova contenuta.
 - Supporto Windows soltanto; Daodan (FRD-0001/R08) rinviato.
+
+## Verifica sul master integrato (10 novembre 2026, `e358618`)
+
+C18.3 integrato come `6be2b50`. `cargo test -p shinatama-adapter` (60), engine `pi_` (5, più 7 con
+`--include-ignored --test-threads=1`) e `new-session-smoke.mjs` con Pi (PASS, 4 controlli) sul
+binario ricostruito dopo l'integrazione.
+
+Limite: con `--include-ignored` e test in parallelo, `installed_pi_version_…` può fallire in
+`AdmissionCoordinator::new(1).unwrap()` (un solo coordinatore ammesso per processo); in serie
+(`--test-threads=1`) passa. È un limite del lancio dei test, non del prodotto.
