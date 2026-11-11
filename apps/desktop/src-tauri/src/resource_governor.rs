@@ -574,9 +574,12 @@ mod tests {
         assert!(!available.defer_new_starts);
         assert_eq!(sample(&mut policy, 6500, 5 * GIB).stage, Stage::Normal);
 
-        // Genuine pressure still escalates, without attributing an invented job.
-        sample(&mut policy, 7000, GIB);
-        let acute = sample(&mut policy, 7500, GIB);
+        // Genuine pressure still escalates (under the 512 MiB commit floor), without
+        // attributing an invented job. One GiB free on a forty-GiB host is no longer pressure.
+        const SCARCE: u64 = 400 * 1024 * 1024;
+        assert!(!sample(&mut policy, 6800, GIB).defer_new_starts);
+        sample(&mut policy, 7000, SCARCE);
+        let acute = sample(&mut policy, 7500, SCARCE);
         assert!(acute.defer_new_starts);
         assert_eq!(acute.reason, Reason::Pressure);
         assert!(!acute.termination_recommended_but_not_executed);

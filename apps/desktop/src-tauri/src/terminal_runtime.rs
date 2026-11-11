@@ -324,7 +324,9 @@ impl Admission {
         let required = reserved
             .checked_add(budget.memory_bytes)
             .context("Resource capacity overflow.")?;
-        if physical < required.saturating_add(512 * MIB) || commit < required.saturating_add(GIB) {
+        // A terminal is capped at its job budget (1 GiB) and a typical TUI uses ~430 MiB, so the
+        // margin kept for the rest of Windows is 256 MiB of RAM and 512 MiB of commit.
+        if physical < required.saturating_add(256 * MIB) || commit < required.saturating_add(512 * MIB) {
             bail!(
                 "System headroom cannot cover another terminal; existing sessions keep their budgets."
             );

@@ -14,16 +14,16 @@ use tauri::{State, WebviewWindow};
 pub(crate) fn default_governor_config() -> GovernorConfig {
     GovernorConfig {
         policy: PolicyConfig {
-            physical_available_floor_bytes: 512 * 1024 * 1024,
-            commit_available_floor_bytes: 1024 * 1024 * 1024,
+            physical_available_floor_bytes: 256 * 1024 * 1024,
+            commit_available_floor_bytes: 512 * 1024 * 1024,
             // Percentage pressure complements the fresh per-launch byte reserve;
             // it must not latch out a healthy host with several GiB available.
             // A normal desktop (browser, editors, other agents) sits well above
             // 90% commit on large commit limits, so the percentage gates trip only
             // when the absolute floors above are about to be crossed anyway.
-            pressure_enter_basis_points: 9600,
-            pressure_exit_basis_points: 9400,
-            emergency_basis_points: 9800,
+            pressure_enter_basis_points: 9800,
+            pressure_exit_basis_points: 9600,
+            emergency_basis_points: 9900,
             max_sample_age_ms: 3000,
             calibration_window_ms: 30_000,
             calibration_samples: 30,

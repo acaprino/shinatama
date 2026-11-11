@@ -331,8 +331,8 @@ fn memory_headroom() -> bool {
     let mut memory: MEMORYSTATUSEX = unsafe { std::mem::zeroed() };
     memory.dwLength = std::mem::size_of::<MEMORYSTATUSEX>() as u32;
     (unsafe { GlobalMemoryStatusEx(&mut memory) != 0 })
-        && memory.ullAvailPageFile >= 1024 * 1024 * 1024
-        && memory.ullAvailPhys >= 512 * 1024 * 1024
+        && memory.ullAvailPageFile >= 512 * 1024 * 1024
+        && memory.ullAvailPhys >= 256 * 1024 * 1024
 }
 
 #[cfg(not(windows))]
