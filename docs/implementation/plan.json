@@ -8421,7 +8421,8 @@
         "FRD-0017/R16",
         "FRD-0017/R17",
         "FRD-0017/R18",
-        "FRD-0017/R23"
+        "FRD-0017/R23",
+        "FRD-0002/R42"
       ],
       "depends_on": [
         "F32CI",
@@ -8473,7 +8474,7 @@
           "acceptance": [
             "La build normale resta avviabile e i componenti mancanti producono esiti espliciti senza download automatici.",
             "Runtime, licenze, hash e provenienza del sidecar sono inventariati; copie agenti proprie richiedono la scelta dell'utente.",
-            "Il pacchetto Windows include DietrichGebert/ponytail e ayghri/i-have-adhd come risorse locali con versioni, hash e licenze fissati e verificabili offline. L'attivazione è facoltativa."
+            "Il pacchetto Windows include DietrichGebert/ponytail e ayghri/i-have-adhd come risorse locali con versioni, hash e licenze fissati e verificabili offline. Shinatama li attiva da solo a ogni sessione di Claude Code, Codex, Pi e OpenCode, con verifica dei file prima dell'avvio e disattivazione con SHINATAMA_BUNDLED_PLUGINS=off (ADR-0052)."
           ],
           "checks": [
             "pianificato: Eseguire build e avvio senza componenti facoltativi e in ambiente offline.",

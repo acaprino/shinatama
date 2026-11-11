@@ -4,9 +4,9 @@
 |---|---|
 | Version | 1 |
 | Status | Accepted 2026-11-01 (this Markdown text) |
-| Date | 2026-11-01 |
+| Date | 2026-11-01; R42 added 2026-11-11 |
 | Sources | functional-design 3 (isolation), 5.14, 7; technical-design 3, 5.5 A; records D15 to D19, P20 |
-| Governing ADRs | ADR-0012 v2, ADR-0013, ADR-0014 |
+| Governing ADRs | ADR-0012 v2, ADR-0013, ADR-0014, ADR-0052 |
 | Register sections | D15 to D19, P20, HM9 to HM11, HM13, DS9 to DS11, DS13, SS5, M1, CX12 |
 | Related records | FRD-0003 (login in a box), FRD-0006 (store roots), FRD-0008 (Daodan into the home), FRD-0016 (TokenEconomizer in the set) |
 
@@ -95,6 +95,7 @@ identity, and the removal of inherited agent markers.
 | R39 | The following are unproved and must pass before the feature is claimed: login persistence in a box (needs the user's sign-in, O1), the interactive mode with per-instance sets, the one-week self-update observation, OpenCode `own` side by side, and every row on macOS and Linux. | S | X | D15, D16, D19 | 0010 |
 | R40 | Per-launch MCP injection (M1), one proxy per instance versus shared (SC5) and the Codex private overlay leaving history and auth in place (CX12) are unproved parts of the isolation story. | S | X | M1, SC5, CX12 | 0013 |
 | R41 | The register's scratch homes are a separate, test-only device and never a product placement. | S | X | register 0 | 0010 |
+| R42 | Every real session of Claude Code, Codex, Pi and OpenCode starts with the bundled set (Ponytail and i-have-adhd) by default, injected per launch with the switches of R23 to R26 and never into the user's own configuration. Files are checked against `plugins.lock.json` before each launch; a missing or altered bundle drops the plugins and does not block the launch. `SHINATAMA_BUNDLED_PLUGINS=off` gives the empty set. Claude Code and Codex carry it in tracked sessions only. | U 2026-11-11 ("Shinatama deve auto installare, come gli altri plugin preconfigurati") | V1 | D21 | 0052 |
 
 ## 3. Open questions
 

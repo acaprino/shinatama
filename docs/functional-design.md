@@ -860,6 +860,8 @@ Still unproved: login persistence in a box (needs the user's sign-in), the inter
 mode with per-instance sets, the one-week self-update observation and OpenCode side by
 side for `own`, macOS and Linux.
 
+**Bundled plugins (decided 2026-11-11, ADR-0052).** The package carries Ponytail and i-have-adhd, and every real session of Claude Code, Codex, Pi and OpenCode starts with both, as the default instance set. Nothing is installed by hand and the user's own configuration is untouched. Files are checked against the pinned lock before each launch; if they fail the check the session starts without them. `SHINATAMA_BUNDLED_PLUGINS=off` turns them off. They are separate from Daodan's plugins (5.5).
+
 ### 5.15 Browser integration (requirements decided 2026-10-29; shape proposed)
 
 **Moli is the lightweight default; Patchright UI is explicit and on demand.**

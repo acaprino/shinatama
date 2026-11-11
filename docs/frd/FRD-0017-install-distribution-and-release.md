@@ -6,7 +6,7 @@
 | Status | Accepted 2026-11-01 (this Markdown text) |
 | Date | 2026-11-01; R01, R02, R03, R05 and R09 amended 2026-11-02 after the user's platform decision. R23 added 2026-11-11. |
 | Sources | functional-design goal 8, 3, 5.6 (Node), 5.8 (Oni IP), 5.12 (audience), 7, 8; technical-design 3.1 (toolkit pin), 11.12; Cargo.toml; register 17 (X1 to X6), SC13, W9, O4, O5 |
-| Governing ADRs | ADR-0047, ADR-0048, ADR-0040 |
+| Governing ADRs | ADR-0047, ADR-0048, ADR-0040, ADR-0052 |
 | Register sections | X1 to X6, SC13, P17, P18, W7 to W9 |
 | Related records | FRD-0001 (platforms, toolkit), FRD-0002 (`own` agent copies), FRD-0009 (sidecar source and no auto-update), FRD-0010 (widget assets) |
 

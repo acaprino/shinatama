@@ -784,6 +784,8 @@ How adapters are packaged (one crate each, a plug-in directory) is the builder's
 requirement is that the engine compiles and its tests pass with **no adapter at all** and
 with a fake in-memory adapter (used to test the hop state machine without real agents).
 
+**Bundled plugins (ADR-0052).** `shinatama_engine::bundled_plugins` verifies `resources/agent-plugins` against `plugins.lock.json` and yields the per-harness switches: Claude `--plugin-dir`; Codex the verified files copied into `<CODEX_HOME>/plugins/cache/shinatama-bundled/<plugin>/<version>` plus `-c marketplaces...` and `-c plugins=...`; Pi `-e` and `--skill` (`pi::sets::plan_bundled`); OpenCode shims in the private config directory. The desktop (`agents.rs session_set`) selects the set only for drivers that report `bundled_plugins()`, and falls back to the empty set on any verification failure. The trial profile and safe mode stay empty.
+
 ### 5.6 Seed delivery channels
 
 An adapter's `seed_channel` is one of:
