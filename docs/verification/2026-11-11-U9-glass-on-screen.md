@@ -18,7 +18,9 @@ text on it keeps its contrast.
 opens a PowerShell session from the harness menu, prints text in the default and ANSI colours,
 raises the window above the others and copies it from the screen. It prints the colour of one
 point of the terminal background, of the title bar and of the sidebar. A webview screenshot
-cannot be used: it draws the acrylic backdrop as white. Contrast is the WCAG ratio against the
+cannot be used: it draws the acrylic backdrop as white. The capture is not reliable: in two
+of six runs the window was not raised and the picture showed the window in front of it
+(recognisable because the title bar colour is not the app's); such a run is discarded and repeated. Contrast is the WCAG ratio against the
 skin's `text` (#e6f0ff) and `muted` (#8fa6c9) tokens.
 
 ## Results

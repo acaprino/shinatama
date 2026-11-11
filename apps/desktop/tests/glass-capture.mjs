@@ -2,6 +2,8 @@
 // (isolated data folder), prints text in the default and ANSI colours, then photographs the window
 // from the screen, over whatever is behind it: put a dark or a bright window there first. The app
 // window is raised above every other window for a few seconds while it runs.
+// Raising can fail (seen in two of six runs): if the title bar colour printed is not the app's, the
+// picture is of the window in front; discard the run and repeat it.
 // Usage: node apps/desktop/tests/glass-capture.mjs [alpha ...]   (hex, e.g. 94 c7: tries those
 // terminal opacities live; with none, photographs the build as it is). Output: captures and the
 // colours of terminal, title bar and sidebar, under %LOCALAPPDATA%\Temp\shinatama-glass-*.
