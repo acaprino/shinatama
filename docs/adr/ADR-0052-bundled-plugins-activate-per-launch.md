@@ -84,7 +84,15 @@ manual step and without editing the user's own agent configuration (ADR-0013)?
      relative to its own tree); the plugins' command files are copied to `command/`.
 5. **Opt-out.** `SHINATAMA_BUNDLED_PLUGINS=off` in the environment of the app gives every
    session the empty set. A persisted setting and a per-plugin choice are not decided.
-6. **Out of scope.** Gemini has no launch adapter. Ponytail's hooks in Codex stay untrusted
+6. **Bundled by the build, adapted one by one.** The set of bundled plugins is fixed at
+   build time: the packager stages `resources/agent-plugins/` and ties the lock to its
+   receipt, so a package carries exactly the plugins its build declared. There is no
+   generic loader that reads the lock and wires whatever it finds. Each plugin has its own
+   adaptation for each harness (hooks, skills, commands and the way each agent loads them
+   differ), written and tested by hand. Adding a plugin is one deliberate change: its tree
+   and lock entry, its entry in `PLUGINS`, its adaptation for every harness that carries it,
+   its tests, and a new revision of this record.
+7. **Out of scope.** Gemini has no launch adapter. Ponytail's hooks in Codex stay untrusted
    until the user grants trust in `/hooks`; Codex hook trust for plugins is not computed.
    The plugins' `node` hooks use the user's `node` on `PATH`.
 
