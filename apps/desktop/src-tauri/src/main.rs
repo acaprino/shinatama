@@ -561,18 +561,24 @@ fn sidecar_retry(window: tauri::WebviewWindow) -> Result<serde_json::Value, Stri
 }
 /// A portable install (`Shinatama.portable` beside the exe) keeps its database in `data\` and
 /// its WebView2 profile in `webview\` beside Shinatama.exe; child processes inherit both.
-/// Started from its own folder, it opens the user's profile folder as the default project.
+/// Started from its own folder with its own data, it opens the user's profile folder as the
+/// default project. An explicit SHINATAMA_HOME keeps the folder it was started from, since a
+/// data folder inside the profile would make the profile a project that contains the data.
 fn portable_environment() {
     use shinatama_state::location::{PORTABLE_DATA, portable_root};
     let Some(root) = portable_root() else { return };
+    let portable_data = std::env::var_os("SHINATAMA_HOME").is_none();
     // SAFETY: first statement of main, before any other thread exists.
     unsafe {
-        if std::env::var_os("SHINATAMA_HOME").is_none() {
+        if portable_data {
             std::env::set_var("SHINATAMA_HOME", root.join(PORTABLE_DATA));
         }
         if std::env::var_os("WEBVIEW2_USER_DATA_FOLDER").is_none() {
             std::env::set_var("WEBVIEW2_USER_DATA_FOLDER", root.join("webview"));
         }
+    }
+    if !portable_data {
+        return;
     }
     let inside = std::env::current_dir().is_ok_and(|cwd| {
         cwd.ancestors().any(|part| part.as_os_str().eq_ignore_ascii_case(root.as_os_str()))
