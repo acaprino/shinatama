@@ -769,8 +769,22 @@ impl<D: HarnessDriver> Service<D> {
             }
             let session = host.start_prepared_with_lifecycle(prepared.launch, prepared.permit, rows, cols, lifecycle)
                 .map_err(|error| {
-                    self.native_failure(error);
-                    DriverError::Failed("The harness terminal did not confirm startup. Its owned resources remain tracked; no shell fallback was used.")
+                    // Say why, so the person is not left with a bare refusal. The cause is
+                    // control-free and bounded (240 characters), kept in the diagnostics
+                    // as before, and the one-off text is leaked because a failed start is
+                    // rare and user-initiated.
+                    let cause = format!("{error:#}")
+                        .chars()
+                        .filter(|ch| !ch.is_control())
+                        .take(240)
+                        .collect::<String>();
+                    self.native_failure(&cause);
+                    DriverError::Failed(Box::leak(
+                        format!(
+                            "The harness terminal did not confirm startup ({cause}). Its owned resources remain tracked; no shell fallback was used."
+                        )
+                        .into_boxed_str(),
+                    ))
                 })?;
             return Ok(AgentStarted {
                 session,
