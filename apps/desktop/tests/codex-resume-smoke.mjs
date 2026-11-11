@@ -1,4 +1,4 @@
-// Root schedules this native proof. Real app/ConPTY/UI and real Codex 0.166.0;
+// Root schedules this native proof. Real app/ConPTY/UI and real Codex 0.167.1;
 // synthetic loopback credentials only, external providers refused by the guard.
 // Resume must reuse the exact saved native conversation, never fabricate one.
 // Never print, persist or attach terminal text, provider bodies or child secrets.
@@ -27,7 +27,7 @@ const UUID_PATTERN = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3
 const TRACKED_LIMITS = { jobCommitBytes: 1073741824, processCommitBytes: 805306368, processes: 8,
   cpuBasisPoints: 1000, queueBytes: 4194304, queueItems: 512 };
 const evidence = { check: 'codex-resume-continuity', status: 'running', stage: 'prepare', checks: {},
-  scope: 'Actual Shinatama New session, Stop and UI Resume with real Codex 0.166.0, tracked hook recipe, ConPTY and UI against synthetic loopback credentials; every external provider route is refused by a forwarding-only guard. No account, no paid provider, no completed model turn. Resume fidelity means the exact saved native conversation: sealed UUID, prior transcript rendered by Codex itself and its own rollout growing under the same UUID. Hook confirmation is enforced negatively (a source/UUID mismatch retains the cleanup owner and blocks finalization; unit-proven). Proxy forwarding is guarded, not an OS firewall.' };
+  scope: 'Actual Shinatama New session, Stop and UI Resume with real Codex 0.167.1, tracked hook recipe, ConPTY and UI against synthetic loopback credentials; every external provider route is refused by a forwarding-only guard. No account, no paid provider, no completed model turn. Resume fidelity means the exact saved native conversation: sealed UUID, prior transcript rendered by Codex itself and its own rollout growing under the same UUID. Hook confirmation is enforced negatively (a source/UUID mismatch retains the cleanup owner and blocks finalization; unit-proven). Proxy forwarding is guarded, not an OS firewall.' };
 const save = () => writeFile(resolve(output, 'codex-resume.json'), `${JSON.stringify(evidence, null, 2)}\n`);
 const stage = async name => { evidence.stage = name; await save(); };
 await save();
@@ -97,7 +97,7 @@ for (const entry of (process.env.PATH || '').split(';')) {
 }
 require(!!codexDirectory, 'installed-codex-required');
 
-// The synthetic provider must never be reached: Codex 0.166.0 has no honored
+// The synthetic provider must never be reached: Codex 0.167.1 has no honored
 // loopback base-URL environment override, so the guard refuses every external
 // route and any provider hit is a proof failure, not a fallback.
 let providerHits = 0; const sockets = new Set(); const guardedProviderPorts = new Set();
@@ -294,7 +294,7 @@ Object.assign(environment, { SystemRoot: system, WINDIR: system,
   TEMP: resolve(fixture, 'tmp'), TMP: resolve(fixture, 'tmp'), SHINATAMA_HOME: data,
   WEBVIEW2_USER_DATA_FOLDER: resolve(fixture, 'webview-profile'),
   WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --remote-debugging-address=127.0.0.1`,
-  // Codex 0.166.0 never accepts this variable as a credential; it only prefills
+  // Codex 0.167.1 never accepts this variable as a credential; it only prefills
   // the explicit API-key onboarding entry, which saves it inside the private
   // box. The key is synthetic and every provider route is refused.
   OPENAI_API_KEY: DUMMY_KEY,
@@ -362,7 +362,7 @@ async function ready(id, operation) {
     require(await pane(id).locator('.exit-banner').count() === 0, 'native-process-exited-before-readiness');
     const shape = {
       welcome: /Welcome to Codex/.test(text),
-      authPick: /Sign in with ChatGPT/.test(text) && /(Provide your own API key|Use an OpenAI API key)/.test(text),
+      authPick: /Sign in with ChatGPT/.test(text) && /(Provide your own API key|Use an OpenAI API key|Sign in another way)/.test(text),
       apiKeyEntry: /Use your own OpenAI API key/.test(text),
       apiKeyPrefilled: /Detected OPENAI_API_KEY environment variable/.test(text),
       apiKeyConfigured: /API key configured/.test(text),
@@ -373,14 +373,14 @@ async function ready(id, operation) {
       composer: /Ask Codex to do anything/.test(text),
     };
     const encoded = JSON.stringify(shape);
-    if (encoded !== lastShape) { lastShape = encoded; evidence.onboardingShapes[operation] = shape; await save(); }
+    if (encoded !== lastShape) { lastShape = encoded; evidence.onboardingShapes[operation] = shape; evidence.lastNativeScreen = text.replace(/\s+/g, ' ').slice(0, 1200); await save(); }
     require(!shape.hookReview, 'hook-trust-review-screen-appeared');
     require(!shape.deviceCode, 'unexpected-device-code-screen');
     require(!shape.sessionPicker, 'unexpected-resume-picker-instead-of-exact-session');
     require(handled.size < 3, 'bounded-onboarding-steps');
     if (shape.authPick && !handled.has('auth-pick')) {
       handled.add('auth-pick'); allowed.push('auth-pick'); await save();
-      await input(id, null, '3');
+      await input(id, null, '3'); await input(id, null, 'Enter');
       return false;
     }
     if (shape.apiKeyEntry && !handled.has('api-key')) {
@@ -491,7 +491,7 @@ function exited(milliseconds) {
 }
 async function stop(id) {
   await page.locator(`.wm-tab[data-view-id="${id}"]`).click();
-  await pane(id).getByRole('button', { name: 'Stop terminal', exact: true }).click();
+  await page.locator(`.wm-tabwrap:has(.wm-tab[data-view-id="${id}"]) .wm-tab-close`).click();
   await page.locator('#confirm-dialog').getByRole('button', { name: 'Stop', exact: true }).click();
   await poll(async () => !(await sessions()).some(session => session.id === id), 15000, 'owned-terminal-cleanup-deadline');
 }
@@ -566,7 +566,7 @@ try {
   evidence.checks.stopClosedOwnerAndConsumedCleanupReceipt = true;
   // The functional resume leg: the real UI Resume button on the saved thread.
   await stage('resume-button');
-  const sidebar = page.locator('.thread-sidebar'); await sidebar.getByRole('button', { name: 'Reload threads', exact: true }).click();
+  const sidebar = page.locator('.thread-sidebar'); /* The list reloads itself on thread-changed; the Reload control is hidden in the simple workspace. */
   const anchor = sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${threadId}"]`); await anchor.click();
   require((await sessions()).length === 0, 'thread-selection-autostarted');
   await poll(async () => await sidebar.getByRole('button', { name: 'Resume', exact: true }).isEnabled(), 5000, 'resume-action-unavailable-for-codex');
@@ -626,7 +626,7 @@ try {
   evidence.provider = { hits: providerHits, syntheticLoopbackOnly: true, modelTurnCompleted: false };
   await stage('frame-close'); await closeFrame(); require(app.exitCode === 0, 'owned-app-clean-exit');
   evidence.checks.ownedFrameAndSessionsClosed = true; evidence.status = 'passed'; evidence.stage = 'complete'; await save();
-  console.log('PASS: actual Codex 0.166.0 UI Resume kept the exact saved native UUID, rendered the prior conversation, confirmed source=resume and closed its owner with a consumed receipt.');
+  console.log('PASS: actual Codex 0.167.1 UI Resume kept the exact saved native UUID, rendered the prior conversation, confirmed source=resume and closed its owner with a consumed receipt.');
 } catch (error) {
   evidence.status = 'failed'; evidence.failure = error.proofCode || `proof-failed-at-${evidence.stage}`;
   // First line only; Playwright locator errors carry no secrets or native text.

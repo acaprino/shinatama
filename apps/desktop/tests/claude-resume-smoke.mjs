@@ -554,7 +554,7 @@ function exited(milliseconds) {
 }
 async function stop(id) {
   await page.locator(`.wm-tab[data-view-id="${id}"]`).click();
-  await pane(id).getByRole('button', { name: 'Stop terminal', exact: true }).click();
+  await page.locator(`.wm-tabwrap:has(.wm-tab[data-view-id="${id}"]) .wm-tab-close`).click();
   await page.locator('#confirm-dialog').getByRole('button', { name: 'Stop', exact: true }).click();
   await poll(async () => !(await sessions()).some(session => session.id === id), 15000, 'owned-terminal-cleanup-deadline');
 }
@@ -610,7 +610,7 @@ try {
   require(!stopped.cleanupOwners.some(entry => entry.instance_id === first.id), 'first-cleanup-receipt-consumed-after-stop');
   evidence.checks.newSessionSavedNativeConversationAndClosedOwner = true;
   providerPhase = 'resume'; await stage('resume-button');
-  const sidebar = page.locator('.thread-sidebar'); await sidebar.getByRole('button', { name: 'Reload threads', exact: true }).click();
+  const sidebar = page.locator('.thread-sidebar'); /* The list reloads itself on thread-changed; the Reload control is hidden in the simple workspace. */
   const anchor = sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${threadId}"]`); await anchor.click();
   require((await sessions()).length === 0, 'thread-selection-autostarted');
   await sidebar.getByRole('button', { name: 'Resume', exact: true }).click();

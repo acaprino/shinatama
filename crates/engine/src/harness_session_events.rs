@@ -73,7 +73,7 @@ pub enum SessionEventKind {
     SessionEnd,
 }
 
-/// Codex rust-v0.166.0 hooks/src/events/session_start.rs. This describes
+/// Codex rust-v0.167.1 hooks/src/events/session_start.rs. This describes
 /// the event, never authority to replace a process owner or infer fork lineage.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -422,9 +422,9 @@ struct ClaudePayload {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct InvalidHookPayload;
 
-// Official Codex rust-v0.166.0 sources verified before adding this dialect:
-// https://github.com/openai/codex/blob/rust-v0.166.0/codex-rs/hooks/src/schema.rs#L466
-// https://github.com/openai/codex/blob/rust-v0.166.0/codex-rs/hooks/src/events/session_end.rs#L56
+// Official Codex rust-v0.167.1 sources verified before adding this dialect:
+// https://github.com/openai/codex/blob/rust-v0.167.1/codex-rs/hooks/src/schema.rs#L466
+// https://github.com/openai/codex/blob/rust-v0.167.1/codex-rs/hooks/src/events/session_end.rs#L56
 // Unknown native extensions are discarded. Serde rejects duplicate binding
 // fields; source is required for Codex starts and is never inferred from argv.
 fn hook_payload(harness: HarnessKind, input: &[u8]) -> Result<HookPayload, InvalidHookPayload> {

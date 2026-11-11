@@ -829,9 +829,9 @@ fn session_hook_arguments(
     shell: &Path,
     port: u16,
 ) -> Result<Vec<OsString>, CodexLaunchError> {
-    // This schema/hash is pinned to the source tag rust-v0.166.0, not inferred
+    // This schema/hash is pinned to the source tag rust-v0.167.1, not inferred
     // from a successful version probe. Other versions need schema validation.
-    if version != &Version::parse("0.166.0").map_err(|_| CodexLaunchError::Configuration)? {
+    if version != &Version::parse("0.167.1").map_err(|_| CodexLaunchError::Configuration)? {
         return Err(CodexLaunchError::QualificationRequired);
     }
     let command = session_hook_command(helper, shell, port)?;
@@ -858,7 +858,7 @@ fn session_hook_arguments(
     // dotted key such as hooks.state."…config.toml:session_start:0:0" is torn
     // apart and silently ignored, leaving the hook untrusted. Carry the state
     // inside a single-segment `hooks` table instead; the TOML literal-string
-    // key survives parsing intact. Verified against real Codex 0.166.0
+    // key survives parsing intact. Verified against real Codex 0.167.1
     // (hooks/list: exact key, matching hash, trustStatus=trusted). Order is
     // significant: the single-segment override must precede the definition,
     // because a later one would replace the whole `hooks` table.
@@ -1205,7 +1205,7 @@ mod tests {
     }
     #[test]
     fn tracked_codex_trust_is_scoped_to_its_definition_and_supported_schema() {
-        let version = Version::parse("0.166.0").unwrap();
+        let version = Version::parse("0.167.1").unwrap();
         let helper = Path::new(r"C:\App\shinatama-hook.exe");
         let shell = Path::new(r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe");
         let arguments = session_hook_arguments(&version, helper, shell, 43210).unwrap();
@@ -1339,7 +1339,7 @@ mod tests {
         assert_eq!(new.native_id(), None);
         assert_eq!(new.arguments(), baseline);
         let descriptor = descriptor(
-            &Version::parse("0.166.0").unwrap(),
+            &Version::parse("0.167.1").unwrap(),
             Operation::StartNew,
             RECIPE,
         )
@@ -1375,7 +1375,7 @@ mod tests {
             &arguments[2..],
             CodexSessionOperation::start_new().arguments()
         );
-        let version = Version::parse("0.166.0").unwrap();
+        let version = Version::parse("0.167.1").unwrap();
         let startup = descriptor(&version, Operation::StartNew, RECIPE).unwrap();
         // A StartNew qualification never requires or plans resume argv.
         assert!(
