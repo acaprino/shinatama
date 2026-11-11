@@ -63,7 +63,7 @@ fn bundled_fts5_pragmas_and_private_files_are_effective() {
     let database = Database::open(&location, None).unwrap();
     let diagnostic = database.diagnostics().unwrap();
     assert_eq!(diagnostic.path, location.database_path());
-    assert_eq!(diagnostic.schema_version, 3);
+    assert_eq!(diagnostic.schema_version, 5);
     assert_eq!(diagnostic.journal_mode, "wal");
     assert_eq!(diagnostic.synchronous, 1);
     assert!(diagnostic.foreign_keys);
@@ -81,7 +81,7 @@ fn bundled_fts5_pragmas_and_private_files_are_effective() {
     let raw = Connection::open(location.database_path()).unwrap();
     let names: Vec<String> = raw.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").unwrap()
         .query_map([], |row| row.get(0)).unwrap().collect::<rusqlite::Result<_>>().unwrap();
-    assert_eq!(names, ["project", "setting", "store_root", "workspace"]);
+    assert_eq!(names, ["activation", "project", "segment", "setting", "store_root", "thread", "workspace"]);
 }
 
 #[test]
@@ -382,7 +382,7 @@ fn newer_database_opens_read_only_without_rewriting_content() {
         reopened.access(),
         &DatabaseAccess::ReadOnlyNewer {
             found: 999,
-            supported: 3
+            supported: 5
         }
     );
     assert_eq!(reopened.recent().unwrap()[0].id, selected.id);
@@ -390,7 +390,7 @@ fn newer_database_opens_read_only_without_rewriting_content() {
         reopened.select(&project),
         Err(DatabaseError::NewerSchema {
             found: 999,
-            supported: 3
+            supported: 5
         })
     ));
     assert_eq!(fs::read(&path).unwrap(), bytes);
