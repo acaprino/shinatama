@@ -110,10 +110,10 @@ pub enum SaveOutcome {
 }
 
 #[tauri::command]
-pub async fn files_save(window: WebviewWindow, services: State<'_, Services>, request: SaveRequest) -> Result<SaveOutcome, String> {
+pub async fn files_save(window: WebviewWindow, services: State<'_, Services>, attention: State<'_, crate::attention::Controller>, request: SaveRequest) -> Result<SaveOutcome, String> {
     crate::local(&window)?;
     let services = services.inner().clone();
-    blocking(move || {
+    let outcome = blocking(move || {
         let root = root(&services, &request.project)?;
         let overwrite = if request.overwrite { Overwrite::Always } else { Overwrite::IfUnchanged };
         Ok(match save_text(&root, &request.path, &request.text, &request.base_sha256, overwrite) {
@@ -122,7 +122,11 @@ pub async fn files_save(window: WebviewWindow, services: State<'_, Services>, re
             Err(error) => SaveOutcome::Failed { message: error.to_string() },
         })
     })
-    .await
+    .await;
+    if matches!(outcome, Ok(SaveOutcome::Saved { .. })) {
+        attention.saved();
+    }
+    outcome
 }
 
 #[derive(Serialize)]

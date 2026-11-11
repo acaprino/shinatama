@@ -531,6 +531,10 @@ an operation finishes, or something important happens (e.g. the context filling 
 face over the desktop, like her communications portrait in *Oni*, beside a short
 bubble identifying the harness/session and its question or update. A configurable
 brief sound calls attention to the alert; muting it keeps the visual alert available.
+**Sound per action (user, 2026-11-11):** completion, error and terminal update each
+have their own short sound, so they can be told apart by ear; errors alternate
+between two sounds. An input request and a file saved from the editor share one sound. The user supplied the sounds; they are
+embedded in the application, and the one mute switch silences all of them.
 Implementation default: notify on input requests, completion and meaningful updates,
 not every streamed token, and do not replay the sound for a duplicate event. Spoken
 voice remains the separate later scope in section 7; the attention sound needs no TTS.

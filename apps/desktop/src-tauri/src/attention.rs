@@ -60,6 +60,9 @@ struct Feed {
     queue: VecDeque<Notice>,
     sessions: HashMap<String, Observed>,
     last_sound: Option<Instant>,
+    last_saved: Option<Instant>,
+    /// Errors alternate between two sounds; true when the next one is the second.
+    second_error: bool,
 }
 impl Default for Feed {
     fn default() -> Self {
@@ -69,10 +72,23 @@ impl Default for Feed {
             queue: VecDeque::new(),
             sessions: HashMap::new(),
             last_sound: None,
+            last_saved: None,
+            second_error: false,
         }
     }
 }
 impl Feed {
+    /// The sound for an alert that is about to play.
+    fn cue(&mut self, kind: Kind) -> Cue {
+        match kind {
+            Kind::Error => {
+                let second = self.second_error;
+                self.second_error = !second;
+                if second { Cue::SecondError } else { Cue::Error }
+            }
+            other => Cue::from(other),
+        }
+    }
     fn snapshot(&self) -> Snapshot {
         Snapshot {
             enabled: self.enabled,
@@ -131,13 +147,16 @@ fn present(app: &tauri::AppHandle, controller: &Controller, sound: bool) {
         return;
     };
     let visible = feed.enabled && !feed.queue.is_empty();
-    let beep = sound
+    let beep = (sound
         && visible
         && !feed.muted
         && feed
             .last_sound
-            .is_none_or(|last| last.elapsed() >= Duration::from_secs(3));
-    if beep {
+            .is_none_or(|last| last.elapsed() >= Duration::from_secs(3)))
+    .then(|| feed.queue.front().map(|current| current.kind))
+    .flatten()
+    .map(|kind| feed.cue(kind));
+    if beep.is_some() {
         feed.last_sound = Some(Instant::now());
     }
     drop(feed);
@@ -163,8 +182,8 @@ fn present(app: &tauri::AppHandle, controller: &Controller, sound: bool) {
         place_without_activation(&widget, visible, position);
         let _ = widget.emit("attention-changed", ());
     }
-    if beep {
-        attention_sound();
+    if let Some(cue) = beep {
+        play(cue);
     }
 }
 #[cfg(windows)]
@@ -216,19 +235,53 @@ fn place_without_activation(
         let _ = widget.hide();
     }
 }
-#[cfg(windows)]
-fn attention_sound() {
-    #[link(name = "user32")]
-    unsafe extern "system" {
-        fn MessageBeep(kind: u32) -> i32;
+/// One short sound per kind of event, so the event can be told apart by ear.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Cue {
+    Input,
+    Complete,
+    Error,
+    SecondError,
+    Update,
+    Saved,
+}
+impl From<Kind> for Cue {
+    fn from(kind: Kind) -> Self {
+        match kind {
+            Kind::Input => Cue::Input,
+            Kind::Complete => Cue::Complete,
+            Kind::Error => Cue::Error,
+            Kind::Update => Cue::Update,
+        }
     }
-    // Asynchronous OS sound; respects the user's Windows sound configuration.
+}
+impl Cue {
+    fn wav(self) -> &'static [u8] {
+        match self {
+            // An input request shares the save sound (user, 2026-11-11).
+            Cue::Input => include_bytes!("../sounds/saved.wav"),
+            Cue::Complete => include_bytes!("../sounds/complete.wav"),
+            Cue::Error => include_bytes!("../sounds/error.wav"),
+            Cue::SecondError => include_bytes!("../sounds/error2.wav"),
+            Cue::Update => include_bytes!("../sounds/update.wav"),
+            Cue::Saved => include_bytes!("../sounds/saved.wav"),
+        }
+    }
+}
+#[cfg(windows)]
+fn play(cue: Cue) {
+    #[link(name = "winmm")]
+    unsafe extern "system" {
+        fn PlaySoundW(sound: *const u8, module: isize, flags: u32) -> i32;
+    }
+    // SND_ASYNC | SND_NODEFAULT | SND_MEMORY: the embedded WAV is 'static, so it
+    // outlives the asynchronous playback. A newer cue replaces one still playing.
     unsafe {
-        MessageBeep(0x40);
+        PlaySoundW(cue.wav().as_ptr(), 0, 0x0001 | 0x0002 | 0x0004);
     }
 }
 #[cfg(not(windows))]
-fn attention_sound() {}
+fn play(_cue: Cue) {}
 
 impl Controller {
     pub fn observe(&self, app: &tauri::AppHandle, session: &SessionInfo, batch: &OutputBatch) {
@@ -318,6 +371,23 @@ impl Controller {
         if pushed {
             present(app, self, true);
         }
+    }
+    /// A file the user saved: a short confirmation sound unless sound is muted.
+    /// It never cuts an alert sound that started a moment ago, and rapid saves
+    /// sound once.
+    pub fn saved(&self) {
+        let Ok(mut feed) = lock(self) else {
+            return;
+        };
+        let recent = |last: Option<Instant>, gap: u64| {
+            last.is_some_and(|last| last.elapsed() < Duration::from_millis(gap))
+        };
+        if feed.muted || recent(feed.last_sound, 1500) || recent(feed.last_saved, 1000) {
+            return;
+        }
+        feed.last_saved = Some(Instant::now());
+        drop(feed);
+        play(Cue::Saved);
     }
     pub fn observations(&self) -> HashMap<String, TerminalObservation> {
         let Ok(feed) = lock(self) else { return HashMap::new() };
@@ -447,6 +517,65 @@ pub fn attention_open(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn every_kind_has_an_embedded_pcm_wav() {
+        let cues = [Kind::Input, Kind::Complete, Kind::Error, Kind::Update]
+            .map(Cue::from)
+            .into_iter()
+            .chain([Cue::SecondError, Cue::Saved])
+            .collect::<Vec<_>>();
+        for cue in &cues {
+            let wav = cue.wav();
+            assert_eq!(&wav[0..4], b"RIFF", "{cue:?}");
+            assert_eq!(&wav[8..12], b"WAVE", "{cue:?}");
+            // PCM, short enough to stay a brief cue (under two seconds of 16-bit mono 44.1 kHz).
+            assert_eq!(u16::from_le_bytes([wav[20], wav[21]]), 1, "{cue:?}");
+            assert!(wav.len() < 2 * 44_100 * 2, "{cue:?}");
+        }
+        // Only an input request and a save share a sound; every other pair differs.
+        assert_eq!(Cue::Input.wav(), Cue::Saved.wav());
+        for (i, a) in cues.iter().enumerate() {
+            for b in &cues[i + 1..] {
+                if matches!((a, b), (Cue::Input, Cue::Saved) | (Cue::Saved, Cue::Input)) {
+                    continue;
+                }
+                assert_ne!(a.wav(), b.wav(), "{a:?} and {b:?} share a sound");
+            }
+        }
+    }
+    #[test]
+    fn errors_alternate_between_two_sounds_and_other_kinds_do_not() {
+        let mut feed = Feed::default();
+        assert_eq!(feed.cue(Kind::Error), Cue::Error);
+        assert_eq!(feed.cue(Kind::Update), Cue::Update);
+        assert_eq!(feed.cue(Kind::Error), Cue::SecondError);
+        assert_eq!(feed.cue(Kind::Complete), Cue::Complete);
+        assert_eq!(feed.cue(Kind::Error), Cue::Error);
+        assert_eq!(feed.cue(Kind::Input), Cue::Input);
+    }
+    /// Manual audition: `cargo test --bin shinatama-desktop audition -- --ignored`
+    /// plays every cue in turn and fails if Windows refuses one.
+    #[cfg(windows)]
+    #[test]
+    #[ignore]
+    fn audition_every_cue() {
+        #[link(name = "winmm")]
+        unsafe extern "system" {
+            fn PlaySoundW(sound: *const u8, module: isize, flags: u32) -> i32;
+        }
+        for cue in [
+            Cue::Complete,
+            Cue::Error,
+            Cue::SecondError,
+            Cue::Update,
+            Cue::Saved,
+        ] {
+            // SND_SYNC | SND_NODEFAULT | SND_MEMORY
+            let played = unsafe { PlaySoundW(cue.wav().as_ptr(), 0, 0x0002 | 0x0004) };
+            assert_eq!(played, 1, "{cue:?}");
+            std::thread::sleep(Duration::from_millis(400));
+        }
+    }
     #[test]
     fn queue_is_bounded_coalesces_and_disabled_discards() {
         let mut feed = Feed::default();
