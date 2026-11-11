@@ -1,2 +1,3 @@
 # Keep pinned upstream blobs byte-for-byte on Windows checkouts.
 resources/agent-plugins/** -text
+resources/claude-mods/** -text

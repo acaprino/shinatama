@@ -4,6 +4,7 @@
 #![cfg(windows)]
 use crate::{
     bundled_plugins::{BundledPlugins, is_bundled_set},
+    claude_mods::{self, ClaudeMods},
     claude_probe::{ClaudeProbeOutcome, ProbeCleanup},
     claude_session_events::ClaudeSessionEventReceiver,
     launch::{LaunchInputs, PreparedLaunch, compose_launch, identity::LaunchIdentity},
@@ -430,6 +431,19 @@ fn prepare(
     } else {
         return Err(ClaudeLaunchError::UnsupportedSet);
     };
+    // Display-only Claude mods ride on the bundled plugins: never without them,
+    // dropped alone on any doubt, never a reason to refuse the launch.
+    let mods = if bundled.is_some() {
+        context.plugins_root.and_then(|plugins_root| {
+            ClaudeMods::for_claude_launch(
+                plugins_root,
+                &version.to_string(),
+                &context.base.directory().join(claude_mods::DIRECTORY),
+            )
+        })
+    } else {
+        None
+    };
     verify_sidecar(context.sidecar)?;
     context
         .base
@@ -737,6 +751,9 @@ fn prepare(
     ];
     if let Some(plugins) = &bundled {
         args.extend(plugin_arguments(plugins));
+    }
+    if let Some(mods) = &mods {
+        args.extend(mods.arguments());
     }
     if let Some(session) = session {
         args.extend(session.arguments());

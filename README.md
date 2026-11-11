@@ -65,6 +65,7 @@ current compiled application and requires its adjacent terminal helper; it does
 not compile, install anything or launch a terminal automatically.
 The portable Windows package includes pinned copies of Ponytail and i-have-adhd.
 Shinatama activates them automatically in every Claude Code, Codex, Pi and OpenCode session (digests checked first; `SHINATAMA_BUNDLED_PLUGINS=off` disables). See [Plugin inclusi](AVVIO.md#plugin-inclusi).
+Claude Code alone also gets the display-only mod [shn-render](resources/claude-mods/README.md) (LaTeX and simple Mermaid as Unicode text), verified and dropped on its own, only on tried Claude versions; `SHINATAMA_CLAUDE_MODS=off` disables it. Not yet in the portable package.
 The independent Rust engine now has versioned adapter contracts and an in-memory
 test adapter. `cargo run -p shinatama-cli -- doctor --json` inspects local program
 locations without starting agents or creating state. Exit 2 reports missing or

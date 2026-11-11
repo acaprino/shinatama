@@ -76,6 +76,22 @@ Per Ponytail in Codex, la modalità automatica richiede la fiducia agli hook:
 apri `/hooks`, accorda la fiducia e avvia un nuovo thread. Per attivare lo stile
 i-have-adhd usa `/i-have-adhd` in Claude Code o `$i-have-adhd` in Codex.
 
+### Formule e diagrammi in Claude Code
+
+Solo per Claude Code, insieme ai plugin inclusi, Shinatama carica la mod
+**shn-render** (`resources/claude-mods`): mostra le formule LaTeX e i diagrammi
+Mermaid semplici come testo Unicode. Cambia solo ciò che si vede nel terminale:
+la risposta salvata resta identica, e `ctrl+o` mostra l'originale. Copiando una
+formula dal pannello si copia la versione Unicode. Codex, Pi e OpenCode
+disegnano già formule e diagrammi da soli e non ricevono nulla.
+
+La mod ha una verifica sua (`mods.lock.json`): se un file non torna, viene
+tolta solo lei e Ponytail e i-have-adhd restano attivi. Parte solo con le
+versioni di Claude Code con cui è stata provata (oggi 2.1.322); con le altre la
+sessione parte senza. Per disattivarla imposta `SHINATAMA_CLAUDE_MODS=off`.
+Per ora è presente nella build locale (`Shinatama.cmd`), non ancora nel
+pacchetto portabile.
+
 ### Fuori da Shinatama
 
 I comandi seguenti servono solo per le CLI che apri da PowerShell per conto
