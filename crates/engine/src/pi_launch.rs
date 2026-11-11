@@ -5,6 +5,7 @@
 //! login, credential read, shell, npm install or marketplace access.
 #![cfg(windows)]
 use crate::{
+    bundled_plugins::{BundledPlugins, is_bundled_set},
     launch::{
         LaunchInputs, LaunchIssueCode, PreparedLaunch, compose_launch, identity::LaunchIdentity,
     },
@@ -64,6 +65,7 @@ pub enum PiLaunchError {
     SidecarUnavailable,
     InvalidCa,
     UnsupportedSet,
+    BundledPlugins,
     Configuration,
     InheritedEnvironment,
     Descriptor,
@@ -103,6 +105,8 @@ pub struct PiStartContext<'a> {
     pub proxy_port: NonZeroU16,
     pub ca_file: &'a Path,
     pub selected_set: &'a SetManifest,
+    /// Pinned `resources/agent-plugins`; required when the set is the bundled one.
+    pub plugins_root: Option<&'a Path>,
     pub thread_id: &'a str,
 }
 pub struct PiTrialContext<'a> {
@@ -140,6 +144,7 @@ struct Context<'a> {
     proxy_port: NonZeroU16,
     ca_file: &'a Path,
     selected_set: &'a SetManifest,
+    plugins_root: Option<&'a Path>,
     thread_id: &'a str,
 }
 struct Prepared {
@@ -192,6 +197,7 @@ pub fn prepare_trial(context: PiTrialContext<'_>) -> Result<PreparedPiTrial, PiL
             proxy_port: context.proxy_port,
             ca_file: context.ca_file,
             selected_set: context.selected_set,
+            plugins_root: None,
             thread_id: context.thread_id,
         },
         None,
@@ -228,6 +234,7 @@ pub fn prepare_start(
             proxy_port: context.proxy_port,
             ca_file: context.ca_file,
             selected_set: context.selected_set,
+            plugins_root: context.plugins_root,
             thread_id: context.thread_id,
         },
         Some(receipt),
@@ -269,11 +276,22 @@ fn prepare(
     {
         return Err(PiLaunchError::ObservationRequired);
     }
-    // Only the empty optional set is qualified: no per-instance materializer
-    // writes Pi skills or extensions yet, and discovery stays disabled.
-    if !context.selected_set.is_empty() {
+    // Empty set, or exactly the bundled plugins for a real session (never the
+    // trial); discovery stays disabled and digests are checked at every launch.
+    let bundled = if context.selected_set.is_empty() {
+        None
+    } else if is_bundled_set(context.selected_set) && !trial {
+        let root = context.plugins_root.ok_or(PiLaunchError::BundledPlugins)?;
+        let plugins = BundledPlugins::verify(root).map_err(|_| PiLaunchError::BundledPlugins)?;
+        let arguments = shinatama_adapter::pi::sets::plan_bundled(
+            Path::new(&plugins.plugin_dir_arg("ponytail")),
+            Path::new(&plugins.plugin_dir_arg("i-have-adhd")),
+        )
+        .map_err(|_| PiLaunchError::BundledPlugins)?;
+        Some(arguments)
+    } else {
         return Err(PiLaunchError::UnsupportedSet);
-    }
+    };
     verify_sidecar(context.sidecar)?;
     context
         .base
@@ -492,7 +510,7 @@ fn prepare(
             node_version,
             minimum_node_version: Some(discovery::minimum_node()),
         },
-        run::tui_arguments(&ResourceArguments::empty()),
+        run::tui_arguments(&bundled.unwrap_or_else(ResourceArguments::empty)),
         evidence(&descriptor)?,
     )
     .map_err(PiLaunchError::ArgumentsRecipe)?;

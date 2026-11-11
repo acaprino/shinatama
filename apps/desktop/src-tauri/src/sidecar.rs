@@ -373,6 +373,28 @@ fn owner_lock(location: &StorageLocation) -> Result<File, &'static str> {
         .map_err(|_| "Another Shinatama window owns this proxy. Its process was preserved.")?;
     Ok(file)
 }
+/// Pinned bundled plugins beside the executable (packaged) or in the repository
+/// (debug). `None` when absent: launches then simply carry no plugins.
+pub(crate) fn plugins_root() -> Option<PathBuf> {
+    let packaged = std::env::current_exe()
+        .ok()?
+        .parent()?
+        .join("resources/agent-plugins");
+    if packaged.is_dir() {
+        return Some(packaged);
+    }
+    #[cfg(debug_assertions)]
+    {
+        let development = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .ancestors()
+            .nth(3)?
+            .join("resources/agent-plugins");
+        if development.is_dir() {
+            return Some(development);
+        }
+    }
+    None
+}
 fn resources_root() -> Result<PathBuf, &'static str> {
     let executable = std::env::current_exe()
         .map_err(|_| "The application resource directory is unavailable.")?;

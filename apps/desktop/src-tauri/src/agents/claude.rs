@@ -82,6 +82,9 @@ impl HarnessDriver for ClaudeDriver {
     fn private_store_request(&self) -> PrivateStoreRequest {
         PrivateStoreRequest::default()
     }
+    fn bundled_plugins(&self) -> bool {
+        true
+    }
     fn discover(&self) -> Result<ProgramCandidate, DriverError> {
         discover_claude().map_err(probe_error)
     }
@@ -181,6 +184,7 @@ impl HarnessDriver for ClaudeDriver {
                 proxy_port: context.proxy_port,
                 ca_file: context.ca_file,
                 selected_set: context.selected_set,
+                plugins_root: context.plugins_root,
                 thread_id: &context.thread.id,
             },
             receipt,

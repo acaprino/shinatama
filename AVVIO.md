@@ -62,3 +62,44 @@ e hop restano distinti: non sono certificati dalla sola apertura della TUI.
 - Riga di comando in `cli\shinatama.exe`: `sessions`, `find`, `export`, `forget`,
   `check-state` (integrità e ricerca di credenziali nei dati di Shinatama, senza mai stamparle)
   e `mcp` (gli strumenti di messaggistica tra istanze).
+
+## Plugin inclusi
+
+Il pacchetto Windows contiene **Ponytail** e **i-have-adhd** in
+`resources/agent-plugins`. Shinatama li attiva da solo a ogni sessione di
+Claude Code, Codex, Pi e OpenCode: non c'è nulla da installare. Prima di ogni
+avvio verifica i file contro `plugins.lock.json`; se mancano o sono stati
+modificati, la sessione parte senza plugin. Per disattivarli imposta la
+variabile d'ambiente `SHINATAMA_BUNDLED_PLUGINS=off` prima di aprire Shinatama.
+
+Per Ponytail in Codex, la modalità automatica richiede la fiducia agli hook:
+apri `/hooks`, accorda la fiducia e avvia un nuovo thread. Per attivare lo stile
+i-have-adhd usa `/i-have-adhd` in Claude Code o `$i-have-adhd` in Codex.
+
+### Fuori da Shinatama
+
+I comandi seguenti servono solo per le CLI che apri da PowerShell per conto
+tuo. Parti dalla cartella del pacchetto.
+
+```powershell
+$plugins = (Resolve-Path './resources/agent-plugins').Path
+$node = (Resolve-Path './resources/sidecar/runtime').Path
+$env:Path = "$node;$env:Path"
+```
+
+### Claude Code
+
+```powershell
+Set-Location 'D:\percorso\del\progetto'
+claude --plugin-dir "$plugins/ponytail" --plugin-dir "$plugins/i-have-adhd"
+```
+
+### Codex
+
+```powershell
+codex plugin marketplace add "$plugins"
+codex plugin add ponytail@shinatama-bundled
+codex plugin add i-have-adhd@shinatama-bundled
+```
+
+Pi: `pi -e "$plugins/ponytail/pi-extension/index.js" -e "$plugins/i-have-adhd/extensions/i-have-adhd.ts" --skill "$plugins/ponytail/skills" --skill "$plugins/i-have-adhd/skills/i-have-adhd"`.

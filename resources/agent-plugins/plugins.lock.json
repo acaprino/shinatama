@@ -1,0 +1,375 @@
+{
+  "formatVersion": 1,
+  "marketplace": {
+    "bytes": 534,
+    "sha256": "1518c9afc812c44b03ce6f7aad8e234696da627c1e43fab05d13040b321943f8"
+  },
+  "plugins": {
+    "ponytail": {
+      "repository": "https://github.com/DietrichGebert/ponytail",
+      "commit": "96608e078b2d5ea607c5c3b8b5a54d1c1fba6846",
+      "version": "5.3.3",
+      "license": "MIT",
+      "files": [
+        {
+          "path": ".agents/plugins/marketplace.json",
+          "bytes": 410,
+          "sha256": "429fd8844db68d98bde0316f0328458dc8169d2fd9740e59f84b5bdf827421f4"
+        },
+        {
+          "path": ".claude-plugin/marketplace.json",
+          "bytes": 513,
+          "sha256": "5c17acc0d30732735a7bf725214b8db9f8a1bb3485233744c7a5e0ca1d7434e8"
+        },
+        {
+          "path": ".claude-plugin/plugin.json",
+          "bytes": 1508,
+          "sha256": "82f8b30ea6d2cfe195a90aba5763c615828d794cc3111d1623717bd8b4a5fd45"
+        },
+        {
+          "path": ".codex-plugin/plugin.json",
+          "bytes": 1286,
+          "sha256": "303ccd35b858b17f4b33080f89a015b40b80629f2015f049902ffc5520aba434"
+        },
+        {
+          "path": ".opencode/command/ponytail-audit.md",
+          "bytes": 1680,
+          "sha256": "f40cb014b74bf5e944b4d21b2e300c0aa818e1b9cd8d6cf829ee4f7feaa37bfd"
+        },
+        {
+          "path": ".opencode/command/ponytail-debt.md",
+          "bytes": 902,
+          "sha256": "349b857a8435b22aa0f612e098835d8d67dd8f82842a1dbdc29261b0483f6a36"
+        },
+        {
+          "path": ".opencode/command/ponytail-gain.md",
+          "bytes": 1252,
+          "sha256": "fb3eae02ae264cfdde78a132bab60f7b92f4d16a60812a8dddc5278a8dd92165"
+        },
+        {
+          "path": ".opencode/command/ponytail-help.md",
+          "bytes": 1141,
+          "sha256": "8d29017fc8634459843fa25f73aa727caa0c5f3c76d5a9bb202a943b162cb7f6"
+        },
+        {
+          "path": ".opencode/command/ponytail-review.md",
+          "bytes": 2064,
+          "sha256": "444d0b0a94e7a7d312a2c7ef906adbc3009ef0d00927d25d4e7ad4e944555e3d"
+        },
+        {
+          "path": ".opencode/command/ponytail.md",
+          "bytes": 608,
+          "sha256": "0024380fdac3c40a0fc4d185a745074117262feb03297ad1facbc7df43201969"
+        },
+        {
+          "path": ".opencode/plugins/index.js",
+          "bytes": 274,
+          "sha256": "9ed0323f55125768faccf5be77d49b2dd2769783d7b3224f8ac095ba8b71534d"
+        },
+        {
+          "path": ".opencode/plugins/ponytail-frontmatter.cjs",
+          "bytes": 2848,
+          "sha256": "9a4710a151fda97e7fe5507001552ca753b67fb4fb61536d41aab0f1a08da26b"
+        },
+        {
+          "path": ".opencode/plugins/ponytail.mjs",
+          "bytes": 7653,
+          "sha256": "a7f9d48eddff1c90ad2a06c4bba9a8cf48434bf4bc54ec5a00c4c136093a32ec"
+        },
+        {
+          "path": "__init__.py",
+          "bytes": 8936,
+          "sha256": "f8ebbc5d26601369adab013506dc6797e6eb07643de91bece0df299be9836903"
+        },
+        {
+          "path": "after-install.md",
+          "bytes": 662,
+          "sha256": "accef47b5faf1d41519f05eddc93d47cf41671f86426d3e6127998df749b4293"
+        },
+        {
+          "path": "AGENTS.md",
+          "bytes": 2721,
+          "sha256": "b98b15e1d683ee205e124b52b8d330128593f4a87b545cf8185e2712cd1bb25f"
+        },
+        {
+          "path": "assets/codex-icon.png",
+          "bytes": 8890,
+          "sha256": "65e5626c97d5e5b5395f5eff068fdf35a39f5d7961d8a12a24b836609a1a6f9d"
+        },
+        {
+          "path": "assets/logo.png",
+          "bytes": 567655,
+          "sha256": "818905aa5c99519b4e648fee82828c97dbeb471603335c990605dfe29b966121"
+        },
+        {
+          "path": "hooks/band/board.ts",
+          "bytes": 45260,
+          "sha256": "c697da70dabdf9810361886f07ed6133610746ba31e7dc68bdab8384118c00ce"
+        },
+        {
+          "path": "hooks/band/logo.ts",
+          "bytes": 49871,
+          "sha256": "187c17a751140e0a8b030dea9d4436ce818f287efbc6f7d899e48064ecfd309a"
+        },
+        {
+          "path": "hooks/band/metrics.ts",
+          "bytes": 14738,
+          "sha256": "e3646320e409ec2a96212cd181c4b49e5a1cc77dbfda759927c7f4def5571587"
+        },
+        {
+          "path": "hooks/band/register.tsx",
+          "bytes": 21980,
+          "sha256": "9e4e2915495ef460fe5b313dcefefc30ac1c9351e025a84deb2c7578782f36cb"
+        },
+        {
+          "path": "hooks/band/types.d.ts",
+          "bytes": 640,
+          "sha256": "970ccf48e1b970b64ba8b1259557e72c82aa6cd036e1ab9b97187cc57d544e5b"
+        },
+        {
+          "path": "hooks/claude-band.json",
+          "bytes": 64,
+          "sha256": "8316581f357f5481dbf26077d118ca9ee03bcd14166e4da1bcd878ab723884c3"
+        },
+        {
+          "path": "hooks/claude-codex-hooks.json",
+          "bytes": 1230,
+          "sha256": "3320ac7fae9bdded7fab83b62017db55c01b25af3f5896a518a5cf911072f54a"
+        },
+        {
+          "path": "hooks/ponytail-activate.js",
+          "bytes": 9347,
+          "sha256": "6e492e997aa3e01560046daaed288b1cf68c596cc2b227744ec8b9fbdb5a230a"
+        },
+        {
+          "path": "hooks/ponytail-band-import.js",
+          "bytes": 14078,
+          "sha256": "2d9dda3a6b77b46d5f46f6bc9a9ff2fa624d4f5dee77217c642f6926ab159edc"
+        },
+        {
+          "path": "hooks/ponytail-config.js",
+          "bytes": 5911,
+          "sha256": "ae81c3552064c9a9f0b9c0e8ec8a959af56f5599f0c899dd79659ea9a101dfc4"
+        },
+        {
+          "path": "hooks/ponytail-instructions.js",
+          "bytes": 5565,
+          "sha256": "36521752b3444ef8daa823edaa996170e6af2cd45c82193644acb3a42f3395f4"
+        },
+        {
+          "path": "hooks/ponytail-map.js",
+          "bytes": 5439,
+          "sha256": "c876b087accb6655d04f7f48bda85d8304941d0ac0fb78c0c164eb9ec7d35e69"
+        },
+        {
+          "path": "hooks/ponytail-mode-tracker.js",
+          "bytes": 9912,
+          "sha256": "ab2a7d89a71fdbecd5ea4d12ffe980c2213b80fe112d623ca13ceac0258307e7"
+        },
+        {
+          "path": "hooks/ponytail-runtime.js",
+          "bytes": 7751,
+          "sha256": "52d8e66d542d49217a9eb721942e7bd9f4ee46a56615fb3f53430276cfe3a592"
+        },
+        {
+          "path": "hooks/ponytail-statusline.ps1",
+          "bytes": 885,
+          "sha256": "6138f15bc7651ee7e5ced2a2a2280f5c810d58cad3e9f3252c628f4c923e48c9"
+        },
+        {
+          "path": "hooks/ponytail-statusline.sh",
+          "bytes": 696,
+          "sha256": "f1dbfa5997a5d4b5339619709053eff557ab16d71af75eb3041c3d3e3dca42ec"
+        },
+        {
+          "path": "hooks/ponytail-subagent.js",
+          "bytes": 3462,
+          "sha256": "8da045eb96b5b919655bf4c12abfc7e5163af29b62b97ccaf633b75099390315"
+        },
+        {
+          "path": "LICENSE",
+          "bytes": 1071,
+          "sha256": "fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab"
+        },
+        {
+          "path": "opencode.json",
+          "bytes": 51,
+          "sha256": "3a1689520689222b217d5107e8e7becc3fbbd2aae41dc086435cd6a941b650c1"
+        },
+        {
+          "path": "package.json",
+          "bytes": 1260,
+          "sha256": "797154b6e029a9a70816a4dc9b5618a18cfe07f1798041fc131f45974737a01b"
+        },
+        {
+          "path": "pi-extension/index.js",
+          "bytes": 9486,
+          "sha256": "a8ff050f3e9ea9c33647ec87d4f67b3380dddc68375685a88c81960af10a879a"
+        },
+        {
+          "path": "pi-extension/package.json",
+          "bytes": 144,
+          "sha256": "376677d0d7d7846e7e521fc14f129e41cdbb60f0018834f34d3ef638f30e4be0"
+        },
+        {
+          "path": "plugin.json",
+          "bytes": 25,
+          "sha256": "6efc6b6c8e6e33625f9a27574f27a4d453179bcf534b09c430b00814ecbc98f3"
+        },
+        {
+          "path": "plugin.yaml",
+          "bytes": 467,
+          "sha256": "86529e24788096489bbcb36874b36ec88b62b0ddc723974644c612af50051308"
+        },
+        {
+          "path": "skills/plugin.json",
+          "bytes": 167,
+          "sha256": "b1db7be1404a84ebf992a2fb7a5a9296adb17b0fc63a14856e2028f0d1d16051"
+        },
+        {
+          "path": "skills/ponytail/SKILL.md",
+          "bytes": 3496,
+          "sha256": "9badd22a32e19cb884e46dfa8d3aae82bb81dfa5484105b8b4f0262df823a509"
+        },
+        {
+          "path": "skills/ponytail-audit/SKILL.md",
+          "bytes": 5417,
+          "sha256": "2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28"
+        },
+        {
+          "path": "skills/ponytail-debt/SKILL.md",
+          "bytes": 1769,
+          "sha256": "b5ec2762f6ba8c4af9ea7173aa6c9f91b88655a25e43f9de0264f6ce8722b25f"
+        },
+        {
+          "path": "skills/ponytail-gain/SKILL.md",
+          "bytes": 2164,
+          "sha256": "231034a896d6762e4b5c8468287083422c56b499119976ec9f76821f7d083090"
+        },
+        {
+          "path": "skills/ponytail-help/SKILL.md",
+          "bytes": 3188,
+          "sha256": "86ab0ce0af70cbeeeef499d5c884873b393f87f86401dcc45553662ce2c1eff9"
+        },
+        {
+          "path": "skills/ponytail-review/SKILL.md",
+          "bytes": 5143,
+          "sha256": "33fe4ebe22a460924e5d4a261e223df22e409cc94ab76182bee9fb91a3ef022e"
+        }
+      ]
+    },
+    "i-have-adhd": {
+      "repository": "https://github.com/ayghri/i-have-adhd",
+      "commit": "1ecea1993b7fce257ffbd686c070948b5e07eda6",
+      "version": "0.4.1",
+      "license": "MIT",
+      "files": [
+        {
+          "path": ".agents/plugins/marketplace.json",
+          "bytes": 414,
+          "sha256": "776b5c4738b6dbc3e37a26e45cb8726d7d29e45682b46666c85807351af5a74b"
+        },
+        {
+          "path": ".claude-plugin/marketplace.json",
+          "bytes": 450,
+          "sha256": "3c6a93bff7491685591677f6fcbcc3c4a5e4e1c7a4ef2d6d492673b9395d5eed"
+        },
+        {
+          "path": ".claude-plugin/plugin.json",
+          "bytes": 291,
+          "sha256": "34a9cc83c1c7421e3a7a91df0eb7f565f4bbd6fbd3ad006c4cbf057c46cf42eb"
+        },
+        {
+          "path": ".codex-plugin/plugin.json",
+          "bytes": 1278,
+          "sha256": "e4d0b0579d295bc2fddb6be04e12926d6b714b8beee427ee33b8d255d275b408"
+        },
+        {
+          "path": ".opencode/command/i-have-adhd.md",
+          "bytes": 409,
+          "sha256": "a155f9fa512cda17537fc2d5de77036c1ed20a479f2afd996dc8cb75d0ddf706"
+        },
+        {
+          "path": ".opencode/plugins/i-have-adhd.js",
+          "bytes": 125,
+          "sha256": "2e2186406ed40dda2b74a0b66cdc5d6e0582b1a471cbdae32c804ce266088ddb"
+        },
+        {
+          "path": ".opencode/plugins/i-have-adhd.mjs",
+          "bytes": 4377,
+          "sha256": "1bd5dc8d1950f5da852344f876a520f3e6e60ea1dfe29167539a95d95fd27f70"
+        },
+        {
+          "path": "AGENTS.md",
+          "bytes": 5199,
+          "sha256": "bc6d10b93029db96af7cea78bcd178605792f9db126f15b5719f0bd6f53356d5"
+        },
+        {
+          "path": "extensions/context-compat.ts",
+          "bytes": 1667,
+          "sha256": "4418da2385f8dc748483301e8883624d1330fecbbe8642750b7f0562ef2953ca"
+        },
+        {
+          "path": "extensions/i-have-adhd.ts",
+          "bytes": 6470,
+          "sha256": "dfadae48d96d5f06ad0560aa216c37a07064b9807c69ae20668523555f0f1f91"
+        },
+        {
+          "path": "hooks/always-on.mjs",
+          "bytes": 1766,
+          "sha256": "2c7c04a2e6f877ccec3bba5cca8ecadc235f051029233c30980aba60f43efb45"
+        },
+        {
+          "path": "hooks/always-on.ps1",
+          "bytes": 1651,
+          "sha256": "657563ab147358487b1a71aeacd9a548a1032425a32e2a1de34211f6fc67a52c"
+        },
+        {
+          "path": "hooks/always-on.sh",
+          "bytes": 1685,
+          "sha256": "2cb2c461968fe5d59b474ee7419fbce057935fe06b6dd594bccafda531c38c87"
+        },
+        {
+          "path": "hooks/hooks.json",
+          "bytes": 549,
+          "sha256": "56a32bd5074889df04d2d2ad28ad3c15167240fa4ec777ebb55841093e4b9717"
+        },
+        {
+          "path": "LICENSE",
+          "bytes": 1069,
+          "sha256": "8acbb618089b738404f76ac60fca1aaa995d9a87995eddf95f0b777acd7f7d2c"
+        },
+        {
+          "path": "logo.png",
+          "bytes": 95884,
+          "sha256": "c462e2b2feb5c03b413edf95f8ca41256cef7d49f88ecef004809980e2904441"
+        },
+        {
+          "path": "package.json",
+          "bytes": 537,
+          "sha256": "09fb6f99487b916461efab877729fb53e926f1c0e670823bea5009edf95f6cbf"
+        },
+        {
+          "path": "plugin.json",
+          "bytes": 187,
+          "sha256": "e362f93783ab179e610762c9c022debc31d460d5d3cff2259d9dbd61278fd3d9"
+        },
+        {
+          "path": "skills/i-have-adhd/agents/gemini.toml",
+          "bytes": 2157,
+          "sha256": "5108a6123beb9df24846e0dd3f902c652d18522dfbc56e5762032ea383041c62"
+        },
+        {
+          "path": "skills/i-have-adhd/agents/openai.yaml",
+          "bytes": 238,
+          "sha256": "2c51291283dcefdca43ca6b0c08172f225c7c26a9783ec444d6bdfa51ca96f8f"
+        },
+        {
+          "path": "skills/i-have-adhd/SKILL.md",
+          "bytes": 7201,
+          "sha256": "88955c019bbb1419ff4b49dbb1f80a867467de6233d7865af2e06a7d7b76c7d3"
+        }
+      ]
+    }
+  }
+}

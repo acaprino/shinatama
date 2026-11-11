@@ -63,6 +63,8 @@ uncertain cleanup keeps its reservation. Full release qualification remains open
 For the existing local embedded build, double-click `Shinatama.cmd`. It opens the
 current compiled application and requires its adjacent terminal helper; it does
 not compile, install anything or launch a terminal automatically.
+The portable Windows package includes pinned copies of Ponytail and i-have-adhd.
+Shinatama activates them automatically in every Claude Code, Codex, Pi and OpenCode session (digests checked first; `SHINATAMA_BUNDLED_PLUGINS=off` disables). See [Plugin inclusi](AVVIO.md#plugin-inclusi).
 The independent Rust engine now has versioned adapter contracts and an in-memory
 test adapter. `cargo run -p shinatama-cli -- doctor --json` inspects local program
 locations without starting agents or creating state. Exit 2 reports missing or

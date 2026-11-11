@@ -8,7 +8,7 @@ pwsh -NoProfile -File scripts/package-local.ps1 -Verify -Package 'D:\Projects\sh
 ```
 
 Il comando usa esclusivamente la build già presente in `target/debug`: desktop,
-helper terminale e helper sessioni. Il desktop deve avere il sottosistema Windows
+helper terminale, helper sessioni e helper hook. Il desktop deve avere il sottosistema Windows
 GUI. Non compila, scarica, ripristina dipendenze, esegue Node o avvia l'app.
 WebView2 deve essere già disponibile su Windows: il pacchetto non lo installa.
 
@@ -17,13 +17,18 @@ nessun risultato precedente viene sovrascritto o cancellato. I percorsi collegat
 o con attraversamento sono rifiutati. Restano fissi i limiti di 1.024 file,
 4.096 voci visitate, profondità 32, 512 MiB per file e 1 GiB complessivo.
 
-Il pacchetto contiene i tre eseguibili, `AVVIO.md`, un `Shinatama.cmd` che avvia
+Il pacchetto contiene i quattro eseguibili, `AVVIO.md`, un `Shinatama.cmd` che avvia
 l'eseguibile accanto a sé e le risorse in `resources/sidecar`: i 609 file preparati
 fissati dal pin più il file di identità generato (610 file preparati), la provenienza,
 Node fissato, la sua identità e il LICENSE completo.
 I verificatori statici esistenti sono obbligatori. Ogni file copiato deve avere
 gli stessi byte e SHA-256 dell'input; i pin di Node, licenza e sidecar restano attivi.
 Nessuna home, configurazione, credenziale o cronologia dell'utente viene inclusa.
+
+`resources/agent-plugins` contiene le copie locali di Ponytail e i-have-adhd,
+il catalogo Codex e le licenze MIT. `plugins.lock.json` fissa le revisioni
+upstream e i digest dei file. Il packager verifica i digest in copia e lega
+il lock alla ricevuta di staging. L'app li attiva a ogni avvio di sessione (Claude `--plugin-dir`; Codex cache privata più `-c`; Pi `-e` e `--skill`; OpenCode shim nella config privata). Vedi [Plugin inclusi](../../AVVIO.md#plugin-inclusi).
 
 `package-manifest.json` registra commit corrente, modalità debug e hash dei file.
 Non attribuisce automaticamente quel commit ai binari già compilati. La ricevuta

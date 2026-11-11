@@ -42,6 +42,9 @@ impl HarnessDriver for PiDriver {
         }
     }
 
+    fn bundled_plugins(&self) -> bool {
+        true
+    }
     fn private_store_request(&self) -> PrivateStoreRequest {
         // PI_CODING_AGENT_DIR is the box home; Node gets a private compile cache.
         PrivateStoreRequest {
@@ -123,6 +126,7 @@ impl HarnessDriver for PiDriver {
                 proxy_port: context.proxy_port,
                 ca_file: context.ca_file,
                 selected_set: context.selected_set,
+                plugins_root: context.plugins_root,
                 thread_id: &context.thread.id,
             },
             receipt,
@@ -229,6 +233,9 @@ fn launch_error(issue: PiLaunchError) -> DriverError {
         }
         PiLaunchError::UnsupportedSet => {
             DriverError::Failed("This Pi launch profile requires the empty optional set.")
+        }
+        PiLaunchError::BundledPlugins => {
+            DriverError::Failed("The bundled plugins could not be verified for Pi.")
         }
         PiLaunchError::Configuration => {
             DriverError::Failed("The private Pi launch configuration could not be prepared.")

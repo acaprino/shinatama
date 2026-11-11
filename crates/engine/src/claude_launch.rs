@@ -3,6 +3,7 @@
 //! No provider request, login, user credential read, shell or marketplace install.
 #![cfg(windows)]
 use crate::{
+    bundled_plugins::{BundledPlugins, is_bundled_set},
     claude_probe::{ClaudeProbeOutcome, ProbeCleanup},
     claude_session_events::ClaudeSessionEventReceiver,
     launch::{LaunchInputs, PreparedLaunch, compose_launch, identity::LaunchIdentity},
@@ -66,6 +67,7 @@ pub enum ClaudeLaunchError {
     SidecarUnavailable,
     InvalidCa,
     UnsupportedSet,
+    BundledPlugins,
     Configuration,
     Composition,
     Identity,
@@ -157,6 +159,8 @@ pub struct ClaudeStartContext<'a> {
     pub proxy_port: NonZeroU16,
     pub ca_file: &'a Path,
     pub selected_set: &'a SetManifest,
+    /// Pinned `resources/agent-plugins`; required when the set is the bundled one.
+    pub plugins_root: Option<&'a Path>,
     pub thread_id: &'a str,
 }
 pub struct PreparedClaudeTrial {
@@ -193,6 +197,7 @@ struct Context<'a> {
     proxy_port: NonZeroU16,
     ca_file: &'a Path,
     selected_set: &'a SetManifest,
+    plugins_root: Option<&'a Path>,
     thread_id: &'a str,
 }
 pub struct PreparedClaudeStart {
@@ -273,6 +278,7 @@ fn prepare_trial_with_hooks(
             proxy_port: context.proxy_port,
             ca_file: context.ca_file,
             selected_set: context.selected_set,
+            plugins_root: None,
             thread_id: context.thread_id,
         },
         None,
@@ -343,6 +349,7 @@ fn prepare_for_operation(
             proxy_port: context.proxy_port,
             ca_file: context.ca_file,
             selected_set: context.selected_set,
+            plugins_root: context.plugins_root,
             thread_id: context.thread_id,
         },
         Some(receipt),
@@ -398,9 +405,18 @@ fn prepare(
     {
         return Err(ClaudeLaunchError::ObservationRequired);
     }
-    if !context.selected_set.is_empty() {
+    // Only the exact bundled set, only for a tracked real session (the safe-mode
+    // trial profile stays empty). Digests are checked at every launch.
+    let bundled = if context.selected_set.is_empty() {
+        None
+    } else if is_bundled_set(context.selected_set) && tracked && !trial {
+        let root = context
+            .plugins_root
+            .ok_or(ClaudeLaunchError::BundledPlugins)?;
+        Some(BundledPlugins::verify(root).map_err(|_| ClaudeLaunchError::BundledPlugins)?)
+    } else {
         return Err(ClaudeLaunchError::UnsupportedSet);
-    }
+    };
     verify_sidecar(context.sidecar)?;
     context
         .base
@@ -706,6 +722,9 @@ fn prepare(
         mcp_path.into_os_string(),
         "--strict-mcp-config".into(),
     ];
+    if let Some(plugins) = &bundled {
+        args.extend(plugin_arguments(plugins));
+    }
     if let Some(session) = session {
         args.extend(session.arguments());
     }
@@ -756,6 +775,15 @@ fn prepare(
         pins,
         session_events,
     })
+}
+/// One `--plugin-dir <ordinary drive path>` pair per bundled plugin.
+fn plugin_arguments(plugins: &BundledPlugins) -> Vec<OsString> {
+    let mut args = Vec::new();
+    for name in crate::bundled_plugins::PLUGINS {
+        args.push("--plugin-dir".into());
+        args.push(plugins.plugin_dir_arg(name).into());
+    }
+    args
 }
 fn verify_sidecar(sidecar: &SidecarSupervisor) -> Result<(), ClaudeLaunchError> {
     let status = sidecar
@@ -1011,6 +1039,18 @@ fn pin_session_hook(path: &Path, deadline: Instant) -> Result<ProgramPin, Claude
 mod tests {
     use super::*;
     use sha2::{Digest, Sha256};
+    #[test]
+    fn bundled_plugins_become_plugin_dir_pairs() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../resources/agent-plugins");
+        let plugins = BundledPlugins::verify(&root).unwrap();
+        let args = plugin_arguments(&plugins);
+        assert_eq!(args.len(), 4);
+        assert_eq!(args[0], "--plugin-dir");
+        assert_eq!(args[2], "--plugin-dir");
+        assert!(args[1].to_string_lossy().ends_with("ponytail"));
+        assert!(args[3].to_string_lossy().ends_with("i-have-adhd"));
+        assert!(!args[1].to_string_lossy().starts_with(r"\?\"));
+    }
     #[test]
     fn tracked_hook_hardlink_keeps_bytes_and_selected_path_pinned() {
         let directory =

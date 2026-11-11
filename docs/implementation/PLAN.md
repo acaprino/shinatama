@@ -4342,7 +4342,7 @@ Artefatti installabili e gestione esplicita di Node e componenti facoltativi, co
 
 **Gate collegati, da registrare separatamente:** X1, X2, X3, X4, SC13, P17, P18, AT-12.
 
-**Requisiti coperti dal piano:** FRD-0017/R01, FRD-0017/R02, FRD-0017/R03, FRD-0017/R04, FRD-0017/R05, FRD-0017/R08, FRD-0017/R09, FRD-0017/R13, FRD-0017/R14, FRD-0017/R15, FRD-0017/R16, FRD-0017/R17, FRD-0017/R18.
+**Requisiti coperti dal piano:** FRD-0017/R01, FRD-0017/R02, FRD-0017/R03, FRD-0017/R04, FRD-0017/R05, FRD-0017/R08, FRD-0017/R09, FRD-0017/R13, FRD-0017/R14, FRD-0017/R15, FRD-0017/R16, FRD-0017/R17, FRD-0017/R18, FRD-0017/R23.
 
 **Commit proposto:** `feat(f32pkg): Programmi di installazione, fornitura dei runtime e primo hop su sistema pulito`.
 
@@ -4356,7 +4356,7 @@ Manifesto dei componenti distribuiti, strategia Node e controllo offline delle d
 
 Stima: 2–6 ore. File: `packaging/`, `docs/implementation/`, `docs/verification/`.
 
-Accettazione: La build normale resta avviabile e i componenti mancanti producono esiti espliciti senza download automatici. Runtime, licenze, hash e provenienza del sidecar sono inventariati; copie agenti proprie richiedono la scelta dell'utente.
+Accettazione: La build normale resta avviabile e i componenti mancanti producono esiti espliciti senza download automatici. Runtime, licenze, hash e provenienza del sidecar sono inventariati; copie agenti proprie richiedono la scelta dell'utente. Il pacchetto Windows include DietrichGebert/ponytail e ayghri/i-have-adhd come risorse locali con versioni, hash e licenze fissati e verificabili offline. L'attivazione è facoltativa.
 
 Verifiche pianificate: `pianificato: Eseguire build e avvio senza componenti facoltativi e in ambiente offline.`; `pianificato: Controllare il manifesto del pacchetto contro versioni vincolate e avvisi di licenza, registrando SC13/X3.`.
 

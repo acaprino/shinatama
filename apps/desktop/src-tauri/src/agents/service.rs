@@ -1,7 +1,7 @@
 //! Shared blocking harness workflow. Tauri schedules it; drivers supply recipes.
 use super::{
     AgentCheckup, AgentStarted, BoxHome, CanaryOwner, CursorReplies, ProgramState, StepState,
-    ThreadObserver, check_directory_budget, empty_set, prepare_box,
+    ThreadObserver, check_directory_budget, empty_set, prepare_box, session_set,
 };
 use crate::{sidecar, storage::Services, terminal_runtime::Runtime};
 use serde_json::Value;
@@ -125,6 +125,7 @@ pub(super) struct SessionContext<'a, P> {
     pub proxy_port: NonZeroU16,
     pub ca_file: &'a Path,
     pub selected_set: &'a SetManifest,
+    pub plugins_root: Option<&'a Path>,
     pub thread: &'a ThreadRecord,
 }
 pub(super) struct BindingContext<'a> {
@@ -150,6 +151,10 @@ pub(super) trait HarnessDriver: Send + Sync + 'static {
     fn descriptor(&self) -> HarnessDescriptor;
     fn policy(&self) -> HarnessPolicy;
     fn private_store_request(&self) -> PrivateStoreRequest;
+    /// True once the harness launcher can carry the bundled plugin set.
+    fn bundled_plugins(&self) -> bool {
+        false
+    }
     fn discover(&self) -> Result<ProgramCandidate, DriverError>;
     fn probe(
         &self,
@@ -697,7 +702,7 @@ impl<D: HarnessDriver> Service<D> {
                 return Err(DriverError::StaleQualification);
             }
             let (sidecar, port, ca) = self.context.wait_for_qualified_sidecar()?;
-            let selected_set = empty_set()?;
+            let (selected_set, plugins_root) = session_set(self.driver.bundled_plugins())?;
             let root = home.record.clone();
             let prepared = self.driver.prepare_session(
                 SessionContext {
@@ -712,6 +717,7 @@ impl<D: HarnessDriver> Service<D> {
                     proxy_port: port,
                     ca_file: &ca,
                     selected_set: &selected_set,
+                    plugins_root: plugins_root.as_deref(),
                     thread: &requested_thread,
                 },
                 &receipt,

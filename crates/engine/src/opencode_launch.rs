@@ -4,6 +4,7 @@
 //! No provider request, login, user credential read, shell or marketplace install.
 #![cfg(windows)]
 use crate::{
+    bundled_plugins::{BundledPlugins, is_bundled_set},
     launch::{
         LaunchInputs, LaunchIssueCode, PreparedLaunch, compose_launch, identity::LaunchIdentity,
     },
@@ -84,6 +85,7 @@ pub enum OpenCodeLaunchError {
     SidecarUnavailable,
     InvalidCa,
     UnsupportedSet,
+    BundledPlugins,
     Configuration,
     InheritedEnvironment,
     Descriptor,
@@ -123,6 +125,8 @@ pub struct OpenCodeStartContext<'a> {
     pub proxy_port: NonZeroU16,
     pub ca_file: &'a Path,
     pub selected_set: &'a SetManifest,
+    /// Pinned `resources/agent-plugins`; required when the set is the bundled one.
+    pub plugins_root: Option<&'a Path>,
     pub thread_id: &'a str,
 }
 pub struct PreparedOpenCodeTrial {
@@ -156,6 +160,7 @@ struct Context<'a> {
     proxy_port: NonZeroU16,
     ca_file: &'a Path,
     selected_set: &'a SetManifest,
+    plugins_root: Option<&'a Path>,
     thread_id: &'a str,
 }
 pub struct PreparedOpenCodeStart {
@@ -211,6 +216,7 @@ pub fn prepare_trial(
             proxy_port: context.proxy_port,
             ca_file: context.ca_file,
             selected_set: context.selected_set,
+            plugins_root: None,
             thread_id: context.thread_id,
         },
         None,
@@ -246,6 +252,7 @@ pub fn prepare_start(
             proxy_port: context.proxy_port,
             ca_file: context.ca_file,
             selected_set: context.selected_set,
+            plugins_root: context.plugins_root,
             thread_id: context.thread_id,
         },
         Some(receipt),
@@ -292,9 +299,18 @@ fn prepare(
     {
         return Err(OpenCodeLaunchError::ObservationRequired);
     }
-    if !context.selected_set.is_empty() {
+    // Empty set, or exactly the bundled plugins for a real session (never the
+    // trial). Digests are checked at every launch; files stay where verified.
+    let bundled = if context.selected_set.is_empty() {
+        None
+    } else if is_bundled_set(context.selected_set) && !trial {
+        let root = context
+            .plugins_root
+            .ok_or(OpenCodeLaunchError::BundledPlugins)?;
+        Some(BundledPlugins::verify(root).map_err(|_| OpenCodeLaunchError::BundledPlugins)?)
+    } else {
         return Err(OpenCodeLaunchError::UnsupportedSet);
-    }
+    };
     verify_sidecar(context.sidecar)?;
     context
         .base
@@ -449,6 +465,44 @@ fn prepare(
         RESTORE_ENV_PLUGIN.as_bytes(),
         &mut artifacts,
     )?;
+    if let Some(plugins) = &bundled {
+        // Shims only: each plugin resolves its hooks and skills relative to its
+        // own tree, so it is imported where it was verified, never copied apart.
+        for (shim, name, entry) in BUNDLED_ENTRIES {
+            let target = plugins.plugin_dir_arg(name) + entry;
+            create_bytes(
+                &plugin_directory,
+                shim,
+                bundled_shim(&target).as_bytes(),
+                &mut artifacts,
+            )?;
+        }
+        let command_directory = context
+            .base
+            .resolve_related_directory(&config_directory.join("command"))
+            .map_err(|_| OpenCodeLaunchError::PrivateHome)?;
+        command_directory
+            .prepare_private_directory()
+            .map_err(|_| OpenCodeLaunchError::PrivateHome)?;
+        for name in crate::bundled_plugins::PLUGINS {
+            for relative in plugins
+                .files(name)
+                .map_err(|_| OpenCodeLaunchError::BundledPlugins)?
+            {
+                let relative = relative.to_string_lossy().replace('\\', "/");
+                let Some(file) = relative.strip_prefix(".opencode/command/") else {
+                    continue;
+                };
+                if file.contains('/') || !file.ends_with(".md") {
+                    continue;
+                }
+                let bytes = std::fs::read(plugins.plugin_dir(name).join(&relative))
+                    .map_err(|_| OpenCodeLaunchError::BundledPlugins)?;
+                create_bytes(&command_directory, file, &bytes, &mut artifacts)?;
+            }
+        }
+        locations.push(command_directory);
+    }
     locations.push(plugin_directory);
     locations.push(tool_home);
     create_json(
@@ -765,6 +819,31 @@ pub(crate) fn create_json(
     let bytes = serde_json::to_vec(value).map_err(|_| OpenCodeLaunchError::Configuration)?;
     create_bytes(location, name, &bytes, pins)
 }
+/// (shim file name, plugin, entry inside the plugin tree)
+const BUNDLED_ENTRIES: [(&str, &str, &str); 2] = [
+    ("shn-ponytail.js", "ponytail", "/.opencode/plugins/ponytail.mjs"),
+    (
+        "shn-i-have-adhd.js",
+        "i-have-adhd",
+        "/.opencode/plugins/i-have-adhd.mjs",
+    ),
+];
+/// `export { default } from "file:///D:/.../plugin.mjs";`, percent-encoding the
+/// characters a file URL cannot carry raw.
+fn bundled_shim(path: &str) -> String {
+    let mut url = String::from("file:///");
+    for ch in path.replace('\\', "/").chars() {
+        match ch {
+            ' ' => url.push_str("%20"),
+            '%' => url.push_str("%25"),
+            '#' => url.push_str("%23"),
+            '?' => url.push_str("%3F"),
+            '"' => url.push_str("%22"),
+            other => url.push(other),
+        }
+    }
+    format!("export {{ default }} from \"{url}\";\n")
+}
 fn create_bytes(
     location: &StorageLocation,
     name: &str,
@@ -956,6 +1035,13 @@ fn pin_program(path: &Path, deadline: Instant) -> Result<ProgramPin, OpenCodeLau
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn bundled_shim_is_a_file_url_reexport() {
+        assert_eq!(
+            bundled_shim(r"D:\My App\resources\agent-plugins\ponytail/.opencode/plugins/ponytail.mjs"),
+            "export { default } from \"file:///D:/My%20App/resources/agent-plugins/ponytail/.opencode/plugins/ponytail.mjs\";\n"
+        );
+    }
     #[test]
     fn opencode_standalone_composition_requires_private_database_and_xdg_paths() {
         let root = PathBuf::from("C:/private/opencode");

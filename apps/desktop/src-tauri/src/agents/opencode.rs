@@ -44,6 +44,9 @@ impl HarnessDriver for OpenCodeDriver {
         }
     }
 
+    fn bundled_plugins(&self) -> bool {
+        true
+    }
     fn private_store_request(&self) -> PrivateStoreRequest {
         PrivateStoreRequest {
             extra_roles: vec![
@@ -131,6 +134,7 @@ impl HarnessDriver for OpenCodeDriver {
                 proxy_port: context.proxy_port,
                 ca_file: context.ca_file,
                 selected_set: context.selected_set,
+                plugins_root: context.plugins_root,
                 thread_id: &context.thread.id,
             },
             receipt,
@@ -233,6 +237,9 @@ fn launch_error(issue: OpenCodeLaunchError) -> DriverError {
         ),
         OpenCodeLaunchError::UnsupportedSet => {
             DriverError::Failed("This OpenCode launch profile requires the empty optional set.")
+        }
+        OpenCodeLaunchError::BundledPlugins => {
+            DriverError::Failed("The bundled plugins could not be verified for OpenCode.")
         }
         OpenCodeLaunchError::Configuration => {
             DriverError::Failed("The private OpenCode launch configuration could not be prepared.")

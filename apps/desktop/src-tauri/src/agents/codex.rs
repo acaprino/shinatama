@@ -53,6 +53,9 @@ impl HarnessDriver for CodexDriver {
         }
     }
 
+    fn bundled_plugins(&self) -> bool {
+        true
+    }
     fn private_store_request(&self) -> PrivateStoreRequest {
         PrivateStoreRequest {
             home_path_limit: Some(shinatama_engine::codex_launch::home_path_limit()),
@@ -161,6 +164,7 @@ impl HarnessDriver for CodexDriver {
                 proxy_port: context.proxy_port,
                 ca_file: context.ca_file,
                 selected_set: context.selected_set,
+                plugins_root: context.plugins_root,
                 thread_id: &context.thread.id,
             },
             receipt,
@@ -318,6 +322,9 @@ fn launch_error(issue: CodexLaunchError) -> DriverError {
         CodexLaunchError::InvalidCa => DriverError::Failed(
             "The local session service certificate could not be pinned for Codex.",
         ),
+        CodexLaunchError::BundledPlugins => {
+            DriverError::Failed("The bundled plugins could not be verified for Codex.")
+        }
         CodexLaunchError::UnsupportedSet => {
             DriverError::Failed("This Codex launch profile requires the empty optional set.")
         }

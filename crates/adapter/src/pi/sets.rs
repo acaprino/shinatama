@@ -91,6 +91,25 @@ pub fn plan_resources(
     Ok(ResourceArguments { tokens })
 }
 
+/// Fixed Pi wiring of the two bundled plugins, referenced where they were
+/// verified (read-only): their extensions with `-e`, their skills with `--skill`.
+/// Both roots must be absolute local drive paths.
+pub fn plan_bundled(ponytail: &Path, i_have_adhd: &Path) -> Result<ResourceArguments, PiSetError> {
+    let wiring = [
+        ("-e", ponytail.join("pi-extension").join("index.js")),
+        ("-e", i_have_adhd.join("extensions").join("i-have-adhd.ts")),
+        ("--skill", ponytail.join("skills")),
+        ("--skill", i_have_adhd.join("skills").join("i-have-adhd")),
+    ];
+    let mut tokens = Vec::with_capacity(wiring.len() * 2);
+    for (flag, path) in wiring {
+        drive_components(&path)?;
+        tokens.push(OsString::from(flag));
+        tokens.push(path.into_os_string());
+    }
+    Ok(ResourceArguments { tokens })
+}
+
 /// Absolute local drive paths only; no `.`/`..`, UNC, device or relative form.
 fn drive_components(path: &Path) -> Result<Vec<String>, PiSetError> {
     let mut components = path.components();
@@ -118,6 +137,23 @@ fn drive_components(path: &Path) -> Result<Vec<String>, PiSetError> {
 mod tests {
     use super::*;
     use crate::sets::{SET_SCHEMA_VERSION, SetEntry};
+
+    #[test]
+    fn bundled_plugins_wire_extensions_and_skills_in_fixed_order() {
+        let args = plan_bundled(
+            Path::new(r"C:\app\resources\agent-plugins\ponytail"),
+            Path::new(r"C:\app\resources\agent-plugins\i-have-adhd"),
+        )
+        .unwrap();
+        let flags: Vec<_> = args.tokens().iter().step_by(2).collect();
+        assert_eq!(flags, ["-e", "-e", "--skill", "--skill"]);
+        assert!(args.tokens()[1].to_string_lossy().ends_with(r"pi-extension\index.js"));
+        assert!(args.tokens()[7].to_string_lossy().ends_with(r"skills\i-have-adhd"));
+        assert_eq!(
+            plan_bundled(Path::new("relative"), Path::new(r"C:\x")).unwrap_err(),
+            PiSetError::InvalidPath
+        );
+    }
 
     fn manifest(entries: &[(SetKind, &str)]) -> SetManifest {
         SetManifest::new(
