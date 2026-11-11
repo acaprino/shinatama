@@ -297,6 +297,9 @@ function attachTerminal(info: SessionInfo, group: string, threadId: string | nul
     cursorBlink: false, scrollback: 5000,
     allowProposedApi: false, allowTransparency: desktop, screenReaderMode: true });
   const fit = new FitAddon(); terminal.loadAddon(fit);
+  // A new terminal paints its profile background at once. On glass the pane behind it is clear,
+  // so without this a fresh session has no tint and its text sits on the bare backdrop.
+  element.style.background = String(terminal.options.theme?.background ?? '');
   workspace.append(element); terminal.open(element);
   // No clipboard, link opener or image addon. Escape text never reaches HTML;
   // bounded native attention controls are observed by Rust before rendering.
