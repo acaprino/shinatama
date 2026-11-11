@@ -7,8 +7,6 @@
 .toolbar-menu-project { display: grid; gap: 1px; justify-items: start; width: 100%; text-align: left; text-transform: none; letter-spacing: 0; border-color: transparent; padding: 7px 9px; }
 .toolbar-menu-project strong { font-weight: 600; }
 .toolbar-menu-project span { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
-.toolbar-menu-project[aria-checked=true] { border-color: var(--accent); }
-.toolbar-menu-project[aria-checked=true] strong { color: var(--accent); }
 .toolbar-menu-action, .toolbar-menu .toolbar-menu-item { width: 100%; text-align: left; justify-content: flex-start; border-color: transparent; }
 .toolbar-menu label.toolbar-menu-item { display: flex; align-items: center; gap: 8px; padding: 4px 6px; color: var(--text-2); }
 .toolbar-menu label.toolbar-menu-item select { flex: 1; }
@@ -20,3 +18,34 @@
 .thread-sidebar .thread-sidebar-scope, .thread-sidebar .thread-sidebar-reload, .thread-sidebar .thread-sidebar-create, .thread-sidebar .thread-sidebar-limitation {
   position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; white-space: nowrap; }
 .thread-sidebar-pagination:has(> button:first-child:disabled):has(> button:last-child:disabled) { display: none; }
+
+/* Glass menus. They hang from the toolbar and blur the workspace under them. */
+.toolbar-menu { background: var(--glass); backdrop-filter: var(--glass-blur); box-shadow: 0 18px 50px var(--shadow); transition: opacity var(--fast) var(--ease-out), translate var(--base) var(--ease-out); }
+@starting-style { .toolbar-menu { opacity: 0; translate: 0 -8px; } }
+.toolbar-menu button:active:not(:disabled) { scale: 1; }
+
+/* Project finder: filter on top, one list, actions in a single row. */
+#project-menu { gap: 0; width: min(480px, calc(100vw - 20px)); max-width: none; padding: 0; }
+#project-menu-filter { height: 42px; padding: 0 14px; border: 0; border-bottom: 1px solid var(--line); background: transparent; font: 13px var(--mono); color: var(--text); }
+#project-menu-filter::placeholder { color: var(--muted); }
+/* The field owns the keyboard while the finder is open; the lit underline is its focus mark. */
+#project-menu-filter:focus-visible { outline: none; border-bottom-color: var(--accent); }
+#project-menu .toolbar-menu-list { gap: 1px; max-height: min(420px, 58vh); margin: 0; padding: 4px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.toolbar-menu-project { grid-template-columns: minmax(0, auto) minmax(0, 1fr); align-items: baseline; column-gap: 12px; min-height: 32px; padding: 6px 10px; border-left: 2px solid transparent; }
+.toolbar-menu-project strong { overflow: hidden; text-overflow: ellipsis; font: 600 13px var(--mono); }
+.toolbar-menu-project span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+.toolbar-menu-project:hover { border-color: transparent; background: transparent; }
+.toolbar-menu-project[aria-selected=true] { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.toolbar-menu-project[data-current] strong { color: var(--accent); }
+.toolbar-menu-actions { display: flex; gap: 2px; padding: 4px; }
+.toolbar-menu-actions .toolbar-menu-action { flex: 1; width: auto; justify-content: center; }
+
+/* New session menu: harnesses only, hung from the control that was pressed. */
+#session-menu { min-width: 220px; padding: 4px; gap: 1px; }
+#session-menu .toolbar-menu-heading { margin: 6px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 11px var(--mono); letter-spacing: 0; text-transform: none; }
+.session-menu-harness { min-height: 34px; padding: 0 10px; border-left: 2px solid transparent; }
+.session-menu-harness:hover, .session-menu-harness:focus-visible { border-color: transparent; border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--text); outline: none; }
+.session-menu-other { margin-top: 3px; border-top: 1px solid var(--line); color: var(--muted); font-weight: 400; }
+#new-terminal[aria-busy="true"] { opacity: 1; cursor: progress; }
+#new-terminal[aria-busy="true"] { animation: session-opening .7s ease-in-out infinite alternate; }
+@keyframes session-opening { from { opacity: .5; } }

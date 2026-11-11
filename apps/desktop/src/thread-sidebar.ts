@@ -203,9 +203,9 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
         anchor.setAttribute('aria-label', `${row.title || 'Untitled thread'} · ${row.id}`);
         anchor.querySelector('.thread-sidebar-title')!.textContent = row.title || 'Untitled thread';
         anchor.querySelector('.thread-sidebar-id')!.textContent = row.id;
-        anchor.querySelector('.thread-sidebar-agent')!.textContent = row.harness ?? 'Agent unknown';
-        anchor.querySelector('.thread-sidebar-updated')!.textContent = `Updated: ${updatedText(row.updatedAt)}`;
-        anchor.querySelector('.thread-sidebar-source')!.textContent = `Source: ${sourceText(row.nativeAvailable)}`;
+        const agentLine = anchor.querySelector<HTMLElement>('.thread-sidebar-agent')!; agentLine.textContent = row.harness ?? 'Agent unknown'; agentLine.hidden = !row.harness;
+        anchor.querySelector('.thread-sidebar-updated')!.textContent = updatedText(row.updatedAt);
+        const sourceLine = anchor.querySelector<HTMLElement>('.thread-sidebar-source')!; sourceLine.textContent = `Source: ${sourceText(row.nativeAvailable)}`; sourceLine.hidden = /unknown/i.test(sourceText(row.nativeAvailable));
         renderedRows.set(node, row);
       }
       // Preserve actual DOM/focus when only width or selection changes.

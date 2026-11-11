@@ -1,5 +1,5 @@
 import type { Terminal } from '@xterm/xterm';
-import { openModal } from './modal.ts';
+import { openModal, openSheet } from './modal.ts';
 
 /** Searches the existing bounded emulator buffer. It never pauses its parser. */
 export function createTerminalFind(options: {
@@ -58,10 +58,12 @@ export function createTerminalFind(options: {
   });
   return {
     open() {
-      if (document.querySelector('dialog[open]')) return;
+      if (dialog.open || document.querySelector('dialog[open][aria-modal="true"]')) return;
       origin = options.current();
       if (!origin) { options.notify('Open or select a terminal to search its retained output.'); return; }
-      openModal(dialog); query.focus(); query.select(); search();
+      const pane = origin.terminal.element?.closest('.wm-body') ?? null;
+      if (!openSheet(dialog, { anchor: () => pane?.isConnected ? pane : null, placement: 'pane-top' })) openModal(dialog);
+      query.focus(); query.select(); search();
     },
   };
 }

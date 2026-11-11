@@ -13,11 +13,12 @@ import { createNewProjectDialog } from './new-project.ts';
 import { initializeMaintenance } from './maintenance.ts';
 import { openModal, openSheet } from './modal.ts';
 import { createTerminalFind } from './terminal-find.ts';
-import { createPresentation, PROFILES } from './presentation.ts';
+import { createPresentation, PROFILES, setTerminalGlass } from './presentation.ts';
 import './presentation.css';
 import { startTerminalResources, formatTerminalResources, type TerminalResourceStatus } from './terminal-resources.ts';
 import { createAttentionControl } from './attention-control.ts';
 import { createNewSession } from './new-session.ts';
+import { createSessionMenu } from './session-menu.ts';
 import { beginMutation, browseFolder, createCatalogClient, createRequestId } from './project-catalog.ts';
 import { createSessionLibrary } from './session-library.ts';
 import { createSessionDetail } from './session-detail.ts';
@@ -44,6 +45,8 @@ type View = {
 type Tone = 'info' | 'error';
 const $ = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
 const desktop = isTauri();
+// The desktop window is transparent over Windows acrylic; only the terminal panes let it through.
+if (desktop) { document.documentElement.classList.add('native-glass'); setTerminalGlass(true); }
 const builtinHarness: HarnessCapabilities = { id: 'powershell', label: 'PowerShell', nativeResume: false };
 let sessionHarnesses: HarnessCapabilities[] = [builtinHarness];
 let harnessCatalogLoaded = false;
@@ -68,16 +71,20 @@ let pendingAttentionFocus: string | null = null;
 const workspace = $('#workspace');
 const confirmDialog = $<HTMLDialogElement>('#confirm-dialog');
 
+let noticeTimer = 0;
 function notify(message: unknown, tone: Tone = 'error') {
   const notice = $('#notice');
   notice.dataset.tone = tone;
   notice.setAttribute('role', tone === 'error' ? 'alert' : 'status');
   $('#notice span').textContent = String(message);
   notice.hidden = false;
+  clearTimeout(noticeTimer);
+  if (tone !== 'error') noticeTimer = window.setTimeout(() => { notice.hidden = true; }, 6000);
 }
 $('#notice button').onclick = () => { $('#notice').hidden = true; };
 const attentionControl = createAttentionControl(desktop, notify);
-function modalOpen() { return !!document.querySelector('dialog[open]'); }
+// Only a real modal takes the page. Drawers and sheets (modal.ts) leave the terminals live.
+function modalOpen() { return !!document.querySelector('dialog[open][aria-modal="true"]'); }
 function focusAttentionSession(id: string) {
   if (modalOpen()) { pendingAttentionFocus = id; return; }
   pendingAttentionFocus = null;
@@ -288,7 +295,7 @@ function attachTerminal(info: SessionInfo, group: string, threadId: string | nul
   const initialProfile = ['Claude Code', 'claude_code'].includes(info.shell) ? 'claude' : 'neutral';
   const terminal = new Terminal({ ...presentation.optionsForProfile(initialProfile),
     cursorBlink: false, scrollback: 5000,
-    allowProposedApi: false, allowTransparency: false, screenReaderMode: true });
+    allowProposedApi: false, allowTransparency: desktop, screenReaderMode: true });
   const fit = new FitAddon(); terminal.loadAddon(fit);
   workspace.append(element); terminal.open(element);
   // No clipboard, link opener or image addon. Escape text never reaches HTML;
@@ -373,19 +380,13 @@ const newProject = createNewProjectDialog({ desktop, onCreated: project => proje
   prepareOpen: () => projectPicker.prepareForCreation(), notify });
 let newSessionGroup: string | null = null;
 const recentThreadProjects = new Map<string,string>();
-const newSession = createNewSession({
-  projects: () => desktop ? invoke('project_recent') : Promise.resolve([]),
-  harnesses: sessionHarnesses,
-  browse: desktop ? async () => {
-    const requestId = createRequestId(); await beginMutation(requestId);
-    const selected = await browseFolder('project', undefined, requestId);
-    return selected.kind === 'project' ? selected.project.path : null;
-  } : undefined,
-  async open(selection) {
-    if (!desktop) throw new Error('Open the desktop app to start a session.');
-    if (starting) throw new Error('A session is already opening.');
-    starting = true; $<HTMLButtonElement>('#new-terminal').disabled = true;
-    try {
+/** Starts one session in a project. Shared by the harness menu and the folder dialog. */
+async function startSession(selection: { projectPath: string; harnessId: string; rows: number; cols: number }) {
+  if (!desktop) throw new Error('Open the desktop app to start a session.');
+  if (starting) throw new Error('A session is already opening.');
+  const button = $<HTMLButtonElement>('#new-terminal');
+  starting = true; button.disabled = true; button.setAttribute('aria-busy', 'true');
+  try {
     const selected = await invoke<{id:string;path:string}>('project_select', {path:selection.projectPath});
     // Right after launch the local service and resource measurements are still warming up.
     // Those refusals are temporary: wait and retry instead of making the user press Open again.
@@ -408,8 +409,17 @@ const newSession = createNewSession({
     attachTerminal(started.session, group, started.threadId);
     await refreshThreadProject();
     void threadSidebar?.refresh();
-    } finally { starting = false; $<HTMLButtonElement>('#new-terminal').disabled = false; }
-  },
+  } finally { starting = false; button.disabled = false; button.removeAttribute('aria-busy'); }
+}
+const newSession = createNewSession({
+  projects: () => desktop ? invoke('project_recent') : Promise.resolve([]),
+  harnesses: sessionHarnesses,
+  browse: desktop ? async () => {
+    const requestId = createRequestId(); await beginMutation(requestId);
+    const selected = await browseFolder('project', undefined, requestId);
+    return selected.kind === 'project' ? selected.project.path : null;
+  } : undefined,
+  open: startSession,
   restoreFocus: () => setFocus(focusedGroup()),
   anchor: () => paneBody(newSessionGroup),
 });
@@ -418,15 +428,34 @@ function paneBody(groupId: string | null): Element | null {
   const group = tabGroups(workspaceLayout.root).some(group => group.id === groupId) ? groupId! : focusedGroup();
   return [...workspace.querySelectorAll<HTMLElement>('.wm-pane')].find(pane => pane.dataset.groupId === group)?.querySelector('.wm-body') ?? null;
 }
+const sessionMenu = createSessionMenu({
+  start: harnessId => { void launchSession(sessionMenuTarget.path, harnessId, sessionMenuTarget.group); },
+  otherFolder: () => { newSession.setHarnesses(sessionHarnesses); newSessionGroup = sessionMenuTarget.group; newSession.show(sessionMenuTarget.path); },
+});
+let sessionMenuTarget = { path: '', group: '' };
+/** No dialog: the session starts where it was asked for, and a failure is reported as a notice. */
+async function launchSession(path: string, harnessId: string, group: string) {
+  newSessionGroup = group; sessionMenu.remember(harnessId);
+  try { await startSession({ projectPath: path, harnessId, rows: 24, cols: 80 }); }
+  catch (failure) { notify(typeof failure === 'string' ? failure : failure instanceof Error ? failure.message : 'The session could not be opened. Check the project folder and try again.'); }
+}
+/** New session: a menu of harnesses under the control that was pressed, for the selected
+ * project. With both the folder and the harness already known (a restart) it starts at once. */
 async function openNewSession(group: string = focusedGroup(), path?: string, harness?: string) {
   if (starting || openingSessionDialog) return;
+  const pressed = document.activeElement instanceof HTMLElement && document.activeElement.matches('#new-terminal,[data-new-terminal],.wm-add,.wm-empty-start,.thread-sidebar-create')
+    ? document.activeElement : null;
   const selectedProject = threadSidebar?.currentProjectId();
-  const selectedPath = selectedProject ? recentThreadProjects.get(selectedProject) : selectedProjectPath;
+  const selectedPath = path ?? (selectedProject ? recentThreadProjects.get(selectedProject) : undefined) ?? selectedProjectPath ?? projectPath;
   openingSessionDialog = true;
   try {
     await loadHarnessCatalog();
-    newSession.setHarnesses(sessionHarnesses);
-    newSessionGroup = group; newSession.show(path ?? selectedPath, harness);
+    if (!selectedPath) { notify('Choose a project first: sessions start in the selected project.', 'info'); $('#project').click(); return; }
+    $('#notice').hidden = true;
+    if (harness && sessionHarnesses.some(candidate => candidate.id === harness)) { await launchSession(selectedPath, harness, group); return; }
+    const anchor = pressed?.isConnected ? pressed : $<HTMLElement>('#new-terminal');
+    sessionMenuTarget = { path: selectedPath, group };
+    sessionMenu.show(anchor, sessionHarnesses, selectedPath.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || selectedPath);
   } finally { openingSessionDialog = false; }
 }
 threadSidebar = createThreadSidebar({

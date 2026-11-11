@@ -1,15 +1,21 @@
-// A native showModal() makes the custom titlebar inert and covers it, which leaves a
-// borderless window with no way to move, minimize or close. Only the content below the
-// titlebar becomes inert here; containment and Escape are provided explicitly instead.
+// Three ways to show a <dialog>, none of them a native showModal(): that makes the custom
+// titlebar inert and covers it, which leaves a borderless window with no way to move,
+// minimize or close.
+//
+//   drawer  The default for openModal(). Docked along the right edge of the work area, no
+//           scrim, nothing inert: terminals keep working beside it. One at a time, except
+//           that a dialog opened from inside a drawer stacks over it and returns to it.
+//   modal   Only for decisions about the whole workspace (MODAL_ONLY). Everything below the
+//           titlebar becomes inert; containment and Escape are provided explicitly.
+//   sheet   openSheet(). Docked to the control or pane it belongs to; a press outside
+//           dismisses it the way Escape does. At most one sheet is open at a time.
+const MODAL_ONLY = '#confirm-dialog,#hop-preview-dialog';
 const INERT_WHILE_OPEN = '.toolbar,#work-area,#workspace,.statusbar';
 const FOCUSABLE = 'a[href],button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex]:not([tabindex="-1"])';
 
-type Entry = { dialog: HTMLDialogElement; restore: HTMLElement | null };
+type Entry = { dialog: HTMLDialogElement; restore: HTMLElement | null; modal: boolean };
 let stack: Entry[] = [];
 
-/** A sheet is a dialog shown in place: docked to the control or pane it belongs to, with
- * no scrim and nothing made inert. Anything it does not cover stays usable, and a press
- * outside it dismisses it the way Escape does. At most one sheet is open at a time. */
 export type SheetPlacement = 'below' | 'pane-top' | 'pane-bottom';
 type SheetOptions = {
   /** The element the sheet is docked to; read again on every frame so layout changes follow. */
@@ -27,16 +33,19 @@ export function topModal(): HTMLDialogElement | null {
 
 function sync() {
   const top = stack.at(-1)?.dialog;
-  for (const element of document.querySelectorAll<HTMLElement>(INERT_WHILE_OPEN)) element.inert = !!top;
-  for (const [index, { dialog }] of stack.entries()) {
-    dialog.inert = dialog !== top;
+  const blocking = stack.some(entry => entry.modal);
+  for (const element of document.querySelectorAll<HTMLElement>(INERT_WHILE_OPEN)) element.inert = blocking;
+  for (const [index, entry] of stack.entries()) {
+    entry.dialog.inert = entry.dialog !== top;
     // Opening order, rather than document creation order, determines which
     // custom dialog is visible. The borderless frame remains available above.
-    dialog.style.zIndex = String(20 + index);
+    entry.dialog.style.zIndex = String((entry.modal ? 20 : 12) + index);
+    // A drawer under a later drawer steps aside until that one closes.
+    entry.dialog.toggleAttribute('data-covered', !entry.modal && stack.slice(index + 1).some(later => !later.modal));
   }
   // A modal raised over a sheet owns the input until it closes; the sheet stays where it was.
-  if (sheet) sheet.dialog.inert = !!top;
-  document.querySelector<HTMLElement>('#modal-scrim')!.hidden = !top;
+  if (sheet) sheet.dialog.inert = blocking;
+  document.querySelector<HTMLElement>('#modal-scrim')!.hidden = !blocking;
 }
 
 /** Ask a dialog to close the way Escape does; its own cancel handler may refuse. */
@@ -46,15 +55,22 @@ function dismiss(dialog: HTMLDialogElement) {
 
 export function openModal(dialog: HTMLDialogElement) {
   if (dialog.open) return;
-  delete dialog.dataset.sheet;
   // A closed dialog's event may still be queued when another one replaces it.
   const replaced = stack.filter(entry => !entry.dialog.open).at(-1);
   stack = stack.filter(entry => entry.dialog.open);
   const active = document.activeElement;
+  const modal = dialog.matches(MODAL_ONLY) || stack.some(entry => entry.modal);
+  if (!modal && !stack.at(-1)?.dialog.contains(active)) {
+    // Opened from the toolbar or a shortcut: it takes the drawer's place. A drawer that
+    // refuses to close (work in flight) stays underneath and comes back afterwards.
+    for (const entry of [...stack].reverse()) dismiss(entry.dialog);
+    stack = stack.filter(entry => entry.dialog.open);
+  }
   const restore = active instanceof HTMLElement && active !== document.body ? active : replaced?.restore ?? null;
-  stack.push({ dialog, restore });
+  stack.push({ dialog, restore, modal });
+  if (modal) { delete dialog.dataset.sheet; dialog.setAttribute('aria-modal', 'true'); }
+  else { dialog.dataset.sheet = 'drawer'; dialog.removeAttribute('aria-modal'); }
   sync();
-  dialog.setAttribute('aria-modal', 'true');
   dialog.show();
   // The close event is a later task. Releasing the page in the closing microtask, as a native
   // modal does, leaves no moment when input lands on a closed dialog's inert background.
@@ -65,7 +81,10 @@ export function openModal(dialog: HTMLDialogElement) {
     if (!entry) { sync(); return; }
     stack = stack.filter(candidate => candidate !== entry);
     sync();
-    if (entry.restore?.isConnected && !entry.restore.closest('[inert]')) entry.restore.focus();
+    // A drawer never pulls focus back from wherever the user has gone on working.
+    const focus = document.activeElement;
+    const stranded = entry.modal || !focus || focus === document.body || dialog.contains(focus);
+    if (stranded && entry.restore?.isConnected && !entry.restore.closest('[inert]')) entry.restore.focus();
   });
   released.observe(dialog, { attributes: true, attributeFilter: ['open'] });
 }
@@ -99,7 +118,7 @@ function place(current: Sheet) {
 /** Show a dialog in place. Returns false when a modal owns the page or the open sheet refuses to close. */
 export function openSheet(dialog: HTMLDialogElement, options: SheetOptions): boolean {
   if (dialog.open) return sheet?.dialog === dialog;
-  if (stack.some(entry => entry.dialog.open)) return false;
+  if (stack.some(entry => entry.modal && entry.dialog.open)) return false;
   if (sheet) {
     // The closing sheet is released here; its own observer runs a microtask later.
     const previous = sheet; dismiss(previous.dialog);
@@ -109,7 +128,7 @@ export function openSheet(dialog: HTMLDialogElement, options: SheetOptions): boo
   const active = document.activeElement;
   const current: Sheet = { ...options, dialog, restore: active instanceof HTMLElement && active !== document.body ? active : null, frame: 0, box: '' };
   sheet = current;
-  dialog.removeAttribute('aria-modal'); dialog.dataset.sheet = options.placement; dialog.style.zIndex = '15';
+  dialog.removeAttribute('aria-modal'); dialog.removeAttribute('data-covered'); dialog.dataset.sheet = options.placement; dialog.style.zIndex = '18';
   dialog.show(); place(current);
   // The anchor moves with splitters, the sidebar and window resizes; following it per frame
   // costs one rectangle read and writes only when the position changes.
@@ -119,8 +138,9 @@ export function openSheet(dialog: HTMLDialogElement, options: SheetOptions): boo
     if (dialog.open) return;
     released.disconnect(); cancelAnimationFrame(current.frame);
     if (sheet === current) sheet = null;
-    const focusLeft = !document.activeElement || document.activeElement === document.body || dialog.contains(document.activeElement);
-    if (focusLeft && current.restore?.isConnected && !current.restore.closest('[inert]')) current.restore.focus();
+    const focus = document.activeElement;
+    const stranded = !focus || focus === document.body || dialog.contains(focus);
+    if (stranded && current.restore?.isConnected && !current.restore.closest('[inert]')) current.restore.focus();
   });
   released.observe(dialog, { attributes: true, attributeFilter: ['open'] });
   return true;
@@ -130,28 +150,29 @@ export function openSheet(dialog: HTMLDialogElement, options: SheetOptions): boo
 document.addEventListener('pointerdown', event => {
   const current = sheet; const target = event.target;
   if (!current?.dialog.open || current.dialog.inert || !(target instanceof Element)) return;
-  if (current.dialog.contains(target) || !target.closest('.toolbar,#work-area,.statusbar')) return;
+  if (current.dialog.contains(target) || target.closest('.titlebar')) return;
   if (current.lightDismiss && !current.lightDismiss()) return;
   dismiss(current.dialog);
 }, true);
 
 document.addEventListener('keydown', event => {
-  const top = stack.at(-1)?.dialog;
-  if (!top?.open) {
-    // Escape belongs to the sheet only while focus is inside it; a terminal keeps its own Escape.
-    if (event.key === 'Escape' && sheet?.dialog.open && sheet.dialog.contains(document.activeElement)) { event.preventDefault(); dismiss(sheet.dialog); }
-    return;
-  }
-  if (event.key === 'Escape') {
-    event.preventDefault();
-    dismiss(top);
-    return;
-  }
-  if (event.key !== 'Tab') return;
-  const items = [...top.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(element => element.getClientRects().length > 0);
   const active = document.activeElement;
+  if (event.key === 'Escape' && sheet?.dialog.open && !sheet.dialog.inert && sheet.dialog.contains(active)) {
+    event.preventDefault(); dismiss(sheet.dialog); return;
+  }
+  const top = stack.at(-1);
+  if (!top?.dialog.open) return;
+  if (event.key === 'Escape') {
+    // A terminal keeps its own Escape while a drawer is open beside it.
+    if (!top.modal && active instanceof Element && active.closest('.xterm')) return;
+    event.preventDefault();
+    dismiss(top.dialog);
+    return;
+  }
+  if (event.key !== 'Tab' || !top.modal) return;
+  const items = [...top.dialog.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(element => element.getClientRects().length > 0);
   const edge = event.shiftKey ? items[0] : items.at(-1);
-  if (!items.length || !top.contains(active) || active === edge) {
+  if (!items.length || !top.dialog.contains(active) || active === edge) {
     event.preventDefault();
     (event.shiftKey ? items.at(-1) : items[0])?.focus();
   }

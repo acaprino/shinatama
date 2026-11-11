@@ -330,7 +330,7 @@ export function createProjectPicker(options: Options) {
       }
     },
     open(focusFilter = false) {
-      if (dialog.open || document.querySelector('dialog[open][aria-modal]')) return;
+      if (dialog.open || document.querySelector('dialog[open][aria-modal="true"]')) return;
       dialogRevision++;
       folder.value = options.getPath(); folder.setCustomValidity(''); filter.value = ''; error.hidden = true; editor.hidden = true;
       render();

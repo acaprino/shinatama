@@ -135,7 +135,7 @@ export function createAgentSetup(options: Options) {
     } finally { busy = null; render(); }
   }
   function show() {
-    if (destroyed || dialog.open || document.querySelector('dialog[open]')) return;
+    if (destroyed || dialog.open || document.querySelector('dialog[open][aria-modal="true"]')) return;
     generation++; snapshot = null; failure = ''; render(); openModal(dialog); (selected() ? check : dismiss).focus();
   }
   button.onclick = show; dismiss.onclick = close;

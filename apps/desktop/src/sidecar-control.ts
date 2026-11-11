@@ -51,7 +51,7 @@ export function createSidecarControl(desktop: boolean, notify: (message: string)
     } catch { current = null; if (report) notify('Session index action did not complete. Check its status before retrying.'); }
     finally { outstanding = false; if (!destroyed) render(); }
   }
-  button.onclick = () => { if (!document.querySelector('dialog[open]')) { render(); openModal(dialog); close.focus(); void request('sidecar_status'); } };
+  button.onclick = () => { if (!document.querySelector('dialog[open][aria-modal="true"]')) { render(); openModal(dialog); close.focus(); void request('sidecar_status'); } };
   close.onclick = () => dialog.close();
   start.onclick = () => { void request('sidecar_start', true); };
   stop.onclick = () => { void request('sidecar_stop', true); };

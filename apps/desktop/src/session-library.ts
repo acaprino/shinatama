@@ -292,7 +292,7 @@ export function createSessionLibrary(options: Options) {
   }
   function close() { generation++; if (dialog.open) dialog.close(); }
   function show() {
-    if (destroyed || dialog.open || document.querySelector('dialog[open]')) return;
+    if (destroyed || dialog.open || document.querySelector('dialog[open][aria-modal="true"]')) return;
     generation++; reset(); rootSelect.value = ''; message = busy ? 'The previous read is still returning; no replacement was started.' : 'Load archives to choose an explicit store.'; render(); openModal(dialog); closeButton.focus();
   }
   rootSelect.onchange = () => { generation++; reset(); const root = currentRoot(); message = root ? root.available ? 'Ready to read this explicit archive.' : 'This archive is unavailable. No other archive was used.' : 'Choose an archive explicitly.'; render(); if (!busy && root?.available) void readPage(null, 'reload'); };

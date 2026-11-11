@@ -196,7 +196,7 @@ export function createNewProjectDialog(options: Options) {
     if (!options.desktop) { options.notify('Open the desktop app to create a project.', 'info'); return false; }
     if (operation) { options.notify('The previous project creation is still returning. Existing terminals remain available.'); return false; }
     if (options.prepareOpen && !options.prepareOpen()) return false;
-    if (document.querySelector('dialog[open]')) return false;
+    if (document.querySelector('dialog[open][aria-modal="true"]')) return false;
     generation++; configuration = null; loading = false;
     name.value = ''; name.setCustomValidity(''); git.checked = false; error.hidden = true;
     root.replaceChildren(); rootHelp.textContent = ''; render(); openModal(dialog); name.focus(); void loadOptions(); return true;

@@ -59,13 +59,18 @@ export function resolveProfile(id: string | null | undefined): { id: string; pro
   const known = typeof id === 'string' && Object.hasOwn(PROFILES, id);
   return { id: known ? id : 'neutral', profile: known ? PROFILES[id] : PROFILES.neutral, fallback: !known && id !== null && id !== undefined };
 }
+// Native glass (Windows acrylic behind the terminal panes only): the terminal background keeps
+// its colour and gives up part of its opacity. Everything else in the palette stays opaque.
+let terminalGlass = false;
+export function setTerminalGlass(enabled: boolean) { terminalGlass = enabled; }
+const glassBackground = (color: string) => terminalGlass && /^#[0-9a-f]{6}$/i.test(color) ? `${color}94` : color;
 export function optionsForProfile(id: string | null | undefined, settings: PresentationSettings): ITerminalOptions {
   const selected = resolveProfile(id).profile; const skin = SKINS[settings.skin]?.tokens ?? base;
   const palette: ITheme = settings.followSkin ? {
     ...ansi, black: skin.terminal, brightBlack: skin.muted, white: skin['text-2'], brightWhite: skin.text,
     red: skin.error, green: skin.live, yellow: skin.warning, blue: skin['line-strong'], magenta: skin.accent, cyan: skin.ice,
-    foreground: skin.text, background: skin.terminal, cursor: skin.accent, selectionBackground: skin.selection,
-  } : { ...selected.palette, foreground: selected.foreground, background: selected.background, cursor: selected.accent, selectionBackground: '#41567599' };
+    foreground: skin.text, background: glassBackground(skin.terminal), cursor: skin.accent, selectionBackground: skin.selection,
+  } : { ...selected.palette, foreground: selected.foreground, background: glassBackground(selected.background), cursor: selected.accent, selectionBackground: '#41567599' };
   // xterm maps default/ANSI colours. No PTY bytes or truecolour sequences are rewritten.
   const fontFamily = settings.fontFamily === 'profile' ? selected.fontFamily : settings.fontFamily === 'monospace' ? 'monospace'
     : `"${settings.fontFamily}", ${fallback}`;
@@ -142,7 +147,7 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
   }
   function edit(settings: PresentationSettings) { current = Object.freeze({ ...settings }); edits++; pending = current; apply(); options.onChange(); schedule(); }
   selector.onchange = () => { if (Object.hasOwn(SKINS, selector.value)) edit({ ...current, skin: selector.value }); };
-  button.onclick = () => { if (document.querySelector('dialog[open]')) return; render(); openModal(dialog); };
+  button.onclick = () => { if (document.querySelector('dialog[open][aria-modal="true"]')) return; render(); openModal(dialog); };
   dialog.querySelectorAll<HTMLButtonElement>('[data-close]').forEach(close => { close.onclick = () => dialog.close(); });
   dialog.querySelector<HTMLButtonElement>('[data-reload]')!.onclick = () => { if (!flight) { edits++; void initialize(); } };
   dialog.querySelector('form')!.onsubmit = event => {

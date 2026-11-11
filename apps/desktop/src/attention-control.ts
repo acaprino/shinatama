@@ -110,7 +110,7 @@ export function createAttentionControl(desktop: boolean, report: (message: strin
     void configure({ enabled: preferences.enabled, sound: sound.input.checked }, true);
   });
   button.addEventListener('click', () => {
-    if (document.querySelector('dialog[open]')) return;
+    if (document.querySelector('dialog[open][aria-modal="true"]')) return;
     render(); openModal(dialog); close.focus();
   });
   close.addEventListener('click', () => { if (!busy) dialog.close(); });

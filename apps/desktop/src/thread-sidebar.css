@@ -48,3 +48,12 @@
 .thread-sidebar.is-collapsed { width: 40px; min-width: 40px; max-width: 40px; flex-basis: 40px; }
 .thread-sidebar.is-collapsed .thread-sidebar-heading { justify-content: center; padding: 5px; }
 .thread-sidebar.is-collapsed .thread-sidebar-heading h2 { display: none; }
+
+/* Glass: the sidebar is a translucent bar like the rest of the chrome. */
+.thread-sidebar { background: var(--glass-bar); }
+.thread-sidebar-heading { background: transparent; }
+.thread-sidebar-anchor { transition: border-color var(--fast) var(--ease-out), background-color var(--fast) var(--ease-out); }
+.thread-sidebar-anchor { min-height: 0; padding: 8px 10px; border-color: transparent; border-left: 2px solid var(--line); background: transparent; }
+.thread-sidebar-anchor:hover { border-color: transparent; border-left-color: var(--line-strong); background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+.thread-sidebar-anchor[aria-pressed=true] { border-color: transparent; border-left-color: var(--accent); }
+.thread-sidebar-list > li + li { margin-top: 2px; }
