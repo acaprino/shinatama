@@ -14,7 +14,8 @@ nessun gate X/TL/P/RES completo viene chiuso da questa infrastruttura.
 the window must be in the dark theme. A bright window behind and the other skins remain open.
 
 **U10, 2026-11-11:** [smoke tests moved to the harness menu](verification/2026-11-11-U10-new-session-menu.md):
-six pass on the real app; the three Codex-backed tests fail after the session is open or before
+seven pass on the real app, `codex-native-smoke` once it declines Codex's review of the plugins' hooks;
+`codex-resume-smoke` is unconfirmed and `forced-crash-recovery-smoke` fails before
 any interface step, and `ui-flow-smoke` is not updated.
 
 **Implementation tracking:** [complete plan](implementation/PLAN.md),

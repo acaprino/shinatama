@@ -352,6 +352,18 @@ async function input(id, text, key) {
   }
   if (key) await page.keyboard.press(key);
 }
+// The bundled plugins bring hooks that Codex does not trust (ADR-0052, item 7), so the first turn
+// of a session stops at "Hooks need review". The proof answers as a user who grants nothing:
+// "3. Continue without trusting (hooks won't run)". Shinatama's own hook is trusted by its hash
+// and still runs, which is what the binding checks below prove.
+const reviewsDeclined = new Set();
+async function declineHookReview(id) {
+  if (reviewsDeclined.has(id)) return;
+  const text = await screen(id);
+  if (!/Hooks need review/.test(text) || !/3\. Continue without trusting/.test(text)) return;
+  reviewsDeclined.add(id); evidence.checks.pluginHookReviewDeclined = true; await save();
+  await input(id, null, '3'); await input(id, null, 'Enter');
+}
 // Codex onboarding is a fixed, bounded set of product screens. Anything else,
 // and in particular any hook-trust review, fails the proof with its own code.
 async function ready(id, operation) {
@@ -545,7 +557,7 @@ try {
   require((await rows()).find(row => row.id === threadId)?.status === 'unbound', 'thread-unbound-before-first-turn');
   await stage('first-prompt');
   await input(first.id, PROMPT_A, 'Enter');
-  await poll(async () => (await snapshot(threadId)).activations.length === 1, 60000, 'first-native-binding-deadline');
+  await poll(async () => { await declineHookReview(first.id); return (await snapshot(threadId)).activations.length === 1; }, 60000, 'first-native-binding-deadline');
   const bound = await snapshot(threadId);
   require(bound.segments.length === 1 && UUID_PATTERN.test(bound.segments[0].native_id), 'first-segment-native-uuid');
   require(bound.activations[0].instance_id === first.id && bound.activations[0].native_id === bound.segments[0].native_id
@@ -598,6 +610,7 @@ try {
   // only the exact sealed UUID. A mismatch would fail tracking and retain the
   // cleanup owner, so the clean stop below is the confirmation evidence.
   await poll(async () => {
+    await declineHookReview(resumed.id);
     const value = await snapshot(threadId);
     return value.activations.length === 2 && value.activations[1].ended_at === null
       && value.segments.length === 1 && value.segments[0].native_id === nativeUuid;

@@ -41,16 +41,26 @@ could not reach their end otherwise:
 | `thread-rename-smoke` | pass |
 | `claude-resume-smoke` | pass |
 | `claude-resume-race-smoke` | pass |
-| `codex-native-smoke` | fail `first-native-binding-deadline`, at stage `first-prompt` |
-| `codex-resume-smoke` | fail `first-native-binding-deadline`, at stage `first-prompt` |
+| `codex-native-smoke` | pass after the tests answer the hook review (see below); failed before with `first-native-binding-deadline` |
+| `codex-resume-smoke` | not confirmed: same change, but the open was refused with `Ledger(Capacity)` on a loaded machine |
 | `forced-crash-recovery-smoke` | fail `sidecar-not-ready`, at stage `app1-start` |
 | `ui-flow-smoke` | fail at its first step: it looks for an "Open terminal" button |
 
 ## What the failures are
 
-- The two Codex tests open their session through the menu (check
-  `trackedSessionOpenedWithoutManufacturedNativeUuid` is recorded) and fail later: no thread
-  activation within 60 seconds of the first prompt. The cause was not investigated.
+- The two Codex tests opened their session through the menu and failed later: no thread
+  activation within 60 seconds of the first prompt. Cause, seen on the terminal: the first turn
+  stops at Codex's screen "Hooks need review. 4 hooks are new or changed", with the choices
+  "1. Review hooks", "2. Trust all and continue", "3. Continue without trusting (hooks won't
+  run)". The four hooks are those of the bundled plugins, which Codex does not trust (ADR-0052,
+  item 7); both tests passed at `4fed71b`, before the plugins were added in `4ab5470`.
+- Fix in the tests: they answer 3, as a user who grants nothing. Shinatama's own hook is trusted
+  by its hash and still binds the session. `codex-native-smoke` then passes (12 checks, among
+  them `pluginHookReviewDeclined`). `codex-resume-smoke` carries the same change but could not
+  be run to the end: three attempts were refused at open with `Terminal admission was refused:
+  Ledger(Capacity)` while the machine had about 3.7 GiB of commit free (six Codex and five
+  Claude processes of other work were open). That refusal was not investigated.
+- The product still shows that screen to the user on the first turn of every Codex session.
 - `forced-crash-recovery-smoke` fails before it touches the interface. Not investigated.
 - `ui-flow-smoke` runs the interface against scripted IPC and was last changed on 2026-11-03;
   it describes "Open terminal", always-visible pane controls and panels that block the page.
