@@ -1,4 +1,4 @@
-import { openModal } from './modal.ts';
+import { openSheet } from './modal.ts';
 import './new-session.css';
 
 export type NewSessionProject = { id: string; path: string };
@@ -11,6 +11,8 @@ type Options = {
   open: (selection: NewSessionSelection) => Promise<void>;
   reportError?: (message: string) => void;
   restoreFocus?: () => void;
+  /** The pane the session will open in; the sheet docks to its top edge. */
+  anchor?: () => Element | null;
 };
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const scalar = (value: unknown, limit: number): value is string => typeof value === 'string' && value.length > 0 && value.length <= limit
@@ -35,8 +37,10 @@ function plainFailure(value: unknown, fallback: string): string {
   return scalar(message, 512) ? message : fallback;
 }
 
-/** Drafting and folder selection never open a terminal. The single explicit
- * Open action owns its request until settlement; it cannot be hidden or repeated. */
+/** Shown in place, docked to the pane the session will open in; nothing else is blocked.
+ * Drafting and folder selection never open a terminal. The single explicit Open action
+ * (the button, Enter, or a double click on a project or agent) owns its request until
+ * settlement; it cannot be hidden or repeated. */
 export function createNewSession(options: Options) {
   let choices = options.harnesses.length <= 32 ? options.harnesses.filter((item, index, all) =>
     /^[a-z0-9_-]{1,64}$/i.test(item.id) && scalar(item.label, 128) && all.findIndex(candidate => candidate.id === item.id) === index
@@ -65,7 +69,8 @@ export function createNewSession(options: Options) {
   const actions = document.createElement('div'); actions.className = 'dialog-actions';
   const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = 'Cancel';
   const submit = document.createElement('button'); submit.type = 'submit'; submit.className = 'primary'; submit.textContent = 'Open'; actions.append(cancel, submit);
-  form.append(heading, projectLabel, list, folderRow, harnessLabel, harness, tiles, status, error, actions); dialog.append(form);
+  const hint = document.createElement('span'); hint.className = 'new-session-keys'; hint.textContent = 'Enter opens · Esc closes'; actions.prepend(hint);
+  form.append(heading, harnessLabel, harness, tiles, projectLabel, folderRow, list, status, error, actions); dialog.append(form);
   (document.querySelector('#app') ?? document.body).append(dialog);
 
   let projects: NewSessionProject[] = []; let pending: 'projects' | 'browse' | 'open' | null = null;
@@ -83,7 +88,12 @@ export function createNewSession(options: Options) {
       const tile = document.createElement('button'); tile.type = 'button'; tile.className = 'new-session-agent'; tile.textContent = choice.label;
       tile.dataset.agent = choice.id; tile.setAttribute('role', 'radio'); tile.setAttribute('aria-checked', String(harness.value === choice.id));
       tile.disabled = pending === 'open';
-      tile.onclick = () => { if (pending === 'open') return; harness.value = choice.id; lastHarness = choice.id; clearError(); paintTiles(); };
+      // The tiles are repainted on every choice, so a double click is read from the click count.
+      tile.onclick = event => {
+        if (pending === 'open') return; harness.value = choice.id; lastHarness = choice.id; clearError(); paintTiles();
+        tiles.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
+        if (event.detail >= 2) void open();
+      };
       tiles.append(tile);
     }
   }
@@ -99,7 +109,7 @@ export function createNewSession(options: Options) {
       row.disabled = pending === 'open'; row.title = item.path;
       const name = document.createElement('strong'); name.textContent = folderName(item.path);
       const path = document.createElement('span'); path.textContent = item.path; row.append(name, path);
-      row.onclick = () => { if (pending) return; project.value = item.path; clearError(); paintProjects(); harness.focus(); };
+      row.onclick = event => { if (pending) return; project.value = item.path; clearError(); paintProjects(); submit.focus(); if (event.detail >= 2) void open(); };
       list.append(row);
     }
   }
@@ -162,14 +172,16 @@ export function createNewSession(options: Options) {
     }
   }
   function show(defaultProject?: string, defaultHarness?: string): boolean {
-    if (destroyed || dialog.open || document.querySelector('dialog[open]')) return false;
+    if (destroyed || dialog.open) return false;
     generation++; project.value = absoluteFolder(defaultProject) ? defaultProject : ''; projects = []; clearError();
     if (choices.some(choice => choice.id === defaultHarness)) harness.value = defaultHarness!;
     else if (choices.some(choice => choice.id === lastHarness)) harness.value = lastHarness;
     else if (!lastHarness && choices.some(choice => choice.id === 'claude_code')) harness.value = 'claude_code';
     if (!choices.some(choice => choice.id === harness.value)) harness.value = choices[0]?.id ?? '';
     if (!choices.length) showError('No agents are available yet.');
-    render(); openModal(dialog); submit.focus();
+    render();
+    if (!openSheet(dialog, { anchor: () => options.anchor?.() ?? null, placement: 'pane-top', lightDismiss: () => pending !== 'open' })) return false;
+    submit.focus();
     if (!pending) void loadProjects(); return true;
   }
   function setHarnesses(values: readonly NewSessionHarness[]): boolean {
@@ -185,6 +197,12 @@ export function createNewSession(options: Options) {
   harness.onchange = () => { clearError(); lastHarness = harness.value; paintTiles(); };
   browse.onclick = () => { void browseFolder(); };
   form.onsubmit = event => { event.preventDefault(); void open(); };
+  // Enter on a project or an agent takes that choice and opens: one key instead of select, then Open.
+  form.addEventListener('keydown', event => {
+    const target = event.target instanceof HTMLElement ? event.target.closest<HTMLButtonElement>('.new-session-project-row,.new-session-agent') : null;
+    if (event.key !== 'Enter' || !target || event.repeat) return;
+    event.preventDefault(); target.click(); void open();
+  });
   cancel.onclick = close; closeButton.onclick = close;
   dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
   dialog.addEventListener('close', () => {

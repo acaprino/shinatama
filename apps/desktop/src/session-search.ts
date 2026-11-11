@@ -157,8 +157,19 @@ export function createSessionSearch(options: Options) {
     options.indexStart().then(() => { busy = false; poll(); void refresh(); }, error => { busy = false; options.reportError(reason(error)); void refresh(); });
   };
   stop.onclick = () => { void options.indexCancel().then(() => refresh(), () => undefined); };
+  // Confirmed in place: the first press arms the button for a few seconds, the second forgets.
+  const forgetLabel = forget.textContent; let forgetArmed = 0;
+  const disarmForget = () => { clearTimeout(forgetArmed); forgetArmed = 0; forget.textContent = forgetLabel; forget.classList.remove('danger'); forget.removeAttribute('title'); };
+  forget.onblur = disarmForget;
   forget.onclick = () => {
-    if (busy || !window.confirm('Forget all indexed session text? Your sessions and threads are not changed.')) return;
+    if (busy) return;
+    if (!forgetArmed) {
+      forget.textContent = 'Confirm forget'; forget.classList.add('danger');
+      forget.title = 'Forgets all indexed session text. Your sessions and threads are not changed.';
+      status.textContent = 'Press Confirm forget to remove all indexed session text. Your sessions and threads are not changed.';
+      forgetArmed = window.setTimeout(disarmForget, 5000); return;
+    }
+    disarmForget();
     busy = true; renderIndex();
     options.indexForget().then(() => { results.replaceChildren(); status.textContent = 'Indexed text forgotten.'; },
       error => options.reportError(reason(error))).finally(() => { busy = false; void refresh(); });

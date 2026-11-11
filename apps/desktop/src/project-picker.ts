@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { openModal } from './modal.ts';
+import { openModal, openSheet } from './modal.ts';
 import { beginMutation, browseFolder, cancelMutation, createCatalogClient, createRequestId, orderedCandidates, saveRoots,
   type Candidate, type Catalog, type Project, type RootConfig, type RootDraft } from './project-catalog.ts';
 
@@ -330,10 +330,14 @@ export function createProjectPicker(options: Options) {
       }
     },
     open(focusFilter = false) {
-      if (document.querySelector('dialog[open]')) return;
+      if (dialog.open || document.querySelector('dialog[open][aria-modal]')) return;
       dialogRevision++;
       folder.value = options.getPath(); folder.setCustomValidity(''); filter.value = ''; error.hidden = true; editor.hidden = true;
-      render(); openModal(dialog); (focusFilter ? filter : folder).focus(); refresh();
+      render();
+      // Hung from the project button, with the workspace still usable. Unsaved root edits and a
+      // running folder operation are never dropped by a stray press outside.
+      if (!openSheet(dialog, { anchor: () => document.querySelector('#project'), placement: 'below', lightDismiss: () => editor.hidden && !mutation })) openModal(dialog);
+      (focusFilter ? filter : folder).focus(); refresh();
     },
     browse: browseProject,
     handleKey(event: KeyboardEvent) {

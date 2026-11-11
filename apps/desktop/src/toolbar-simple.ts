@@ -1,14 +1,15 @@
 import './toolbar-simple.css';
 
 type RecentProject = { id: string; path: string; available?: boolean };
+type FoundProject = { path: string; available?: boolean };
 const folderName = (path: string) => path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || path;
 const samePath = (a: string, b: string) => a.replace(/^\\\\\?\\/, '').replace(/[\\/]+$/, '').toLowerCase() === b.replace(/^\\\\\?\\/, '').replace(/[\\/]+$/, '').toLowerCase();
 
 /** A small popover anchored under a toolbar control. Escape and outside clicks close it. */
-function popover(anchor: HTMLElement, id: string, align: 'left' | 'right') {
+function popover(anchor: HTMLElement, id: string, align: 'left' | 'right', onClose?: () => void) {
   const menu = document.createElement('div'); menu.id = id; menu.className = `toolbar-menu toolbar-menu-${align}`; menu.hidden = true; menu.setAttribute('role', 'menu');
   document.querySelector('.toolbar')!.append(menu);
-  const close = () => { menu.hidden = true; anchor.setAttribute('aria-expanded', 'false'); };
+  const close = () => { if (menu.hidden) return; menu.hidden = true; anchor.setAttribute('aria-expanded', 'false'); onClose?.(); };
   const place = () => {
     const bar = (document.querySelector('.toolbar') as HTMLElement).getBoundingClientRect(); const box = anchor.getBoundingClientRect();
     // Fixed to the viewport: the toolbar clips its own overflow.
@@ -18,11 +19,12 @@ function popover(anchor: HTMLElement, id: string, align: 'left' | 'right') {
   };
   const toggle = (onOpen?: () => void) => {
     if (!menu.hidden) { close(); return; }
-    for (const other of document.querySelectorAll<HTMLElement>('.toolbar-menu')) if (other !== menu) other.hidden = true;
+    for (const other of document.querySelectorAll<HTMLElement>('.toolbar-menu')) if (other !== menu && !other.hidden) other.dispatchEvent(new Event('toolbar-menu-close'));
     place(); menu.hidden = false; anchor.setAttribute('aria-expanded', 'true'); onOpen?.();
   };
   document.addEventListener('pointerdown', event => { if (!menu.hidden && event.target instanceof Node && !menu.contains(event.target) && !anchor.contains(event.target)) close(); });
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.hidden) { close(); anchor.focus(); } });
+  menu.addEventListener('toolbar-menu-close', close);
   anchor.setAttribute('aria-haspopup', 'menu'); anchor.setAttribute('aria-expanded', 'false');
   return { menu, close, toggle };
 }
@@ -45,10 +47,14 @@ export function organizeToolbar(): void {
   more.onclick = () => toggle();
 }
 
-/** The project button lists recent projects; one click selects. */
+/** The project button opens a finder: type to narrow, arrows to move, Enter to switch.
+ * Recent projects come first; every project inside the configured roots follows, so the
+ * full picker is needed only to manage roots. */
 export function createProjectMenu(options: {
   button: HTMLElement;
   load: () => Promise<readonly RecentProject[]>;
+  /** Searches the project roots. Results arrive through the callback, possibly more than once. */
+  search?: (onResults: (projects: readonly FoundProject[]) => void) => { open(filter?: string): void; query(filter: string): void; close(): void };
   current: () => string;
   choose: (path: string) => Promise<void>;
   browse: () => void;
@@ -56,32 +62,74 @@ export function createProjectMenu(options: {
   manage: () => void;
   reportError: (message: string) => void;
 }): void {
-  const { menu, close, toggle } = popover(options.button, 'project-menu', 'left');
-  let generation = 0;
+  let generation = 0; let recent: readonly RecentProject[] = []; let found: readonly FoundProject[] = [];
+  let active = 0; let state: 'loading' | 'ready' | 'failed' = 'loading'; let searching = false;
+  const client = options.search?.(projects => { found = projects; searching = false; paint(); });
+  const { menu, close, toggle } = popover(options.button, 'project-menu', 'left', () => { generation++; client?.close(); });
+  menu.setAttribute('role', 'dialog'); menu.setAttribute('aria-label', 'Projects'); options.button.setAttribute('aria-haspopup', 'dialog');
+  const filter = document.createElement('input'); filter.id = 'project-menu-filter'; filter.type = 'search'; filter.autocomplete = 'off'; filter.spellcheck = false;
+  filter.maxLength = 128; filter.placeholder = 'Find a project…'; filter.setAttribute('aria-label', 'Find a project'); filter.setAttribute('aria-controls', 'project-menu-list');
+  const list = document.createElement('div'); list.id = 'project-menu-list'; list.className = 'toolbar-menu-list'; list.setAttribute('role', 'listbox'); list.setAttribute('aria-label', 'Projects');
+  const actions = document.createElement('div'); actions.className = 'toolbar-menu-actions';
   const action = (label: string, run: () => void, hint?: string) => {
-    const item = document.createElement('button'); item.type = 'button'; item.className = 'toolbar-menu-action'; item.setAttribute('role', 'menuitem');
+    const item = document.createElement('button'); item.type = 'button'; item.className = 'toolbar-menu-action';
     item.textContent = label; if (hint) item.title = hint; item.onclick = () => { close(); run(); }; return item;
   };
-  async function fill() {
-    const mine = ++generation; menu.replaceChildren();
-    const heading = document.createElement('p'); heading.className = 'toolbar-menu-heading'; heading.textContent = 'Projects'; menu.append(heading);
-    const list = document.createElement('div'); list.className = 'toolbar-menu-list'; list.setAttribute('role', 'group'); menu.append(list);
-    const loading = document.createElement('p'); loading.className = 'toolbar-menu-note'; loading.textContent = 'Loading…'; list.append(loading);
-    menu.append(action('Browse for a folder…', options.browse), action('New project…', options.create), action('More…', options.manage, 'Project roots and the full folder list'));
-    let projects: readonly RecentProject[] = [];
-    try { projects = await options.load(); } catch { if (mine === generation) loading.textContent = 'Projects could not be loaded.'; return; }
-    if (mine !== generation) return;
-    list.replaceChildren();
-    if (!projects.length) { const none = document.createElement('p'); none.className = 'toolbar-menu-note'; none.textContent = 'No projects yet. Browse for a folder.'; list.append(none); return; }
-    for (const project of projects.slice(0, 12)) {
-      const row = document.createElement('button'); row.type = 'button'; row.className = 'toolbar-menu-project'; row.setAttribute('role', 'menuitemradio');
-      const active = samePath(project.path, options.current()); row.setAttribute('aria-checked', String(active)); row.title = project.path;
-      row.disabled = project.available === false;
-      const name = document.createElement('strong'); name.textContent = `${active ? '✓ ' : ''}${folderName(project.path)}`;
-      const path = document.createElement('span'); path.textContent = project.path; row.append(name, path);
-      row.onclick = () => { close(); void options.choose(project.path).catch(error => options.reportError(String(error?.message ?? error))); };
-      list.append(row);
-    }
+  actions.append(action('Browse…', options.browse, 'Choose any folder'), action('New project…', options.create), action('Roots…', options.manage, 'Project roots and the full folder list'));
+  menu.append(filter, list, actions);
+
+  function rows(): { path: string; available: boolean }[] {
+    const query = filter.value.trim().toLocaleLowerCase();
+    const matches = (path: string) => !query || `${folderName(path)} ${path}`.toLocaleLowerCase().includes(query);
+    const first = recent.filter(project => matches(project.path)).map(project => ({ path: project.path, available: project.available !== false }));
+    const rest = found.filter(project => matches(project.path) && !first.some(known => samePath(known.path, project.path)))
+      .map(project => ({ path: project.path, available: project.available !== false }));
+    return [...first, ...rest].slice(0, 60);
   }
-  options.button.onclick = () => toggle(() => { void fill(); });
+  function pick(path: string) { close(); options.button.focus(); void options.choose(path).catch(error => options.reportError(String(error?.message ?? error))); }
+  function paint() {
+    const items = rows(); active = Math.max(0, Math.min(active, items.length - 1)); list.replaceChildren();
+    if (!items.length) {
+      const note = document.createElement('p'); note.className = 'toolbar-menu-note';
+      note.textContent = state === 'loading' || searching ? 'Loading…' : state === 'failed' && !found.length ? 'Projects could not be loaded.'
+        : filter.value.trim() ? 'No project matches. Browse… opens any folder.' : 'No projects yet. Browse for a folder.';
+      list.append(note); filter.removeAttribute('aria-activedescendant'); return;
+    }
+    items.forEach((project, index) => {
+      const row = document.createElement('button'); row.type = 'button'; row.className = 'toolbar-menu-project'; row.id = `project-menu-row-${index}`;
+      row.setAttribute('role', 'option'); row.tabIndex = -1; row.title = project.path; row.disabled = !project.available;
+      if (samePath(project.path, options.current())) row.dataset.current = '';
+      const name = document.createElement('strong'); name.textContent = folderName(project.path);
+      const path = document.createElement('span'); path.textContent = project.available ? project.path : `${project.path} · unavailable`; row.append(name, path);
+      row.onclick = () => pick(project.path);
+      row.onpointermove = () => { if (active !== index) { active = index; mark(); } };
+      list.append(row);
+    });
+    mark();
+  }
+  // Moving the highlight repaints nothing: only the selected flag changes.
+  function mark() {
+    [...list.querySelectorAll<HTMLElement>('.toolbar-menu-project')].forEach((row, index) => row.setAttribute('aria-selected', String(index === active)));
+    const row = list.querySelector<HTMLElement>(`#project-menu-row-${active}`);
+    if (row) filter.setAttribute('aria-activedescendant', row.id);
+  }
+  filter.oninput = () => { active = 0; if (client) { searching = true; client.query(filter.value); } paint(); };
+  filter.onkeydown = event => {
+    const count = list.querySelectorAll('.toolbar-menu-project').length;
+    if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && count) {
+      event.preventDefault(); active = (active + (event.key === 'ArrowDown' ? 1 : count - 1)) % count; mark();
+      list.querySelector<HTMLElement>(`#project-menu-row-${active}`)?.scrollIntoView({ block: 'nearest' });
+    } else if (event.key === 'Enter') {
+      event.preventDefault(); const row = list.querySelector<HTMLButtonElement>(`#project-menu-row-${active}`);
+      if (row && !row.disabled) row.click();
+    }
+  };
+  async function load() {
+    const mine = ++generation; filter.value = ''; found = []; active = 0; state = 'loading'; searching = !!client; paint(); filter.focus();
+    client?.open('');
+    try { const received = await options.load(); if (mine !== generation) return; recent = received; state = 'ready'; }
+    catch { if (mine !== generation) return; state = 'failed'; }
+    paint();
+  }
+  options.button.onclick = () => toggle(() => { void load(); });
 }

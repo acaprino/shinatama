@@ -11,14 +11,14 @@ import { initializeWindowControls } from './window-controls.ts';
 import { createProjectPicker } from './project-picker.ts';
 import { createNewProjectDialog } from './new-project.ts';
 import { initializeMaintenance } from './maintenance.ts';
-import { openModal } from './modal.ts';
+import { openModal, openSheet } from './modal.ts';
 import { createTerminalFind } from './terminal-find.ts';
 import { createPresentation, PROFILES } from './presentation.ts';
 import './presentation.css';
 import { startTerminalResources, formatTerminalResources, type TerminalResourceStatus } from './terminal-resources.ts';
 import { createAttentionControl } from './attention-control.ts';
 import { createNewSession } from './new-session.ts';
-import { beginMutation, browseFolder, createRequestId } from './project-catalog.ts';
+import { beginMutation, browseFolder, createCatalogClient, createRequestId } from './project-catalog.ts';
 import { createSessionLibrary } from './session-library.ts';
 import { createSessionDetail } from './session-detail.ts';
 import { createSessionExport } from './session-export.ts';
@@ -340,17 +340,21 @@ function showExit(view: View, code: number | null) {
   close.onclick = () => void stopTerminal(view);
   banner.append(text, restart, close); view.element.append(banner);
 }
-async function confirmStop(title: string, message: string): Promise<boolean> {
+async function confirmStop(title: string, message: string, group?: string): Promise<boolean> {
   // A window close request can arrive over another dialog; the confirmation stacks above it.
   if (confirmDialog.open) return false;
   $('#confirm-title').textContent = title; $('#confirm-message').textContent = message;
-  confirmDialog.returnValue = 'cancel'; openModal(confirmDialog);
+  confirmDialog.returnValue = 'cancel';
+  // One terminal is confirmed in its own pane, with the rest of the workspace usable.
+  // Whatever concerns the whole workspace still takes the page.
+  if (!group || !openSheet(confirmDialog, { anchor: () => paneBody(group), placement: 'pane-bottom' })) openModal(confirmDialog);
+  confirmDialog.querySelector<HTMLButtonElement>('button[value="cancel"]')?.focus();
   return new Promise(resolve => confirmDialog.addEventListener('close', () => {
     resolve(confirmDialog.returnValue === 'stop'); setFocus(focusedGroup());
   }, { once: true }));
 }
 async function stopTerminal(view: View) {
-  if (!view.ended && !await confirmStop('Stop terminal?', 'This stops the shell and the programs it started. To keep them running, cancel and use ⋯ then Hide instead.')) return;
+  if (!view.ended && !await confirmStop('Stop terminal?', 'This stops the shell and the programs it started. To keep them running, cancel and use ⋯ then Hide instead.', view.group)) return;
   try {
     await invoke('terminal_stop', { id: view.info.id });
     view.disposed = true; clearTimeout(view.resizeTimer); view.terminal.dispose(); view.element.remove();
@@ -407,7 +411,13 @@ const newSession = createNewSession({
     } finally { starting = false; $<HTMLButtonElement>('#new-terminal').disabled = false; }
   },
   restoreFocus: () => setFocus(focusedGroup()),
+  anchor: () => paneBody(newSessionGroup),
 });
+/** The body of a pane: where a sheet that belongs to that pane is docked. */
+function paneBody(groupId: string | null): Element | null {
+  const group = tabGroups(workspaceLayout.root).some(group => group.id === groupId) ? groupId! : focusedGroup();
+  return [...workspace.querySelectorAll<HTMLElement>('.wm-pane')].find(pane => pane.dataset.groupId === group)?.querySelector('.wm-body') ?? null;
+}
 async function openNewSession(group: string = focusedGroup(), path?: string, harness?: string) {
   if (starting || openingSessionDialog) return;
   const selectedProject = threadSidebar?.currentProjectId();
@@ -670,6 +680,7 @@ organizeToolbar();
 createProjectMenu({
   button: $('#project'),
   load: () => desktop ? invoke('project_recent') : Promise.resolve([]),
+  search: desktop ? onResults => createCatalogClient(snapshot => onResults(snapshot.projects), () => onResults([])) : undefined,
   current: () => projectPath,
   choose: chooseProject,
   browse: () => { projectPicker.open(); void projectPicker.browse(); },
