@@ -11,6 +11,9 @@ and deleted from `docs/frd/` (ADR-0050 v2).
 **2026-11-11 decision:** Ponytail and i-have-adhd ship in the package and activate in every
 launch of Claude Code, Codex, Pi and OpenCode (ADR-0052).
 
+**2026-11-11 decision:** the desktop chrome is frosted glass in the active skin's colours, and
+panels and choices open in place instead of as centred dialogs (ADR-0039 v2).
+
 One record per version of a decision: ADR-NNNN-<slug>.md, then ADR-NNNN-vN-<slug>.md.
 A record is Proposed when the interview produces it, Accepted when the user
 approves its text, Superseded when a later version or another Accepted record
@@ -63,7 +66,7 @@ run `index`; do not edit this block by hand.
 | [ADR-0036](<ADR-0036-browser-security-lifecycle.md>) | Moli `serve` gated off, window-owned process tree, one controller, untrusted content, evidence before performance claims | `docs/browser-integration.md`, `docs/technical-design.md`, `docs/functional-design.md`, `docs/verification-register.md`, `browser`, `process-lifecycle`, `browser-security`, `browser-privacy`, `performance-evidence` | 0 | `eeb3febaf0115d13f95ca0ba044c11e2628acb06` |
 | [ADR-0037 v2](<ADR-0037-v2-decision-compaction-julia1.md>) | Decision compaction over summary compaction, scored by a local offline executor (julia1); compaction and digests never leave the machine, routing and the tool chooser may by opt-in | `docs/specs/token-savings.md`, `docs/notes/2026-11-01-model-routing-decision-model.md`, `token-savings`, `compaction`, `local-model`, `julia1` | 0 | `202a34e2675cfe7e8d7ba1d5e7ecf88bf2299182` |
 | [ADR-0038](<ADR-0038-token-savings-per-harness.md>) | One token-savings adapter per harness on its own seam; one owner of compaction and of the wire; measure before claiming | `docs/specs/token-savings.md`, `docs/functional-design.md`, `docs/verification-register.md`, `token-savings`, `harness-adapter`, `prompt-cache`, `token-ledger` | 0 | `eeb3febaf0115d13f95ca0ba044c11e2628acb06` |
-| [ADR-0039](<ADR-0039-skins-and-terminal-profiles.md>) | Data-driven skins control only the chrome; per-harness terminal profiles; truecolour never rewritten | `docs/functional-design.md`, `docs/technical-design.md`, `docs/verification-register.md`, `skins`, `terminal-profiles`, `native-ui`, `accessibility` | 0 | `eeb3febaf0115d13f95ca0ba044c11e2628acb06` |
+| [ADR-0039 v2](<ADR-0039-v2-skins-and-terminal-profiles.md>) | Skins colour a glass chrome; panels open in place; per-harness terminal profiles; truecolour never rewritten | `docs/functional-design.md`, `docs/technical-design.md`, `docs/verification-register.md`, `apps/desktop/src/styles.css`, `apps/desktop/src/modal.ts`, `apps/desktop/src/presentation.ts`, `apps/desktop/src-tauri/tauri.conf.json`, `skins`, `terminal-profiles`, `native-ui`, `accessibility`, `glass`, `in-place-surfaces` | 0 | `7f6a3ae7d06bc163ff1c7f9f49049d9c2b588c9b` |
 | [ADR-0040](<ADR-0040-delivery-baseline.md>) | Terminal-first baseline, then read-only browsing and resume, then the seed hop; first-milestone gates decide the design | `docs/functional-design.md`, `docs/technical-design.md`, `docs/verification-register.md`, `delivery-plan`, `milestones`, `verification-gates`, `release` | 0 | `eeb3febaf0115d13f95ca0ba044c11e2628acb06` |
 | [ADR-0041](<ADR-0041-companion-preset-input.md>) | The companion pane accepts only preset actions and selections, and has two card flows | `docs/specs/companion-explainer.md`, `docs/functional-design.md`, `companion`, `preset-input`, `card-flows` | 0 | `eeb3febaf0115d13f95ca0ba044c11e2628acb06` |
 | [ADR-0042](<ADR-0042-companion-learning-memory.md>) | A per-person ledger of what the companion explained, written by Shinatama from the companion's card block | `docs/specs/companion-explainer.md`, `docs/technical-design.md`, `companion`, `learning-memory` | 0 | `eeb3febaf0115d13f95ca0ba044c11e2628acb06` |
@@ -99,6 +102,7 @@ run `index`; do not edit this block by hand.
 | [ADR-0022](<ADR-0022-mukade-native-handover-gates.md>) | Post-v1 native handover; journal before write, receipt is not acceptance, no automatic retry, reasoning dropped, per-instance store roots | ADR-0022 v2 |
 | [ADR-0031](<ADR-0031-login-without-credentials.md>) | Login detected and performed through the agent itself; Shinatama never holds credentials | ADR-0031 v2 |
 | [ADR-0037](<ADR-0037-decision-compaction-julia1.md>) | Decision compaction over summary compaction, scored by a local offline executor (julia1) | ADR-0037 v2 |
+| [ADR-0039](<ADR-0039-skins-and-terminal-profiles.md>) | Data-driven skins control only the chrome; per-harness terminal profiles; truecolour never rewritten | ADR-0039 v2 |
 | [ADR-0045](<ADR-0045-tokeneconomizer-beside-billioncontext.md>) | TokenEconomizer beside BillionContext as an optional per-instance module | ADR-0045 v2 |
 | [ADR-0045 v2](<ADR-0045-v2-tokeneconomizer-beside-billioncontext.md>) | TokenEconomizer beside BillionContext as an optional per-instance module | ADR-0045 v3 |
 | [ADR-0047](<ADR-0047-rust-platforms-dependency-policy.md>) | Rust runtime; macOS and Linux required, Windows assumed; one allowed-dependency list in the workspace, each addition a decision | ADR-0047 v2 |
@@ -123,7 +127,7 @@ records assume the ones above it. The requirements records that build on them ar
 | Order | Domain | Records | Requirements record |
 |---|---|---|---|
 | 1 | Method and evidence | ADR-0050 (how records, documents and the register relate), ADR-0010 (evidence before claims), ADR-0040 (delivery baseline) | all |
-| 2 | Shell and language | ADR-0047 (Rust, platforms, dependency policy), ADR-0005 (tiling workspace), ADR-0004 (real agents in PTYs), ADR-0039 (skins and terminal profiles), ADR-0006 (the hosted set), ADR-0007 (DeepSeek ACP pane) | FRD-0001 |
+| 2 | Shell and language | ADR-0047 (Rust, platforms, dependency policy), ADR-0005 (tiling workspace), ADR-0004 (real agents in PTYs), ADR-0039 v2 (skins as glass, in-place surfaces, terminal profiles), ADR-0006 (the hosted set), ADR-0007 (DeepSeek ACP pane) | FRD-0001 |
 | 3 | Process and state | ADR-0008 (no daemon, one process per window), ADR-0009 (one SQLite database per user) | FRD-0014 |
 | 4 | Where the agents live | ADR-0012 v2 (program, home, per-instance set, companion scratch home), ADR-0013 (per-launch injection, instance identity), ADR-0014 (inherited markers), ADR-0031 v2 (login without credentials, router key in the vault) | FRD-0002, FRD-0003 |
 | 5 | Adapters and reading | ADR-0011 (adapter contract), ADR-0020 (Mukade), ADR-0021 (canonical transcript, STX), ADR-0023 (sessions surface), ADR-0049 (index outlives retention) | FRD-0006 |

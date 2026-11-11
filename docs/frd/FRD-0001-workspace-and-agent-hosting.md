@@ -13,11 +13,15 @@ only the responsible process tree is explicitly authorized after preventive meas
 R59-R63 and the emergency exception in R29 record this request; implementation
 choices and open proofs are in [the resilience amendment](../implementation/2026-11-02-host-resilience.md).
 
+Glass and surfaces decision, user, 2026-11-11, Accepted the same day: the desktop chrome is frosted
+glass in the active skin's colours, and panels and choices open in place instead of as centred
+dialogs (ADR-0039 v2). R26, R43, R44 and R47 are amended; R64-R68 record the request.
+
 | | |
 |---|---|
 | Version | 1 |
 | Status | Accepted 2026-11-01 (this Markdown text) |
-| Date | 2026-11-01; R15, R22, R50, R51 and R55 amended 2026-11-02 for shell/platform; R29 amended and R59-R63 added for the user's resilience decision |
+| Date | 2026-11-01; R15, R22, R50, R51 and R55 amended 2026-11-02 for shell/platform; R29 amended and R59-R63 added for the user's resilience decision; R26, R43, R44 and R47 amended and R64-R68 added 2026-11-11 for glass and in-place surfaces |
 | Sources | functional-design 1, 2, 3, 4, 5.1, 5.7, 5.9, 5.12, 5.16, 6; technical-design 3, 3.1, 5.5.3, 5.7 |
 | Governing ADRs | ADR-0004, ADR-0005, ADR-0006, ADR-0007, ADR-0011, ADR-0039, ADR-0040, ADR-0047 |
 | Register sections | TL (tiling), P (platform and terminal), U (skins and UI), DS (DeepSeek Harness) |
@@ -81,7 +85,7 @@ Agent and DeepSeek Harness; an **instance** is a running agent process hosted in
 | R23 | A project workspace holds horizontal and vertical splits with tab groups at the leaves; side panes are resizable and collapsible; tabs and tiling coexist. | U 2026-10-29 | M0 | TL1, TL2 | 0005 |
 | R24 | The user resizes panes by dragging splitters and drags tabs to reorder them, move them between groups or create an edge split; valid drop targets are previewed and a cancelled or invalid drop changes nothing. | U 2026-10-29 | M0 | TL2 | 0005 |
 | R25 | Every layout action has a keyboard equivalent (focus, resize, tab moves, splitting, side-pane collapse and restore); ordinary input goes to the focused agent, and workspace actions use documented explicit shortcuts or a command palette. Key names in the design (`^H`, `^K`, `^E`) are placeholders until register row U3 settles bindings that neither the agents nor the desktop consume. | U 2026-10-29 (equivalents); S (placeholders) | M0 | U3, U4 | 0005 |
-| R26 | Only the focused terminal receives input through its owning runtime; while a modal is focused no keystroke or paste reaches a background terminal. | S | M0 | TL2 | 0005 |
+| R26 | Only the focused terminal receives input through its owning runtime; while a modal is focused no keystroke or paste reaches a background terminal. A drawer or a sheet is not a modal: the terminals beside it stay live (R66, R67). | S | M0 | TL2 | 0005 |
 | R27 | A pane can be temporarily maximized and its prior layout restored; minimum usable pane sizes are enforced, and a smaller window never discards a pane or makes it unreachable. | U 2026-10-29 | M0 | TL2, U5 | 0005 |
 | R28 | Layout is saved and restored per project and window workspace as versioned JSON in a shared-database workspace record, with a revision for optimistic updates and one owning window per workspace; corrupt or unknown data falls back to the last valid layout without deleting documents or session history. | U 2026-10-29 (save and restore); A (shape) | M0 | TL3 | 0005, 0009 |
 | R29 | Moving, hiding or collapsing a terminal view never restarts or stops its agent, creates a session or changes its thread; stopping a live instance requires confirmation, except the user-authorized emergency resource policy in R61; closing a view with a dirty document offers save, discard or cancel. | U 2026-10-29; emergency exception U 2026-11-02 | M0 | TL2, TL4, RES3 | 0005 |
@@ -108,13 +112,18 @@ Agent and DeepSeek Harness; an **instance** is a running agent process hosted in
 | ID | Requirement | Origin | Slice | Proof | ADR |
 |---|---|---|---|---|---|
 | R42 | Skins are selectable at runtime and stored in the configuration; UI colours come from a skin definition, never hard-coded. The default is the Shinatama skin (midnight navy, cobalt and ice lines, pink as the only warm accent); Section 9, TCTF and Sumi are the others. | U (default and selectable); S (set) | M0 | U1, U2 | 0039 |
-| R43 | A skin controls only the chrome: window, menus, tabs, side panels, UI typography, borders and panel states. The DeepSeek Harness ACP pane is drawn with the skin and a harness accent colour. | S | M0 | U2 | 0039 |
-| R44 | Each harness has a versioned terminal profile (monospace font and size, cell metrics, cursor, 16-colour ANSI palette, default foreground and background) that gives it a stable identity in its pane; Hermes Agent gets one like the other four. A profile is presentation data, never layout or session identity, and never replaces or reinterprets the TUI. | U 2026-10-29 (profiles); S (Hermes) | M0 | U2, P10 | 0039 |
+| R43 | A skin controls only the chrome: window, menus, tabs, side panels, UI typography, borders and panel states. The DeepSeek Harness ACP pane is drawn with the skin and a harness accent colour. In the desktop app the chrome is glass coloured from the skin (R64). | S; U 2026-11-11 (glass) | M0 | U2 | 0039 |
+| R44 | Each harness has a versioned terminal profile (monospace font and size, cell metrics, cursor, 16-colour ANSI palette, default foreground and background) that gives it a stable identity in its pane; Hermes Agent gets one like the other four. A profile is presentation data, never layout or session identity, and never replaces or reinterprets the TUI. On glass only the opacity of its default background changes (R65). | U 2026-10-29 (profiles); S (Hermes) | M0 | U2, P10 | 0039 |
 | R45 | A missing or invalid profile or font falls back to the built-in monospace profile without restarting the PTY; the terminal is initialised with its profile before rows and columns are derived, and a font or metric change delivers one final resize. | U 2026-10-29 | M0 | TL2 | 0039 |
 | R46 | "Follow Shinatama skin" is an explicit opt-in compatibility option, off by default; it remaps only the default colours and the 16-colour ANSI palette and never rewrites truecolour. Every remapped colour meets 4.5:1 contrast against its background or is exempted in writing. | U 2026-10-29 (opt-in); S (scope) | V1 | P10, U1 | 0039 |
-| R47 | Secondary text reaches 4.5:1 contrast in every skin; there are no glowing shadows; scan lines and cut corners named by a skin are optional decoration, not requirements. Changing the skin live applies to the chrome without restart or flicker. | S | M0 | U1, U2, U8 | 0039 |
+| R47 | Secondary text reaches 4.5:1 contrast in every skin; there are no glowing shadows and no rounded corners; an empty pane has no drawn background; scan lines and cut corners named by a skin are optional decoration, not requirements. Changing the skin live applies to the chrome without restart or flicker. | S | M0 | U1, U2, U8 | 0039 |
 | R48 | Each agent has an icon and an accent colour shown in the tab, the overview and the project manager, rendered natively with a text label or letter badge fallback and accessible names independent of colour. Asset sourcing and licensing are the builder's responsibility. | U (icons on tabs); A (fallbacks) | V1 | I10, X3 | 0028 |
 | R49 | Bundled fonts and their licences are part of the dependency notice. | A | M0 | X3 | 0039, 0047 |
+| R64 | In the desktop app the window is transparent over the Windows acrylic backdrop and every chrome surface (bars, side panels, pane headers, menus, sheets, drawers, notices) is one translucent material coloured from the active skin: its chrome colour mixed with its strong line colour, never a neutral grey. Terminal panes are the lightest surface; floating surfaces blur what is under them; seams are the skin's line colour. | U 2026-11-11 (glass on the whole window, skin colours kept); A (densities, backdrop tint) | M0 | U2, U8, U9 | 0039 |
+| R65 | On glass a terminal pane's default background keeps the colour of its harness profile and is drawn partly transparent. No other profile value changes; a background the harness paints itself, the ANSI palette and truecolour are drawn as emitted. | U 2026-11-11 (transparent terminals); S (scope) | M0 | U9, P10 | 0039 |
+| R66 | Panels and choices open in place. The toolbar panels (instances, projects, files, sessions, search, settings) and their detail views dock beside the panes as a drawer, and the panes give up its width. A choice that belongs to one pane or control opens as a sheet docked to it: finding in a terminal, confirming the stop of one terminal, a session in another folder, the project roots. Neither blocks a terminal it does not cover, and nothing covers the window frame. | U 2026-11-11 | M0 | U10 | 0039 |
+| R67 | Only a decision about the whole workspace takes the page as a modal: closing the workspace with live terminals, and the hop preview. | U 2026-11-11 (as few popups as possible); A (which two) | M0 | U10 | 0039 |
+| R68 | New session is a menu of harnesses under the control that was pressed; one choice starts the session in the selected project, and the harness used last has the focus when the menu opens. With no project selected the project finder opens and no session starts. A session in another folder is reached from the same menu. The project is changed from a finder inside the project button: typing narrows it, and it searches every project root. | U 2026-11-11 | M0 | U10 | 0039 |
 
 ### 2.6 Platform, language and shell
 
@@ -158,3 +167,4 @@ The native tiling gates TL1 to TL6, the terminal rows P1 to P20 and the skin row
 the acceptance of this record; functional-design 5.16 "Acceptance" and technical-design 3.1
 "Prototype verification gate" are their short form. Nothing here is claimed implemented.
 RES1-RES4 additionally qualify R59-R63; the plan amendment does not close these gates.
+U9 and U10 additionally qualify R64-R68; neither has been run.

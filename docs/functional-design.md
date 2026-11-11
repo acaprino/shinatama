@@ -506,6 +506,19 @@ illustrative; final tokens are the builder's. Secondary text must reach 4.5:1
 contrast in every skin (the design review caught this in the mockups). No glowing
 shadows.
 
+**Glass and in-place surfaces (decided 2026-11-11).** In the desktop app the window is
+transparent over the Windows acrylic backdrop and the chrome is frosted glass in the
+skin's own colours: bars, side panels, menus, sheets, drawers and notices are one
+translucent material, the skin's chrome colour mixed with its line colour, never a
+neutral grey. Terminal panes are its lightest surface: the profile's default background
+is drawn partly transparent and nothing else the harness draws changes. Corners are
+square and an empty pane has no drawn background. Panels and choices open in place: the
+toolbar panels dock beside the panes as a drawer, a choice that belongs to one pane or
+control opens as a sheet docked to it, and only a decision about the whole workspace
+(closing it with live terminals, the hop preview) takes the page. New session is a menu
+of harnesses that starts the session in the selected project. ADR-0039 v2; FRD-0001
+R64-R68.
+
 ### 5.8 Desktop widget (decided, in v1; "assistant" scope is my call)
 
 A small borderless, transparent, always-on-top window showing Shinatama as an

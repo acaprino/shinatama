@@ -434,6 +434,8 @@ short form of this set; this register is the complete one and wins where they di
 | U6 | G1 | Rendering four panes: background panes are parsed but not drawn; CPU | Measure | Within budget | main 3 |
 | U7 | G1 | Italian keyboard (AltGr), IME, CJK input pass through | Test | Correct | main 5.1 |
 | U8 | G2 | No glow effects; the design review of the real UI (not the HTML mockups) | Review | Findings closed | main 5.7 |
+| U9 | G1 | Text on the desktop glass: every text role over a dark and over a bright desktop, in every skin; each skin keeps its own hue through the backdrop, whose tint is fixed in the window configuration | Measure on captures of the real window | 4.5:1 or exemptions written; no skin reads as another | main 5.7 |
+| U10 | G1 | In-place surfaces: a drawer or a sheet leaves every terminal it does not cover live; only the workspace close confirmation and the hop preview make the page inert; New session starts from the harness menu in the selected project | Desktop smoke tests, rewritten from the former new-session dialog | Works | main 5.7 |
 
 ## 14a. Sessions surface (SS)
 

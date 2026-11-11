@@ -2,7 +2,7 @@
 adr_id: ADR-0039
 version: 1
 title: Data-driven skins control only the chrome; per-harness terminal profiles; truecolour never rewritten
-status: Accepted
+status: Superseded
 author: Alfio Caprino
 scope:
   paths:
@@ -27,14 +27,14 @@ last_verified_sha: null
 retired_on: null
 retired_reason: null
 supersedes:
-superseded_by: null
+superseded_by: ADR-0039 v2
 changes:
 ---
 
 # ADR-0039: Data-driven skins control only the chrome; per-harness terminal profiles; truecolour never rewritten
 
 <!-- adr-header:start -->
-Version 1 · Accepted 2026-11-01 at eeb3feb · proposed 2026-11-01 by Alfio Caprino
+Version 1 · Superseded by ADR-0039 v2 · proposed 2026-11-01 by Alfio Caprino
 <!-- adr-header:end -->
 
 ## Context and Problem Statement
