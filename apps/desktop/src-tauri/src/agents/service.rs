@@ -63,6 +63,18 @@ impl DriverError {
         }
     }
 }
+impl DriverError {
+    /// A refused admission names its measured cause (bounded, control-free) instead of a bare
+    /// "low on resources": the person can see which headroom check refused. The one-off text
+    /// is leaked; a refusal is rare and user-initiated.
+    pub(super) fn deferred(cause: String) -> Self {
+        let cause: String = cause.chars().filter(|ch| !ch.is_control()).take(200).collect();
+        Self::Failed(Box::leak(
+            format!("Windows is low on resources ({cause}). Close an unused app and try Open again.")
+                .into_boxed_str(),
+        ))
+    }
+}
 impl From<&'static str> for DriverError {
     fn from(value: &'static str) -> Self {
         Self::Failed(value)
@@ -479,7 +491,7 @@ impl<D: HarnessDriver> Service<D> {
             self.context
                 .runtime
                 .prepare_background_workload(policy.probe_budget, 256 * 1024 * 1024, 15_000)
-                .map_err(|_| DriverError::AdmissionDeferred)
+                .map_err(DriverError::deferred)
         };
         let outcome = match self.driver.probe(
             ProbeContext {
@@ -737,7 +749,7 @@ impl<D: HarnessDriver> Service<D> {
             self.context
                 .runtime
                 .wait_for_admission()
-                .map_err(|_| DriverError::AdmissionDeferred)?;
+                .map_err(DriverError::deferred)?;
             self.context.runtime.configure(host).map_err(|_| {
                 DriverError::Failed("Contained native terminal admission is unavailable.")
             })?;
@@ -845,7 +857,7 @@ impl<D: HarnessDriver> Service<D> {
         self.context
             .runtime
             .wait_for_admission()
-            .map_err(|_| DriverError::AdmissionDeferred)?;
+            .map_err(DriverError::deferred)?;
         let host = Arc::new(TerminalHost::default());
         self.context
             .runtime
