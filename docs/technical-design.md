@@ -291,6 +291,44 @@ with many noisy panes. Run on macOS/Linux and assumed Windows with actual versio
 and gaps recorded. Browser, DOCX and mini-app gates remain separate. No implemented
 feature, passed gate or measured performance budget is claimed here.
 
+**Glass and in-place surfaces (implemented 2026-11-11; ADR-0039 v2, FRD-0001 R64-R68).**
+The main window is declared in `apps/desktop/src-tauri/tauri.conf.json` with
+`transparent`, a clear `backgroundColor`, `windowEffects: acrylic` and `theme: Dark`.
+On Windows 11 the acrylic effect is the system backdrop (`DWMSBT_TRANSIENTWINDOW`,
+set by the `window-vibrancy` crate that Tauri uses): it follows the window theme and
+ignores the configured tint colour, which reaches only Windows 10. Without
+`theme: Dark` a machine in the light theme gets a light grey backdrop under dark
+surfaces. The executable embeds `apps/desktop/dist`, so a change to the window
+declaration or to the interface needs `npm run build` and then
+`cargo build -p shinatama-desktop --features custom-protocol`.
+
+`main.ts` adds the class `native-glass` to the root element in the desktop app only;
+the browser preview has no backdrop and keeps an opaque stage. Under that class
+`styles.css` clears the page background and derives three glass colours from the
+skin's tokens (`--glass-bar` for bars and side panels, `--glass` for floating
+surfaces, `--glass-strong` for their action rows), each the skin's chrome colour
+mixed with `--line-strong` and then with transparency. No colour is written outside
+the token block; `apps/desktop/tests/skin-contrast.test.ts` enforces that, the
+absence of rounded corners and of glowing shadows, and 4.5:1 on the opaque tokens.
+
+A terminal's default background is painted once, by its container `.terminal-view`,
+in the profile's colour at 58% (`presentation.ts`, `glassBackground`); xterm's own
+layers are kept clear by `styles.css`, and xterm is created with `allowTransparency`.
+`attachTerminal` in `main.ts` sets that background when the terminal is created, and
+`applyProfile` sets it again on a profile or skin change.
+
+`modal.ts` shows a `<dialog>` in one of three ways and never calls `showModal()`,
+so the custom title bar stays usable: `openModal` docks it as a drawer beside the
+panes unless it is one of the two dialogs listed in `MODAL_ONLY` (workspace close
+confirmation, hop preview), which take the page and make the work area inert;
+`openSheet` docks it to an anchor element (below a control, or at the top or bottom of
+a pane) and follows the anchor each frame. `session-menu.ts` is the harness menu of
+New session.
+
+A webview screenshot draws the backdrop as white, so it cannot judge the glass.
+`node apps/desktop/tests/glass-capture.mjs` photographs the real window from the
+screen and prints the colours of terminal, title bar and sidebar (register U9).
+
 ## 4. Shared state: one SQLite database per user [C, confirmed in principle by the user]
 
 ### 4.1 Location and settings

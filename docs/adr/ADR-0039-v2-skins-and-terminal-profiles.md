@@ -61,9 +61,11 @@ Sources, kept apart:
   chooses the harness from a dropdown and starts in the selected project, without a dialog.
 - Rejected by the user on the same day, each after seeing it: rounded corners; a grid drawn
   behind an empty pane; the Mica backdrop (too opaque); opaque bars around a transparent
-  terminal (out of tune with the rest); glass in a neutral dark with the skin's lines removed.
+  terminal (out of tune with the rest); glass in a neutral dark with the skin's lines removed;
+  glass over the light system backdrop ("the console is unreadable", "the colours of the UI
+  are too washed out"). The same glass over the dark backdrop: "now it is perfect".
 - Author's call, not confirmed: the densities of the glass; which two decisions still take the
-  whole page; the tint of the operating-system backdrop.
+  whole page.
 - Left to the builder: final colour tokens and the skin definition format (functional-design 5.7, 8).
 
 The full design is in functional-design 5.7 and 5.16 and technical-design 3.1; this record
@@ -86,8 +88,9 @@ her pink hair as the only warm accent); Section 9, TCTF and Sumi are the others.
 controls only the chrome: window, menus, tabs, side panels, UI typography, borders and panel
 states.
 
-**Glass.** In the desktop app the window is transparent over the Windows acrylic backdrop, and
-every chrome surface is one translucent material: bars, side panels, pane headers, menus,
+**Glass.** In the desktop app the window is transparent over the Windows acrylic backdrop and is
+always in the dark theme, so the backdrop is the dark acrylic whatever the system theme. Every
+chrome surface is one translucent material: bars, side panels, pane headers, menus,
 sheets, drawers and notices. Its colour is derived from the active skin, the skin's chrome
 colour mixed with a measure of its strong line colour, so the glass is cobalt in Shinatama,
 teal in Section 9 and brass in TCTF, never a neutral grey. Terminal panes are the lightest
@@ -98,7 +101,7 @@ are square, nothing glows, and an empty pane has no drawn background.
 **Terminals on glass.** Each harness has a versioned terminal profile: monospace font and size,
 cell metrics, cursor style, the 16-colour ANSI palette and default foreground and background.
 On glass the pane's default background keeps the profile's colour and is drawn partly
-transparent; nothing else of the profile changes, and a background the harness paints itself
+transparent, from the moment the terminal is created; nothing else of the profile changes, and a background the harness paints itself
 is drawn as emitted. A profile is presentation data, not layout or session identity; it does
 not replace or reinterpret the TUI, and the harness stays the sole owner of what appears
 inside the PTY. A missing or invalid profile falls back to a built-in monospace profile
@@ -147,10 +150,11 @@ See functional-design 5.7 and 5.16; technical-design 3.1.
 - **RA-006**: glass in a neutral dark with the seams removed; every skin then looks the same through the backdrop.
 - **RA-007**: rounded corners and a grid drawn behind an empty pane; neither belongs to the square, clean look the user asked for.
 - **RA-008**: centred dialogs for New session, project selection and the toolbar panels; each one covers the terminals and stops the work under it for a choice that needs one click.
+- **RA-009**: letting the backdrop follow the system theme; with the light theme the acrylic is a light grey under dark surfaces, every skin washes out and terminal text loses its contrast (measured, register U9).
 
 ## Enforceable Invariants
 
-- **INV-001**: no UI colour is hard-coded; every chrome colour, the glass included, comes from the active skin definition. The one written exception is the tint of the operating-system backdrop, fixed in the window configuration.
+- **INV-001**: no UI colour is hard-coded; every chrome colour, the glass included, comes from the active skin definition. The one written exception is the operating-system backdrop, which is the system's dark acrylic and carries no skin colour.
 - **INV-002**: changing the skin never changes what the harness draws inside the PTY; only follow-skin may remap the default and 16-colour palette.
 - **INV-003**: truecolour output chosen by a harness is never rewritten, with or without follow-skin.
 - **INV-004**: follow-skin is off by default.
@@ -161,6 +165,8 @@ See functional-design 5.7 and 5.16; technical-design 3.1.
 - **INV-009**: a drawer or a sheet never makes a terminal inert; only a modal does, and only the workspace close confirmation and the hop preview are modals.
 - **INV-010**: starting a session in the selected project takes one choice, the harness, and opens no dialog.
 - **INV-011**: no surface covers the window frame or makes it inert.
+- **INV-012**: the desktop window is in the dark theme whatever the system theme.
+- **INV-013**: a terminal paints its default background when it is created, not only when it is restored or its profile changes.
 
 ## Consequences
 
@@ -168,14 +174,17 @@ See functional-design 5.7 and 5.16; technical-design 3.1.
 - The terminal-first milestone ships per-harness profiles (functional-design 5.12, 5.16; ADR-0040).
 - Register U2 tests a live skin change on the chrome and the DeepSeek Harness ACP pane, without restart or flicker, with terminal panes keeping their harness profiles unless follow-skin is on.
 - The Oni-derived art of the default skin is a distribution decision separate from the code (functional-design 5.12; register O4).
-- The backdrop tint is midnight navy for every skin; a skin far from navy is tinted by it until the tint follows the skin (register U9).
-- Text sits on glass over whatever is behind the window; the 4.5:1 measurement of U1 does not cover a bright desktop (register U9).
+- On Windows 11 the acrylic is the system backdrop: it follows the window theme and ignores the tint colour in the window configuration, which applies only to Windows 10. Shinatama therefore cannot colour the backdrop; the skin's colour comes from the glass drawn over it.
+- A skin with light chrome would need the light backdrop; none exists, and the dark theme is fixed until one does.
+- Text sits on glass over whatever is behind the window. Measured over a dark window it passes; over a bright window it has not been measured (register U9).
 - Glass is always on in the desktop app; there is no setting to turn it off. The browser preview has no backdrop and draws the same chrome over an opaque stage.
 - The desktop smoke tests that open the former new-session dialog from the New session button, and those that expect every panel to block the page, no longer describe the product (register U10).
 
 ## Confirmation
 
 - Register rows U1, U2 and U8 (G1, G2) must pass; U8 is the design review of the real UI, not the mockups. U9 (text on glass, each skin's hue) and U10 (in-place surfaces) are added by this version.
-- Run on 2026-11-11: the type check and the fifteen unit tests, among them the skin test (text roles at 4.5:1 on the tokens, no colour outside the token block, no rounded corner, no glowing shadow); the real desktop app driven with an isolated data folder through the harness menu, the drawers and the in-pane stop confirmation, with no page error. The user confirmed the glass by eye in the Shinatama skin, then reported a new terminal whose text was unreadable: it painted no background; fixed at the commit this record is accepted at and checked in the driven app, not yet seen again by the user.
-- Not run: U9, U10, the desktop smoke tests, and the other three skins on glass.
+- Run on 2026-11-11: the type check and the fifteen unit tests, among them the skin test (text roles at 4.5:1 on the tokens, no colour outside the token block, no rounded corner, no glowing shadow); the real desktop app driven with an isolated data folder through the harness menu, the drawers and the in-pane stop confirmation, with no page error.
+- Measured on screen on 2026-11-11, Shinatama skin, window over a dark window ([evidence](../verification/2026-11-11-U9-glass-on-screen.md)): in the dark theme the terminal background is 38,40,45 and the skin's text and muted colours reach 12.8:1 and 5.9:1 on it; in the light theme they fell to 8.9:1 and 4.1:1, and to 5.2:1 and 2.4:1 with a white window behind.
+- The user confirmed the dark-theme glass by eye on the running app ("now it is perfect"), after rejecting the light-backdrop build and a build whose new terminals painted no background.
+- Not run: U10, the desktop smoke tests, the other skins on glass, and U9 over a bright window.
 - The prototype gate of technical-design 3.1 covers per-profile font fallback and ANSI/truecolour output; TL1 and TL2 cover the toolkit and live panes. None has been run.

@@ -511,7 +511,9 @@ transparent over the Windows acrylic backdrop and the chrome is frosted glass in
 skin's own colours: bars, side panels, menus, sheets, drawers and notices are one
 translucent material, the skin's chrome colour mixed with its line colour, never a
 neutral grey. Terminal panes are its lightest surface: the profile's default background
-is drawn partly transparent and nothing else the harness draws changes. Corners are
+is drawn partly transparent and nothing else the harness draws changes. The window is
+always in the dark theme: over the light system backdrop the colours wash out and
+terminal text is unreadable (seen and rejected by the user, then measured). Corners are
 square and an empty pane has no drawn background. Panels and choices open in place: the
 toolbar panels dock beside the panes as a drawer, a choice that belongs to one pane or
 control opens as a sheet docked to it, and only a decision about the whole workspace
