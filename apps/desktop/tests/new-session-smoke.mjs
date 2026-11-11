@@ -7,6 +7,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { startSession } from './session-flow.mjs';
 
 if (process.platform !== 'win32') throw new Error('This proof requires Windows.');
 const harness = process.env.SHINATAMA_SMOKE_SESSION_HARNESS || 'claude_code';
@@ -103,30 +104,17 @@ async function redactDiagnostics() {
   } catch { result.service = 'unavailable'; }
   return result;
 }
-async function openFromDialog(projectPath, expectedCount, selectedProject = false) {
+// `route` is 'menu' (the harness menu of the selected project) or 'folder' (Other folder… and its sheet).
+async function openSession(projectPath, expectedCount, route) {
   const before = await ids();
-  await page.locator('#new-terminal').click();
-  const dialog = page.locator('#new-session-dialog');
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole('button', { name: 'Open', exact: true })).toBeEnabled();
-  if (selectedProject) {
-    await expect(dialog.locator('#new-session-project')).toBeVisible();
-    expect(pathKey(await dialog.locator('#new-session-project').inputValue())).toBe(pathKey(projectPath));
-  } else {
-    await expect(dialog.locator('#new-session-project')).toBeVisible();
-    await dialog.locator('#new-session-project').fill(projectPath);
-  }
-  await dialog.locator('#new-session-harness').selectOption(harness);
-  expect(await ids()).toEqual(before);
-  await dialog.getByRole('button', { name: 'Open', exact: true }).click();
-  await expect.poll(async () => {
-    if (!await dialog.isVisible()) return 'opened';
-    if (await dialog.locator('#new-session-error').isVisible()) return 'failed';
-    return 'opening';
-  }, { timeout: 90000, intervals: [100, 250, 500] }).not.toBe('opening');
-  if (await dialog.isVisible()) {
-    evidence.inlineError = (await dialog.locator('#new-session-error').textContent()).replace(/[\r\n]/g, ' ').slice(0, 512);
-    throw new Error('New session displayed an inline startup error.');
+  const flow = await startSession(page, { project: projectPath, harness });
+  expect(flow.route).toBe(route);
+  await expect.poll(async () => await flow.refusal() ? 'failed' : await flow.pending() ? 'opening' : 'opened',
+    { timeout: 90000, intervals: [100, 250, 500] }).not.toBe('opening');
+  const refused = await flow.refusal();
+  if (refused) {
+    evidence.inlineError = refused.slice(0, 512);
+    throw new Error('New session displayed a startup error.');
   }
   await expect.poll(ids, { timeout: 15000 }).toHaveLength(expectedCount);
   const now = await sessions();
@@ -205,7 +193,7 @@ try {
   await expect(page.locator('#agents')).toHaveCount(0); await expect(page.locator('#session-index')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Check', exact: true })).toHaveCount(0);
   evidence.checks.noPreparatoryControlsOrAutoStartup = true;
-  const first = await openFromDialog(projectPaths[0], 1);
+  const first = await openSession(projectPaths[0], 1, 'menu');
   evidence.checks.oneOpenSavedProjectThreadAndView = true;
   if (harness !== 'powershell') {
     await expect.poll(async () => {
@@ -215,22 +203,18 @@ try {
     const status = await ipc('agent_status');
     evidence.version = status.harnesses?.[harness]?.versionProbe?.version ?? null;
   } else {
-    await page.locator('#project').click();
-    await page.locator('#folder').fill(projectPaths[1]);
-    await page.getByRole('button', {name:'Use folder',exact:true}).click();
-    await expect(page.locator('#project-dialog')).toBeHidden();
-    await openFromDialog(projectPaths[1], 2, true);
-    evidence.checks.headerProjectInheritedWithoutChoosingAgain = true;
+    await openSession(projectPaths[1], 2, 'folder');
+    evidence.checks.otherFolderStartsInAnotherProject = true;
     const stableIds = await ids(); const threadIds = opened.map(item => item.threadId).sort();
     const selector = page.locator('#thread-sidebar-project');
     for (const item of opened) {
       await expect(selector).toBeEnabled(); await selector.selectOption(item.projectId);
       await expect(page.locator(`.thread-sidebar button[data-thread-id="${item.threadId}"]`)).toBeVisible();
       await page.locator('#new-terminal').click();
-      const dialog = page.locator('#new-session-dialog');
-      await expect(dialog.locator('#new-session-project')).toBeVisible();
-      expect(pathKey(await dialog.locator('#new-session-project').inputValue())).toBe(pathKey(projectPaths[opened.indexOf(item)]));
-      await dialog.getByRole('button', {name:'Cancel',exact:true}).click();
+      const menu = page.locator('#session-menu');
+      await expect(menu).toBeVisible();
+      expect(pathKey(await menu.getAttribute('data-project-path'))).toBe(pathKey(projectPaths[opened.indexOf(item)]));
+      await page.keyboard.press('Escape'); await expect(menu).toBeHidden();
       expect(await ids()).toEqual(stableIds);
       expect((await savedLayout()).views.map(view => view.resource.threadId).filter(Boolean).sort()).toEqual(threadIds);
     }
@@ -263,7 +247,7 @@ try {
   await closeFrame(); expect(app.exitCode).toBe(0);
   evidence.checks.ownedSessionStopAndFrameClose = true;
   evidence.status = 'passed'; await save();
-  console.log(`PASS: New session -> synthetic project -> ${harness} -> Open; durable thread/view and owned cleanup.`);
+  console.log(`PASS: New session -> harness menu -> ${harness} in a synthetic project; durable thread/view and owned cleanup.`);
 } catch (error) {
   evidence.status = 'failed'; evidence.failure = String(error.message).split('\n')[0].slice(0, 512);
   if (owned && page && !page.isClosed()) evidence.diagnostic = await within(redactDiagnostics(), 5000, 'Redacted startup diagnostics').catch(() => 'unavailable');

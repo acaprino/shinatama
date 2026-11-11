@@ -178,7 +178,7 @@ See functional-design 5.7 and 5.16; technical-design 3.1.
 - A skin with light chrome would need the light backdrop; none exists, and the dark theme is fixed until one does.
 - Text sits on glass over whatever is behind the window. Measured over a dark window it passes; over a bright window it has not been measured (register U9).
 - Glass is always on in the desktop app; there is no setting to turn it off. The browser preview has no backdrop and draws the same chrome over an opaque stage.
-- The desktop smoke tests that open the former new-session dialog from the New session button, and those that expect every panel to block the page, no longer describe the product (register U10).
+- The desktop smoke tests start sessions through one shared helper, `apps/desktop/tests/session-flow.mjs`, which follows the harness menu, the project finder and Other folder… as a user does. `ui-flow-smoke`, which expects every panel to block the page, no longer describes the product (register U10).
 
 ## Confirmation
 
@@ -186,5 +186,6 @@ See functional-design 5.7 and 5.16; technical-design 3.1.
 - Run on 2026-11-11: the type check and the fifteen unit tests, among them the skin test (text roles at 4.5:1 on the tokens, no colour outside the token block, no rounded corner, no glowing shadow); the real desktop app driven with an isolated data folder through the harness menu, the drawers and the in-pane stop confirmation, with no page error.
 - Measured on screen on 2026-11-11, Shinatama skin, window over a dark window ([evidence](../verification/2026-11-11-U9-glass-on-screen.md)): in the dark theme the terminal background is 38,40,45 and the skin's text and muted colours reach 12.8:1 and 5.9:1 on it; in the light theme they fell to 8.9:1 and 4.1:1, and to 5.2:1 and 2.4:1 with a white window behind.
 - The user confirmed the dark-theme glass by eye on the running app ("now it is perfect"), after rejecting the light-backdrop build and a build whose new terminals painted no background.
-- Not run: U10, the desktop smoke tests, the other skins on glass, and U9 over a bright window.
+- Run on 2026-11-11 for U10 ([evidence](../verification/2026-11-11-U10-new-session-menu.md)): `new-session-smoke` (PowerShell), `desktop-smoke`, `attention-smoke`, `thread-rename-smoke`, `claude-resume-smoke` and `claude-resume-race-smoke` pass on the real app.
+- Not passing or not run: the three Codex-backed smoke tests (they fail outside the interface), `ui-flow-smoke` (not updated), the other skins on glass, and U9 over a bright window.
 - The prototype gate of technical-design 3.1 covers per-profile font fallback and ANSI/truecolour output; TL1 and TL2 cover the toolkit and live panes. None has been run.

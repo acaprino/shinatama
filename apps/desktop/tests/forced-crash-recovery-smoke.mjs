@@ -11,6 +11,7 @@ import { freemem, tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { setTimeout as delay } from 'node:timers/promises';
+import { startSession } from './session-flow.mjs';
 
 if (process.platform !== 'win32') throw new Error('windows-required');
 const workspace = process.cwd();
@@ -243,14 +244,10 @@ async function ready(id) {
   }, 60000, 'unrecognized-or-blocked-native-screen');
 }
 async function openSession() {
-  await page.locator('#new-terminal').click(); const dialog = page.locator('#new-session-dialog');
-  await poll(async () => await dialog.isVisible(), 15000, 'new-session-dialog-did-not-open');
-  if (await dialog.locator('#new-session-project').isVisible()) await dialog.locator('#new-session-project').fill(projectPath);
-  await dialog.locator('#new-session-harness').selectOption('codex');
-  await dialog.getByRole('button', { name: 'Open', exact: true }).click();
+  const flow = await startSession(page, { project: projectPath, harness: 'codex' });
   await poll(async () => {
-    if (await dialog.locator('#new-session-error').isVisible()) { evidence.openError = (await dialog.locator('#new-session-error').innerText()).slice(0, 240); fail('open-session-inline-refusal'); }
-    return !await dialog.isVisible();
+    const refused = await flow.refusal(); if (refused) { evidence.openError = refused.slice(0, 240); fail('open-session-inline-refusal'); }
+    return !await flow.pending();
   }, 120000, 'new-session-deadline');
   const list = await sessions(); require(list.length === 1, 'expected-terminal-count');
   const session = list[0]; activeTerminal = session.id;

@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { setTimeout as delay } from 'node:timers/promises';
+import { startSession } from './session-flow.mjs';
 
 if (process.platform !== 'win32') throw new Error('windows-required');
 const workspace = process.cwd();
@@ -528,10 +529,8 @@ try {
   require(pathKey((await ipc('storage_location')).directory) === pathKey(data), 'private-app-storage-mismatch'); owned = true;
   require((await sessions()).length === 0, 'no-session-before-user-action');
   await stage('first-session-open');
-  await page.locator('#new-terminal').click(); const dialog = page.locator('#new-session-dialog');
-  await dialog.locator('#new-session-project').fill(projectPath); await dialog.locator('#new-session-harness').selectOption('codex');
-  await dialog.getByRole('button', { name: 'Open', exact: true }).click();
-  await poll(async () => { require(!await dialog.locator('#new-session-error').isVisible(), 'open-session-inline-refusal'); return !await dialog.isVisible(); }, 120000, 'new-session-deadline');
+  const flow = await startSession(page, { project: projectPath, harness: 'codex' });
+  await poll(async () => { require(!await flow.refusal(), 'open-session-inline-refusal'); return !await flow.pending(); }, 120000, 'new-session-deadline');
   const openedList = await sessions(); require(openedList.length === 1, 'expected-terminal-count');
   const first = openedList[0];
   require(first?.shell === 'codex' && pathKey(first.cwd) === pathKey(projectPath), 'exact-synthetic-codex-session');
@@ -644,7 +643,7 @@ try {
       evidence.hostResources.complete = resources.complete === true;
     } catch { evidence.hostResources = { unavailable: true }; }
     try {
-      const inline = page.locator('#new-session-error');
+      const inline = page.locator('#new-session-error:visible, #notice[data-tone="error"]:visible span').first();
       if (await inline.isVisible()) {
         const text = await inline.innerText();
         evidence.openErrorFamilies = serviceErrorFamilies(text);

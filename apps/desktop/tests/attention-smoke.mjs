@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createServer } from 'node:net';
+import { startSession } from './session-flow.mjs';
 if (process.platform !== 'win32') throw new Error('Windows required.');
 const root = process.cwd(), output = resolve(root, '.prototype-evidence');
 const surfaceOnly = process.argv.includes('--surface-only');
@@ -90,11 +91,7 @@ try {
   if (!surfaceOnly) {
   await ipc('project_select',{path:project});await main.reload();await expect(main.locator('#runtime-status')).toContainText('Local runtime');
   // Real pointer/key events supply the normal latency measurements used by admission.
-  await main.locator('#new-terminal').click();
-  // A project already selected in the header shows a context line instead of the free-text field.
-  if (await main.locator('#new-session-project').isVisible()) await main.locator('#new-session-project').fill(project);
-  await main.locator('#new-session-harness').selectOption('powershell');
-  await main.locator('#new-session-dialog').getByRole('button',{name:'Open',exact:true}).click();
+  await (await startSession(main,{project,harness:'powershell'})).done(30000);
   await expect.poll(async()=>(await ipc('terminal_list')).length,{timeout:30000}).toBe(1);
   const session=(await ipc('terminal_list'))[0];
   await delay(1500);

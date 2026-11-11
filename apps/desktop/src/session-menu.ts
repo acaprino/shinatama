@@ -21,11 +21,11 @@ export function createSessionMenu(options: Options) {
     if (restoreFocus && anchor?.isConnected) anchor.focus();
   }
   const items = () => [...menu.querySelectorAll<HTMLButtonElement>('button')];
-  function show(target: HTMLElement, harnesses: readonly SessionMenuHarness[], project: string) {
+  function show(target: HTMLElement, harnesses: readonly SessionMenuHarness[], project: string, projectPath = project) {
     if (!menu.hidden && anchor === target) { close(true); return; }
     for (const other of document.querySelectorAll<HTMLElement>('.toolbar-menu')) if (other !== menu && !other.hidden) other.dispatchEvent(new Event('toolbar-menu-close'));
     close(); anchor = target; menu.replaceChildren();
-    const where = document.createElement('p'); where.className = 'toolbar-menu-heading'; where.textContent = `New session in ${project}`; menu.append(where);
+    const where = document.createElement('p'); where.className = 'toolbar-menu-heading'; where.textContent = `New session in ${project}`; where.title = projectPath; menu.dataset.projectPath = projectPath; menu.append(where);
     for (const harness of [...harnesses].sort((a, b) => rank(a.id) - rank(b.id))) {
       const item = document.createElement('button'); item.type = 'button'; item.className = 'toolbar-menu-action session-menu-harness';
       item.setAttribute('role', 'menuitem'); item.dataset.harness = harness.id; item.textContent = harness.label;

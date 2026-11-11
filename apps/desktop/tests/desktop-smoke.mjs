@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createServer } from 'node:net';
+import { startSession } from './session-flow.mjs';
 
 if (process.platform !== 'win32') throw new Error('This test requires Windows.');
 const root = process.cwd();
@@ -86,17 +87,14 @@ try {
   const shell = async id => {
     await expect(pane(id).locator('.xterm-accessibility')).toContainText('PS ', { timeout: 30000 });
   };
-  // Since dffb269 "New session" and the pane "Open terminal" button open the
-  // New session dialog; one explicit Open starts exactly one PowerShell.
-  const openShell = async trigger => {
-    await trigger.click();
-    const dialog = page.locator('#new-session-dialog');
-    await expect(dialog).toBeVisible();
-    const field = dialog.locator('#new-session-project');
-    if (await field.isVisible()) await field.fill(projectPath);
-    await dialog.locator('#new-session-harness').selectOption('powershell');
-    await dialog.getByRole('button', { name: 'Open', exact: true }).click();
-    await expect(dialog).toBeHidden({ timeout: 30000 });
+  // "New session" and a pane's own control open the harness menu for the selected project;
+  // one choice starts exactly one PowerShell (ADR-0039 v2).
+  const openShell = async trigger => { await (await startSession(page, { project: projectPath, harness: 'powershell', trigger })).done(30000); };
+  // Split, move, hide and "+ Session" sit behind each pane's own "⋯"; a new pane starts with it closed.
+  const layoutControls = async target => {
+    const more = target.locator('.wm-more');
+    if (await more.getAttribute('aria-expanded') !== 'true') await more.click();
+    return target;
   };
   const type = async (id, command) => {
     await pane(id).locator('.xterm-helper-textarea').focus();
@@ -141,7 +139,9 @@ try {
   await expect(page.getByRole('button', { name: 'Restore window', exact: true })).toBeVisible();
   expect(await ipc('plugin:window|is_maximized')).toBe(true);
   await page.getByRole('button', { name: 'Restore window', exact: true }).click();
-  await page.locator('#project-dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+  // The project button opens a finder menu, not a dialog: the frame stayed usable over it.
+  if (await page.locator('#project-menu').isVisible()) await page.locator('#project').click();
+  await expect(page.locator('#project-menu')).toBeHidden();
 
   await expect(page.locator('#resource-status')).toContainText('Resources: available', { timeout: 20000 });
   await openShell(page.locator('#new-terminal'));
@@ -152,6 +152,8 @@ try {
   await type(first, "Write-Output ('SHINATAMA_' + 'DESKTOP_OK')");
   await expect(pane(first).locator('.xterm-accessibility')).toContainText('SHINATAMA_DESKTOP_OK');
   const beforeAppearance = await ids();
+  // Theme and Appearance live in the toolbar's "⋯" menu; choosing a theme leaves it open.
+  await page.locator('#toolbar-more').click();
   await page.getByLabel('Interface theme', { exact: true }).selectOption('section9');
   await expect.poll(async () => (await appearance())?.settings.skin).toBe('section9');
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim())).toBe('#78e2dc');
@@ -175,15 +177,17 @@ try {
   await expect.poll(ids, { timeout: 30000 }).toHaveLength(2);
   const second = (await ids()).find(id => id !== first); await shell(second);
   await expect(page.locator('.wm-pane')).toHaveCount(1);
+  await layoutControls(pane(second));
   await pane(second).getByLabel('Split edge', { exact: true }).selectOption('right');
   await pane(second).getByRole('button', { name: 'Split', exact: true }).click();
   await expect(page.locator('.wm-pane')).toHaveCount(2);
   const pair = await ids();
 
-  await openShell(pane(second).getByRole('button', { name: 'Open session', exact: true }));
+  await openShell((await layoutControls(pane(second))).getByRole('button', { name: 'Open session', exact: true }));
   await expect.poll(ids, { timeout: 30000 }).toHaveLength(3);
   const third = (await ids()).find(id => !pair.includes(id)); await shell(third);
   const rightGroup = await pane(third).getAttribute('data-group-id');
+  await layoutControls(pane(third));
   await pane(third).getByLabel('Destination pane', { exact: true }).selectOption(rightGroup);
   await pane(third).getByLabel('Split edge', { exact: true }).selectOption('down');
   await pane(third).getByRole('button', { name: 'Split', exact: true }).click();
@@ -197,6 +201,7 @@ try {
 
   const thirdGroup = await pane(third).getAttribute('data-group-id');
   const thirdPane = page.locator('.wm-pane[data-group-id="' + thirdGroup + '"]');
+  await layoutControls(thirdPane);
   await thirdPane.getByRole('button', { name: 'Hide', exact: true }).click();
   await type(first, "Write-Output ('HEALTHY_' + 'WHILE_HIDDEN')");
   await expect(pane(first).locator('.xterm-accessibility')).toContainText('HEALTHY_WHILE_HIDDEN');
@@ -238,7 +243,7 @@ try {
   await expect.poll(ids).toHaveLength(2);
   }
 
-  // One complete first-agent flow through the real New session dialog (project +
+  // One complete first-agent flow through the real New session menu (project +
   // Claude Code + Open); the session index and the qualification check start
   // implicitly with Open. No answers, sign-in or model request.
   await expect(page.locator('#resource-status')).toContainText('Resources: available', { timeout: 20000 });
@@ -248,18 +253,11 @@ try {
     if (['failed', 'retired'].includes(status.phase)) throw new Error('Session index refused: ' + JSON.stringify(status));
     return status.phase;
   }, { timeout: 45000 }).toBe('ready');
-  await page.locator('#new-terminal').click();
-  const newSession = page.locator('#new-session-dialog');
-  await expect(newSession).toBeVisible();
-  // A project already selected in the header shows a context line instead of the free-text field.
-  if (await newSession.locator('#new-session-project').isVisible()) await newSession.locator('#new-session-project').fill(projectPath);
-  await newSession.locator('#new-session-harness').selectOption('claude_code');
-  await newSession.getByRole('button', { name: 'Open', exact: true }).click();
+  const agentOpen = await startSession(page, { project: projectPath, harness: 'claude_code' });
   await expect.poll(async () => {
-    if (await newSession.locator('#new-session-error').isVisible()) {
-      throw new Error('Agent open refused: ' + (await newSession.locator('#new-session-error').innerText()).slice(0, 300) + ' ' + JSON.stringify(await ipc('agent_status')));
-    }
-    return newSession.isVisible();
+    const refused = await agentOpen.refusal();
+    if (refused) throw new Error('Agent open refused: ' + refused.slice(0, 300) + ' ' + JSON.stringify(await ipc('agent_status')));
+    return agentOpen.pending();
   }, { timeout: 120000 }).toBe(false);
   await expect.poll(() => checkScratchNames(storage.directory), {
     timeout: 5000, intervals: [50, 100, 200],
@@ -280,11 +278,12 @@ try {
   await expect(sidebar.locator(`button[data-thread-id="${threadId}"]`)).toBeVisible({timeout:10000});
   const nativeBeforeSelection = await ids();
   await sidebar.locator(`button[data-thread-id="${threadId}"]`).click();
-  await expect(sidebar.locator('.thread-sidebar-detail')).toContainText('No native session linked');
+  // A Claude Code thread is bound to its native conversation at launch (as new-session-smoke asserts).
+  await expect(sidebar.locator('.thread-sidebar-detail')).toContainText('Recorded open; activity unknown');
   expect(await ids()).toEqual(nativeBeforeSelection);
   const durableThreads = await ipc('thread_list', {request:{projectId:project.id,cursor:null,limit:50}});
   expect(durableThreads.rows.map(row => row.id)).toContain(threadId);
-  expect(durableThreads.rows.find(row => row.id === threadId).nativeAvailable).toBe(null);
+  expect(durableThreads.rows.find(row => row.id === threadId).status).toBe('recorded_open');
   await ipc('terminal_stop', { id: native });
   await expect(pane(native).locator('.exit-banner')).toBeVisible({ timeout: 15000 });
   await expect(page.locator('#notice[data-tone="error"]')).toBeHidden();

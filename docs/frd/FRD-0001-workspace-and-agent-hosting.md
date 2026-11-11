@@ -167,4 +167,4 @@ The native tiling gates TL1 to TL6, the terminal rows P1 to P20 and the skin row
 the acceptance of this record; functional-design 5.16 "Acceptance" and technical-design 3.1
 "Prototype verification gate" are their short form. Nothing here is claimed implemented.
 RES1-RES4 additionally qualify R59-R63; the plan amendment does not close these gates.
-U9 and U10 additionally qualify R64-R68. U9 is measured over a dark window only ([evidence](../verification/2026-11-11-U9-glass-on-screen.md)); U10 has not been run.
+U9 and U10 additionally qualify R64-R68. U9 is measured over a dark window only ([evidence](../verification/2026-11-11-U9-glass-on-screen.md)); U10 is partial ([evidence](../verification/2026-11-11-U10-new-session-menu.md)).

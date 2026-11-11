@@ -7,6 +7,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { startSession } from './session-flow.mjs';
 
 if (process.platform !== 'win32') throw new Error('This proof requires Windows.');
 const workspace = process.cwd();
@@ -100,12 +101,7 @@ try {
   owned=true; page.on('pageerror',()=>{pageErrors++;});
   expect(await sessions()).toEqual([]);
 
-  await page.locator('#new-terminal').click();
-  const dialog=page.locator('#new-session-dialog');
-  await dialog.locator('#new-session-project').fill(projectPath);
-  await dialog.locator('#new-session-harness').selectOption('powershell');
-  await dialog.getByRole('button',{name:'Open',exact:true}).click();
-  await expect(dialog).toBeHidden({timeout:90000});
+  await (await startSession(page,{project:projectPath,harness:'powershell'})).done(90000);
   await expect.poll(ids).toHaveLength(1);
   const session=(await sessions())[0]; expect(session.shell).toBe('PowerShell');
   const project=(await ipc('project_recent')).find(item=>pathKey(item.path)===pathKey(projectPath));
@@ -141,7 +137,7 @@ try {
   await expect(form.locator('[role=alert]')).toContainText('Reload threads');
   await expect(saveButton).toBeDisabled();
   expect((await stored()).title).toBe('Other window title');
-  await sidebar.getByRole('button',{name:'Reload threads',exact:true}).click();
+  await sidebar.getByRole('button',{name:'Reload threads',exact:true}).press('Enter');
   await expect(anchor).toBeEnabled(); await expect(anchor.locator('.thread-sidebar-title')).toHaveText('Other window title');
   for (const rejected of [
     {projectId:'p_aaaaaaaaaaaa',threadId,expectedRevision:current.revision,title:'Wrong project'},
@@ -161,7 +157,8 @@ try {
   await expect(page.locator('.xterm-accessibility')).toContainText('SHINATAMA_RENAME_HEALTHY');
   evidence.checks.reloadPersistsTitleAndSameShellRemainsResponsive=true;
   expect(pageErrors).toBe(0);
-  await page.getByRole('button',{name:'Stop terminal',exact:true}).click();
+  // The tab's own close control confirms before stopping a running session.
+  await page.locator(`.wm-tabwrap:has(.wm-tab[data-view-id="${session.id}"]) .wm-tab-close`).click();
   await page.locator('#confirm-dialog').getByRole('button',{name:'Stop',exact:true}).click();
   await expect.poll(ids).toEqual([]);
   await closeFrame(); expect(app.exitCode).toBe(0);

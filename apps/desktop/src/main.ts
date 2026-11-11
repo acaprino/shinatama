@@ -458,7 +458,7 @@ async function openNewSession(group: string = focusedGroup(), path?: string, har
     if (harness && sessionHarnesses.some(candidate => candidate.id === harness)) { await launchSession(selectedPath, harness, group); return; }
     const anchor = pressed?.isConnected ? pressed : $<HTMLElement>('#new-terminal');
     sessionMenuTarget = { path: selectedPath, group };
-    sessionMenu.show(anchor, sessionHarnesses, selectedPath.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || selectedPath);
+    sessionMenu.show(anchor, sessionHarnesses, selectedPath.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || selectedPath, selectedPath);
   } finally { openingSessionDialog = false; }
 }
 threadSidebar = createThreadSidebar({
