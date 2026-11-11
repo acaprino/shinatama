@@ -207,6 +207,13 @@ pub struct PreparedClaudeStart {
     pub session_events: Option<ClaudeSessionEventReceiver>,
 }
 
+/// The tracked profile carries the bundled plugins, whose hooks run through Git Bash and
+/// need headroom beyond the bare TUI. The number is fixed by recipe, measured once
+/// (Claude with both plugins and one prompt reaches 10 active processes) and never
+/// raised at runtime because of a failure.
+const TRACKED_PROCESSES: u32 = 16;
+const SAFE_PROCESSES: u32 = 8;
+
 /// This is the ROOT-approved finite trial profile, not inferred from a growing
 /// process and never raised on failure. Issuance is sealed inside this qualifier.
 fn profile(tracked: bool) -> Result<NativeAdmissionProfile, ClaudeLaunchError> {
@@ -215,7 +222,7 @@ fn profile(tracked: bool) -> Result<NativeAdmissionProfile, ClaudeLaunchError> {
         1,
         Budget {
             memory_bytes: 1024 * MIB,
-            processes: 8,
+            processes: if tracked { TRACKED_PROCESSES } else { SAFE_PROCESSES },
             cpu_basis_points: 1000,
             queue_bytes: 4 * MIB,
             queue_items: 512,
@@ -1169,7 +1176,12 @@ mod tests {
         assert_eq!(baseline.id(), RECIPE);
         assert_eq!(tracked.id(), TRACKED_RECIPE);
         assert_ne!(baseline.id(), tracked.id());
-        assert_eq!(baseline.budget(), tracked.budget());
+        let (narrow, wide) = (baseline.budget(), tracked.budget());
+        assert_eq!(wide.processes, 16, "only the process ceiling differs: the plugin hooks need it");
+        assert_eq!(
+            (narrow.memory_bytes, narrow.cpu_basis_points, narrow.queue_bytes, narrow.queue_items),
+            (wide.memory_bytes, wide.cpu_basis_points, wide.queue_bytes, wide.queue_items)
+        );
         assert_eq!(
             baseline.process_commit_bytes(),
             tracked.process_commit_bytes()
@@ -1254,6 +1266,9 @@ mod tests {
         let second = profile(false).unwrap();
         assert_eq!(first.budget(), second.budget());
         assert_eq!(first.budget().processes, 8);
+        let tracked = profile(true).unwrap();
+        assert_eq!(tracked.budget().processes, 16, "tracked sessions carry the plugin hooks");
+        assert_eq!(tracked.budget(), profile(true).unwrap().budget());
         assert_eq!(first.process_commit_bytes(), 768 * MIB);
         assert_eq!(first.budget().memory_bytes, 1024 * MIB);
         assert_eq!(first.budget().cpu_basis_points, 1000);
