@@ -200,6 +200,32 @@ impl BundledPlugins {
         }
         Ok(())
     }
+    /// Claude Code writes into every `--plugin-dir` it loads (a `tsconfig.json` and
+    /// `.claude-plugin/types/` were observed on 2026-11-11 with Claude 2.1.322), which
+    /// made the pinned tree fail verification and dropped the plugins from every later
+    /// launch. Claude therefore gets a private copy under `destination`: the verified
+    /// files are written there (identical files left alone), whatever Claude adds stays
+    /// in the copy, and the returned value points every argument at the copy.
+    pub fn private_copy(&self, destination: &Path) -> Result<Self, BundledPluginsError> {
+        for name in PLUGINS {
+            let target = destination.join(name);
+            for relative in self.files(name)? {
+                let source = self.plugin_dir(name).join(&relative);
+                let path = target.join(&relative);
+                let bytes = read_bounded(&source, MAX_FILE_BYTES)?;
+                if let Ok(existing) = fs::read(&path) {
+                    if existing == bytes {
+                        continue;
+                    }
+                }
+                if let Some(parent) = path.parent() {
+                    fs::create_dir_all(parent).map_err(|_| BundledPluginsError::Missing)?;
+                }
+                fs::write(&path, bytes).map_err(|_| BundledPluginsError::Missing)?;
+            }
+        }
+        Ok(Self { root: destination.to_path_buf(), versions: self.versions.clone() })
+    }
     /// The `-c` overrides that register the marketplace and enable both plugins.
     pub fn codex_overrides(&self) -> Vec<String> {
         let root = self.root.to_string_lossy();
@@ -337,6 +363,26 @@ mod tests {
         assert!(plugins.plugin_dir("ponytail").ends_with("ponytail"));
         assert!(!plugins.plugin_dir_arg("i-have-adhd").starts_with(r"\\?\"));
         assert!(!plugins.files("ponytail").unwrap().is_empty());
+    }
+    #[test]
+    fn claude_private_copy_absorbs_what_claude_writes_and_keeps_the_pinned_tree_clean() {
+        let plugins = BundledPlugins::verify(&repo_root()).unwrap();
+        let destination = scratch("claude-plugins");
+        let copy = plugins.private_copy(&destination).unwrap();
+        assert!(copy.plugin_dir_arg("ponytail").starts_with(&*destination.to_string_lossy().trim_start_matches(r"\?\")));
+        // What Claude 2.1.322 writes into a loaded plugin directory lands in the copy.
+        fs::write(copy.plugin_dir("ponytail").join("tsconfig.json"), b"{}").unwrap();
+        fs::create_dir_all(copy.plugin_dir("ponytail").join(".claude-plugin/types")).unwrap();
+        plugins.private_copy(&destination).unwrap();
+        BundledPlugins::verify(&repo_root()).unwrap();
+        for name in PLUGINS {
+            for relative in plugins.files(name).unwrap() {
+                assert_eq!(
+                    fs::read(copy.plugin_dir(name).join(&relative)).unwrap(),
+                    fs::read(plugins.plugin_dir(name).join(&relative)).unwrap()
+                );
+            }
+        }
     }
     #[test]
     fn set_is_exactly_the_two_plugins() {

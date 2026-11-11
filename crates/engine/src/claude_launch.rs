@@ -420,7 +420,13 @@ fn prepare(
         let root = context
             .plugins_root
             .ok_or(ClaudeLaunchError::BundledPlugins)?;
-        Some(BundledPlugins::verify(root).map_err(|_| ClaudeLaunchError::BundledPlugins)?)
+        let verified = BundledPlugins::verify(root).map_err(|_| ClaudeLaunchError::BundledPlugins)?;
+        // Claude writes into the directories it loads: never hand it the pinned tree.
+        Some(
+            verified
+                .private_copy(&context.base.directory().join("bundled-plugins"))
+                .map_err(|_| ClaudeLaunchError::BundledPlugins)?,
+        )
     } else {
         return Err(ClaudeLaunchError::UnsupportedSet);
     };

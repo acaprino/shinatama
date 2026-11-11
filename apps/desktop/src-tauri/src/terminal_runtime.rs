@@ -59,6 +59,73 @@ fn stamp() -> PolicyStamp {
         id: "windows.native.v1".into(),
     }
 }
+/// Releases the reservations whose owning Shinatama process is gone (exact pid and
+/// creation time no longer match) and whose job is certified gone: either its name no
+/// longer exists, which means kill-on-close already ran when the last handle closed, or
+/// the recovery probe terminated what was left and saw it empty. A live owner, an owner
+/// in another Windows session, or an owner that cannot be identified keeps its budget.
+/// Any failure leaves the ledger as it was; the caller still applies its capacity check.
+fn reclaim_orphaned_reservations(
+    database: &Database,
+    ledger: shinatama_state::resource_reservations::ReservationSnapshot,
+) -> shinatama_state::resource_reservations::ReservationSnapshot {
+    use shinatama_engine::resources::job::{JobRecoveryObservation, probe_job_recovery};
+    use shinatama_engine::resources::sampling::{Unavailable, WindowsSampler};
+    use shinatama_state::resource_reservations::{
+        EmptyJobProof, OwnerObservation, ReconcileObservation,
+    };
+    let Ok(now) = now_ms() else { return ledger };
+    let mut session = 0u32;
+    let own_session = unsafe {
+        windows_sys::Win32::System::RemoteDesktop::ProcessIdToSessionId(
+            std::process::id(),
+            &mut session,
+        )
+    } != 0;
+    if !own_session {
+        return ledger;
+    }
+    let mut observations = Vec::new();
+    for slot in &ledger.slots {
+        if slot.owner.windows_session_id != session {
+            continue;
+        }
+        let dead = match WindowsSampler::identify(slot.owner.pid) {
+            Ok(actual) => {
+                actual.pid != slot.owner.pid || actual.created_at_100ns != slot.owner.created_at_100ns
+            }
+            Err(Unavailable::Missing | Unavailable::Terminated) => true,
+            Err(_) => false,
+        };
+        if !dead {
+            continue;
+        }
+        let Ok(key) = uuid::Uuid::parse_str(&slot.job_key) else { continue };
+        match probe_job_recovery(*key.as_bytes()) {
+            Ok(JobRecoveryObservation::Absent | JobRecoveryObservation::TerminatedByRecovery) => {}
+            _ => continue,
+        }
+        let Ok(proof) =
+            EmptyJobProof::from_trusted_closed_empty_job(slot, &slot.owner, &slot.job_key, now)
+        else {
+            continue;
+        };
+        observations.push(ReconcileObservation {
+            expected: slot.clone(),
+            owner: OwnerObservation::DeadExact,
+            observed_at_ms: now,
+            closed_empty_job: Some(proof),
+        });
+    }
+    if observations.is_empty() {
+        return ledger;
+    }
+    match database.reconcile_reservations(&ledger.policy.stamp, &observations, now) {
+        Ok(updated) => updated,
+        Err(_) => ledger,
+    }
+}
+
 fn now_ms() -> Result<i64> {
     Ok(i64::try_from(
         SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis(),
@@ -306,6 +373,9 @@ impl Admission {
                 })?
             }
         };
+        // A Shinatama that crashed or was killed never released its reservations, and
+        // nothing else does: after a few such exits every Open was refused for capacity.
+        let ledger = reclaim_orphaned_reservations(database, ledger);
         let policy = &ledger.policy;
         if policy.stamp != stamp()
             || policy.per_slot_ceiling != PER_SLOT
