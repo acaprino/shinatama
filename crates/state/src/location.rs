@@ -86,7 +86,16 @@ impl LocationRequest {
     /// Reads location settings and sync-root metadata only; never reads credentials.
     pub fn from_environment(project_roots: Vec<PathBuf>) -> Result<Self> {
         let local_data_directory = platform_data_directory()?;
-        let home_override = std::env::var_os("SHINATAMA_HOME").map(PathBuf::from);
+        let portable = portable_root();
+        let home_override = std::env::var_os("SHINATAMA_HOME")
+            .map(PathBuf::from)
+            .or_else(|| portable.as_ref().map(|root| root.join(PORTABLE_DATA)));
+        let project_roots = match (&portable, &home_override) {
+            (Some(root), Some(home)) if same_path(home, &root.join(PORTABLE_DATA)) => {
+                without_portable_root(project_roots, root)
+            }
+            _ => project_roots,
+        };
         StorageLocation::preflight(home_override.as_deref().unwrap_or(&local_data_directory))?;
         #[cfg(windows)]
         let synchronized_roots = windows::synchronized_roots(&local_data_directory)?;
@@ -99,6 +108,32 @@ impl LocationRequest {
             synchronized_roots,
         })
     }
+}
+
+/// A portable install keeps its data beside the program. This file beside Shinatama.exe
+/// marks one; programs in a subfolder of the install (`cli\`) find it one level up.
+pub const PORTABLE_MARKER: &str = "Shinatama.portable";
+/// The data folder of a portable install, inside its root. The WebView2 profile is `webview`.
+pub const PORTABLE_DATA: &str = "data";
+
+/// The root folder of the portable install that contains the running program, if any.
+pub fn portable_root() -> Option<PathBuf> {
+    let executable = std::env::current_exe().ok()?;
+    let folder = executable.parent()?;
+    [Some(folder), folder.parent()]
+        .into_iter()
+        .flatten()
+        .find(|candidate| candidate.join(PORTABLE_MARKER).is_file())
+        .map(Path::to_path_buf)
+}
+
+/// The portable folder holds the program beside its data; it and its ancestors are not
+/// projects. Git work trees are still refused by `resolve`.
+fn without_portable_root(project_roots: Vec<PathBuf>, root: &Path) -> Vec<PathBuf> {
+    project_roots
+        .into_iter()
+        .filter(|project| !is_within(root, project))
+        .collect()
 }
 
 #[cfg(windows)]
@@ -616,5 +651,25 @@ pub mod external {
             path,
             "Questa versione supporta Windows.",
         ))
+    }
+}
+
+#[cfg(test)]
+mod portable_tests {
+    use super::*;
+
+    #[test]
+    fn the_portable_folder_and_its_ancestors_are_not_projects() {
+        let root = PathBuf::from(r"D:\Software\Shinatama");
+        let roots = vec![
+            PathBuf::from(r"d:\software\shinatama"),
+            PathBuf::from(r"D:\Software"),
+            PathBuf::from(r"D:\Software\Shinatama\cli"),
+            PathBuf::from(r"D:\Projects\demo"),
+        ];
+        assert_eq!(
+            without_portable_root(roots, &root),
+            vec![PathBuf::from(r"D:\Software\Shinatama\cli"), PathBuf::from(r"D:\Projects\demo")]
+        );
     }
 }

@@ -559,7 +559,30 @@ fn sidecar_retry(window: tauri::WebviewWindow) -> Result<serde_json::Value, Stri
     #[cfg(not(windows))]
     Err("The session index is available on Windows.".into())
 }
+/// A portable install (`Shinatama.portable` beside the exe) keeps its database in `data\` and
+/// its WebView2 profile in `webview\` beside Shinatama.exe; child processes inherit both.
+/// Started from its own folder, it opens the user's profile folder as the default project.
+fn portable_environment() {
+    use shinatama_state::location::{PORTABLE_DATA, portable_root};
+    let Some(root) = portable_root() else { return };
+    // SAFETY: first statement of main, before any other thread exists.
+    unsafe {
+        if std::env::var_os("SHINATAMA_HOME").is_none() {
+            std::env::set_var("SHINATAMA_HOME", root.join(PORTABLE_DATA));
+        }
+        if std::env::var_os("WEBVIEW2_USER_DATA_FOLDER").is_none() {
+            std::env::set_var("WEBVIEW2_USER_DATA_FOLDER", root.join("webview"));
+        }
+    }
+    let inside = std::env::current_dir().is_ok_and(|cwd| {
+        cwd.ancestors().any(|part| part.as_os_str().eq_ignore_ascii_case(root.as_os_str()))
+    });
+    if inside && let Some(profile) = std::env::var_os("USERPROFILE") {
+        let _ = std::env::set_current_dir(profile);
+    }
+}
 fn main() {
+    portable_environment();
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(Arc::new(TerminalHost::default()))
