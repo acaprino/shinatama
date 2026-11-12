@@ -1,6 +1,7 @@
 //! Marionette, the one plugin every real session of Claude Code, Codex, Pi and
-//! OpenCode gets. It is built by Muro (github.com/acaprino/muro) and published
-//! there as a release asset; it carries what Ponytail and i-have-adhd used to
+//! OpenCode gets. Muro (github.com/acaprino/muro) builds it as one of its
+//! examples; Marionette's own repository publishes the build as a release asset
+//! (Muro's releases are Muro itself, never Marionette); it carries what Ponytail and i-have-adhd used to
 //! bring natively. At every app start [`sync`] reads the repository's latest
 //! published release and, when the tag is new, downloads its `marionette*.zip`,
 //! checks the SHA-256 GitHub reports for it, extracts it beside the previous
@@ -20,7 +21,7 @@ use std::{
 };
 
 /// `owner/name` of the repository whose latest release is followed.
-pub const REPOSITORY: &str = "acaprino/muro";
+pub const REPOSITORY: &str = "acaprino/marionette";
 pub const SET_ID: &str = "marionette";
 pub const PLUGIN: &str = "marionette";
 pub const MARKETPLACE_NAME: &str = "shinatama";

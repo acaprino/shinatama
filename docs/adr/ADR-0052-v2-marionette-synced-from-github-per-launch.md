@@ -1,7 +1,7 @@
 ---
 adr_id: ADR-0052
 version: 2
-title: Marionette, synced from Muro's latest GitHub release at every start, is the one plugin every launch of Claude Code, Codex, Pi and OpenCode gets
+title: Marionette, synced from its own repository's latest GitHub release at every start, is the one plugin every launch of Claude Code, Codex, Pi and OpenCode gets
 status: Accepted
 author: Alfio Caprino
 scope:
@@ -40,9 +40,10 @@ supersedes:
 superseded_by: null
 changes:
   - "2026-11-12: Ponytail and i-have-adhd are no longer shipped or wired natively; Marionette replaces them and is downloaded, not packaged."
+  - "2026-11-12: The release source is Marionette's own repository, acaprino/marionette; Muro's releases are Muro itself (user: \"muro nn deve avere release di marionette\", \"marionette è un esempio di utilizzo di muro\", \"è muro ad avere release al più\")."
 ---
 
-# ADR-0052 v2: Marionette, synced from Muro's latest GitHub release at every start, is the one plugin every launch gets
+# ADR-0052 v2: Marionette, synced from its own repository's latest GitHub release at every start, is the one plugin every launch gets
 
 <!-- adr-header:start -->
 Version 2 · Accepted 2026-11-12 at 99e2843 · proposed 2026-11-12 by Alfio Caprino
@@ -64,6 +65,10 @@ Sources, kept apart:
   host under `marionette/adapters/` (`claude-code`, `codex`, `opencode`, `pi`, `hermes`).
 - The repository was renamed from `acaprino/acaprinoprivate` to `acaprino/muro` and made
   public on 2026-11-12; GitHub redirects the old name.
+- Decided by the user, 2026-11-12, after the first text: "muro nn deve avere release di
+  marionette", "marionette è un esempio di utilizzo di muro", "è muro ad avere release al
+  più". Marionette is one example of Muro's use; Muro's own releases, if any, are Muro.
+  Marionette's build is published from its own repository, `acaprino/marionette`.
 
 The question: how does one plugin that changes upstream reach every hosted agent at its
 newest release, without a manual step and without editing the user's own agent
@@ -75,9 +80,9 @@ configuration (ADR-0013)?
    marketplace) is deleted, and the packager stages no plugin. The Claude Code mods in
    `resources/claude-mods` stay packaged and keep their own lock.
 2. **Synced at every start.** When the app starts, a background thread asks
-   `api.github.com/repos/acaprino/muro/releases/latest` (published releases only, never a
+   `api.github.com/repos/acaprino/marionette/releases/latest` (published releases only, never a
    draft or prerelease). The release must carry exactly one `marionette*.zip` asset under
-   `github.com/acaprino/muro/releases/download/` with a GitHub `sha256:` digest. When the tag
+   `github.com/acaprino/marionette/releases/download/` with a GitHub `sha256:` digest. When the tag
    differs from the current copy, or the current copy fails its check, the zip is downloaded,
    its size and SHA-256 are checked against the release, it is extracted into a staging
    folder, and the tree is checked: ordinary files only, no links, fixed bounds on count,
@@ -111,8 +116,8 @@ configuration (ADR-0013)?
    `SHINATAMA_BUNDLED_PLUGINS` is retired.
 8. **Out of scope.** Hermes and Gemini have no launch adapter. Codex hook trust for the
    adapter's `SessionStart`/`SubagentStart` hooks is Codex's own review. The adapters' helpers
-   use the user's `python` and `node` on `PATH`. Publishing a release with the zip asset is
-   Muro's job, not Shinatama's.
+   use the user's `python` and `node` on `PATH`. Building Marionette with Muro and publishing
+   the zip as a release of `acaprino/marionette` is done outside Shinatama.
 
 ## Consequences
 

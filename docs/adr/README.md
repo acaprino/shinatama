@@ -11,8 +11,8 @@ and deleted from `docs/frd/` (ADR-0050 v2).
 **2026-11-11 decision:** Ponytail and i-have-adhd ship in the package and activate in every
 launch of Claude Code, Codex, Pi and OpenCode (ADR-0052).
 
-**2026-11-12 decision:** Marionette, synced from Muro's latest GitHub release at
-every start, replaces Ponytail and i-have-adhd as the one plugin every launch gets; nothing
+**2026-11-12 decision:** Marionette, synced from its own repository's latest GitHub
+release (acaprino/marionette) at every start, replaces Ponytail and i-have-adhd as the one plugin every launch gets; nothing
 is shipped in the package (ADR-0052 v2).
 
 **2026-11-11 decision:** the desktop chrome is frosted glass in the active skin's colours, and
@@ -83,7 +83,7 @@ run `index`; do not edit this block by hand.
 | [ADR-0049](<ADR-0049-text-index-outlives-native-retention.md>) | Shinatama's text index outlives an agent's retention; an aged-out session is searchable and can seed, never natively resumed; retention is never edited | `docs/technical-design.md`, `docs/functional-design.md`, `session-search`, `retention`, `text-index`, `native-resume` | 0 | `202a34e2675cfe7e8d7ba1d5e7ecf88bf2299182` |
 | [ADR-0050 v2](<ADR-0050-v2-frd-and-adr-govern-requirements-and-decisions.md>) | Requirements live in FRD records and decisions in ADR records, both Proposed until the user approves the text; design documents keep the design, the register alone says what is proved; requirements records are Markdown only | `docs/frd/README.md`, `docs/adr/README.md`, `docs/codebase-map.md`, `docs/verification-register.md`, `documentation-method`, `decision-records`, `requirements-records`, `approval` | 0 | `e6e452d44c9d90a744f5e81e3151ca05cd8af5a3` |
 | [ADR-0051](<ADR-0051-pre-receipt-crash-recovery-termination-certificate.md>) | Pre-receipt native crash recovery is unlocked only by a qualified whole-group termination certificate derived from the named kill-on-close job | `crates/engine/src/resources/job.rs`, `crates/state/src/native_session_cleanup.rs`, `crates/state/src/records/recovery.rs`, `apps/desktop/src-tauri/src/agents/thread_lifecycle.rs`, `apps/desktop/src-tauri/src/agents/threads.rs`, `native-containment`, `crash-recovery`, `resource-admission` | 0 | `c9deab5bbf161c9aa04d21b8d19d245f42394811` |
-| [ADR-0052 v2](<ADR-0052-v2-marionette-synced-from-github-per-launch.md>) | Marionette, synced from Muro's latest GitHub release at every start, is the one plugin every launch of Claude Code, Codex, Pi and OpenCode gets | `crates/engine/src/marionette.rs`, `crates/engine/src/claude_launch.rs`, `crates/engine/src/claude_mods.rs`, `crates/engine/src/codex_launch.rs`, `crates/engine/src/pi_launch.rs`, `crates/engine/src/opencode_launch.rs`, `crates/adapter/src/pi/sets.rs`, `apps/desktop/src-tauri/src/marionette.rs`, `apps/desktop/src-tauri/src/agents.rs`, `apps/desktop/src-tauri/src/sidecar.rs`, `scripts/package-local.ps1`, `bundled-plugins`, `per-launch-injection`, `plugin-sync`, `install-distribution` | 0 | 2026-11-12 at 99e2843 |
+| [ADR-0052 v2](<ADR-0052-v2-marionette-synced-from-github-per-launch.md>) | Marionette, synced from its own repository's latest GitHub release at every start, is the one plugin every launch of Claude Code, Codex, Pi and OpenCode gets | `crates/engine/src/marionette.rs`, `crates/engine/src/claude_launch.rs`, `crates/engine/src/claude_mods.rs`, `crates/engine/src/codex_launch.rs`, `crates/engine/src/pi_launch.rs`, `crates/engine/src/opencode_launch.rs`, `crates/adapter/src/pi/sets.rs`, `apps/desktop/src-tauri/src/marionette.rs`, `apps/desktop/src-tauri/src/agents.rs`, `apps/desktop/src-tauri/src/sidecar.rs`, `scripts/package-local.ps1`, `bundled-plugins`, `per-launch-injection`, `plugin-sync`, `install-distribution` | 0 | 2026-11-12 at 99e2843 |
 
 ## Proposed
 
