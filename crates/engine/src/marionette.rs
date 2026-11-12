@@ -1,9 +1,10 @@
 //! Marionette, the one plugin every real session of Claude Code, Codex, Pi and
 //! OpenCode gets. Muro (github.com/acaprino/muro) builds it as one of its
-//! examples; Marionette's own repository publishes the build as a release asset
-//! (Muro's releases are Muro itself, never Marionette); it carries what Ponytail and i-have-adhd used to
-//! bring natively. At every app start [`sync`] reads the repository's latest
-//! published release and, when the tag is new, downloads its `marionette*.zip`,
+//! examples and publishes each build as a `marionette-v<version>` release of
+//! the Muro repository, beside Muro's own `muro-v<version>` releases; it carries
+//! what Ponytail and i-have-adhd used to bring natively. At every app start
+//! [`sync`] lists the repository's releases, takes the highest published
+//! `marionette-v<version>` and, when the tag is new, downloads its `marionette*.zip`,
 //! checks the SHA-256 GitHub reports for it, extracts it beside the previous
 //! copy and switches to it. Launches read only that local copy: every file of
 //! the adapter they hand to a harness is checked against the lock written at
@@ -20,8 +21,10 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
-/// `owner/name` of the repository whose latest release is followed.
-pub const REPOSITORY: &str = "acaprino/marionette";
+/// `owner/name` of the repository whose Marionette releases are followed.
+pub const REPOSITORY: &str = "acaprino/muro";
+/// Tag prefix of Marionette's releases; the rest of the tag is its version.
+pub const TAG_PREFIX: &str = "marionette-v";
 pub const SET_ID: &str = "marionette";
 pub const PLUGIN: &str = "marionette";
 pub const MARKETPLACE_NAME: &str = "shinatama";
@@ -37,6 +40,9 @@ const RELEASES: &str = "releases";
 const TREE: &str = "marionette";
 const MARKETPLACE_FILE: &str = ".agents/plugins/marketplace.json";
 const MAX_METADATA_BYTES: u64 = 1024 * 1024;
+const MAX_RELEASES_BYTES: u64 = 8 * 1024 * 1024;
+/// One page of releases, newest first: Marionette's latest is always on it.
+const RELEASES_PER_PAGE: u32 = 100;
 const MAX_LOCK_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_ASSET_BYTES: u64 = 128 * 1024 * 1024;
 const MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
@@ -348,8 +354,9 @@ pub enum SyncOutcome {
 
 /// Network and archive operations, apart so the sync logic runs in tests.
 pub trait Fetch {
-    /// Body of `GET https://api.github.com/repos/<repository>/releases/latest`.
-    fn latest_release(&self, repository: &str) -> Result<Vec<u8>, MarionetteError>;
+    /// Body of `GET https://api.github.com/repos/<repository>/releases?per_page=100`,
+    /// a JSON array of releases, newest first.
+    fn releases(&self, repository: &str) -> Result<Vec<u8>, MarionetteError>;
     /// Download `url` to `destination`, at most `limit` bytes.
     fn download(&self, url: &str, destination: &Path, limit: u64) -> Result<(), MarionetteError>;
     /// Extract the zip `archive` into the empty directory `destination`.
@@ -375,7 +382,8 @@ struct AssetMetadata {
     digest: Option<String>,
 }
 
-/// Follow the latest published release of [`REPOSITORY`] into `store`.
+/// Follow the highest published `marionette-v<version>` release of
+/// [`REPOSITORY`] into `store`.
 pub fn sync(store: &Path, fetch: &dyn Fetch) -> Result<SyncOutcome, MarionetteError> {
     fs::create_dir_all(store.join(RELEASES)).map_err(|_| MarionetteError::Missing)?;
     let store = ordinary_directory(store)?;
@@ -387,16 +395,14 @@ pub fn sync(store: &Path, fetch: &dyn Fetch) -> Result<SyncOutcome, MarionetteEr
         .map_err(|_| MarionetteError::Missing)?;
     guard.try_lock().map_err(|_| MarionetteError::Busy)?;
 
-    let metadata = fetch.latest_release(REPOSITORY)?;
-    if metadata.len() as u64 > MAX_METADATA_BYTES {
+    let metadata = fetch.releases(REPOSITORY)?;
+    if metadata.len() as u64 > MAX_RELEASES_BYTES {
         return Err(MarionetteError::Limit);
     }
-    let release: ReleaseMetadata =
+    let releases: Vec<ReleaseMetadata> =
         serde_json::from_slice(&metadata).map_err(|_| MarionetteError::Release)?;
+    let release = choose_release(releases)?;
     let tag = release.tag_name.clone();
-    if release.draft || release.prerelease || !valid_tag(&tag) {
-        return Err(MarionetteError::Release);
-    }
     let asset = choose_asset(&release)?;
     let previous = Marionette::current(&store).ok();
     if let Some(current) = &previous
@@ -417,6 +423,30 @@ pub fn sync(store: &Path, fetch: &dyn Fetch) -> Result<SyncOutcome, MarionetteEr
     Ok(SyncOutcome::Updated(tag))
 }
 
+/// The highest `marionette-v<version>` release that is published (no draft, no
+/// prerelease); Muro's own releases and any other tag are ignored.
+fn choose_release(releases: Vec<ReleaseMetadata>) -> Result<ReleaseMetadata, MarionetteError> {
+    releases
+        .into_iter()
+        .filter(|release| !release.draft && !release.prerelease && valid_tag(&release.tag_name))
+        .filter_map(|release| Some((tag_version(&release.tag_name)?, release)))
+        .max_by(|(a, _), (b, _)| a.cmp(b))
+        .map(|(_, release)| release)
+        .ok_or(MarionetteError::Release)
+}
+/// `marionette-v0.10.2` gives `[0, 10, 2]`; any other tag gives `None`.
+fn tag_version(tag: &str) -> Option<Vec<u64>> {
+    let parts = tag
+        .strip_prefix(TAG_PREFIX)?
+        .split('.')
+        .map(|part| {
+            let digits = !part.is_empty() && part.len() <= 9 && part.bytes().all(|b| b.is_ascii_digit());
+            digits.then(|| part.parse::<u64>().ok()).flatten()
+        })
+        .collect::<Option<Vec<_>>>()?;
+    (parts.len() <= 4).then_some(parts)
+}
+
 struct ChosenAsset<'a> {
     name: &'a str,
     size: u64,
@@ -432,7 +462,7 @@ fn choose_asset(release: &ReleaseMetadata) -> Result<ChosenAsset<'_>, Marionette
     if chosen.next().is_some() {
         return Err(MarionetteError::Release);
     }
-    let prefix = format!("https://github.com/{REPOSITORY}/releases/download/");
+    let prefix = format!("https://github.com/{REPOSITORY}/releases/download/{}/", release.tag_name);
     let sha256 = asset
         .digest
         .as_deref()
@@ -623,14 +653,17 @@ impl SystemFetch {
     }
 }
 impl Fetch for SystemFetch {
-    fn latest_release(&self, repository: &str) -> Result<Vec<u8>, MarionetteError> {
+    fn releases(&self, repository: &str) -> Result<Vec<u8>, MarionetteError> {
         let curl = Self::tool("curl.exe")?;
-        let mut args = Self::curl_base("30", MAX_METADATA_BYTES);
+        let mut args = Self::curl_base("30", MAX_RELEASES_BYTES);
         for header in ["Accept: application/vnd.github+json", "X-GitHub-Api-Version: 2022-11-28"] {
             args.push("--header".into());
             args.push(header.into());
         }
-        args.push(format!("https://api.github.com/repos/{repository}/releases/latest").into());
+        args.push(
+            format!("https://api.github.com/repos/{repository}/releases?per_page={RELEASES_PER_PAGE}")
+                .into(),
+        );
         let refs: Vec<&std::ffi::OsStr> = args.iter().map(|a| a.as_os_str()).collect();
         Self::run(&curl, &refs).map_err(|_| MarionetteError::Network)
     }
@@ -820,21 +853,29 @@ pub(crate) mod tests {
         }
     }
     impl Fetch for FakeFetch {
-        fn latest_release(&self, repository: &str) -> Result<Vec<u8>, MarionetteError> {
+        /// As GitHub lists Muro: Muro's own release newest, then Marionette's.
+        fn releases(&self, repository: &str) -> Result<Vec<u8>, MarionetteError> {
             if self.offline {
                 return Err(MarionetteError::Network);
             }
-            Ok(serde_json::to_vec(&serde_json::json!({
-                "tag_name": self.tag,
-                "draft": false,
-                "prerelease": false,
-                "assets": [{
-                    "name": format!("marionette-{}.zip", self.version),
-                    "size": self.asset.len(),
-                    "browser_download_url": format!("https://github.com/{repository}/releases/download/{}/marionette.zip", self.tag),
-                    "digest": format!("sha256:{}", hex(&self.asset)),
-                }]
-            }))
+            Ok(serde_json::to_vec(&serde_json::json!([
+                { "tag_name": "muro-v9.9.9", "draft": false, "prerelease": false, "assets": [] },
+                {
+                    "tag_name": self.tag,
+                    "draft": false,
+                    "prerelease": false,
+                    "assets": [{
+                        "name": format!("marionette-{}.zip", self.version),
+                        "size": self.asset.len(),
+                        "browser_download_url": format!("https://github.com/{repository}/releases/download/{}/marionette.zip", self.tag),
+                        "digest": format!("sha256:{}", hex(&self.asset)),
+                    }, {
+                        "name": format!("marionette-{}.zip.sha256", self.version),
+                        "size": 87,
+                        "browser_download_url": format!("https://github.com/{repository}/releases/download/{}/marionette.zip.sha256", self.tag),
+                    }]
+                }
+            ]))
             .unwrap())
         }
         fn download(&self, _: &str, destination: &Path, _: u64) -> Result<(), MarionetteError> {
@@ -863,35 +904,35 @@ pub(crate) mod tests {
     #[test]
     fn sync_installs_then_stays_up_to_date_then_follows_a_new_release() {
         let store = scratch("follow");
-        let first = FakeFetch::new("v0.1.0", "0.1.0");
-        assert_eq!(sync(&store, &first).unwrap(), SyncOutcome::Updated("v0.1.0".into()));
-        assert_eq!(sync(&store, &first).unwrap(), SyncOutcome::UpToDate("v0.1.0".into()));
+        let first = FakeFetch::new("marionette-v0.1.0", "0.1.0");
+        assert_eq!(sync(&store, &first).unwrap(), SyncOutcome::Updated("marionette-v0.1.0".into()));
+        assert_eq!(sync(&store, &first).unwrap(), SyncOutcome::UpToDate("marionette-v0.1.0".into()));
         assert_eq!(first.downloads.get(), 1);
         let current = Marionette::current(&store).unwrap();
-        assert_eq!((current.tag(), current.version()), ("v0.1.0", "0.1.0"));
+        assert_eq!((current.tag(), current.version()), ("marionette-v0.1.0", "0.1.0"));
         for host in Host::ALL {
             let adapter = current.verify(host).unwrap();
             assert!(adapter.dir().ends_with(host.adapter()));
             assert!(!adapter.dir_arg().starts_with(r"\\?\"));
         }
-        let second = FakeFetch::new("v0.2.0", "0.2.0");
-        assert_eq!(sync(&store, &second).unwrap(), SyncOutcome::Updated("v0.2.0".into()));
-        let third = FakeFetch::new("v0.3.0", "0.3.0");
+        let second = FakeFetch::new("marionette-v0.2.0", "0.2.0");
+        assert_eq!(sync(&store, &second).unwrap(), SyncOutcome::Updated("marionette-v0.2.0".into()));
+        let third = FakeFetch::new("marionette-v0.3.0", "0.3.0");
         sync(&store, &third).unwrap();
-        assert_eq!(Marionette::current(&store).unwrap().tag(), "v0.3.0");
+        assert_eq!(Marionette::current(&store).unwrap().tag(), "marionette-v0.3.0");
         // The new copy and the one before it stay; older copies go.
-        assert!(!store.join(RELEASES).join("v0.1.0").exists());
-        assert!(store.join(RELEASES).join("v0.2.0").exists());
+        assert!(!store.join(RELEASES).join("marionette-v0.1.0").exists());
+        assert!(store.join(RELEASES).join("marionette-v0.2.0").exists());
         let _ = fs::remove_dir_all(&store);
     }
     #[test]
     fn offline_keeps_the_last_good_copy() {
         let store = scratch("offline");
-        sync(&store, &FakeFetch::new("v0.1.0", "0.1.0")).unwrap();
-        let mut offline = FakeFetch::new("v0.2.0", "0.2.0");
+        sync(&store, &FakeFetch::new("marionette-v0.1.0", "0.1.0")).unwrap();
+        let mut offline = FakeFetch::new("marionette-v0.2.0", "0.2.0");
         offline.offline = true;
         assert_eq!(sync(&store, &offline).unwrap_err(), MarionetteError::Network);
-        assert_eq!(Marionette::current(&store).unwrap().tag(), "v0.1.0");
+        assert_eq!(Marionette::current(&store).unwrap().tag(), "marionette-v0.1.0");
         let _ = fs::remove_dir_all(&store);
     }
     #[test]
@@ -899,8 +940,8 @@ pub(crate) mod tests {
         let store = scratch("digest");
         struct Corrupt(FakeFetch);
         impl Fetch for Corrupt {
-            fn latest_release(&self, r: &str) -> Result<Vec<u8>, MarionetteError> {
-                self.0.latest_release(r)
+            fn releases(&self, r: &str) -> Result<Vec<u8>, MarionetteError> {
+                self.0.releases(r)
             }
             fn download(&self, _: &str, d: &Path, _: u64) -> Result<(), MarionetteError> {
                 let mut bytes = self.0.asset.clone();
@@ -911,7 +952,7 @@ pub(crate) mod tests {
                 self.0.extract(a, d)
             }
         }
-        let corrupt = Corrupt(FakeFetch::new("v0.1.0", "0.1.0"));
+        let corrupt = Corrupt(FakeFetch::new("marionette-v0.1.0", "0.1.0"));
         assert_eq!(sync(&store, &corrupt).unwrap_err(), MarionetteError::Mismatch);
         assert!(Marionette::current(&store).is_err());
         assert!(!store.join("staging").exists());
@@ -920,7 +961,7 @@ pub(crate) mod tests {
     #[test]
     fn tampered_or_unlisted_adapter_file_is_refused() {
         let store = scratch("tamper");
-        sync(&store, &FakeFetch::new("v0.1.0", "0.1.0")).unwrap();
+        sync(&store, &FakeFetch::new("marionette-v0.1.0", "0.1.0")).unwrap();
         let current = Marionette::current(&store).unwrap();
         let pi = current.verify(Host::Pi).unwrap();
         fs::write(pi.dir().join("extensions/policy.js"), "changed").unwrap();
@@ -930,14 +971,14 @@ pub(crate) mod tests {
         assert_eq!(current.verify(Host::OpenCode).unwrap_err(), MarionetteError::Unexpected);
         // The other hosts are unaffected, and the next sync repairs the copy.
         current.verify(Host::Codex).unwrap();
-        sync(&store, &FakeFetch::new("v0.1.0", "0.1.0")).unwrap();
+        sync(&store, &FakeFetch::new("marionette-v0.1.0", "0.1.0")).unwrap();
         Marionette::current(&store).unwrap().verify(Host::Pi).unwrap();
         let _ = fs::remove_dir_all(&store);
     }
     #[test]
     fn claude_copy_and_codex_cache_mirror_the_adapter() {
         let store = scratch("mirror");
-        sync(&store, &FakeFetch::new("v0.1.0", "0.1.0")).unwrap();
+        sync(&store, &FakeFetch::new("marionette-v0.1.0", "0.1.0")).unwrap();
         let current = Marionette::current(&store).unwrap();
         let claude = current.verify(Host::ClaudeCode).unwrap();
         let destination = store.join("claude-copy");
@@ -961,7 +1002,7 @@ pub(crate) mod tests {
         assert!(!overrides[1].contains('\\'));
         assert_eq!(overrides[3], "plugins={\"marionette@shinatama\"={enabled=true}}");
         let marketplace: serde_json::Value = serde_json::from_slice(
-            &fs::read(store.join(RELEASES).join("v0.1.0").join(MARKETPLACE_FILE)).unwrap(),
+            &fs::read(store.join(RELEASES).join("marionette-v0.1.0").join(MARKETPLACE_FILE)).unwrap(),
         )
         .unwrap();
         assert_eq!(marketplace["plugins"][0]["source"]["path"], "./marionette/adapters/codex");
@@ -974,16 +1015,16 @@ pub(crate) mod tests {
     fn real_zip_installs_through_system_tar() {
         struct LocalZip(PathBuf, Vec<u8>);
         impl Fetch for LocalZip {
-            fn latest_release(&self, repository: &str) -> Result<Vec<u8>, MarionetteError> {
-                Ok(serde_json::to_vec(&serde_json::json!({
-                    "tag_name": "v0.0.0-local",
+            fn releases(&self, repository: &str) -> Result<Vec<u8>, MarionetteError> {
+                Ok(serde_json::to_vec(&serde_json::json!([{
+                    "tag_name": "marionette-v0.0.0",
                     "assets": [{
                         "name": "marionette.zip",
                         "size": self.1.len(),
-                        "browser_download_url": format!("https://github.com/{repository}/releases/download/v0.0.0-local/marionette.zip"),
+                        "browser_download_url": format!("https://github.com/{repository}/releases/download/marionette-v0.0.0/marionette.zip"),
                         "digest": format!("sha256:{}", hex(&self.1)),
                     }]
-                }))
+                }]))
                 .unwrap())
             }
             fn download(&self, _: &str, destination: &Path, _: u64) -> Result<(), MarionetteError> {
@@ -1007,14 +1048,15 @@ pub(crate) mod tests {
         let _ = fs::remove_dir_all(&store);
     }
     /// Manual, needs the network: `cargo test -p shinatama-engine -- --ignored
-    /// real_github_sync` follows the published release through `SystemFetch`.
+    /// real_github_sync` follows Muro's highest `marionette-v*` release through
+    /// `SystemFetch`.
     #[test]
     #[ignore]
     fn real_github_sync() {
         let store = scratch("github");
         let started = std::time::Instant::now();
         let outcome = sync(&store, &SystemFetch).unwrap();
-        assert!(matches!(outcome, SyncOutcome::Updated(_)));
+        assert!(matches!(&outcome, SyncOutcome::Updated(tag) if tag.starts_with(TAG_PREFIX)));
         assert!(matches!(sync(&store, &SystemFetch).unwrap(), SyncOutcome::UpToDate(_)));
         let current = Marionette::current(&store).unwrap();
         for host in Host::ALL {
@@ -1026,9 +1068,10 @@ pub(crate) mod tests {
     }
     #[test]
     fn release_without_a_digest_or_from_elsewhere_is_refused() {
-        let base = FakeFetch::new("v0.1.0", "0.1.0");
-        let mut metadata: serde_json::Value =
-            serde_json::from_slice(&base.latest_release(REPOSITORY).unwrap()).unwrap();
+        let base = FakeFetch::new("marionette-v0.1.0", "0.1.0");
+        let list: serde_json::Value =
+            serde_json::from_slice(&base.releases(REPOSITORY).unwrap()).unwrap();
+        let mut metadata = list[1].clone();
         let release = |value: &serde_json::Value| -> ReleaseMetadata {
             serde_json::from_value(value.clone()).unwrap()
         };
@@ -1036,8 +1079,38 @@ pub(crate) mod tests {
         metadata["assets"][0]["digest"] = serde_json::Value::Null;
         assert!(choose_asset(&release(&metadata)).is_err());
         metadata["assets"][0]["digest"] = format!("sha256:{}", "0".repeat(64)).into();
+        let good_url = metadata["assets"][0]["browser_download_url"].clone();
         metadata["assets"][0]["browser_download_url"] = "https://example.com/marionette.zip".into();
         assert!(choose_asset(&release(&metadata)).is_err());
-        assert!(!valid_tag("../x") && !valid_tag(".hidden") && valid_tag("v0.1.0"));
+        // An asset of another release of the repository is refused too.
+        metadata["assets"][0]["browser_download_url"] =
+            good_url.as_str().unwrap().replace("marionette-v0.1.0", "muro-v9.9.9").into();
+        assert!(choose_asset(&release(&metadata)).is_err());
+        assert!(!valid_tag("../x") && !valid_tag(".hidden") && valid_tag("marionette-v0.1.0"));
+    }
+    #[test]
+    fn only_the_highest_published_marionette_release_is_followed() {
+        let entry = |tag: &str, draft: bool, prerelease: bool| {
+            serde_json::json!({ "tag_name": tag, "draft": draft, "prerelease": prerelease })
+        };
+        let pick = |list: serde_json::Value| {
+            choose_release(serde_json::from_value(list).unwrap()).map(|release| release.tag_name)
+        };
+        let list = serde_json::json!([
+            entry("muro-v3.0.0", false, false),
+            entry("marionette-v0.11.0", true, false),
+            entry("marionette-v0.10.0-rc1", false, false),
+            entry("marionette-v0.9.0", false, true),
+            entry("marionette-v0.2.0", false, false),
+            entry("marionette-v0.10.0", false, false),
+            entry("v9.0.0", false, false),
+            entry("marionette-v+1.0.0", false, false),
+        ]);
+        assert_eq!(pick(list).unwrap(), "marionette-v0.10.0");
+        let none = serde_json::json!([entry("muro-v0.1.0", false, false)]);
+        assert_eq!(pick(none).unwrap_err(), MarionetteError::Release);
+        assert_eq!(tag_version("marionette-v0.2.0"), Some(vec![0, 2, 0]));
+        assert_eq!(tag_version("marionette-v"), None);
+        assert_eq!(tag_version("marionette-v1..0"), None);
     }
 }

@@ -1075,7 +1075,7 @@ mod tests {
     fn marionette_becomes_one_plugin_dir_pair() {
         use crate::marionette::tests::{FakeFetch, scratch};
         let store = scratch("claude-args");
-        marionette::sync(&store, &FakeFetch::new("v0.1.0", "0.1.0")).unwrap();
+        marionette::sync(&store, &FakeFetch::new("marionette-v0.1.0", "0.1.0")).unwrap();
         let adapter = Marionette::current(&store).unwrap().verify(Host::ClaudeCode).unwrap();
         let args = plugin_arguments(&adapter);
         assert_eq!(args.len(), 2);

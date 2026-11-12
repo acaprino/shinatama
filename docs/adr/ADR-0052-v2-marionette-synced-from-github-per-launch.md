@@ -1,7 +1,7 @@
 ---
 adr_id: ADR-0052
 version: 2
-title: Marionette, synced from its own repository's latest GitHub release at every start, is the one plugin every launch of Claude Code, Codex, Pi and OpenCode gets
+title: Marionette, synced from its latest GitHub release at every start, is the one plugin every launch of Claude Code, Codex, Pi and OpenCode gets
 status: Accepted
 author: Alfio Caprino
 scope:
@@ -41,9 +41,10 @@ superseded_by: null
 changes:
   - "2026-11-12: Ponytail and i-have-adhd are no longer shipped or wired natively; Marionette replaces them and is downloaded, not packaged."
   - "2026-11-12: The release source is Marionette's own repository, acaprino/marionette; Muro's releases are Muro itself (user: \"muro nn deve avere release di marionette\", \"marionette è un esempio di utilizzo di muro\", \"è muro ad avere release al più\")."
+  - "2026-11-12: Muro's Release workflow publishes Marionette as `marionette-v<version>` releases of acaprino/muro beside `muro-v<version>`; the sync follows the highest of them (user, linking marionette-v0.2.0: \"deve seguire gli update automatici all'avvio di marionette last release\")."
 ---
 
-# ADR-0052 v2: Marionette, synced from its own repository's latest GitHub release at every start, is the one plugin every launch gets
+# ADR-0052 v2: Marionette, synced from its latest GitHub release at every start, is the one plugin every launch gets
 
 <!-- adr-header:start -->
 Version 2 · Accepted 2026-11-12 at 99e2843 · proposed 2026-11-12 by Alfio Caprino
@@ -65,10 +66,15 @@ Sources, kept apart:
   host under `marionette/adapters/` (`claude-code`, `codex`, `opencode`, `pi`, `hermes`).
 - The repository was renamed from `acaprino/acaprinoprivate` to `acaprino/muro` and made
   public on 2026-11-12; GitHub redirects the old name.
-- Decided by the user, 2026-11-12, after the first text: "muro nn deve avere release di
-  marionette", "marionette è un esempio di utilizzo di muro", "è muro ad avere release al
-  più". Marionette is one example of Muro's use; Muro's own releases, if any, are Muro.
-  Marionette's build is published from its own repository, `acaprino/marionette`.
+- Decided by the user, 2026-11-12: "marionette è un esempio di utilizzo di muro"; then,
+  linking `github.com/acaprino/muro/releases/tag/marionette-v0.2.0`: "deve seguire gli
+  update automatici all'avvio di marionette last release".
+- Found while building it: Muro's `Release` workflow (`.github/workflows/release.yml`)
+  publishes the Marionette package as `marionette-v<version>` releases of `acaprino/muro`,
+  with assets `marionette-<version>.zip` and its `.sha256`, beside Muro's own
+  `muro-v<version>` releases. GitHub marks whichever was published last as latest, so
+  `releases/latest` can name Muro. `acaprino/marionette` holds only `v0.1.0` and is not
+  followed.
 
 The question: how does one plugin that changes upstream reach every hosted agent at its
 newest release, without a manual step and without editing the user's own agent
@@ -79,10 +85,12 @@ configuration (ADR-0013)?
 1. **Nothing shipped.** `resources/agent-plugins/` (Ponytail, i-have-adhd, their lock and
    marketplace) is deleted, and the packager stages no plugin. The Claude Code mods in
    `resources/claude-mods` stay packaged and keep their own lock.
-2. **Synced at every start.** When the app starts, a background thread asks
-   `api.github.com/repos/acaprino/marionette/releases/latest` (published releases only, never a
-   draft or prerelease). The release must carry exactly one `marionette*.zip` asset under
-   `github.com/acaprino/marionette/releases/download/` with a GitHub `sha256:` digest. When the tag
+2. **Synced at every start.** When the app starts, a background thread lists
+   `api.github.com/repos/acaprino/muro/releases?per_page=100` and takes the highest
+   `marionette-v<version>` release in numeric version order; drafts, prereleases, Muro's own
+   `muro-v*` releases and any other tag are ignored. The release must carry exactly one
+   `marionette*.zip` asset under `github.com/acaprino/muro/releases/download/<tag>/` with a
+   GitHub `sha256:` digest. When the tag
    differs from the current copy, or the current copy fails its check, the zip is downloaded,
    its size and SHA-256 are checked against the release, it is extracted into a staging
    folder, and the tree is checked: ordinary files only, no links, fixed bounds on count,
@@ -116,8 +124,9 @@ configuration (ADR-0013)?
    `SHINATAMA_BUNDLED_PLUGINS` is retired.
 8. **Out of scope.** Hermes and Gemini have no launch adapter. Codex hook trust for the
    adapter's `SessionStart`/`SubagentStart` hooks is Codex's own review. The adapters' helpers
-   use the user's `python` and `node` on `PATH`. Building Marionette with Muro and publishing
-   the zip as a release of `acaprino/marionette` is done outside Shinatama.
+   use the user's `python` and `node` on `PATH`. Building Marionette and publishing it as a
+   `marionette-v<version>` release of `acaprino/muro` is Muro's Release workflow, outside
+   Shinatama.
 
 ## Consequences
 
@@ -128,11 +137,15 @@ configuration (ADR-0013)?
 - FRD-0017 R23 and FRD-0002 R42 describe Marionette; `AVVIO.md` and `README.md` drop the
   Ponytail and i-have-adhd commands.
 - Each start makes one unauthenticated GitHub API request (60 per hour per address).
+- The lock names its repository: a copy synced from `acaprino/marionette` fails its check
+  and is replaced at the next online start.
 
 ## Verification
 
 Unit tests in `crates/engine/src/marionette.rs` (sync, up to date, new release, offline,
 digest mismatch, tampered and unlisted files, Claude copy and Codex cache mirroring, asset
-rules) and the launchers' argument tests. Manual: a Muro build zipped with `tar.exe` and
+rules, highest `marionette-v*` release chosen over Muro's own) and the launchers' argument
+tests. Manual, 2026-11-12: `real_github_sync` (ignored by default) followed
+`marionette-v0.2.0` from `acaprino/muro` through `SystemFetch`, four adapters verified. Manual: a Muro build zipped with `tar.exe` and
 installed through `SystemFetch::extract` (`real_zip_installs_through_system_tar`, ignored by
 default). A session per harness from the desktop against a published release is open.

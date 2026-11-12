@@ -81,9 +81,10 @@ con **Marionette**, un esempio costruito con [Muro](https://github.com/acaprino/
 include anche le regole di lavoro e di comunicazione di Ponytail e i-have-adhd.
 Non c'è nulla da installare e la configurazione dei tuoi agenti non cambia.
 
-A ogni avvio Shinatama controlla l'ultima release pubblicata su
-[acaprino/marionette](https://github.com/acaprino/marionette) e, se è
-nuova, la scarica in `marionette\` dentro la cartella dati, ne verifica lo
+A ogni avvio Shinatama controlla l'ultima release di Marionette pubblicata su
+[Muro](https://github.com/acaprino/muro/releases) (tag `marionette-v<versione>`; le release
+`muro-v*` di Muro sono ignorate) e, se è nuova, la scarica in `marionette\` dentro la
+cartella dati, ne verifica lo
 SHA-256 e la usa per le sessioni aperte da quel momento. Senza rete resta in uso l'ultima
 copia scaricata; al primo avvio senza rete le sessioni partono senza Marionette.
 Prima di ogni sessione Shinatama verifica i file dell'adapter di quell'agente:
