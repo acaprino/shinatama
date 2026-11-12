@@ -117,7 +117,7 @@ async function closeApp(instance) {
 }
 
 async function selectFolder(instance, path) {
-  await instance.page.locator('#project').click();
+  await instance.page.locator('#project').click(); await instance.page.getByRole('button', { name: 'Project roots…', exact: true }).click();
   await instance.page.locator('#folder').fill(path);
   await instance.page.getByRole('button', { name: 'Use folder', exact: true }).click();
   await expect(instance.page.locator('#project-dialog')).not.toBeVisible();
@@ -144,9 +144,9 @@ try {
   expect(imported.every(project => project.available && /^p_[a-z2-7]{12}$/.test(project.id))).toBe(true);
   expect(new Set(imported.map(project => project.id)).size).toBe(2);
   await expect(instance.page.locator('#project-name')).toHaveText('first-project');
-  await instance.page.locator('#project').click();
+  await instance.page.locator('#project').click(); await instance.page.getByRole('button', { name: 'Project roots…', exact: true }).click();
   await expect(instance.page.locator('.recent-project strong')).toHaveText(['first-project', 'second-project']);
-  await instance.page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await instance.page.getByRole('button', { name: 'Close', exact: true }).click();
   await selectFolder(instance, second);
   await expect(instance.page.locator('#project-name')).toHaveText('second-project');
   const selected = await invoke(instance, 'project_recent');
@@ -170,9 +170,9 @@ try {
   await expect(instance.page.locator('#project-name')).toHaveText('second-project');
   const restored = await invoke(instance, 'project_recent');
   expect(restored).toEqual(selected);
-  await instance.page.locator('#project').click();
+  await instance.page.locator('#project').click(); await instance.page.getByRole('button', { name: 'Project roots…', exact: true }).click();
   await expect(instance.page.locator('.recent-project strong')).toHaveText(['second-project', 'first-project']);
-  await instance.page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await instance.page.getByRole('button', { name: 'Close', exact: true }).click();
   expect(await readFile(legacyPath)).toEqual(corruptedLegacy);
   await closeApp(instance);
   expect(snapshotDatabase()).toEqual(initialSnapshot);
@@ -192,13 +192,13 @@ try {
   const rejected = await invoke(instance, 'project_select', { path: first })
     .then(() => ({ rejected: false, message: '' }), error => ({ rejected: true, message: String(error) }));
   expect(rejected.rejected).toBe(true); expect(rejected.message).toContain('999');
-  await instance.page.locator('#project').click();
+  await instance.page.locator('#project').click(); await instance.page.getByRole('button', { name: 'Project roots…', exact: true }).click();
   await instance.page.locator('#folder').fill(first);
   await instance.page.getByRole('button', { name: 'Use folder', exact: true }).click();
   await expect(instance.page.locator('#project-error')).toContainText('999');
   await expect(instance.page.locator('#project-dialog')).toBeVisible();
   await expect(instance.page.locator('#project-name')).toHaveText('second-project');
-  await instance.page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await instance.page.getByRole('button', { name: 'Close', exact: true }).click();
   await closeApp(instance);
   expect(await readFile(databasePath)).toEqual(futureBytes);
   expect(snapshotDatabase()).toEqual(beforeReadOnly);

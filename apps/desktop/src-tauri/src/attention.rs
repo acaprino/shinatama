@@ -1,5 +1,5 @@
 //! Early Windows widget: transient local notices, never authority to answer a prompt.
-//! Only explicit terminal notification controls and process lifecycle are observed.
+//! Terminal signals, lifecycle, and advisory host memory warnings are observed.
 use crate::{
     Host,
     attention_signals::{AttentionSignals, Signal},
@@ -14,6 +14,9 @@ use std::{
 use tauri::{Emitter, Manager, State};
 
 const LIMIT: usize = 16;
+const MIB: u64 = 1024 * 1024;
+const MEMORY_WARN_BYTES: u64 = 512 * MIB;
+const MEMORY_RECOVER_BYTES: u64 = 768 * MIB;
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Kind {
@@ -21,6 +24,7 @@ pub enum Kind {
     Complete,
     Error,
     Update,
+    Memory,
 }
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -63,6 +67,8 @@ struct Feed {
     last_saved: Option<Instant>,
     /// Errors alternate between two sounds; true when the next one is the second.
     second_error: bool,
+    memory_pressure: bool,
+    memory_dismissed: bool,
 }
 impl Default for Feed {
     fn default() -> Self {
@@ -74,6 +80,8 @@ impl Default for Feed {
             last_sound: None,
             last_saved: None,
             second_error: false,
+            memory_pressure: false,
+            memory_dismissed: false,
         }
     }
 }
@@ -101,19 +109,238 @@ impl Feed {
             return false;
         }
         // A test must never build a permanent queue ahead of real terminal events.
-        self.queue.retain(|old| old.session_id.is_some());
+        self.queue
+            .retain(|old| old.kind == Kind::Memory || old.session_id.is_some());
         // Coalesce outstanding notices for the same terminal; the latest fact wins.
-        if let Some(session) = &notice.session_id {
+        if notice.kind == Kind::Memory {
+            self.queue.retain(|old| old.kind != Kind::Memory);
+        } else if let Some(session) = &notice.session_id {
             self.queue
-                .retain(|old| old.session_id.as_ref() != Some(session));
+                .retain(|old| old.kind == Kind::Memory || old.session_id.as_ref() != Some(session));
         }
         if self.queue.len() == LIMIT {
             self.queue.pop_front();
         }
-        self.queue.push_back(notice);
+        if notice.kind != Kind::Memory
+            && let Some(position) = self.queue.iter().position(|old| old.kind == Kind::Memory)
+        {
+            // A persistent advisory must never hide a new session event.
+            self.queue.insert(position, notice);
+        } else {
+            self.queue.push_back(notice);
+        }
         true
     }
+
+    fn observe_memory(
+        &mut self,
+        memory: Option<crate::resources::MemoryObservation>,
+        consumer: Option<&MemoryConsumer>,
+        partial: bool,
+    ) -> MemoryChange {
+        let Some(memory) = memory else {
+            return self.remove_memory_notice();
+        };
+        let low = memory.physical_available_bytes < MEMORY_WARN_BYTES
+            || memory.commit_available_bytes < MEMORY_WARN_BYTES;
+        let recovered = memory.physical_available_bytes >= MEMORY_RECOVER_BYTES
+            && memory.commit_available_bytes >= MEMORY_RECOVER_BYTES;
+        if recovered {
+            self.memory_pressure = false;
+            self.memory_dismissed = false;
+            return self.remove_memory_notice();
+        }
+        let new_episode = low && !self.memory_pressure;
+        self.memory_pressure |= low;
+        if !self.enabled || !self.memory_pressure || self.memory_dismissed {
+            return MemoryChange::None;
+        }
+        let headroom = if memory.physical_available_bytes < MEMORY_RECOVER_BYTES {
+            format!(
+                "RAM disponibile: {} MiB.",
+                memory.physical_available_bytes / MIB
+            )
+        } else {
+            format!(
+                "Memoria allocabile: {} MiB.",
+                memory.commit_available_bytes / MIB
+            )
+        };
+        let (title, body, session_id) = if let Some(consumer) = consumer {
+            let ranking = if partial {
+                "Più consumo tra i terminali misurati"
+            } else {
+                "Più consumo tra i terminali"
+            };
+            (
+                consumer.label.clone(),
+                format!(
+                    "{headroom} {ranking}: {} MiB allocati. Il lavoro continua.",
+                    consumer.bytes / MIB
+                ),
+                Some(consumer.id.clone()),
+            )
+        } else {
+            (
+                "Memoria del PC in esaurimento".into(),
+                format!("{headroom} Consumi dei terminali non disponibili. Il lavoro continua."),
+                None,
+            )
+        };
+        if let Some(current) = self
+            .queue
+            .iter_mut()
+            .find(|notice| notice.kind == Kind::Memory)
+        {
+            if current.title == title && current.body == body && current.session_id == session_id {
+                return MemoryChange::None;
+            }
+            current.title = title;
+            current.body = body;
+            current.session_id = session_id;
+            return MemoryChange::Refresh;
+        }
+        self.push(notice(Kind::Memory, title, &body, session_id));
+        // A new memory warning behind an unanswered session notice must not
+        // replay that session's sound. Updating a warning is always silent.
+        if new_episode
+            && self
+                .queue
+                .front()
+                .is_some_and(|notice| notice.kind == Kind::Memory)
+        {
+            MemoryChange::Announce
+        } else {
+            MemoryChange::Refresh
+        }
+    }
+
+    fn remove_memory_notice(&mut self) -> MemoryChange {
+        let previous = self.queue.len();
+        self.queue.retain(|notice| notice.kind != Kind::Memory);
+        if self.queue.len() != previous {
+            MemoryChange::Refresh
+        } else {
+            MemoryChange::None
+        }
+    }
+
+    fn forget_session(&mut self, id: &str) {
+        self.sessions.remove(id);
+        self.queue
+            .retain(|notice| notice.session_id.as_deref() != Some(id));
+    }
 }
+
+#[derive(Debug, PartialEq, Eq)]
+enum MemoryChange {
+    None,
+    Refresh,
+    Announce,
+}
+struct MemoryConsumer {
+    id: String,
+    label: String,
+    bytes: u64,
+}
+
+#[cfg(windows)]
+fn largest_memory_consumer(
+    statuses: &[shinatama_terminal::TerminalResourceStatus],
+    sessions: &[SessionInfo],
+) -> (Option<MemoryConsumer>, bool) {
+    use shinatama_terminal::TerminalResourcePhase;
+    let mut largest: Option<MemoryConsumer> = None;
+    let mut partial = false;
+    for status in statuses
+        .iter()
+        .filter(|status| status.phase == TerminalResourcePhase::Running)
+    {
+        let Some(observed) = status.observed.filter(|observed| {
+            observed.membership_complete && status.sample_age_ms.is_some_and(|age| age <= 3000)
+        }) else {
+            partial = true;
+            continue;
+        };
+        let Some(session) = sessions.iter().find(|session| session.id == status.id) else {
+            partial = true;
+            continue;
+        };
+        if largest.as_ref().is_some_and(|old| {
+            old.bytes > observed.private_commit_bytes
+                || (old.bytes == observed.private_commit_bytes && old.id <= status.id)
+        }) {
+            continue;
+        }
+        let project: String = session
+            .cwd
+            .trim_end_matches(['/', '\\'])
+            .rsplit(['/', '\\'])
+            .next()
+            .unwrap_or("")
+            .chars()
+            .filter(|c| !c.is_control())
+            .take(32)
+            .collect();
+        let harness = match session.shell.as_str() {
+            "claude_code" => "Claude Code".to_owned(),
+            "codex" => "Codex".to_owned(),
+            shell => shell.chars().filter(|c| !c.is_control()).take(24).collect(),
+        };
+        // Private commit avoids double-counting shared working-set pages in this
+        // comparison. It identifies the largest measured terminal, not the cause
+        // of host-wide pressure (other applications are outside this ranking).
+        largest = Some(MemoryConsumer {
+            id: status.id.clone(),
+            label: format!(
+                "{harness} #{} · {project}",
+                status.id.chars().take(6).collect::<String>()
+            ),
+            bytes: observed.private_commit_bytes,
+        });
+    }
+    (largest, partial)
+}
+
+/// One bounded, read-only watcher. It works while the main window is minimized;
+/// it never starts, suspends, throttles or stops a terminal.
+#[cfg(windows)]
+pub(crate) fn start_memory_warnings(app: &tauri::AppHandle) {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    static STARTED: AtomicBool = AtomicBool::new(false);
+    if STARTED.swap(true, Ordering::AcqRel) {
+        return;
+    }
+    let app = app.clone();
+    let _ = std::thread::Builder::new()
+        .name("shinatama-memory-warnings".into())
+        .spawn(move || {
+            loop {
+                if app.state::<crate::ExitIntent>().0.load(Ordering::Acquire)
+                    || app.get_webview_window("main").is_none()
+                {
+                    break;
+                }
+                let memory = app
+                    .state::<crate::resources::Resources>()
+                    .memory_observation();
+                let host = app.state::<Host>();
+                let (consumer, partial) = largest_memory_consumer(&host.resources(), &host.list());
+                let controller = app.state::<Controller>();
+                let change = match controller.0.try_lock() {
+                    Ok(mut feed) => feed.observe_memory(memory, consumer.as_ref(), partial),
+                    Err(_) => MemoryChange::None,
+                };
+                if change != MemoryChange::None {
+                    present(&app, &controller, change == MemoryChange::Announce);
+                }
+                std::thread::sleep(Duration::from_secs(2));
+            }
+        });
+}
+
+#[cfg(not(windows))]
+pub(crate) fn start_memory_warnings(_app: &tauri::AppHandle) {}
 #[derive(Default)]
 pub struct Controller(Mutex<Feed>);
 fn lock(controller: &Controller) -> Result<std::sync::MutexGuard<'_, Feed>, String> {
@@ -252,6 +479,7 @@ impl From<Kind> for Cue {
             Kind::Complete => Cue::Complete,
             Kind::Error => Cue::Error,
             Kind::Update => Cue::Update,
+            Kind::Memory => Cue::Update,
         }
     }
 }
@@ -390,22 +618,27 @@ impl Controller {
         play(Cue::Saved);
     }
     pub fn observations(&self) -> HashMap<String, TerminalObservation> {
-        let Ok(feed) = lock(self) else { return HashMap::new() };
+        let Ok(feed) = lock(self) else {
+            return HashMap::new();
+        };
         feed.sessions
             .iter()
-            .map(|(id, o)| (id.clone(), TerminalObservation {
-                ended: o.ended,
-                exit_code: o.exit_code,
-                since_signal_ms: o.last_signal.map(|t| t.elapsed().as_millis() as u64),
-                since_output_ms: o.last_output.map(|t| t.elapsed().as_millis() as u64),
-            }))
+            .map(|(id, o)| {
+                (
+                    id.clone(),
+                    TerminalObservation {
+                        ended: o.ended,
+                        exit_code: o.exit_code,
+                        since_signal_ms: o.last_signal.map(|t| t.elapsed().as_millis() as u64),
+                        since_output_ms: o.last_output.map(|t| t.elapsed().as_millis() as u64),
+                    },
+                )
+            })
             .collect()
     }
     pub fn forget(&self, app: &tauri::AppHandle, id: &str) {
         if let Ok(mut feed) = lock(self) {
-            feed.sessions.remove(id);
-            feed.queue
-                .retain(|notice| notice.session_id.as_deref() != Some(id));
+            feed.forget_session(id);
         }
         present(app, self, false);
     }
@@ -470,6 +703,13 @@ pub fn attention_dismiss(
     if feed.queue.front().is_none_or(|current| current.id != id) {
         return Err("This alert is no longer current.".into());
     }
+    if feed
+        .queue
+        .front()
+        .is_some_and(|current| current.kind == Kind::Memory)
+    {
+        feed.memory_dismissed = true;
+    }
     feed.queue.pop_front();
     drop(feed);
     present(window.app_handle(), &controller, false);
@@ -490,6 +730,7 @@ pub fn attention_open(
         .filter(|current| current.id == id)
         .ok_or("This alert is no longer current.")?;
     let session_id = current.session_id.clone();
+    let memory_notice = current.kind == Kind::Memory;
     if let Some(session) = &session_id
         && host.info(session).is_err()
     {
@@ -501,6 +742,9 @@ pub fn attention_open(
         .ok_or("The workspace is unavailable.")?;
     // Consume this exact notice atomically. A concurrent terminal event can then
     // enqueue a new notice without our click dismissing that newer one.
+    if memory_notice {
+        feed.memory_dismissed = true;
+    }
     feed.queue.pop_front();
     drop(feed);
     present(window.app_handle(), &controller, false);
@@ -517,8 +761,190 @@ pub fn attention_open(
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn memory(physical: u64, commit: u64) -> crate::resources::MemoryObservation {
+        crate::resources::MemoryObservation {
+            physical_available_bytes: physical * MIB,
+            commit_available_bytes: commit * MIB,
+        }
+    }
+    #[test]
+    fn memory_warning_preserves_session_attention_and_updates_without_repeating() {
+        let mut feed = Feed::default();
+        feed.push(notice(
+            Kind::Input,
+            "Question".into(),
+            "Answer needed",
+            Some("one".into()),
+        ));
+        let usage = MemoryConsumer {
+            id: "one".into(),
+            label: "Codex · project".into(),
+            bytes: 1800 * MIB,
+        };
+        assert_eq!(
+            feed.observe_memory(Some(memory(400, 2000)), Some(&usage), false),
+            MemoryChange::Refresh
+        );
+        assert_eq!(feed.queue.len(), 2);
+        assert_eq!(feed.queue.front().unwrap().kind, Kind::Input);
+        let warning = feed.queue.back().unwrap();
+        assert_eq!(warning.kind, Kind::Memory);
+        assert!(warning.body.contains("1800 MiB"));
+        let id = warning.id.clone();
+        assert_eq!(
+            feed.observe_memory(Some(memory(380, 2000)), Some(&usage), false),
+            MemoryChange::Refresh
+        );
+        assert_eq!(feed.queue.back().unwrap().id, id);
+        feed.push(notice(
+            Kind::Update,
+            "Update".into(),
+            "New information",
+            Some("one".into()),
+        ));
+        assert_eq!(
+            feed.queue
+                .iter()
+                .filter(|notice| notice.kind == Kind::Memory)
+                .count(),
+            1
+        );
+        assert_eq!(feed.queue.len(), 2);
+        assert_eq!(feed.queue.front().unwrap().kind, Kind::Update);
+        feed.observe_memory(Some(memory(900, 2000)), None, false);
+        assert_eq!(feed.queue.len(), 1);
+        assert_eq!(feed.queue.front().unwrap().kind, Kind::Update);
+    }
+    #[test]
+    fn memory_warning_recovers_with_hysteresis_and_respects_dismissal() {
+        let mut feed = Feed::default();
+        assert_eq!(
+            feed.observe_memory(Some(memory(400, 2000)), None, false),
+            MemoryChange::Announce
+        );
+        assert!(feed.queue.front().unwrap().body.contains("non disponibili"));
+        feed.memory_dismissed = true;
+        feed.queue.clear();
+        assert_eq!(
+            feed.observe_memory(Some(memory(600, 2000)), None, false),
+            MemoryChange::None
+        );
+        assert_eq!(
+            feed.observe_memory(Some(memory(400, 2000)), None, false),
+            MemoryChange::None
+        );
+        feed.observe_memory(Some(memory(900, 2000)), None, false);
+        assert_eq!(
+            feed.observe_memory(Some(memory(2000, 400)), None, false),
+            MemoryChange::Announce
+        );
+        assert_eq!(
+            feed.observe_memory(Some(memory(2000, 900)), None, false),
+            MemoryChange::Refresh
+        );
+        assert!(feed.queue.is_empty());
+        assert_eq!(feed.observe_memory(None, None, false), MemoryChange::None);
+    }
+    #[test]
+    fn missing_memory_samples_do_not_invent_pressure_or_current_consumers() {
+        let mut feed = Feed::default();
+        assert_eq!(feed.observe_memory(None, None, false), MemoryChange::None);
+        feed.observe_memory(Some(memory(400, 2000)), None, false);
+        assert_eq!(
+            feed.observe_memory(None, None, false),
+            MemoryChange::Refresh
+        );
+        assert!(feed.queue.is_empty());
+        assert_eq!(
+            feed.observe_memory(Some(memory(400, 2000)), None, false),
+            MemoryChange::Refresh
+        );
+        assert_eq!(feed.queue.len(), 1);
+    }
+    #[cfg(windows)]
+    #[test]
+    fn memory_ranking_ignores_stale_partial_and_ended_terminals() {
+        use shinatama_terminal::{
+            TerminalResourceObservation, TerminalResourcePhase, TerminalResourceReason,
+            TerminalResourceStatus,
+        };
+        let sessions: Vec<_> = ["small", "large", "stale", "partial", "ended"]
+            .into_iter()
+            .map(|id| SessionInfo {
+                id: id.into(),
+                cwd: r"D:\Projects\example".into(),
+                shell: "codex".into(),
+            })
+            .collect();
+        let mut statuses: Vec<_> = sessions
+            .iter()
+            .enumerate()
+            .map(|(index, session)| TerminalResourceStatus {
+                id: session.id.clone(),
+                phase: TerminalResourcePhase::Running,
+                observed: Some(TerminalResourceObservation {
+                    private_commit_bytes: (index as u64 + 1) * 100 * MIB,
+                    resident_bytes: 0,
+                    peak_job_commit_bytes: 0,
+                    active_processes: 1,
+                    total_processes: 1,
+                    total_terminated_processes: 0,
+                    cpu_time_100ns: 0,
+                    membership_complete: true,
+                }),
+                applied: None,
+                queues: None,
+                sample_age_ms: Some(100),
+                reason: TerminalResourceReason::Observed,
+            })
+            .collect();
+        statuses[2].sample_age_ms = Some(3001);
+        statuses[3].observed.as_mut().unwrap().membership_complete = false;
+        statuses[4].phase = TerminalResourcePhase::Ended;
+        let (largest, partial) = largest_memory_consumer(&statuses, &sessions);
+        let largest = largest.unwrap();
+        assert_eq!(largest.id, "large");
+        assert_eq!(largest.bytes, 200 * MIB);
+        assert_eq!(largest.label, "Codex #large · example");
+        assert!(partial);
+        let (largest, partial) = largest_memory_consumer(&statuses[..2], &sessions);
+        assert_eq!(largest.unwrap().id, "large");
+        assert!(!partial);
+    }
+    #[test]
+    fn disabled_widget_does_not_queue_memory_warnings() {
+        let mut feed = Feed::default();
+        feed.enabled = false;
+        assert_eq!(
+            feed.observe_memory(Some(memory(400, 2000)), None, false),
+            MemoryChange::None
+        );
+        assert!(feed.queue.is_empty());
+        feed.enabled = true;
+        assert_eq!(
+            feed.observe_memory(Some(memory(400, 2000)), None, false),
+            MemoryChange::Refresh
+        );
+        assert_eq!(feed.queue.len(), 1);
+    }
+    #[test]
+    fn closing_a_terminal_removes_its_memory_notice_and_target() {
+        let mut feed = Feed::default();
+        let usage = MemoryConsumer {
+            id: "one".into(),
+            label: "Codex · project".into(),
+            bytes: 1800 * MIB,
+        };
+        feed.observe_memory(Some(memory(400, 2000)), Some(&usage), false);
+        feed.forget_session("one");
+        assert!(feed.queue.is_empty());
+        feed.observe_memory(Some(memory(400, 2000)), None, false);
+        assert!(feed.queue.front().unwrap().session_id.is_none());
+        assert!(!feed.queue.front().unwrap().body.contains("1800"));
+    }
     #[test]
     fn every_kind_has_an_embedded_pcm_wav() {
+        assert_eq!(Cue::from(Kind::Memory), Cue::Update);
         let cues = [Kind::Input, Kind::Complete, Kind::Error, Kind::Update]
             .map(Cue::from)
             .into_iter()

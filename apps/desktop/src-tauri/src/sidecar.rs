@@ -299,7 +299,7 @@ impl Controller {
             .runtime
             .sidecar_provider(lock, state.location.clone())
             .map_err(|_| "Proxy resource admission is unavailable.")?;
-        self.runtime.wait_for_admission().map_err(|_| "Resources are not yet ready for the local service. Wait and retry Start; no process was created.")?;
+        self.runtime.wait_for_interactive_admission().map_err(|_| "Resources are not yet ready for the local service. Wait and retry Start; no process was created.")?;
         // A competing bind is handled by exact child/health identity checks and
         // finite startup failure, never by attaching to or stopping that listener.
         drop(listener);

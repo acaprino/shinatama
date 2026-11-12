@@ -25,6 +25,7 @@ button:focus-visible { outline: 2px solid #edfff8; outline-offset: 3px; }
   user-select: none;
 }
 .attention[data-kind="input"] { --signal: #f0d18b; }
+.attention[data-kind="memory"] { --signal: #f0d18b; }
 .attention[data-kind="error"] { --signal: #ffada6; }
 .attention[data-kind="complete"] { --signal: #a8e5ce; }
 .portrait { position: relative; align-self: end; height: 176px; display: flex; align-items: center; justify-content: center; padding-bottom: 12px; }

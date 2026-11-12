@@ -490,7 +490,7 @@ impl<D: HarnessDriver> Service<D> {
         let mut admit = || {
             self.context
                 .runtime
-                .prepare_background_workload(policy.probe_budget, 256 * 1024 * 1024, 15_000)
+                .prepare_interactive_support_workload(policy.probe_budget, 256 * 1024 * 1024, 15_000)
                 .map_err(DriverError::deferred)
         };
         let outcome = match self.driver.probe(
@@ -748,7 +748,7 @@ impl<D: HarnessDriver> Service<D> {
             self.context.wait_for_qualified_sidecar()?;
             self.context
                 .runtime
-                .wait_for_admission()
+                .wait_for_interactive_admission()
                 .map_err(DriverError::deferred)?;
             self.context.runtime.configure(host).map_err(|_| {
                 DriverError::Failed("Contained native terminal admission is unavailable.")
@@ -856,7 +856,7 @@ impl<D: HarnessDriver> Service<D> {
         self.context.wait_for_qualified_sidecar()?;
         self.context
             .runtime
-            .wait_for_admission()
+            .wait_for_interactive_admission()
             .map_err(DriverError::deferred)?;
         let host = Arc::new(TerminalHost::default());
         self.context

@@ -28,7 +28,7 @@ function selectExpression(noticeId: string) {
   portrait.dataset.expression = expressions[expressionIndex].name;
 }
 
-type AttentionKind = 'input' | 'complete' | 'error' | 'update';
+type AttentionKind = 'input' | 'complete' | 'error' | 'update' | 'memory';
 interface AttentionNotice {
   id: string;
   kind: AttentionKind;
@@ -52,18 +52,16 @@ const open = document.querySelector<HTMLButtonElement>('#attention-open')!;
 const dismiss = document.querySelector<HTMLButtonElement>('#attention-dismiss')!;
 const kindLabels: Record<AttentionKind, string> = {
   input: 'Serve una tua risposta', complete: 'Processo terminato',
-  error: 'Richiede attenzione', update: 'Aggiornamento',
+  error: 'Richiede attenzione', update: 'Aggiornamento', memory: 'Memoria del PC in esaurimento',
 };
 let current: AttentionNotice | null = null;
 let refreshRevision = 0;
 let actionPending = false;
 let animationTimer: ReturnType<typeof setTimeout> | undefined;
-let dismissTimer: ReturnType<typeof setTimeout> | undefined;
 
 function render(snapshot: AttentionSnapshot) {
   const notice = snapshot.enabled ? snapshot.current : null;
   if (!notice) {
-    clearTimeout(dismissTimer);
     current = null;
     root.hidden = true;
     return;
@@ -80,12 +78,8 @@ function render(snapshot: AttentionSnapshot) {
   if (changed) {
     selectExpression(notice.id);
     error.hidden = true;
-    clearTimeout(dismissTimer);
-    if (notice.kind === 'complete' || notice.kind === 'update') {
-      dismissTimer = setTimeout(() => {
-        if (current?.id === notice.id) void act('attention_dismiss');
-      }, 15_000);
-    }
+    // Reading time belongs to the user. Only an explicit action dismisses a
+    // notice; the backend can still replace resolved or superseded facts.
     root.classList.remove('arriving');
     clearTimeout(animationTimer);
     // Restart only the brief expression when a different notice arrives.
@@ -143,7 +137,7 @@ document.addEventListener('keydown', (event) => {
 // Subscribe before the first snapshot so an event between startup and hydration is retained.
 void listen('attention-changed', () => { void refresh(); }).then((unlisten) => {
   window.addEventListener('pagehide', () => {
-    unlisten(); clearTimeout(animationTimer); clearTimeout(dismissTimer);
+    unlisten(); clearTimeout(animationTimer);
   }, { once: true });
   return refresh();
 }).catch(() => { void refresh(); });

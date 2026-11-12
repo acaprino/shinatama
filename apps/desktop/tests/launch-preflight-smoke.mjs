@@ -58,7 +58,9 @@ try {
   }
   assert.ok(browser, 'Embedded preflight-test WebView startup deadline exceeded.');
   const context = browser.contexts()[0];
-  page = context.pages()[0] || await context.waitForEvent('page', { timeout: 5000 });
+  // The attention widget is a page too; the workspace is the one that is not widget.html.
+  for (const deadline = Date.now() + 10000; !(page = context.pages().find(candidate => candidate.url().includes('tauri.localhost') && !candidate.url().includes('widget.html'))) && Date.now() < deadline;) await delay(100);
+  if (!page) throw new Error('The workspace page did not load.');
   await page.waitForURL(url => url.hostname === 'tauri.localhost', { timeout: 10000 });
   const storage = await invoke('storage_location');
   const pathKey = value => value.replace(/^\\\\\?\\/, '').replaceAll('/', '\\').toLowerCase();

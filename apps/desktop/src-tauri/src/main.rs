@@ -199,7 +199,7 @@ async fn terminal_start(
         #[cfg(windows)]
         runtime.configure(&host)?;
         #[cfg(windows)]
-        runtime.wait_for_admission()?;
+        runtime.wait_for_interactive_admission()?;
         host.start(&PathBuf::from(cwd), rows, cols)
             .map_err(|e| format!("{e:#}"))
     })
@@ -638,6 +638,13 @@ fn main() {
                 app.manage(runtime);
             }
             app.manage(services);
+            // Tauri builds configured windows before this hook runs, so a page could call a
+            // command whose state is not managed yet ("Agent choices could not be loaded").
+            // The windows are declared with "create": false and built only now.
+            for config in app.config().app.windows.clone() {
+                tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?.build()?;
+            }
+            attention::start_memory_warnings(app.handle());
             Ok(())
         });
     #[cfg(not(feature = "tl1-proof"))]

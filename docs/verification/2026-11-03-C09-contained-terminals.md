@@ -1,5 +1,14 @@
 # C09 — contained Windows terminals
 
+> **Superseded for interactive memory behavior, 2026-11-12.** The evidence below
+> records the original hard-cap implementation and is preserved unchanged.
+> Interactive terminal jobs now use advisory memory: no Windows memory caps and
+> no memory-triggered stop or pause. New starts use a small absolute headroom
+> check, and the widget reports pressure and the largest measured terminal.
+> Process/CPU/queue constraints and background workload containment remain.
+> See [the replacement policy](../notes/2026-11-12-interactive-memory.md).
+> Historical allocation-refusal results below do not verify this new behavior.
+
 The desktop now creates ConPTY in an owned helper, admitted into its native job
 before executing helper code. Before the shell can run, the parent verifies live
 helper and console-host identities in that same job; the shell is also created

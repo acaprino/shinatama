@@ -509,6 +509,25 @@ fn fault_child() {
         }
         return;
     }
+    // Fixed allocation, deliberately small: this verifies an advisory threshold
+    // without exhausting either the process or the machine.
+    let advisory_allocation = if mode == "advisory_memory" {
+        let pointer = unsafe {
+            VirtualAlloc(
+                null(),
+                (32 * MIB) as usize,
+                MEM_COMMIT | MEM_RESERVE,
+                PAGE_READWRITE,
+            )
+        };
+        assert!(
+            !pointer.is_null(),
+            "advisory memory threshold rejected allocation"
+        );
+        Some(pointer)
+    } else {
+        None
+    };
     publish(&root, &format!("{case}-ready"), "ready");
     let deadline = Instant::now() + Duration::from_secs(20);
     match mode {
@@ -525,7 +544,7 @@ fn fault_child() {
             }
             publish(&root, &format!("{case}-finished"), "all 1 MiB written");
         }
-        "healthy" => {
+        "healthy" | "advisory_memory" => {
             let mut sequence = 0;
             while Instant::now() < deadline {
                 let name = format!("ping-{sequence}");
@@ -540,6 +559,31 @@ fn fault_child() {
         "count" => std::thread::sleep(Duration::from_secs(20)),
         _ => panic!("unexpected synthetic mode"),
     }
+    if let Some(pointer) = advisory_allocation {
+        assert_ne!(unsafe { VirtualFree(pointer, 0, MEM_RELEASE) }, 0);
+    }
+}
+
+#[test]
+fn advisory_memory_allows_growth_and_keeps_the_same_child_responsive() {
+    let fixture = Fixture::new();
+    let slot = WorkloadSlot::new();
+    let requested = JobBudget::new(16 * MIB, 8 * MIB, 1, 1000)
+        .unwrap()
+        .with_advisory_memory();
+    let job = WorkloadJob::create(&slot, key(), requested).unwrap();
+    let child = spawn(&job, &fixture, "advisory_memory", "advisory", None).unwrap();
+    child.resume();
+    receive(&fixture.root, "advisory-ready", WAIT);
+    let observed = job.query(&WindowsSampler::new()).unwrap();
+    assert!(observed.membership_complete);
+    assert!(observed.observed_private_commit_bytes >= 32 * MIB);
+    assert!(observed.observed_private_commit_bytes > requested.job_commit_bytes());
+    let mut sequence = 0;
+    for _ in 0..3 {
+        ping(&fixture, &mut sequence, &child);
+    }
+    finish(job, &child, &slot, false);
 }
 
 #[test]

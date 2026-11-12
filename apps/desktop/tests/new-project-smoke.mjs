@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { basename, delimiter, dirname, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { setTimeout as delay } from 'node:timers/promises';
+import { startSession } from './session-flow.mjs';
 import { promisify } from 'node:util';
 
 if (process.platform !== 'win32') throw new Error('This new-project proof qualifies the real Windows app only.');
@@ -125,7 +126,9 @@ async function openApp() {
     }
     if (!instance.browser) throw new Error('New-project app startup exceeded 30 seconds.');
     const context = instance.browser.contexts()[0];
-    instance.page = context.pages()[0] || await context.waitForEvent('page', { timeout: 5000 });
+    // The attention widget is a page too; the workspace is the one that is not widget.html.
+    for (const deadline = Date.now() + 10000; !(instance.page = context.pages().find(candidate => candidate.url().includes('tauri.localhost') && !candidate.url().includes('widget.html'))) && Date.now() < deadline;) await delay(100);
+    if (!instance.page) throw new Error('The workspace page did not load.');
     instance.page.on('pageerror', error => instance.errors.push(error.message));
     await instance.page.waitForURL(url => url.hostname === 'tauri.localhost', { timeout: 10000 });
     await expect(instance.page.locator('#runtime-status')).toContainText('Local runtime', { timeout: 10000 });
@@ -138,15 +141,15 @@ async function closeApp(instance) {
   const closing = Promise.all([instance.page.waitForEvent('close', { timeout: 10000 }), exitWithin(instance.app, 10000)]);
   void closing.catch(() => {});
   await instance.page.getByRole('button', { name: 'Close window', exact: true }).click();
-  if (hasTerminals) await instance.page.locator('.wm-tab-close').first().click();
+  if (hasTerminals) await instance.page.locator('#confirm-dialog').getByRole('button', { name: 'Stop', exact: true }).click();
   await closing; expect(instance.app.exitCode).toBe(0); expect(instance.errors).toEqual([]);
   await instance.browser.close().catch(() => {}); live.delete(instance);
 }
 async function openCreator(instance, fromPicker = false) {
   if (fromPicker) {
-    await instance.page.locator('#project').click();
-    await expect(instance.page.locator('#manage-roots')).toBeEnabled();
-    await instance.page.locator('#manage-roots').focus();
+    await instance.page.locator('#project').click(); await instance.page.getByRole('button', { name: 'Project roots…', exact: true }).click();
+    await expect(instance.page.locator('#refresh-projects')).toBeEnabled();
+    await instance.page.locator('#refresh-projects').focus();
   }
   else await instance.page.locator('#project').focus();
   await instance.page.keyboard.press('n');
@@ -166,27 +169,29 @@ async function rootFolders() {
 try {
   if (withGit) gitExecutable = await selectGit();
   let instance = await openApp(); const page = instance.page;
-  await page.locator('#project').click(); await page.locator('#folder').fill(seed);
+  await page.locator('#project').click(); await page.getByRole('button', { name: 'Project roots…', exact: true }).click(); await page.locator('#folder').fill(seed);
   await page.getByRole('button', { name: 'Use folder', exact: true }).click();
   await expect(page.locator('#project-dialog')).not.toBeVisible();
-  await page.locator('#project').click(); await page.locator('#manage-roots').click();
-  await page.locator('#add-root').click(); await page.getByRole('textbox', { name: 'Project root 1', exact: true }).fill(rootA);
-  await page.locator('#add-root').click(); await page.getByRole('textbox', { name: 'Project root 2', exact: true }).fill(rootB);
-  await page.getByRole('radio', { name: 'Use root 2 as default', exact: true }).check(); await page.locator('#save-roots').click();
-  await expect(page.locator('#roots-editor')).not.toBeVisible();
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.locator('#project').click(); await page.getByRole('button', { name: 'Project roots…', exact: true }).click();
+  await page.locator('#root-path').fill(rootA); await page.locator('#add-root').click();
+  await expect(page.locator('.catalog-root-status')).toHaveCount(1, { timeout: 10000 });
+  await page.locator('#root-path').fill(rootB); await page.locator('#add-root').click();
+  await expect(page.locator('.catalog-root-status')).toHaveCount(2, { timeout: 10000 });
+  await page.locator('.catalog-root-status').nth(1).getByRole('button', { name: /^Make default/ }).click();
+  await expect(page.locator('.catalog-root-status').nth(1).locator('.root-default')).toHaveAttribute('aria-pressed', 'true', { timeout: 10000 });
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
   const configuration = await invoke(instance, 'new_project_options');
   const defaultId = configuration.defaultRootId;
   expect(key(configuration.roots.find(root => root.id === defaultId).path)).toBe(key(rootB));
 
   // Neither filter nor ordinary text input can be stolen by the n shortcut.
-  await page.locator('#project').click(); await page.locator('#project-filter').fill(''); await page.locator('#project-filter').focus();
+  await page.locator('#project').click(); await page.getByRole('button', { name: 'Project roots…', exact: true }).click(); await page.locator('#project-filter').fill(''); await page.locator('#project-filter').focus();
   await page.keyboard.press('n'); await expect(page.locator('#project-filter')).toHaveValue('n');
   await expect(page.locator('#new-project-dialog')).not.toBeVisible();
   await page.locator('#folder').fill('typed-'); await page.locator('#folder').focus(); await page.keyboard.press('n');
   await expect(page.locator('#folder')).toHaveValue('typed-n'); await expect(page.locator('#new-project-dialog')).not.toBeVisible();
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await page.locator('#new-terminal').click(); await expect(page.locator('.xterm-accessibility')).toContainText('PS ', { timeout: 20000 });
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await (await startSession(page, { project: seed, harness: 'powershell' })).done(30000); await expect(page.locator('.xterm-accessibility')).toContainText('PS ', { timeout: 20000 });
   const originalSession = (await invoke(instance, 'terminal_list'))[0];
   await page.locator('.xterm-helper-textarea').focus(); await page.keyboard.type("Write-Output ('C05_KEY_' + '");
   await page.keyboard.press('n'); await expect(page.locator('#new-project-dialog')).not.toBeVisible();
@@ -194,14 +199,11 @@ try {
   await expect(page.locator('.xterm-accessibility')).toContainText('C05_KEY_n');
   evidence.checks.nDoesNotStealFilterTextInputOrTerminalInput = true;
 
-  // A root draft is retained; n cannot silently replace an editing picker.
-  await page.locator('#project').click(); await page.locator('#manage-roots').click(); await page.locator('#add-root').click();
+  // A root path being typed keeps its n; the visible button still opens the creator.
+  await page.locator('#project').click(); await page.getByRole('button', { name: 'Project roots…', exact: true }).click();
   const unsavedRoot = resolve(fixture, 'unsaved-root');
-  await page.getByRole('textbox', { name: 'Project root 3', exact: true }).fill(unsavedRoot);
-  await page.locator('#save-roots').focus(); await page.keyboard.press('n');
-  await expect(page.locator('#new-project-dialog')).not.toBeVisible(); await expect(page.locator('#roots-editor')).toBeVisible();
-  await expect(page.getByRole('textbox', { name: 'Project root 3', exact: true })).toHaveValue(unsavedRoot);
-  await expect(page.locator('#project-error')).toContainText('Save or discard'); await page.locator('#discard-roots').click();
+  await page.locator('#root-path').fill(unsavedRoot); await page.locator('#root-path').focus(); await page.keyboard.press('n');
+  await expect(page.locator('#new-project-dialog')).not.toBeVisible(); await expect(page.locator('#root-path')).toHaveValue(`${unsavedRoot}n`);
   await page.locator('#create-project').click(); await expect(page.locator('#new-project-dialog')).toBeVisible();
   await expect(page.locator('#new-project-root')).toHaveValue(defaultId); await expect(page.locator('#new-project-git')).not.toBeChecked();
   await page.getByRole('button', { name: 'Cancel', exact: true }).click(); expect(await rootFolders()).toEqual([]);

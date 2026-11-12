@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { setTimeout as delay } from 'node:timers/promises';
+import { startSession } from './session-flow.mjs';
 
 if (process.platform !== 'win32') throw new Error('This embedded catalog test qualifies Windows only.');
 const workspace = process.cwd();
@@ -71,7 +72,9 @@ async function openApp() {
     }
     if (!instance.browser) throw new Error('Catalog-test app startup exceeded 30 seconds.');
     const context = instance.browser.contexts()[0];
-    instance.page = context.pages()[0] || await context.waitForEvent('page', { timeout: 5000 });
+    // The attention widget is a page too; the workspace is the one that is not widget.html.
+    for (const deadline = Date.now() + 10000; !(instance.page = context.pages().find(candidate => candidate.url().includes('tauri.localhost') && !candidate.url().includes('widget.html'))) && Date.now() < deadline;) await delay(100);
+    if (!instance.page) throw new Error('The workspace page did not load.');
     instance.page.on('pageerror', error => instance.errors.push(error.message));
     await instance.page.waitForURL(url => url.hostname === 'tauri.localhost', { timeout: 10000 });
     await expect(instance.page.locator('#runtime-status')).toContainText('Local runtime', { timeout: 10000 });
@@ -85,7 +88,7 @@ async function closeApp(instance) {
   const closing = Promise.all([instance.page.waitForEvent('close', { timeout: 10000 }), exitWithin(instance.app, 10000)]);
   void closing.catch(() => {});
   await instance.page.getByRole('button', { name: 'Close window', exact: true }).click();
-  if (hasTerminals) await instance.page.locator('.wm-tab-close').first().click();
+  if (hasTerminals) await instance.page.locator('#confirm-dialog').getByRole('button', { name: 'Stop', exact: true }).click();
   await closing; expect(instance.app.exitCode).toBe(0); expect(instance.errors).toEqual([]);
   await instance.browser.close().catch(() => {}); live.delete(instance);
 }
@@ -97,28 +100,28 @@ function managerConfig() {
 
 try {
   let instance = await openApp(); const page = instance.page;
-  await page.locator('#project').click(); await page.locator('#folder').fill(used);
+  await page.locator('#project').click(); await page.getByRole('button', { name: 'Project roots…', exact: true }).click(); await page.locator('#folder').fill(used);
   await page.getByRole('button', { name: 'Use folder', exact: true }).click();
   await expect(page.locator('#project-dialog')).not.toBeVisible();
-  await page.locator('#new-terminal').click();
+  await (await startSession(page, { project: used, harness: 'powershell' })).done(30000);
   await expect(page.locator('.xterm-accessibility')).toContainText('PS ', { timeout: 20000 });
   const originalSession = (await invoke(instance, 'terminal_list'))[0];
-  await page.locator('#project').click();
-  await page.locator('#manage-roots').click();
-  await page.locator('#add-root').click(); await page.getByRole('textbox', { name: 'Project root 1', exact: true }).fill(rootA);
-  await page.locator('#add-root').click(); await page.getByRole('textbox', { name: 'Project root 2', exact: true }).fill(rootB);
-  await page.getByRole('radio', { name: 'Use root 2 as default', exact: true }).check();
-  await page.locator('#save-roots').focus(); await page.keyboard.press('Enter');
-  await expect.poll(async () => {
+  // Roots are saved the moment they are added; the first one becomes the default.
+  await page.locator('#project').click(); await page.getByRole('button', { name: 'Project roots…', exact: true }).click();
+  const rootsSaved = count => expect.poll(async () => {
     if (await page.locator('#project-error').isVisible()) throw new Error(`Saving synthetic project roots failed: ${await page.locator('#project-error').textContent()}`);
-    return page.locator('#roots-editor').isVisible();
-  }, { timeout: 10000 }).toBe(false);
+    return page.locator('.catalog-root-status').count();
+  }, { timeout: 10000 }).toBe(count);
+  await page.locator('#root-path').fill(rootA); await page.locator('#add-root').click(); await rootsSaved(1);
+  await page.locator('#root-path').fill(rootB); await page.locator('#root-path').press('Enter'); await rootsSaved(2);
+  await page.locator('.catalog-root-status').nth(1).getByRole('button', { name: /^Make default/ }).click();
+  await expect(page.locator('.catalog-root-status').nth(1).locator('.root-default')).toHaveAttribute('aria-pressed', 'true', { timeout: 10000 });
   await expect(page.locator('#catalog-state')).toHaveText('186 matching projects', { timeout: 15000 });
   await expect(page.locator('.catalog-root-status')).toHaveCount(2);
   await expect(page.locator('#default-root-summary')).toContainText(rootB);
   await expect(page.locator('.catalog-project')).toHaveCount(100);
   await expect(page.locator('.catalog-project strong').first()).toHaveText('z-last-opened');
-  await expect(page.locator('#recent-project-heading')).toHaveText('Outside folders · last ten');
+  await expect(page.locator('#recent-project-heading')).toHaveText('Single folders outside your roots');
   await expect(page.locator('.recent-project')).toHaveCount(0);
   await page.locator('#catalog-next').click();
   await expect(page.locator('.catalog-project')).toHaveCount(86);
@@ -130,20 +133,21 @@ try {
   await page.locator('#project-filter').fill('no-project-has-this-name');
   await expect(page.locator('.catalog-project')).toHaveCount(0);
   await expect(page.locator('#catalog-state')).toHaveText('0 matching projects');
-  await page.locator('#manage-roots').focus(); await page.keyboard.press('/');
+  await page.locator('#refresh-projects').focus(); await page.keyboard.press('/');
   await expect(page.locator('#project-filter')).toBeFocused();
   await page.locator('#project-filter').fill('z-last-opened');
   await expect(page.locator('.catalog-project')).toHaveCount(1);
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(page.locator('#project-name')).toHaveText('z-last-opened');
   expect(await invoke(instance, 'terminal_list')).toEqual([originalSession]);
   evidence.checks.multipleRootsExplicitDefaultAnd100RowPagination = true;
   evidence.checks.usageOrderingAndIncrementalFilter = true;
   evidence.checks.catalogCancelPreservesSelectionAndTerminalIdentity = true;
 
-  await page.locator('#project').click(); await page.locator('#manage-roots').click(); await page.locator('#add-root').click();
-  await page.getByRole('textbox', { name: 'Project root 3', exact: true }).fill(resolve(fixture, 'discarded-root'));
-  await page.locator('#discard-roots').click(); await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  // A path typed but never added is not saved.
+  await page.locator('#project').click(); await page.getByRole('button', { name: 'Project roots…', exact: true }).click();
+  await page.locator('#root-path').fill(resolve(fixture, 'discarded-root'));
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
   await page.locator('.xterm-helper-textarea').focus(); await page.keyboard.type('/');
   await expect(page.locator('#project-dialog')).not.toBeVisible();
   await page.keyboard.press('Backspace');
@@ -160,17 +164,14 @@ try {
   instance = await openApp();
   await expect(instance.page.locator('#project-name')).toHaveText('z-last-opened');
   expect(await invoke(instance, 'terminal_list')).toEqual([]);
-  await instance.page.locator('#project').click();
+  await instance.page.locator('#project').click(); await instance.page.getByRole('button', { name: 'Project roots…', exact: true }).click();
   await expect(instance.page.locator('.catalog-root-status.missing')).toHaveCount(1, { timeout: 15000 });
   await expect(instance.page.locator('.catalog-root-status.missing')).toContainText(rootB);
   await expect(instance.page.locator('.catalog-root-status.missing')).toContainText('Default');
   await expect(instance.page.locator('#default-root-summary')).toContainText(rootB);
-  await instance.page.locator('#manage-roots').click();
-  await expect(instance.page.getByRole('radio', { name: 'Use root 2 as default', exact: true })).toBeChecked();
-  await expect(instance.page.getByRole('textbox', { name: 'Project root 2', exact: true })).toHaveValue(rootB);
-  await instance.page.locator('#discard-roots').click();
+  await expect(instance.page.locator('.catalog-root-status').nth(1).locator('.root-default')).toHaveAttribute('aria-pressed', 'true');
   await instance.page.screenshot({ path: resolve(output, 'project-roots.png') });
-  await instance.page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await instance.page.getByRole('button', { name: 'Close', exact: true }).click();
   await closeApp(instance);
   expect(managerConfig()).toEqual(saved);
   evidence.checks.restartRetainsRootsAndMissingDefaultWithoutFallback = true;

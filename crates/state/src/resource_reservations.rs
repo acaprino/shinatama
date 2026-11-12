@@ -132,8 +132,8 @@ impl PolicyStamp {
     }
 }
 
-/// The trusted engine installs one frozen calibrated policy. Reservations never
-/// accept replacement ceilings. Policy changes require a separately reviewed flow.
+/// Reservations never change their policy. A trusted caller may replace an empty
+/// ledger's policy explicitly, comparing its complete policy and revision.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReservationPolicy {
@@ -405,6 +405,40 @@ pub(crate) fn write_ledger(connection: &rusqlite::Connection, ledger: &Reservati
     Ok(())
 }
 
+fn replace_empty_policy(
+    connection: &mut rusqlite::Connection,
+    expected: &ReservationPolicy,
+    expected_revision: u64,
+    replacement: &ReservationPolicy,
+) -> Result<ReservationSnapshot> {
+    expected.validate()?;
+    replacement.validate()?;
+    if expected_revision > MAX_REVISION {
+        return Err(ReservationError::Invalid);
+    }
+    let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    crate::schema::require_write_version(&transaction)?;
+    let mut ledger = read_ledger(&transaction)?.ok_or(ReservationError::NotFound)?;
+    if ledger.revision != expected_revision {
+        return Err(ReservationError::Conflict);
+    }
+    if ledger.policy != *expected {
+        return Err(ReservationError::PolicyMismatch);
+    }
+    // Even a retired reservation still owns capacity until native cleanup is
+    // proven. Neither expiry nor an apparently dead owner establishes emptiness.
+    if !ledger.slots.is_empty() {
+        return Err(ReservationError::InvalidTransition);
+    }
+    if ledger.policy != *replacement {
+        ledger.next_revision()?;
+        ledger.policy = replacement.clone();
+        write_ledger(&transaction, &ledger)?;
+    }
+    transaction.commit()?;
+    Ok(ledger)
+}
+
 impl Database {
     /// Explicit policy installation, not part of reserve. An existing policy can
     /// only be reused verbatim, even when every reservation has been released.
@@ -438,6 +472,21 @@ impl Database {
     pub fn resource_reservations(&self) -> Result<Option<ReservationSnapshot>> {
         let connection = self.lock()?;
         read_ledger(&connection)
+    }
+
+    /// Explicit policy migration after all reservations have been released.
+    /// The complete expected policy and revision are compared in one write
+    /// transaction; any outstanding reservation or concurrent change refuses it.
+    /// Ordinary initialization and reservation calls cannot raise a ceiling.
+    pub fn replace_empty_resource_policy(
+        &self,
+        expected: &ReservationPolicy,
+        expected_revision: u64,
+        replacement: &ReservationPolicy,
+    ) -> Result<ReservationSnapshot> {
+        self.require_writable()?;
+        let mut connection = self.lock()?;
+        replace_empty_policy(&mut connection, expected, expected_revision, replacement)
     }
 
     pub fn reserve_resources(
@@ -631,6 +680,253 @@ impl Database {
         }
         transaction.commit()?;
         Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod policy_replacement_tests {
+    use super::*;
+
+    fn policy() -> ReservationPolicy {
+        ReservationPolicy {
+            stamp: PolicyStamp {
+                version: 1,
+                id: "empty-policy-migration".into(),
+            },
+            aggregate_ceiling: Budget {
+                memory_bytes: 1024,
+                processes: 8,
+                cpu_basis_points: 8000,
+                queue_bytes: 256,
+                queue_items: 8,
+            },
+            per_slot_ceiling: Budget {
+                memory_bytes: 1024,
+                processes: 1,
+                cpu_basis_points: 1000,
+                queue_bytes: 64,
+                queue_items: 2,
+            },
+            max_slots: 8,
+            max_lease_ms: 10_000,
+        }
+    }
+
+    fn fixture() -> (rusqlite::Connection, ReservationSnapshot, ReservationPolicy) {
+        let connection = rusqlite::Connection::open_in_memory().unwrap();
+        connection.execute_batch(crate::schema::CREATE_V1).unwrap();
+        connection
+            .pragma_update(None, "user_version", crate::schema::CURRENT_VERSION)
+            .unwrap();
+        let before = ReservationSnapshot {
+            format_version: 1,
+            revision: 4,
+            policy: policy(),
+            slots: vec![],
+        };
+        write_ledger(&connection, &before).unwrap();
+        let mut replacement = before.policy.clone();
+        replacement.aggregate_ceiling.memory_bytes = 4096;
+        (connection, before, replacement)
+    }
+
+    fn raw(connection: &rusqlite::Connection) -> String {
+        connection
+            .query_row(
+                "SELECT value FROM setting WHERE key=?1",
+                [SETTING_KEY],
+                |row| row.get(0),
+            )
+            .unwrap()
+    }
+
+    #[test]
+    fn empty_policy_replacement_persists_and_advances_its_revision_once() {
+        let (mut connection, before, replacement) = fixture();
+        let updated = replace_empty_policy(
+            &mut connection,
+            &before.policy,
+            before.revision,
+            &replacement,
+        )
+        .unwrap();
+        assert_eq!(updated.policy, replacement);
+        assert_eq!(updated.revision, before.revision + 1);
+        assert!(updated.slots.is_empty());
+        assert_eq!(read_ledger(&connection).unwrap().unwrap(), updated);
+        // Retrying the old CAS cannot apply a second policy change.
+        assert!(matches!(
+            replace_empty_policy(
+                &mut connection,
+                &before.policy,
+                before.revision,
+                &replacement
+            ),
+            Err(ReservationError::Conflict)
+        ));
+        assert_eq!(read_ledger(&connection).unwrap().unwrap(), updated);
+    }
+
+    #[test]
+    fn replacement_requires_the_entire_expected_policy_and_current_revision() {
+        let (mut connection, before, replacement) = fixture();
+        let original = raw(&connection);
+        assert!(matches!(
+            replace_empty_policy(
+                &mut connection,
+                &before.policy,
+                before.revision - 1,
+                &replacement
+            ),
+            Err(ReservationError::Conflict)
+        ));
+        let mut unexpected = before.policy.clone();
+        unexpected.max_lease_ms -= 1;
+        assert!(matches!(
+            replace_empty_policy(&mut connection, &unexpected, before.revision, &replacement),
+            Err(ReservationError::PolicyMismatch)
+        ));
+        assert_eq!(raw(&connection), original);
+    }
+
+    #[test]
+    fn every_outstanding_reservation_blocks_policy_replacement() {
+        for state in [
+            ReservationState::Reserved,
+            ReservationState::Active,
+            ReservationState::Retired,
+        ] {
+            let (mut connection, mut before, replacement) = fixture();
+            before.slots.push(ReservationTicket {
+                id: uuid::Uuid::new_v4().to_string(),
+                job_key: uuid::Uuid::new_v4().to_string(),
+                owner: ReservationOwner {
+                    pid: 1,
+                    created_at_100ns: 1,
+                    windows_session_id: 0,
+                    nonce: uuid::Uuid::new_v4().to_string(),
+                },
+                budget: before.policy.per_slot_ceiling,
+                state,
+                lease_expires_at_ms: 1000,
+                revision: before.revision,
+            });
+            write_ledger(&connection, &before).unwrap();
+            let original = raw(&connection);
+            assert!(matches!(
+                replace_empty_policy(
+                    &mut connection,
+                    &before.policy,
+                    before.revision,
+                    &replacement
+                ),
+                Err(ReservationError::InvalidTransition)
+            ));
+            assert_eq!(raw(&connection), original);
+        }
+    }
+
+    #[test]
+    fn invalid_replacement_and_exhausted_revision_preserve_the_original_ledger() {
+        let (mut connection, mut before, mut replacement) = fixture();
+        let original = raw(&connection);
+        replacement.max_slots = 0;
+        assert!(matches!(
+            replace_empty_policy(
+                &mut connection,
+                &before.policy,
+                before.revision,
+                &replacement
+            ),
+            Err(ReservationError::Invalid)
+        ));
+        assert_eq!(raw(&connection), original);
+        replacement.max_slots = before.policy.max_slots;
+        before.revision = MAX_REVISION;
+        write_ledger(&connection, &before).unwrap();
+        let original = raw(&connection);
+        assert!(matches!(
+            replace_empty_policy(
+                &mut connection,
+                &before.policy,
+                before.revision,
+                &replacement
+            ),
+            Err(ReservationError::Capacity)
+        ));
+        assert_eq!(raw(&connection), original);
+    }
+
+    #[test]
+    fn identical_empty_policy_is_an_idempotent_read() {
+        let (mut connection, before, _) = fixture();
+        let original = raw(&connection);
+        assert_eq!(
+            replace_empty_policy(
+                &mut connection,
+                &before.policy,
+                before.revision,
+                &before.policy
+            )
+            .unwrap(),
+            before
+        );
+        assert_eq!(raw(&connection), original);
+    }
+
+    #[test]
+    fn failed_sql_write_rolls_back_the_policy_and_revision() {
+        let (mut connection, before, replacement) = fixture();
+        let original = raw(&connection);
+        connection.execute_batch("CREATE TRIGGER refuse_policy_change BEFORE UPDATE ON setting BEGIN SELECT RAISE(ABORT, 'synthetic write failure'); END;").unwrap();
+        assert!(matches!(
+            replace_empty_policy(
+                &mut connection,
+                &before.policy,
+                before.revision,
+                &replacement
+            ),
+            Err(ReservationError::Sqlite(_))
+        ));
+        assert_eq!(raw(&connection), original);
+        assert!(connection.is_autocommit());
+    }
+
+    #[test]
+    fn newer_schema_or_malformed_ledger_is_never_replaced() {
+        let (mut connection, before, replacement) = fixture();
+        let original = raw(&connection);
+        connection
+            .pragma_update(None, "user_version", crate::schema::CURRENT_VERSION + 1)
+            .unwrap();
+        assert!(matches!(
+            replace_empty_policy(
+                &mut connection,
+                &before.policy,
+                before.revision,
+                &replacement
+            ),
+            Err(ReservationError::Database(
+                DatabaseError::NewerSchema { .. }
+            ))
+        ));
+        assert_eq!(raw(&connection), original);
+        connection
+            .pragma_update(None, "user_version", crate::schema::CURRENT_VERSION)
+            .unwrap();
+        connection
+            .execute("UPDATE setting SET value='{}' WHERE key=?1", [SETTING_KEY])
+            .unwrap();
+        assert!(matches!(
+            replace_empty_policy(
+                &mut connection,
+                &before.policy,
+                before.revision,
+                &replacement
+            ),
+            Err(ReservationError::Malformed)
+        ));
+        assert_eq!(raw(&connection), "{}");
     }
 }
 

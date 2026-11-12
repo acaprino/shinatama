@@ -75,7 +75,8 @@ export function createProjectMenu(options: {
     const item = document.createElement('button'); item.type = 'button'; item.className = 'toolbar-menu-action';
     item.textContent = label; if (hint) item.title = hint; item.onclick = () => { close(); run(); }; return item;
   };
-  actions.append(action('Browse…', options.browse, 'Choose any folder'), action('New project…', options.create), action('Roots…', options.manage, 'Project roots and the full folder list'));
+  actions.append(action('Project roots…', options.manage, 'Folders that hold your projects, such as D:\\Projects'),
+    action('Open one folder…', options.browse, 'Open a single folder as a project, without adding a root'), action('New project…', options.create));
   menu.append(filter, list, actions);
 
   function rows(): { path: string; available: boolean }[] {
@@ -92,7 +93,7 @@ export function createProjectMenu(options: {
     if (!items.length) {
       const note = document.createElement('p'); note.className = 'toolbar-menu-note';
       note.textContent = state === 'loading' || searching ? 'Loading…' : state === 'failed' && !found.length ? 'Projects could not be loaded.'
-        : filter.value.trim() ? 'No project matches. Browse… opens any folder.' : 'No projects yet. Browse for a folder.';
+        : filter.value.trim() ? 'No project matches. Open one folder… opens any folder.' : 'No projects yet. Project roots… adds the folder that holds them.';
       list.append(note); filter.removeAttribute('aria-activedescendant'); return;
     }
     items.forEach((project, index) => {

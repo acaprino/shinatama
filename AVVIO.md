@@ -14,9 +14,20 @@ Chiudendo la finestra con terminali aperti puoi annullare oppure confermare l'ar
 **Shinatama alerts** → **Prova viso e suono** mostra il viso in sovraimpressione.
 Nello stesso pannello puoi disattivare il suono o gli avvisi. La comparsa lascia
 il focus nella finestra in uso; **Apri sessione** torna al terminale associato.
+Aggiornamenti e notifiche di completamento non scadono dopo pochi secondi:
+puoi chiuderli con la **X**, con **Esc** quando il widget ha il focus, oppure
+aprendo la sessione. Gli avvisi vengono aggiornati quando cambia la situazione.
 Questa prima versione riceve i segnali di attenzione nativi del terminale e la
 fine del processo mentre Shinatama è aperta. La disponibilità delle notifiche
 dipende dall'harness; la domanda completa si legge e si risponde nel terminale.
+
+Quando la memoria disponibile scende, il widget mostra un avviso e indica il
+terminale che consuma di più tra quelli misurati, con il suo consumo in MiB.
+Shinatama non chiude né sospende i terminali già aperti per la memoria. Può
+rifiutare l'apertura di un nuovo terminale quando manca il piccolo margine
+necessario all'avvio: non richiede gigabyte liberi per aprire una shell.
+L'avviso non prende il focus; **Apri sessione** porta al terminale indicato.
+I dettagli sono nella [politica di memoria](docs/notes/2026-11-12-interactive-memory.md).
 
 Il progetto contiene i thread, caricati automaticamente quando lo selezioni.
 Nel pannello **Threads**, **New session** apre lo stesso dialogo con il progetto

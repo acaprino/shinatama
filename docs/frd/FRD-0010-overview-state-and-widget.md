@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| Version | 1 |
-| Status | Accepted 2026-11-01 (this Markdown text) |
-| Date | 2026-11-01 |
+| Version | 2 |
+| Status | Accepted 2026-11-01; memory behavior amended by user request 2026-11-12 |
+| Date | 2026-11-12 |
 | Sources | functional-design goals 9 and 12, 5.8, 5.13, 7; technical-design 4.2 (`instance`, `event`, `summary_log`), 4.6, 8.1 to 8.5, 12; specs/token-savings 4.4.3, 7 (shared runtime) |
 | Governing ADRs | ADR-0027, ADR-0028 |
 | Register sections | I1 to I10, W1 to W10, Q3, Q8, O2, O3 |
@@ -76,6 +76,7 @@ low-cost model, branch and collision facts, and the widget's rules.
 | R30 | A configurable brief attention sound accompanies alerts; mute suppresses sound while keeping visual alerts, and a separate switch disables the widget. The reduced-motion setting is honoured. Input requests, completion and meaningful updates may alert; streamed tokens and duplicate deliveries of an event do not replay the sound. Completion, error and terminal update each have their own sound, and errors alternate between two sounds; an input request and a file saved from the editor share a short confirmation sound; mute silences all of them. Spoken voice remains later scope. | U 2026-11-03 (attention sound); U 2026-11-11 (one sound per action, sounds supplied by the user); A (controls and event deduplication) | V1 | W10 | 0027 |
 | R31 | Where always-on-top or free placement fails on Wayland, the widget falls back to a notification-only mode; always-on-top and placement are expected to work on macOS and Windows and are verified per compositor. | A | V1 | W1, W2 | 0027 |
 | R32 | A task with unanswered Daodan questions is a widget alert (FRD-0008). | U 2026-11-01 | V1 | — | 0033 |
+| R45 | Memory pressure produces an advisory widget alert with the largest freshly measured terminal and its consumption, qualified when coverage is partial. It never automatically closes or pauses an existing interactive terminal, and interactive jobs have no Windows memory hard cap. Only new starts may be refused for insufficient fresh absolute headroom, using a small startup margin rather than gigabytes of theoretical terminal reservations. Memory alerts do not replace pending session attention, take keyboard focus or repeatedly announce the same pressure episode. See the [current thresholds and behavior](../notes/2026-11-12-interactive-memory.md). | U 2026-11-12 | V1 | Focused memory regressions; release proof separate | 0027 |
 
 ### 2.6 Widget animation assets
 

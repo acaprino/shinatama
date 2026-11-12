@@ -30,8 +30,10 @@ tracks which launch, resume, and handoff paths have been exercised.
 - **Hand off a session.** Use **Hop** to preview the context sent to a new session
   in another harness. The current handoff starts the destination with a prepared
   prompt and leaves the source session intact.
-- **See what needs attention.** The widget shows terminal alerts and can take
-  you to the relevant session.
+- **See what needs attention.** The widget can take you to the relevant terminal.
+  When system memory runs low, it shows the highest-usage terminal it measured
+  and keeps existing sessions running. New terminals have a small startup
+  memory check. [Memory policy](docs/notes/2026-11-12-interactive-memory.md)
 
 ## Quickstart
 

@@ -1,12 +1,14 @@
 import { invoke } from '@tauri-apps/api/core';
 import { openModal, openSheet } from './modal.ts';
 import { beginMutation, browseFolder, cancelMutation, createCatalogClient, createRequestId, orderedCandidates, saveRoots,
-  type Candidate, type Catalog, type Project, type RootConfig, type RootDraft } from './project-catalog.ts';
+  type Candidate, type Catalog, type CatalogRoot, type Project, type RootConfig, type RootDraft } from './project-catalog.ts';
 
 type Options = { desktop: boolean; getPath: () => string; onSelected: (path: string, chosen: boolean) => void; onCreate: () => void; reportError: (error: unknown, tone?: 'info' | 'error') => void };
 const $ = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
 const editable = (target: EventTarget | null) => target instanceof HTMLElement && !!target.closest('input,textarea,select,[contenteditable="true"]');
 const stateLabels = { ready: 'Ready', scanning: 'Scanning…', missing: 'Folder unavailable', unavailable: 'Cannot read this root', timed_out: 'Scan timed out; waiting for the drive', truncated: 'Folder limit reached' };
+const sameFolder = (left: string, right: string) => left.replace(/[\\/]+$/, '').toLowerCase() === right.replace(/[\\/]+$/, '').toLowerCase();
+const absolute = (path: string) => /^(?:[A-Za-z]:[\\/]|\/|\\\\)/.test(path);
 type Mutation = { id: string; phase: 'pending' | 'cancelling' | 'committing' | 'cancelled'; settled: boolean; failure: string | null;
   registration: Promise<void> | null; reserved: boolean; dispatched: boolean; cancelRequested: boolean; cancellation: Promise<void> | null };
 
@@ -18,28 +20,28 @@ export function createProjectPicker(options: Options) {
   const recentList = $('#recent-project-list');
   const projectList = $('#catalog-project-list');
   const error = $('#project-error');
-  const editor = $('#roots-editor');
-  const draftsElement = $('#root-drafts');
-  const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+  const rootList = $('#root-list');
+  const rootPath = $<HTMLInputElement>('#root-path');
   let recent: Project[] = [];
   let catalog: Catalog | null = null;
   let config: RootConfig | null = null;
-  let drafts: RootDraft[] = [];
-  let defaultIndex: number | null = null;
-  let draftRevision = 0;
   let saving = false;
   let selectedAvailable = !options.desktop;
   let selectionRevision = 0;
   let dialogRevision = 0;
   let loading = false;
   let configLoading = true;
+  // False from opening until the roots are read again: opening a folder elsewhere moves their revision.
+  let configFresh = false;
   let queryPending = false;
   let pageOffsets: number[] = [];
   let mutation: Mutation | null = null;
   let recentRead: Promise<{ entries: Project[]; revision: number }> | null = null;
   const client = createCatalogClient(value => {
     catalog = value; configLoading = value.configLoading;
-    if (!configLoading) config = value.rootsConfig;
+    // A scan that started before the last save carries the older roots; never step back to them.
+    if (!configLoading && (!config || value.rootsConfig.revision >= config.revision)) config = value.rootsConfig;
+    if (!configLoading) configFresh = true;
     loading = false; queryPending = false; render();
   }, failure => { loading = false; queryPending = false; if (dialog.open) { showError(failure); render(); } });
 
@@ -68,10 +70,9 @@ export function createProjectPicker(options: Options) {
       button.disabled = mutation?.phase === 'cancelling';
       const completing = mutation?.phase === 'committing';
       if (button.hasAttribute('aria-label')) button.setAttribute('aria-label', completing ? 'Close dialog; save continues' : 'Close dialog');
-      else button.textContent = completing ? 'Close; save continues' : 'Cancel';
+      else button.textContent = completing ? 'Close; save continues' : 'Close';
     }
     if (!value) {
-      $('#add-root').toggleAttribute('disabled', drafts.length >= 16);
       $<HTMLButtonElement>('#catalog-previous').disabled = !catalog || catalog.offset <= 0;
       $<HTMLButtonElement>('#catalog-next').disabled = !catalog || catalog.offset + catalog.limit >= catalog.total;
     }
@@ -162,27 +163,18 @@ export function createProjectPicker(options: Options) {
     const query = filter.value.trim().toLocaleLowerCase();
     const inQuery = (project: Pick<Project, 'name' | 'path'>) => `${project.name} ${project.path}`.toLocaleLowerCase().includes(query);
     const history = config?.defaultRootId ? catalog?.history ?? [] : recent;
-    $('#recent-project-heading').textContent = config?.defaultRootId ? 'Outside folders · last ten' : 'Recent folders';
+    $('#recent-project-heading').textContent = config?.defaultRootId ? 'Single folders outside your roots' : 'Recent folders';
     recentList.replaceChildren(...history.filter(inQuery).slice(0, 10).map(project => projectButton(project, 'recent-project')));
-    if (!recentList.childElementCount) {
-      const empty = document.createElement('p'); empty.className = 'hint';
-      empty.textContent = query ? 'No matching recent folders.' : config?.defaultRootId ? 'Folders explicitly opened with Use folder or Browse outside your roots appear here.' : 'Open a folder or choose a project root.';
+    // Nothing opened one folder at a time yet: the section stays out of the way.
+    const noHistory = !recentList.childElementCount && !query;
+    $('#recent-project-heading').hidden = noHistory; recentList.hidden = noHistory;
+    if (!recentList.childElementCount && query) {
+      const empty = document.createElement('p'); empty.className = 'hint'; empty.textContent = 'No matching folders.';
       recentList.append(empty);
     }
     projectList.replaceChildren();
     if (catalog && !queryPending) for (const project of orderedCandidates(catalog).filter(inQuery)) projectList.append(projectButton(project, 'catalog-project'));
-    const statusList = $('#catalog-root-statuses'); statusList.replaceChildren();
-    for (const root of catalog?.roots ?? []) {
-      const row = document.createElement('div'); row.className = `catalog-root-status ${root.state}`; row.dataset.rootId = root.id;
-      const path = document.createElement('span'); path.textContent = root.path; path.title = root.path;
-      const state = document.createElement('small'); state.textContent = `${config?.defaultRootId === root.id ? 'Default · ' : ''}${stateLabels[root.state]}`;
-      row.append(path, state); if (root.message) row.title = root.message; statusList.append(row);
-    }
-    const defaultRootId = config?.defaultRootId;
-    const defaultRoot = config?.roots.find(root => root.id === defaultRootId);
-    $('#default-root-summary').textContent = defaultRoot ? `Default for new projects: ${defaultRoot.path}` : 'No default root yet. Choose Project roots to set one.';
-    $<HTMLButtonElement>('#manage-roots').disabled = saving || configLoading || !config;
-    $<HTMLButtonElement>('#save-roots').disabled = saving || configLoading || !config;
+    renderRoots();
     $('#catalog-state').textContent = mutation?.phase === 'committing' ? 'The save has started. Closing this window keeps it running.'
       : mutation?.phase === 'cancelled' ? 'The previous folder check is still returning. Existing terminals remain available.'
       : mutation?.phase === 'cancelling' ? 'Cancelling the folder operation…'
@@ -202,51 +194,84 @@ export function createProjectPicker(options: Options) {
   }
   async function select(path: string) {
     if (saving) return;
-    if (!/^(?:[A-Za-z]:[\\/]|\/|\\\\)/.test(path)) {
+    if (!absolute(path)) {
       folder.setCustomValidity('Enter an absolute folder path.'); folder.reportValidity(); return;
     }
     await mutate(requestId => invoke<Project>('project_select', { path, requestId }), useProject);
   }
-  function renderDrafts() {
-    draftsElement.replaceChildren();
-    drafts.forEach((draft, index) => {
-      const row = document.createElement('div'); row.className = 'root-draft';
-      const radioLabel = document.createElement('label'); radioLabel.className = 'root-default-label';
-      const radio = document.createElement('input'); radio.type = 'radio'; radio.name = 'default-root'; radio.checked = defaultIndex === index;
-      radio.setAttribute('aria-label', `Use root ${index + 1} as default`); radio.onchange = () => { defaultIndex = index; };
-      radioLabel.append(radio, document.createTextNode('Default'));
-      const path = document.createElement('input'); path.value = draft.path; path.placeholder = 'Absolute root folder';
-      path.setAttribute('aria-label', `Project root ${index + 1}`); path.oninput = () => { draft.path = path.value; };
-      const browse = document.createElement('button'); browse.type = 'button'; browse.textContent = 'Browse'; browse.setAttribute('aria-label', `Browse for root ${index + 1}`);
-      browse.onclick = () => { void chooseRoot(index); };
-      const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = 'Remove'; remove.setAttribute('aria-label', `Remove root ${index + 1}`);
-      remove.onclick = () => {
-        drafts.splice(index, 1);
-        if (defaultIndex === index) defaultIndex = null; else if (defaultIndex !== null && defaultIndex > index) defaultIndex--;
-        renderDrafts();
-      };
-      row.append(radioLabel, path, browse, remove); draftsElement.append(row);
-    });
-    $<HTMLButtonElement>('#add-root').disabled = saving || drafts.length >= 16;
-    if (!drafts.length) { const empty = document.createElement('p'); empty.className = 'hint'; empty.textContent = 'Add a root and select its default radio button. Nothing is created in that folder.'; draftsElement.append(empty); }
+  function rootRow(root: { id: string; path: string }, index: number, scanned: CatalogRoot | undefined) {
+    const isDefault = config?.defaultRootId === root.id;
+    const row = document.createElement('div'); row.setAttribute('role', 'listitem');
+    row.className = `catalog-root-status ${scanned?.state ?? 'scanning'}`; row.dataset.rootId = root.id;
+    if (scanned?.message) row.title = scanned.message;
+    const text = document.createElement('div'); text.className = 'root-text';
+    const path = document.createElement('span'); path.textContent = root.path; path.title = root.path;
+    const state = document.createElement('small');
+    state.textContent = !scanned ? 'Scanning…' : scanned.state === 'ready' ? `${scanned.projectCount} ${scanned.projectCount === 1 ? 'project' : 'projects'}` : stateLabels[scanned.state];
+    text.append(path, state);
+    const star = document.createElement('button'); star.type = 'button'; star.className = 'root-default';
+    star.textContent = isDefault ? 'Default' : 'Make default'; star.setAttribute('aria-pressed', String(isDefault));
+    star.title = isDefault ? 'New projects are created in this root' : 'Create new projects in this root';
+    star.setAttribute('aria-label', `${isDefault ? 'Default root' : 'Make default'}: ${root.path}`);
+    star.disabled = saving || !configFresh || isDefault; star.onclick = () => { void writeRoots(config!.roots.map(entry => ({ ...entry })), index); };
+    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'root-remove'; remove.textContent = 'Remove';
+    remove.setAttribute('aria-label', `Remove root ${root.path}`); remove.title = 'Stop listing this root. The folder itself is not touched.';
+    remove.disabled = saving || !configFresh; remove.onclick = () => { void removeRoot(index); };
+    row.append(text, star, remove); return row;
   }
-  function editRoots() {
-    if (saving || configLoading || !config) return;
-    drafts = config?.roots.map(root => ({ ...root })) ?? [];
-    defaultIndex = config?.defaultRootId ? drafts.findIndex(root => root.id === config!.defaultRootId) : null;
-    if (defaultIndex === -1) defaultIndex = null;
-    draftRevision = config?.revision ?? 0; renderDrafts(); editor.hidden = false;
-    draftsElement.querySelector<HTMLInputElement>('input[type="text"],input:not([type])')?.focus();
+  function renderRoots() {
+    const roots = config?.roots ?? [];
+    rootList.replaceChildren(...roots.map((root, index) => rootRow(root, index, catalog?.roots.find(entry => entry.id === root.id))));
+    if (!roots.length) {
+      const empty = document.createElement('p'); empty.className = 'root-empty';
+      empty.textContent = configLoading ? 'Reading project roots…' : 'No root yet. Choose the folder that holds your projects.';
+      rootList.append(empty);
+    }
+    const defaultRoot = roots.find(root => root.id === config?.defaultRootId);
+    $('#default-root-summary').textContent = defaultRoot ? `New projects are created in ${defaultRoot.path}.` : roots.length ? 'Make one root the default to create new projects in it.' : '';
+    const blocked = saving || !config || !configFresh;
+    $<HTMLButtonElement>('#choose-root').disabled = blocked || roots.length >= 16;
+    // Choosing a root is the call to action only until there is one; then picking a project is.
+    $('#choose-root').classList.toggle('primary', !roots.length);
+    $<HTMLButtonElement>('#add-root').disabled = blocked || roots.length >= 16;
+    form.classList.toggle('no-roots', !configLoading && !roots.length);
   }
-  async function chooseRoot(index?: number) {
-    if (saving) return;
-    await mutate(requestId => browseFolder('root', index === undefined ? undefined : drafts[index]?.id, requestId), result => {
-      if (result.kind === 'root') {
-        if (index === undefined) { if (drafts.length >= 16) throw new Error('Keep at most 16 project roots.'); drafts.push({ path: result.path }); }
-        else drafts[index].path = result.path;
-        editor.hidden = false; renderDrafts();
-      }
+  /** Root edits are saved at once: there is no draft to keep, discard or lose. */
+  async function writeRoots(roots: RootDraft[], defaultRootIndex: number | null) {
+    // The saved configuration is current even while the list is being rescanned.
+    if (saving || !config || !configFresh) return false;
+    const revision = config.revision; let saved = false;
+    await mutate(requestId => saveRoots(revision, roots, defaultRootIndex, requestId), value => {
+      config = value; configFresh = true; saved = true;
+      if (!dialog.open) options.reportError('Project roots saved.', 'info');
+      refresh();
     });
+    return saved;
+  }
+  async function addRoot(path: string) {
+    if (!config) return false;
+    const trimmed = path.trim();
+    if (!absolute(trimmed)) { showError('Enter the absolute path of the folder that holds your projects.'); return false; }
+    const roots: RootDraft[] = config.roots.map(root => ({ ...root }));
+    if (roots.some(root => sameFolder(root.path, trimmed))) { showError('That root is already in the list.'); return false; }
+    if (roots.length >= 16) { showError('Keep at most 16 project roots.'); return false; }
+    const current = roots.findIndex(root => root.id === config!.defaultRootId);
+    // The first root, or a root added while none is the default, becomes the default.
+    return writeRoots([...roots, { path: trimmed }], current >= 0 ? current : roots.length);
+  }
+  async function removeRoot(index: number) {
+    if (!config) return;
+    const roots: RootDraft[] = config.roots.map(root => ({ ...root })).filter((_, position) => position !== index);
+    const kept = roots.findIndex(root => root.id === config!.defaultRootId);
+    await writeRoots(roots, kept >= 0 ? kept : roots.length ? 0 : null);
+  }
+  async function chooseRoot() {
+    if (saving || !config) return;
+    let picked: string | null = null;
+    await mutate(requestId => browseFolder('root', config?.defaultRootId ?? undefined, requestId), result => {
+      if (result.kind === 'root') picked = result.path;
+    });
+    if (picked) await addRoot(picked);
   }
   async function browseProject() {
     if (saving) return;
@@ -257,7 +282,7 @@ export function createProjectPicker(options: Options) {
   function refresh() {
     if (!options.desktop || !dialog.open) return;
     pageOffsets = [];
-    loading = true; configLoading = true; error.hidden = true; render(); client.open(filter.value);
+    loading = true; configLoading = true; render(); client.open(filter.value);
     if (!config?.defaultRootId) void refreshRecent(dialogRevision);
   }
   form.onsubmit = event => { event.preventDefault(); void select(folder.value.trim()); };
@@ -268,23 +293,13 @@ export function createProjectPicker(options: Options) {
       event.preventDefault(); (projectList.querySelector<HTMLButtonElement>('button:not(:disabled)') || recentList.querySelector<HTMLButtonElement>('button:not(:disabled)'))?.click();
     }
   };
-  editor.addEventListener('keydown', event => { if (event.key === 'Enter' && editable(event.target)) event.preventDefault(); });
+  const addTypedRoot = async () => { if (await addRoot(rootPath.value)) rootPath.value = ''; };
+  rootPath.oninput = () => { error.hidden = true; };
+  rootPath.onkeydown = event => { if (event.key === 'Enter') { event.preventDefault(); void addTypedRoot(); } };
+  $('#add-root').onclick = () => { void addTypedRoot(); };
   $('#browse-project').onclick = () => { void browseProject(); };
   $('#create-project').onclick = options.onCreate;
-  $('#manage-roots').onclick = editRoots;
-  $('#discard-roots').onclick = () => { if (!saving) { editor.hidden = true; error.hidden = true; } };
-  $('#add-root').onclick = () => { if (!saving && drafts.length < 16) { drafts.push({ path: '' }); renderDrafts(); draftsElement.querySelector<HTMLElement>('.root-draft:last-child input:not([type="radio"])')?.focus(); } };
   $('#choose-root').onclick = () => { void chooseRoot(); };
-  $('#save-roots').onclick = async () => {
-    if (saving || configLoading || !config) return;
-    if (drafts.length && defaultIndex === null) { showError('Select the default root before saving.'); return; }
-    if (drafts.some(draft => !draft.path.trim())) { showError('Enter an absolute folder path for each root.'); return; }
-    await mutate(requestId => saveRoots(draftRevision, drafts.map(draft => ({ ...draft, path: draft.path.trim() })), defaultIndex, requestId), saved => {
-      config = saved;
-      if (!dialog.open) options.reportError('Project roots saved.', 'info');
-      editor.hidden = true; refresh();
-    });
-  };
   $('#refresh-projects').onclick = refresh;
   $('#catalog-previous').onclick = () => {
     if (catalog && catalog.offset > 0 && !queryPending && !loading && !saving) {
@@ -300,7 +315,7 @@ export function createProjectPicker(options: Options) {
   };
   form.querySelectorAll<HTMLButtonElement>('[data-cancel]').forEach(button => { button.onclick = () => { void cancelOrClose(); }; });
   dialog.addEventListener('cancel', event => { if (mutation) { event.preventDefault(); void cancelOrClose(); } });
-  dialog.addEventListener('close', () => { dialogRevision++; client.close(); editor.hidden = true; });
+  dialog.addEventListener('close', () => { dialogRevision++; client.close(); });
 
   return {
     canStart() { return selectedAvailable; },
@@ -309,7 +324,6 @@ export function createProjectPicker(options: Options) {
       if (mutation || saving) {
         options.reportError('The current folder operation is still returning. Finish or cancel it before creating a project.'); return false;
       }
-      if (dialog.open && !editor.hidden) { showError('Save or discard the root changes before creating a project.'); return false; }
       if (dialog.open) dialog.close();
       return true;
     },
@@ -331,20 +345,20 @@ export function createProjectPicker(options: Options) {
     },
     open(focusFilter = false) {
       if (dialog.open || document.querySelector('dialog[open][aria-modal="true"]')) return;
-      dialogRevision++;
-      folder.value = options.getPath(); folder.setCustomValidity(''); filter.value = ''; error.hidden = true; editor.hidden = true;
+      dialogRevision++; configFresh = false;
+      folder.value = options.getPath(); folder.setCustomValidity(''); filter.value = ''; rootPath.value = ''; error.hidden = true;
       render();
-      // Hung from the project button, with the workspace still usable. Unsaved root edits and a
-      // running folder operation are never dropped by a stray press outside.
-      if (!openSheet(dialog, { anchor: () => document.querySelector('#project'), placement: 'below', lightDismiss: () => editor.hidden && !mutation })) openModal(dialog);
-      (focusFilter ? filter : folder).focus(); refresh();
+      // Hung from the project button, with the workspace still usable. A running folder
+      // operation is never dropped by a stray press outside.
+      if (!openSheet(dialog, { anchor: () => document.querySelector('#project'), placement: 'below', lightDismiss: () => !mutation })) openModal(dialog);
+      (focusFilter || config?.roots.length ? filter : rootPath).focus(); refresh();
     },
     browse: browseProject,
     handleKey(event: KeyboardEvent) {
       if (!dialog.open || dialog.inert || event.ctrlKey || event.metaKey || event.altKey || saving) return false;
       if (event.key.toLowerCase() === 'n' && !event.repeat && !editable(event.target)) { event.preventDefault(); options.onCreate(); return true; }
       if (event.key === '/' && !editable(event.target)) { event.preventDefault(); filter.focus(); return true; }
-      if (event.key === 'F3' && editor.hidden) { event.preventDefault(); void browseProject(); return true; }
+      if (event.key === 'F3') { event.preventDefault(); void browseProject(); return true; }
       return false;
     },
   };
