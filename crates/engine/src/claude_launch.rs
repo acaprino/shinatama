@@ -432,7 +432,7 @@ fn prepare(
         // Claude writes into the directories it loads: never hand it the synced tree.
         Some(
             verified
-                .private_copy(&context.base.directory().join(marionette::STORE))
+                .private_copy(&claude_plugin_copy(context.base.directory()))
                 .map_err(|_| ClaudeLaunchError::BundledPlugins)?,
         )
     } else {
@@ -813,6 +813,12 @@ fn prepare(
         session_events,
     })
 }
+/// Claude's private copy of Marionette's adapter under the Shinatama home, a
+/// folder of its own beside the synced store (`marionette`): the copy removes
+/// every file it does not hold, so inside the store it would wipe the release.
+fn claude_plugin_copy(home: &Path) -> PathBuf {
+    home.join(marionette::CLAUDE_COPY)
+}
 /// `--plugin-dir <ordinary drive path>` of Marionette's Claude Code adapter.
 fn plugin_arguments(adapter: &Adapter) -> Vec<OsString> {
     vec!["--plugin-dir".into(), adapter.dir_arg().into()]
@@ -1083,6 +1089,25 @@ mod tests {
         assert!(args[1].to_string_lossy().ends_with("claude-code"));
         assert!(!args[1].to_string_lossy().starts_with(r"\?\"));
         let _ = std::fs::remove_dir_all(&store);
+    }
+    #[test]
+    fn claude_private_copy_leaves_the_synced_store_current() {
+        // The desktop syncs into `<home>/marionette`; every launch then copies
+        // Claude's adapter under the same home. The copy must not touch the store.
+        use crate::marionette::tests::{FakeFetch, scratch};
+        let home = scratch("claude-copy-home");
+        let store = home.join(marionette::STORE);
+        marionette::sync(&store, &FakeFetch::new("marionette-v0.1.0", "0.1.0")).unwrap();
+        let adapter = Marionette::current(&store).unwrap().verify(Host::ClaudeCode).unwrap();
+        for _launch in 0..2 {
+            let copy = adapter.private_copy(&claude_plugin_copy(&home)).unwrap();
+            assert!(copy.dir().join(".claude-plugin/plugin.json").is_file());
+            let current = Marionette::current(&store).unwrap();
+            for host in Host::ALL {
+                current.verify(host).unwrap();
+            }
+        }
+        let _ = std::fs::remove_dir_all(&home);
     }
     #[test]
     fn tracked_hook_hardlink_keeps_bytes_and_selected_path_pinned() {

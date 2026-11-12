@@ -30,6 +30,9 @@ pub const PLUGIN: &str = "marionette";
 pub const MARKETPLACE_NAME: &str = "shinatama";
 /// Folder under the Shinatama home that holds the synced copies.
 pub const STORE: &str = "marionette";
+/// Folder under the Shinatama home that holds Claude Code's private copy of
+/// its adapter; never inside [`STORE`].
+pub const CLAUDE_COPY: &str = "marionette-claude";
 /// `SHINATAMA_MARIONETTE=off` starts every session without Marionette and
 /// skips the sync.
 pub const SWITCH: &str = "SHINATAMA_MARIONETTE";
@@ -317,6 +320,13 @@ impl Adapter {
     /// Identical files are left alone, changed ones rewritten, files the
     /// adapter does not have removed (a previous release's leftovers).
     fn mirror(&self, target: &Path) -> Result<(), MarionetteError> {
+        // The mirror removes every file the adapter does not hold: a target that
+        // holds the release, or lies inside it, would wipe the files it copies.
+        let release = resolved(&self.marketplace_root).ok_or(MarionetteError::Missing)?;
+        let resolved_target = resolved(target).ok_or(MarionetteError::UnsafePath)?;
+        if resolved_target.starts_with(&release) || release.starts_with(&resolved_target) {
+            return Err(MarionetteError::UnsafePath);
+        }
         let wanted: BTreeSet<&str> = self.files.iter().map(String::as_str).collect();
         if target.is_dir() {
             let mut present = BTreeSet::new();
@@ -746,6 +756,20 @@ fn ordinary_directory(path: &Path) -> Result<PathBuf, MarionetteError> {
     }
     path.canonicalize().map_err(|_| MarionetteError::Missing)
 }
+/// `path` with its deepest existing ancestor canonicalized and the missing
+/// rest appended, so a target that does not exist yet compares like one that does.
+fn resolved(path: &Path) -> Option<PathBuf> {
+    let mut missing = Vec::new();
+    let mut existing = path;
+    loop {
+        if let Ok(mut out) = existing.canonicalize() {
+            out.extend(missing.iter().rev());
+            return Some(out);
+        }
+        missing.push(existing.file_name()?.to_owned());
+        existing = existing.parent()?;
+    }
+}
 fn read_bounded(path: &Path, limit: u64) -> Result<Vec<u8>, MarionetteError> {
     let meta = fs::symlink_metadata(path).map_err(|_| MarionetteError::Missing)?;
     if meta.file_type().is_symlink() || !meta.is_file() {
@@ -973,6 +997,20 @@ pub(crate) mod tests {
         current.verify(Host::Codex).unwrap();
         sync(&store, &FakeFetch::new("marionette-v0.1.0", "0.1.0")).unwrap();
         Marionette::current(&store).unwrap().verify(Host::Pi).unwrap();
+        let _ = fs::remove_dir_all(&store);
+    }
+    #[test]
+    fn a_copy_never_lands_on_its_own_release() {
+        let store = scratch("overlap");
+        sync(&store, &FakeFetch::new("marionette-v0.1.0", "0.1.0")).unwrap();
+        let current = Marionette::current(&store).unwrap();
+        let claude = current.verify(Host::ClaudeCode).unwrap();
+        let release = store.join(RELEASES).join("marionette-v0.1.0");
+        for target in [store.clone(), release.clone(), release.join("marionette/copy")] {
+            assert_eq!(claude.private_copy(&target).unwrap_err(), MarionetteError::UnsafePath);
+        }
+        // Nothing was removed: the release is still current and intact.
+        Marionette::current(&store).unwrap().verify_all().unwrap();
         let _ = fs::remove_dir_all(&store);
     }
     #[test]
