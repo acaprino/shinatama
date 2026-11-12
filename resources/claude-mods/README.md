@@ -1,11 +1,11 @@
 # Claude Code mods
 
-Display-only extensions that Shinatama hands to Claude Code alone, next to the
-bundled plugins in `../agent-plugins`. They are kept apart on purpose
+Display-only extensions that Shinatama hands to Claude Code alone, beside
+Marionette (synced from GitHub, ADR-0052 v2). They are kept apart on purpose
 (`crates/engine/src/claude_mods.rs`): their own folder and their own lock, so a
 mod that is missing, altered or not tried with the running Claude Code is
-dropped alone. The bundled plugins and Codex, Pi and OpenCode launch exactly as
-without it, and a mod never blocks a launch.
+dropped alone. Marionette and Codex, Pi and OpenCode launch exactly as without
+it, and a mod never blocks a launch.
 
 ## shn-render
 
@@ -20,9 +20,9 @@ most one branch, top-down only as a chain); anything else stays code.
 - Loaded only with the Claude Code versions in `TRIED_CLAUDE_VERSIONS`
   (`claude_mods.rs`). Claude's mod interface is early access: add a version
   only after running Claude with the mod on it.
-- Off: `SHINATAMA_CLAUDE_MODS=off`, or `SHINATAMA_BUNDLED_PLUGINS=off` (both).
-- Not in the portable package yet: `scripts/package-local.ps1` copies only
-  `agent-plugins`. The development build (`Shinatama.cmd`) uses this folder.
+- Off: `SHINATAMA_CLAUDE_MODS=off`, or `SHINATAMA_MARIONETTE=off` (both).
+- Not in the portable package yet: `scripts/package-local.ps1` does not stage
+  this folder. The development build (`Shinatama.cmd`) uses it.
 
 Tests (Node 22 or later, from this folder):
 

@@ -12,7 +12,9 @@ use shinatama_engine::resources::{
     monitor::ResourceMonitor,
     sampling::{Measurement, ProcessKey},
 };
-use shinatama_state::resource_reservations::{Budget, PolicyStamp, ReservationPolicy};
+use shinatama_state::resource_reservations::{
+    Budget, PolicyStamp, ReservationPolicy, ReservationState,
+};
 use shinatama_state::{database::Database, location::StorageLocation};
 use shinatama_terminal::{
     TerminalDirective, TerminalHost, WindowsNativeAdmission, WindowsTerminalAdmission,
@@ -53,6 +55,14 @@ const TERMINAL: Budget = Budget {
     queue_bytes: 4 * MIB,
     queue_items: 512,
 };
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum AdmissionMode {
+    Background,
+    Interactive,
+    // Helpers required by an explicit Open get lightweight startup admission,
+    // while retaining their Windows memory limits.
+    InteractiveSupport,
+}
 fn stamp() -> PolicyStamp {
     PolicyStamp {
         version: 1,
@@ -92,7 +102,8 @@ fn reclaim_orphaned_reservations(
         }
         let dead = match WindowsSampler::identify(slot.owner.pid) {
             Ok(actual) => {
-                actual.pid != slot.owner.pid || actual.created_at_100ns != slot.owner.created_at_100ns
+                actual.pid != slot.owner.pid
+                    || actual.created_at_100ns != slot.owner.created_at_100ns
             }
             Err(Unavailable::Missing | Unavailable::Terminated) => true,
             Err(_) => false,
@@ -100,7 +111,9 @@ fn reclaim_orphaned_reservations(
         if !dead {
             continue;
         }
-        let Ok(key) = uuid::Uuid::parse_str(&slot.job_key) else { continue };
+        let Ok(key) = uuid::Uuid::parse_str(&slot.job_key) else {
+            continue;
+        };
         match probe_job_recovery(*key.as_bytes()) {
             Ok(JobRecoveryObservation::Absent | JobRecoveryObservation::TerminatedByRecovery) => {}
             _ => continue,
@@ -143,7 +156,21 @@ impl Runtime {
         // session opened just after starting the app works.
         let deadline = std::time::Instant::now() + Duration::from_secs(45);
         loop {
-            match self.admission.current_headroom() {
+            match self.admission.current_headroom(false) {
+                Ok(_) => return Ok(()),
+                Err(error) if std::time::Instant::now() >= deadline => {
+                    return Err(format!("{error:#}"));
+                }
+                Err(_) => std::thread::sleep(Duration::from_millis(100)),
+            }
+        }
+    }
+    pub fn wait_for_interactive_admission(&self) -> Result<(), String> {
+        // Interactive starts need a fresh system memory sample, not governor
+        // calibration or frontend responsiveness (the window may be minimized).
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        loop {
+            match self.admission.current_headroom(true) {
                 Ok(_) => return Ok(()),
                 Err(error) if std::time::Instant::now() >= deadline => {
                     return Err(format!("{error:#}"));
@@ -162,7 +189,27 @@ impl Runtime {
         lease_ms: i64,
     ) -> Result<PreparedWorkload, String> {
         self.admission
-            .prepare_workload(budget, process_commit_bytes, lease_ms)
+            .prepare_workload(
+                budget,
+                process_commit_bytes,
+                lease_ms,
+                AdmissionMode::Background,
+            )
+            .map_err(|error| format!("{error:#}"))
+    }
+    pub fn prepare_interactive_support_workload(
+        &self,
+        budget: Budget,
+        process_commit_bytes: u64,
+        lease_ms: i64,
+    ) -> Result<PreparedWorkload, String> {
+        self.admission
+            .prepare_workload(
+                budget,
+                process_commit_bytes,
+                lease_ms,
+                AdmissionMode::InteractiveSupport,
+            )
             .map_err(|error| format!("{error:#}"))
     }
     pub fn new(
@@ -258,13 +305,85 @@ struct Approved {
     queue_bytes: u64,
     queue_items: u32,
 }
+impl Approved {
+    fn directive(&self, job: &JobSnapshot, queues: QueueStatus) -> TerminalDirective {
+        if !job.membership_complete {
+            return TerminalDirective::Continue;
+        }
+        // Memory is advisory for an interactive terminal, regardless of how
+        // much its program grows. Only unrelated containment limits remain.
+        if job.active_processes > self.native.max_processes()
+            || queues.current_bytes > self.queue_bytes
+            || queues.current_items > self.queue_items
+        {
+            return TerminalDirective::StopResponsible;
+        }
+        TerminalDirective::Continue
+    }
+}
+
+fn check_start_headroom(
+    physical: u64,
+    commit: u64,
+    budget: Budget,
+    ledger: &shinatama_state::resource_reservations::ReservationSnapshot,
+    mode: AdmissionMode,
+) -> Result<()> {
+    if mode != AdmissionMode::Background {
+        // These are small startup estimates, not lifetime limits. Available
+        // system counters already include running terminals; charging their
+        // theoretical maximum again incorrectly requires GiB of free memory.
+        let startup = startup_allowance(budget);
+        let pending: u64 = ledger
+            .slots
+            .iter()
+            .filter(|slot| slot.state == ReservationState::Reserved)
+            .map(|slot| startup_allowance(slot.budget))
+            .sum();
+        let required = startup + pending + 128 * MIB;
+        if physical < required || commit < required {
+            bail!(
+                "Not enough memory to open another terminal: {} MiB RAM and {} MiB allocatable are available; {} MiB are needed for startup and margin. Existing terminals keep running.",
+                physical / MIB,
+                commit / MIB,
+                required / MIB
+            );
+        }
+        return Ok(());
+    }
+    let required = ledger
+        .reserved_total()?
+        .memory_bytes
+        .checked_add(budget.memory_bytes)
+        .context("Resource capacity overflow.")?;
+    if physical < required.saturating_add(256 * MIB) || commit < required.saturating_add(512 * MIB)
+    {
+        bail!(
+            "System headroom cannot cover another terminal; existing sessions keep their budgets."
+        );
+    }
+    Ok(())
+}
+
+fn startup_allowance(budget: Budget) -> u64 {
+    if budget.memory_bytes <= TERMINAL.memory_bytes {
+        64 * MIB
+    } else {
+        128 * MIB
+    }
+}
 impl Admission {
     fn prepare_registered(
         &self,
         budget: Budget,
         process_commit_bytes: u64,
     ) -> Result<PreparedWorkload> {
-        let mut workload = self.prepare_workload(budget, process_commit_bytes, 15_000)?;
+        let mut workload = self.prepare_workload(
+            budget,
+            process_commit_bytes,
+            15_000,
+            AdmissionMode::Interactive,
+        )?;
         let registered = match self.approved.try_lock() {
             Ok(mut approved) if approved.len() < 8 => {
                 let native = workload
@@ -289,20 +408,22 @@ impl Admission {
         }
         Ok(workload)
     }
-    fn current_headroom(&self) -> Result<(u64, u64)> {
+    fn current_headroom(&self, interactive: bool) -> Result<(u64, u64)> {
         if self.closing.load(Ordering::Acquire) {
             bail!("This application is closing; new starts are disabled.");
         }
-        let decision = self
-            .governor
-            .as_ref()
-            .context("Resource control is unavailable; new terminals are deferred.")?
-            .status()
-            .map_err(|_| anyhow!("Resource control is busy; retry explicitly."))?;
-        if decision.phase != Phase::Running || decision.defer_new_starts {
-            bail!(
-                "New terminals are waiting for healthy resource measurements. Retry when Resources is available."
-            );
+        if !interactive {
+            let decision = self
+                .governor
+                .as_ref()
+                .context("Resource control is unavailable; new terminals are deferred.")?
+                .status()
+                .map_err(|_| anyhow!("Resource control is busy; retry explicitly."))?;
+            if decision.phase != Phase::Running || decision.defer_new_starts {
+                bail!(
+                    "New background work is waiting for healthy resource measurements. Retry when Resources is available."
+                );
+            }
         }
         let monitor = self
             .monitor
@@ -313,7 +434,12 @@ impl Admission {
             .current()
             .map_err(|_| anyhow!("Resource measurements are busy; retry explicitly."))?
             .context("Resource measurements are not ready.")?;
-        if !frame.complete()
+        if (!interactive && !frame.complete())
+            || !matches!(
+                status.phase,
+                shinatama_engine::resources::monitor::WorkerPhase::Sampling
+                    | shinatama_engine::resources::monitor::WorkerPhase::Waiting
+            )
             || status
                 .observed_at_ms
                 .checked_sub(frame.completed_at_ms)
@@ -325,6 +451,13 @@ impl Admission {
             .aggregate
             .as_ref()
             .context("Resource counters are unavailable.")?;
+        if status
+            .observed_at_ms
+            .checked_sub(aggregate.at_ms)
+            .is_none_or(|age| age > 3000)
+        {
+            bail!("System memory measurements are stale; new terminals are deferred.");
+        }
         let physical = match aggregate.system {
             Measurement::Available(system) => system.physical_available_bytes,
             _ => bail!("System memory measurements are unavailable."),
@@ -339,6 +472,7 @@ impl Admission {
         budget: Budget,
         process_commit_bytes: u64,
         lease_ms: i64,
+        mode: AdmissionMode,
     ) -> Result<PreparedWorkload> {
         if budget.memory_bytes > PER_SLOT.memory_bytes
             || budget.processes > PER_SLOT.processes
@@ -351,22 +485,17 @@ impl Admission {
         {
             bail!("Native workload profile exceeds the shared safety policy.");
         }
-        let (physical, commit) = self.current_headroom()?;
+        let (physical, commit) = self.current_headroom(mode != AdmissionMode::Background)?;
         let state = self.services.load().map_err(|e| anyhow!(e))?;
         let database = &state.store;
         let ledger = match database.resource_reservations()? {
             Some(ledger) => ledger,
             None => {
-                let memory = (physical / 2).min(commit / 2).min(MAX_TOTAL.memory_bytes);
-                if memory < PER_SLOT.memory_bytes {
-                    bail!("Available system headroom is too small for the native runtime.");
-                }
+                // The ledger bounds concurrent profiles; it does not allocate
+                // their maximum memory or require it all to be currently free.
                 database.initialize_resource_policy(&ReservationPolicy {
                     stamp: stamp(),
-                    aggregate_ceiling: Budget {
-                        memory_bytes: memory,
-                        ..MAX_TOTAL
-                    },
+                    aggregate_ceiling: MAX_TOTAL,
                     per_slot_ceiling: PER_SLOT,
                     max_slots: 8,
                     max_lease_ms: LEASE_MS as u32,
@@ -375,7 +504,7 @@ impl Admission {
         };
         // A Shinatama that crashed or was killed never released its reservations, and
         // nothing else does: after a few such exits every Open was refused for capacity.
-        let ledger = reclaim_orphaned_reservations(database, ledger);
+        let mut ledger = reclaim_orphaned_reservations(database, ledger);
         let policy = &ledger.policy;
         if policy.stamp != stamp()
             || policy.per_slot_ceiling != PER_SLOT
@@ -390,36 +519,44 @@ impl Admission {
         {
             bail!("The shared resource policy differs; no limit was raised.");
         }
-        let reserved = ledger.reserved_total()?.memory_bytes;
-        let required = reserved
-            .checked_add(budget.memory_bytes)
-            .context("Resource capacity overflow.")?;
-        // A terminal is capped at its job budget (1 GiB) and a typical TUI uses ~430 MiB, so the
-        // margin kept for the rest of Windows is 256 MiB of RAM and 512 MiB of commit.
-        if physical < required.saturating_add(256 * MIB) || commit < required.saturating_add(512 * MIB) {
-            bail!(
-                "System headroom cannot cover another terminal; existing sessions keep their budgets."
-            );
+        if ledger.slots.is_empty() && policy.aggregate_ceiling.memory_bytes < MAX_TOTAL.memory_bytes
+        {
+            // Older versions froze the ledger at half the free memory on first
+            // launch. Migrate that exact known policy only after every previous
+            // reservation has been released; never change an active job's budget.
+            let replacement = ReservationPolicy {
+                aggregate_ceiling: MAX_TOTAL,
+                ..policy.clone()
+            };
+            ledger =
+                database.replace_empty_resource_policy(policy, ledger.revision, &replacement)?;
         }
+        let policy = &ledger.policy;
+        check_start_headroom(physical, commit, budget, &ledger, mode)?;
         let coordinator = self
             .coordinator
             .get_or_init(|| AdmissionCoordinator::new(8).map_err(|e| format!("{e:?}")))
             .as_ref()
             .map_err(|e| anyhow!(e.clone()))?;
         let now = now_ms()?;
-        let workload = coordinator
-            .prepare(
-                database,
-                &policy.stamp,
-                ledger.revision,
-                PrepareRequest {
-                    budget: budget,
-                    process_commit_bytes,
-                    now_ms: now,
-                    lease_expires_at_ms: now + lease_ms,
-                },
-            )
-            .map_err(|e| anyhow!("Terminal admission was refused: {e:?}"))?;
+        let prepare = if mode == AdmissionMode::Interactive {
+            AdmissionCoordinator::prepare_interactive
+        } else {
+            AdmissionCoordinator::prepare
+        };
+        let workload = prepare(
+            coordinator,
+            database,
+            &policy.stamp,
+            ledger.revision,
+            PrepareRequest {
+                budget: budget,
+                process_commit_bytes,
+                now_ms: now,
+                lease_expires_at_ms: now + lease_ms,
+            },
+        )
+        .map_err(|e| anyhow!("Terminal admission was refused: {e:?}"))?;
         Ok(workload)
     }
 }
@@ -467,23 +604,7 @@ impl WindowsTerminalAdmission for Admission {
             .iter()
             .find(|item| item.key == owned)
             .context("Terminal resource identity is not registered; no process was selected.")?;
-        if !job.membership_complete {
-            return Ok(TerminalDirective::Continue);
-        }
-        // Windows console helpers can appear above ActiveProcessLimit. Keep the
-        // raw physical census and stop this exact registered job on overshoot.
-        // No external pressure, PID ranking or unrelated job enters this choice.
-        let process_memory_exceeded = job.processes.iter().any(|process|
-            matches!(process.counters, Measurement::Available(counters) if counters.private_commit_bytes > record.native.process_commit_bytes()));
-        if job.active_processes > record.native.max_processes()
-            || job.observed_private_commit_bytes > record.native.job_commit_bytes()
-            || process_memory_exceeded
-            || queues.current_bytes > record.queue_bytes
-            || queues.current_items > record.queue_items
-        {
-            return Ok(TerminalDirective::StopResponsible);
-        }
-        Ok(TerminalDirective::Continue)
+        Ok(record.directive(job, queues))
     }
 }
 
@@ -580,7 +701,212 @@ impl shinatama_engine::sidecar_supervisor::WorkloadProvider for SidecarProvider 
                 },
                 768 * MIB,
                 lease,
+                AdmissionMode::InteractiveSupport,
             )
             .map_err(|_| shinatama_engine::sidecar_supervisor::AdmissionUnavailable)
+    }
+}
+
+#[cfg(test)]
+mod memory_tests {
+    use super::*;
+    use shinatama_engine::resources::sampling::{ProcessCounters, ProcessSample};
+    use shinatama_state::resource_reservations::{
+        ReservationOwner, ReservationSnapshot, ReservationState, ReservationTicket,
+    };
+
+    fn ledger() -> ReservationSnapshot {
+        ReservationSnapshot {
+            format_version: 1,
+            revision: 1,
+            policy: ReservationPolicy {
+                stamp: stamp(),
+                aggregate_ceiling: MAX_TOTAL,
+                per_slot_ceiling: PER_SLOT,
+                max_slots: 8,
+                max_lease_ms: LEASE_MS as u32,
+            },
+            slots: vec![],
+        }
+    }
+
+    fn slot(state: ReservationState) -> ReservationTicket {
+        ReservationTicket {
+            id: uuid::Uuid::new_v4().to_string(),
+            job_key: uuid::Uuid::new_v4().to_string(),
+            owner: ReservationOwner {
+                pid: 1,
+                created_at_100ns: 1,
+                windows_session_id: 1,
+                nonce: uuid::Uuid::new_v4().to_string(),
+            },
+            budget: PER_SLOT,
+            state,
+            lease_expires_at_ms: LEASE_MS,
+            revision: 1,
+        }
+    }
+
+    #[test]
+    fn shell_can_start_with_256_mib_available_without_reserving_gigabytes() {
+        assert!(
+            check_start_headroom(
+                256 * MIB,
+                256 * MIB,
+                TERMINAL,
+                &ledger(),
+                AdmissionMode::Interactive
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn active_terminal_budgets_are_not_subtracted_again_from_available_memory() {
+        let mut ledger = ledger();
+        ledger.slots = vec![
+            slot(ReservationState::Active),
+            slot(ReservationState::Active),
+        ];
+        assert!(
+            check_start_headroom(
+                256 * MIB,
+                256 * MIB,
+                TERMINAL,
+                &ledger,
+                AdmissionMode::Interactive
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn low_ram_or_commit_blocks_only_the_new_start() {
+        for (physical, commit) in [(64 * MIB, GIB), (GIB, 64 * MIB)] {
+            assert!(
+                check_start_headroom(
+                    physical,
+                    commit,
+                    TERMINAL,
+                    &ledger(),
+                    AdmissionMode::Interactive
+                )
+                .is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn pending_launches_keep_a_small_startup_allowance() {
+        let mut ledger = ledger();
+        ledger.slots.push(slot(ReservationState::Reserved));
+        assert!(
+            check_start_headroom(
+                256 * MIB,
+                256 * MIB,
+                TERMINAL,
+                &ledger,
+                AdmissionMode::Interactive
+            )
+            .is_err()
+        );
+        assert!(
+            check_start_headroom(
+                512 * MIB,
+                512 * MIB,
+                TERMINAL,
+                &ledger,
+                AdmissionMode::Interactive
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn background_workloads_keep_their_full_admission_budget() {
+        assert!(
+            check_start_headroom(
+                256 * MIB,
+                256 * MIB,
+                PER_SLOT,
+                &ledger(),
+                AdmissionMode::Background
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn native_startup_services_do_not_require_gigabytes_or_recharge_active_memory() {
+        let mut ledger = ledger();
+        ledger.slots = vec![
+            slot(ReservationState::Active),
+            slot(ReservationState::Active),
+        ];
+        assert!(
+            check_start_headroom(
+                256 * MIB,
+                256 * MIB,
+                PER_SLOT,
+                &ledger,
+                AdmissionMode::InteractiveSupport
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn interactive_memory_growth_never_requests_a_stop() {
+        let key = ProcessKey {
+            pid: 1,
+            created_at_100ns: 1,
+        };
+        let record = Approved {
+            key: OwnedJobKey {
+                job_key: [1; 16],
+                owner: key,
+                owner_windows_session_id: 1,
+            },
+            native: JobBudget::new(512 * MIB, 256 * MIB, 8, 1000).unwrap(),
+            queue_bytes: TERMINAL.queue_bytes,
+            queue_items: TERMINAL.queue_items,
+        };
+        let mut job = JobSnapshot {
+            active_processes: 1,
+            total_processes: 1,
+            total_terminated_processes: 0,
+            cpu_time_100ns: 0,
+            peak_job_commit_bytes: 2 * GIB,
+            observed_private_commit_bytes: 2 * GIB,
+            observed_resident_bytes: GIB,
+            membership_complete: true,
+            members: vec![],
+            processes: vec![ProcessSample {
+                key,
+                counters: Measurement::Available(ProcessCounters {
+                    private_commit_bytes: 2 * GIB,
+                    resident_bytes: GIB,
+                    cpu_time_100ns: 0,
+                }),
+            }],
+        };
+        let queues = QueueStatus {
+            closed: false,
+            current_bytes: 0,
+            current_items: 0,
+            peak_bytes: 0,
+            peak_items: 0,
+            refusals: 0,
+        };
+        assert!(matches!(
+            record.directive(&job, queues),
+            TerminalDirective::Continue
+        ));
+        // Unrelated process/queue containment still works.
+        job.active_processes = 9;
+        assert!(matches!(
+            record.directive(&job, queues),
+            TerminalDirective::StopResponsible
+        ));
     }
 }

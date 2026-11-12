@@ -185,6 +185,7 @@ impl HarnessDriver for ClaudeDriver {
                 ca_file: context.ca_file,
                 selected_set: context.selected_set,
                 plugins_root: context.plugins_root,
+                mods_root: crate::sidecar::claude_mods_root().as_deref(),
                 thread_id: &context.thread.id,
             },
             receipt,

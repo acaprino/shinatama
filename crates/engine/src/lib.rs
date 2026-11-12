@@ -14,7 +14,7 @@ pub mod claude_session_events;
 pub mod harness_session_events;
 #[cfg(windows)]
 pub(crate) mod harness_hooks;
-pub mod bundled_plugins;
+pub mod marionette;
 pub mod claude_mods;
 pub mod resources;
 #[cfg(feature = "session-reader")]

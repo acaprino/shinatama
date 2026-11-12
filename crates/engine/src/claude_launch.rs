@@ -3,7 +3,7 @@
 //! No provider request, login, user credential read, shell or marketplace install.
 #![cfg(windows)]
 use crate::{
-    bundled_plugins::{BundledPlugins, is_bundled_set},
+    marionette::{self, Adapter, Host, Marionette, is_marionette_set},
     claude_mods::{self, ClaudeMods},
     claude_probe::{ClaudeProbeOutcome, ProbeCleanup},
     claude_session_events::ClaudeSessionEventReceiver,
@@ -160,8 +160,10 @@ pub struct ClaudeStartContext<'a> {
     pub proxy_port: NonZeroU16,
     pub ca_file: &'a Path,
     pub selected_set: &'a SetManifest,
-    /// Pinned `resources/agent-plugins`; required when the set is the bundled one.
+    /// Synced Marionette store; required when the set is the Marionette one.
     pub plugins_root: Option<&'a Path>,
+    /// `resources/claude-mods` beside the executable, when present.
+    pub mods_root: Option<&'a Path>,
     pub thread_id: &'a str,
 }
 pub struct PreparedClaudeTrial {
@@ -199,6 +201,7 @@ struct Context<'a> {
     ca_file: &'a Path,
     selected_set: &'a SetManifest,
     plugins_root: Option<&'a Path>,
+    mods_root: Option<&'a Path>,
     thread_id: &'a str,
 }
 pub struct PreparedClaudeStart {
@@ -208,10 +211,10 @@ pub struct PreparedClaudeStart {
     pub session_events: Option<ClaudeSessionEventReceiver>,
 }
 
-/// The tracked profile carries the bundled plugins, whose hooks run through Git Bash and
-/// need headroom beyond the bare TUI. The number is fixed by recipe, measured once
-/// (Claude with both plugins and one prompt reaches 10 active processes) and never
-/// raised at runtime because of a failure.
+/// The tracked profile carries Marionette, whose skills run helpers and need headroom
+/// beyond the bare TUI. The number is fixed by recipe, measured once (Claude with the
+/// earlier two plugins and one prompt reached 10 active processes) and never raised at
+/// runtime because of a failure.
 const TRACKED_PROCESSES: u32 = 16;
 const SAFE_PROCESSES: u32 = 8;
 
@@ -287,6 +290,7 @@ fn prepare_trial_with_hooks(
             ca_file: context.ca_file,
             selected_set: context.selected_set,
             plugins_root: None,
+            mods_root: None,
             thread_id: context.thread_id,
         },
         None,
@@ -358,6 +362,7 @@ fn prepare_for_operation(
             ca_file: context.ca_file,
             selected_set: context.selected_set,
             plugins_root: context.plugins_root,
+            mods_root: context.mods_root,
             thread_id: context.thread_id,
         },
         Some(receipt),
@@ -413,30 +418,32 @@ fn prepare(
     {
         return Err(ClaudeLaunchError::ObservationRequired);
     }
-    // Only the exact bundled set, only for a tracked real session (the safe-mode
+    // Only the exact Marionette set, only for a tracked real session (the safe-mode
     // trial profile stays empty). Digests are checked at every launch.
     let bundled = if context.selected_set.is_empty() {
         None
-    } else if is_bundled_set(context.selected_set) && tracked && !trial {
+    } else if is_marionette_set(context.selected_set) && tracked && !trial {
         let root = context
             .plugins_root
             .ok_or(ClaudeLaunchError::BundledPlugins)?;
-        let verified = BundledPlugins::verify(root).map_err(|_| ClaudeLaunchError::BundledPlugins)?;
-        // Claude writes into the directories it loads: never hand it the pinned tree.
+        let verified = Marionette::current(root)
+            .and_then(|release| release.verify(Host::ClaudeCode))
+            .map_err(|_| ClaudeLaunchError::BundledPlugins)?;
+        // Claude writes into the directories it loads: never hand it the synced tree.
         Some(
             verified
-                .private_copy(&context.base.directory().join("bundled-plugins"))
+                .private_copy(&context.base.directory().join(marionette::STORE))
                 .map_err(|_| ClaudeLaunchError::BundledPlugins)?,
         )
     } else {
         return Err(ClaudeLaunchError::UnsupportedSet);
     };
-    // Display-only Claude mods ride on the bundled plugins: never without them,
-    // dropped alone on any doubt, never a reason to refuse the launch.
+    // Display-only Claude mods ride on Marionette: never without it, dropped
+    // alone on any doubt, never a reason to refuse the launch.
     let mods = if bundled.is_some() {
-        context.plugins_root.and_then(|plugins_root| {
+        context.mods_root.and_then(|mods_root| {
             ClaudeMods::for_claude_launch(
-                plugins_root,
+                mods_root,
                 &version.to_string(),
                 &context.base.directory().join(claude_mods::DIRECTORY),
             )
@@ -806,14 +813,9 @@ fn prepare(
         session_events,
     })
 }
-/// One `--plugin-dir <ordinary drive path>` pair per bundled plugin.
-fn plugin_arguments(plugins: &BundledPlugins) -> Vec<OsString> {
-    let mut args = Vec::new();
-    for name in crate::bundled_plugins::PLUGINS {
-        args.push("--plugin-dir".into());
-        args.push(plugins.plugin_dir_arg(name).into());
-    }
-    args
+/// `--plugin-dir <ordinary drive path>` of Marionette's Claude Code adapter.
+fn plugin_arguments(adapter: &Adapter) -> Vec<OsString> {
+    vec!["--plugin-dir".into(), adapter.dir_arg().into()]
 }
 fn verify_sidecar(sidecar: &SidecarSupervisor) -> Result<(), ClaudeLaunchError> {
     let status = sidecar
@@ -1070,16 +1072,17 @@ mod tests {
     use super::*;
     use sha2::{Digest, Sha256};
     #[test]
-    fn bundled_plugins_become_plugin_dir_pairs() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../resources/agent-plugins");
-        let plugins = BundledPlugins::verify(&root).unwrap();
-        let args = plugin_arguments(&plugins);
-        assert_eq!(args.len(), 4);
+    fn marionette_becomes_one_plugin_dir_pair() {
+        use crate::marionette::tests::{FakeFetch, scratch};
+        let store = scratch("claude-args");
+        marionette::sync(&store, &FakeFetch::new("v0.1.0", "0.1.0")).unwrap();
+        let adapter = Marionette::current(&store).unwrap().verify(Host::ClaudeCode).unwrap();
+        let args = plugin_arguments(&adapter);
+        assert_eq!(args.len(), 2);
         assert_eq!(args[0], "--plugin-dir");
-        assert_eq!(args[2], "--plugin-dir");
-        assert!(args[1].to_string_lossy().ends_with("ponytail"));
-        assert!(args[3].to_string_lossy().ends_with("i-have-adhd"));
+        assert!(args[1].to_string_lossy().ends_with("claude-code"));
         assert!(!args[1].to_string_lossy().starts_with(r"\?\"));
+        let _ = std::fs::remove_dir_all(&store);
     }
     #[test]
     fn tracked_hook_hardlink_keeps_bytes_and_selected_path_pinned() {

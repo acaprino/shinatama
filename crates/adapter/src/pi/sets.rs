@@ -91,15 +91,14 @@ pub fn plan_resources(
     Ok(ResourceArguments { tokens })
 }
 
-/// Fixed Pi wiring of the two bundled plugins, referenced where they were
-/// verified (read-only): their extensions with `-e`, their skills with `--skill`.
-/// Both roots must be absolute local drive paths.
-pub fn plan_bundled(ponytail: &Path, i_have_adhd: &Path) -> Result<ResourceArguments, PiSetError> {
+/// Fixed Pi wiring of Marionette's Pi adapter, referenced where it was verified
+/// (read-only): its policy extension with `-e` and its skills folder with
+/// `--skill`, the two entries its `package.json` declares. The adapter must be
+/// an absolute local drive path.
+pub fn plan_marionette(adapter: &Path) -> Result<ResourceArguments, PiSetError> {
     let wiring = [
-        ("-e", ponytail.join("pi-extension").join("index.js")),
-        ("-e", i_have_adhd.join("extensions").join("i-have-adhd.ts")),
-        ("--skill", ponytail.join("skills")),
-        ("--skill", i_have_adhd.join("skills").join("i-have-adhd")),
+        ("-e", adapter.join("extensions").join("policy.js")),
+        ("--skill", adapter.join("skills")),
     ];
     let mut tokens = Vec::with_capacity(wiring.len() * 2);
     for (flag, path) in wiring {
@@ -139,18 +138,17 @@ mod tests {
     use crate::sets::{SET_SCHEMA_VERSION, SetEntry};
 
     #[test]
-    fn bundled_plugins_wire_extensions_and_skills_in_fixed_order() {
-        let args = plan_bundled(
-            Path::new(r"C:\app\resources\agent-plugins\ponytail"),
-            Path::new(r"C:\app\resources\agent-plugins\i-have-adhd"),
-        )
+    fn marionette_wires_its_extension_and_skills_in_fixed_order() {
+        let args = plan_marionette(Path::new(
+            r"C:\data\marionette\releases\v0.1.0\marionette\adapters\pi",
+        ))
         .unwrap();
         let flags: Vec<_> = args.tokens().iter().step_by(2).collect();
-        assert_eq!(flags, ["-e", "-e", "--skill", "--skill"]);
-        assert!(args.tokens()[1].to_string_lossy().ends_with(r"pi-extension\index.js"));
-        assert!(args.tokens()[7].to_string_lossy().ends_with(r"skills\i-have-adhd"));
+        assert_eq!(flags, ["-e", "--skill"]);
+        assert!(args.tokens()[1].to_string_lossy().ends_with(r"pi\extensions\policy.js"));
+        assert!(args.tokens()[3].to_string_lossy().ends_with(r"pi\skills"));
         assert_eq!(
-            plan_bundled(Path::new("relative"), Path::new(r"C:\x")).unwrap_err(),
+            plan_marionette(Path::new("relative")).unwrap_err(),
             PiSetError::InvalidPath
         );
     }

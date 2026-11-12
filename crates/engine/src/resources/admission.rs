@@ -270,6 +270,29 @@ impl AdmissionCoordinator {
         request: PrepareRequest,
     ) -> Result<PreparedWorkload, AdmissionError> {
         let native_budget = request.native_budget()?;
+        self.prepare_with_budget(database, stamp, expected_revision, request, native_budget)
+    }
+    /// Interactive memory thresholds are advisory: a long-running terminal may
+    /// grow beyond its reservation without Windows refusing its allocations.
+    /// The ledger and the remaining native/queue limits still use the request.
+    pub fn prepare_interactive(
+        &self,
+        database: &Database,
+        stamp: &PolicyStamp,
+        expected_revision: u64,
+        request: PrepareRequest,
+    ) -> Result<PreparedWorkload, AdmissionError> {
+        let native_budget = request.native_budget()?.with_advisory_memory();
+        self.prepare_with_budget(database, stamp, expected_revision, request, native_budget)
+    }
+    fn prepare_with_budget(
+        &self,
+        database: &Database,
+        stamp: &PolicyStamp,
+        expected_revision: u64,
+        request: PrepareRequest,
+        native_budget: JobBudget,
+    ) -> Result<PreparedWorkload, AdmissionError> {
         let id = fresh_uuid()?;
         let job_key = fresh_uuid()?;
         let index = self
@@ -394,7 +417,8 @@ impl PreparedWorkload {
     pub fn ticket(&self) -> &ReservationTicket {
         &self.ticket
     }
-    /// Verified native limits; callers may cache these before owned-job cleanup.
+    /// Verified native configuration, including whether memory thresholds are
+    /// enforced. Callers may cache it before owned-job cleanup.
     pub fn applied_budget(&self) -> Option<JobBudget> {
         self.job.as_ref().map(WorkloadJob::budget)
     }
@@ -620,6 +644,7 @@ mod tests {
     fn budget_mapping_cannot_weaken_any_native_dimension() {
         let request = request();
         let native = request.native_budget().unwrap();
+        assert!(native.memory_limit_enforced());
         assert_eq!(native.job_commit_bytes(), request.budget.memory_bytes);
         assert_eq!(native.process_commit_bytes(), request.process_commit_bytes);
         assert_eq!(native.max_processes(), request.budget.processes);
@@ -693,6 +718,7 @@ mod tests {
             let mut workload = coordinator
                 .prepare(&database, &policy.stamp, 0, request)
                 .unwrap();
+            assert!(workload.applied_budget().unwrap().memory_limit_enforced());
             assert_eq!(workload.ticket().owner.pid, workload.owned_key().owner.pid);
             assert_eq!(
                 workload.ticket().job_key,
@@ -732,6 +758,29 @@ mod tests {
                     .is_empty()
             );
             drop(workload);
+            let revision = database.resource_reservations().unwrap().unwrap().revision;
+            let mut interactive = coordinator
+                .prepare_interactive(&database, &policy.stamp, revision, request)
+                .unwrap();
+            assert!(
+                !interactive
+                    .applied_budget()
+                    .unwrap()
+                    .memory_limit_enforced()
+            );
+            assert_eq!(interactive.ticket().budget, request.budget);
+            assert_eq!(
+                interactive.applied_budget().unwrap().job_commit_bytes(),
+                request.budget.memory_bytes
+            );
+            assert!(interactive.startup_binding(request.now_ms).is_ok());
+            assert!(matches!(
+                interactive
+                    .finish_cleanup(&database, Duration::ZERO)
+                    .unwrap(),
+                CleanupStatus::Released { .. }
+            ));
+            drop(interactive);
             let revision = database.resource_reservations().unwrap().unwrap().revision;
             let mut recoverable = coordinator
                 .prepare(&database, &policy.stamp, revision, request)

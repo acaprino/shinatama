@@ -5,7 +5,7 @@
 //! login, credential read, shell, npm install or marketplace access.
 #![cfg(windows)]
 use crate::{
-    bundled_plugins::{BundledPlugins, is_bundled_set},
+    marionette::{Host, Marionette, is_marionette_set},
     launch::{
         LaunchInputs, LaunchIssueCode, PreparedLaunch, compose_launch, identity::LaunchIdentity,
     },
@@ -105,7 +105,7 @@ pub struct PiStartContext<'a> {
     pub proxy_port: NonZeroU16,
     pub ca_file: &'a Path,
     pub selected_set: &'a SetManifest,
-    /// Pinned `resources/agent-plugins`; required when the set is the bundled one.
+    /// Synced Marionette store; required when the set is the Marionette one.
     pub plugins_root: Option<&'a Path>,
     pub thread_id: &'a str,
 }
@@ -276,17 +276,17 @@ fn prepare(
     {
         return Err(PiLaunchError::ObservationRequired);
     }
-    // Empty set, or exactly the bundled plugins for a real session (never the
-    // trial); discovery stays disabled and digests are checked at every launch.
+    // Empty set, or exactly Marionette for a real session (never the trial);
+    // discovery stays disabled and digests are checked at every launch.
     let bundled = if context.selected_set.is_empty() {
         None
-    } else if is_bundled_set(context.selected_set) && !trial {
+    } else if is_marionette_set(context.selected_set) && !trial {
         let root = context.plugins_root.ok_or(PiLaunchError::BundledPlugins)?;
-        let plugins = BundledPlugins::verify(root).map_err(|_| PiLaunchError::BundledPlugins)?;
-        let arguments = shinatama_adapter::pi::sets::plan_bundled(
-            Path::new(&plugins.plugin_dir_arg("ponytail")),
-            Path::new(&plugins.plugin_dir_arg("i-have-adhd")),
-        )
+        let adapter = Marionette::current(root)
+            .and_then(|release| release.verify(Host::Pi))
+            .map_err(|_| PiLaunchError::BundledPlugins)?;
+        let arguments =
+            shinatama_adapter::pi::sets::plan_marionette(Path::new(&adapter.dir_arg()))
         .map_err(|_| PiLaunchError::BundledPlugins)?;
         Some(arguments)
     } else {

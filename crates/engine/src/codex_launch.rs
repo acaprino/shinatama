@@ -6,7 +6,7 @@
 #[cfg(test)]
 mod native_hook_test;
 use crate::{
-    bundled_plugins::{BundledPlugins, is_bundled_set},
+    marionette::{Host, Marionette, is_marionette_set},
     codex_probe::{CodexProbeOutcome, ProbeCleanup},
     harness_session_events::{HarnessKind, SessionEventReceiver},
     launch::{LaunchInputs, PreparedLaunch, compose_launch, identity::LaunchIdentity},
@@ -200,7 +200,7 @@ pub struct CodexStartContext<'a> {
     pub proxy_port: NonZeroU16,
     pub ca_file: &'a Path,
     pub selected_set: &'a SetManifest,
-    /// Pinned `resources/agent-plugins`; required when the set is the bundled one.
+    /// Synced Marionette store; required when the set is the Marionette one.
     pub plugins_root: Option<&'a Path>,
     pub thread_id: &'a str,
 }
@@ -479,15 +479,19 @@ fn prepare(
     {
         return Err(CodexLaunchError::ObservationRequired);
     }
-    // Empty set, or exactly the bundled plugins for a tracked real session
-    // (never the trial). Digests are checked at every launch.
+    // Empty set, or exactly Marionette for a tracked real session (never the
+    // trial). Digests are checked at every launch.
     let bundled = if context.selected_set.is_empty() {
         None
-    } else if is_bundled_set(context.selected_set) && !trial && trusted_hook_exe.is_some() {
+    } else if is_marionette_set(context.selected_set) && !trial && trusted_hook_exe.is_some() {
         let root = context
             .plugins_root
             .ok_or(CodexLaunchError::BundledPlugins)?;
-        Some(BundledPlugins::verify(root).map_err(|_| CodexLaunchError::BundledPlugins)?)
+        Some(
+            Marionette::current(root)
+                .and_then(|release| release.verify(Host::Codex))
+                .map_err(|_| CodexLaunchError::BundledPlugins)?,
+        )
     } else {
         return Err(CodexLaunchError::UnsupportedSet);
     };
@@ -639,8 +643,8 @@ fn prepare(
         None
     };
     if let Some(plugins) = &bundled {
-        // CODEX_HOME is the private home: place the verified plugin files where
-        // Codex looks for installed plugins, then enable them per launch with -c.
+        // CODEX_HOME is the private home: place the verified adapter where Codex
+        // looks for installed plugins, then enable it per launch with -c.
         plugins
             .install_codex_cache(context.private_home.paths().home())
             .map_err(|_| CodexLaunchError::BundledPlugins)?;

@@ -18,6 +18,8 @@ mod projects;
 mod resource_governor;
 mod resources;
 #[cfg(windows)]
+mod marionette;
+#[cfg(windows)]
 mod sessions;
 #[cfg(windows)]
 mod sidecar;
@@ -199,7 +201,7 @@ async fn terminal_start(
         #[cfg(windows)]
         runtime.configure(&host)?;
         #[cfg(windows)]
-        runtime.wait_for_admission()?;
+        runtime.wait_for_interactive_admission()?;
         host.start(&PathBuf::from(cwd), rows, cols)
             .map_err(|e| format!("{e:#}"))
     })
@@ -601,6 +603,10 @@ fn main() {
                 .map(PathBuf::from)
                 .map(Ok)
                 .unwrap_or_else(|| app.path().app_config_dir());
+            #[cfg(windows)]
+            if let Ok(home) = &directory {
+                marionette::start(home);
+            }
             let services = Arc::new(storage::Services::new(directory.map_err(|e| e.to_string())));
             let maintenance = Arc::new(maintenance::Controller::start(services.clone()));
             app.state::<resources::Resources>()
@@ -644,6 +650,7 @@ fn main() {
             for config in app.config().app.windows.clone() {
                 tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?.build()?;
             }
+            attention::start_memory_warnings(app.handle());
             Ok(())
         });
     #[cfg(not(feature = "tl1-proof"))]

@@ -214,44 +214,7 @@ function Assert-Native([string]$Path, [bool]$Desktop) {
         } finally { $reader.Dispose() }
     } finally { $stream.Dispose() }
 }
-function Add-AgentPlugins($Plan, [string]$PluginsRoot) {
-    $lock = Read-Json (Regular $PluginsRoot 'plugins.lock.json') 64KB
-    Keys-Exactly $lock @('formatVersion', 'marketplace', 'plugins')
-    if ($lock.formatVersion -ne 1) { throw 'Unknown agent plugin lock format.' }
-    $names = @('ponytail', 'i-have-adhd')
-    Keys-Exactly $lock.plugins $names
-    $prefix = 'resources/agent-plugins'
-    $lockRelative = "$prefix/plugins.lock.json"
-    $Plan.Add($lockRelative, @{ source = $lockRelative; expected = $null })
-    Keys-Exactly $lock.marketplace @('bytes', 'sha256')
-    if (-not (Integer $lock.marketplace.bytes 64KB) -or $lock.marketplace.sha256 -cnotmatch '^[a-f0-9]{64}$') {
-        throw 'Invalid local agent plugin marketplace pin.'
-    }
-    $marketplaceRelative = "$prefix/.agents/plugins/marketplace.json"
-    $Plan.Add($marketplaceRelative, @{ source = $marketplaceRelative; expected = $lock.marketplace })
-    foreach ($name in $names) {
-        $plugin = $lock.plugins[$name]
-        Keys-Exactly $plugin @('repository', 'commit', 'version', 'license', 'files')
-        if ($plugin.repository -cnotmatch '^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' -or
-            $plugin.commit -cnotmatch '^[a-f0-9]{40}$' -or $plugin.version -cnotmatch '^\d+\.\d+\.\d+$' -or
-            $plugin.license -cne 'MIT' -or $plugin.files -isnot [array] -or $plugin.files.Count -gt $maxFiles) {
-            throw "Invalid agent plugin pin: $name"
-        }
-        foreach ($file in $plugin.files) {
-            Keys-Exactly $file @('path', 'bytes', 'sha256')
-            Assert-Relative $file.path
-            if (-not (Integer $file.bytes $maxFileBytes) -or $file.sha256 -cnotmatch '^[a-f0-9]{64}$') {
-                throw "Invalid agent plugin file pin: $name/$($file.path)"
-            }
-            $relative = "$prefix/$name/$($file.path)"
-            $Plan.Add($relative, @{ source = $relative; expected = $file })
-        }
-        foreach ($required in @('LICENSE', '.claude-plugin/plugin.json', '.codex-plugin/plugin.json', "skills/$name/SKILL.md")) {
-            if (-not $Plan.ContainsKey("$prefix/$name/$required")) { throw "Agent plugin is missing a required pin: $name/$required" }
-        }
-    }
-}
-function Plan([string]$ResourcesRoot, [string]$PluginsRoot) {
+function Plan([string]$ResourcesRoot) {
     $pin = Read-Json (Regular $ResourcesRoot 'source-build/provenance.lock.json')
     $bundle = Read-Json (Regular $ResourcesRoot 'source-build/prepared/bundle.identity.json') 16KB
     if ($bundle.formatVersion -ne 1 -or $bundle.packageName -cne $pin.packageName -or $bundle.version -cne $pin.version -or
@@ -278,7 +241,6 @@ function Plan([string]$ResourcesRoot, [string]$PluginsRoot) {
     foreach ($name in @('shinatama-desktop.exe', 'shinatama-terminal-helper.exe', 'shinatama-session-helper.exe', 'shinatama-hook.exe', 'AVVIO.md', 'Shinatama.cmd')) {
         $plan.Add($name, @{ source = $name; expected = $null })
     }
-    if ($PluginsRoot) { Add-AgentPlugins $plan $PluginsRoot }
     return ,$plan
 }
 function Verify-Package([string]$Directory) {
@@ -289,16 +251,8 @@ function Verify-Package([string]$Directory) {
     if (-not [Guid]::TryParseExact($id, 'D', [ref]$parsed) -or $parsed.ToString('D') -cne $id) { throw 'Invalid staging identity.' }
     $receipt = Read-Json (Regular $portableRoot "$id.receipt.json") 16KB
     $receiptKeys = @('schemaVersion', 'packageId', 'gitHead', 'fileCount', 'totalBytes', 'manifestSha256', 'sourcePinSha256', 'runtimePinSha256')
-    $pluginsRoot = ''
-    if ($receipt.schemaVersion -eq 2) {
-        $receiptKeys += 'agentPluginsPinSha256'
-        $pluginsRoot = Join-Path $directory 'resources/agent-plugins'
-    }
     Keys-Exactly $receipt $receiptKeys
-    if ($receipt.schemaVersion -notin @(1, 2) -or $receipt.packageId -cne $id -or $receipt.manifestSha256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Local package receipt refused.' }
-    if ($pluginsRoot -and (Digest (Regular $pluginsRoot 'plugins.lock.json')) -cne $receipt.agentPluginsPinSha256) {
-        throw 'Agent plugin pin differs from the trusted local receipt.'
-    }
+    if ($receipt.schemaVersion -ne 1 -or $receipt.packageId -cne $id -or $receipt.manifestSha256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Local package receipt refused.' }
     $manifestPath = Regular $directory 'package-manifest.json'
     $manifestBytes = (Get-Item -LiteralPath $manifestPath).Length
     if ($manifestBytes -gt 1MB) { throw 'Package manifest exceeds its metadata bound.' }
@@ -314,7 +268,7 @@ function Verify-Package([string]$Directory) {
         $manifest.scope -cne 'local debug portable files; public release/X3 gates remain open' -or
         $manifest.files -isnot [array] -or -not (Integer $manifest.totalBytes $maxTotalBytes) -or
         $manifest.files.Count -gt $maxFiles -or $manifest.files.Count -ne $receipt.fileCount) { throw 'Unknown/inconsistent local package manifest schema.' }
-    $plan = Plan (Join-Path $directory 'resources/sidecar') $pluginsRoot
+    $plan = Plan (Join-Path $directory 'resources/sidecar')
     if ($manifest.files.Count -ne $plan.Count) { throw 'Package allowlist count differs from the reviewed recipe.' }
     $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     [long]$total = 0
@@ -351,9 +305,7 @@ $sourceVerification = ((& (Regular $workspace 'sidecar/prepare.ps1') -Mode Verif
 $runtimeVerification = ((& (Regular $workspace 'sidecar/prepare-runtime.ps1') -Mode Verify) -join "`n") | ConvertFrom-Json -AsHashtable
 if ($sourceVerification.mode -cne 'verify' -or $runtimeVerification.mode -cne 'verify' -or -not $runtimeVerification.licenseBundleComplete) { throw 'Static sidecar/runtime input verification failed.' }
 $resources = Join-Path $workspace 'sidecar'
-$plugins = Join-Path $workspace 'resources/agent-plugins'
-$pluginsPinSha256 = Digest (Regular $plugins 'plugins.lock.json')
-$plan = Plan $resources $plugins
+$plan = Plan $resources
 $preparedFiles = Files-Bounded (Join-Path $resources 'source-build/prepared')
 if ($preparedFiles.Count -ne 610) { throw 'Prepared sidecar must contain the exact 609 pinned files plus its generated identity.' }
 $expectedPrepared = Expected-Prepared (Read-Json (Regular $resources 'source-build/provenance.lock.json'))
@@ -401,9 +353,9 @@ $manifest = [ordered]@{ schemaVersion = 1; product = 'Shinatama'; packageId = $p
     scope = 'local debug portable files; public release/X3 gates remain open'; totalBytes = $totalBytes; files = $records.ToArray() }
 $manifestPath = Join-Path $stage 'package-manifest.json'
 Write-New $manifestPath ($utf8.GetBytes(($manifest | ConvertTo-Json -Depth 8) + "`n"))
-$receipt = [ordered]@{ schemaVersion = 2; packageId = $packageId; gitHead = $gitHead; fileCount = $records.Count; totalBytes = $totalBytes
+$receipt = [ordered]@{ schemaVersion = 1; packageId = $packageId; gitHead = $gitHead; fileCount = $records.Count; totalBytes = $totalBytes
     manifestSha256 = (Digest $manifestPath); sourcePinSha256 = (Digest (Regular $resources 'source-build/provenance.lock.json'))
-    runtimePinSha256 = (Digest (Regular $resources 'runtime.lock.json')); agentPluginsPinSha256 = $pluginsPinSha256 }
+    runtimePinSha256 = (Digest (Regular $resources 'runtime.lock.json')) }
 # Independent workspace receipt prevents a package from self-asserting changed
 # hashes by rewriting its own manifest. Keep it beside the stage for -Verify.
 Write-New (Join-Path $portableRoot "$packageId.receipt.json") ($utf8.GetBytes(($receipt | ConvertTo-Json -Depth 8) + "`n"))

@@ -522,21 +522,21 @@ fn latest_box(database: &Database, harness: &str) -> Result<Option<StoreRootReco
         })
         .max_by_key(|root| root.config_revision))
 }
-/// The set a real session starts with: the two bundled plugins when the driver
-/// supports them, the files verify against the lock and the user did not switch
-/// them off (`SHINATAMA_BUNDLED_PLUGINS=off`); otherwise the empty set. A missing
-/// or altered bundle never blocks a launch, it only drops the plugins.
+/// The set a real session starts with: Marionette when the driver supports it, a
+/// synced copy is current and the user did not switch it off
+/// (`SHINATAMA_MARIONETTE=off`); otherwise the empty set. The launcher checks the
+/// host's adapter files; a missing or altered copy never blocks a launch, it only
+/// drops Marionette.
 fn session_set(
     supported: bool,
 ) -> Result<(SetManifest, Option<std::path::PathBuf>), &'static str> {
-    let switched_off = std::env::var("SHINATAMA_BUNDLED_PLUGINS")
-        .is_ok_and(|value| value.eq_ignore_ascii_case("off"));
-    if supported && !switched_off {
-        if let Some(root) = sidecar::plugins_root() {
-            if shinatama_engine::bundled_plugins::BundledPlugins::verify(&root).is_ok() {
-                return Ok((shinatama_engine::bundled_plugins::bundled_set(), Some(root)));
-            }
-        }
+    use shinatama_engine::marionette;
+    if supported
+        && !marionette::switched_off()
+        && let Some(store) = crate::marionette::store()
+        && marionette::Marionette::current(store).is_ok()
+    {
+        return Ok((marionette::marionette_set(), Some(store.to_path_buf())));
     }
     Ok((empty_set()?, None))
 }

@@ -14,9 +14,20 @@ Chiudendo la finestra con terminali aperti puoi annullare oppure confermare l'ar
 **Shinatama alerts** → **Prova viso e suono** mostra il viso in sovraimpressione.
 Nello stesso pannello puoi disattivare il suono o gli avvisi. La comparsa lascia
 il focus nella finestra in uso; **Apri sessione** torna al terminale associato.
+Aggiornamenti e notifiche di completamento non scadono dopo pochi secondi:
+puoi chiuderli con la **X**, con **Esc** quando il widget ha il focus, oppure
+aprendo la sessione. Gli avvisi vengono aggiornati quando cambia la situazione.
 Questa prima versione riceve i segnali di attenzione nativi del terminale e la
 fine del processo mentre Shinatama è aperta. La disponibilità delle notifiche
 dipende dall'harness; la domanda completa si legge e si risponde nel terminale.
+
+Quando la memoria disponibile scende, il widget mostra un avviso e indica il
+terminale che consuma di più tra quelli misurati, con il suo consumo in MiB.
+Shinatama non chiude né sospende i terminali già aperti per la memoria. Può
+rifiutare l'apertura di un nuovo terminale quando manca il piccolo margine
+necessario all'avvio: non richiede gigabyte liberi per aprire una shell.
+L'avviso non prende il focus; **Apri sessione** porta al terminale indicato.
+I dettagli sono nella [politica di memoria](docs/notes/2026-11-12-interactive-memory.md).
 
 Il progetto contiene i thread, caricati automaticamente quando lo selezioni.
 Nel pannello **Threads**, **New session** apre lo stesso dialogo con il progetto
@@ -63,22 +74,30 @@ e hop restano distinti: non sono certificati dalla sola apertura della TUI.
   `check-state` (integrità e ricerca di credenziali nei dati di Shinatama, senza mai stamparle)
   e `mcp` (gli strumenti di messaggistica tra istanze).
 
-## Plugin inclusi
+## Marionette
 
-Il pacchetto Windows contiene **Ponytail** e **i-have-adhd** in
-`resources/agent-plugins`. Shinatama li attiva da solo a ogni sessione di
-Claude Code, Codex, Pi e OpenCode: non c'è nulla da installare. Prima di ogni
-avvio verifica i file contro `plugins.lock.json`; se mancano o sono stati
-modificati, la sessione parte senza plugin. Per disattivarli imposta la
-variabile d'ambiente `SHINATAMA_BUNDLED_PLUGINS=off` prima di aprire Shinatama.
+Ogni sessione di Claude Code, Codex, Pi e OpenCode aperta da Shinatama parte
+con **Marionette**, il plugin generato da [Muro](https://github.com/acaprino/muro):
+include anche le regole di lavoro e di comunicazione di Ponytail e i-have-adhd.
+Non c'è nulla da installare e la configurazione dei tuoi agenti non cambia.
 
-Per Ponytail in Codex, la modalità automatica richiede la fiducia agli hook:
-apri `/hooks`, accorda la fiducia e avvia un nuovo thread. Per attivare lo stile
-i-have-adhd usa `/i-have-adhd` in Claude Code o `$i-have-adhd` in Codex.
+A ogni avvio Shinatama controlla l'ultima release pubblicata su GitHub e, se è
+nuova, la scarica in `marionette\` dentro la cartella dati, ne verifica lo
+SHA-256 e la usa per le sessioni aperte da quel momento. Senza rete resta in uso l'ultima
+copia scaricata; al primo avvio senza rete le sessioni partono senza Marionette.
+Prima di ogni sessione Shinatama verifica i file dell'adapter di quell'agente:
+se uno è stato modificato, quella sessione parte senza Marionette e il
+controllo successivo ripara la copia. Per disattivarla imposta la variabile
+d'ambiente `SHINATAMA_MARIONETTE=off` prima di aprire Shinatama.
+
+In Codex le istruzioni di sessione arrivano dagli hook di Marionette, che
+richiedono la fiducia: apri `/hooks`, accorda la fiducia e avvia un nuovo
+thread. Le skill di Marionette usano `python` (e per alcuni helper `node`)
+dal `PATH`.
 
 ### Formule e diagrammi in Claude Code
 
-Solo per Claude Code, insieme ai plugin inclusi, Shinatama carica la mod
+Solo per Claude Code, insieme a Marionette, Shinatama carica la mod
 **shn-render** (`resources/claude-mods`): mostra le formule LaTeX e i diagrammi
 Mermaid semplici come testo Unicode. Cambia solo ciò che si vede nel terminale:
 la risposta salvata resta identica, e `ctrl+o` mostra l'originale. Copiando una
@@ -86,7 +105,7 @@ formula dal pannello si copia la versione Unicode. Codex, Pi e OpenCode
 disegnano già formule e diagrammi da soli e non ricevono nulla.
 
 La mod ha una verifica sua (`mods.lock.json`): se un file non torna, viene
-tolta solo lei e Ponytail e i-have-adhd restano attivi. Parte solo con le
+tolta solo lei e Marionette resta attiva. Parte solo con le
 versioni di Claude Code con cui è stata provata (oggi 2.1.322); con le altre la
 sessione parte senza. Per disattivarla imposta `SHINATAMA_CLAUDE_MODS=off`.
 Per ora è presente nella build locale (`Shinatama.cmd`), non ancora nel
@@ -94,28 +113,17 @@ pacchetto portabile.
 
 ### Fuori da Shinatama
 
-I comandi seguenti servono solo per le CLI che apri da PowerShell per conto
-tuo. Parti dalla cartella del pacchetto.
+Per le CLI che apri da PowerShell per conto tuo, usa la copia che Shinatama ha
+scaricato. Parti dalla cartella dati di Shinatama (nel pacchetto portabile è
+`data\` accanto a `Shinatama.exe`).
 
 ```powershell
-$plugins = (Resolve-Path './resources/agent-plugins').Path
-$node = (Resolve-Path './resources/sidecar/runtime').Path
-$env:Path = "$node;$env:Path"
+$tag = (Get-Content './marionette/current.json' | ConvertFrom-Json).tag
+$adapters = (Resolve-Path "./marionette/releases/$tag/marionette/adapters").Path
 ```
 
-### Claude Code
-
-```powershell
-Set-Location 'D:\percorso\del\progetto'
-claude --plugin-dir "$plugins/ponytail" --plugin-dir "$plugins/i-have-adhd"
-```
-
-### Codex
-
-```powershell
-codex plugin marketplace add "$plugins"
-codex plugin add ponytail@shinatama-bundled
-codex plugin add i-have-adhd@shinatama-bundled
-```
-
-Pi: `pi -e "$plugins/ponytail/pi-extension/index.js" -e "$plugins/i-have-adhd/extensions/i-have-adhd.ts" --skill "$plugins/ponytail/skills" --skill "$plugins/i-have-adhd/skills/i-have-adhd"`.
+- Claude Code: `claude --plugin-dir "$adapters/claude-code"`.
+- Codex: `codex plugin marketplace add "$(Resolve-Path "./marionette/releases/$tag")"`, poi
+  `codex plugin add marionette@shinatama`.
+- Pi: `pi -e "$adapters/pi/extensions/policy.js" --skill "$adapters/pi/skills"`.
+- OpenCode e gli altri host: segui `INSTALL.md` nella cartella dell'adapter.

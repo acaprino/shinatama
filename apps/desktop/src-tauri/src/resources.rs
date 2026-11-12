@@ -46,7 +46,35 @@ pub struct Resources {
     monitor: Option<Arc<ResourceMonitor>>,
     governor: OnceLock<ResourceGovernor>,
 }
+/// Fresh host memory counters for advisory notifications, independent of UI telemetry.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct MemoryObservation {
+    pub physical_available_bytes: u64,
+    pub commit_available_bytes: u64,
+}
 impl Resources {
+    #[cfg(windows)]
+    pub(crate) fn memory_observation(&self) -> Option<MemoryObservation> {
+        let monitor = self.monitor.as_ref()?;
+        let status = monitor.status();
+        let frame = monitor.current().ok()??;
+        if !matches!(status.phase, WorkerPhase::Sampling | WorkerPhase::Waiting)
+            || status.observed_at_ms.checked_sub(frame.completed_at_ms)? > 3000
+        {
+            return None;
+        }
+        let aggregate = frame.aggregate.as_ref()?;
+        if status.observed_at_ms.checked_sub(aggregate.at_ms)? > 3000 {
+            return None;
+        }
+        let Measurement::Available(system) = aggregate.system else {
+            return None;
+        };
+        Some(MemoryObservation {
+            physical_available_bytes: system.physical_available_bytes,
+            commit_available_bytes: aggregate.remaining_commit_bytes?,
+        })
+    }
     pub fn start() -> Self {
         Self {
             #[cfg(windows)]

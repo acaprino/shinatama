@@ -4,7 +4,7 @@
 //! No provider request, login, user credential read, shell or marketplace install.
 #![cfg(windows)]
 use crate::{
-    bundled_plugins::{BundledPlugins, is_bundled_set},
+    marionette::{Host, Marionette, is_marionette_set},
     launch::{
         LaunchInputs, LaunchIssueCode, PreparedLaunch, compose_launch, identity::LaunchIdentity,
     },
@@ -125,7 +125,7 @@ pub struct OpenCodeStartContext<'a> {
     pub proxy_port: NonZeroU16,
     pub ca_file: &'a Path,
     pub selected_set: &'a SetManifest,
-    /// Pinned `resources/agent-plugins`; required when the set is the bundled one.
+    /// Synced Marionette store; required when the set is the Marionette one.
     pub plugins_root: Option<&'a Path>,
     pub thread_id: &'a str,
 }
@@ -299,15 +299,19 @@ fn prepare(
     {
         return Err(OpenCodeLaunchError::ObservationRequired);
     }
-    // Empty set, or exactly the bundled plugins for a real session (never the
-    // trial). Digests are checked at every launch; files stay where verified.
+    // Empty set, or exactly Marionette for a real session (never the trial).
+    // Digests are checked at every launch; files stay where verified.
     let bundled = if context.selected_set.is_empty() {
         None
-    } else if is_bundled_set(context.selected_set) && !trial {
+    } else if is_marionette_set(context.selected_set) && !trial {
         let root = context
             .plugins_root
             .ok_or(OpenCodeLaunchError::BundledPlugins)?;
-        Some(BundledPlugins::verify(root).map_err(|_| OpenCodeLaunchError::BundledPlugins)?)
+        Some(
+            Marionette::current(root)
+                .and_then(|release| release.verify(Host::OpenCode))
+                .map_err(|_| OpenCodeLaunchError::BundledPlugins)?,
+        )
     } else {
         return Err(OpenCodeLaunchError::UnsupportedSet);
     };
@@ -465,43 +469,16 @@ fn prepare(
         RESTORE_ENV_PLUGIN.as_bytes(),
         &mut artifacts,
     )?;
-    if let Some(plugins) = &bundled {
-        // Shims only: each plugin resolves its hooks and skills relative to its
-        // own tree, so it is imported where it was verified, never copied apart.
-        for (shim, name, entry) in BUNDLED_ENTRIES {
-            let target = plugins.plugin_dir_arg(name) + entry;
-            create_bytes(
-                &plugin_directory,
-                shim,
-                bundled_shim(&target).as_bytes(),
-                &mut artifacts,
-            )?;
-        }
-        let command_directory = context
-            .base
-            .resolve_related_directory(&config_directory.join("command"))
-            .map_err(|_| OpenCodeLaunchError::PrivateHome)?;
-        command_directory
-            .prepare_private_directory()
-            .map_err(|_| OpenCodeLaunchError::PrivateHome)?;
-        for name in crate::bundled_plugins::PLUGINS {
-            for relative in plugins
-                .files(name)
-                .map_err(|_| OpenCodeLaunchError::BundledPlugins)?
-            {
-                let relative = relative.to_string_lossy().replace('\\', "/");
-                let Some(file) = relative.strip_prefix(".opencode/command/") else {
-                    continue;
-                };
-                if file.contains('/') || !file.ends_with(".md") {
-                    continue;
-                }
-                let bytes = std::fs::read(plugins.plugin_dir(name).join(&relative))
-                    .map_err(|_| OpenCodeLaunchError::BundledPlugins)?;
-                create_bytes(&command_directory, file, &bytes, &mut artifacts)?;
-            }
-        }
-        locations.push(command_directory);
+    if let Some(adapter) = &bundled {
+        // A shim only: the adapter registers its skills and policy relative to
+        // its own tree, so it is imported where it was verified, never copied.
+        let target = adapter.dir_arg() + MARIONETTE_ENTRY;
+        create_bytes(
+            &plugin_directory,
+            MARIONETTE_SHIM,
+            bundled_shim(&target).as_bytes(),
+            &mut artifacts,
+        )?;
     }
     locations.push(plugin_directory);
     locations.push(tool_home);
@@ -819,15 +796,10 @@ pub(crate) fn create_json(
     let bytes = serde_json::to_vec(value).map_err(|_| OpenCodeLaunchError::Configuration)?;
     create_bytes(location, name, &bytes, pins)
 }
-/// (shim file name, plugin, entry inside the plugin tree)
-const BUNDLED_ENTRIES: [(&str, &str, &str); 2] = [
-    ("shn-ponytail.js", "ponytail", "/.opencode/plugins/ponytail.mjs"),
-    (
-        "shn-i-have-adhd.js",
-        "i-have-adhd",
-        "/.opencode/plugins/i-have-adhd.mjs",
-    ),
-];
+/// Shim file in the instance's plugin folder, and the adapter's entry it imports
+/// (the `exports` of the adapter's `package.json`).
+const MARIONETTE_SHIM: &str = "shn-marionette.js";
+const MARIONETTE_ENTRY: &str = "/index.js";
 /// `export { default } from "file:///D:/.../plugin.mjs";`, percent-encoding the
 /// characters a file URL cannot carry raw.
 fn bundled_shim(path: &str) -> String {
@@ -1038,8 +1010,8 @@ mod tests {
     #[test]
     fn bundled_shim_is_a_file_url_reexport() {
         assert_eq!(
-            bundled_shim(r"D:\My App\resources\agent-plugins\ponytail/.opencode/plugins/ponytail.mjs"),
-            "export { default } from \"file:///D:/My%20App/resources/agent-plugins/ponytail/.opencode/plugins/ponytail.mjs\";\n"
+            bundled_shim(r"D:\My App\data\marionette\adapters\opencode/index.js"),
+            "export { default } from \"file:///D:/My%20App/data/marionette/adapters/opencode/index.js\";\n"
         );
     }
     #[test]

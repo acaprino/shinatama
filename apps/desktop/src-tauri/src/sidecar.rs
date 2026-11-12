@@ -299,7 +299,7 @@ impl Controller {
             .runtime
             .sidecar_provider(lock, state.location.clone())
             .map_err(|_| "Proxy resource admission is unavailable.")?;
-        self.runtime.wait_for_admission().map_err(|_| "Resources are not yet ready for the local service. Wait and retry Start; no process was created.")?;
+        self.runtime.wait_for_interactive_admission().map_err(|_| "Resources are not yet ready for the local service. Wait and retry Start; no process was created.")?;
         // A competing bind is handled by exact child/health identity checks and
         // finite startup failure, never by attaching to or stopping that listener.
         drop(listener);
@@ -373,13 +373,13 @@ fn owner_lock(location: &StorageLocation) -> Result<File, &'static str> {
         .map_err(|_| "Another Shinatama window owns this proxy. Its process was preserved.")?;
     Ok(file)
 }
-/// Pinned bundled plugins beside the executable (packaged) or in the repository
-/// (debug). `None` when absent: launches then simply carry no plugins.
-pub(crate) fn plugins_root() -> Option<PathBuf> {
+/// Pinned Claude Code mods beside the executable (packaged) or in the repository
+/// (debug). `None` when absent: Claude launches then simply carry no mods.
+pub(crate) fn claude_mods_root() -> Option<PathBuf> {
     let packaged = std::env::current_exe()
         .ok()?
         .parent()?
-        .join("resources/agent-plugins");
+        .join("resources/claude-mods");
     if packaged.is_dir() {
         return Some(packaged);
     }
@@ -388,7 +388,7 @@ pub(crate) fn plugins_root() -> Option<PathBuf> {
         let development = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .ancestors()
             .nth(3)?
-            .join("resources/agent-plugins");
+            .join("resources/claude-mods");
         if development.is_dir() {
             return Some(development);
         }

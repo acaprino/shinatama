@@ -1,9 +1,8 @@
-//! Claude Code mods shipped beside the bundled plugins: display-only
-//! extensions that only Claude Code loads (`resources/claude-mods`, next to
-//! `resources/agent-plugins`). Kept apart from `bundled_plugins` on purpose:
-//! their own folder and their own lock, so a mod that is missing, altered or
-//! not tried with the running Claude Code is dropped alone. The bundled
-//! plugins and every other harness launch exactly as without it, and no doubt
+//! Claude Code mods shipped in the package: display-only extensions that only
+//! Claude Code loads (`resources/claude-mods`). Kept apart from `marionette` on
+//! purpose: their own folder and their own lock, so a mod that is missing,
+//! altered or not tried with the running Claude Code is dropped alone.
+//! Marionette and every other harness launch exactly as without it, and no doubt
 //! about a mod ever blocks a launch. Pure local reads and copies, no network,
 //! no execution, no user configuration touched.
 use serde::Deserialize;
@@ -16,11 +15,11 @@ use std::{
 };
 
 pub const MODS: [&str; 1] = ["shn-render"];
-/// Sibling of the bundled plugins' folder, in the repository and the package.
+/// Folder under `resources`, in the repository and the package.
 pub const DIRECTORY: &str = "claude-mods";
 pub const LOCK_FILE: &str = "mods.lock.json";
 /// `SHINATAMA_CLAUDE_MODS=off` turns the mods off alone;
-/// `SHINATAMA_BUNDLED_PLUGINS=off` turns them off with the plugins.
+/// `SHINATAMA_MARIONETTE=off` turns them off with Marionette.
 pub const SWITCH: &str = "SHINATAMA_CLAUDE_MODS";
 /// Claude Code versions the mods were run with. Claude's mod interface is
 /// early access and may change between releases, so any other version starts
@@ -69,11 +68,11 @@ pub struct ClaudeMods {
 }
 impl ClaudeMods {
     /// The mods for one Claude launch, or None: switched off, a Claude version
-    /// they were not tried with, no folder beside `plugins_root`, or any file
+    /// they were not tried with, no `mods_root` folder, or any file
     /// that does not match the lock. Claude gets a private copy under
     /// `destination` (it writes into the directories it loads).
     pub fn for_claude_launch(
-        plugins_root: &Path,
+        mods_root: &Path,
         claude_version: &str,
         destination: &Path,
     ) -> Option<Self> {
@@ -82,8 +81,7 @@ impl ClaudeMods {
         if switched_off || !TRIED_CLAUDE_VERSIONS.contains(&claude_version) {
             return None;
         }
-        let root = plugins_root.parent()?.join(DIRECTORY);
-        Self::verify(&root).ok()?.private_copy(destination).ok()
+        Self::verify(mods_root).ok()?.private_copy(destination).ok()
     }
 
     pub fn verify(root: &Path) -> Result<Self, ClaudeModsError> {
@@ -250,9 +248,6 @@ mod tests {
             .join("../../resources")
             .join(DIRECTORY)
     }
-    fn plugins_root() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../resources/agent-plugins")
-    }
     fn copy_tree(from: &Path, to: &Path) {
         fs::create_dir_all(to).unwrap();
         for entry in fs::read_dir(from).unwrap() {
@@ -288,16 +283,16 @@ mod tests {
     fn a_launch_gets_the_private_copy_only_on_a_tried_version() {
         let destination = scratch("launch");
         let tried = TRIED_CLAUDE_VERSIONS[0];
-        let mods = ClaudeMods::for_claude_launch(&plugins_root(), tried, &destination).unwrap();
+        let mods = ClaudeMods::for_claude_launch(&repo_root(), tried, &destination).unwrap();
         assert!(mods.mod_dir("shn-render").starts_with(&destination));
         assert!(destination.join("shn-render/hooks/register.ts").is_file());
         assert!(
-            ClaudeMods::for_claude_launch(&plugins_root(), "2.1.321", &scratch("old")).is_none()
+            ClaudeMods::for_claude_launch(&repo_root(), "2.1.321", &scratch("old")).is_none()
         );
         assert!(!scratch("old").exists());
         // What Claude writes into the copy stays there; the pinned tree stays clean.
         fs::write(destination.join("shn-render/tsconfig.json"), b"{}").unwrap();
-        assert!(ClaudeMods::for_claude_launch(&plugins_root(), tried, &destination).is_some());
+        assert!(ClaudeMods::for_claude_launch(&repo_root(), tried, &destination).is_some());
         assert!(ClaudeMods::verify(&repo_root()).is_ok());
         let _ = fs::remove_dir_all(destination);
     }
@@ -305,8 +300,7 @@ mod tests {
     #[test]
     fn a_missing_folder_or_an_altered_file_drops_the_mods_alone() {
         let base = scratch("altered");
-        let plugins = base.join("agent-plugins");
-        fs::create_dir_all(&plugins).unwrap();
+        let plugins = base.join(DIRECTORY);
         let tried = TRIED_CLAUDE_VERSIONS[0];
         assert!(ClaudeMods::for_claude_launch(&plugins, tried, &base.join("copy")).is_none());
         copy_tree(&repo_root(), &base.join(DIRECTORY));
