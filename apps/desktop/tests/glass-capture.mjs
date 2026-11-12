@@ -33,7 +33,7 @@ try {
   const main = () => context.pages().find(page => !page.url().includes('widget.html') && /localhost/.test(page.url()));
   for (const deadline = Date.now() + 30000; !main() && Date.now() < deadline;) await delay(250);
   const page = main(); await page.waitForSelector('#runtime-status'); await delay(2500);
-  await page.locator('#project').click(); await page.getByRole('button', { name: 'Roots…' }).click();
+  await page.locator('#project').click(); await page.getByRole('button', { name: 'Project roots…' }).click();
   await page.locator('#folder').fill(project); await page.getByRole('button', { name: 'Use folder', exact: true }).click(); await delay(800);
   await page.locator('#new-terminal').click(); await page.locator('#session-menu [data-harness="powershell"]').click();
   await page.waitForSelector('.terminal-view', { timeout: 90000 }); await delay(3500);

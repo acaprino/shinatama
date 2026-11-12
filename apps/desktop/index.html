@@ -62,30 +62,29 @@
     <div id="notice" role="status" hidden><span></span><button aria-label="Dismiss notification">×</button></div>
     <div id="modal-scrim" hidden></div>
     <dialog id="project-dialog" aria-labelledby="project-dialog-title">
-      <form id="project-form"><div class="dialog-heading"><h1 id="project-dialog-title">Open a project</h1><button type="button" data-cancel aria-label="Close dialog">×</button></div>
-      <p>New terminals start here. Existing terminals keep their working folder.</p>
-      <div class="catalog-tools"><button id="browse-project" type="button">Browse folder <kbd>F3</kbd></button><button id="create-project" type="button">New project <kbd>n</kbd></button><button id="manage-roots" type="button">Project roots</button><button id="refresh-projects" type="button">Refresh</button></div>
-      <p id="default-root-summary" class="hint">Choose a default root for new projects.</p>
-      <section id="roots-editor" aria-label="Configure project roots" hidden>
-        <div class="catalog-section-heading"><h2>Project roots</h2><span>Folders directly inside each root appear as projects.</span></div>
-        <div id="root-drafts"></div>
-        <div class="root-editor-actions"><button id="add-root" type="button">Add root</button><button id="choose-root" type="button">Choose root…</button><span class="spring"></span><button id="discard-roots" type="button">Discard root changes</button><button id="save-roots" class="primary" type="button">Save roots</button></div>
-        <p class="hint">The selected default is used when creating a project. Saving roots never creates a folder or starts a terminal.</p>
+      <form id="project-form"><div class="dialog-heading"><h1 id="project-dialog-title">Project roots</h1><button type="button" data-cancel aria-label="Close dialog">×</button></div>
+      <p class="roots-lead">A root is the folder that holds your projects, such as <code>D:\Projects</code>. Every folder directly inside it shows up as a project. Nothing is created, moved or deleted.</p>
+      <section id="roots-panel" aria-label="Your project roots">
+        <div id="root-list" role="list" aria-live="polite"></div>
+        <div class="root-add"><input id="root-path" spellcheck="false" autocomplete="off" placeholder="Paste a root folder, e.g. D:\Projects" aria-label="Root folder path"><button id="add-root" type="button">Add</button><button id="choose-root" class="primary" type="button">Choose root folder…</button></div>
+        <p id="default-root-summary" class="hint"></p>
       </section>
-      <div id="catalog-root-statuses" aria-live="polite"></div>
-      <section class="recent-projects" aria-label="Recent projects">
-        <label for="project-filter">Filter projects <kbd>/</kbd></label>
-        <input id="project-filter" type="search" placeholder="Filter by project name or folder" autocomplete="off" maxlength="128">
+      <section class="recent-projects" aria-label="Projects in your roots">
+        <div class="catalog-section-heading"><h2>Projects in your roots</h2><span class="spring"></span><button id="refresh-projects" type="button">Rescan</button></div>
+        <input id="project-filter" type="search" placeholder="Filter by project name or folder  ( / )" autocomplete="off" maxlength="128" aria-label="Filter projects">
         <p id="catalog-state" class="hint" role="status"></p>
         <div id="catalog-project-list" role="list" aria-label="Projects in roots"></div>
         <div id="catalog-pagination" hidden><button id="catalog-previous" type="button">Previous</button><span id="catalog-page"></span><button id="catalog-next" type="button">Next</button></div>
-        <h2 id="recent-project-heading">Recent folders</h2>
+        <h2 id="recent-project-heading">Single folders</h2>
         <div id="recent-project-list" role="list" aria-live="polite"></div>
       </section>
-      <label for="folder">Absolute folder path</label><input id="folder" name="folder" required spellcheck="false" autocomplete="off">
-      <p class="hint">Use folder and Browse folder both remember explicitly opened folders outside your roots in the last ten.</p>
+      <section class="single-folder" aria-labelledby="single-folder-heading">
+        <h2 id="single-folder-heading">Just one folder</h2>
+        <p class="hint">Opens one folder as a project, without adding a root.</p>
+        <div class="single-folder-row"><input id="folder" name="folder" required spellcheck="false" autocomplete="off" placeholder="D:\Projects\my-app" aria-label="Folder to open as a project"><button id="browse-project" type="button">Browse… <kbd>F3</kbd></button><button type="submit">Use folder</button></div>
+      </section>
       <p id="project-error" role="alert" hidden></p>
-      <div class="dialog-actions"><button type="button" data-cancel>Cancel</button><button class="primary" type="submit">Use folder</button></div></form>
+      <div class="dialog-actions"><button id="create-project" type="button">New project <kbd>n</kbd></button><span class="spring"></span><button type="button" data-cancel>Close</button></div></form>
     </dialog>
     <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-message">
       <form method="dialog"><div class="dialog-heading"><h1 id="confirm-title">Stop terminal?</h1></div><p id="confirm-message"></p>

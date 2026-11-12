@@ -247,26 +247,34 @@ dialog .hint { font-size: 12px; color: var(--muted); }
 
 /* Project picker. Roots stay separate from live terminal layout and session controls. */
 #project-dialog { width: min(760px, calc(100vw - 40px)); }
-.catalog-tools, .root-editor-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-#default-root-summary { margin: 10px 0 16px; overflow-wrap: anywhere; }
-#roots-editor { margin: 14px 0; padding: 12px; border: 1px solid var(--line-strong); background: var(--chrome); }
-.catalog-section-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; margin-bottom: 10px; }
-.catalog-section-heading h2, #recent-project-heading { margin: 10px 0; font: 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--text-2); }
-.catalog-section-heading span { font-size: 12px; color: var(--muted); }
-.root-draft { display: grid; grid-template-columns: 84px minmax(100px, 1fr) auto auto; align-items: center; gap: 6px; margin: 7px 0; }
-.root-draft input:not([type=radio]) { height: 32px; }
-dialog .root-default-label { display: flex; align-items: center; gap: 5px; margin: 0; letter-spacing: 0; text-transform: none; white-space: nowrap; }
-dialog .root-default-label input { width: 13px; height: 13px; margin: 0; padding: 0; accent-color: var(--accent); }
-.root-editor-actions { margin-top: 12px; }
-#catalog-root-statuses { display: flex; flex-direction: column; gap: 4px; margin: 10px 0; }
-.catalog-root-status { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 6px 9px; border-left: 2px solid var(--line-strong); background: var(--chrome); font-size: 12px; }
-.catalog-root-status > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); color: var(--text-2); }
+.roots-lead { margin: 12px 0 10px; }
+.roots-lead code { padding: 0 4px; font: 12px var(--mono); color: var(--ice); background: color-mix(in srgb, var(--terminal) 60%, transparent); }
+#default-root-summary { margin: 8px 0 0; overflow-wrap: anywhere; }
+#default-root-summary:empty { display: none; }
+.catalog-section-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 8px; }
+.catalog-section-heading h2, #recent-project-heading, .single-folder h2 { margin: 10px 0; font: 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--text-2); }
+.catalog-section-heading button { height: 26px; padding: 0 10px; font-size: 12px; }
+/* Roots: one row per root, saved the moment it changes. */
+#root-list { display: flex; flex-direction: column; gap: 4px; }
+.root-empty { margin: 0; padding: 14px 12px; border: 1px dashed var(--line-strong); color: var(--text-2); text-align: center; }
+.catalog-root-status { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 10px; border-left: 2px solid var(--accent); background: color-mix(in srgb, var(--chrome) 70%, transparent); font-size: 12px; }
+.root-text { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.root-text > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 13px var(--mono); color: var(--text); }
 .catalog-root-status small { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.catalog-root-status button { height: 26px; padding: 0 9px; font-size: 12px; white-space: nowrap; }
+.catalog-root-status .root-default[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); opacity: 1; }
 .catalog-root-status.scanning { border-color: var(--live); }
 .catalog-root-status.missing, .catalog-root-status.unavailable, .catalog-root-status.timed_out, .catalog-root-status.truncated { border-color: var(--warning); }
 .catalog-root-status.missing small, .catalog-root-status.unavailable small, .catalog-root-status.timed_out small, .catalog-root-status.truncated small { color: var(--warning); }
+.root-add, .single-folder-row { display: flex; gap: 6px; margin-top: 8px; }
+.root-add input, .single-folder-row input { flex: 1; min-width: 0; height: 32px; }
+.root-add button, .single-folder-row button { flex: none; height: 32px; white-space: nowrap; }
+/* With no root yet the sheet leads with choosing one; the project list has nothing to show. */
+#project-form.no-roots .recent-projects .catalog-section-heading, #project-form.no-roots #project-filter,
+#project-form.no-roots #catalog-state, #project-form.no-roots #catalog-project-list { display: none; }
+.single-folder { margin-top: 18px; padding-top: 4px; border-top: 1px solid var(--line); }
+.single-folder .hint { margin: 0; }
 .recent-projects { margin-top: 18px; }
-.recent-projects label { margin-top: 0; }
 #project-filter { height: 32px; }
 #catalog-state { margin: 7px 0; }
 #catalog-project-list { max-height: 240px; margin: 7px 0; overflow: auto; }
@@ -291,9 +299,7 @@ dialog #new-project-git { width: 14px; height: 14px; padding: 0; accent-color: v
   .toolbar button { padding: 0 8px; }
 }
 @media (max-width: 620px) {
-  .root-draft { grid-template-columns: 74px minmax(100px, 1fr) auto; }
-  .root-draft > button:last-child { grid-column: 3; }
-  .catalog-root-status { align-items: flex-start; flex-direction: column; gap: 3px; }
+  .catalog-root-status, .root-add, .single-folder-row { flex-wrap: wrap; }
 }
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; transition: none !important; }

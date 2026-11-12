@@ -108,7 +108,7 @@ try {
   await page.locator('#window-minimize').click();
   expect((await calls('plugin:window|minimize')).length).toBe(1);
   await page.locator('#confirm-dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
-  await page.locator('#project-dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.locator('#project-dialog').getByRole('button', { name: 'Close', exact: true }).click();
   passed.push('overlay blocks picker F3/n while custom frame stays reachable');
 
   await page.locator('#new-terminal').click();
@@ -164,7 +164,7 @@ try {
   await expect(page.locator('.terminal-view')).toBeVisible();
   expect((await calls('terminal_start')).length).toBe(1);
   await page.locator('#project').click();
-  await page.locator('#project-dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.locator('#project-dialog').getByRole('button', { name: 'Close', exact: true }).click();
   expect((await calls('terminal_start')).length).toBe(1);
   passed.push('late selection consumes its pending Open once before a later picker cancel');
   expect(errors).toEqual([]);

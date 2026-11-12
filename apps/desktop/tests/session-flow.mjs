@@ -13,7 +13,7 @@ async function until(read, milliseconds, message) {
 
 /** Presses `trigger` (default: the toolbar's New session) and starts `harness` in `project`.
  * - No project selected: the project finder opens instead; the project is chosen there, through
- *   Roots… and its folder field, and the control is pressed again.
+ *   Project roots… and its single-folder field, and the control is pressed again.
  * - `project` is the selected project: the harness is picked from the menu (route 'menu').
  * - `project` is another folder: Other folder… and its sheet are used (route 'folder').
  * Returns once the choice is made, without waiting for the session: poll `pending()` and
@@ -24,7 +24,7 @@ export async function startSession(page, { project, harness, trigger = page.loca
     'New session opened neither the harness menu nor the project finder.');
   await trigger.click();
   if (await opened() === 'finder') {
-    await finder.getByRole('button', { name: 'Roots…', exact: true }).click();
+    await finder.getByRole('button', { name: 'Project roots…', exact: true }).click();
     await page.locator('#folder').fill(project);
     await page.getByRole('button', { name: 'Use folder', exact: true }).click();
     await until(async () => !await page.locator('#project-dialog').isVisible(), timeout, 'The project folder was not accepted.');
