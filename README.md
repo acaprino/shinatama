@@ -1,116 +1,112 @@
-# shinatama
+<h1 align="center">
+  <img src="docs/assets/branding/shinatama-logo-xenotron-glow.png" alt="Shinatama" width="800">
+</h1>
+
+<p align="center"><strong>A desktop workspace for terminal coding agents.</strong></p>
 
 <p align="center">
-  <img src="docs/assets/branding/shinatama-logo-xenotron-glow.png" alt="Shinatama from Oni beside the Shinatama wordmark" width="800">
+  <a href="#quickstart">Quickstart</a> ·
+  <a href="#supported-harnesses">Supported harnesses</a> ·
+  <a href="#ecosystem">Ecosystem</a> ·
+  <a href="#development">Development</a>
 </p>
 
-Shinatama: a local-first desktop workspace, with a Rust engine and a Tauri shell, that hosts Claude Code, Codex, OpenCode, Pi, Hermes Agent and DeepSeek Harness in tiled terminal panes and hops a live chat between them (native tiling decided 2026-10-29; v1 hops are seed-only, decided 2026-10-31).
+Run Claude Code and Codex side by side, keep a PowerShell pane for your own
+commands, and hand off the relevant conversation context when you switch agents.
+Shinatama hosts each harness in its native terminal interface and saves your
+workspace layout locally.
 
-Status: implementation started. Windows is the only officially supported platform for now, and
-Tauri is the definitive V1 shell. The
-current build includes contained shells and an explicitly checked Claude TUI
-startup path. It remains an incomplete V1; provider/model traffic, other agents,
-session search and hop are not certified by opening that TUI.
+**Windows x64 · Early development.** The [verification register](docs/verification-register.md)
+tracks which launch, resume, and handoff paths have been exercised.
 
-## Run the prototype
+## What you can do
 
-For the compiled local Windows build, double-click `Shinatama.cmd` and follow the
-[quick start in Italian](AVVIO.md): project → Session index / Start → Agents /
-Claude Code / Check / Open agent. The qualified startup slice uses safe mode and
-an empty set; sign-in stays in Claude's own terminal interface.
+- **Tile your terminals.** Split panes, move tabs, maximize a view, and search
+  terminal output. Shinatama restores your layout when you reopen the app.
+- **Keep work organized by project.** Pin repositories, see their Git status,
+  return to a thread, or start a session in a new Git worktree.
+- **Browse and export conversations.** Open local session archives in read-only
+  mode and export conversations as Markdown, STX, or Mukade JSON.
+- **Hand off a session.** Use **Hop** to preview the context sent to a new session
+  in another harness. The current handoff starts the destination with a prepared
+  prompt and leaves the source session intact.
+- **See what needs attention.** The widget shows terminal alerts and can take
+  you to the relevant session.
 
-Implementation is tracked in the [complete resumable plan](docs/implementation/PLAN.md).
-Daodan integration is temporarily deferred at the user's request (2026-11-02);
-generic checkup, agent launch, sessions, hop and worktrees do not depend on it.
-Run `npm run plan:status` to see the next ready increment; see the
-[resume protocol](docs/implementation/README.md) for checkpoints and commit boundaries.
-The project picker stores multiple roots and an explicit default, filters and
-pages their first-level folders, and opens any folder with the native F3 picker.
-It remembers the last ten outside folders and restores the last available
-selection at startup without launching a terminal. State lives in per-user
-SQLite, with verified migration backups and bounded idle maintenance that
-preserves saved work. [Project picker evidence](docs/verification/2026-11-02-C04-project-catalog.md)
-and [maintenance evidence](docs/verification/2026-11-02-C03M-desktop.md) cover the
-current local Windows build; full resource resilience remains a later gate.
-In the project picker, **New project** or `n` creates a folder in an explicitly
-chosen root, with optional Git initialization on `main`. Invalid or duplicate
-names leave existing work untouched; interrupted nonempty preparation is kept
-with a recovery path. No terminal starts automatically.
+## Quickstart
 
-With Rust, Node.js and the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) installed:
+From a Windows x64 checkout, install the Node version in [`.node-version`](.node-version)
+and set up Rust with [rustup](https://rustup.rs/). The repository pins the
+[toolchain](rust-toolchain.toml). Install the
+[Tauri prerequisites for Windows](https://v2.tauri.app/start/prerequisites/#windows),
+including the MSVC C++ build tools and WebView2.
 
-```sh
+```powershell
 npm ci
 npm run desktop
 ```
 
-The borderless window has themed minimize, maximize/restore and close controls.
-Drag its title bar to move it; double-click the bar to maximize or restore.
-Choose a project folder, then **New terminal**. Split panes in any direction,
-move tabs, hide/restore views, maximize a pane, search its retained terminal text
-or select a color profile without restarting a process. Stopping a live terminal
-or closing the window asks for confirmation. No terminal starts on launch.
+Select a project folder, then open **New session → PowerShell** to try the
+workspace. To run agents from a source checkout, follow the
+[sidecar setup](sidecar/source-build/README.md) for the pinned proxy and its
+Node runtime. With those resources in place, choose an installed harness from
+**New session** and complete any sign-in in its terminal. The portable build
+includes the sidecar resources.
 
-The full project workspace tree, proportions, visibility and presentation settings
-are saved. Reload reconnects existing live terminal IDs; saved views never replay
-commands. Five application skins and per-terminal profiles change presentation.
-**Profiles are colors, not agent launchers.** Use Agents for the qualified Claude
-startup path. Session search, hop and Learning are still being connected. Windows
-is the supported platform.
-Native terminal jobs have fixed limits, a raw process census and finite queues;
-uncertain cleanup keeps its reservation. Full release qualification remains open.
+If you already have the local debug build and its helpers, double-click
+[`Shinatama.cmd`](Shinatama.cmd). See the [Italian quickstart](AVVIO.md) for
+the desktop controls and portable package details.
 
-For the existing local embedded build, double-click `Shinatama.cmd`. It opens the
-current compiled application and requires its adjacent terminal helper; it does
-not compile, install anything or launch a terminal automatically.
-The portable Windows package includes pinned copies of Ponytail and i-have-adhd.
-Shinatama activates them automatically in every Claude Code, Codex, Pi and OpenCode session (digests checked first; `SHINATAMA_BUNDLED_PLUGINS=off` disables). See [Plugin inclusi](AVVIO.md#plugin-inclusi).
-Claude Code alone also gets the display-only mod [shn-render](resources/claude-mods/README.md) (LaTeX and simple Mermaid as Unicode text), verified and dropped on its own, only on tried Claude versions; `SHINATAMA_CLAUDE_MODS=off` disables it. Not yet in the portable package.
-The independent Rust engine now has versioned adapter contracts and an in-memory
-test adapter. `cargo run -p shinatama-cli -- doctor --json` inspects local program
-locations without starting agents or creating state. Exit 2 reports missing or
-unqualified support; [C10 evidence](docs/verification/2026-11-02-C10-adapter-contracts.md)
-describes the current limits.
+## Supported harnesses
 
-See the [prototype scope, dependencies and limits](docs/implementation/tauri-prototype.md)
-and [verification evidence](docs/verification/2026-11-02-tauri-terminal-prototype.md).
+| Harness | New session | Resume from Threads | Browse local archives |
+| --- | --- | --- | --- |
+| <img src="docs/assets/harnesses/claude-code.svg" alt="" width="24" height="24"> [Claude Code](https://github.com/anthropics/claude-code) | Available | Available | Available |
+| <img src="docs/assets/harnesses/codex.svg" alt="" width="24" height="24"> [Codex CLI](https://github.com/openai/codex) | Available | Available | Available |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/harnesses/opencode-dark.svg"><img src="docs/assets/harnesses/opencode-light.svg" alt="" width="24" height="24"></picture> [OpenCode](https://opencode.ai/) | Available | Planned | Planned |
+| <img src="docs/assets/harnesses/pi.svg" alt="" width="24" height="24"> [Pi](https://pi.dev/) | Available | Planned | Available |
 
-## Verify on Windows
+**Hop** can send context from Claude Code, Codex, or Pi to a different harness
+listed above. Resume depends on an eligible saved thread. Hermes Agent and
+DeepSeek Harness are planned integrations.
 
-```sh
+The portable Windows package bundles **Ponytail** and **i-have-adhd** for the
+four supported harnesses. Set `SHINATAMA_BUNDLED_PLUGINS=off` to disable them.
+The local build also has an optional display mod for supported Claude Code
+versions. [Bundled plugins](AVVIO.md#plugin-inclusi) ·
+[Claude display mod](resources/claude-mods/README.md) ·
+[Logo credits](docs/assets/harnesses/NOTICE.md)
+
+## Ecosystem
+
+| Project | Role |
+| --- | --- |
+| [**Mukade**](https://github.com/acaprino/mukade) | Rust library and CLI for reading, converting, and moving native agent sessions between harnesses. Shinatama uses Mukade to read sessions. The [handover design](docs/mukade-handover.md) covers native session transfer. |
+| [**Muro**](https://github.com/acaprino/acaprinoprivate#readme) | Builds packages from skills and plugins. The host agent selects the capabilities it needs for each task. Repository access required. |
+
+## Development
+
+Shinatama uses **Rust** for the terminal engine, harness adapters, and local
+SQLite state, with a **Tauri** desktop shell and a **TypeScript/xterm.js** UI.
+See the [desktop app](apps/desktop) and [Rust crates](crates).
+
+```powershell
 npm run verify
 ```
 
-The shared local/CI runner restores locked dependencies, validates the plan and
-dependency declarations, builds the embedded application and runs unit, real-PTY,
-window and project-restart tests. Install PowerShell 7, Python 3.13, the Windows
-Rust/MSVC prerequisites and WebView2 first. Node is pinned in `.node-version`;
-`rust-toolchain.toml` pins Rust and formatting/lint components.
+The Windows verification runner builds the app and exercises real PTYs, desktop
+controls, project restart, and storage. See the [verification guide](docs/implementation/windows-verification.md)
+for prerequisites, individual checks, and CI artifacts.
 
-[Verification details](docs/implementation/windows-verification.md) describe the
-bounded runner and the Windows-only CI. Reports are generated under `.verification/`;
-only selected sanitized reports, synthetic screenshots and the unsigned debug
-prototype are CI artifacts. Local verification is separate from a remote CI run.
+- [Implementation plan](docs/implementation/PLAN.md) and [progress commands](docs/implementation/README.md)
+- [Functional design](docs/functional-design.md) and [technical design](docs/technical-design.md)
+- [Requirements](docs/frd/README.md) and [architecture decisions](docs/adr/README.md)
+- [Browser integration proposal](docs/browser-integration.md) and [deferred Daodan integration](docs/daodan-native-support.md)
 
-[Third-party inventory](THIRD_PARTY_NOTICES.md) is checked against both lockfiles.
-`python scripts/dependencies.py generate` refreshes it after a reviewed dependency
-change; `check` rejects stale notices, undeclared dependencies or missing license text.
-Full texts accompany artifacts as `.verification/THIRD_PARTY_LICENSES.txt`.
+For bug reports, include your Windows version, the harness and its version if
+relevant, and the steps to reproduce the issue. [GitHub Issues](https://github.com/acaprino/shinatama/issues)
 
-## Design records
+## License
 
-- Functional design: [docs/functional-design.md](docs/functional-design.md)
-- Technical design (threads, hop, exchange between instances, shared state): [docs/technical-design.md](docs/technical-design.md)
-- Browser integration (Moli fast path, explicit Patchright UI, routing, security and lifecycle gates; proposed 2026-10-29): [docs/browser-integration.md](docs/browser-integration.md)
-- Mukade integration for native session handover (API, host responsibilities and gates; pinned at Mukade `14edbf3`, the 2026-11-03 pin advance and its recheck recorded in its section 8): [docs/mukade-handover.md](docs/mukade-handover.md)
-- Native support for Daodan (decided 2026-10-27; proposed, not approved): [docs/daodan-native-support.md](docs/daodan-native-support.md)
-- Session import/export: the library is now its own repository, [mukade](https://github.com/acaprino/mukade), which ships the spec ([session-interchange-spec.md](https://github.com/acaprino/mukade/blob/master/docs/session-interchange-spec.md)) and the tool tables ([tool-conversion-tables.md](https://github.com/acaprino/mukade/blob/master/docs/tool-conversion-tables.md)); technical design 5.4.1, register row H27 (its original Mukade record was removed in that repository's documentation reorganization; Mukade's current verification records are indexed in its [docs/README.md](https://github.com/acaprino/mukade/blob/master/docs/README.md#verification-records)).
-- What still has to be proved by running something: [docs/verification-register.md](docs/verification-register.md)
-- Requirements, one readable record per area with origin, delivery slice and proof row (FRD-0001 to FRD-0017, Proposed): [docs/frd/README.md](docs/frd/README.md)
-- Decisions, one record per version (ADR-0001 to ADR-0050; reading map and coherence audit in the index): [docs/adr/README.md](docs/adr/README.md)
-
-Naming (decided 2026-10-26): the project is called `shinatama` (earlier suffixes `-sld` and `-mux` were dropped). The obsolete Daodan marketplace checkout (`acaprino/shinatama`, register row D1) was deleted on 2026-10-26; the local folder is renamed to `D:\Projects\shinatama` once JanuraCode is not holding it, because its services keep `.jcode` open.
-
-D1 (closed 2026-10-27, [record](docs/verification/2026-10-27-D1-marketplace-name-collision.md)): the **remote** `acaprino/shinatama` repository turned out to be public and alive (MIT; last push 2026-10-25; 1 011 commits, 17 tags, 24 plugins) although the local checkout was gone. The user decided that only Daodan is the plugin marketplace, so the remote repository was **deleted on 2026-10-27** after a verified bundle backup (`C:\Users\alfio\Backups\acaprino-shinatama-2026-10-27.bundle`, plus a mirror clone beside it). Every one of its 24 plugins exists in Daodan at an equal or newer version. The name collision with this product is gone. Left behind: prose that still names the repository in Daodan's `README.md` and `AGENTS.md` (history of marketplace 36.0.0) and a dead link in Mukade's `README.md` line 8.
-
-Marketplaces (user, 2026-11-01): the restriction to Daodan alone is lifted; any marketplace may be registered, including the ones Daodan declares as dependencies ([daodan-native-support.md](docs/daodan-native-support.md) 4.6).
+The Shinatama workspace is currently marked `UNLICENSED`.
+See the [third-party notices](THIRD_PARTY_NOTICES.md) for dependency licenses.
