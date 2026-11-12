@@ -1006,6 +1006,24 @@ pub(crate) mod tests {
         eprintln!("version {} installed and verified in {:?}", current.version(), started.elapsed());
         let _ = fs::remove_dir_all(&store);
     }
+    /// Manual, needs the network: `cargo test -p shinatama-engine -- --ignored
+    /// real_github_sync` follows the published release through `SystemFetch`.
+    #[test]
+    #[ignore]
+    fn real_github_sync() {
+        let store = scratch("github");
+        let started = std::time::Instant::now();
+        let outcome = sync(&store, &SystemFetch).unwrap();
+        assert!(matches!(outcome, SyncOutcome::Updated(_)));
+        assert!(matches!(sync(&store, &SystemFetch).unwrap(), SyncOutcome::UpToDate(_)));
+        let current = Marionette::current(&store).unwrap();
+        for host in Host::ALL {
+            let adapter = current.verify(host).unwrap();
+            eprintln!("{:?}: {} files", host, adapter.files().len());
+        }
+        eprintln!("{outcome:?} version {} in {:?}", current.version(), started.elapsed());
+        let _ = fs::remove_dir_all(&store);
+    }
     #[test]
     fn release_without_a_digest_or_from_elsewhere_is_refused() {
         let base = FakeFetch::new("v0.1.0", "0.1.0");
