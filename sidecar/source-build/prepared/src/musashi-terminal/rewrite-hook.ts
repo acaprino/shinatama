@@ -6,26 +6,28 @@ import type {resolveUpstream} from '../server.js';
 import {createPromptRewriter,recallPromptRewrites} from './prompt-rewrite.js';
 import {createRewriteTransport} from './rewrite-transport.js';
 import {bindPromptRewrite,earlierRewriteHumans,selectRewriteHuman,type RewriteNote} from './rewrite-wire.js';
-import {CONTROL_MARKER_HEADER,matchControlMarker,type ControlMarker} from './control-marker.js';
+import {CONTROL_MARKER_HEADER,controlMismatchLevel,matchControlMarker,type ControlMarker} from './control-marker.js';
 const services=new WeakMap<ProxyOptions,ReturnType<typeof createPromptRewriter>>();
 const requests=new WeakMap<IncomingMessage,Promise<void>>();
 const recognized=new WeakMap<IncomingMessage,ControlMarker|null>();
-const mismatchLogged=new WeakSet<Session>();
+const mismatchSeen=new WeakMap<Session,Set<string>>();
 type Input={req:IncomingMessage;opts:ProxyOptions;route:ReturnType<typeof resolveUpstream>;protocol:WireProtocol;body:Record<string,unknown>;session:Session;model:string;harness:string|undefined;child:boolean;signal:AbortSignal;log:(level:string,message:string)=>void};
 /** Shinatama's control messages (hand-off seed, bootstrap, receipt) are declared by a request header carrying the hash of
  * the current human message. Recognized once per request, before anything reads or changes the body: a marked message is
  * never rewritten (no auxiliary call, no catalog fetch), tagged, stored or folded. A header whose hash does not equal the
- * received text is ignored: the request is ordinary. The header may sit on every request of a session, so the mismatch is
- * logged once per session at info and at debug after that. */
+ * received text is ignored: the request is ordinary. The header may sit on every request of a session, so a mismatch is
+ * logged at info only on the first human turn (once per distinct received text, bounded) and at debug otherwise. */
 export function recognizeControlMarker(req:IncomingMessage,body:Record<string,unknown>,protocol:WireProtocol,session:Session,log:(level:string,message:string)=>void):ControlMarker|undefined{
  const known=recognized.get(req);if(known!==undefined)return known??undefined;
  const header=req.headers[CONTROL_MARKER_HEADER];
  if(header===undefined){recognized.set(req,null);return undefined;}
- const outcome=matchControlMarker(header,selectRewriteHuman(body,protocol));
+ const human=selectRewriteHuman(body,protocol);
+ const outcome=matchControlMarker(header,human);
  recognized.set(req,outcome.marker??null);
  if(outcome.marker)return outcome.marker;
- const first=!mismatchLogged.has(session);mismatchLogged.add(session);
- log(first?'info':'debug','['+session.id+'] control marker mismatch: '+(outcome.kind??'unreadable')+' ('+outcome.reason+'), ordinary treatment');
+ let seen=mismatchSeen.get(session);if(!seen){seen=new Set();mismatchSeen.set(session,seen);}
+ const level=controlMismatchLevel(seen,human?.text,earlierRewriteHumans(body,protocol,human).length===0);
+ log(level,'['+session.id+'] control marker mismatch: '+(outcome.kind??'unreadable')+' ('+outcome.reason+'), ordinary treatment');
  return undefined;
 }
 /** Called only for an admitted main request, before preparing its wire projection. */

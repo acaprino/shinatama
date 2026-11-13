@@ -23,6 +23,8 @@ export interface ControlMarker {
     index?: number;
     /** Canonical text the hash matched. */
     text: string;
+    /** Canonical text of every text part of the owning message and of the whole message: the cores that belong to it. */
+    texts: readonly string[];
 }
 
 export type ControlOutcome =
@@ -50,16 +52,34 @@ export function matchControlMarker(header: string | string[] | undefined, human:
     // A client may send reminders or attachments as further text parts of the same message: the control text must be
     // exactly one part, or the whole message when it is a single string.
     for (const candidate of [human.text, ...human.parts]) {
-        if (controlTextHash(candidate) === parsed[2]) return { marker: { kind, index: human.index, text: canonicalControlText(candidate) } };
+        if (controlTextHash(candidate) === parsed[2]) return { marker: { kind, index: human.index, text: canonicalControlText(candidate), texts: [human.text, ...human.parts].map(canonicalControlText) } };
     }
     return { reason: 'mismatch', kind };
 }
 
-/** True for the core messages flattened from the wire message that carries the control text. */
+/** True for the text cores flattened from the wire message that carries the control text. The wire index is a position in
+ *  the raw body and can shift when the pipeline splices messages out before the codec stamps it, so the index alone never
+ *  selects a message: its text must also be one of the texts the hash vouched for. A shifted index protects nothing, which
+ *  leaves that message with the ordinary treatment. */
 export function isControlMessage(message: CoreMessage, marker: ControlMarker): boolean {
-    if (message.role !== 'user') return false;
-    if (marker.index !== undefined) return (message as CoreMessage & { wireIndex?: number }).wireIndex === marker.index;
-    return message.contentType === 'text' && canonicalControlText(message.text ?? '') === marker.text;
+    if (message.role !== 'user' || message.contentType !== 'text') return false;
+    const text = canonicalControlText(message.text ?? '');
+    if (marker.index === undefined) return text === marker.text;
+    return (message as CoreMessage & { wireIndex?: number }).wireIndex === marker.index && marker.texts.includes(text);
+}
+
+const MAX_LOGGED_MISMATCHES = 16;
+
+/** A static header rides every request of a hand-off session, so a mismatch is the normal case from the second human turn
+ *  on. The one that matters is a mismatch on the first human turn, where the declared message is expected: that is logged
+ *  at info, once per distinct received text and at most MAX_LOGGED_MISMATCHES per session (`seen` is the session's set);
+ *  every other mismatch is debug and never uses up the info budget. */
+export function controlMismatchLevel(seen: Set<string>, receivedText: string | undefined, firstHumanTurn: boolean): 'info' | 'debug' {
+    if (!firstHumanTurn) return 'debug';
+    const key = receivedText === undefined ? '' : controlTextHash(receivedText);
+    if (seen.has(key) || seen.size >= MAX_LOGGED_MISMATCHES) return 'debug';
+    seen.add(key);
+    return 'info';
 }
 
 /** Message-level protection: the kernel gives a protected message no ref, so it is never tagged, never folded and

@@ -31,7 +31,7 @@ Fuori dal bypass restano quindi Codex, OpenCode e Pi: il loro bootstrap e' tratt
 
 ## Normalizzazione del testo
 
-Il testo incollato attraversa il terminale dell'harness, che puo' convertire gli a capo e togliere gli spazi esterni (il bootstrap termina con un a capo). L'hash si calcola quindi sul testo canonico: a capo normalizzati a `\n` e spazi, tab e a capo esterni rimossi. Shinatama e il sidecar usano la stessa regola. Non e' stato provato contro il terminale reale di Claude Code (la prova richiede una sessione interattiva con un provider): se il terminale cambia altro, l'hash non coincide e il messaggio riceve il trattamento ordinario, mai un bypass sbagliato.
+Il testo incollato attraversa il terminale dell'harness, che puo' convertire gli a capo e togliere gli spazi esterni (il bootstrap termina con un a capo). L'hash si calcola quindi sul testo canonico: a capo normalizzati a `\n` e spazi, tab e a capo esterni rimossi. Shinatama e il sidecar usano la stessa regola. Non e' stato provato contro il terminale reale di Claude Code (la prova richiede una sessione interattiva con un provider): se il terminale cambia altro, l'hash non coincide e il messaggio riceve il trattamento ordinario, mai un bypass sbagliato. La prova nativa e' al confine del sidecar (header e bootstrap inviati direttamente all'origine sintetica): SC9 resta aperto per l'incolla nel terminale di Claude Code finche' non e' verificata.
 
 ## Emissione in Shinatama
 

@@ -4,6 +4,7 @@ import { register } from "node:module";
 import { test } from "node:test";
 import {
     canonicalControlText,
+    controlMismatchLevel,
     controlTextHash,
     matchControlMarker,
     protectControlMessage,
@@ -101,4 +102,47 @@ test("the_marker_matches_one_text_part_and_the_canonical_text", () => {
     assert.equal(canonicalControlText("\r\n  a\r\nb \t\n"), "a\nb");
     // Uppercase hex and padding in the header are accepted; the kind must be one of the three.
     assert.equal(matchControlMarker(` receipt;${sha(canonicalControlText(BOOTSTRAP)).toUpperCase()} `, human(BOOTSTRAP)).marker?.kind, "receipt");
+});
+
+test("a_shifted_wire_index_never_selects_another_message", () => {
+    const marker = matchControlMarker(header("bootstrap", BOOTSTRAP), human(BOOTSTRAP)).marker!;
+    const reminder = "<system-reminder>\nToday is 2026-11-13.\n</system-reminder>";
+    const withParts = matchControlMarker(header("bootstrap", BOOTSTRAP), { text: `${reminder}\n${BOOTSTRAP}`, parts: [reminder, BOOTSTRAP], index: 4 }).marker!;
+    const core = (id: string, text: string, wireIndex: number): Core => ({ id, role: "user", contentType: "text", text, wireIndex });
+    // Spliced messages moved the stamp: another user message now sits at the declared index and is not protected.
+    const other = core("x", "Un altro messaggio dell utente.", 4);
+    const moved = core("c", BOOTSTRAP, 3);
+    assert.equal(protectControlMessage(kernel.defaultConfig(1000), marker).isMessageProtected!(other), false);
+    // Fail-safe: the control message itself, now at another index, gets the ordinary treatment.
+    assert.equal(protectControlMessage(kernel.defaultConfig(1000), marker).isMessageProtected!(moved), false);
+    // At the right index only the texts the hash vouched for are protected: the reminder part and the control part.
+    const protect = protectControlMessage(kernel.defaultConfig(1000), withParts).isMessageProtected!;
+    assert.deepEqual([core("r", reminder, 4), core("c", BOOTSTRAP + "\r\n", 4), core("x", "other", 4), core("c2", BOOTSTRAP, 5)].map(m => protect(m)), [true, true, false, false]);
+    // A matching index and text on an assistant or non-text core is not a control message.
+    assert.equal(protect({ ...core("a", BOOTSTRAP, 4), role: "assistant" } as Core), false);
+    assert.equal(protect({ ...core("t", BOOTSTRAP, 4), contentType: "tool-result" } as Core), false);
+    // End to end through the kernel: with the stamp shifted the control message is tagged like any message.
+    const messages = history(BOOTSTRAP).map(m => (m.id === "u4" ? { ...m, wireIndex: 3 } : m));
+    const out = run(messages, marker);
+    assert.match(out.text("u4") ?? "", /^<acp /);
+});
+
+test("a_mismatch_is_logged_at_info_on_the_first_human_turn_and_never_uses_up_the_budget", () => {
+    const seen = new Set<string>();
+    // Later human turns of a session with a static header are ordinary: debug, and nothing is consumed.
+    assert.equal(controlMismatchLevel(seen, "Un altro messaggio.", false), "debug");
+    assert.equal(controlMismatchLevel(seen, "Ancora un altro.", false), "debug");
+    assert.equal(seen.size, 0);
+    // The first human turn is where the declared message is expected: a changed paste is visible at info...
+    assert.equal(controlMismatchLevel(seen, BOOTSTRAP + "changed", true), "info");
+    // ...once per distinct received text...
+    assert.equal(controlMismatchLevel(seen, BOOTSTRAP + "changed", true), "debug");
+    assert.equal(controlMismatchLevel(seen, BOOTSTRAP + "changed again", true), "info");
+    // ...and a request with no human text counts as one case.
+    assert.equal(controlMismatchLevel(seen, undefined, true), "info");
+    assert.equal(controlMismatchLevel(seen, undefined, true), "debug");
+    // The set stays bounded.
+    for (let n = 0; n < 40; n++) controlMismatchLevel(seen, `variant ${n}`, true);
+    assert.ok(seen.size <= 16, String(seen.size));
+    assert.equal(controlMismatchLevel(seen, "one more", true), "debug");
 });

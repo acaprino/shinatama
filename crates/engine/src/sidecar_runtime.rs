@@ -655,7 +655,7 @@ mod tests {
         assert_eq!(pin.runtime_dependency_files.len(), 205);
         assert_eq!(
             pin.entry_sha256,
-            "c6ef53c8fe87561c40c69f2463064344ae313d33cef3d480cb10b7229449e868"
+            "3abac634334f4cb8282e2b9a1126fc678e3b9144ff4bb14cdd036293d588b7fb"
         );
     }
     #[test]

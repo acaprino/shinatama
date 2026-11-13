@@ -5,11 +5,11 @@
   "upstreamCommit": "7e69b49ff4facb00b5ba6541b48d0f7fbe63d63d",
   "upstreamArchiveSha256": "10628db1ad6ae8f6a46f8886188ff6be7cb903036004d0f447c452880f4b3e53",
   "musashiSourceFingerprint": "0e9d1582bd90104d2fb56bd9cd92734ea5ac3bb4b683fc493d25a2258d744e3e",
-  "sourceTreeSha256": "ffc5b39af86e717d87481975ae3110af251f561d08c1f59b469f0e04ea7b2123",
-  "artifactTreeSha256": "92fe9deb60392467783882be99876fc1ec632ca1e40738434d8a3b2c0ebd79c1",
+  "sourceTreeSha256": "bb9bdc6df828ca39babc3f1a042a87cfd41b162d706aac99f77186f25734038b",
+  "artifactTreeSha256": "a5923d8bab0da912dcdcdcffe0c475791a8be360160a0a3c7f669a33bf25983d",
   "runtimeDependencyTreeSha256": "89868025df4771c6daf2e5eb745549331af47bd6fbbae90681aacc19edceaea8",
   "entry": "dist/index.js",
-  "entrySha256": "c6ef53c8fe87561c40c69f2463064344ae313d33cef3d480cb10b7229449e868",
+  "entrySha256": "3abac634334f4cb8282e2b9a1126fc678e3b9144ff4bb14cdd036293d588b7fb",
   "runtimeDependency": {
     "name": "zod",
     "version": "4.1.8",
@@ -1232,13 +1232,13 @@
     },
     {
       "path": "src/musashi-terminal/control-marker.test.ts",
-      "bytes": 7056,
-      "sha256": "7fb43fdd9e21ed2ac60db485ca1fdba3be1427271e9a0777f5f7595c5d763b4c"
+      "bytes": 10450,
+      "sha256": "c57f35c9174cbfd8fbe012b74f437966a018a88fd7d22b1f5a185f60a3c0e454"
     },
     {
       "path": "src/musashi-terminal/control-marker.ts",
-      "bytes": 3801,
-      "sha256": "d837e912349bc3337afbb3dccfa50b51548a9e4aec4336f862469a86f6ccb711"
+      "bytes": 5269,
+      "sha256": "769d569bc1bd3f9a753478fbd8eea57c33c2642a405910de4c5dc60c9c105c2c"
     },
     {
       "path": "src/musashi-terminal/epoch.ts",
@@ -1332,8 +1332,8 @@
     },
     {
       "path": "src/musashi-terminal/rewrite-hook.ts",
-      "bytes": 4506,
-      "sha256": "c428294327f613647d262313bedb446006052c7e5201caa6b2e559888ce59826"
+      "bytes": 4725,
+      "sha256": "77f00816292ffb32275eb2af0fcac1e5f7216f4b2b99abc1c9d43378f61f87a9"
     },
     {
       "path": "src/musashi-terminal/rewrite-models.ts",
@@ -2039,13 +2039,13 @@
     },
     {
       "path": "dist/agent/pi-native.js",
-      "bytes": 5597434,
-      "sha256": "23a74f35d1bb2b6dec2febeb884118c3c4bd9e77ebd85e174b36cca3a3724fe9"
+      "bytes": 5597955,
+      "sha256": "b78f70a9c005a21d4bd5aaa1a5ce7bc02fc11228d6d91c619e3d25de3464031d"
     },
     {
       "path": "dist/agent/pi-native.js.map",
-      "bytes": 17076735,
-      "sha256": "f32c933f3c6f83defcd175e11da29a98d0b4245100a71940ebf5c4517d22fd64"
+      "bytes": 17078912,
+      "sha256": "47395e724fd32dce0e2ec58d72774ccf8c9221355ce378f8357730e1dde24bc1"
     },
     {
       "path": "dist/agent/pi.js",
@@ -2074,13 +2074,13 @@
     },
     {
       "path": "dist/index.js",
-      "bytes": 5519719,
-      "sha256": "c6ef53c8fe87561c40c69f2463064344ae313d33cef3d480cb10b7229449e868"
+      "bytes": 5520240,
+      "sha256": "3abac634334f4cb8282e2b9a1126fc678e3b9144ff4bb14cdd036293d588b7fb"
     },
     {
       "path": "dist/index.js.map",
-      "bytes": 15759663,
-      "sha256": "830e78a1d0d8a6d542e159a64075de1cf63e36a643fc542f2aa785cf1934ed04"
+      "bytes": 15761840,
+      "sha256": "a286ae9394c260797dd3663e2d4595d00caf6dd4e6a81512f890a8a8ab064d08"
     },
     {
       "path": "dist/mcp.js",
