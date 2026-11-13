@@ -20,7 +20,8 @@ const reservation = createServer();
 await new Promise((accept, reject) => { reservation.once('error', reject); reservation.listen(0, '127.0.0.1', accept); });
 const port = reservation.address().port;
 await new Promise((accept, reject) => reservation.close(error => error ? reject(error) : accept()));
-const app = spawn(resolve(root, 'target/debug/shinatama-desktop.exe'), [], {
+// SHINATAMA_EXE checks a packaged Shinatama.exe (helpers beside it) instead of the dev build.
+const app = spawn(process.env.SHINATAMA_EXE ?? resolve(root, 'target/debug/shinatama-desktop.exe'), [], {
   cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
   env: { ...process.env, SHINATAMA_HOME: resolve(fixture, 'data'),
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: '--remote-debugging-port=' + port + ' --remote-debugging-address=127.0.0.1',
