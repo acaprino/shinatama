@@ -87,15 +87,35 @@ try {
   await expect(page.locator('.terminal-view:not([hidden])')).toHaveCount(1);
   await shot('3-back-to-first-thread');
 
-  // 6. A stopped session stays in its thread as a tab that says so.
+  // 6. Closing a session stops it and keeps it: no tab, listed under Closed sessions, never deleted.
   await page.locator('.wm-tab-close').first().click({ force: true });
+  await expect(page.locator('#confirm-title')).toHaveText('Close session?');
   await page.locator('#confirm-dialog button[value="stop"]').click();
+  await expect(tabs).toHaveCount(1, { timeout: 15000 });
+  expect(await terminals()).toBe(2);
+  const closed = page.locator('.thread-sidebar-closed');
+  await expect(closed.locator('summary')).toHaveText('Closed sessions (1)', { timeout: 15000 });
+  await expect(page.locator('.thread-sidebar-anchor[aria-pressed="true"] .thread-sidebar-state')).toHaveText('2 sessions · 1 running');
+  await closed.locator('summary').click();
+  await shot('4-closed-session-kept');
+
+  // 7. Reopen puts it back as a tab that says it is not running; nothing starts.
+  await closed.locator('button[data-restore]').click();
   await expect(page.locator('.wm-tab', { hasText: 'not running' })).toHaveCount(1, { timeout: 15000 });
   await expect(tabs).toHaveCount(2);
+  await expect(closed).toBeHidden();
   expect(await terminals()).toBe(2);
-  await page.locator('.wm-tab', { hasText: 'not running' }).click();
   await expect(page.locator('.session-idle')).toBeVisible();
-  await shot('4-stopped-session-stays');
+  await shot('5-reopened-session');
+
+  // 8. The x on a tab that is not running closes it again without asking; Forget deletes it after a second click.
+  await page.locator('.wm-tabwrap', { hasText: 'not running' }).locator('.wm-tab-close').click({ force: true });
+  await expect(closed.locator('summary')).toHaveText('Closed sessions (1)', { timeout: 15000 });
+  await expect(tabs).toHaveCount(1);
+  const forget = closed.locator('li button').nth(1);
+  await forget.click(); await expect(forget).toHaveText('Sure?'); await forget.click();
+  await expect(closed).toBeHidden({ timeout: 15000 });
+  await expect(page.locator('.thread-sidebar-anchor[aria-pressed="true"] .thread-sidebar-state')).toHaveText('1 session · 1 running', { timeout: 15000 });
   expect(errors, 'page errors').toEqual([]);
   console.log('thread-sets smoke: ok');
 } catch (error) {

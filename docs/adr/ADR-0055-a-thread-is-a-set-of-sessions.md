@@ -95,8 +95,13 @@ two meanings of `thread`.
   all and only its sessions. Sessions of other threads keep running; their terminals are parked,
   not stopped, and their output keeps draining.
 - A session of the open thread that is not running is still shown, as a pane or tab that says so
-  and offers Resume. Stopping a session leaves that tab in its place; the tab's close then
-  forgets the session, after asking. Opening a thread never starts or resumes an agent (FRD-0001 R30).
+  and offers Resume.
+- Three different actions, never merged (user, 2026-11-13). **Hide** keeps the session running
+  without its tab. **Close** (the tab's ×) stops the session, after asking if it runs, and keeps
+  it: it leaves the tabs and is listed under "Closed sessions" of its thread, from where it is
+  reopened as a tab (not started) or forgotten. **Forget** deletes: one closed session after a
+  second click, or the whole thread with every session, closed ones included. Archiving a thread
+  deletes nothing. A closed session is the stored record's `archived` mark.
 - The sidebar no longer lists sessions as rows of their own, and a click never "focuses a tab":
   the only two levels are the thread list and the open thread's panes.
 - Attention (an agent waiting in a thread that is not open) is shown on that thread's row; the

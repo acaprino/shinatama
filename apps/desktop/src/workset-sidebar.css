@@ -3,3 +3,9 @@
 .session-idle strong { color: var(--text); font: 600 14px var(--display, var(--mono)); }
 .thread-sidebar-heading h2 { margin-right: auto; }
 .thread-sidebar-new { font-weight: 600; }
+.thread-sidebar-closed { border-top: 1px solid var(--line); padding-top: 6px; color: var(--text-2); font: 12px var(--mono); }
+.thread-sidebar-closed summary { cursor: pointer; padding: 4px 0; }
+.thread-sidebar-closed ul { display: grid; gap: 4px; margin: 4px 0 0; padding: 0; list-style: none; }
+.thread-sidebar-closed li { display: flex; align-items: center; gap: 4px; }
+.thread-sidebar-closed-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-sidebar-closed button { min-height: 24px; padding: 0 6px; font-size: 10px; }

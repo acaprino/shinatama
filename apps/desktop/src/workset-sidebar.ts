@@ -22,6 +22,12 @@ export type WorksetSidebarOptions = {
   openId: () => string | null;
   /** Sessions of this thread with a running terminal in this window. */
   running: (worksetId: string) => number;
+  /** Sessions of the open thread that were closed: kept, not shown as tabs. */
+  closed?: () => readonly { id: string; name: string; updatedAt: number }[];
+  /** Puts a closed session back among the tabs; starts nothing. */
+  onRestore?: (threadId: string) => Promise<void>;
+  /** Deletes one closed session for good, after a second click. */
+  onForgetSession?: (threadId: string) => Promise<void>;
   /** An agent of this thread is waiting for the user. */
   attention?: (worksetId: string) => boolean;
   names?: (threadIds: readonly string[]) => Promise<unknown>;
@@ -102,7 +108,9 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   const renameButtons = node('div', ''); const renameSave = node('button', '', 'Save'); renameSave.type = 'submit';
   const renameCancel = node('button', '', 'Cancel'); renameCancel.type = 'button';
   renameButtons.append(renameSave, renameCancel); renameForm.append(renameLabel, renameInput, renameButtons);
-  body.append(scopeLabel, scopeSelect, showArchivedLabel, status, list, actions, renameForm);
+  const closedBox = node('details', 'thread-sidebar-closed'); const closedSummary = node('summary', ''); const closedList = node('ul', '');
+  closedBox.append(closedSummary, closedList);
+  body.append(scopeLabel, scopeSelect, showArchivedLabel, status, list, closedBox, actions, renameForm);
   const separator = node('div', 'thread-sidebar-resize'); separator.tabIndex = 0; separator.setAttribute('role', 'separator');
   separator.setAttribute('aria-label', 'Thread sidebar width'); separator.setAttribute('aria-orientation', 'vertical');
   separator.setAttribute('aria-valuemin', String(MIN_WIDTH)); separator.setAttribute('aria-valuemax', String(MAX_WIDTH));
@@ -113,7 +121,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   let rows: WorksetSummary[] = []; let more = false; let archivedView = false;
   let busy = false; let generation = 0; let destroyed = false; let rereadWanted = false;
   let message = 'Choose a project to see its threads.'; let failed = false;
-  let editing = false; let removeArmed = 0; let saveTimer = 0; let changeTimer = 0;
+  let editing = false; let removeArmed = 0; let forgetting: string | null = null; let saveTimer = 0; let changeTimer = 0;
   let drag: { pointer: number; x: number; before: ThreadSidebarState } | null = null;
   const anchors = new Map<string, HTMLLIElement>();
   /** Names agents gave their conversations: they name a thread the user has not named. */
@@ -182,6 +190,21 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     archive.textContent = current?.archived ? 'Unarchive' : 'Archive';
     if ((actions.hidden || remove.hidden) && removeArmed) disarm();
     renameForm.hidden = !editing; renameInput.disabled = renameSave.disabled = renameCancel.disabled = busy;
+    const closed = current && options.closed ? options.closed() : [];
+    closedBox.hidden = !closed.length; closedSummary.textContent = `Closed sessions (${closed.length})`;
+    if (!closed.some(session => session.id === forgetting)) forgetting = null;
+    closedList.replaceChildren(...closed.map(session => {
+      const item = document.createElement('li'); const name = node('span', 'thread-sidebar-closed-name', session.name); name.title = `${session.name} · ${agoText(session.updatedAt)}`;
+      const restore = node('button', '', 'Reopen'); restore.type = 'button'; restore.disabled = busy; restore.dataset.restore = session.id;
+      restore.onclick = () => { void operate('reopened', async () => { await options.onRestore?.(session.id); }); };
+      const forget = node('button', forgetting === session.id ? 'danger' : '', forgetting === session.id ? 'Sure?' : 'Forget'); forget.type = 'button'; forget.disabled = busy;
+      forget.title = 'Delete this session from Shinatama. The agent\'s own session files stay.';
+      forget.onclick = () => {
+        if (forgetting !== session.id) { forgetting = session.id; render(); return; }
+        forgetting = null; void operate('forgotten', async () => { await options.onForgetSession?.(session.id); });
+      };
+      item.append(name, restore, forget); return item;
+    }));
     requestNames();
   }
   function disarm() { window.clearTimeout(removeArmed); removeArmed = 0; remove.textContent = removeLabel; remove.classList.remove('danger'); }
@@ -246,7 +269,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     const current = chosen(); if (!current || !options.remove || busy) return;
     if (!removeArmed) {
       remove.textContent = 'Click again to forget'; remove.classList.add('danger'); removeArmed = window.setTimeout(disarm, 5000); failed = false;
-      message = `Forgetting deletes ${shownTitle(current)} and its ${current.sessions} session${current.sessions === 1 ? '' : 's'} from Shinatama. The agents' own session files stay.`; render(); return;
+      message = `Forgetting deletes ${shownTitle(current)} and its ${current.sessions} session${current.sessions === 1 ? '' : 's'}, closed ones included, from Shinatama. The agents' own session files stay.`; render(); return;
     }
     disarm();
     void operate('forgotten', async () => { await options.remove!(Object.freeze({ ...current })); message = ''; });

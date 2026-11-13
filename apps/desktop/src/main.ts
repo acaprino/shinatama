@@ -217,8 +217,8 @@ function render() {
     open.onclick = () => openNewSession(group.id); controls.prepend(open);
     const active = group.activeTabId ? views.get(group.activeTabId) : null;
     const stop = document.createElement('button'); stop.type = 'button';
-    stop.textContent = active ? 'Stop' : 'Forget session';
-    stop.setAttribute('aria-label', active ? 'Stop terminal' : 'Forget this session'); stop.disabled = !group.activeTabId;
+    stop.textContent = active?.threadId ? 'Close session' : active ? 'Stop' : 'Close session';
+    stop.setAttribute('aria-label', active && !active.threadId ? 'Stop terminal' : 'Close this session'); stop.disabled = !group.activeTabId;
     stop.onclick = () => { if (group.activeTabId) void closePanel(group.activeTabId); }; controls.append(stop);
     let footer = pane.querySelector<HTMLElement>('.wm-footer');
     if (!footer) { footer = document.createElement('div'); footer.className = 'wm-footer pane-footer'; pane.append(footer); }
@@ -429,14 +429,42 @@ async function confirmStop(title: string, message: string, group?: string, actio
   }, { once: true }));
 }
 async function stopTerminal(view: View) {
-  if (!view.ended && !await confirmStop('Stop terminal?', 'This stops the shell and the programs it started. To keep them running, cancel and use ⋯ then Hide instead.', view.group)) return;
+  const kept = view.threadId !== null && view.workset !== null;
+  if (!view.ended && !await confirmStop(kept ? 'Close session?' : 'Stop terminal?', kept
+    ? 'This stops the agent and the programs it started. The session stays in this thread under Closed sessions, where it can be reopened or forgotten. To keep it running without its tab, cancel and use ⋯ then Hide.'
+    : 'This stops the shell and the programs it started. To keep them running, cancel and use ⋯ then Hide instead.', view.group, kept ? 'Close' : 'Stop')) return;
   try {
     await invoke('terminal_stop', { id: view.info.id });
     discardView(view);
-    // The session stays in its thread: its tab now says "not running" and offers Resume.
-    if (view.threadId && (view.workset?.id ?? null) === here()) await refreshMembers();
+    if (view.threadId && (view.workset?.id ?? null) === here()) { await refreshMembers(); await closeSession(view.threadId); }
     setFocus(focusedGroup()); threadSidebar?.changed();
   } catch (error) { notify(error); }
+}
+/** Closing keeps the session: it leaves the tabs and waits under Closed sessions of its thread.
+ * The record of a just-stopped process may still be marked open for a moment, hence the retries. */
+async function closeSession(threadId: string) {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const row = worksetMembers.find(member => member.id === threadId); if (!row || row.status === 'archived') return;
+    try {
+      await invoke('thread_archive', { request: { projectId: row.projectId, threadId, expectedRevision: row.revision, archived: true } });
+      await refreshMembers(); return;
+    } catch { await new Promise(resolve => setTimeout(resolve, 400)); await refreshMembers(); }
+  }
+  // It stays as a tab that says "not running"; nothing is lost.
+}
+/** Brings a closed session back as a tab of its thread. Starts nothing: the tab offers Resume. */
+async function restoreSession(threadId: string) {
+  const row = worksetMembers.find(member => member.id === threadId); if (!row) return;
+  await invoke('thread_archive', { request: { projectId: row.projectId, threadId, expectedRevision: row.revision, archived: false } });
+  await refreshMembers();
+  const panel = workspaceLayout.views.find(candidate => candidate.resource.kind === 'terminal' && candidate.resource.threadId === threadId);
+  const group = panel && tabGroups(workspaceLayout.root).find(candidate => candidate.tabs.includes(panel.id));
+  if (panel && group) { changeLayout({ type: 'activate', groupId: group.id, viewId: panel.id }); setFocus(group.id, false); }
+}
+async function forgetSession(threadId: string) {
+  const row = worksetMembers.find(member => member.id === threadId); if (!row) return;
+  await invoke('thread_forget', { request: { projectId: row.projectId, threadId, expectedRevision: row.revision } });
+  await refreshMembers();
 }
 /** Removes a stopped terminal from the window; its saved session is not touched. */
 function discardView(view: View) {
@@ -499,17 +527,14 @@ async function recoverSaved(saved: ThreadSummary) {
   catch { notify('The previous session could not be verified. Its saved conversation is preserved.'); }
   await refreshMembers(); render();
 }
-/** The tab's close: stops a running terminal; forgets a session that is not running, after asking. */
+/** The tab's close: the session stops (after asking, if it runs) and moves to Closed sessions. It is never deleted here. */
 async function closePanel(id: string) {
   const view = views.get(id);
   if (view) { await stopTerminal(view); return; }
   const saved = savedSession(id);
   if (!saved) { changeLayout({ type: 'remove-view', viewId: id }); return; }
-  const group = tabGroups(workspaceLayout.root).find(candidate => candidate.tabs.includes(id))?.id;
-  if (!await confirmStop('Forget session?', `This deletes ${sessionName(saved)} from this thread and from Shinatama. The agent's own session files stay.`, group, 'Forget')) return;
-  try { await invoke('thread_forget', { request: { projectId: saved.projectId, threadId: saved.id, expectedRevision: saved.revision } }); }
-  catch { notify('The session could not be forgotten. It is still saved.'); }
-  await refreshMembers(); threadSidebar?.changed();
+  // Nothing runs here, so nothing is asked: the session moves to Closed sessions and can come back.
+  await closeSession(saved.id); threadSidebar?.changed();
 }
 /** Makes a layout hold all and only the sessions of the open thread (ADR-0055 INV-002). Starts nothing. */
 function reconciled(layout: WorkspaceLayout): WorkspaceLayout {
@@ -544,6 +569,7 @@ async function refreshMembers() {
     if (next !== workspaceLayout) { workspaceLayout = next; persistence?.update(workspaceLayout); }
     render();
   } catch { /* the last read stays on screen */ }
+  threadSidebar?.repaint();
 }
 /** Which thread each running terminal belongs to, kept for a frontend reload; and the thread to reopen at the next start. */
 function rememberSessions() {
@@ -700,6 +726,8 @@ threadSidebar = createWorksetSidebar({
   create: desktop ? request => invoke('workset_create', {request}) : undefined,
   update: desktop ? request => invoke('workset_update', {request}) : undefined,
   remove: desktop ? forgetWorkset : undefined,
+  closed: () => worksetMembers.filter(row => row.status === 'archived').map(row => ({ id: row.id, name: sessionName(row), updatedAt: row.updatedAt })),
+  onRestore: restoreSession, onForgetSession: forgetSession,
   onOpen: thread => switchWorkset({ id: thread.id, projectId: thread.projectId }),
   openId: here,
   running: id => [...views.values()].filter(view => view.workset?.id === id && !view.ended && !view.disposed).length,
