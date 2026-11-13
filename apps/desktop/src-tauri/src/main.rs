@@ -31,6 +31,8 @@ mod storage;
 mod threads;
 #[cfg(windows)]
 mod terminal_runtime;
+#[cfg(windows)]
+mod webview_recovery;
 #[cfg(feature = "tl1-proof")]
 mod tl1;
 mod workspace;
@@ -280,14 +282,28 @@ fn terminal_resources(
     #[cfg(not(windows))]
     Ok(serde_json::json!([]))
 }
+/// How long one read waits for output before it answers with nothing.
+const READ_WAIT: std::time::Duration = std::time::Duration::from_secs(1);
+/// The page asks again as soon as it has written a batch. The read waits here for output, so
+/// a quiet terminal costs one request a second: every request crosses the WebView2 browser
+/// process, which has ended on this traffic when each terminal asked forty times a second.
 #[tauri::command]
-fn terminal_read(
+async fn terminal_read(
     window: tauri::WebviewWindow,
     host: State<'_, Host>,
     id: String,
 ) -> Result<OutputBatch, String> {
     local(&window)?;
-    let batch = host.read(&id).map_err(|e| e.to_string())?;
+    let deadline = std::time::Instant::now() + READ_WAIT;
+    let batch = loop {
+        {
+            let batch = host.read(&id).map_err(|e| e.to_string())?;
+            if !batch.chunks.is_empty() || batch.eof || batch.error.is_some() || std::time::Instant::now() >= deadline {
+                break batch;
+            }
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    };
     if let Ok(session) = host.info(&id) {
         window.state::<attention::Controller>().observe(window.app_handle(), &session, &batch);
     }
@@ -689,6 +705,9 @@ fn main() {
             #[cfg(windows)]
             collaboration::start(app.handle()).map_err(std::io::Error::other)?;
             for config in app.config().app.windows.clone() {
+                #[cfg(windows)]
+                webview_recovery::build(app.handle(), &config)?;
+                #[cfg(not(windows))]
                 tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?.build()?;
             }
             attention::start_memory_warnings(app.handle());
@@ -971,6 +990,9 @@ fn main() {
                 }
                 return;
             }
+            // Windows destroyed to be built again after a WebView2 loss are not a close.
+            #[cfg(windows)]
+            if webview_recovery::recovering() { return; }
             if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
                 if let Some(widget) = window.app_handle().get_webview_window("attention") { let _ = widget.destroy(); }
                 return;
@@ -988,6 +1010,12 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("Cannot run Shinatama desktop")
         .run(|_app, _event| {
+            #[cfg(windows)]
+            if let tauri::RunEvent::ExitRequested { api, code: None, .. } = &_event
+                && webview_recovery::recovering()
+            {
+                api.prevent_exit();
+            }
             #[cfg(windows)]
             if matches!(_event, tauri::RunEvent::Exit) {
                 collaboration::stop(_app);

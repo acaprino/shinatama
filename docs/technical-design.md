@@ -302,6 +302,14 @@ surfaces. The executable embeds `apps/desktop/dist`, so a change to the window
 declaration or to the interface needs `npm run build` and then
 `cargo build -p shinatama-desktop --features custom-protocol`.
 
+A transparent window whose WebView2 has stopped drawing is clear glass that takes no input.
+`webview_recovery.rs` builds every window and listens to `ProcessFailed` on its webview: when
+the browser process exits, all windows are destroyed and built again, the main one in its
+place; when a render process exits, that page is reloaded. The terminals live in the host
+process and the page reattaches them from `terminal_list`. `terminal_read` waits up to one
+second for output, so a quiet terminal makes one request a second through the browser
+process. `apps/desktop/tests/webview-recovery.mjs` ends the browser process and checks both.
+
 `main.ts` adds the class `native-glass` to the root element in the desktop app only;
 the browser preview has no backdrop and keeps an opaque stage. Under that class
 `styles.css` clears the page background and derives three glass colours from the
