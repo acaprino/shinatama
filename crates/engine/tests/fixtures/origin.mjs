@@ -62,6 +62,19 @@ function rewriteReply(request) {
   return `<edited_request>${edited}</edited_request>`;
 }
 
+// A request whose newest message is text containing RETRIEVE_NOW makes the origin play a
+// model that asks for the stored original of the first stored-content placeholder it finds
+// in the conversation (the retrieve tool the sidecar registered), once. The sidecar's own
+// follow-up request ends in the tool result, so it does not trigger a second call.
+function retrieveCall(request) {
+  const messages = Array.isArray(request.messages) ? request.messages : [];
+  const last = messages[messages.length - 1];
+  const lastText = JSON.stringify(last?.content ?? '');
+  if (last?.role !== 'user' || !lastText.includes('RETRIEVE_NOW')) return undefined;
+  const found = /([a-z_]+)\(\\"(m\d+)\\"\) returns the full text/.exec(JSON.stringify(messages));
+  return found ? { tool: found[1], ref: found[2] } : undefined;
+}
+
 const frame = (event, data) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 const message = model => ({
   id: 'msg_synthetic',
@@ -116,6 +129,17 @@ const server = http.createServer((req, res) => {
     }
     res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
     res.write(frame('message_start', { type: 'message_start', message: message(model) }));
+    const retrieve = retrieveCall(request);
+    if (retrieve) {
+      res.write(frame('content_block_start', { type: 'content_block_start', index: 0, content_block: { type: 'tool_use', id: 'toolu_retrieve', name: retrieve.tool, input: {} } }));
+      res.write(frame('content_block_delta', { type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: JSON.stringify({ ref: retrieve.ref }) } }));
+      res.write(frame('content_block_stop', { type: 'content_block_stop', index: 0 }));
+      res.write(frame('message_delta', { type: 'message_delta', delta: { stop_reason: 'tool_use', stop_sequence: null }, usage: { output_tokens: 4 } }));
+      setTimeout(() => {
+        res.end(frame('message_stop', { type: 'message_stop' }));
+      }, delayMs);
+      return;
+    }
     res.write(frame('content_block_start', { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } }));
     res.write(frame('ping', { type: 'ping' }));
     res.write(frame('content_block_delta', { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: REPLY } }));

@@ -639,18 +639,35 @@ struct Probe {
     body: Vec<u8>,
     tag: String,
 }
-fn probe(origin: &Origin, session: &str, history: &[Msg], user_text: &str) -> Probe {
-    let tag = uuid::Uuid::new_v4().to_string();
+fn probe(
+    origin: &Origin,
+    session: &str,
+    history: &[Msg],
+    user_text: &str,
+    tools: Option<&Value>,
+) -> Probe {
     let mut messages: Vec<Value> = history.iter().map(Msg::wire).collect();
     messages.push(Msg::user_text(user_text).wire());
-    let body = serde_json::to_vec(&json!({
+    probe_messages(origin, session, messages, tools)
+}
+fn probe_messages(
+    origin: &Origin,
+    session: &str,
+    messages: Vec<Value>,
+    tools: Option<&Value>,
+) -> Probe {
+    let tag = uuid::Uuid::new_v4().to_string();
+    let mut body = json!({
         "model": "claude-sonnet-4-5",
         "max_tokens": 1024,
         "stream": true,
         "system": [{ "type": "text", "text": "You are Claude Code, Anthropic's official CLI for Claude." }],
         "messages": messages,
-    }))
-    .unwrap();
+    });
+    if let Some(tools) = tools {
+        body["tools"] = tools.clone();
+    }
+    let body = serde_json::to_vec(&body).unwrap();
     Probe {
         path: format!("/bili/http://127.0.0.1:{}/v1/messages", origin.port),
         headers: vec![
@@ -685,7 +702,31 @@ fn forward(
     history: &[Msg],
     user_text: &str,
 ) -> ProofResult<Forwarded> {
-    let probe = probe(origin, session, history, user_text);
+    forward_with(sidecar_port, origin, session, history, user_text, None)
+}
+/// `forward` with the client's `tools` array, as the destination agent sends it.
+fn forward_with(
+    sidecar_port: u16,
+    origin: &Origin,
+    session: &str,
+    history: &[Msg],
+    user_text: &str,
+    tools: Option<&Value>,
+) -> ProofResult<Forwarded> {
+    let mut messages: Vec<Value> = history.iter().map(Msg::wire).collect();
+    messages.push(Msg::user_text(user_text).wire());
+    forward_messages(sidecar_port, origin, session, messages, tools)
+}
+/// `forward` for a request whose messages the caller built, so the newest message can be
+/// something other than text (a tool result answering a tool use, as an agent sends it).
+fn forward_messages(
+    sidecar_port: u16,
+    origin: &Origin,
+    session: &str,
+    messages: Vec<Value>,
+    tools: Option<&Value>,
+) -> ProofResult<Forwarded> {
+    let probe = probe_messages(origin, session, messages, tools);
     let tag = probe.tag.as_str();
     let response = request(
         sidecar_port,
@@ -954,10 +995,11 @@ fn shared_prefix() -> Vec<Msg> {
         })
         .collect()
 }
-/// The shared prefix, then a tool result of about 6000 tokens (four bytes per token) that
-/// opens and closes with `marker`. The filler is the same for every session, so the marker
-/// is the only difference between two sessions' tool results.
-fn session_start(marker: &str) -> Vec<Msg> {
+/// The shared prefix and the assistant's tool use, then, separately, the tool result of
+/// about 6000 tokens (four bytes per token, above the 4000-token CCR threshold) that opens
+/// and closes with `marker`. The filler is the same for every session, so the marker is
+/// the only difference between two sessions' tool results.
+fn session_start(marker: &str) -> (Vec<Msg>, Msg) {
     let mut seed = 0x9e37_79b9_u64;
     let mut result = format!("{marker}\n");
     while result.len() < 6_000 * 4 {
@@ -973,11 +1015,44 @@ fn session_start(marker: &str) -> Vec<Msg> {
         "Read",
         json!({ "file_path": r"C:\synthetic\marker.txt" }),
     ));
-    history.push(Msg::tool_result("toolu_marker", &result));
-    history.push(Msg::assistant_text("Ho letto il file."));
-    history
+    (history, Msg::tool_result("toolu_marker", &result))
 }
+/// The one tool of the synthetic session, in the Messages `tools` shape. A client that
+/// declares tools is what arms the sidecar's content store (CCR) and its retrieve tool.
+fn read_tool() -> Value {
+    json!([{
+        "name": "Read",
+        "description": "Reads a file from the local filesystem.",
+        "input_schema": {
+            "type": "object",
+            "properties": { "file_path": { "type": "string" } },
+            "required": ["file_path"],
+        },
+    }])
+}
+/// First request of a session: the newest message is the large tool result answering the
+/// tool use, as an agent sends it. Returns the conversation as it stands afterwards.
+fn open_session(
+    port: u16,
+    origin: &Origin,
+    session: &str,
+    label: &str,
+    marker: &str,
+) -> ProofResult<Vec<Msg>> {
+    let (mut history, result) = session_start(marker);
+    let mut messages: Vec<Value> = history.iter().map(Msg::wire).collect();
+    messages.push(result.wire());
+    forward_messages(port, origin, session, messages, Some(&read_tool()))
+        .map_err(|e| format!("{label} opening request: {e}"))?;
+    history.push(result);
+    history.push(Msg::assistant_text("Ho letto il file."));
+    Ok(history)
+}
+/// The turn on which the origin asks the sidecar for the stored original.
+const RETRIEVE_TURN: usize = 3;
 /// Runs `turns` turns on `session`, each one resent with the whole conversation so far.
+/// On `RETRIEVE_TURN` the user text carries the word that makes the origin ask for the
+/// stored original through the sidecar's retrieve tool.
 fn run_turns(
     port: u16,
     origin: &Origin,
@@ -987,8 +1062,13 @@ fn run_turns(
     turns: std::ops::Range<usize>,
 ) -> ProofResult<()> {
     for turn in turns {
-        let text = format!("Turno {turn} della sessione {label}: continua il lavoro.");
-        forward(port, origin, session, history, &text)
+        let ask = if turn == RETRIEVE_TURN {
+            " RETRIEVE_NOW"
+        } else {
+            ""
+        };
+        let text = format!("Turno {turn} della sessione {label}: continua il lavoro.{ask}");
+        forward_with(port, origin, session, history, &text, Some(&read_tool()))
             .map_err(|e| format!("{label} turn {turn}: {e}"))?;
         history.push(Msg::user_text(&text));
         history.push(Msg::assistant_text(REPLY));
@@ -1037,52 +1117,90 @@ fn stats(port: u16) -> ProofResult<Vec<(String, u64)>> {
         .collect())
 }
 
+/// The tool-result text of the sidecar's answer to the origin's retrieve request, if the
+/// session's calls hold one.
+fn retrieve_answer(calls: &[Recorded]) -> Option<String> {
+    calls.iter().find_map(|c| {
+        let body: Value = serde_json::from_slice(&c.body).ok()?;
+        let last = body["messages"].as_array()?.last()?.clone();
+        let part = last["content"].as_array()?.first()?.clone();
+        (part["type"] == "tool_result" && part["tool_use_id"] == "toolu_retrieve")
+            .then(|| part["content"].as_str().unwrap_or_default().to_owned())
+    })
+}
+/// The file path a retrieve answer points the model at, when the original was exported.
+fn exported_path(answer: &str) -> Option<PathBuf> {
+    let rest = answer.split("path=\"").nth(1)?;
+    Some(PathBuf::from(rest.split('"').next()?))
+}
+
 #[test]
 #[ignore = "native: starts the pinned sidecar"]
 fn two_sessions_with_identical_prefixes_do_not_share_state() {
     let (sidecar, origin) = proof();
     let (a, b) = (new_session(), new_session());
-    // Same system prompt, same first ten messages; only the tool result's marker differs.
-    let (mut history_a, mut history_b) = (session_start("MARKER_A"), session_start("MARKER_B"));
+    // Same system prompt, same first ten messages, a tools array; only the tool result's
+    // marker differs. Its newest message is the large result, above the CCR threshold, so
+    // the sidecar stores it and puts a placeholder on the wire.
     thread::scope(|scope| {
-        let first =
-            scope.spawn(|| run_turns(sidecar.port, &origin, &a, &mut history_a, "A", 0..TURNS));
-        let second =
-            scope.spawn(|| run_turns(sidecar.port, &origin, &b, &mut history_b, "B", 0..TURNS));
+        let first = scope.spawn(|| {
+            let mut history = open_session(sidecar.port, &origin, &a, "A", "MARKER_A")?;
+            run_turns(sidecar.port, &origin, &a, &mut history, "A", 1..TURNS)
+        });
+        let second = scope.spawn(|| {
+            let mut history = open_session(sidecar.port, &origin, &b, "B", "MARKER_B")?;
+            run_turns(sidecar.port, &origin, &b, &mut history, "B", 1..TURNS)
+        });
         first.join().expect("session A thread").expect("session A");
         second.join().expect("session B thread").expect("session B");
     });
     let calls = model_calls_by_session(&origin, &[&a, &b]).expect("attribute every model call");
     let (calls_a, calls_b) = (&calls[&a], &calls[&b]);
-    // Not vacuous: each session reached the origin with every turn, and its own marker
-    // really was on the wire.
+    // Not vacuous: each session reached the origin with every request ...
     assert!(calls_a.len() >= TURNS && calls_b.len() >= TURNS);
-    assert!(
-        count_in(calls_a, "MARKER_A") > 0,
-        "A's own marker never reached the origin"
-    );
-    assert!(
-        count_in(calls_b, "MARKER_B") > 0,
-        "B's own marker never reached the origin"
-    );
-    // Isolation: nothing of one session appears in a body sent on behalf of the other.
-    assert_eq!(
-        count_in(calls_a, "MARKER_B"),
-        0,
-        "B's content leaked into a body of A"
-    );
-    assert_eq!(
-        count_in(calls_b, "MARKER_A"),
-        0,
-        "A's content leaked into a body of B"
-    );
-    // The sidecar's own accounting: two distinct sessions, each with all its turns.
+    // ... and CCR really fired: every body of a session carries the stored-content
+    // placeholder for its own marker result, and the original (whose closing marker would
+    // make a second occurrence) is not on the wire.
+    for (calls, own, other) in [
+        (calls_a, "MARKER_A", "MARKER_B"),
+        (calls_b, "MARKER_B", "MARKER_A"),
+    ] {
+        assert_eq!(
+            count_in(calls, "[acp-stored"),
+            calls.len(),
+            "{own}: placeholder missing"
+        );
+        for call in calls {
+            let body = String::from_utf8_lossy(&call.body);
+            assert_eq!(
+                body.matches(own).count(),
+                1,
+                "{own}: the original is on the wire"
+            );
+            // Isolation: nothing of one session appears in a body sent on behalf of the other.
+            assert_eq!(
+                body.matches(other).count(),
+                0,
+                "{other} leaked into a body of {own}"
+            );
+        }
+    }
+    // The retrieve path ran for both sessions.
+    for (calls, label) in [(calls_a, "A"), (calls_b, "B")] {
+        let answer = retrieve_answer(calls)
+            .unwrap_or_else(|| panic!("session {label} never got a retrieve answer"));
+        assert!(answer.starts_with("[acp-retrieved #"), "{label}: {answer}");
+    }
+    // The sidecar's own accounting: two distinct sessions, each with all its requests, and
+    // the ids are the ones the clients sent.
     let seen = stats(sidecar.port).expect("stats");
-    let ids: std::collections::BTreeSet<&str> = seen.iter().map(|(id, _)| id.as_str()).collect();
+    let mut ids: Vec<&str> = seen.iter().map(|(id, _)| id.as_str()).collect();
+    ids.sort_unstable();
+    let mut sent = [a.as_str(), b.as_str()];
+    sent.sort_unstable();
     assert_eq!(
-        ids.len(),
-        2,
-        "stats must list exactly two sessions: {seen:?}"
+        ids, sent,
+        "stats must list exactly the two sessions: {seen:?}"
     );
     for (id, requests) in &seen {
         assert_eq!(*requests, TURNS as u64, "session {id} requests: {seen:?}");
@@ -1090,14 +1208,61 @@ fn two_sessions_with_identical_prefixes_do_not_share_state() {
 }
 
 #[test]
+#[ignore = "open: P0, retrieve exports of equal refs share one file (store.ts retrievalExportDir, kernel ccr.ts exportDir/<ref>.txt); see Task 7 report"]
+fn retrieved_exports_of_two_sessions_do_not_collide() {
+    // Two sessions with identical prefixes store the same-numbered placeholder. Each asks
+    // for its stored original; the sidecar exports a large original to a file and points
+    // the model at it. The two pointers must name different files, and each file must
+    // keep its own session's original.
+    let (sidecar, origin) = proof();
+    let (a, b) = (new_session(), new_session());
+    let mut exports = Vec::new();
+    for (session, label, marker) in [(&a, "A", "MARKER_A"), (&b, "B", "MARKER_B")] {
+        let mut history =
+            open_session(sidecar.port, &origin, session, label, marker).expect("open the session");
+        run_turns(
+            sidecar.port,
+            &origin,
+            session,
+            &mut history,
+            label,
+            1..RETRIEVE_TURN + 1,
+        )
+        .expect("turns up to the retrieve");
+        let calls = model_calls_by_session(&origin, &[&a, &b]).expect("attribute");
+        let answer = retrieve_answer(&calls[session.as_str()]).expect("a retrieve answer");
+        let path = exported_path(&answer).unwrap_or_else(|| panic!("no exported path: {answer}"));
+        let content = fs::read_to_string(&path).expect("read the exported original");
+        assert!(
+            content.contains(marker),
+            "{label}: the export does not hold {marker}'s original"
+        );
+        exports.push(path);
+    }
+    assert_ne!(
+        exports[0], exports[1],
+        "both sessions were pointed at the same file {:?}",
+        exports[0]
+    );
+    // B's retrieve must not have changed what A's pointer resolves to.
+    let after = fs::read_to_string(&exports[0]).expect("A's export, after B's retrieve");
+    assert!(
+        after.contains("MARKER_A") && !after.contains("MARKER_B"),
+        "A's export now holds B's original"
+    );
+}
+
+#[test]
 #[ignore = "native: starts the pinned sidecar"]
 fn resumed_session_keeps_its_own_identity() {
     let (sidecar, origin) = proof();
     let session = new_session();
-    let mut history = session_start("MARKER_A");
-    run_turns(sidecar.port, &origin, &session, &mut history, "A", 0..5).expect("first five turns");
+    // Request 1 opens the session, requests 2-5 are turns 1-4.
+    let mut history =
+        open_session(sidecar.port, &origin, &session, "A", "MARKER_A").expect("opening request");
+    run_turns(sidecar.port, &origin, &session, &mut history, "A", 1..5).expect("first turns");
     // The client goes away and comes back with the same session id: a fresh client replays
-    // the transcript it saved, which is the conversation as it stood after turn five.
+    // the transcript it saved, which is the conversation as it stood after turn four.
     let mut resumed = history.clone();
     drop(history);
     run_turns(sidecar.port, &origin, &session, &mut resumed, "A", 5..10).expect("last five turns");
@@ -1108,6 +1273,10 @@ fn resumed_session_keeps_its_own_identity() {
         seen.len(),
         1,
         "a resumed session must stay one session: {seen:?}"
+    );
+    assert_eq!(
+        seen[0].0, session,
+        "the one session is the one the client sent"
     );
     assert_eq!(seen[0].1, 10, "requests of the one session: {seen:?}");
 }
@@ -1185,12 +1354,14 @@ fn drain_lets_a_running_stream_finish() {
     // when the drain is requested.
     let origin = Origin::start(&sidecar, 3000).expect("start the synthetic origin");
     let session = new_session();
-    let probe = probe(&origin, &session, &[], "Scrivi una frase.");
+    let probe = probe(&origin, &session, &[], "Scrivi una frase.", None);
     let mut streaming = Streaming::open(sidecar.port, &probe).expect("open the stream");
     streaming
         .read_until("message_start", Duration::from_secs(30))
         .expect("first SSE byte");
     let calls_at_first_byte = origin.requests().len();
+    // The turn is the only model call so far: nothing was rewritten or summarised first.
+    assert_eq!(calls_at_first_byte, 1);
     let pid = sidecar
         .supervisor
         .status()
@@ -1293,7 +1464,7 @@ fn killed_sidecar_never_replays_the_interrupted_request() {
     let sidecar = Running::start().expect("start the pinned sidecar");
     let origin = Origin::start(&sidecar, 3000).expect("start the synthetic origin");
     let session = new_session();
-    let probe = probe(&origin, &session, &[], "Scrivi una frase.");
+    let probe = probe(&origin, &session, &[], "Scrivi una frase.", None);
     let mut streaming = Streaming::open(sidecar.port, &probe).expect("open the stream");
     streaming
         .read_until("message_start", Duration::from_secs(30))
@@ -1340,6 +1511,21 @@ fn killed_sidecar_never_replays_the_interrupted_request() {
         calls_at_first_byte,
         "a model call was made after the crash"
     );
+    // The owner settled on the one restart: same process as after it, no second restart.
     let end = sidecar.supervisor.status().expect("final status");
     assert!(end.restart_used && end.phase == Phase::Ready);
+    assert_eq!(
+        end.pid, restarted.pid,
+        "the restarted process was replaced again"
+    );
+    assert_eq!(
+        Running::wait_status(
+            &sidecar.supervisor,
+            Duration::from_secs(1),
+            Phase::Ready,
+            |s| s.healthy && s.pid == restarted.pid
+        )
+        .map(|s| s.reason),
+        Ok(Reason::None)
+    );
 }
