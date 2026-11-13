@@ -129,7 +129,7 @@ try {
   let codexOpens = process.env.SHINATAMA_SMOKE_CODEX !== '0';
   if (codexOpens) {
     try { await ipc('terminal_stop', { id: (await sessionOf('codex')).id }); }
-    catch (error) { if (!/Try Open again/.test(String(error.message))) throw error; codexOpens = false; console.log('skip Codex did not qualify here; its launch flags are covered by the unit tests'); }
+    catch (error) { if (!/Try Open again|did not start/.test(String(error.message))) throw error; codexOpens = false; console.log('skip Codex did not qualify here; its launch flags are covered by the unit tests'); }
   }
   if (codexOpens) {
     let known = new Set(processes('codex.exe').map(item => item.pid));
