@@ -20,7 +20,7 @@ const reservation = createServer();
 await new Promise((accept, reject) => { reservation.once('error', reject); reservation.listen(0, '127.0.0.1', accept); });
 const port = reservation.address().port;
 await new Promise((accept, reject) => reservation.close(error => error ? reject(error) : accept()));
-const app = spawn(resolve(root, 'target/debug/shinatama-desktop.exe'), [], {
+const app = spawn(process.env.SHINATAMA_EXE ?? resolve(root, 'target/debug/shinatama-desktop.exe'), [], {
   cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
   env: { ...process.env, SHINATAMA_HOME: resolve(fixture, 'data'),
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: '--remote-debugging-port=' + port + ' --remote-debugging-address=127.0.0.1',
@@ -119,7 +119,7 @@ try {
     await expect.poll(() => page.locator('.workspace-name').evaluate(label => ({
       state: label.dataset.layoutState, dirty: label.dataset.layoutDirty, pending: label.dataset.layoutPending,
     })), { timeout: 10000 }).toEqual({ state: 'owned', dirty: 'false', pending: 'false' });
-    return ipc('global_workspace_load', { request: scope });
+    return ipc(scope.projectId ? 'workspace_load' : 'global_workspace_load', { request: scope });
   };
   await expect.poll(async () => (await saved())?.ownership, { timeout: 15000 }).toBe('ours');
   await expect(page.locator('.wm-pane')).toHaveCount(1);
@@ -147,8 +147,14 @@ try {
   await openShell(page.locator('#new-terminal'));
   await expect.poll(ids, { timeout: 30000 }).toHaveLength(1);
   const first = (await ids())[0]; await shell(first);
+  // ADR-0055: the first session made a thread and opened it; its layout is now saved under the thread, and `main` keeps loose terminals only.
+  scope = { projectId: project.id, workspaceId: await page.locator('.thread-sidebar-anchor[aria-pressed="true"]').getAttribute('data-workset-id') };
+  expect(scope.workspaceId).toMatch(/^w_[a-z2-7]{12}$/);
   await expect.poll(async () => (await ipc('terminal_resources')).find(row => row.id === first)?.applied?.jobCommitBytes).toBe(512 * 1024 * 1024);
-  await expect(pane(first).locator('.terminal-resources')).toContainText('/ 512 MiB');
+  // An interactive session's limits are advisory (545cd63): the job keeps its 512 MiB reservation, but the
+  // label shows measured use only, never "used / limit".
+  expect((await ipc('terminal_resources')).find(row => row.id === first)?.applied?.limitsEnforced).toBe(false);
+  await expect(pane(first).locator('.terminal-resources')).toHaveText(/^\d+ MiB · running$/);
   await type(first, "Write-Output ('SHINATAMA_' + 'DESKTOP_OK')");
   await expect(pane(first).locator('.xterm-accessibility')).toContainText('SHINATAMA_DESKTOP_OK');
   const beforeAppearance = await ids();
@@ -275,11 +281,11 @@ try {
   expect(agentLayout.views.find(view => view.id === native)?.resource.threadId).toMatch(/^t_[a-z2-7]{12}$/);
   const threadId = agentLayout.views.find(view => view.id === native).resource.threadId;
   const sidebar = page.locator('.thread-sidebar');
-  await expect(sidebar.locator(`button[data-thread-id="${threadId}"]`)).toBeVisible({timeout:10000});
+  // ADR-0055: the sidebar lists the thread that holds the session; clicking the open thread changes nothing.
+  const openThread = sidebar.locator('button.thread-sidebar-anchor[aria-pressed="true"]');
+  await expect(openThread.locator('.thread-sidebar-state')).toContainText('running', {timeout:10000});
   const nativeBeforeSelection = await ids();
-  await sidebar.locator(`button[data-thread-id="${threadId}"]`).click();
-  // A Claude Code thread is bound to its native conversation at launch (as new-session-smoke asserts).
-  await expect(sidebar.locator('.thread-sidebar-detail')).toContainText('Recorded open; activity unknown');
+  await openThread.click();
   expect(await ids()).toEqual(nativeBeforeSelection);
   const durableThreads = await ipc('thread_list', {request:{projectId:project.id,cursor:null,limit:50}});
   expect(durableThreads.rows.map(row => row.id)).toContain(threadId);
@@ -302,8 +308,7 @@ try {
     await sidebar.getByRole('button',{name:'Expand threads',exact:true}).click();
     await expect(sidebar.getByRole('separator',{name:'Thread sidebar width'})).toHaveAttribute('aria-valuenow','280');
     await expect(sidebar.locator('#thread-sidebar-project')).toHaveValue(project.id,{timeout:10000});
-    await sidebar.getByRole('button',{name:'Reload threads',exact:true}).click();
-    await expect(sidebar.locator(`button[data-thread-id="${threadId}"]`)).toBeVisible();
+    await expect(sidebar.locator('button.thread-sidebar-anchor')).toHaveCount(1);
     expect(await ids()).toEqual([]);
     await expect.poll(async()=> (await ipc('thread_sidebar_load')).settings.collapsed).toBe(false);
     await page.screenshot({path:resolve(output,'c25-thread-sidebar.png'),timeout:3000});
@@ -342,7 +347,7 @@ try {
             hidden: view.hidden, inputs: view.querySelectorAll('.xterm-helper-textarea').length,
           })),
           nativeSessions: await window.__TAURI_INTERNALS__.invoke('terminal_list'),
-          saved: scope ? await window.__TAURI_INTERNALS__.invoke('global_workspace_load', { request: scope }) : null,
+          saved: scope ? await window.__TAURI_INTERNALS__.invoke(scope.projectId ? 'workspace_load' : 'global_workspace_load', { request: scope }) : null,
         }), scope),
         delay(2000).then(() => { throw new Error('UI diagnostic deadline exceeded'); }),
       ]);
