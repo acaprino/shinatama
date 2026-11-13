@@ -190,7 +190,7 @@ try {
     });
   });
   expect(await sessions()).toEqual([]);
-  await expect(page.locator('#agents')).toHaveCount(0); await expect(page.locator('#session-index')).toHaveCount(0);
+  await expect(page.locator('#agents')).toHaveCount(0); await expect(page.locator('#model-proxy-panel')).toBeHidden();
   await expect(page.getByRole('button', { name: 'Check', exact: true })).toHaveCount(0);
   evidence.checks.noPreparatoryControlsOrAutoStartup = true;
   const first = await openSession(projectPaths[0], 1, 'menu');

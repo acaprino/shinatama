@@ -244,13 +244,13 @@ try {
   }
 
   // One complete first-agent flow through the real New session menu (project +
-  // Claude Code + Open); the session index and the qualification check start
+  // Claude Code + Open); the model proxy and the qualification check start
   // implicitly with Open. No answers, sign-in or model request.
   await expect(page.locator('#resource-status')).toContainText('Resources: available', { timeout: 20000 });
   if ((await ipc('sidecar_status')).phase !== 'ready') await ipc('sidecar_start').catch(() => {});
   await expect.poll(async () => {
     const status = await ipc('sidecar_status');
-    if (['failed', 'retired'].includes(status.phase)) throw new Error('Session index refused: ' + JSON.stringify(status));
+    if (['failed', 'retired'].includes(status.phase)) throw new Error('Model proxy refused: ' + JSON.stringify(status));
     return status.phase;
   }, { timeout: 45000 }).toBe('ready');
   const agentOpen = await startSession(page, { project: projectPath, harness: 'claude_code' });
@@ -328,7 +328,7 @@ try {
         page.evaluate(async scope => ({
           resourceControl: await window.__TAURI_INTERNALS__.invoke('resources_telemetry', { telemetry: {} }),
           notice: document.querySelector('#notice')?.textContent?.slice(0, 2048),
-          sessionIndex: document.querySelector('#session-index-dialog')?.textContent?.slice(0, 2048),
+          modelProxy: document.querySelector('#model-proxy-panel')?.textContent?.slice(0, 2048),
           agentCheckup: document.querySelector('#agent-setup-dialog')?.textContent?.slice(0, 4096),
           sidecarStatus: await window.__TAURI_INTERNALS__.invoke('sidecar_status'),
           agentStatus: await window.__TAURI_INTERNALS__.invoke('agent_status'),

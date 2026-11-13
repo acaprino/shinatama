@@ -97,7 +97,7 @@ export function createAgentSetup(options: Options) {
     const program = snapshot?.program;
     row('Program', program?.state === 'found' ? `Found${program.version ? ` · ${program.version}` : ''}`
       : program?.state === 'missing' ? 'Missing' : program?.state === 'unavailable' ? 'Unavailable' : 'Not checked', program?.state ?? 'unknown');
-    for (const [key, name] of [['home', 'Private home'], ['sidecar', 'Session index'], ['sets', 'Sets']] as const) {
+    for (const [key, name] of [['home', 'Private home'], ['sidecar', 'Model proxy'], ['sets', 'Sets']] as const) {
       const state = snapshot?.[key].state ?? 'unknown'; row(name, STEP_LABELS[state], state);
     }
     const auth = snapshot?.authentication ?? 'unknown';
