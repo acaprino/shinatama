@@ -4,7 +4,8 @@
 use crate::{storage::Services, terminal_runtime::Runtime};
 use serde::Serialize;
 use shinatama_engine::{
-    sidecar_config::prepare_private_sidecar,
+    sidecar_admin::{AdminTarget, ResolvedBaseline, resolved_baseline},
+    sidecar_config::{intended_baseline, prepare_private_sidecar},
     sidecar_runtime::{
         NodePin, RuntimeSummary, prepare_runtime, verify_bundled_node, verify_prepared_bundle,
     },
@@ -36,6 +37,19 @@ pub struct Status {
     pub message: Option<&'static str>,
     pub observation: Option<Snapshot>,
     pub prepared_identity: Option<RuntimeSummary>,
+    /// Read once from the running process by a worker; `status` never does I/O.
+    pub resolved: Option<ResolvedBaseline>,
+    /// None until the configuration was read; true when it differs from what
+    /// Shinatama writes.
+    pub config_drift: Option<bool>,
+}
+/// How long a worker waits for one admin read, and how often it retries an
+/// unknown one for the same process.
+const RESOLVED_READ_TIMEOUT: Duration = Duration::from_secs(1);
+const RESOLVED_READ_ATTEMPTS: u8 = 3;
+/// `None` until the running process's configuration is known.
+fn drift(resolved: Option<&ResolvedBaseline>) -> Option<bool> {
+    resolved.map(|resolved| *resolved != intended_baseline())
 }
 pub struct Controller {
     services: Arc<Services>,
@@ -46,6 +60,10 @@ pub struct Controller {
     identity: OnceLock<RuntimeSummary>,
     connection: OnceLock<(NonZeroU16, StorageLocation)>,
     failure: Mutex<Option<&'static str>>,
+    /// The read configuration with the pid of the process it came from; it is
+    /// shown only while the supervisor still reports that pid.
+    resolved: Mutex<Option<(u32, Option<ResolvedBaseline>)>>,
+    watching: AtomicBool,
 }
 impl Controller {
     pub fn new(services: Arc<Services>, runtime: Arc<Runtime>) -> Self {
@@ -58,6 +76,8 @@ impl Controller {
             identity: OnceLock::new(),
             connection: OnceLock::new(),
             failure: Mutex::new(None),
+            resolved: Mutex::new(None),
+            watching: AtomicBool::new(false),
         }
     }
     pub fn status(&self) -> Status {
@@ -108,6 +128,17 @@ impl Controller {
             Reason::ResourceLimit => Some("The local service exceeded its own resource budget and was stopped. Saved sessions were preserved."),
             _ => None,
         }));
+        let resolved = observation
+            .as_ref()
+            .and_then(|snapshot| snapshot.pid)
+            .and_then(|pid| {
+                self.resolved.try_lock().ok().and_then(|value| {
+                    value
+                        .as_ref()
+                        .filter(|(read_for, _)| *read_for == pid)
+                        .and_then(|(_, resolved)| resolved.clone())
+                })
+            });
         Status {
             phase,
             healthy: fresh
@@ -117,6 +148,8 @@ impl Controller {
             message,
             observation,
             prepared_identity: self.identity.get().cloned(),
+            config_drift: drift(resolved.as_ref()),
+            resolved,
         }
     }
     pub fn start(self: &Arc<Self>) -> Result<Status, &'static str> {
@@ -133,6 +166,7 @@ impl Controller {
             supervisor
                 .request(command)
                 .map_err(|_| "The proxy owner is busy; retry explicitly.")?;
+            self.watch_resolved();
             return Ok(self.status());
         }
         if self
@@ -151,10 +185,14 @@ impl Controller {
                 Ok(Err(message)) => Some(message),
                 Err(_) => Some("Proxy preparation failed. Saved data was preserved."),
             };
+            let prepared = failure.is_none();
             if let Ok(mut value) = owner.failure.lock() {
                 *value = failure;
             }
             owner.preparing.store(false, Ordering::Release);
+            if prepared {
+                owner.watch_resolved();
+            }
         });
         Ok(self.status())
     }
@@ -167,14 +205,87 @@ impl Controller {
         }
         Ok(self.status())
     }
-    pub fn retry(&self) -> Result<Status, &'static str> {
+    pub fn retry(self: &Arc<Self>) -> Result<Status, &'static str> {
         self.stop_requested.store(false, Ordering::Release);
         self.supervisor
             .get()
             .ok_or("Prepare the proxy before retrying recovery.")?
             .request(Command::Retry)
             .map_err(|_| "The proxy owner is busy; no replacement was created.")?;
+        self.watch_resolved();
         Ok(self.status())
+    }
+    /// Starts the one blocking worker that reads the running process's
+    /// configuration once per process, never on the UI thread.
+    fn watch_resolved(self: &Arc<Self>) {
+        if self.watching.swap(true, Ordering::AcqRel) {
+            return;
+        }
+        let owner = Arc::clone(self);
+        tauri::async_runtime::spawn_blocking(move || {
+            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                owner.read_resolved_until_idle()
+            }));
+            owner.watching.store(false, Ordering::Release);
+        });
+    }
+    fn read_resolved_until_idle(&self) {
+        let began = std::time::Instant::now();
+        let mut seen_active = false;
+        let mut current: Option<(u32, u8)> = None;
+        loop {
+            std::thread::sleep(Duration::from_millis(200));
+            let Some(snapshot) = self.supervisor.get().and_then(SidecarSupervisor::status) else {
+                break;
+            };
+            match snapshot.phase {
+                Phase::Failed | Phase::Retired => break,
+                Phase::Stopped => {
+                    // The owner reports Stopped until its worker takes Start.
+                    if seen_active || began.elapsed() > Duration::from_secs(10) {
+                        break;
+                    }
+                    continue;
+                }
+                _ => seen_active = true,
+            }
+            if self.stop_requested.load(Ordering::Acquire) {
+                break;
+            }
+            let (Phase::Ready | Phase::Busy, true, Some(pid)) =
+                (snapshot.phase, snapshot.healthy, snapshot.pid)
+            else {
+                continue;
+            };
+            let attempts = match current {
+                Some((known, attempts)) if known == pid => attempts,
+                _ => 0,
+            };
+            if attempts >= RESOLVED_READ_ATTEMPTS
+                || self
+                    .resolved
+                    .lock()
+                    .is_ok_and(|value| value.as_ref().is_some_and(|(read_for, r)| *read_for == pid && r.is_some()))
+            {
+                current = Some((pid, RESOLVED_READ_ATTEMPTS));
+                continue;
+            }
+            let Some((port, _)) = self.connection.get() else {
+                continue;
+            };
+            let read = resolved_baseline(&AdminTarget {
+                port: *port,
+                pid,
+                timeout: RESOLVED_READ_TIMEOUT,
+            });
+            current = Some((pid, attempts + 1));
+            if let Ok(mut value) = self.resolved.lock() {
+                *value = Some((pid, read));
+            }
+        }
+        if let Ok(mut value) = self.resolved.lock() {
+            *value = None;
+        }
     }
     pub fn is_active(&self) -> bool {
         self.preparing.load(Ordering::Acquire)
@@ -418,4 +529,18 @@ fn resources_root() -> Result<PathBuf, &'static str> {
     }
     #[cfg(not(debug_assertions))]
     Err("The proxy resources are missing from this application package.")
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use shinatama_engine::sidecar_config::intended_baseline;
+
+    #[test]
+    fn drift_is_reported_when_resolved_differs_from_baseline() {
+        let mut resolved = intended_baseline();
+        assert_eq!(drift(Some(&resolved)), Some(false));
+        resolved.verbosity_level = Some(3);
+        assert_eq!(drift(Some(&resolved)), Some(true));
+        assert_eq!(drift(None), None);
+    }
 }

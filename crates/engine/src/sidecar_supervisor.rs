@@ -118,6 +118,8 @@ pub struct Snapshot {
     pub stdout_bytes: u64,
     pub stderr_bytes: u64,
     pub observed_at_unix_ms: Option<i64>,
+    /// Process id of the child this owner currently holds; None when it holds none.
+    pub pid: Option<u32>,
     pub resource_limit: Option<ResourceLimit>,
     /// Fresh bind result after a missed health response; never inferred from connect.
     pub port_held: Option<bool>,
@@ -189,6 +191,7 @@ impl SidecarSupervisor {
             stdout_bytes: 0,
             stderr_bytes: 0,
             observed_at_unix_ms: now(),
+            pid: None,
             resource_limit: None,
             port_held: None,
             health_probe_delay_ms: config.health_period.as_millis() as u64,
@@ -343,6 +346,7 @@ impl<P: WorkloadProvider> Worker<P> {
         self.publish(Phase::Starting, Reason::None);
         self.snapshot.healthy = false;
         self.snapshot.process_alive = None;
+        self.snapshot.pid = None;
         self.ever_healthy = false;
         self.snapshot.resource_limit = None;
         self.snapshot.port_held = None;
@@ -388,6 +392,7 @@ impl<P: WorkloadProvider> Worker<P> {
                 self.snapshot.stdout_bytes = 0;
                 self.snapshot.stderr_bytes = 0;
                 self.snapshot.process_alive = Some(true);
+                self.snapshot.pid = self.running.as_ref().map(|running| running.process.key().pid);
             }
             Err(mut failure) => {
                 if !matches!(
@@ -574,6 +579,7 @@ impl<P: WorkloadProvider> Worker<P> {
             return;
         };
         self.snapshot.healthy = false;
+        self.snapshot.pid = None;
         self.publish(
             Phase::Recovering,
             if self.snapshot.resource_limit.is_some() {
