@@ -26,6 +26,8 @@ export interface WorkspaceRendererOptions {
   readonly onNewTab?: (groupId: string) => void;
   /** The tab's "×": close (stop) the view. */
   readonly onCloseView?: (viewId: string) => void;
+  /** What a terminal view without a running terminal shows; null keeps the plain notice. */
+  readonly placeholderFor?: (view: PanelView) => HTMLElement | null;
 }
 export interface WorkspaceRenderer {
   render(layout: WorkspaceLayout): LayoutResult<void>;
@@ -349,6 +351,8 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
         const binding = selected?.resource.kind === 'terminal' ? options.bindings.get(selected.id) : undefined;
         if (binding && !group.collapsed && (layout.maximizedGroupId === null || layout.maximizedGroupId === group.id)) {
           for (const child of [...dom.body.children]) if (child !== binding) child.remove(); placeWorkspaceBinding(dom.body, binding, true);
+        } else if (selected && options.placeholderFor?.(selected)) {
+          dom.body.replaceChildren(options.placeholderFor(selected)!);
         } else {
           const placeholder = element('div', 'wm-placeholder', selected ? selected.resource.kind === 'terminal' ? 'Terminal unavailable. Your saved layout is preserved.' : 'This view is not available yet.' : 'Nothing open in this pane.');
           if (!selected) { const start = element('button', 'wm-empty-start', '+ New session'); start.type = 'button'; start.addEventListener('click', () => options.onNewTab?.(group.id)); placeholder.append(start); }

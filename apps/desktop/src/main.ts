@@ -33,7 +33,8 @@ import { createSessionSearch } from './session-search.ts';
 import { createProjectMenu, createTabFilter, folderName, organizeToolbar, samePath } from './toolbar-simple.ts';
 import { createSessionRaw } from './session-raw.ts';
 import { createSessionFind } from './session-find.ts';
-import { createThreadSidebar, type ThreadSidebarState } from './thread-sidebar.ts';
+import type { ThreadSidebarState, ThreadSummary } from './thread-sidebar.ts';
+import { createWorksetSidebar, type WorksetSummary } from './workset-sidebar.ts';
 import './styles.css';
 
 type SessionInfo = { id: string; cwd: string; shell: string };
@@ -43,7 +44,10 @@ type View = {
   info: SessionInfo; terminal: Terminal; fit: FitAddon; element: HTMLDivElement;
   group: string; hidden: boolean; visible: boolean; ended: boolean; disposed: boolean; profile: string;
   lastSize: string; resizeTimer: number; resizeChain: Promise<void>;
+  /** The session this terminal runs and the thread (ADR-0055) that session belongs to. */
+  threadId: string | null; workset: WorksetScope | null;
 };
+type WorksetScope = { id: string; projectId: string };
 type Tone = 'info' | 'error';
 const $ = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
 const desktop = isTauri();
@@ -64,7 +68,14 @@ const bindings = new Map<string, HTMLElement>();
 const terminalMetrics = new Map<string, TerminalResourceStatus>();
 let projectPath = '';
 let selectedProjectPath = '';
-let threadSidebar: ReturnType<typeof createThreadSidebar> | null = null;
+let threadSidebar: ReturnType<typeof createWorksetSidebar> | null = null;
+/** The open thread: the window shows all and only its sessions. Null shows terminals that belong to no thread. */
+let openWorkset: WorksetScope | null = null;
+/** The sessions of the open thread, as last read. */
+let worksetMembers: ThreadSummary[] = [];
+/** Layouts of the threads this window has shown, so going back is immediate. */
+const layoutCache = new Map<string, WorkspaceLayout>();
+let switching = false;
 /** The sidebar's last read of agent-given names; a launch waits for it so the two never share the worker. */
 let namesInFlight: Promise<unknown> = Promise.resolve();
 let sidebarRevision = 0;
@@ -94,6 +105,10 @@ function focusAttentionSession(id: string) {
   if (modalOpen()) { pendingAttentionFocus = id; return; }
   pendingAttentionFocus = null;
   const view = views.get(id);
+  if (view && (view.workset?.id ?? null) !== (openWorkset?.id ?? null)) {
+    void switchWorkset(view.workset).then(opened => { if (opened) focusAttentionSession(id); });
+    return;
+  }
   const group = tabGroups(workspaceLayout.root).find(candidate => candidate.tabs.includes(id));
   if (!view || !group) { notify('This terminal is no longer in the workspace.', 'info'); return; }
   changeLayout({ type: 'hide', viewId: id, hidden: false });
@@ -120,7 +135,8 @@ const presentation = createPresentation({ desktop, notify, onChange() {
 
 /** "shinatama · Claude Code", numbered only when the same agent runs twice in one project. */
 function tabLabel(id: string) {
-  const view = views.get(id); if (!view) return 'Saved terminal · unavailable';
+  const view = views.get(id);
+  if (!view) { const saved = savedSession(id); return saved ? `${sessionName(saved)} · not running` : 'Saved terminal · unavailable'; }
   const harness = sessionHarnesses.find(item => item.id === view.info.shell)?.label ?? view.info.shell;
   const twins = [...views.values()].filter(other => other.info.shell === view.info.shell && samePath(other.info.cwd, view.info.cwd));
   return `${folderName(view.info.cwd)} · ${harness}${twins.length > 1 ? ` ${twins.indexOf(view) + 1}` : ''}${view.ended ? ' · exited' : ''}`;
@@ -147,11 +163,8 @@ const renderer = createWorkspaceRenderer({
   isInputBlocked: modalOpen,
   onError: () => notify('That layout change is unavailable. The current workspace was preserved.'),
   onNewTab: groupId => { void openNewSession(groupId); },
-  onCloseView(id) {
-    const view = views.get(id);
-    if (view) void stopTerminal(view); // confirms before stopping a running session
-    else changeLayout({ type: 'remove-view', viewId: id });
-  },
+  onCloseView(id) { void closePanel(id); },
+  placeholderFor: panel => savedSessionCard(panel.id),
 });
 const resizeObserver = new ResizeObserver(entries => {
   for (const entry of entries) { const view = [...views.values()].find(view => view.element === entry.target); if (view) scheduleFit(view); }
@@ -188,7 +201,7 @@ function threadHasRunningTab(threadId: string) {
   });
 }
 function render() {
-  threadSidebar?.refreshCapabilities(); // rows say "Open in a tab" only while that tab runs
+  threadSidebar?.repaint(); // rows count the sessions running now
   for (const panel of workspaceLayout.views) {
     const view = views.get(panel.id); if (!view) continue;
     view.hidden = panel.hidden;
@@ -204,12 +217,9 @@ function render() {
     open.onclick = () => openNewSession(group.id); controls.prepend(open);
     const active = group.activeTabId ? views.get(group.activeTabId) : null;
     const stop = document.createElement('button'); stop.type = 'button';
-    stop.textContent = active ? 'Stop' : 'Remove saved view';
-    stop.setAttribute('aria-label', active ? 'Stop terminal' : 'Remove saved terminal view'); stop.disabled = !group.activeTabId;
-    stop.onclick = () => {
-      if (active) void stopTerminal(active);
-      else if (group.activeTabId) changeLayout({ type: 'remove-view', viewId: group.activeTabId });
-    }; controls.append(stop);
+    stop.textContent = active ? 'Stop' : 'Forget session';
+    stop.setAttribute('aria-label', active ? 'Stop terminal' : 'Forget this session'); stop.disabled = !group.activeTabId;
+    stop.onclick = () => { if (group.activeTabId) void closePanel(group.activeTabId); }; controls.append(stop);
     let footer = pane.querySelector<HTMLElement>('.wm-footer');
     if (!footer) { footer = document.createElement('div'); footer.className = 'wm-footer pane-footer'; pane.append(footer); }
     footer.hidden = group.collapsed;
@@ -262,13 +272,15 @@ async function refreshThreadProject() {
     if (project) threadSidebar?.setProject({projectId:project.id,label:project.path.replace(/[\\/]+$/, '').split(/[\\/]/).pop()});
   } catch { notify('Saved project threads are unavailable.'); }
 }
-async function connectWorkspace() {
+/** Connects saving for the layout on screen: the open thread's, or the loose terminals'. */
+async function connectWorkspace(adoptSaved = true) {
   if (!desktop) return;
+  const scope = openWorkset ? { projectId: openWorkset.projectId, workspaceId: openWorkset.id } : { workspaceId: 'main' };
   const generation = ++scopeRevision;
   const previous = persistence; persistence = null;
   if (previous) { const released = await previous.release(); if (!released.ok || released.dirty) notify('The previous layout could not be fully saved.'); previous.dispose(); }
   try {
-    const controller = createWorkspacePersistence({ scope: { workspaceId: 'main' }, initialLayout: workspaceLayout,
+    const controller = createWorkspacePersistence({ scope, initialLayout: workspaceLayout,
       transport: createTauriWorkspaceTransport((command, args) => invoke(command, args)),
       onStatus(status) {
         if (generation !== scopeRevision) return;
@@ -284,13 +296,8 @@ async function connectWorkspace() {
     const loaded = await controller.load();
     if (generation !== scopeRevision) { controller.dispose(); return; }
     if (!loaded.ok) { notify('The saved layout is unavailable. The current workspace is preserved.'); return; }
-    if (loaded.restored && workspaceLayout === beforeLoad) {
-      workspaceLayout = loaded.layout;
-      for (const view of views.values()) if (!workspaceLayout.views.some(panel => panel.id === view.info.id)) {
-        const next = reduceWorkspaceLayout(workspaceLayout, { type: 'add-view', groupId: focusedGroup(),
-          view: { id: view.info.id, resource: { kind: 'terminal', instanceId: `prototype-${view.info.id}`, threadId: null, profileId: view.profile }, hidden: false } });
-        if (next.ok) workspaceLayout = next.layout;
-      }
+    if (loaded.restored && adoptSaved && workspaceLayout === beforeLoad) {
+      workspaceLayout = reconciled(loaded.layout);
       controller.update(workspaceLayout); render();
     } else controller.update(workspaceLayout);
     $('#recover-layout')?.remove();
@@ -299,7 +306,7 @@ async function connectWorkspace() {
       recover.onclick = async () => {
         recover.disabled = true;
         try {
-          await invoke('global_workspace_recover', { request: { workspaceId: 'main', expectedRevision: loaded.revision } });
+          await invoke(openWorkset ? 'workspace_recover' : 'global_workspace_recover', { request: { ...scope, expectedRevision: loaded.revision } });
           controller.dispose(); persistence = null; recover.remove(); await connectWorkspace();
         } catch (error) { notify(typeof error === 'object' && error && 'message' in error ? error.message : 'Layout recovery was refused.'); recover.disabled = false; }
       };
@@ -319,12 +326,22 @@ async function startTerminal(group: string, cwd?: string): Promise<boolean> {
   try {
     await namesInFlight;
     const info = await invoke<SessionInfo>('terminal_start', { cwd: cwd ?? projectPath, rows: 24, cols: 80 });
-    attachTerminal(info, group);
+    attachTerminal(info, group, null, openWorkset);
     return true;
   } catch (error) { notify(error); return false; }
   finally { starting = false; $<HTMLButtonElement>('#new-terminal').disabled = false; }
 }
-function attachTerminal(info: SessionInfo, group: string, threadId: string | null = null) {
+const instanceRef = (id: string) => /^i_[a-z2-7]{12}$/.test(id) ? id : `prototype-${id}`;
+const here = () => openWorkset?.id ?? null;
+/** A session started outside this window's own flow (a hop, a collaboration): its thread comes from the saved record. */
+async function attachSession(info: SessionInfo, threadId: string) {
+  let workset: WorksetScope | null = openWorkset;
+  try { workset = await invoke<WorksetScope | null>('workset_of', { request: { threadId } }); } catch { /* keep it in the open thread */ }
+  attachTerminal(info, focusedGroup(), threadId, workset);
+  if ((workset?.id ?? null) === here()) await refreshMembers(); else threadSidebar?.changed();
+}
+/** `workset`: the thread the session belongs to. A terminal of another thread keeps running and is drawn when that thread opens. */
+function attachTerminal(info: SessionInfo, group: string, threadId: string | null = null, workset: WorksetScope | null = null) {
   // Native collaboration events and reload recovery may see the same owned
   // process. Attach once; neither delivery path is permission to relaunch it.
   if (views.has(info.id)) return;
@@ -343,13 +360,22 @@ function attachTerminal(info: SessionInfo, group: string, threadId: string | nul
   for (const osc of [0, 1, 2, 7, 8, 9, 52, 777]) terminal.parser.registerOscHandler(osc, () => true);
   terminal.parser.registerCsiHandler({ final: 't' }, () => true);
   const view: View = { info, terminal, fit, element, group, hidden: false, visible: false, ended: false, disposed: false,
-    profile: initialProfile, lastSize: '', resizeTimer: 0, resizeChain: Promise.resolve() };
+    profile: initialProfile, lastSize: '', resizeTimer: 0, resizeChain: Promise.resolve(), threadId, workset };
   views.set(info.id, view); bindings.set(info.id, element); resizeObserver.observe(element);
   tabFilter?.reveal(info.cwd);
   const restored = workspaceLayout.views.find(panel => panel.id === info.id);
   if (restored?.resource.kind === 'terminal') { const applied = presentation.applyProfile(terminal, restored.resource.profileId); view.profile = applied.id; element.style.background = applied.background; }
-  if (!restored) changeLayout({ type: 'add-view', groupId: tabGroups(workspaceLayout.root).some(candidate => candidate.id === group) ? group : focusedGroup(),
-    view: { id: info.id, resource: { kind: 'terminal', instanceId: /^i_[a-z2-7]{12}$/.test(info.id) ? info.id : `prototype-${info.id}`, threadId, profileId: view.profile }, hidden: false } });
+  const shownHere = (workset?.id ?? null) === here();
+  if (!restored && shownHere) {
+    // The running terminal takes the place of the tab that said "not running".
+    const stale = threadId ? workspaceLayout.views.find(panel => panel.resource.kind === 'terminal' && panel.resource.threadId === threadId && !views.has(panel.id)) : undefined;
+    const staleGroup = stale && tabGroups(workspaceLayout.root).find(candidate => candidate.tabs.includes(stale.id));
+    const target = staleGroup?.id ?? (tabGroups(workspaceLayout.root).some(candidate => candidate.id === group) ? group : focusedGroup());
+    changeLayout({ type: 'add-view', groupId: target, index: staleGroup ? staleGroup.tabs.indexOf(stale!.id) : undefined,
+      view: { id: info.id, resource: { kind: 'terminal', instanceId: instanceRef(info.id), threadId, profileId: view.profile }, hidden: false } });
+    if (stale) { changeLayout({ type: 'remove-view', viewId: stale.id }); changeLayout({ type: 'activate', groupId: target, viewId: info.id }); }
+  }
+  rememberSessions();
   terminal.onData(data => {
     // xterm also emits protocol replies here (e.g. ConPTY's cursor query). They must
     // reach hidden terminals too. DOM focus and the modal own user-input isolation.
@@ -360,7 +386,7 @@ function attachTerminal(info: SessionInfo, group: string, threadId: string | nul
     if (modalOpen()) return false;
     return !(event.ctrlKey && event.shiftKey && ['T', 't', 'F', 'f', 'ArrowLeft', 'ArrowRight'].includes(event.key));
   });
-  render(); setFocus(view.group);
+  render(); if (shownHere) setFocus(view.group);
   void drain(view);
 }
 async function drain(view: View) {
@@ -388,10 +414,11 @@ function showExit(view: View, code: number | null) {
   close.onclick = () => void stopTerminal(view);
   banner.append(text, restart, close); view.element.append(banner);
 }
-async function confirmStop(title: string, message: string, group?: string): Promise<boolean> {
+async function confirmStop(title: string, message: string, group?: string, action = 'Stop'): Promise<boolean> {
   // A window close request can arrive over another dialog; the confirmation stacks above it.
   if (confirmDialog.open) return false;
   $('#confirm-title').textContent = title; $('#confirm-message').textContent = message;
+  confirmDialog.querySelector<HTMLButtonElement>('button[value="stop"]')!.textContent = action;
   confirmDialog.returnValue = 'cancel';
   // One terminal is confirmed in its own pane, with the rest of the workspace usable.
   // Whatever concerns the whole workspace still takes the page.
@@ -405,9 +432,163 @@ async function stopTerminal(view: View) {
   if (!view.ended && !await confirmStop('Stop terminal?', 'This stops the shell and the programs it started. To keep them running, cancel and use ⋯ then Hide instead.', view.group)) return;
   try {
     await invoke('terminal_stop', { id: view.info.id });
-    view.disposed = true; clearTimeout(view.resizeTimer); view.terminal.dispose(); view.element.remove();
-    resizeObserver.unobserve(view.element); bindings.delete(view.info.id); views.delete(view.info.id); changeLayout({ type: 'remove-view', viewId: view.info.id }); setFocus(focusedGroup());
+    discardView(view);
+    // The session stays in its thread: its tab now says "not running" and offers Resume.
+    if (view.threadId && (view.workset?.id ?? null) === here()) await refreshMembers();
+    setFocus(focusedGroup()); threadSidebar?.changed();
   } catch (error) { notify(error); }
+}
+/** Removes a stopped terminal from the window; its saved session is not touched. */
+function discardView(view: View) {
+  view.disposed = true; clearTimeout(view.resizeTimer); view.terminal.dispose(); view.element.remove();
+  resizeObserver.unobserve(view.element); bindings.delete(view.info.id); views.delete(view.info.id); rememberSessions();
+  if (workspaceLayout.views.some(panel => panel.id === view.info.id)) {
+    const group = tabGroups(workspaceLayout.root).find(candidate => candidate.tabs.includes(view.info.id));
+    const member = view.threadId && (view.workset?.id ?? null) === here() ? worksetMembers.find(row => row.id === view.threadId) : undefined;
+    if (group && member) changeLayout({ type: 'add-view', groupId: group.id, index: group.tabs.indexOf(view.info.id),
+      view: { id: `saved-${member.id}`, resource: { kind: 'terminal', instanceId: null, threadId: member.id, profileId: null }, hidden: false } });
+    changeLayout({ type: 'remove-view', viewId: view.info.id });
+  }
+}
+const harnessLabel = (id: string | null) => sessionHarnesses.find(item => item.id === id)?.label ?? id ?? 'Session';
+/** The name the user gave the session, or its agent. */
+const sessionName = (row: ThreadSummary) => row.title && row.title !== harnessLabel(row.harness) ? row.title : harnessLabel(row.harness);
+/** The session a tab without a running terminal stands for. */
+function savedSession(panelId: string): ThreadSummary | null {
+  if (views.has(panelId)) return null;
+  const panel = workspaceLayout.views.find(candidate => candidate.id === panelId);
+  const thread = panel?.resource.kind === 'terminal' ? panel.resource.threadId : null;
+  return thread ? worksetMembers.find(row => row.id === thread) ?? null : null;
+}
+/** The pane of a session that is not running: what it is, why, and Resume when the agent can. */
+function savedSessionCard(panelId: string): HTMLElement | null {
+  const saved = savedSession(panelId); if (!saved) return null;
+  const card = document.createElement('div'); card.className = 'wm-placeholder session-idle';
+  const name = document.createElement('strong'); name.textContent = sessionName(saved);
+  const resumable = saved.status === 'inactive' && saved.nativeAvailable === true && sessionHarnesses.some(harness => harness.id === saved.harness && harness.nativeResume);
+  const said = document.createElement('span');
+  said.textContent = resumable ? 'Not running. Its conversation is saved.'
+    : saved.status === 'recorded_open' ? 'Marked open by a session that is no longer here.'
+    : saved.status === 'unbound' ? 'Nothing was saved in this session.'
+    : saved.nativeAvailable !== true ? 'Its saved conversation cannot be reached now.' : `${harnessLabel(saved.harness)} cannot reopen its sessions.`;
+  card.append(name, said);
+  if (resumable || saved.status === 'recorded_open') {
+    const act = document.createElement('button'); act.type = 'button'; act.className = 'wm-empty-start'; act.textContent = resumable ? 'Resume' : 'Recover session';
+    act.disabled = starting;
+    act.onclick = () => { act.disabled = true; void (resumable ? resumeSaved(saved) : recoverSaved(saved)); };
+    card.append(act);
+  }
+  return card;
+}
+async function resumeSaved(saved: ThreadSummary) {
+  if (starting || !openWorkset) return;
+  starting = true; $<HTMLButtonElement>('#new-terminal').disabled = true;
+  try {
+    await namesInFlight;
+    const started = await invoke<{ session: SessionInfo; threadId: string }>('thread_resume', {
+      request: { threadId: saved.id, projectId: saved.projectId, expectedRevision: saved.revision, rows: 24, cols: 80 },
+    });
+    attachTerminal(started.session, focusedGroup(), started.threadId, openWorkset);
+  } catch (error) {
+    const code = typeof error === 'object' && error && 'code' in error ? error.code : null;
+    notify(code === 'owned_elsewhere' ? 'This session is already open.' : code === 'conflict' || code === 'source_changed' ? 'This session changed. Try again.' : 'The session could not be resumed. Try again.');
+  } finally { starting = false; $<HTMLButtonElement>('#new-terminal').disabled = false; await refreshMembers(); render(); }
+}
+async function recoverSaved(saved: ThreadSummary) {
+  try { await invoke('thread_recover', { request: { threadId: saved.id, projectId: saved.projectId, expectedRevision: saved.revision } }); }
+  catch { notify('The previous session could not be verified. Its saved conversation is preserved.'); }
+  await refreshMembers(); render();
+}
+/** The tab's close: stops a running terminal; forgets a session that is not running, after asking. */
+async function closePanel(id: string) {
+  const view = views.get(id);
+  if (view) { await stopTerminal(view); return; }
+  const saved = savedSession(id);
+  if (!saved) { changeLayout({ type: 'remove-view', viewId: id }); return; }
+  const group = tabGroups(workspaceLayout.root).find(candidate => candidate.tabs.includes(id))?.id;
+  if (!await confirmStop('Forget session?', `This deletes ${sessionName(saved)} from this thread and from Shinatama. The agent's own session files stay.`, group, 'Forget')) return;
+  try { await invoke('thread_forget', { request: { projectId: saved.projectId, threadId: saved.id, expectedRevision: saved.revision } }); }
+  catch { notify('The session could not be forgotten. It is still saved.'); }
+  await refreshMembers(); threadSidebar?.changed();
+}
+/** Makes a layout hold all and only the sessions of the open thread (ADR-0055 INV-002). Starts nothing. */
+function reconciled(layout: WorkspaceLayout): WorkspaceLayout {
+  let next = layout; const open = here();
+  const apply = (action: LayoutAction) => { const result = reduceWorkspaceLayout(next, action); if (result.ok) next = result.layout; };
+  const members = new Map(worksetMembers.filter(row => row.status !== 'archived').map(row => [row.id, row]));
+  const mine = [...views.values()].filter(view => !view.disposed && (view.workset?.id ?? null) === open);
+  const running = new Set(mine.map(view => view.threadId).filter((id): id is string => id !== null));
+  const shown = new Set<string>();
+  for (const panel of layout.views) {
+    if (panel.resource.kind !== 'terminal') continue;
+    const view = views.get(panel.id); const thread = panel.resource.threadId;
+    const keep = view ? mine.includes(view) : thread !== null && members.has(thread) && !running.has(thread) && !shown.has(thread);
+    if (!keep) { apply({ type: 'remove-view', viewId: panel.id }); continue; }
+    if (thread) shown.add(thread);
+  }
+  const group = () => tabGroups(next.root).find(candidate => candidate.id === next.focusedGroupId)?.id ?? tabGroups(next.root)[0].id;
+  for (const row of members.values()) if (!running.has(row.id) && !shown.has(row.id))
+    apply({ type: 'add-view', groupId: group(), view: { id: `saved-${row.id}`, resource: { kind: 'terminal', instanceId: null, threadId: row.id, profileId: null }, hidden: false } });
+  for (const view of mine) if (!next.views.some(panel => panel.id === view.info.id))
+    apply({ type: 'add-view', groupId: group(), view: { id: view.info.id, resource: { kind: 'terminal', instanceId: instanceRef(view.info.id), threadId: view.threadId, profileId: view.profile }, hidden: false } });
+  return next;
+}
+/** Reads the open thread's sessions again and brings the layout in line. */
+async function refreshMembers() {
+  const open = openWorkset; if (!open || !desktop) return;
+  try {
+    const rows = await invoke<ThreadSummary[]>('workset_threads', { request: { worksetId: open.id } });
+    if (openWorkset?.id !== open.id) return;
+    worksetMembers = rows;
+    const next = reconciled(workspaceLayout);
+    if (next !== workspaceLayout) { workspaceLayout = next; persistence?.update(workspaceLayout); }
+    render();
+  } catch { /* the last read stays on screen */ }
+}
+/** Which thread each running terminal belongs to, kept for a frontend reload; and the thread to reopen at the next start. */
+function rememberSessions() {
+  try {
+    sessionStorage.setItem('shinatama.sessions', JSON.stringify(Object.fromEntries([...views.values()].map(view => [view.info.id, { threadId: view.threadId, workset: view.workset }]))));
+    if (openWorkset) localStorage.setItem('shinatama.thread', JSON.stringify(openWorkset)); else localStorage.removeItem('shinatama.thread');
+  } catch { /* remembering is a convenience */ }
+}
+/** Shows a thread: its saved layout, with all and only its sessions. Starts, resumes and stops nothing. */
+async function switchWorkset(target: WorksetScope | null): Promise<boolean> {
+  if (switching) return false;
+  if ((target?.id ?? null) === here()) return true;
+  switching = true;
+  try {
+    let members: ThreadSummary[] = [];
+    if (target) {
+      try { members = await invoke<ThreadSummary[]>('workset_threads', { request: { worksetId: target.id } }); }
+      catch { notify('That thread is unavailable. The current one stays open.'); return false; }
+    }
+    const previous = persistence;
+    if (previous?.status().ownership === 'ours') {
+      const released = await previous.release();
+      if (!released.ok || released.dirty) { notify('The layout of the open thread could not be saved, so it stays open.'); return false; }
+    }
+    previous?.dispose(); persistence = null; scopeRevision++;
+    layoutCache.set(here() ?? 'main', workspaceLayout);
+    openWorkset = target; worksetMembers = members;
+    const cached = layoutCache.get(target?.id ?? 'main');
+    workspaceLayout = reconciled(cached ?? emptyWorkspace());
+    rememberSessions(); render();
+    await connectWorkspace(cached === undefined);
+    setFocus(focusedGroup()); threadSidebar?.repaint();
+    return true;
+  } finally { switching = false; }
+}
+/** Forgets every session of a thread, then the thread. Refused while one of its sessions runs. */
+async function forgetWorkset(thread: Readonly<WorksetSummary>) {
+  const mine = [...views.values()].filter(view => view.workset?.id === thread.id && !view.disposed);
+  if (mine.some(view => !view.ended)) throw { code: 'owned_elsewhere' };
+  const rows = await invoke<ThreadSummary[]>('workset_threads', { request: { worksetId: thread.id } });
+  if (openWorkset?.id === thread.id && !await switchWorkset(null)) throw { code: 'busy' };
+  for (const view of mine) discardView(view);
+  layoutCache.delete(thread.id);
+  for (const row of rows) await invoke('thread_forget', { request: { projectId: row.projectId, threadId: row.id, expectedRevision: row.revision } });
+  await invoke('workset_delete', { request: { worksetId: thread.id, expectedRevision: thread.revision } });
 }
 
 const projectPicker = createProjectPicker({ desktop, getPath: () => projectPath,
@@ -447,8 +628,19 @@ async function startSession(selection: { projectPath: string; harnessId: string;
     setProject(selected.path);
     selectedProjectPath = selected.path;
     threadSidebar?.setProject({projectId:selected.id,label:selected.path.replace(/[\\/]+$/, '').split(/[\\/]/).pop()});
+    // The session joins the open thread of its project; otherwise its own new thread opens.
+    let workset = openWorkset && openWorkset.projectId === selected.id ? openWorkset : null;
+    if (workset) {
+      try { await invoke('workset_adopt', { request: { worksetId: workset.id, threadId: started.threadId } }); }
+      catch { workset = null; }
+    }
+    if (!workset) {
+      workset = await invoke<WorksetScope | null>('workset_of', { request: { threadId: started.threadId } }).catch(() => null);
+      if (workset) await switchWorkset(workset);
+    }
     const group = tabGroups(workspaceLayout.root).some(group => group.id === newSessionGroup) ? newSessionGroup! : focusedGroup();
-    attachTerminal(started.session, group, started.threadId);
+    attachTerminal(started.session, group, started.threadId, (workset?.id ?? null) === here() ? workset : openWorkset);
+    await refreshMembers();
     await refreshThreadProject();
     void threadSidebar?.refresh();
   } finally { starting = false; button.disabled = false; button.removeAttribute('aria-busy'); }
@@ -488,7 +680,9 @@ async function openNewSession(group: string = focusedGroup(), path?: string, har
   const pressed = document.activeElement instanceof HTMLElement && document.activeElement.matches('#new-terminal,[data-new-terminal],.wm-add,.wm-empty-start,.thread-sidebar-create')
     ? document.activeElement : null;
   const selectedProject = threadSidebar?.currentProjectId();
-  const selectedPath = path ?? (selectedProject ? recentThreadProjects.get(selectedProject) : undefined) ?? selectedProjectPath ?? projectPath;
+  // A session started from a pane belongs to the open thread, so it starts in that thread's project.
+  const selectedPath = path ?? (openWorkset ? recentThreadProjects.get(openWorkset.projectId) : undefined)
+    ?? (selectedProject ? recentThreadProjects.get(selectedProject) : undefined) ?? selectedProjectPath ?? projectPath;
   openingSessionDialog = true;
   try {
     await loadHarnessCatalog();
@@ -500,58 +694,19 @@ async function openNewSession(group: string = focusedGroup(), path?: string, har
     sessionMenu.show(anchor, sessionHarnesses, selectedPath.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || selectedPath, selectedPath);
   } finally { openingSessionDialog = false; }
 }
-threadSidebar = createThreadSidebar({
+threadSidebar = createWorksetSidebar({
   host: $('#work-area'),
-  list: request => desktop ? invoke('thread_list', {request}) : Promise.resolve({rows:[],next:null}),
-  rename: desktop ? request => invoke('thread_rename', {request}) : undefined,
-  archive: desktop ? request => invoke('thread_archive', {request}) : undefined,
-  forget: desktop ? request => invoke('thread_forget', {request}) : undefined,
-  onNewSession: projectId => {
-    const path = recentThreadProjects.get(projectId);
-    if (!path) { notify('Choose the project folder for this session.'); openNewSession(); return; }
-    openNewSession(focusedGroup(), path);
-  },
-  onSelect: thread => {
-    const panels = workspaceLayout.views.filter(panel => panel.resource.kind === 'terminal' && panel.resource.threadId === thread.id);
-    const panel = panels.find(panel => { const view = views.get(panel.id); return view && !view.disposed && !view.ended; })
-      ?? panels.find(panel => { const view = views.get(panel.id); return view && !view.disposed; });
-    if (!panel) return;
-    const group = tabGroups(workspaceLayout.root).find(group => group.tabs.includes(panel.id));
-    if (!group || !views.has(panel.id)) return;
-    changeLayout({type:'hide',viewId:panel.id,hidden:false});
-    changeLayout({type:'collapse',groupId:group.id,collapsed:false});
-    changeLayout({type:'activate',groupId:group.id,viewId:panel.id});
-    setFocus(group.id);
-  },
-  canResume: thread => sessionHarnesses.some(harness => harness.id === thread.harness && harness.nativeResume),
-  isOpen: thread => threadHasRunningTab(thread.id),
+  list: request => desktop ? invoke('workset_list', {request}) : Promise.resolve({rows:[],more:false}),
+  create: desktop ? request => invoke('workset_create', {request}) : undefined,
+  update: desktop ? request => invoke('workset_update', {request}) : undefined,
+  remove: desktop ? forgetWorkset : undefined,
+  onOpen: thread => switchWorkset({ id: thread.id, projectId: thread.projectId }),
+  openId: here,
+  running: id => [...views.values()].filter(view => view.workset?.id === id && !view.ended && !view.disposed).length,
   // Never while a session starts: a name read and a launch share the same worker capacity.
   names: desktop ? threadIds => {
     if (starting) return Promise.reject(new Error('busy'));
     const call = invoke('thread_names', { threadIds }); namesInFlight = call.catch(() => undefined); return call;
-  } : undefined,
-  canRecover: thread => sessionHarnesses.some(harness => harness.id === thread.harness && harness.nativeResume)
-    && !threadHasRunningTab(thread.id),
-  onRecover: desktop ? async thread => {
-    if (starting) throw { code: 'busy' };
-    if (thread.projectId !== threadSidebar?.currentProjectId()) throw { code: 'source_changed' };
-    await invoke('thread_recover', {
-      request: { threadId: thread.id, projectId: thread.projectId, expectedRevision: thread.revision },
-    });
-  } : undefined,
-  onResume: desktop ? async thread => {
-    if (starting) throw { code: 'busy' };
-    if (thread.projectId !== threadSidebar?.currentProjectId()) throw { code: 'source_changed' };
-    const requestedGroup = focusedGroup();
-    starting = true; $<HTMLButtonElement>('#new-terminal').disabled = true;
-    try {
-      await namesInFlight;
-      const started = await invoke<{ session: SessionInfo; threadId: string }>('thread_resume', {
-        request: { threadId: thread.id, projectId: thread.projectId, expectedRevision: thread.revision, rows: 24, cols: 80 },
-      });
-      const group = tabGroups(workspaceLayout.root).some(candidate => candidate.id === requestedGroup) ? requestedGroup : focusedGroup();
-      attachTerminal(started.session, group, started.threadId);
-    } finally { starting = false; $<HTMLButtonElement>('#new-terminal').disabled = false; }
   } : undefined,
   loadState: desktop ? async () => {
     const snapshot = await invoke<{revision:number;settings:ThreadSidebarState}>('thread_sidebar_load');
@@ -580,7 +735,7 @@ async function loadHarnessCatalog(): Promise<boolean> {
         seen.add(item.id); received.push({ id: item.id, label: item.label, nativeResume: item.nativeResume });
       }
       sessionHarnesses = [...received, builtinHarness]; harnessCatalogLoaded = true;
-      newSession.setHarnesses(sessionHarnesses); threadSidebar?.refreshCapabilities(); render(); return true;
+      newSession.setHarnesses(sessionHarnesses); threadSidebar?.repaint(); render(); return true;
     } catch {
       notify('Agent choices could not be loaded. Open New session to try again.'); return false;
     }
@@ -640,7 +795,7 @@ async function runHop(preview: HopPreview, progress: (message: string) => void, 
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
   }
-  attachTerminal(launched.started.session, focusedGroup(), launched.started.threadId);
+  await attachSession(launched.started.session, launched.started.threadId);
   const view = views.get(launched.started.session.id);
   if (!view) throw 'The destination pane could not be attached.';
   const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -697,7 +852,7 @@ const projectsOverview = createProjectsOverview({
       const started = await invoke<{ session: SessionInfo; threadId: string }>('thread_resume', {
         request: { threadId: thread.id, projectId: row.id, expectedRevision: thread.revision, rows: 24, cols: 80 },
       });
-      attachTerminal(started.session, focusedGroup(), started.threadId);
+      await attachSession(started.session, started.threadId);
     } finally { starting = false; }
   },
   decide: (title, message, accept) => decide(title, message, accept),
@@ -836,13 +991,13 @@ async function initialize() {
       'collaboration-session-opened', ({ payload }) => {
         const started = payload.started;
         if (!started?.session?.id || !started.threadId) return;
-        attachTerminal(started.session, focusedGroup(), started.threadId);
+        void attachSession(started.session, started.threadId);
         void threadSidebar?.refresh();
         notify(`${payload.harness === 'codex' ? 'Codex' : 'Claude'} session opened.`, 'info');
       });
     window.addEventListener('pagehide', () => { stopCollaborationUpdates(); }, { once: true });
     const stopThreadUpdates = await listen<unknown>('thread-changed', ({ payload }) => {
-      threadSidebar?.notifyThreadChanged(payload);
+      void payload; threadSidebar?.changed(); void refreshMembers();
     }).catch(() => null);
     window.addEventListener('pagehide', () => { stopThreadUpdates?.(); }, { once: true });
     await attentionControl.initialize();
@@ -853,7 +1008,9 @@ async function initialize() {
     setProject(await invoke<string>('project_path'));
     // A development frontend reload reattaches existing processes; it never starts a new one.
     const existing = await invoke<SessionInfo[]>('terminal_list');
-    for (const info of existing) attachTerminal(info, focusedGroup());
+    let known: Record<string, { threadId: string | null; workset: WorksetScope | null }> = {};
+    try { known = JSON.parse(sessionStorage.getItem('shinatama.sessions') ?? '{}'); } catch { /* reattached as loose terminals */ }
+    for (const info of existing) attachTerminal(info, focusedGroup(), known[info.id]?.threadId ?? null, known[info.id]?.workset ?? null);
     if (existing.length) notify('Reconnected to running terminals. Earlier screen contents are not retained across a frontend reload.', 'info');
     await listen('confirm-close', async () => {
       if ((views.size || pendingStart || modalOpen()) && !await confirmStop('Close workspace?', 'All running terminals and their child programs will stop.')) return;
@@ -903,6 +1060,11 @@ async function initialize() {
     await projectPicker.restore();
     await refreshThreadProject();
     await connectWorkspace();
+    // Reopen the thread that was open; one that no longer exists leaves the window as it is.
+    try {
+      const last = JSON.parse(localStorage.getItem('shinatama.thread') ?? 'null');
+      if (last && /^w_[a-z2-7]{12}$/.test(last.id) && /^p_[a-z2-7]{12}$/.test(last.projectId)) await switchWorkset({ id: last.id, projectId: last.projectId });
+    } catch { /* nothing to reopen */ }
   } catch (error) { $('#runtime-status').textContent = 'Runtime unavailable'; notify(error); }
 }
 void initialize();

@@ -1,0 +1,5 @@
+.thread-sidebar-updated { color: var(--muted); font: 11px/1.35 var(--mono); }
+.session-idle { gap: 6px; }
+.session-idle strong { color: var(--text); font: 600 14px var(--display, var(--mono)); }
+.thread-sidebar-heading h2 { margin-right: auto; }
+.thread-sidebar-new { font-weight: 600; }

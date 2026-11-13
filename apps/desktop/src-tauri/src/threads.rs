@@ -681,3 +681,35 @@ pub async fn workset_adopt(
         .work(move |db| db.move_thread_to_workset(&request.thread_id, &request.workset_id, now_ms()?))
         .await
 }
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorksetOf {
+    thread_id: String,
+}
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorksetScope {
+    id: String,
+    project_id: String,
+}
+/// The thread a session belongs to; the window uses it to place a session it did not start itself.
+#[tauri::command]
+pub async fn workset_of(
+    window: WebviewWindow,
+    controller: State<'_, Arc<Controller>>,
+    request: WorksetOf,
+) -> Result<Option<WorksetScope>, Error> {
+    local(&window)?;
+    controller
+        .inner()
+        .work(move |db| {
+            let Some(id) = db.workset_of_thread(&request.thread_id)? else {
+                return Ok(None);
+            };
+            Ok(db.workset_record(&id)?.map(|record| WorksetScope {
+                id: record.id,
+                project_id: record.project_id,
+            }))
+        })
+        .await
+}
