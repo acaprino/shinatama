@@ -307,7 +307,7 @@ try {
   require(after.ended_at !== null && after.revision === crashed.revision + 1, 'activation-not-closed-exactly-once');
   require(journalFor().length === 0, 'association-not-consumed');
   require(!ledgerSlotIds().includes(ticketId), 'dead-host-ticket-not-released');
-  await poll(async () => await sidebar.getByRole('button', { name: 'Resume', exact: true }).isVisible(), 10000, 'resume-not-offered-after-recovery');
+  await poll(async () => (await sidebar.locator('.thread-sidebar-state[data-state="resumable"]').count()) > 0, 10000, 'resume-not-offered-after-recovery');
   evidence.checks.preReceiptCrashRecoveredByCertificateWithTicketReleased = true;
   require(guardCounts.overflow === 0 && providerHits === 0 && pageErrors === 0, 'bounded-guard-and-ui-clean');
   evidence.guard = { ...guardCounts, scope: 'proxy-forwarding-only' };

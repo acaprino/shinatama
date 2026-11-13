@@ -34,8 +34,15 @@ export type ThreadSidebarOptions = {
   canRecover?: (thread: Readonly<ThreadSummary>) => boolean;
   /** Capability supplied by the backend harness catalog, never inferred from a name. */
   canResume?: (thread: Readonly<ThreadSummary>) => boolean;
+  /** True while a running tab in this window holds the thread. */
+  isOpen?: (thread: Readonly<ThreadSummary>) => boolean;
+  /** The names agents gave their own conversations, for threads the user has not named (at most 16 ids). */
+  names?: (threadIds: readonly string[]) => Promise<unknown>;
   reportError: (message: string) => void;
 };
+/** A new agent thread is saved under its agent's name; that is not a name the user gave it. */
+const AGENT_LABELS: Record<string, string> = { claude_code: 'Claude Code', codex: 'Codex', opencode: 'OpenCode', pi: 'Pi', hermes: 'Hermes Agent', deepseek: 'DeepSeek Harness' };
+const userTitle = (row: ThreadSummary): string | null => row.title && !(row.harness && AGENT_LABELS[row.harness] === row.title) ? row.title : null;
 const MIN_WIDTH = 180; const MAX_WIDTH = 480; const WIDTH_STEP = 16;
 const initialState: ThreadSidebarState = { version: 1, width: 264, collapsed: false };
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -145,9 +152,8 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
   pagination.append(previous, pageLabel, next);
   const detail = document.createElement('dl'); detail.className = 'thread-sidebar-detail'; detail.setAttribute('aria-label', 'Selected thread metadata');
   const limitation = document.createElement('p'); limitation.className = 'thread-sidebar-limitation';
-  limitation.textContent = 'Native session activity is unknown. Selecting a thread does not start an agent.';
+  limitation.textContent = 'Click an open thread to go to its tab, a closed one to resume it in a new tab.';
   const actions = document.createElement('div'); actions.className = 'thread-sidebar-actions';
-  const resume = document.createElement('button'); resume.type = 'button'; resume.textContent = 'Resume'; resume.hidden = true; actions.append(resume);
   const recover = document.createElement('button'); recover.type = 'button'; recover.textContent = 'Recover session'; recover.hidden = true; actions.append(recover);
   const rename = document.createElement('button'); rename.type = 'button'; rename.textContent = 'Rename'; rename.hidden = true; actions.append(rename);
   const archive = document.createElement('button'); archive.type = 'button'; archive.hidden = true; actions.append(archive);
@@ -179,9 +185,53 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
   let pendingChangedProject: string | null = null; let changeTimer = 0;
   let drag: { pointer: number; x: number; before: ThreadSidebarState } | null = null;
   const anchors = new Map<string, HTMLLIElement>();
+  /** Names agents gave their conversations; a name the user gives (`title`) always wins. */
+  const agentNames = new Map<string, string>(); const namedAt = new Map<string, number>(); let naming = false;
+  const shownTitle = (row: ThreadSummary) => userTitle(row) || agentNames.get(row.id) || row.title || 'Untitled thread';
+  // Each name is a contained session read that shares capacity with launches: ask rarely.
+  const NAME_EVERY_MS = 60000;
+  /** Asks once per thread, again after it changed, and once a minute while its tab runs (the agent renames as the work goes on). */
+  function requestNames() {
+    if (!options.names || !page || naming || destroyed || busy) return;
+    const now = Date.now(); const project = selectedProject;
+    const ids = page.rows.filter(row => !userTitle(row) && row.harness && row.status !== 'archived' && (row.status !== 'unbound' || options.isOpen?.(row) === true)).filter(row => {
+      const at = namedAt.get(row.id); if (at === undefined || row.updatedAt > at) return true;
+      return options.isOpen?.(row) === true && now - at >= NAME_EVERY_MS;
+    }).map(row => row.id);
+    if (!ids.length) return;
+    naming = true; for (const id of ids) namedAt.set(id, now);
+    void (async () => {
+      try {
+        for (let start = 0; start < ids.length; start += 16) {
+          let value: unknown;
+          try { value = await options.names!(ids.slice(start, start + 16)); }
+          catch { for (const id of ids.slice(start)) namedAt.delete(id); return; } // asked again on the next tick
+          if (destroyed || selectedProject !== project || !Array.isArray(value)) return;
+          for (const item of value) {
+            if (!record(item) || !threadId(item.threadId)) continue;
+            if (typeof item.name === 'string' && safeText(item.name, 512) && item.name.trim()) agentNames.set(item.threadId, item.name.trim());
+            else agentNames.delete(item.threadId);
+          }
+          render();
+        }
+      } finally { naming = false; }
+    })();
+  }
+  const namesTimer = window.setInterval(() => { if (!display.collapsed) requestNames(); }, 15000);
   const renderedRows = new WeakMap<HTMLLIElement, ThreadSummary>();
   function metadata(label: string, value: string) {
     const term = document.createElement('dt'); term.textContent = label; const valueNode = document.createElement('dd'); valueNode.textContent = value; detail.append(term, valueNode);
+  }
+  /** What a click on the row does, said on the row itself so a click is never silent. */
+  function rowState(row: ThreadSummary): { kind: 'open' | 'resumable' | 'recover' | 'blocked' | 'archived'; text: string } {
+    if (row.status === 'archived') return { kind: 'archived', text: 'Archived' };
+    if (options.isOpen?.(row) === true) return { kind: 'open', text: 'Open in a tab' };
+    if (row.status === 'recorded_open') return { kind: 'recover', text: 'Marked open, no tab here · Recover session below' };
+    if (row.status === 'unbound') return { kind: 'blocked', text: 'Nothing saved yet' };
+    if (row.nativeAvailable === false) return { kind: 'blocked', text: 'Saved conversation not found' };
+    if (row.nativeAvailable !== true) return { kind: 'blocked', text: 'Saved conversation not reachable now' };
+    if (!options.onResume || options.canResume?.(row) !== true) return { kind: 'blocked', text: `${row.harness ?? 'This agent'} cannot reopen its sessions` };
+    return { kind: 'resumable', text: 'Closed · click to resume' };
   }
   function render() {
     if (destroyed) return;
@@ -208,27 +258,35 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
         const agent = document.createElement('span'); agent.className = 'thread-sidebar-agent';
         const updated = document.createElement('span'); updated.className = 'thread-sidebar-updated';
         const source = document.createElement('span'); source.className = 'thread-sidebar-source';
-        anchor.append(label, id, agent, updated, source); node.append(anchor); anchors.set(row.id, node);
+        const state = document.createElement('span'); state.className = 'thread-sidebar-state';
+        anchor.append(label, state, id, agent, updated, source); node.append(anchor); anchors.set(row.id, node);
         anchor.onclick = () => {
           if (busy) return;
           const actual = page?.rows.find(thread => thread.id === row.id); if (!actual || actual.projectId !== selectedProject) return;
           editing = null;
-          selected = actual.id; render();
+          selected = actual.id;
+          // A closed thread opens on the click; any other thread shows its tab when it has one.
+          const clicked = rowState(actual);
+          if (clicked.kind === 'resumable') { render(); resumeThread(actual); return; }
+          failed = false; message = clicked.kind === 'open' ? 'Showing its tab.' : clicked.text; render();
           try { options.onSelect?.(Object.freeze({ ...actual })); } catch { options.reportError('Thread selection could not be shown. No agent was started.'); }
           scheduleThreadRead();
         };
       }
       const anchor = node.firstElementChild as HTMLButtonElement;
       anchor.disabled = busy !== null;
+      const name = shownTitle(row); const titleLine = anchor.querySelector<HTMLElement>('.thread-sidebar-title')!;
+      if (titleLine.textContent !== name) { titleLine.textContent = name; anchor.setAttribute('aria-label', `${name} · ${row.id}`); }
+      titleLine.classList.toggle('is-agent-name', !userTitle(row) && agentNames.has(row.id));
+      const shown = rowState(row); const stateLine = anchor.querySelector<HTMLElement>('.thread-sidebar-state')!;
+      if (stateLine.dataset.state !== shown.kind || stateLine.textContent !== shown.text) { stateLine.dataset.state = shown.kind; stateLine.textContent = shown.text; }
       const pressed = String(selected === row.id);
       if (anchor.getAttribute('aria-pressed') !== pressed) anchor.setAttribute('aria-pressed', pressed);
       if (renderedRows.get(node) !== row) {
-        anchor.setAttribute('aria-label', `${row.title || 'Untitled thread'} · ${row.id}`);
-        anchor.querySelector('.thread-sidebar-title')!.textContent = row.title || 'Untitled thread';
         anchor.querySelector('.thread-sidebar-id')!.textContent = row.id;
         const agentLine = anchor.querySelector<HTMLElement>('.thread-sidebar-agent')!; agentLine.textContent = row.harness ?? 'Agent unknown'; agentLine.hidden = !row.harness;
         anchor.querySelector('.thread-sidebar-updated')!.textContent = updatedText(row.updatedAt);
-        const sourceLine = anchor.querySelector<HTMLElement>('.thread-sidebar-source')!; sourceLine.textContent = `Source: ${sourceText(row.nativeAvailable)}`; sourceLine.hidden = /unknown/i.test(sourceText(row.nativeAvailable));
+        const sourceLine = anchor.querySelector<HTMLElement>('.thread-sidebar-source')!; sourceLine.textContent = `Source: ${sourceText(row.nativeAvailable)}`; sourceLine.hidden = true; // the state line already says whether the conversation can be reached
         renderedRows.set(node, row);
       }
       // Preserve actual DOM/focus when only width or selection changes.
@@ -236,9 +294,8 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
       position++;
     }
     pageLabel.textContent = page ? `${page.rows.length} on this page` : 'No page loaded';
+    requestNames();
     detail.replaceChildren(); const chosen = page?.rows.find(row => row.id === selected);
-    resume.hidden = !options.onResume || !chosen || chosen.status !== 'inactive' || options.canResume?.(chosen) !== true || chosen.nativeAvailable !== true;
-    resume.disabled = busy !== null || resume.hidden;
     recover.hidden = !options.onRecover || !chosen || chosen.status !== 'recorded_open' || options.canRecover?.(chosen) !== true;
     recover.disabled = busy !== null || recover.hidden;
     rename.hidden = !options.rename || !chosen || editing !== null;
@@ -254,7 +311,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     renameSave.disabled = busy !== null || renameNeedsReload || !validTitle(renameInput.value);
     renameCancel.disabled = busy !== null;
     if (chosen) {
-      metadata('Thread ID', chosen.id); metadata('Agent', chosen.harness ?? 'Unknown'); metadata('Title', chosen.title || 'Unknown');
+      metadata('Thread ID', chosen.id); metadata('Agent', chosen.harness ?? 'Unknown'); metadata('Title', userTitle(chosen) || (agentNames.has(chosen.id) ? `${agentNames.get(chosen.id)} (named by the agent)` : 'Unknown'));
       metadata('Updated', updatedText(chosen.updatedAt)); metadata('Source', sourceText(chosen.nativeAvailable));
       metadata('Native activity', 'Unknown');
       metadata('Saved status', { unbound: 'No native session linked', inactive: 'Recorded inactive', recorded_open: 'Recorded open; activity unknown', archived: 'Archived' }[chosen.status]);
@@ -320,7 +377,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
       page = result; cursor = requested;
       selected = preserveSelection && result.rows.some(row => row.id === previousSelection) ? previousSelection : null;
       renameNeedsReload = false;
-      message = selected ? 'Saved threads updated.' : page.rows.length ? 'Select a thread to view its details.' : 'No saved threads in this project.';
+      message = selected ? 'Saved threads updated.' : page.rows.length ? 'Click a thread: an open one shows its tab, a closed one resumes.' : 'No saved threads in this project.';
       return true;
     } catch (error) {
       if (!destroyed && at === generation && selectedProject === project) {
@@ -439,7 +496,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     if (!chosen || chosen.status === 'recorded_open') return;
     if (!forgetArmed) {
       forget.textContent = 'Click again: delete forever'; forget.classList.add('danger');
-      message = `Forgetting deletes ${chosen.title || 'this thread'}, its companion, hops and hand-off files from Shinatama. The agent's own session files stay.`; render();
+      message = `Forgetting deletes ${userTitle(chosen) || agentNames.get(chosen.id) || chosen.title || 'this thread'}, its companion, hops and hand-off files from Shinatama. The agent's own session files stay.`; render();
       forgetArmed = window.setTimeout(disarmForget, 5000); return;
     }
     disarmForget();
@@ -468,7 +525,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     if (destroyed || busy || renameNeedsReload || !options.rename) return;
     const chosen = page?.rows.find(row => row.id === selected && row.projectId === selectedProject);
     if (!chosen) return;
-    editing = { ...chosen }; renameInput.value = chosen.title ?? ''; renameError.hidden = true;
+    editing = { ...chosen }; renameInput.value = userTitle(chosen) ?? agentNames.get(chosen.id) ?? chosen.title ?? ''; renameError.hidden = true;
     render(); renameInput.focus(); renameInput.select();
   };
   renameInput.oninput = () => { renameError.hidden = true; render(); };
@@ -524,9 +581,10 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
       }
     })();
   };
-  resume.onclick = () => {
+  /** Only a user's click on a closed row lands here; selection restoring and refreshes never do. */
+  function resumeThread(clicked: ThreadSummary) {
     if (destroyed || busy || !options.onResume || !selectedProject) return;
-    const chosen = page?.rows.find(row => row.id === selected && row.projectId === selectedProject);
+    const chosen = page?.rows.find(row => row.id === clicked.id && row.projectId === selectedProject);
     if (!chosen || chosen.status === 'recorded_open' || chosen.status === 'archived') return;
     if (chosen.status === 'unbound' || chosen.nativeAvailable !== true) {
       failed = true; message = 'No saved conversation yet'; render(); options.reportError(message); return;
@@ -554,7 +612,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
         }
       } finally { afterOperation(); }
     })();
-  };
+  }
   recover.onclick = () => {
     if (destroyed || busy || !selectedProject || !options.onRecover) return;
     const chosen = page?.rows.find(row => row.id === selected && row.projectId === selectedProject);
@@ -575,17 +633,18 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
         if (!received) throw new Error('Invalid thread page');
         page = received;
         if (!page.rows.some(row => row.id === selected)) selected = null;
-        message = 'Session recovered. Choose Resume to reopen the saved conversation.';
+        message = 'Session recovered. Click the thread to resume it.';
       } catch (error) {
         if (!destroyed && at === generation && selectedProject === project) {
           failed = !recovered;
-          message = recovered ? 'Session recovered. Reload threads to show Resume.' : recoveryFailureText(error);
+          message = recovered ? 'Session recovered. Reload threads, then click the thread to resume it.' : recoveryFailureText(error);
           if (!recovered) options.reportError(message);
         }
       } finally {
         afterOperation();
         if (!destroyed && at === generation && selectedProject === project && recovered) {
-          if (!resume.hidden) resume.focus(); else reload.focus();
+          const row = selected ? anchors.get(selected)?.firstElementChild : null;
+          if (row instanceof HTMLButtonElement) row.focus(); else reload.focus();
         }
       }
     })();
@@ -633,6 +692,6 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     refreshCapabilities: render,
     notifyThreadChanged,
     refresh: () => read(null, 'reload'), state: (): Readonly<ThreadSidebarState> => Object.freeze({ ...display }),
-    destroy() { destroyed = true; generation++; window.clearTimeout(saveTimer); window.clearTimeout(forgetArmed); window.clearTimeout(changeTimer); pendingState = null; pendingChangedProject = null; cancelDrag(); anchors.clear(); element.remove(); },
+    destroy() { destroyed = true; generation++; window.clearInterval(namesTimer); window.clearTimeout(saveTimer); window.clearTimeout(forgetArmed); window.clearTimeout(changeTimer); pendingState = null; pendingChangedProject = null; cancelDrag(); anchors.clear(); element.remove(); },
   };
 }

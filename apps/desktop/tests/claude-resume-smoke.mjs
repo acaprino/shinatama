@@ -4,7 +4,7 @@ import { chromium } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { createServer, request as httpRequest } from 'node:http';
 import { createConnection, createServer as createPortReservation } from 'node:net';
-import { mkdir, mkdtemp, readFile, readdir, realpath, stat, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, mkdtemp, readFile, readdir, realpath, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -602,17 +602,28 @@ try {
   await poll(async () => (await snapshot(threadId)).activations.length === 1, 10000, 'first-activation-not-recorded');
   const initial = await snapshot(threadId); require(initial.segments.length === 1 && initial.activations[0].instance_id === first.id && initial.activations[0].ended_at === null, 'first-exact-native-owner');
   requireActiveCleanupOwner(initial, first.id);
+  await stage('agent-name');
+  // Claude Code's own model names a conversation with an `ai-title` row; a thread the user has not
+  // renamed is listed under that name, in italics, read again when the thread changes (here, its stop).
+  const AGENT_NAME = 'Synthetic agent-given name';
+  let runningFile = null; await poll(async () => { try { runningFile = await nativeFile(initial.segments[0], false); return true; } catch { return false; } }, 10000, 'first-native-file-not-written');
+  await appendFile(runningFile, `${JSON.stringify({ type: 'ai-title', aiTitle: AGENT_NAME, sessionId: initial.segments[0].native_id })}
+`);
   await stage('stop-first'); await stop(first.id);
   await poll(async () => (await rows()).find(row => row.id === threadId)?.status === 'inactive', 10000, 'first-thread-not-inactive');
   const firstFile = await nativeFile(initial.segments[0], false);
   const stopped = await snapshot(threadId); require(stopped.activations[0].ended_at !== null, 'first-owner-history-not-ended');
   require(!stopped.cleanupOwners.some(entry => entry.instance_id === first.id), 'first-cleanup-receipt-consumed-after-stop');
   evidence.checks.newSessionSavedNativeConversationAndClosedOwner = true;
+  const shownName = page.locator(`.thread-sidebar button.thread-sidebar-anchor[data-thread-id="${threadId}"] .thread-sidebar-title`);
+  await poll(async () => (await shownName.textContent()) === AGENT_NAME && ((await shownName.getAttribute('class')) ?? '').includes('is-agent-name'), 20000, 'agent-name-not-shown');
+  evidence.checks.unrenamedThreadListedUnderTheAgentGivenName = true;
   providerPhase = 'resume'; await stage('resume-button');
   const sidebar = page.locator('.thread-sidebar'); /* The list reloads itself on thread-changed; the Reload control is hidden in the simple workspace. */
-  const anchor = sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${threadId}"]`); await anchor.click();
-  require((await sessions()).length === 0, 'thread-selection-autostarted');
-  await sidebar.getByRole('button', { name: 'Resume', exact: true }).click();
+  const anchor = sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${threadId}"]`);
+  await poll(async () => (await anchor.locator('.thread-sidebar-state').getAttribute('data-state')) === 'resumable', 10000, 'row-not-shown-as-resumable');
+  require((await sessions()).length === 0, 'thread-listing-autostarted');
+  await anchor.click(); /* a click on a closed thread resumes it */
   await poll(async () => (await sessions()).length === 1, 90000, 'resume-button-deadline');
   const resumed = (await sessions())[0]; require(resumed.id !== first.id && resumed.shell === 'claude_code' && pathKey(resumed.cwd) === pathKey(projectPath), 'new-resumed-owner-same-project');
   activeTerminal = resumed.id;

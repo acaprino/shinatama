@@ -664,9 +664,10 @@ try {
   // The functional leg: one real UI Resume keeps thread, UUID and prior context.
   providerPhase = 'resume'; await stage('resume-button');
   const sidebar = page.locator('.thread-sidebar'); /* The list reloads itself on thread-changed; the Reload control is hidden in the simple workspace. */
-  const anchor = sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${threadId}"]`); await anchor.click();
-  require((await sessions()).length === 0, 'thread-selection-autostarted');
-  await sidebar.getByRole('button', { name: 'Resume', exact: true }).click();
+  const anchor = sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${threadId}"]`);
+  await poll(async () => (await anchor.locator('.thread-sidebar-state').getAttribute('data-state')) === 'resumable', 10000, 'row-not-shown-as-resumable');
+  require((await sessions()).length === 0, 'thread-listing-autostarted');
+  await anchor.click(); /* a click on a closed thread resumes it */
   await poll(async () => (await sessions()).length === 1, 90000, 'resume-button-deadline');
   const resumed = (await sessions())[0]; require(resumed.id !== first.id && resumed.id !== winner.sessionId
     && resumed.shell === 'claude_code' && pathKey(resumed.cwd) === pathKey(projectPath), 'new-resumed-owner-same-project');

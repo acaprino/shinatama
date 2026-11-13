@@ -57,3 +57,15 @@
 .thread-sidebar-anchor:hover { border-color: transparent; border-left-color: var(--line-strong); background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
 .thread-sidebar-anchor[aria-pressed=true] { border-color: transparent; border-left-color: var(--accent); }
 .thread-sidebar-list > li + li { margin-top: 2px; }
+
+/* Every row says what a click does: go to its tab, resume it, or why neither. */
+.thread-sidebar-state { display: flex; align-items: center; gap: 6px; color: var(--text-2); font: 11px/1.35 var(--mono); }
+.thread-sidebar-state::before { content: ''; flex: 0 0 7px; width: 7px; height: 7px; box-sizing: border-box; border: 1px solid currentColor; }
+.thread-sidebar-state[data-state=open] { color: var(--live); }
+.thread-sidebar-state[data-state=open]::before { background: currentColor; }
+.thread-sidebar-state[data-state=resumable] { color: var(--text-2); }
+.thread-sidebar-state[data-state=recover] { color: var(--warning); }
+.thread-sidebar-state[data-state=blocked], .thread-sidebar-state[data-state=archived] { color: var(--muted); }
+.thread-sidebar-anchor:hover .thread-sidebar-state[data-state=resumable] { color: var(--text); }
+/* A name the agent gave its conversation reads as a suggestion until the user renames the thread. */
+.thread-sidebar-title.is-agent-name { color: var(--text-2); font-style: italic; }

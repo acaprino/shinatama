@@ -575,13 +575,13 @@ try {
   require(stopped.activations.length === 1 && stopped.activations[0].ended_at !== null, 'first-owner-history-ended');
   require(!stopped.cleanupOwners.some(entry => entry.instance_id === first.id), 'first-cleanup-receipt-consumed-after-stop');
   evidence.checks.stopClosedOwnerAndConsumedCleanupReceipt = true;
-  // The functional resume leg: the real UI Resume button on the saved thread.
+  // The functional resume leg: one click on the saved, closed thread in the UI.
   await stage('resume-button');
   const sidebar = page.locator('.thread-sidebar'); /* The list reloads itself on thread-changed; the Reload control is hidden in the simple workspace. */
-  const anchor = sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${threadId}"]`); await anchor.click();
-  require((await sessions()).length === 0, 'thread-selection-autostarted');
-  await poll(async () => await sidebar.getByRole('button', { name: 'Resume', exact: true }).isEnabled(), 5000, 'resume-action-unavailable-for-codex');
-  await sidebar.getByRole('button', { name: 'Resume', exact: true }).click();
+  const anchor = sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${threadId}"]`);
+  await poll(async () => (await anchor.locator('.thread-sidebar-state').getAttribute('data-state')) === 'resumable', 5000, 'resume-action-unavailable-for-codex');
+  require((await sessions()).length === 0, 'thread-listing-autostarted');
+  await anchor.click(); /* a click on a closed thread resumes it */
   await poll(async () => (await sessions()).length === 1, 120000, 'resume-open-deadline');
   const resumed = (await sessions())[0];
   require(resumed.id !== first.id && resumed.shell === 'codex' && pathKey(resumed.cwd) === pathKey(projectPath), 'new-resumed-owner-same-project');

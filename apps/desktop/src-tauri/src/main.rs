@@ -716,6 +716,7 @@ fn main() {
         instances::instances_overview,
         #[cfg(windows)]
         titles::instance_titles,
+        titles::thread_names,
         #[cfg(windows)]
         titles::titles_set_enabled,
         #[cfg(windows)]
@@ -837,6 +838,7 @@ fn main() {
         instances::instances_overview,
         #[cfg(windows)]
         titles::instance_titles,
+        titles::thread_names,
         #[cfg(windows)]
         titles::titles_set_enabled,
         #[cfg(windows)]

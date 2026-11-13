@@ -63,6 +63,8 @@ const terminalMetrics = new Map<string, TerminalResourceStatus>();
 let projectPath = '';
 let selectedProjectPath = '';
 let threadSidebar: ReturnType<typeof createThreadSidebar> | null = null;
+/** The sidebar's last read of agent-given names; a launch waits for it so the two never share the worker. */
+let namesInFlight: Promise<unknown> = Promise.resolve();
 let sidebarRevision = 0;
 let starting = false;
 /** An Open terminal waiting for a project choice; a dismissed picker forgets it. */
@@ -176,7 +178,14 @@ function setFocus(groupId: string, terminal = true) {
     else workspace.querySelector<HTMLButtonElement>('[data-new-terminal]')?.focus();
   }
 }
+function threadHasRunningTab(threadId: string) {
+  return workspaceLayout.views.some(panel => {
+    if (panel.resource.kind !== 'terminal' || panel.resource.threadId !== threadId) return false;
+    const view = views.get(panel.id); return !!view && !view.disposed && !view.ended;
+  });
+}
 function render() {
+  threadSidebar?.refreshCapabilities(); // rows say "Open in a tab" only while that tab runs
   for (const panel of workspaceLayout.views) {
     const view = views.get(panel.id); if (!view) continue;
     view.hidden = panel.hidden;
@@ -305,6 +314,7 @@ async function startTerminal(group: string, cwd?: string): Promise<boolean> {
   starting = true;
   $<HTMLButtonElement>('#new-terminal').disabled = true;
   try {
+    await namesInFlight;
     const info = await invoke<SessionInfo>('terminal_start', { cwd: cwd ?? projectPath, rows: 24, cols: 80 });
     attachTerminal(info, group);
     return true;
@@ -412,6 +422,7 @@ async function startSession(selection: { projectPath: string; harnessId: string;
   const button = $<HTMLButtonElement>('#new-terminal');
   starting = true; button.disabled = true; button.setAttribute('aria-busy', 'true');
   try {
+    await namesInFlight;
     const selected = await invoke<{id:string;path:string}>('project_select', {path:selection.projectPath});
     // Right after launch the local service and resource measurements are still warming up.
     // Those refusals are temporary: wait and retry instead of making the user press Open again.
@@ -507,11 +518,14 @@ threadSidebar = createThreadSidebar({
     setFocus(group.id);
   },
   canResume: thread => sessionHarnesses.some(harness => harness.id === thread.harness && harness.nativeResume),
+  isOpen: thread => threadHasRunningTab(thread.id),
+  // Never while a session starts: a name read and a launch share the same worker capacity.
+  names: desktop ? threadIds => {
+    if (starting) return Promise.reject(new Error('busy'));
+    const call = invoke('thread_names', { threadIds }); namesInFlight = call.catch(() => undefined); return call;
+  } : undefined,
   canRecover: thread => sessionHarnesses.some(harness => harness.id === thread.harness && harness.nativeResume)
-    && !workspaceLayout.views.some(panel => {
-      if (panel.resource.kind !== 'terminal' || panel.resource.threadId !== thread.id) return false;
-      const view = views.get(panel.id); return view && !view.disposed && !view.ended;
-    }),
+    && !threadHasRunningTab(thread.id),
   onRecover: desktop ? async thread => {
     if (starting) throw { code: 'busy' };
     if (thread.projectId !== threadSidebar?.currentProjectId()) throw { code: 'source_changed' };
@@ -525,6 +539,7 @@ threadSidebar = createThreadSidebar({
     const requestedGroup = focusedGroup();
     starting = true; $<HTMLButtonElement>('#new-terminal').disabled = true;
     try {
+      await namesInFlight;
       const started = await invoke<{ session: SessionInfo; threadId: string }>('thread_resume', {
         request: { threadId: thread.id, projectId: thread.projectId, expectedRevision: thread.revision, rows: 24, cols: 80 },
       });
@@ -659,6 +674,7 @@ const projectsOverview = createProjectsOverview({
     if (starting) throw 'A session is already opening.';
     starting = true;
     try {
+      await namesInFlight;
       const started = await invoke<{ session: SessionInfo; threadId: string }>('thread_resume', {
         request: { threadId: thread.id, projectId: row.id, expectedRevision: thread.revision, rows: 24, cols: 80 },
       });

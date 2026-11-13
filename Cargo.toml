@@ -56,7 +56,7 @@ shinatama-token-economy = { path = "crates/token-economy" }
 shinatama-messaging = { path = "crates/messaging" }
 shinatama-roundtable = { path = "crates/roundtable" }
 shinatama-browser = { path = "crates/browser" }
-mukade = { git = "https://github.com/acaprino/mukade", rev = "14edbf3cf71424a48b057e52c5532d6d4ab7d8a4" }
+mukade = { git = "https://github.com/acaprino/mukade", rev = "694cc3f1a9034da34a1a077e85206b998948fedc" }
 
 # Local debug builds verify large native executables inside a fixed deadline.
 # Optimize the digest implementation while keeping application debug symbols.

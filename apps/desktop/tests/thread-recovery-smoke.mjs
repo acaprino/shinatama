@@ -142,12 +142,13 @@ try {
   await page.reload(); await expect(page.locator('#runtime-status')).toContainText('Local runtime');
   const sidebar = page.locator('.thread-sidebar'); await sidebar.locator('#thread-sidebar-project').selectOption(projectId);
   const recover = sidebar.getByRole('button', { name: 'Recover session', exact: true });
-  const resume = sidebar.getByRole('button', { name: 'Resume', exact: true });
+  const anchorOf = item => sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${item.thread}"]`);
+  const stateOf = item => anchorOf(item).locator('.thread-sidebar-state');
   const saved = item => database.prepare('SELECT revision,ended_at FROM activation WHERE instance_id=?').get(item.activation.instanceId);
   const request = item => ({ projectId, threadId: item.thread, expectedRevision: 1 });
   await stage('refusals');
   for (const item of cases.filter(item => item.kind === 'alive')) {
-    await sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${item.thread}"]`).click(); await expect(recover).toBeVisible(); await expect(resume).toBeHidden();
+    await sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${item.thread}"]`).click(); await expect(recover).toBeVisible(); await expect(stateOf(item)).toHaveAttribute('data-state', 'recover');
     await recover.click(); await expect(sidebar.locator('.thread-sidebar-status')).toContainText('still open');
     require(saved(item).ended_at === null && saved(item).revision === 1, 'refused-activation-changed');
   }
@@ -157,7 +158,7 @@ try {
   // qualified JobNameAbsent certificate: dead host+agent, no job name left.
   const missing = cases[0];
   await sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${missing.thread}"]`).click(); await expect(recover).toBeVisible(); await recover.click();
-  await expect(sidebar.locator('.thread-sidebar-status')).toContainText('Session recovered.'); await expect(recover).toBeHidden(); await expect(resume).toBeVisible(); await expect(resume).toBeFocused();
+  await expect(sidebar.locator('.thread-sidebar-status')).toContainText('Session recovered.'); await expect(recover).toBeHidden(); await expect(stateOf(missing)).toHaveAttribute('data-state', 'resumable'); await expect(anchorOf(missing)).toBeFocused();
   require(saved(missing).ended_at !== null && saved(missing).revision === 2, 'certificate-activation-not-finalized');
   require(JSON.parse(database.prepare('SELECT value FROM setting WHERE key=?').get(ledgerKey).value).slots.length === 0, 'certificate-ticket-not-released');
   const missingRepeated = await reply('thread_recover', { request: { ...request(missing), expectedRevision: 2 } });
@@ -170,7 +171,7 @@ try {
   evidence.checks.projectAndRevisionScopeEnforced = true;
   await stage('recover');
   await sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${dead.thread}"]`).click(); await expect(recover).toBeVisible(); await recover.click();
-  await expect(sidebar.locator('.thread-sidebar-status')).toContainText('Session recovered.'); await expect(recover).toBeHidden(); await expect(resume).toBeVisible(); await expect(resume).toBeFocused();
+  await expect(sidebar.locator('.thread-sidebar-status')).toContainText('Session recovered.'); await expect(recover).toBeHidden(); await expect(stateOf(dead)).toHaveAttribute('data-state', 'resumable'); await expect(anchorOf(dead)).toBeFocused();
   require(saved(dead).ended_at !== null && saved(dead).revision === 2, 'exact-activation-not-finalized');
   const entries = JSON.parse(database.prepare('SELECT value FROM setting WHERE key=?').get(cleanupKey).value).entries;
   require(entries.length === 1 && entries[0].owner.activation.instanceId === cases[1].activation.instanceId, 'wrong-receipt-consumed');

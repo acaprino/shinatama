@@ -208,3 +208,51 @@ pub async fn thread_summaries_pause(window: WebviewWindow, services: State<'_, S
         .await
         .map_err(|_| "The title worker stopped.".to_owned())?
 }
+
+/// The name a thread is shown under while the user has not named it: the title its agent gives
+/// its own latest conversation (Claude Code's `ai-title`, a Codex thread name, else its prompt),
+/// read through the contained session worker. Local only; nothing leaves the machine. The
+/// sidebar decides how often to ask (once per thread, again while it runs or after it changed).
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadName {
+    thread_id: String,
+    name: Option<String>,
+}
+
+#[tauri::command]
+pub async fn thread_names(window: WebviewWindow, services: State<'_, Services>, controller: State<'_, Arc<sessions::Controller>>, thread_ids: Vec<String>) -> Result<Vec<ThreadName>, String> {
+    crate::local(&window)?;
+    if thread_ids.len() > 16 {
+        return Err("Too many threads.".into());
+    }
+    let services = services.inner().clone();
+    let mut rows = Vec::with_capacity(thread_ids.len());
+    for thread in thread_ids {
+        let target = {
+            let services = services.clone();
+            let thread = thread.clone();
+            tauri::async_runtime::spawn_blocking(move || services.load().ok().and_then(|s| s.store.thread_resume_target(&thread).ok()))
+                .await
+                .ok()
+                .flatten()
+        };
+        let Some(target) = target else {
+            rows.push(ThreadName { thread_id: thread, name: None });
+            continue;
+        };
+        let detail = controller
+            .inner()
+            .detail(DetailRequest {
+                root: RootSelector { store_root_id: target.segment.native.store_root_id.clone(), configuration_revision: target.segment.native.store_revision },
+                native_id: target.segment.native.native_id.clone(),
+                cursor: None,
+                limit: 1,
+            })
+            .await;
+        let name = detail.ok().and_then(|reply| reply.page).and_then(|page| page.overview.title);
+        rows.push(ThreadName { thread_id: thread, name });
+    }
+    Ok(rows)
+}
