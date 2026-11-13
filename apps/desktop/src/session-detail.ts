@@ -1,7 +1,7 @@
 import { openModal, topModal } from './modal.ts';
 import type { SessionRootSelector } from './session-library.ts';
 import type { RawSelection } from './session-raw.ts';
-import { capabilityLines, parseCapabilities, type CapabilityState } from './sidecar-status.ts';
+import { nextCapabilityLines, parseCapabilities, type CapabilityState } from './sidecar-status.ts';
 import './session-detail.css';
 
 export type DetailCursor = { offset: number; fingerprint: string };
@@ -45,6 +45,7 @@ const rootValue = (value: unknown): value is SessionRootSelector => record(value
 const sameRoot = (a: SessionRootSelector, b: SessionRootSelector) => a.storeRootId === b.storeRootId && a.configurationRevision === b.configurationRevision;
 const encoder = new TextEncoder();
 const CAPABILITY_POLL_MS = 5000;
+const CAPABILITY_TIMEOUT_MS = 4000;
 const lineageStates: Record<LineageState,string> = {unknown_parent:'Unknown parent',unknown_links:'Relationships unknown',unresolved_in_selected_archive:'Not resolved in this archive',cycle:'Cycle detected',ambiguous:'Ambiguous reference',truncated:'Fixed limit reached',resolved:'Recorded in this archive'};
 function lineageValue(value:unknown,id:string):Lineage {
   const state=(v:unknown):v is LineageState=>typeof v==='string'&&Object.hasOwn(lineageStates,v);
@@ -140,21 +141,40 @@ export function createSessionDetail(options: Options) {
   let current: { root: SessionRootSelector; nativeId: string } | null = null;
   let page: DetailPage | null = null; let cursor: DetailCursor | null = null; let history: (DetailCursor | null)[] = [];
   let busy = false; let generation = 0; let destroyed = false; let failed = false; let message = 'Choose a session explicitly.';
-  // Per-session proxy capabilities: read on open and every CAPABILITY_POLL_MS while this detail is open and visible,
-  // never while closed. A reply for a session that is no longer the open one is dropped.
+  // Per-session proxy capabilities: read on open, on becoming visible again and every CAPABILITY_POLL_MS while this detail
+  // is open and visible, never while closed. A reply for a session that is no longer the open one, or one that came after
+  // CAPABILITY_TIMEOUT_MS, is dropped. A tick never calls render(): it replaces only the "Model proxy" value, and only when
+  // the lines changed, so open tool calls, focus and text selection in the transcript are left alone.
   let proxyLines: string[] | null = null; let proxyGeneration = 0; let proxyTimer = 0; let proxyInFlight = -1;
-  function stopProxyReads() { proxyGeneration++; proxyInFlight = -1; proxyLines = null; if (proxyTimer) window.clearInterval(proxyTimer); proxyTimer = 0; }
+  let proxyKey: HTMLElement | null = null; let proxyItem: HTMLElement | null = null;
+  function paintProxy() {
+    if (!proxyLines || !page) { proxyKey?.remove(); proxyItem?.remove(); proxyKey = proxyItem = null; return; }
+    if (!proxyKey || !proxyItem || !proxyItem.isConnected) {
+      proxyKey = document.createElement('dt'); proxyKey.textContent = 'Model proxy'; proxyItem = document.createElement('dd'); overview.append(proxyKey, proxyItem);
+    }
+    proxyItem.replaceChildren(...proxyLines.map(text => { const line = document.createElement('span'); line.className = 'session-detail-proxy-line'; line.textContent = text; return line; }));
+  }
+  const onVisible = () => { if (!document.hidden) void readProxy(); };
+  function stopProxyReads() {
+    proxyGeneration++; proxyInFlight = -1; proxyLines = null; if (proxyTimer) window.clearInterval(proxyTimer); proxyTimer = 0;
+    document.removeEventListener('visibilitychange', onVisible); paintProxy();
+  }
   async function readProxy() {
     if (destroyed || !options.capabilities || !current || !dialog.open || document.hidden || proxyInFlight === proxyGeneration) return;
     const at = proxyGeneration; const id = current.nativeId; proxyInFlight = at;
-    let read: CapabilityState;
-    try { read = parseCapabilities(await options.capabilities(id)); } catch { read = { state: 'unavailable' }; }
+    let read: CapabilityState; let timer = 0;
+    try {
+      const expired = new Promise<unknown>(resolve => { timer = window.setTimeout(() => resolve(null), CAPABILITY_TIMEOUT_MS); });
+      read = parseCapabilities(await Promise.race([options.capabilities(id), expired]));
+    } catch { read = { state: 'unavailable' }; } finally { window.clearTimeout(timer); }
     if (proxyInFlight === at) proxyInFlight = -1;
     if (destroyed || at !== proxyGeneration || !current || current.nativeId !== id || !dialog.open) return;
-    proxyLines = capabilityLines(read); render();
+    const lines = nextCapabilityLines(proxyLines, read);
+    if (lines) { proxyLines = lines; paintProxy(); }
   }
   function startProxyReads() {
     stopProxyReads(); if (!options.capabilities) return;
+    document.addEventListener('visibilitychange', onVisible);
     proxyTimer = window.setInterval(() => { void readProxy(); }, CAPABILITY_POLL_MS); void readProxy();
   }
   function field(label: string, value: string | number | null) {
@@ -182,11 +202,7 @@ export function createSessionDetail(options: Options) {
         field('Compactions', `${ledger.compactions}; tool calls repeated after a compaction: ${ledger.rerunsAfterCompaction} of ${ledger.toolCalls}`);
         field('Token figures', 'As recorded by the agent. No saving is claimed until ten sessions per agent are measured.');
       } else field('Token usage', ledger?.recordsWithoutUsage ? 'This agent did not record usage in the session.' : 'No model requests recorded.');
-      if (proxyLines) {
-        const key = document.createElement('dt'); key.textContent = 'Model proxy'; const item = document.createElement('dd');
-        for (const text of proxyLines) { const line = document.createElement('span'); line.className = 'session-detail-proxy-line'; line.textContent = text; item.append(line); }
-        overview.append(key, item);
-      }
+      proxyKey = proxyItem = null; paintProxy();
       for (const event of page.events) {
         const article = document.createElement('article'); const label = document.createElement('h2'); label.textContent = KINDS[event.kind];
         const provenance = document.createElement('small'); provenance.textContent = `Entry ${event.entryOrdinal} · ID ${event.sourceEntryId ?? 'Unknown'} · time ${event.timestamp ?? 'Unknown'}`;

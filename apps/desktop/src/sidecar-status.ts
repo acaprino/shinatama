@@ -147,3 +147,10 @@ export function capabilityLines(read: CapabilityState): string[] {
   if (read.state === 'unavailable') return ['Model proxy state unavailable.'];
   return [...LEVERS.map(([key, name]) => leverText(name, read.capabilities[key])), 'Economic saving is not measured.'];
 }
+
+/** The lines a poll tick should paint, or null when they equal what is already shown: an unchanged
+ * reading touches nothing, and a changed one replaces only the capability lines. */
+export function nextCapabilityLines(shown: readonly string[] | null, read: CapabilityState): string[] | null {
+  const lines = capabilityLines(read);
+  return shown !== null && shown.length === lines.length && shown.every((line, index) => line === lines[index]) ? null : lines;
+}

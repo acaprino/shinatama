@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { adoptStopReply, buttons, capabilityLines, confirmStillNeeded, driftLine, leverText, parseCapabilities, parseStatus, phaseLabel, showsTraffic, startLabel, stopConsequence, trafficLine, type CapabilityState, type Lever, type ProxyStatus } from '../src/sidecar-status.ts';
+import { adoptStopReply, buttons, capabilityLines, confirmStillNeeded, driftLine, leverText, nextCapabilityLines, parseCapabilities, parseStatus, phaseLabel, showsTraffic, startLabel, stopConsequence, trafficLine, type CapabilityState, type Lever, type ProxyStatus } from '../src/sidecar-status.ts';
 
 const status = (over: Partial<ProxyStatus> = {}): ProxyStatus => ({
   phase: 'ready', healthy: true, message: null, inFlight: 0, agentSessions: 0,
@@ -166,4 +166,16 @@ test('a malformed capability reply is unavailable, never half-trusted', () => {
     { state: 'observed', capabilities: wire({ imageRescale: undefined }) }]) {
     assert.deepEqual(parseCapabilities(bad), unavailable, JSON.stringify(bad));
   }
+});
+
+test('a poll tick repaints only when the capability lines changed', () => {
+  const same = observed();
+  const first = nextCapabilityLines(null, same);
+  assert.deepEqual(first, capabilityLines(same));
+  assert.equal(nextCapabilityLines(first, observed()), null);
+  assert.equal(nextCapabilityLines(capabilityLines({ state: 'unavailable' }), { state: 'unavailable' }), null);
+  const changed = nextCapabilityLines(first, observed({ ccr: lever({ applied: false, reason: 'codex_host' }) }));
+  assert.equal(changed?.[0], 'Large-result storage: configured, not active here — this agent cannot call the retrieval tool');
+  assert.deepEqual(nextCapabilityLines(first, { state: 'not_observed' }), capabilityLines({ state: 'not_observed' }));
+  assert.deepEqual(nextCapabilityLines([], same), capabilityLines(same));
 });
