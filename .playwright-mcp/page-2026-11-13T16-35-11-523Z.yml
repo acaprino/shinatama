@@ -1,0 +1,65 @@
+- main [ref=f2e2]:
+  - generic [ref=f2e3]:
+    - generic [ref=f2e4]:
+      - img "Shinatama"
+      - generic: "0.1"
+      - generic: multi-harness terminal
+      - generic: Prototype
+    - group "Window controls" [ref=f2e5]:
+      - button "Minimize window" [disabled] [ref=f2e6]
+      - button "Maximize window" [disabled] [ref=f2e7]
+      - button "Close window" [disabled] [ref=f2e8]
+  - navigation "Workspace controls" [ref=f2e9]:
+    - button "Choose project" [ref=f2e10] [cursor=pointer]
+    - button "New session" [ref=f2e16] [cursor=pointer]
+    - button "Instances" [ref=f2e19] [cursor=pointer]
+    - button "Projects" [ref=f2e20] [cursor=pointer]
+    - button "Files" [ref=f2e21] [cursor=pointer]
+    - button "Model proxy · Status unavailable" [disabled] [ref=f2e22]
+    - button "Sessions" [ref=f2e23] [cursor=pointer]
+    - button "Search" [ref=f2e24] [cursor=pointer]
+    - button "More options" [ref=f2e25] [cursor=pointer]: ⋯
+    - text: ●
+  - generic [ref=f2e26]:
+    - complementary "Project threads" [ref=f2e27]:
+      - generic [ref=f2e28]:
+        - heading "Threads" [level=2] [ref=f2e29]
+        - button "Collapse threads" [expanded] [ref=f2e30] [cursor=pointer]: ‹
+      - generic [ref=f2e31]:
+        - generic [ref=f2e32]: Project
+        - combobox "Project" [disabled] [ref=f2e33]:
+          - option "Choose a project" [selected]
+        - button "New session" [disabled] [ref=f2e34]
+        - button "Reload threads" [disabled] [ref=f2e35]
+        - status [ref=f2e36]: Choose a project to see its threads.
+        - list "Saved threads" [ref=f2e37]
+        - generic "Selected thread metadata"
+        - paragraph [ref=f2e38]: Click an open thread to go to its tab, a closed one to resume it in a new tab.
+        - button "Hop unavailable" [disabled] [ref=f2e40]
+      - separator "Thread sidebar width" [ref=f2e41]
+    - region "Terminal workspace" [ref=f2e42]:
+      - region "Workspace pane" [ref=f2e44]:
+        - generic [ref=f2e45]:
+          - tablist "Pane tabs"
+          - button "New session in this pane" [ref=f2e46] [cursor=pointer]: +
+          - button "Pane layout options" [ref=f2e47] [cursor=pointer]: ⋯
+        - tabpanel [ref=f2e48]:
+          - generic [ref=f2e49]:
+            - text: Nothing open in this pane.
+            - button "+ New session" [ref=f2e50] [cursor=pointer]
+        - generic [ref=f2e51]:
+          - generic [ref=f2e52]: Ready
+          - combobox "Terminal color profile" [disabled] [ref=f2e53]:
+            - option "Neutral" [selected]
+            - option "Claude"
+            - option "Codex"
+            - option "OpenCode"
+            - option "Pi"
+            - option "Hermes"
+          - generic "Terminal resources"
+  - generic [ref=f2e54]:
+    - generic [ref=f2e55]: Browser preview · terminals require the desktop app
+    - generic [ref=f2e56]: 0 terminals
+    - generic [ref=f2e57]: Ctrl+Shift+T new session
+    - generic [ref=f2e58]: Ctrl+Shift+Left / Right focus pane
+  - text: Notice

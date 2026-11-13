@@ -146,13 +146,29 @@ export function openSheet(dialog: HTMLDialogElement, options: SheetOptions): boo
   return true;
 }
 
+// The control that opened a drawer or a sheet closes it when pressed again, instead of opening it anew.
+const opened = (restore: HTMLElement | null, target: Element) => restore instanceof HTMLButtonElement && !restore.closest('dialog') && restore.contains(target);
+let closedByPress: HTMLElement | null = null;
+
 // The window frame is not "outside": moving or maximizing the window keeps the sheet.
 document.addEventListener('pointerdown', event => {
+  closedByPress = null;
   const current = sheet; const target = event.target;
   if (!current?.dialog.open || current.dialog.inert || !(target instanceof Element)) return;
   if (current.dialog.contains(target) || target.closest('.titlebar')) return;
   if (current.lightDismiss && !current.lightDismiss()) return;
   dismiss(current.dialog);
+  // The click that follows this press would otherwise reopen the sheet it has just closed.
+  if (!current.dialog.open && opened(current.restore, target)) closedByPress = current.restore;
+}, true);
+
+document.addEventListener('click', event => {
+  const target = event.target; const pressed = closedByPress; closedByPress = null;
+  if (!(target instanceof Element)) return;
+  const drawer = pressed?.contains(target) ? null : stack.find(entry => !entry.modal && entry.dialog.open && !entry.dialog.inert && opened(entry.restore, target));
+  if (!pressed?.contains(target) && !drawer) return;
+  event.preventDefault(); event.stopImmediatePropagation();
+  if (drawer) dismiss(drawer.dialog);
 }, true);
 
 document.addEventListener('keydown', event => {
