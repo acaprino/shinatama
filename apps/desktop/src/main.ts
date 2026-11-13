@@ -272,6 +272,12 @@ async function refreshThreadProject() {
     if (project) threadSidebar?.setProject({projectId:project.id,label:project.path.replace(/[\\/]+$/, '').split(/[\\/]/).pop()});
   } catch { notify('Saved project threads are unavailable.'); }
 }
+/** A placeholder layout is still the placeholder when the only change is the pane sizes the renderer reports on its own. */
+function sameApartFromSizes(a: WorkspaceLayout, b: WorkspaceLayout): boolean {
+  if (a === b) return true;
+  const bare = (layout: WorkspaceLayout) => JSON.stringify(layout, (key, value) => key === 'lastUsableSize' ? undefined : value);
+  return bare(a) === bare(b);
+}
 /** Connects saving for the layout on screen: the open thread's, or the loose terminals'. */
 async function connectWorkspace(adoptSaved = true) {
   if (!desktop) return;
@@ -291,12 +297,13 @@ async function connectWorkspace(adoptSaved = true) {
         label.dataset.layoutPending = String(status.inFlight);
       }
     });
-    persistence = controller;
     const beforeLoad = workspaceLayout;
+    // Not yet the window's saver: an edit reported while the saved layout loads would count as a local edit and keep it from being restored.
     const loaded = await controller.load();
+    if (generation === scopeRevision) persistence = controller;
     if (generation !== scopeRevision) { controller.dispose(); return; }
     if (!loaded.ok) { notify('The saved layout is unavailable. The current workspace is preserved.'); return; }
-    if (loaded.restored && adoptSaved && workspaceLayout === beforeLoad) {
+    if (loaded.restored && adoptSaved && sameApartFromSizes(workspaceLayout, beforeLoad)) {
       workspaceLayout = reconciled(loaded.layout);
       controller.update(workspaceLayout); render();
     } else controller.update(workspaceLayout);
