@@ -37,11 +37,11 @@ export function createSidecarControl(desktop: boolean, notify: (message: string)
     stop.disabled = outstanding || ['stopped', 'unavailable'].includes(phase);
     dialog.setAttribute('aria-busy', String(outstanding));
   }
-  async function request(command: string, report = false) {
+  async function request(command: string, report = false, args?: Record<string, unknown>) {
     if (outstanding || destroyed || !desktop) return;
     outstanding = true; render();
     try {
-      const received = await invoke<unknown>(command);
+      const received = await invoke<unknown>(command, args);
       if (received && typeof received === 'object') {
         const value = received as Record<string, unknown>;
         if (typeof value.phase !== 'string' || !Object.hasOwn(LABELS, value.phase) || typeof value.healthy !== 'boolean'
@@ -54,7 +54,7 @@ export function createSidecarControl(desktop: boolean, notify: (message: string)
   button.onclick = () => { if (!document.querySelector('dialog[open][aria-modal="true"]')) { render(); openModal(dialog); close.focus(); void request('sidecar_status'); } };
   close.onclick = () => dialog.close();
   start.onclick = () => { void request('sidecar_start', true); };
-  stop.onclick = () => { void request('sidecar_stop', true); };
+  stop.onclick = () => { void request('sidecar_stop', true, { force: false }); };
   retry.onclick = () => { void request('sidecar_retry', true); };
   render();
   if (desktop) void request('sidecar_status');

@@ -42,6 +42,39 @@ pub struct Status {
     /// None until the configuration was read; true when it differs from what
     /// Shinatama writes.
     pub config_drift: Option<bool>,
+    /// Requests the proxy is still answering; None while it is not running.
+    pub in_flight: Option<u64>,
+    /// Agent terminals alive right now. `status` cannot know it: the command
+    /// layer fills it from the agents controller.
+    pub agent_sessions: usize,
+    /// When a requested drain stops waiting for in-flight requests.
+    pub drain_deadline_unix_ms: Option<i64>,
+}
+/// What a user-requested stop does while agent sessions may be live.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StopDecision {
+    Refuse,
+    Drain,
+}
+/// A stop that would cut live agents off needs an explicit `force`.
+fn decide_stop(agent_sessions: usize, force: bool) -> StopDecision {
+    if agent_sessions > 0 && !force {
+        StopDecision::Refuse
+    } else {
+        StopDecision::Drain
+    }
+}
+/// Only a ready, healthy proxy backs a new launch; a draining one never does.
+fn launch_allowed(phase: &str, healthy: bool) -> bool {
+    phase == "ready" && healthy
+}
+pub const STOPPING: &str = "The model proxy is stopping. Start it again before opening an agent.";
+pub enum StopOutcome {
+    Draining(Status),
+    Refused {
+        agent_sessions: usize,
+        status: Status,
+    },
 }
 /// How long a worker waits for one admin read, and how often it retries an
 /// unknown one for the same process.
@@ -141,6 +174,11 @@ impl Controller {
                 })
             });
         Status {
+            in_flight: observation.as_ref().and_then(|snapshot| snapshot.in_flight),
+            agent_sessions: 0,
+            drain_deadline_unix_ms: observation
+                .as_ref()
+                .and_then(|snapshot| snapshot.drain_deadline_unix_ms),
             phase,
             healthy: fresh
                 && observation
@@ -205,6 +243,33 @@ impl Controller {
                 .map_err(|_| "Proxy stop could not be delivered.")?;
         }
         Ok(self.status())
+    }
+    /// The user's Stop: refuses while agent sessions are live unless forced;
+    /// otherwise lets in-flight requests finish before the process stops.
+    pub fn stop_requested_by_user(
+        &self,
+        agent_sessions: usize,
+        force: bool,
+    ) -> Result<StopOutcome, &'static str> {
+        let with_sessions = |mut status: Status| {
+            status.agent_sessions = agent_sessions;
+            status
+        };
+        match decide_stop(agent_sessions, force) {
+            StopDecision::Refuse => Ok(StopOutcome::Refused {
+                agent_sessions,
+                status: with_sessions(self.status()),
+            }),
+            StopDecision::Drain => {
+                self.stop_requested.store(true, Ordering::Release);
+                if let Some(supervisor) = self.supervisor.get() {
+                    supervisor
+                        .request(Command::Drain)
+                        .map_err(|_| "Proxy stop could not be delivered.")?;
+                }
+                Ok(StopOutcome::Draining(with_sessions(self.status())))
+            }
+        }
     }
     pub fn retry(self: &Arc<Self>) -> Result<Status, &'static str> {
         self.stop_requested.store(false, Ordering::Release);
@@ -302,7 +367,10 @@ impl Controller {
         &self,
     ) -> Result<(&SidecarSupervisor, NonZeroU16, PathBuf), &'static str> {
         let status = self.status();
-        if status.phase != "ready" || !status.healthy {
+        if status.phase == "draining" {
+            return Err(STOPPING);
+        }
+        if !launch_allowed(status.phase, status.healthy) {
             return Err("Start the session index and wait until it is ready.");
         }
         let (port, root) = self
@@ -544,5 +612,21 @@ mod tests {
         resolved.verbosity_level = Some(3);
         assert_eq!(drift(Some(&resolved)), Some(true));
         assert_eq!(drift(None), None);
+    }
+
+    #[test]
+    fn stop_is_refused_while_agents_are_live_unless_forced() {
+        assert_eq!(decide_stop(2, false), StopDecision::Refuse);
+        assert_eq!(decide_stop(2, true), StopDecision::Drain);
+        assert_eq!(decide_stop(0, false), StopDecision::Drain);
+        assert_eq!(decide_stop(0, true), StopDecision::Drain);
+    }
+
+    #[test]
+    fn draining_owner_issues_no_launch_permit() {
+        assert!(!launch_allowed("draining", true));
+        assert!(launch_allowed("ready", true));
+        assert!(!launch_allowed("ready", false));
+        assert!(!launch_allowed("stopped", true));
     }
 }

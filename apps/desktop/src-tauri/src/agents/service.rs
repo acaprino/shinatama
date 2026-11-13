@@ -230,6 +230,10 @@ impl ServiceContext {
             return Ok(());
         }
         let previous = self.sidecar.status();
+        // Start would cancel a requested stop; a new agent never overrides it.
+        if previous.phase == "draining" {
+            return Err(DriverError::Failed(sidecar::STOPPING));
+        }
         let observed = previous
             .observation
             .as_ref()
@@ -287,7 +291,7 @@ impl ServiceContext {
                 Err(message)
                     if matches!(
                         self.sidecar.status().phase,
-                        "stopped" | "failed" | "retired"
+                        "stopped" | "failed" | "retired" | "draining"
                     ) || Instant::now() >= deadline =>
                 {
                     return Err(message.into());
