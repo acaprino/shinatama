@@ -27,11 +27,10 @@ function parseDifferences(value: unknown): ConfigDifference[] | null {
   if (!Array.isArray(value) || value.length > DIFFERENCE_LIMIT) return null;
   const out: ConfigDifference[] = [];
   for (const item of value) {
-    if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+    // One unusable item is skipped; it never costs the panel the whole reply.
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
     const { setting, read, baseline } = item as Record<string, unknown>;
-    for (const text of [setting, read, baseline]) {
-      if (typeof text !== 'string' || text.length === 0 || text.length > DIFFERENCE_TEXT_LIMIT) return null;
-    }
+    if ([setting, read, baseline].some((text) => typeof text !== 'string' || text.length === 0 || text.length > DIFFERENCE_TEXT_LIMIT)) continue;
     out.push({ setting: setting as string, read: read as string, baseline: baseline as string });
   }
   return out;

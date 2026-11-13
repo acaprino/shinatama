@@ -96,6 +96,21 @@ const RESOLVED_READ_ATTEMPTS: u8 = 3;
 fn drift(resolved: Option<&ResolvedBaseline>) -> Option<bool> {
     resolved.map(|resolved| *resolved != intended_baseline())
 }
+/// Longest setting value shown; the status reply is read back with the same bound.
+const DIFFERENCE_TEXT_LIMIT: usize = 80;
+/// A value read from the process made displayable: never empty, never longer
+/// than the panel accepts, cut on a character boundary.
+fn bounded_value(value: String) -> String {
+    if value.is_empty() {
+        return "(empty)".to_owned();
+    }
+    if value.chars().count() <= DIFFERENCE_TEXT_LIMIT {
+        return value;
+    }
+    let mut cut: String = value.chars().take(DIFFERENCE_TEXT_LIMIT - 1).collect();
+    cut.push('\u{2026}');
+    cut
+}
 /// The settings of `resolved` that differ from what Shinatama writes; a value
 /// the process did not report is listed as such rather than as the baseline.
 fn config_differences(resolved: Option<&ResolvedBaseline>) -> Vec<ConfigDifference> {
@@ -114,7 +129,7 @@ fn config_differences(resolved: Option<&ResolvedBaseline>) -> Vec<ConfigDifferen
             let show = |value: &Option<T>| {
                 value
                     .as_ref()
-                    .map_or_else(|| "not reported".to_owned(), ToString::to_string)
+                    .map_or_else(|| "not reported".to_owned(), |value| bounded_value(value.to_string()))
             };
             out.push(ConfigDifference {
                 setting,
@@ -757,6 +772,23 @@ mod tests {
         assert_eq!(line("Verbosity level"), ("3", "2"));
         assert_eq!(line("Effort routing"), ("true", "false"));
         assert_eq!(line("Large-result storage minimum tool tokens"), ("not reported", "4000"));
+    }
+
+    #[test]
+    fn differences_bound_an_empty_or_overlong_prompt_rewrite_mode() {
+        let mut resolved = intended_baseline();
+        resolved.prompt_rewrite_mode = Some(String::new());
+        let found = config_differences(Some(&resolved));
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].read, "(empty)");
+        // Multi-byte characters: the cut must land on a character boundary.
+        resolved.prompt_rewrite_mode = Some("\u{e9}".repeat(200));
+        let found = config_differences(Some(&resolved));
+        assert_eq!(found[0].read.chars().count(), DIFFERENCE_TEXT_LIMIT);
+        assert!(found[0].read.ends_with('\u{2026}'));
+        assert!(found[0].read.starts_with("\u{e9}\u{e9}"));
+        resolved.prompt_rewrite_mode = Some("x".repeat(DIFFERENCE_TEXT_LIMIT));
+        assert_eq!(config_differences(Some(&resolved))[0].read.len(), DIFFERENCE_TEXT_LIMIT);
     }
 
     #[test]

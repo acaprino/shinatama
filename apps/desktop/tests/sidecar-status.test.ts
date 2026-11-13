@@ -74,11 +74,21 @@ test('drift names the values read from the process', () => {
   const parsed = parseStatus({ phase: 'ready', healthy: true, message: null, inFlight: 0, agentSessions: 0,
     drainDeadlineUnixMs: null, configDrift: true, configDifferences: one });
   assert.deepEqual(parsed?.configDifferences, one);
-  for (const bad of [{ configDifferences: 'x' }, { configDifferences: [{ setting: 'a', read: 1, baseline: 'b' }] },
-    { configDifferences: [null] }, { configDifferences: Array.from({ length: 17 }, () => one[0]) }]) {
+  for (const bad of [{ configDifferences: 'x' }, { configDifferences: Array.from({ length: 17 }, () => one[0]) }]) {
     assert.equal(parseStatus({ phase: 'ready', healthy: true, message: null, inFlight: 0, agentSessions: 0,
       drainDeadlineUnixMs: null, configDrift: true, ...bad }), null, JSON.stringify(bad));
   }
+});
+test('an unusable difference is skipped without rejecting the status reply', () => {
+  const one = [{ setting: 'Verbosity level', read: '3', baseline: '2' }];
+  const base = { phase: 'ready', healthy: true, message: null, inFlight: 0, agentSessions: 0,
+    drainDeadlineUnixMs: null, configDrift: true };
+  const unusable = [null, { setting: 'a', read: 1, baseline: 'b' }, { setting: 'Prompt rewrite', read: '', baseline: 'auto' },
+    { setting: 'Prompt rewrite', read: 'x'.repeat(81), baseline: 'auto' }];
+  const parsed = parseStatus({ ...base, configDifferences: [unusable[0], one[0], ...unusable.slice(1)] });
+  assert.ok(parsed);
+  assert.deepEqual(parsed.configDifferences, one);
+  assert.deepEqual(parseStatus({ ...base, configDifferences: unusable })?.configDifferences, []);
 });
 test('an unreadable agent count asks before stopping', () => {
   const unknown = status({ agentSessions: 0, agentSessionsKnown: false });

@@ -546,22 +546,26 @@ impl<P: WorkloadProvider> Worker<P> {
         if observed.is_err() {
             self.snapshot.process_alive = None;
             self.snapshot.healthy = false;
+            self.snapshot.in_flight = None; // a degraded reading must not keep an old count.
             self.publish(Phase::Degraded, Reason::ObservationUnavailable);
             return;
         }
         self.snapshot.process_alive = Some(true);
         let Some(applied) = running.process.applied_budget() else {
             self.snapshot.healthy = false;
+            self.snapshot.in_flight = None; // a degraded reading must not keep an old count.
             self.publish(Phase::Degraded, Reason::ObservationUnavailable);
             return;
         };
         let Ok(sample) = running.process.sample(&WindowsSampler::new()) else {
             self.snapshot.healthy = false;
+            self.snapshot.in_flight = None; // a degraded reading must not keep an old count.
             self.publish(Phase::Degraded, Reason::ObservationUnavailable);
             return;
         };
         if !sample.membership_complete {
             self.snapshot.healthy = false;
+            self.snapshot.in_flight = None; // a degraded reading must not keep an old count.
             self.publish(Phase::Degraded, Reason::ObservationUnavailable);
             return;
         }
@@ -601,6 +605,7 @@ impl<P: WorkloadProvider> Worker<P> {
         }
         if !self.lease_valid {
             self.snapshot.healthy = false;
+            self.snapshot.in_flight = None; // a degraded reading must not keep an old count.
             self.publish(Phase::Degraded, Reason::LeaseUnavailable);
             return;
         }
