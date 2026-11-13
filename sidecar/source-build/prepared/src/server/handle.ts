@@ -62,6 +62,7 @@ import { buildDshCompactionForgeBody, renderDshAuthoredCheckpoint } from "./dsh-
 import { artifactSeedHit, detectAcpArtifacts } from "./chain-artifacts.js";
 import { piSubagentChannelFallback } from "./pi-subagent-channel.js";
 import { FORCE_TEXT_PROTOCOL } from "./inject.js";
+import { decideCcrGate, decideImageToolGate, stampCapabilities } from "./capabilities.js";
 import { prepareAnthropic } from "./prepare-anthropic.js";
 import { prepareOpenai } from "./prepare-openai.js";
 import { prepareGoogle, prepareGoogleCountTokens } from "./prepare-google.js";
@@ -1799,7 +1800,20 @@ async function handleRequest(
         // placeholder is ever emitted; regular compress/decompress folding is unaffected
         // (the codex lane simply keeps large tool results verbatim until they are folded).
         // #3686: host policy, not wire profile — declared plugin hosts register bili's tools natively.
-        storeEffectiveCcr(session, opts.compress.injectTool && storeChannelOk && !(protocol === "responses" && isCodexHost(req.headers)) ? pluginCcrStamp : undefined);
+        // The reason for the decision is computed in the same place and stamped with it
+        // (GET /__bili/capabilities reads it back; it never re-evaluates the gate).
+        const codexHostLane = protocol === "responses" && isCodexHost(req.headers);
+        const ccrConfigured = pluginMode ? opts.compress.ccr?.enabled === true : resolvedCcrCfg?.enabled === true;
+        const ccrGate = decideCcrGate({
+            injectTool: opts.compress.injectTool,
+            storeChannelOk,
+            noInjectToolKnob: knobNoInjectTool(),
+            codexHost: codexHostLane,
+            pluginMode,
+            pluginWireOk: ccrPluginWireOk(protocol),
+            ccrEnabled: ccrConfigured,
+        });
+        storeEffectiveCcr(session, ccrGate.armed ? pluginCcrStamp : undefined);
         // #3400: acp_read_original_image arms where the model can actually reach
         // it — the injection lanes (proxy owns tool execution) or the plugin
         // lanes (the agent registers it natively from handlePluginManifest,
@@ -1807,10 +1821,16 @@ async function handleRequest(
         // codex lane: it rejects bili-injected tools ("unsupported call",
         // #3270), so there the annotation degrades to size-only.
         // #3686: host policy, not wire profile — declared plugin hosts register bili's tools natively.
-        const imageRescaleArmed = imageRescaleEnabled()
-            && !(protocol === "responses" && isCodexHost(req.headers))
-            && ((opts.compress.injectTool && storeChannelOk) || pluginMode);
-        storeEffectiveImageRescale(session, imageRescaleArmed || undefined);
+        const imageGate = decideImageToolGate({
+            rescaleEnabled: imageRescaleEnabled(),
+            injectTool: opts.compress.injectTool,
+            storeChannelOk,
+            noInjectToolKnob: knobNoInjectTool(),
+            codexHost: codexHostLane,
+            pluginMode,
+        });
+        storeEffectiveImageRescale(session, imageGate.armed || undefined);
+        stampCapabilities(session, { ...ccrGate, configured: ccrConfigured }, imageGate);
         // [#1336] no channel gating: search_context is already available on
         // whichever mode served this session and the re-rank is pure output-
         // side policy on its result — both proxy and plugin lanes apply it.

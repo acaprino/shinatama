@@ -32,6 +32,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { parseDataUrl, type BiliMessage } from "acp-kernel/wire";
 import { decodeImageDims } from "./image-tokens.js";
+import { trackEncoderImport } from "./encoder-status.js";
 import { imageRescaleEnabled, imageRescaleMaxDim } from "./knobs.js";
 import { READ_ORIGINAL_IMAGE_TOOL_NAME } from "./compress-tool.js";
 import { toolFail, toolOk, type ProxyToolResult } from "./proxy-tool-result.js";
@@ -93,7 +94,7 @@ let jimpLoad: Promise<JimpModule | null> | undefined;
 // rescaling then degrades to pass-through instead of crashing the proxy.
 function loadJimp(): Promise<JimpModule | null> {
     if (jimpLoad === undefined) {
-        jimpLoad = import("jimp").catch((err: unknown) => {
+        jimpLoad = trackEncoderImport(() => import("jimp")).catch((err: unknown) => {
             log("warn", `[image-rescale] jimp unavailable (${err instanceof Error ? err.message : String(err)}) — image rescaling disabled for this process (originals pass through)`);
             return null;
         });

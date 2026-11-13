@@ -13,7 +13,7 @@ import { detectCostAdvisories } from "../plugin-advisory.js";
 import { fetchWithTimeout } from "../fetch-util.js";
 import { log as loggerLog, getLogPath } from "../logger.js";
 import { getBlindTunnelStats } from "../mitm.js";
-import { handlePluginAttribution, handlePluginCompact, handlePluginFork, handlePluginManifest, handlePluginRegister, handlePluginRuntimeInfo, handlePluginSessionName, handlePluginSnapshot, handlePluginStatus, handlePluginTool } from "../plugin.js";
+import { handlePluginAttribution, handlePluginCompact, handlePluginFork, handlePluginManifest, handlePluginRegister, handlePluginRuntimeInfo, handlePluginSessionName, handlePluginSnapshot, handlePluginStatus, handlePluginTool, resolveConversation } from "../plugin.js";
 import { parseAgentProviderReport, recordAgentProviders, agentProviderRecipes, sanitizeAgentProviderField } from "../agent-providers.js";
 import { defaultLogFile } from "../paths.js";
 import { getUpdateVisibility, updateBannerPayload } from "../update-notes.js";
@@ -39,6 +39,9 @@ import { buildDiagnostics } from "../web/diagnostics.js";
 import { ackSplitBrainContest, storageStatusWire } from "../storage/runtime-status.js";
 import { snapshotShadowStatusWire } from "../server/snapshot-render.js";
 import { attributionStatusWire } from "./attribution-status.js";
+import { capabilitiesResponse } from "./capabilities.js";
+import { encoderState } from "../encoder-status.js";
+import { imageRescaleEnabled } from "../knobs.js";
 
 interface AdminCtx {
     opts: ProxyOptions;
@@ -208,6 +211,21 @@ export async function handleAdminRoute(req: http.IncomingMessage, res: http.Serv
         return;
     }
     if (req.method === "GET" && req.url === "/__bili/stats") return sendStats(res);
+    // Per-session capabilities: applied/reason of the gated features come from what the last
+    // served request stamped; nothing here re-evaluates a gate. An unknown id is a 404.
+    if (req.method === "GET" && (req.url === "/__bili/capabilities" || req.url?.startsWith("/__bili/capabilities?"))) {
+        const out = capabilitiesResponse(req.url, {
+            passthrough: opts.passthrough,
+            compress: opts.compress,
+            promptRewriteMode: opts.promptRewrite?.mode,
+            imageRescaleEnabled: imageRescaleEnabled(),
+            encoder: encoderState(),
+            resolveSession: (nativeId) => resolveConversation(nativeId).session,
+        });
+        res.writeHead(out.status, { "content-type": "application/json" });
+        res.end(JSON.stringify(out.body));
+        return;
+    }
     if (req.method === "GET" && req.url?.startsWith("/__bili/cache-report")) return sendCacheReport(res, req.url);
     if (req.method === "GET" && req.url?.startsWith("/__bili/session-report")) return sendSessionReport(res, req.url);
     if (req.method === "GET" && req.url === "/__bili/status") return sendStatus(res, opts);
