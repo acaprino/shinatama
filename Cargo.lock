@@ -3027,6 +3027,7 @@ dependencies = [
  "sha2",
  "shinatama-adapter",
  "shinatama-export",
+ "shinatama-hop",
  "shinatama-state",
  "shinatama-token-economy",
  "subtle",
