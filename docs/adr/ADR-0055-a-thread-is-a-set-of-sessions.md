@@ -95,7 +95,8 @@ two meanings of `thread`.
   all and only its sessions. Sessions of other threads keep running; their terminals are parked,
   not stopped, and their output keeps draining.
 - A session of the open thread that is not running is still shown, as a pane or tab that says so
-  and offers Resume. Opening a thread never starts or resumes an agent (FRD-0001 R30).
+  and offers Resume. Stopping a session leaves that tab in its place; the tab's close then
+  forgets the session, after asking. Opening a thread never starts or resumes an agent (FRD-0001 R30).
 - The sidebar no longer lists sessions as rows of their own, and a click never "focuses a tab":
   the only two levels are the thread list and the open thread's panes.
 - Attention (an agent waiting in a thread that is not open) is shown on that thread's row; the
@@ -106,9 +107,12 @@ two meanings of `thread`.
 - Each workset layout is loaded, claimed, saved and released with the existing workspace commands
   and their compare-and-swap. Switching thread flushes and releases the previous layout before
   the next is claimed; a failed flush keeps the previous thread open and says why.
-- The global workspace record `main` stops holding panes. On first start after the migration its
-  panes are distributed to the worksets of their `threadId`; a pane with no `threadId` (a plain
-  terminal) goes to a workset titled "Terminals" of its project.
+- The global workspace record `main` stays the layout of the window while no thread is open; it
+  holds only terminals that belong to no session record. It is never a second place for a
+  thread's panes: on opening a thread its layout is reconciled with its membership (a pane for
+  every session, none for anything else), so no pane has to be moved out of `main`.
+- A new session's own workset is made by the state layer; the window then moves the session into
+  the open thread (`workset_adopt`), and the emptied, unnamed workset is deleted with it.
 
 ## Rejected alternatives
 

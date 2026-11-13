@@ -18,6 +18,11 @@ the two modes (close and fork), the v1 strategies, the seed, the state machine w
 recovery, the failure handling and the native path closed on 2026-11-03 (2.10, withdrawn). The sessions-surface entry points
 (`hop_live`, `handoff_history`) are in FRD-0006.
 
+**Proposed amendment 2026-11-13 (ADR-0055, not yet accepted):** in the interface a *thread* is a
+named set of sessions with its own layout, and what this record calls a thread (the chain of
+segments, R01 to R03) is shown as a *session*. The stored record, its ids and every requirement
+below are unchanged; a fork (R12) and a companion are created in the thread of their source.
+
 Vocabulary (technical-design 2): **segment** `s_…` is Shinatama's record that a thread lived in
 one native session of one agent; a thread is an ordered chain of segments; an **activation** is
 one period a segment was open; a **hop** `h_…` moves the live work to a new or earlier segment;
