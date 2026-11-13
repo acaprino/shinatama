@@ -105,8 +105,10 @@ $count = $lock.sourceFiles.Count + $lock.artifactFiles.Count + $lock.runtimeDepe
 $bytes = (@($lock.sourceFiles) + @($lock.artifactFiles) + @($lock.runtimeDependencyFiles) | Measure-Object -Property bytes -Sum).Sum
 if ($count -gt $maxFiles -or $bytes -gt $maxBundleBytes) { throw 'Static preparation budget exceeded.' }
 Assert-Output $PreparedRoot $lock
+# The build stamps dist/build-info.json with the hash of the source tree it was built from, so a dist
+# that was not rebuilt after a source change cannot carry the current tree hash.
 $buildInfo = Read-BoundedJson (Assert-RegularPath $PreparedRoot 'dist/build-info.json')
-if ($buildInfo.sourceFingerprint -cne $lock.musashiSourceFingerprint) { throw 'Build fingerprint does not match the pinned source fingerprint.' }
+if ($buildInfo.sourceFingerprint -cne $lock.sourceTreeSha256) { throw 'The build was stamped for a different source tree than the pinned one.' }
 $schema = [IO.File]::ReadAllText((Assert-RegularPath $PreparedRoot 'src/storage/schema.ts'))
 $store = [IO.File]::ReadAllText((Assert-RegularPath $PreparedRoot 'src/storage/store.ts'))
 $entryText = [IO.File]::ReadAllText((Assert-RegularPath $PreparedRoot $lock.entry))

@@ -14,7 +14,7 @@ use shinatama_engine::{
         WorkloadProvider,
     },
 };
-use shinatama_hop::channel::{ControlKind, bootstrap, control_header};
+use shinatama_hop::channel::{CONTROL_HEADER, ControlKind, bootstrap, control_header};
 use shinatama_state::{
     database::Database,
     location::{LocationRequest, StorageLocation},
@@ -816,6 +816,13 @@ pub fn forward_messages_with(
         "probe reply did not come from the synthetic origin",
     )?;
     let recorded = origin.all_requests();
+    // Shinatama's marker is internal to the sidecar: no request, marked or not, carries it onward.
+    check(
+        recorded
+            .iter()
+            .all(|r| r.headers.get(CONTROL_HEADER).is_none()),
+        "the control marker reached the synthetic origin",
+    )?;
     let sent_probe = recorded
         .iter()
         .find(|r| is_probe(r, tag))
