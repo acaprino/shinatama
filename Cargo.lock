@@ -1879,6 +1879,7 @@ dependencies = [
 [[package]]
 name = "mukade"
 version = "0.1.0"
+source = "git+https://github.com/acaprino/mukade?rev=f189a705b12692ffe92a63de52a161681be75fd8#f189a705b12692ffe92a63de52a161681be75fd8"
 dependencies = [
  "anyhow",
  "chrono",
