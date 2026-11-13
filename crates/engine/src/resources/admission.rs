@@ -272,9 +272,9 @@ impl AdmissionCoordinator {
         let native_budget = request.native_budget()?;
         self.prepare_with_budget(database, stamp, expected_revision, request, native_budget)
     }
-    /// Interactive memory thresholds are advisory: a long-running terminal may
-    /// grow beyond its reservation without Windows refusing its allocations.
-    /// The ledger and the remaining native/queue limits still use the request.
+    /// Interactive memory, process and CPU thresholds are advisory: a terminal may
+    /// grow beyond its reservation, start build tools and use the CPU without Windows
+    /// refusing or throttling it. The ledger and the queue limits still use the request.
     pub fn prepare_interactive(
         &self,
         database: &Database,
@@ -282,7 +282,7 @@ impl AdmissionCoordinator {
         expected_revision: u64,
         request: PrepareRequest,
     ) -> Result<PreparedWorkload, AdmissionError> {
-        let native_budget = request.native_budget()?.with_advisory_memory();
+        let native_budget = request.native_budget()?.with_advisory_limits();
         self.prepare_with_budget(database, stamp, expected_revision, request, native_budget)
     }
     fn prepare_with_budget(
@@ -644,7 +644,7 @@ mod tests {
     fn budget_mapping_cannot_weaken_any_native_dimension() {
         let request = request();
         let native = request.native_budget().unwrap();
-        assert!(native.memory_limit_enforced());
+        assert!(native.limits_enforced());
         assert_eq!(native.job_commit_bytes(), request.budget.memory_bytes);
         assert_eq!(native.process_commit_bytes(), request.process_commit_bytes);
         assert_eq!(native.max_processes(), request.budget.processes);
@@ -718,7 +718,7 @@ mod tests {
             let mut workload = coordinator
                 .prepare(&database, &policy.stamp, 0, request)
                 .unwrap();
-            assert!(workload.applied_budget().unwrap().memory_limit_enforced());
+            assert!(workload.applied_budget().unwrap().limits_enforced());
             assert_eq!(workload.ticket().owner.pid, workload.owned_key().owner.pid);
             assert_eq!(
                 workload.ticket().job_key,
@@ -766,7 +766,7 @@ mod tests {
                 !interactive
                     .applied_budget()
                     .unwrap()
-                    .memory_limit_enforced()
+                    .limits_enforced()
             );
             assert_eq!(interactive.ticket().budget, request.budget);
             assert_eq!(

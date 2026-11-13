@@ -8,7 +8,7 @@ type Observation = {
   privateCommitBytes: number; residentBytes: number; peakJobCommitBytes: number; activeProcesses: number;
   cpuTime100ns: number; membershipComplete: boolean;
 };
-type Limits = { jobCommitBytes: number; processCommitBytes: number; memoryLimitEnforced: boolean; processes: number; cpuBasisPoints: number; queueBytes: number; queueItems: number };
+type Limits = { jobCommitBytes: number; processCommitBytes: number; limitsEnforced: boolean; processes: number; cpuBasisPoints: number; queueBytes: number; queueItems: number };
 type Queues = { bytes: number; items: number; peakBytes: number; peakItems: number; refusals: number; closed: boolean };
 export type TerminalResourceStatus = {
   id: string; phase: TerminalResourcePhase; observed: Observation | null; applied: Limits | null;
@@ -51,11 +51,11 @@ export function decodeTerminalResources(value: unknown): readonly TerminalResour
     if (raw.applied !== null) {
       const item = raw.applied;
       if (!numbers(item, ['jobCommitBytes', 'processCommitBytes', 'processes', 'cpuBasisPoints', 'queueBytes', 'queueItems'])
-        || typeof item.memoryLimitEnforced !== 'boolean'
+        || typeof item.limitsEnforced !== 'boolean'
         || (item.processes as number) < 1 || (item.processes as number) > 256 || (item.cpuBasisPoints as number) < 1
         || (item.cpuBasisPoints as number) > 10_000 || (item.processCommitBytes as number) > (item.jobCommitBytes as number)) return null;
       applied = { jobCommitBytes: item.jobCommitBytes as number, processCommitBytes: item.processCommitBytes as number,
-        memoryLimitEnforced: item.memoryLimitEnforced,
+        limitsEnforced: item.limitsEnforced,
         processes: item.processes as number, cpuBasisPoints: item.cpuBasisPoints as number,
         queueBytes: item.queueBytes as number, queueItems: item.queueItems as number };
     }
@@ -99,18 +99,18 @@ export function formatTerminalResources(status: TerminalResourceStatus): { summa
   const age = status.sampleAgeMs;
   const stale = age !== null && age > 1500;
   const usage = observed ? `${partial}${mib(observed.privateCommitBytes)}` : 'unavailable';
-  const summary = `${stale ? 'Last measured ' : ''}${usage}${applied?.memoryLimitEnforced ? ` / ${mib(applied.jobCommitBytes)}` : ''} · ${status.phase}`;
+  const summary = `${stale ? 'Last measured ' : ''}${usage}${applied?.limitsEnforced ? ` / ${mib(applied.jobCommitBytes)}` : ''} · ${status.phase}`;
   const details = [REASONS[status.reason], `Phase: ${status.phase}`];
   if (observed) {
     details.push(`Private commit: ${partial}${mib(observed.privateCommitBytes)}`,
       `Summed working sets (includes shared pages): ${partial}${mib(observed.residentBytes)}`,
-      `Peak job commit: ${mib(observed.peakJobCommitBytes)}`, `Processes: ${observed.activeProcesses}${applied ? ` / ${applied.processes}` : ''}`,
+      `Peak job commit: ${mib(observed.peakJobCommitBytes)}`, `Processes: ${observed.activeProcesses}${applied?.limitsEnforced ? ` / ${applied.processes}` : ''}`,
       `Accumulated CPU time: ${(observed.cpuTime100ns / 10_000_000).toFixed(1)} s`);
   } else details.push('Current consumption: unavailable');
-  if (applied) details.push(applied.memoryLimitEnforced
-    ? `Fixed applied memory limits: ${mib(applied.jobCommitBytes)} per job, ${mib(applied.processCommitBytes)} per process`
-    : 'Memory monitored; no enforced memory cap',
-    `CPU cap: ${(applied.cpuBasisPoints / 100).toFixed(1)}% of the machine; maximum ${applied.processes} processes`,
+  if (applied) details.push(...(applied.limitsEnforced
+    ? [`Fixed applied memory limits: ${mib(applied.jobCommitBytes)} per job, ${mib(applied.processCommitBytes)} per process`,
+      `CPU cap: ${(applied.cpuBasisPoints / 100).toFixed(1)}% of the machine; maximum ${applied.processes} processes`]
+    : ['Monitored only; no enforced memory, CPU or process cap']),
     `Queue ceilings: ${applied.queueBytes} bytes / ${applied.queueItems} items`);
   else details.push('Applied limits: unavailable');
   if (queues) details.push(`Queues: ${queues.bytes} bytes / ${queues.items} items${queues.closed ? ' (closed)' : ''}; refusals: ${queues.refusals}`);

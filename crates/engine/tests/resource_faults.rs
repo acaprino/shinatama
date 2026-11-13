@@ -570,7 +570,7 @@ fn advisory_memory_allows_growth_and_keeps_the_same_child_responsive() {
     let slot = WorkloadSlot::new();
     let requested = JobBudget::new(16 * MIB, 8 * MIB, 1, 1000)
         .unwrap()
-        .with_advisory_memory();
+        .with_advisory_limits();
     let job = WorkloadJob::create(&slot, key(), requested).unwrap();
     let child = spawn(&job, &fixture, "advisory_memory", "advisory", None).unwrap();
     child.resume();
@@ -584,6 +584,29 @@ fn advisory_memory_allows_growth_and_keeps_the_same_child_responsive() {
         ping(&fixture, &mut sequence, &child);
     }
     finish(job, &child, &slot, false);
+}
+
+/// An interactive session's tool runs (`npm ci`, test runners) start more processes than
+/// its reservation. Windows must admit them; the native cap applies to background work only.
+#[test]
+fn advisory_limits_admit_children_beyond_the_reserved_process_count() {
+    let fixture = Fixture::new();
+    let sampler = WindowsSampler::new();
+    let slot = WorkloadSlot::new();
+    let requested = JobBudget::new(16 * MIB, 8 * MIB, 1, 1000)
+        .unwrap()
+        .with_advisory_limits();
+    let job = WorkloadJob::create(&slot, key(), requested).unwrap();
+    let first = spawn(&job, &fixture, "count", "first", None).unwrap();
+    first.resume();
+    receive(&fixture.root, "first-ready", WAIT);
+    let second = spawn(&job, &fixture, "count", "second", None)
+        .expect("an advisory job admits a child beyond its reserved process count");
+    second.resume();
+    receive(&fixture.root, "second-ready", WAIT);
+    assert_eq!(job.query(&sampler).unwrap().active_processes, 2);
+    finish(job, &first, &slot, true);
+    second.wait();
 }
 
 #[test]

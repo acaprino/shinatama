@@ -130,8 +130,8 @@ pub struct TerminalResourceObservation {
 pub struct TerminalResourceLimits {
     pub job_commit_bytes: u64,
     pub process_commit_bytes: u64,
-    /// False means the memory values are reservations, not Windows limits.
-    pub memory_limit_enforced: bool,
+    /// False means the memory, process and CPU values are reservations, not Windows limits.
+    pub limits_enforced: bool,
     pub processes: u32,
     pub cpu_basis_points: u16,
     pub queue_bytes: u64,
@@ -1315,7 +1315,7 @@ fn owner_worker(
         cached.applied = Some(TerminalResourceLimits {
             job_commit_bytes: budget.job_commit_bytes(),
             process_commit_bytes: budget.process_commit_bytes(),
-            memory_limit_enforced: budget.memory_limit_enforced(),
+            limits_enforced: budget.limits_enforced(),
             processes: budget.max_processes(),
             cpu_basis_points: budget.cpu_hard_cap_basis_points(),
             queue_bytes: workload.ticket().budget.queue_bytes,
@@ -1783,7 +1783,7 @@ mod tests {
             cache.applied = Some(TerminalResourceLimits {
                 job_commit_bytes: 512,
                 process_commit_bytes: 256,
-                memory_limit_enforced: true,
+                limits_enforced: true,
                 processes: 8,
                 cpu_basis_points: 1000,
                 queue_bytes: 4096,

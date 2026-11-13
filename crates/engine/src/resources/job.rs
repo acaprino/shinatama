@@ -14,7 +14,7 @@ pub struct JobBudget {
     process_commit_bytes: usize,
     max_processes: u32,
     cpu_hard_cap_basis_points: u16,
-    memory_limit_enforced: bool,
+    limits_enforced: bool,
 }
 
 impl JobBudget {
@@ -38,18 +38,19 @@ impl JobBudget {
                 .map_err(|_| JobError::InvalidBudget)?,
             max_processes,
             cpu_hard_cap_basis_points,
-            memory_limit_enforced: true,
+            limits_enforced: true,
         })
     }
-    /// Interactive sessions retain these memory values as advisory thresholds.
-    /// Windows must not reject their allocations because of a Shinatama quota.
-    /// Ownership, cleanup, process count and CPU containment remain unchanged.
-    pub fn with_advisory_memory(mut self) -> Self {
-        self.memory_limit_enforced = false;
+    /// Interactive sessions retain memory, process count and CPU as advisory thresholds.
+    /// Windows must not refuse their allocations or child processes, nor throttle their
+    /// CPU, because of a Shinatama quota: a coding agent runs builds, installs and test
+    /// runners that take dozens of processes. Ownership and kill-on-close cleanup remain.
+    pub fn with_advisory_limits(mut self) -> Self {
+        self.limits_enforced = false;
         self
     }
-    pub fn memory_limit_enforced(self) -> bool {
-        self.memory_limit_enforced
+    pub fn limits_enforced(self) -> bool {
+        self.limits_enforced
     }
     pub fn job_commit_bytes(self) -> u64 {
         self.job_commit_bytes as u64
@@ -370,18 +371,22 @@ mod native {
     }
     fn extended(budget: JobBudget) -> JOBOBJECT_EXTENDED_LIMIT_INFORMATION {
         let mut limits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
-        limits.BasicLimitInformation.LimitFlags =
-            JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_ACTIVE_PROCESS;
-        limits.BasicLimitInformation.ActiveProcessLimit = budget.max_processes;
-        if budget.memory_limit_enforced {
-            limits.BasicLimitInformation.LimitFlags |=
-                JOB_OBJECT_LIMIT_PROCESS_MEMORY | JOB_OBJECT_LIMIT_JOB_MEMORY;
+        limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        if budget.limits_enforced {
+            limits.BasicLimitInformation.LimitFlags |= JOB_OBJECT_LIMIT_ACTIVE_PROCESS
+                | JOB_OBJECT_LIMIT_PROCESS_MEMORY
+                | JOB_OBJECT_LIMIT_JOB_MEMORY;
+            limits.BasicLimitInformation.ActiveProcessLimit = budget.max_processes;
             limits.ProcessMemoryLimit = budget.process_commit_bytes;
             limits.JobMemoryLimit = budget.job_commit_bytes;
         }
         limits
     }
+    /// An advisory budget applies no rate control: the zero value turns it off.
     fn cpu_limit(budget: JobBudget) -> JOBOBJECT_CPU_RATE_CONTROL_INFORMATION {
+        if !budget.limits_enforced {
+            return JOBOBJECT_CPU_RATE_CONTROL_INFORMATION::default();
+        }
         JOBOBJECT_CPU_RATE_CONTROL_INFORMATION {
             ControlFlags: JOB_OBJECT_CPU_RATE_CONTROL_ENABLE | JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP,
             Anonymous: JOBOBJECT_CPU_RATE_CONTROL_INFORMATION_0 {
@@ -445,19 +450,23 @@ mod native {
                 let limits = extended(budget);
                 let cpu = cpu_limit(budget);
                 set(&handle, JobObjectExtendedLimitInformation, &limits)?;
-                set(&handle, JobObjectCpuRateControlInformation, &cpu)?;
+                if budget.limits_enforced {
+                    set(&handle, JobObjectCpuRateControlInformation, &cpu)?;
+                }
                 let actual: JOBOBJECT_EXTENDED_LIMIT_INFORMATION =
                     query(&handle, JobObjectExtendedLimitInformation)?;
                 let actual_cpu: JOBOBJECT_CPU_RATE_CONTROL_INFORMATION =
                     query(&handle, JobObjectCpuRateControlInformation)?;
                 if actual.BasicLimitInformation.LimitFlags
                     != limits.BasicLimitInformation.LimitFlags
-                    || actual.BasicLimitInformation.ActiveProcessLimit != budget.max_processes
+                    || actual.BasicLimitInformation.ActiveProcessLimit
+                        != limits.BasicLimitInformation.ActiveProcessLimit
                     || actual.JobMemoryLimit != limits.JobMemoryLimit
                     || actual.ProcessMemoryLimit != limits.ProcessMemoryLimit
                     || actual_cpu.ControlFlags != cpu.ControlFlags
-                    || unsafe { actual_cpu.Anonymous.CpuRate }
-                        != u32::from(budget.cpu_hard_cap_basis_points)
+                    || (budget.limits_enforced
+                        && unsafe { actual_cpu.Anonymous.CpuRate }
+                            != u32::from(budget.cpu_hard_cap_basis_points))
                 {
                     return Err(JobError::LimitsNotApplied);
                 }
@@ -1111,30 +1120,25 @@ mod native {
             assert_eq!(proof.job_key(), expected_key);
             assert_eq!(slot.state(), SlotState::Free);
         }
+        /// An interactive job owns and cleans up its processes and nothing else: Windows
+        /// must not refuse a child process, an allocation or CPU time for a Shinatama quota.
         #[test]
-        fn advisory_memory_job_keeps_ownership_and_non_memory_limits() {
-            let budget = budget().with_advisory_memory();
+        fn advisory_job_keeps_ownership_without_process_memory_or_cpu_caps() {
+            let budget = budget().with_advisory_limits();
             let slot = WorkloadSlot::new();
             let mut job = WorkloadJob::create(&slot, key(), budget).unwrap();
             let actual: JOBOBJECT_EXTENDED_LIMIT_INFORMATION =
                 query(job.handle(), JobObjectExtendedLimitInformation).unwrap();
             assert_eq!(
                 actual.BasicLimitInformation.LimitFlags,
-                JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_ACTIVE_PROCESS
+                JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
             );
             assert_eq!(actual.JobMemoryLimit, 0);
             assert_eq!(actual.ProcessMemoryLimit, 0);
-            assert_eq!(
-                actual.BasicLimitInformation.ActiveProcessLimit,
-                budget.max_processes()
-            );
+            assert_eq!(actual.BasicLimitInformation.ActiveProcessLimit, 0);
             let cpu: JOBOBJECT_CPU_RATE_CONTROL_INFORMATION =
                 query(job.handle(), JobObjectCpuRateControlInformation).unwrap();
-            assert_eq!(cpu.ControlFlags, cpu_limit(budget).ControlFlags);
-            assert_eq!(
-                unsafe { cpu.Anonymous.CpuRate },
-                u32::from(budget.cpu_hard_cap_basis_points())
-            );
+            assert_eq!(cpu.ControlFlags, 0);
             assert_eq!(job.budget(), budget);
             assert_eq!(
                 job.terminate_and_wait(Duration::ZERO).unwrap(),
@@ -1369,11 +1373,11 @@ mod native {
 mod tests {
     use super::*;
     #[test]
-    fn advisory_memory_preserves_thresholds_and_is_explicit() {
+    fn advisory_limits_preserve_thresholds_and_are_explicit() {
         let hard = JobBudget::new(1024, 512, 2, 1500).unwrap();
-        assert!(hard.memory_limit_enforced());
-        let advisory = hard.with_advisory_memory();
-        assert!(!advisory.memory_limit_enforced());
+        assert!(hard.limits_enforced());
+        let advisory = hard.with_advisory_limits();
+        assert!(!advisory.limits_enforced());
         assert_eq!(advisory.job_commit_bytes(), hard.job_commit_bytes());
         assert_eq!(advisory.process_commit_bytes(), hard.process_commit_bytes());
         assert_eq!(advisory.max_processes(), hard.max_processes());

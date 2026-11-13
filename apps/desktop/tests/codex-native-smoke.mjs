@@ -23,7 +23,7 @@ const output = resolve(workspace, '.prototype-evidence'); await mkdir(output, { 
 const PROMPT_A = 'SHINATAMA_UI_CODEX_PROMPT_A';
 const DUMMY_KEY = 'sk-shinatama-synthetic-codex-no-provider-key';
 const UUID_PATTERN = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
-const TRACKED_LIMITS = { jobCommitBytes: 1073741824, processCommitBytes: 805306368, memoryLimitEnforced: false, processes: 8,
+const TRACKED_LIMITS = { jobCommitBytes: 1073741824, processCommitBytes: 805306368, limitsEnforced: false, processes: 8,
   cpuBasisPoints: 1000, queueBytes: 4194304, queueItems: 512 };
 const evidence = { check: 'codex-native-tracking', status: 'running', stage: 'prepare', checks: {},
   scope: 'Actual Shinatama New session with real Codex 0.167.1, tracked hook recipe, ConPTY and UI against synthetic loopback credentials; every external provider route is refused by a forwarding-only guard. No account, no paid provider, no completed model turn. Proxy forwarding is guarded, not an OS firewall. Native Resume stays disabled; this proof covers StartNew identity capture only.' };

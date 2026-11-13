@@ -310,9 +310,12 @@ impl Approved {
         if !job.membership_complete {
             return TerminalDirective::Continue;
         }
-        // Memory is advisory for an interactive terminal, regardless of how
-        // much its program grows. Only unrelated containment limits remain.
-        if job.active_processes > self.native.max_processes()
+        // Memory, process count and CPU are advisory for an interactive terminal:
+        // a coding agent's `npm ci` or test run takes dozens of processes. Only the
+        // output queues, which bound Shinatama's own memory, stop the terminal.
+        let process_cap = self.native.limits_enforced()
+            && job.active_processes > self.native.max_processes();
+        if process_cap
             || queues.current_bytes > self.queue_bytes
             || queues.current_items > self.queue_items
         {
@@ -904,6 +907,58 @@ mod memory_tests {
         ));
         // Unrelated process/queue containment still works.
         job.active_processes = 9;
+        assert!(matches!(
+            record.directive(&job, queues),
+            TerminalDirective::StopResponsible
+        ));
+    }
+
+    /// A Claude Code session running `npm ci` was stopped mid-turn: its tool children took
+    /// the job past 16 processes. The process count of an interactive session is advisory.
+    #[test]
+    fn interactive_process_count_never_requests_a_stop_but_queues_still_do() {
+        let key = ProcessKey {
+            pid: 1,
+            created_at_100ns: 1,
+        };
+        let record = Approved {
+            key: OwnedJobKey {
+                job_key: [1; 16],
+                owner: key,
+                owner_windows_session_id: 1,
+            },
+            native: JobBudget::new(GIB, 768 * MIB, 16, 1000)
+                .unwrap()
+                .with_advisory_limits(),
+            queue_bytes: TERMINAL.queue_bytes,
+            queue_items: TERMINAL.queue_items,
+        };
+        let mut job = JobSnapshot {
+            active_processes: 40,
+            total_processes: 120,
+            total_terminated_processes: 80,
+            cpu_time_100ns: 0,
+            peak_job_commit_bytes: GIB,
+            observed_private_commit_bytes: GIB,
+            observed_resident_bytes: GIB,
+            membership_complete: true,
+            members: vec![],
+            processes: vec![],
+        };
+        let mut queues = QueueStatus {
+            closed: false,
+            current_bytes: 0,
+            current_items: 0,
+            peak_bytes: 0,
+            peak_items: 0,
+            refusals: 0,
+        };
+        assert!(matches!(
+            record.directive(&job, queues),
+            TerminalDirective::Continue
+        ));
+        job.active_processes = 1;
+        queues.current_items = TERMINAL.queue_items + 1;
         assert!(matches!(
             record.directive(&job, queues),
             TerminalDirective::StopResponsible
