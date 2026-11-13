@@ -44,13 +44,24 @@ pub struct Status {
     /// None until the configuration was read; true when it differs from what
     /// Shinatama writes.
     pub config_drift: Option<bool>,
+    /// The values read from the running process that differ from the baseline.
+    pub config_differences: Vec<ConfigDifference>,
     /// Requests the proxy is still answering; None while it is not running.
     pub in_flight: Option<u64>,
     /// Agent terminals alive right now. `status` cannot know it: the command
     /// layer fills it from the agents controller.
     pub agent_sessions: usize,
+    /// False when the count could not be read: the panel then asks before stopping.
+    pub agent_sessions_known: bool,
     /// When a requested drain stops waiting for in-flight requests.
     pub drain_deadline_unix_ms: Option<i64>,
+}
+/// One setting whose value in the running process is not the baseline.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct ConfigDifference {
+    pub setting: &'static str,
+    pub read: String,
+    pub baseline: String,
 }
 /// What a user-requested stop does while agent sessions may be live.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -59,24 +70,23 @@ pub enum StopDecision {
     Drain,
 }
 /// A stop that would cut live agents off needs an explicit `force`.
-fn decide_stop(agent_sessions: usize, force: bool) -> StopDecision {
-    if agent_sessions > 0 && !force {
+/// An unknown count is not "no sessions": it asks like a live one does.
+fn decide_stop(agent_sessions: Option<usize>, force: bool) -> StopDecision {
+    if agent_sessions.is_none_or(|count| count > 0) && !force {
         StopDecision::Refuse
     } else {
         StopDecision::Drain
     }
 }
-/// Only a ready, healthy proxy backs a new launch; a draining one never does.
-fn launch_allowed(phase: &str, healthy: bool) -> bool {
-    phase == "ready" && healthy
+/// Only a healthy proxy backs a new launch: ready, or busy with requests in
+/// flight (another agent is streaming). A draining one never does.
+pub(crate) fn launch_allowed(phase: &str, healthy: bool) -> bool {
+    matches!(phase, "ready" | "busy") && healthy
 }
 pub const STOPPING: &str = "The model proxy is stopping. Start it again before opening an agent.";
 pub enum StopOutcome {
     Draining(Status),
-    Refused {
-        agent_sessions: usize,
-        status: Status,
-    },
+    Refused { status: Status },
 }
 /// How long a worker waits for one admin read, and how often it retries an
 /// unknown one for the same process.
@@ -85,6 +95,46 @@ const RESOLVED_READ_ATTEMPTS: u8 = 3;
 /// `None` until the running process's configuration is known.
 fn drift(resolved: Option<&ResolvedBaseline>) -> Option<bool> {
     resolved.map(|resolved| *resolved != intended_baseline())
+}
+/// The settings of `resolved` that differ from what Shinatama writes; a value
+/// the process did not report is listed as such rather than as the baseline.
+fn config_differences(resolved: Option<&ResolvedBaseline>) -> Vec<ConfigDifference> {
+    let Some(resolved) = resolved else {
+        return Vec::new();
+    };
+    let baseline = intended_baseline();
+    let mut out = Vec::new();
+    fn check<T: PartialEq + std::fmt::Display>(
+        out: &mut Vec<ConfigDifference>,
+        setting: &'static str,
+        read: &Option<T>,
+        baseline: &Option<T>,
+    ) {
+        if read != baseline {
+            let show = |value: &Option<T>| {
+                value
+                    .as_ref()
+                    .map_or_else(|| "not reported".to_owned(), ToString::to_string)
+            };
+            out.push(ConfigDifference {
+                setting,
+                read: show(read),
+                baseline: show(baseline),
+            });
+        }
+    }
+    check(&mut out, "Prompt rewrite", &resolved.prompt_rewrite_mode, &baseline.prompt_rewrite_mode);
+    check(&mut out, "Tiers", &resolved.tiers, &baseline.tiers);
+    check(&mut out, "Absorb", &resolved.absorb_enabled, &baseline.absorb_enabled);
+    check(&mut out, "Absorb minimum tool tokens", &resolved.absorb_min_tool_tokens, &baseline.absorb_min_tool_tokens);
+    check(&mut out, "Large-result storage", &resolved.ccr_enabled, &baseline.ccr_enabled);
+    check(&mut out, "Large-result storage minimum tool tokens", &resolved.ccr_min_tool_tokens, &baseline.ccr_min_tool_tokens);
+    check(&mut out, "Adaptive pressure", &resolved.adaptive_enabled, &baseline.adaptive_enabled);
+    check(&mut out, "Adaptive pressure maximum tokens", &resolved.adaptive_max_tokens, &baseline.adaptive_max_tokens);
+    check(&mut out, "Output steering", &resolved.steering_enabled, &baseline.steering_enabled);
+    check(&mut out, "Verbosity level", &resolved.verbosity_level, &baseline.verbosity_level);
+    check(&mut out, "Effort routing", &resolved.effort_routing, &baseline.effort_routing);
+    out
 }
 pub struct Controller {
     services: Arc<Services>,
@@ -178,6 +228,7 @@ impl Controller {
         Status {
             in_flight: observation.as_ref().and_then(|snapshot| snapshot.in_flight),
             agent_sessions: 0,
+            agent_sessions_known: true,
             drain_deadline_unix_ms: observation
                 .as_ref()
                 .and_then(|snapshot| snapshot.drain_deadline_unix_ms),
@@ -190,6 +241,7 @@ impl Controller {
             observation,
             prepared_identity: self.identity.get().cloned(),
             config_drift: drift(resolved.as_ref()),
+            config_differences: config_differences(resolved.as_ref()),
             resolved,
         }
     }
@@ -250,16 +302,16 @@ impl Controller {
     /// otherwise lets in-flight requests finish before the process stops.
     pub fn stop_requested_by_user(
         &self,
-        agent_sessions: usize,
+        agent_sessions: Option<usize>,
         force: bool,
     ) -> Result<StopOutcome, &'static str> {
         let with_sessions = |mut status: Status| {
-            status.agent_sessions = agent_sessions;
+            status.agent_sessions = agent_sessions.unwrap_or(0);
+            status.agent_sessions_known = agent_sessions.is_some();
             status
         };
         match decide_stop(agent_sessions, force) {
             StopDecision::Refuse => Ok(StopOutcome::Refused {
-                agent_sessions,
                 status: with_sessions(self.status()),
             }),
             StopDecision::Drain => {
@@ -689,17 +741,42 @@ mod tests {
     }
 
     #[test]
+    fn differences_name_the_values_read_from_the_process() {
+        assert!(config_differences(None).is_empty());
+        let mut resolved = intended_baseline();
+        assert!(config_differences(Some(&resolved)).is_empty());
+        resolved.verbosity_level = Some(3);
+        resolved.effort_routing = Some(true);
+        resolved.ccr_min_tool_tokens = None;
+        let found = config_differences(Some(&resolved));
+        let line = |setting: &str| {
+            let item = found.iter().find(|item| item.setting == setting).expect(setting);
+            (item.read.as_str(), item.baseline.as_str())
+        };
+        assert_eq!(found.len(), 3);
+        assert_eq!(line("Verbosity level"), ("3", "2"));
+        assert_eq!(line("Effort routing"), ("true", "false"));
+        assert_eq!(line("Large-result storage minimum tool tokens"), ("not reported", "4000"));
+    }
+
+    #[test]
     fn stop_is_refused_while_agents_are_live_unless_forced() {
-        assert_eq!(decide_stop(2, false), StopDecision::Refuse);
-        assert_eq!(decide_stop(2, true), StopDecision::Drain);
-        assert_eq!(decide_stop(0, false), StopDecision::Drain);
-        assert_eq!(decide_stop(0, true), StopDecision::Drain);
+        assert_eq!(decide_stop(Some(2), false), StopDecision::Refuse);
+        assert_eq!(decide_stop(Some(2), true), StopDecision::Drain);
+        assert_eq!(decide_stop(Some(0), false), StopDecision::Drain);
+        assert_eq!(decide_stop(Some(0), true), StopDecision::Drain);
+        // An unreadable count (no agents controller yet, poisoned registry) fails closed.
+        assert_eq!(decide_stop(None, false), StopDecision::Refuse);
+        assert_eq!(decide_stop(None, true), StopDecision::Drain);
     }
 
     #[test]
     fn draining_owner_issues_no_launch_permit() {
         assert!(!launch_allowed("draining", true));
         assert!(launch_allowed("ready", true));
+        // A streaming response keeps the proxy busy; opening another agent must still pass.
+        assert!(launch_allowed("busy", true));
+        assert!(!launch_allowed("busy", false));
         assert!(!launch_allowed("ready", false));
         assert!(!launch_allowed("stopped", true));
     }

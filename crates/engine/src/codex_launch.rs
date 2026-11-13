@@ -14,7 +14,7 @@ use crate::{
         NativeAdmissionProfile, NativeLaunchBinding, NativeLaunchError, NativeLaunchPins,
         NativeProgramIdentity, NativeTrialReceipt, NativeTrialTracker, NativeTuiPermit,
     },
-    sidecar_supervisor::{Phase, SidecarSupervisor},
+    sidecar_supervisor::SidecarSupervisor,
 };
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -980,13 +980,7 @@ fn verify_sidecar(sidecar: &SidecarSupervisor) -> Result<(), CodexLaunchError> {
         .duration_since(UNIX_EPOCH)
         .map_err(|_| CodexLaunchError::SidecarUnavailable)?
         .as_millis() as i64;
-    if status.phase != Phase::Ready
-        || !status.healthy
-        || status.process_alive != Some(true)
-        || status
-            .observed_at_unix_ms
-            .is_none_or(|at| at > now || now - at > 10_000)
-    {
+    if !status.backs_launch(now) {
         return Err(CodexLaunchError::SidecarUnavailable);
     }
     Ok(())

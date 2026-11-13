@@ -308,8 +308,8 @@ impl Controller {
             host,
         }
     }
-    /// Agent terminals whose process is alive right now.
-    pub fn live_agent_sessions(&self) -> usize {
+    /// Agent terminals whose process is alive right now; None when unreadable.
+    pub fn live_agent_sessions(&self) -> Option<usize> {
         self.host.live_native_sessions()
     }
     fn registered(&self, id: &str) -> Result<Arc<RegisteredService>, &'static str> {

@@ -12,7 +12,7 @@ use crate::{
         NativeAdmissionProfile, NativeLaunchBinding, NativeLaunchError, NativeLaunchPins,
         NativeTrialReceipt, NativeTrialTracker, NativeTuiPermit,
     },
-    sidecar_supervisor::{Phase, SidecarSupervisor},
+    sidecar_supervisor::SidecarSupervisor,
 };
 use serde_json::Value;
 use shinatama_adapter::{
@@ -846,13 +846,7 @@ fn verify_sidecar(sidecar: &SidecarSupervisor) -> Result<(), ClaudeLaunchError> 
         .duration_since(UNIX_EPOCH)
         .map_err(|_| ClaudeLaunchError::SidecarUnavailable)?
         .as_millis() as i64;
-    if status.phase != Phase::Ready
-        || !status.healthy
-        || status.process_alive != Some(true)
-        || status
-            .observed_at_unix_ms
-            .is_none_or(|at| at > now || now - at > 10_000)
-    {
+    if !status.backs_launch(now) {
         return Err(ClaudeLaunchError::SidecarUnavailable);
     }
     Ok(())

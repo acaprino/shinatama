@@ -4,7 +4,12 @@ export type ProxyStatus = {
   inFlight: number | null; agentSessions: number;
   drainDeadlineUnixMs: number | null; configDrift: boolean | null;
   refused?: boolean;
+  /** Absent when the backend sent none: an older reply is still a valid reply. */
+  agentSessionsKnown?: boolean;
+  /** The values read from the running process that differ from the baseline. */
+  configDifferences?: ConfigDifference[];
 };
+export type ConfigDifference = { setting: string; read: string; baseline: string };
 
 const LABELS: Record<string, string> = {
   stopped: 'Stopped', preparing: 'Preparing…', starting: 'Starting…', ready: 'Ready',
@@ -14,7 +19,23 @@ const LABELS: Record<string, string> = {
 const RUNNING = ['starting', 'ready', 'busy', 'draining', 'degraded', 'recovering'];
 const DOWN = ['stopped', 'failed', 'retired', 'unavailable'];
 const MESSAGE_LIMIT = 400;
+const DIFFERENCE_LIMIT = 16;
+const DIFFERENCE_TEXT_LIMIT = 80;
 const isCount = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value >= 0;
+
+function parseDifferences(value: unknown): ConfigDifference[] | null {
+  if (!Array.isArray(value) || value.length > DIFFERENCE_LIMIT) return null;
+  const out: ConfigDifference[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+    const { setting, read, baseline } = item as Record<string, unknown>;
+    for (const text of [setting, read, baseline]) {
+      if (typeof text !== 'string' || text.length === 0 || text.length > DIFFERENCE_TEXT_LIMIT) return null;
+    }
+    out.push({ setting: setting as string, read: read as string, baseline: baseline as string });
+  }
+  return out;
+}
 
 /** The accepted shape of a status reply, or null: a reply is never half-trusted. */
 export function parseStatus(value: unknown): ProxyStatus | null {
@@ -26,11 +47,16 @@ export function parseStatus(value: unknown): ProxyStatus | null {
   if (!(raw.drainDeadlineUnixMs === null || (typeof raw.drainDeadlineUnixMs === 'number' && Number.isFinite(raw.drainDeadlineUnixMs)))) return null;
   if (!(raw.configDrift === null || typeof raw.configDrift === 'boolean')) return null;
   if (raw.refused !== undefined && typeof raw.refused !== 'boolean') return null;
+  if (raw.agentSessionsKnown !== undefined && typeof raw.agentSessionsKnown !== 'boolean') return null;
+  const differences = raw.configDifferences === undefined ? undefined : parseDifferences(raw.configDifferences);
+  if (differences === null) return null;
   const status: ProxyStatus = {
     phase: raw.phase, healthy: raw.healthy, message: raw.message, inFlight: raw.inFlight, agentSessions: raw.agentSessions,
     drainDeadlineUnixMs: raw.drainDeadlineUnixMs, configDrift: raw.configDrift,
   };
   if (raw.refused !== undefined) status.refused = raw.refused;
+  if (raw.agentSessionsKnown !== undefined) status.agentSessionsKnown = raw.agentSessionsKnown;
+  if (differences !== undefined) status.configDifferences = differences;
   return status;
 }
 
@@ -57,6 +83,10 @@ export function startLabel(status: ProxyStatus | null): string {
 
 /** What stopping would cost, or null when no confirmation is needed. */
 export function stopConsequence(status: ProxyStatus): string | null {
+  // An unreadable count is not "no agents": ask, as for a live one.
+  if (status.agentSessionsKnown === false) {
+    return 'Open agent sessions could not be counted, so stopping may cut them off from the model. Requests already running are allowed to finish.';
+  }
   const n = status.agentSessions;
   return n > 0 ? `${n} agent session${n === 1 ? '' : 's'} will lose the connection to the model. Requests already running are allowed to finish.` : null;
 }
@@ -68,8 +98,14 @@ export function trafficLine(status: ProxyStatus): string {
   return n === 0 ? 'No request running' : `${n} request${n === 1 ? '' : 's'} running`;
 }
 
+const DRIFT_SHOWN = 4;
 export function driftLine(status: ProxyStatus): string | null {
-  return status.configDrift === true ? 'Custom configuration: values differ from the Shinatama baseline.' : null;
+  if (status.configDrift !== true) return null;
+  const found = status.configDifferences ?? [];
+  if (found.length === 0) return 'Custom configuration: values differ from the Shinatama baseline.';
+  const shown = found.slice(0, DRIFT_SHOWN).map((item) => `${item.setting} ${item.read} (baseline ${item.baseline})`);
+  const more = found.length > DRIFT_SHOWN ? `; and ${found.length - DRIFT_SHOWN} more` : '';
+  return `Custom configuration: ${shown.join('; ')}${more}.`;
 }
 
 /** Traffic is meaningful only while the proxy is up in some form. */

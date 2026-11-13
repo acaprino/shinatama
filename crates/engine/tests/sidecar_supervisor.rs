@@ -743,6 +743,11 @@ fn qualify(fixture: &Fixture) -> ProofResult<Value> {
             Phase::Busy,
             |value| value.phase == Phase::Busy && !value.healthy && value.port_held == Some(true),
         )?;
+        // The last healthy reading (0 in flight) must not outlive the failed probe.
+        check(
+            busy.in_flight.is_none(),
+            "a failed health probe kept the old inFlight reading",
+        )?;
         thread::sleep(Duration::from_millis(200));
         let fresh = supervisor.status().ok_or("busy snapshot unavailable")?;
         check(

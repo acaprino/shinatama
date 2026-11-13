@@ -63,6 +63,34 @@ test('drift is stated only when it is known to be true', () => {
   assert.equal(driftLine(status({ configDrift: false })), null);
   assert.equal(driftLine(status({ configDrift: null })), null);
 });
+test('drift names the values read from the process', () => {
+  const one = [{ setting: 'Verbosity level', read: '3', baseline: '2' }];
+  assert.equal(driftLine(status({ configDrift: true, configDifferences: one })),
+    'Custom configuration: Verbosity level 3 (baseline 2).');
+  const six = Array.from({ length: 6 }, (_, i) => ({ setting: `S${i}`, read: 'x', baseline: 'y' }));
+  assert.equal(driftLine(status({ configDrift: true, configDifferences: six })),
+    'Custom configuration: S0 x (baseline y); S1 x (baseline y); S2 x (baseline y); S3 x (baseline y); and 2 more.');
+  assert.equal(driftLine(status({ configDrift: false, configDifferences: one })), null);
+  const parsed = parseStatus({ phase: 'ready', healthy: true, message: null, inFlight: 0, agentSessions: 0,
+    drainDeadlineUnixMs: null, configDrift: true, configDifferences: one });
+  assert.deepEqual(parsed?.configDifferences, one);
+  for (const bad of [{ configDifferences: 'x' }, { configDifferences: [{ setting: 'a', read: 1, baseline: 'b' }] },
+    { configDifferences: [null] }, { configDifferences: Array.from({ length: 17 }, () => one[0]) }]) {
+    assert.equal(parseStatus({ phase: 'ready', healthy: true, message: null, inFlight: 0, agentSessions: 0,
+      drainDeadlineUnixMs: null, configDrift: true, ...bad }), null, JSON.stringify(bad));
+  }
+});
+test('an unreadable agent count asks before stopping', () => {
+  const unknown = status({ agentSessions: 0, agentSessionsKnown: false });
+  assert.match(stopConsequence(unknown)!, /could not be counted/);
+  assert.equal(confirmStillNeeded(unknown), true);
+  assert.equal(stopConsequence(status({ agentSessions: 0, agentSessionsKnown: true })), null);
+  const parsed = parseStatus({ phase: 'ready', healthy: true, message: null, inFlight: 0, agentSessions: 0,
+    drainDeadlineUnixMs: null, configDrift: null, agentSessionsKnown: false });
+  assert.equal(parsed?.agentSessionsKnown, false);
+  assert.equal(parseStatus({ phase: 'ready', healthy: true, message: null, inFlight: 0, agentSessions: 0,
+    drainDeadlineUnixMs: null, configDrift: null, agentSessionsKnown: 'no' }), null);
+});
 test('traffic is shown only while the proxy is up in some form', () => {
   for (const phase of ['starting', 'ready', 'busy', 'draining', 'degraded', 'recovering']) assert.equal(showsTraffic(phase), true, phase);
   for (const phase of ['stopped', 'preparing', 'failed', 'retired', 'unavailable', 'nonsense']) assert.equal(showsTraffic(phase), false, phase);

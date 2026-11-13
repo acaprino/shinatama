@@ -13,7 +13,7 @@ use crate::{
         NativeProgramIdentity, NativeTrialReceipt, NativeTrialTracker, NativeTuiPermit,
     },
     opencode_probe::{OpenCodeProbeOutcome, ProbeCleanup},
-    sidecar_supervisor::{Phase, SidecarSupervisor},
+    sidecar_supervisor::SidecarSupervisor,
 };
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -677,13 +677,7 @@ fn verify_sidecar(sidecar: &SidecarSupervisor) -> Result<(), OpenCodeLaunchError
         .duration_since(UNIX_EPOCH)
         .map_err(|_| OpenCodeLaunchError::SidecarUnavailable)?
         .as_millis() as i64;
-    if status.phase != Phase::Ready
-        || !status.healthy
-        || status.process_alive != Some(true)
-        || status
-            .observed_at_unix_ms
-            .is_none_or(|at| at > now || now - at > 10_000)
-    {
+    if !status.backs_launch(now) {
         return Err(OpenCodeLaunchError::SidecarUnavailable);
     }
     Ok(())

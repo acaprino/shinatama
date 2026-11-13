@@ -744,6 +744,49 @@ fn drain_lets_a_running_stream_finish() {
 
 #[test]
 #[ignore = "native: starts the pinned sidecar"]
+fn a_launch_check_passes_while_another_response_streams() {
+    let sidecar = Running::start().expect("start the pinned sidecar");
+    let origin = Origin::start(&sidecar, 3000).expect("start the synthetic origin");
+    let session = new_session();
+    let probe = probe(&origin, &session, &[], "Scrivi una frase.", None);
+    let mut streaming = Streaming::open(sidecar.port, &probe).expect("open the stream");
+    streaming
+        .read_until("message_start", Duration::from_secs(30))
+        .expect("first SSE byte");
+    // The health tick sets Busy once it reads inFlight > 0; that must not close the launch gate.
+    let busy = Running::wait_status(
+        &sidecar.supervisor,
+        Duration::from_secs(10),
+        Phase::Busy,
+        |s| s.healthy && s.in_flight.is_some_and(|n| n > 0),
+    )
+    .expect("the owner reports Busy while the response streams");
+    let unix_ms = || {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_millis() as i64
+    };
+    assert!(
+        busy.backs_launch(unix_ms()),
+        "a launch check must pass while another agent streams: {busy:?}"
+    );
+    let (bytes, _) = streaming
+        .finish(Duration::from_secs(30))
+        .expect("the stream ends");
+    assert!(String::from_utf8_lossy(&bytes).contains("message_stop"));
+    let idle = Running::wait_status(
+        &sidecar.supervisor,
+        Duration::from_secs(10),
+        Phase::Ready,
+        |s| s.healthy && s.in_flight == Some(0),
+    )
+    .expect("the owner is Ready again after the stream");
+    assert!(idle.backs_launch(unix_ms()));
+}
+
+#[test]
+#[ignore = "native: starts the pinned sidecar"]
 fn killed_sidecar_never_replays_the_interrupted_request() {
     let sidecar = Running::start().expect("start the pinned sidecar");
     let origin = Origin::start(&sidecar, 3000).expect("start the synthetic origin");

@@ -514,9 +514,11 @@ fn sidecar_report(
     window: &tauri::WebviewWindow,
     mut status: sidecar::Status,
 ) -> Result<serde_json::Value, String> {
-    if let Some(agents) = window.try_state::<Arc<agents::Controller>>() {
-        status.agent_sessions = agents.live_agent_sessions();
-    }
+    let count = window
+        .try_state::<Arc<agents::Controller>>()
+        .and_then(|agents| agents.live_agent_sessions());
+    status.agent_sessions = count.unwrap_or(0);
+    status.agent_sessions_known = count.is_some();
     serde_json::to_value(status).map_err(|_| "Model proxy status is unavailable.".into())
 }
 #[tauri::command]
@@ -550,19 +552,13 @@ fn sidecar_stop(window: tauri::WebviewWindow, force: bool) -> Result<serde_json:
     {
         let agent_sessions = window
             .try_state::<Arc<agents::Controller>>()
-            .map_or(0, |agents| agents.live_agent_sessions());
+            .and_then(|agents| agents.live_agent_sessions());
         let outcome = ready::<sidecar::Controller>(&window)?
             .stop_requested_by_user(agent_sessions, force)
             .map_err(str::to_owned)?;
         let (status, refused) = match outcome {
             sidecar::StopOutcome::Draining(status) => (status, false),
-            sidecar::StopOutcome::Refused {
-                agent_sessions,
-                mut status,
-            } => {
-                status.agent_sessions = agent_sessions;
-                (status, true)
-            }
+            sidecar::StopOutcome::Refused { status } => (status, true),
         };
         let mut value = serde_json::to_value(status)
             .map_err(|_| "Model proxy status is unavailable.".to_owned())?;

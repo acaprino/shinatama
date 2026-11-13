@@ -251,7 +251,7 @@ impl ServiceContext {
                     .as_ref()
                     .and_then(|value| value.observed_at_unix_ms)
                     != observed;
-            if status.phase == "ready" && status.healthy {
+            if sidecar::launch_allowed(status.phase, status.healthy) {
                 return self
                     .sidecar
                     .qualified_owner()

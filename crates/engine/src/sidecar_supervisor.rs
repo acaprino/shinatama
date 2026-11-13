@@ -136,6 +136,27 @@ pub struct Snapshot {
     pub port_held: Option<bool>,
     pub health_probe_delay_ms: u64,
 }
+impl Phase {
+    /// Phases in which a healthy proxy backs a new launch. Busy is a healthy
+    /// proxy with requests in flight (another agent is streaming); it must not
+    /// block opening a second agent. A Busy that came from a missed health
+    /// response carries `healthy == false` and is refused by `Snapshot::backs_launch`.
+    pub fn backs_launch(self) -> bool {
+        matches!(self, Phase::Ready | Phase::Busy)
+    }
+}
+impl Snapshot {
+    /// The one launch gate: a live, healthy, freshly observed owner in a phase
+    /// that `Phase::backs_launch` accepts.
+    pub fn backs_launch(&self, now_unix_ms: i64) -> bool {
+        self.phase.backs_launch()
+            && self.healthy
+            && self.process_alive == Some(true)
+            && self
+                .observed_at_unix_ms
+                .is_some_and(|at| at <= now_unix_ms && now_unix_ms - at <= 10_000)
+    }
+}
 pub struct SupervisorConfig {
     pub port: NonZeroU16,
     pub poll_period: Duration,
@@ -630,6 +651,8 @@ impl<P: WorkloadProvider> Worker<P> {
                 Reason::None,
             );
         } else {
+            // No fresh reading: an old count must not survive a failed probe.
+            self.snapshot.in_flight = None;
             // The process may have exited DURING the bounded HTTP attempt.
             // Only this exact handle can establish death; health/bind cannot.
             match running.process.try_wait() {
@@ -1371,6 +1394,52 @@ mod tests {
     use super::test_support::{StatusServer, server};
     use super::*;
     use std::net::TcpListener;
+
+    fn launch_snapshot(phase: Phase, healthy: bool, now: i64) -> Snapshot {
+        Snapshot {
+            phase,
+            reason: Reason::None,
+            activity: Activity::Idle,
+            process_alive: Some(true),
+            healthy,
+            restart_used: false,
+            stdout_bytes: 0,
+            stderr_bytes: 0,
+            observed_at_unix_ms: Some(now - 100),
+            pid: Some(7),
+            in_flight: Some(1),
+            drain_deadline_unix_ms: None,
+            resource_limit: None,
+            port_held: None,
+            health_probe_delay_ms: 250,
+        }
+    }
+    #[test]
+    fn busy_backs_a_launch_when_the_proxy_is_healthy_and_fresh() {
+        let now = 1_000_000;
+        assert!(launch_snapshot(Phase::Ready, true, now).backs_launch(now));
+        // Another agent's response is streaming: the proxy is healthy and Busy.
+        assert!(launch_snapshot(Phase::Busy, true, now).backs_launch(now));
+        // Busy from a missed health response is not healthy, so it never backs a launch.
+        assert!(!launch_snapshot(Phase::Busy, false, now).backs_launch(now));
+        for phase in [
+            Phase::Stopped,
+            Phase::Starting,
+            Phase::Draining,
+            Phase::Degraded,
+            Phase::Recovering,
+            Phase::Failed,
+            Phase::Retired,
+        ] {
+            assert!(!launch_snapshot(phase, true, now).backs_launch(now));
+        }
+        let mut stale = launch_snapshot(Phase::Busy, true, now);
+        stale.observed_at_unix_ms = Some(now - 10_001);
+        assert!(!stale.backs_launch(now));
+        let mut dead = launch_snapshot(Phase::Busy, true, now);
+        dead.process_alive = Some(false);
+        assert!(!dead.backs_launch(now));
+    }
     #[test]
     fn live_owner_with_occupied_port_stays_busy_and_probe_backoff_caps_and_recovers() {
         let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
