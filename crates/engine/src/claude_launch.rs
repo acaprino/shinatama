@@ -8,6 +8,7 @@ use crate::{
     claude_probe::{ClaudeProbeOutcome, ProbeCleanup},
     claude_session_events::ClaudeSessionEventReceiver,
     launch::{LaunchInputs, PreparedLaunch, compose_launch, identity::LaunchIdentity},
+    launch_policy::LaunchPolicy,
     native_launch::{
         NativeAdmissionProfile, NativeLaunchBinding, NativeLaunchError, NativeLaunchPins,
         NativeTrialReceipt, NativeTrialTracker, NativeTuiPermit,
@@ -613,6 +614,16 @@ fn prepare(
     } else {
         read_settings(context.private_home.paths().home().join("settings.json"))?
     };
+    // Qualification trials stay on the fixed recipe; only a real session honours
+    // the user's launch policy.
+    let policy = if trial {
+        LaunchPolicy::default()
+    } else {
+        crate::launch_policy::current()
+    };
+    if policy.full_access() {
+        apply_full_access(&mut settings)?;
+    }
     let session_events = if let Some(helper_path) = trusted_hook_exe {
         let mut helper = pin_session_hook(helper_path, deadline)?;
         let receiver = ClaudeSessionEventReceiver::start(identity.record(), &project)
@@ -749,17 +760,7 @@ fn prepare(
     for name in ["NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE"] {
         set(&mut environment, name, ca.as_os_str().to_owned());
     }
-    for name in [
-        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
-        "DISABLE_AUTOUPDATER",
-        "DISABLE_UPDATES",
-        "DISABLE_TELEMETRY",
-        "DISABLE_ERROR_REPORTING",
-        "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL",
-        "CLAUDE_CODE_SKIP_MCP_DEBUG_LOG_FILES",
-    ] {
-        set(&mut environment, name, "1".into());
-    }
+    configure_child_switches(&mut environment);
     configure_safe_mode(&mut environment, tracked);
     set(
         &mut environment,
@@ -776,6 +777,7 @@ fn prepare(
             .as_os_str()
             .to_owned(),
     );
+    policy.apply_environment(&mut environment);
     let descriptor = descriptor(&version, operation, recipe)?;
     let mode = Placement::new(ProgramPlacement::System, HomePlacement::Box)
         .map_err(|_| ClaudeLaunchError::Composition)?;
@@ -962,6 +964,42 @@ fn evidence(
 fn set(environment: &mut BTreeMap<OsString, OsString>, name: &str, value: OsString) {
     environment.retain(|key, _| !key.eq_ignore_ascii_case(name));
     environment.insert(name.into(), value);
+}
+/// Full access: Claude starts in bypass-permissions mode and never shows its
+/// one-time confirmation. This lives in the per-instance settings file, so the
+/// qualified argv stays what it was proved as.
+fn apply_full_access(settings: &mut Value) -> Result<(), ClaudeLaunchError> {
+    let object = settings
+        .as_object_mut()
+        .ok_or(ClaudeLaunchError::Configuration)?;
+    let permissions = object
+        .entry("permissions")
+        .or_insert_with(|| serde_json::json!({}))
+        .as_object_mut()
+        .ok_or(ClaudeLaunchError::Configuration)?;
+    permissions.insert("defaultMode".into(), "bypassPermissions".into());
+    object.insert("skipDangerousModePermissionPrompt".into(), true.into());
+    Ok(())
+}
+/// Child-only switches: updates, telemetry, error reporting and marketplace
+/// auto-install stay off. `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` is
+/// removed, even when the parent process has it: Claude Code makes Remote
+/// Control unavailable while it is present, and the switches above already
+/// cover what this launcher needs quiet.
+fn configure_child_switches(environment: &mut BTreeMap<OsString, OsString>) {
+    environment.retain(|name, _| {
+        !name.eq_ignore_ascii_case("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC")
+    });
+    for name in [
+        "DISABLE_AUTOUPDATER",
+        "DISABLE_UPDATES",
+        "DISABLE_TELEMETRY",
+        "DISABLE_ERROR_REPORTING",
+        "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL",
+        "CLAUDE_CODE_SKIP_MCP_DEBUG_LOG_FILES",
+    ] {
+        set(environment, name, "1".into());
+    }
 }
 fn configure_safe_mode(environment: &mut BTreeMap<OsString, OsString>, tracked: bool) {
     if tracked {
@@ -1392,6 +1430,55 @@ mod tests {
             );
         }
         assert!(session_hook_command(Path::new(r"C:\Shinatama\shinatama-hook.exe"), 0).is_err());
+    }
+    #[test]
+    fn full_access_sets_bypass_mode_and_keeps_the_other_permissions() {
+        let mut settings = serde_json::json!({
+            "permissions": {"defaultMode": "default", "deny": ["Bash(rm -rf /)"]},
+            "hooks": {}
+        });
+        apply_full_access(&mut settings).unwrap();
+        assert_eq!(settings["permissions"]["defaultMode"], "bypassPermissions");
+        assert_eq!(settings["permissions"]["deny"][0], "Bash(rm -rf /)");
+        assert_eq!(settings["skipDangerousModePermissionPrompt"], true);
+        assert!(settings["hooks"].is_object());
+
+        let mut empty = serde_json::json!({});
+        apply_full_access(&mut empty).unwrap();
+        assert_eq!(empty["permissions"]["defaultMode"], "bypassPermissions");
+
+        for bad in [serde_json::json!([]), serde_json::json!({"permissions": 3})] {
+            let mut bad = bad;
+            assert!(matches!(
+                apply_full_access(&mut bad),
+                Err(ClaudeLaunchError::Configuration)
+            ));
+        }
+    }
+    #[test]
+    fn claude_child_switches_keep_remote_control_available() {
+        let mut environment = BTreeMap::from([
+            (
+                OsString::from("claude_code_disable_nonessential_traffic"),
+                OsString::from("1"),
+            ),
+            (OsString::from("PATH"), OsString::from("keep")),
+        ]);
+        configure_child_switches(&mut environment);
+        assert!(!environment.keys().any(|name| {
+            name.eq_ignore_ascii_case("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC")
+        }));
+        assert_eq!(environment.get(&OsString::from("PATH")).unwrap(), "keep");
+        for name in [
+            "DISABLE_AUTOUPDATER",
+            "DISABLE_UPDATES",
+            "DISABLE_TELEMETRY",
+            "DISABLE_ERROR_REPORTING",
+            "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL",
+            "CLAUDE_CODE_SKIP_MCP_DEBUG_LOG_FILES",
+        ] {
+            assert_eq!(environment.get(&OsString::from(name)).unwrap(), "1", "{name}");
+        }
     }
     #[test]
     fn tracked_claude_profile_changes_only_safe_mode_and_keeps_fixed_limits() {

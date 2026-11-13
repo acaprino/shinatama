@@ -73,6 +73,15 @@ e hop restano distinti: non sono certificati dalla sola apertura della TUI.
 - Riga di comando in `cli\shinatama.exe`: `sessions`, `find`, `export`, `forget`,
   `check-state` (integrità e ricerca di credenziali nei dati di Shinatama, senza mai stamparle)
   e `mcp` (gli strumenti di messaggistica tra istanze).
+- **Settings** (menu ⋯): **Full access** avvia gli agenti senza le loro protezioni (Claude in
+  bypass-permissions senza conferma, Codex senza sandbox né approvazioni, OpenCode con ogni
+  strumento consentito); è attivo di default e vale per le sessioni aperte dopo il salvataggio.
+  Attenzione: la home privata separa le impostazioni e gli accessi degli agenti, non confina i
+  loro file. Nello stesso pannello puoi salvare il **token GitHub** (non la password: GitHub
+  non la accetta più) e **variabili d'ambiente**. Gli agenti ricevono `GH_TOKEN` e una
+  credenziale Git per github.com, quindi `git push` e `gh` non chiedono nulla. I segreti sono
+  cifrati per il tuo utente Windows e non tornano mai nella pagina; ogni agente avviato può
+  però leggerli.
 
 ## Marionette
 

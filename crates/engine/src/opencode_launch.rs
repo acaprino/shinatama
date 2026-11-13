@@ -8,6 +8,7 @@ use crate::{
     launch::{
         LaunchInputs, LaunchIssueCode, PreparedLaunch, compose_launch, identity::LaunchIdentity,
     },
+    launch_policy::LaunchPolicy,
     native_launch::{
         NativeAdmissionProfile, NativeLaunchBinding, NativeLaunchError, NativeLaunchPins,
         NativeProgramIdentity, NativeTrialReceipt, NativeTrialTracker, NativeTuiPermit,
@@ -170,6 +171,16 @@ pub struct PreparedOpenCodeStart {
 
 fn fixed_arguments() -> Vec<OsString> {
     vec!["--standalone".into()]
+}
+
+/// The inline config of a real session. Full access adds one allow-all rule so
+/// no tool asks; without it OpenCode keeps its own native permission prompts.
+fn config_content(full_access: bool) -> &'static str {
+    if full_access {
+        r#"{"update":"disable","share":"disabled","permissions":[{"action":"*","resource":"*","effect":"allow"}]}"#
+    } else {
+        r#"{"update":"disable","share":"disabled"}"#
+    }
 }
 
 /// This is the fixed finite trial profile, not inferred from a growing
@@ -599,10 +610,17 @@ fn prepare(
         "OPENCODE_CONFIG_DIR",
         config_directory.into_os_string(),
     );
+    // Qualification trials stay on the fixed recipe; only a real session honours
+    // the user's launch policy.
+    let policy = if trial {
+        LaunchPolicy::default()
+    } else {
+        crate::launch_policy::current()
+    };
     set(
         &mut environment,
         "OPENCODE_CONFIG_CONTENT",
-        r#"{"update":"disable","share":"disabled"}"#.into(),
+        config_content(policy.full_access()).into(),
     );
     for name in [
         "OPENCODE_DISABLE_PROJECT_CONFIG",
@@ -617,6 +635,7 @@ fn prepare(
             "1".into(),
         );
     }
+    policy.apply_environment(&mut environment);
     let descriptor = descriptor(&version)?;
     let mode = Placement::new(ProgramPlacement::System, HomePlacement::Box)
         .map_err(|_| OpenCodeLaunchError::PlacementMode)?;
@@ -1148,6 +1167,18 @@ mod tests {
     #[test]
     fn opencode_standalone_keeps_native_permission_prompts() {
         assert_eq!(fixed_arguments(), vec![OsString::from("--standalone")]);
+        let protected: Value = serde_json::from_str(config_content(false)).unwrap();
+        assert!(protected.get("permissions").is_none());
+    }
+    #[test]
+    fn opencode_full_access_adds_one_allow_all_rule_and_keeps_the_rest() {
+        let open: Value = serde_json::from_str(config_content(true)).unwrap();
+        assert_eq!(open["update"], "disable");
+        assert_eq!(open["share"], "disabled");
+        assert_eq!(
+            open["permissions"],
+            serde_json::json!([{"action": "*", "resource": "*", "effect": "allow"}])
+        );
     }
     #[test]
     fn narrow_profile_is_fixed_and_failure_never_increases_it() {

@@ -10,6 +10,7 @@ use crate::{
     codex_probe::{CodexProbeOutcome, ProbeCleanup},
     harness_session_events::{HarnessKind, SessionEventReceiver},
     launch::{LaunchInputs, PreparedLaunch, compose_launch, identity::LaunchIdentity},
+    launch_policy::LaunchPolicy,
     native_launch::{
         NativeAdmissionProfile, NativeLaunchBinding, NativeLaunchError, NativeLaunchPins,
         NativeProgramIdentity, NativeTrialReceipt, NativeTrialTracker, NativeTuiPermit,
@@ -101,6 +102,8 @@ pub struct CodexSessionOperation {
     selection: CodexSessionSelection,
     initial_prompt: Option<String>,
     require_mukade: bool,
+    /// The user's launch policy asked for no sandbox and no approvals.
+    full_access: bool,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum CodexSessionSelection {
@@ -113,6 +116,7 @@ impl CodexSessionOperation {
             selection: CodexSessionSelection::New,
             initial_prompt: None,
             require_mukade: false,
+            full_access: false,
         }
     }
     pub fn resume_native(native_id: &str) -> Result<Self, CodexLaunchError> {
@@ -133,7 +137,14 @@ impl CodexSessionOperation {
             selection: CodexSessionSelection::Resume(native_id.into()),
             initial_prompt: None,
             require_mukade: false,
+            full_access: false,
         })
+    }
+    /// Start without Codex's sandbox and approval prompts. Only the launch
+    /// policy sets this, and only for a real session, never a trial.
+    fn with_full_access(mut self) -> Self {
+        self.full_access = true;
+        self
     }
     /// Keep the first user message as one positional argument in a new native
     /// conversation. Resume never accepts an injected bootstrap.
@@ -171,7 +182,11 @@ impl CodexSessionOperation {
         if let CodexSessionSelection::Resume(native_id) = &self.selection {
             arguments.extend([OsString::from("resume"), native_id.into()]);
         }
-        arguments.extend(fixed_arguments());
+        arguments.extend(if self.full_access {
+            full_access_arguments()
+        } else {
+            fixed_arguments()
+        });
         arguments
     }
     fn qualify_arguments(
@@ -297,6 +312,27 @@ fn fixed_arguments() -> Vec<OsString> {
         "on-request",
         "-c",
         "windows.sandbox=\"unelevated\"",
+        "-c",
+        "cli_auth_credentials_store=\"file\"",
+        "-c",
+        "check_for_update_on_startup=false",
+        "-c",
+        "analytics.enabled=false",
+        "-c",
+        "feedback.enabled=false",
+    ]
+    .into_iter()
+    .map(OsString::from)
+    .collect()
+}
+
+/// The same startup as `fixed_arguments`, with Codex's own sandbox and approval
+/// prompts replaced by its single "no protections" switch. Used only when the
+/// user's launch policy asks for full access.
+fn full_access_arguments() -> Vec<OsString> {
+    [
+        "--no-daemon",
+        "--dangerously-bypass-approvals-and-sandbox",
         "-c",
         "cli_auth_credentials_store=\"file\"",
         "-c",
@@ -490,6 +526,20 @@ fn prepare(
     let deadline = Instant::now() + PREPARE_BUDGET;
     let default_session = CodexSessionOperation::start_new();
     let session = session.unwrap_or(&default_session);
+    // Qualification trials stay on the fixed recipe; only a real session honours
+    // the user's launch policy.
+    let policy = if trial {
+        LaunchPolicy::default()
+    } else {
+        crate::launch_policy::current()
+    };
+    let full_access_session;
+    let session = if policy.full_access() {
+        full_access_session = session.clone().with_full_access();
+        &full_access_session
+    } else {
+        session
+    };
     // The contained canary only ever qualifies the fresh-session startup.
     if trial && session.operation() != Operation::StartNew {
         return Err(CodexLaunchError::QualificationRequired);
@@ -813,6 +863,7 @@ fn prepare(
         "CODEX_SQLITE_HOME",
         home.as_os_str().to_owned(),
     );
+    policy.apply_environment(&mut environment);
     let recipe_id = if trusted_hook_exe.is_some() {
         TRACKED_RECIPE
     } else {
@@ -842,7 +893,11 @@ fn prepare(
                 maximum: NonZeroUsize::new(home_path_limit().maximum).unwrap(),
             }],
             pi_skills: None,
-            codex_sandbox: Some(CodexSandbox::UnelevatedDisclosed),
+            codex_sandbox: Some(if policy.full_access() {
+                CodexSandbox::Disabled
+            } else {
+                CodexSandbox::UnelevatedDisclosed
+            }),
         },
         evidence(&descriptor, recipe_id)?,
     )
@@ -1366,6 +1421,39 @@ mod tests {
             command.argv().len(),
             25,
             "fixed + tracked hooks + MCP + literal prompt remain within the existing 32-argument host bound"
+        );
+    }
+    #[test]
+    fn full_access_replaces_the_sandbox_and_approvals_and_nothing_else() {
+        let protected = CodexSessionOperation::start_new().arguments();
+        let open = CodexSessionOperation::start_new().with_full_access().arguments();
+        let bypass = OsString::from("--dangerously-bypass-approvals-and-sandbox");
+        assert!(open.contains(&bypass));
+        assert!(!protected.contains(&bypass));
+        for gone in ["--sandbox", "workspace-write", "--ask-for-approval", "on-request"] {
+            assert!(!open.contains(&OsString::from(gone)), "{gone}");
+            assert!(protected.contains(&OsString::from(gone)), "{gone}");
+        }
+        // Everything after the sandbox choice is shared: no daemon, file-based
+        // credentials, no update check, no analytics, no feedback.
+        for kept in [
+            "--no-daemon",
+            "cli_auth_credentials_store=\"file\"",
+            "check_for_update_on_startup=false",
+            "analytics.enabled=false",
+            "feedback.enabled=false",
+        ] {
+            assert!(open.contains(&OsString::from(kept)), "{kept}");
+        }
+        let resume = CodexSessionOperation::resume_native("12cc3a11-45db-4f1e-89c8-40d5c6be1dd3")
+            .unwrap()
+            .with_full_access()
+            .arguments();
+        assert_eq!(resume[0], "resume");
+        assert!(resume.contains(&bypass));
+        assert_ne!(
+            CodexSessionOperation::start_new(),
+            CodexSessionOperation::start_new().with_full_access()
         );
     }
     #[test]

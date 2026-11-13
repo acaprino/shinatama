@@ -13,6 +13,8 @@ mod project_overview;
 #[cfg(windows)]
 mod hop_run;
 mod launch;
+mod launch_settings;
+mod secret_store;
 pub mod maintenance;
 mod new_project;
 mod presentation;
@@ -655,6 +657,10 @@ fn main() {
                     services.clone(),
                     monitor,
                     governor,
+            // The saved launch policy must be in force before any agent can start.
+            app.manage(launch_settings::Controller::start(
+                directory.as_ref().map(Clone::clone).map_err(|e| e.to_string()),
+            ));
                 ));
                 let sidecar = Arc::new(sidecar::Controller::new(services.clone(), runtime.clone()));
                 app.manage(Arc::new(sessions::Controller::new(services.clone(), runtime.clone())));
@@ -728,6 +734,8 @@ fn main() {
         harness_catalog,
         #[cfg(windows)]
         thread_resume,
+        launch_settings::launch_settings_load,
+        launch_settings::launch_settings_save,
         shell_open,
         #[cfg(windows)]
         sessions::session_roots,
@@ -852,6 +860,8 @@ fn main() {
         harness_catalog,
         #[cfg(windows)]
         thread_resume,
+        launch_settings::launch_settings_load,
+        launch_settings::launch_settings_save,
         shell_open,
         #[cfg(windows)]
         sessions::session_roots,
