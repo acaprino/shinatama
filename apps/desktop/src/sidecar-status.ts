@@ -87,3 +87,63 @@ export function adoptStopReply(previousPhase: string | undefined): boolean {
 export function confirmStillNeeded(status: ProxyStatus | null): boolean {
   return status !== null && stopConsequence(status) !== null && buttons(status, false).stop;
 }
+
+// Per-session capabilities: what the proxy was configured to do for one session versus what its
+// last served request actually applied. The lines are the only place this is worded.
+export type Lever = { configured: boolean | null; applied: boolean | null; reason: string };
+export type Capabilities = { ccr: Lever; readOriginalImage: Lever; imageRescale: Lever };
+export type CapabilityState =
+  | { state: 'observed'; capabilities: Capabilities }
+  | { state: 'not_observed' } | { state: 'unavailable' };
+
+const REASONS: Record<string, string> = {
+  codex_host: 'this agent cannot call the retrieval tool', plugin_wire_not_allowed: 'not supported on this connection',
+  inject_tool_off: 'tool injection is disabled', text_protocol: 'this connection has no tool channel',
+  passthrough: 'transformations are paused', encoder_missing: 'the image encoder is not installed', not_observed: 'not attempted yet',
+};
+const REASON_LIMIT = 64;
+const LEVERS: [keyof Capabilities, string][] = [
+  ['ccr', 'Large-result storage'], ['readOriginalImage', 'Original image retrieval'], ['imageRescale', 'Image downscaling'],
+];
+
+function parseLever(value: unknown): Lever | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  const flag = (v: unknown): v is boolean | null => v === null || typeof v === 'boolean';
+  if (!flag(raw.configured) || !flag(raw.applied) || typeof raw.reason !== 'string' || raw.reason.length > REASON_LIMIT) return null;
+  return { configured: raw.configured, applied: raw.applied, reason: raw.reason };
+}
+
+/** The accepted shape of a `sidecar_capabilities` reply; anything malformed is `unavailable`. */
+export function parseCapabilities(value: unknown): CapabilityState {
+  const unavailable: CapabilityState = { state: 'unavailable' };
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return unavailable;
+  const raw = value as Record<string, unknown>;
+  if (raw.state === 'not_observed') return { state: 'not_observed' };
+  if (raw.state === 'unavailable') return unavailable;
+  if (raw.state !== 'observed' || !raw.capabilities || typeof raw.capabilities !== 'object' || Array.isArray(raw.capabilities)) return unavailable;
+  const source = raw.capabilities as Record<string, unknown>;
+  const ccr = parseLever(source.ccr); const readOriginalImage = parseLever(source.readOriginalImage); const imageRescale = parseLever(source.imageRescale);
+  if (!ccr || !readOriginalImage || !imageRescale) return unavailable;
+  return { state: 'observed', capabilities: { ccr, readOriginalImage, imageRescale } };
+}
+
+/** One lever. Applied wins. Otherwise `configured === false` is off, and `configured === true` is
+ * "configured, not active here". An unreported configuration (`null`) is read from the reason: a real
+ * reason (neither empty nor "none") means the lever was configured but is not active, no reason means off.
+ * A reason outside the fixed list is never shown raw. */
+export function leverText(name: string, lever: Lever): string {
+  if (lever.applied === true) return `${name}: active`;
+  const reasoned = lever.reason !== '' && lever.reason !== 'none';
+  if (lever.configured === true || (lever.configured === null && reasoned)) {
+    const why = Object.hasOwn(REASONS, lever.reason) ? REASONS[lever.reason] : 'reason not reported';
+    return `${name}: configured, not active here — ${why}`;
+  }
+  return `${name}: off`;
+}
+
+export function capabilityLines(read: CapabilityState): string[] {
+  if (read.state === 'not_observed') return ['Not observed yet: this session has sent no request through the model proxy.'];
+  if (read.state === 'unavailable') return ['Model proxy state unavailable.'];
+  return [...LEVERS.map(([key, name]) => leverText(name, read.capabilities[key])), 'Economic saving is not measured.'];
+}

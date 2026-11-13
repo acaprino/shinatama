@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { adoptStopReply, buttons, confirmStillNeeded, driftLine, parseStatus, phaseLabel, showsTraffic, startLabel, stopConsequence, trafficLine, type ProxyStatus } from '../src/sidecar-status.ts';
+import { adoptStopReply, buttons, capabilityLines, confirmStillNeeded, driftLine, leverText, parseCapabilities, parseStatus, phaseLabel, showsTraffic, startLabel, stopConsequence, trafficLine, type CapabilityState, type Lever, type ProxyStatus } from '../src/sidecar-status.ts';
 
 const status = (over: Partial<ProxyStatus> = {}): ProxyStatus => ({
   phase: 'ready', healthy: true, message: null, inFlight: 0, agentSessions: 0,
@@ -78,4 +78,92 @@ test('the confirmation stays only while a stop is possible and costs agents', ()
   assert.equal(confirmStillNeeded(status({ agentSessions: 2, phase: 'draining' })), false);
   assert.equal(confirmStillNeeded(status({ agentSessions: 2, phase: 'stopped' })), false);
   assert.equal(confirmStillNeeded(null), false);
+});
+
+const lever = (over: Partial<Lever> = {}): Lever => ({ configured: true, applied: true, reason: 'none', ...over });
+const observed = (over: Record<string, Lever> = {}): CapabilityState => ({ state: 'observed', capabilities: {
+  ccr: lever(), readOriginalImage: lever(), imageRescale: lever(), ...over } });
+const wire = (over: Record<string, unknown> = {}) => ({ schemaVersion: 1, protocol: 'anthropic', requests: 3, profile: null, passthrough: false,
+  ccr: lever(), readOriginalImage: lever(), imageRescale: lever(), steeringLevel: 2, effortRouting: false, promptRewriteMode: 'auto',
+  stampedAtRequest: 3, ...over });
+
+test('unobserved_session_renders_unknown', () => {
+  assert.deepEqual(capabilityLines({ state: 'not_observed' }),
+    ['Not observed yet: this session has sent no request through the model proxy.']);
+});
+test('an unavailable proxy state is one fixed line', () => {
+  assert.deepEqual(capabilityLines({ state: 'unavailable' }), ['Model proxy state unavailable.']);
+});
+test('a configured but disarmed lever states why', () => {
+  assert.equal(leverText('Large-result storage', { configured: true, applied: false, reason: 'codex_host' }),
+    'Large-result storage: configured, not active here — this agent cannot call the retrieval tool');
+});
+test('an unknown reason is never shown raw', () => {
+  assert.match(leverText('Image downscaling', { configured: true, applied: false, reason: '<x>' }), /reason not reported$/);
+  for (const reason of ['constructor', '__proto__', 'toString', '']) {
+    assert.match(leverText('Image downscaling', { configured: true, applied: false, reason }), /reason not reported$/, reason);
+  }
+});
+test('every known reason has its fixed wording', () => {
+  const expected: Record<string, string> = {
+    codex_host: 'this agent cannot call the retrieval tool', plugin_wire_not_allowed: 'not supported on this connection',
+    inject_tool_off: 'tool injection is disabled', text_protocol: 'this connection has no tool channel',
+    passthrough: 'transformations are paused', encoder_missing: 'the image encoder is not installed', not_observed: 'not attempted yet',
+  };
+  for (const [reason, text] of Object.entries(expected)) {
+    assert.equal(leverText('X', { configured: true, applied: false, reason }), `X: configured, not active here — ${text}`, reason);
+  }
+});
+test('an applied lever is active whatever else it reports', () => {
+  assert.equal(leverText('Large-result storage', lever()), 'Large-result storage: active');
+  assert.equal(leverText('Large-result storage', { configured: null, applied: true, reason: 'none' }), 'Large-result storage: active');
+});
+test('a lever that is not configured is off', () => {
+  assert.equal(leverText('Image downscaling', { configured: false, applied: false, reason: 'none' }), 'Image downscaling: off');
+  assert.equal(leverText('Image downscaling', { configured: false, applied: null, reason: 'not_observed' }), 'Image downscaling: off');
+});
+test('an unreported configuration is read from the reason: a reason means configured, none means off', () => {
+  // configured === null and applied !== true: "configured, not active here" only when a real reason is set.
+  assert.equal(leverText('Image downscaling', { configured: null, applied: null, reason: 'not_observed' }),
+    'Image downscaling: configured, not active here — not attempted yet');
+  assert.equal(leverText('Image downscaling', { configured: null, applied: false, reason: 'encoder_missing' }),
+    'Image downscaling: configured, not active here — the image encoder is not installed');
+  assert.equal(leverText('Image downscaling', { configured: null, applied: false, reason: 'none' }), 'Image downscaling: off');
+  assert.equal(leverText('Image downscaling', { configured: null, applied: null, reason: '' }), 'Image downscaling: off');
+});
+test('a stale stamp reads as not attempted yet, not as off', () => {
+  assert.equal(leverText('Original image retrieval', { configured: true, applied: null, reason: 'not_observed' }),
+    'Original image retrieval: configured, not active here — not attempted yet');
+});
+test('observed state names the three levers in order and never claims a saving', () => {
+  const lines = capabilityLines(observed({ readOriginalImage: lever({ applied: false, reason: 'codex_host' }), imageRescale: lever({ configured: false, applied: false }) }));
+  assert.deepEqual(lines, [
+    'Large-result storage: active',
+    'Original image retrieval: configured, not active here — this agent cannot call the retrieval tool',
+    'Image downscaling: off',
+    'Economic saving is not measured.',
+  ]);
+  assert.equal(capabilityLines(observed()).at(-1), 'Economic saving is not measured.');
+  for (const state of [{ state: 'not_observed' }, { state: 'unavailable' }] as CapabilityState[]) {
+    assert.ok(!capabilityLines(state).some(line => /saving/i.test(line)), state.state);
+  }
+});
+test('a well-formed capability reply is read, keeping only what the lines use', () => {
+  const parsed = parseCapabilities({ state: 'observed', capabilities: wire({ secret: 'x' }) });
+  assert.deepEqual(parsed, { state: 'observed', capabilities: { ccr: lever(), readOriginalImage: lever(), imageRescale: lever() } });
+  assert.deepEqual(parseCapabilities({ state: 'not_observed' }), { state: 'not_observed' });
+  assert.deepEqual(parseCapabilities({ state: 'unavailable' }), { state: 'unavailable' });
+  assert.deepEqual(parseCapabilities({ state: 'not_observed', capabilities: wire() }), { state: 'not_observed' });
+});
+test('a malformed capability reply is unavailable, never half-trusted', () => {
+  const unavailable = { state: 'unavailable' };
+  for (const bad of [null, undefined, 'observed', 5, [], {}, { state: 'nonsense' }, { state: 'observed' }, { state: 'observed', capabilities: null },
+    { state: 'observed', capabilities: wire({ ccr: null }) }, { state: 'observed', capabilities: wire({ ccr: { configured: true, applied: true } }) },
+    { state: 'observed', capabilities: wire({ ccr: { configured: 'yes', applied: true, reason: 'none' } }) },
+    { state: 'observed', capabilities: wire({ readOriginalImage: { configured: true, applied: 1, reason: 'none' } }) },
+    { state: 'observed', capabilities: wire({ imageRescale: { configured: true, applied: true, reason: 5 } }) },
+    { state: 'observed', capabilities: wire({ imageRescale: { configured: true, applied: true, reason: 'x'.repeat(200) } }) },
+    { state: 'observed', capabilities: wire({ imageRescale: undefined }) }]) {
+    assert.deepEqual(parseCapabilities(bad), unavailable, JSON.stringify(bad));
+  }
 });

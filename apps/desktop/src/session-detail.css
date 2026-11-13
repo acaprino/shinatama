@@ -18,3 +18,4 @@
 .session-lineage h2 { font: 500 13px var(--display); color: var(--text-2); }
 .session-lineage ul { list-style: none; padding: 0; }
 .session-lineage li { margin: 6px 0; overflow-wrap: anywhere; }
+.session-detail-proxy-line { display: block; }
