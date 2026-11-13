@@ -1,0 +1,6 @@
+interface:
+  display_name: "Mukade Collaborate"
+  short_description: "Sessioni comunicanti con delega e verifica"
+  default_prompt: "Usa $mukade-collaborate per collegare una seconda sessione al lavoro corrente, scegliendo Claude se non specifico un harness."
+policy:
+  allow_implicit_invocation: true
