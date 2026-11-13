@@ -12,8 +12,7 @@ import {
     type RetrievalExport,
 } from "acp-kernel";
 import { randomUUID } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { retrievalExportDirFor, writeRetrievalExport as writeHostRetrievalExport } from "./retrieve-export.js";
 import { log as loggerLog } from "./logger.js";
 import { stateDir } from "./paths.js";
 import { getStore } from "./persist.js";
@@ -178,7 +177,7 @@ export function cloneStoreForRefs(store: MessageContentStore, refs: Iterable<str
  *  count hit/miss, and return the framed original IN THE TOOL RESULT ITSELF
  *  (GHSA jc6g v2: untrusted data rides back at the trust tier it came from,
  *  never as a host-synthesized system message). Originals at or above the
- *  inline threshold are exported to <stateDir>/retrieve/<ref>.txt and the
+ *  inline threshold are exported to <stateDir>/retrieve/<session key>/<ref>.txt and the
  *  tool result carries a file pointer the model reads with its file tool.
  *  A hallucinated ref costs one tool call by design. */
 export function executeRetrieve(args: Record<string, unknown>, session: Session): ProxyToolResult {
@@ -189,7 +188,7 @@ export function executeRetrieve(args: Record<string, unknown>, session: Session)
         session.stats.retrieveMisses = (session.stats.retrieveMisses ?? 0) + 1;
         return toolFail(`[${retrieveToolName(session)} FAILED: ref (an mNNNNN id) is required]`);
     }
-    const result = applyRetrieve({ store: contentStoreOf(session), ref, exportDir: retrievalExportDir() });
+    const result = applyRetrieve({ store: contentStoreOf(session), ref, exportDir: retrievalExportDir(session) });
     if (!result.ok) {
         session.stats.retrieveMisses = (session.stats.retrieveMisses ?? 0) + 1;
         loggerLog("info", `[ccr] retrieve ${ref}: miss (${result.reason})`);
@@ -211,24 +210,14 @@ export function executeRetrieve(args: Record<string, unknown>, session: Session)
     return toolOk(result.toolResultText);
 }
 
-/** Host side of the kernel RetrievalExport effect: exports land under
- *  <stateDir>/retrieve/<ref>.txt with 0600 (folded conversation content is
- *  not world-readable on multi-user hosts), parents created on demand.
- *  Content-addressed by ref, so a repeated retrieve rewrites identical
- *  bytes (idempotent; the kernel already deduped by content). */
-function retrievalExportDir(): string {
-    return join(stateDir(), "retrieve");
+/** Per-session export directory, <stateDir>/retrieve/<session key>/ (see
+ *  retrieve-export.ts): the kernel names the file <ref>.txt inside it. */
+export function retrievalExportDir(session: Session): string {
+    return retrievalExportDirFor(stateDir(), session.id);
 }
 
 function writeRetrievalExport(exported: RetrievalExport): boolean {
-    try {
-        mkdirSync(dirname(exported.path), { recursive: true });
-        writeFileSync(exported.path, exported.text, { encoding: "utf8", mode: 0o600 });
-        return true;
-    } catch (e) {
-        loggerLog("warn", `[ccr] retrieve export write failed (${exported.path}): ${String(e)}`);
-        return false;
-    }
+    return writeHostRetrievalExport(exported, (message) => loggerLog("warn", message));
 }
 
 // [#1343] Delivery lifecycle for queued retrievals. The ack is committed the

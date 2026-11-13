@@ -7,11 +7,11 @@
   "upstreamCommit": "7e69b49ff4facb00b5ba6541b48d0f7fbe63d63d",
   "upstreamArchiveSha256": "10628db1ad6ae8f6a46f8886188ff6be7cb903036004d0f447c452880f4b3e53",
   "musashiSourceFingerprint": "0e9d1582bd90104d2fb56bd9cd92734ea5ac3bb4b683fc493d25a2258d744e3e",
-  "sourceTreeSha256": "68d08d963cc1e081f6605677db824db62d3eddc1c3ec7126e444fdc9cd885579",
-  "artifactTreeSha256": "6bac74bc9ce76fdd38635adb7e6b2aa4fa536c55e6c61fd8f4a642787675f1e8",
+  "sourceTreeSha256": "bffc841eecd32aa67f6fc30606efa5409f1b85782d351a6edecd5315070f138a",
+  "artifactTreeSha256": "0b331c85d2bb7ca61824ba332566762b8577714edd06b38c296d121572879fa9",
   "runtimeDependencyTreeSha256": "89868025df4771c6daf2e5eb745549331af47bd6fbbae90681aacc19edceaea8",
   "entry": "dist/index.js",
-  "entrySha256": "0c0e71df9811dbc20050fc1e9887d6da8afcefc73ff78348f1a51bcd5e9cca3e",
+  "entrySha256": "99137457918384b9288ada4d23de24632779944759be3f33c7421cc2805dde0a",
   "musashiPreparationRoute": {
     "path": "D:/Projects/horness-launcher/res/sidecar-prepare.mjs",
     "sha256": "277c19907bf6580f988de127a83d6bb53688113e75f75f4f8f74a89d6ba4e974"
@@ -1434,8 +1434,8 @@
     },
     {
       "path": "src/plugin.ts",
-      "bytes": 285056,
-      "sha256": "2d5a71b00490a95dcb86c1dc72d1680a1d78af322b0062994832d7f4699a0100"
+      "bytes": 285070,
+      "sha256": "dcba62fcb915f2136a4b1862dbaa7a88ad6eb2c2b1e37234110683a9cb5fc4b9"
     },
     {
       "path": "src/port-owner.ts",
@@ -1501,6 +1501,11 @@
       "path": "src/restart.ts",
       "bytes": 27532,
       "sha256": "bfad11b609853709f847850ff1bd0e68ebfd4fe4e6a9cebeb11a98bd4bb0ab36"
+    },
+    {
+      "path": "src/retrieve-export.ts",
+      "bytes": 1781,
+      "sha256": "24a8c1b99f04b18a9743f6ce0afce3dfd581648ed711934f91086f4ef9e68981"
     },
     {
       "path": "src/rollout.ts",
@@ -1754,8 +1759,8 @@
     },
     {
       "path": "src/store.ts",
-      "bytes": 22745,
-      "sha256": "258dfe01734d645ddfccf5720bfd54c77ff3c9e794d6befa6c16d15c8d794a9f"
+      "bytes": 22365,
+      "sha256": "e39b057c14359db7df437b1d378f06fa56f00ef90f47e54cbec2febcf76ea3e7"
     },
     {
       "path": "src/stream-error.ts",
@@ -1978,6 +1983,11 @@
       "sha256": "db55a41b79537dacf2aa363d9dad255448b20e2790a2f46c85eb6ab1e8ace06c"
     },
     {
+      "path": "tests/retrieve-export.test.ts",
+      "bytes": 2711,
+      "sha256": "84af0f28871f8d1bbd9f0326c70aceda507bb7a3784240877c31706982c599d0"
+    },
+    {
       "path": "tsconfig.json",
       "bytes": 530,
       "sha256": "832a4d5d8c6ed6f852d8d9cae4ef6ebf02aabcabc0fe8e4ffedd9d108f93d196"
@@ -2011,13 +2021,13 @@
     },
     {
       "path": "dist/agent/pi-native.js",
-      "bytes": 5589917,
-      "sha256": "b751534a954a2cf55560c08334f102ca8439bb2fdba6c95a44cd87f728861882"
+      "bytes": 5590327,
+      "sha256": "dafe970e8409616e56633414a8aad401ad1696bee6a3538e895f5345e2b35742"
     },
     {
       "path": "dist/agent/pi-native.js.map",
-      "bytes": 17043494,
-      "sha256": "eb9deab217a1eaa29b8f8daec3203a6d23b43af2b78c810ff85f33d884f200bc"
+      "bytes": 17045258,
+      "sha256": "798da524ee5a9027e2a8669a5271613e44c6c851f1fb98d8ac46b5b8e234ba88"
     },
     {
       "path": "dist/agent/pi.js",
@@ -2046,13 +2056,13 @@
     },
     {
       "path": "dist/index.js",
-      "bytes": 5512194,
-      "sha256": "0c0e71df9811dbc20050fc1e9887d6da8afcefc73ff78348f1a51bcd5e9cca3e"
+      "bytes": 5512605,
+      "sha256": "99137457918384b9288ada4d23de24632779944759be3f33c7421cc2805dde0a"
     },
     {
       "path": "dist/index.js.map",
-      "bytes": 15730703,
-      "sha256": "f7f82d2042ac4f7a73df99d3e5bea21a46090afe25132acab973bcbef815f115"
+      "bytes": 15732468,
+      "sha256": "f204dcaf9547ca10079891c701217c6fe847a4aac3ce88870c461ff06ad8fa76"
     },
     {
       "path": "dist/mcp.js",

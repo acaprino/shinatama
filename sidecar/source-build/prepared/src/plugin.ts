@@ -22,7 +22,7 @@ import { normalizeSseLineEndings, finalizeSseLineEndings } from "./sse-util.js";
 import { composeStreamFilters, containsBiliInternalText, containsEchoResidue, containsMarkerLineText, containsRenderTagText, containsToolCallEmissionText, containsToolCallXmlFragment, createBiliArtifactFilter, createIdentityStreamFilter, createMarkerLineFilter, createTagEchoFilter, isOrphanMarkupText, mayStartBiliInternal, mayStartDegenerateRenderTag, mayStartMarkerLine, mayStartRenderTag, mayStartToolCallEmission, stripAcpTags, stripAnthropicText, stripOpenaiChatText, stripResponsesText, type TagEchoFilter } from "./loop/tag-echo-filter.js";
 import { log as loggerLog } from "./logger.js";
 import { scanModelOutputForPhantomAttachments } from "./phantom-attachment.js";
-import { ccrEnabled, ccrLoopConfig, contentStoreOf, retrieveToolName } from "./store.js";
+import { ccrEnabled, ccrLoopConfig, contentStoreOf, retrievalExportDir, retrieveToolName } from "./store.js";
 import { emitStreamError, emitUpstreamTruncation } from "./stream-error.js";
 import { appendReasoningOnlyNotice, REASONING_ONLY_TURN_NOTE } from "./musashi-terminal/reasoning-notice.js";
 import type { TruncationDiag } from "./stream-error.js";
@@ -2019,7 +2019,7 @@ export async function handlePluginTool(
             }, callId, undefined, deps.signal);
             if (nativeCaller && tool === retrieveToolName(session) && typeof args.ref === "string") {
                 // Preserve the session's export before a same-ref concurrent lookup.
-                const retrieved = applyRetrieve({ store: contentStoreOf(session), ref: args.ref, exportDir: path.join(stateDir(), "retrieve") });
+                const retrieved = applyRetrieve({ store: contentStoreOf(session), ref: args.ref, exportDir: retrievalExportDir(session) });
                 if (retrieved.ok && retrieved.toolResultText === toolResult.text) retrievalExport = retrieved.export;
             }
             const creditDelta = (session.stats.compressCreditTokens ?? 0) - creditBefore;

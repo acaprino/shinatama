@@ -1208,7 +1208,7 @@ fn two_sessions_with_identical_prefixes_do_not_share_state() {
 }
 
 #[test]
-#[ignore = "open: P0, retrieve exports of equal refs share one file (store.ts retrievalExportDir, kernel ccr.ts exportDir/<ref>.txt); see Task 7 report"]
+#[ignore = "native: starts the pinned sidecar"]
 fn retrieved_exports_of_two_sessions_do_not_collide() {
     // Two sessions with identical prefixes store the same-numbered placeholder. Each asks
     // for its stored original; the sidecar exports a large original to a file and points
