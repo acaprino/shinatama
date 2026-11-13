@@ -388,7 +388,10 @@ dialog[data-sheet="pane-top"], dialog[data-sheet="pane-bottom"] { width: var(--s
 /* Native glass (desktop only, set in main.ts): the window is transparent over Windows acrylic.
    The chrome is denser glass (62%); the terminal panes are the lightest surface, tinted with the
    terminal colour at 58% (presentation.ts) so text keeps its contrast. */
-:root.native-glass, .native-glass body, .native-glass #app, .native-glass #work-area { background: transparent; }
+:root.native-glass, .native-glass body, .native-glass #work-area { background: transparent; }
+/* The stage holds the skin's own dark: the acrylic's tint alone lets a light desktop wash every
+   colour to grey. */
+.native-glass #app { background: color-mix(in srgb, var(--stage) 86%, transparent); }
 .native-glass .titlebar, .native-glass .toolbar, .native-glass .statusbar, .native-glass .thread-sidebar, .native-glass .wm-header { background: var(--glass-bar); }
 .native-glass .wm-pane { background: transparent; }
 .native-glass .xterm .xterm-viewport, .native-glass .xterm .xterm-scrollable-element { background-color: transparent !important; }
