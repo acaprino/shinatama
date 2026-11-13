@@ -15,32 +15,45 @@ const root = process.cwd();
 const fixture = await mkdtemp(resolve(tmpdir(), 'shinatama-threads-'));
 const projectPath = resolve(fixture, 'project'); await mkdir(projectPath);
 const shots = process.env.SHOTS ? resolve(process.env.SHOTS) : null; if (shots) await mkdir(shots, { recursive: true });
-const reservation = createServer();
-await new Promise((accept, reject) => { reservation.once('error', reject); reservation.listen(0, '127.0.0.1', accept); });
-const port = reservation.address().port;
-await new Promise((accept, reject) => reservation.close(error => error ? reject(error) : accept()));
-const app = spawn(process.env.SHINATAMA_EXE ?? resolve(root, 'target/debug/shinatama-desktop.exe'), [], {
-  cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
-  env: { ...process.env, SHINATAMA_HOME: resolve(fixture, 'data'),
-    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: '--remote-debugging-port=' + port + ' --remote-debugging-address=127.0.0.1',
-    WEBVIEW2_USER_DATA_FOLDER: resolve(fixture, 'webview-profile') },
-});
-let diagnostics = ''; app.stderr.on('data', chunk => { diagnostics = (diagnostics + chunk).slice(-32768); });
-let browser, page;
 const shot = async name => { if (shots) await page.screenshot({ path: resolve(shots, name + '.png') }); };
-try {
+const freePort = async () => {
+  const reservation = createServer();
+  await new Promise((accept, reject) => { reservation.once('error', reject); reservation.listen(0, '127.0.0.1', accept); });
+  const found = reservation.address().port;
+  await new Promise((accept, reject) => reservation.close(error => error ? reject(error) : accept()));
+  return found;
+};
+let diagnostics = '';
+let app, browser, page;
+/** Starts the app on the fixture's data and webview profile, so a second launch is a restart. */
+const launch = async () => {
+  const port = await freePort();
+  app = spawn(process.env.SHINATAMA_EXE ?? resolve(root, 'target/debug/shinatama-desktop.exe'), [], {
+    cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, SHINATAMA_HOME: resolve(fixture, 'data'),
+      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: '--remote-debugging-port=' + port + ' --remote-debugging-address=127.0.0.1',
+      WEBVIEW2_USER_DATA_FOLDER: resolve(fixture, 'webview-profile') },
+  });
+  const mine = app;
+  mine.stderr.on('data', chunk => { diagnostics = (diagnostics + chunk).slice(-32768); });
+  browser = undefined;
   for (let attempt = 0; attempt < 60; attempt++) {
-    if (app.exitCode !== null) throw new Error('Desktop exited: ' + app.exitCode + '\n' + diagnostics);
+    if (mine.exitCode !== null) throw new Error('Desktop exited: ' + mine.exitCode + ' ' + diagnostics);
     try { browser = await chromium.connectOverCDP('http://127.0.0.1:' + port, { timeout: 1000 }); break; } catch { await delay(500); }
   }
-  if (!browser) throw new Error('WebView2 unavailable.\n' + diagnostics);
+  if (!browser) throw new Error('WebView2 unavailable. ' + diagnostics);
   const context = browser.contexts()[0];
   const mainPage = () => context.pages().find(candidate => candidate.url().includes('tauri.localhost') && !candidate.url().includes('widget.html'));
   for (const deadline = Date.now() + 30000; !mainPage() && Date.now() < deadline;) await delay(250);
   page = mainPage(); if (!page) throw new Error('Main window did not appear.');
-  const errors = []; page.on('pageerror', error => errors.push(error.message));
-  const rows = page.locator('.thread-sidebar-list .thread-sidebar-anchor');
-  const tabs = page.locator('.wm-tab');
+  page.on('pageerror', error => errors.push(error.message));
+};
+const errors = [];
+try {
+  await launch();
+  let rows, tabs;
+  const bind = () => { rows = page.locator('.thread-sidebar-list .thread-sidebar-anchor'); tabs = page.locator('.wm-tab'); };
+  bind();
   const open = async () => { const flow = await startSession(page, { project: projectPath, harness: 'powershell' }); await flow.done(); };
   const terminals = () => page.evaluate(() => window.__TAURI_INTERNALS__.invoke('terminal_list').then(list => list.length));
 
@@ -116,6 +129,57 @@ try {
   await forget.click(); await expect(forget).toHaveText('Sure?'); await forget.click();
   await expect(closed).toBeHidden({ timeout: 15000 });
   await expect(page.locator('.thread-sidebar-anchor[aria-pressed="true"] .thread-sidebar-state')).toHaveText('1 session · 1 running', { timeout: 15000 });
+
+  // 9. Each thread keeps its own columns: split thread A in two, visit B, come back to the same two panes.
+  const panes = () => page.locator('.wm-pane').evaluateAll(list => list.map(pane => [...pane.querySelectorAll('[role="tab"]')].map(tab => tab.dataset.viewId)));
+  await open();
+  await expect(tabs).toHaveCount(2, { timeout: 15000 });
+  await expect(page.locator('.wm-pane')).toHaveCount(1);
+  const selected = page.locator('.wm-pane [role="tab"][aria-selected="true"]');
+  const split = page.locator('.wm-pane').first();
+  if (await split.locator('.wm-more').getAttribute('aria-expanded') !== 'true') await split.locator('.wm-more').click();
+  await split.getByLabel('Split edge', { exact: true }).selectOption('right');
+  await split.getByRole('button', { name: 'Split', exact: true }).click();
+  await expect(page.locator('.wm-pane')).toHaveCount(2, { timeout: 15000 });
+  const columns = await panes();
+  expect(columns.map(group => group.length), 'tabs per column in thread A').toEqual([1, 1]);
+  expect(new Set(columns.flat()).size).toBe(2);
+  expect(await selected.count()).toBe(2);
+  await shot('6-thread-a-two-columns');
+  await page.locator('.thread-sidebar-anchor[aria-pressed="false"]').click();
+  await expect(page.locator('.wm-pane')).toHaveCount(1, { timeout: 15000 });
+  await expect(tabs).toHaveCount(1);
+  expect(await terminals()).toBe(3);
+  await shot('7-thread-b-one-pane');
+  await page.locator('.thread-sidebar-anchor[aria-pressed="false"]').click();
+  await expect(page.locator('.wm-pane')).toHaveCount(2, { timeout: 15000 });
+  expect(await panes(), 'thread A columns after the round trip').toEqual(columns);
+  expect(await terminals()).toBe(3);
+  await shot('8-thread-a-columns-restored');
+  const identify = () => rows.evaluateAll(list => list.map(row => row.dataset.worksetId + ' ' + row.querySelector('.thread-sidebar-title').textContent));
+  const listBefore = await identify();
+  expect(listBefore).toHaveLength(2);
+
+  // 10. A clean restart reopens the thread that was open, with its two columns, its sessions not running, nothing started.
+  await page.getByRole('button', { name: 'Close window', exact: true }).click();
+  await expect(page.locator('#confirm-title')).toHaveText('Close workspace?');
+  const gone = new Promise(accept => app.once('exit', accept));
+  await page.locator('#confirm-dialog button[value="stop"]').click();
+  expect(await Promise.race([gone, delay(20000).then(() => 'timeout')])).toBe(0);
+  await browser.close().catch(() => {});
+  await launch(); bind();
+  await expect(rows).toHaveCount(2, { timeout: 30000 });
+  expect(await identify()).toEqual(listBefore);
+  await expect(page.locator('.thread-sidebar-anchor[aria-pressed="true"]')).toHaveCount(1);
+  await expect(page.locator('.wm-pane')).toHaveCount(2, { timeout: 15000 });
+  await expect(tabs).toHaveCount(2);
+  await expect(page.locator('.wm-tab', { hasText: 'not running' })).toHaveCount(2);
+  expect((await panes()).map(group => group.length)).toEqual([1, 1]);
+  expect(await terminals()).toBe(0);
+  await expect(page.locator('.thread-sidebar-anchor[aria-pressed="true"] .thread-sidebar-state')).toHaveText('2 sessions');
+  await shot('9-after-restart');
+  await delay(1500);
+  expect(await terminals(), 'nothing starts by itself after a restart').toBe(0);
   expect(errors, 'page errors').toEqual([]);
   console.log('thread-sets smoke: ok');
 } catch (error) {
