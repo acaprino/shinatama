@@ -303,22 +303,14 @@ fn connect_and_echo(port: u16, echo_port: u16) -> Result<f64, Failure> {
     safe(
         write!(
             stream,
-            "CONNECT 127.0.0.1:{echo_port} HTTP/1.1
-Host: 127.0.0.1
-
-"
+            "CONNECT 127.0.0.1:{echo_port} HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n"
         ),
         "send CONNECT",
     )
     .map_err(other)?;
     let mut response = Vec::new();
     let mut byte = [0];
-    while !response.ends_with(
-        b"
-
-",
-    ) && response.len() < 1024
-    {
+    while !response.ends_with(b"\r\n\r\n") && response.len() < 1024 {
         safe(stream.read_exact(&mut byte), "read CONNECT response").map_err(other)?;
         response.push(byte[0]);
     }
@@ -540,20 +532,12 @@ fn a_refused_connection_is_counted_whatever_context_wraps_it() {
 #[test]
 fn a_connect_not_answered_with_200_is_a_refusal() {
     assert_eq!(
-        tunnel_answer(
-            b"HTTP/1.1 200 Connection Established
-
-"
-        ),
+        tunnel_answer(b"HTTP/1.1 200 Connection Established\r\n\r\n"),
         Ok(())
     );
     for answer in [
-        &b"HTTP/1.1 403 Forbidden
-
-"[..],
-        b"HTTP/1.1 504 Gateway Timeout
-
-",
+        &b"HTTP/1.1 403 Forbidden\r\n\r\n"[..],
+        b"HTTP/1.1 504 Gateway Timeout\r\n\r\n",
         b"",
     ] {
         let refused = tunnel_answer(answer).unwrap_err();
