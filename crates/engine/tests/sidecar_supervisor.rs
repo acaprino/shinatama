@@ -711,6 +711,7 @@ fn qualify(fixture: &Fixture) -> ProofResult<Value> {
                 graceful_stop_timeout: Duration::from_secs(1),
                 cleanup_timeout: Duration::from_secs(2),
                 reservation_lease: Duration::from_secs(15),
+                drain_timeout: Duration::from_secs(30),
                 output_bytes_per_stream: 1024 * 1024,
             },
             provider,

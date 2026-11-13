@@ -4,7 +4,7 @@ import { openModal } from './modal.ts';
 type Status = { phase: string; healthy: boolean; message: string | null };
 const LABELS: Record<string, string> = {
   stopped: 'Stopped', preparing: 'Preparing…', starting: 'Starting…', ready: 'Ready',
-  busy: 'Busy', degraded: 'Temporarily unavailable', recovering: 'Recovering…',
+  busy: 'Busy', draining: 'Finishing requests…', degraded: 'Temporarily unavailable', recovering: 'Recovering…',
   failed: 'Stopped after a failure', retired: 'Recovery needs attention', unavailable: 'Status unavailable',
 };
 export function createSidecarControl(desktop: boolean, notify: (message: string) => void) {

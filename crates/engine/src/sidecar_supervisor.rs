@@ -8,6 +8,7 @@ use crate::{
         process::{ContainedProcess, NativeCommand, SpawnedProcess, spawn_contained},
         sampling::{Measurement, WindowsSampler},
     },
+    sidecar_admin::{AdminTarget, in_flight},
     sidecar_runtime::SidecarRuntimeRecipe,
 };
 use serde::Serialize;
@@ -50,6 +51,9 @@ pub enum Phase {
     Starting,
     Ready,
     Busy,
+    /// A requested stop is waiting for in-flight requests to finish. Still the
+    /// same live process, still the same pid.
+    Draining,
     Degraded,
     Recovering,
     Failed,
@@ -72,6 +76,7 @@ pub enum Reason {
     ResourceLimit,
     ListenerUnavailable,
     PortProbeUnavailable,
+    DrainTimedOut,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -99,6 +104,8 @@ pub enum Activity {
 pub enum Command {
     Start,
     Stop,
+    /// Stop once in-flight requests reach zero (or `drain_timeout` passes).
+    Drain,
     Retry,
     Activity(Activity),
 }
@@ -120,6 +127,10 @@ pub struct Snapshot {
     pub observed_at_unix_ms: Option<i64>,
     /// Process id of the child this owner currently holds; None when it holds none.
     pub pid: Option<u32>,
+    /// `inFlight` as last read from the sidecar; None when never read or unreadable.
+    pub in_flight: Option<u64>,
+    /// While Draining: when the drain gives up and stops anyway.
+    pub drain_deadline_unix_ms: Option<i64>,
     pub resource_limit: Option<ResourceLimit>,
     /// Fresh bind result after a missed health response; never inferred from connect.
     pub port_held: Option<bool>,
@@ -133,6 +144,8 @@ pub struct SupervisorConfig {
     pub startup_timeout: Duration,
     pub graceful_stop_timeout: Duration,
     pub cleanup_timeout: Duration,
+    /// Longest a requested drain waits for in-flight requests before it stops anyway.
+    pub drain_timeout: Duration,
     pub reservation_lease: Duration,
     pub output_bytes_per_stream: u64,
 }
@@ -144,6 +157,7 @@ impl SupervisorConfig {
             && (Duration::from_secs(1)..=Duration::from_secs(30)).contains(&self.startup_timeout)
             && self.graceful_stop_timeout <= Duration::from_secs(10)
             && self.cleanup_timeout <= Duration::from_secs(10)
+            && (Duration::from_secs(1)..=Duration::from_secs(120)).contains(&self.drain_timeout)
             && self.reservation_lease >= self.startup_timeout
             && self.reservation_lease <= Duration::from_secs(300)
             && (4096..=64 * 1024 * 1024).contains(&self.output_bytes_per_stream)
@@ -192,6 +206,8 @@ impl SidecarSupervisor {
             stderr_bytes: 0,
             observed_at_unix_ms: now(),
             pid: None,
+            in_flight: None,
+            drain_deadline_unix_ms: None,
             resource_limit: None,
             port_held: None,
             health_probe_delay_ms: config.health_period.as_millis() as u64,
@@ -212,6 +228,7 @@ impl SidecarSupervisor {
             running: None,
             retained: None,
             requested_start: false,
+            drain: DrainState::default(),
             next_health: Instant::now(),
             started: Instant::now(),
             ever_healthy: false,
@@ -271,6 +288,7 @@ struct Worker<P> {
     running: Option<SpawnedProcess>,
     retained: Option<Retained>,
     requested_start: bool,
+    drain: DrainState,
     next_health: Instant,
     started: Instant,
     ever_healthy: bool,
@@ -281,6 +299,15 @@ struct Worker<P> {
 }
 impl<P: WorkloadProvider> Worker<P> {
     fn publish(&mut self, phase: Phase, reason: Reason) {
+        // Health keeps answering while a drain waits: that is still Draining.
+        let phase = if self.drain.active() && matches!(phase, Phase::Ready | Phase::Busy) {
+            Phase::Draining
+        } else {
+            phase
+        };
+        if !self.drain.active() {
+            self.snapshot.drain_deadline_unix_ms = None;
+        }
         self.snapshot.phase = phase;
         self.snapshot.reason = reason;
         self.snapshot.observed_at_unix_ms = now();
@@ -308,8 +335,19 @@ impl<P: WorkloadProvider> Worker<P> {
                     self.requested_start = false;
                     self.stop(true);
                 }
-                Ok(Command::Start) if self.snapshot.phase == Phase::Stopped => {
-                    self.requested_start = true
+                Ok(Command::Drain) => self.drain_requested(),
+                Ok(Command::Start) => {
+                    let effect = self.drain.command(
+                        self.snapshot.phase,
+                        Command::Start,
+                        Instant::now(),
+                        self.config.drain_timeout,
+                    );
+                    if effect == DrainEffect::Cancel {
+                        self.publish(Phase::Ready, Reason::None);
+                    } else if self.snapshot.phase == Phase::Stopped {
+                        self.requested_start = true;
+                    }
                 }
                 Ok(Command::Retry) => {
                     if self.retained.is_some() {
@@ -340,6 +378,55 @@ impl<P: WorkloadProvider> Worker<P> {
                 self.launch();
             }
             self.tick();
+            self.drain_step();
+        }
+    }
+    fn drain_requested(&mut self) {
+        let began = Instant::now();
+        match self.drain.command(
+            self.snapshot.phase,
+            Command::Drain,
+            began,
+            self.config.drain_timeout,
+        ) {
+            DrainEffect::Begin => {
+                self.snapshot.drain_deadline_unix_ms = now().and_then(|at| {
+                    at.checked_add(i64::try_from(self.config.drain_timeout.as_millis()).ok()?)
+                });
+                self.publish(Phase::Draining, Reason::None);
+            }
+            DrainEffect::StopNow => {
+                self.requested_start = false;
+                self.stop(true);
+            }
+            DrainEffect::Cancel | DrainEffect::Unaffected => {}
+        }
+    }
+    /// One drain poll per owner iteration: read `inFlight`, and stop once the drain
+    /// has seen idle twice in a row or its deadline has passed.
+    fn drain_step(&mut self) {
+        let Some(pid) = self.snapshot.pid.filter(|_| self.running.is_some()) else {
+            return;
+        };
+        let target = AdminTarget {
+            port: self.config.port,
+            pid,
+            timeout: self.config.health_timeout,
+        };
+        let Some((reading, step)) = self.drain.poll(&target) else {
+            return;
+        };
+        self.snapshot.in_flight = reading;
+        self.snapshot.activity = activity_for(reading, self.snapshot.activity);
+        match step {
+            DrainStep::Waiting => self.publish(self.snapshot.phase, self.snapshot.reason),
+            DrainStep::Idle | DrainStep::TimedOut => {
+                self.stop(true);
+                // Only a clean Stopped carries the drain's own outcome; Retired keeps its reason.
+                if step.reason() != Reason::None && self.snapshot.phase == Phase::Stopped {
+                    self.publish(Phase::Stopped, step.reason());
+                }
+            }
         }
     }
     fn launch(&mut self) {
@@ -347,6 +434,8 @@ impl<P: WorkloadProvider> Worker<P> {
         self.snapshot.healthy = false;
         self.snapshot.process_alive = None;
         self.snapshot.pid = None;
+        self.snapshot.in_flight = None;
+        self.drain.clear();
         self.ever_healthy = false;
         self.snapshot.resource_limit = None;
         self.snapshot.port_held = None;
@@ -415,11 +504,14 @@ impl<P: WorkloadProvider> Worker<P> {
         };
         let observed = running.process.try_wait();
         if matches!(observed, Ok(Some(_))) {
+            // A process that exits while draining has done what the drain asked for.
+            let draining = self.drain.active();
+            self.drain.clear();
             self.snapshot.process_alive = Some(false);
             self.snapshot.healthy = false;
             self.publish(Phase::Recovering, Reason::ProcessExited);
             self.stop(false);
-            if self.retained.is_none() {
+            if self.retained.is_none() && !draining {
                 if self.snapshot.restart_used {
                     self.publish(Phase::Failed, Reason::RepeatedExit);
                 } else {
@@ -522,6 +614,13 @@ impl<P: WorkloadProvider> Worker<P> {
             self.busy_backoff.healthy();
             self.snapshot.port_held = None;
             self.snapshot.health_probe_delay_ms = self.config.health_period.as_millis() as u64;
+            let reading = in_flight(&AdminTarget {
+                port: self.config.port,
+                pid: running.process.key().pid,
+                timeout: self.config.health_timeout,
+            });
+            self.snapshot.in_flight = reading;
+            self.snapshot.activity = activity_for(reading, self.snapshot.activity);
             self.publish(
                 if self.snapshot.activity == Activity::Idle {
                     Phase::Ready
@@ -569,6 +668,8 @@ impl<P: WorkloadProvider> Worker<P> {
         }
     }
     fn stop(&mut self, graceful: bool) {
+        self.drain.clear();
+        self.snapshot.in_flight = None;
         let Some(mut running) = self.running.take() else {
             if self.retained.is_none() {
                 self.snapshot.healthy = false;
@@ -649,6 +750,114 @@ impl<P: WorkloadProvider> Worker<P> {
         } else {
             self.publish(Phase::Retired, Reason::CleanupUncertain);
         }
+    }
+}
+/// What a health read of `inFlight` says about activity. Unknown changes nothing.
+fn activity_for(reading: Option<u64>, current: Activity) -> Activity {
+    match reading {
+        Some(0) => Activity::Idle,
+        Some(_) => Activity::RequestInFlight,
+        None => current,
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DrainStep {
+    Waiting,
+    Idle,
+    TimedOut,
+}
+impl DrainStep {
+    /// The reason the owner reports once this step has stopped the process.
+    fn reason(self) -> Reason {
+        match self {
+            DrainStep::TimedOut => Reason::DrainTimedOut,
+            DrainStep::Waiting | DrainStep::Idle => Reason::None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DrainEffect {
+    Begin,
+    Cancel,
+    StopNow,
+    Unaffected,
+}
+/// One drain: ends after two consecutive zero reads or at the deadline.
+struct DrainWatch {
+    deadline: Instant,
+    zero_reads: u8,
+}
+impl DrainWatch {
+    fn begin(now: Instant, timeout: Duration) -> Self {
+        Self {
+            deadline: now + timeout,
+            zero_reads: 0,
+        }
+    }
+    /// An unknown or non-zero read never counts as idle and restarts the count.
+    fn observe(&mut self, now: Instant, reading: Option<u64>) -> DrainStep {
+        self.zero_reads = if reading == Some(0) {
+            self.zero_reads.saturating_add(1)
+        } else {
+            0
+        };
+        if self.zero_reads >= 2 {
+            DrainStep::Idle
+        } else if now >= self.deadline {
+            DrainStep::TimedOut
+        } else {
+            DrainStep::Waiting
+        }
+    }
+}
+/// The owner's drain bookkeeping; no process, no worker thread.
+#[derive(Default)]
+struct DrainState {
+    watch: Option<DrainWatch>,
+}
+impl DrainState {
+    fn active(&self) -> bool {
+        self.watch.is_some()
+    }
+    fn clear(&mut self) {
+        self.watch = None;
+    }
+    /// Drain from Ready/Busy begins one; from any other phase it is a stop. Start
+    /// cancels a drain in progress. Everything else leaves a drain alone.
+    fn command(
+        &mut self,
+        phase: Phase,
+        command: Command,
+        now: Instant,
+        timeout: Duration,
+    ) -> DrainEffect {
+        match command {
+            Command::Drain if self.active() => DrainEffect::Unaffected,
+            Command::Drain if matches!(phase, Phase::Ready | Phase::Busy) => {
+                self.watch = Some(DrainWatch::begin(now, timeout));
+                DrainEffect::Begin
+            }
+            Command::Drain => {
+                self.clear();
+                DrainEffect::StopNow
+            }
+            Command::Start if self.active() => {
+                self.clear();
+                DrainEffect::Cancel
+            }
+            _ => DrainEffect::Unaffected,
+        }
+    }
+    /// One read of `inFlight` and its verdict; None when no drain is in progress.
+    /// A finished drain clears itself.
+    fn poll(&mut self, target: &AdminTarget) -> Option<(Option<u64>, DrainStep)> {
+        let watch = self.watch.as_mut()?;
+        let reading = in_flight(target);
+        let step = watch.observe(Instant::now(), reading);
+        if step != DrainStep::Waiting {
+            self.watch = None;
+        }
+        Some((reading, step))
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1008,6 +1217,89 @@ pub(crate) mod test_support {
         });
         (port, worker)
     }
+    /// Serves any number of connections: `/__bili/health` for `pid`, each
+    /// `/__bili/status` from `script` then from `fallback` (None = never answers),
+    /// `POST /__bili/shutdown` acknowledged. Every request line is recorded.
+    pub struct StatusServer {
+        pub port: NonZeroU16,
+        requests: Arc<Mutex<Vec<String>>>,
+        done: Arc<AtomicBool>,
+        worker: Option<thread::JoinHandle<()>>,
+    }
+    impl StatusServer {
+        pub fn start(pid: u32, script: Vec<Option<u64>>, fallback: Option<u64>) -> Self {
+            let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+            let port = NonZeroU16::new(listener.local_addr().unwrap().port()).unwrap();
+            listener.set_nonblocking(true).unwrap();
+            let requests = Arc::new(Mutex::new(Vec::new()));
+            let done = Arc::new(AtomicBool::new(false));
+            let (log, stop) = (requests.clone(), done.clone());
+            let worker = thread::spawn(move || {
+                let mut script: std::collections::VecDeque<_> = script.into();
+                while !stop.load(Ordering::Acquire) {
+                    let Ok((mut stream, _)) = listener.accept() else {
+                        thread::sleep(Duration::from_millis(2));
+                        continue;
+                    };
+                    stream.set_nonblocking(false).unwrap();
+                    stream
+                        .set_write_timeout(Some(Duration::from_millis(500)))
+                        .unwrap();
+                    let until = Instant::now() + Duration::from_secs(5);
+                    while let Some(first) = line(&mut stream, until) {
+                        log.lock().unwrap().push(first.clone());
+                        for _ in 0..32 {
+                            if line(&mut stream, until).is_none_or(|line| line.is_empty()) {
+                                break;
+                            }
+                        }
+                        let body = if first.contains("/__bili/health") {
+                            format!("{{\"ok\":true,\"pid\":{pid}}}")
+                        } else if first.contains("/__bili/status") {
+                            match script.pop_front().unwrap_or(fallback) {
+                                Some(count) => format!("{{\"inFlight\":{count}}}"),
+                                None => continue,
+                            }
+                        } else {
+                            "{\"ok\":true}".to_owned()
+                        };
+                        if write!(
+                            stream,
+                            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
+                            body.len(),
+                            body
+                        )
+                        .is_err()
+                        {
+                            break;
+                        }
+                    }
+                }
+            });
+            Self {
+                port,
+                requests,
+                done,
+                worker: Some(worker),
+            }
+        }
+        pub fn count(&self, needle: &str) -> usize {
+            self.requests
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|line| line.contains(needle))
+                .count()
+        }
+    }
+    impl Drop for StatusServer {
+        fn drop(&mut self) {
+            self.done.store(true, Ordering::Release);
+            if let Some(worker) = self.worker.take() {
+                let _ = worker.join();
+            }
+        }
+    }
     /// One keep-alive connection: the first request is answered as `/__bili/health`
     /// for `pid`, each following request with the next of `bodies` verbatim.
     /// Returns the request lines it saw.
@@ -1068,7 +1360,7 @@ pub(crate) mod test_support {
 
 #[cfg(test)]
 mod tests {
-    use super::test_support::server;
+    use super::test_support::{StatusServer, server};
     use super::*;
     use std::net::TcpListener;
     #[test]
@@ -1240,5 +1532,172 @@ mod tests {
             );
             assert_eq!(worker.join().unwrap().len(), 1);
         }
+    }
+    /// Drives the owner's own drain pieces (state, poll, shutdown) the way the
+    /// worker does, one poll per `poll`, until the drain ends.
+    fn run_drain(
+        server: &StatusServer,
+        pid: u32,
+        timeout: Duration,
+        poll: Duration,
+    ) -> Vec<DrainStep> {
+        let target = AdminTarget {
+            port: server.port,
+            pid,
+            timeout: Duration::from_millis(100),
+        };
+        let mut drain = DrainState::default();
+        let began = Instant::now();
+        assert_eq!(
+            drain.command(Phase::Ready, Command::Drain, began, timeout),
+            DrainEffect::Begin
+        );
+        let mut steps = Vec::new();
+        loop {
+            let (_, step) = drain
+                .poll(&target)
+                .expect("drain stays active until it ends");
+            steps.push(step);
+            if step == DrainStep::Waiting {
+                assert!(drain.active());
+                thread::sleep(poll);
+                continue;
+            }
+            // What the owner does next: one identity-checked graceful shutdown.
+            assert!(!drain.active());
+            graceful_shutdown(server.port, pid, target.timeout);
+            return steps;
+        }
+    }
+    #[test]
+    fn drain_waits_for_in_flight_then_stops() {
+        let server = StatusServer::start(41, vec![Some(2), Some(1), Some(0), Some(0)], Some(0));
+        let steps = run_drain(
+            &server,
+            41,
+            Duration::from_secs(5),
+            Duration::from_millis(10),
+        );
+        assert_eq!(
+            steps,
+            [
+                DrainStep::Waiting,
+                DrainStep::Waiting,
+                DrainStep::Waiting,
+                DrainStep::Idle
+            ]
+        );
+        assert_eq!(steps[3].reason(), Reason::None);
+        assert_eq!(server.count("GET /__bili/status"), 4);
+        assert_eq!(server.count("POST /__bili/shutdown"), 1);
+    }
+    #[test]
+    fn a_non_zero_or_unknown_read_resets_the_idle_count() {
+        let mut watch = DrainWatch::begin(Instant::now(), Duration::from_secs(60));
+        let now = Instant::now();
+        for (reading, expected) in [
+            (Some(0), DrainStep::Waiting),
+            (None, DrainStep::Waiting),
+            (Some(0), DrainStep::Waiting),
+            (Some(3), DrainStep::Waiting),
+            (Some(0), DrainStep::Waiting),
+            (Some(0), DrainStep::Idle),
+        ] {
+            assert_eq!(watch.observe(now, reading), expected);
+        }
+    }
+    #[test]
+    fn unknown_in_flight_is_not_idle() {
+        let server = StatusServer::start(42, vec![], None);
+        let timeout = Duration::from_millis(400);
+        let began = Instant::now();
+        let steps = run_drain(&server, 42, timeout, Duration::from_millis(10));
+        assert!(began.elapsed() >= timeout);
+        assert_eq!(steps.last(), Some(&DrainStep::TimedOut));
+        assert!(
+            steps[..steps.len() - 1]
+                .iter()
+                .all(|step| *step == DrainStep::Waiting)
+        );
+        assert!(steps.len() > 1, "unknown reads must keep the drain waiting");
+        assert_eq!(steps.last().unwrap().reason(), Reason::DrainTimedOut);
+        assert!(server.count("GET /__bili/status") >= 2);
+        assert_eq!(server.count("POST /__bili/shutdown"), 1);
+    }
+    #[test]
+    fn start_during_drain_cancels_it() {
+        let server = StatusServer::start(43, vec![], Some(3));
+        let target = AdminTarget {
+            port: server.port,
+            pid: 43,
+            timeout: Duration::from_millis(100),
+        };
+        let mut drain = DrainState::default();
+        let now = Instant::now();
+        let timeout = Duration::from_secs(30);
+        assert_eq!(
+            drain.command(Phase::Busy, Command::Drain, now, timeout),
+            DrainEffect::Begin
+        );
+        for _ in 0..2 {
+            assert_eq!(drain.poll(&target).unwrap().1, DrainStep::Waiting);
+        }
+        assert_eq!(
+            drain.command(Phase::Draining, Command::Start, now, timeout),
+            DrainEffect::Cancel
+        );
+        assert!(!drain.active());
+        let reads = server.count("GET /__bili/status");
+        assert_eq!(reads, 2);
+        assert!(
+            drain.poll(&target).is_none(),
+            "a cancelled drain never polls or stops"
+        );
+        assert_eq!(server.count("GET /__bili/status"), reads);
+        assert_eq!(server.count("POST /__bili/shutdown"), 0);
+        // Start with no drain in progress is left to the owner's normal handling.
+        assert_eq!(
+            drain.command(Phase::Ready, Command::Start, now, timeout),
+            DrainEffect::Unaffected
+        );
+    }
+    #[test]
+    fn drain_in_any_other_phase_is_a_stop() {
+        let mut drain = DrainState::default();
+        let now = Instant::now();
+        for phase in [
+            Phase::Stopped,
+            Phase::Starting,
+            Phase::Degraded,
+            Phase::Recovering,
+            Phase::Failed,
+            Phase::Retired,
+        ] {
+            assert_eq!(
+                drain.command(phase, Command::Drain, now, Duration::from_secs(30)),
+                DrainEffect::StopNow
+            );
+            assert!(!drain.active());
+        }
+    }
+    #[test]
+    fn stop_is_still_immediate() {
+        let server = StatusServer::start(44, vec![], Some(5));
+        let target = AdminTarget {
+            port: server.port,
+            pid: 44,
+            timeout: Duration::from_millis(100),
+        };
+        let mut drain = DrainState::default();
+        let began = Instant::now();
+        drain.command(Phase::Busy, Command::Drain, began, Duration::from_secs(30));
+        assert_eq!(drain.poll(&target).unwrap(), (Some(5), DrainStep::Waiting));
+        // Stop ends any drain at once and goes straight to the shutdown request.
+        drain.clear();
+        assert!(!drain.active());
+        graceful_shutdown(server.port, 44, target.timeout);
+        assert!(began.elapsed() < Duration::from_secs(5));
+        assert_eq!(server.count("POST /__bili/shutdown"), 1);
+        assert_eq!(server.count("GET /__bili/status"), 1);
     }
 }
