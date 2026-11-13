@@ -97,9 +97,9 @@ fn new_database_creates_ordered_verified_backups_and_current_reopen_is_idempoten
     let fixture = Fixture::new();
     let location = fixture.location();
     let database = Database::open(&location, None).unwrap();
-    assert_eq!(database.diagnostics().unwrap().schema_version, 5);
+    assert_eq!(database.diagnostics().unwrap().schema_version, 6);
     let saved = backups(&location);
-    assert_eq!(saved.len(), 5);
+    assert_eq!(saved.len(), 6);
     let mut versions = Vec::new();
     for file in &saved {
         location.verify_private_file(file).unwrap();
@@ -108,11 +108,11 @@ fn new_database_creates_ordered_verified_backups_and_current_reopen_is_idempoten
         versions.push(version(&backup));
     }
     versions.sort();
-    assert_eq!(versions, [0, 1, 2, 3, 4]);
+    assert_eq!(versions, [0, 1, 2, 3, 4, 5]);
     database.integrity_check().unwrap();
     drop(database);
     let reopened = Database::open(&location, None).unwrap();
-    assert_eq!(reopened.diagnostics().unwrap().schema_version, 5);
+    assert_eq!(reopened.diagnostics().unwrap().schema_version, 6);
     assert_eq!(backups(&location), saved);
 }
 
@@ -128,13 +128,13 @@ fn v1_migration_preserves_authoritative_rows_and_backs_up_uncheckpointed_wal() {
             > 32
     );
     let database = Database::open(&location, None).unwrap();
-    assert_eq!(database.diagnostics().unwrap().schema_version, 5);
+    assert_eq!(database.diagnostics().unwrap().schema_version, 6);
     let recent = database.recent().unwrap();
     assert_eq!(recent.len(), 1);
     assert_eq!(recent[0].id, "p_abcdefghijkl");
     assert_eq!(recent[0].last_opened, 100);
     let saved = backups(&location);
-    assert_eq!(saved.len(), 4);
+    assert_eq!(saved.len(), 5);
     let backup = Connection::open_with_flags(&saved[0], OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
     assert_eq!(version(&backup), 1);
     assert_eq!(
@@ -188,10 +188,10 @@ BEGIN SELECT RAISE(ABORT, 'setting value must be JSON'); END;",
     writer.pragma_update(None, "user_version", 2).unwrap();
 
     let database = Database::open(&location, None).unwrap();
-    assert_eq!(database.diagnostics().unwrap().schema_version, 5);
+    assert_eq!(database.diagnostics().unwrap().schema_version, 6);
     assert_eq!(database.recent().unwrap()[0].id, "p_abcdefghijkl");
     let saved = backups(&location);
-    assert_eq!(saved.len(), 3);
+    assert_eq!(saved.len(), 4);
     let backup = Connection::open_with_flags(&saved[0], OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
     assert_eq!(version(&backup), 2);
     integrity(&backup);
@@ -253,7 +253,7 @@ BEGIN SELECT RAISE(ABORT, 'setting value must be JSON'); END;",
     drop(database);
     drop(writer);
     let reopened = Database::open(&location, None).unwrap();
-    assert_eq!(reopened.diagnostics().unwrap().schema_version, 5);
+    assert_eq!(reopened.diagnostics().unwrap().schema_version, 6);
     assert_eq!(backups(&location), saved);
 }
 
@@ -358,7 +358,7 @@ fn newer_database_is_readonly_without_schema_changes_or_backup() {
         database.access(),
         &DatabaseAccess::ReadOnlyNewer {
             found: 999,
-            supported: 5
+            supported: 6
         }
     );
     assert!(database.set_appearance(&Default::default()).is_err());

@@ -18,3 +18,4 @@ pub mod search_index;
 mod schema;
 pub mod store_roots;
 pub mod threads;
+pub mod worksets;

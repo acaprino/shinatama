@@ -2,10 +2,11 @@
 
 use rusqlite::Connection;
 
-pub const CURRENT_VERSION: u32 = 5;
+pub const CURRENT_VERSION: u32 = 6;
 
 const MAX_SCHEMA_OBJECTS: usize =
-    5 + crate::records::schema::OBJECTS.len() + crate::threads::schema::OBJECTS.len();
+    5 + crate::records::schema::OBJECTS.len() + crate::threads::schema::OBJECTS.len()
+    + crate::worksets::schema::OBJECTS.len();
 
 /// Call after BEGIN IMMEDIATE: another window may have upgraded since open().
 /// The write reservation prevents a newer migration racing this check/commit.
@@ -95,6 +96,9 @@ fn validate_definitions(actual: Vec<(String, String)>, version: u32) -> rusqlite
         expected.extend_from_slice(crate::threads::schema::OBJECTS_V4);
     } else if version >= 5 {
         expected.extend_from_slice(crate::threads::schema::OBJECTS);
+    }
+    if version >= 6 {
+        expected.extend_from_slice(crate::worksets::schema::OBJECTS);
     }
     expected.sort_by_key(|(name, _)| *name);
     if !(1..=CURRENT_VERSION).contains(&version)

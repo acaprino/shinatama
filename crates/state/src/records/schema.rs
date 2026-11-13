@@ -82,6 +82,8 @@ pub const AUTHORITATIVE_NAMES: &[&str] = &[
     "thread",
     "segment",
     "activation",
+    "workset",
+    "workset_member",
     "hop",
     "hop_event",
     "snapshot",

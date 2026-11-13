@@ -84,6 +84,7 @@ pub enum CanonicalIdKind {
     Roundtable,
     Message,
     BrowserSession,
+    Workset,
 }
 impl CanonicalIdKind {
     fn prefix(self) -> &'static str {
@@ -96,6 +97,7 @@ impl CanonicalIdKind {
             Self::Roundtable => "r_",
             Self::Message => "m_",
             Self::BrowserSession => "bs_",
+            Self::Workset => "w_",
         }
     }
 }

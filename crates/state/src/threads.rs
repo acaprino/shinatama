@@ -270,23 +270,23 @@ fn sidebar_snapshot(connection: &Connection) -> Result<SidebarSnapshot> {
     }
 }
 
-fn id(value: &str, kind: CanonicalIdKind) -> Result<()> {
+pub(crate) fn id(value: &str, kind: CanonicalIdKind) -> Result<()> {
     validate_id(value, kind).map_err(|_| ThreadError::Invalid)
 }
-fn revision(value: u64) -> Result<i64> {
+pub(crate) fn revision(value: u64) -> Result<i64> {
     if !(1..=MAX_SAFE_REVISION).contains(&value) {
         return Err(ThreadError::Invalid);
     }
     Ok(value as i64)
 }
-fn millis(value: i64) -> Result<()> {
+pub(crate) fn millis(value: i64) -> Result<()> {
     if value < 0 || value as u64 > MAX_SAFE_REVISION {
         Err(ThreadError::Invalid)
     } else {
         Ok(())
     }
 }
-fn title(value: Option<&str>) -> Result<()> {
+pub(crate) fn title(value: Option<&str>) -> Result<()> {
     if value.is_some_and(|value| {
         value.is_empty() || value.len() > 256 || value.chars().any(char::is_control)
     }) {
@@ -310,7 +310,7 @@ fn parse_kind(value: String) -> rusqlite::Result<ThreadKind> {
         _ => Err(rusqlite::Error::InvalidQuery),
     }
 }
-fn rev_row(row: &rusqlite::Row<'_>, column: usize) -> rusqlite::Result<u64> {
+pub(crate) fn rev_row(row: &rusqlite::Row<'_>, column: usize) -> rusqlite::Result<u64> {
     let value: i64 = row.get(column)?;
     if value <= 0 || value as u64 > MAX_SAFE_REVISION {
         return Err(rusqlite::Error::InvalidQuery);
@@ -346,6 +346,33 @@ impl ActivationOwner {
         }
         Ok(())
     }
+}
+/// One row per thread: its latest segment's agent, whether that store is available, and whether an opening is recorded.
+pub(crate) const SUMMARY_SELECT: &str = "SELECT t.id,t.project_id,t.kind,t.title,t.revision,t.updated_at,t.archived,s.harness,r.available,EXISTS(SELECT 1 FROM activation a WHERE a.thread_id=t.id AND a.ended_at IS NULL) FROM thread t LEFT JOIN segment s ON s.id=coalesce((SELECT segment_id FROM activation WHERE thread_id=t.id ORDER BY activation_sequence DESC LIMIT 1),(SELECT id FROM segment WHERE thread_id=t.id ORDER BY ordinal DESC LIMIT 1)) LEFT JOIN store_root r ON r.id=s.store_root_id";
+pub(crate) fn summary_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ThreadSummary> {
+    let archived: bool = row.get(6)?;
+    let harness: Option<String> = row.get(7)?;
+    let opened: bool = row.get(9)?;
+    let status = if archived {
+        ThreadStatus::Archived
+    } else if opened {
+        ThreadStatus::RecordedOpen
+    } else if harness.is_some() {
+        ThreadStatus::Inactive
+    } else {
+        ThreadStatus::Unbound
+    };
+    Ok(ThreadSummary {
+        id: row.get(0)?,
+        project_id: row.get(1)?,
+        kind: parse_kind(row.get(2)?)?,
+        title: row.get(3)?,
+        revision: rev_row(row, 4)?,
+        updated_at: row.get(5)?,
+        harness,
+        native_available: row.get(8)?,
+        status,
+    })
 }
 const THREAD_COLUMNS: &str = "id,project_id,kind,parent_thread_id,companion_worker_thread_id,title,archived,revision,created_at,updated_at";
 fn thread_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ThreadRecord> {
@@ -555,7 +582,13 @@ impl Database {
         transaction.commit()?;
         Ok(snapshot)
     }
+    /// The new session joins the workset of the session it comes from, or a workset of its own.
     pub fn create_thread(&self, record: &ThreadRecord) -> Result<ThreadRecord> {
+        self.create_thread_in(record, None)
+    }
+    /// `workset` names the thread the user has open (ADR-0055); a fork or companion ignores it
+    /// and stays with its source.
+    pub fn create_thread_in(&self, record: &ThreadRecord, workset: Option<&str>) -> Result<ThreadRecord> {
         record.validate()?;
         if record.revision != 1 || record.archived {
             return Err(ThreadError::Invalid);
@@ -581,6 +614,7 @@ impl Database {
             return Err(ThreadError::Conflict);
         }
         tx.execute("INSERT INTO thread(id,project_id,kind,parent_thread_id,companion_worker_thread_id,title,archived,revision,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,0,1,?7,?8)",params![record.id,record.project_id,kind_name(record.kind),record.parent_thread_id,record.companion_worker_thread_id,record.title,record.created_at,record.updated_at])?;
+        crate::worksets::join(&tx, record, workset)?;
         tx.commit()?;
         Ok(record.clone())
     }
@@ -1102,7 +1136,7 @@ impl Database {
         )? {
             return Err(ThreadError::NotFound);
         }
-        let mut statement=connection.prepare("SELECT t.id,t.project_id,t.kind,t.title,t.revision,t.updated_at,t.archived,s.harness,r.available,EXISTS(SELECT 1 FROM activation a WHERE a.thread_id=t.id AND a.ended_at IS NULL) FROM thread t LEFT JOIN segment s ON s.id=coalesce((SELECT segment_id FROM activation WHERE thread_id=t.id ORDER BY activation_sequence DESC LIMIT 1),(SELECT id FROM segment WHERE thread_id=t.id ORDER BY ordinal DESC LIMIT 1)) LEFT JOIN store_root r ON r.id=s.store_root_id WHERE t.project_id=?1 AND t.archived=?5 AND (?2 IS NULL OR t.updated_at<?2 OR (t.updated_at=?2 AND t.id>?3)) ORDER BY t.updated_at DESC,t.id LIMIT ?4")?;
+        let mut statement=connection.prepare(&format!("{SUMMARY_SELECT} WHERE t.project_id=?1 AND t.archived=?5 AND (?2 IS NULL OR t.updated_at<?2 OR (t.updated_at=?2 AND t.id>?3)) ORDER BY t.updated_at DESC,t.id LIMIT ?4"))?;
         let mut rows = statement
             .query_map(
                 params![
@@ -1112,31 +1146,7 @@ impl Database {
                     (limit + 1) as i64,
                     archived
                 ],
-                |row| {
-                    let archived: bool = row.get(6)?;
-                    let harness: Option<String> = row.get(7)?;
-                    let opened: bool = row.get(9)?;
-                    let status = if archived {
-                        ThreadStatus::Archived
-                    } else if opened {
-                        ThreadStatus::RecordedOpen
-                    } else if harness.is_some() {
-                        ThreadStatus::Inactive
-                    } else {
-                        ThreadStatus::Unbound
-                    };
-                    Ok(ThreadSummary {
-                        id: row.get(0)?,
-                        project_id: row.get(1)?,
-                        kind: parse_kind(row.get(2)?)?,
-                        title: row.get(3)?,
-                        revision: rev_row(row, 4)?,
-                        updated_at: row.get(5)?,
-                        harness,
-                        native_available: row.get(8)?,
-                        status,
-                    })
-                },
+                summary_row,
             )?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         let more = rows.len() > limit;

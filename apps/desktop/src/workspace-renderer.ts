@@ -176,8 +176,13 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
     for (const viewId of group.tabs) {
       const view = current.views.find(view => view.id === viewId); if (!view || view.hidden) continue;
       if (filter && !filter.shows(view)) { filteredOut = true; continue; }
-      const tab = control(label(view), `tab:${view.id}`, () => { emit({ type: 'activate', groupId: group.id, viewId: view.id }); focusView(view.id); });
-      tab.classList.add('wm-tab'); tab.dataset.viewId = view.id; tab.draggable = true; tab.setAttribute('role', 'tab');
+      // A clicked tab hands the focus to its terminal and keeps it there: the tab button lets go first,
+      // so the render it triggers does not queue the focus back onto the tab chrome.
+      const tab = control(label(view), `tab:${view.id}`, () => {
+        tab.blur();
+        if (current?.focusedGroupId !== group.id) emit({ type: 'focus', groupId: group.id });
+        emit({ type: 'activate', groupId: group.id, viewId: view.id }); focusView(view.id);
+      });      tab.classList.add('wm-tab'); tab.dataset.viewId = view.id; tab.draggable = true; tab.setAttribute('role', 'tab');
       tab.id = `${namespace}-tab-${view.id}`; tab.setAttribute('aria-controls', dom.body.id);
       tab.setAttribute('aria-selected', String(group.activeTabId === view.id)); tab.tabIndex = group.activeTabId === view.id ? 0 : -1; tab.title = label(view);
       tab.addEventListener('dragstart', event => {

@@ -65,6 +65,11 @@ const MIGRATIONS: &[Migration] = &[
         to: 5,
         sql: crate::threads::schema::MIGRATION_V5,
     },
+    Migration {
+        from: 5,
+        to: 6,
+        sql: crate::worksets::schema::MIGRATION_V6,
+    },
 ];
 
 /// The caller holds the private crash-released schema.lock across this operation.
@@ -579,8 +584,11 @@ mod fault_tests {
         drop(backup);
 
         initialize(&mut connection, &location).unwrap();
-        assert_eq!(connection.pragma_query_value::<u32, _>(None, "user_version", |row| row.get(0)).unwrap(), 5);
-        schema::validate_version(&connection, 5).unwrap();
+        // The run continues to the current version; the saved thread becomes a workset of one session.
+        assert_eq!(connection.pragma_query_value::<u32, _>(None, "user_version", |row| row.get(0)).unwrap(), schema::CURRENT_VERSION);
+        schema::validate_version(&connection, schema::CURRENT_VERSION).unwrap();
+        assert_eq!(rows(&connection, "SELECT thread_id,workset_id FROM workset_member"),
+            vec![vec![Value::Text("t_aaaaaaaaaaaa".into()), Value::Text("w_aaaaaaaaaaaa".into())]]);
         ensure_integrity(&connection).unwrap();
         assert_eq!(rows(&connection, HISTORY), history);
         assert_eq!(records(&connection), saved_records);
