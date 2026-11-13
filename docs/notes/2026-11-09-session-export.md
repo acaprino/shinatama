@@ -26,9 +26,10 @@ appartiene a un progetto Git").
   committing. A failure, a timeout or a cancel drops the stage and removes its file; nothing
   is replaced. The in-memory render (`render_at`) uses the same item writers, so a streamed
   file is the in-memory render byte for byte.
-- The `mukade` format still builds its document from the whole session and is refused with
-  `output_limit` when it does not fit 24 MiB; it keeps that bound until Mukade's streaming
-  document writer is wired in. The hop preview keeps an in-memory export bound of 24 MiB: it
+- The `mukade` format streams too: Mukade's `wire::DocumentWriter` writes the interchange
+  document one message at a time (compact JSON), opening with the meta that
+  `read_streamed_with_meta` hands over first; each message loses reasoning and opaque fields and
+  is redacted as it is written. No file export has a content bound. The hop preview keeps an in-memory export bound of 24 MiB: it
   holds the whole transcript in memory by design.
 - Attachment bounds (8 MiB each, 12 MiB in all) bound one attachment, not the session: the
   final frame carries them base64-encoded (at most 24 MiB), never the session's text.

@@ -343,11 +343,25 @@ impl Opened {
         request: &DetailRequest,
         on_entry: &mut dyn FnMut(Entry) -> Result<(), StreamStop>,
     ) -> Result<(Meta, String), StreamError> {
+        self.streamed_with_meta(snapshot, request, &mut |_| Ok(()), on_entry)
+    }
+    /// [`Opened::streamed`], handing the session's meta over before the first entry (Mukade's
+    /// `read_streamed_with_meta`): what a document that opens with its meta needs.
+    pub(crate) fn streamed_with_meta(
+        &self,
+        snapshot: &TrustedRootSnapshot,
+        request: &DetailRequest,
+        on_meta: &mut dyn FnMut(&Meta) -> Result<(), StreamStop>,
+        on_entry: &mut dyn FnMut(Entry) -> Result<(), StreamStop>,
+    ) -> Result<(Meta, String), StreamError> {
         let meta = self
             .reader
-            .read_streamed(&request.native_id, &self.roots, &mut |entry| {
-                on_entry(entry).map_err(anyhow::Error::from)
-            })
+            .read_streamed_with_meta(
+                &request.native_id,
+                &self.roots,
+                &mut |meta| on_meta(meta).map_err(anyhow::Error::from),
+                &mut |entry| on_entry(entry).map_err(anyhow::Error::from),
+            )
             .map_err(|error| {
                 if error.downcast_ref::<StreamStop>().is_some() {
                     StreamError::Stopped

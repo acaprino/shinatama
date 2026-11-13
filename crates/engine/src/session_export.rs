@@ -22,9 +22,9 @@ use shinatama_export::{
 use std::io::{self, Write};
 use std::ops::Deref;
 
-/// The bound of the `mukade` format's document only, until its writer streams too: that format
-/// is built from the whole session and is refused when its output does not fit. Markdown and
-/// STX have no content bound.
+/// The bound of an export held whole in memory: the hop preview's only (`preview::prepare`
+/// holds its transcript by design). No file export has a content bound: Markdown, STX and the
+/// `mukade` document all stream.
 pub const MAX_EXPORT_CONTENT_BYTES: usize = 24 * 1024 * 1024;
 /// One attachment, and all of one export's attachments: they bound what the final frame carries,
 /// not the session (its text streams in frames of at most 1 MiB with no total).
@@ -159,10 +159,6 @@ pub fn validate_request(request: &ExportRequest) -> Result<(), ExportIssue> {
     Ok(())
 }
 
-/// What the `mukade` format may hold before it stops: it collects the entries it streams, and a
-/// session whose text is twice its content bound cannot render within it once redacted.
-const MAX_STREAMED_BYTES: usize = 2 * MAX_EXPORT_CONTENT_BYTES;
-
 enum Stop {
     Issue(ExportIssue),
     /// The pipe to the parent failed; there is nobody to tell.
@@ -171,9 +167,9 @@ enum Stop {
 
 /// A session's size is no reason to refuse an export (ADR-0053 v2): its entries are read one at
 /// a time through Mukade's streamed read, projected, redacted and rendered as they arrive, and the
-/// body goes to the parent in bounded frames. Nothing but one entry and one frame is held. Only
-/// the `mukade` format needs the whole `Session` at once (`wire::to_document` writes the
-/// interchange document from it), so only that format collects the entries it streams.
+/// body goes to the parent in bounded frames. Nothing but one entry and one frame is held, the
+/// `mukade` document included: Mukade's `DocumentWriter` writes it one message at a time, opening
+/// with the meta that `read_streamed_with_meta` hands over before the first entry.
 pub fn stream_export<W: Write>(
     snapshot: Result<&TrustedRootSnapshot, DetailIssue>,
     request: &ExportRequest,
@@ -197,23 +193,6 @@ pub fn stream_export<W: Write>(
     frames.finish(&serde_json::to_vec(&last).map_err(io::Error::other)?)
 }
 
-/// Bytes of an entry's JSON, counted without building it.
-fn json_len(entry: &Entry) -> usize {
-    struct Count(usize);
-    impl std::io::Write for Count {
-        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-            self.0 += bytes.len();
-            Ok(bytes.len())
-        }
-        fn flush(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
-    }
-    let mut count = Count(0);
-    let _ = serde_json::to_writer(&mut count, entry);
-    count.0
-}
-
 fn run<W: Write>(
     snapshot: &TrustedRootSnapshot,
     request: &ExportRequest,
@@ -229,33 +208,48 @@ fn run<W: Write>(
         copy,
     );
     let mut emitter = Emitter::new(request);
-    let mut entries = Vec::new();
-    let mut collected = 0usize;
+    let mut document = whole.then(MukadeDocument::default);
+    let first_meta: std::cell::RefCell<Option<Meta>> = std::cell::RefCell::new(None);
     let mut failure = None;
     let mut read = 0u64;
-    let streamed = opened.streamed(snapshot, &request.detail, &mut |entry| {
-        projector.push(&entry);
-        for item in projector.take_items() {
-            if let Err(error) = emitter.item(item, &mut |bytes| frames.write_body(bytes)) {
+    let streamed = opened.streamed_with_meta(
+        snapshot,
+        &request.detail,
+        &mut |meta| {
+            *first_meta.borrow_mut() = Some(meta.clone());
+            Ok(())
+        },
+        &mut |entry| {
+            projector.push(&entry);
+            for item in projector.take_items() {
+                if let Err(error) = emitter.item(item, &mut |bytes| frames.write_body(bytes)) {
+                    failure = Some(Stop::Io(error));
+                    return Err(StreamStop);
+                }
+            }
+            if let Some(document) = document.as_mut() {
+                let opened_with = first_meta.borrow();
+                let Some(meta) = opened_with.as_ref() else {
+                    failure = Some(Stop::Issue(ExportIssue::InvalidRequest));
+                    return Err(StreamStop);
+                };
+                if document.entry(meta, &entry, &mut emitter.redactor).is_err() {
+                    failure = Some(Stop::Issue(ExportIssue::OutputLimit));
+                    return Err(StreamStop);
+                }
+                if let Err(error) = frames.write_body(&document.take()) {
+                    failure = Some(Stop::Io(error));
+                    return Err(StreamStop);
+                }
+            }
+            read += 1;
+            if let Err(error) = frames.progress(read, 0) {
                 failure = Some(Stop::Io(error));
                 return Err(StreamStop);
             }
-        }
-        read += 1;
-        if let Err(error) = frames.progress(read, 0) {
-            failure = Some(Stop::Io(error));
-            return Err(StreamStop);
-        }
-        if whole {
-            collected = collected.saturating_add(json_len(&entry));
-            entries.push(entry);
-            if projector.text_bytes().saturating_add(collected) > MAX_STREAMED_BYTES {
-                failure = Some(Stop::Issue(ExportIssue::OutputLimit));
-                return Err(StreamStop);
-            }
-        }
-        Ok(())
-    });
+            Ok(())
+        },
+    );
     let (meta, fingerprint) = match streamed {
         Ok(done) => done,
         Err(StreamError::Detail(issue)) => return Err(Stop::Issue(ExportIssue::Detail(issue))),
@@ -263,7 +257,15 @@ fn run<W: Write>(
             return Err(failure.unwrap_or(Stop::Issue(ExportIssue::OutputLimit)));
         }
     };
-    let session = whole.then(|| Session { meta: meta.clone(), entries, branches: Vec::new() });
+    let mut removed = 0;
+    if let Some(mut document) = document {
+        let opened_with = first_meta.into_inner().unwrap_or_else(|| meta.clone());
+        document
+            .finish(&opened_with, &meta, &mut emitter.redactor)
+            .map_err(|_| Stop::Issue(ExportIssue::OutputLimit))?;
+        frames.write_body(&document.take()).map_err(Stop::Io)?;
+        removed = document.removed;
+    }
     let body_bytes = frames.body_bytes();
     let done = finalize(
         &meta,
@@ -271,15 +273,82 @@ fn run<W: Write>(
         fingerprint,
         projector,
         emitter,
-        session.as_ref(),
+        removed,
         body_bytes,
         shinatama_export::time::now_rfc3339(),
     )
     .map_err(Stop::Issue)?;
-    if let Some(document) = &done.document {
-        frames.write_body(document.as_bytes()).map_err(Stop::Io)?;
-    }
     Ok(done.payload)
+}
+
+/// The `mukade` interchange document, written one message at a time through Mukade's
+/// `DocumentWriter` into a buffer the caller drains after every entry (one message at most).
+/// Each message, and the meta it opens with, loses its reasoning and opaque signatures and is
+/// redacted, as `sanitize_mukade_document` did over the whole document.
+#[derive(Default)]
+struct MukadeDocument {
+    buffer: std::rc::Rc<std::cell::RefCell<Vec<u8>>>,
+    writer: Option<mukade::wire::DocumentWriter<Shared>>,
+    /// The sanitized meta the document opened with.
+    meta: Option<Meta>,
+    /// Reasoning blocks and opaque fields removed.
+    removed: u64,
+}
+
+/// A writer into the document's shared buffer.
+struct Shared(std::rc::Rc<std::cell::RefCell<Vec<u8>>>);
+
+impl Write for Shared {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.0.borrow_mut().extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+impl MukadeDocument {
+    fn open(&mut self, meta: &Meta, redactor: &mut Redactor) -> anyhow::Result<()> {
+        if self.writer.is_none() {
+            let mut value = serde_json::to_value(meta)?;
+            self.removed += sanitize_mukade_document(&mut value, redactor);
+            let sanitized: Meta = serde_json::from_value(value)?;
+            self.writer = Some(mukade::wire::DocumentWriter::new(
+                Shared(self.buffer.clone()),
+                &sanitized,
+            )?);
+            self.meta = Some(sanitized);
+        }
+        Ok(())
+    }
+
+    fn entry(&mut self, meta: &Meta, entry: &Entry, redactor: &mut Redactor) -> anyhow::Result<()> {
+        self.open(meta, redactor)?;
+        let removed = &mut self.removed;
+        let writer = self.writer.as_mut().expect("opened");
+        writer.entry_with(entry, &mut |message| {
+            *removed += sanitize_mukade_document(message, redactor);
+            Ok(())
+        })
+    }
+
+    /// Closes the document. The session's final meta must be the one it opened with.
+    fn finish(&mut self, opened_with: &Meta, last: &Meta, redactor: &mut Redactor) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            serde_json::to_value(opened_with)? == serde_json::to_value(last)?,
+            "the session's meta changed after the document opened with it"
+        );
+        self.open(opened_with, redactor)?;
+        let writer = self.writer.take().expect("opened");
+        writer.finish(self.meta.as_ref().expect("opened"))?;
+        Ok(())
+    }
+
+    /// The bytes written since the last call.
+    fn take(&mut self) -> Vec<u8> {
+        std::mem::take(&mut *self.buffer.borrow_mut())
+    }
 }
 
 /// Redacts and renders the items one at a time. The same code renders the streamed export and
@@ -358,8 +427,6 @@ impl Emitter {
 
 struct Done {
     payload: ExportPayload,
-    /// The `mukade` format's whole document, written as the body.
-    document: Option<String>,
 }
 
 /// After the last entry: the header that goes in front of the body, and the report.
@@ -369,7 +436,7 @@ fn finalize(
     fingerprint: String,
     projector: Projector,
     mut emitter: Emitter,
-    whole: Option<&Session>,
+    removed: u64,
     body_bytes: u64,
     created: String,
 ) -> Result<Done, ExportIssue> {
@@ -384,7 +451,7 @@ fn finalize(
         }
     }
     let mut omitted = parts.omitted;
-    let (prefix, document) = match request.format {
+    let prefix = match request.format {
         Format::Stx => {
             let writer = std::mem::take(&mut emitter.stx);
             let header = writer.header(
@@ -399,29 +466,17 @@ fn finalize(
                     attachments_copied: parts.blobs.len() as u64,
                 },
             );
-            (String::from_utf8(header).map_err(|_| ExportIssue::OutputLimit)?, None)
+            String::from_utf8(header).map_err(|_| ExportIssue::OutputLimit)?
         }
-        Format::Md => (
-            markdown::header(&source, emitter.thread.as_deref(), emitter.mode, &created),
-            None,
-        ),
+        Format::Md => markdown::header(&source, emitter.thread.as_deref(), emitter.mode, &created),
         Format::Mukade => {
-            let session = whole.ok_or(ExportIssue::InvalidRequest)?;
-            let mut document = mukade::wire::to_document(session);
-            let removed = sanitize_mukade_document(&mut document, &mut emitter.redactor);
+            // The document went out as the body, message by message.
             omitted.reasoning = omitted.reasoning.max(removed);
-            let text = serde_json::to_string_pretty(&document).map_err(|_| ExportIssue::OutputLimit)?;
-            if text.len() > MAX_EXPORT_CONTENT_BYTES {
-                return Err(ExportIssue::OutputLimit);
-            }
-            (String::new(), Some(text))
+            String::new()
         }
         Format::Native => return Err(ExportIssue::FormatUnavailable),
     };
-    let content_bytes = match &document {
-        Some(text) => text.len() as u64,
-        None => prefix.len() as u64 + body_bytes,
-    };
+    let content_bytes = prefix.len() as u64 + body_bytes;
     let attachments_referenced = emitter.attachments;
     let report = ExportReport {
         format: request.format,
@@ -450,7 +505,6 @@ fn finalize(
                 .map(|(name, data)| AttachmentBlob { name, data_base64: shinatama_export::base64::encode(&data) })
                 .collect(),
         },
-        document,
     })
 }
 
@@ -773,6 +827,7 @@ pub fn render_at(
         copy,
     );
     let mut emitter = Emitter::new(request);
+    let mut document = (request.format == Format::Mukade).then(MukadeDocument::default);
     let mut body = Vec::new();
     for entry in &session.entries {
         projector.push(entry);
@@ -784,13 +839,24 @@ pub fn render_at(
                 })
                 .map_err(|_| ExportIssue::OutputLimit)?;
         }
+        if let Some(document) = document.as_mut() {
+            document
+                .entry(&session.meta, entry, &mut emitter.redactor)
+                .map_err(|_| ExportIssue::OutputLimit)?;
+            body.extend_from_slice(&document.take());
+        }
+    }
+    let mut removed = 0;
+    if let Some(mut document) = document {
+        document
+            .finish(&session.meta, &session.meta, &mut emitter.redactor)
+            .map_err(|_| ExportIssue::OutputLimit)?;
+        body.extend_from_slice(&document.take());
+        removed = document.removed;
     }
     let body_bytes = body.len() as u64;
-    let done = finalize(&session.meta, request, fingerprint, projector, emitter, Some(session), body_bytes, created)?;
-    Ok(Rendered {
-        body: done.document.map(String::into_bytes).unwrap_or(body),
-        payload: done.payload,
-    })
+    let done = finalize(&session.meta, request, fingerprint, projector, emitter, removed, body_bytes, created)?;
+    Ok(Rendered { body, payload: done.payload })
 }
 
 #[cfg(test)]
@@ -974,7 +1040,7 @@ mod tests {
 
     #[cfg(windows)]
     #[test]
-    fn a_session_past_16_mib_is_exported_in_full_and_refused_only_when_its_output_does_not_fit() {
+    fn a_session_past_16_mib_is_exported_in_full_in_every_format() {
         use crate::session_detail::large_fixture;
         let large = large_fixture::build();
         assert!(large.bytes > 17 * 1024 * 1024);
@@ -993,12 +1059,14 @@ mod tests {
         assert!(content.len() > 17 * 1024 * 1024);
         assert_eq!(receipt.bytes, content.len() as u64);
         assert_eq!(std::fs::read_dir(&folder).unwrap().count(), 1, "no staged file is left");
-        // The interchange document holds each record twice (entries and source), so its output,
-        // not the session's size, is what does not fit: it stays bounded until its writer streams.
+        // The interchange document streams too (Mukade's DocumentWriter): no output bound.
         let other = folder.join("big.json");
-        let refused = export_to_file(&large, &request_for(&large, Format::Mukade), &other, None);
-        assert!(refused.err().unwrap().contains("OutputLimit"));
-        assert_eq!(std::fs::read_dir(&folder).unwrap().count(), 1, "a refusal leaves nothing");
+        let (receipt, _) =
+            export_to_file(&large, &request_for(&large, Format::Mukade), &other, None).unwrap();
+        let document: Value = serde_json::from_slice(&std::fs::read(&other).unwrap()).unwrap();
+        assert!(document.to_string().contains(large_fixture::DEEP_MARKER));
+        assert!(receipt.bytes > 17 * 1024 * 1024);
+        assert_eq!(std::fs::read_dir(&folder).unwrap().count(), 2, "no staged file is left");
     }
 
     #[cfg(windows)]
