@@ -517,7 +517,7 @@ fn sidecar_report(
     if let Some(agents) = window.try_state::<Arc<agents::Controller>>() {
         status.agent_sessions = agents.live_agent_sessions();
     }
-    serde_json::to_value(status).map_err(|_| "Session index status is unavailable.".into())
+    serde_json::to_value(status).map_err(|_| "Model proxy status is unavailable.".into())
 }
 #[tauri::command]
 fn sidecar_status(window: tauri::WebviewWindow) -> Result<serde_json::Value, String> {
@@ -525,7 +525,7 @@ fn sidecar_status(window: tauri::WebviewWindow) -> Result<serde_json::Value, Str
     #[cfg(windows)]
     return sidecar_report(&window, ready::<sidecar::Controller>(&window)?.status());
     #[cfg(not(windows))]
-    Err("The session index is available on Windows.".into())
+    Err("The Model proxy is available on Windows.".into())
 }
 #[tauri::command]
 fn sidecar_start(window: tauri::WebviewWindow) -> Result<serde_json::Value, String> {
@@ -539,7 +539,7 @@ fn sidecar_start(window: tauri::WebviewWindow) -> Result<serde_json::Value, Stri
         .map_err(str::to_owned)
         .and_then(|status| sidecar_report(&window, status));
     #[cfg(not(windows))]
-    Err("The session index is available on Windows.".into())
+    Err("The Model proxy is available on Windows.".into())
 }
 /// Stop lets in-flight requests finish. While agent terminals are alive it
 /// answers the unchanged status with `"refused": true` unless `force` is set.
@@ -565,7 +565,7 @@ fn sidecar_stop(window: tauri::WebviewWindow, force: bool) -> Result<serde_json:
             }
         };
         let mut value = serde_json::to_value(status)
-            .map_err(|_| "Session index status is unavailable.".to_owned())?;
+            .map_err(|_| "Model proxy status is unavailable.".to_owned())?;
         if let (true, Some(fields)) = (refused, value.as_object_mut()) {
             fields.insert("refused".into(), true.into());
         }
@@ -574,7 +574,7 @@ fn sidecar_stop(window: tauri::WebviewWindow, force: bool) -> Result<serde_json:
     #[cfg(not(windows))]
     {
         let _ = force;
-        Err("The session index is available on Windows.".into())
+        Err("The Model proxy is available on Windows.".into())
     }
 }
 #[tauri::command]
@@ -589,7 +589,7 @@ fn sidecar_retry(window: tauri::WebviewWindow) -> Result<serde_json::Value, Stri
         .map_err(str::to_owned)
         .and_then(|status| sidecar_report(&window, status));
     #[cfg(not(windows))]
-    Err("The session index is available on Windows.".into())
+    Err("The Model proxy is available on Windows.".into())
 }
 /// A portable install (`Shinatama.portable` beside the exe) keeps its database in `data\` and
 /// its WebView2 profile in `webview\` beside Shinatama.exe; child processes inherit both.

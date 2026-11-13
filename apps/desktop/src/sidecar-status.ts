@@ -4,8 +4,6 @@ export type ProxyStatus = {
   inFlight: number | null; agentSessions: number;
   drainDeadlineUnixMs: number | null; configDrift: boolean | null;
   refused?: boolean;
-  /** Values the running process reported; shown only while they differ from the baseline. */
-  resolved?: Record<string, string | number | boolean>;
 };
 
 const LABELS: Record<string, string> = {
@@ -13,6 +11,8 @@ const LABELS: Record<string, string> = {
   busy: 'Busy', draining: 'Stopping after current requests…', degraded: 'Temporarily unavailable', recovering: 'Recovering…',
   failed: 'Stopped after a failure', retired: 'Recovery needs attention', unavailable: 'Status unavailable',
 };
+const RUNNING = ['starting', 'ready', 'busy', 'draining', 'degraded', 'recovering'];
+const DOWN = ['stopped', 'failed', 'retired', 'unavailable'];
 const MESSAGE_LIMIT = 400;
 const isCount = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value >= 0;
 
@@ -31,13 +31,6 @@ export function parseStatus(value: unknown): ProxyStatus | null {
     drainDeadlineUnixMs: raw.drainDeadlineUnixMs, configDrift: raw.configDrift,
   };
   if (raw.refused !== undefined) status.refused = raw.refused;
-  if (raw.resolved && typeof raw.resolved === 'object' && !Array.isArray(raw.resolved)) {
-    const kept: Record<string, string | number | boolean> = {};
-    for (const [key, entry] of Object.entries(raw.resolved)) {
-      if (typeof entry === 'number' || typeof entry === 'boolean' || (typeof entry === 'string' && entry.length <= 64)) kept[key] = entry;
-    }
-    if (Object.keys(kept).length > 0) status.resolved = kept;
-  }
   return status;
 }
 
@@ -77,4 +70,20 @@ export function trafficLine(status: ProxyStatus): string {
 
 export function driftLine(status: ProxyStatus): string | null {
   return status.configDrift === true ? 'Custom configuration: values differ from the Shinatama baseline.' : null;
+}
+
+/** Traffic is meaningful only while the proxy is up in some form. */
+export function showsTraffic(phase: string): boolean {
+  return RUNNING.includes(phase);
+}
+
+/** A stop answered for a proxy the panel believed down (or never saw) says nothing true about it:
+ * the reply is not adopted and the next poll decides. */
+export function adoptStopReply(previousPhase: string | undefined): boolean {
+  return previousPhase !== undefined && !DOWN.includes(previousPhase);
+}
+
+/** The inline confirmation stays only while a stop is possible and would cost agent sessions. */
+export function confirmStillNeeded(status: ProxyStatus | null): boolean {
+  return status !== null && stopConsequence(status) !== null && buttons(status, false).stop;
 }

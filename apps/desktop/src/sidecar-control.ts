@@ -1,9 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
-import { buttons, driftLine, parseStatus, phaseLabel, startLabel, stopConsequence, trafficLine, type ProxyStatus } from './sidecar-status.ts';
+import { adoptStopReply, buttons, confirmStillNeeded, driftLine, parseStatus, phaseLabel, showsTraffic, startLabel, stopConsequence, trafficLine, type ProxyStatus } from './sidecar-status.ts';
 
-// A stop answered for a proxy that was already down says nothing true about it; the next poll does.
-const DOWN = ['stopped', 'failed', 'retired', 'unavailable'];
-const RUNNING = ['starting', 'ready', 'busy', 'draining', 'degraded', 'recovering'];
 const POLL_MS = 1500;
 
 /** The Model proxy side panel. An `aside`, never a dialog: terminals stay live beside it and the
@@ -44,38 +41,36 @@ export function createSidecarControl(desktop: boolean, notify: (message: string)
     const phase = current?.phase ?? 'unavailable';
     button.textContent = `Model proxy · ${phaseLabel(phase)}`;
     state.textContent = phaseLabel(phase);
-    const running = current !== null && RUNNING.includes(phase);
+    const running = current !== null && showsTraffic(phase);
     traffic.hidden = !running; traffic.textContent = running ? trafficLine(current!) : '';
     message.textContent = current?.message ?? (current?.healthy ? 'Local service is responding.' : 'Saved sessions are preserved.');
     const note = current ? driftLine(current) : null;
-    const values = current?.resolved ? Object.entries(current.resolved).map(([key, value]) => `${key} ${value}`).join(' · ') : '';
-    drift.hidden = note === null; drift.textContent = note === null ? '' : values ? `${note} Running with: ${values}` : note;
+    drift.hidden = note === null; drift.textContent = note ?? '';
     const enabled = buttons(current, outstanding);
     start.disabled = !enabled.start; stop.disabled = !enabled.stop; retry.disabled = !enabled.retry;
     start.textContent = startLabel(current);
     const cost = current ? stopConsequence(current) : null;
-    if (confirming && (cost === null || !buttons(current, false).stop)) confirming = false; // nothing left to confirm
+    if (confirming && !confirmStillNeeded(current)) confirming = false;
     confirm.hidden = !confirming; consequence.textContent = confirming && cost ? cost : '';
     panel.setAttribute('aria-busy', String(outstanding));
   }
-  // A poll never disables the buttons or outlives a command: a reply that started before a command is stale.
+  // A reply that began before the panel was closed or a newer command is stale and never adopted.
   let generation = 0; let polling = false;
   async function request(command: string, report = false, args?: Record<string, unknown>) {
     const poll = command === 'sidecar_status';
     if (destroyed || !desktop || outstanding || (poll && polling)) return;
-    const started = generation;
     if (poll) polling = true; else { outstanding = true; generation++; render(); }
-    const before = current?.phase; let again = false;
+    const started = generation; const before = current?.phase; let again = false;
     try {
       const received = parseStatus(await invoke<unknown>(command, args));
       if (!received) throw new Error('Invalid status');
-      if (poll && started !== generation) return;
-      if (command === 'sidecar_stop' && (before === undefined || DOWN.includes(before))) again = true;
+      if (started !== generation) again = !poll;
+      else if (command === 'sidecar_stop' && !adoptStopReply(before)) again = true;
       else {
         current = received;
         if (received.refused) confirming = true; // the server saw agents the panel had not
       }
-    } catch { if (!poll || started === generation) current = null; if (report) notify('Model proxy action did not complete. Check its status before retrying.'); }
+    } catch { if (started === generation) current = null; if (report) notify('Model proxy action did not complete. Check its status before retrying.'); }
     finally {
       if (poll) polling = false; else outstanding = false;
       if (!destroyed) { render(); if (!confirm.hidden && command === 'sidecar_stop') keep.focus(); }
@@ -85,7 +80,7 @@ export function createSidecarControl(desktop: boolean, notify: (message: string)
   function open() { panel.hidden = false; button.setAttribute('aria-expanded', 'true'); render(); close.focus(); void request('sidecar_status'); }
   function shut(returnFocus: boolean) {
     if (panel.hidden) return;
-    panel.hidden = true; confirming = false; button.setAttribute('aria-expanded', 'false'); render();
+    generation++; panel.hidden = true; confirming = false; button.setAttribute('aria-expanded', 'false'); render();
     if (returnFocus) button.focus();
   }
   button.onclick = () => { if (panel.hidden) open(); else shut(true); };

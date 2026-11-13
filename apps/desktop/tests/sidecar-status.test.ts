@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buttons, driftLine, parseStatus, phaseLabel, startLabel, stopConsequence, trafficLine, type ProxyStatus } from '../src/sidecar-status.ts';
+import { adoptStopReply, buttons, confirmStillNeeded, driftLine, parseStatus, phaseLabel, showsTraffic, startLabel, stopConsequence, trafficLine, type ProxyStatus } from '../src/sidecar-status.ts';
 
 const status = (over: Partial<ProxyStatus> = {}): ProxyStatus => ({
   phase: 'ready', healthy: true, message: null, inFlight: 0, agentSessions: 0,
@@ -54,12 +54,28 @@ test('a malformed status is rejected whole', () => {
 test('a well-formed status keeps only the fields the panel uses', () => {
   const parsed = parseStatus({ phase: 'draining', healthy: true, message: null, inFlight: 2, agentSessions: 1,
     drainDeadlineUnixMs: 1700000000000, configDrift: true, refused: true, pid: 9, observation: { secret: 1 },
-    resolved: { verbosityLevel: 3, effortRouting: null, nested: { a: 1 } } });
+    resolved: { verbosityLevel: 3 } });
   assert.deepEqual(parsed, { phase: 'draining', healthy: true, message: null, inFlight: 2, agentSessions: 1,
-    drainDeadlineUnixMs: 1700000000000, configDrift: true, refused: true, resolved: { verbosityLevel: 3 } });
+    drainDeadlineUnixMs: 1700000000000, configDrift: true, refused: true });
 });
 test('drift is stated only when it is known to be true', () => {
   assert.equal(driftLine(status({ configDrift: true })), 'Custom configuration: values differ from the Shinatama baseline.');
   assert.equal(driftLine(status({ configDrift: false })), null);
   assert.equal(driftLine(status({ configDrift: null })), null);
+});
+test('traffic is shown only while the proxy is up in some form', () => {
+  for (const phase of ['starting', 'ready', 'busy', 'draining', 'degraded', 'recovering']) assert.equal(showsTraffic(phase), true, phase);
+  for (const phase of ['stopped', 'preparing', 'failed', 'retired', 'unavailable', 'nonsense']) assert.equal(showsTraffic(phase), false, phase);
+});
+test('a stop reply is adopted only when the panel saw the proxy up', () => {
+  for (const phase of ['ready', 'busy', 'starting', 'draining', 'degraded', 'recovering', 'preparing']) assert.equal(adoptStopReply(phase), true, phase);
+  for (const phase of ['stopped', 'failed', 'retired', 'unavailable']) assert.equal(adoptStopReply(phase), false, phase);
+  assert.equal(adoptStopReply(undefined), false);
+});
+test('the confirmation stays only while a stop is possible and costs agents', () => {
+  assert.equal(confirmStillNeeded(status({ agentSessions: 2 })), true);
+  assert.equal(confirmStillNeeded(status({ agentSessions: 0 })), false);
+  assert.equal(confirmStillNeeded(status({ agentSessions: 2, phase: 'draining' })), false);
+  assert.equal(confirmStillNeeded(status({ agentSessions: 2, phase: 'stopped' })), false);
+  assert.equal(confirmStillNeeded(null), false);
 });

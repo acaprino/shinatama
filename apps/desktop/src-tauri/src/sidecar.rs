@@ -371,26 +371,26 @@ impl Controller {
             return Err(STOPPING);
         }
         if !launch_allowed(status.phase, status.healthy) {
-            return Err("Start the session index and wait until it is ready.");
+            return Err("Start the Model proxy and wait until it is ready.");
         }
         let (port, root) = self
             .connection
             .get()
-            .ok_or("The session index connection is unavailable.")?;
+            .ok_or("The Model proxy connection is unavailable.")?;
         let ca = root
             .resolve_related_directory(&root.directory().join("data/ca"))
-            .map_err(|_| "The session index certificate directory is unavailable.")?;
+            .map_err(|_| "The Model proxy certificate directory is unavailable.")?;
         ca.verify_private_directory()
-            .map_err(|_| "The session index certificate directory could not be verified.")?;
+            .map_err(|_| "The Model proxy certificate directory could not be verified.")?;
         let path = ca.directory().join("combined-ca.pem");
         // This is the public CA bundle created by our contained proxy, never a
         // system-store installation or a read of the private CA key.
         ca.secure_private_file(&path)
-            .map_err(|_| "The session index public certificate bundle is unavailable.")?;
+            .map_err(|_| "The Model proxy public certificate bundle is unavailable.")?;
         Ok((
             self.supervisor
                 .get()
-                .ok_or("The session index owner is unavailable.")?,
+                .ok_or("The Model proxy owner is unavailable.")?,
             *port,
             path,
         ))
