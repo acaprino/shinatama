@@ -71,6 +71,8 @@ let selectedProjectPath = '';
 let threadSidebar: ReturnType<typeof createWorksetSidebar> | null = null;
 /** The open thread: the window shows all and only its sessions. Null shows terminals that belong to no thread. */
 let openWorkset: WorksetScope | null = null;
+/** The thread to reopen at this start, read before anything can overwrite it: reattaching a running terminal runs `rememberSessions` while no thread is open yet. */
+const threadToReopen = (() => { try { return localStorage.getItem('shinatama.thread'); } catch { return null; } })();
 /** The sessions of the open thread, as last read. */
 let worksetMembers: ThreadSummary[] = [];
 /** Layouts of the threads this window has shown, so going back is immediate. */
@@ -1097,7 +1099,7 @@ async function initialize() {
     await connectWorkspace();
     // Reopen the thread that was open; one that no longer exists leaves the window as it is.
     try {
-      const last = JSON.parse(localStorage.getItem('shinatama.thread') ?? 'null');
+      const last = JSON.parse(threadToReopen ?? 'null');
       if (last && /^w_[a-z2-7]{12}$/.test(last.id) && /^p_[a-z2-7]{12}$/.test(last.projectId)) await switchWorkset({ id: last.id, projectId: last.projectId });
     } catch { /* nothing to reopen */ }
   } catch (error) { $('#runtime-status').textContent = 'Runtime unavailable'; notify(error); }
