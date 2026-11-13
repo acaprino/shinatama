@@ -1,4 +1,8 @@
-prepared/node_modules/
+# only the pinned runtime dependency (zod) is tracked: the lock fingerprints its files, and a
+# fresh clone must be able to verify the prepared tree. Everything else under node_modules stays out.
+!prepared/node_modules/
+prepared/node_modules/*
+!prepared/node_modules/zod/
 prepared.incomplete/
 # the lock fingerprints the compiled bundle, so it is tracked despite the repo-wide dist/ rule
 !prepared/dist/
