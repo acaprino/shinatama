@@ -17,7 +17,8 @@ evidence note; the 2026-11-02 shell decision amends FRD-0001/R22 and R51; the 20
 host-resilience and adaptive-resource decision adds FRD-0001/R59-R63 and the emergency-stop
 exception in R29 ([amendment](../implementation/2026-11-02-host-resilience.md)). The hop
 decision of 2026-11-03 (Accepted 2026-11-04) amends FRD-0005 and FRD-0006 as stated in their
-headers.
+headers. The size decision of 2026-11-13 (Accepted 2026-11-13) adds FRD-0006/R49: no session is too large
+(ADR-0053).
 
 **Platform decision, user, 2026-11-02:** Windows is the only officially supported platform for now
 (ADR-0047). FRD-0001 and FRD-0017 are amended; any other clause that names macOS or Linux is

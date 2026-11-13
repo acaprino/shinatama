@@ -11,9 +11,11 @@ where cargo >nul 2>nul || (echo cargo is required. & goto fail)
 echo [1/5] Frontend build
 call npm run build || goto fail
 
-echo [2/5] Native build ^(desktop, session-helper, hook, terminal-helper^)
+echo [2/5] Native build ^(desktop, hook, terminal-helper; session-helper in release^)
 cargo build --locked -p shinatama-desktop --features custom-protocol || goto fail
 cargo build --locked -p shinatama-engine --features session-reader --bins || goto fail
+rem The session helper of a package is a release build (ADR-0053 v2, INV-006).
+cargo build --release --locked -p shinatama-engine --features session-reader --bin shinatama-session-helper || goto fail
 cargo build --locked -p shinatama-terminal --bins || goto fail
 cargo build --locked -p shinatama-cli || goto fail
 
@@ -37,7 +39,7 @@ rem The command line (shinatama.exe) lives in cli\ so it never collides with Shi
 rem it needs the session helper beside it for sessions/find/export.
 if not exist "%~dp0release\cli" mkdir "%~dp0release\cli"
 copy /y "%~dp0target\debug\shinatama.exe" "%~dp0release\cli\shinatama.exe" >nul || (echo Could not copy the CLI. & goto fail)
-copy /y "%~dp0target\debug\shinatama-session-helper.exe" "%~dp0release\cli\shinatama-session-helper.exe" >nul || (echo Could not copy the CLI session helper. & goto fail)
+copy /y "%~dp0target\release\shinatama-session-helper.exe" "%~dp0release\cli\shinatama-session-helper.exe" >nul || (echo Could not copy the CLI session helper. & goto fail)
 
 echo [5/5] Mukade ^(session library CLI and terminal browser^)
 set "MUKADE=%~dp0..\mukade"

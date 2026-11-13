@@ -8,7 +8,9 @@ use crate::session_find::{FindIssue, FindReply, FindRequest};
 #[cfg(windows)]
 use crate::session_raw::{MAX_RAW_BYTES, RawIssue, RawReply, RawRequest};
 #[cfg(windows)]
-use crate::session_export::{ExportIssue, ExportReply, ExportRequest, MAX_EXPORT_REPLY_BYTES};
+use crate::export_frames::{Event, FrameParser, FrameWriter, Progress};
+#[cfg(windows)]
+use crate::session_export::{ExportFinal, ExportReply, ExportRequest};
 use mukade::{HarnessId, reader::SessionInfo, roots::StoreRoots};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -28,9 +30,22 @@ pub const MUKADE_REVISION: &str = "14edbf3cf71424a48b057e52c5532d6d4ab7d8a4";
 pub const MAX_REQUEST_BYTES: usize = 8192;
 pub const MAX_REPLY_BYTES: usize = 256 * 1024;
 pub const MAX_ROWS: usize = 50;
+/// The wall of a list, a detail and an overview. A search and an export read every word of one
+/// session and get more (`worker_wall_for`).
 pub const WORKER_WALL: Duration = Duration::from_secs(10);
+pub const WORKER_WALL_MAX: Duration = Duration::from_secs(120);
+/// One more second of wall for each this many bytes of the session's file.
+pub const WORKER_WALL_STEP_BYTES: u64 = 32 * 1024 * 1024;
+/// The wall of a search or an export of a session file of `session_bytes`: `WORKER_WALL` plus
+/// one second per `WORKER_WALL_STEP_BYTES`, at most `WORKER_WALL_MAX`. Mukade reads such a file
+/// twice, one record at a time; the time grows with its size (a 229 MiB session takes 1.4 s in a
+/// release build, and the helper runs under a CPU cap far below one core).
+pub fn worker_wall_for(session_bytes: u64) -> Duration {
+    (WORKER_WALL + Duration::from_secs(session_bytes / WORKER_WALL_STEP_BYTES))
+        .min(WORKER_WALL_MAX)
+}
 #[cfg(windows)]
-pub use execution::{SessionListRead, metadata_worker_budget};
+pub use execution::{Framed, SessionListRead, metadata_worker_budget};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct RootSelector {
@@ -59,6 +74,9 @@ pub enum SessionReadIssue {
     TimedOut,
     OutputLimit,
     CleanupUnconfirmed,
+    /// The caller stopped a search or an export that was running; the worker was stopped and its
+    /// resources released like any other read's.
+    Cancelled,
 }
 impl std::fmt::Display for SessionReadIssue {
     fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -151,9 +169,6 @@ struct WorkerReply {
     raw: Option<RawReply>,
     #[cfg(windows)]
     find: Option<FindReply>,
-    #[cfg(windows)]
-    #[serde(default)]
-    export: Option<ExportReply>,
     issue: Option<SessionReadIssue>,
 }
 enum SessionPayload {
@@ -172,6 +187,11 @@ enum SessionPayload {
 pub struct PreparedSessionList {
     root: StoreRootRecord,
     request: Vec<u8>,
+    /// How long the contained worker may run: `WORKER_WALL`, or more for a search or an export.
+    wall: Duration,
+    /// The size of the session's file, for a search or an export (0 when not found): context for
+    /// a progress line, never a percentage.
+    file_bytes: u64,
     #[cfg(windows)]
     detail_request: Option<DetailRequest>,
     #[cfg(windows)]
@@ -255,6 +275,8 @@ impl PreparedSessionList {
         Ok(Self {
             root,
             request,
+            wall: WORKER_WALL,
+            file_bytes: 0,
             #[cfg(windows)]
             detail_request: None,
             #[cfg(windows)]
@@ -351,6 +373,8 @@ impl PreparedSessionList {
             return Err(SessionReadIssue::InvalidRequest);
         }
         prepared.detail_request = None;
+        prepared.file_bytes = session_file_bytes(&prepared.root, &request.detail.native_id);
+        prepared.wall = worker_wall_for(prepared.file_bytes);
         prepared.find_request = Some(request);
         Ok(prepared)
     }
@@ -374,16 +398,18 @@ impl PreparedSessionList {
             return Err(SessionReadIssue::InvalidRequest);
         }
         prepared.detail_request = None;
+        prepared.file_bytes = session_file_bytes(&prepared.root, &request.detail.native_id);
+        prepared.wall = worker_wall_for(prepared.file_bytes);
         prepared.export_request = Some(request);
         Ok(prepared)
     }
-    /// Export replies carry the rendered file; every other reply keeps the metadata bound.
+    /// The bound of a reply. An export has none: its body is framed (`export_frames`).
     pub fn reply_limit(&self) -> usize {
-        #[cfg(windows)]
-        if self.export_request.is_some() {
-            return MAX_EXPORT_REPLY_BYTES;
-        }
         MAX_REPLY_BYTES
+    }
+    /// The size of the session's file, for a search or an export; 0 when it was not found.
+    pub fn file_bytes(&self) -> u64 {
+        self.file_bytes
     }
     pub fn selector(&self) -> RootSelector {
         selector(&self.root)
@@ -402,6 +428,62 @@ impl PreparedSessionList {
                 Err(SessionReadIssue::InvalidRequest)
             }
         }
+    }
+    /// The final frame of an export, checked against the request and the body that arrived.
+    #[cfg(windows)]
+    fn decode_export(
+        &self,
+        database: &Database,
+        last: &[u8],
+        body_bytes: u64,
+    ) -> Result<SessionPayload> {
+        let request = self
+            .export_request
+            .as_ref()
+            .ok_or(SessionReadIssue::WorkerUnavailable)?;
+        let current = database
+            .store_root(&self.root.id)
+            .map_err(|_| SessionReadIssue::ReadUnavailable)?;
+        if current.as_ref() != Some(&self.root) {
+            return Err(SessionReadIssue::RootChanged);
+        }
+        let last: ExportFinal =
+            serde_json::from_slice(last).map_err(|_| SessionReadIssue::WorkerUnavailable)?;
+        if last.protocol != 1 || last.revision != MUKADE_REVISION {
+            return Err(SessionReadIssue::WorkerUnavailable);
+        }
+        let export = last.export;
+        let pinned = request.detail.cursor.as_ref().map(|cursor| cursor.fingerprint.as_str());
+        if export.root != self.selector()
+            || export.native_id != request.detail.native_id
+            || export.payload.is_some() == export.issue.is_some()
+        {
+            return Err(SessionReadIssue::WorkerUnavailable);
+        }
+        if let Some(payload) = &export.payload {
+            let report = &payload.report;
+            if report.native_id != request.detail.native_id
+                || report.harness != self.root.harness
+                || report.format != request.format
+                || report.mode != request.mode
+                || !fingerprint(&report.source_fingerprint)
+                || pinned.is_some_and(|value| value != report.source_fingerprint)
+                // The bytes the report counts are the prefix and the body frames that arrived.
+                || report.content_bytes != payload.prefix.len() as u64 + body_bytes
+                || payload.prefix.len() > crate::export_frames::MAX_BODY_FRAME
+                || report.attachments_copied != payload.attachments.len() as u64
+                || (!request.with_attachments && !payload.attachments.is_empty())
+                || !text(&payload.suggested_name, 160)
+                || payload.attachments.iter().any(|blob| {
+                    !text(&blob.name, 128)
+                        || blob.name.contains(['/', '\\', ':'])
+                        || blob.name.starts_with('.')
+                })
+            {
+                return Err(SessionReadIssue::WorkerUnavailable);
+            }
+        }
+        Ok(SessionPayload::Export(export))
     }
     fn decode_payload(&self, database: &Database, bytes: &[u8]) -> Result<SessionPayload> {
         if bytes.len() > self.reply_limit() {
@@ -423,7 +505,6 @@ impl PreparedSessionList {
             + usize::from(reply.detail.is_some())
             + usize::from(reply.raw.is_some())
             + usize::from(reply.find.is_some())
-            + usize::from(reply.export.is_some())
             + usize::from(reply.issue.is_some());
         #[cfg(not(windows))]
         let payload_count = usize::from(reply.page.is_some()) + usize::from(reply.issue.is_some());
@@ -434,41 +515,8 @@ impl PreparedSessionList {
             return Err(issue);
         }
         #[cfg(windows)]
-        if let Some(request) = &self.export_request {
-            let export = reply.export.ok_or(SessionReadIssue::WorkerUnavailable)?;
-            let pinned = request.detail.cursor.as_ref().map(|cursor| cursor.fingerprint.as_str());
-            if export.root != self.selector()
-                || export.native_id != request.detail.native_id
-                || export.payload.is_some() == export.issue.is_some()
-            {
-                return Err(SessionReadIssue::WorkerUnavailable);
-            }
-            if let Some(payload) = &export.payload {
-                let report = &payload.report;
-                if report.native_id != request.detail.native_id
-                    || report.harness != self.root.harness
-                    || report.format != request.format
-                    || report.mode != request.mode
-                    || !fingerprint(&report.source_fingerprint)
-                    || pinned.is_some_and(|value| value != report.source_fingerprint)
-                    || report.content_bytes != payload.content.len() as u64
-                    || payload.content.len() > crate::session_export::MAX_EXPORT_CONTENT_BYTES
-                    || report.attachments_copied != payload.attachments.len() as u64
-                    || (!request.with_attachments && !payload.attachments.is_empty())
-                    || !text(&payload.suggested_name, 160)
-                    || payload.attachments.iter().any(|blob| {
-                        !text(&blob.name, 128)
-                            || blob.name.contains(['/', '\\', ':'])
-                            || blob.name.starts_with('.')
-                    })
-                {
-                    return Err(SessionReadIssue::WorkerUnavailable);
-                }
-            }
-            return Ok(SessionPayload::Export(export));
-        }
-        #[cfg(windows)]
-        if reply.export.is_some() {
+        if self.export_request.is_some() {
+            // An export is framed and decoded by `decode_export`, never as one reply.
             return Err(SessionReadIssue::WorkerUnavailable);
         }
         #[cfg(windows)]
@@ -490,13 +538,14 @@ impl PreparedSessionList {
                 let end = offset
                     .checked_add(page.hits.len())
                     .ok_or(SessionReadIssue::WorkerUnavailable)?;
-                let input_bound = crate::session_detail::MAX_INPUT_BYTES as usize;
+                // A sanity bound on what the worker may claim, not a limit on any session.
+                let input_bound = SANE_ORDINAL;
                 if page.root != self.selector()
                     || page.native_id != request.detail.native_id
                     || page.source_fingerprint != source.fingerprint
                     || page.query != request.query
                     || page.hits.len() > crate::session_find::MAX_FIND_HITS
-                    || page.total_hits > input_bound.saturating_mul(3)
+                    || page.total_hits > input_bound
                     || end > page.total_hits
                     || page.hits.len()
                         != crate::session_find::MAX_FIND_HITS
@@ -619,9 +668,14 @@ fn selector(root: &StoreRootRecord) -> RootSelector {
     }
 }
 fn harness(value: &str) -> Result<HarnessId> {
-    value
-        .parse()
-        .map_err(|_| SessionReadIssue::UnsupportedHarness)
+    // Shinatama registers roots of Claude Code, Codex, Pi and OpenCode only; the harnesses
+    // Mukade has gained since are not store roots here.
+    match value.parse() {
+        Ok(HarnessId::Hermes | HarnessId::DeepSeekHarness) | Err(_) => {
+            Err(SessionReadIssue::UnsupportedHarness)
+        }
+        Ok(harness) => Ok(harness),
+    }
 }
 fn fingerprint(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
@@ -683,10 +737,52 @@ fn roots(root: &StoreRootRecord, harness: HarnessId) -> StoreRoots {
         HarnessId::Codex => roots.codex_home = path,
         HarnessId::OpenCode => roots.opencode_db = path,
         HarnessId::Pi => roots.pi_agent_dir = path,
+        HarnessId::Hermes => roots.hermes_home = path,
+        HarnessId::DeepSeekHarness => roots.dsh_home = path,
     }
     roots
 }
 
+/// The largest ordinal or hit count the host accepts from a worker reply.
+#[cfg(windows)]
+const SANE_ORDINAL: usize = 1 << 40;
+/// The size of the file of session `native_id` under the root, for the wall of a search or an
+/// export only: a regular file whose name holds the id, found by a bounded walk that follows no
+/// link. A miss is 0 and costs the base wall; it never changes what is read, and the helper
+/// still reads the session through Mukade and the pinned namespace.
+#[cfg(windows)]
+fn session_file_bytes(root: &StoreRootRecord, native_id: &str) -> u64 {
+    use std::os::windows::fs::MetadataExt;
+    const REPARSE_POINT: u32 = 0x400;
+    const MAX_DEPTH: usize = 5;
+    const MAX_ENTRIES: usize = 2 * 4096;
+    let mut largest = 0u64;
+    let mut seen = 0usize;
+    let mut pending = vec![(PathBuf::from(&root.resolved_path), 0usize)];
+    while let Some((directory, depth)) = pending.pop() {
+        let Ok(entries) = fs::read_dir(&directory) else { continue };
+        for entry in entries.flatten() {
+            seen += 1;
+            if seen > MAX_ENTRIES {
+                return largest;
+            }
+            let Ok(metadata) = fs::symlink_metadata(entry.path()) else { continue };
+            if metadata.file_attributes() & REPARSE_POINT != 0 {
+                continue;
+            }
+            if metadata.is_dir() {
+                if depth < MAX_DEPTH {
+                    pending.push((entry.path(), depth + 1));
+                }
+            } else if metadata.is_file()
+                && entry.file_name().to_string_lossy().contains(native_id)
+            {
+                largest = largest.max(metadata.len());
+            }
+        }
+    }
+    largest
+}
 #[cfg(windows)]
 pub use namespace::{SessionNamespaceGuard, pin_reader_namespace};
 #[cfg(not(windows))]
@@ -841,7 +937,9 @@ mod namespace {
                 HarnessId::ClaudeCode => &["projects"],
                 HarnessId::Codex => &["sessions", "archived_sessions", "session_index.jsonl"],
                 HarnessId::Pi => &["sessions"],
-                HarnessId::OpenCode => unreachable!(),
+                HarnessId::OpenCode | HarnessId::Hermes | HarnessId::DeepSeekHarness => {
+                    return Err(SessionReadIssue::UnsupportedHarness);
+                }
             };
             let mut pending = Vec::new();
             for subtree in subtrees {
@@ -1037,6 +1135,8 @@ fn list_in_worker(request: WorkerRequest) -> Result<SessionListPage> {
 /// stderr/stdout, including OOM/reader errors. The parent treats process loss as
 /// unavailable and retains a reservation whenever native cleanup is unconfirmed.
 pub fn helper_main() {
+    // Set once the request is an export: its output is framed and written by `stream_export`.
+    let framed = std::cell::Cell::new(false);
     let result = (|| -> Result<SessionPayload> {
         #[cfg(windows)]
         {
@@ -1077,19 +1177,46 @@ pub fn helper_main() {
         }
         #[cfg(windows)]
         if let Some(export) = &request.export {
-            let reply = match TrustedRootSnapshot::from_record(&request.root, &export.detail.root) {
-                Ok(snapshot) => crate::session_export::read_export(&snapshot, export),
-                Err(issue) => ExportReply::refuse(export, ExportIssue::Detail(issue)),
-            };
-            return Ok(SessionPayload::Export(reply));
+            framed.set(true);
+            let snapshot = TrustedRootSnapshot::from_record(&request.root, &export.detail.root);
+            let stdout = std::io::stdout();
+            let mut frames = FrameWriter::new(stdout.lock());
+            // A failed pipe leaves no final frame, which the parent reads as an unavailable worker.
+            let _ = crate::session_export::stream_export(
+                snapshot.as_ref().map_err(|issue| *issue),
+                export,
+                &mut frames,
+            );
+            return Err(SessionReadIssue::WorkerUnavailable);
         }
         #[cfg(windows)]
         if let Some(find) = &request.find {
+            // A search is framed too, so its progress reaches the parent: progress frames, then
+            // one final frame holding the ordinary reply.
+            framed.set(true);
+            let stdout = std::io::stdout();
+            let mut frames = FrameWriter::new(stdout.lock());
             let reply = match TrustedRootSnapshot::from_record(&request.root, &find.detail.root) {
-                Ok(snapshot) => crate::session_find::read_find(&snapshot, find),
+                Ok(snapshot) => crate::session_find::read_find_progress(&snapshot, find, &mut |entries, hits| {
+                    let _ = frames.progress(entries as u64, hits as u64);
+                }),
                 Err(issue) => FindReply::refuse(find, FindIssue::Detail(issue)),
             };
-            return Ok(SessionPayload::Find(reply));
+            let wire = WorkerReply {
+                protocol: 1,
+                revision: MUKADE_REVISION.into(),
+                page: None,
+                detail: None,
+                raw: None,
+                find: Some(reply),
+                issue: None,
+            };
+            if let Ok(bytes) = serde_json::to_vec(&wire)
+                && bytes.len() <= MAX_REPLY_BYTES
+            {
+                let _ = frames.finish(&bytes);
+            }
+            return Err(SessionReadIssue::WorkerUnavailable);
         }
         #[cfg(windows)]
         if let Some(raw) = &request.raw {
@@ -1109,6 +1236,9 @@ pub fn helper_main() {
         }
         list_in_worker(request).map(SessionPayload::List)
     })();
+    if framed.get() {
+        return;
+    }
     let reply = match result {
         Ok(SessionPayload::List(page)) => WorkerReply {
             protocol: 1,
@@ -1120,8 +1250,6 @@ pub fn helper_main() {
             raw: None,
             #[cfg(windows)]
             find: None,
-            #[cfg(windows)]
-            export: None,
             issue: None,
         },
         #[cfg(windows)]
@@ -1132,7 +1260,6 @@ pub fn helper_main() {
             detail: Some(detail),
             raw: None,
             find: None,
-            export: None,
             issue: None,
         },
         #[cfg(windows)]
@@ -1143,7 +1270,6 @@ pub fn helper_main() {
             detail: None,
             raw: Some(raw),
             find: None,
-            export: None,
             issue: None,
         },
         #[cfg(windows)]
@@ -1154,19 +1280,18 @@ pub fn helper_main() {
             detail: None,
             raw: None,
             find: Some(find),
-            export: None,
             issue: None,
         },
+        // An export never leaves the worker as one reply: it is framed (`stream_export`).
         #[cfg(windows)]
-        Ok(SessionPayload::Export(export)) => WorkerReply {
+        Ok(SessionPayload::Export(_)) => WorkerReply {
             protocol: 1,
             revision: MUKADE_REVISION.into(),
             page: None,
             detail: None,
             raw: None,
             find: None,
-            export: Some(export),
-            issue: None,
+            issue: Some(SessionReadIssue::WorkerUnavailable),
         },
         Err(issue) => WorkerReply {
             protocol: 1,
@@ -1178,17 +1303,11 @@ pub fn helper_main() {
             raw: None,
             #[cfg(windows)]
             find: None,
-            #[cfg(windows)]
-            export: None,
             issue: Some(issue),
         },
     };
-    #[cfg(windows)]
-    let limit = if reply.export.is_some() { MAX_EXPORT_REPLY_BYTES } else { MAX_REPLY_BYTES };
-    #[cfg(not(windows))]
-    let limit = MAX_REPLY_BYTES;
     if let Ok(bytes) = serde_json::to_vec(&reply)
-        && bytes.len() <= limit
+        && bytes.len() <= MAX_REPLY_BYTES
     {
         let _ = std::io::stdout().write_all(&bytes);
     }
@@ -1302,6 +1421,13 @@ mod execution {
             retained: (!released).then_some(Retained::Prepared(workload)),
         }
     }
+    /// What the parent gives a framed read (an export or a search): where the body goes, who hears
+    /// the progress, and whether to stop.
+    pub struct Framed<'a> {
+        pub body: &'a mut dyn FnMut(&[u8]) -> std::io::Result<()>,
+        pub progress: &'a mut dyn FnMut(Progress),
+        pub cancel: &'a dyn Fn() -> bool,
+    }
     impl PreparedSessionList {
         /// Blocking retained worker only. Runtime must reserve from the SAME
         /// aggregate ledger before entry; no caller-supplied budget is accepted.
@@ -1312,7 +1438,67 @@ mod execution {
             private_working_directory: &StorageLocation,
             workload: PreparedWorkload,
         ) -> SessionListRead {
+            self.run_contained_with(database, helper_executable, private_working_directory, workload, None)
+        }
+        /// An export: every body frame the worker writes goes to `sink` as it arrives, and the
+        /// reply (`export()`) is the final frame, checked against the request and the bytes the
+        /// sink was given. The caller commits only when `issue` is empty and the reply holds a
+        /// payload; a failing sink stops the worker and the read ends as `WorkerUnavailable`
+        /// (the sink keeps its own error). The wall is the same whatever arrives.
+        pub fn run_contained_export(
+            &self,
+            database: &Database,
+            helper_executable: &Path,
+            private_working_directory: &StorageLocation,
+            workload: PreparedWorkload,
+            sink: &mut dyn FnMut(&[u8]) -> std::io::Result<()>,
+        ) -> SessionListRead {
+            let mut progress = |_: Progress| {};
+            let never = || false;
+            let hooks = Framed { body: sink, progress: &mut progress, cancel: &never };
+            let read = self.run_contained_with(database, helper_executable, private_working_directory, workload, Some(hooks));
+            read
+        }
+        /// A search or an export with its progress and its cancel: `hooks.progress` gets every
+        /// progress frame (at most four a second), and `hooks.cancel` is asked on every turn of
+        /// the loop; a `true` stops the worker and the read ends as `Cancelled`, with the
+        /// resources released like a timeout's. An export also needs `hooks.body`.
+        pub fn run_contained_framed(
+            &self,
+            database: &Database,
+            helper_executable: &Path,
+            private_working_directory: &StorageLocation,
+            workload: PreparedWorkload,
+            hooks: Framed<'_>,
+        ) -> SessionListRead {
+            self.run_contained_with(database, helper_executable, private_working_directory, workload, Some(hooks))
+        }
+        fn run_contained_with(
+            &self,
+            database: &Database,
+            helper_executable: &Path,
+            private_working_directory: &StorageLocation,
+            workload: PreparedWorkload,
+            hooks: Option<Framed<'_>>,
+        ) -> SessionListRead {
             let began = Instant::now();
+            let export = self.export_request.is_some();
+            let framed = export || self.find_request.is_some();
+            // An export needs its sink; nothing else may have hooks. A search runs without.
+            if (export && hooks.is_none()) || (!framed && hooks.is_some()) {
+                return failed(database, workload, SessionReadIssue::InvalidRequest);
+            }
+            let mut no_body = |_: &[u8]| Ok(());
+            let mut no_progress = |_: Progress| {};
+            let never = || false;
+            let (body, progress, cancel): (
+                &mut dyn FnMut(&[u8]) -> std::io::Result<()>,
+                &mut dyn FnMut(Progress),
+                &dyn Fn() -> bool,
+            ) = match hooks {
+                Some(hooks) => (hooks.body, hooks.progress, hooks.cancel),
+                None => (&mut no_body, &mut no_progress, &never),
+            };
             let fixed = metadata_worker_budget();
             if workload.ticket().budget != fixed
                 || !workload.applied_budget().is_some_and(|budget| {
@@ -1352,7 +1538,9 @@ mod execution {
             else {
                 return failed(database, workload, SessionReadIssue::WorkerUnavailable);
             };
-            let mut owned = match spawn_contained(command, workload, database, now, now + 15_000) {
+            // The lease outlasts the wall by the 5 s the 10 s wall always had.
+            let lease_ms = i64::try_from(self.wall.as_millis()).unwrap_or(0) + 5_000;
+            let mut owned = match spawn_contained(command, workload, database, now, now + lease_ms) {
                 Ok(owned) => owned,
                 Err(failure) => {
                     return failed(
@@ -1369,13 +1557,17 @@ mod execution {
                 issue = Some(SessionReadIssue::WorkerUnavailable);
             }
             drop(owned.stdin);
-            let limit = self.reply_limit();
+            // A framed export has no total: the parser holds one frame and the sink the rest.
+            let limit = if framed { usize::MAX } else { self.reply_limit() };
+            let mut parser = FrameParser::new();
+            let mut last_sample = Instant::now();
             let mut output = Vec::with_capacity(MAX_REPLY_BYTES);
             let mut scratch = vec![0u8; 64 * 1024];
             let (mut stdout_done, mut stderr_done) = (false, false);
             let mut total = 0usize;
             let mut exit = None;
             while issue.is_none() {
+                let before = total;
                 match drain(
                     &mut owned.stdout,
                     &mut output,
@@ -1389,6 +1581,23 @@ mod execution {
                         issue = Some(error);
                         break;
                     }
+                }
+                if framed
+                    && parser
+                        .take(&mut output, &mut |event| match event {
+                            // A search has no body; a sink that fails could not keep the file.
+                            Event::Body(bytes) if export => body(bytes).map_err(|_| ()),
+                            Event::Body(_) => Err(()),
+                            Event::Progress(event_progress) => {
+                                progress(event_progress);
+                                Ok(())
+                            }
+                        })
+                        .is_err()
+                {
+                    // A malformed stream, or a sink that could not keep the body.
+                    issue = Some(SessionReadIssue::WorkerUnavailable);
+                    break;
                 }
                 match drain(
                     &mut owned.stderr,
@@ -1414,17 +1623,42 @@ mod execution {
                 if exit.is_some() && stdout_done && stderr_done {
                     break;
                 }
-                if began.elapsed() >= WORKER_WALL {
+                if framed && cancel() {
+                    issue = Some(SessionReadIssue::Cancelled);
+                    break;
+                }
+                if began.elapsed() >= self.wall {
                     issue = Some(SessionReadIssue::TimedOut);
                     break;
                 }
+                if framed && total != before {
+                    // Bytes are flowing (the pipe holds 16 KiB): read again at once, sampling
+                    // at the usual pace instead of sleeping between reads.
+                    if last_sample.elapsed() >= Duration::from_millis(5) {
+                        let _ = owned.process.sample(&WindowsSampler::new());
+                        last_sample = Instant::now();
+                    }
+                    continue;
+                }
                 let _ = owned.process.sample(&WindowsSampler::new());
+                last_sample = Instant::now();
                 std::thread::sleep(Duration::from_millis(5));
             }
             let mut payload = None;
             if issue.is_none() {
                 if exit == Some(0) {
-                    match self.decode_payload(database, &output) {
+                    let decoded = if framed {
+                        match parser.final_frame() {
+                            Some(last) if output.is_empty() && export => {
+                                self.decode_export(database, last, parser.body_bytes())
+                            }
+                            Some(last) if output.is_empty() => self.decode_payload(database, last),
+                            _ => Err(SessionReadIssue::WorkerUnavailable),
+                        }
+                    } else {
+                        self.decode_payload(database, &output)
+                    };
+                    match decoded {
                         Ok(value) => payload = Some(value),
                         Err(error) => issue = Some(error),
                     }
@@ -1437,12 +1671,9 @@ mod execution {
             drop(owned.stdout);
             drop(owned.stderr);
             let released = matches!(
-                owned.process.finish_cleanup(
-                    database,
-                    WORKER_WALL
-                        .saturating_sub(began.elapsed())
-                        .min(Duration::from_secs(1))
-                ),
+                // A flat second, whatever is left of the wall: a read that ends near its wall (a
+                // long export) must not turn into an unconfirmed cleanup for want of time.
+                owned.process.finish_cleanup(database, Duration::from_secs(1)),
                 Ok(CleanupStatus::Released { .. })
             );
             if !released {
@@ -1525,6 +1756,39 @@ mod tests {
             );
             let _ = fs::remove_dir_all(&self.path);
         }
+    }
+    #[test]
+    fn the_wall_of_a_search_or_an_export_grows_with_the_session_file_and_is_capped() {
+        const MIB: u64 = 1024 * 1024;
+        assert_eq!(worker_wall_for(0), WORKER_WALL);
+        assert_eq!(worker_wall_for(32 * MIB - 1), WORKER_WALL);
+        assert_eq!(worker_wall_for(32 * MIB), WORKER_WALL + Duration::from_secs(1));
+        assert_eq!(worker_wall_for(320 * MIB), WORKER_WALL + Duration::from_secs(10));
+        assert_eq!(worker_wall_for(u64::MAX), WORKER_WALL_MAX);
+    }
+    #[test]
+    fn the_size_hint_finds_the_sessions_own_file_by_name() {
+        let base = fs::canonicalize(std::env::temp_dir()).unwrap();
+        let fixture = Fixture {
+            path: base.join(format!("shinatama-session-roots-{}", uuid::Uuid::new_v4())),
+        };
+        let project = fixture.path.join("projects").join("p");
+        fs::create_dir_all(&project).unwrap();
+        fs::write(project.join("abc-123.jsonl"), vec![b'x'; 5000]).unwrap();
+        fs::write(project.join("other.jsonl"), vec![b'x'; 9000]).unwrap();
+        let record = StoreRootRecord {
+            id: "r".into(),
+            harness: "claude_code".into(),
+            kind: RootKind::Box,
+            scope: RootScope::Primary,
+            resolved_path: fixture.path.to_string_lossy().into(),
+            origin: RootOrigin::Configured,
+            config_revision: 1,
+            access: RootAccess::ReadWrite,
+            available: true,
+        };
+        assert_eq!(session_file_bytes(&record, "abc-123"), 5000);
+        assert_eq!(session_file_bytes(&record, "missing"), 0);
     }
     #[test]
     fn namespace_pins_allow_appends_but_reject_reparse_hardlinks_and_changed_membership() {
@@ -1699,7 +1963,6 @@ mod tests {
                 detail: None,
                 raw: None,
                 find: None,
-                export: None,
                 issue: None,
             })
             .unwrap();
@@ -1716,6 +1979,7 @@ mod tests {
                             fingerprint: "a".repeat(64),
                         }),
                         limit: 1,
+                        overview_only: false,
                     },
                     entry_ordinal: 3,
                     confirmed_raw: true,

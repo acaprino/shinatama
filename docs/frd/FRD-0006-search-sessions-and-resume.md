@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Version | 1 |
-| Status | Accepted 2026-11-01 (this Markdown text). Amended 2026-11-04: native import and native handoff are out of scope in every version (user decision 2026-11-03; ADR-0016 v2, ADR-0022 v2, Accepted 2026-11-04); R28 and R30 withdrawn, R12/R36/R40 amended |
+| Status | Accepted 2026-11-01 (this Markdown text). Amended 2026-11-04: native import and native handoff are out of scope in every version (user decision 2026-11-03; ADR-0016 v2, ADR-0022 v2, Accepted 2026-11-04); R28 and R30 withdrawn, R12/R36/R40 amended Amended 2026-11-13 (user decision, Accepted 2026-11-13): R49, no session is too large (ADR-0053). |
 | Date | 2026-11-01, amended 2026-11-04 |
 | Sources | functional-design goal 3, 4, 5.3, 5.16 (sessions surface); technical-design 4.2 (`session_index`, `session_text`), 5, 5.1 to 5.3, 5.5 B, 5.5.1, 5.5.2, 5.7 (Claude retention), 6.2 (historical handoff); mukade-handover 1, 3, 8, 9 |
-| Governing ADRs | ADR-0011, ADR-0016 v2, ADR-0020, ADR-0021, ADR-0022 v2, ADR-0023, ADR-0049 |
+| Governing ADRs | ADR-0011, ADR-0016 v2, ADR-0020, ADR-0021, ADR-0022 v2, ADR-0023, ADR-0049, ADR-0053 |
 | Register sections | SS1 to SS6, S6, S7, CL6, CL7, CX10, OC3, PI3, HM3, DS3, H15, H27 |
 | Related records | FRD-0005 (live hop), FRD-0002 (store roots per home), FRD-0014 (index tables and `forget`) |
 
@@ -28,7 +28,7 @@ Reading is delegated to the Mukade library; everything here is read-only in v1.
 | R03 | Hermes Agent and DeepSeek Harness have no Mukade reader yet: their adapters declare `list_sessions`, `read_transcript` and `export` unsupported, they are not searched and are not hop sources, until a reviewed pin carries their readers. | A | S1 | HM3, DS3 | 0006, 0020 |
 | R04 | A canonical transcript is a list of turns of items: `user_text` and `assistant_text` (transferable), `reasoning` (never transferable), `tool_call` and `tool_result` (as text), `attachment` (as a path reference), `compaction` (transferable, marked), `meta` (dropped or noted). Every item keeps its provenance: agent, native session id, entry id or ordinal, timestamp, byte range or row. | S | S1 | CL6, CX10, OC3, PI3 | 0021 |
 | R05 | Reader rules: read-only, never a lock the agent could wait on; SQLite opened `mode=ro` and never `immutable` while the agent may write; an incomplete last JSONL line or torn Zstandard frame ignored until the next scan; unknown record types skipped and counted, with the count shown by `doctor`; trees followed from the root to the leaf the agent names, else the most recent, other branches indexed but not carried; sub-agent entries summarized as one tool pair. | S; A (leaf rule) | S1 | H15, OC3, HM3, DS3 | 0021 |
-| R06 | For OpenCode and Hermes Agent the agent's own export is the primary source and the SQLite file a read-only fallback for listing and search, because their schemas move between versions. | S | S1 | OC3, OC10, HM3 | 0021 |
+| R06 | For OpenCode the agent's own export is the primary source and the SQLite file a read-only fallback for listing and search, because its schema moves between versions. For Hermes Agent the SQLite store is the primary source, read through Mukade, which launches nothing and fails closed on a schema it does not know; Hermes's export is read only as a file the user hands over (ADR-0054, proposed). | S; U 2026-11-13 (Hermes) | S1 | OC3, OC10, HM3 | 0021, 0054 |
 | R07 | A reader that launches a harness command (OpenCode export) inherits the adapter's full isolated launch context, timeout and cleanup; a read-only label does not make that child side-effect free. | U 2026-10-30 | S1 | SS1 | 0023 |
 
 ### 2.2 Search (find)
@@ -101,6 +101,7 @@ Reading is delegated to the Mukade library; everything here is read-only in v1.
 | R46 | Backend-attach mode (Codex `app-server` plus `--remote`, OpenCode `--server URL`) is a milestone-1 candidate decided before the adapters are written; Pi has no TUI attach (corrected by PI5); Hermes's gateway route is HM2; DeepSeek Harness has only the backend. | S | M0 | CX6, HM2 | 0011 |
 | R47 | Path identity: every path is canonicalized before storing or comparing (strip `\\?\`, resolve junctions and symlinks, normalize drive-letter case, case-insensitive comparison where the volume is), so Claude's flattened folders, Codex's extended-length prefixes and Pi's and DeepSeek Harness's `--cwd--` folders map to one project. | S | S1 | S9 | 0009 |
 | R48 | Facts about each agent's store and commands (technical-design 5.3 and 5.7) are research until their fixture confirms them on the installed version; version drift (Claude 2.1.316, OpenCode 2.2.5, Pi 1.4.0 installed against the recorded 2.1.310/2.1.311, 2.1.4, 1.2.0) re-runs the rows before any support claim. | S | X | E1, E5 | 0010 |
+| R49 | No session is too large: resume and thread names call Mukade's overview, which reads the file's two ends; viewing calls its clipped read and search and export its streamed read, one record at a time; Shinatama keeps no size threshold and no native parsing, and no operation refuses a session for its size. | U | S1 | SS2, CL16 | 0053 |
 
 ## 3. Open questions
 

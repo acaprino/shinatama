@@ -192,7 +192,7 @@ impl Controller {
                 root: root.clone(),
                 native_id: native_id.to_owned(),
                 cursor: cursor.clone(),
-                limit: 50,
+                limit: 50, overview_only: false,
             };
             let reply = self.call(run, |controller| {
                 tauri::async_runtime::block_on(controller.detail(request.clone()))

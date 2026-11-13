@@ -118,53 +118,98 @@ pub struct WriteOptions {
     pub attachments_copied: u64,
 }
 
-/// Renders an already redacted transcript. The caller redacts first (see
-/// [`Transcript::redacted`]) so every format shares one redaction pass and one count.
-pub fn render(transcript: &Transcript, options: &WriteOptions) -> Vec<u8> {
-    let mut body = Vec::new();
-    for (ordinal, item) in transcript.items.iter().enumerate() {
+/// The item lines, one at a time. The header line holds the body's checksum and counts, so it
+/// can only be written after the last item: a writer that streams keeps the body apart and puts
+/// [`BodyWriter::header`] in front of it at the end (ADR-0053 v2).
+pub struct BodyWriter {
+    hash: Sha256,
+    items: u64,
+    attachments: u64,
+}
+
+impl Default for BodyWriter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl BodyWriter {
+    pub fn new() -> Self {
+        Self { hash: Sha256::new(), items: 0, attachments: 0 }
+    }
+
+    /// Appends the line of `item` (already redacted) to `out`, counting it in the checksum.
+    pub fn item(&mut self, item: &ExportItem, out: &mut Vec<u8>) {
         let line = ItemLine {
-            ordinal: ordinal as u64,
+            ordinal: self.items,
             item: item.clone(),
             extra: Map::new(),
         };
-        serde_json::to_writer(&mut body, &line).expect("item lines serialize");
-        body.push(b'\n');
+        let start = out.len();
+        serde_json::to_writer(&mut *out, &line).expect("item lines serialize");
+        out.push(b'\n');
+        self.hash.update(&out[start..]);
+        self.items += 1;
+        self.attachments += u64::from(item.attachment.is_some());
     }
-    let attachments = transcript
-        .items
-        .iter()
-        .filter(|item| item.attachment.is_some())
-        .count() as u64;
-    let header = Header {
-        format: FORMAT.into(),
-        version: VERSION,
-        mode: options.mode,
-        thread: transcript.thread.clone(),
-        source: transcript.source.clone(),
-        cwd: transcript.source.cwd.clone(),
-        git: transcript.source.git_branch.as_ref().map(|branch| GitFacts {
-            branch: Some(branch.clone()),
-        }),
-        created: options.created.clone(),
-        items: transcript.items.len() as u64,
-        body_sha256: hex(&Sha256::digest(&body)),
-        redactions: options.redactions.clone(),
-        attachments: AttachmentPolicy {
-            policy: if options.attachments_copied > 0 { "copied" } else { "references" }.into(),
-            count: attachments,
-            copied: options.attachments_copied,
-        },
-        instruction_files: transcript.instruction_files.clone(),
-        omitted: transcript.omitted,
-        generator: Generator {
-            name: "shinatama".into(),
-            version: env!("CARGO_PKG_VERSION").into(),
-        },
-        extra: Map::new(),
-    };
-    let mut out = serde_json::to_vec(&header).expect("header serializes");
-    out.push(b'\n');
+
+    /// The header line, newline included, for the items written so far.
+    pub fn header(
+        self,
+        source: &ExportSource,
+        thread: Option<&str>,
+        instruction_files: &[String],
+        omitted: Omissions,
+        options: &WriteOptions,
+    ) -> Vec<u8> {
+        let header = Header {
+            format: FORMAT.into(),
+            version: VERSION,
+            mode: options.mode,
+            thread: thread.map(str::to_owned),
+            source: source.clone(),
+            cwd: source.cwd.clone(),
+            git: source.git_branch.as_ref().map(|branch| GitFacts {
+                branch: Some(branch.clone()),
+            }),
+            created: options.created.clone(),
+            items: self.items,
+            body_sha256: hex(&self.hash.finalize()),
+            redactions: options.redactions.clone(),
+            attachments: AttachmentPolicy {
+                policy: if options.attachments_copied > 0 { "copied" } else { "references" }.into(),
+                count: self.attachments,
+                copied: options.attachments_copied,
+            },
+            instruction_files: instruction_files.to_vec(),
+            omitted,
+            generator: Generator {
+                name: "shinatama".into(),
+                version: env!("CARGO_PKG_VERSION").into(),
+            },
+            extra: Map::new(),
+        };
+        let mut out = serde_json::to_vec(&header).expect("header serializes");
+        out.push(b'\n');
+        out
+    }
+}
+
+/// Renders an already redacted transcript. The caller redacts first (see
+/// [`Transcript::redacted`]) so every format shares one redaction pass and one count.
+pub fn render(transcript: &Transcript, options: &WriteOptions) -> Vec<u8> {
+    let mut writer = BodyWriter::new();
+    let mut body = Vec::new();
+    for item in &transcript.items {
+        writer.item(item, &mut body);
+    }
+    let mut out = writer.header(
+        &transcript.source,
+        transcript.thread.as_deref(),
+        &transcript.instruction_files,
+        transcript.omitted,
+        options,
+    );
     out.extend_from_slice(&body);
     out
 }

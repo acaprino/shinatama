@@ -124,6 +124,7 @@ pub async fn instance_titles(window: WebviewWindow, services: State<'_, Services
                                     native_id: target.segment.native.native_id.clone(),
                                     cursor: None,
                                     limit: 1,
+                                    overview_only: false,
                                 })
                                 .await;
                             match detail.ok().and_then(|reply| reply.page) {
@@ -249,6 +250,7 @@ pub async fn thread_names(window: WebviewWindow, services: State<'_, Services>, 
                 native_id: target.segment.native.native_id.clone(),
                 cursor: None,
                 limit: 1,
+                overview_only: true,
             })
             .await;
         let name = detail.ok().and_then(|reply| reply.page).and_then(|page| page.overview.title);

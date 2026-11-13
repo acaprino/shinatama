@@ -5,14 +5,35 @@ session helper as metadata listing. The host resolves the authoritative root and
 revision, sends no caller-supplied path, and rechecks the exact record before
 accepting the response. A retained uncertain cleanup prevents a replacement read.
 
-The helper calls the actual pinned Mukade reader. It refuses input before parsing
-when the session to read exceeds 16 MiB or the archive holds more than 4,096
-files. The pin materializes the whole session and has no bounded input
-pagination, so the bound is on that session's file. The archive's total size is
-not bounded: the list reads only the two ends of every other file, and an archive
-past 16 MiB in total used to refuse every detail, export and resume in it. The
-per-job memory, CPU, queue, output and ten-second wall limits from C22 remain
-unchanged.
+The helper calls the actual pinned Mukade reader and keeps no size bound of its
+own (ADR-0053 v2): no session is refused for its size. Mukade owns how a session
+of any size is read; the helper only asks for what each operation needs. The one
+bound left is on the archive: more than 4,096 files in the pinned namespace is
+refused before any read, since it bounds the archive, not a session. The
+per-job memory, CPU, queue and output limits from C22 remain unchanged; the
+ten-second wall remains for list, detail and overview, and a search or an export
+gets one more second per 32 MiB of the session's file, at most 120 s (the parent
+takes the file's size from a bounded walk by file name; a miss costs the base
+wall and never changes what is read).
+
+An overview-only request (`overviewOnly`) calls `Reader::overview`: Mukade reads
+the session file's two ends (title, working directory, update time, parent) and
+never the conversation, so the call costs the same whatever the session's size.
+The reply has no event, ledger or activity; its lineage is that of the one row
+(the parent is unresolved, the children unknown). Resume verifies the native
+session with it (exists, same harness, same project folder) and thread names come
+from it. A change detector built from the file's size (the pinned namespace) and
+the overview's fields stands where the page's fingerprint would be; it is not a
+cursor.
+
+Viewing calls `Reader::read_clipped` with every string cut at 4,100 bytes (the 4,096
+the view shows plus the longest UTF-8 character, so a text over 4,096 is still
+known to be over it). Mukade reads a file past 16 MiB one record at a time and
+never holds its text; the session it returns has the full read's entries, ids,
+kinds and order. Search and export call `Reader::read_streamed` (every entry with
+its full text, one at a time; an export leaves the worker in bounded frames, see
+`2026-11-09-session-export.md`); RAW calls `read_clipped` at its own 64 KiB bound.
+The fingerprint is Mukade's digest of the whole file, the same for all three.
 
 Responses contain at most 50 canonical events and 256 KiB. Each text projection
 is UTF-8 bounded at 4,096 bytes. Cursors bind root, revision, native ID, reader pin

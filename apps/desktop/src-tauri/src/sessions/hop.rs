@@ -69,7 +69,7 @@ pub async fn hop_preview(
         return Err(SessionReadIssue::InvalidRequest);
     }
     let source_root = request.root.clone();
-    let reply = match controller
+    let (reply, content) = match controller
         .inner()
         .export(ExportRequest {
             detail: DetailRequest {
@@ -77,6 +77,7 @@ pub async fn hop_preview(
                 native_id: request.native_id,
                 cursor: Some(DetailCursor { offset: 0, fingerprint: request.fingerprint }),
                 limit: 1,
+                overview_only: false,
             },
             format: Format::Stx,
             mode: Mode::Full,
@@ -86,10 +87,10 @@ pub async fn hop_preview(
         })
         .await
     {
-        Ok(reply) => reply,
+        Ok(done) => done,
         Err(issue) => return Ok(refused(&format!("{issue:?}").to_lowercase(), "The session could not be read; nothing was prepared.")),
     };
-    let Some(payload) = reply.payload else {
+    let Some(_payload) = reply.payload else {
         return Ok(refused("read_unavailable", "The session could not be read; nothing was prepared."));
     };
     let data_dir: PathBuf = controller
@@ -101,7 +102,7 @@ pub async fn hop_preview(
         .to_path_buf();
     let destination = request.destination;
     tauri::async_runtime::spawn_blocking(move || {
-        let document = match stx::read(payload.content.as_bytes()) {
+        let document = match stx::read(&content) {
             Ok(document) => document,
             Err(error) => return Ok(refused("read_unavailable", error.to_string())),
         };

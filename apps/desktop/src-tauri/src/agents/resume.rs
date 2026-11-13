@@ -119,6 +119,7 @@ fn verify_native(
         native_id: saved.segment.native.native_id.clone(),
         cursor: None,
         limit: 1,
+        overview_only: true,
     }))
     .map_err(read_error)?;
     if reply.root != selector || reply.native_id != saved.segment.native.native_id {

@@ -1,5 +1,5 @@
 //! `--format md`: a readable rendering of the (already redacted) transcript (R39).
-use crate::model::{ItemKind, Mode, Transcript};
+use crate::model::{ExportItem, ExportSource, ItemKind, Mode, Transcript};
 
 /// A fence longer than any backtick run inside the text, so content never closes it early.
 fn fence(text: &str) -> String {
@@ -40,8 +40,8 @@ fn inline(text: &str) -> String {
         .collect()
 }
 
-pub fn render(transcript: &Transcript, mode: Mode, created: &str) -> String {
-    let source = &transcript.source;
+/// Everything before the first item: title, facts and the rule.
+pub fn header(source: &ExportSource, thread: Option<&str>, mode: Mode, created: &str) -> String {
     let mut out = String::new();
     let title = source
         .title
@@ -65,7 +65,7 @@ pub fn render(transcript: &Transcript, mode: Mode, created: &str) -> String {
     if let Some(branch) = &source.git_branch {
         facts.push(format!("- Branch: {}", inline(branch)));
     }
-    if let Some(thread) = &transcript.thread {
+    if let Some(thread) = thread {
         facts.push(format!("- Thread: `{}`", thread.replace('`', "")));
     }
     facts.push(format!(
@@ -75,17 +75,32 @@ pub fn render(transcript: &Transcript, mode: Mode, created: &str) -> String {
     ));
     out.push_str(&facts.join("\n"));
     out.push_str("\n\n---\n\n");
-    let mut last_heading: Option<&str> = None;
-    for item in &transcript.items {
+    out
+}
+
+/// The items, one at a time: the only state is the heading the last one opened, so a session of
+/// any size renders in constant memory (ADR-0053 v2).
+#[derive(Default)]
+pub struct Body {
+    last_heading: Option<&'static str>,
+}
+
+impl Body {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Appends the rendering of `item` to `out`.
+    pub fn item(&mut self, out: &mut String, item: &ExportItem) {
         let heading = match item.kind {
             ItemKind::UserText | ItemKind::Attachment => "User",
             ItemKind::AssistantText | ItemKind::ToolCall | ItemKind::ToolResult => "Assistant",
             ItemKind::Compaction => "Compaction summary",
             ItemKind::Meta => "Note",
         };
-        if last_heading != Some(heading) || matches!(item.kind, ItemKind::UserText) {
+        if self.last_heading != Some(heading) || matches!(item.kind, ItemKind::UserText) {
             out.push_str(&format!("## {heading}\n\n"));
-            last_heading = Some(heading);
+            self.last_heading = Some(heading);
         }
         match item.kind {
             ItemKind::UserText | ItemKind::AssistantText | ItemKind::Compaction | ItemKind::Meta => {
@@ -95,15 +110,15 @@ pub fn render(transcript: &Transcript, mode: Mode, created: &str) -> String {
             ItemKind::ToolCall => {
                 let name = item.tool.as_ref().map_or("tool", |t| t.name.as_str());
                 out.push_str(&format!("**Tool call:** {}\n\n", inline(name)));
-                block(&mut out, "json", &item.text);
+                block(out, "json", &item.text);
             }
             ItemKind::ToolResult => {
                 let error = item.tool.as_ref().is_some_and(|t| t.is_error);
                 out.push_str(if error { "**Tool result (error):**\n\n" } else { "**Tool result:**\n\n" });
-                block(&mut out, "", &item.text);
+                block(out, "", &item.text);
             }
             ItemKind::Attachment => {
-                let Some(attachment) = &item.attachment else { continue };
+                let Some(attachment) = &item.attachment else { return };
                 let name = attachment.name.as_deref().map(inline).unwrap_or_else(|| inline(&attachment.kind));
                 match &attachment.copied_as {
                     Some(path) => out.push_str(&format!("*Attachment:* {name} (`{}`, copied as `{}`)\n\n", attachment.sha256, path.replace('`', ""))),
@@ -111,6 +126,14 @@ pub fn render(transcript: &Transcript, mode: Mode, created: &str) -> String {
                 }
             }
         }
+    }
+}
+
+pub fn render(transcript: &Transcript, mode: Mode, created: &str) -> String {
+    let mut out = header(&transcript.source, transcript.thread.as_deref(), mode, created);
+    let mut body = Body::new();
+    for item in &transcript.items {
+        body.item(&mut out, item);
     }
     out
 }

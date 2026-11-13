@@ -30,6 +30,8 @@ pub mod session_raw;
 #[cfg(all(windows, feature = "session-reader"))]
 pub mod session_find;
 #[cfg(all(windows, feature = "session-reader"))]
+pub mod export_frames;
+#[cfg(all(windows, feature = "session-reader"))]
 pub mod session_export;
 #[cfg(windows)]
 pub mod check_scratch;

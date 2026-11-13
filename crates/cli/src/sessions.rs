@@ -162,7 +162,7 @@ mod windows {
     use shinatama_engine::{
         resources::admission::{AdmissionCoordinator, PrepareRequest},
         session_detail::DetailRequest,
-        session_export::{ExportIssue, ExportRequest, MAX_ATTACHMENT_BYTES},
+        session_export::{CommitError, ExportIssue, ExportRequest, commit_export},
         session_roots::{PreparedSessionList, RootSelector, SessionListRead, SessionReadIssue, metadata_worker_budget},
     };
     use shinatama_export::{Format, Mode, output};
@@ -238,6 +238,15 @@ mod windows {
 
     /// One contained read, admitted through the shared reservation ledger the desktop uses.
     fn contained(store: &Store, prepared: &PreparedSessionList) -> Outcome<SessionListRead> {
+        contained_with(store, prepared, None)
+    }
+
+    /// [`contained`] for an export: `sink` receives every body frame as the worker writes it.
+    fn contained_with(
+        store: &Store,
+        prepared: &PreparedSessionList,
+        sink: Option<&mut dyn FnMut(&[u8]) -> std::io::Result<()>>,
+    ) -> Outcome<SessionListRead> {
         let helper = helper()?;
         let ledger = store
             .database
@@ -254,7 +263,10 @@ mod windows {
                 lease_expires_at_ms: now + 15_000,
             })
             .map_err(|_| refused("resources", "Shinatama's resource budget has no room for a session reader now; retry later."))?;
-        let read = prepared.run_contained(&store.database, &helper, &store.location, workload);
+        let read = match sink {
+            Some(sink) => prepared.run_contained_export(&store.database, &helper, &store.location, workload, sink),
+            None => prepared.run_contained(&store.database, &helper, &store.location, workload),
+        };
         if read.cleanup_retained() {
             return Err(issue(SessionReadIssue::CleanupUnconfirmed));
         }
@@ -262,6 +274,14 @@ mod windows {
             return Err(issue(value));
         }
         Ok(read)
+    }
+
+    fn output_failure(error: output::OutputError) -> Failure {
+        match error {
+            output::OutputError::Exists | output::OutputError::AttachmentsExist => refused("exists", "The output exists; add --replace to overwrite it. Nothing was written."),
+            output::OutputError::InvalidPath | output::OutputError::ParentMissing => refused("invalid_path", "The output folder does not exist or the name is invalid. Nothing was written."),
+            output::OutputError::Write(_) => failed("write_failed", "Writing failed; no partial file was left."),
+        }
     }
 
     fn roots(store: &Store, agent: Option<&str>) -> Outcome<Vec<StoreRootRecord>> {
@@ -456,11 +476,29 @@ mod windows {
                 let root = locate(&store, selector)?;
                 let home = (mode == Mode::Portable).then(|| std::env::var("USERPROFILE").ok()).flatten().filter(|h| Path::new(h).is_absolute());
                 let request = ExportRequest {
-                    detail: DetailRequest { root: selector_of(&root), native_id: selector.native_id.clone(), cursor: None, limit: 1 },
+                    detail: DetailRequest { root: selector_of(&root), native_id: selector.native_id.clone(), cursor: None, limit: 1, overview_only: false },
                     format, mode, with_attachments: *attachments, thread: None, home,
                 };
                 let prepared = PreparedSessionList::resolve_export(&store.database, &store.location, request).map_err(issue)?;
-                let read = contained(&store, &prepared)?;
+                // The body is staged as the worker writes it (a session of any size has no total
+                // bound) and committed only after its final frame; dropping `staged` removes it.
+                let policy = if *replace { output::Overwrite::Replace } else { output::Overwrite::Refuse };
+                let mut staged = match &target {
+                    Some(path) => output::stage(path, policy),
+                    None => output::stage_scratch(&std::env::temp_dir()),
+                }
+                .map_err(output_failure)?;
+                let mut write_failed = false;
+                let read = {
+                    let mut sink = |bytes: &[u8]| {
+                        staged.write(bytes).inspect_err(|_| write_failed = true)
+                    };
+                    contained_with(&store, &prepared, Some(&mut sink))
+                };
+                if write_failed {
+                    return Err(failed("write_failed", "Writing failed; no partial file was left."));
+                }
+                let read = read?;
                 let reply = read.export().ok_or_else(|| failed("read_unavailable", "The session worker returned no export."))?;
                 if let Some(value) = reply.issue {
                     let code = match value {
@@ -475,23 +513,15 @@ mod windows {
                 let report_value = serde_json::to_value(&payload.report).unwrap_or_default();
                 match target {
                     None => {
-                        out.write_all(payload.content.as_bytes()).map_err(io)?;
+                        staged.copy_to(payload.prefix.as_bytes(), out).map_err(io)?;
                         if *json {
                             write_json(err, json!({"schema": "shinatama.cli.export/1", "status": "done", "report": report_value})).map_err(io)?;
                         }
                     }
-                    Some(path) => {
-                        let mut files = Vec::new();
-                        for blob in &payload.attachments {
-                            let data = shinatama_export::base64::decode(&blob.data_base64, MAX_ATTACHMENT_BYTES)
-                                .ok_or_else(|| failed("read_unavailable", "An attachment could not be decoded; nothing was written."))?;
-                            files.push(output::AttachmentFile { name: blob.name.clone(), data });
-                        }
-                        let policy = if *replace { output::Overwrite::Replace } else { output::Overwrite::Refuse };
-                        let receipt = output::write_export(&path, policy, payload.content.as_bytes(), &files).map_err(|error| match error {
-                            output::OutputError::Exists | output::OutputError::AttachmentsExist => refused("exists", "The output exists; add --replace to overwrite it. Nothing was written."),
-                            output::OutputError::InvalidPath | output::OutputError::ParentMissing => refused("invalid_path", "The output folder does not exist or the name is invalid. Nothing was written."),
-                            output::OutputError::Write(_) => failed("write_failed", "Writing failed; no partial file was left."),
+                    Some(_) => {
+                        let receipt = commit_export(staged, payload).map_err(|error| match error {
+                            CommitError::Attachment => failed("read_unavailable", "An attachment could not be decoded; nothing was written."),
+                            CommitError::Output(error) => output_failure(error),
                         })?;
                         if *json {
                             write_json(out, json!({"schema": "shinatama.cli.export/1", "status": "done", "path": receipt.path, "bytes": receipt.bytes,

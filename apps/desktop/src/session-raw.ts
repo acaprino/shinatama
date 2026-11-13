@@ -26,7 +26,7 @@ const ERRORS: Record<string, string> = {
   entry_not_found: 'This exact entry is unavailable. Reload the session detail.', raw_unavailable: 'The native reader has no RAW record for this canonical entry.',
   output_limit: 'The RAW entry exceeds 64 KiB and was refused.', source_changed: 'The source changed. Close RAW and reload the detail.',
   root_changed: 'The archive revision changed. Close RAW and reload the catalog.', root_unavailable: 'The selected archive is unavailable.',
-  input_too_large: 'This archive exceeds the 16 MiB input bound and was refused before parsing.',
+  input_too_large: 'This archive holds more than 4,096 files. It was refused before reading.',
   unsafe_namespace: 'The source failed read-only path verification.', unsupported_export_context: 'This native export context is not qualified.',
   unsupported_harness: 'This agent has no qualified RAW reader.', ambiguous_session: 'This exact session cannot be distinguished safely.',
   session_not_found: 'The exact native session is unavailable in this archive.', read_unavailable: 'RAW could not be read. Retry explicitly.',
@@ -66,7 +66,7 @@ export function createSessionRaw(options: Options) {
   const status = document.createElement('p'); status.className = 'session-raw-status'; status.setAttribute('role', 'status');
   const content = document.createElement('pre'); content.id = 'session-raw-content'; content.tabIndex = 0; content.setAttribute('aria-label', 'Visible RAW native record');
   const scope = document.createElement('p'); scope.className = 'hint'; scope.textContent = 'One entry, at most 64 KiB. Attachment files stay closed. Closing clears this view. Copy writes only the displayed RAW to your clipboard.';
-  dialog.append(heading, warning, source, consent, actions, status, content, scope); document.body.append(dialog);
+  dialog.append(heading, warning, source, consent, actions, status, content, scope); (document.querySelector('#app') ?? document.body).append(dialog);
   let selected: RawSelection | null = null; let generation = 0; let destroyed = false; let busy = false; let copying = false;
   let message = 'RAW has not been requested.'; let failed = false;
   function render() {

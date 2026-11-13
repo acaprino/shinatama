@@ -192,6 +192,92 @@ pub fn write_with(
     })
 }
 
+/// A body written as it arrives and committed at the end (ADR-0053 v2). A streamed export knows
+/// its header only after its last item, so the body is staged in a temporary file beside the
+/// destination; [`Staged::commit`] writes header + body into a second temporary file and
+/// renames it into place with the same rules as [`write_with`]. Dropping a `Staged` (a failure,
+/// a timeout, a cancel) removes the staged file: nothing is left behind and nothing is replaced.
+pub struct Staged {
+    target: Option<(PathBuf, Overwrite)>,
+    temp: PathBuf,
+    file: Option<BufWriter<File>>,
+    bytes: u64,
+}
+
+/// Stages a body for `path`, refusing at once (before any work) what [`write_with`] would refuse.
+pub fn stage(path: &Path, overwrite: Overwrite) -> Result<Staged, OutputError> {
+    let (parent, name) = check_target(path)?;
+    if overwrite == Overwrite::Refuse && fs::symlink_metadata(path).is_ok() {
+        return Err(OutputError::Exists);
+    }
+    let temp = temp_name(parent, name, "body.partial");
+    let file = OpenOptions::new().write(true).create_new(true).open(&temp)?;
+    Ok(Staged { target: Some((path.to_path_buf(), overwrite)), temp, file: Some(BufWriter::new(file)), bytes: 0 })
+}
+
+/// Stages a body with no destination file, in `directory` (a private folder): for output that
+/// goes to a stream, where the header still has to come before the body.
+pub fn stage_scratch(directory: &Path) -> Result<Staged, OutputError> {
+    let temp = temp_name(directory, "export", "body.partial");
+    let file = OpenOptions::new().write(true).create_new(true).open(&temp)?;
+    Ok(Staged { target: None, temp, file: Some(BufWriter::new(file)), bytes: 0 })
+}
+
+impl Staged {
+    pub fn write(&mut self, bytes: &[u8]) -> io::Result<()> {
+        self.file.as_mut().ok_or_else(|| io::Error::other("closed"))?.write_all(bytes)?;
+        self.bytes += bytes.len() as u64;
+        Ok(())
+    }
+
+    /// The bytes staged so far.
+    pub fn bytes(&self) -> u64 {
+        self.bytes
+    }
+
+    fn close(&mut self) -> io::Result<()> {
+        if let Some(writer) = self.file.take() {
+            writer.into_inner().map_err(|e| e.into_error())?.sync_all()?;
+        }
+        Ok(())
+    }
+
+    /// Writes `prefix` then the staged body to the destination atomically, with `attachments`.
+    pub fn commit(mut self, prefix: &[u8], attachments: &[AttachmentFile]) -> Result<Receipt, OutputError> {
+        let (path, overwrite) = self.target.clone().ok_or(OutputError::InvalidPath)?;
+        self.close()?;
+        let temp = self.temp.clone();
+        write_with(&path, overwrite, attachments, |writer| {
+            writer.write_all(prefix)?;
+            io::copy(&mut File::open(&temp)?, writer)?;
+            Ok(())
+        })
+    }
+
+    /// Writes `prefix` then the staged body to `out`.
+    pub fn copy_to(mut self, prefix: &[u8], out: &mut dyn Write) -> io::Result<u64> {
+        self.close()?;
+        out.write_all(prefix)?;
+        let copied = io::copy(&mut File::open(&self.temp)?, out)?;
+        Ok(prefix.len() as u64 + copied)
+    }
+}
+
+impl Drop for Staged {
+    fn drop(&mut self) {
+        drop(self.file.take());
+        // A scanner may hold a big fresh file open for a moment: try again before giving up.
+        for attempt in 0..10 {
+            match fs::remove_file(&self.temp) {
+                Ok(()) => return,
+                Err(error) if error.kind() == io::ErrorKind::NotFound => return,
+                Err(_) if attempt < 9 => std::thread::sleep(std::time::Duration::from_millis(50)),
+                Err(_) => {}
+            }
+        }
+    }
+}
+
 struct HashingWriter {
     inner: Option<BufWriter<File>>,
     hash: Sha256,
@@ -307,6 +393,35 @@ mod tests {
         assert_eq!(write_export(&path, Overwrite::Replace, b"x", &bad).unwrap_err(), OutputError::InvalidPath);
         write_export(&path, Overwrite::Replace, b"y", &files).unwrap();
         assert_eq!(scratch.entries(), ["d.stx.jsonl", "d.stx.jsonl.attachments"]);
+    }
+
+    #[test]
+    fn a_staged_body_gets_its_header_in_front_and_leaves_nothing_when_dropped() {
+        let scratch = Scratch::new("staged");
+        let path = scratch.0.join("e.md");
+        let mut staged = stage(&path, Overwrite::Refuse).unwrap();
+        staged.write(b"body one, ").unwrap();
+        staged.write(b"body two").unwrap();
+        assert_eq!(staged.bytes(), 18);
+        assert_eq!(scratch.entries().len(), 1, "only the staged body exists before the commit");
+        let receipt = staged.commit(b"HEADER\n", &[]).unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"HEADER\nbody one, body two");
+        assert_eq!(receipt.bytes, 25);
+        assert_eq!(scratch.entries(), ["e.md"]);
+        assert_eq!(stage(&path, Overwrite::Refuse).err(), Some(OutputError::Exists));
+        // A dropped stage removes its file and keeps the file it would have replaced.
+        let mut dropped = stage(&path, Overwrite::Replace).unwrap();
+        dropped.write(b"abandoned").unwrap();
+        drop(dropped);
+        assert_eq!(fs::read(&path).unwrap(), b"HEADER\nbody one, body two");
+        assert_eq!(scratch.entries(), ["e.md"]);
+        // A scratch stage copies to a stream, header first, and is removed with it.
+        let mut copy = stage_scratch(&scratch.0).unwrap();
+        copy.write(b"tail").unwrap();
+        let mut sink = Vec::new();
+        assert_eq!(copy.copy_to(b"head-", &mut sink).unwrap(), 9);
+        assert_eq!(sink, b"head-tail");
+        assert_eq!(scratch.entries(), ["e.md"]);
     }
 
     #[test]

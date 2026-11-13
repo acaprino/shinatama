@@ -8,6 +8,12 @@ Set-StrictMode -Version Latest
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $portableRoot = Join-Path $workspace '.verification/portable'
 $maxFileBytes = 512MB
+# The session helper reads large sessions under a 10 s wall (ADR-0053 v2, INV-006):
+# it comes from the release build, every other native from the debug build.
+$releaseNatives = @('shinatama-session-helper.exe')
+$buildMode = 'existing-target-debug+release-session-helper'
+$packageScope = 'local portable files, debug except the release session helper; public release/X3 gates remain open'
+function Native-Source([string]$Name) { if ($Name -cin $releaseNatives) { return "target/release/$Name" } return "target/debug/$Name" }
 $maxTotalBytes = 1GB
 $maxFiles = 1024
 $maxVisited = 4096
@@ -260,12 +266,12 @@ function Verify-Package([string]$Directory) {
     $manifest = Read-Json $manifestPath
     Keys-Exactly $manifest @('schemaVersion', 'product', 'packageId', 'buildMode', 'gitHead', 'binaryBuildRevisionVerified', 'createdUtc', 'nativeAppExecuted', 'releaseApproved', 'scope', 'totalBytes', 'files')
     if ($manifest.schemaVersion -ne 1 -or $manifest.product -cne 'Shinatama' -or $manifest.packageId -cne $id -or
-        $manifest.buildMode -cne 'existing-target-debug' -or $manifest.gitHead -cnotmatch '^[a-f0-9]{40}$' -or
+        $manifest.buildMode -cne $buildMode -or $manifest.gitHead -cnotmatch '^[a-f0-9]{40}$' -or
         $manifest.gitHead -cne $receipt.gitHead -or $manifest.releaseApproved -isnot [bool] -or $manifest.releaseApproved -or
         $manifest.nativeAppExecuted -isnot [bool] -or $manifest.nativeAppExecuted -or
         $manifest.binaryBuildRevisionVerified -isnot [bool] -or $manifest.binaryBuildRevisionVerified -or
         $manifest.createdUtc -isnot [string] -or $manifest.createdUtc.Length -gt 64 -or
-        $manifest.scope -cne 'local debug portable files; public release/X3 gates remain open' -or
+        $manifest.scope -cne $packageScope -or
         $manifest.files -isnot [array] -or -not (Integer $manifest.totalBytes $maxTotalBytes) -or
         $manifest.files.Count -gt $maxFiles -or $manifest.files.Count -ne $receipt.fileCount) { throw 'Unknown/inconsistent local package manifest schema.' }
     $plan = Plan (Join-Path $directory 'resources/sidecar')
@@ -311,7 +317,7 @@ if ($preparedFiles.Count -ne 610) { throw 'Prepared sidecar must contain the exa
 $expectedPrepared = Expected-Prepared (Read-Json (Regular $resources 'source-build/provenance.lock.json'))
 foreach ($relative in $preparedFiles) { if (-not $expectedPrepared.ContainsKey($relative)) { throw 'Unexpected prepared sidecar file.' } }
 $gitHead = Git-Head
-foreach ($name in @('shinatama-desktop.exe', 'shinatama-terminal-helper.exe', 'shinatama-session-helper.exe', 'shinatama-hook.exe')) { Assert-Native (Regular $workspace "target/debug/$name") ($name -ceq 'shinatama-desktop.exe') }
+foreach ($name in @('shinatama-desktop.exe', 'shinatama-terminal-helper.exe', 'shinatama-session-helper.exe', 'shinatama-hook.exe')) { Assert-Native (Regular $workspace (Native-Source $name)) ($name -ceq 'shinatama-desktop.exe') }
 foreach ($directory in @((Join-Path $workspace '.verification'), $portableRoot)) {
     if (Test-Path -LiteralPath $directory) { [void](Assert-NoLink $directory) }
     else { [void](Assert-NoLink ([IO.Path]::GetDirectoryName($directory))); [void][IO.Directory]::CreateDirectory($directory); [void](Assert-NoLink $directory) }
@@ -329,7 +335,7 @@ foreach ($relative in @($plan.Keys | Sort-Object -CaseSensitive)) {
     if ($relative -ceq 'Shinatama.cmd') { Write-New $target $launcherBytes; $bytes = $launcherBytes.LongLength; $sha = Digest $target $bytes }
     else {
         $source = if ($relative.StartsWith('resources/sidecar/', [StringComparison]::Ordinal)) { Regular $resources $plan[$relative].source }
-            elseif ($relative.EndsWith('.exe', [StringComparison]::Ordinal)) { Regular $workspace "target/debug/$relative" }
+            elseif ($relative.EndsWith('.exe', [StringComparison]::Ordinal)) { Regular $workspace (Native-Source $relative) }
             else { Regular $workspace $plan[$relative].source }
         $sourceStream = [IO.File]::Open($source, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
         try {
@@ -348,9 +354,9 @@ foreach ($relative in @($plan.Keys | Sort-Object -CaseSensitive)) {
     if ($records.Count -ge $maxFiles -or $totalBytes -gt $maxTotalBytes) { throw 'Package cumulative budget exceeded.' }
     $records.Add([ordered]@{ path = $relative; bytes = [long]$bytes; sha256 = $sha })
 }
-$manifest = [ordered]@{ schemaVersion = 1; product = 'Shinatama'; packageId = $packageId; buildMode = 'existing-target-debug'; gitHead = $gitHead
+$manifest = [ordered]@{ schemaVersion = 1; product = 'Shinatama'; packageId = $packageId; buildMode = $buildMode; gitHead = $gitHead
     binaryBuildRevisionVerified = $false; createdUtc = [DateTimeOffset]::UtcNow.ToString('O'); nativeAppExecuted = $false; releaseApproved = $false
-    scope = 'local debug portable files; public release/X3 gates remain open'; totalBytes = $totalBytes; files = $records.ToArray() }
+    scope = $packageScope; totalBytes = $totalBytes; files = $records.ToArray() }
 $manifestPath = Join-Path $stage 'package-manifest.json'
 Write-New $manifestPath ($utf8.GetBytes(($manifest | ConvertTo-Json -Depth 8) + "`n"))
 $receipt = [ordered]@{ schemaVersion = 1; packageId = $packageId; gitHead = $gitHead; fileCount = $records.Count; totalBytes = $totalBytes

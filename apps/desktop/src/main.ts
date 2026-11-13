@@ -23,6 +23,7 @@ import { beginMutation, browseFolder, createCatalogClient, createRequestId } fro
 import { createSessionLibrary } from './session-library.ts';
 import { createSessionDetail } from './session-detail.ts';
 import { createSessionExport } from './session-export.ts';
+import type { ProgressBackend, ProgressEvent } from './session-progress.ts';
 import { createHopPreview, type HopPreview } from './hop-preview.ts';
 import { createFilesPanel } from './files-panel.ts';
 import { createProjectsOverview } from './projects-overview.ts';
@@ -591,14 +592,27 @@ const sessionRaw = createSessionRaw({
   reportError: notify,
   restoreFocus: () => setFocus(focusedGroup()),
 });
+// Progress of a long search or export (the worker reports at most four times a second) and its cancel.
+const sessionProgress: ProgressBackend = {
+  subscribe: handler => {
+    if (!desktop) return () => {};
+    let stopped = false; let off: (() => void) | null = null;
+    void listen<ProgressEvent>('session-progress', event => { if (!stopped) handler(event.payload); })
+      .then(unlisten => { if (stopped) unlisten(); else off = unlisten; }).catch(() => {});
+    return () => { stopped = true; off?.(); };
+  },
+  cancel: requestId => desktop ? invoke('session_cancel', { requestId }) : Promise.resolve(false),
+};
 const sessionFind = createSessionFind({
-  read: request => desktop ? invoke('session_find', {request}) : Promise.reject({issue:'read_unavailable'}),
+  progress: sessionProgress,
+  read: (request, requestId) => desktop ? invoke('session_find', {request, requestId}) : Promise.reject({issue:'read_unavailable'}),
   onSelectHit: hit => { sessionDetail.show(hit.root, hit.nativeId, {offset:hit.eventOrdinal,fingerprint:hit.fingerprint}); },
   reportError: notify,
   restoreFocus: () => setFocus(focusedGroup()),
 });
 const sessionExport = createSessionExport({
-  save: request => desktop ? invoke('session_export', { request }) : Promise.reject({ issue: 'read_unavailable' }),
+  progress: sessionProgress,
+  save: (request, requestId) => desktop ? invoke('session_export', { request, requestId }) : Promise.reject({ issue: 'read_unavailable' }),
   reportError: notify,
   restoreFocus: () => setFocus(focusedGroup()),
 });
