@@ -4,7 +4,9 @@
 use crate::{storage::Services, terminal_runtime::Runtime};
 use serde::Serialize;
 use shinatama_engine::{
-    sidecar_admin::{AdminTarget, ResolvedBaseline, resolved_baseline},
+    sidecar_admin::{
+        AdminTarget, CapabilityRead, ResolvedBaseline, resolved_baseline, session_capabilities,
+    },
     sidecar_config::{intended_baseline, prepare_private_sidecar},
     sidecar_runtime::{
         NodePin, RuntimeSummary, prepare_runtime, verify_bundled_node, verify_prepared_bundle,
@@ -353,6 +355,30 @@ impl Controller {
             *value = None;
         }
     }
+    /// One session's capabilities from the running process, never on the UI thread.
+    /// Unavailable while no owned process is known; the engine proves the process
+    /// identity (health `pid`) before the capabilities path is asked.
+    pub fn session_capabilities(&self, native_id: &str) -> CapabilityRead {
+        let Some(pid) = self
+            .supervisor
+            .get()
+            .and_then(SidecarSupervisor::status)
+            .and_then(|snapshot| snapshot.pid)
+        else {
+            return CapabilityRead::Unavailable;
+        };
+        let Some((port, _)) = self.connection.get() else {
+            return CapabilityRead::Unavailable;
+        };
+        session_capabilities(
+            &AdminTarget {
+                port: *port,
+                pid,
+                timeout: RESOLVED_READ_TIMEOUT,
+            },
+            native_id,
+        )
+    }
     pub fn is_active(&self) -> bool {
         self.preparing.load(Ordering::Acquire)
             || self.supervisor.get().is_some_and(|owner| {
@@ -600,10 +626,57 @@ fn resources_root() -> Result<PathBuf, &'static str> {
     #[cfg(not(debug_assertions))]
     Err("The proxy resources are missing from this application package.")
 }
+/// The `sidecar_capabilities` answer: `{ state, capabilities? }`.
+pub fn capabilities_reply(read: CapabilityRead) -> serde_json::Value {
+    match read {
+        CapabilityRead::Observed(capabilities) => serde_json::json!({
+            "state": "observed",
+            "capabilities": capabilities,
+        }),
+        CapabilityRead::NotObserved => serde_json::json!({ "state": "not_observed" }),
+        CapabilityRead::Unavailable => serde_json::json!({ "state": "unavailable" }),
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use shinatama_engine::sidecar_admin::{Lever, SessionCapabilities};
     use shinatama_engine::sidecar_config::intended_baseline;
+
+    #[test]
+    fn capabilities_reply_names_the_state_and_carries_the_report_only_when_observed() {
+        let lever = |applied, reason: &str| Lever {
+            configured: None,
+            applied,
+            reason: reason.to_owned(),
+        };
+        let observed = capabilities_reply(CapabilityRead::Observed(SessionCapabilities {
+            schema_version: 1,
+            protocol: "responses".into(),
+            requests: 4,
+            profile: None,
+            passthrough: false,
+            ccr: lever(Some(false), "codex_host"),
+            read_original_image: lever(Some(false), "codex_host"),
+            image_rescale: lever(None, "not_observed"),
+            steering_level: Some(2),
+            effort_routing: Some(false),
+            prompt_rewrite_mode: Some("auto".into()),
+        }));
+        assert_eq!(observed["state"], "observed");
+        assert_eq!(observed["capabilities"]["ccr"]["reason"], "codex_host");
+        assert_eq!(observed["capabilities"]["ccr"]["applied"], false);
+        assert_eq!(observed["capabilities"]["steeringLevel"], 2);
+        assert_eq!(observed["capabilities"]["promptRewriteMode"], "auto");
+        assert_eq!(
+            capabilities_reply(CapabilityRead::NotObserved),
+            serde_json::json!({ "state": "not_observed" })
+        );
+        assert_eq!(
+            capabilities_reply(CapabilityRead::Unavailable),
+            serde_json::json!({ "state": "unavailable" })
+        );
+    }
 
     #[test]
     fn drift_is_reported_when_resolved_differs_from_baseline() {

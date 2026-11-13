@@ -1,7 +1,8 @@
 // Synthetic local model origin for the sidecar integrity proofs. It never leaves the
 // machine: it listens on 127.0.0.1 only, on a port the operating system chooses, and
 // answers every Messages request with one fixed text block as a valid Anthropic SSE
-// stream. Every request is kept on disk exactly as received, so a test can compare what
+// stream (and every Responses request with one fixed text item as a valid Responses SSE
+// stream). Every request is kept on disk exactly as received, so a test can compare what
 // the sidecar sent with what the client handed it.
 //
 //   node origin.mjs --dir <path> [--delay-ms <n>] [--no-record]
@@ -110,6 +111,25 @@ const server = http.createServer((req, res) => {
     if (req.method === 'GET' && route.endsWith('/v1/models')) {
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify(CATALOG));
+      return;
+    }
+    if (req.method === 'POST' && route.endsWith('/v1/responses')) {
+      // The Responses wire: one fixed text answer as a valid SSE stream.
+      let responsesRequest = {};
+      try {
+        responsesRequest = JSON.parse(body.toString('utf8'));
+      } catch {
+        // An unreadable body still gets the fixed reply.
+      }
+      const responseModel = typeof responsesRequest.model === 'string' ? responsesRequest.model : 'synthetic-model';
+      const output = [{ id: 'msg_synthetic', type: 'message', role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: REPLY, annotations: [] }] }];
+      const base = { id: 'resp_synthetic', object: 'response', model: responseModel };
+      res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
+      res.write(frame('response.created', { type: 'response.created', response: { ...base, status: 'in_progress', output: [] } }));
+      res.write(frame('response.output_text.delta', { type: 'response.output_text.delta', item_id: 'msg_synthetic', output_index: 0, content_index: 0, delta: REPLY }));
+      setTimeout(() => {
+        res.end(frame('response.completed', { type: 'response.completed', response: { ...base, status: 'completed', output, usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 } } }));
+      }, delayMs);
       return;
     }
     if (req.method !== 'POST' || !route.endsWith('/v1/messages')) {

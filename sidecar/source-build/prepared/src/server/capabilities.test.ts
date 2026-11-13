@@ -159,11 +159,43 @@ test("reason_is_the_one_stamped_by_the_request_not_recomputed", () => {
     assert.deepEqual(after.readOriginalImage, before.readOriginalImage);
     assert.deepEqual(after.ccr, { configured: true, applied: false, reason: "codex_host" });
     assert.deepEqual(after.absorb, { configured: false, mediaOnly: true });
-    assert.deepEqual(after.steering, { configured: false, level: 2, effortRouting: true });
+    assert.deepEqual(after.steering, { configured: false, level: 2, effortRouting: false });
 
     // the next served request re-stamps (latest wins)
     serve(s, ccrBase, imageBase);
     assert.deepEqual(report(s).ccr, { configured: true, applied: true, reason: "none" });
+});
+
+test("effort_routing_reports_what_the_process_uses_not_the_resolver_default", () => {
+    const s = fakeSession("proxy-sess-8", "anthropic", 1);
+    const steering = (outputSteering: Record<string, unknown> | undefined) =>
+        report(s, { compress: { outputSteering } as CapabilitiesDeps["compress"] }).steering;
+    // the kernel resolver defaults effortRouting to true, but routing needs the block enabled
+    assert.deepEqual(steering(undefined), { configured: false, level: 2, effortRouting: false });
+    assert.deepEqual(steering({}), { configured: false, level: 2, effortRouting: false });
+    assert.deepEqual(steering({ enabled: false, effortRouting: true }), { configured: false, level: 2, effortRouting: false });
+    // enabled with the field omitted: the resolver default (true) is what runs
+    assert.deepEqual(steering({ enabled: true }), { configured: true, level: 2, effortRouting: true });
+    assert.deepEqual(steering({ enabled: true, effortRouting: true, verbosityLevel: 3 }), { configured: true, level: 3, effortRouting: true });
+    // the baseline writes false explicitly
+    assert.deepEqual(steering({ enabled: true, effortRouting: false }), { configured: true, level: 2, effortRouting: false });
+});
+
+test("the_stamp_records_the_request_count_it_was_written_at", () => {
+    const s = fakeSession("proxy-sess-9", "anthropic", 4);
+    assert.equal(report(s).stampedAtRequest, null);
+    serve(s, ccrBase, imageBase);
+    // the stamping site runs before prepare* counts the request
+    assert.equal(report(s).stampedAtRequest, 4);
+    s.stats.requests = 5;
+    assert.equal(report(s).requests, 5);
+    assert.equal(report(s).stampedAtRequest, 4);
+    // a later request that skipped the stamping site leaves a gap a consumer can see
+    s.stats.requests = 7;
+    const gap = report(s);
+    assert.equal(gap.requests - gap.stampedAtRequest, 3);
+    serve(s, ccrBase, imageBase);
+    assert.equal(report(s).stampedAtRequest, 7);
 });
 
 test("a_session_that_has_served_nothing_reports_not_observed_and_global_passthrough_wins", () => {

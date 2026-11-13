@@ -1307,6 +1307,14 @@ pub(crate) mod test_support {
         pid: u32,
         bodies: Vec<String>,
     ) -> (NonZeroU16, thread::JoinHandle<Vec<String>>) {
+        server_with_status(pid, bodies.into_iter().map(|body| (200, body)).collect())
+    }
+    /// `server_with` where each following response carries its own status code.
+    pub fn server_with_status(
+        pid: u32,
+        responses: Vec<(u16, String)>,
+    ) -> (NonZeroU16, thread::JoinHandle<Vec<String>>) {
+        let bodies = responses;
         let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
         let port = NonZeroU16::new(listener.local_addr().unwrap().port()).unwrap();
         listener.set_nonblocking(true).unwrap();
@@ -1335,15 +1343,15 @@ pub(crate) mod test_support {
                         break;
                     }
                 }
-                let body = if index == 0 {
-                    format!("{{\"ok\":true,\"pid\":{pid}}}")
+                let (status, body) = if index == 0 {
+                    (200, format!("{{\"ok\":true,\"pid\":{pid}}}"))
                 } else {
                     bodies.next().unwrap()
                 };
                 // The client may close early (oversized refusal); that is not a test failure.
                 if write!(
                     stream,
-                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
+                    "HTTP/1.1 {status} Synthetic\r\nContent-Length: {}\r\n\r\n{}",
                     body.len(),
                     body
                 )

@@ -77,17 +77,23 @@ export function decideImageToolGate(i: ImageToolGateInput): GateDecision {
 export interface CapabilityStamp {
     ccr: { configured: boolean; applied: boolean; reason: CapabilityReason };
     readOriginalImage: { applied: boolean; reason: CapabilityReason };
+    /** session.stats.requests when the stamp was written. The stamping site runs before prepare*
+     *  counts the request, so the stamp describes the latest request exactly when the report's
+     *  `requests` equals stampedAtRequest + 1; a larger gap means a later request skipped the
+     *  stamping site (hop marker, chain skip) and the stamp is older than the report. */
+    stampedAtRequest: number;
 }
 
 const MAX_STAMPS = 2048;
 const stamps = new Map<string, CapabilityStamp>();
 
 /** Record the gates this request decided (latest wins). Called at the same site as the arming stamps. */
-export function stampCapabilities(session: Pick<Session, "id">, ccr: GateDecision & { configured: boolean }, image: GateDecision): void {
+export function stampCapabilities(session: Pick<Session, "id" | "stats">, ccr: GateDecision & { configured: boolean }, image: GateDecision): void {
     stamps.delete(session.id);
     stamps.set(session.id, {
         ccr: { configured: ccr.configured, applied: ccr.armed, reason: ccr.reason },
         readOriginalImage: { applied: image.armed, reason: image.reason },
+        stampedAtRequest: session.stats.requests,
     });
     if (stamps.size > MAX_STAMPS) {
         const oldest = stamps.keys().next().value;
@@ -157,6 +163,7 @@ export function buildCapabilities(i: CapabilityInputs): Record<string, unknown> 
         nativeId: i.nativeId,
         protocol: i.session.meta.protocol ?? null,
         requests: i.session.stats.requests,
+        stampedAtRequest: stamp?.stampedAtRequest ?? null,
         profile: profileOf(i.session.metadata),
         passthrough: i.passthrough,
         ccr,
@@ -167,7 +174,9 @@ export function buildCapabilities(i: CapabilityInputs): Record<string, unknown> 
         steering: {
             configured: steering?.enabled === true,
             level: steeringLevel(steering?.verbosityLevel),
-            effortRouting: steering?.effortRouting !== false,
+            // What the process uses: the kernel resolver defaults effortRouting to true, but
+            // lowerEffort needs `enabled && effortRouting`, so a disabled/unset block routes nothing.
+            effortRouting: steering?.enabled === true && steering.effortRouting !== false,
         },
         promptRewrite: { mode: i.promptRewriteMode ?? "off" },
     };

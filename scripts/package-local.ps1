@@ -143,10 +143,10 @@ function Expected-Prepared($Pin) {
             Assert-Relative $entry.path
             if (-not (Integer $entry.bytes 32MB) -or $entry.sha256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Invalid sidecar file pin.' }
             $entries.Add(($group.prefix + $entry.path), $entry)
-            if ($entries.Count -gt 609) { throw 'Unexpected sidecar allowlist count.' }
+            if ($entries.Count -gt 614) { throw 'Unexpected sidecar allowlist count.' }
         }
     }
-    if ($entries.Count -ne 609) { throw 'The reviewed sidecar pin must contain exactly 609 files before its generated identity.' }
+    if ($entries.Count -ne 614) { throw 'The reviewed sidecar pin must contain exactly 614 files before its generated identity.' }
     $entries.Add('bundle.identity.json', $null)
     return ,$entries
 }
@@ -307,7 +307,7 @@ if ($sourceVerification.mode -cne 'verify' -or $runtimeVerification.mode -cne 'v
 $resources = Join-Path $workspace 'sidecar'
 $plan = Plan $resources
 $preparedFiles = Files-Bounded (Join-Path $resources 'source-build/prepared')
-if ($preparedFiles.Count -ne 610) { throw 'Prepared sidecar must contain the exact 609 pinned files plus its generated identity.' }
+if ($preparedFiles.Count -ne 615) { throw 'Prepared sidecar must contain the exact 614 pinned files plus its generated identity.' }
 $expectedPrepared = Expected-Prepared (Read-Json (Regular $resources 'source-build/provenance.lock.json'))
 foreach ($relative in $preparedFiles) { if (-not $expectedPrepared.ContainsKey($relative)) { throw 'Unexpected prepared sidecar file.' } }
 $gitHead = Git-Head

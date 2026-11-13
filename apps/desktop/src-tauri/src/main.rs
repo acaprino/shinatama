@@ -591,6 +591,30 @@ fn sidecar_retry(window: tauri::WebviewWindow) -> Result<serde_json::Value, Stri
     #[cfg(not(windows))]
     Err("The Model proxy is available on Windows.".into())
 }
+/// One session's capabilities as the running proxy reports them:
+/// `{ state: "observed" | "not_observed" | "unavailable", capabilities? }`.
+#[tauri::command]
+async fn sidecar_capabilities(
+    window: tauri::WebviewWindow,
+    native_id: String,
+) -> Result<serde_json::Value, String> {
+    local(&window)?;
+    #[cfg(windows)]
+    {
+        let controller = ready::<sidecar::Controller>(&window)?;
+        let read = tauri::async_runtime::spawn_blocking(move || {
+            controller.session_capabilities(&native_id)
+        })
+        .await
+        .map_err(|_| "Session capabilities are unavailable.".to_owned())?;
+        return Ok(sidecar::capabilities_reply(read));
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = native_id;
+        Err("The Model proxy is available on Windows.".into())
+    }
+}
 /// A portable install (`Shinatama.portable` beside the exe) keeps its database in `data\` and
 /// its WebView2 profile in `webview\` beside Shinatama.exe; child processes inherit both.
 /// Started from its own folder with its own data, it opens the user's profile folder as the
@@ -717,6 +741,7 @@ fn main() {
         sidecar_start,
         sidecar_stop,
         sidecar_retry,
+        sidecar_capabilities,
         agent_check,
         agent_status,
         agent_start,
@@ -839,6 +864,7 @@ fn main() {
         sidecar_start,
         sidecar_stop,
         sidecar_retry,
+        sidecar_capabilities,
         agent_check,
         agent_status,
         agent_start,

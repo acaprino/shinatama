@@ -1,22 +1,15 @@
 {
   "formatVersion": 1,
-  "sourceRoot": "D:/Projects/horness-launcher/packages/billion-context",
-  "preparedRoot": "D:/Projects/horness-launcher/sidecar/source-build",
   "packageName": "billion-context",
   "version": "0.1.207",
   "upstreamCommit": "7e69b49ff4facb00b5ba6541b48d0f7fbe63d63d",
   "upstreamArchiveSha256": "10628db1ad6ae8f6a46f8886188ff6be7cb903036004d0f447c452880f4b3e53",
   "musashiSourceFingerprint": "0e9d1582bd90104d2fb56bd9cd92734ea5ac3bb4b683fc493d25a2258d744e3e",
-  "sourceTreeSha256": "bffc841eecd32aa67f6fc30606efa5409f1b85782d351a6edecd5315070f138a",
-  "artifactTreeSha256": "0b331c85d2bb7ca61824ba332566762b8577714edd06b38c296d121572879fa9",
+  "sourceTreeSha256": "89ef5bb7f64e5a118bdd0a99599544470185ed5a5e098d168ca5f7836fd6296d",
+  "artifactTreeSha256": "0acf232afe785232c72ac2b386b9ed4f9b36374b145bce47d366b6f42069fb88",
   "runtimeDependencyTreeSha256": "89868025df4771c6daf2e5eb745549331af47bd6fbbae90681aacc19edceaea8",
   "entry": "dist/index.js",
-  "entrySha256": "99137457918384b9288ada4d23de24632779944759be3f33c7421cc2805dde0a",
-  "musashiPreparationRoute": {
-    "path": "D:/Projects/horness-launcher/res/sidecar-prepare.mjs",
-    "sha256": "277c19907bf6580f988de127a83d6bb53688113e75f75f4f8f74a89d6ba4e974"
-  },
-  "sourceReceiptSha256": "2c7aae3bb57c17f0291f894ee304ec5fd3025de0b614bd7b8b6c91f1e4c003d8",
+  "entrySha256": "161978cceed6334a90f34ef8d625badd39664ea255ebb96a0023a3b2bd1b5360",
   "runtimeDependency": {
     "name": "zod",
     "version": "4.1.8",
@@ -963,6 +956,11 @@
       "sha256": "9dc230ef35f352d3d5d5d3471ceebb65b1a174e300d6848588a1435a48e82b0f"
     },
     {
+      "path": "src/encoder-status.ts",
+      "bytes": 1023,
+      "sha256": "2cd1dd15886fa0c516fcc73aceb14ed8c8e26a7209d1d5c5638771cacc32aa2c"
+    },
+    {
       "path": "src/encrypt.ts",
       "bytes": 8783,
       "sha256": "e6d9f253442048398a8d68b194e6b417d7e89244ffdd5d17e74c45245e052914"
@@ -1059,8 +1057,8 @@
     },
     {
       "path": "src/image-rescale.ts",
-      "bytes": 31269,
-      "sha256": "1ffdf8e276a4c654947251539a69d572bf42f30343070d83f8dbd71bc3ea319c"
+      "bytes": 31354,
+      "sha256": "8f5205c85ef5b9a17f420db32201243f8ad55a4561359c9337fa0ea40c2eeae9"
     },
     {
       "path": "src/image-restore.ts",
@@ -1434,8 +1432,8 @@
     },
     {
       "path": "src/plugin.ts",
-      "bytes": 285070,
-      "sha256": "dcba62fcb915f2136a4b1862dbaa7a88ad6eb2c2b1e37234110683a9cb5fc4b9"
+      "bytes": 285534,
+      "sha256": "23a8f58f7fb84d0d5b7f015a485943dc349ea7936ee489007d24dcb3f051c872"
     },
     {
       "path": "src/port-owner.ts",
@@ -1534,8 +1532,8 @@
     },
     {
       "path": "src/server/admin.ts",
-      "bytes": 83771,
-      "sha256": "6b83590f0da7627e6fb02de0ba5f4716c4bc4e864646fd3df3f6d46c40614d91"
+      "bytes": 84790,
+      "sha256": "f5659d49da97a78e258bcf64809a30f0931f730b8c70d69f4009d3a9eba2a0cd"
     },
     {
       "path": "src/server/attribution-status.ts",
@@ -1546,6 +1544,16 @@
       "path": "src/server/budget.ts",
       "bytes": 33129,
       "sha256": "5245548be458c40c6ade8569184ff850adc96488e6ba84c3daf6a1b54a7e8da2"
+    },
+    {
+      "path": "src/server/capabilities.test.ts",
+      "bytes": 12735,
+      "sha256": "ef4352e00dbba61466f0b7dd836769268790ff347d5530776185cbffac057de1"
+    },
+    {
+      "path": "src/server/capabilities.ts",
+      "bytes": 9713,
+      "sha256": "9e55f665d6d0d4f004be56522e3c3100bd511af62077a05f4ebbd7610cc45f1a"
     },
     {
       "path": "src/server/chain-artifacts.ts",
@@ -1569,8 +1577,8 @@
     },
     {
       "path": "src/server/handle.ts",
-      "bytes": 205088,
-      "sha256": "20f290638ff4945fecca1acb16eec0c38320deeaa92eeba7de02881673bd78ba"
+      "bytes": 206003,
+      "sha256": "74ac91ec57edcc22d8a4b19737d9a641153e25220b28ef3fb18cd68421d34474"
     },
     {
       "path": "src/server/headers.ts",
@@ -2021,13 +2029,13 @@
     },
     {
       "path": "dist/agent/pi-native.js",
-      "bytes": 5590327,
-      "sha256": "dafe970e8409616e56633414a8aad401ad1696bee6a3538e895f5345e2b35742"
+      "bytes": 5595100,
+      "sha256": "2715d36c01ce656426b486dbc46382c93403dfc2c1ddd63dfa4dc018058b3d86"
     },
     {
       "path": "dist/agent/pi-native.js.map",
-      "bytes": 17045258,
-      "sha256": "798da524ee5a9027e2a8669a5271613e44c6c851f1fb98d8ac46b5b8e234ba88"
+      "bytes": 17062960,
+      "sha256": "affbade8ecd0224c45d3d5d77022dab977533552a9a9d7a548e6e6df747060ef"
     },
     {
       "path": "dist/agent/pi.js",
@@ -2056,13 +2064,13 @@
     },
     {
       "path": "dist/index.js",
-      "bytes": 5512605,
-      "sha256": "99137457918384b9288ada4d23de24632779944759be3f33c7421cc2805dde0a"
+      "bytes": 5517385,
+      "sha256": "161978cceed6334a90f34ef8d625badd39664ea255ebb96a0023a3b2bd1b5360"
     },
     {
       "path": "dist/index.js.map",
-      "bytes": 15732468,
-      "sha256": "f204dcaf9547ca10079891c701217c6fe847a4aac3ce88870c461ff06ad8fa76"
+      "bytes": 15750187,
+      "sha256": "052398022b36df31528302e9e4ce5ed00be8bc240917e965cf209128e5545392"
     },
     {
       "path": "dist/mcp.js",

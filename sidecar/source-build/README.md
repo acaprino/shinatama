@@ -1,18 +1,17 @@
 # Source-owned sidecar preparation
 
-Run `pwsh -NoProfile -File sidecar/prepare.ps1` to verify the pinned canonical
-source and existing Musashi artifact. Add `-Mode Prepare` to create the static
-bundle at `sidecar/source-build/prepared` without running Node or npm. Repeating
-preparation verifies the existing output; changed inputs fail instead of updating
-the lock or downloading replacements. An interrupted copy leaves one
-`prepared.incomplete` directory for inspection.
+Run `pwsh -NoProfile -File sidecar/prepare.ps1` to verify the tree at
+`sidecar/source-build/prepared` against the pinned lock, without running Node or
+npm and without reading anything outside this directory. A changed, missing or
+unknown file fails; the lock is never updated by the script.
 
 `provenance.lock.json` records every permitted source, artifact and runtime Zod
-file, byte count and SHA-256. The default source is the owned package in
-`D:/Projects/horness-launcher/packages/billion-context`; the existing build comes
-from Musashi's `sidecar/source-build`, prepared by its unmodified
-`res/sidecar-prepare.mjs`. This route copies those validated static outputs; it
-does not invoke Musashi's preparation script or read its live configuration.
+file, byte count and SHA-256. The source lives in `prepared/src` and
+`prepared/kernel`; `prepared/dist` is built from it with `node scripts/build.mjs`
+(the build needs the development dependencies, which are not tracked, so it runs
+in a scratch copy with `npm ci`). After a rebuild the lock's source and artifact
+entries, the tree hashes, `entrySha256` and `prepared/bundle.identity.json` are
+refreshed together.
 
 The six schema-v9 index names and incremental CCR method are checked in both the
 source and the pinned entry. The current entry fingerprint differs from the older
