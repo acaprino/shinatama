@@ -1,4 +1,4 @@
-// DB-only native proof: synthetic project/draft, private WebView, no terminal launch.
+// DB-only native proof: synthetic project and an empty thread (ADR-0055), private WebView, no terminal launch.
 // Root schedules this against the rebuilt desktop; global resource deferral is respected.
 import { chromium, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
@@ -12,14 +12,14 @@ if (process.platform !== 'win32') throw new Error('This proof requires Windows.'
 const workspace = process.cwd();
 const packageExecutable = process.env.SHINATAMA_SMOKE_APP_EXE;
 if (packageExecutable && !isAbsolute(packageExecutable)) throw new Error('The package executable must be an explicit absolute path.');
-const executable = packageExecutable || resolve(workspace, 'target/debug/shinatama-desktop.exe');
+const executable = packageExecutable || process.env.SHINATAMA_EXE || resolve(workspace, 'target/debug/shinatama-desktop.exe');
 const receiptName = packageExecutable ? 'package-threads-sidebar' : 'threads-sidebar';
 const fixture = await mkdtemp(resolve(tmpdir(), 'shinatama-threads-smoke-'));
 const data = resolve(fixture, 'data'); const projectPath = resolve(fixture, 'synthetic-project');
 await mkdir(projectPath, { recursive: true });
 const output = resolve(workspace, '.prototype-evidence'); await mkdir(output, { recursive: true });
 const evidence = { check: 'C25-native-manual-thread-sidebar', status: 'running', checks: {},
-  scope: 'Synthetic project and saved draft only; no terminal, agent, resource-policy override or native resume' };
+  scope: 'Synthetic project and an empty thread only; no terminal, agent, resource-policy override or native resume' };
 const save = () => writeFile(resolve(output, `${receiptName}.json`), `${JSON.stringify(evidence, null, 2)}\n`);
 await save();
 const reservation = createServer();
@@ -91,17 +91,20 @@ try {
   await expect(selector).toHaveValue(project.id);
   await expect(sidebar.locator('.thread-sidebar-body')).toHaveAttribute('aria-busy', 'false');
   expect(await ipc('thread_sidebar_load')).toEqual({ revision: 0, settings: { version: 1, width: 264, collapsed: false } });
+  await expect(sidebar.locator('.thread-sidebar-status')).toContainText('No threads yet');
   await sidebar.getByRole('button', { name: 'New thread', exact: true }).click();
   const anchor = sidebar.locator('button.thread-sidebar-anchor');
-  await expect(anchor).toHaveCount(1); const threadId = await anchor.getAttribute('data-thread-id');
-  expect(threadId).toMatch(/^t_[a-z2-7]{12}$/);
-  const listRequest = { projectId: project.id, cursor: null, limit: 50 };
-  const listed = await ipc('thread_list', { request: listRequest });
-  expect(listed.next).toBeNull(); expect(listed.rows).toHaveLength(1);
-  expect(listed.rows[0]).toMatchObject({ id: threadId, projectId: project.id, status: 'unbound', harness: null, nativeAvailable: null });
-  await anchor.click(); await expect(sidebar.locator('.thread-sidebar-detail')).toContainText('No native session linked');
+  await expect(anchor).toHaveCount(1); const worksetId = await anchor.getAttribute('data-workset-id');
+  expect(worksetId).toMatch(/^w_[a-z2-7]{12}$/);
+  const listRequest = { projectId: project.id, archived: false };
+  const listed = await ipc('workset_list', { request: listRequest });
+  expect(listed.more).toBe(false); expect(listed.rows).toHaveLength(1);
+  expect(listed.rows[0]).toMatchObject({ id: worksetId, projectId: project.id, title: null, archived: false, sessions: 0, open: 0 });
+  await expect(anchor).toHaveAttribute('aria-pressed', 'true');
+  await expect(anchor.locator('.thread-sidebar-state')).toHaveText('No session yet');
+  await expect(anchor.locator('.thread-sidebar-title')).toHaveText('New thread');
   expect(await ipc('terminal_list')).toEqual([]);
-  evidence.checks.savedDraftAndCanonicalProjectScope = true;
+  evidence.checks.emptyThreadAndCanonicalProjectScope = true;
 
   const separator = sidebar.getByRole('separator', { name: 'Thread sidebar width', exact: true });
   await expect(separator).toHaveAttribute('aria-valuenow', '264');
@@ -119,7 +122,7 @@ try {
   await expect(sidebar).toHaveClass(/is-collapsed/);
   expect(await sidebar.evaluate(element => element.style.getPropertyValue('--thread-sidebar-width'))).toBe('280px');
   expect(await ipc('thread_sidebar_load')).toEqual(acknowledged);
-  const missing = await idleReply('thread_list', { request: { ...listRequest, projectId: 'p_aaaaaaaaaaaa' } });
+  const missing = await idleReply('workset_list', { request: { ...listRequest, projectId: 'p_aaaaaaaaaaaa' } });
   expect(missing).toEqual({ ok: false, issue: { code: 'project_missing' } });
   const stale = await idleReply('thread_sidebar_save', { request: { expectedRevision: 0, settings: { version: 1, width: 180, collapsed: false } } });
   expect(stale).toEqual({ ok: false, issue: { code: 'conflict' } });
@@ -128,22 +131,38 @@ try {
   evidence.checks.missingProjectAndStaleSaveRefusedWithoutMutation = true;
 
   await sidebar.getByRole('button', { name: 'Expand threads', exact: true }).click();
-  await expect(sidebar.getByRole('button', { name: 'Reload threads', exact: true })).toBeEnabled();
-  await sidebar.getByRole('button', { name: 'Reload threads', exact: true }).click();
-  await expect(anchor).toHaveCount(1); await expect(anchor).toHaveAttribute('data-thread-id', threadId);
-  await anchor.click(); await expect(sidebar.locator('.thread-sidebar-detail')).toContainText('No native session linked');
-  expect((await ipc('thread_list', { request: listRequest })).rows.map(row => row.id)).toEqual([threadId]);
+  await expect(anchor).toHaveCount(1); await expect(anchor).toHaveAttribute('data-workset-id', worksetId);
+  // The thread that was open reopens after a reload; it holds no session and starts nothing.
+  await expect(anchor).toHaveAttribute('aria-pressed', 'true');
+  await expect(anchor.locator('.thread-sidebar-state')).toHaveText('No session yet');
+  expect((await ipc('workset_list', { request: listRequest })).rows.map(row => row.id)).toEqual([worksetId]);
+
+  // Archiving hides the thread from the list without deleting it; the archived view lists it and Unarchive brings it back.
+  const archive = sidebar.getByRole('button', { name: 'Archive', exact: true });
+  await archive.click(); await expect(anchor).toHaveCount(0);
+  expect((await ipc('workset_list', { request: listRequest })).rows).toEqual([]);
+  const archivedRows = (await ipc('workset_list', { request: { ...listRequest, archived: true } })).rows;
+  expect(archivedRows.map(row => [row.id, row.archived])).toEqual([[worksetId, true]]);
+  await sidebar.getByLabel('Show archived threads').check();
+  await expect(anchor).toHaveCount(1); await expect(anchor.locator('.thread-sidebar-state')).toHaveText('Archived · 0 sessions');
+  await anchor.click();
+  await sidebar.getByRole('button', { name: 'Unarchive', exact: true }).click();
+  await expect(anchor).toHaveCount(0);
+  await sidebar.getByLabel('Show archived threads').uncheck();
+  await expect(anchor).toHaveCount(1); await expect(anchor.locator('.thread-sidebar-state')).toHaveText('No session yet');
+  expect((await ipc('workset_list', { request: { ...listRequest, archived: true } })).rows).toEqual([]);
+  evidence.checks.archiveAndUnarchiveKeepTheThread = true;
   expect(await ipc('terminal_list')).toEqual([]); expect(errors).toEqual([]);
   // Observe the last display acknowledgement before frame close, rather than racing its debounce.
   await expect.poll(async () => (await ipc('thread_sidebar_load')).settings, { timeout: 15000 })
     .toEqual({ version: 1, width: 280, collapsed: false });
-  evidence.checks.sameDraftAfterReloadAndNoAutoResume = true;
+  evidence.checks.sameThreadAfterReloadAndNoAutoStart = true;
   await page.screenshot({ path: resolve(output, `${receiptName}.png`), timeout: 3000 });
   const closing = Promise.all([page.waitForEvent('close', { timeout: 15000 }), exitWithin(15000)]); void closing.catch(() => {});
   await page.getByRole('button', { name: 'Close window', exact: true }).click();
   await closing; expect(app.exitCode).toBe(0); evidence.checks.ownedFrameClose = true;
   evidence.status = 'passed'; await save();
-  console.log('PASS: manual canonical thread, unchanged project scope, keyboard width and collapse persisted, stale save refused, same draft after reload, no terminal startup, owned frame close.');
+  console.log('PASS: empty thread in the project scope, keyboard width and collapse persisted, stale save refused, archive round trip, same thread after reload, no terminal startup, owned frame close.');
 } catch (error) {
   evidence.status = 'failed'; evidence.failure = String(error.message).slice(0, 4096);
   if (owned && page && !page.isClosed()) {

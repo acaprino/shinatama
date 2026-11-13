@@ -14,14 +14,14 @@ const fail = code => { throw Object.assign(new Error(code), { proofCode: code })
 const require = (value, code) => { if (!value) fail(code); };
 require(process.platform === 'win32', 'windows-required');
 const workspace = process.cwd();
-const executable = process.env.SHINATAMA_SMOKE_APP_EXE || resolve(workspace, 'target/debug/shinatama-desktop.exe');
+const executable = process.env.SHINATAMA_SMOKE_APP_EXE || process.env.SHINATAMA_EXE || resolve(workspace, 'target/debug/shinatama-desktop.exe');
 require(isAbsolute(executable), 'absolute-executable-required');
 const fixture = await mkdtemp(resolve(tmpdir(), 'shinatama-thread-recovery-'));
 const data = resolve(fixture, 'data'), projectPath = resolve(fixture, 'project'), otherPath = resolve(fixture, 'other-project');
 for (const path of [projectPath, otherPath, resolve(fixture, 'native-store'), resolve(fixture, 'tmp')]) await mkdir(path);
 const output = resolve(workspace, '.prototype-evidence'); await mkdir(output, { recursive: true });
 const evidence = { check: 'thread-recovery-ui', status: 'running', stage: 'prepare', checks: {},
-  scope: 'Actual Recover session UI and IPC with synthetic metadata in a fresh private DB: receipt-backed recovery, pre-receipt crash recovered through the ADR-0051 JobNameAbsent termination certificate with ticket release, and a live owner refused. Refresh is injected into the already registered frontend callback; backend event delivery is not covered. No harness, account, native event, real job-cleanup qualification.' };
+  scope: 'Actual Recover session UI (the Recover session button on the not-running pane card of an open thread) and IPC with synthetic metadata in a fresh private DB: receipt-backed recovery, pre-receipt crash recovered through the ADR-0051 JobNameAbsent termination certificate with ticket release, and a live owner refused. Refresh is injected into the already registered frontend callback; backend event delivery is not covered. No harness, account, native event, real job-cleanup qualification.' };
 const save = () => writeFile(resolve(output, 'thread-recovery.json'), `${JSON.stringify(evidence, null, 2)}\n`);
 const stage = async value => { evidence.stage = value; await save(); };
 const pathKey = path => path.replace(/^\\\\\?\\/, '').replaceAll('/', '\\').replace(/\\+$/, '').toLowerCase();
@@ -106,12 +106,13 @@ try {
   const other = await reply('project_select', { path: otherPath }); require(other.ok, 'other-project-select-failed');
   const projectId = project.value.id;
   database = new DatabaseSync(storage.database_path); database.exec('PRAGMA busy_timeout=1000; PRAGMA foreign_keys=ON');
-  require(database.prepare('PRAGMA user_version').get().user_version === 5 && database.prepare('SELECT count(*) AS n FROM thread').get().n === 0, 'fresh-schema5-required');
+  require(database.prepare('PRAGMA user_version').get().user_version === 6 && database.prepare('SELECT count(*) AS n FROM thread').get().n === 0, 'fresh-schema6-required');
   const budget = { memory_bytes: 67108864, processes: 1, cpu_basis_points: 100, queue_bytes: 4096, queue_items: 16 };
   const policy = { stamp: { version: 1, id: 'synthetic-recovery-ui' }, aggregate_ceiling: budget, per_slot_ceiling: budget, max_slots: 64, max_lease_ms: 10000 };
   const previousLedger = database.prepare('SELECT value FROM setting WHERE key=?').get(ledgerKey);
   const ledger = previousLedger ? JSON.parse(previousLedger.value) : { format_version: 1, revision: 100, policy, slots: [] };
   require(ledger.slots.length === 0, 'empty-ledger-required');
+  const worksetId = 'w_aaaaaaaaaaaa';
   const at = Date.now() - 10000; const cases = ['missing', 'alive', 'dead'].map((kind, index) => {
     const suffix = String.fromCharCode(97 + index).repeat(12), creation = kind === 'alive' ? identity.creation : 1n;
     const activation = { instanceId: `i_${suffix}`, pid: process.pid, createdAt100ns: creation };
@@ -133,6 +134,9 @@ try {
       database.prepare("INSERT INTO segment VALUES(?,?,1,'claude_code','synthetic-recovery-root',1,?,0,1,?)").run(item.segment, item.thread, item.native, at);
       database.prepare("INSERT INTO activation(instance_id,owner_pid,owner_created_at_100ns,thread_id,segment_id,store_root_id,store_revision,native_id,revision,started_at,ended_at) VALUES(?,?,?,?,?,'synthetic-recovery-root',1,?,1,?,NULL)").run(item.activation.instanceId, process.pid, item.activation.createdAt100ns, item.thread, item.segment, item.native, at);
     }
+    // ADR-0055 INV-001: every session belongs to a thread (workset); the three share one.
+    database.prepare("INSERT INTO workset(id,project_id,title,archived,revision,created_at,updated_at) VALUES(?,?,'Recovery',0,1,?,?)").run(worksetId, projectId, at, at);
+    for (const item of cases) database.prepare('INSERT INTO workset_member(thread_id,workset_id) VALUES(?,?)').run(item.thread, worksetId);
     database.prepare('INSERT INTO setting(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(ledgerKey, exactJson(ledger));
     database.prepare('INSERT INTO setting(key,value) VALUES(?,?)').run(cleanupKey, exactJson({ format_version: 1, entries: cases.map(item => item.kind === 'missing'
       ? { owner: item.entry.owner, cleanup: null }
@@ -141,15 +145,19 @@ try {
   } catch { database.exec('ROLLBACK'); fail('synthetic-seed-failed'); }
   await page.reload(); await expect(page.locator('#runtime-status')).toContainText('Local runtime');
   const sidebar = page.locator('.thread-sidebar'); await sidebar.locator('#thread-sidebar-project').selectOption(projectId);
-  const recover = sidebar.getByRole('button', { name: 'Recover session', exact: true });
-  const anchorOf = item => sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${item.thread}"]`);
-  const stateOf = item => anchorOf(item).locator('.thread-sidebar-state');
+  await sidebar.locator(`button.thread-sidebar-anchor[data-workset-id="${worksetId}"]`).click();
+  const tabOf = item => page.locator(`.wm-tab[data-view-id="saved-${item.thread}"]`);
+  const card = page.locator('.session-idle:visible');
+  const recover = card.getByRole('button', { name: 'Recover session', exact: true });
   const saved = item => database.prepare('SELECT revision,ended_at FROM activation WHERE instance_id=?').get(item.activation.instanceId);
   const request = item => ({ projectId, threadId: item.thread, expectedRevision: 1 });
+  const open = async item => { await tabOf(item).click(); await expect(tabOf(item)).toHaveAttribute('aria-selected', 'true'); };
+  await expect(page.locator('.wm-tab')).toHaveCount(3);
   await stage('refusals');
   for (const item of cases.filter(item => item.kind === 'alive')) {
-    await sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${item.thread}"]`).click(); await expect(recover).toBeVisible(); await expect(stateOf(item)).toHaveAttribute('data-state', 'recover');
-    await recover.click(); await expect(sidebar.locator('.thread-sidebar-status')).toContainText('still open');
+    await open(item); await expect(card).toContainText('Marked open'); await expect(recover).toBeVisible();
+    await recover.click(); await expect(page.locator('#notice')).toContainText('could not be verified');
+    await expect(recover).toBeVisible();
     require(saved(item).ended_at === null && saved(item).revision === 1, 'refused-activation-changed');
   }
   evidence.checks.liveOwnerRefusedWithActivationPreserved = true;
@@ -157,8 +165,8 @@ try {
   // ADR-0051: the pre-receipt crash ('missing') now recovers through the
   // qualified JobNameAbsent certificate: dead host+agent, no job name left.
   const missing = cases[0];
-  await sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${missing.thread}"]`).click(); await expect(recover).toBeVisible(); await recover.click();
-  await expect(sidebar.locator('.thread-sidebar-status')).toContainText('Session recovered.'); await expect(recover).toBeHidden(); await expect(stateOf(missing)).toHaveAttribute('data-state', 'resumable'); await expect(anchorOf(missing)).toBeFocused();
+  await open(missing); await expect(recover).toBeVisible(); await recover.click();
+  await expect(recover).toBeHidden(); await expect(card).not.toContainText('Marked open'); await expect(tabOf(missing)).toHaveAttribute('aria-selected', 'true');
   require(saved(missing).ended_at !== null && saved(missing).revision === 2, 'certificate-activation-not-finalized');
   require(JSON.parse(database.prepare('SELECT value FROM setting WHERE key=?').get(ledgerKey).value).slots.length === 0, 'certificate-ticket-not-released');
   const missingRepeated = await reply('thread_recover', { request: { ...request(missing), expectedRevision: 2 } });
@@ -170,18 +178,18 @@ try {
   require(!wrongProject.ok && !stale.ok && saved(dead).ended_at === null, 'scope-or-revision-not-enforced');
   evidence.checks.projectAndRevisionScopeEnforced = true;
   await stage('recover');
-  await sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${dead.thread}"]`).click(); await expect(recover).toBeVisible(); await recover.click();
-  await expect(sidebar.locator('.thread-sidebar-status')).toContainText('Session recovered.'); await expect(recover).toBeHidden(); await expect(stateOf(dead)).toHaveAttribute('data-state', 'resumable'); await expect(anchorOf(dead)).toBeFocused();
+  await open(dead); await expect(recover).toBeVisible(); await recover.click();
+  await expect(recover).toBeHidden(); await expect(card).not.toContainText('Marked open'); await expect(tabOf(dead)).toHaveAttribute('aria-selected', 'true');
   require(saved(dead).ended_at !== null && saved(dead).revision === 2, 'exact-activation-not-finalized');
   const entries = JSON.parse(database.prepare('SELECT value FROM setting WHERE key=?').get(cleanupKey).value).entries;
   require(entries.length === 1 && entries[0].owner.activation.instanceId === cases[1].activation.instanceId, 'wrong-receipt-consumed');
-  const rows = await read('thread_list', { request: { projectId, cursor: null, limit: 50 } });
-  require(rows.rows.length === 3 && rows.rows.find(row => row.id === dead.thread)?.status === 'inactive', 'thread-refresh-failed');
+  const rows = await read('workset_threads', { request: { worksetId } });
+  require(rows.length === 3 && rows.find(row => row.id === dead.thread)?.status === 'inactive', 'thread-refresh-failed');
   const repeated = await reply('thread_recover', { request: { ...request(dead), expectedRevision: 2 } }); require(!repeated.ok && saved(dead).revision === 2, 'recovery-repeated');
   require((await read('terminal_list')).length === 0 && JSON.parse(database.prepare('SELECT value FROM setting WHERE key=?').get(ledgerKey).value).slots.length === 0, 'unexpected-native-launch');
-  evidence.checks.recoverClosesOnceConsumesExactReceiptAndShowsResumeWithoutLaunching = true;
+  evidence.checks.recoverClosesOnceConsumesExactReceiptAndShowsTheSessionAsNotRunningWithoutLaunching = true;
   await stage('notification-refresh');
-  // Mutate only this fixture's acknowledged thread metadata. Production permits
+  // Mutate only this fixture's acknowledged session metadata. Production permits
   // event listen/unlisten, deliberately not frontend emit. Tauri 2.12.5's pinned
   // event/listener.rs and scripts/core.js expose this internal callback seam.
   // It exercises the registered UI listener, not Rust emission or a DOM patch.
@@ -206,14 +214,13 @@ try {
   }, { projectId, threadId: dead.thread });
   require(delivered === 'delivered', `registered-notification-callback-unavailable:${delivered}`);
   evidence.notificationDeliveryMode = 'synthetic-registered-frontend-callback';
-  const selectedAnchor = sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${dead.thread}"]`);
-  await expect(selectedAnchor.locator('.thread-sidebar-title')).toHaveText('Synthetic lifecycle update');
+  await expect(card.locator('strong')).toHaveText('Synthetic lifecycle update');
   evidence.checks.notificationRefresh = true;
-  await expect(selectedAnchor).toHaveAttribute('aria-pressed', 'true');
+  await expect(tabOf(dead)).toHaveAttribute('aria-selected', 'true');
   evidence.checks.selectionPreserved = true;
   require(pageErrors === 0, 'webview-script-error'); database.close(); database = null;
   await closeFrame(); require(app.exitCode === 0, 'owned-app-exit-code'); evidence.checks.ownedFrameExit = true;
-  evidence.status = 'passed'; evidence.stage = 'complete'; await save(); console.log('PASS: synthetic Recover session UI, refusals, exact finalization and no harness launch.');
+  evidence.status = 'passed'; evidence.stage = 'complete'; await save(); console.log('PASS: synthetic Recover session on the pane card, refusals, exact finalization and no harness launch.');
 } catch (error) {
   evidence.status = 'failed'; evidence.failure = error.proofCode || 'ui-or-assertion-failed'; await save();
   throw new Error(`thread-recovery-proof:${evidence.failure}`);

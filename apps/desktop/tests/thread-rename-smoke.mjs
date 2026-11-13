@@ -13,13 +13,13 @@ if (process.platform !== 'win32') throw new Error('This proof requires Windows.'
 const workspace = process.cwd();
 const packageExecutable = process.env.SHINATAMA_SMOKE_APP_EXE;
 if (packageExecutable && !isAbsolute(packageExecutable)) throw new Error('Use an absolute package executable path.');
-const executable = packageExecutable || resolve(workspace, 'target/debug/shinatama-desktop.exe');
+const executable = packageExecutable || process.env.SHINATAMA_EXE || resolve(workspace, 'target/debug/shinatama-desktop.exe');
 const fixture = await mkdtemp(resolve(tmpdir(), 'shinatama-thread-rename-'));
 const data = resolve(fixture, 'data'); const projectPath = resolve(fixture, 'project');
 await mkdir(projectPath);
 const output = resolve(workspace, '.prototype-evidence'); await mkdir(output, { recursive: true });
 const evidence = { check: 'native-thread-rename', status: 'running', checks: {},
-  scope: 'Fresh private app state and one synthetic PowerShell session. Saved thread title only; no agent, account or provider.' };
+  scope: 'Fresh private app state and one synthetic PowerShell session. Saved thread (workset) title only; no agent, account or provider.' };
 const save = () => writeFile(resolve(output, 'thread-rename.json'), `${JSON.stringify(evidence, null, 2)}\n`);
 await save();
 const reservation = createServer();
@@ -48,15 +48,17 @@ async function ipc(command, args = {}) {
   do {
     const result = await reply(command,args);
     if (result.ok) return result.value;
-    if (result.code !== 'busy') throw new Error(`${command} refused (${result.code}).`);
+    // The workspace store answers 'unavailable' ("busy; retry explicitly") while the window's own save is in flight.
+    if (!['busy','unavailable'].includes(result.code)) throw new Error(`${command} refused (${result.code}).`);
     await delay(100);
   } while (Date.now()<deadline);
   throw new Error(`${command} remained busy.`);
 }
 const sessions = () => ipc('terminal_list');
 const ids = async () => (await sessions()).map(item => item.id).sort();
+let layoutScope = { workspaceId: 'main' };
 const layout = async () => {
-  const value=await ipc('global_workspace_load',{request:{workspaceId:'main'}});
+  const value=await ipc(layoutScope.projectId ? 'workspace_load' : 'global_workspace_load',{request:layoutScope});
   // A reload refreshes measured pane dimensions. Compare the saved arrangement,
   // tab order, focus and resource identities, excluding that measurement cache.
   return value ? JSON.parse(JSON.stringify(JSON.parse(value.layoutJson),
@@ -106,64 +108,70 @@ try {
   const session=(await sessions())[0]; expect(session.shell).toBe('PowerShell');
   const project=(await ipc('project_recent')).find(item=>pathKey(item.path)===pathKey(projectPath));
   if (!project) throw new Error('Synthetic project was not saved.');
-  await expect.poll(async()=> (await layout())?.views.find(view=>view.id===session.id)?.resource.threadId ?? null).toMatch(/^t_[a-z2-7]{12}$/);
-  const threadId=(await layout()).views.find(view=>view.id===session.id).resource.threadId;
-  const request={projectId:project.id,cursor:null,limit:50};
-  const stored=async()=> (await ipc('thread_list',{request})).rows.find(row=>row.id===threadId);
-  const before=await stored(); expect(before).toBeTruthy();
   const sidebar=page.locator('.thread-sidebar');
-  const anchor=sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${threadId}"]`);
-  await expect(anchor).toBeEnabled(); await anchor.click();
+  const anchor=sidebar.locator('button.thread-sidebar-anchor');
+  await expect(anchor).toHaveCount(1); await expect(anchor).toHaveAttribute('aria-pressed','true');
+  const worksetId=await anchor.getAttribute('data-workset-id'); expect(worksetId).toMatch(/^w_[a-z2-7]{12}$/);
+  layoutScope={projectId:project.id,workspaceId:worksetId};
+  await expect.poll(async()=> (await layout())?.views.some(view=>view.id===session.id) ?? false).toBe(true);
+  await expect.poll(()=>page.locator('.workspace-name').evaluate(label=>label.dataset.layoutDirty+label.dataset.layoutPending)).toBe('falsefalse');
+  const request={projectId:project.id,archived:false};
+  const stored=async()=> (await ipc('workset_list',{request})).rows.find(row=>row.id===worksetId);
+  const before=await stored(); expect(before).toBeTruthy();
   const baseline=await layout(); const baselineIds=await ids();
   const rename=sidebar.getByRole('button',{name:'Rename',exact:true});
   const form=sidebar.locator('.thread-sidebar-rename'); const input=form.getByLabel('Thread name');
   const saveButton=form.getByRole('button',{name:'Save',exact:true});
+  const unchanged=expect.objectContaining({id:worksetId,title:before.title,revision:before.revision,sessions:1});
   await rename.click(); await expect(input).toBeFocused();
-  await input.fill('   '); await expect(saveButton).toBeDisabled();
+  await input.fill('   '); await input.press('Enter');
+  await expect(form).toBeVisible(); expect(await stored()).toEqual(unchanged);
   await input.fill('Discard this'); await input.press('Escape');
-  await expect(form).toBeHidden(); await expect(rename).toBeFocused();
-  expect(await stored()).toEqual(before);
+  await expect(form).toBeHidden(); expect(await stored()).toEqual(unchanged);
   await rename.click(); await input.fill('Roadmap review'); await input.press('Enter');
-  await expect(form).toBeHidden(); await expect(rename).toBeFocused();
+  await expect(form).toBeHidden();
   await expect(anchor.locator('.thread-sidebar-title')).toHaveText('Roadmap review');
   const renamed=await stored();
-  expect(renamed).toMatchObject({...before,title:'Roadmap review',revision:before.revision+1,updatedAt:renamed.updatedAt});
+  expect(renamed).toMatchObject({id:worksetId,projectId:project.id,title:'Roadmap review',archived:false,sessions:1,revision:before.revision+1});
   expect(await ids()).toEqual(baselineIds); expect(await layout()).toEqual(baseline);
   evidence.checks.inlineEnterEscapePreserveSessionThreadAndLayout=true;
 
+  // Another window renames the thread first: the stale local edit is refused and the list shows the stored title.
   await rename.click(); await input.fill('Stale local edit');
-  const current=await ipc('thread_rename',{request:{projectId:project.id,threadId,expectedRevision:renamed.revision,title:'Other window title'}});
+  const current=await ipc('workset_update',{request:{worksetId,expectedRevision:renamed.revision,title:'Other window title'}});
   await input.press('Enter');
-  await expect(form.locator('[role=alert]')).toContainText('Reload threads');
-  await expect(saveButton).toBeDisabled();
+  await expect(page.locator('#notice')).toContainText('This thread changed');
+  await expect(anchor.locator('.thread-sidebar-title')).toHaveText('Other window title');
+  await expect(form).toBeHidden();
   expect((await stored()).title).toBe('Other window title');
-  await sidebar.getByRole('button',{name:'Reload threads',exact:true}).press('Enter');
-  await expect(anchor).toBeEnabled(); await expect(anchor.locator('.thread-sidebar-title')).toHaveText('Other window title');
   for (const rejected of [
-    {projectId:'p_aaaaaaaaaaaa',threadId,expectedRevision:current.revision,title:'Wrong project'},
-    {projectId:project.id,threadId,expectedRevision:current.revision,title:'No archive permission',archived:true},
-    {projectId:project.id,threadId,expectedRevision:current.revision,title:'🙂'.repeat(65)},
-  ]) expect((await reply('thread_rename',{request:rejected})).ok).toBe(false);
+    {worksetId:'w_aaaaaaaaaaaa',expectedRevision:current.revision,title:'Wrong thread'},
+    {worksetId,expectedRevision:current.revision,title:'Unknown field',projectId:project.id},
+    {worksetId,expectedRevision:current.revision},
+    {worksetId,expectedRevision:renamed.revision,title:'Stale revision'},
+    {worksetId,expectedRevision:current.revision,title:'🙂'.repeat(65)},
+  ]) expect((await reply('workset_update',{request:rejected})).ok).toBe(false);
   expect((await stored()).title).toBe('Other window title');
-  evidence.checks.conflictRequiresReloadAndInvalidScopeOrPayloadCannotOverwrite=true;
+  evidence.checks.conflictIsRefusedAndInvalidScopeOrPayloadCannotOverwrite=true;
 
-  await anchor.click(); await rename.click(); await input.fill('Release planning'); await saveButton.click();
+  await rename.click(); await input.fill('Release planning'); await saveButton.click();
   await expect(form).toBeHidden(); await expect(anchor.locator('.thread-sidebar-title')).toHaveText('Release planning');
   await page.reload(); await expect(page.locator('#runtime-status')).toContainText('Local runtime');
   await expect(anchor.locator('.thread-sidebar-title')).toHaveText('Release planning');
   expect(await ids()).toEqual(baselineIds); expect(await layout()).toEqual(baseline);
-  expect((await stored()).id).toBe(threadId);
-  await ipc('terminal_write',{id:session.id,data:Array.from(Buffer.from("Write-Output ('SHINATAMA_' + 'RENAME_HEALTHY')\r"))});
+  expect((await stored()).id).toBe(worksetId);
+  await ipc('terminal_write',{id:session.id,data:Array.from(Buffer.from("Write-Output ('SHINATAMA_' + 'RENAME_HEALTHY')"+String.fromCharCode(13)))});
   await expect(page.locator('.xterm-accessibility')).toContainText('SHINATAMA_RENAME_HEALTHY');
   evidence.checks.reloadPersistsTitleAndSameShellRemainsResponsive=true;
   expect(pageErrors).toBe(0);
   // The tab's own close control confirms before stopping a running session.
-  await page.locator(`.wm-tabwrap:has(.wm-tab[data-view-id="${session.id}"]) .wm-tab-close`).click();
-  await page.locator('#confirm-dialog').getByRole('button',{name:'Stop',exact:true}).click();
+    await expect(page.locator('.wm-tab')).toHaveCount(1);
+  await page.locator('.wm-tab-close').click({force:true});
+  await page.locator('#confirm-dialog button[value="stop"]').click();
   await expect.poll(ids).toEqual([]);
   await closeFrame(); expect(app.exitCode).toBe(0);
   evidence.checks.ownedStopAndFrameExit=true; evidence.status='passed'; await save();
-  console.log('PASS: thread rename preserves identity, live shell and layout; conflict refused and reload persisted.');
+  console.log('PASS: thread rename preserves its session, live shell and layout; conflict refused and reload persisted.');
 } catch (error) {
   evidence.status='failed'; evidence.failure=String(error.message).split('\n')[0].slice(0,512); await save(); throw error;
 } finally {
