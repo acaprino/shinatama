@@ -38,6 +38,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+/// Error code of a request whose TCP connection to the sidecar was not accepted.
+pub const CONNECT_FAILED: &str = "connect to sidecar";
 pub type ProofResult<T> = Result<T, String>;
 pub const MIB: u64 = 1024 * 1024;
 /// Marker that opens every derived note the sidecar may add after a human message.
@@ -202,7 +204,7 @@ pub fn send_request(
 ) -> ProofResult<TcpStream> {
     let mut stream = safe(
         TcpStream::connect_timeout(&(Ipv4Addr::LOCALHOST, port).into(), Duration::from_secs(2)),
-        "connect to sidecar",
+        CONNECT_FAILED,
     )?;
     safe(
         stream.set_write_timeout(Some(Duration::from_secs(30))),

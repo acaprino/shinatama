@@ -41,9 +41,9 @@ const TOOL_EVERY: usize = 3;
 const OUTPUT_LIMIT: u64 = 64 * 1024 * 1024;
 const PERIOD: Duration = Duration::from_millis(250);
 const DEFAULT_SECONDS: u64 = 3600;
+/// What a `CONNECT` the sidecar did not answer with 200 is called.
+const CONNECT_REFUSED: &str = "CONNECT refused";
 const PING: &[u8; 12] = b"latency-ping";
-/// What a failed connection looks like in the harness's error codes.
-const CONNECT_FAILED: &str = "connect to sidecar";
 
 // The origin handle must be shareable so the clients can run from threads.
 const _: fn() = || {
@@ -54,7 +54,7 @@ const _: fn() = || {
 /// How long the origin keeps each reply stream open, as a model's generation would.
 const DEFAULT_STREAM_MS: u64 = 3000;
 
-fn stream_ms() -> u64 {
+fn read_stream_ms() -> u64 {
     std::env::var("SHINATAMA_SOAK_STREAM_MS")
         .ok()
         .and_then(|text| text.trim().parse().ok())
@@ -71,12 +71,42 @@ fn millis(since: Instant) -> f64 {
     (since.elapsed().as_secs_f64() * 10_000.0).round() / 10.0
 }
 
-/// What one thread observed. `refused` counts connections the sidecar did not accept;
-/// `errors` holds everything else that went wrong, described.
+/// Why a request or probe failed. A refusal (the sidecar did not accept the connection, or
+/// answered a `CONNECT` with something other than 200) is what SC16 counts; anything else is
+/// a failure of the run. The kind is decided once, where the failure is made.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Failure {
+    Refused(String),
+    Other(String),
+}
+impl Failure {
+    /// Classifies an error code of the shared harness (whose errors are plain strings).
+    fn from_harness(code: String) -> Self {
+        if code == CONNECT_FAILED {
+            Self::Refused(code)
+        } else {
+            Self::Other(code)
+        }
+    }
+    /// The same failure with context in front of its description; the kind is kept.
+    fn context(self, context: &str) -> Self {
+        match self {
+            Self::Refused(what) => Self::Refused(format!("{context}: {what}")),
+            Self::Other(what) => Self::Other(format!("{context}: {what}")),
+        }
+    }
+}
+
+/// Failures described in the assertion message at most.
+const KEPT_ERRORS: usize = 5;
+
+/// What one thread observed. `refused` counts refusals; `failures` counts every other
+/// failure, of which `errors` keeps the first few described.
 #[derive(Default)]
 struct Observed {
     requests: u64,
     refused: u64,
+    failures: u64,
     sessions: usize,
     errors: Vec<String>,
     longest_hold_ms: f64,
@@ -84,16 +114,15 @@ struct Observed {
     health_ms: Vec<f64>,
 }
 impl Observed {
-    fn error(&mut self, what: String) {
-        if self.errors.len() < 5 {
-            self.errors.push(what);
-        }
-    }
-    fn failed(&mut self, what: String) {
-        if what == CONNECT_FAILED {
-            self.refused += 1;
-        } else {
-            self.error(what);
+    fn failed(&mut self, failure: Failure) {
+        match failure {
+            Failure::Refused(_) => self.refused += 1,
+            Failure::Other(what) => {
+                self.failures += 1;
+                if self.errors.len() < KEPT_ERRORS {
+                    self.errors.push(what);
+                }
+            }
         }
     }
 }
@@ -175,7 +204,14 @@ impl Chat {
 }
 
 /// One client: turn after turn until `deadline`, each one resent with the whole history.
-fn client(port: u16, origin: &Origin, index: usize, begin: Instant, deadline: Instant) -> Observed {
+fn client(
+    port: u16,
+    origin: &Origin,
+    index: usize,
+    stream_ms: u64,
+    begin: Instant,
+    deadline: Instant,
+) -> Observed {
     let mut seen = Observed::default();
     let mut chat = Chat::new(index);
     let tools = read_tool();
@@ -195,7 +231,7 @@ fn client(port: u16, origin: &Origin, index: usize, begin: Instant, deadline: In
             Ok(()) => {
                 seen.requests += 1;
                 let hold = millis(started);
-                if hold >= (stream_ms() + 750) as f64 {
+                if hold >= (stream_ms + 750) as f64 {
                     eprintln!(
                         "SC16 slow request {hold} ms: client {index} turn {} (~{} tokens) at +{:.1}s",
                         chat.turn,
@@ -207,7 +243,7 @@ fn client(port: u16, origin: &Origin, index: usize, begin: Instant, deadline: In
                 chat.keep(added);
             }
             Err(what) => {
-                seen.failed(format!("client {index}: {what}"));
+                seen.failed(Failure::from_harness(what).context(&format!("client {index}")));
                 // The turn is not lost for the next attempt: only the history is kept as is.
                 chat.turn -= 1;
                 thread::sleep(Duration::from_millis(100));
@@ -238,39 +274,59 @@ fn echo(listener: TcpListener, stop: &AtomicBool) {
         }
     }
 }
+/// The sidecar's answer to a `CONNECT`: only a 200 opens the tunnel; anything else is a refusal.
+fn tunnel_answer(response: &[u8]) -> Result<(), Failure> {
+    if response.starts_with(b"HTTP/1.1 200") {
+        Ok(())
+    } else {
+        Err(Failure::Refused(CONNECT_REFUSED.to_owned()))
+    }
+}
 /// `CONNECT` to the echo target through the sidecar, send the ping, read it back. The
 /// time is the whole exchange: TCP connect, tunnel set up, round trip.
-fn connect_and_echo(port: u16, echo_port: u16) -> ProofResult<f64> {
+fn connect_and_echo(port: u16, echo_port: u16) -> Result<f64, Failure> {
+    let other = Failure::Other;
     let started = Instant::now();
     let mut stream =
         TcpStream::connect_timeout(&(Ipv4Addr::LOCALHOST, port).into(), Duration::from_secs(2))
-            .map_err(|_| CONNECT_FAILED.to_owned())?;
+            .map_err(|_| Failure::Refused(CONNECT_FAILED.to_owned()))?;
     safe(
         stream.set_read_timeout(Some(Duration::from_secs(5))),
         "bound CONNECT read",
-    )?;
+    )
+    .map_err(other)?;
     safe(
         stream.set_write_timeout(Some(Duration::from_secs(5))),
         "bound CONNECT write",
-    )?;
+    )
+    .map_err(other)?;
     safe(
         write!(
             stream,
-            "CONNECT 127.0.0.1:{echo_port} HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n"
+            "CONNECT 127.0.0.1:{echo_port} HTTP/1.1
+Host: 127.0.0.1
+
+"
         ),
         "send CONNECT",
-    )?;
+    )
+    .map_err(other)?;
     let mut response = Vec::new();
     let mut byte = [0];
-    while !response.ends_with(b"\r\n\r\n") && response.len() < 1024 {
-        safe(stream.read_exact(&mut byte), "read CONNECT response")?;
+    while !response.ends_with(
+        b"
+
+",
+    ) && response.len() < 1024
+    {
+        safe(stream.read_exact(&mut byte), "read CONNECT response").map_err(other)?;
         response.push(byte[0]);
     }
-    check(response.starts_with(b"HTTP/1.1 200"), "CONNECT refused")?;
-    safe(stream.write_all(PING), "write tunnel ping")?;
+    tunnel_answer(&response)?;
+    safe(stream.write_all(PING), "write tunnel ping").map_err(other)?;
     let mut echoed = [0; 12];
-    safe(stream.read_exact(&mut echoed), "read tunnel echo")?;
-    check(&echoed == PING, "tunnel echo mismatch")?;
+    safe(stream.read_exact(&mut echoed), "read tunnel echo").map_err(other)?;
+    check(&echoed == PING, "tunnel echo mismatch").map_err(other)?;
     Ok(millis(started))
 }
 /// The sixth client: every 250 ms a CONNECT plus echo and a health read, until `deadline`.
@@ -288,14 +344,14 @@ fn measuring(port: u16, echo_port: u16, begin: Instant, deadline: Instant) -> Ob
                 }
                 seen.connect_ms.push(ms)
             }
-            Err(what) => seen.failed(format!("CONNECT probe: {what}")),
+            Err(failure) => seen.failed(failure.context("CONNECT probe")),
         }
         let health = Instant::now();
         match request(port, "GET", "/__bili/health", &[], b"")
             .and_then(|response| check(response.status == 200, "health did not answer 200"))
         {
             Ok(()) => seen.health_ms.push(millis(health)),
-            Err(what) => seen.failed(format!("health probe: {what}")),
+            Err(what) => seen.failed(Failure::from_harness(what).context("health probe")),
         }
         if let Some(rest) = PERIOD.checked_sub(round.elapsed()) {
             thread::sleep(rest);
@@ -325,6 +381,7 @@ struct SoakResult {
     stdout_bytes: u64,
     stderr_bytes: u64,
     sessions: usize,
+    failures: u64,
     errors: Vec<String>,
 }
 impl SoakResult {
@@ -350,7 +407,7 @@ impl SoakResult {
     }
 }
 
-fn soak(sidecar: &Running, origin: &Origin, seconds: u64) -> SoakResult {
+fn soak(sidecar: &Running, origin: &Origin, seconds: u64, stream_ms: u64) -> SoakResult {
     let echo_listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind echo target");
     let echo_port = echo_listener.local_addr().unwrap().port();
     let port = sidecar.port;
@@ -360,7 +417,9 @@ fn soak(sidecar: &Running, origin: &Origin, seconds: u64) -> SoakResult {
     let (clients, measure) = thread::scope(|scope| {
         let echo_worker = scope.spawn(|| echo(echo_listener, &stop));
         let workers: Vec<_> = (0..CLIENTS)
-            .map(|index| scope.spawn(move || client(port, origin, index, begin, deadline)))
+            .map(|index| {
+                scope.spawn(move || client(port, origin, index, stream_ms, begin, deadline))
+            })
             .collect();
         let measure = scope.spawn(move || measuring(port, echo_port, begin, deadline));
         let clients: Vec<Observed> = workers
@@ -377,6 +436,11 @@ fn soak(sidecar: &Running, origin: &Origin, seconds: u64) -> SoakResult {
     for seen in clients.iter().chain([&measure]) {
         errors.extend(seen.errors.iter().cloned());
     }
+    let failures: u64 = clients
+        .iter()
+        .chain([&measure])
+        .map(|seen| seen.failures)
+        .sum();
     SoakResult {
         seconds,
         requests: clients.iter().map(|c| c.requests).sum(),
@@ -394,6 +458,7 @@ fn soak(sidecar: &Running, origin: &Origin, seconds: u64) -> SoakResult {
         stdout_bytes: snapshot.stdout_bytes,
         stderr_bytes: snapshot.stderr_bytes,
         sessions: clients.iter().map(|c| c.sessions).sum(),
+        failures,
         errors,
     }
 }
@@ -409,14 +474,14 @@ fn result_path() -> PathBuf {
 #[ignore = "native soak: one hour"]
 fn five_instances_for_one_hour_refuse_no_connection() {
     let seconds = soak_seconds();
+    let stream_ms = read_stream_ms();
     let sidecar = Running::start_with_output_limit(OUTPUT_LIMIT).expect("start the pinned sidecar");
-    let origin =
-        Origin::start_unrecorded(&sidecar, stream_ms()).expect("start the synthetic origin");
+    let origin = Origin::start_unrecorded(&sidecar, stream_ms).expect("start the synthetic origin");
     assert!(
         sidecar.health().expect("health")["pid"].is_u64(),
         "the sidecar must be the pinned CLI"
     );
-    let result = soak(&sidecar, &origin, seconds);
+    let result = soak(&sidecar, &origin, seconds, stream_ms);
     let report = result.json();
     let path = result_path();
     fs::create_dir_all(path.parent().unwrap()).expect("create the result directory");
@@ -431,7 +496,14 @@ fn five_instances_for_one_hour_refuse_no_connection() {
     // request that was not a refused connection also succeeded.
     assert!(result.requests > 0, "no request completed");
     assert!(!result.connect_ms.is_empty(), "no CONNECT sample");
-    assert!(result.errors.is_empty(), "failures: {:?}", result.errors);
+    assert_eq!(
+        result.failures,
+        0,
+        "{} failures, the first {}: {:?}",
+        result.failures,
+        result.errors.len(),
+        result.errors
+    );
 
     // After the clients stop the sidecar holds no request.
     let pid = sidecar
@@ -451,4 +523,54 @@ fn five_instances_for_one_hour_refuse_no_connection() {
         held = in_flight(&target);
     }
     assert_eq!(held, Some(0), "the sidecar still holds a request");
+}
+
+// Pure checks of how a failure is classified: no sidecar, no origin.
+#[test]
+fn a_refused_connection_is_counted_whatever_context_wraps_it() {
+    let refused = Failure::from_harness(CONNECT_FAILED.to_owned());
+    assert_eq!(refused, Failure::Refused(CONNECT_FAILED.to_owned()));
+    // The callers wrap the description before recording it: the kind must survive.
+    let mut seen = Observed::default();
+    seen.failed(refused.clone().context("client 3"));
+    seen.failed(refused.context("CONNECT probe"));
+    assert_eq!((seen.refused, seen.failures), (2, 0));
+    assert!(seen.errors.is_empty());
+}
+#[test]
+fn a_connect_not_answered_with_200_is_a_refusal() {
+    assert_eq!(
+        tunnel_answer(
+            b"HTTP/1.1 200 Connection Established
+
+"
+        ),
+        Ok(())
+    );
+    for answer in [
+        &b"HTTP/1.1 403 Forbidden
+
+"[..],
+        b"HTTP/1.1 504 Gateway Timeout
+
+",
+        b"",
+    ] {
+        let refused = tunnel_answer(answer).unwrap_err();
+        assert_eq!(refused, Failure::Refused(CONNECT_REFUSED.to_owned()));
+        let mut seen = Observed::default();
+        seen.failed(refused.context("CONNECT probe"));
+        assert_eq!((seen.refused, seen.failures), (1, 0));
+    }
+}
+#[test]
+fn other_failures_are_counted_in_full_and_described_up_to_a_cap() {
+    let mut seen = Observed::default();
+    for n in 0..KEPT_ERRORS + 3 {
+        seen.failed(Failure::from_harness(format!("read response {n}")).context("client 0"));
+    }
+    assert_eq!(seen.refused, 0);
+    assert_eq!(seen.failures, (KEPT_ERRORS + 3) as u64);
+    assert_eq!(seen.errors.len(), KEPT_ERRORS);
+    assert!(seen.errors[0].starts_with("client 0: read response 0"));
 }
