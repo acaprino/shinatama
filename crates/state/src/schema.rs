@@ -207,10 +207,9 @@ mod tests {
         use crate::database::{Database, DatabaseError};
         use crate::location::{LocationRequest, StorageLocation};
         use std::fs;
-        use std::path::PathBuf;
 
         for prefix in ["'P_'", "'p_ '"] {
-            let root = PathBuf::from(std::env::var_os("LOCALAPPDATA").unwrap())
+            let root = crate::test_scratch::root()
                 .join("shinatama-schema-tests")
                 .join(uuid::Uuid::new_v4().to_string());
             fs::create_dir_all(&root).unwrap();

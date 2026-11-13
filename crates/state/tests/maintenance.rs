@@ -13,14 +13,21 @@ use std::sync::{
 };
 use std::time::{Duration, Instant};
 
+// The job keeps a 100 ms real-time budget (the most the policy allows) and defers
+// when it runs out, as it should on a busy machine. These tests check what a job that
+// fits its budget does, so they run one at a time instead of contending for the disk.
+static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 struct Fixture {
     root: PathBuf,
     location: Option<StorageLocation>,
+    _serial: std::sync::MutexGuard<'static, ()>,
 }
 
 impl Fixture {
     fn new() -> Self {
-        let root = PathBuf::from(std::env::var_os("LOCALAPPDATA").unwrap())
+        let serial = SERIAL.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let root = shinatama_state::test_scratch::root()
             .join("shinatama-maintenance-tests")
             .join(uuid::Uuid::new_v4().to_string());
         fs::create_dir_all(root.join("projects")).unwrap();
@@ -28,6 +35,7 @@ impl Fixture {
         Self {
             root,
             location: Some(location),
+            _serial: serial,
         }
     }
     fn location(&self) -> &StorageLocation {

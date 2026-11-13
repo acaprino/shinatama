@@ -930,7 +930,7 @@ mod fault_tests {
 
     #[test]
     fn sqlite_full_rolls_back_the_failed_write_and_preserves_history() {
-        let root = PathBuf::from(std::env::var_os("LOCALAPPDATA").unwrap())
+        let root = crate::test_scratch::root()
             .join("shinatama-full-tests")
             .join(uuid::Uuid::new_v4().to_string());
         fs::create_dir_all(root.join("projects")).unwrap();
