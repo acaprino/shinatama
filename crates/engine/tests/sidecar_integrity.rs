@@ -469,6 +469,13 @@ struct Recorded {
     headers: Value,
     body: Vec<u8>,
 }
+fn is_model_call(r: &Recorded) -> bool {
+    r.method == "POST"
+        && r.path
+            .split('?')
+            .next()
+            .is_some_and(|path| path.ends_with("/v1/messages"))
+}
 impl Origin {
     fn start(running: &Running, delay_ms: u64) -> ProofResult<Self> {
         let dir = running.scratch(&format!("origin-{}", uuid::Uuid::new_v4()));
@@ -504,8 +511,9 @@ impl Origin {
         };
         Ok(Self { child, port, dir })
     }
-    /// Every recorded request, in arrival order.
-    fn requests(&self) -> Vec<Recorded> {
+    /// Every recorded request, in arrival order: model calls, catalog fetches, anything.
+    /// For diagnosis only; a proof about model traffic counts `requests` / `bodies`.
+    fn all_requests(&self) -> Vec<Recorded> {
         let mut found = Vec::new();
         for n in 1.. {
             let (Ok(meta), Ok(body)) = (
@@ -524,7 +532,16 @@ impl Origin {
         }
         found
     }
-    /// The body of every request the origin saw, auxiliary calls included.
+    /// The model calls the origin received (`POST .../v1/messages`), in arrival order. A
+    /// catalog fetch is not a model call: it carries no prompt and costs nothing.
+    fn requests(&self) -> Vec<Recorded> {
+        self.all_requests()
+            .into_iter()
+            .filter(is_model_call)
+            .collect()
+    }
+    /// The body of every model call the origin received, auxiliary calls (a rewrite, a
+    /// summary) included.
     fn bodies(&self) -> Vec<Vec<u8>> {
         self.requests().into_iter().map(|r| r.body).collect()
     }
@@ -576,9 +593,10 @@ impl Msg {
 struct Forwarded {
     /// The messages of the probe request as the origin received them.
     messages: Vec<Value>,
-    /// Every request that reached the origin, the probe included.
-    total_requests: usize,
-    /// The requests that reached the origin besides the probe, described for a diagnosis.
+    /// Every model call that reached the origin, the probe included.
+    model_calls: usize,
+    /// Everything that reached the origin besides the probe (extra model calls and catalog
+    /// fetches alike), described for a diagnosis.
     others: Vec<String>,
 }
 fn message_text(message: &Value) -> Vec<String> {
@@ -592,18 +610,27 @@ fn message_text(message: &Value) -> Vec<String> {
         _ => Vec::new(),
     }
 }
+fn is_note_text(text: &str) -> bool {
+    text.starts_with(NOTE_MARKER)
+}
+/// A user message that holds nothing but derived rewrite notes.
 fn is_note(message: &Value) -> bool {
-    message["role"] == "user"
-        && message_text(message)
-            .first()
-            .is_some_and(|text| text.starts_with(NOTE_MARKER))
+    let texts = message_text(message);
+    message["role"] == "user" && !texts.is_empty() && texts.iter().all(|t| is_note_text(t))
 }
 
-/// Sends the history followed by `user_text` as one Messages request through the running
-/// sidecar to `origin`, and returns what the origin received for it.
+/// A fresh agent session id, as the destination agent would send in its session header.
+fn new_session() -> String {
+    uuid::Uuid::new_v4().to_string()
+}
+/// Sends the history followed by `user_text` as one Messages request, on `session`, through
+/// the sidecar listening on `sidecar_port` to `origin`, and returns what the origin
+/// received for it. It holds no `Running`, so concurrent sessions can call it from threads
+/// and a session can reconnect by passing the same id again.
 fn forward(
-    sidecar: &Running,
+    sidecar_port: u16,
     origin: &Origin,
+    session: &str,
     history: &[Msg],
     user_text: &str,
 ) -> ProofResult<Forwarded> {
@@ -619,7 +646,7 @@ fn forward(
     }))
     .unwrap();
     let response = request(
-        sidecar.port,
+        sidecar_port,
         "POST",
         &format!("/bili/http://127.0.0.1:{}/v1/messages", origin.port),
         &[
@@ -628,7 +655,7 @@ fn forward(
             ("x-api-key", "sk-ant-synthetic-not-a-credential".into()),
             ("x-app", "cli".into()),
             ("user-agent", "claude-cli/2.0.0 (external, cli)".into()),
-            ("x-claude-code-session-id", uuid::Uuid::new_v4().to_string()),
+            ("x-claude-code-session-id", session.to_owned()),
             ("x-sc9-probe", tag.clone()),
         ],
         &body,
@@ -649,7 +676,7 @@ fn forward(
         text.contains(REPLY),
         "probe reply did not come from the synthetic origin",
     )?;
-    let recorded = origin.requests();
+    let recorded = origin.all_requests();
     // The sidecar copies the client's headers onto its own auxiliary requests, so the tag
     // alone does not single out the probe: it is the tagged streaming Messages request.
     let is_probe = |r: &Recorded| {
@@ -678,7 +705,7 @@ fn forward(
     Ok(Forwarded {
         messages,
         others,
-        total_requests: recorded.len(),
+        model_calls: recorded.iter().filter(|r| is_model_call(r)).count(),
     })
 }
 fn truncate(text: &str, limit: usize) -> String {
@@ -706,7 +733,8 @@ fn last_user_text_at_origin(
     history: &[Msg],
     user_text: &str,
 ) -> String {
-    let forwarded = forward(sidecar, origin, history, user_text).expect("forward the probe");
+    let forwarded = forward(sidecar.port, origin, &new_session(), history, user_text)
+        .expect("forward the probe");
     let (_, message) = human_message(&forwarded).expect("human message");
     message_text(message).join("\n<<next block>>\n")
 }
@@ -805,15 +833,18 @@ fn bootstrap_is_untouched_with_history_near_the_limit() {
 fn first_destination_turn_sends_no_auxiliary_request() {
     let (sidecar, origin) = proof();
     let text = handoff_text();
-    let forwarded = forward(&sidecar, &origin, &[], &text).expect("forward the first turn");
+    let forwarded =
+        forward(sidecar.port, &origin, &new_session(), &[], &text).expect("forward the first turn");
+    // A catalog fetch is allowed; a rewrite or summary call (another model call) is not.
     assert_eq!(
-        forwarded.total_requests, 1,
+        forwarded.model_calls, 1,
         "requests besides the probe: {:?}",
         forwarded.others
     );
     // A late auxiliary call would still be on its way: give it the chance to arrive.
     thread::sleep(Duration::from_millis(1500));
-    // origin directory holds exactly one body after the turn: no rewrite call, no summary call
+    // origin directory holds exactly one model-call body after the turn: no rewrite call,
+    // no summary call
     assert_eq!(origin.bodies().len(), 1);
     let only = &origin.requests()[0];
     assert_eq!(only.method, "POST");
@@ -832,30 +863,47 @@ fn dictated_prompt_is_kept_and_any_rewrite_note_is_additive() {
         Msg::user_text("Ciao, lavoriamo sul report mensile."),
         Msg::assistant_text("Va bene, dimmi cosa serve."),
     ];
-    let forwarded = forward(&sidecar, &origin, &history, DICTATED).expect("forward dictation");
+    let forwarded = forward(sidecar.port, &origin, &new_session(), &history, DICTATED)
+        .expect("forward dictation");
     let (at, human) = human_message(&forwarded).expect("human message");
-    // The original text is present byte-identical, as the one text block of its own message.
-    assert_eq!(message_text(human), vec![DICTATED.to_owned()]);
-    // Everything the sidecar added is a derived note: a separate message directly after the
-    // original, never text spliced into it, and it says the original stays authoritative.
-    let notes: Vec<&Value> = forwarded.messages.iter().filter(|m| is_note(m)).collect();
+    // Contract: the original text reaches the origin byte-identical and as a text block of
+    // its own. Anything the sidecar adds is a derived rewrite note, placed adjacent to the
+    // original either as a separate text block of the same message or as a separate message
+    // right after it; the note says the original stays authoritative, and it is never text
+    // spliced into the original block.
+    let blocks = message_text(human);
+    let original = blocks
+        .iter()
+        .position(|block| block == DICTATED)
+        .unwrap_or_else(|| panic!("no text block equals the original; blocks: {blocks:?}"));
+    let mut notes: Vec<String> = Vec::new();
+    for (index, block) in blocks.iter().enumerate() {
+        if index != original {
+            assert!(
+                is_note_text(block),
+                "block {index} is not a derived note: {block}"
+            );
+            notes.push(block.clone());
+        }
+    }
+    let after = &forwarded.messages[at + 1..];
+    assert!(
+        after.iter().all(is_note),
+        "only derived notes may follow the original message"
+    );
+    notes.extend(after.iter().flat_map(message_text));
     for note in &notes {
-        let text = message_text(note).concat();
         assert!(
-            text.contains("The original user message remains authoritative"),
-            "{text}"
+            note.contains("The original user message remains authoritative"),
+            "{note}"
         );
     }
-    let after: Vec<&Value> = forwarded.messages[at + 1..].iter().collect();
-    assert!(
-        after.iter().all(|m| is_note(m)),
-        "only derived notes may follow the original"
-    );
-    assert_eq!(
-        after.len(),
-        notes.len(),
-        "no note may sit anywhere but after the original"
-    );
     // The history keeps its messages; the sidecar adds nothing before the original.
     assert_eq!(forwarded.messages[..at].len(), history.len());
 }
+
+// The origin handle must be shareable so concurrent sessions can forward from threads.
+const _: fn() = || {
+    fn sync<T: Sync>() {}
+    sync::<Origin>();
+};
