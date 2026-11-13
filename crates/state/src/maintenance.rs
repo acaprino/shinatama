@@ -1139,7 +1139,6 @@ mod ownership_tests {
     use super::*;
     use crate::database::Database;
     use crate::location::LocationRequest;
-    use std::path::PathBuf;
 
     #[test]
     fn admission_rechecks_cancel_and_has_a_fixed_soft_500ms_ceiling() {
@@ -1158,7 +1157,7 @@ mod ownership_tests {
 
     #[test]
     fn newer_schema_between_probe_and_job_writes_preserves_all_job_metadata() {
-        let root = PathBuf::from(std::env::var_os("LOCALAPPDATA").unwrap())
+        let root = crate::test_scratch::root()
             .join("shinatama-maintenance-guards")
             .join(uuid::Uuid::new_v4().to_string());
         fs::create_dir_all(&root).unwrap();

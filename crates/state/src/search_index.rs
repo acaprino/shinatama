@@ -727,7 +727,7 @@ mod tests {
     #[test]
     fn index_file_is_separate_from_the_authoritative_database() {
         use crate::{database::Database, location::LocationRequest};
-        let root = std::path::PathBuf::from(std::env::var_os("LOCALAPPDATA").unwrap())
+        let root = crate::test_scratch::root()
             .join("shinatama-state-tests")
             .join(uuid::Uuid::new_v4().to_string());
         std::fs::create_dir_all(root.join("projects")).unwrap();

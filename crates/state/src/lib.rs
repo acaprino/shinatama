@@ -17,5 +17,7 @@ pub mod resource_reservations;
 pub mod search_index;
 mod schema;
 pub mod store_roots;
+#[doc(hidden)]
+pub mod test_scratch;
 pub mod threads;
 pub mod worksets;

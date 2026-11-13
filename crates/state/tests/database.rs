@@ -14,7 +14,7 @@ struct Fixture {
 
 impl Fixture {
     fn new() -> Self {
-        let root = PathBuf::from(std::env::var_os("LOCALAPPDATA").expect("LOCALAPPDATA"))
+        let root = shinatama_state::test_scratch::root()
             .join("shinatama-state-tests")
             .join(uuid::Uuid::new_v4().to_string());
         fs::create_dir_all(root.join("projects")).unwrap();
