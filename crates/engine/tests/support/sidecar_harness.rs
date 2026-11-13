@@ -14,7 +14,7 @@ use shinatama_engine::{
         WorkloadProvider,
     },
 };
-use shinatama_hop::channel::bootstrap;
+use shinatama_hop::channel::{ControlKind, bootstrap, control_header};
 use shinatama_state::{
     database::Database,
     location::{LocationRequest, StorageLocation},
@@ -672,6 +672,17 @@ pub fn probe_messages(
     messages: Vec<Value>,
     tools: Option<&Value>,
 ) -> Probe {
+    probe_messages_with(origin, session, messages, tools, None)
+}
+/// `probe_messages` that may carry a control header (`x-shinatama-control`), built by the same
+/// code Shinatama uses (`shinatama_hop::channel::control_header`).
+pub fn probe_messages_with(
+    origin: &Origin,
+    session: &str,
+    messages: Vec<Value>,
+    tools: Option<&Value>,
+    control: Option<(&'static str, String)>,
+) -> Probe {
     let tag = uuid::Uuid::new_v4().to_string();
     let mut body = json!({
         "model": "claude-sonnet-4-5",
@@ -684,17 +695,19 @@ pub fn probe_messages(
         body["tools"] = tools.clone();
     }
     let body = serde_json::to_vec(&body).unwrap();
+    let mut headers = vec![
+        ("content-type", "application/json".into()),
+        ("anthropic-version", "2023-06-01".into()),
+        ("x-api-key", "sk-ant-synthetic-not-a-credential".into()),
+        ("x-app", "cli".into()),
+        ("user-agent", "claude-cli/2.0.0 (external, cli)".into()),
+        ("x-claude-code-session-id", session.to_owned()),
+        ("x-sc9-probe", tag.clone()),
+    ];
+    headers.extend(control);
     Probe {
         path: format!("/bili/http://127.0.0.1:{}/v1/messages", origin.port),
-        headers: vec![
-            ("content-type", "application/json".into()),
-            ("anthropic-version", "2023-06-01".into()),
-            ("x-api-key", "sk-ant-synthetic-not-a-credential".into()),
-            ("x-app", "cli".into()),
-            ("user-agent", "claude-cli/2.0.0 (external, cli)".into()),
-            ("x-claude-code-session-id", session.to_owned()),
-            ("x-sc9-probe", tag.clone()),
-        ],
+        headers,
         body,
         tag,
     }
@@ -742,7 +755,42 @@ pub fn forward_messages(
     messages: Vec<Value>,
     tools: Option<&Value>,
 ) -> ProofResult<Forwarded> {
-    let probe = probe_messages(origin, session, messages, tools);
+    forward_messages_with(sidecar_port, origin, session, messages, tools, None)
+}
+/// `forward` for a message Shinatama declares as a control message: the request carries the
+/// `x-shinatama-control` header with the hash of `user_text`.
+pub fn forward_control(
+    sidecar_port: u16,
+    origin: &Origin,
+    session: &str,
+    history: &[Msg],
+    user_text: &str,
+    kind: ControlKind,
+) -> ProofResult<Forwarded> {
+    forward_with_header(sidecar_port, origin, session, history, user_text, control_header(kind, user_text))
+}
+/// `forward` with any control header, including one whose hash does not belong to `user_text`.
+pub fn forward_with_header(
+    sidecar_port: u16,
+    origin: &Origin,
+    session: &str,
+    history: &[Msg],
+    user_text: &str,
+    header: (&'static str, String),
+) -> ProofResult<Forwarded> {
+    let mut messages: Vec<Value> = history.iter().map(Msg::wire).collect();
+    messages.push(Msg::user_text(user_text).wire());
+    forward_messages_with(sidecar_port, origin, session, messages, None, Some(header))
+}
+pub fn forward_messages_with(
+    sidecar_port: u16,
+    origin: &Origin,
+    session: &str,
+    messages: Vec<Value>,
+    tools: Option<&Value>,
+    control: Option<(&'static str, String)>,
+) -> ProofResult<Forwarded> {
+    let probe = probe_messages_with(origin, session, messages, tools, control);
     let tag = probe.tag.as_str();
     let response = request(
         sidecar_port,
@@ -816,7 +864,17 @@ pub fn last_user_text_at_origin(
     history: &[Msg],
     user_text: &str,
 ) -> String {
-    let forwarded = forward(sidecar.port, origin, &new_session(), history, user_text)
+    last_user_text_at_origin_as(sidecar, origin, history, user_text, ControlKind::Bootstrap)
+}
+/// `last_user_text_at_origin` for a message sent with the control header of `kind`.
+pub fn last_user_text_at_origin_as(
+    sidecar: &Running,
+    origin: &Origin,
+    history: &[Msg],
+    user_text: &str,
+    kind: ControlKind,
+) -> String {
+    let forwarded = forward_control(sidecar.port, origin, &new_session(), history, user_text, kind)
         .expect("forward the probe");
     let (_, message) = human_message(&forwarded).expect("human message");
     message_text(message).join("\n<<next block>>\n")

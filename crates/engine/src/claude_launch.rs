@@ -37,7 +37,7 @@ use shinatama_state::{
 };
 use std::{
     collections::BTreeMap,
-    ffi::OsString,
+    ffi::{OsStr, OsString},
     fs::{File, OpenOptions},
     io::{Read, Write},
     num::NonZeroU16,
@@ -164,6 +164,10 @@ pub struct ClaudeStartContext<'a> {
     pub plugins_root: Option<&'a Path>,
     /// `resources/claude-mods` beside the executable, when present.
     pub mods_root: Option<&'a Path>,
+    /// `x-shinatama-control: <kind>;<hash>` for the one control message this launch will send as its
+    /// first prompt; set only by a Shinatama hand-off. Added to the model requests through
+    /// `ANTHROPIC_CUSTOM_HEADERS`, so the proxy can tell that message from every other.
+    pub control_header: Option<&'a str>,
     pub thread_id: &'a str,
 }
 pub struct PreparedClaudeTrial {
@@ -202,6 +206,7 @@ struct Context<'a> {
     selected_set: &'a SetManifest,
     plugins_root: Option<&'a Path>,
     mods_root: Option<&'a Path>,
+    control_header: Option<&'a str>,
     thread_id: &'a str,
 }
 pub struct PreparedClaudeStart {
@@ -291,6 +296,7 @@ fn prepare_trial_with_hooks(
             selected_set: context.selected_set,
             plugins_root: None,
             mods_root: None,
+            control_header: None,
             thread_id: context.thread_id,
         },
         None,
@@ -363,6 +369,7 @@ fn prepare_for_operation(
             selected_set: context.selected_set,
             plugins_root: context.plugins_root,
             mods_root: context.mods_root,
+            control_header: context.control_header,
             thread_id: context.thread_id,
         },
         Some(receipt),
@@ -708,6 +715,14 @@ fn prepare(
         set(&mut environment, name, "1".into());
     }
     configure_safe_mode(&mut environment, tracked);
+    if let Some(line) = context.control_header {
+        let existing = environment
+            .iter()
+            .find(|(name, _)| name.eq_ignore_ascii_case(CUSTOM_HEADERS))
+            .map(|(_, value)| value.clone());
+        let merged = merge_control_header(existing.as_deref(), line)?;
+        set(&mut environment, CUSTOM_HEADERS, merged);
+    }
     set(
         &mut environment,
         "CLAUDE_CODE_AUTO_CONNECT_IDE",
@@ -887,6 +902,43 @@ fn set(environment: &mut BTreeMap<OsString, OsString>, name: &str, value: OsStri
     environment.retain(|key, _| !key.eq_ignore_ascii_case(name));
     environment.insert(name.into(), value);
 }
+/// Header name of a Shinatama control message (see `shinatama_hop::channel::CONTROL_HEADER`).
+const CONTROL_HEADER_NAME: &str = "x-shinatama-control";
+const CUSTOM_HEADERS: &str = "ANTHROPIC_CUSTOM_HEADERS";
+
+/// The value of `ANTHROPIC_CUSTOM_HEADERS` (one `Name: value` per line) with the control header
+/// added. A value the user already has is kept, except an earlier control header, which is
+/// replaced. `line` must be exactly `x-shinatama-control: <kind>;<64 lowercase hex>`.
+fn merge_control_header(existing: Option<&OsStr>, line: &str) -> Result<OsString, ClaudeLaunchError> {
+    let value = line
+        .strip_prefix(CONTROL_HEADER_NAME)
+        .and_then(|rest| rest.strip_prefix(": "))
+        .ok_or(ClaudeLaunchError::Composition)?;
+    let well_formed = value.split_once(';').is_some_and(|(kind, hash)| {
+        matches!(kind, "seed" | "bootstrap" | "receipt")
+            && hash.len() == 64
+            && hash.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    });
+    if !well_formed {
+        return Err(ClaudeLaunchError::Composition);
+    }
+    let mut merged = OsString::new();
+    if let Some(existing) = existing {
+        let existing = existing.to_str().ok_or(ClaudeLaunchError::Composition)?;
+        for kept in existing.split(['\r', '\n']).filter(|kept| {
+            !kept.trim().is_empty()
+                && !kept
+                    .split_once(':')
+                    .is_some_and(|(name, _)| name.trim().eq_ignore_ascii_case(CONTROL_HEADER_NAME))
+        }) {
+            merged.push(kept);
+            merged.push("\n");
+        }
+    }
+    merged.push(line);
+    Ok(merged)
+}
+
 fn configure_safe_mode(environment: &mut BTreeMap<OsString, OsString>, tracked: bool) {
     if tracked {
         environment.retain(|name, _| !name.eq_ignore_ascii_case("CLAUDE_CODE_SAFE_MODE"));
@@ -1270,6 +1322,26 @@ mod tests {
                 .unwrap(),
             "1"
         );
+    }
+    #[test]
+    fn control_header_joins_the_users_custom_headers() {
+        let hash = "ab".repeat(32);
+        let line = format!("x-shinatama-control: bootstrap;{hash}");
+        assert_eq!(merge_control_header(None, &line).unwrap(), OsString::from(&line));
+        let user = OsString::from("X-Team: a\r\nX-Shinatama-Control: seed;old\n\nX-Other: b");
+        assert_eq!(
+            merge_control_header(Some(&user), &line).unwrap(),
+            OsString::from(format!("X-Team: a\nX-Other: b\n{line}"))
+        );
+        for bad in [
+            "x-other: bootstrap;ab".to_owned(),
+            format!("x-shinatama-control: unknown;{hash}"),
+            format!("x-shinatama-control: bootstrap;{}", "AB".repeat(32)),
+            format!("x-shinatama-control: bootstrap;{}", &hash[1..]),
+            format!("x-shinatama-control: bootstrap;{hash}\nX-Injected: 1"),
+        ] {
+            assert!(merge_control_header(None, &bad).is_err(), "{bad}");
+        }
     }
     #[test]
     fn explicit_session_operations_preserve_exact_uuid_and_reject_ambiguous_targets() {

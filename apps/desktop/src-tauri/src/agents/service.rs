@@ -138,6 +138,8 @@ pub(super) struct SessionContext<'a, P> {
     pub ca_file: &'a Path,
     pub selected_set: &'a SetManifest,
     pub plugins_root: Option<&'a Path>,
+    /// `x-shinatama-control: <kind>;<hash>` of the first prompt of a hand-off, when this launch is one.
+    pub control_header: Option<&'a str>,
     pub thread: &'a ThreadRecord,
 }
 pub(super) struct BindingContext<'a> {
@@ -203,6 +205,7 @@ pub(super) trait HarnessService: Send + Sync {
         cols: u16,
         operation: SessionOperation,
         mode: OpenMode,
+        control_header: Option<&str>,
     ) -> Result<AgentStarted, ServiceError>;
 }
 pub(super) struct ServiceContext {
@@ -599,6 +602,7 @@ impl<D: HarnessDriver> Service<D> {
         cols: u16,
         operation: SessionOperation,
         mode: OpenMode,
+        control_header: Option<&str>,
     ) -> Result<AgentStarted, ServiceError> {
         shinatama_terminal::validate_size(rows, cols)
             .map_err(|_| DriverError::Failed("The terminal size is invalid."))?;
@@ -734,6 +738,7 @@ impl<D: HarnessDriver> Service<D> {
                     ca_file: &ca,
                     selected_set: &selected_set,
                     plugins_root: plugins_root.as_deref(),
+                    control_header,
                     thread: &requested_thread,
                 },
                 &receipt,
@@ -978,13 +983,14 @@ impl<D: HarnessDriver> HarnessService for Service<D> {
         cols: u16,
         operation: SessionOperation,
         mode: OpenMode,
+        control_header: Option<&str>,
     ) -> Result<AgentStarted, ServiceError> {
         {
             let mut facts = self.facts()?;
             facts.last_error = None;
             facts.last_start_failure = None;
         }
-        let result = self.open_impl(host, project, rows, cols, operation, mode);
+        let result = self.open_impl(host, project, rows, cols, operation, mode, control_header);
         if let Err(error) = result {
             self.remember(error);
         }

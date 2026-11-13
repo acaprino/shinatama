@@ -194,6 +194,7 @@ impl Controller {
                         request.cols,
                         SessionOperation::Resume(saved),
                         OpenMode::PrepareWhenNeeded,
+                        None,
                     )
                     .map_err(unavailable)
             })

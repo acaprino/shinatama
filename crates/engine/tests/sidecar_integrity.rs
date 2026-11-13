@@ -12,6 +12,7 @@ mod sidecar_harness;
 use sidecar_harness::*;
 
 use serde_json::{Value, json};
+use shinatama_hop::channel::{ControlKind, control_header, control_header_value};
 use shinatama_engine::sidecar_admin::{
     AdminTarget, CapabilityRead, SessionCapabilities, session_capabilities,
 };
@@ -28,14 +29,16 @@ use std::{
     time::{Duration, Instant},
 };
 
-// SC9 outcome against the pinned sidecar (all four fail, assertions intact; Task 12 owns the fix):
-// - the human message reaches the origin as `<acp tokens="N" type="text">mNNNNN</acp>` and a newline
-//   before the original text: a reference tag is prepended inside the same text block;
-// - the first destination turn makes the sidecar fetch the model catalog (GET /v1/models) and
-//   send the control message to a lightweight model for rewriting (a second POST) before the
-//   probe itself is forwarded.
+// SC9. Without a marker the sidecar treats the human message like any other: it prepends
+// `<acp tokens="N" type="text">mNNNNN</acp>` and a newline inside the same text block, and on the
+// first destination turn it fetches the model catalog (GET /v1/models) and sends the message to a
+// lightweight model for rewriting (a second POST). Shinatama declares its control messages with
+// the `x-shinatama-control` header built by `shinatama_hop::channel::control_header`: the sidecar
+// honours it only when the hash equals the human message it received. These tests send the header
+// the way Shinatama does; `mismatched_hash_gets_ordinary_treatment` shows what an unmarked or
+// wrongly marked message still gets.
 #[test]
-#[ignore = "SC9 open: see Task 12"]
+#[ignore = "native: starts the pinned sidecar"]
 fn bootstrap_reaches_origin_byte_identical() {
     let (sidecar, origin) = proof();
     let text = handoff_text();
@@ -81,7 +84,7 @@ fn long_history() -> Vec<Msg> {
 }
 
 #[test]
-#[ignore = "SC9 open: see Task 12"]
+#[ignore = "native: starts the pinned sidecar"]
 fn bootstrap_is_untouched_with_history_near_the_limit() {
     let history = long_history();
     let tokens: usize = history
@@ -101,12 +104,19 @@ fn bootstrap_is_untouched_with_history_near_the_limit() {
 }
 
 #[test]
-#[ignore = "SC9 open: see Task 12"]
+#[ignore = "native: starts the pinned sidecar"]
 fn first_destination_turn_sends_no_auxiliary_request() {
     let (sidecar, origin) = proof();
     let text = handoff_text();
-    let forwarded =
-        forward(sidecar.port, &origin, &new_session(), &[], &text).expect("forward the first turn");
+    let forwarded = forward_control(
+        sidecar.port,
+        &origin,
+        &new_session(),
+        &[],
+        &text,
+        ControlKind::Bootstrap,
+    )
+    .expect("forward the first turn");
     // A catalog fetch is allowed; a rewrite or summary call (another model call) is not.
     assert_eq!(
         forwarded.model_calls, 1,
@@ -125,8 +135,10 @@ fn first_destination_turn_sends_no_auxiliary_request() {
 
 const DICTATED: &str = "Vorrei che sistemassi il calcolo dei totali nel report mensile, ma non toccare per nessun motivo la parte sugli arrotondamenti, perché i clienti si aspettano sempre 2 decimali; poi dimmi quante righe hai cambiato e se i test esistenti passano.";
 
+// The dictated request is sent as the seed message: it is Shinatama's text for the destination, so
+// it is declared with the `seed` marker. The contract below holds for it as it does for the bootstrap.
 #[test]
-#[ignore = "SC9 open: see Task 12"]
+#[ignore = "native: starts the pinned sidecar"]
 fn dictated_prompt_is_kept_and_any_rewrite_note_is_additive() {
     assert_eq!(DICTATED.split_whitespace().count(), 40);
     assert!(DICTATED.contains("non toccare") && DICTATED.contains("2 decimali"));
@@ -135,8 +147,15 @@ fn dictated_prompt_is_kept_and_any_rewrite_note_is_additive() {
         Msg::user_text("Ciao, lavoriamo sul report mensile."),
         Msg::assistant_text("Va bene, dimmi cosa serve."),
     ];
-    let forwarded = forward(sidecar.port, &origin, &new_session(), &history, DICTATED)
-        .expect("forward dictation");
+    let forwarded = forward_control(
+        sidecar.port,
+        &origin,
+        &new_session(),
+        &history,
+        DICTATED,
+        ControlKind::Seed,
+    )
+    .expect("forward dictation");
     let (at, human) = human_message(&forwarded).expect("human message");
     // Contract: the original text reaches the origin byte-identical and as a text block of
     // its own. Anything the sidecar adds is a derived rewrite note, placed adjacent to the
@@ -172,6 +191,79 @@ fn dictated_prompt_is_kept_and_any_rewrite_note_is_additive() {
     }
     // The history keeps its messages; the sidecar adds nothing before the original.
     assert_eq!(forwarded.messages[..at].len(), history.len());
+}
+
+// The marker is honoured only when its hash equals the human message received. A header whose
+// hash belongs to other text, a malformed value and no header at all leave the message with the
+// ordinary treatment: the reference tag is still prepended to the text block, as before.
+#[test]
+#[ignore = "native: starts the pinned sidecar"]
+fn mismatched_hash_gets_ordinary_treatment() {
+    let (sidecar, origin) = proof();
+    let text = handoff_text();
+    let other = control_header_value(ControlKind::Bootstrap, "a different message");
+    let wrong = forward_with_header(
+        sidecar.port,
+        &origin,
+        &new_session(),
+        &[],
+        &text,
+        ("x-shinatama-control", other),
+    )
+    .expect("forward with a mismatched hash");
+    let (_, message) = human_message(&wrong).expect("human message");
+    let received = message_text(message).join("
+<<next block>>
+");
+    assert_ne!(received, text, "a mismatched hash must not bypass");
+    assert!(
+        received.starts_with("<acp tokens=\"") && received.ends_with(&format!("</acp>
+{text}")),
+        "the tag is prepended as for any message: {received}"
+    );
+    let malformed = forward_with_header(
+        sidecar.port,
+        &origin,
+        &new_session(),
+        &[],
+        &text,
+        ("x-shinatama-control", "bootstrap".into()),
+    )
+    .expect("forward with a malformed marker");
+    let (_, message) = human_message(&malformed).expect("human message");
+    assert!(message_text(message)[0].starts_with("<acp tokens=\""));
+    let unmarked = forward(sidecar.port, &origin, &new_session(), &[], &text).expect("unmarked");
+    let (_, message) = human_message(&unmarked).expect("human message");
+    assert!(message_text(message)[0].starts_with("<acp tokens=\""));
+}
+
+// A real Claude Code request carries reminders as text parts of the same user message, before the
+// prompt. The marker names one part: that part and its neighbours reach the origin untouched.
+#[test]
+#[ignore = "native: starts the pinned sidecar"]
+fn marked_prompt_among_reminder_parts_is_untouched() {
+    let (sidecar, origin) = proof();
+    let text = handoff_text();
+    let reminder = "<system-reminder>\nToday's date is 2026-11-13.\n</system-reminder>";
+    let message = json!({
+        "role": "user",
+        "content": [
+            { "type": "text", "text": reminder },
+            { "type": "text", "text": text },
+        ],
+    });
+    let forwarded = forward_messages_with(
+        sidecar.port,
+        &origin,
+        &new_session(),
+        vec![message],
+        None,
+        Some(control_header(ControlKind::Bootstrap, &text)),
+    )
+    .expect("forward the reminder and the bootstrap");
+    let (_, human) = human_message(&forwarded).expect("human message");
+    assert_eq!(message_text(human), vec![reminder.to_owned(), text]);
+    assert_eq!(forwarded.model_calls, 1, "{:?}", forwarded.others);
 }
 
 // The origin handle must be shareable so concurrent sessions can forward from threads.

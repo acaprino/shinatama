@@ -375,6 +375,7 @@ impl Controller {
             rows,
             cols,
             OpenMode::RequireQualified,
+            None,
         )
         .await
     }
@@ -393,6 +394,29 @@ impl Controller {
             rows,
             cols,
             OpenMode::PrepareWhenNeeded,
+            None,
+        )
+        .await
+    }
+    /// `open` for the destination of a hand-off: `control_header` declares the first prompt to the
+    /// model proxy (`x-shinatama-control`). Only a harness that can add a request header uses it.
+    pub async fn open_handoff(
+        self: &Arc<Self>,
+        agent_id: &str,
+        host: Arc<TerminalHost>,
+        project: PathBuf,
+        rows: u16,
+        cols: u16,
+        control_header: String,
+    ) -> Result<AgentStarted, &'static str> {
+        self.start_request(
+            agent_id,
+            host,
+            project,
+            rows,
+            cols,
+            OpenMode::PrepareWhenNeeded,
+            Some(control_header),
         )
         .await
     }
@@ -404,6 +428,7 @@ impl Controller {
         rows: u16,
         cols: u16,
         mode: OpenMode,
+        control_header: Option<String>,
     ) -> Result<AgentStarted, &'static str> {
         shinatama_terminal::validate_size(rows, cols)
             .map_err(|_| "The terminal size is invalid.")?;
@@ -413,7 +438,15 @@ impl Controller {
                 "Harness startup stopped unexpectedly. Its owned resources remain tracked.",
                 |service| {
                     service
-                        .open(&host, &project, rows, cols, SessionOperation::New, mode)
+                        .open(
+                            &host,
+                            &project,
+                            rows,
+                            cols,
+                            SessionOperation::New,
+                            mode,
+                            control_header.as_deref(),
+                        )
                         .map_err(|error| error.message())
                 },
             )
