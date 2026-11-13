@@ -100,7 +100,13 @@ fn controller(services: &[Arc<FakeService>]) -> Arc<Controller> {
     Arc::new(Controller {
         services: Arc::new(Services::new(Err("storage disabled in this test".into()))),
         registry,
+        host: Arc::new(TerminalHost::default()),
     })
+}
+
+#[test]
+fn a_controller_with_no_started_terminals_has_no_live_agent_sessions() {
+    assert_eq!(controller(&[]).live_agent_sessions(), 0);
 }
 
 #[test]

@@ -30,3 +30,5 @@ anyhow = { workspace = true, optional = true }
 [target.'cfg(windows)'.dependencies]
 windows-sys.workspace = true
 
+[dev-dependencies]
+shinatama-hop.workspace = true

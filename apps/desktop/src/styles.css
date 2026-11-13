@@ -423,4 +423,20 @@ dialog[data-sheet="pane-top"], dialog[data-sheet="pane-bottom"] { width: var(--s
 .native-glass .wm-footer, .native-glass .wm-controls { background: var(--glass-bar); }
 /* The file browser needs two columns; it takes a wider drawer than the others. */
 :root:has(#files-dialog[open]) { --drawer-width: clamp(520px, 52vw, 860px); }
+/* Model proxy: a side panel (an aside, not a dialog) docked like a drawer, below any dialog. */
+#model-proxy-panel { position: fixed; inset: calc(var(--titlebar-height) + 44px) 0 28px auto; z-index: 19; width: min(400px, calc(100vw - 16px)); overflow: auto; padding: 18px 20px; border-left: 1px solid color-mix(in srgb, var(--line-strong) 62%, transparent); background: linear-gradient(90deg, var(--accent), var(--ice) 46%, transparent 92%) top left / 100% 2px no-repeat, var(--glass); backdrop-filter: var(--glass-blur); color: var(--text); scrollbar-width: thin; }
+#model-proxy-panel[hidden] { display: none; }
+#model-proxy-panel h1 { margin: 0; font: 500 17px var(--display); letter-spacing: .09em; text-transform: uppercase; }
+#model-proxy-panel p { margin: 12px 0 0; color: var(--text-2); font-size: 13px; line-height: 1.6; }
+#model-proxy-panel .hint { font-size: 12px; color: var(--muted); }
+#model-proxy-panel #model-proxy-state { color: var(--text); font: 500 14px var(--mono); }
+#model-proxy-panel #model-proxy-state:focus-visible { outline: none; }
+#model-proxy-panel #model-proxy-confirm { margin-top: 14px; padding: 10px 12px; background: linear-gradient(90deg, var(--warning), transparent 70%) top left / 100% 2px no-repeat, color-mix(in srgb, var(--terminal) 60%, transparent); }
+#model-proxy-panel #model-proxy-confirm[hidden] { display: none; }
+#model-proxy-panel #model-proxy-confirm p { margin: 0 0 10px; color: var(--text); font-size: 12px; line-height: 1.45; }
+#model-proxy-panel .proxy-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+#model-proxy-panel #model-proxy-confirm .proxy-actions { margin-top: 0; }
+#model-proxy-panel button:active:not(:disabled) { scale: .96; }
+#app:has(> #model-proxy-panel:not([hidden])) #work-area { padding-right: min(400px, calc(100vw - 16px)); }
+@media (max-width: 1000px) { #app:has(> #model-proxy-panel:not([hidden])) #work-area { padding-right: 0; } }
 #notice { bottom: 68px; }

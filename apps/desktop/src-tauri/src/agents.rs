@@ -262,10 +262,14 @@ impl RequestSlot {
 pub struct Controller {
     services: Arc<Services>,
     registry: BTreeMap<&'static str, Arc<RegisteredService>>,
+    /// The host every agent terminal is started on; its registry is the only
+    /// record of which agent processes are alive.
+    host: Arc<TerminalHost>,
 }
 impl Controller {
     pub fn new(
         services: Arc<Services>,
+        host: Arc<TerminalHost>,
         runtime: Arc<Runtime>,
         sidecar: Arc<sidecar::Controller>,
         thread_observer: ThreadObserver,
@@ -298,7 +302,15 @@ impl Controller {
                 "Each harness service must have a unique ID."
             );
         }
-        Self { services, registry }
+        Self {
+            services,
+            registry,
+            host,
+        }
+    }
+    /// Agent terminals whose process is alive right now.
+    pub fn live_agent_sessions(&self) -> usize {
+        self.host.live_native_sessions()
     }
     fn registered(&self, id: &str) -> Result<Arc<RegisteredService>, &'static str> {
         self.registry

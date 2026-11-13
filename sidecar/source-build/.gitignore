@@ -1,2 +1,4 @@
-prepared/
+prepared/node_modules/
 prepared.incomplete/
+# the lock fingerprints the compiled bundle, so it is tracked despite the repo-wide dist/ rule
+!prepared/dist/

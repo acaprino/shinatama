@@ -17,6 +17,7 @@ import { createPresentation, PROFILES, setTerminalGlass } from './presentation.t
 import './presentation.css';
 import { startTerminalResources, formatTerminalResources, type TerminalResourceStatus } from './terminal-resources.ts';
 import { createAttentionControl } from './attention-control.ts';
+import { createSidecarControl } from './sidecar-control.ts';
 import { createNewSession } from './new-session.ts';
 import { createSessionMenu } from './session-menu.ts';
 import { beginMutation, browseFolder, createCatalogClient, createRequestId } from './project-catalog.ts';
@@ -86,6 +87,7 @@ function notify(message: unknown, tone: Tone = 'error') {
 }
 $('#notice button').onclick = () => { $('#notice').hidden = true; };
 const attentionControl = createAttentionControl(desktop, notify);
+createSidecarControl(desktop, notify);
 // Only a real modal takes the page. Drawers and sheets (modal.ts) leave the terminals live.
 function modalOpen() { return !!document.querySelector('dialog[open][aria-modal="true"]'); }
 function focusAttentionSession(id: string) {

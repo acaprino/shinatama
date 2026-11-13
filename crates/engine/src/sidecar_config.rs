@@ -183,9 +183,47 @@ fn baseline(root: &Path, port: NonZeroU16) -> Result<Vec<u8>, ConfigError> {
     Ok(bytes)
 }
 
+/// The values `baseline` writes, in the shape the running sidecar reports them.
+/// `intended_baseline_matches_the_bytes_written` keeps the two from drifting apart.
+#[cfg(windows)]
+pub fn intended_baseline() -> crate::sidecar_admin::ResolvedBaseline {
+    crate::sidecar_admin::ResolvedBaseline {
+        prompt_rewrite_mode: Some("auto".to_owned()),
+        tiers: Some(true),
+        absorb_enabled: Some(true),
+        absorb_min_tool_tokens: Some(4000),
+        ccr_enabled: Some(true),
+        ccr_min_tool_tokens: Some(4000),
+        adaptive_enabled: Some(true),
+        adaptive_max_tokens: Some(160000),
+        steering_enabled: Some(true),
+        verbosity_level: Some(2),
+        effort_routing: Some(false),
+    }
+}
+
+/// The baseline bytes for a synthetic root, for tests that parse what Shinatama writes.
+#[cfg(all(test, windows))]
+pub(crate) fn baseline_bytes_for_test() -> Vec<u8> {
+    baseline(
+        Path::new("C:\\synthetic-sidecar"),
+        NonZeroU16::new(8787).unwrap(),
+    )
+    .unwrap()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(windows)]
+    #[test]
+    fn intended_baseline_matches_the_bytes_written() {
+        let value: serde_json::Value = serde_json::from_slice(&baseline_bytes_for_test()).unwrap();
+        assert_eq!(
+            crate::sidecar_admin::baseline_from_config_value(&value),
+            intended_baseline()
+        );
+    }
     #[test]
     fn baseline_uses_canonical_storage_and_compression_keys_with_effort_locked_off() {
         let root = if cfg!(windows) {

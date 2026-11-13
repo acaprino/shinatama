@@ -258,6 +258,10 @@ const ENDED: u8 = 3;
 const RETIRED: u8 = 4;
 const RELEASED: u8 = 5;
 const NO_EXIT: u64 = u64::MAX;
+/// A qualified native session still has its process (starting or running).
+fn is_live_native(native: bool, phase: u8) -> bool {
+    native && matches!(phase, STARTING | RUNNING)
+}
 const IO_WAIT: Duration = Duration::from_secs(2);
 struct Outbound {
     command: HostCommand,
@@ -787,6 +791,24 @@ impl WindowsTerminalHost {
                     .collect()
             })
             .unwrap_or_default()
+    }
+    /// Qualified native (agent) sessions whose process is starting or running.
+    /// Plain shells, ended and closing sessions are not counted.
+    pub fn live_native_sessions(&self) -> usize {
+        self.sessions
+            .lock()
+            .map(|sessions| {
+                sessions
+                    .values()
+                    .filter(|session| {
+                        is_live_native(
+                            session._native.is_some(),
+                            session.phase.load(Ordering::Acquire),
+                        )
+                    })
+                    .count()
+            })
+            .unwrap_or(0)
     }
     /// Cached scalar observations only. No native query, blocking lock or join.
     pub fn resources(&self) -> Vec<TerminalResourceStatus> {
@@ -1821,6 +1843,23 @@ mod tests {
         let host = WindowsTerminalHost::default();
         let _registry = host.sessions.lock().unwrap();
         assert!(host.resources().is_empty());
+    }
+    #[test]
+    fn only_native_sessions_with_a_process_count_as_live_agents() {
+        assert!(is_live_native(true, STARTING));
+        assert!(is_live_native(true, RUNNING));
+        assert!(!is_live_native(true, CLOSING));
+        assert!(!is_live_native(true, ENDED));
+        assert!(!is_live_native(true, RETIRED));
+        assert!(!is_live_native(true, RELEASED));
+        assert!(!is_live_native(false, RUNNING));
+        let host = WindowsTerminalHost::default();
+        assert_eq!(host.live_native_sessions(), 0);
+        host.sessions
+            .lock()
+            .unwrap()
+            .insert("plain".into(), Arc::new(resource_session()));
+        assert_eq!(host.live_native_sessions(), 0);
     }
     struct RefusedAdmission;
     impl WindowsTerminalAdmission for RefusedAdmission {

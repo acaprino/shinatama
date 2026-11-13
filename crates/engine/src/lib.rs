@@ -52,6 +52,8 @@ pub mod pi_launch;
 #[cfg(windows)]
 pub mod pi_probe;
 pub mod sidecar_config;
+#[cfg(windows)]
+pub mod sidecar_admin;
 pub mod sidecar_runtime;
 #[cfg(windows)]
 pub mod sidecar_supervisor;
