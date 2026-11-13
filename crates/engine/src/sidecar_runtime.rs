@@ -650,12 +650,12 @@ mod tests {
     fn committed_pin_identifies_the_actual_entry_and_all_three_bounded_trees() {
         let pin: Pin = serde_json::from_str(PIN).unwrap();
         validate_pin(&pin).unwrap();
-        assert_eq!(pin.source_files.len(), 394);
+        assert_eq!(pin.source_files.len(), 396);
         assert_eq!(pin.artifact_files.len(), 15);
         assert_eq!(pin.runtime_dependency_files.len(), 205);
         assert_eq!(
             pin.entry_sha256,
-            "161978cceed6334a90f34ef8d625badd39664ea255ebb96a0023a3b2bd1b5360"
+            "c6ef53c8fe87561c40c69f2463064344ae313d33cef3d480cb10b7229449e868"
         );
     }
     #[test]

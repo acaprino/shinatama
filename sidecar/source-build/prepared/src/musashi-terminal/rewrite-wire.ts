@@ -6,8 +6,8 @@ type Row=Record<string,unknown>;
 const object=(value:unknown):value is Row=>!!value&&typeof value==='object'&&!Array.isArray(value);
 const hash=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const marker='<musashi_terminal_prompt_rewrite';
-/** `occurrence` counts earlier humans with the same text, to tell repeated copies apart. */
-export type RewriteHuman={text:string;parts:string[];humanID:string;occurrence?:number};
+/** `occurrence` counts earlier humans with the same text, to tell repeated copies apart; `index` is the owner's place in the wire array. */
+export type RewriteHuman={text:string;parts:string[];humanID:string;occurrence?:number;index?:number};
 export type RewriteNote={human:RewriteHuman;prompt:string};
 function field(protocol:WireProtocol):'contents'|'input'|'messages'{return protocol==='google'?'contents':protocol==='responses'?'input':'messages';}
 function texts(message:unknown,protocol:WireProtocol):string[]{
@@ -41,7 +41,7 @@ function humanAt(value:unknown[],index:number,protocol:WireProtocol):RewriteHuma
  const parts=texts(owner,protocol),text=parts.join('\n');
  if(!text.trim()||text.includes(marker))return undefined;
  const previous=index>0?hash(value[index-1]):'';
- return {text,parts,humanID:hash([typeof owner.id==='string'?owner.id:previous,text])};
+ return {text,parts,humanID:hash([typeof owner.id==='string'?owner.id:previous,text]),index};
 }
 /** Earlier native humans, each with the identity it had as the current one, so
  * a note already decided for it can be repeated with the same bytes. */

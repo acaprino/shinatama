@@ -1,4 +1,5 @@
-import { maybeRewritePrompt } from '../musashi-terminal/rewrite-hook.js';
+import { maybeRewritePrompt, recognizeControlMarker } from '../musashi-terminal/rewrite-hook.js';
+import { protectControlMessage } from '../musashi-terminal/control-marker.js';
 import { detectPiSubagentChildSignal } from './pi-subagent-channel.js';
 // #1440 P2 cut 3: proxy request pipeline (handle) extracted verbatim from src/server.ts — pure move, zero behavior change.
 
@@ -2296,6 +2297,10 @@ async function handleRequest(
         session.metadata.musashiTerminalContextProfile = { ...contextProfile };
         const durableClassifier = pluginAgent ? durableMessageToolPaths[pluginAgent] : undefined;
         if (durableClassifier !== undefined) reqConfig = withDurableProtection(reqConfig, durableClassifier);
+        // Shinatama control message (hand-off seed, bootstrap, receipt): recognized before anything mutates the request,
+        // then kept out of tagging, CCR and folding for this request. Rewriting is skipped in maybeRewritePrompt.
+        const controlMarker = protocol && parsed !== null && typeof parsed === "object" ? recognizeControlMarker(req, parsed as Record<string, unknown>, protocol, session, log) : undefined;
+        if (controlMarker !== undefined) reqConfig = protectControlMessage(reqConfig, controlMarker);
         // acquireInFlight must precede the lock so evictOldest() cannot flush
         // this session between getSession and lock acquisition (inFlight===0
         // window). Released in the outer finally after forward completes.
