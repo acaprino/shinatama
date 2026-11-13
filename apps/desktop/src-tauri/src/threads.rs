@@ -531,3 +531,153 @@ pub async fn thread_forget(
     }
     Ok(report)
 }
+
+// ADR-0055: a workset is what the interface calls a thread, a set of sessions. These commands
+// read and change saved metadata only; none starts, resumes or stops a process.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorksetList {
+    project_id: String,
+    #[serde(default)]
+    archived: bool,
+}
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorksetPage {
+    rows: Vec<shinatama_state::worksets::WorksetSummary>,
+    more: bool,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorksetCreate {
+    project_id: String,
+    title: Option<String>,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorksetRef {
+    workset_id: String,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorksetUpdate {
+    workset_id: String,
+    expected_revision: u64,
+    /// Absent leaves the title; an empty string clears it.
+    title: Option<String>,
+    archived: Option<bool>,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorksetDelete {
+    workset_id: String,
+    expected_revision: u64,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorksetAdopt {
+    workset_id: String,
+    thread_id: String,
+}
+fn workset_title(raw: &str) -> Result<Option<&str>, ThreadError> {
+    if raw.len() > 256 || raw.chars().any(char::is_control) {
+        return Err(ThreadError::Invalid);
+    }
+    let title = raw.trim();
+    Ok((!title.is_empty()).then_some(title))
+}
+#[tauri::command]
+pub async fn workset_list(
+    window: WebviewWindow,
+    controller: State<'_, Arc<Controller>>,
+    request: WorksetList,
+) -> Result<WorksetPage, Error> {
+    local(&window)?;
+    controller
+        .inner()
+        .work(move |db| {
+            let (rows, more) = db.list_worksets(&request.project_id, request.archived)?;
+            Ok(WorksetPage { rows, more })
+        })
+        .await
+}
+#[tauri::command]
+pub async fn workset_create(
+    window: WebviewWindow,
+    controller: State<'_, Arc<Controller>>,
+    request: WorksetCreate,
+) -> Result<shinatama_state::worksets::WorksetRecord, Error> {
+    local(&window)?;
+    controller
+        .inner()
+        .work(move |db| {
+            let title = match request.title.as_deref() {
+                Some(raw) => workset_title(raw)?,
+                None => None,
+            };
+            db.create_workset(&request.project_id, title, now_ms()?)
+        })
+        .await
+}
+#[tauri::command]
+pub async fn workset_threads(
+    window: WebviewWindow,
+    controller: State<'_, Arc<Controller>>,
+    request: WorksetRef,
+) -> Result<Vec<shinatama_state::threads::ThreadSummary>, Error> {
+    local(&window)?;
+    controller
+        .inner()
+        .work(move |db| db.workset_threads(&request.workset_id))
+        .await
+}
+#[tauri::command]
+pub async fn workset_update(
+    window: WebviewWindow,
+    controller: State<'_, Arc<Controller>>,
+    request: WorksetUpdate,
+) -> Result<shinatama_state::worksets::WorksetRecord, Error> {
+    local(&window)?;
+    controller
+        .inner()
+        .work(move |db| {
+            let title = match request.title.as_deref() {
+                Some(raw) => Some(workset_title(raw)?),
+                None => None,
+            };
+            db.update_workset(
+                &request.workset_id,
+                request.expected_revision,
+                title,
+                request.archived,
+                now_ms()?,
+            )
+        })
+        .await
+}
+/// Deletes a thread that holds no session; sessions are forgotten one by one first.
+#[tauri::command]
+pub async fn workset_delete(
+    window: WebviewWindow,
+    controller: State<'_, Arc<Controller>>,
+    request: WorksetDelete,
+) -> Result<(), Error> {
+    local(&window)?;
+    controller
+        .inner()
+        .work(move |db| db.delete_empty_workset(&request.workset_id, request.expected_revision))
+        .await
+}
+/// Puts a session in the thread the user has open (or moved it to).
+#[tauri::command]
+pub async fn workset_adopt(
+    window: WebviewWindow,
+    controller: State<'_, Arc<Controller>>,
+    request: WorksetAdopt,
+) -> Result<(), Error> {
+    local(&window)?;
+    controller
+        .inner()
+        .work(move |db| db.move_thread_to_workset(&request.thread_id, &request.workset_id, now_ms()?))
+        .await
+}

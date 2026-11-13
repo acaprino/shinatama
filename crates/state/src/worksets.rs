@@ -260,8 +260,17 @@ impl Database {
         let previous = of_thread(&tx, thread_id)?.ok_or(ThreadError::NotFound)?;
         if previous != key {
             tx.execute("UPDATE workset_member SET workset_id=?2 WHERE thread_id=?1", params![thread_id, key])?;
-            bump(&tx, &previous, at)?;
             bump(&tx, key, at)?;
+            // A workset made only to hold this session, never named, leaves with it.
+            let emptied = load(&tx, &previous)?;
+            if emptied.title.is_none()
+                && !tx.query_row("SELECT EXISTS(SELECT 1 FROM workset_member WHERE workset_id=?1)", [&previous], |row| row.get::<_, bool>(0))?
+            {
+                tx.execute("DELETE FROM workspace WHERE project_id=?1 AND workspace_id=?2", params![emptied.project_id, previous])?;
+                tx.execute("DELETE FROM workset WHERE id=?1", [&previous])?;
+            } else {
+                bump(&tx, &previous, at)?;
+            }
         }
         tx.commit()?;
         Ok(())
