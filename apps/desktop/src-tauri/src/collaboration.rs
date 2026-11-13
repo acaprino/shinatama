@@ -1,5 +1,6 @@
 //! Native session requests from authenticated, already-owned harness instances.
 //! The MCP transport only queues; this worker reuses the regular native launcher.
+//! It also starts the bundled Mukade chat service, which `stop` ends with the app.
 use crate::{agents, storage, ExitIntent, Host};
 use shinatama_engine::session_control::{self, Broker, LaunchReceipt, LaunchRequest};
 use std::{sync::{Arc, atomic::Ordering}, time::Duration};
@@ -11,6 +12,13 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), String> {
         .map_err(|_| "The session control service is already installed.".to_owned())?;
     let app = app.clone();
     std::thread::Builder::new().name("session-launch-requests".into()).spawn(move || {
+        // Sessions opened from now on find the chat tools of the bundled Mukade.
+        // A failure here is not final: a communicating open tries again and reports it.
+        if let Ok(state) = app.state::<Arc<storage::Services>>().load()
+            && let Err(reason) = shinatama_engine::mukade_mcp::Connection::ensure_running(&state.location)
+        {
+            eprintln!("Mukade chat service not started: {reason}");
+        }
         while !app.state::<ExitIntent>().0.load(Ordering::Acquire) {
             let Some(request) = broker.next() else {
                 std::thread::sleep(Duration::from_millis(100));
@@ -26,6 +34,14 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// At exit: the chat service Shinatama started must not outlive it, or its program
+/// file stays locked in the install folder.
+pub fn stop(app: &tauri::AppHandle) {
+    if let Some(state) = app.state::<Arc<storage::Services>>().ready() {
+        shinatama_engine::mukade_mcp::stop_owned(&state.location);
+    }
+}
+
 fn open(app: &tauri::AppHandle, broker: &Broker, request: &LaunchRequest) -> Result<LaunchReceipt, String> {
     if app.state::<ExitIntent>().0.load(Ordering::Acquire) {
         return Err("Shinatama is closing; no session was started.".into());
@@ -35,9 +51,9 @@ fn open(app: &tauri::AppHandle, broker: &Broker, request: &LaunchRequest) -> Res
     if request.room_id.is_some() {
         let services = app.state::<Arc<storage::Services>>();
         let state = services.load()?;
-        shinatama_engine::mukade_mcp::Connection::discover(&state.location)
-            .map_err(|_| "Mukade is not reachable with its configured identity. Check the local chat service.".to_owned())?
-            .ok_or_else(|| "Set MUKADE_DATA_DIR for Shinatama and start that Mukade chat service before opening a communicating session.".to_owned())?;
+        shinatama_engine::mukade_mcp::Connection::ensure_running(&state.location)
+            .map_err(|reason| format!("The Mukade chat service could not be reached or started: {reason}"))?
+            .ok_or_else(|| "This Shinatama has no Mukade program in its mukade folder; a communicating session needs it.".to_owned())?;
     }
     let prompt = initial_prompt(request)?;
     if !broker.is_pending(&request.caller_instance, &request.request_id) {

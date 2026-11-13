@@ -926,6 +926,12 @@ fn main() {
                 let _ = window.emit("confirm-close", ());
             }
         })
-        .run(tauri::generate_context!())
-        .expect("Cannot run Shinatama desktop");
+        .build(tauri::generate_context!())
+        .expect("Cannot run Shinatama desktop")
+        .run(|_app, _event| {
+            #[cfg(windows)]
+            if matches!(_event, tauri::RunEvent::Exit) {
+                collaboration::stop(_app);
+            }
+        });
 }

@@ -1,5 +1,9 @@
-//! Optional connection to an already running, explicitly selected Mukade service.
-//! No service is started and no shared configuration or permission is changed.
+//! Connection to the local Mukade chat service.
+//! Shinatama owns one service: the Mukade program bundled beside the app, with its
+//! data in `mukade` under Shinatama's own data folder; it is started on demand and
+//! stopped with the app. An explicit MUKADE_DATA_DIR selects an external service
+//! instead, which is only joined: never started, never stopped.
+//! No shared configuration or permission is changed.
 //! The credential crosses only the prepared child's environment, never argv/config.
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -19,6 +23,8 @@ const MAX_METADATA: usize = 8192;
 const MAX_HTTP_HEADER: usize = 4096;
 const MAX_HEALTH_BODY: usize = 4096;
 const HEALTH_TIMEOUT: Duration = Duration::from_secs(2);
+/// Mukade bounds its own start and stop at ten seconds.
+const BUNDLED_TIMEOUT: Duration = Duration::from_secs(15);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Error {
@@ -33,9 +39,9 @@ pub enum Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            Self::InvalidDirectory => "MUKADE_DATA_DIR must name an absolute private directory outside projects.",
+            Self::InvalidDirectory => "The Mukade data directory must be an absolute private directory outside projects.",
             Self::PrivateStorageRequired => "Mukade connection files could not be verified as private regular files.",
-            Self::ServiceStopped => "The selected Mukade service is stopped; start it before connecting a room.",
+            Self::ServiceStopped => "The Mukade service is stopped.",
             Self::InvalidMetadata => "Mukade connection metadata is invalid.",
             Self::InvalidCredential => "Mukade connection credential is invalid.",
             Self::ServiceUnavailable => "The selected Mukade service did not answer its bounded health check.",
@@ -66,11 +72,35 @@ struct Instance {
 }
 
 impl Connection {
+    /// Read-only: the running service, or `None` when none was ever selected or started.
     pub fn discover(base: &StorageLocation) -> Result<Option<Self>, Error> {
         match std::env::var_os("MUKADE_DATA_DIR") {
-            None => Ok(None),
             Some(path) => Self::discover_at(base, Path::new(&path)).map(Some),
+            None => {
+                let own = own_directory(base);
+                match fs::symlink_metadata(own.join("bus")) {
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+                    _ => Self::discover_at(base, &own).map(Some),
+                }
+            }
         }
+    }
+
+    /// The running service, starting Shinatama's own one when it is stopped.
+    /// `None`: no external service is selected and no Mukade program is bundled.
+    /// The error is the reason to show: Mukade's own words when its start failed.
+    pub fn ensure_running(base: &StorageLocation) -> Result<Option<Self>, String> {
+        if std::env::var_os("MUKADE_DATA_DIR").is_some() {
+            return Self::discover(base).map_err(|e| e.to_string());
+        }
+        if let Ok(Some(connection)) = Self::discover(base) {
+            return Ok(Some(connection));
+        }
+        let Some(program) = bundled_program() else { return Ok(None) };
+        let own = own_directory(base);
+        // `chat start` is idempotent: a concurrent caller finds the same service.
+        run_bundled(&program, &own, "start")?;
+        Self::discover_at(base, &own).map(Some).map_err(|e| e.to_string())
     }
 
     fn discover_at(base: &StorageLocation, selected: &Path) -> Result<Self, Error> {
@@ -171,8 +201,10 @@ impl Connection {
         let mut stream = TcpStream::connect_timeout(&self.address, HEALTH_TIMEOUT)
             .map_err(|_| Error::ServiceUnavailable)?;
         stream.set_write_timeout(Some(remaining(deadline)?)).map_err(|_| Error::ServiceUnavailable)?;
+        // HTTP/1.0: Mukade answers a 1.1 request chunked; a 1.0 answer is the plain
+        // body, ended by its length or by the close of the connection.
         let mut request = format!(
-            "GET /health HTTP/1.1\r\nHost: {}\r\nAuthorization: Bearer {}\r\nX-Mukade-Service-Id: {}\r\nAccept: application/json\r\nConnection: close\r\n\r\n",
+            "GET /health HTTP/1.0\r\nHost: {}\r\nAuthorization: Bearer {}\r\nX-Mukade-Service-Id: {}\r\nAccept: application/json\r\nConnection: close\r\n\r\n",
             self.address, self.token, self.service_id
         ).into_bytes();
         let sent = stream.write_all(&request);
@@ -186,6 +218,77 @@ impl Connection {
             return Err(Error::ServiceChanged);
         }
         Ok(())
+    }
+}
+
+/// Stop the service Shinatama started. An external service is left alone.
+pub fn stop_owned(base: &StorageLocation) {
+    if std::env::var_os("MUKADE_DATA_DIR").is_some() {
+        return;
+    }
+    let own = own_directory(base);
+    if fs::symlink_metadata(own.join("bus")).is_ok()
+        && let Some(program) = bundled_program()
+    {
+        let _ = run_bundled(&program, &own, "stop");
+    }
+}
+
+fn own_directory(base: &StorageLocation) -> PathBuf {
+    base.directory().join("mukade")
+}
+
+/// `mukade\mukade.exe` beside the running program, or one folder up for programs in `cli\`.
+fn bundled_program() -> Option<PathBuf> {
+    let executable = std::env::current_exe().ok()?;
+    let folder = executable.parent()?;
+    [Some(folder), folder.parent()].into_iter().flatten()
+        .map(|root| root.join("mukade").join("mukade.exe"))
+        .find(|program| {
+            reject_reparse(program).is_ok() && fs::metadata(program).is_ok_and(|m| m.is_file())
+        })
+}
+
+/// One bounded `mukade chat <start|stop>` on the owned directory, without a console.
+/// A failure carries the first line Mukade wrote about it. Mukade keeps its standard
+/// handles out of the service it detaches, so the pipe closes when this command ends.
+fn run_bundled(program: &Path, directory: &Path, operation: &str) -> Result<(), String> {
+    let mut environment: BTreeMap<OsString, OsString> = std::env::vars_os().collect();
+    clear_environment(&mut environment);
+    let mut command = std::process::Command::new(program);
+    command.args(["chat", operation])
+        .env_clear().envs(environment)
+        .env("MUKADE_DATA_DIR", directory)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    let mut child = command.spawn().map_err(|_| "The bundled Mukade program could not be run.".to_owned())?;
+    let deadline = Instant::now() + BUNDLED_TIMEOUT;
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) if status.success() => return Ok(()),
+            Ok(Some(_)) => {
+                // Mukade's message is one short line, far below the pipe's buffer.
+                let mut text = String::new();
+                if let Some(stream) = child.stderr.take() {
+                    let _ = stream.take(2048).read_to_string(&mut text);
+                }
+                let line: String = text.lines().next().unwrap_or_default()
+                    .chars().filter(|c| !c.is_control()).take(400).collect();
+                return Err(if line.is_empty() { format!("Mukade chat {operation} failed.") } else { line });
+            }
+            Ok(None) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(50)),
+            _ => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!("Mukade chat {operation} did not finish in time."));
+            }
+        }
     }
 }
 
@@ -262,18 +365,31 @@ fn read_health(stream: &mut TcpStream, deadline: Instant) -> Result<Vec<u8>, Err
         if n == 0 { return Err(Error::ServiceUnavailable); }
         bytes.extend_from_slice(&chunk[..n]);
     };
-    if bytes.len() > header_end + body_len { return Err(Error::ServiceUnavailable); }
-    while bytes.len() < header_end + body_len {
+    // Without a length the body ends where the service closes the connection.
+    let limit = header_end + body_len.unwrap_or(MAX_HEALTH_BODY);
+    if bytes.len() > limit { return Err(Error::ServiceUnavailable); }
+    while bytes.len() < limit {
         stream.set_read_timeout(Some(remaining(deadline)?)).map_err(|_| Error::ServiceUnavailable)?;
-        let size = (header_end + body_len - bytes.len()).min(chunk.len());
+        let size = (limit - bytes.len()).min(chunk.len());
         let n = stream.read(&mut chunk[..size]).map_err(|_| Error::ServiceUnavailable)?;
-        if n == 0 { return Err(Error::ServiceUnavailable); }
+        if n == 0 {
+            if body_len.is_some() { return Err(Error::ServiceUnavailable); }
+            break;
+        }
         bytes.extend_from_slice(&chunk[..n]);
+    }
+    if body_len.is_none() {
+        // More than the bound, or nothing at all, is not a health answer.
+        let mut extra = [0u8; 1];
+        stream.set_read_timeout(Some(remaining(deadline)?)).map_err(|_| Error::ServiceUnavailable)?;
+        if bytes.len() == header_end || (bytes.len() == limit && stream.read(&mut extra).map_err(|_| Error::ServiceUnavailable)? != 0) {
+            return Err(Error::ServiceUnavailable);
+        }
     }
     Ok(bytes.split_off(header_end))
 }
 
-fn health_content_length(header: &[u8]) -> Result<usize, Error> {
+fn health_content_length(header: &[u8]) -> Result<Option<usize>, Error> {
     let text = std::str::from_utf8(header).map_err(|_| Error::ServiceUnavailable)?;
     let mut lines = text.split("\r\n");
     let status = lines.next().ok_or(Error::ServiceUnavailable)?;
@@ -291,7 +407,7 @@ fn health_content_length(header: &[u8]) -> Result<usize, Error> {
             length = Some(size);
         }
     }
-    length.ok_or(Error::ServiceUnavailable)
+    Ok(length)
 }
 
 #[cfg(test)]
@@ -354,7 +470,8 @@ mod tests {
         assert_eq!(env, BTreeMap::from([("KEEP".into(), "yes".into())]));
     }
 
-    fn health_server(body: Value, status: &str) -> (u16, std::thread::JoinHandle<()>) {
+    /// `length: false` is the real service's HTTP/1.0 answer: no length, then close.
+    fn health_server(body: Value, status: &str, length: bool) -> (u16, std::thread::JoinHandle<()>) {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         let port = listener.local_addr().unwrap().port();
         let status = status.to_owned();
@@ -367,11 +484,15 @@ mod tests {
                 assert!(request.len() < 2048);
             }
             let request = String::from_utf8(request).unwrap();
-            assert!(request.starts_with("GET /health HTTP/1.1\r\n"));
+            assert!(request.starts_with("GET /health HTTP/1.0\r\n"));
             assert!(request.contains(&format!("Authorization: Bearer {TOKEN}\r\n")));
             assert!(request.contains(&format!("X-Mukade-Service-Id: {SERVICE}\r\n")));
             let body = body.to_string();
-            write!(stream,"HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).unwrap();
+            if length {
+                write!(stream,"HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).unwrap();
+            } else {
+                write!(stream,"HTTP/1.0 {status}\r\ncontent-type: application/json\r\n\r\n{body}").unwrap();
+            }
         });
         (port, handle)
     }
@@ -384,7 +505,22 @@ mod tests {
             (json!({"service_id":SERVICE,"instance_id":INSTANCE,"status":"stopping"}), "200 OK", Err(Error::ServiceChanged)),
             (json!({}), "302 Found", Err(Error::ServiceUnavailable)),
         ] {
-            let (port, worker) = health_server(body, status);
+            let (port, worker) = health_server(body, status, true);
+            assert_eq!(connection(port).check_health(), expected);
+            worker.join().unwrap();
+        }
+    }
+
+    #[test]
+    fn health_accepts_the_service_answer_ended_by_close_within_its_bound() {
+        let running = json!({"service_id":SERVICE,"instance_id":INSTANCE,"status":"running","protocol_version":"2025-11-25"});
+        let mut oversized = running.clone();
+        oversized["padding"] = json!("x".repeat(MAX_HEALTH_BODY));
+        for (body, expected) in [
+            (running, Ok(())),
+            (oversized, Err(Error::ServiceUnavailable)),
+        ] {
+            let (port, worker) = health_server(body, "200 OK", false);
             assert_eq!(connection(port).check_health(), expected);
             worker.join().unwrap();
         }
@@ -392,7 +528,9 @@ mod tests {
 
     #[test]
     fn health_response_has_bounded_unambiguous_framing() {
-        for header in ["HTTP/1.1 200 OK\r\n\r\n", "HTTP/1.1 200 OK\r\nContent-Length: 8192\r\n\r\n",
+        assert_eq!(health_content_length(b"HTTP/1.0 200 OK\r\n\r\n"), Ok(None));
+        assert_eq!(health_content_length(b"HTTP/1.1 200 OK\r\nContent-Length: 3\r\n\r\n"), Ok(Some(3)));
+        for header in ["HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n", "HTTP/1.1 200 OK\r\nContent-Length: 8192\r\n\r\n",
             "HTTP/1.1 200 OK\r\nContent-Length: 3\r\nContent-Length: 3\r\n\r\n",
             "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nContent-Length: 3\r\n\r\n"] {
             assert!(health_content_length(header.as_bytes()).is_err());

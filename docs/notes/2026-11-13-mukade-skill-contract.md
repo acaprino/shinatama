@@ -53,19 +53,15 @@ La deduplicazione vale per istanza chiamante e UUID. Stesso UUID con argomenti d
 
 ## Mukade e primo utilizzo
 
-La prima versione collega il server Mukade gia' avviato nella directory indicata esplicitamente da `MUKADE_DATA_DIR`. Verifica file privati, lock del servizio e health con service/instance ID esatti. Gli endpoint sono solo loopback numerico; i token vengono passati nell'ambiente del figlio, non nella riga di comando o nei file di configurazione MCP. Il pin della vecchia libreria di lettura sessioni non e' stato cambiato.
+Shinatama avvia da solo il servizio: all'apertura esegue `mukade\mukade.exe chat start` del proprio pacchetto, con i dati in `mukade` dentro la propria cartella dati (`data\mukade` in un'installazione portatile), e alla chiusura esegue `chat stop`. Non serve alcuna variabile d'ambiente ne' un avvio manuale. Verifica file privati, lock del servizio e health con service/instance ID esatti. Gli endpoint sono solo loopback numerico; i token vengono passati nell'ambiente del figlio, non nella riga di comando o nei file di configurazione MCP. Il pin della vecchia libreria di lettura sessioni non e' stato cambiato.
 
-Una sessione ordinaria resta apribile se Mukade non e' configurato. Per un avvio comunicante con `room_id`, il desktop richiede invece il servizio disponibile e segnala il blocco se manca. Una perdita della connessione successiva al lancio si manifesta come mancato READY, senza un secondo avvio automatico.
+Se `MUKADE_DATA_DIR` e' impostata, Shinatama usa invece quel servizio esterno: deve essere gia' avviato, e Shinatama non lo avvia ne' lo ferma.
 
-Esempio di preparazione una tantum, dalla stessa shell che avviera' Shinatama:
+Una sessione ordinaria resta apribile se Mukade non parte. Per un avvio comunicante con `room_id`, il desktop riprova l'avvio e, se fallisce, segnala il blocco con il motivo dato da Mukade (per esempio meno di 1 GiB libero sul disco dei dati). Una perdita della connessione successiva al lancio si manifesta come mancato READY, senza un secondo avvio automatico.
 
-```powershell
-$env:MUKADE_DATA_DIR = 'D:\AgentData\mukade'
-& 'D:\Projects\mukade\target\release\mukade.exe' chat start
-# Avviare da questa shell la build aggiornata di Shinatama.
-```
+La cartella `mukade` accanto a `Shinatama.exe` la crea l'ultimo passo di `build-release.bat`, dal repository Mukade adiacente; non e' nel manifest verificato di `scripts/package-local.ps1`. Senza quella cartella Shinatama non avvia nulla e le sessioni comunicanti vengono rifiutate.
 
-La directory e' un esempio: deve essere locale, privata, fuori dai repository e dagli store degli harness. Le sessioni gia' aperte non acquisiscono retroattivamente il nuovo endpoint MCP: avviare la nuova build e una nuova sessione. La skill presente nella repository e' caricabile da Claude Code nel progetto; non e' stata installata globalmente in altri progetti o harness.
+Le sessioni gia' aperte non acquisiscono retroattivamente l'endpoint MCP di Mukade: serve una nuova sessione. La skill presente nella repository e' caricabile da Claude Code nel progetto; non e' stata installata globalmente in altri progetti o harness.
 
 Questa integrazione usa il consumo MCP **manuale**: il child fa join come peer, manda READY, legge/attende e conferma i batch. Non aggiunge hook Mukade, non sovrascrive quelli nativi di tracking e non modifica il trust di Codex. I kit della CLI Mukade restano un percorso separato. Nessuna promessa di risveglio permanente dopo la fine del turno: le attese sono limitate e il bootstrap dichiara il proprio budget.
 
