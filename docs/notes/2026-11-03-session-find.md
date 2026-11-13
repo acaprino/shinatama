@@ -4,8 +4,9 @@ La ricerca è una proiezione del reader Mukade già fissato, eseguita nel medesi
 worker contenuto. La richiesta include il selettore dell'archivio, l'ID nativo
 esatto e l'impronta della sessione già visualizzata. Non cerca altre cartelle e
 non costruisce un indice persistente. Rimane il limite preventivo di 16 MiB
-sull'intero archivio effettivo del reader; la paginazione riguarda i risultati,
-non la lettura dell'input.
+sul file della sessione letta (e 4.096 file nell'archivio); la dimensione totale
+dell'archivio non conta. La paginazione riguarda i risultati, non la lettura
+dell'input.
 
 La query letterale è obbligatoria, senza caratteri di controllo e limitata a
 128 byte UTF-8. Il confronto usa il lowercase Unicode semplice e occorrenze

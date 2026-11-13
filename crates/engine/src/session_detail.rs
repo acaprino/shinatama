@@ -256,9 +256,9 @@ pub(crate) fn read_verified_session(
         return Err(DetailIssue::InvalidRequest);
     }
     let guard = pin_reader_namespace(&snapshot.record)?;
-    // Conservative bound over the ENTIRE effective namespace, including Codex's
-    // optional index/pages. No native parsing or content allocation precedes it.
-    if guard.total_input_bytes() > MAX_INPUT_BYTES || guard.file_count() > MAX_INPUT_FILES {
+    // The archive's size does not bound the read: the list reads only each file's two
+    // ends, and only the one session read below is materialized, bounded by its own size.
+    if guard.file_count() > MAX_INPUT_FILES {
         return Err(DetailIssue::InputTooLarge);
     }
     let roots = explicit_roots(snapshot);
@@ -693,13 +693,26 @@ mod tests {
             Some(DetailIssue::InvalidRequest)
         );
         request.native_id = "fixture-session".into();
+        // Other sessions in the same archive do not count: only the session read is
+        // materialized, and the list reads each other file's two ends only.
+        let other = project.join("other-session.jsonl");
+        fs::write(&other, bytes.replace("fixture-session", "other-session")).unwrap();
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&other)
+            .unwrap()
+            .set_len(17 * 1024 * 1024)
+            .unwrap();
+        let beside_large = read_detail(&snapshot, &request);
+        assert!(beside_large.issue.is_none(), "{:?}", beside_large.issue);
+        fs::remove_file(&other).unwrap();
         fs::OpenOptions::new()
             .write(true)
             .open(&path)
             .unwrap()
             .set_len(30 * 1024 * 1024)
             .unwrap();
-        // Sparse invalid JSON proves refusal precedes even the native header read.
+        // Sparse invalid JSON proves a session past the bound is refused before parsing.
         assert_eq!(
             read_detail(&snapshot, &request).issue,
             Some(DetailIssue::InputTooLarge)

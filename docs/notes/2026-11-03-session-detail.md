@@ -6,10 +6,13 @@ revision, sends no caller-supplied path, and rechecks the exact record before
 accepting the response. A retained uncertain cleanup prevents a replacement read.
 
 The helper calls the actual pinned Mukade reader. It refuses input before parsing
-when the complete effective archive namespace exceeds 16 MiB or 4,096 files.
-This conservative whole-archive limit is intentional: this pin materializes a
-whole session and does not provide bounded input pagination. The per-job memory,
-CPU, queue, output and ten-second wall limits from C22 remain unchanged.
+when the session to read exceeds 16 MiB or the archive holds more than 4,096
+files. The pin materializes the whole session and has no bounded input
+pagination, so the bound is on that session's file. The archive's total size is
+not bounded: the list reads only the two ends of every other file, and an archive
+past 16 MiB in total used to refuse every detail, export and resume in it. The
+per-job memory, CPU, queue, output and ten-second wall limits from C22 remain
+unchanged.
 
 Responses contain at most 50 canonical events and 256 KiB. Each text projection
 is UTF-8 bounded at 4,096 bytes. Cursors bind root, revision, native ID, reader pin

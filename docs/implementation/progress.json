@@ -1452,7 +1452,7 @@
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/sessions-smoke.mjs"
           ],
           "limits": [
-            "Explicit selected archive only; entire input bounded to 16 MiB/4096 files, no streaming input/global search.",
+            "Explicit selected archive only; the session read bounded to 16 MiB and the archive to 4096 files, no streaming input/global search.",
             "Project grouping uses current page only; native parent metadata unavailable is shown as unknown.",
             "Clipboard contract mocked without system clipboard access; no native resume/provider or full C23 qualification."
           ]
@@ -1472,7 +1472,7 @@
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/sessions-smoke.mjs"
           ],
           "limits": [
-            "Explicit selected archive only; entire input bounded to 16 MiB/4096 files, no streaming input/global search.",
+            "Explicit selected archive only; the session read bounded to 16 MiB and the archive to 4096 files, no streaming input/global search.",
             "Project grouping uses current page only; native parent metadata unavailable is shown as unknown.",
             "Clipboard contract mocked without system clipboard access; no native resume/provider or full C23 qualification."
           ]
@@ -1492,7 +1492,7 @@
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/sessions-smoke.mjs"
           ],
           "limits": [
-            "Explicit selected archive only; entire input bounded to 16 MiB/4096 files, no streaming input/global search.",
+            "Explicit selected archive only; the session read bounded to 16 MiB and the archive to 4096 files, no streaming input/global search.",
             "Project grouping uses current page only; native parent metadata unavailable is shown as unknown.",
             "Clipboard contract mocked without system clipboard access; no native resume/provider or full C23 qualification."
           ]
@@ -1502,7 +1502,7 @@
         "docs/notes/2026-11-03-session-detail.md"
       ],
       "limits": [
-        "Whole effective archive namespace must fit 16 MiB/4096 files before the pinned whole-session reader runs.",
+        "The session file must fit 16 MiB and the archive 4096 files before the pinned whole-session reader runs; the archive total is not bounded.",
         "Only synthetic Claude detail is observed; full lineage, raw/privacy actions and all-harness parent acceptance remain open."
       ],
       "next_action": "Conversation search/raw/navigation are checkpointed; global persistent search is C24 and native thread binding/resume is C25. Preserve missing native parent metadata as unknown."
