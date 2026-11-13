@@ -2,7 +2,7 @@
 adr_id: ADR-0055
 version: 1
 title: A thread is a named set of sessions with its own saved layout; the window shows all and only the sessions of the open thread; the stored conversation record keeps its invariants and is called a session in the interface
-status: Proposed
+status: Accepted
 author: Alfio Caprino
 scope:
   paths:
@@ -31,6 +31,8 @@ supersedes:
 created_from_task: user-decision-2026-11-13-thread-is-a-set-of-sessions
 proposed_on: 2026-11-13
 proposed_at_sha: dbfd634567bac828248c367cce7095a9fc64beac
+accepted_on: 2026-11-13
+accepted_at_sha: 71f4712be3d870bcb31acd3a6a54e66e4198aff4
 ---
 
 # ADR-0055: A thread is a named set of sessions with its own saved layout; the window shows all and only the sessions of the open thread; the stored conversation record keeps its invariants and is called a session in the interface
