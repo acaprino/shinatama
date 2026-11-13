@@ -11,7 +11,9 @@ pub const SESSION_HELP: &str = "\
   shinatama find \"text\" [--agent A] [--project DIR] [--json]
   shinatama export AGENT:SESSION [-o FILE] [--format stx|mukade|native|md]
                    [--mode full|portable] [--with-attachments] [--replace] [--json]
-  shinatama forget AGENT:SESSION [--json]
+  shinatama forget AGENT:SESSION [--json]    (drop one session's search-index copy)
+  shinatama forget THREAD_ID [--json]        (delete a saved thread, its companion, hops,
+                                              hand-off files, index rows and summary setting)
   shinatama resume | hop    (open the agent in the Shinatama desktop; refused here)
 ";
 
@@ -27,6 +29,7 @@ pub enum SessionCommand {
     Find { query: String, agent: Option<String>, project: Option<String>, json: bool },
     Export { selector: Selector, output: Option<String>, format: String, mode: String, attachments: bool, replace: bool, json: bool },
     Forget { selector: Selector, json: bool },
+    ForgetThread { thread_id: String, json: bool },
     Resume,
     Hop,
 }
@@ -113,7 +116,11 @@ fn parse_inner(command: &str, rest: &[String]) -> Result<SessionCommand, ()> {
             Ok(SessionCommand::Export { selector, output, format, mode, attachments, replace, json })
         }
         "forget" if positional.len() == 1 && !export_only && agent_filter.is_none() && project.is_none() => {
-            Ok(SessionCommand::Forget { selector: selector(&positional[0]).ok_or(())?, json })
+            let value = &positional[0];
+            if value.len() == 14 && value.starts_with("t_") && value[2..].bytes().all(|c| matches!(c, b'a'..=b'z' | b'2'..=b'7')) {
+                return Ok(SessionCommand::ForgetThread { thread_id: value.clone(), json });
+            }
+            Ok(SessionCommand::Forget { selector: selector(value).ok_or(())?, json })
         }
         _ => Err(()),
     }
@@ -326,7 +333,7 @@ mod windows {
 
     pub fn run(command: &SessionCommand, out: &mut dyn Write, err: &mut dyn Write) -> std::io::Result<ExitCode> {
         let json = match command {
-            SessionCommand::Sessions { json, .. } | SessionCommand::Find { json, .. } | SessionCommand::Export { json, .. } | SessionCommand::Forget { json, .. } => *json,
+            SessionCommand::Sessions { json, .. } | SessionCommand::Find { json, .. } | SessionCommand::Export { json, .. } | SessionCommand::Forget { json, .. } | SessionCommand::ForgetThread { json, .. } => *json,
             _ => false,
         };
         match execute(command, out, err) {
@@ -398,6 +405,31 @@ mod windows {
                     write_json(out, json!({"schema": "shinatama.cli.forget/1", "status": "done", "removed": removed})).map_err(io)?;
                 } else {
                     writeln!(out, "Removed {removed} indexed cop{} of {}:{}; the agent's own session is untouched.", if removed == 1 { "y" } else { "ies" }, selector.agent, selector.native_id).map_err(io)?;
+                }
+                Ok(ExitCode::Done)
+            }
+            SessionCommand::ForgetThread { thread_id, json } => {
+                use shinatama_state::forget::{ForgetError, forget_thread};
+                let store = open_store()?;
+                let at = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).ok().and_then(|t| i64::try_from(t.as_millis()).ok()).unwrap_or(0);
+                let report = forget_thread(&store.location, &store.database, thread_id, None, at).map_err(|error| {
+                    let message = error.to_string();
+                    match error {
+                        ForgetError::NotFound => refused("not_found", &message),
+                        ForgetError::Invalid => refused("invalid_thread", &message),
+                        ForgetError::Changed => refused("thread_changed", &message),
+                        ForgetError::Open => refused("thread_open", &message),
+                        ForgetError::HopInProgress => refused("hop_in_progress", &message),
+                        ForgetError::Storage(_) => failed("storage_unavailable", &message),
+                        ForgetError::IndexNotUpdated => failed("index_not_updated", &message),
+                    }
+                })?;
+                if *json {
+                    write_json(out, json!({"schema": "shinatama.cli.forget_thread/1", "status": "done", "threads": report.thread_ids,
+                        "hops": report.hops, "handoff_files": report.handoff_files, "index_rows": report.index_rows})).map_err(io)?;
+                } else {
+                    writeln!(out, "Forgot {}: {} hop(s), {} hand-off file(s), {} index row(s). The agents' own sessions are untouched.",
+                        report.thread_ids.join(", "), report.hops, report.handoff_files, report.index_rows).map_err(io)?;
                 }
                 Ok(ExitCode::Done)
             }
@@ -492,6 +524,7 @@ mod tests {
         assert_eq!(selector, Selector { agent: "codex".into(), native_id: "abc-1".into() });
         assert_eq!((format.as_str(), mode.as_str()), ("stx", "portable"));
         assert_eq!(parse(&args(&["resume", "x"])), Some(Ok(SessionCommand::Resume)));
+        assert_eq!(parse(&args(&["forget", "t_abcdefgh2345", "--json"])), Some(Ok(SessionCommand::ForgetThread { thread_id: "t_abcdefgh2345".into(), json: true })));
     }
 
     #[test]
@@ -507,6 +540,8 @@ mod tests {
             &["find", ""],
             &["find", "a", "b"],
             &["forget", "codex:a", "--format", "md"],
+            &["forget", "t_short"],
+            &["forget", "t_ABCDEFGH2345"],
             &["sessions", "--json", "--json"],
         ] {
             assert_eq!(parse(&args(bad)), Some(Err(())), "{bad:?}");

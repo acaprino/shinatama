@@ -189,6 +189,13 @@ pub async fn titles_set_enabled(window: WebviewWindow, services: State<'_, Servi
         .map_err(|_| "The title worker stopped.".to_owned())?
 }
 
+/// A forgotten thread's generated title leaves memory too (FRD-0014 R27).
+pub fn forget_cached(thread_id: &str) {
+    if let Ok(mut c) = cache().lock() {
+        c.remove(thread_id);
+    }
+}
+
 /// R14's "pause summaries" action: the thread is never read for titles while paused.
 #[tauri::command]
 pub async fn thread_summaries_pause(window: WebviewWindow, services: State<'_, Services>, thread_id: String, paused: bool) -> Result<Vec<String>, String> {

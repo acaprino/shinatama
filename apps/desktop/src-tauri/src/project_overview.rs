@@ -53,7 +53,7 @@ pub async fn project_overview(window: WebviewWindow, services: State<'_, Service
             .map(|(project, git)| {
                 let last_thread = state
                     .store
-                    .list_threads(&project.id, None, 1)
+                    .list_threads(&project.id, None, 1, false)
                     .ok()
                     .and_then(|page| page.rows.into_iter().next())
                     .map(|t| LastThread { id: t.id, title: t.title, harness: t.harness, revision: t.revision, updated_at: t.updated_at });

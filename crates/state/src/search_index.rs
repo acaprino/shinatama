@@ -8,7 +8,7 @@ use rusqlite::{Connection, OptionalExtension, params, params_from_iter, types::V
 use std::{collections::HashSet, sync::Mutex, time::Duration};
 
 pub const FILE_NAME: &str = "session-search.sqlite";
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 pub const MAX_BODY_BYTES: usize = 256 * 1024;
 pub const MAX_TITLE_BYTES: usize = 512;
 pub const MAX_QUERY_BYTES: usize = 128;
@@ -16,6 +16,11 @@ pub const MAX_QUERY_TOKENS: usize = 8;
 pub const MAX_RESULTS: usize = 50;
 
 type Result<T> = std::result::Result<T, String>;
+fn forgotten(connection: &Connection, root_id: &str, native_id: &str) -> Result<bool> {
+    connection
+        .query_row("SELECT EXISTS(SELECT 1 FROM forgotten WHERE root_id=?1 AND native_id=?2)", [root_id, native_id], |row| row.get(0))
+        .map_err(sql)
+}
 fn sql(error: rusqlite::Error) -> String {
     format!("search index: {error}")
 }
@@ -222,7 +227,11 @@ impl SearchIndex {
                      CREATE INDEX IF NOT EXISTS doc_harness ON doc(harness);
                      CREATE VIRTUAL TABLE IF NOT EXISTS doc_fts USING fts5(
                        title, body, tokenize='unicode61 remove_diacritics 2');
-                     PRAGMA user_version = 1;
+                     CREATE TABLE IF NOT EXISTS forgotten(
+                       root_id TEXT NOT NULL,
+                       native_id TEXT NOT NULL,
+                       PRIMARY KEY(root_id, native_id));
+                     PRAGMA user_version = 2;
                      COMMIT;",
                 )
                 .map_err(sql)?;
@@ -261,10 +270,13 @@ impl SearchIndex {
     }
 
     /// True when the session was never indexed, changed since, or lost its source
-    /// and came back. Unchanged sessions are never read again.
+    /// and came back. Unchanged and forgotten sessions are never read again.
     pub fn needs_index(&self, root_id: &str, native_id: &str, signature: &str) -> Result<bool> {
-        let stored: Option<(String, i64)> = self
-            .lock()?
+        let connection = self.lock()?;
+        if forgotten(&connection, root_id, native_id)? {
+            return Ok(false);
+        }
+        let stored: Option<(String, i64)> = connection
             .query_row(
                 "SELECT signature,source_deleted FROM doc WHERE root_id=?1 AND native_id=?2",
                 params![root_id, native_id],
@@ -285,6 +297,9 @@ impl SearchIndex {
         let body = truncate(document.body, MAX_BODY_BYTES);
         let title = document.title.map(|t| truncate(t, MAX_TITLE_BYTES));
         let mut connection = self.lock()?;
+        if forgotten(&connection, document.root_id, document.native_id)? {
+            return Ok(());
+        }
         let transaction = connection.transaction().map_err(sql)?;
         let existing: Option<i64> = transaction
             .query_row(
@@ -482,6 +497,22 @@ impl SearchIndex {
             .query_map([native_id], |row| row.get::<_, String>(0))
             .map_err(sql)?;
         rows.collect::<std::result::Result<Vec<_>, _>>().map_err(sql)
+    }
+
+    /// Removes one session's indexed copy and keeps it out of later passes (forget of a thread,
+    /// FRD-0014 R27); the agent's own session is never touched.
+    pub fn forget_document(&self, root_id: &str, native_id: &str) -> Result<u64> {
+        let mut connection = self.lock()?;
+        let transaction = connection.transaction().map_err(sql)?;
+        transaction
+            .execute("DELETE FROM doc_fts WHERE rowid IN (SELECT id FROM doc WHERE root_id=?1 AND native_id=?2)", [root_id, native_id])
+            .map_err(sql)?;
+        let removed = transaction.execute("DELETE FROM doc WHERE root_id=?1 AND native_id=?2", [root_id, native_id]).map_err(sql)?;
+        transaction
+            .execute("INSERT OR IGNORE INTO forgotten(root_id,native_id) VALUES(?1,?2)", [root_id, native_id])
+            .map_err(sql)?;
+        transaction.commit().map_err(sql)?;
+        Ok(removed as u64)
     }
 
     /// Removes one session's indexed copy; the agent's own session is never touched.

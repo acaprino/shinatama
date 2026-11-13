@@ -703,7 +703,7 @@ fn v3_upgrade_preserves_saved_work_and_thread_exclusivity_survives_reopen() {
         Err(ThreadError::OwnedElsewhere)
     ));
     assert_eq!(
-        other.list_threads(project, None, 50).unwrap().rows[0].status,
+        other.list_threads(project, None, 50, false).unwrap().rows[0].status,
         ThreadStatus::RecordedOpen
     );
     db.end_thread_activation(&first, 1, 40).unwrap();
@@ -712,7 +712,7 @@ fn v3_upgrade_preserves_saved_work_and_thread_exclusivity_survives_reopen() {
         .unwrap();
     other.end_thread_activation(&second, 1, 60).unwrap();
     db.mark_store_root_unavailable("fixture-root", 1).unwrap();
-    let page = db.list_threads(project, None, 50).unwrap();
+    let page = db.list_threads(project, None, 50, false).unwrap();
     assert_eq!(page.rows.len(), 1);
     assert_eq!(page.rows[0].native_available, Some(false));
     assert_eq!(page.rows[0].status, ThreadStatus::Inactive);
@@ -725,8 +725,9 @@ fn v3_upgrade_preserves_saved_work_and_thread_exclusivity_survives_reopen() {
         70,
     )
     .unwrap();
+    assert!(other.list_threads(project, None, 50, false).unwrap().rows.is_empty(), "archived threads leave the default list");
     assert_eq!(
-        other.list_threads(project, None, 50).unwrap().rows[0].status,
+        other.list_threads(project, None, 50, true).unwrap().rows[0].status,
         ThreadStatus::Archived
     );
     drop(other);
@@ -742,4 +743,132 @@ fn v3_upgrade_preserves_saved_work_and_thread_exclusivity_survives_reopen() {
             .starts_with("shinatama-threads-")
     );
     fs::remove_dir_all(fixture).unwrap();
+}
+
+#[test]
+fn forget_removes_a_thread_with_its_companion_hops_index_and_summaries_only() {
+    use crate::forget::{ForgetError, forget_thread};
+    use crate::hops::{HopJournal, HopMode, HopPlan, HopState, HopStrategy};
+    use crate::search_index::{IndexedDocument, SearchIndex};
+    let parent = fs::canonicalize(std::env::temp_dir()).unwrap();
+    let fixture = parent.join(format!("shinatama-forget-{}", uuid::Uuid::new_v4()));
+    let location = StorageLocation::resolve(LocationRequest {
+        local_data_directory: parent.clone(),
+        home_override: Some(fixture.clone()),
+        project_roots: vec![],
+        synchronized_roots: vec![],
+    })
+    .unwrap();
+    location.prepare_private_directory().unwrap();
+    let db = Database::open(&location, None).unwrap();
+    db.lock().unwrap().execute("INSERT INTO project VALUES('p_aaaaaaaaaaaa','C:\\synthetic-project','synthetic-project','Project',10,1)", []).unwrap();
+    let thread = |id: &str, kind, parent: Option<&str>, worker: Option<&str>| ThreadRecord {
+        id: id.into(),
+        project_id: "p_aaaaaaaaaaaa".into(),
+        kind,
+        parent_thread_id: parent.map(Into::into),
+        companion_worker_thread_id: worker.map(Into::into),
+        title: None,
+        archived: false,
+        revision: 1,
+        created_at: 10,
+        updated_at: 10,
+    };
+    let (work, companion, fork, unrelated) = ("t_wwwwwwwwwwww", "t_cccccccccccc", "t_ffffffffffff", "t_uuuuuuuuuuuu");
+    db.create_thread(&thread(work, ThreadKind::Work, None, None)).unwrap();
+    db.create_thread(&thread(companion, ThreadKind::Companion, None, Some(work))).unwrap();
+    db.create_thread(&thread(fork, ThreadKind::Work, Some(work), None)).unwrap();
+    db.create_thread(&thread(unrelated, ThreadKind::Work, None, None)).unwrap();
+    let archive = location.resolve_related_directory(&location.directory().join("native-fixture")).unwrap();
+    archive.prepare_private_directory().unwrap();
+    db.register_store_root(&PreparedStoreRoot::resolve(StoreRootRecord {
+        id: "fixture-root".into(),
+        harness: "claude_code".into(),
+        kind: RootKind::Box,
+        scope: RootScope::Primary,
+        resolved_path: archive.directory().to_string_lossy().trim_start_matches(r"\?\").into(),
+        origin: RootOrigin::Configured,
+        config_revision: 1,
+        access: RootAccess::ReadWrite,
+        available: true,
+    })
+    .unwrap())
+    .unwrap();
+    let segment = |id: &str, thread: &str, native: &str| SegmentRecord {
+        id: id.into(),
+        thread_id: thread.into(),
+        ordinal: 1,
+        harness: "claude_code".into(),
+        native: NativeSessionKey { store_root_id: "fixture-root".into(), store_revision: 1, native_id: native.into() },
+        archived: false,
+        revision: 1,
+        created_at: 22,
+    };
+    db.attach_thread_segment(&segment("s_wwwwwwwwwwww", work, "native-w"), 1).unwrap();
+    db.attach_thread_segment(&segment("s_uuuuuuuuuuuu", unrelated, "native-u"), 1).unwrap();
+    let owner = ActivationOwner { instance_id: "i_aaaaaaaaaaaa".into(), pid: 10, created_at_100ns: 100 };
+    db.activate_thread_segment("s_wwwwwwwwwwww", 1, &owner, 30).unwrap();
+    assert!(matches!(forget_thread(&location, &db, work, None, 35), Err(ForgetError::Open)));
+    db.end_thread_activation(&owner, 1, 40).unwrap();
+    let shown = db.thread_record(work).unwrap().unwrap();
+    let archived = db.update_thread_metadata(work, shown.revision, None, true, 37).unwrap();
+    assert!(matches!(forget_thread(&location, &db, work, Some(shown.revision), 38), Err(ForgetError::Changed)), "a stale window cannot forget");
+
+    let journal = HopJournal::open(&location).unwrap();
+    let handoff = location.directory().join("handoffs").join("1".repeat(32));
+    fs::create_dir_all(&handoff).unwrap();
+    fs::write(handoff.join("seed.md"), "seed").unwrap();
+    fs::write(handoff.join("full.md"), "full").unwrap();
+    // The desktop keys a hop's source by session (hop_run.rs source_key), not by thread id.
+    let hop = |id: char, native: &str| HopPlan {
+        id: std::iter::repeat_n(id, 32).collect(),
+        thread_id: format!("session:{native}"),
+        destination_thread_id: None,
+        mode: HopMode::Close,
+        strategy: HopStrategy::SeedPrompt,
+        source_agent: "claude_code".into(),
+        source_native_id: native.into(),
+        source_instance: None,
+        destination_agent: "codex".into(),
+        nonce: "abc123".into(),
+        snapshot_sha256: "a".repeat(64),
+        bootstrap_sha256: "b".repeat(64),
+        seed_path: location.directory().join("handoffs").join(std::iter::repeat_n(id, 32).collect::<String>()).join("seed.md").display().to_string(),
+    };
+    let planned = journal.plan(&hop('1', "native-w"), 41).unwrap();
+    journal.plan(&hop('2', "native-u"), 41).unwrap();
+    // A finished fork from another thread into this one: the snapshot is the source's text.
+    let into = journal.plan(&HopPlan { mode: HopMode::Fork, destination_thread_id: Some(work.into()), ..hop('3', "native-x") }, 41).unwrap();
+    journal.transition(&into.plan.id, HopState::Planned, into.revision, HopState::Aborted, None, 41).unwrap();
+    let index = SearchIndex::open(&location).unwrap();
+    let document = |native| IndexedDocument { root_id: "fixture-root", native_id: native, harness: "claude_code", title: None, working_directory: None, updated_at: None, signature: "1", body: "secret words" };
+    index.upsert(&document("native-w")).unwrap();
+    index.upsert(&document("native-u")).unwrap();
+    db.set_summaries_excluded(work, true).unwrap();
+    db.set_summaries_excluded(unrelated, true).unwrap();
+    assert!(matches!(forget_thread(&location, &db, work, Some(archived.revision), 42), Err(ForgetError::HopInProgress)));
+    assert!(handoff.join("seed.md").exists(), "a refused forget changes nothing");
+    assert!(db.summaries_excluded().unwrap().contains(&work.to_owned()), "a refused forget keeps the summaries pause");
+    assert!(!index.locate("native-w").unwrap().is_empty(), "a refused forget keeps the index");
+    journal.transition(&planned.plan.id, HopState::Planned, planned.revision, HopState::Aborted, None, 43).unwrap();
+
+    let report = forget_thread(&location, &db, work, Some(archived.revision), 50).unwrap();
+    assert_eq!(report.thread_ids, [work, companion]);
+    assert_eq!((report.hops, report.handoff_files, report.index_rows), (1, 2, 1));
+    assert!(db.thread_record(work).unwrap().is_none() && db.thread_record(companion).unwrap().is_none());
+    let forked = db.thread_record(fork).unwrap().unwrap();
+    assert_eq!((forked.parent_thread_id, forked.revision), (None, 2), "a fork keeps its record and loses only the lineage pointer");
+    assert!(db.thread_record(unrelated).unwrap().is_some());
+    assert!(db.segment_record("s_uuuuuuuuuuuu").unwrap().is_some() && db.segment_record("s_wwwwwwwwwwww").unwrap().is_none());
+    assert_eq!(db.summaries_excluded().unwrap(), [unrelated]);
+    assert!(journal.hop(&planned.plan.id).unwrap().is_none() && journal.hop(&"2".repeat(32)).unwrap().is_some());
+    assert!(journal.hop(&into.plan.id).unwrap().is_some(), "a hop into the forgotten thread stays with its source");
+    assert!(!handoff.exists());
+    assert!(index.locate("native-w").unwrap().is_empty() && !index.locate("native-u").unwrap().is_empty());
+    assert!(!index.needs_index("fixture-root", "native-w", "2").unwrap(), "a forgotten session is not indexed again");
+    index.upsert(&document("native-w")).unwrap();
+    assert!(index.locate("native-w").unwrap().is_empty());
+    assert!(matches!(forget_thread(&location, &db, work, None, 60), Err(ForgetError::NotFound)));
+    drop((journal, index, db));
+    let _ = fs::remove_dir_all(fixture);
 }

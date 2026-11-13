@@ -378,6 +378,32 @@ fn touch(connection: &Connection, thread: &str, at: i64) -> Result<()> {
     if connection.execute("UPDATE thread SET revision=revision+1,updated_at=max(updated_at,?2) WHERE id=?1 AND revision<9007199254740991",params![thread,at])?!=1 { return Err(ThreadError::Conflict); }
     Ok(())
 }
+/// A thread and its companion threads, with the native sessions their segments name.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ForgetScope {
+    /// The requested thread first, then its companions.
+    pub thread_ids: Vec<String>,
+    /// (harness, store root id, native id) of every segment.
+    pub sessions: Vec<(String, String, String)>,
+    /// The requested thread's revision and archive state when the scope was read.
+    pub revision: u64,
+    pub archived: bool,
+}
+fn forget_scope(connection: &Connection, key: &str) -> Result<ForgetScope> {
+    let thread = load_thread(connection, key)?;
+    let mut thread_ids = vec![key.to_owned()];
+    let mut companions = connection.prepare("SELECT id FROM thread WHERE companion_worker_thread_id=?1 ORDER BY id")?;
+    thread_ids.extend(companions.query_map([key], |row| row.get::<_, String>(0))?.collect::<rusqlite::Result<Vec<_>>>()?);
+    let mut sessions = Vec::new();
+    for thread in &thread_ids {
+        if connection.query_row("SELECT EXISTS(SELECT 1 FROM activation WHERE thread_id=?1 AND ended_at IS NULL)", [thread], |row| row.get::<_, bool>(0))? {
+            return Err(ThreadError::OwnedElsewhere);
+        }
+        let mut segments = connection.prepare("SELECT harness,store_root_id,native_id FROM segment WHERE thread_id=?1 ORDER BY ordinal")?;
+        sessions.extend(segments.query_map([thread], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?.collect::<rusqlite::Result<Vec<_>>>()?);
+    }
+    Ok(ForgetScope { thread_ids, sessions, revision: thread.revision, archived: thread.archived })
+}
 fn segment_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<SegmentRecord> {
     Ok(SegmentRecord {
         id: row.get(0)?,
@@ -685,6 +711,40 @@ impl Database {
         let result = load_thread(&tx, key)?;
         tx.commit()?;
         Ok(result)
+    }
+    /// What `forget_thread_records` would remove, read without changing anything.
+    pub fn thread_forget_scope(&self, key: &str) -> Result<ForgetScope> {
+        id(key, CanonicalIdKind::Thread)?;
+        let connection = self.lock()?;
+        forget_scope(&connection, key)
+    }
+    /// FRD-0014 R27: deletes the thread, its companion threads, their segments and activation
+    /// history in one transaction; refused while any of them is open, and with `Conflict` if the
+    /// thread changed since `expected_revision` (archive, rename, a new segment). Threads forked from it keep their records and lose only the
+    /// lineage pointer. Native sessions are not touched.
+    pub fn forget_thread_records(&self, key: &str, expected_revision: u64, at: i64) -> Result<ForgetScope> {
+        id(key, CanonicalIdKind::Thread)?;
+        revision(expected_revision)?;
+        millis(at)?;
+        self.require_writable()?;
+        let mut connection = self.lock()?;
+        let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        crate::schema::require_write_version(&tx)?;
+        let scope = forget_scope(&tx, key)?;
+        if scope.revision != expected_revision {
+            return Err(ThreadError::Conflict);
+        }
+        for thread in &scope.thread_ids {
+            tx.execute("UPDATE thread SET parent_thread_id=NULL,revision=revision+1,updated_at=max(updated_at,?2) WHERE parent_thread_id=?1", params![thread, at])?;
+            tx.execute("DELETE FROM activation WHERE thread_id=?1", [thread])?;
+            tx.execute("DELETE FROM segment WHERE thread_id=?1", [thread])?;
+        }
+        // Companions reference the worker, so they go first.
+        for thread in scope.thread_ids.iter().rev() {
+            tx.execute("DELETE FROM thread WHERE id=?1", [thread])?;
+        }
+        tx.commit()?;
+        Ok(scope)
     }
     /// Attach ONLY a real adapter-provided native ID. No placeholder session is
     /// fabricated to make a launch appear resumable or available.
@@ -1024,6 +1084,7 @@ impl Database {
         project_id: &str,
         cursor: Option<&ThreadCursor>,
         limit: usize,
+        archived: bool,
     ) -> Result<ThreadListPage> {
         id(project_id, CanonicalIdKind::Project)?;
         if !(1..=50).contains(&limit) {
@@ -1041,14 +1102,15 @@ impl Database {
         )? {
             return Err(ThreadError::NotFound);
         }
-        let mut statement=connection.prepare("SELECT t.id,t.project_id,t.kind,t.title,t.revision,t.updated_at,t.archived,s.harness,r.available,EXISTS(SELECT 1 FROM activation a WHERE a.thread_id=t.id AND a.ended_at IS NULL) FROM thread t LEFT JOIN segment s ON s.id=coalesce((SELECT segment_id FROM activation WHERE thread_id=t.id ORDER BY activation_sequence DESC LIMIT 1),(SELECT id FROM segment WHERE thread_id=t.id ORDER BY ordinal DESC LIMIT 1)) LEFT JOIN store_root r ON r.id=s.store_root_id WHERE t.project_id=?1 AND (?2 IS NULL OR t.updated_at<?2 OR (t.updated_at=?2 AND t.id>?3)) ORDER BY t.updated_at DESC,t.id LIMIT ?4")?;
+        let mut statement=connection.prepare("SELECT t.id,t.project_id,t.kind,t.title,t.revision,t.updated_at,t.archived,s.harness,r.available,EXISTS(SELECT 1 FROM activation a WHERE a.thread_id=t.id AND a.ended_at IS NULL) FROM thread t LEFT JOIN segment s ON s.id=coalesce((SELECT segment_id FROM activation WHERE thread_id=t.id ORDER BY activation_sequence DESC LIMIT 1),(SELECT id FROM segment WHERE thread_id=t.id ORDER BY ordinal DESC LIMIT 1)) LEFT JOIN store_root r ON r.id=s.store_root_id WHERE t.project_id=?1 AND t.archived=?5 AND (?2 IS NULL OR t.updated_at<?2 OR (t.updated_at=?2 AND t.id>?3)) ORDER BY t.updated_at DESC,t.id LIMIT ?4")?;
         let mut rows = statement
             .query_map(
                 params![
                     project_id,
                     cursor.map(|cursor| cursor.updated_at),
                     cursor.map(|cursor| cursor.thread_id.as_str()),
-                    (limit + 1) as i64
+                    (limit + 1) as i64,
+                    archived
                 ],
                 |row| {
                     let archived: bool = row.get(6)?;

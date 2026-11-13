@@ -34,6 +34,8 @@ pub struct List {
     project_id: String,
     cursor: Option<ThreadCursor>,
     limit: usize,
+    #[serde(default)]
+    archived: bool,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -53,6 +55,21 @@ pub struct Rename {
     thread_id: String,
     expected_revision: u64,
     title: String,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Archive {
+    project_id: String,
+    thread_id: String,
+    expected_revision: u64,
+    archived: bool,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Forget {
+    project_id: String,
+    thread_id: String,
+    expected_revision: u64,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -321,7 +338,12 @@ pub async fn thread_list(
     controller
         .inner()
         .work(move |db| {
-            db.list_threads(&request.project_id, request.cursor.as_ref(), request.limit)
+            db.list_threads(
+                &request.project_id,
+                request.cursor.as_ref(),
+                request.limit,
+                request.archived,
+            )
         })
         .await
 }
@@ -358,7 +380,7 @@ pub async fn thread_create(
     controller
         .inner()
         .work(move |db| {
-            db.list_threads(&request.project_id, None, 1)?;
+            db.list_threads(&request.project_id, None, 1, false)?;
             let at = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .ok()
@@ -424,4 +446,88 @@ pub async fn thread_rename(
             )
         })
         .await
+}
+
+fn now_ms() -> Result<i64, ThreadError> {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .and_then(|time| i64::try_from(time.as_millis()).ok())
+        .ok_or(ThreadError::Storage)
+}
+/// The saved record, checked against the project and revision the window showed.
+fn current(
+    db: &shinatama_state::database::Database,
+    project_id: &str,
+    thread_id: &str,
+    expected_revision: u64,
+) -> Result<shinatama_state::threads::ThreadRecord, ThreadError> {
+    let current = db.thread_record(thread_id)?.ok_or(ThreadError::NotFound)?;
+    if current.project_id != project_id {
+        return Err(ThreadError::Invalid);
+    }
+    if current.revision != expected_revision {
+        return Err(ThreadError::Conflict);
+    }
+    Ok(current)
+}
+
+#[tauri::command]
+pub async fn thread_archive(
+    window: WebviewWindow,
+    controller: State<'_, Arc<Controller>>,
+    request: Archive,
+) -> Result<shinatama_state::threads::ThreadRecord, Error> {
+    local(&window)?;
+    controller
+        .inner()
+        .work(move |db| {
+            let current = current(db, &request.project_id, &request.thread_id, request.expected_revision)?;
+            db.update_thread_metadata(
+                &request.thread_id,
+                request.expected_revision,
+                current.title.as_deref(),
+                request.archived,
+                now_ms()?,
+            )
+        })
+        .await
+}
+
+/// FRD-0014 R27. The sidebar asks for a second click before calling this.
+#[tauri::command]
+pub async fn thread_forget(
+    window: WebviewWindow,
+    controller: State<'_, Arc<Controller>>,
+    request: Forget,
+) -> Result<shinatama_state::forget::ForgetReport, Error> {
+    use shinatama_state::forget::{ForgetError, forget_thread};
+    local(&window)?;
+    let services = controller.services.clone();
+    let report = controller
+        .inner()
+        .work_result(move |db| {
+            // Archive state and revision are checked again inside the delete transaction.
+            let thread = db.thread_record(&request.thread_id)?.ok_or(Error { code: "not_found" })?;
+            if thread.project_id != request.project_id {
+                return Err(Error { code: "invalid" });
+            }
+            let location = services.load().map_err(|_| Error { code: "unavailable" })?.location.clone();
+            forget_thread(&location, db, &request.thread_id, Some(request.expected_revision), now_ms()?).map_err(|error| Error {
+                code: match error {
+                    ForgetError::NotFound => "not_found",
+                    ForgetError::Invalid => "invalid",
+                    ForgetError::Changed => "conflict",
+                    ForgetError::IndexNotUpdated => "index_not_updated",
+                    ForgetError::Open => "owned_elsewhere",
+                    ForgetError::HopInProgress => "hop_in_progress",
+                    ForgetError::Storage(_) => "unavailable",
+                },
+            })
+        })
+        .await?;
+    for id in &report.thread_ids {
+        crate::titles::forget_cached(id);
+    }
+    Ok(report)
 }

@@ -8,7 +8,9 @@ export type ThreadSummary = {
   status: 'unbound' | 'inactive' | 'recorded_open' | 'archived';
 };
 export type ThreadListPage = { rows: ThreadSummary[]; next: ThreadCursor | null };
-export type ThreadListRequest = { projectId: string; cursor: ThreadCursor | null; limit: 50 };
+export type ThreadListRequest = { projectId: string; cursor: ThreadCursor | null; limit: 50; archived: boolean };
+export type ThreadArchiveRequest = { projectId: string; threadId: string; expectedRevision: number; archived: boolean };
+export type ThreadForgetRequest = { projectId: string; threadId: string; expectedRevision: number };
 export type ThreadRenameRequest = { projectId: string; threadId: string; expectedRevision: number; title: string };
 export type ThreadSidebarState = { version: 1; width: number; collapsed: boolean };
 export type ThreadSidebarOptions = {
@@ -16,6 +18,9 @@ export type ThreadSidebarOptions = {
   list: (request: ThreadListRequest) => Promise<unknown>;
   create?: (request: {projectId:string}) => Promise<unknown>;
   rename?: (request: ThreadRenameRequest) => Promise<unknown>;
+  archive?: (request: ThreadArchiveRequest) => Promise<unknown>;
+  /** Permanent deletion of a thread without an open session (FRD-0014 R27), after a second click. */
+  forget?: (request: ThreadForgetRequest) => Promise<unknown>;
   /** Request the shared New session dialog for this explicit project. */
   onNewSession?: (projectId: string) => void;
   loadState?: () => Promise<unknown>;
@@ -46,7 +51,7 @@ function stateValue(value: unknown): ThreadSidebarState | null {
   return record(value) && value.version === 1 && integer(value.width) && value.width >= MIN_WIDTH && value.width <= MAX_WIDTH
     && typeof value.collapsed === 'boolean' ? { version: 1, width: value.width, collapsed: value.collapsed } : null;
 }
-function pageValue(value: unknown, scope: string, cursor: ThreadCursor | null): ThreadListPage | null {
+function pageValue(value: unknown, scope: string, cursor: ThreadCursor | null, archived: boolean): ThreadListPage | null {
   if (!record(value) || !Array.isArray(value.rows) || value.rows.length > 50) return null;
   const rows: ThreadSummary[] = []; const seen = new Set<string>();
   for (const row of value.rows) {
@@ -56,7 +61,8 @@ function pageValue(value: unknown, scope: string, cursor: ThreadCursor | null): 
       || !integer(row.revision) || row.revision === 0 || !integer(row.updatedAt)
       || (row.harness !== null && (!safeText(row.harness, 64) || !/^[a-z0-9_]+$/.test(row.harness)))
       || (row.nativeAvailable !== null && typeof row.nativeAvailable !== 'boolean')
-      || !['unbound', 'inactive', 'recorded_open', 'archived'].includes(String(row.status))) return null;
+      || !['unbound', 'inactive', 'recorded_open', 'archived'].includes(String(row.status))
+      || (row.status === 'archived') !== archived) return null;
     const previous = rows.at(-1);
     if (previous && (row.updatedAt > previous.updatedAt || (row.updatedAt === previous.updatedAt && row.id <= previous.id))) return null;
     if (cursor && (row.updatedAt > cursor.updatedAt || (row.updatedAt === cursor.updatedAt && row.id <= cursor.threadId))) return null;
@@ -96,6 +102,16 @@ function recoveryFailureText(error: unknown) {
   if (code === 'busy') return 'Another thread operation is in progress. Try again when it finishes.';
   return 'The previous session could not be verified. Its saved conversation is preserved.';
 }
+function archiveFailureText(error: unknown, forgetting: boolean) {
+  const code = typeof error === 'string' ? error : record(error) ? error.code ?? error.issue : null;
+  if (code === 'owned_elsewhere') return forgetting ? 'A session of this thread is open. Close it, then forget the thread.' : 'This conversation is open. Close it before archiving.';
+  if (code === 'not_found') return 'This thread is already gone. Reload threads.';
+  if (code === 'index_not_updated') return 'Thread forgotten, but the search index could not be updated; its text may still appear in search.';
+  if (code === 'hop_in_progress') return 'A hop of this thread has not finished. Let it finish, then forget the thread.';
+  if (code === 'source_changed' || code === 'conflict') return 'This thread changed. Reload threads and try again.';
+  if (code === 'busy') return 'Another thread operation is in progress. Try again when it finishes.';
+  return forgetting ? 'The thread could not be forgotten. It is still saved; try again.' : 'The thread could not be changed. Try again.';
+}
 function validTitle(value: string): boolean {
   return value.trim().length > 0 && utf8.encode(value).length <= 256 && !/[\u0000-\u001f\u007f-\u009f]/.test(value);
 }
@@ -118,6 +134,9 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
   const scopeSelect = document.createElement('select'); scopeSelect.id = 'thread-sidebar-project'; scopeSelect.className = 'thread-sidebar-scope';
   const reload = document.createElement('button'); reload.type = 'button'; reload.className = 'thread-sidebar-reload'; reload.textContent = 'Reload threads';
   const create = document.createElement('button'); create.type = 'button'; create.className = 'thread-sidebar-create'; create.textContent = options.onNewSession ? 'New session' : 'New thread'; create.hidden = !options.onNewSession && !options.create;
+  const showArchivedLabel = document.createElement('label'); showArchivedLabel.className = 'thread-sidebar-archived-toggle';
+  const showArchived = document.createElement('input'); showArchived.type = 'checkbox'; showArchived.id = 'thread-sidebar-show-archived';
+  showArchivedLabel.append(showArchived, ' Show archived threads'); showArchivedLabel.hidden = !options.archive;
   const status = document.createElement('p'); status.className = 'thread-sidebar-status'; status.setAttribute('role', 'status');
   const list = document.createElement('ul'); list.className = 'thread-sidebar-list'; list.setAttribute('aria-label', 'Saved threads');
   const pagination = document.createElement('div'); pagination.className = 'thread-sidebar-pagination';
@@ -131,6 +150,9 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
   const resume = document.createElement('button'); resume.type = 'button'; resume.textContent = 'Resume'; resume.hidden = true; actions.append(resume);
   const recover = document.createElement('button'); recover.type = 'button'; recover.textContent = 'Recover session'; recover.hidden = true; actions.append(recover);
   const rename = document.createElement('button'); rename.type = 'button'; rename.textContent = 'Rename'; rename.hidden = true; actions.append(rename);
+  const archive = document.createElement('button'); archive.type = 'button'; archive.hidden = true; actions.append(archive);
+  const forgetLabel = 'Forget permanently…';
+  const forget = document.createElement('button'); forget.type = 'button'; forget.textContent = forgetLabel; forget.hidden = true; actions.append(forget);
   const renameForm = document.createElement('form'); renameForm.className = 'thread-sidebar-rename'; renameForm.hidden = true;
   const renameLabel = document.createElement('label'); renameLabel.htmlFor = 'thread-rename-title'; renameLabel.textContent = 'Thread name';
   const renameInput = document.createElement('input'); renameInput.id = 'thread-rename-title'; renameInput.type = 'text'; renameInput.maxLength = 256; renameInput.autocomplete = 'off';
@@ -141,7 +163,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
   const renameCancel = document.createElement('button'); renameCancel.type = 'button'; renameCancel.textContent = 'Cancel';
   renameButtons.append(renameSave, renameCancel); renameForm.append(renameLabel, renameInput, renameError, renameButtons);
   for (const text of ['Hop unavailable']) { const button = document.createElement('button'); button.type = 'button'; button.disabled = true; button.textContent = text; actions.append(button); }
-  body.append(scopeLabel, scopeSelect, create, reload, status, list, pagination, detail, limitation, actions, renameForm);
+  body.append(scopeLabel, scopeSelect, create, reload, showArchivedLabel, status, list, pagination, detail, limitation, actions, renameForm);
   const separator = document.createElement('div'); separator.className = 'thread-sidebar-resize'; separator.tabIndex = 0;
   separator.setAttribute('role', 'separator'); separator.setAttribute('aria-label', 'Thread sidebar width'); separator.setAttribute('aria-orientation', 'vertical');
   separator.setAttribute('aria-valuemin', String(MIN_WIDTH)); separator.setAttribute('aria-valuemax', String(MAX_WIDTH));
@@ -149,8 +171,9 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
   let display = { ...initialState }; let projects: CurrentThreadProject[] = []; let selectedProject: string | null = null;
   let page: ThreadListPage | null = null; let cursor: ThreadCursor | null = null; let history: (ThreadCursor | null)[] = [];
   let selected: string | null = null; let generation = 0; let uiGeneration = 0; let destroyed = false;
-  let busy: 'load_state' | 'list' | 'save_state' | 'create' | 'resume' | 'recover' | 'rename' | null = null; let message = 'Choose a project, then load its saved threads.'; let failed = false;
+  let busy: 'load_state' | 'list' | 'save_state' | 'create' | 'resume' | 'recover' | 'rename' | 'archive' | 'forget' | null = null; let message = 'Choose a project, then load its saved threads.'; let failed = false;
   let editing: ThreadSummary | null = null; let renameNeedsReload = false;
+  let archivedView = false; let forgetArmed = 0;
   let pendingState: ThreadSidebarState | null = null; let saveTimer = 0;
   let pendingProjectRead = false;
   let pendingChangedProject: string | null = null; let changeTimer = 0;
@@ -166,11 +189,11 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     body.hidden = display.collapsed; separator.hidden = display.collapsed; separator.setAttribute('aria-valuenow', String(display.width));
     collapse.textContent = display.collapsed ? '›' : '‹'; collapse.setAttribute('aria-label', display.collapsed ? 'Expand threads' : 'Collapse threads');
     collapse.setAttribute('aria-expanded', String(!display.collapsed));
-    reload.disabled = busy !== null || selectedProject === null; scopeSelect.disabled = !projects.length || busy !== null;
+    reload.disabled = busy !== null || selectedProject === null; showArchived.disabled = busy !== null || selectedProject === null; showArchived.checked = archivedView; scopeSelect.disabled = !projects.length || busy !== null;
     create.disabled = busy !== null || selectedProject === null;
     previous.disabled = busy !== null || !history.length; next.disabled = busy !== null || !page?.next;
     body.setAttribute('aria-busy', String(busy !== null));
-    status.textContent = busy === 'list' ? 'Reading saved threads…' : busy === 'create' ? 'Saving a new thread…' : busy === 'resume' ? 'Resuming conversation…' : busy === 'recover' ? 'Recovering stopped session…' : busy === 'rename' ? 'Saving thread name…' : busy === 'load_state' ? 'Restoring sidebar display…' : message;
+    status.textContent = busy === 'list' ? 'Reading saved threads…' : busy === 'create' ? 'Saving a new thread…' : busy === 'resume' ? 'Resuming conversation…' : busy === 'recover' ? 'Recovering stopped session…' : busy === 'rename' ? 'Saving thread name…' : busy === 'archive' ? 'Saving archive state…' : busy === 'forget' ? 'Forgetting thread…' : busy === 'load_state' ? 'Restoring sidebar display…' : message;
     status.dataset.state = failed ? 'error' : 'ready';
     const retained = new Set(page?.rows.map(row => row.id) ?? []);
     for (const [id, node] of anchors) if (!retained.has(id)) { node.remove(); anchors.delete(id); }
@@ -220,6 +243,12 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     recover.disabled = busy !== null || recover.hidden;
     rename.hidden = !options.rename || !chosen || editing !== null;
     rename.disabled = busy !== null || renameNeedsReload;
+    archive.hidden = !options.archive || !chosen || editing !== null || chosen.status === 'recorded_open';
+    archive.textContent = chosen?.status === 'archived' ? 'Unarchive' : 'Archive';
+    archive.disabled = busy !== null || archive.hidden;
+    forget.hidden = !options.forget || !chosen || editing !== null || chosen.status === 'recorded_open';
+    forget.disabled = busy !== null || forget.hidden;
+    if (forget.hidden && forgetArmed) disarmForget();
     renameForm.hidden = editing === null;
     renameInput.disabled = busy !== null || renameNeedsReload;
     renameSave.disabled = busy !== null || renameNeedsReload || !validTitle(renameInput.value);
@@ -230,6 +259,10 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
       metadata('Native activity', 'Unknown');
       metadata('Saved status', { unbound: 'No native session linked', inactive: 'Recorded inactive', recorded_open: 'Recorded open; activity unknown', archived: 'Archived' }[chosen.status]);
     }
+  }
+  function disarmForget() { window.clearTimeout(forgetArmed); forgetArmed = 0; forget.textContent = forgetLabel; forget.classList.remove('danger'); }
+  function listPage(project: string, requested: ThreadCursor | null) {
+    return options.list({ projectId: project, cursor: requested, limit: 50, archived: archivedView }).then(value => pageValue(value, project, requested, archivedView));
   }
   function reset() { page = null; cursor = null; history = []; selected = null; editing = null; renameNeedsReload = false; failed = false; pendingChangedProject = null; window.clearTimeout(changeTimer); changeTimer = 0; }
   function afterOperation() {
@@ -278,7 +311,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     pendingChangedProject = null; window.clearTimeout(changeTimer); changeTimer = 0;
     editing = null; busy = 'list'; failed = false; render();
     try {
-      const result = pageValue(await options.list({ projectId: project, cursor: requested, limit: 50 }), project, requested);
+      const result = await listPage(project, requested);
       if (!result) throw new Error('Invalid bounded thread projection');
       if (destroyed || at !== generation || selectedProject !== project) return false;
       if (direction === 'reload') history = [];
@@ -373,6 +406,64 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     if (selectedProject) void read(null, 'reload');
   };
   reload.onclick = () => { void read(null, 'reload'); };
+  showArchived.onchange = () => {
+    if (busy || destroyed || !selectedProject) { showArchived.checked = archivedView; return; }
+    archivedView = showArchived.checked; page = null; cursor = null; history = []; selected = null; editing = null;
+    void read(null, 'reload');
+  };
+  archive.onclick = () => {
+    if (destroyed || busy || !options.archive || !selectedProject) return;
+    const chosen = page?.rows.find(row => row.id === selected && row.projectId === selectedProject);
+    if (!chosen || chosen.status === 'recorded_open') return;
+    const archived = chosen.status !== 'archived'; const project = selectedProject; const at = generation;
+    busy = 'archive'; failed = false; render();
+    void (async () => {
+      try {
+        await options.archive!({ projectId: project, threadId: chosen.id, expectedRevision: chosen.revision, archived });
+        if (destroyed || at !== generation || selectedProject !== project) return;
+        // The thread leaves this view; the first page is re-read without it.
+        cursor = null; history = []; selected = null;
+        message = archived ? 'Thread archived. Turn on Show archived threads to find it.' : 'Thread restored to the thread list.';
+        const received = await listPage(project, null);
+        if (destroyed || at !== generation || selectedProject !== project) return;
+        if (received) page = received; else { page = null; message += ' Reload threads to refresh the list.'; }
+      } catch (error) {
+        if (!destroyed && at === generation && selectedProject === project) { failed = true; message = archiveFailureText(error, false); options.reportError(message); }
+      } finally { afterOperation(); }
+    })();
+  };
+  forget.onblur = disarmForget;
+  forget.onclick = () => {
+    if (destroyed || busy || !options.forget || !selectedProject) return;
+    const chosen = page?.rows.find(row => row.id === selected && row.projectId === selectedProject);
+    if (!chosen || chosen.status === 'recorded_open') return;
+    if (!forgetArmed) {
+      forget.textContent = 'Click again: delete forever'; forget.classList.add('danger');
+      message = `Forgetting deletes ${chosen.title || 'this thread'}, its companion, hops and hand-off files from Shinatama. The agent's own session files stay.`; render();
+      forgetArmed = window.setTimeout(disarmForget, 5000); return;
+    }
+    disarmForget();
+    const project = selectedProject; const at = generation;
+    busy = 'forget'; failed = false; render();
+    void (async () => {
+      try {
+        await options.forget!({ projectId: project, threadId: chosen.id, expectedRevision: chosen.revision });
+        if (destroyed || at !== generation || selectedProject !== project) return;
+        cursor = null; history = []; selected = null;
+        message = 'Thread forgotten.';
+        const received = await listPage(project, null);
+        if (destroyed || at !== generation || selectedProject !== project) return;
+        if (received) page = received; else { page = null; message = 'Thread forgotten. Reload threads to refresh the list.'; }
+      } catch (error) {
+        if (!destroyed && at === generation && selectedProject === project) {
+          failed = true; message = archiveFailureText(error, true); options.reportError(message);
+          // The thread is gone in this case; drop it from the shown page.
+          const code = record(error) ? error.code : error;
+          if (code === 'index_not_updated' && page) { page = { ...page, rows: page.rows.filter(row => row.id !== chosen.id) }; selected = null; }
+        }
+      } finally { afterOperation(); }
+    })();
+  };
   rename.onclick = () => {
     if (destroyed || busy || renameNeedsReload || !options.rename) return;
     const chosen = page?.rows.find(row => row.id === selected && row.projectId === selectedProject);
@@ -410,7 +501,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
         page = {rows: (page?.rows ?? []).map(row => row.id === renamed.id ? renamed : row), next:null}; cursor = null; history = [];
         message = 'Thread renamed.';
         try {
-          const received = pageValue(await options.list({projectId:before.projectId,cursor:null,limit:50}), before.projectId, null);
+          const received = await listPage(before.projectId, null);
           if (destroyed || at !== generation || selectedProject !== before.projectId) return;
           if (!received || !received.rows.some(row => row.id === renamed.id)) throw new Error('Reload required');
           page = received;
@@ -449,7 +540,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
         if (destroyed || at !== generation || selectedProject !== project) return;
         message = 'Conversation resumed.';
         try {
-          const received = pageValue(await options.list({ projectId: project, cursor: requested, limit: 50 }), project, requested);
+          const received = await listPage(project, requested);
           if (destroyed || at !== generation || selectedProject !== project) return;
           if (!received) throw new Error('Invalid thread page');
           page = received;
@@ -479,7 +570,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
         // Finalization updates the sort key. Old page cursors cannot locate the
         // recovered thread reliably; keep it selected on the refreshed first page.
         cursor = null; history = [];
-        const received = pageValue(await options.list({ projectId: project, cursor: null, limit: 50 }), project, null);
+        const received = await listPage(project, null);
         if (destroyed || at !== generation || selectedProject !== project) return;
         if (!received) throw new Error('Invalid thread page');
         page = received;
@@ -512,7 +603,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
       try {
         await options.create!({projectId:project});
         if (destroyed || at!==generation || selectedProject!==project) return;
-        const received=pageValue(await options.list({projectId:project,cursor:null,limit:50}),project,null);
+        const received=await listPage(project,null);
         if (!received) throw new Error('Invalid thread page');
         if (destroyed || at!==generation || selectedProject!==project) return;
         page=received; cursor=null; history=[]; selected=null;
@@ -542,6 +633,6 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     refreshCapabilities: render,
     notifyThreadChanged,
     refresh: () => read(null, 'reload'), state: (): Readonly<ThreadSidebarState> => Object.freeze({ ...display }),
-    destroy() { destroyed = true; generation++; window.clearTimeout(saveTimer); window.clearTimeout(changeTimer); pendingState = null; pendingChangedProject = null; cancelDrag(); anchors.clear(); element.remove(); },
+    destroy() { destroyed = true; generation++; window.clearTimeout(saveTimer); window.clearTimeout(forgetArmed); window.clearTimeout(changeTimer); pendingState = null; pendingChangedProject = null; cancelDrag(); anchors.clear(); element.remove(); },
   };
 }

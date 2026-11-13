@@ -490,6 +490,55 @@ impl HopJournal {
         }
     }
 
+    /// (hop id, seed path) of every hop from these threads or from one of their native sessions
+    /// (the desktop keys a hop's source by session, not by thread), for forget (FRD-0014 R27).
+    /// A finished hop INTO one of them stays: its snapshot is the source thread's text. Refused
+    /// with `ThreadBusy` while any hop from or into them is unfinished.
+    pub fn for_threads(&self, thread_ids: &[String], sessions: &[(String, String)]) -> Result<Vec<(String, String)>> {
+        let connection = self.lock()?;
+        let mut found: Vec<(String, String)> = Vec::new();
+        let mut collect = |sql: &str, params: &[&str], keep: bool| -> Result<()> {
+            let mut statement = connection.prepare_cached(sql).map_err(storage)?;
+            let rows = statement
+                .query_map(rusqlite::params_from_iter(params), |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, bool>(2)?)))
+                .map_err(storage)?;
+            for row in rows {
+                let (id, seed, finished) = row.map_err(storage)?;
+                if !finished {
+                    return Err(HopError::ThreadBusy { hop_id: id });
+                }
+                if keep && !found.iter().any(|(known, _)| known == &id) {
+                    found.push((id, seed));
+                }
+            }
+            Ok(())
+        };
+        for thread in thread_ids {
+            collect("SELECT id,seed_path,finished FROM hop WHERE thread_id=?1", &[thread], true)?;
+            collect("SELECT id,seed_path,finished FROM hop WHERE destination_thread_id=?1", &[thread], false)?;
+        }
+        for (agent, native_id) in sessions {
+            collect("SELECT id,seed_path,finished FROM hop WHERE source_agent=?1 AND source_native_id=?2", &[agent, native_id], true)?;
+        }
+        Ok(found)
+    }
+
+    /// Deletes finished hops and their events; an unfinished hop is never removed.
+    pub fn forget(&self, hop_ids: &[String]) -> Result<u64> {
+        let mut connection = self.lock()?;
+        let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate).map_err(storage)?;
+        let mut removed = 0;
+        for id in hop_ids {
+            if tx.query_row("SELECT finished FROM hop WHERE id=?1", [id], |row| row.get::<_, bool>(0)).optional().map_err(storage)? == Some(false) {
+                return Err(HopError::ThreadBusy { hop_id: id.clone() });
+            }
+            tx.execute("DELETE FROM hop_event WHERE hop_id=?1", [id]).map_err(storage)?;
+            removed += tx.execute("DELETE FROM hop WHERE id=?1", [id]).map_err(storage)? as u64;
+        }
+        tx.commit().map_err(storage)?;
+        Ok(removed)
+    }
+
     pub fn events(&self, hop_id: &str) -> Result<Vec<HopEvent>> {
         let connection = self.lock()?;
         let mut statement = connection

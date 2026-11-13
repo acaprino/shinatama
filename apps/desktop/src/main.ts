@@ -465,6 +465,8 @@ threadSidebar = createThreadSidebar({
   host: $('#work-area'),
   list: request => desktop ? invoke('thread_list', {request}) : Promise.resolve({rows:[],next:null}),
   rename: desktop ? request => invoke('thread_rename', {request}) : undefined,
+  archive: desktop ? request => invoke('thread_archive', {request}) : undefined,
+  forget: desktop ? request => invoke('thread_forget', {request}) : undefined,
   onNewSession: projectId => {
     const path = recentThreadProjects.get(projectId);
     if (!path) { notify('Choose the project folder for this session.'); openNewSession(); return; }
