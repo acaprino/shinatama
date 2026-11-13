@@ -197,6 +197,7 @@ impl Controller {
                         OpenMode::PrepareWhenNeeded,
                         None,
                         false,
+                        None,
                     )
                     .map_err(unavailable)
             })

@@ -534,9 +534,11 @@ fn sidecar_report(
     window: &tauri::WebviewWindow,
     mut status: sidecar::Status,
 ) -> Result<serde_json::Value, String> {
-    if let Some(agents) = window.try_state::<Arc<agents::Controller>>() {
-        status.agent_sessions = agents.live_agent_sessions();
-    }
+    let count = window
+        .try_state::<Arc<agents::Controller>>()
+        .and_then(|agents| agents.live_agent_sessions());
+    status.agent_sessions = count.unwrap_or(0);
+    status.agent_sessions_known = count.is_some();
     serde_json::to_value(status).map_err(|_| "Model proxy status is unavailable.".into())
 }
 #[tauri::command]
@@ -570,19 +572,13 @@ fn sidecar_stop(window: tauri::WebviewWindow, force: bool) -> Result<serde_json:
     {
         let agent_sessions = window
             .try_state::<Arc<agents::Controller>>()
-            .map_or(0, |agents| agents.live_agent_sessions());
+            .and_then(|agents| agents.live_agent_sessions());
         let outcome = ready::<sidecar::Controller>(&window)?
             .stop_requested_by_user(agent_sessions, force)
             .map_err(str::to_owned)?;
         let (status, refused) = match outcome {
             sidecar::StopOutcome::Draining(status) => (status, false),
-            sidecar::StopOutcome::Refused {
-                agent_sessions,
-                mut status,
-            } => {
-                status.agent_sessions = agent_sessions;
-                (status, true)
-            }
+            sidecar::StopOutcome::Refused { status } => (status, true),
         };
         let mut value = serde_json::to_value(status)
             .map_err(|_| "Model proxy status is unavailable.".to_owned())?;
@@ -610,6 +606,30 @@ fn sidecar_retry(window: tauri::WebviewWindow) -> Result<serde_json::Value, Stri
         .and_then(|status| sidecar_report(&window, status));
     #[cfg(not(windows))]
     Err("The Model proxy is available on Windows.".into())
+}
+/// One session's capabilities as the running proxy reports them:
+/// `{ state: "observed" | "not_observed" | "unavailable", capabilities? }`.
+#[tauri::command]
+async fn sidecar_capabilities(
+    window: tauri::WebviewWindow,
+    native_id: String,
+) -> Result<serde_json::Value, String> {
+    local(&window)?;
+    #[cfg(windows)]
+    {
+        let controller = ready::<sidecar::Controller>(&window)?;
+        let read = tauri::async_runtime::spawn_blocking(move || {
+            controller.session_capabilities(&native_id)
+        })
+        .await
+        .map_err(|_| "Session capabilities are unavailable.".to_owned())?;
+        return Ok(sidecar::capabilities_reply(read));
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = native_id;
+        Err("The Model proxy is available on Windows.".into())
+    }
 }
 /// A portable install (`Shinatama.portable` beside the exe) keeps its database in `data\` and
 /// its WebView2 profile in `webview\` beside Shinatama.exe; child processes inherit both.
@@ -755,6 +775,7 @@ fn main() {
         sidecar_start,
         sidecar_stop,
         sidecar_retry,
+        sidecar_capabilities,
         agent_check,
         agent_status,
         agent_start,
@@ -888,6 +909,7 @@ fn main() {
         sidecar_start,
         sidecar_stop,
         sidecar_retry,
+        sidecar_capabilities,
         agent_check,
         agent_status,
         agent_start,

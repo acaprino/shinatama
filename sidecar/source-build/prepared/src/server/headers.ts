@@ -26,6 +26,9 @@ export const UPSTREAM_HOP_HEADERS = new Set([
     // #1117: bili-internal passthrough marker (native fetch patch → proxy);
     // never meaningful to a real upstream.
     "x-bili-passthrough",
+    // Shinatama's own control marker (a hash of one of its internal messages):
+    // meaningful to this proxy only, never to the model endpoint.
+    "x-shinatama-control",
     "te",
     "trailer",
     "upgrade",

@@ -7,6 +7,7 @@
 use crate::history::{HANDOFF_MARKER, clip};
 use crate::seed::escape_hostile;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::path::Path;
 
 pub const MAX_BOOTSTRAP_BYTES: usize = 2048;
@@ -64,6 +65,44 @@ pub fn bootstrap(nonce: &str, seed_path: &Path, last_user_request: Option<&str>)
     text
 }
 
+/// Request header that declares a Shinatama control message to the model proxy. The value is
+/// `<kind>;<sha256 hex of the canonical text of the message>`: the proxy honours it only when the
+/// hash equals the human message it actually received, so the marker is never inferred from text.
+pub const CONTROL_HEADER: &str = "x-shinatama-control";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ControlKind {
+    Seed,
+    Bootstrap,
+    Receipt,
+}
+
+impl ControlKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ControlKind::Seed => "seed",
+            ControlKind::Bootstrap => "bootstrap",
+            ControlKind::Receipt => "receipt",
+        }
+    }
+}
+
+/// Line ends become `\n` and outer spaces, tabs and line ends are dropped: the terminal a message
+/// is pasted through may convert the first and trim the second. The proxy applies the same rule.
+pub fn canonical_control_text(text: &str) -> String {
+    text.replace("\r\n", "\n").replace('\r', "\n").trim_matches([' ', '\t', '\n']).to_owned()
+}
+
+pub fn control_header_value(kind: ControlKind, text: &str) -> String {
+    let hash = Sha256::digest(canonical_control_text(text).as_bytes());
+    format!("{};{}", kind.as_str(), shinatama_export::stx::hex(&hash))
+}
+
+/// `(name, value)` of the control header for `text`.
+pub fn control_header(kind: ControlKind, text: &str) -> (&'static str, String) {
+    (CONTROL_HEADER, control_header_value(kind, text))
+}
+
 pub fn delivery(channel: SeedChannel, seed_path: &Path, seed_text: &str, bootstrap: &str) -> Delivery {
     match channel {
         SeedChannel::ArgvPrompt => Delivery::ArgvPrompt { prompt: bootstrap.to_owned() },
@@ -86,6 +125,26 @@ mod tests {
         assert!(text.contains("Last user request: /clear"), "mid-line slashes are kept as text");
         assert!(text.contains("`ready abc123`"));
         assert!(text.lines().all(|l| !l.starts_with(['/', '!', '@', '#', '-'])));
+    }
+
+    #[test]
+    fn control_header_hashes_the_canonical_text() {
+        let text = bootstrap("abc123", Path::new(r"C:\repo\.git\shinatama\handoffs\x\seed.md"), Some("fix the totals"));
+        let (name, value) = control_header(ControlKind::Bootstrap, &text);
+        assert_eq!(name, "x-shinatama-control");
+        let (kind, hash) = value.split_once(';').unwrap();
+        assert_eq!(kind, "bootstrap");
+        assert_eq!(hash.len(), 64);
+        assert!(hash.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)));
+        // A terminal that converts line ends and trims the outer ones changes nothing.
+        let pasted = text.replace('\n', "\r\n");
+        assert_eq!(control_header_value(ControlKind::Bootstrap, pasted.trim_end()), value);
+        assert_eq!(canonical_control_text("\r\n  a\r\nb \t\n"), "a\nb");
+        assert_ne!(control_header_value(ControlKind::Bootstrap, &format!("{text}x")), value);
+        assert!(control_header_value(ControlKind::Seed, &text).starts_with("seed;"));
+        assert!(control_header_value(ControlKind::Receipt, &text).starts_with("receipt;"));
+        // Known vector: sha256("abc").
+        assert_eq!(control_header_value(ControlKind::Seed, " abc\n"), "seed;ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
     }
 
     #[test]

@@ -1,6 +1,7 @@
 import { openModal, topModal } from './modal.ts';
 import type { SessionRootSelector } from './session-library.ts';
 import type { RawSelection } from './session-raw.ts';
+import { nextCapabilityLines, parseCapabilities, type CapabilityState } from './sidecar-status.ts';
 import './session-detail.css';
 
 export type DetailCursor = { offset: number; fingerprint: string };
@@ -18,7 +19,7 @@ type Usage = { input: number; cacheRead: number; cacheWrite: number; output: num
 type Ledger = { turns: number; requests: number; total: Usage; hitRatePermille: number | null; compactions: number; toolCalls: number;
   rerunsAfterCompaction: number; recordsWithoutUsage: number };
 export type DetailReply = { root: SessionRootSelector; nativeId: string; page: DetailPage | null; issue: string | null };
-type Options = { read: (request: DetailRequest) => Promise<DetailReply>; openRaw?: (selection:RawSelection)=>void;
+type Options = { read: (request: DetailRequest) => Promise<DetailReply>; capabilities?: (nativeId: string) => Promise<unknown>; openRaw?: (selection:RawSelection)=>void;
   openFind?: (request:DetailRequest)=>void; openExport?: (selection:{root:SessionRootSelector;nativeId:string;fingerprint:string;harness:string})=>void;
   openHop?: (selection:{root:SessionRootSelector;nativeId:string;fingerprint:string;harness:string})=>void;
   reportError: (message: string) => void; restoreFocus?: () => void };
@@ -43,6 +44,8 @@ const rootValue = (value: unknown): value is SessionRootSelector => record(value
   && integer(value.configurationRevision) && value.configurationRevision > 0;
 const sameRoot = (a: SessionRootSelector, b: SessionRootSelector) => a.storeRootId === b.storeRootId && a.configurationRevision === b.configurationRevision;
 const encoder = new TextEncoder();
+const CAPABILITY_POLL_MS = 5000;
+const CAPABILITY_TIMEOUT_MS = 4000;
 const lineageStates: Record<LineageState,string> = {unknown_parent:'Unknown parent',unknown_links:'Relationships unknown',unresolved_in_selected_archive:'Not resolved in this archive',cycle:'Cycle detected',ambiguous:'Ambiguous reference',truncated:'Fixed limit reached',resolved:'Recorded in this archive'};
 function lineageValue(value:unknown,id:string):Lineage {
   const state=(v:unknown):v is LineageState=>typeof v==='string'&&Object.hasOwn(lineageStates,v);
@@ -138,6 +141,42 @@ export function createSessionDetail(options: Options) {
   let current: { root: SessionRootSelector; nativeId: string } | null = null;
   let page: DetailPage | null = null; let cursor: DetailCursor | null = null; let history: (DetailCursor | null)[] = [];
   let busy = false; let generation = 0; let destroyed = false; let failed = false; let message = 'Choose a session explicitly.';
+  // Per-session proxy capabilities: read on open, on becoming visible again and every CAPABILITY_POLL_MS while this detail
+  // is open and visible, never while closed. A reply for a session that is no longer the open one, or one that came after
+  // CAPABILITY_TIMEOUT_MS, is dropped. A tick never calls render(): it replaces only the "Model proxy" value, and only when
+  // the lines changed, so open tool calls, focus and text selection in the transcript are left alone.
+  let proxyLines: string[] | null = null; let proxyGeneration = 0; let proxyTimer = 0; let proxyInFlight = -1;
+  let proxyKey: HTMLElement | null = null; let proxyItem: HTMLElement | null = null;
+  function paintProxy() {
+    if (!proxyLines || !page) { proxyKey?.remove(); proxyItem?.remove(); proxyKey = proxyItem = null; return; }
+    if (!proxyKey || !proxyItem || !proxyItem.isConnected) {
+      proxyKey = document.createElement('dt'); proxyKey.textContent = 'Model proxy'; proxyItem = document.createElement('dd'); overview.append(proxyKey, proxyItem);
+    }
+    proxyItem.replaceChildren(...proxyLines.map(text => { const line = document.createElement('span'); line.className = 'session-detail-proxy-line'; line.textContent = text; return line; }));
+  }
+  const onVisible = () => { if (!document.hidden) void readProxy(); };
+  function stopProxyReads() {
+    proxyGeneration++; proxyInFlight = -1; proxyLines = null; if (proxyTimer) window.clearInterval(proxyTimer); proxyTimer = 0;
+    document.removeEventListener('visibilitychange', onVisible); paintProxy();
+  }
+  async function readProxy() {
+    if (destroyed || !options.capabilities || !current || !dialog.open || document.hidden || proxyInFlight === proxyGeneration) return;
+    const at = proxyGeneration; const id = current.nativeId; proxyInFlight = at;
+    let read: CapabilityState; let timer = 0;
+    try {
+      const expired = new Promise<unknown>(resolve => { timer = window.setTimeout(() => resolve(null), CAPABILITY_TIMEOUT_MS); });
+      read = parseCapabilities(await Promise.race([options.capabilities(id), expired]));
+    } catch { read = { state: 'unavailable' }; } finally { window.clearTimeout(timer); }
+    if (proxyInFlight === at) proxyInFlight = -1;
+    if (destroyed || at !== proxyGeneration || !current || current.nativeId !== id || !dialog.open) return;
+    const lines = nextCapabilityLines(proxyLines, read);
+    if (lines) { proxyLines = lines; paintProxy(); }
+  }
+  function startProxyReads() {
+    stopProxyReads(); if (!options.capabilities) return;
+    document.addEventListener('visibilitychange', onVisible);
+    proxyTimer = window.setInterval(() => { void readProxy(); }, CAPABILITY_POLL_MS); void readProxy();
+  }
   function field(label: string, value: string | number | null) {
     const key = document.createElement('dt'); key.textContent = label; const item = document.createElement('dd'); item.textContent = value === null || value === '' ? 'Unknown' : String(value); overview.append(key, item);
   }
@@ -163,6 +202,7 @@ export function createSessionDetail(options: Options) {
         field('Compactions', `${ledger.compactions}; tool calls repeated after a compaction: ${ledger.rerunsAfterCompaction} of ${ledger.toolCalls}`);
         field('Token figures', 'As recorded by the agent. No saving is claimed until ten sessions per agent are measured.');
       } else field('Token usage', ledger?.recordsWithoutUsage ? 'This agent did not record usage in the session.' : 'No model requests recorded.');
+      proxyKey = proxyItem = null; paintProxy();
       for (const event of page.events) {
         const article = document.createElement('article'); const label = document.createElement('h2'); label.textContent = KINDS[event.kind];
         const provenance = document.createElement('small'); provenance.textContent = `Entry ${event.entryOrdinal} · ID ${event.sourceEntryId ?? 'Unknown'} · time ${event.timestamp ?? 'Unknown'}`;
@@ -220,14 +260,14 @@ export function createSessionDetail(options: Options) {
         message = typeof code === 'string' && Object.hasOwn(ERRORS, code) ? ERRORS[code] : 'Session detail could not be loaded. Retry explicitly.'; options.reportError(message); }
     } finally { busy = false; if (!destroyed && at !== generation && dialog.open) message = 'The previous read finished. Reload the selected session explicitly.'; render(); }
   }
-  function close() { generation++; current = null; page = null; cursor = null; history = []; render(); if (dialog.open) dialog.close(); }
+  function close() { generation++; stopProxyReads(); current = null; page = null; cursor = null; history = []; render(); if (dialog.open) dialog.close(); }
   function show(root: SessionRootSelector, id: string, jump: DetailCursor | null = null) {
     if (destroyed || !rootValue(root) || !nativeId(id) || (jump && (!integer(jump.offset) || !digest(jump.fingerprint)))) { if (!destroyed) options.reportError('This session selector cannot be read safely.'); return false; }
     const other = topModal();
     if (!dialog.open && other && other.id !== 'session-library-dialog') return false;
     generation++; current = { root: { storeRootId: root.storeRootId, configurationRevision: root.configurationRevision }, nativeId: id };
     page = null; cursor = null; history = []; failed = false; activeTab = 'transcript'; message = busy ? 'The previous read is still returning; no replacement was started.' : 'Reading the selected session…';
-    render(); if (!dialog.open) openModal(dialog); closeButton.focus(); if (!busy) void load(jump, 'reload'); return true;
+    render(); if (!dialog.open) openModal(dialog); closeButton.focus(); startProxyReads(); if (!busy) void load(jump, 'reload'); return true;
   }
   find.onclick = () => {
     if (!busy && page) options.openFind?.({ root: { ...page.root }, nativeId: page.nativeId,
@@ -241,6 +281,6 @@ export function createSessionDetail(options: Options) {
   };
   reload.onclick = () => { void load(null, 'reload'); }; previous.onclick = () => { if (history.length) void load(history.at(-1) ?? null, 'previous'); };
   next.onclick = () => { if (page?.next) void load(page.next, 'next'); }; closeButton.onclick = close;
-  dialog.addEventListener('close', () => { if (!dialog.open) { generation++; current = null; page = null; cursor = null; history = []; render(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); } });
+  dialog.addEventListener('close', () => { if (!dialog.open) { generation++; stopProxyReads(); current = null; page = null; cursor = null; history = []; render(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); } });
   render(); return { show, close, destroy: () => { destroyed = true; close(); dialog.remove(); } };
 }

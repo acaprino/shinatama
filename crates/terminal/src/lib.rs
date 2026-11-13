@@ -167,7 +167,7 @@ impl TerminalHost {
     pub fn fully_released(&self) -> Option<bool> {
         self.windows.fully_released()
     }
-    pub fn live_native_sessions(&self) -> usize {
+    pub fn live_native_sessions(&self) -> Option<usize> {
         self.windows.live_native_sessions()
     }
     pub fn write(&self, id: &str, data: Vec<u8>) -> Result<()> {

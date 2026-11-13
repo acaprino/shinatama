@@ -933,6 +933,7 @@ const hopPreview = createHopPreview({
 });
 const sessionDetail = createSessionDetail({
   read: request => desktop ? invoke('session_detail', { request }) : Promise.reject({ issue: 'read_unavailable' }),
+  capabilities: desktop ? nativeId => invoke('sidecar_capabilities', { nativeId }) : undefined,
   openRaw: selection => {sessionRaw.show(selection);},
   openFind: request => {sessionFind.show(request);},
   openExport: selection => { sessionExport.show(selection); },

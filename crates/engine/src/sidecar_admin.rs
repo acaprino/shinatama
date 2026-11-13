@@ -5,7 +5,7 @@
 //! the requested path. Nothing here ever writes.
 
 use crate::sidecar_supervisor::{connect, request, request_limited};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
     num::NonZeroU16,
@@ -25,6 +25,15 @@ pub struct AdminTarget {
 /// GET /__bili/health then `path` on ONE connection; None unless health is 200,
 /// ok==true and pid matches. Body capped at `limit` bytes.
 pub fn get_json(target: &AdminTarget, path: &str, limit: usize) -> Option<Value> {
+    let (200, body) = get_status_json(target, path, limit)? else {
+        return None;
+    };
+    serde_json::from_slice(&body).ok()
+}
+
+/// The identity-proven exchange behind `get_json`, keeping the status code of the
+/// answer to `path` (so a 404 can be told apart from an unreachable sidecar).
+fn get_status_json(target: &AdminTarget, path: &str, limit: usize) -> Option<(u16, Vec<u8>)> {
     // Only admin paths, and nothing that could split the request line.
     if !path.starts_with("/__bili/") || path.bytes().any(|byte| byte <= b' ' || byte == 0x7f) {
         return None;
@@ -46,11 +55,7 @@ pub fn get_json(target: &AdminTarget, path: &str, limit: usize) -> Option<Value>
     if health["ok"] != true || health["pid"].as_u64() != Some(target.pid.into()) {
         return None;
     }
-    let (200, body) = request_limited(&mut stream, target.port, "GET", path, false, until, limit)?
-    else {
-        return None;
-    };
-    serde_json::from_slice(&body).ok()
+    request_limited(&mut stream, target.port, "GET", path, false, until, limit)
 }
 
 /// `inFlight` from /__bili/status. None = unknown, never zero.
@@ -120,10 +125,141 @@ fn prompt_rewrite_mode(config: &Value, root: &Value) -> Option<String> {
     file["promptRewrite"]["mode"].as_str().map(str::to_owned)
 }
 
+/// One gated feature of a session: what is configured and what the last served
+/// request applied. `None` is "not reported", never a default.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Lever {
+    pub configured: Option<bool>,
+    pub applied: Option<bool>,
+    pub reason: String,
+}
+
+/// What `GET /__bili/capabilities?native=<id>` reports for one session, flattened.
+/// The wire nests `steering` and `promptRewrite`; `capabilities_from_value` maps
+/// them by hand, so this type is not the wire shape.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionCapabilities {
+    pub schema_version: u64,
+    pub protocol: String,
+    pub requests: u64,
+    pub profile: Option<String>,
+    pub passthrough: bool,
+    pub ccr: Lever,
+    pub read_original_image: Lever,
+    pub image_rescale: Lever,
+    pub steering_level: Option<u64>,
+    pub effort_routing: Option<bool>,
+    pub prompt_rewrite_mode: Option<String>,
+    /// `session.stats.requests` when the stamp behind `ccr` / `readOriginalImage` was written.
+    pub stamped_at_request: Option<u64>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CapabilityRead {
+    Observed(SessionCapabilities),
+    NotObserved,
+    Unavailable,
+}
+
+/// A native id is sent only when it is 1-128 bytes of `[A-Za-z0-9._:-]`; this is
+/// also what keeps it inert inside the query string.
+fn valid_native_id(id: &str) -> bool {
+    (1..=128).contains(&id.len())
+        && id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b':' | b'-'))
+}
+
+/// What one session reports at `GET /__bili/capabilities?native=<id>`.
+/// 404 = the sidecar does not know the session (`NotObserved`). Everything else
+/// that is not a valid schema-1 report from the process Shinatama started
+/// (other status, other identity, timeout, bad body) is `Unavailable`.
+pub fn session_capabilities(target: &AdminTarget, native_id: &str) -> CapabilityRead {
+    if !valid_native_id(native_id) {
+        return CapabilityRead::Unavailable;
+    }
+    let path = format!("/__bili/capabilities?native={native_id}");
+    match get_status_json(target, &path, ADMIN_BODY_LIMIT) {
+        Some((404, _)) => CapabilityRead::NotObserved,
+        Some((200, body)) => serde_json::from_slice::<Value>(&body)
+            .ok()
+            .and_then(|value| capabilities_from_value(&value))
+            .map_or(CapabilityRead::Unavailable, CapabilityRead::Observed),
+        _ => CapabilityRead::Unavailable,
+    }
+}
+
+/// Reason of a gate whose stamp is older than the latest request.
+const STALE_REASON: &str = "not_observed";
+
+/// Maps the wire report (nested `steering` / `promptRewrite`) to the flat type.
+/// The schema, the protocol shape, `requests`, `passthrough` and the three levers
+/// must be present and well typed; the optional values stay unknown when absent
+/// or mistyped. A `protocol` of null (a session that has served nothing) is "".
+fn capabilities_from_value(value: &Value) -> Option<SessionCapabilities> {
+    if value["schemaVersion"].as_u64() != Some(1) {
+        return None;
+    }
+    let protocol = match &value["protocol"] {
+        Value::String(text) => text.clone(),
+        Value::Null => String::new(),
+        _ => return None,
+    };
+    let requests = value["requests"].as_u64()?;
+    let passthrough = value["passthrough"].as_bool()?;
+    let stamped_at_request = value["stampedAtRequest"].as_u64();
+    let mut ccr = lever(&value["ccr"])?;
+    let mut read_original_image = lever(&value["readOriginalImage"])?;
+    // The stamp is written before the request is counted, so it describes the latest
+    // request exactly when `requests == stamped + 1`. A larger gap (a later request skipped
+    // the stamping site) or a missing stamp on a session that served requests means the
+    // gates were not observed for the latest request. Global passthrough is not stamped.
+    let stale = !passthrough
+        && match stamped_at_request {
+            Some(stamped) => requests > stamped.saturating_add(1),
+            None => requests > 0,
+        };
+    if stale {
+        for gate in [&mut ccr, &mut read_original_image] {
+            gate.applied = None;
+            gate.reason = STALE_REASON.to_owned();
+        }
+    }
+    Some(SessionCapabilities {
+        schema_version: 1,
+        protocol,
+        requests,
+        profile: value["profile"].as_str().map(str::to_owned),
+        passthrough,
+        ccr,
+        read_original_image,
+        image_rescale: lever(&value["imageRescale"])?,
+        steering_level: value["steering"]["level"].as_u64(),
+        effort_routing: value["steering"]["effortRouting"].as_bool(),
+        prompt_rewrite_mode: value["promptRewrite"]["mode"].as_str().map(str::to_owned),
+        stamped_at_request,
+    })
+}
+
+fn lever(value: &Value) -> Option<Lever> {
+    let flag = |field: &Value| match field {
+        Value::Null => Some(None),
+        Value::Bool(flag) => Some(Some(*flag)),
+        _ => None,
+    };
+    Some(Lever {
+        configured: flag(&value["configured"])?,
+        applied: flag(&value["applied"])?,
+        reason: value["reason"].as_str()?.to_owned(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sidecar_supervisor::test_support::server_with;
+    use crate::sidecar_supervisor::test_support::{server_with, server_with_status};
 
     fn target(port: NonZeroU16, pid: u32) -> AdminTarget {
         AdminTarget {
@@ -311,5 +447,308 @@ mod tests {
         let (port, worker) = server_with(4242, vec!["{}".into()]);
         assert_eq!(resolved_baseline(&target(port, 9999)), None);
         worker.join().unwrap();
+    }
+
+    fn payload(over: serde_json::Value) -> String {
+        let mut body = serde_json::json!({
+            "schemaVersion": 1,
+            "sessionId": "proxy-sess-1",
+            "nativeId": "native-1",
+            "protocol": "anthropic",
+            "requests": 3,
+            "stampedAtRequest": 2,
+            "profile": "build",
+            "passthrough": false,
+            "ccr": { "configured": true, "applied": true, "reason": "none" },
+            "readOriginalImage": { "applied": true, "reason": "none" },
+            "imageRescale": { "configured": true, "applied": false, "reason": "encoder_missing" },
+            "absorb": { "configured": true, "mediaOnly": true },
+            "tiers": { "configured": true },
+            "steering": { "configured": true, "level": 2, "effortRouting": false },
+            "promptRewrite": { "mode": "auto" }
+        });
+        for (key, value) in over.as_object().unwrap() {
+            body[key] = value.clone();
+        }
+        body.to_string()
+    }
+
+    #[test]
+    fn not_found_is_not_observed() {
+        let (port, worker) = server_with_status(
+            4242,
+            vec![(404, r#"{"error":"unknown session"}"#.to_owned())],
+        );
+        assert_eq!(
+            session_capabilities(&target(port, 4242), "native-1"),
+            CapabilityRead::NotObserved
+        );
+        assert_eq!(
+            worker.join().unwrap(),
+            [
+                "GET /__bili/health HTTP/1.1",
+                "GET /__bili/capabilities?native=native-1 HTTP/1.1"
+            ]
+        );
+    }
+
+    #[test]
+    fn other_schema_version_is_unavailable() {
+        for body in [
+            payload(serde_json::json!({ "schemaVersion": 2 })),
+            payload(serde_json::json!({ "schemaVersion": "1" })),
+            payload(serde_json::json!({ "schemaVersion": null })),
+        ] {
+            let (port, worker) = server_with(4242, vec![body.clone()]);
+            assert_eq!(
+                session_capabilities(&target(port, 4242), "native-1"),
+                CapabilityRead::Unavailable,
+                "{body}"
+            );
+            worker.join().unwrap();
+        }
+        // The same payload at version 1 is observed.
+        let (port, worker) = server_with(4242, vec![payload(serde_json::json!({}))]);
+        assert!(matches!(
+            session_capabilities(&target(port, 4242), "native-1"),
+            CapabilityRead::Observed(_)
+        ));
+        worker.join().unwrap();
+    }
+
+    #[test]
+    fn invalid_native_id_sends_nothing() {
+        let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let port = NonZeroU16::new(listener.local_addr().unwrap().port()).unwrap();
+        let too_long = "a".repeat(129);
+        for id in [
+            "a b",
+            "",
+            too_long.as_str(),
+            "a/b",
+            "a?b=c",
+            "a&b",
+            "a%20b",
+            "a\r\nHost: x",
+            "\u{fc}n\u{ef}",
+            "a\0b",
+        ] {
+            assert_eq!(
+                session_capabilities(&target(port, 4242), id),
+                CapabilityRead::Unavailable,
+                "{id:?}"
+            );
+        }
+        // No connection was ever opened for any of them.
+        assert_eq!(
+            listener.accept().unwrap_err().kind(),
+            std::io::ErrorKind::WouldBlock
+        );
+        // The longest and the widest accepted ids are sent.
+        for id in ["a".repeat(128), "A-z.9:0_".to_owned()] {
+            let (port, worker) = server_with_status(4242, vec![(404, "{}".to_owned())]);
+            assert_eq!(
+                session_capabilities(&target(port, 4242), &id),
+                CapabilityRead::NotObserved
+            );
+            assert_eq!(worker.join().unwrap().len(), 2);
+        }
+    }
+
+    #[test]
+    fn codex_payload_parses_with_reason() {
+        let body = payload(serde_json::json!({
+            "protocol": "responses",
+            "requests": 12,
+            "stampedAtRequest": 11,
+            "profile": null,
+            "ccr": { "configured": true, "applied": false, "reason": "codex_host" },
+            "readOriginalImage": { "applied": false, "reason": "codex_host" },
+            "imageRescale": { "configured": false, "applied": false, "reason": "not_configured" },
+            "steering": { "configured": false, "level": 2, "effortRouting": false },
+            "promptRewrite": { "mode": "off" }
+        }));
+        let (port, worker) = server_with(4242, vec![body]);
+        let CapabilityRead::Observed(read) = session_capabilities(&target(port, 4242), "native-1")
+        else {
+            panic!("expected an observed report");
+        };
+        worker.join().unwrap();
+        assert_eq!(read.schema_version, 1);
+        assert_eq!(read.protocol, "responses");
+        assert_eq!(read.requests, 12);
+        assert_eq!(read.profile, None);
+        assert!(!read.passthrough);
+        assert_eq!(read.ccr.applied, Some(false));
+        assert_eq!(read.ccr.configured, Some(true));
+        assert_eq!(read.ccr.reason, "codex_host");
+        // readOriginalImage carries no `configured` on the wire.
+        assert_eq!(read.read_original_image.configured, None);
+        assert_eq!(read.read_original_image.applied, Some(false));
+        assert_eq!(read.read_original_image.reason, "codex_host");
+        assert_eq!(read.image_rescale.configured, Some(false));
+        assert_eq!(read.image_rescale.reason, "not_configured");
+        // The nested wire objects land in the flat fields.
+        assert_eq!(read.steering_level, Some(2));
+        assert_eq!(read.effort_routing, Some(false));
+        assert_eq!(read.prompt_rewrite_mode.as_deref(), Some("off"));
+    }
+
+    #[test]
+    fn observed_report_keeps_unknown_values_unknown_and_ignores_extra_fields() {
+        // Extra fields (`stampedAtRequest`, `absorb`, ...) are ignored; a missing or mistyped
+        // optional value stays unknown instead of defaulting.
+        let body = payload(serde_json::json!({
+            "profile": 5,
+            "steering": { "configured": true, "level": "2" },
+            "promptRewrite": {},
+            "futureField": { "x": 1 }
+        }));
+        let (port, worker) = server_with(4242, vec![body]);
+        let CapabilityRead::Observed(read) = session_capabilities(&target(port, 4242), "native-1")
+        else {
+            panic!("expected an observed report");
+        };
+        worker.join().unwrap();
+        assert_eq!(read.profile, None);
+        assert_eq!(read.steering_level, None);
+        assert_eq!(read.effort_routing, None);
+        assert_eq!(read.prompt_rewrite_mode, None);
+        assert_eq!(read.ccr.applied, Some(true));
+        assert_eq!(read.image_rescale.reason, "encoder_missing");
+    }
+
+    #[test]
+    fn unusable_answers_are_unavailable() {
+        // Other statuses, invalid bodies, and levers without a reason or with a mistyped applied.
+        let missing_reason =
+            payload(serde_json::json!({})).replace(r#""reason":"none""#, r#""why":"none""#);
+        let cases: Vec<(u16, String)> = vec![
+            (500, payload(serde_json::json!({}))),
+            (200, "not json".to_owned()),
+            (200, "[]".to_owned()),
+            (200, "{}".to_owned()),
+            (200, missing_reason),
+            (
+                200,
+                payload(serde_json::json!({ "ccr": { "applied": "yes", "reason": "none" } })),
+            ),
+            (200, payload(serde_json::json!({ "requests": -1 }))),
+            (200, payload(serde_json::json!({ "passthrough": "no" }))),
+            (200, payload(serde_json::json!({ "imageRescale": null }))),
+        ];
+        for (status, body) in cases {
+            let (port, worker) = server_with_status(4242, vec![(status, body.clone())]);
+            assert_eq!(
+                session_capabilities(&target(port, 4242), "native-1"),
+                CapabilityRead::Unavailable,
+                "{status} {body}"
+            );
+            worker.join().unwrap();
+        }
+    }
+
+    #[test]
+    fn a_stale_stamp_leaves_the_gates_unobserved() {
+        let read = |over: serde_json::Value| {
+            let (port, worker) = server_with(4242, vec![payload(over)]);
+            let CapabilityRead::Observed(read) =
+                session_capabilities(&target(port, 4242), "native-1")
+            else {
+                panic!("expected an observed report");
+            };
+            worker.join().unwrap();
+            read
+        };
+        // Fresh: the stamp was written for the latest request (requests == stamped + 1).
+        let fresh = read(serde_json::json!({ "requests": 3, "stampedAtRequest": 2 }));
+        assert_eq!(fresh.stamped_at_request, Some(2));
+        assert_eq!(fresh.ccr.applied, Some(true));
+        assert_eq!(fresh.ccr.reason, "none");
+        assert_eq!(fresh.read_original_image.applied, Some(true));
+        // A session that served nothing yet and has no stamp is not stale.
+        let idle = read(serde_json::json!({
+            "requests": 0,
+            "stampedAtRequest": null,
+            "ccr": { "configured": true, "applied": false, "reason": "not_observed" },
+            "readOriginalImage": { "applied": false, "reason": "not_observed" }
+        }));
+        assert_eq!(idle.stamped_at_request, None);
+        assert_eq!(idle.ccr.applied, Some(false));
+        // Stale: later requests skipped the stamping site.
+        let stale = read(serde_json::json!({ "requests": 5, "stampedAtRequest": 2 }));
+        assert_eq!(stale.stamped_at_request, Some(2));
+        for gate in [&stale.ccr, &stale.read_original_image] {
+            assert_eq!(gate.applied, None);
+            assert_eq!(gate.reason, "not_observed");
+        }
+        // The configured value and the other levers are untouched.
+        assert_eq!(stale.ccr.configured, Some(true));
+        assert_eq!(stale.image_rescale.reason, "encoder_missing");
+        // No stamp field at all, but requests were served: not observed.
+        let mut body: serde_json::Value = serde_json::from_str(&payload(serde_json::json!({}))).unwrap();
+        body.as_object_mut().unwrap().remove("stampedAtRequest");
+        let (port, worker) = server_with(4242, vec![body.to_string()]);
+        let CapabilityRead::Observed(absent) = session_capabilities(&target(port, 4242), "native-1")
+        else {
+            panic!("expected an observed report");
+        };
+        worker.join().unwrap();
+        assert_eq!(absent.requests, 3);
+        assert_eq!(absent.stamped_at_request, None);
+        assert_eq!(absent.ccr.applied, None);
+        assert_eq!(absent.ccr.reason, "not_observed");
+        assert_eq!(absent.read_original_image.applied, None);
+        // Global passthrough is reported as is: it is not a stamped decision.
+        let passthrough = read(serde_json::json!({
+            "requests": 9,
+            "stampedAtRequest": 2,
+            "passthrough": true,
+            "ccr": { "configured": true, "applied": false, "reason": "passthrough" },
+            "readOriginalImage": { "applied": false, "reason": "passthrough" }
+        }));
+        assert_eq!(passthrough.ccr.applied, Some(false));
+        assert_eq!(passthrough.ccr.reason, "passthrough");
+    }
+
+    #[test]
+    fn a_sidecar_that_never_answers_is_unavailable_within_the_timeout() {
+        // Accepts the connection and then says nothing: the identity proof never completes.
+        let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = NonZeroU16::new(listener.local_addr().unwrap().port()).unwrap();
+        let holder = std::thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            std::thread::sleep(Duration::from_millis(1500));
+            drop(stream);
+        });
+        let began = Instant::now();
+        assert_eq!(
+            session_capabilities(&target(port, 4242), "native-1"),
+            CapabilityRead::Unavailable
+        );
+        // target() allows 500 ms; the read is bounded by it, not by the silent peer.
+        assert!(began.elapsed() < Duration::from_millis(1400), "{:?}", began.elapsed());
+        holder.join().unwrap();
+    }
+
+    #[test]
+    fn another_process_or_a_dead_port_is_unavailable_and_asks_nothing() {
+        // A different identity: the capabilities path is never requested.
+        let (port, worker) = server_with(4242, vec![payload(serde_json::json!({}))]);
+        assert_eq!(
+            session_capabilities(&target(port, 9999), "native-1"),
+            CapabilityRead::Unavailable
+        );
+        assert_eq!(worker.join().unwrap(), ["GET /__bili/health HTTP/1.1"]);
+        // Nothing listening.
+        let port = {
+            let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
+            NonZeroU16::new(listener.local_addr().unwrap().port()).unwrap()
+        };
+        assert_eq!(
+            session_capabilities(&target(port, 4242), "native-1"),
+            CapabilityRead::Unavailable
+        );
     }
 }

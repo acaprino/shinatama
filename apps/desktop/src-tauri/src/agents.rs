@@ -308,8 +308,8 @@ impl Controller {
             host,
         }
     }
-    /// Agent terminals whose process is alive right now.
-    pub fn live_agent_sessions(&self) -> usize {
+    /// Agent terminals whose process is alive right now; None when unreadable.
+    pub fn live_agent_sessions(&self) -> Option<usize> {
         self.host.live_native_sessions()
     }
     fn registered(&self, id: &str) -> Result<Arc<RegisteredService>, &'static str> {
@@ -377,6 +377,7 @@ impl Controller {
             OpenMode::RequireQualified,
             None,
             false,
+            None,
         )
         .await
     }
@@ -397,6 +398,31 @@ impl Controller {
             OpenMode::PrepareWhenNeeded,
             None,
             false,
+            None,
+        )
+        .await
+    }
+    /// `open` for the destination of a hand-off: `control_header` declares the first prompt to the
+    /// model proxy (`x-shinatama-control`). Only a harness that can add a request header uses it.
+    pub async fn open_handoff(
+        self: &Arc<Self>,
+        agent_id: &str,
+        host: Arc<TerminalHost>,
+        project: PathBuf,
+        rows: u16,
+        cols: u16,
+        control_header: String,
+    ) -> Result<AgentStarted, &'static str> {
+        self.start_request(
+            agent_id,
+            host,
+            project,
+            rows,
+            cols,
+            OpenMode::PrepareWhenNeeded,
+            None,
+            false,
+            Some(control_header),
         )
         .await
     }
@@ -410,6 +436,7 @@ impl Controller {
         mode: OpenMode,
         initial_prompt: Option<String>,
         require_mukade: bool,
+        control_header: Option<String>,
     ) -> Result<AgentStarted, &'static str> {
         shinatama_terminal::validate_size(rows, cols)
             .map_err(|_| "The terminal size is invalid.")?;
@@ -419,7 +446,17 @@ impl Controller {
                 "Harness startup stopped unexpectedly. Its owned resources remain tracked.",
                 |service| {
                     service
-                        .open(&host, &project, rows, cols, SessionOperation::New, mode, initial_prompt.as_deref(), require_mukade)
+                        .open(
+                            &host,
+                            &project,
+                            rows,
+                            cols,
+                            SessionOperation::New,
+                            mode,
+                            initial_prompt.as_deref(),
+                            require_mukade,
+                            control_header.as_deref(),
+                        )
                         .map_err(|error| error.message())
                 },
             )
@@ -445,7 +482,7 @@ impl Controller {
             return Err("The initial collaboration instruction is invalid.");
         }
         self.start_request(agent_id, host, project, 24, 80,
-            OpenMode::PrepareWhenNeeded, Some(initial_prompt), require_mukade).await
+            OpenMode::PrepareWhenNeeded, Some(initial_prompt), require_mukade, None).await
     }
 }
 fn prepare_box(

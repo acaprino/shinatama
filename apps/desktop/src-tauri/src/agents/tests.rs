@@ -80,6 +80,7 @@ impl HarnessService for FakeService {
         _: OpenMode,
         _: Option<&str>,
         _: bool,
+        _: Option<&str>,
     ) -> Result<AgentStarted, ServiceError> {
         panic!("request-isolation tests must not start a terminal")
     }
@@ -106,7 +107,7 @@ fn controller(services: &[Arc<FakeService>]) -> Arc<Controller> {
 
 #[test]
 fn a_controller_with_no_started_terminals_has_no_live_agent_sessions() {
-    assert_eq!(controller(&[]).live_agent_sessions(), 0);
+    assert_eq!(controller(&[]).live_agent_sessions(), Some(0));
 }
 
 #[test]

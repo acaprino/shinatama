@@ -10,6 +10,7 @@ use crate::sessions::hop::{KeptPreview, kept_preview};
 use crate::{Host, agents};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use shinatama_hop::channel::{ControlKind, control_header};
 use shinatama_hop::preview::verify_send;
 use shinatama_hop::recovery::{RecoveryRuntime, reconcile};
 use shinatama_state::hops::{HopJournal, HopMode, HopPlan, HopRecord, HopState, HopStrategy};
@@ -116,7 +117,16 @@ pub async fn hop_launch(window: WebviewWindow, host: State<'_, Host>, request: L
     }
     journal.record_effect(&hop.plan.id, "spawn_attempted", Some(&preview.destination), now_ms()).map_err(|e| e.to_string())?;
     let owner = crate::ready::<agents::Controller>(&window)?;
-    let started = match owner.open(&preview.destination, host.inner().clone(), cwd, request.rows, request.cols).await {
+    // Claude Code takes request headers from its environment, so the bootstrap that `hop_deliver` will paste is
+    // declared to the model proxy by the hash of its text; the proxy then leaves that one message untouched
+    // (SC9). The other harnesses cannot carry a header at launch: docs/notes/2026-11-13-control-marker-feasibility.md.
+    let opened = if preview.destination == "claude_code" {
+        let (name, value) = control_header(ControlKind::Bootstrap, &preview.bootstrap);
+        owner.open_handoff(&preview.destination, host.inner().clone(), cwd, request.rows, request.cols, format!("{name}: {value}")).await
+    } else {
+        owner.open(&preview.destination, host.inner().clone(), cwd, request.rows, request.cols).await
+    };
+    let started = match opened {
         Ok(started) => started,
         Err(message) => {
             let _ = journal.transition(&hop.plan.id, hop.state, hop.revision, HopState::Failed, Some(message), now_ms());

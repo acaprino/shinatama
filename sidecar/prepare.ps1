@@ -1,17 +1,15 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('Verify', 'Prepare')][string]$Mode = 'Verify',
-    [string]$SourceRoot = 'D:/Projects/horness-launcher/packages/billion-context',
-    [string]$PreparedRoot = 'D:/Projects/horness-launcher/sidecar/source-build'
+    [ValidateSet('Verify')][string]$Mode = 'Verify'
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
-# Static source/artifact transfer only. Never invoke Node/npm, upstream prepare,
-# a server, a model, a package restore or any live configuration/database path.
+# Static verification of this repository's prepared tree against its lock. It reads
+# nothing outside sidecar/source-build. Never invoke Node/npm, a build, a server, a
+# model, a package restore or any live configuration/database path.
 $buildRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'source-build'))
 $lockFile = Join-Path $buildRoot 'provenance.lock.json'
-$destination = Join-Path $buildRoot 'prepared'
-$stage = Join-Path $buildRoot 'prepared.incomplete'
+$PreparedRoot = Join-Path $buildRoot 'prepared'
 $maxFileBytes = 32MB
 $maxBundleBytes = 128MB
 $maxFiles = 1024
@@ -68,27 +66,18 @@ function Assert-Entries($Entries, [string]$Root, [string]$TreeHash) {
     $actual = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($tree.ToString()))).ToLowerInvariant()
     if ($actual -cne $TreeHash) { throw 'Allowlist tree SHA256 mismatch.' }
 }
-function Assert-ContainedOutput([string]$Path) {
-    $full = [IO.Path]::GetFullPath($Path)
-    if (-not $full.StartsWith($buildRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Output escapes this workspace build directory.' }
-    return $full
-}
-function Copy-Entries($Entries, [string]$From, [string]$To, [string]$Prefix = '') {
-    foreach ($entry in $Entries) {
-        $source = Assert-RegularPath $From $entry.path
-        $relative = if ($Prefix) { "$Prefix/$($entry.path)" } else { $entry.path }
-        $target = Assert-ContainedOutput (Join-Path $To $relative)
-        [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target))
-        [IO.File]::Copy($source, $target, $false)
-        if ((Hash-File $target $entry.bytes) -cne $entry.sha256) { throw 'Source changed during preparation; incomplete output retained.' }
-    }
-}
 function Assert-Output([string]$Root, $Lock) {
     Assert-Entries $Lock.sourceFiles $Root $Lock.sourceTreeSha256
     Assert-Entries $Lock.artifactFiles $Root $Lock.artifactTreeSha256
     Assert-Entries $Lock.runtimeDependencyFiles (Join-Path $Root 'node_modules/zod') $Lock.runtimeDependencyTreeSha256
     $identity = Read-BoundedJson (Assert-RegularPath $Root 'bundle.identity.json')
-    if ($identity.entrySha256 -cne $Lock.entrySha256 -or $identity.sourceTreeSha256 -cne $Lock.sourceTreeSha256 -or $identity.runtimeQualified) { throw 'Prepared bundle identity mismatch.' }
+    $entryPin = @($Lock.artifactFiles | Where-Object { $_.path -ceq $Lock.entry })
+    if ($entryPin.Count -ne 1 -or $entryPin[0].sha256 -cne $Lock.entrySha256) { throw 'The pinned entry hash differs from its artifact pin.' }
+    $staticBytes = (@($Lock.sourceFiles) + @($Lock.artifactFiles) + @($Lock.runtimeDependencyFiles) | Measure-Object -Property bytes -Sum).Sum
+    if ($identity.entrySha256 -cne $Lock.entrySha256 -or $identity.sourceTreeSha256 -cne $Lock.sourceTreeSha256 -or
+        $identity.artifactTreeSha256 -cne $Lock.artifactTreeSha256 -or $identity.runtimeDependencyTreeSha256 -cne $Lock.runtimeDependencyTreeSha256 -or
+        $identity.sourceFiles -ne $Lock.sourceFiles.Count -or $identity.artifactFiles -ne $Lock.artifactFiles.Count -or
+        $identity.staticBytes -ne $staticBytes -or $identity.runtimeQualified) { throw 'Prepared bundle identity mismatch.' }
     $expected = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     foreach ($entry in @($Lock.sourceFiles) + @($Lock.artifactFiles)) { [void]$expected.Add($entry.path) }
     foreach ($entry in $Lock.runtimeDependencyFiles) { [void]$expected.Add("node_modules/zod/$($entry.path)") }
@@ -115,23 +104,13 @@ if ($lock.formatVersion -ne 1 -or $lock.packageName -cne 'billion-context' -or $
 $count = $lock.sourceFiles.Count + $lock.artifactFiles.Count + $lock.runtimeDependencyFiles.Count
 $bytes = (@($lock.sourceFiles) + @($lock.artifactFiles) + @($lock.runtimeDependencyFiles) | Measure-Object -Property bytes -Sum).Sum
 if ($count -gt $maxFiles -or $bytes -gt $maxBundleBytes) { throw 'Static preparation budget exceeded.' }
-Assert-Entries $lock.sourceFiles $SourceRoot $lock.sourceTreeSha256
-Assert-Entries $lock.sourceFiles $PreparedRoot $lock.sourceTreeSha256
-Assert-Entries $lock.artifactFiles $PreparedRoot $lock.artifactTreeSha256
-Assert-Entries $lock.runtimeDependencyFiles (Join-Path $PreparedRoot 'node_modules/zod') $lock.runtimeDependencyTreeSha256
-$musashiRoot = [IO.Directory]::GetParent([IO.Directory]::GetParent([IO.Path]::GetFullPath($SourceRoot)).FullName).FullName
-$routePath = Assert-RegularPath $musashiRoot 'res/sidecar-prepare.mjs'
-if ((Hash-File $routePath (Get-Item -LiteralPath $routePath).Length) -cne $lock.musashiPreparationRoute.sha256) { throw 'The pinned Musashi preparation route changed.' }
-$receiptPath = Assert-RegularPath $PreparedRoot '.musashi-terminal-source-build.json'
-$receipt = Read-BoundedJson $receiptPath
-if ((Hash-File $receiptPath (Get-Item -LiteralPath $receiptPath).Length) -cne $lock.sourceReceiptSha256 -or $receipt.fingerprint -cne $lock.musashiSourceFingerprint) { throw 'Musashi prepared-source receipt mismatch.' }
+Assert-Output $PreparedRoot $lock
+# The build stamps dist/build-info.json with the hash of the source tree it was built from, so a dist
+# that was not rebuilt after a source change cannot carry the current tree hash.
 $buildInfo = Read-BoundedJson (Assert-RegularPath $PreparedRoot 'dist/build-info.json')
-if ($buildInfo.sourceFingerprint -cne $receipt.fingerprint) { throw 'Build fingerprint does not match prepared source.' }
-foreach ($entry in $lock.artifactFiles) {
-    if ($receipt.artifacts.($entry.path) -cne $entry.sha256) { throw 'Artifact pin differs from existing Musashi receipt.' }
-}
-$schema = [IO.File]::ReadAllText((Assert-RegularPath $SourceRoot 'src/storage/schema.ts'))
-$store = [IO.File]::ReadAllText((Assert-RegularPath $SourceRoot 'src/storage/store.ts'))
+if ($buildInfo.sourceFingerprint -cne $lock.sourceTreeSha256) { throw 'The build was stamped for a different source tree than the pinned one.' }
+$schema = [IO.File]::ReadAllText((Assert-RegularPath $PreparedRoot 'src/storage/schema.ts'))
+$store = [IO.File]::ReadAllText((Assert-RegularPath $PreparedRoot 'src/storage/store.ts'))
 $entryText = [IO.File]::ReadAllText((Assert-RegularPath $PreparedRoot $lock.entry))
 if ($schema -notmatch 'STORAGE_SCHEMA_VERSION\s*=\s*9' -or $store -notmatch 'private syncCcrEntries\(' -or $store -notmatch 'this\.syncCcrEntries\(s\.sessionId, input\.ccrEntries\)') { throw 'Required source storage correction is absent.' }
 foreach ($index in $lock.storage.indexes) {
@@ -146,23 +125,6 @@ $identity = [ordered]@{
     artifactFiles = $lock.artifactFiles.Count; staticBytes = [long]$bytes; nodeExecuted = $false
     requiredNodeEngine = $lock.runtimeMetadata.requiredNodeEngine; nodeVersion = $null; nativeAddonAbi = $null
     cleanBuildPerformed = $false; runtimeQualified = $false; SC16 = 'open'
-}
-if ($Mode -eq 'Prepare') {
-    [void](Assert-ContainedOutput $destination)
-    [void](Assert-ContainedOutput $stage)
-    if (Test-Path -LiteralPath $destination) { Assert-Output $destination $lock }
-    else {
-        if (Test-Path -LiteralPath $stage) { throw 'An incomplete preparation already exists; inspect it before retrying.' }
-        [void][IO.Directory]::CreateDirectory($stage)
-        Copy-Entries $lock.sourceFiles $SourceRoot $stage
-        Copy-Entries $lock.artifactFiles $PreparedRoot $stage
-        Copy-Entries $lock.runtimeDependencyFiles (Join-Path $PreparedRoot 'node_modules/zod') $stage 'node_modules/zod'
-        [IO.File]::WriteAllText((Join-Path $stage 'bundle.identity.json'), ($identity | ConvertTo-Json -Depth 8) + "`n", [Text.UTF8Encoding]::new($false))
-        Assert-Output $stage $lock
-        # Both resolved absolute targets were checked above and remain inside
-        # this repository's named build output. No overwrite/delete is used.
-        [IO.Directory]::Move($stage, $destination)
-    }
 }
 $identity['mode'] = $Mode.ToLowerInvariant()
 $identity | ConvertTo-Json -Depth 8

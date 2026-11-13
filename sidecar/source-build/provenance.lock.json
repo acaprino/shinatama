@@ -1,22 +1,15 @@
 {
   "formatVersion": 1,
-  "sourceRoot": "D:/Projects/horness-launcher/packages/billion-context",
-  "preparedRoot": "D:/Projects/horness-launcher/sidecar/source-build",
   "packageName": "billion-context",
   "version": "0.1.207",
   "upstreamCommit": "7e69b49ff4facb00b5ba6541b48d0f7fbe63d63d",
   "upstreamArchiveSha256": "10628db1ad6ae8f6a46f8886188ff6be7cb903036004d0f447c452880f4b3e53",
   "musashiSourceFingerprint": "0e9d1582bd90104d2fb56bd9cd92734ea5ac3bb4b683fc493d25a2258d744e3e",
-  "sourceTreeSha256": "bffc841eecd32aa67f6fc30606efa5409f1b85782d351a6edecd5315070f138a",
-  "artifactTreeSha256": "0b331c85d2bb7ca61824ba332566762b8577714edd06b38c296d121572879fa9",
+  "sourceTreeSha256": "36e726d812e5074c667be0536668758af1f30be94c955bf58b0ec352a3654291",
+  "artifactTreeSha256": "877fe9d8f0a7ff826e788cff380f62cb126fe29ba23cb78fa49d34466b862dd4",
   "runtimeDependencyTreeSha256": "89868025df4771c6daf2e5eb745549331af47bd6fbbae90681aacc19edceaea8",
   "entry": "dist/index.js",
-  "entrySha256": "99137457918384b9288ada4d23de24632779944759be3f33c7421cc2805dde0a",
-  "musashiPreparationRoute": {
-    "path": "D:/Projects/horness-launcher/res/sidecar-prepare.mjs",
-    "sha256": "277c19907bf6580f988de127a83d6bb53688113e75f75f4f8f74a89d6ba4e974"
-  },
-  "sourceReceiptSha256": "2c7aae3bb57c17f0291f894ee304ec5fd3025de0b614bd7b8b6c91f1e4c003d8",
+  "entrySha256": "8194e65dae76017830c533e9cf2eda11f4947bc0396736b6d8d86d5b9030edbc",
   "runtimeDependency": {
     "name": "zod",
     "version": "4.1.8",
@@ -963,6 +956,11 @@
       "sha256": "9dc230ef35f352d3d5d5d3471ceebb65b1a174e300d6848588a1435a48e82b0f"
     },
     {
+      "path": "src/encoder-status.ts",
+      "bytes": 1023,
+      "sha256": "2cd1dd15886fa0c516fcc73aceb14ed8c8e26a7209d1d5c5638771cacc32aa2c"
+    },
+    {
       "path": "src/encrypt.ts",
       "bytes": 8783,
       "sha256": "e6d9f253442048398a8d68b194e6b417d7e89244ffdd5d17e74c45245e052914"
@@ -1059,8 +1057,8 @@
     },
     {
       "path": "src/image-rescale.ts",
-      "bytes": 31269,
-      "sha256": "1ffdf8e276a4c654947251539a69d572bf42f30343070d83f8dbd71bc3ea319c"
+      "bytes": 31354,
+      "sha256": "8f5205c85ef5b9a17f420db32201243f8ad55a4561359c9337fa0ea40c2eeae9"
     },
     {
       "path": "src/image-restore.ts",
@@ -1233,6 +1231,16 @@
       "sha256": "35d19266dd8291f2b81a906a422abdac52e7807a57ece054a235c4c3cda527db"
     },
     {
+      "path": "src/musashi-terminal/control-marker.test.ts",
+      "bytes": 10450,
+      "sha256": "c57f35c9174cbfd8fbe012b74f437966a018a88fd7d22b1f5a185f60a3c0e454"
+    },
+    {
+      "path": "src/musashi-terminal/control-marker.ts",
+      "bytes": 5269,
+      "sha256": "769d569bc1bd3f9a753478fbd8eea57c33c2642a405910de4c5dc60c9c105c2c"
+    },
+    {
       "path": "src/musashi-terminal/epoch.ts",
       "bytes": 20743,
       "sha256": "5e7c86addc2ed37620998b2091472c6a7c5fd51e75753ee1c5f7696507239c78"
@@ -1324,8 +1332,8 @@
     },
     {
       "path": "src/musashi-terminal/rewrite-hook.ts",
-      "bytes": 2868,
-      "sha256": "37829d108fb44ab1f903f154f96ec35613747a2999836659bc7c72a06166cd9b"
+      "bytes": 4725,
+      "sha256": "77f00816292ffb32275eb2af0fcac1e5f7216f4b2b99abc1c9d43378f61f87a9"
     },
     {
       "path": "src/musashi-terminal/rewrite-models.ts",
@@ -1344,8 +1352,8 @@
     },
     {
       "path": "src/musashi-terminal/rewrite-wire.ts",
-      "bytes": 8443,
-      "sha256": "b3c656450e0f9d9a0b9fc5496eff95a7b46de80b08361d89e4ddbaca027dcdbd"
+      "bytes": 8511,
+      "sha256": "0b41825cf16873c19c1ee0379828ff50def342139d238267a1df9dc06b0af6f7"
     },
     {
       "path": "src/musashi-terminal/turn-refusals.ts",
@@ -1434,8 +1442,8 @@
     },
     {
       "path": "src/plugin.ts",
-      "bytes": 285070,
-      "sha256": "dcba62fcb915f2136a4b1862dbaa7a88ad6eb2c2b1e37234110683a9cb5fc4b9"
+      "bytes": 285534,
+      "sha256": "23a8f58f7fb84d0d5b7f015a485943dc349ea7936ee489007d24dcb3f051c872"
     },
     {
       "path": "src/port-owner.ts",
@@ -1534,8 +1542,8 @@
     },
     {
       "path": "src/server/admin.ts",
-      "bytes": 83771,
-      "sha256": "6b83590f0da7627e6fb02de0ba5f4716c4bc4e864646fd3df3f6d46c40614d91"
+      "bytes": 84790,
+      "sha256": "f5659d49da97a78e258bcf64809a30f0931f730b8c70d69f4009d3a9eba2a0cd"
     },
     {
       "path": "src/server/attribution-status.ts",
@@ -1546,6 +1554,16 @@
       "path": "src/server/budget.ts",
       "bytes": 33129,
       "sha256": "5245548be458c40c6ade8569184ff850adc96488e6ba84c3daf6a1b54a7e8da2"
+    },
+    {
+      "path": "src/server/capabilities.test.ts",
+      "bytes": 12735,
+      "sha256": "ef4352e00dbba61466f0b7dd836769268790ff347d5530776185cbffac057de1"
+    },
+    {
+      "path": "src/server/capabilities.ts",
+      "bytes": 9713,
+      "sha256": "9e55f665d6d0d4f004be56522e3c3100bd511af62077a05f4ebbd7610cc45f1a"
     },
     {
       "path": "src/server/chain-artifacts.ts",
@@ -1569,13 +1587,18 @@
     },
     {
       "path": "src/server/handle.ts",
-      "bytes": 205088,
-      "sha256": "20f290638ff4945fecca1acb16eec0c38320deeaa92eeba7de02881673bd78ba"
+      "bytes": 206640,
+      "sha256": "f0b9d8cccd7628920b5c641015b630b15c3af7e0a5747ace0568357358226895"
+    },
+    {
+      "path": "src/server/headers.test.ts",
+      "bytes": 858,
+      "sha256": "bd541e65c86d266967b86f1390b688c44d66a2be6f2b5a3746935719029da0c4"
     },
     {
       "path": "src/server/headers.ts",
-      "bytes": 4458,
-      "sha256": "4a636d31d99041f136c7f3a4db7d235d03d2dc882f827688ef13331b219381bd"
+      "bytes": 4635,
+      "sha256": "49fd3264a023217e620acd5db6bb9f43f0b9fb602545b98e496e61db920edc1b"
     },
     {
       "path": "src/server/inject.ts",
@@ -2001,33 +2024,33 @@
   "artifactFiles": [
     {
       "path": "dist/agent/opencode-native.js",
-      "bytes": 2479482,
-      "sha256": "a5060ce2349214517e46a1118912f5743347f373c9795cc6443ed558a715bb30"
+      "bytes": 2479516,
+      "sha256": "760dd07afac853af032b911726f0c1dac9b73d465f6c40fbae35690cf2fcbb38"
     },
     {
       "path": "dist/agent/opencode-native.js.map",
-      "bytes": 9410598,
-      "sha256": "d56e58a4c3a6f1e4aad60f1ac49c1d3f8b979e12aff1564990cbf30bd690d263"
+      "bytes": 9411737,
+      "sha256": "2922b62dd179082dc63c70e91a7858b45a6e3534a044e5206ab78fc4aae6ffc5"
     },
     {
       "path": "dist/agent/opencode.js",
-      "bytes": 2446242,
-      "sha256": "234c30a1c355b9f753b195c033d4f3de3de01ce878727e83d37d536722748c2e"
+      "bytes": 2446276,
+      "sha256": "1829f8eafcb60327cafa38307e74c03da70a46dd3eb60336cd8ecd27099ec76b"
     },
     {
       "path": "dist/agent/opencode.js.map",
-      "bytes": 9302409,
-      "sha256": "7a057d8bb0ae57af70be032291dccca13fc926642e25896dbefa96f63649e58b"
+      "bytes": 9303548,
+      "sha256": "311e7326fe47416870c74758ba93dc4422c363d121d550ca3813ec00d6ce85c6"
     },
     {
       "path": "dist/agent/pi-native.js",
-      "bytes": 5590327,
-      "sha256": "dafe970e8409616e56633414a8aad401ad1696bee6a3538e895f5345e2b35742"
+      "bytes": 5597977,
+      "sha256": "ce046f45d2e5f38043be8726ec7532a52c249c782a24631c01eaa525ce040041"
     },
     {
       "path": "dist/agent/pi-native.js.map",
-      "bytes": 17045258,
-      "sha256": "798da524ee5a9027e2a8669a5271613e44c6c851f1fb98d8ac46b5b8e234ba88"
+      "bytes": 17079103,
+      "sha256": "30c5f9bf9da942e28e417d2f58a02d6f6e8cb81dcb9a717c17606cf2162bf45e"
     },
     {
       "path": "dist/agent/pi.js",
@@ -2036,13 +2059,13 @@
     },
     {
       "path": "dist/agent/pi.js.map",
-      "bytes": 6374272,
-      "sha256": "f653a2218340ebbd4464bc45f493777b8a2bb9efb2478ea0281d18c2c0e873b5"
+      "bytes": 6378789,
+      "sha256": "88e4b4088ac4b6d09890a74e70f0d8e9f87c2bd2dfab512a190e87d703560039"
     },
     {
       "path": "dist/build-info.json",
       "bytes": 139,
-      "sha256": "54a09f775cb1566ca20857e5e5fc9c8ddfd33b791d86fa8c7d8bb0291f69409c"
+      "sha256": "84275cf17fe977c06df561cf21fe67871f7535583bffe940d06c7e17e4969b6c"
     },
     {
       "path": "dist/claude-native-bootstrap.js",
@@ -2056,13 +2079,13 @@
     },
     {
       "path": "dist/index.js",
-      "bytes": 5512605,
-      "sha256": "99137457918384b9288ada4d23de24632779944759be3f33c7421cc2805dde0a"
+      "bytes": 5520262,
+      "sha256": "8194e65dae76017830c533e9cf2eda11f4947bc0396736b6d8d86d5b9030edbc"
     },
     {
       "path": "dist/index.js.map",
-      "bytes": 15732468,
-      "sha256": "f204dcaf9547ca10079891c701217c6fe847a4aac3ce88870c461ff06ad8fa76"
+      "bytes": 15762031,
+      "sha256": "f57ea4aece26178e47c0e696fac99a6c9e4807c701fbcfbc26de8fa6b3d5cd5d"
     },
     {
       "path": "dist/mcp.js",

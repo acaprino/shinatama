@@ -793,8 +793,9 @@ impl WindowsTerminalHost {
             .unwrap_or_default()
     }
     /// Qualified native (agent) sessions whose process is starting or running.
-    /// Plain shells, ended and closing sessions are not counted.
-    pub fn live_native_sessions(&self) -> usize {
+    /// Plain shells, ended and closing sessions are not counted. None when the
+    /// registry cannot be read (poisoned lock): an unknown count is never zero.
+    pub fn live_native_sessions(&self) -> Option<usize> {
         self.sessions
             .lock()
             .map(|sessions| {
@@ -808,7 +809,7 @@ impl WindowsTerminalHost {
                     })
                     .count()
             })
-            .unwrap_or(0)
+            .ok()
     }
     /// Cached scalar observations only. No native query, blocking lock or join.
     pub fn resources(&self) -> Vec<TerminalResourceStatus> {
@@ -1854,12 +1855,23 @@ mod tests {
         assert!(!is_live_native(true, RELEASED));
         assert!(!is_live_native(false, RUNNING));
         let host = WindowsTerminalHost::default();
-        assert_eq!(host.live_native_sessions(), 0);
+        assert_eq!(host.live_native_sessions(), Some(0));
         host.sessions
             .lock()
             .unwrap()
             .insert("plain".into(), Arc::new(resource_session()));
-        assert_eq!(host.live_native_sessions(), 0);
+        assert_eq!(host.live_native_sessions(), Some(0));
+    }
+    #[test]
+    fn an_unreadable_registry_is_an_unknown_count_not_zero() {
+        let host = Arc::new(WindowsTerminalHost::default());
+        let poisoner = host.clone();
+        let _ = std::thread::spawn(move || {
+            let _guard = poisoner.sessions.lock().unwrap();
+            panic!("poison the session registry");
+        })
+        .join();
+        assert_eq!(host.live_native_sessions(), None);
     }
     struct RefusedAdmission;
     impl WindowsTerminalAdmission for RefusedAdmission {

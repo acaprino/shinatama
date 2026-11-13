@@ -13,7 +13,7 @@ import { detectCostAdvisories } from "../plugin-advisory.js";
 import { fetchWithTimeout } from "../fetch-util.js";
 import { log as loggerLog, getLogPath } from "../logger.js";
 import { getBlindTunnelStats } from "../mitm.js";
-import { handlePluginAttribution, handlePluginCompact, handlePluginFork, handlePluginManifest, handlePluginRegister, handlePluginRuntimeInfo, handlePluginSessionName, handlePluginSnapshot, handlePluginStatus, handlePluginTool, resolveConversation } from "../plugin.js";
+import { handlePluginAttribution, handlePluginCompact, handlePluginFork, handlePluginManifest, handlePluginRegister, handlePluginRuntimeInfo, handlePluginSessionName, handlePluginSnapshot, handlePluginStatus, handlePluginTool, peekConversationSession } from "../plugin.js";
 import { parseAgentProviderReport, recordAgentProviders, agentProviderRecipes, sanitizeAgentProviderField } from "../agent-providers.js";
 import { defaultLogFile } from "../paths.js";
 import { getUpdateVisibility, updateBannerPayload } from "../update-notes.js";
@@ -220,7 +220,7 @@ export async function handleAdminRoute(req: http.IncomingMessage, res: http.Serv
             promptRewriteMode: opts.promptRewrite?.mode,
             imageRescaleEnabled: imageRescaleEnabled(),
             encoder: encoderState(),
-            resolveSession: (nativeId) => resolveConversation(nativeId).session,
+            resolveSession: (nativeId) => peekConversationSession(nativeId),
         });
         res.writeHead(out.status, { "content-type": "application/json" });
         res.end(JSON.stringify(out.body));

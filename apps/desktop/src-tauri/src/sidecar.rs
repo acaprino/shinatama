@@ -4,7 +4,9 @@
 use crate::{storage::Services, terminal_runtime::Runtime};
 use serde::Serialize;
 use shinatama_engine::{
-    sidecar_admin::{AdminTarget, ResolvedBaseline, resolved_baseline},
+    sidecar_admin::{
+        AdminTarget, CapabilityRead, ResolvedBaseline, resolved_baseline, session_capabilities,
+    },
     sidecar_config::{intended_baseline, prepare_private_sidecar},
     sidecar_runtime::{
         NodePin, RuntimeSummary, prepare_runtime, verify_bundled_node, verify_prepared_bundle,
@@ -42,13 +44,24 @@ pub struct Status {
     /// None until the configuration was read; true when it differs from what
     /// Shinatama writes.
     pub config_drift: Option<bool>,
+    /// The values read from the running process that differ from the baseline.
+    pub config_differences: Vec<ConfigDifference>,
     /// Requests the proxy is still answering; None while it is not running.
     pub in_flight: Option<u64>,
     /// Agent terminals alive right now. `status` cannot know it: the command
     /// layer fills it from the agents controller.
     pub agent_sessions: usize,
+    /// False when the count could not be read: the panel then asks before stopping.
+    pub agent_sessions_known: bool,
     /// When a requested drain stops waiting for in-flight requests.
     pub drain_deadline_unix_ms: Option<i64>,
+}
+/// One setting whose value in the running process is not the baseline.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct ConfigDifference {
+    pub setting: &'static str,
+    pub read: String,
+    pub baseline: String,
 }
 /// What a user-requested stop does while agent sessions may be live.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -57,24 +70,23 @@ pub enum StopDecision {
     Drain,
 }
 /// A stop that would cut live agents off needs an explicit `force`.
-fn decide_stop(agent_sessions: usize, force: bool) -> StopDecision {
-    if agent_sessions > 0 && !force {
+/// An unknown count is not "no sessions": it asks like a live one does.
+fn decide_stop(agent_sessions: Option<usize>, force: bool) -> StopDecision {
+    if agent_sessions.is_none_or(|count| count > 0) && !force {
         StopDecision::Refuse
     } else {
         StopDecision::Drain
     }
 }
-/// Only a ready, healthy proxy backs a new launch; a draining one never does.
-fn launch_allowed(phase: &str, healthy: bool) -> bool {
-    phase == "ready" && healthy
+/// Only a healthy proxy backs a new launch: ready, or busy with requests in
+/// flight (another agent is streaming). A draining one never does.
+pub(crate) fn launch_allowed(phase: &str, healthy: bool) -> bool {
+    matches!(phase, "ready" | "busy") && healthy
 }
 pub const STOPPING: &str = "The model proxy is stopping. Start it again before opening an agent.";
 pub enum StopOutcome {
     Draining(Status),
-    Refused {
-        agent_sessions: usize,
-        status: Status,
-    },
+    Refused { status: Status },
 }
 /// How long a worker waits for one admin read, and how often it retries an
 /// unknown one for the same process.
@@ -83,6 +95,61 @@ const RESOLVED_READ_ATTEMPTS: u8 = 3;
 /// `None` until the running process's configuration is known.
 fn drift(resolved: Option<&ResolvedBaseline>) -> Option<bool> {
     resolved.map(|resolved| *resolved != intended_baseline())
+}
+/// Longest setting value shown; the status reply is read back with the same bound.
+const DIFFERENCE_TEXT_LIMIT: usize = 80;
+/// A value read from the process made displayable: never empty, never longer
+/// than the panel accepts, cut on a character boundary.
+fn bounded_value(value: String) -> String {
+    if value.is_empty() {
+        return "(empty)".to_owned();
+    }
+    if value.chars().count() <= DIFFERENCE_TEXT_LIMIT {
+        return value;
+    }
+    let mut cut: String = value.chars().take(DIFFERENCE_TEXT_LIMIT - 1).collect();
+    cut.push('\u{2026}');
+    cut
+}
+/// The settings of `resolved` that differ from what Shinatama writes; a value
+/// the process did not report is listed as such rather than as the baseline.
+fn config_differences(resolved: Option<&ResolvedBaseline>) -> Vec<ConfigDifference> {
+    let Some(resolved) = resolved else {
+        return Vec::new();
+    };
+    let baseline = intended_baseline();
+    let mut out = Vec::new();
+    fn check<T: PartialEq + std::fmt::Display>(
+        out: &mut Vec<ConfigDifference>,
+        setting: &'static str,
+        read: &Option<T>,
+        baseline: &Option<T>,
+    ) {
+        if read != baseline {
+            let show = |value: &Option<T>| {
+                value
+                    .as_ref()
+                    .map_or_else(|| "not reported".to_owned(), |value| bounded_value(value.to_string()))
+            };
+            out.push(ConfigDifference {
+                setting,
+                read: show(read),
+                baseline: show(baseline),
+            });
+        }
+    }
+    check(&mut out, "Prompt rewrite", &resolved.prompt_rewrite_mode, &baseline.prompt_rewrite_mode);
+    check(&mut out, "Tiers", &resolved.tiers, &baseline.tiers);
+    check(&mut out, "Absorb", &resolved.absorb_enabled, &baseline.absorb_enabled);
+    check(&mut out, "Absorb minimum tool tokens", &resolved.absorb_min_tool_tokens, &baseline.absorb_min_tool_tokens);
+    check(&mut out, "Large-result storage", &resolved.ccr_enabled, &baseline.ccr_enabled);
+    check(&mut out, "Large-result storage minimum tool tokens", &resolved.ccr_min_tool_tokens, &baseline.ccr_min_tool_tokens);
+    check(&mut out, "Adaptive pressure", &resolved.adaptive_enabled, &baseline.adaptive_enabled);
+    check(&mut out, "Adaptive pressure maximum tokens", &resolved.adaptive_max_tokens, &baseline.adaptive_max_tokens);
+    check(&mut out, "Output steering", &resolved.steering_enabled, &baseline.steering_enabled);
+    check(&mut out, "Verbosity level", &resolved.verbosity_level, &baseline.verbosity_level);
+    check(&mut out, "Effort routing", &resolved.effort_routing, &baseline.effort_routing);
+    out
 }
 pub struct Controller {
     services: Arc<Services>,
@@ -176,6 +243,7 @@ impl Controller {
         Status {
             in_flight: observation.as_ref().and_then(|snapshot| snapshot.in_flight),
             agent_sessions: 0,
+            agent_sessions_known: true,
             drain_deadline_unix_ms: observation
                 .as_ref()
                 .and_then(|snapshot| snapshot.drain_deadline_unix_ms),
@@ -188,6 +256,7 @@ impl Controller {
             observation,
             prepared_identity: self.identity.get().cloned(),
             config_drift: drift(resolved.as_ref()),
+            config_differences: config_differences(resolved.as_ref()),
             resolved,
         }
     }
@@ -248,16 +317,16 @@ impl Controller {
     /// otherwise lets in-flight requests finish before the process stops.
     pub fn stop_requested_by_user(
         &self,
-        agent_sessions: usize,
+        agent_sessions: Option<usize>,
         force: bool,
     ) -> Result<StopOutcome, &'static str> {
         let with_sessions = |mut status: Status| {
-            status.agent_sessions = agent_sessions;
+            status.agent_sessions = agent_sessions.unwrap_or(0);
+            status.agent_sessions_known = agent_sessions.is_some();
             status
         };
         match decide_stop(agent_sessions, force) {
             StopDecision::Refuse => Ok(StopOutcome::Refused {
-                agent_sessions,
                 status: with_sessions(self.status()),
             }),
             StopDecision::Drain => {
@@ -352,6 +421,30 @@ impl Controller {
         if let Ok(mut value) = self.resolved.lock() {
             *value = None;
         }
+    }
+    /// One session's capabilities from the running process, never on the UI thread.
+    /// Unavailable while no owned process is known; the engine proves the process
+    /// identity (health `pid`) before the capabilities path is asked.
+    pub fn session_capabilities(&self, native_id: &str) -> CapabilityRead {
+        let Some(pid) = self
+            .supervisor
+            .get()
+            .and_then(SidecarSupervisor::status)
+            .and_then(|snapshot| snapshot.pid)
+        else {
+            return CapabilityRead::Unavailable;
+        };
+        let Some((port, _)) = self.connection.get() else {
+            return CapabilityRead::Unavailable;
+        };
+        session_capabilities(
+            &AdminTarget {
+                port: *port,
+                pid,
+                timeout: RESOLVED_READ_TIMEOUT,
+            },
+            native_id,
+        )
     }
     pub fn is_active(&self) -> bool {
         self.preparing.load(Ordering::Acquire)
@@ -600,10 +693,58 @@ fn resources_root() -> Result<PathBuf, &'static str> {
     #[cfg(not(debug_assertions))]
     Err("The proxy resources are missing from this application package.")
 }
+/// The `sidecar_capabilities` answer: `{ state, capabilities? }`.
+pub fn capabilities_reply(read: CapabilityRead) -> serde_json::Value {
+    match read {
+        CapabilityRead::Observed(capabilities) => serde_json::json!({
+            "state": "observed",
+            "capabilities": capabilities,
+        }),
+        CapabilityRead::NotObserved => serde_json::json!({ "state": "not_observed" }),
+        CapabilityRead::Unavailable => serde_json::json!({ "state": "unavailable" }),
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use shinatama_engine::sidecar_admin::{Lever, SessionCapabilities};
     use shinatama_engine::sidecar_config::intended_baseline;
+
+    #[test]
+    fn capabilities_reply_names_the_state_and_carries_the_report_only_when_observed() {
+        let lever = |applied, reason: &str| Lever {
+            configured: None,
+            applied,
+            reason: reason.to_owned(),
+        };
+        let observed = capabilities_reply(CapabilityRead::Observed(SessionCapabilities {
+            schema_version: 1,
+            protocol: "responses".into(),
+            requests: 4,
+            profile: None,
+            passthrough: false,
+            ccr: lever(Some(false), "codex_host"),
+            read_original_image: lever(Some(false), "codex_host"),
+            image_rescale: lever(None, "not_observed"),
+            steering_level: Some(2),
+            effort_routing: Some(false),
+            prompt_rewrite_mode: Some("auto".into()),
+            stamped_at_request: Some(3),
+        }));
+        assert_eq!(observed["state"], "observed");
+        assert_eq!(observed["capabilities"]["ccr"]["reason"], "codex_host");
+        assert_eq!(observed["capabilities"]["ccr"]["applied"], false);
+        assert_eq!(observed["capabilities"]["steeringLevel"], 2);
+        assert_eq!(observed["capabilities"]["promptRewriteMode"], "auto");
+        assert_eq!(
+            capabilities_reply(CapabilityRead::NotObserved),
+            serde_json::json!({ "state": "not_observed" })
+        );
+        assert_eq!(
+            capabilities_reply(CapabilityRead::Unavailable),
+            serde_json::json!({ "state": "unavailable" })
+        );
+    }
 
     #[test]
     fn drift_is_reported_when_resolved_differs_from_baseline() {
@@ -615,17 +756,59 @@ mod tests {
     }
 
     #[test]
+    fn differences_name_the_values_read_from_the_process() {
+        assert!(config_differences(None).is_empty());
+        let mut resolved = intended_baseline();
+        assert!(config_differences(Some(&resolved)).is_empty());
+        resolved.verbosity_level = Some(3);
+        resolved.effort_routing = Some(true);
+        resolved.ccr_min_tool_tokens = None;
+        let found = config_differences(Some(&resolved));
+        let line = |setting: &str| {
+            let item = found.iter().find(|item| item.setting == setting).expect(setting);
+            (item.read.as_str(), item.baseline.as_str())
+        };
+        assert_eq!(found.len(), 3);
+        assert_eq!(line("Verbosity level"), ("3", "2"));
+        assert_eq!(line("Effort routing"), ("true", "false"));
+        assert_eq!(line("Large-result storage minimum tool tokens"), ("not reported", "4000"));
+    }
+
+    #[test]
+    fn differences_bound_an_empty_or_overlong_prompt_rewrite_mode() {
+        let mut resolved = intended_baseline();
+        resolved.prompt_rewrite_mode = Some(String::new());
+        let found = config_differences(Some(&resolved));
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].read, "(empty)");
+        // Multi-byte characters: the cut must land on a character boundary.
+        resolved.prompt_rewrite_mode = Some("\u{e9}".repeat(200));
+        let found = config_differences(Some(&resolved));
+        assert_eq!(found[0].read.chars().count(), DIFFERENCE_TEXT_LIMIT);
+        assert!(found[0].read.ends_with('\u{2026}'));
+        assert!(found[0].read.starts_with("\u{e9}\u{e9}"));
+        resolved.prompt_rewrite_mode = Some("x".repeat(DIFFERENCE_TEXT_LIMIT));
+        assert_eq!(config_differences(Some(&resolved))[0].read.len(), DIFFERENCE_TEXT_LIMIT);
+    }
+
+    #[test]
     fn stop_is_refused_while_agents_are_live_unless_forced() {
-        assert_eq!(decide_stop(2, false), StopDecision::Refuse);
-        assert_eq!(decide_stop(2, true), StopDecision::Drain);
-        assert_eq!(decide_stop(0, false), StopDecision::Drain);
-        assert_eq!(decide_stop(0, true), StopDecision::Drain);
+        assert_eq!(decide_stop(Some(2), false), StopDecision::Refuse);
+        assert_eq!(decide_stop(Some(2), true), StopDecision::Drain);
+        assert_eq!(decide_stop(Some(0), false), StopDecision::Drain);
+        assert_eq!(decide_stop(Some(0), true), StopDecision::Drain);
+        // An unreadable count (no agents controller yet, poisoned registry) fails closed.
+        assert_eq!(decide_stop(None, false), StopDecision::Refuse);
+        assert_eq!(decide_stop(None, true), StopDecision::Drain);
     }
 
     #[test]
     fn draining_owner_issues_no_launch_permit() {
         assert!(!launch_allowed("draining", true));
         assert!(launch_allowed("ready", true));
+        // A streaming response keeps the proxy busy; opening another agent must still pass.
+        assert!(launch_allowed("busy", true));
+        assert!(!launch_allowed("busy", false));
         assert!(!launch_allowed("ready", false));
         assert!(!launch_allowed("stopped", true));
     }

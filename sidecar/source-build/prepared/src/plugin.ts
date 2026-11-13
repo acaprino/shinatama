@@ -948,6 +948,13 @@ function conversationIdForSession(sessionId: string): string | undefined {
     return bestId;
 }
 
+/** The session resolveConversation would return, found without repairing or recording anything:
+ *  read-only callers (GET endpoints) must not write the conversations map. */
+export function peekConversationSession(conversationId: string): Session | undefined {
+    const entry = conversations.get(conversationId);
+    return peekSession(conversationId) ?? (entry ? peekSession(entry.sessionId) : undefined) ?? findSessionByCanonicalId(conversationId);
+}
+
 /** Native session ids outrank lookup aliases: shared prompt_cache_key values
  *  must not redirect a parent to a child. Repair legacy conflicting mappings
  *  on lookup; unknown ids still create no session. */

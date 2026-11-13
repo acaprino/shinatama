@@ -12,26 +12,33 @@ mod sidecar_harness;
 use sidecar_harness::*;
 
 use serde_json::{Value, json};
+use shinatama_hop::channel::{ControlKind, control_header, control_header_value};
+use shinatama_engine::sidecar_admin::{
+    AdminTarget, CapabilityRead, SessionCapabilities, session_capabilities,
+};
 use shinatama_engine::sidecar_supervisor::{Command, Phase, Reason};
 use std::{
     collections::BTreeMap,
     fs,
     io::{ErrorKind, Read},
     net::TcpStream,
+    num::NonZeroU16,
     path::PathBuf,
     process::Stdio,
     thread,
     time::{Duration, Instant},
 };
 
-// SC9 outcome against the pinned sidecar (all four fail, assertions intact; Task 12 owns the fix):
-// - the human message reaches the origin as `<acp tokens="N" type="text">mNNNNN</acp>` and a newline
-//   before the original text: a reference tag is prepended inside the same text block;
-// - the first destination turn makes the sidecar fetch the model catalog (GET /v1/models) and
-//   send the control message to a lightweight model for rewriting (a second POST) before the
-//   probe itself is forwarded.
+// SC9. Without a marker the sidecar treats the human message like any other: it prepends
+// `<acp tokens="N" type="text">mNNNNN</acp>` and a newline inside the same text block, and on the
+// first destination turn it fetches the model catalog (GET /v1/models) and sends the message to a
+// lightweight model for rewriting (a second POST). Shinatama declares its control messages with
+// the `x-shinatama-control` header built by `shinatama_hop::channel::control_header`: the sidecar
+// honours it only when the hash equals the human message it received. These tests send the header
+// the way Shinatama does; `mismatched_hash_gets_ordinary_treatment` shows what an unmarked or
+// wrongly marked message still gets.
 #[test]
-#[ignore = "SC9 open: see Task 12"]
+#[ignore = "native: starts the pinned sidecar"]
 fn bootstrap_reaches_origin_byte_identical() {
     let (sidecar, origin) = proof();
     let text = handoff_text();
@@ -77,7 +84,7 @@ fn long_history() -> Vec<Msg> {
 }
 
 #[test]
-#[ignore = "SC9 open: see Task 12"]
+#[ignore = "native: starts the pinned sidecar"]
 fn bootstrap_is_untouched_with_history_near_the_limit() {
     let history = long_history();
     let tokens: usize = history
@@ -97,12 +104,19 @@ fn bootstrap_is_untouched_with_history_near_the_limit() {
 }
 
 #[test]
-#[ignore = "SC9 open: see Task 12"]
+#[ignore = "native: starts the pinned sidecar"]
 fn first_destination_turn_sends_no_auxiliary_request() {
     let (sidecar, origin) = proof();
     let text = handoff_text();
-    let forwarded =
-        forward(sidecar.port, &origin, &new_session(), &[], &text).expect("forward the first turn");
+    let forwarded = forward_control(
+        sidecar.port,
+        &origin,
+        &new_session(),
+        &[],
+        &text,
+        ControlKind::Bootstrap,
+    )
+    .expect("forward the first turn");
     // A catalog fetch is allowed; a rewrite or summary call (another model call) is not.
     assert_eq!(
         forwarded.model_calls, 1,
@@ -121,8 +135,10 @@ fn first_destination_turn_sends_no_auxiliary_request() {
 
 const DICTATED: &str = "Vorrei che sistemassi il calcolo dei totali nel report mensile, ma non toccare per nessun motivo la parte sugli arrotondamenti, perché i clienti si aspettano sempre 2 decimali; poi dimmi quante righe hai cambiato e se i test esistenti passano.";
 
+// The dictated request is sent as the seed message: it is Shinatama's text for the destination, so
+// it is declared with the `seed` marker. The contract below holds for it as it does for the bootstrap.
 #[test]
-#[ignore = "SC9 open: see Task 12"]
+#[ignore = "native: starts the pinned sidecar"]
 fn dictated_prompt_is_kept_and_any_rewrite_note_is_additive() {
     assert_eq!(DICTATED.split_whitespace().count(), 40);
     assert!(DICTATED.contains("non toccare") && DICTATED.contains("2 decimali"));
@@ -131,8 +147,15 @@ fn dictated_prompt_is_kept_and_any_rewrite_note_is_additive() {
         Msg::user_text("Ciao, lavoriamo sul report mensile."),
         Msg::assistant_text("Va bene, dimmi cosa serve."),
     ];
-    let forwarded = forward(sidecar.port, &origin, &new_session(), &history, DICTATED)
-        .expect("forward dictation");
+    let forwarded = forward_control(
+        sidecar.port,
+        &origin,
+        &new_session(),
+        &history,
+        DICTATED,
+        ControlKind::Seed,
+    )
+    .expect("forward dictation");
     let (at, human) = human_message(&forwarded).expect("human message");
     // Contract: the original text reaches the origin byte-identical and as a text block of
     // its own. Anything the sidecar adds is a derived rewrite note, placed adjacent to the
@@ -168,6 +191,79 @@ fn dictated_prompt_is_kept_and_any_rewrite_note_is_additive() {
     }
     // The history keeps its messages; the sidecar adds nothing before the original.
     assert_eq!(forwarded.messages[..at].len(), history.len());
+}
+
+// The marker is honoured only when its hash equals the human message received. A header whose
+// hash belongs to other text, a malformed value and no header at all leave the message with the
+// ordinary treatment: the reference tag is still prepended to the text block, as before.
+#[test]
+#[ignore = "native: starts the pinned sidecar"]
+fn mismatched_hash_gets_ordinary_treatment() {
+    let (sidecar, origin) = proof();
+    let text = handoff_text();
+    let other = control_header_value(ControlKind::Bootstrap, "a different message");
+    let wrong = forward_with_header(
+        sidecar.port,
+        &origin,
+        &new_session(),
+        &[],
+        &text,
+        ("x-shinatama-control", other),
+    )
+    .expect("forward with a mismatched hash");
+    let (_, message) = human_message(&wrong).expect("human message");
+    let received = message_text(message).join("
+<<next block>>
+");
+    assert_ne!(received, text, "a mismatched hash must not bypass");
+    assert!(
+        received.starts_with("<acp tokens=\"") && received.ends_with(&format!("</acp>
+{text}")),
+        "the tag is prepended as for any message: {received}"
+    );
+    let malformed = forward_with_header(
+        sidecar.port,
+        &origin,
+        &new_session(),
+        &[],
+        &text,
+        ("x-shinatama-control", "bootstrap".into()),
+    )
+    .expect("forward with a malformed marker");
+    let (_, message) = human_message(&malformed).expect("human message");
+    assert!(message_text(message)[0].starts_with("<acp tokens=\""));
+    let unmarked = forward(sidecar.port, &origin, &new_session(), &[], &text).expect("unmarked");
+    let (_, message) = human_message(&unmarked).expect("human message");
+    assert!(message_text(message)[0].starts_with("<acp tokens=\""));
+}
+
+// A real Claude Code request carries reminders as text parts of the same user message, before the
+// prompt. The marker names one part: that part and its neighbours reach the origin untouched.
+#[test]
+#[ignore = "native: starts the pinned sidecar"]
+fn marked_prompt_among_reminder_parts_is_untouched() {
+    let (sidecar, origin) = proof();
+    let text = handoff_text();
+    let reminder = "<system-reminder>\nToday's date is 2026-11-13.\n</system-reminder>";
+    let message = json!({
+        "role": "user",
+        "content": [
+            { "type": "text", "text": reminder },
+            { "type": "text", "text": text },
+        ],
+    });
+    let forwarded = forward_messages_with(
+        sidecar.port,
+        &origin,
+        &new_session(),
+        vec![message],
+        None,
+        Some(control_header(ControlKind::Bootstrap, &text)),
+    )
+    .expect("forward the reminder and the bootstrap");
+    let (_, human) = human_message(&forwarded).expect("human message");
+    assert_eq!(message_text(human), vec![reminder.to_owned(), text]);
+    assert_eq!(forwarded.model_calls, 1, "{:?}", forwarded.others);
 }
 
 // The origin handle must be shareable so concurrent sessions can forward from threads.
@@ -648,6 +744,49 @@ fn drain_lets_a_running_stream_finish() {
 
 #[test]
 #[ignore = "native: starts the pinned sidecar"]
+fn a_launch_check_passes_while_another_response_streams() {
+    let sidecar = Running::start().expect("start the pinned sidecar");
+    let origin = Origin::start(&sidecar, 3000).expect("start the synthetic origin");
+    let session = new_session();
+    let probe = probe(&origin, &session, &[], "Scrivi una frase.", None);
+    let mut streaming = Streaming::open(sidecar.port, &probe).expect("open the stream");
+    streaming
+        .read_until("message_start", Duration::from_secs(30))
+        .expect("first SSE byte");
+    // The health tick sets Busy once it reads inFlight > 0; that must not close the launch gate.
+    let busy = Running::wait_status(
+        &sidecar.supervisor,
+        Duration::from_secs(10),
+        Phase::Busy,
+        |s| s.healthy && s.in_flight.is_some_and(|n| n > 0),
+    )
+    .expect("the owner reports Busy while the response streams");
+    let unix_ms = || {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_millis() as i64
+    };
+    assert!(
+        busy.backs_launch(unix_ms()),
+        "a launch check must pass while another agent streams: {busy:?}"
+    );
+    let (bytes, _) = streaming
+        .finish(Duration::from_secs(30))
+        .expect("the stream ends");
+    assert!(String::from_utf8_lossy(&bytes).contains("message_stop"));
+    let idle = Running::wait_status(
+        &sidecar.supervisor,
+        Duration::from_secs(10),
+        Phase::Ready,
+        |s| s.healthy && s.in_flight == Some(0),
+    )
+    .expect("the owner is Ready again after the stream");
+    assert!(idle.backs_launch(unix_ms()));
+}
+
+#[test]
+#[ignore = "native: starts the pinned sidecar"]
 fn killed_sidecar_never_replays_the_interrupted_request() {
     let sidecar = Running::start().expect("start the pinned sidecar");
     let origin = Origin::start(&sidecar, 3000).expect("start the synthetic origin");
@@ -716,4 +855,355 @@ fn killed_sidecar_never_replays_the_interrupted_request() {
         .map(|s| s.reason),
         Ok(Reason::None)
     );
+}
+
+// Per-session capabilities (Task 10): what `/__bili/capabilities` says must be what the
+// origin actually received.
+
+/// The engine's own reader against the running sidecar, for the session the client named.
+fn read_capabilities(sidecar: &Running, native: &str) -> CapabilityRead {
+    let pid = sidecar.health().expect("health")["pid"]
+        .as_u64()
+        .expect("sidecar pid") as u32;
+    session_capabilities(
+        &AdminTarget {
+            port: NonZeroU16::new(sidecar.port).expect("sidecar port"),
+            pid,
+            timeout: Duration::from_secs(5),
+        },
+        native,
+    )
+}
+fn observed(read: CapabilityRead, label: &str) -> SessionCapabilities {
+    match read {
+        CapabilityRead::Observed(capabilities) => capabilities,
+        other => panic!("{label}: expected an observed report, got {other:?}"),
+    }
+}
+
+/// The text of the large tool result `session_start` builds, for a Responses request.
+fn marker_result(marker: &str) -> String {
+    let (_, result) = session_start(marker);
+    result.content[0]["content"]
+        .as_str()
+        .expect("tool result text")
+        .to_owned()
+}
+
+/// One Responses request as a codex host sends it: a function call answered by a large
+/// function_call_output. Returns the body the origin recorded for it (HTTP 200 required).
+fn responses_probe(sidecar: &Running, origin: &Origin, session: &str, result: &str) -> String {
+    let tag = new_session();
+    let body = json!({
+        "model": "gpt-5-codex",
+        "stream": true,
+        "store": false,
+        "instructions": "You are Codex, a synthetic coding agent.",
+        "prompt_cache_key": session,
+        "input": [
+            { "type": "message", "role": "user", "content": [{ "type": "input_text", "text": "Leggi il file e dimmi cosa contiene." }] },
+            { "type": "function_call", "call_id": "call_marker", "name": "shell", "arguments": "{\"command\":[\"cat\",\"marker.txt\"]}" },
+            { "type": "function_call_output", "call_id": "call_marker", "output": result },
+        ],
+        "tools": [{
+            "type": "function",
+            "name": "shell",
+            "description": "Runs a command.",
+            "parameters": { "type": "object", "properties": { "command": { "type": "array", "items": { "type": "string" } } }, "required": ["command"] },
+        }],
+    });
+    let response = request(
+        sidecar.port,
+        "POST",
+        &format!("/bili/http://127.0.0.1:{}/v1/responses", origin.port),
+        &[
+            ("content-type", "application/json".to_owned()),
+            (
+                "authorization",
+                "Bearer sk-synthetic-not-a-credential".to_owned(),
+            ),
+            ("originator", "codex_cli_rs".to_owned()),
+            (
+                "user-agent",
+                "codex_cli_rs/0.162.1 (Windows 11; x86_64) synthetic".to_owned(),
+            ),
+            ("session_id", session.to_owned()),
+            ("x-sc9-probe", tag.clone()),
+        ],
+        &serde_json::to_vec(&body).unwrap(),
+    )
+    .expect("responses request");
+    let text = String::from_utf8_lossy(&response.body).into_owned();
+    assert_eq!(
+        response.status,
+        200,
+        "responses lane: {}",
+        truncate(&text, 400)
+    );
+    assert!(
+        text.contains(REPLY),
+        "the reply did not come from the synthetic origin"
+    );
+    let sent = origin
+        .all_requests()
+        .into_iter()
+        .find(|r| r.path.ends_with("/v1/responses") && r.headers["x-sc9-probe"] == tag.as_str())
+        .expect("the responses request reached the origin");
+    String::from_utf8(sent.body).expect("origin body is text")
+}
+
+#[test]
+#[ignore = "native: starts the pinned sidecar"]
+fn capabilities_match_what_the_origin_received() {
+    let (sidecar, origin) = proof();
+
+    // Anthropic lane, a 6000-token tool result: CCR applied, and the origin holds a
+    // placeholder instead of the result.
+    let anthropic = new_session();
+    open_session(sidecar.port, &origin, &anthropic, "A", "MARKER_A").expect("open the session");
+    let calls = model_calls_by_session(&origin, &[&anthropic]).expect("attribute");
+    let sent = String::from_utf8_lossy(&calls[&anthropic].last().expect("a model call").body)
+        .into_owned();
+    assert!(
+        sent.contains("[acp-stored"),
+        "the origin did not receive a placeholder"
+    );
+    assert_eq!(
+        sent.matches("MARKER_A").count(),
+        1,
+        "the origin received the original result, not only its placeholder"
+    );
+    let caps = observed(read_capabilities(&sidecar, &anthropic), "anthropic lane");
+    assert_eq!(caps.schema_version, 1);
+    assert_eq!(caps.protocol, "anthropic");
+    assert!(caps.requests >= 1, "{caps:?}");
+    assert_eq!(caps.ccr.applied, Some(true), "{caps:?}");
+    assert_eq!(caps.ccr.reason, "none", "{caps:?}");
+    assert_eq!(caps.ccr.configured, Some(true), "{caps:?}");
+    assert!(!caps.passthrough);
+
+    // Responses lane with codex host headers: CCR is off for this host, and the origin
+    // holds the result verbatim.
+    let codex = new_session();
+    let result = marker_result("MARKER_C");
+    let sent = responses_probe(&sidecar, &origin, &codex, &result);
+    // Parsed, not counted: the whole result must be the function_call_output the origin got,
+    // so a stage that trimmed the middle and kept both ends cannot pass.
+    let received: Value = serde_json::from_str(&sent).expect("the origin body is JSON");
+    let output = received["input"]
+        .as_array()
+        .and_then(|items| items.iter().find(|item| item["type"] == "function_call_output"))
+        .and_then(|item| item["output"].as_str())
+        .expect("a function_call_output reached the origin");
+    assert_eq!(
+        output, result,
+        "the origin did not receive the result verbatim"
+    );
+    assert!(
+        !sent.contains("[acp-stored"),
+        "the origin received a placeholder on the codex lane"
+    );
+    let caps = observed(read_capabilities(&sidecar, &codex), "codex lane");
+    assert_eq!(caps.protocol, "responses");
+    assert_eq!(caps.ccr.applied, Some(false), "{caps:?}");
+    assert_eq!(caps.ccr.reason, "codex_host", "{caps:?}");
+    assert_eq!(caps.read_original_image.applied, Some(false), "{caps:?}");
+    assert_eq!(caps.read_original_image.reason, "codex_host", "{caps:?}");
+
+    // A session the sidecar never saw is not observed; it is not a default report.
+    assert_eq!(
+        read_capabilities(&sidecar, &new_session()),
+        CapabilityRead::NotObserved
+    );
+}
+
+/// A grayscale 8-bit PNG of `width` x `height` pixels of pseudo-random noise, written with
+/// stored (uncompressed) deflate blocks: the size is the raw size whatever the content.
+fn noise_png(width: u32, height: u32) -> Vec<u8> {
+    fn crc32(bytes: &[u8]) -> u32 {
+        let mut crc = 0xffff_ffff_u32;
+        for byte in bytes {
+            crc ^= u32::from(*byte);
+            for _ in 0..8 {
+                crc = if crc & 1 == 1 {
+                    (crc >> 1) ^ 0xedb8_8320
+                } else {
+                    crc >> 1
+                };
+            }
+        }
+        !crc
+    }
+    fn chunk(out: &mut Vec<u8>, kind: &[u8; 4], data: &[u8]) {
+        out.extend_from_slice(&(data.len() as u32).to_be_bytes());
+        let mut typed = kind.to_vec();
+        typed.extend_from_slice(data);
+        out.extend_from_slice(&typed);
+        out.extend_from_slice(&crc32(&typed).to_be_bytes());
+    }
+    let mut raw = Vec::with_capacity((width as usize + 1) * height as usize);
+    let mut seed = 0x2545_f491_u32;
+    for _ in 0..height {
+        raw.push(0);
+        for _ in 0..width {
+            seed ^= seed << 13;
+            seed ^= seed >> 17;
+            seed ^= seed << 5;
+            raw.push((seed >> 8) as u8);
+        }
+    }
+    let mut zlib = vec![0x78, 0x01];
+    let blocks: Vec<&[u8]> = raw.chunks(65_535).collect();
+    for (n, block) in blocks.iter().enumerate() {
+        zlib.push(u8::from(n + 1 == blocks.len()));
+        zlib.extend_from_slice(&(block.len() as u16).to_le_bytes());
+        zlib.extend_from_slice(&(!(block.len() as u16)).to_le_bytes());
+        zlib.extend_from_slice(block);
+    }
+    let (mut a, mut b) = (1_u32, 0_u32);
+    for byte in &raw {
+        a = (a + u32::from(*byte)) % 65_521;
+        b = (b + a) % 65_521;
+    }
+    zlib.extend_from_slice(&((b << 16) | a).to_be_bytes());
+    let mut png = vec![0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
+    let mut header = Vec::new();
+    header.extend_from_slice(&width.to_be_bytes());
+    header.extend_from_slice(&height.to_be_bytes());
+    header.extend_from_slice(&[8, 0, 0, 0, 0]);
+    chunk(&mut png, b"IHDR", &header);
+    chunk(&mut png, b"IDAT", &zlib);
+    chunk(&mut png, b"IEND", &[]);
+    png
+}
+/// Width and height from a PNG or JPEG header.
+fn image_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
+    if bytes.starts_with(&[0x89, b'P', b'N', b'G']) {
+        let word = |at: usize| u32::from_be_bytes(bytes[at..at + 4].try_into().unwrap());
+        return Some((word(16), word(20)));
+    }
+    if !bytes.starts_with(&[0xff, 0xd8]) {
+        return None;
+    }
+    let mut at = 2;
+    while at + 9 < bytes.len() {
+        if bytes[at] != 0xff {
+            return None;
+        }
+        let marker = bytes[at + 1];
+        let length = usize::from(u16::from_be_bytes([bytes[at + 2], bytes[at + 3]]));
+        if matches!(marker, 0xc0..=0xcf) && !matches!(marker, 0xc4 | 0xc8 | 0xcc) {
+            let height = u32::from(u16::from_be_bytes([bytes[at + 5], bytes[at + 6]]));
+            let width = u32::from(u16::from_be_bytes([bytes[at + 7], bytes[at + 8]]));
+            return Some((width, height));
+        }
+        at += 2 + length;
+    }
+    None
+}
+/// Every base64 image block of a Messages body, as (media type, decoded bytes).
+fn images_in(value: &Value, found: &mut Vec<(String, Vec<u8>)>) {
+    match value {
+        Value::Object(map) => {
+            if map.get("type").is_some_and(|t| t == "image")
+                && let (Some(kind), Some(data)) = (
+                    map["source"]["media_type"].as_str(),
+                    map["source"]["data"].as_str(),
+                )
+            {
+                found.push((kind.to_owned(), decode_base64(data)));
+            }
+            map.values().for_each(|inner| images_in(inner, found));
+        }
+        Value::Array(items) => items.iter().for_each(|inner| images_in(inner, found)),
+        _ => {}
+    }
+}
+fn decode_base64(text: &str) -> Vec<u8> {
+    let value = |c: u8| match c {
+        b'A'..=b'Z' => Some(c - b'A'),
+        b'a'..=b'z' => Some(c - b'a' + 26),
+        b'0'..=b'9' => Some(c - b'0' + 52),
+        b'+' => Some(62),
+        b'/' => Some(63),
+        _ => None,
+    };
+    let (mut out, mut buffer, mut bits) = (Vec::new(), 0_u32, 0);
+    for sextet in text.bytes().filter_map(value) {
+        buffer = (buffer << 6) | u32::from(sextet);
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            out.push((buffer >> bits) as u8);
+            buffer &= (1 << bits) - 1;
+        }
+    }
+    out
+}
+fn encode_base64(bytes: &[u8]) -> String {
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for group in bytes.chunks(3) {
+        let word = group.iter().enumerate().fold(0_u32, |word, (n, byte)| {
+            word | (u32::from(*byte) << (16 - 8 * n))
+        });
+        for n in 0..4 {
+            if n <= group.len() {
+                out.push(char::from(ALPHABET[((word >> (18 - 6 * n)) & 63) as usize]));
+            } else {
+                out.push('=');
+            }
+        }
+    }
+    out
+}
+
+#[test]
+#[ignore = "native: starts the pinned sidecar"]
+fn large_png_reports_the_encoder_state_it_actually_used() {
+    let (sidecar, origin) = proof();
+    let pid_before = sidecar.health().expect("health")["pid"].as_u64();
+    let png = noise_png(2400, 1600);
+    assert!(png.len() > 100 * 1024);
+    assert_eq!(image_dimensions(&png), Some((2400, 1600)));
+    let session = new_session();
+    let messages = vec![json!({
+        "role": "user",
+        "content": [
+            { "type": "text", "text": "Guarda questa schermata." },
+            { "type": "image", "source": { "type": "base64", "media_type": "image/png", "data": encode_base64(&png) } },
+        ],
+    })];
+    let forwarded = forward_messages(sidecar.port, &origin, &session, messages, None)
+        .expect("the image request is answered");
+    let mut images = Vec::new();
+    images_in(&Value::Array(forwarded.messages.clone()), &mut images);
+    assert_eq!(images.len(), 1, "exactly one image reached the origin");
+    let (kind, bytes) = &images[0];
+    let caps = observed(read_capabilities(&sidecar, &session), "image session");
+    let rescale = &caps.image_rescale;
+    let scaled = kind == "image/jpeg"
+        && image_dimensions(bytes).is_some_and(|(width, height)| width <= 1600 && height <= 1600);
+    let verbatim = kind == "image/png" && *bytes == png;
+    // Exactly one of the two outcomes, and the report must name the one that happened.
+    if scaled {
+        assert_eq!(rescale.applied, Some(true), "{caps:?}");
+        println!(
+            "PNG branch: rescaled (JPEG {:?}, {} bytes)",
+            image_dimensions(bytes),
+            bytes.len()
+        );
+    } else if verbatim {
+        assert_eq!(rescale.applied, Some(false), "{caps:?}");
+        assert_eq!(rescale.reason, "encoder_missing", "{caps:?}");
+        println!("PNG branch: original bytes forwarded, reason encoder_missing");
+    } else {
+        panic!(
+            "neither a JPEG no wider than 1600 nor the original bytes: {kind} {:?} {} bytes; {caps:?}",
+            image_dimensions(bytes),
+            bytes.len()
+        );
+    }
+    // No crash either way: the same process still answers.
+    assert_eq!(sidecar.health().expect("health")["pid"].as_u64(), pid_before);
 }

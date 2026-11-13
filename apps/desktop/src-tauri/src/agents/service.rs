@@ -138,6 +138,8 @@ pub(super) struct SessionContext<'a, P> {
     pub ca_file: &'a Path,
     pub selected_set: &'a SetManifest,
     pub plugins_root: Option<&'a Path>,
+    /// `x-shinatama-control: <kind>;<hash>` of the first prompt of a hand-off, when this launch is one.
+    pub control_header: Option<&'a str>,
     pub thread: &'a ThreadRecord,
     pub initial_prompt: Option<&'a str>,
     pub require_mukade: bool,
@@ -207,6 +209,7 @@ pub(super) trait HarnessService: Send + Sync {
         mode: OpenMode,
         initial_prompt: Option<&str>,
         require_mukade: bool,
+        control_header: Option<&str>,
     ) -> Result<AgentStarted, ServiceError>;
 }
 pub(super) struct ServiceContext {
@@ -252,7 +255,7 @@ impl ServiceContext {
                     .as_ref()
                     .and_then(|value| value.observed_at_unix_ms)
                     != observed;
-            if status.phase == "ready" && status.healthy {
+            if sidecar::launch_allowed(status.phase, status.healthy) {
                 return self
                     .sidecar
                     .qualified_owner()
@@ -605,6 +608,7 @@ impl<D: HarnessDriver> Service<D> {
         mode: OpenMode,
         initial_prompt: Option<&str>,
         require_mukade: bool,
+        control_header: Option<&str>,
     ) -> Result<AgentStarted, ServiceError> {
         shinatama_terminal::validate_size(rows, cols)
             .map_err(|_| DriverError::Failed("The terminal size is invalid."))?;
@@ -740,6 +744,7 @@ impl<D: HarnessDriver> Service<D> {
                     ca_file: &ca,
                     selected_set: &selected_set,
                     plugins_root: plugins_root.as_deref(),
+                    control_header,
                     thread: &requested_thread,
                     initial_prompt,
                     require_mukade,
@@ -988,13 +993,14 @@ impl<D: HarnessDriver> HarnessService for Service<D> {
         mode: OpenMode,
         initial_prompt: Option<&str>,
         require_mukade: bool,
+        control_header: Option<&str>,
     ) -> Result<AgentStarted, ServiceError> {
         {
             let mut facts = self.facts()?;
             facts.last_error = None;
             facts.last_start_failure = None;
         }
-        let result = self.open_impl(host, project, rows, cols, operation, mode, initial_prompt, require_mukade);
+        let result = self.open_impl(host, project, rows, cols, operation, mode, initial_prompt, require_mukade, control_header);
         if let Err(error) = result {
             self.remember(error);
         }
