@@ -852,16 +852,20 @@ fn body(
     if result.len().checked_add(count)? > limit {
         return None;
     }
-    // Large admin bodies are read in blocks: a timeout syscall per byte would
-    // make a few hundred KiB slower than any sensible deadline.
+    // Large admin bodies are read in blocks, not byte by byte. The timeout is
+    // recomputed before every `read`, so a peer dripping bytes cannot stretch
+    // the single deadline: each read is bounded by what is left of `until`.
     let mut left = count;
     let mut block = [0u8; 8192];
     while left > 0 {
         let take = left.min(block.len());
         stream.set_read_timeout(Some(remaining(until)?)).ok()?;
-        stream.read_exact(&mut block[..take]).ok()?;
-        result.extend_from_slice(&block[..take]);
-        left -= take;
+        let read = stream.read(&mut block[..take]).ok()?;
+        if read == 0 {
+            return None;
+        }
+        result.extend_from_slice(&block[..read]);
+        left -= read;
     }
     Some(())
 }
@@ -1171,6 +1175,39 @@ mod tests {
                 .kind,
             ResourceLimitKind::QueueItems
         );
+    }
+    #[test]
+    fn slow_drip_body_cannot_outlive_the_deadline() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = NonZeroU16::new(listener.local_addr().unwrap().port()).unwrap();
+        let worker = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let stop = Instant::now() + Duration::from_secs(3);
+            while line(&mut stream, stop).is_some_and(|line| !line.is_empty()) {}
+            write!(stream, "HTTP/1.1 200 OK\r\nContent-Length: 4000\r\n\r\n").unwrap();
+            // One byte every 40 ms: each byte arrives well inside any single
+            // read timeout, but the whole body can never fit the deadline.
+            while Instant::now() < stop {
+                if stream.write_all(b"x").is_err() {
+                    break;
+                }
+                thread::sleep(Duration::from_millis(40));
+            }
+        });
+        let started = Instant::now();
+        let until = started + Duration::from_millis(300);
+        let mut stream = connect(port, Duration::from_millis(300)).unwrap();
+        assert_eq!(
+            request_limited(&mut stream, port, "GET", "/__bili/x", false, until, 8192),
+            None
+        );
+        let elapsed = started.elapsed();
+        assert!(
+            elapsed < Duration::from_millis(900),
+            "deadline overrun: {elapsed:?}"
+        );
+        drop(stream);
+        worker.join().unwrap();
     }
     #[test]
     fn graceful_shutdown_uses_same_identity_verified_connection() {

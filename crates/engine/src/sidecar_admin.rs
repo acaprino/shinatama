@@ -94,7 +94,7 @@ pub fn baseline_from_config_value(config: &Value) -> ResolvedBaseline {
     let adaptive = &compress["adaptivePressure"];
     let steering = &compress["outputSteering"];
     ResolvedBaseline {
-        prompt_rewrite_mode: root["promptRewrite"]["mode"].as_str().map(str::to_owned),
+        prompt_rewrite_mode: prompt_rewrite_mode(config, root),
         tiers: compress["tiers"].as_bool(),
         absorb_enabled: absorb["enabled"].as_bool(),
         absorb_min_tool_tokens: absorb["minToolTokens"].as_u64(),
@@ -106,6 +106,18 @@ pub fn baseline_from_config_value(config: &Value) -> ResolvedBaseline {
         verbosity_level: steering["verbosityLevel"].as_u64(),
         effort_routing: steering["effortRouting"].as_bool(),
     }
+}
+
+/// `promptRewrite` is not a top-level key of the served configuration: the mode
+/// lives in `raw`, the JSON text of the configuration file. A direct value wins;
+/// a `raw` that is absent, not a string or not valid JSON leaves the mode unknown.
+fn prompt_rewrite_mode(config: &Value, root: &Value) -> Option<String> {
+    if let Some(mode) = root["promptRewrite"]["mode"].as_str() {
+        return Some(mode.to_owned());
+    }
+    let raw = root["raw"].as_str().or_else(|| config["raw"].as_str())?;
+    let file = serde_json::from_str::<Value>(raw).ok()?;
+    file["promptRewrite"]["mode"].as_str().map(str::to_owned)
 }
 
 #[cfg(test)]
@@ -202,6 +214,71 @@ mod tests {
         // The same configuration inside an envelope parses identically.
         let wrapped = serde_json::json!({ "config": value });
         assert_eq!(baseline_from_config_value(&wrapped), parsed);
+    }
+
+    /// Shaped like the real `GET /__bili/config`: `compress` at the top, no
+    /// top-level `promptRewrite`, the file text as a JSON string in `raw`.
+    fn served_shape(raw: serde_json::Value) -> serde_json::Value {
+        let file: serde_json::Value =
+            serde_json::from_slice(&crate::sidecar_config::baseline_bytes_for_test()).unwrap();
+        serde_json::json!({
+            "path": "C:\\synthetic-sidecar\\config.json",
+            "providers": {},
+            "upstreamProxy": null,
+            "compress": file["compress"],
+            "raw": raw,
+            "passthrough": false
+        })
+    }
+
+    #[test]
+    fn baseline_parser_reads_the_mode_from_the_served_raw_text() {
+        let raw = String::from_utf8(crate::sidecar_config::baseline_bytes_for_test()).unwrap();
+        let served = served_shape(serde_json::Value::String(raw));
+        assert!(served.get("promptRewrite").is_none());
+        assert_eq!(
+            baseline_from_config_value(&served),
+            ResolvedBaseline {
+                prompt_rewrite_mode: Some("auto".into()),
+                tiers: Some(true),
+                absorb_enabled: Some(true),
+                absorb_min_tool_tokens: Some(4000),
+                ccr_enabled: Some(true),
+                ccr_min_tool_tokens: Some(4000),
+                adaptive_enabled: Some(true),
+                adaptive_max_tokens: Some(160000),
+                steering_enabled: Some(true),
+                verbosity_level: Some(2),
+                effort_routing: Some(false),
+            }
+        );
+        // A direct value is preferred over the raw text.
+        let mut direct = served.clone();
+        direct["promptRewrite"] = serde_json::json!({ "mode": "off" });
+        assert_eq!(
+            baseline_from_config_value(&direct)
+                .prompt_rewrite_mode
+                .as_deref(),
+            Some("off")
+        );
+    }
+
+    #[test]
+    fn unreadable_raw_leaves_the_mode_unknown_but_compress_is_still_read() {
+        for raw in [
+            serde_json::json!("{ not json"),
+            serde_json::json!(42),
+            serde_json::json!(null),
+            serde_json::json!(r#"{"promptRewrite":{"mode":7}}"#),
+            serde_json::json!(r#"{"other":true}"#),
+        ] {
+            let parsed = baseline_from_config_value(&served_shape(raw.clone()));
+            assert_eq!(parsed.prompt_rewrite_mode, None, "{raw}");
+            assert_eq!(parsed.ccr_min_tool_tokens, Some(4000), "{raw}");
+            assert_eq!(parsed.adaptive_max_tokens, Some(160000), "{raw}");
+            assert_eq!(parsed.verbosity_level, Some(2), "{raw}");
+            assert_eq!(parsed.effort_routing, Some(false), "{raw}");
+        }
     }
 
     #[test]
