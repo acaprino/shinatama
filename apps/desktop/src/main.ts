@@ -29,6 +29,7 @@ import { createHopPreview, type HopPreview } from './hop-preview.ts';
 import { createFilesPanel } from './files-panel.ts';
 import { createProjectsOverview } from './projects-overview.ts';
 import { createInstancesOverview } from './instances-overview.ts';
+import { createSettingsPanel } from './settings-panel.ts';
 import { createSessionSearch } from './session-search.ts';
 import { createProjectMenu, createTabFilter, folderName, organizeToolbar, samePath } from './toolbar-simple.ts';
 import { createSessionRaw } from './session-raw.ts';
@@ -915,6 +916,13 @@ const instancesOverview = createInstancesOverview({
   const button = document.createElement('button'); button.type = 'button'; button.id = 'open-instances'; button.textContent = 'Instances';
   button.title = 'Every running instance with its observed state';
   button.onclick = () => { void instancesOverview.show(); };
+  document.querySelector('#open-projects')?.before(button);
+}
+const settingsPanel = createSettingsPanel({ desktop, invoke: (command, args) => invoke(command, args), notify, restoreFocus: () => setFocus(focusedGroup()) });
+{
+  const button = document.createElement('button'); button.type = 'button'; button.id = 'open-settings'; button.textContent = 'Settings';
+  button.title = 'Full access, GitHub sign-in and environment variables for agents';
+  button.onclick = () => { settingsPanel.show(); };
   document.querySelector('#open-projects')?.before(button);
 }
 const hopPreview = createHopPreview({

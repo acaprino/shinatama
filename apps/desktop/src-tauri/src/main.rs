@@ -13,6 +13,8 @@ mod project_overview;
 #[cfg(windows)]
 mod hop_run;
 mod launch;
+mod launch_settings;
+mod secret_store;
 pub mod maintenance;
 mod new_project;
 mod presentation;
@@ -639,6 +641,10 @@ fn main() {
             if let Ok(home) = &directory {
                 marionette::start(home);
             }
+            // The saved launch policy must be in force before any agent can start.
+            app.manage(launch_settings::Controller::start(
+                directory.as_ref().map(Clone::clone).map_err(|e| e.to_string()),
+            ));
             let services = Arc::new(storage::Services::new(directory.map_err(|e| e.to_string())));
             let maintenance = Arc::new(maintenance::Controller::start(services.clone()));
             app.state::<resources::Resources>()
@@ -709,6 +715,8 @@ fn main() {
         workspace::workspace_allow_close,
         presentation::presentation_load,
         presentation::presentation_save,
+        launch_settings::launch_settings_load,
+        launch_settings::launch_settings_save,
         threads::thread_list,
         threads::thread_create,
         threads::workset_list,
@@ -840,6 +848,8 @@ fn main() {
         workspace::workspace_allow_close,
         presentation::presentation_load,
         presentation::presentation_save,
+        launch_settings::launch_settings_load,
+        launch_settings::launch_settings_save,
         threads::thread_list,
         threads::thread_create,
         threads::workset_list,

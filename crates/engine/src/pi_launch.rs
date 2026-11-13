@@ -497,6 +497,11 @@ fn prepare(
     for (name, value) in run::fixed_environment(trial) {
         set(&mut environment, name, value.into());
     }
+    // Pi has no permission prompts of its own, so the launch policy only adds the
+    // user's variables, and only to a real session.
+    if !trial {
+        crate::launch_policy::current().apply_environment(&mut environment);
+    }
     let descriptor = descriptor(&version)?;
     let mode = Placement::new(ProgramPlacement::System, HomePlacement::Box)
         .map_err(|_| PiLaunchError::PlacementMode)?;
