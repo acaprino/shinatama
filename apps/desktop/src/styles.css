@@ -143,7 +143,8 @@ kbd { font: 12px var(--mono); color: var(--muted); letter-spacing: 0; text-trans
 .pane-label { min-width: 20px; margin-right: 4px; padding: 1px 5px; border: 1px solid var(--line); text-align: center; font: 12px var(--mono); color: var(--muted); }
 .pane.focused .pane-label { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .pane-body { position: relative; flex: 1; min-height: 0; overflow: hidden; }
-.terminal-view { position: absolute; inset: 0; padding: 10px 8px 2px; }
+/* content-box: xterm's fit reads this box's height as the room for rows, so the padding must stay out of it. */
+.terminal-view { position: absolute; inset: 0; box-sizing: content-box; padding: 10px 8px 2px; }
 .xterm { height: 100%; }
 .xterm-viewport { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 
