@@ -322,6 +322,9 @@ async function startTerminal(group: string, cwd?: string): Promise<boolean> {
   finally { starting = false; $<HTMLButtonElement>('#new-terminal').disabled = false; }
 }
 function attachTerminal(info: SessionInfo, group: string, threadId: string | null = null) {
+  // Native collaboration events and reload recovery may see the same owned
+  // process. Attach once; neither delivery path is permission to relaunch it.
+  if (views.has(info.id)) return;
   const element = document.createElement('div'); element.className = 'terminal-view';
   const initialProfile = ['Claude Code', 'claude_code'].includes(info.shell) ? 'claude' : 'neutral';
   const terminal = new Terminal({ ...presentation.optionsForProfile(initialProfile),
@@ -813,6 +816,15 @@ async function initialize() {
   }
   try {
     await loadHarnessCatalog();
+    const stopCollaborationUpdates = await listen<{started:{session:SessionInfo;threadId:string};harness:string;mode:string}>(
+      'collaboration-session-opened', ({ payload }) => {
+        const started = payload.started;
+        if (!started?.session?.id || !started.threadId) return;
+        attachTerminal(started.session, focusedGroup(), started.threadId);
+        void threadSidebar?.refresh();
+        notify(`${payload.harness === 'codex' ? 'Codex' : 'Claude'} session opened.`, 'info');
+      });
+    window.addEventListener('pagehide', () => { stopCollaborationUpdates(); }, { once: true });
     const stopThreadUpdates = await listen<unknown>('thread-changed', ({ payload }) => {
       threadSidebar?.notifyThreadChanged(payload);
     }).catch(() => null);

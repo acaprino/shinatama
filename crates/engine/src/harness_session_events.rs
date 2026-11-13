@@ -107,7 +107,7 @@ pub struct ReceiverStatus {
     pub rejected_requests: u64,
 }
 struct Shared {
-    stop: AtomicBool,
+    stop: Arc<AtomicBool>,
     stopped: AtomicBool,
     failed: AtomicBool,
     queue_overflowed: AtomicBool,
@@ -132,6 +132,8 @@ pub struct SessionEventReceiver {
     events: Receiver<SessionEvent>,
     shared: Arc<Shared>,
     worker: Thread,
+    caller_instance: String,
+    broker: Option<Arc<crate::session_control::Broker>>,
 }
 impl SessionEventReceiver {
     /// Kept for the Claude compatibility alias; new drivers use start_for.
@@ -143,6 +145,19 @@ impl SessionEventReceiver {
         record: LaunchIdentityRecord,
         expected_cwd: &Path,
     ) -> Result<Self, StartError> {
+        Self::start_with_broker(
+            harness,
+            record,
+            expected_cwd,
+            crate::session_control::installed(),
+        )
+    }
+    fn start_with_broker(
+        harness: HarnessKind,
+        record: LaunchIdentityRecord,
+        expected_cwd: &Path,
+        broker: Option<Arc<crate::session_control::Broker>>,
+    ) -> Result<Self, StartError> {
         if validate_id(&record.instance_id, CanonicalIdKind::Instance).is_err()
             || validate_id(&record.thread_id, CanonicalIdKind::Thread).is_err()
             || record.started_at_utc_ms < 0
@@ -153,13 +168,14 @@ impl SessionEventReceiver {
         }
         let cwd = expected_cwd.to_str().ok_or(StartError::InvalidProject)?;
         let project = project_key(cwd).ok_or(StartError::InvalidProject)?;
+        let expected_cwd = expected_cwd.to_path_buf();
         RECEIVERS
             .try_update(Ordering::AcqRel, Ordering::Acquire, |count| {
                 (count < MAX_RECEIVERS).then_some(count + 1)
             })
             .map_err(|_| StartError::Capacity)?;
         let shared = Arc::new(Shared {
-            stop: AtomicBool::new(false),
+            stop: Arc::new(AtomicBool::new(false)),
             stopped: AtomicBool::new(false),
             failed: AtomicBool::new(false),
             queue_overflowed: AtomicBool::new(false),
@@ -175,6 +191,11 @@ impl SessionEventReceiver {
         let route = format!("{}{}", harness.route_prefix(), record.instance_id);
         let worker_route = route.clone();
         let worker_shared = Arc::clone(&shared);
+        let worker_broker = broker.clone();
+        let caller_instance = record.instance_id.clone();
+        if let Some(broker) = &broker {
+            broker.attach_caller(&caller_instance, &shared.stop);
+        }
         let (sender, events) = mpsc::sync_channel(EVENT_QUEUE_CAPACITY);
         let handle = thread::Builder::new()
             .name(format!("{}-session-events", harness.id()))
@@ -190,6 +211,8 @@ impl SessionEventReceiver {
                         sender,
                         &worker_shared,
                         harness,
+                        &expected_cwd,
+                        worker_broker.as_deref(),
                     );
                 }))
                 .is_err()
@@ -205,6 +228,8 @@ impl SessionEventReceiver {
             events,
             shared,
             worker: handle.thread().clone(),
+            caller_instance,
+            broker,
         })
     }
     pub fn harness(&self) -> HarnessKind {
@@ -242,6 +267,9 @@ impl SessionEventReceiver {
     /// retains its global slot until it has actually closed its listener/socket.
     pub fn stop(&self) {
         self.shared.stop.store(true, Ordering::Release);
+        if let Some(broker) = &self.broker {
+            broker.revoke(&self.caller_instance);
+        }
         self.worker.unpark();
     }
 }
@@ -260,6 +288,8 @@ fn run(
     sender: SyncSender<SessionEvent>,
     shared: &Shared,
     harness: HarnessKind,
+    expected_cwd: &Path,
+    broker: Option<&crate::session_control::Broker>,
 ) {
     while !shared.stop.load(Ordering::Acquire) {
         match listener.accept() {
@@ -268,7 +298,7 @@ fn run(
                     let _ = stream.shutdown(Shutdown::Both);
                     continue;
                 }
-                let status = handle(
+                let response = handle(
                     &mut stream,
                     address,
                     route,
@@ -277,8 +307,10 @@ fn run(
                     &sender,
                     shared,
                     harness,
+                    expected_cwd,
+                    broker,
                 );
-                if status != 204 {
+                if !(200..300).contains(&response.status) {
                     let _ =
                         shared
                             .rejected
@@ -286,7 +318,7 @@ fn run(
                                 Some(count.saturating_add(1))
                             });
                 }
-                respond(&mut stream, status, shared);
+                respond(&mut stream, response, shared);
                 let _ = stream.shutdown(Shutdown::Both);
             }
             Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
@@ -326,6 +358,18 @@ fn readable(
         }
     }
 }
+struct Response {
+    status: u16,
+    body: Vec<u8>,
+}
+impl From<u16> for Response {
+    fn from(status: u16) -> Self {
+        Self {
+            status,
+            body: Vec::new(),
+        }
+    }
+}
 fn handle(
     stream: &mut TcpStream,
     address: SocketAddr,
@@ -335,29 +379,53 @@ fn handle(
     sender: &SyncSender<SessionEvent>,
     shared: &Shared,
     harness: HarnessKind,
-) -> u16 {
-    match read_event(stream, address, route, record, project, shared, harness) {
+    expected_cwd: &Path,
+    broker: Option<&crate::session_control::Broker>,
+) -> Response {
+    let (mcp, body) = match read_request(stream, address, route, record, shared) {
+        Ok(request) => request,
+        Err(status) => return status.into(),
+    };
+    if shared.stop.load(Ordering::Acquire) {
+        return 503.into();
+    }
+    if mcp {
+        let Some(broker) = broker else {
+            return 503.into();
+        };
+        return match crate::session_control::handle_rpc(
+            broker,
+            &record.instance_id,
+            expected_cwd,
+            &body,
+        ) {
+            Some(reply) => match serde_json::to_vec(&reply) {
+                Ok(body) => Response { status: 200, body },
+                Err(_) => 503.into(),
+            },
+            None => 202.into(),
+        };
+    }
+    match parse_event(&body, record, project, harness) {
         Ok(event) if !shared.stop.load(Ordering::Acquire) => match sender.try_send(event) {
-            Ok(()) => 204,
+            Ok(()) => 204.into(),
             Err(TrySendError::Full(_)) => {
                 shared.queue_overflowed.store(true, Ordering::Release);
-                503
+                503.into()
             }
-            Err(TrySendError::Disconnected(_)) => 503,
+            Err(TrySendError::Disconnected(_)) => 503.into(),
         },
-        Ok(_) => 503,
-        Err(status) => status,
+        Ok(_) => 503.into(),
+        Err(status) => status.into(),
     }
 }
-fn read_event(
+fn read_request(
     stream: &mut TcpStream,
     address: SocketAddr,
     route: &str,
     record: &LaunchIdentityRecord,
-    project: &str,
     shared: &Shared,
-    harness: HarnessKind,
-) -> Result<SessionEvent, u16> {
+) -> Result<(bool, Vec<u8>), u16> {
     let deadline = Instant::now() + REQUEST_TIMEOUT;
     let mut header = Vec::with_capacity(MAX_HEADER_BYTES);
     let mut chunk = [0; 1024];
@@ -372,7 +440,7 @@ fn read_event(
         let read = readable(stream, &mut chunk[..room.min(1024)], deadline, shared)?;
         header.extend_from_slice(&chunk[..read]);
     };
-    let length = parse_header(&header[..end], address, route, record)?;
+    let (length, mcp) = parse_header(&header[..end], address, route, record)?;
     let prefetched = &header[end..];
     if prefetched.len() > length {
         return Err(400);
@@ -389,7 +457,15 @@ fn read_event(
         )?;
         body.extend_from_slice(&chunk[..read]);
     }
-    let payload = hook_payload(harness, &body).map_err(|_| 400u16)?;
+    Ok((mcp, body))
+}
+fn parse_event(
+    body: &[u8],
+    record: &LaunchIdentityRecord,
+    project: &str,
+    harness: HarnessKind,
+) -> Result<SessionEvent, u16> {
+    let payload = hook_payload(harness, body).map_err(|_| 400u16)?;
     if project_key(&payload.cwd).as_deref() != Some(project) {
         return Err(400);
     }
@@ -471,12 +547,19 @@ fn parse_header(
     address: SocketAddr,
     route: &str,
     record: &LaunchIdentityRecord,
-) -> Result<usize, u16> {
+) -> Result<(usize, bool), u16> {
     let text = std::str::from_utf8(bytes).map_err(|_| 400u16)?;
     let mut lines = text.split("\r\n");
-    if lines.next() != Some(format!("POST {route} HTTP/1.1").as_str()) {
+    let start = lines.next();
+    let (mcp, get) = if start == Some(format!("POST {route} HTTP/1.1").as_str()) {
+        (false, false)
+    } else if start == Some(format!("POST {route}/mcp HTTP/1.1").as_str()) {
+        (true, false)
+    } else if start == Some(format!("GET {route}/mcp HTTP/1.1").as_str()) {
+        (true, true)
+    } else {
         return Err(400);
-    }
+    };
     let mut host = None;
     let mut authorization = None;
     let mut length = None;
@@ -521,6 +604,15 @@ fn parse_header(
         .and_then(|value| value.strip_prefix("Bearer "))
         .ok_or(401u16)?;
     verify_record(&record.instance_id, token, Some(record)).map_err(|_| 401u16)?;
+    // Stateless Streamable HTTP uses POST only. Authenticate GET (and reject
+    // browser Origin) before saying that the optional SSE stream is unavailable.
+    if get {
+        return Err(if length.is_none() || length == Some("0") {
+            405
+        } else {
+            400
+        });
+    }
     if !content_type.is_some_and(|value| {
         value
             .split(';')
@@ -540,12 +632,16 @@ fn parse_header(
     if length > MAX_BODY_BYTES {
         return Err(413);
     }
-    Ok(length)
+    Ok((length, mcp))
 }
-fn respond(stream: &mut TcpStream, status: u16, shared: &Shared) {
+fn respond(stream: &mut TcpStream, response: Response, shared: &Shared) {
+    let status = response.status;
     let reason = match status {
+        200 => "OK",
+        202 => "Accepted",
         204 => "No Content",
         401 => "Unauthorized",
+        405 => "Method Not Allowed",
         408 => "Request Timeout",
         413 => "Content Too Large",
         415 => "Unsupported Media Type",
@@ -553,16 +649,16 @@ fn respond(stream: &mut TcpStream, status: u16, shared: &Shared) {
         503 => "Service Unavailable",
         _ => "Bad Request",
     };
-    let response = format!(
-        "HTTP/1.1 {status} {reason}\r\nContent-Length: 0\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n"
-    );
+    let allow = if status == 405 { "Allow: POST\r\n" } else { "" };
+    let mut wire = format!(
+        "HTTP/1.1 {status} {reason}\r\nContent-Length: {}\r\nContent-Type: application/json\r\n{allow}Connection: close\r\nCache-Control: no-store\r\n\r\n", response.body.len()
+    ).into_bytes();
+    wire.extend_from_slice(&response.body);
     let deadline = Instant::now() + RESPONSE_TIMEOUT;
     let mut written = 0;
-    while written < response.len()
-        && Instant::now() < deadline
-        && !shared.stop.load(Ordering::Acquire)
+    while written < wire.len() && Instant::now() < deadline && !shared.stop.load(Ordering::Acquire)
     {
-        match stream.write(&response.as_bytes()[written..]) {
+        match stream.write(&wire[written..]) {
             Ok(0) => break,
             Ok(count) => written += count,
             Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
@@ -642,6 +738,155 @@ fn project_key(value: &str) -> Option<String> {
 mod tests {
     use super::*;
     use crate::launch::identity::LaunchIdentity;
+
+    #[test]
+    fn mcp_headers_require_identity_and_reject_origin_without_a_socket() {
+        let identity = LaunchIdentity::generate("t_bbbbbbbbbbbb").unwrap();
+        let secret = identity.child_secret_override();
+        let token = secret.value().to_str().unwrap();
+        let record = identity.record();
+        let address: SocketAddr = "127.0.0.1:43210".parse().unwrap();
+        let route = format!("/v1/claude/session/{}", record.instance_id);
+        let header = |method: &str, credential: &str, extra: &str| format!(
+            "{method} {route}/mcp HTTP/1.1\r\nHost: {address}\r\nAuthorization: Bearer {credential}\r\n{extra}\r\n"
+        );
+        assert_eq!(parse_header(header("POST", token, "Content-Type: application/json\r\nContent-Length: 2\r\n").as_bytes(), address, &route, &record), Ok((2, true)));
+        assert_eq!(parse_header(header("GET", token, "").as_bytes(), address, &route, &record), Err(405));
+        assert_eq!(parse_header(header("GET", "incorrect", "").as_bytes(), address, &route, &record), Err(401));
+        assert_eq!(parse_header(header("GET", token, "Origin: http://untrusted.test\r\n").as_bytes(), address, &route, &record), Err(400));
+    }
+
+    fn post_mcp(
+        receiver: &SessionEventReceiver,
+        token: &str,
+        suffix: &str,
+        payload: serde_json::Value,
+    ) -> (u16, Vec<u8>) {
+        let body = serde_json::to_vec(&payload).unwrap();
+        let mut stream =
+            TcpStream::connect_timeout(&receiver.address, Duration::from_secs(1)).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
+        stream
+            .set_write_timeout(Some(Duration::from_secs(1)))
+            .unwrap();
+        let request = format!(
+            "POST {}{suffix} HTTP/1.1\r\nHost: {}\r\nAuthorization: Bearer {token}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n",
+            receiver.route,
+            receiver.address,
+            body.len()
+        );
+        stream.write_all(request.as_bytes()).unwrap();
+        stream.write_all(&body).unwrap();
+        let mut response = Vec::new();
+        stream.read_to_end(&mut response).unwrap();
+        let end = response
+            .windows(4)
+            .position(|bytes| bytes == b"\r\n\r\n")
+            .unwrap()
+            + 4;
+        let header = std::str::from_utf8(&response[..end]).unwrap();
+        let status = header.split_whitespace().nth(1).unwrap().parse().unwrap();
+        (status, response[end..].to_vec())
+    }
+
+    fn get_mcp(receiver: &SessionEventReceiver, token: &str, extra: &str) -> String {
+        let mut stream =
+            TcpStream::connect_timeout(&receiver.address, Duration::from_secs(1)).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
+        stream
+            .set_write_timeout(Some(Duration::from_secs(1)))
+            .unwrap();
+        let request = format!(
+            "GET {}/mcp HTTP/1.1\r\nHost: {}\r\nAuthorization: Bearer {token}\r\n{extra}\r\n",
+            receiver.route, receiver.address
+        );
+        stream.write_all(request.as_bytes()).unwrap();
+        let mut response = String::new();
+        stream.read_to_string(&mut response).unwrap();
+        response
+    }
+
+    #[test]
+    fn mcp_route_reuses_authentication_and_queues_once_in_the_original_project() {
+        use crate::session_control::{Broker, LaunchReceipt};
+        let broker = Arc::new(Broker::new());
+        let identity = LaunchIdentity::generate("t_bbbbbbbbbbbb").unwrap();
+        let token = identity
+            .child_secret_override()
+            .value()
+            .to_str()
+            .unwrap()
+            .to_owned();
+        let project = std::env::temp_dir().join("Shinatama-Case-Preserved");
+        let receiver = SessionEventReceiver::start_with_broker(
+            HarnessKind::ClaudeCode,
+            identity.record(),
+            &project,
+            Some(broker.clone()),
+        )
+        .unwrap();
+        let get = get_mcp(&receiver, &token, "");
+        assert!(get.starts_with("HTTP/1.1 405 Method Not Allowed\r\n"));
+        assert!(get.contains("\r\nAllow: POST\r\n"));
+        assert!(get_mcp(&receiver, &"0".repeat(64), "").starts_with("HTTP/1.1 401 "));
+        assert!(
+            get_mcp(&receiver, &token, "Origin: https://example.test\r\n")
+                .starts_with("HTTP/1.1 400 ")
+        );
+        let init = serde_json::json!({"jsonrpc":"2.0","id":1,"method":"initialize"});
+        assert_eq!(
+            post_mcp(&receiver, &"0".repeat(64), "/mcp", init.clone()).0,
+            401
+        );
+        assert_eq!(
+            post_mcp(&receiver, &token, "/mcp/other", init.clone()).0,
+            400
+        );
+        let (status, body) = post_mcp(&receiver, &token, "/mcp", init);
+        assert_eq!(status, 200);
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&body).unwrap()["result"]["protocolVersion"],
+            crate::session_control::PROTOCOL_VERSION
+        );
+        let (status, body) = post_mcp(
+            &receiver,
+            &token,
+            "/mcp",
+            serde_json::json!({"jsonrpc":"2.0","method":"notifications/initialized"}),
+        );
+        assert_eq!(status, 202);
+        assert!(body.is_empty());
+        let request_id = uuid::Uuid::new_v4().to_string();
+        let open = serde_json::json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"shinatama_session_open","arguments":{"request_id":request_id,"harness":"codex","instruction":"Review the authorized diff."}}});
+        let first = post_mcp(&receiver, &token, "/mcp", open.clone());
+        assert_eq!(first.0, 200);
+        assert_eq!(first, post_mcp(&receiver, &token, "/mcp", open));
+        let launch = broker.next().unwrap();
+        assert_eq!(launch.project, project);
+        assert_eq!(launch.harness, "codex");
+        assert_eq!(launch.caller_instance, identity.instance_id());
+        assert!(broker.next().is_none());
+        assert!(
+            receiver.try_next().unwrap().is_none(),
+            "MCP payloads do not enter the hook event queue"
+        );
+        receiver.stop();
+        assert!(!broker.is_pending(&launch.caller_instance, &launch.request_id));
+        // Cancellation during a host launch does not discard its real receipt.
+        broker.complete(
+            &launch.caller_instance,
+            &launch.request_id,
+            Ok(LaunchReceipt {
+                session_id: "pty".into(),
+                thread_id: "thread".into(),
+                harness: launch.harness,
+            }),
+        );
+    }
 
     fn post(
         receiver: &SessionEventReceiver,

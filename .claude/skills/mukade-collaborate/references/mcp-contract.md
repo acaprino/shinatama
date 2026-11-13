@@ -57,7 +57,31 @@ passato quando l'output completo non e' disponibile.
 
 ## Avvio tramite un host
 
-Il server esaminato espone 21 tool `chat_*`; nessuno avvia processi o schede.
+Il server Mukade esaminato espone 21 tool `chat_*`; nessuno avvia processi o schede.
+Il server **Shinatama**, distinto da Mukade, espone ora il ponte nativo:
+
+| Tool host | Input |
+|---|---|
+| `shinatama_session_open` | `request_id` UUID, `instruction` (max4096 byte); opzionali `harness` (`claude_code` predefinito o `codex`), `mode` (`delegation` predefinito, `dialogue`, `review`), `room_id` e `coordinator` insieme. |
+| `shinatama_session_status` | `request_id` dello stesso chiamante. |
+
+La risposta distingue `queued`, `starting`, `opened`, `failed`, `cancelled`.
+`opened.result.session_id` e' l'istanza posseduta da Shinatama, mentre
+`thread_id` identifica il thread salvato. Non sono il `session_id` da usare
+in `chat_bind`: per quello occorre l'ID esatto dell'harness. La deduplicazione
+vale per chiamante e UUID: riusare un UUID con parametri diversi e' un errore.
+Le ricevute restano nel processo host; il riavvio dell'app termina le istanze
+e non ripete le richieste. Sono ammessi al massimo quattro incarichi di avvio
+per chiamante e 256 ricevute per esecuzione dell'host, senza espulsione che
+potrebbe trasformare un retry in un nuovo processo.
+
+Per collegare anche Mukade, Shinatama legge il servizio gia' avviato nella
+directory esplicitamente selezionata da `MUKADE_DATA_DIR`, ne verifica identita'
+e credenziali e configura le due connessioni MCP prima del lancio. Non avvia
+automaticamente il server esterno. Avviare il servizio e configurare Shinatama
+una volta e' un prerequisito; non modificare questi dati per ogni incarico.
+Il child usa membership e consumo manuali, senza hook Mukade aggiuntivi.
+
 La CLI puo' costruire il kit per Claude/Codex e lanciare il processo:
 
 ```text

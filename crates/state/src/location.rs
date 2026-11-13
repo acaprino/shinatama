@@ -408,6 +408,22 @@ impl StorageLocation {
         ))
     }
 
+    /// Open an existing owner-only direct child for reading, without changing its ACL.
+    /// Unlike Shinatama's own private files, an external service's file may inherit
+    /// its sole current-user grant from this verified protected directory. Ownership,
+    /// grants, object type and link count are checked on the returned handle.
+    pub fn open_owner_only_file(&self, path: &Path) -> Result<fs::File> {
+        self.validate_file(path)?;
+        #[cfg(windows)]
+        return windows::open_owner_only_file(path);
+        #[cfg(not(windows))]
+        Err(LocationError::new(
+            LocationErrorKind::UnsupportedVolume,
+            path,
+            "Questa versione supporta Windows.",
+        ))
+    }
+
     /// A project may never contain the active shared-state directory, even when selected later.
     pub fn validate_project(&self, project: &Path) -> Result<()> {
         let (project, _) = canonical_project_future_path(project)?;

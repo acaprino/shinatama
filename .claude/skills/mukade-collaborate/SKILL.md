@@ -55,6 +55,23 @@ Servono due capacita' indipendenti:
 - **Avvio:** launcher dell'host con terminale indipendente, cwd, bootstrap,
   composizione della configurazione Mukade e riscontro dell'avvio.
 
+In Shinatama il percorso nativo e' `shinatama_session_open` seguito da
+`shinatama_session_status` (scopri i prefissi effettivi). Per la collaborazione
+apri/riusa prima la stanza e il tuo membro, poi passa `request_id` UUID stabile,
+`harness`, `mode` (`delegation`, `dialogue`, `review`), `instruction` (brief entro
+4096 byte UTF-8), `room_id` e `coordinator` (il tuo nome membro). La directory
+deriva dall'identita' della sessione madre; non passare cwd, argv o token.
+La ricevuta `queued` o `starting` non e' un avvio riuscito. Interroga status con
+lo stesso UUID, senza risottomettere un nuovo avvio. `opened` restituisce
+`result.session_id` (istanza Shinatama) e `result.thread_id`, non il native ID
+dell'harness e non la disponibilita' dell'agente. Verifica comunque READY.
+
+Questi avvii nativi configurano MCP e consegnano un bootstrap; non aggiungono
+hook Mukade. Il child entra da solo come peer e usa il consumo manuale
+read/wait/ack. Se anche il coordinatore non ha adapter, usa la variante manuale.
+Un errore di configurazione Mukade o un servizio non raggiungibile e' un blocco,
+non un motivo per avviare una sessione isolata al posto di quella comunicante.
+
 Se viene chiesta una nuova scheda Shinatama, usa il suo launcher. Anche quando
 il contesto e' una sessione gestita da Shinatama, non sostituirlo silenziosamente
 con una console esterna. La CLI `mukade chat launch` e' bloccante e da sola

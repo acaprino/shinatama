@@ -151,6 +151,11 @@ impl HarnessDriver for CodexDriver {
             }
         };
         let hook = hook_executable().map_err(DriverError::from)?;
+        let selection = match context.initial_prompt {
+            Some(prompt) => selection.with_initial_prompt(prompt).map_err(launch_error)?,
+            None => selection,
+        };
+        let selection = if context.require_mukade { selection.with_mukade_required() } else { selection };
         let inner = prepare_tracked_session(
             CodexStartContext {
                 candidate: context.candidate,
@@ -301,6 +306,9 @@ fn probe_error(issue: ProbeIssue) -> DriverError {
 
 fn launch_error(issue: CodexLaunchError) -> DriverError {
     match issue {
+        CodexLaunchError::MukadeUnavailable => DriverError::Failed(
+            "Mukade became unavailable during preparation. No communicating session was started.",
+        ),
         CodexLaunchError::ProgramChanged
         | CodexLaunchError::RootChanged
         | CodexLaunchError::ObservationRequired

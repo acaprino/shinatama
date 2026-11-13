@@ -22,7 +22,7 @@ use windows_sys::Win32::Storage::FileSystem::{
     BY_HANDLE_FILE_INFORMATION, CreateDirectoryW, FILE_ALL_ACCESS, FILE_ATTRIBUTE_DIRECTORY,
     FILE_ATTRIBUTE_OFFLINE, FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS, FILE_ATTRIBUTE_RECALL_ON_OPEN,
     FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
-    FILE_READ_ATTRIBUTES, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_STANDARD_INFO, FileStandardInfo,
+    FILE_READ_ATTRIBUTES, FILE_READ_DATA, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_STANDARD_INFO, FileStandardInfo,
     GetDriveTypeW, GetFileAttributesW, GetFileInformationByHandle, GetFileInformationByHandleEx,
     GetVolumeInformationW, GetVolumePathNameW, INVALID_FILE_ATTRIBUTES, QueryDosDeviceW,
 };
@@ -457,6 +457,7 @@ fn verify_acl(
     descriptor: &LocalAllocation,
     owner: PSID,
     acl: *mut windows_sys::Win32::Security::ACL,
+    require_protected: bool,
 ) -> Result<()> {
     let invalid = || {
         LocationError::new(
@@ -471,7 +472,7 @@ fn verify_acl(
     let mut control = 0;
     let mut revision = 0;
     if unsafe { GetSecurityDescriptorControl(descriptor.0, &mut control, &mut revision) } == 0
-        || control & SE_DACL_PROTECTED == 0
+        || (require_protected && control & SE_DACL_PROTECTED == 0)
     {
         return Err(invalid());
     }
@@ -483,9 +484,11 @@ fn verify_acl(
         return Err(invalid());
     }
     let allowed = unsafe { &*ace.cast::<ACCESS_ALLOWED_ACE>() };
-    // ACCESS_ALLOWED_ACE_TYPE is zero. Reject inherited/foreign or partial grants.
+    // ACCESS_ALLOWED_ACE_TYPE is zero. Reject foreign, inherit-only or partial grants.
+    // External files may inherit this effective grant without protecting their own DACL.
     let sid = (&allowed.SidStart as *const u32).cast_mut().cast();
     if allowed.Header.AceType != 0
+        || allowed.Header.AceFlags & 8 != 0
         || allowed.Mask & FILE_ALL_ACCESS != FILE_ALL_ACCESS
         || unsafe { EqualSid(sid, user.sid()) } == 0
     {
@@ -496,6 +499,18 @@ fn verify_acl(
 
 pub(super) fn private_file(path: &Path, change: bool) -> Result<()> {
     private_object(path, false, change)
+}
+
+/// For external service files: read and inspect the same non-reparse handle, and
+/// permit an effective owner-only ACL inherited from the verified parent directory.
+/// No WRITE_DAC, writes, creation or delete-sharing are requested.
+pub(super) fn open_owner_only_file(path: &Path) -> Result<fs::File> {
+    let user = CurrentUser::load(path)?;
+    let file = open_object(path, 0x0002_0000 | FILE_READ_DATA | FILE_READ_ATTRIBUTES)?;
+    inspect_object(path, &file, false)?;
+    let (descriptor, owner, acl) = security_info(path, file.as_raw_handle())?;
+    verify_acl(path, &user, &descriptor, owner, acl, false)?;
+    Ok(file)
 }
 
 fn open_object(path: &Path, access: u32) -> Result<fs::File> {
@@ -581,7 +596,7 @@ fn private_object(path: &Path, directory: bool, change: bool) -> Result<()> {
             "Il file appartiene a un altro utente; i permessi non sono stati modificati.",
         ));
     }
-    let verified = verify_acl(path, &user, &existing, owner, acl);
+    let verified = verify_acl(path, &user, &existing, owner, acl, true);
     if !change || verified.is_ok() {
         return verified;
     }
@@ -655,7 +670,7 @@ fn private_object(path: &Path, directory: bool, change: bool) -> Result<()> {
     }
     drop(existing);
     let (updated, owner, acl) = security_info(path, handle)?;
-    verify_acl(path, &user, &updated, owner, acl)?;
+    verify_acl(path, &user, &updated, owner, acl, true)?;
     let named = open_object(path, FILE_READ_ATTRIBUTES)?;
     let after = inspect_object(path, &named, directory)?;
     if before.dwVolumeSerialNumber != after.dwVolumeSerialNumber
@@ -862,4 +877,84 @@ fn expand_path(path: &Path) -> Option<PathBuf> {
         path.push(r"\");
     }
     Some(PathBuf::from(path))
+}
+
+#[cfg(test)]
+mod owner_only_read_tests {
+    use super::*;
+    use windows_sys::Win32::Security::{ACL, GetSecurityDescriptorOwner};
+
+    fn sid_text(user: &CurrentUser) -> String {
+        let mut text = null_mut();
+        assert_ne!(unsafe { ConvertSidToStringSidW(user.sid(), &mut text) }, 0);
+        let _allocation = LocalAllocation(text.cast());
+        let mut length = 0;
+        while length < 256 && unsafe { *text.add(length) } != 0 {
+            length += 1;
+        }
+        assert!(length < 256);
+        String::from_utf16(unsafe { std::slice::from_raw_parts(text, length) }).unwrap()
+    }
+
+    fn descriptor(sddl: &str) -> LocalAllocation {
+        let mut descriptor = null_mut();
+        assert_ne!(unsafe {
+            ConvertStringSecurityDescriptorToSecurityDescriptorW(
+                wide(sddl).as_ptr(), 1, &mut descriptor, null_mut(),
+            )
+        }, 0);
+        LocalAllocation(descriptor)
+    }
+
+    fn parts(descriptor: &LocalAllocation) -> (PSID, *mut ACL) {
+        let mut owner = null_mut();
+        let mut owner_defaulted = 0;
+        assert_ne!(unsafe { GetSecurityDescriptorOwner(descriptor.0, &mut owner, &mut owner_defaulted) }, 0);
+        let (mut present, mut acl, mut defaulted) = (0, null_mut(), 0);
+        assert_ne!(unsafe { GetSecurityDescriptorDacl(descriptor.0, &mut present, &mut acl, &mut defaulted) }, 0);
+        assert_ne!(present, 0);
+        (owner, acl)
+    }
+
+    #[test]
+    fn inherited_owner_only_acl_is_accepted_only_by_external_read_policy() {
+        let path = Path::new(r"C:\synthetic-acl");
+        let user = CurrentUser::load(path).unwrap();
+        let sid = sid_text(&user);
+        // A file newly created in Mukade's O:<user>D:P(A;OICI;FA;;;<user>)
+        // directory inherits one effective owner ACE, without DACL protection.
+        let inherited = descriptor(&format!("O:{sid}D:(A;ID;FA;;;{sid})"));
+        let (owner, acl) = parts(&inherited);
+        assert!(verify_acl(path, &user, &inherited, owner, acl, false).is_ok());
+        assert!(verify_acl(path, &user, &inherited, owner, acl, true).is_err());
+
+        let protected = user.descriptor(path).unwrap();
+        let (owner, acl) = parts(&protected);
+        assert!(verify_acl(path, &user, &protected, owner, acl, true).is_ok());
+        assert!(verify_acl(path, &user, &protected, owner, acl, false).is_ok());
+    }
+
+    #[test]
+    fn external_read_policy_still_rejects_foreign_broad_null_and_ineffective_grants() {
+        let path = Path::new(r"C:\synthetic-acl");
+        let user = CurrentUser::load(path).unwrap();
+        let sid = sid_text(&user);
+        for sddl in [
+            format!("O:BAD:(A;;FA;;;{sid})"), // foreign owner
+            format!("O:{sid}D:(A;;FA;;;WD)"), // everyone instead of current user
+            format!("O:{sid}D:(A;;FA;;;{sid})(A;;FR;;;WD)"), // extra grant
+            format!("O:{sid}D:(A;IO;FA;;;{sid})"), // inheritance only: no effective grant
+            format!("O:{sid}D:(A;;FR;;;{sid})"), // partial grant
+            format!("O:{sid}D:(D;;FA;;;{sid})"), // deny ACE, not the expected allow
+        ] {
+            let descriptor = descriptor(&sddl);
+            let (owner, acl) = parts(&descriptor);
+            assert!(verify_acl(path, &user, &descriptor, owner, acl, false).is_err());
+            assert!(verify_acl(path, &user, &descriptor, owner, acl, true).is_err());
+        }
+        let descriptor = user.descriptor(path).unwrap();
+        let (owner, acl) = parts(&descriptor);
+        assert!(verify_acl(path, &user, &descriptor, null_mut(), acl, false).is_err());
+        assert!(verify_acl(path, &user, &descriptor, owner, null_mut(), false).is_err());
+    }
 }

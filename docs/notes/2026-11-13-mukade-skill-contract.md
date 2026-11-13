@@ -35,23 +35,45 @@ Prima dell'assegnazione, il coordinatore richiede un messaggio READY correlato a
 
 Gli hook Mukade gestiscono gia' lettura e conferma dei messaggi per le sessioni avviate con il relativo adapter. La skill non deve creare un secondo consumatore con `chat_read`/`chat_wait` sulla stessa membership. In modalita' manuale, invece, legge, elabora e conferma una sola volta il batch. Le attese sono limitate e la scadenza non provoca un secondo avvio automatico.
 
-## Stato e collegamento mancante
+## Collegamento implementato
 
-La skill e' una procedura di progetto, non un nuovo servizio di lancio. L'integrazione nativa richiede ancora un'operazione dell'host, accessibile all'agente, che:
+Il ponte e' implementato nel codice di Shinatama per le nuove sessioni native Claude e Codex. Non usa il vecchio registro del comando `shinatama mcp`: estende il listener autenticato delle sessioni native, con la stessa identita' e revoca alla fine del processo.
 
-- riusi il launcher di Shinatama e apra una vera scheda;
-- componga gli hook Mukade con quelli gia' presenti;
-- restituisca un riferimento verificabile all'avvio e alla sessione;
-- propaghi stanza, profilo, cwd e bootstrap senza duplicare l'identita' della sessione madre;
-- esponga gli errori e lo stato senza rendere la membership una prova di vitalita'.
+- `shinatama_session_open` accoda una richiesta con UUID stabile. Il valore predefinito dell'harness e' `claude_code`; `codex` resta Codex.
+- `shinatama_session_status` restituisce soltanto le richieste del chiamante: `queued`, `starting`, `opened`, `failed` o `cancelled`.
+- Il worker desktop riusa preparazione, qualificazione, budget, identita', lifecycle e terminale dei launcher esistenti. La directory e' quella della sessione madre, non un percorso arbitrario fornito dall'agente.
+- La UI riceve l'evento e aggiunge una vera scheda. La riconsegna dello stesso evento non duplica il terminale; al reload i processi restano recuperabili attraverso `terminal_list`.
+- Il bootstrap e' un unico argomento letterale, dopo `--`, inserito prima del sigillo del launcher. Non e' uno script shell. Il contesto breve arriva alla nuova sessione senza copiarne credenziali o identita'.
 
-La skill deve rilevare questa capacita' quando disponibile, senza inventare un tool. Una console esterna e' utilizzabile solo se e' compatibile con il contesto richiesto e il relativo launcher esiste: non equivale a una scheda nativa. Se manca una capacita' necessaria, la skill prepara l'incarico e indica precisamente il blocco.
+Gli argomenti accettati sono `request_id`, `instruction` (max4096 byte UTF-8), `harness`, `mode` (`delegation`, `dialogue`, `review`), e la coppia opzionale `room_id`/`coordinator`. Per una sessione comunicante la skill passa entrambe le informazioni di stanza. Non sono accettati argv, ambiente, credenziali o directory arbitrarie.
 
-Per Codex gli hook del kit Mukade devono essere riconosciuti come attendibili dal suo sistema di trust. Non si disabilitano i controlli per aggirare questo passaggio. Un errore di trust non autorizza il ripiego su Claude.
+Il risultato `opened` prova il lancio del terminale, non READY, consegna o completamento del lavoro. La skill continua la verifica del messaggio READY e poi indirizza l'incarico al nuovo membro. `result.session_id` e' l'istanza Shinatama: non va confusa con l'ID nativo dell'harness usato da `chat_bind`.
+
+La deduplicazione vale per istanza chiamante e UUID. Stesso UUID con argomenti diversi viene rifiutato. Le ricevute restano per tutta l'esecuzione dell'app, con limiti di quattro richieste per chiamante e 256 totali; non vengono eliminate per fare spazio a retry ambiguamente nuovi. Il riavvio dell'app non riproduce gli avvii. Se il padre termina prima della presa in carico, il lavoro viene cancellato. Un lancio gia' iniziato conserva il suo risultato reale anche se il padre termina nel frattempo.
+
+## Mukade e primo utilizzo
+
+La prima versione collega il server Mukade gia' avviato nella directory indicata esplicitamente da `MUKADE_DATA_DIR`. Verifica file privati, lock del servizio e health con service/instance ID esatti. Gli endpoint sono solo loopback numerico; i token vengono passati nell'ambiente del figlio, non nella riga di comando o nei file di configurazione MCP. Il pin della vecchia libreria di lettura sessioni non e' stato cambiato.
+
+Una sessione ordinaria resta apribile se Mukade non e' configurato. Per un avvio comunicante con `room_id`, il desktop richiede invece il servizio disponibile e segnala il blocco se manca. Una perdita della connessione successiva al lancio si manifesta come mancato READY, senza un secondo avvio automatico.
+
+Esempio di preparazione una tantum, dalla stessa shell che avviera' Shinatama:
+
+```powershell
+$env:MUKADE_DATA_DIR = 'D:\AgentData\mukade'
+& 'D:\Projects\mukade\target\release\mukade.exe' chat start
+# Avviare da questa shell la build aggiornata di Shinatama.
+```
+
+La directory e' un esempio: deve essere locale, privata, fuori dai repository e dagli store degli harness. Le sessioni gia' aperte non acquisiscono retroattivamente il nuovo endpoint MCP: avviare la nuova build e una nuova sessione. La skill presente nella repository e' caricabile da Claude Code nel progetto; non e' stata installata globalmente in altri progetti o harness.
+
+Questa integrazione usa il consumo MCP **manuale**: il child fa join come peer, manda READY, legge/attende e conferma i batch. Non aggiunge hook Mukade, non sovrascrive quelli nativi di tracking e non modifica il trust di Codex. I kit della CLI Mukade restano un percorso separato. Nessuna promessa di risveglio permanente dopo la fine del turno: le attese sono limitate e il bootstrap dichiara il proprio budget.
+
+File principali: `crates/engine/src/session_control.rs`, `harness_session_events.rs`, `mukade_mcp.rs`, i due launcher nativi, `apps/desktop/src-tauri/src/collaboration.rs` e `apps/desktop/src/main.ts`.
 
 ## Confini di verifica
 
-La validazione della skill controlla struttura, riferimenti e applicazione del protocollo a scenari. Non equivale a un test end-to-end Claude → Mukade → Codex. La futura integrazione va provata con un incarico piccolo, READY correlato, domanda di ritorno, modifica isolata, test, timeout senza duplicazione e risultato verificato dalla sessione iniziale.
+La validazione della skill controlla struttura, riferimenti e applicazione del protocollo a scenari. Non equivale a un test end-to-end Claude → Mukade → Codex. La prova completa richiede un incarico piccolo, READY correlato, domanda di ritorno, modifica isolata, test, timeout senza duplicazione e risultato verificato dalla sessione iniziale.
 
 Verifiche eseguite sulla versione iniziale:
 

@@ -1,6 +1,8 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
 #[cfg(windows)]
 mod agents;
+#[cfg(windows)]
+mod collaboration;
 mod attention;
 mod attention_signals;
 mod files;
@@ -647,6 +649,8 @@ fn main() {
             // Tauri builds configured windows before this hook runs, so a page could call a
             // command whose state is not managed yet ("Agent choices could not be loaded").
             // The windows are declared with "create": false and built only now.
+            #[cfg(windows)]
+            collaboration::start(app.handle()).map_err(std::io::Error::other)?;
             for config in app.config().app.windows.clone() {
                 tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?.build()?;
             }

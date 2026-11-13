@@ -363,6 +363,8 @@ impl Controller {
             rows,
             cols,
             OpenMode::RequireQualified,
+            None,
+            false,
         )
         .await
     }
@@ -381,6 +383,8 @@ impl Controller {
             rows,
             cols,
             OpenMode::PrepareWhenNeeded,
+            None,
+            false,
         )
         .await
     }
@@ -392,6 +396,8 @@ impl Controller {
         rows: u16,
         cols: u16,
         mode: OpenMode,
+        initial_prompt: Option<String>,
+        require_mukade: bool,
     ) -> Result<AgentStarted, &'static str> {
         shinatama_terminal::validate_size(rows, cols)
             .map_err(|_| "The terminal size is invalid.")?;
@@ -401,13 +407,33 @@ impl Controller {
                 "Harness startup stopped unexpectedly. Its owned resources remain tracked.",
                 |service| {
                     service
-                        .open(&host, &project, rows, cols, SessionOperation::New, mode)
+                        .open(&host, &project, rows, cols, SessionOperation::New, mode, initial_prompt.as_deref(), require_mukade)
                         .map_err(|error| error.message())
                 },
             )
         })
         .await
         .map_err(|_| "The harness worker is unavailable; no replacement was started.")?
+    }
+
+    /// A bounded instruction, never caller-supplied argv, uses the same native
+    /// preparation, admission and terminal ownership as a user-opened tab.
+    pub async fn open_collaboration(
+        self: &Arc<Self>,
+        agent_id: &str,
+        host: Arc<TerminalHost>,
+        project: PathBuf,
+        initial_prompt: String,
+        require_mukade: bool,
+    ) -> Result<AgentStarted, &'static str> {
+        if !matches!(agent_id, "claude_code" | "codex") {
+            return Err("This harness does not support collaborative startup.");
+        }
+        if initial_prompt.trim().is_empty() || initial_prompt.len() > 8192 || initial_prompt.contains('\0') {
+            return Err("The initial collaboration instruction is invalid.");
+        }
+        self.start_request(agent_id, host, project, 24, 80,
+            OpenMode::PrepareWhenNeeded, Some(initial_prompt), require_mukade).await
     }
 }
 fn prepare_box(

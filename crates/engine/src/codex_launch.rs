@@ -72,6 +72,7 @@ pub enum CodexLaunchError {
     InvalidCa,
     UnsupportedSet,
     BundledPlugins,
+    MukadeUnavailable,
     Configuration,
     InvalidNativeSession,
     Composition,
@@ -98,6 +99,8 @@ impl From<NativeLaunchError> for CodexLaunchError {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CodexSessionOperation {
     selection: CodexSessionSelection,
+    initial_prompt: Option<String>,
+    require_mukade: bool,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum CodexSessionSelection {
@@ -108,6 +111,8 @@ impl CodexSessionOperation {
     pub fn start_new() -> Self {
         Self {
             selection: CodexSessionSelection::New,
+            initial_prompt: None,
+            require_mukade: false,
         }
     }
     pub fn resume_native(native_id: &str) -> Result<Self, CodexLaunchError> {
@@ -126,7 +131,28 @@ impl CodexSessionOperation {
         }
         Ok(Self {
             selection: CodexSessionSelection::Resume(native_id.into()),
+            initial_prompt: None,
+            require_mukade: false,
         })
+    }
+    /// Keep the first user message as one positional argument in a new native
+    /// conversation. Resume never accepts an injected bootstrap.
+    pub fn with_initial_prompt(mut self, prompt: &str) -> Result<Self, CodexLaunchError> {
+        if self.selection != CodexSessionSelection::New
+            || prompt.trim().is_empty()
+            || prompt.len() > 8192
+            || prompt.contains('\0')
+        {
+            return Err(CodexLaunchError::Configuration);
+        }
+        self.initial_prompt = Some(prompt.to_owned());
+        Ok(self)
+    }
+    /// Require a discovered Mukade connection at qualification time as well
+    /// as during the desktop's earlier room preflight.
+    pub fn with_mukade_required(mut self) -> Self {
+        self.require_mukade = true;
+        self
     }
     pub fn operation(&self) -> Operation {
         match self.selection {
@@ -168,6 +194,11 @@ impl CodexSessionOperation {
         // proved by the lifecycle's exact sealed-UUID hook confirmation.
         let mut arguments = self.arguments();
         arguments.extend_from_slice(hook_arguments);
+        // All launcher options precede the separator. A prompt beginning with
+        // '-' or containing shell metacharacters remains a literal argument.
+        if let Some(prompt) = &self.initial_prompt {
+            arguments.extend([OsString::from("--"), prompt.into()]);
+        }
         QualifiedArgvRecipe::qualify(
             descriptor,
             self.operation(),
@@ -642,6 +673,26 @@ fn prepare(
     } else {
         None
     };
+    let mcp_endpoint = session_events
+        .as_ref()
+        .filter(|_| !trial && crate::session_control::is_installed())
+        .map(SessionEventReceiver::endpoint);
+    if let Some(endpoint) = &mcp_endpoint {
+        hook_arguments.extend(mcp_arguments(endpoint));
+    }
+    // A required bus is checked again here; an optional outage must not
+    // prevent an ordinary native conversation from opening.
+    let mukade = resolve_optional_mukade(
+        if mcp_endpoint.is_some() {
+            crate::mukade_mcp::Connection::discover(context.base)
+        } else {
+            Ok(None)
+        },
+        session.require_mukade,
+    )?;
+    if let Some(connection) = &mukade {
+        hook_arguments.extend(connection.codex_arguments());
+    }
     if let Some(plugins) = &bundled {
         // CODEX_HOME is the private home: place the verified adapter where Codex
         // looks for installed plugins, then enable it per launch with -c.
@@ -684,6 +735,10 @@ fn prepare(
         }
         values.into_iter().collect()
     };
+    crate::mukade_mcp::clear_environment(&mut environment);
+    if let Some(connection) = &mukade {
+        connection.apply_environment(&mut environment);
+    }
     let system = std::env::var_os("SystemRoot").ok_or(CodexLaunchError::Composition)?;
     set(&mut environment, "SystemRoot", system.clone());
     set(&mut environment, "WINDIR", system.clone());
@@ -723,7 +778,15 @@ fn prepare(
         set(&mut environment, name, proxy.clone().into());
     }
     for name in ["NO_PROXY", "no_proxy"] {
-        set(&mut environment, name, OsString::new());
+        set(
+            &mut environment,
+            name,
+            if mcp_endpoint.is_some() {
+                "127.0.0.1,localhost".into()
+            } else {
+                OsString::new()
+            },
+        );
     }
     for name in [
         "NODE_TLS_REJECT_UNAUTHORIZED",
@@ -898,6 +961,31 @@ fn session_hook_arguments(
         ).into(),
         "-c".into(), format!("hooks.SessionStart=[{{matcher={quoted_matcher},hooks=[{{type=\"command\",command={quoted_command},timeout=5,async=false}}]}}]").into(),
     ])
+}
+/// Preserve a room requirement even when discovery changed after preflight;
+/// optional failures retain the ordinary-session fallback.
+fn resolve_optional_mukade<T, E>(
+    discovered: Result<Option<T>, E>,
+    required: bool,
+) -> Result<Option<T>, CodexLaunchError> {
+    match discovered {
+        Ok(Some(connection)) => Ok(Some(connection)),
+        _ if required => Err(CodexLaunchError::MukadeUnavailable),
+        _ => Ok(None),
+    }
+}
+/// Receiver-owned endpoint only. Codex resolves the existing environment
+/// variable itself; argv never contains a bearer token or a trust bypass.
+fn mcp_arguments(endpoint: &str) -> Vec<OsString> {
+    let url = serde_json::to_string(&format!("{endpoint}/mcp"))
+        .expect("Serializing a string cannot fail.");
+    vec![
+        "-c".into(),
+        format!(
+            "mcp_servers.shinatama={{url={url},bearer_token_env_var=\"SHINATAMA_INSTANCE_TOKEN\"}}"
+        )
+        .into(),
+    ]
 }
 
 fn session_hook_command(
@@ -1218,6 +1306,113 @@ fn pin_program(path: &Path, deadline: Instant) -> Result<ProgramPin, CodexLaunch
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn required_mukade_refuses_absence_and_discovery_failure_after_preflight() {
+        for missing in [Ok(None), Err("service disappeared after preflight")] {
+            assert_eq!(resolve_optional_mukade::<u8, _>(missing, true),
+                Err(CodexLaunchError::MukadeUnavailable));
+            assert_eq!(resolve_optional_mukade::<u8, _>(missing, false), Ok(None));
+        }
+        for required in [false, true] {
+            assert_eq!(resolve_optional_mukade::<u8, ()>(Ok(Some(7)), required), Ok(Some(7)));
+        }
+        let new = CodexSessionOperation::start_new();
+        let resume = CodexSessionOperation::resume_native("01a17e07-93f7-7a73-85c7-9f0205836600").unwrap();
+        assert!(!new.require_mukade && !resume.require_mukade);
+        let required = new.clone().with_mukade_required();
+        assert!(required.require_mukade);
+        assert_eq!(required.arguments(), new.arguments());
+    }
+    #[test]
+    fn initial_prompt_stays_literal_after_all_tracked_mcp_arguments() {
+        let prompt = "--dangerously-bypass-approvals-and-sandbox\nReview C:\\Project; $(echo nope) `x` \"quoted\"";
+        let version = Version::parse("0.167.1").unwrap();
+        let descriptor = descriptor(&version, Operation::StartNew, TRACKED_RECIPE).unwrap();
+        let mut additions = session_hook_arguments(
+            &version,
+            Path::new(r"C:\App\shinatama-hook.exe"),
+            Path::new(r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"),
+            43210,
+        )
+        .unwrap();
+        additions.extend(mcp_arguments("http://127.0.0.1:32123/session-opaque"));
+        let recipe = CodexSessionOperation::start_new()
+            .with_initial_prompt(prompt)
+            .unwrap()
+            .qualify_arguments_with_hooks(
+                &descriptor,
+                PathBuf::from(r"C:\App\codex.exe"),
+                &additions,
+            )
+            .unwrap();
+        let command = shinatama_adapter::launch::arguments::plan_arguments(
+            &descriptor,
+            Operation::StartNew,
+            Path::new(r"C:\Project"),
+            Some(&recipe),
+        )
+        .unwrap();
+        let baseline = fixed_arguments();
+        assert_eq!(&command.argv()[..baseline.len()], baseline);
+        assert_eq!(
+            &command.argv()[baseline.len()..command.argv().len() - 2],
+            additions
+        );
+        assert_eq!(
+            &command.argv()[command.argv().len() - 2..],
+            [OsString::from("--"), prompt.into()]
+        );
+        assert_eq!(
+            command.argv().len(),
+            25,
+            "fixed + tracked hooks + MCP + literal prompt remain within the existing 32-argument host bound"
+        );
+    }
+    #[test]
+    fn initial_prompt_is_bounded_and_cannot_be_attached_to_resume() {
+        for invalid in [
+            "".to_owned(),
+            " \r\n\t".into(),
+            "hello\0world".into(),
+            "x".repeat(8193),
+            "é".repeat(4097),
+        ] {
+            assert_eq!(
+                CodexSessionOperation::start_new().with_initial_prompt(&invalid),
+                Err(CodexLaunchError::Configuration)
+            );
+        }
+        assert!(
+            CodexSessionOperation::start_new()
+                .with_initial_prompt(&"x".repeat(8192))
+                .is_ok()
+        );
+        assert!(
+            CodexSessionOperation::start_new()
+                .with_initial_prompt(&"é".repeat(4096))
+                .is_ok()
+        );
+        assert_eq!(
+            CodexSessionOperation::resume_native("01a17e07-93f7-7a73-85c7-9f0205836600")
+                .unwrap()
+                .with_initial_prompt("review"),
+            Err(CodexLaunchError::Configuration)
+        );
+        assert_eq!(
+            CodexSessionOperation::start_new().arguments(),
+            fixed_arguments()
+        );
+    }
+    #[test]
+    fn session_mcp_arguments_use_a_token_environment_name_and_preserve_hooks() {
+        assert_eq!(
+            mcp_arguments("http://127.0.0.1:32123/session-opaque"),
+            vec![
+                OsString::from("-c"),
+                "mcp_servers.shinatama={url=\"http://127.0.0.1:32123/session-opaque/mcp\",bearer_token_env_var=\"SHINATAMA_INSTANCE_TOKEN\"}".into(),
+            ]
+        );
+    }
     #[test]
     fn tracked_codex_uses_a_distinct_profile_with_unchanged_limits() {
         let baseline = profile(false).unwrap();

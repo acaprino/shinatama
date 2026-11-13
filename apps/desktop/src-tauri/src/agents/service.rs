@@ -139,6 +139,8 @@ pub(super) struct SessionContext<'a, P> {
     pub selected_set: &'a SetManifest,
     pub plugins_root: Option<&'a Path>,
     pub thread: &'a ThreadRecord,
+    pub initial_prompt: Option<&'a str>,
+    pub require_mukade: bool,
 }
 pub(super) struct BindingContext<'a> {
     pub database: Arc<Database>,
@@ -203,6 +205,8 @@ pub(super) trait HarnessService: Send + Sync {
         cols: u16,
         operation: SessionOperation,
         mode: OpenMode,
+        initial_prompt: Option<&str>,
+        require_mukade: bool,
     ) -> Result<AgentStarted, ServiceError>;
 }
 pub(super) struct ServiceContext {
@@ -595,6 +599,8 @@ impl<D: HarnessDriver> Service<D> {
         cols: u16,
         operation: SessionOperation,
         mode: OpenMode,
+        initial_prompt: Option<&str>,
+        require_mukade: bool,
     ) -> Result<AgentStarted, ServiceError> {
         shinatama_terminal::validate_size(rows, cols)
             .map_err(|_| DriverError::Failed("The terminal size is invalid."))?;
@@ -731,6 +737,8 @@ impl<D: HarnessDriver> Service<D> {
                     selected_set: &selected_set,
                     plugins_root: plugins_root.as_deref(),
                     thread: &requested_thread,
+                    initial_prompt,
+                    require_mukade,
                 },
                 &receipt,
                 &operation,
@@ -974,13 +982,15 @@ impl<D: HarnessDriver> HarnessService for Service<D> {
         cols: u16,
         operation: SessionOperation,
         mode: OpenMode,
+        initial_prompt: Option<&str>,
+        require_mukade: bool,
     ) -> Result<AgentStarted, ServiceError> {
         {
             let mut facts = self.facts()?;
             facts.last_error = None;
             facts.last_start_failure = None;
         }
-        let result = self.open_impl(host, project, rows, cols, operation, mode);
+        let result = self.open_impl(host, project, rows, cols, operation, mode, initial_prompt, require_mukade);
         if let Err(error) = result {
             self.remember(error);
         }

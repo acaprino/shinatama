@@ -69,6 +69,7 @@ pub enum ClaudeLaunchError {
     InvalidCa,
     UnsupportedSet,
     BundledPlugins,
+    MukadeUnavailable,
     Configuration,
     Composition,
     Identity,
@@ -96,6 +97,8 @@ impl From<NativeLaunchError> for ClaudeLaunchError {
 pub struct ClaudeSessionOperation {
     operation: Operation,
     native_id: String,
+    initial_prompt: Option<String>,
+    require_mukade: bool,
 }
 impl ClaudeSessionOperation {
     /// The caller generates and durably records this UUID before releasing the
@@ -125,7 +128,28 @@ impl ClaudeSessionOperation {
         Ok(Self {
             operation,
             native_id: value.into(),
+            initial_prompt: None,
+            require_mukade: false,
         })
+    }
+    /// A bounded first user message for a new conversation, never shell syntax
+    /// or native options. Resume keeps its original conversation unchanged.
+    pub fn with_initial_prompt(mut self, prompt: &str) -> Result<Self, ClaudeLaunchError> {
+        if self.operation != Operation::StartNew
+            || prompt.trim().is_empty()
+            || prompt.len() > 8192
+            || prompt.contains('\0')
+        {
+            return Err(ClaudeLaunchError::Configuration);
+        }
+        self.initial_prompt = Some(prompt.to_owned());
+        Ok(self)
+    }
+    /// Fail this launch if the requested room cannot receive a Mukade client.
+    /// The qualifier checks again after desktop preflight, before sealing.
+    pub fn with_mukade_required(mut self) -> Self {
+        self.require_mukade = true;
+        self
     }
     pub fn operation(&self) -> Operation {
         self.operation
@@ -133,8 +157,8 @@ impl ClaudeSessionOperation {
     pub fn native_id(&self) -> &str {
         &self.native_id
     }
-    fn arguments(&self) -> [OsString; 2] {
-        [
+    fn arguments(&self) -> Vec<OsString> {
+        let mut arguments = vec![
             match self.operation {
                 Operation::StartNew => "--session-id",
                 Operation::ResumeNative => "--resume",
@@ -142,7 +166,11 @@ impl ClaudeSessionOperation {
             }
             .into(),
             self.native_id.clone().into(),
-        ]
+        ];
+        if let Some(prompt) = &self.initial_prompt {
+            arguments.extend([OsString::from("--"), prompt.into()]);
+        }
+        arguments
     }
 }
 
@@ -605,12 +633,25 @@ fn prepare(
         &settings,
         &mut artifacts,
     )?;
-    let mcp_path = create_json(
-        &instance_directory,
-        "mcp.json",
-        &serde_json::json!({"mcpServers":{}}),
-        &mut artifacts,
+    let mcp_endpoint = session_events
+        .as_ref()
+        .filter(|_| !trial && crate::session_control::is_installed())
+        .map(ClaudeSessionEventReceiver::endpoint);
+    // Recheck a required bus here: desktop preflight can become stale before
+    // this qualifier runs. Ordinary sessions still tolerate an optional outage.
+    let mukade = resolve_optional_mukade(
+        if mcp_endpoint.is_some() {
+            crate::mukade_mcp::Connection::discover(context.base)
+        } else {
+            Ok(None)
+        },
+        session.is_some_and(|session| session.require_mukade),
     )?;
+    let mut mcp = mcp_configuration(mcp_endpoint.as_deref());
+    if let Some(connection) = &mukade {
+        mcp["mcpServers"]["mukade"] = connection.claude_server();
+    }
+    let mcp_path = create_json(&instance_directory, "mcp.json", &mcp, &mut artifacts)?;
     create_json(
         &instance_directory,
         "set-manifest.json",
@@ -646,6 +687,10 @@ fn prepare(
         }
         values.into_iter().collect()
     };
+    crate::mukade_mcp::clear_environment(&mut environment);
+    if let Some(connection) = &mukade {
+        connection.apply_environment(&mut environment);
+    }
     let system = std::env::var_os("SystemRoot").ok_or(ClaudeLaunchError::Composition)?;
     set(&mut environment, "SystemRoot", system.clone());
     set(&mut environment, "WINDIR", system.clone());
@@ -685,7 +730,15 @@ fn prepare(
         set(&mut environment, name, proxy.clone().into());
     }
     for name in ["NO_PROXY", "no_proxy"] {
-        set(&mut environment, name, OsString::new());
+        set(
+            &mut environment,
+            name,
+            if mcp_endpoint.is_some() {
+                "127.0.0.1,localhost".into()
+            } else {
+                OsString::new()
+            },
+        );
     }
     for name in [
         "NODE_TLS_REJECT_UNAUTHORIZED",
@@ -818,6 +871,29 @@ fn prepare(
 /// every file it does not hold, so inside the store it would wipe the release.
 fn claude_plugin_copy(home: &Path) -> PathBuf {
     home.join(marionette::CLAUDE_COPY)
+}
+/// Optional discovery failures do not block ordinary conversations. A room
+/// requirement must survive the interval between preflight and qualification.
+fn resolve_optional_mukade<T, E>(
+    discovered: Result<Option<T>, E>,
+    required: bool,
+) -> Result<Option<T>, ClaudeLaunchError> {
+    match discovered {
+        Ok(Some(connection)) => Ok(Some(connection)),
+        _ if required => Err(ClaudeLaunchError::MukadeUnavailable),
+        _ => Ok(None),
+    }
+}
+/// Only a receiver-owned loopback endpoint reaches this function. The bearer
+/// stays in the existing launch environment; this file contains a reference.
+fn mcp_configuration(endpoint: Option<&str>) -> Value {
+    match endpoint {
+        Some(endpoint) => serde_json::json!({"mcpServers":{"shinatama":{
+            "type":"http", "url":format!("{endpoint}/mcp"),
+            "headers":{"Authorization":"Bearer ${SHINATAMA_INSTANCE_TOKEN}"}
+        }}}),
+        None => serde_json::json!({"mcpServers":{}}),
+    }
 }
 /// `--plugin-dir <ordinary drive path>` of Marionette's Claude Code adapter.
 fn plugin_arguments(adapter: &Adapter) -> Vec<OsString> {
@@ -1077,6 +1153,103 @@ fn pin_session_hook(path: &Path, deadline: Instant) -> Result<ProgramPin, Claude
 mod tests {
     use super::*;
     use sha2::{Digest, Sha256};
+    #[test]
+    fn required_mukade_refuses_absence_and_discovery_failure_after_preflight() {
+        for missing in [Ok(None), Err("service disappeared after preflight")] {
+            assert_eq!(resolve_optional_mukade::<u8, _>(missing, true),
+                Err(ClaudeLaunchError::MukadeUnavailable));
+            assert_eq!(resolve_optional_mukade::<u8, _>(missing, false), Ok(None));
+        }
+        for required in [false, true] {
+            assert_eq!(resolve_optional_mukade::<u8, ()>(Ok(Some(7)), required), Ok(Some(7)));
+        }
+        let id = "12cc3a11-45db-4f1e-89c8-40d5c6be1dd3";
+        let new = ClaudeSessionOperation::start_new(id).unwrap();
+        let resume = ClaudeSessionOperation::resume_native(id).unwrap();
+        assert!(!new.require_mukade && !resume.require_mukade);
+        let required = new.clone().with_mukade_required();
+        assert!(required.require_mukade);
+        assert_eq!(required.arguments(), new.arguments());
+    }
+    #[test]
+    fn initial_prompt_is_one_literal_argument_after_session_selection() {
+        let id = "12cc3a11-45db-4f1e-89c8-40d5c6be1dd3";
+        let prompt =
+            "--dangerously-skip-permissions\nReview C:\\Project; $(echo nope) `x` \"quoted\"";
+        let session = ClaudeSessionOperation::start_new(id)
+            .unwrap()
+            .with_initial_prompt(prompt)
+            .unwrap();
+        assert_eq!(
+            session.arguments(),
+            vec![
+                OsString::from("--session-id"),
+                id.into(),
+                "--".into(),
+                prompt.into(),
+            ]
+        );
+        assert_eq!(
+            ClaudeSessionOperation::start_new(id).unwrap().arguments(),
+            [OsString::from("--session-id"), id.into()]
+        );
+        assert_eq!(
+            ClaudeSessionOperation::resume_native(id)
+                .unwrap()
+                .arguments(),
+            [OsString::from("--resume"), id.into()]
+        );
+    }
+    #[test]
+    fn initial_prompt_is_bounded_and_cannot_be_attached_to_resume() {
+        let id = "12cc3a11-45db-4f1e-89c8-40d5c6be1dd3";
+        for invalid in [
+            "".to_owned(),
+            " \r\n\t".into(),
+            "hello\0world".into(),
+            "x".repeat(8193),
+            "é".repeat(4097),
+        ] {
+            assert_eq!(
+                ClaudeSessionOperation::start_new(id)
+                    .unwrap()
+                    .with_initial_prompt(&invalid),
+                Err(ClaudeLaunchError::Configuration)
+            );
+        }
+        assert!(
+            ClaudeSessionOperation::start_new(id)
+                .unwrap()
+                .with_initial_prompt(&"x".repeat(8192))
+                .is_ok()
+        );
+        assert!(
+            ClaudeSessionOperation::start_new(id)
+                .unwrap()
+                .with_initial_prompt(&"é".repeat(4096))
+                .is_ok()
+        );
+        assert_eq!(
+            ClaudeSessionOperation::resume_native(id)
+                .unwrap()
+                .with_initial_prompt("review"),
+            Err(ClaudeLaunchError::Configuration)
+        );
+    }
+    #[test]
+    fn session_mcp_configuration_uses_only_an_environment_token_reference() {
+        assert_eq!(
+            mcp_configuration(None),
+            serde_json::json!({"mcpServers":{}})
+        );
+        assert_eq!(
+            mcp_configuration(Some("http://127.0.0.1:32123/session-opaque")),
+            serde_json::json!({"mcpServers":{"shinatama":{
+                "type":"http", "url":"http://127.0.0.1:32123/session-opaque/mcp",
+                "headers":{"Authorization":"Bearer ${SHINATAMA_INSTANCE_TOKEN}"}
+            }}})
+        );
+    }
     #[test]
     fn marionette_becomes_one_plugin_dir_pair() {
         use crate::marionette::tests::{FakeFetch, scratch};
