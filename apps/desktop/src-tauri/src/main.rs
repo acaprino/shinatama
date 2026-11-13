@@ -641,6 +641,10 @@ fn main() {
             if let Ok(home) = &directory {
                 marionette::start(home);
             }
+            // The saved launch policy must be in force before any agent can start.
+            app.manage(launch_settings::Controller::start(
+                directory.as_ref().map(Clone::clone).map_err(|e| e.to_string()),
+            ));
             let services = Arc::new(storage::Services::new(directory.map_err(|e| e.to_string())));
             let maintenance = Arc::new(maintenance::Controller::start(services.clone()));
             app.state::<resources::Resources>()
@@ -657,10 +661,6 @@ fn main() {
                     services.clone(),
                     monitor,
                     governor,
-            // The saved launch policy must be in force before any agent can start.
-            app.manage(launch_settings::Controller::start(
-                directory.as_ref().map(Clone::clone).map_err(|e| e.to_string()),
-            ));
                 ));
                 let sidecar = Arc::new(sidecar::Controller::new(services.clone(), runtime.clone()));
                 app.manage(Arc::new(sessions::Controller::new(services.clone(), runtime.clone())));
@@ -715,6 +715,8 @@ fn main() {
         workspace::workspace_allow_close,
         presentation::presentation_load,
         presentation::presentation_save,
+        launch_settings::launch_settings_load,
+        launch_settings::launch_settings_save,
         threads::thread_list,
         threads::thread_create,
         threads::thread_rename,
@@ -734,8 +736,6 @@ fn main() {
         harness_catalog,
         #[cfg(windows)]
         thread_resume,
-        launch_settings::launch_settings_load,
-        launch_settings::launch_settings_save,
         shell_open,
         #[cfg(windows)]
         sessions::session_roots,
@@ -841,6 +841,8 @@ fn main() {
         workspace::workspace_allow_close,
         presentation::presentation_load,
         presentation::presentation_save,
+        launch_settings::launch_settings_load,
+        launch_settings::launch_settings_save,
         threads::thread_list,
         threads::thread_create,
         threads::thread_rename,
@@ -860,8 +862,6 @@ fn main() {
         harness_catalog,
         #[cfg(windows)]
         thread_resume,
-        launch_settings::launch_settings_load,
-        launch_settings::launch_settings_save,
         shell_open,
         #[cfg(windows)]
         sessions::session_roots,
