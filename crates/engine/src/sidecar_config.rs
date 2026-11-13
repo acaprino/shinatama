@@ -183,6 +183,16 @@ fn baseline(root: &Path, port: NonZeroU16) -> Result<Vec<u8>, ConfigError> {
     Ok(bytes)
 }
 
+/// The baseline bytes for a synthetic root, for tests that parse what Shinatama writes.
+#[cfg(all(test, windows))]
+pub(crate) fn baseline_bytes_for_test() -> Vec<u8> {
+    baseline(
+        Path::new("C:\\synthetic-sidecar"),
+        NonZeroU16::new(8787).unwrap(),
+    )
+    .unwrap()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

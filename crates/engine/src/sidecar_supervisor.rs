@@ -789,7 +789,7 @@ fn drain_pipe(pipe: &mut File, total: &mut u64, limit: u64) -> bool {
     }
     true
 }
-fn connect(port: NonZeroU16, timeout: Duration) -> Option<TcpStream> {
+pub(crate) fn connect(port: NonZeroU16, timeout: Duration) -> Option<TcpStream> {
     TcpStream::connect_timeout(&([127, 0, 0, 1], port.get()).into(), timeout).ok()
 }
 fn health(port: NonZeroU16, pid: u32, timeout: Duration) -> bool {
@@ -820,7 +820,7 @@ fn graceful_shutdown(port: NonZeroU16, pid: u32, timeout: Duration) {
         let _ = request(&mut stream, port, "POST", "/__bili/shutdown", false, until);
     }
 }
-fn remaining(until: Instant) -> Option<Duration> {
+pub(crate) fn remaining(until: Instant) -> Option<Duration> {
     until
         .checked_duration_since(Instant::now())
         .filter(|duration| !duration.is_zero())
@@ -842,22 +842,48 @@ fn line(stream: &mut TcpStream, until: Instant) -> Option<String> {
     }
     None
 }
-fn body(stream: &mut TcpStream, count: usize, until: Instant, result: &mut Vec<u8>) -> Option<()> {
-    if result.len().checked_add(count)? > 8192 {
+fn body(
+    stream: &mut TcpStream,
+    count: usize,
+    until: Instant,
+    limit: usize,
+    result: &mut Vec<u8>,
+) -> Option<()> {
+    if result.len().checked_add(count)? > limit {
         return None;
     }
-    for _ in 0..count {
-        result.push(byte(stream, until)?);
+    // Large admin bodies are read in blocks: a timeout syscall per byte would
+    // make a few hundred KiB slower than any sensible deadline.
+    let mut left = count;
+    let mut block = [0u8; 8192];
+    while left > 0 {
+        let take = left.min(block.len());
+        stream.set_read_timeout(Some(remaining(until)?)).ok()?;
+        stream.read_exact(&mut block[..take]).ok()?;
+        result.extend_from_slice(&block[..take]);
+        left -= take;
     }
     Some(())
 }
-fn request(
+pub(crate) fn request(
     stream: &mut TcpStream,
     port: NonZeroU16,
     method: &str,
     path: &str,
     keep_alive: bool,
     until: Instant,
+) -> Option<(u16, Vec<u8>)> {
+    request_limited(stream, port, method, path, keep_alive, until, 8192)
+}
+/// Same exchange as `request`, with the response body capped at `limit` bytes.
+pub(crate) fn request_limited(
+    stream: &mut TcpStream,
+    port: NonZeroU16,
+    method: &str,
+    path: &str,
+    keep_alive: bool,
+    until: Instant,
+    limit: usize,
 ) -> Option<(u16, Vec<u8>)> {
     stream.set_write_timeout(Some(remaining(until)?)).ok()?;
     write!(stream,"{method} {path} HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nConnection: {}\r\nContent-Length: 0\r\n\r\n",port.get(),if keep_alive {"keep-alive"}else{"close"}).ok()?;
@@ -900,20 +926,139 @@ fn request(
                     None
                 };
             }
-            body(stream, count, until, &mut result)?;
+            body(stream, count, until, limit, &mut result)?;
             if !line(stream, until)?.is_empty() {
                 return None;
             }
         }
         None
     } else {
-        body(stream, length?, until, &mut result)?;
+        body(stream, length?, until, limit, &mut result)?;
         Some((status, result))
     }
 }
 
 #[cfg(test)]
+pub(crate) mod test_support {
+    use super::*;
+    use std::net::TcpListener;
+    pub fn server(
+        pid: u32,
+        chunked: bool,
+        oversized: bool,
+    ) -> (NonZeroU16, thread::JoinHandle<Vec<String>>) {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = NonZeroU16::new(listener.local_addr().unwrap().port()).unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let worker = thread::spawn(move || {
+            let until = Instant::now() + Duration::from_secs(2);
+            let mut stream = loop {
+                if let Ok((stream, _)) = listener.accept() {
+                    break stream;
+                }
+                assert!(Instant::now() < until, "synthetic HTTP accept deadline");
+                thread::sleep(Duration::from_millis(2));
+            };
+            // Windows accept inherits nonblocking mode. Keep-alive must wait
+            // within the finite read deadline for the second request, not treat
+            // WouldBlock as EOF immediately after returning the health response.
+            stream.set_nonblocking(false).unwrap();
+            stream
+                .set_write_timeout(Some(Duration::from_millis(200)))
+                .unwrap();
+            let mut requests = Vec::new();
+            for _ in 0..2 {
+                let Some(first) = line(&mut stream, until) else {
+                    break;
+                };
+                requests.push(first);
+                for _ in 0..32 {
+                    if line(&mut stream, until).is_none_or(|line| line.is_empty()) {
+                        break;
+                    }
+                }
+                if oversized {
+                    write!(stream, "HTTP/1.1 200 OK\r\nContent-Length: 8193\r\n\r\n").unwrap();
+                    break;
+                }
+                let body = format!("{{\"ok\":true,\"pid\":{pid}}}");
+                if chunked {
+                    write!(stream,"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n{:x}\r\n{}\r\n0\r\n\r\n",body.len(),body).unwrap();
+                } else {
+                    write!(
+                        stream,
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
+                        body.len(),
+                        body
+                    )
+                    .unwrap();
+                }
+            }
+            requests
+        });
+        (port, worker)
+    }
+    /// One keep-alive connection: the first request is answered as `/__bili/health`
+    /// for `pid`, each following request with the next of `bodies` verbatim.
+    /// Returns the request lines it saw.
+    pub fn server_with(
+        pid: u32,
+        bodies: Vec<String>,
+    ) -> (NonZeroU16, thread::JoinHandle<Vec<String>>) {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = NonZeroU16::new(listener.local_addr().unwrap().port()).unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let worker = thread::spawn(move || {
+            let until = Instant::now() + Duration::from_secs(2);
+            let mut stream = loop {
+                if let Ok((stream, _)) = listener.accept() {
+                    break stream;
+                }
+                assert!(Instant::now() < until, "synthetic HTTP accept deadline");
+                thread::sleep(Duration::from_millis(2));
+            };
+            stream.set_nonblocking(false).unwrap();
+            stream
+                .set_write_timeout(Some(Duration::from_millis(500)))
+                .unwrap();
+            let mut requests = Vec::new();
+            let mut bodies = bodies.into_iter();
+            for index in 0..=bodies.len() {
+                let Some(first) = line(&mut stream, until) else {
+                    break;
+                };
+                requests.push(first);
+                for _ in 0..32 {
+                    if line(&mut stream, until).is_none_or(|line| line.is_empty()) {
+                        break;
+                    }
+                }
+                let body = if index == 0 {
+                    format!("{{\"ok\":true,\"pid\":{pid}}}")
+                } else {
+                    bodies.next().unwrap()
+                };
+                // The client may close early (oversized refusal); that is not a test failure.
+                if write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
+                    body.len(),
+                    body
+                )
+                .is_err()
+                {
+                    break;
+                }
+            }
+            requests
+        });
+        (port, worker)
+    }
+}
+
+#[cfg(test)]
 mod tests {
+    use super::test_support::server;
     use super::*;
     use std::net::TcpListener;
     #[test]
@@ -1026,62 +1171,6 @@ mod tests {
                 .kind,
             ResourceLimitKind::QueueItems
         );
-    }
-    fn server(
-        pid: u32,
-        chunked: bool,
-        oversized: bool,
-    ) -> (NonZeroU16, thread::JoinHandle<Vec<String>>) {
-        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
-        let port = NonZeroU16::new(listener.local_addr().unwrap().port()).unwrap();
-        listener.set_nonblocking(true).unwrap();
-        let worker = thread::spawn(move || {
-            let until = Instant::now() + Duration::from_secs(2);
-            let mut stream = loop {
-                if let Ok((stream, _)) = listener.accept() {
-                    break stream;
-                }
-                assert!(Instant::now() < until, "synthetic HTTP accept deadline");
-                thread::sleep(Duration::from_millis(2));
-            };
-            // Windows accept inherits nonblocking mode. Keep-alive must wait
-            // within the finite read deadline for the second request, not treat
-            // WouldBlock as EOF immediately after returning the health response.
-            stream.set_nonblocking(false).unwrap();
-            stream
-                .set_write_timeout(Some(Duration::from_millis(200)))
-                .unwrap();
-            let mut requests = Vec::new();
-            for _ in 0..2 {
-                let Some(first) = line(&mut stream, until) else {
-                    break;
-                };
-                requests.push(first);
-                for _ in 0..32 {
-                    if line(&mut stream, until).is_none_or(|line| line.is_empty()) {
-                        break;
-                    }
-                }
-                if oversized {
-                    write!(stream, "HTTP/1.1 200 OK\r\nContent-Length: 8193\r\n\r\n").unwrap();
-                    break;
-                }
-                let body = format!("{{\"ok\":true,\"pid\":{pid}}}");
-                if chunked {
-                    write!(stream,"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n{:x}\r\n{}\r\n0\r\n\r\n",body.len(),body).unwrap();
-                } else {
-                    write!(
-                        stream,
-                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
-                        body.len(),
-                        body
-                    )
-                    .unwrap();
-                }
-            }
-            requests
-        });
-        (port, worker)
     }
     #[test]
     fn graceful_shutdown_uses_same_identity_verified_connection() {
