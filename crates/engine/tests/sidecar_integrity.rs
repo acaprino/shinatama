@@ -16,8 +16,8 @@ use shinatama_engine::{
     sidecar_config::{PreparedSidecarConfig, prepare_private_sidecar},
     sidecar_runtime::{NodePin, prepare_runtime, verify_bundled_node, verify_prepared_bundle},
     sidecar_supervisor::{
-        AdmissionUnavailable, Command, Phase, SidecarSupervisor, Snapshot, SupervisorConfig,
-        WorkloadProvider,
+        AdmissionUnavailable, Command, Phase, Reason, SidecarSupervisor, Snapshot,
+        SupervisorConfig, WorkloadProvider,
     },
 };
 use shinatama_hop::channel::bootstrap;
@@ -30,7 +30,7 @@ use std::{
     collections::BTreeMap,
     ffi::OsString,
     fs,
-    io::{BufRead, BufReader, Read, Write},
+    io::{BufRead, BufReader, ErrorKind, Read, Write},
     net::{Ipv4Addr, TcpListener, TcpStream},
     num::NonZeroU16,
     path::{Path, PathBuf},
@@ -233,6 +233,10 @@ fn read_response(mut stream: TcpStream, timeout: Duration) -> ProofResult<Respon
     )?;
     let mut bytes = Vec::new();
     safe(stream.read_to_end(&mut bytes), "read response")?;
+    parse_response(&bytes)
+}
+/// Splits a complete HTTP/1.1 response into status and (de-chunked) body.
+fn parse_response(bytes: &[u8]) -> ProofResult<Response> {
     let split = bytes
         .windows(4)
         .position(|part| part == b"\r\n\r\n")
@@ -522,7 +526,11 @@ impl Origin {
             ) else {
                 break;
             };
-            let meta: Value = serde_json::from_slice(&meta).expect("origin metadata is JSON");
+            // The origin writes the metadata file in one call; a concurrent reader can still
+            // catch it half written. That request is not recorded yet, so stop here.
+            let Ok(meta) = serde_json::from_slice::<Value>(&meta) else {
+                break;
+            };
             found.push(Recorded {
                 method: meta["method"].as_str().unwrap_or_default().into(),
                 path: meta["path"].as_str().unwrap_or_default().into(),
@@ -623,17 +631,15 @@ fn is_note(message: &Value) -> bool {
 fn new_session() -> String {
     uuid::Uuid::new_v4().to_string()
 }
-/// Sends the history followed by `user_text` as one Messages request, on `session`, through
-/// the sidecar listening on `sidecar_port` to `origin`, and returns what the origin
-/// received for it. It holds no `Running`, so concurrent sessions can call it from threads
-/// and a session can reconnect by passing the same id again.
-fn forward(
-    sidecar_port: u16,
-    origin: &Origin,
-    session: &str,
-    history: &[Msg],
-    user_text: &str,
-) -> ProofResult<Forwarded> {
+/// One probe request ready to send: where to, which headers, the body, and the per-call
+/// tag that singles the probe out among everything the origin records.
+struct Probe {
+    path: String,
+    headers: Vec<(&'static str, String)>,
+    body: Vec<u8>,
+    tag: String,
+}
+fn probe(origin: &Origin, session: &str, history: &[Msg], user_text: &str) -> Probe {
     let tag = uuid::Uuid::new_v4().to_string();
     let mut messages: Vec<Value> = history.iter().map(Msg::wire).collect();
     messages.push(Msg::user_text(user_text).wire());
@@ -645,11 +651,9 @@ fn forward(
         "messages": messages,
     }))
     .unwrap();
-    let response = request(
-        sidecar_port,
-        "POST",
-        &format!("/bili/http://127.0.0.1:{}/v1/messages", origin.port),
-        &[
+    Probe {
+        path: format!("/bili/http://127.0.0.1:{}/v1/messages", origin.port),
+        headers: vec![
             ("content-type", "application/json".into()),
             ("anthropic-version", "2023-06-01".into()),
             ("x-api-key", "sk-ant-synthetic-not-a-credential".into()),
@@ -658,7 +662,37 @@ fn forward(
             ("x-claude-code-session-id", session.to_owned()),
             ("x-sc9-probe", tag.clone()),
         ],
-        &body,
+        body,
+        tag,
+    }
+}
+/// The sidecar copies the client's headers onto its own auxiliary requests, so the tag
+/// alone does not single out the probe: it is the tagged streaming Messages request.
+fn is_probe(r: &Recorded, tag: &str) -> bool {
+    r.headers["x-sc9-probe"] == tag
+        && r.method == "POST"
+        && r.path.ends_with("/v1/messages")
+        && serde_json::from_slice::<Value>(&r.body).is_ok_and(|b| b["stream"] == true)
+}
+/// Sends the history followed by `user_text` as one Messages request, on `session`, through
+/// the sidecar listening on `sidecar_port` to `origin`, and returns what the origin
+/// received for it. It holds no `Running`, so concurrent sessions can call it from threads
+/// and a session can reconnect by passing the same id again.
+fn forward(
+    sidecar_port: u16,
+    origin: &Origin,
+    session: &str,
+    history: &[Msg],
+    user_text: &str,
+) -> ProofResult<Forwarded> {
+    let probe = probe(origin, session, history, user_text);
+    let tag = probe.tag.as_str();
+    let response = request(
+        sidecar_port,
+        "POST",
+        &probe.path,
+        &probe.headers,
+        &probe.body,
     )?;
     let text = String::from_utf8_lossy(&response.body).into_owned();
     check(
@@ -677,20 +711,12 @@ fn forward(
         "probe reply did not come from the synthetic origin",
     )?;
     let recorded = origin.all_requests();
-    // The sidecar copies the client's headers onto its own auxiliary requests, so the tag
-    // alone does not single out the probe: it is the tagged streaming Messages request.
-    let is_probe = |r: &Recorded| {
-        r.headers["x-sc9-probe"] == tag.as_str()
-            && r.method == "POST"
-            && r.path.ends_with("/v1/messages")
-            && serde_json::from_slice::<Value>(&r.body).is_ok_and(|b| b["stream"] == true)
-    };
-    let probe = recorded
+    let sent_probe = recorded
         .iter()
-        .find(|r| is_probe(r))
+        .find(|r| is_probe(r, tag))
         .ok_or("the probe request never reached the synthetic origin")?;
     let sent: Value = safe(
-        serde_json::from_slice(&probe.body),
+        serde_json::from_slice(&sent_probe.body),
         "probe body at origin is not JSON",
     )?;
     let messages = sent["messages"]
@@ -699,7 +725,7 @@ fn forward(
         .clone();
     let others = recorded
         .iter()
-        .filter(|r| !is_probe(r))
+        .filter(|r| !is_probe(r, tag))
         .map(|r| format!("{} {} ({} body bytes)", r.method, r.path, r.body.len()))
         .collect();
     Ok(Forwarded {
@@ -907,3 +933,413 @@ const _: fn() = || {
     fn sync<T: Sync>() {}
     sync::<Origin>();
 };
+
+// Session isolation and resumed identity (Task 7). Sessions are told apart at the origin by
+// the `x-claude-code-session-id` header: the sidecar copies the client's headers onto its
+// auxiliary requests (rewrite, summary), so every model call it makes on a session's behalf
+// carries that session's id and is attributed to it.
+const SESSION_HEADER: &str = "x-claude-code-session-id";
+const TURNS: usize = 20;
+
+/// The same ten messages for every session: five question and answer pairs.
+fn shared_prefix() -> Vec<Msg> {
+    (0..5)
+        .flat_map(|n| {
+            [
+                Msg::user_text(&format!(
+                    "Domanda comune numero {n}: descrivi il modulo {n}."
+                )),
+                Msg::assistant_text(&format!("Il modulo {n} fa una cosa sola, e la fa bene.")),
+            ]
+        })
+        .collect()
+}
+/// The shared prefix, then a tool result of about 6000 tokens (four bytes per token) that
+/// opens and closes with `marker`. The filler is the same for every session, so the marker
+/// is the only difference between two sessions' tool results.
+fn session_start(marker: &str) -> Vec<Msg> {
+    let mut seed = 0x9e37_79b9_u64;
+    let mut result = format!("{marker}\n");
+    while result.len() < 6_000 * 4 {
+        seed = seed
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        result.push_str(&format!("{:x} ", seed >> 24));
+    }
+    result.push_str(marker);
+    let mut history = shared_prefix();
+    history.push(Msg::assistant_tool_use(
+        "toolu_marker",
+        "Read",
+        json!({ "file_path": r"C:\synthetic\marker.txt" }),
+    ));
+    history.push(Msg::tool_result("toolu_marker", &result));
+    history.push(Msg::assistant_text("Ho letto il file."));
+    history
+}
+/// Runs `turns` turns on `session`, each one resent with the whole conversation so far.
+fn run_turns(
+    port: u16,
+    origin: &Origin,
+    session: &str,
+    history: &mut Vec<Msg>,
+    label: &str,
+    turns: std::ops::Range<usize>,
+) -> ProofResult<()> {
+    for turn in turns {
+        let text = format!("Turno {turn} della sessione {label}: continua il lavoro.");
+        forward(port, origin, session, history, &text)
+            .map_err(|e| format!("{label} turn {turn}: {e}"))?;
+        history.push(Msg::user_text(&text));
+        history.push(Msg::assistant_text(REPLY));
+    }
+    Ok(())
+}
+/// Every model call the origin saw, grouped by the session header it carries. A call
+/// without the header, or from an unexpected session, fails the attribution.
+fn model_calls_by_session(
+    origin: &Origin,
+    sessions: &[&str],
+) -> ProofResult<BTreeMap<String, Vec<Recorded>>> {
+    let mut grouped: BTreeMap<String, Vec<Recorded>> = BTreeMap::new();
+    for call in origin.requests() {
+        let id = call.headers[SESSION_HEADER].as_str().unwrap_or_default();
+        if !sessions.contains(&id) {
+            return Err(format!(
+                "a model call is not attributable to a session: header {id:?}"
+            ));
+        }
+        grouped.entry(id.to_owned()).or_default().push(call);
+    }
+    Ok(grouped)
+}
+fn count_in(calls: &[Recorded], needle: &str) -> usize {
+    calls
+        .iter()
+        .filter(|c| String::from_utf8_lossy(&c.body).contains(needle))
+        .count()
+}
+/// `sessions` of `/__bili/stats`, each as (id, requests).
+fn stats(port: u16) -> ProofResult<Vec<(String, u64)>> {
+    let response = request(port, "GET", "/__bili/stats", &[], b"")?;
+    check(response.status == 200, "stats not available")?;
+    let value: Value = safe(serde_json::from_slice(&response.body), "invalid stats JSON")?;
+    Ok(value["sessions"]
+        .as_array()
+        .ok_or("stats without sessions")?
+        .iter()
+        .map(|s| {
+            (
+                s["id"].as_str().unwrap_or_default().to_owned(),
+                s["requests"].as_u64().unwrap_or_default(),
+            )
+        })
+        .collect())
+}
+
+#[test]
+#[ignore = "native: starts the pinned sidecar"]
+fn two_sessions_with_identical_prefixes_do_not_share_state() {
+    let (sidecar, origin) = proof();
+    let (a, b) = (new_session(), new_session());
+    // Same system prompt, same first ten messages; only the tool result's marker differs.
+    let (mut history_a, mut history_b) = (session_start("MARKER_A"), session_start("MARKER_B"));
+    thread::scope(|scope| {
+        let first =
+            scope.spawn(|| run_turns(sidecar.port, &origin, &a, &mut history_a, "A", 0..TURNS));
+        let second =
+            scope.spawn(|| run_turns(sidecar.port, &origin, &b, &mut history_b, "B", 0..TURNS));
+        first.join().expect("session A thread").expect("session A");
+        second.join().expect("session B thread").expect("session B");
+    });
+    let calls = model_calls_by_session(&origin, &[&a, &b]).expect("attribute every model call");
+    let (calls_a, calls_b) = (&calls[&a], &calls[&b]);
+    // Not vacuous: each session reached the origin with every turn, and its own marker
+    // really was on the wire.
+    assert!(calls_a.len() >= TURNS && calls_b.len() >= TURNS);
+    assert!(
+        count_in(calls_a, "MARKER_A") > 0,
+        "A's own marker never reached the origin"
+    );
+    assert!(
+        count_in(calls_b, "MARKER_B") > 0,
+        "B's own marker never reached the origin"
+    );
+    // Isolation: nothing of one session appears in a body sent on behalf of the other.
+    assert_eq!(
+        count_in(calls_a, "MARKER_B"),
+        0,
+        "B's content leaked into a body of A"
+    );
+    assert_eq!(
+        count_in(calls_b, "MARKER_A"),
+        0,
+        "A's content leaked into a body of B"
+    );
+    // The sidecar's own accounting: two distinct sessions, each with all its turns.
+    let seen = stats(sidecar.port).expect("stats");
+    let ids: std::collections::BTreeSet<&str> = seen.iter().map(|(id, _)| id.as_str()).collect();
+    assert_eq!(
+        ids.len(),
+        2,
+        "stats must list exactly two sessions: {seen:?}"
+    );
+    for (id, requests) in &seen {
+        assert_eq!(*requests, TURNS as u64, "session {id} requests: {seen:?}");
+    }
+}
+
+#[test]
+#[ignore = "native: starts the pinned sidecar"]
+fn resumed_session_keeps_its_own_identity() {
+    let (sidecar, origin) = proof();
+    let session = new_session();
+    let mut history = session_start("MARKER_A");
+    run_turns(sidecar.port, &origin, &session, &mut history, "A", 0..5).expect("first five turns");
+    // The client goes away and comes back with the same session id: a fresh client replays
+    // the transcript it saved, which is the conversation as it stood after turn five.
+    let mut resumed = history.clone();
+    drop(history);
+    run_turns(sidecar.port, &origin, &session, &mut resumed, "A", 5..10).expect("last five turns");
+    let calls = model_calls_by_session(&origin, &[&session]).expect("attribute every model call");
+    assert!(calls[&session].len() >= 10);
+    let seen = stats(sidecar.port).expect("stats");
+    assert_eq!(
+        seen.len(),
+        1,
+        "a resumed session must stay one session: {seen:?}"
+    );
+    assert_eq!(seen[0].1, 10, "requests of the one session: {seen:?}");
+}
+
+/// A streamed probe in flight: the open connection and everything read from it so far, so
+/// a test can act after the first SSE byte and read the rest afterwards.
+struct Streaming {
+    stream: TcpStream,
+    bytes: Vec<u8>,
+}
+impl Streaming {
+    fn open(port: u16, probe: &Probe) -> ProofResult<Self> {
+        Ok(Self {
+            stream: send_request(port, "POST", &probe.path, &probe.headers, &probe.body)?,
+            bytes: Vec::new(),
+        })
+    }
+    /// Reads until `needle` has arrived (raw bytes, chunk framing included).
+    fn read_until(&mut self, needle: &str, within: Duration) -> ProofResult<()> {
+        let deadline = Instant::now() + within;
+        safe(
+            self.stream
+                .set_read_timeout(Some(Duration::from_millis(50))),
+            "bound stream read",
+        )?;
+        let mut buffer = [0_u8; 4096];
+        while !String::from_utf8_lossy(&self.bytes).contains(needle) {
+            check(Instant::now() < deadline, "stream byte deadline")?;
+            match self.stream.read(&mut buffer) {
+                Ok(0) => return Err(format!("stream ended before {needle:?}")),
+                Ok(n) => self.bytes.extend_from_slice(&buffer[..n]),
+                Err(e) if matches!(e.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {}
+                Err(e) => return Err(format!("stream error before {needle:?}: {e}")),
+            }
+        }
+        Ok(())
+    }
+    /// Reads until the connection closes. The flag is true for an orderly close, false when
+    /// the peer vanished (reset or aborted), which is what a killed sidecar looks like.
+    fn finish(mut self, within: Duration) -> ProofResult<(Vec<u8>, bool)> {
+        let deadline = Instant::now() + within;
+        safe(
+            self.stream
+                .set_read_timeout(Some(Duration::from_millis(50))),
+            "bound stream read",
+        )?;
+        let mut buffer = [0_u8; 4096];
+        loop {
+            check(Instant::now() < deadline, "stream end deadline")?;
+            match self.stream.read(&mut buffer) {
+                Ok(0) => return Ok((self.bytes, true)),
+                Ok(n) => self.bytes.extend_from_slice(&buffer[..n]),
+                Err(e) if matches!(e.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {}
+                Err(_) => return Ok((self.bytes, false)),
+            }
+        }
+    }
+}
+/// The tagged streaming Messages requests the origin holds for `probe`: a replay of the
+/// client's turn shows up here as a second copy. Rewrite calls the sidecar makes on its
+/// own are not streamed and are not replays of the turn, so they are not counted.
+fn copies_of(origin: &Origin, probe: &Probe) -> usize {
+    origin
+        .all_requests()
+        .iter()
+        .filter(|r| is_probe(r, &probe.tag))
+        .count()
+}
+
+#[test]
+#[ignore = "native: starts the pinned sidecar"]
+fn drain_lets_a_running_stream_finish() {
+    let sidecar = Running::start().expect("start the pinned sidecar");
+    // The origin holds message_stop back for three seconds: the stream is still running
+    // when the drain is requested.
+    let origin = Origin::start(&sidecar, 3000).expect("start the synthetic origin");
+    let session = new_session();
+    let probe = probe(&origin, &session, &[], "Scrivi una frase.");
+    let mut streaming = Streaming::open(sidecar.port, &probe).expect("open the stream");
+    streaming
+        .read_until("message_start", Duration::from_secs(30))
+        .expect("first SSE byte");
+    let calls_at_first_byte = origin.requests().len();
+    let pid = sidecar
+        .supervisor
+        .status()
+        .and_then(|s| s.pid)
+        .expect("the owner holds the sidecar pid");
+    sidecar
+        .supervisor
+        .request(Command::Drain)
+        .expect("request the drain");
+    // The client keeps reading the stream while the test watches the owner.
+    let client = thread::spawn(move || {
+        let read = streaming.finish(Duration::from_secs(60));
+        (read, Instant::now())
+    });
+    let mut samples: Vec<(Instant, Phase, Option<u64>, Option<u32>)> = Vec::new();
+    let deadline = Instant::now() + Duration::from_secs(60);
+    let stopped_at = loop {
+        assert!(Instant::now() < deadline, "the drain never reached Stopped");
+        if let Some(s) = sidecar.supervisor.status() {
+            samples.push((Instant::now(), s.phase, s.in_flight, s.pid));
+            if s.phase == Phase::Stopped {
+                break Instant::now();
+            }
+            assert!(
+                !matches!(s.phase, Phase::Failed | Phase::Retired),
+                "the drain ended in {:?} / {:?}",
+                s.phase,
+                s.reason
+            );
+        }
+        thread::sleep(Duration::from_millis(5));
+    };
+    let (read, finished_at) = client.join().expect("client thread");
+    let (bytes, orderly) = read.expect("the client reads the stream to its end");
+    // The client got the whole stream, ending in message_stop, on an orderly close.
+    let response = parse_response(&bytes).expect("a complete HTTP response");
+    let text = String::from_utf8_lossy(&response.body);
+    assert_eq!(response.status, 200);
+    assert!(orderly, "the sidecar must close the stream in order");
+    assert!(text.contains(REPLY), "stream body: {text}");
+    assert!(
+        text.trim_end()
+            .ends_with(r#"data: {"type":"message_stop"}"#),
+        "the stream must end in message_stop: {text}"
+    );
+    // The worker glue, end to end: Draining while the stream runs, on the same process,
+    // with n > 0 requests in flight, then 0, and only then Stopped.
+    let busy = samples
+        .iter()
+        .position(|(at, phase, n, _)| {
+            *phase == Phase::Draining && *at < finished_at && n.is_some_and(|n| n > 0)
+        })
+        .unwrap_or_else(|| {
+            panic!("never saw Draining with in_flight > 0 while the stream ran: {samples:?}")
+        });
+    assert!(
+        samples[..=busy]
+            .iter()
+            .filter(|(_, phase, ..)| *phase == Phase::Draining)
+            .all(|(_, _, _, p)| *p == Some(pid)),
+        "a drain keeps the same live process: {samples:?}"
+    );
+    assert!(
+        samples[busy..].iter().any(|(_, _, n, _)| *n == Some(0)),
+        "in_flight never dropped to 0 after the stream ended: {samples:?}"
+    );
+    assert!(
+        finished_at <= stopped_at,
+        "Stopped before the stream finished"
+    );
+    let end = sidecar.supervisor.status().expect("final status");
+    assert_eq!(end.phase, Phase::Stopped);
+    assert!(!end.restart_used, "a drained sidecar is not restarted");
+    assert_eq!(
+        end.reason,
+        Reason::None,
+        "the drain must end by idling, not by timeout"
+    );
+    // Exactly one copy of the client's turn reached the origin, and nothing else was
+    // sent to a model after the first byte.
+    assert_eq!(copies_of(&origin, &probe), 1);
+    assert_eq!(origin.requests().len(), calls_at_first_byte);
+    // A stop on the stopped owner is harmless.
+    sidecar
+        .supervisor
+        .request(Command::Stop)
+        .expect("stop request on a stopped owner");
+    thread::sleep(Duration::from_millis(500));
+    let after = sidecar
+        .supervisor
+        .status()
+        .expect("status after the extra stop");
+    assert_eq!(after.phase, Phase::Stopped);
+    assert_eq!(after.pid, None);
+}
+
+#[test]
+#[ignore = "native: starts the pinned sidecar"]
+fn killed_sidecar_never_replays_the_interrupted_request() {
+    let sidecar = Running::start().expect("start the pinned sidecar");
+    let origin = Origin::start(&sidecar, 3000).expect("start the synthetic origin");
+    let session = new_session();
+    let probe = probe(&origin, &session, &[], "Scrivi una frase.");
+    let mut streaming = Streaming::open(sidecar.port, &probe).expect("open the stream");
+    streaming
+        .read_until("message_start", Duration::from_secs(30))
+        .expect("first SSE byte");
+    let calls_at_first_byte = origin.requests().len();
+    let first = sidecar.supervisor.status().expect("status");
+    let pid = first.pid.expect("the owner holds the sidecar pid");
+    assert!(!first.restart_used);
+    // Crash the sidecar process mid-stream (that process only, no child tree).
+    let killed = std::process::Command::new("taskkill")
+        .args(["/F", "/PID", &pid.to_string()])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .expect("run taskkill");
+    assert!(killed.success(), "could not terminate the sidecar process");
+    // The client sees the stream cut off, never a finished one.
+    let (bytes, _) = streaming
+        .finish(Duration::from_secs(30))
+        .expect("the client's connection ends");
+    assert!(
+        !String::from_utf8_lossy(&bytes).contains("message_stop"),
+        "the stream must have been interrupted"
+    );
+    // The owner restarts it once, on the same port, as a new process.
+    let restarted = Running::wait_status(
+        &sidecar.supervisor,
+        Duration::from_secs(60),
+        Phase::Ready,
+        |s| s.healthy && s.restart_used && s.pid.is_some_and(|p| p != pid),
+    )
+    .expect("the owner restarts the sidecar");
+    let health = sidecar.health().expect("health on the original port");
+    assert_eq!(health["pid"].as_u64(), restarted.pid.map(u64::from));
+    // Longer than the origin's own delay: a replayed request would have arrived by now.
+    thread::sleep(Duration::from_secs(5));
+    assert_eq!(
+        copies_of(&origin, &probe),
+        1,
+        "the interrupted request was replayed"
+    );
+    assert_eq!(
+        origin.requests().len(),
+        calls_at_first_byte,
+        "a model call was made after the crash"
+    );
+    let end = sidecar.supervisor.status().expect("final status");
+    assert!(end.restart_used && end.phase == Phase::Ready);
+}
