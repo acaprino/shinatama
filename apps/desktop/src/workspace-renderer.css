@@ -57,3 +57,7 @@
 .wm-empty-start:active { scale: .96; }
 .wm-empty-start:focus-visible { outline-color: var(--accent-ink); outline-offset: -4px; }
 .wm-drop-preview { backdrop-filter: blur(3px); }
+
+/* Tab quick filter: a pane with no tab of the chosen project says so and steps back. */
+.wm-tabs-filtered { align-self: center; padding: 0 10px; color: var(--muted); font: 12px var(--mono); white-space: nowrap; }
+.wm-filtered-out > .wm-body { opacity: .35; transition: opacity var(--base) var(--ease-out); }

@@ -30,6 +30,19 @@
 #project-menu-filter::placeholder { color: var(--muted); }
 /* The field owns the keyboard while the finder is open; the lit underline is its focus mark. */
 #project-menu-filter:focus-visible { outline: none; border-bottom-color: var(--accent); }
+/* Tab quick filter: project chips in the toolbar. */
+#tab-filter { display: flex; align-items: center; gap: 2px; min-width: 0; overflow: auto; scrollbar-width: none; }
+.tab-filter-chip { min-height: 26px; padding: 0 9px; gap: 6px; border-color: transparent; color: var(--muted); font: 12px var(--mono); letter-spacing: 0; text-transform: none; }
+.tab-filter-chip small { color: var(--muted); font-size: 11px; }
+.tab-filter-chip[aria-pressed=true] { color: var(--text); background: var(--surface); box-shadow: inset 0 -2px var(--accent); }
+.tab-filter-chip[aria-pressed=true] small { color: var(--accent-soft); }
+/* Filter row: the search field, then the "only running" toggle. */
+.project-menu-top { display: flex; align-items: stretch; }
+.project-menu-top #project-menu-filter { flex: 1; min-width: 0; }
+#project-menu-running { min-height: 42px; padding: 0 12px; border: 0; border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--muted); font: 12px var(--mono); letter-spacing: 0; text-transform: none; }
+#project-menu-running::before { content: '●'; margin-right: 2px; color: var(--muted); }
+#project-menu-running[aria-pressed=true] { color: var(--text); background: color-mix(in srgb, var(--live) 12%, transparent); box-shadow: inset 0 -2px var(--live); }
+#project-menu-running[aria-pressed=true]::before { color: var(--live); }
 #project-menu .toolbar-menu-list { gap: 1px; max-height: min(420px, 58vh); margin: 0; padding: 4px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 .toolbar-menu-project { grid-template-columns: minmax(0, auto) minmax(0, 1fr); align-items: baseline; column-gap: 12px; min-height: 32px; padding: 6px 10px; border-left: 2px solid transparent; }
 .toolbar-menu-project strong { overflow: hidden; text-overflow: ellipsis; font: 600 13px var(--mono); }

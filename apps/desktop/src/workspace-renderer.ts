@@ -18,6 +18,8 @@ export interface WorkspaceRendererOptions {
   /** Update the runtime's visibility cache before any zero-size DOM observation. */
   readonly onVisibilityChange?: (viewId: string, visible: boolean, groupId: string | null) => void;
   readonly labelForView?: (view: PanelView) => string;
+  /** Quick filter: only matching tabs are drawn; null shows every tab. Layout is not changed. */
+  readonly tabFilter?: () => { readonly label: string; readonly shows: (view: PanelView) => boolean } | null;
   readonly isInputBlocked?: () => boolean;
   readonly onError?: (error: LayoutError) => void;
   /** The pane's "+" button or empty-pane button: open a new session in this pane. */
@@ -170,9 +172,10 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
     dom.collapse.title = group.collapsed ? 'Restore pane' : 'Collapse pane'; dom.collapse.textContent = group.collapsed ? '+' : '−';
     dom.maximize.setAttribute('aria-label', current.maximizedGroupId === group.id ? 'Restore layout' : 'Maximize pane'); dom.maximize.title = dom.maximize.getAttribute('aria-label') ?? '';
     dom.maximize.disabled = group.collapsed || group.activeTabId === null;
-    const tabs: HTMLElement[] = [];
+    const tabs: HTMLElement[] = []; const filter = options.tabFilter?.() ?? null; let filteredOut = false;
     for (const viewId of group.tabs) {
       const view = current.views.find(view => view.id === viewId); if (!view || view.hidden) continue;
+      if (filter && !filter.shows(view)) { filteredOut = true; continue; }
       const tab = control(label(view), `tab:${view.id}`, () => { emit({ type: 'activate', groupId: group.id, viewId: view.id }); focusView(view.id); });
       tab.classList.add('wm-tab'); tab.dataset.viewId = view.id; tab.draggable = true; tab.setAttribute('role', 'tab');
       tab.id = `${namespace}-tab-${view.id}`; tab.setAttribute('aria-controls', dom.body.id);
@@ -188,6 +191,10 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
       close.title = `Close ${label(view)}`; close.setAttribute('aria-label', `Close ${label(view)}`); close.tabIndex = -1;
       wrap.append(tab, close); tabs.push(wrap);
     }
+    // Every tab of this pane belongs to other projects: say so instead of an empty strip.
+    const empty = filter !== null && filteredOut && tabs.length === 0;
+    if (empty) tabs.push(element('span', 'wm-tabs-filtered', `No ${filter.label} tabs here`));
+    dom.element.classList.toggle('wm-filtered-out', empty);
     dom.tabs.replaceChildren(...tabs);
     if (group.activeTabId !== null) dom.body.setAttribute('aria-labelledby', `${namespace}-tab-${group.activeTabId}`); else dom.body.removeAttribute('aria-labelledby');
     const previousDestination = dom.controls.querySelector<HTMLSelectElement>('[data-wm-key="destination"]')?.value;
@@ -284,7 +291,8 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
       const neighbor = keyboardNeighbor(current, group.id, direction, viewport()); if (neighbor) { emit({ type: 'focus', groupId: neighbor }); focusChrome(neighbor, 'pane-focus'); } return;
     }
     if (target.classList.contains('wm-tab') && group && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
-      event.preventDefault(); const visible = group.tabs.filter(viewId => !current?.views.find(view => view.id === viewId)?.hidden); const viewId = target.dataset.viewId; const index = visible.indexOf(viewId ?? '');
+      event.preventDefault(); const filter = options.tabFilter?.() ?? null;
+      const visible = group.tabs.filter(viewId => { const view = current?.views.find(view => view.id === viewId); return !!view && !view.hidden && (!filter || filter.shows(view)); }); const viewId = target.dataset.viewId; const index = visible.indexOf(viewId ?? '');
       if (event.shiftKey && viewId && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) emit({ type: 'move', viewId, groupId: group.id, index: Math.max(0, Math.min(group.tabs.length - 1, group.tabs.indexOf(viewId) + (event.key === 'ArrowLeft' ? -1 : 1))) });
       else { const next = event.key === 'Home' ? visible[0] : event.key === 'End' ? visible.at(-1) : visible[(index + (event.key === 'ArrowLeft' ? -1 : 1) + visible.length) % visible.length]; if (next) { emit({ type: 'activate', groupId: group.id, viewId: next }); focusChrome(group.id, `tab:${next}`); } }
       return;

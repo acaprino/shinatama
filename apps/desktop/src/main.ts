@@ -28,7 +28,7 @@ import { createFilesPanel } from './files-panel.ts';
 import { createProjectsOverview } from './projects-overview.ts';
 import { createInstancesOverview } from './instances-overview.ts';
 import { createSessionSearch } from './session-search.ts';
-import { createProjectMenu, organizeToolbar } from './toolbar-simple.ts';
+import { createProjectMenu, createTabFilter, folderName, organizeToolbar, samePath } from './toolbar-simple.ts';
 import { createSessionRaw } from './session-raw.ts';
 import { createSessionFind } from './session-find.ts';
 import { createThreadSidebar, type ThreadSidebarState } from './thread-sidebar.ts';
@@ -113,12 +113,32 @@ const presentation = createPresentation({ desktop, notify, onChange() {
   }
 } });
 
+/** "shinatama · Claude Code", numbered only when the same agent runs twice in one project. */
+function tabLabel(id: string) {
+  const view = views.get(id); if (!view) return 'Saved terminal · unavailable';
+  const harness = sessionHarnesses.find(item => item.id === view.info.shell)?.label ?? view.info.shell;
+  const twins = [...views.values()].filter(other => other.info.shell === view.info.shell && samePath(other.info.cwd, view.info.cwd));
+  return `${folderName(view.info.cwd)} · ${harness}${twins.length > 1 ? ` ${twins.indexOf(view) + 1}` : ''}${view.ended ? ' · exited' : ''}`;
+}
+let tabFilter: ReturnType<typeof createTabFilter> | null = null;
+/** Shows one project's tabs; each pane switches to its first tab of that project, if it has one. */
+function filterTabs(project: string | null) {
+  if (project) for (const group of tabGroups(workspaceLayout.root)) {
+    const shown = group.tabs.filter(id => { const view = views.get(id); return !!view && !view.hidden && samePath(view.info.cwd, project); });
+    if (shown.length && !shown.includes(group.activeTabId ?? '')) changeLayout({ type: 'activate', groupId: group.id, viewId: shown[0] });
+  }
+  render();
+}
 const renderer = createWorkspaceRenderer({
   host: workspace, bindings,
   dispatch(action, expected) { if (expected === workspaceLayout) changeLayout(action); },
   onFocusView(id) { if (!modalOpen()) views.get(id)?.terminal.focus(); },
   onVisibilityChange(id, visible) { const view = views.get(id); if (view) { view.visible = visible; if (visible) scheduleFit(view); } },
-  labelForView(panel) { const view = views.get(panel.id); return view ? `${sessionHarnesses.find(item => item.id === view.info.shell)?.label ?? view.info.shell} ${[...views.keys()].indexOf(panel.id) + 1}${view.ended ? ' · exited' : ''}` : 'Saved terminal · unavailable'; },
+  labelForView: panel => tabLabel(panel.id),
+  tabFilter() {
+    const project = tabFilter?.current();
+    return project ? { label: folderName(project), shows: panel => { const view = views.get(panel.id); return !!view && samePath(view.info.cwd, project); } } : null;
+  },
   isInputBlocked: modalOpen,
   onError: () => notify('That layout change is unavailable. The current workspace was preserved.'),
   onNewTab: groupId => { void openNewSession(groupId); },
@@ -163,6 +183,7 @@ function render() {
     view.group = tabGroups(workspaceLayout.root).find(group => group.tabs.includes(panel.id))?.id ?? focusedGroup();
   }
   renderer.render(workspaceLayout);
+  tabFilter?.paint();
   for (const pane of workspace.querySelectorAll<HTMLElement>('.wm-pane')) {
     const group = tabGroups(workspaceLayout.root).find(group => group.id === pane.dataset.groupId); if (!group) continue;
     pane.classList.add('pane'); pane.classList.toggle('focused', workspaceLayout.focusedGroupId === group.id);
@@ -308,6 +329,7 @@ function attachTerminal(info: SessionInfo, group: string, threadId: string | nul
   const view: View = { info, terminal, fit, element, group, hidden: false, visible: false, ended: false, disposed: false,
     profile: initialProfile, lastSize: '', resizeTimer: 0, resizeChain: Promise.resolve() };
   views.set(info.id, view); bindings.set(info.id, element); resizeObserver.observe(element);
+  tabFilter?.reveal(info.cwd);
   const restored = workspaceLayout.views.find(panel => panel.id === info.id);
   if (restored?.resource.kind === 'terminal') { const applied = presentation.applyProfile(terminal, restored.resource.profileId); view.profile = applied.id; element.style.background = applied.background; }
   if (!restored) changeLayout({ type: 'add-view', groupId: tabGroups(workspaceLayout.root).some(candidate => candidate.id === group) ? group : focusedGroup(),
@@ -711,11 +733,15 @@ async function chooseProject(path: string) {
   if (changed) await refreshThreadProject();
 }
 organizeToolbar();
+// Counts tabs, not running sessions: an exited tab still sits in the strip.
+tabFilter = createTabFilter({ tabs: () => [...views.values()].filter(view => !view.disposed).map(view => view.info.cwd), onChange: filterTabs });
+tabFilter.paint();
 createProjectMenu({
   button: $('#project'),
   load: () => desktop ? invoke('project_recent') : Promise.resolve([]),
   search: desktop ? onResults => createCatalogClient(snapshot => onResults(snapshot.projects), () => onResults([])) : undefined,
   current: () => projectPath,
+  running: () => [...views.values()].filter(view => !view.ended && !view.disposed).map(view => view.info.cwd),
   choose: chooseProject,
   browse: () => { projectPicker.open(); void projectPicker.browse(); },
   create: () => { newProject.open(); },
