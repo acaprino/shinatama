@@ -25,7 +25,7 @@ type Options = { read: (request: DetailRequest) => Promise<DetailReply>; openRaw
 const KINDS: Record<EventKind, string> = { user_text: 'User', assistant_text: 'Assistant', tool_call: 'Tool call', tool_result: 'Tool result',
   compaction: 'Compaction summary', meta: 'Metadata', attachment_omitted: 'Attachment omitted', reasoning_omitted: 'Reasoning omitted' };
 const ERRORS: Record<string, string> = {
-  input_too_large: 'This archive exceeds the 16 MiB detail input bound. It was refused before parsing.',
+  input_too_large: 'This archive holds more than 4,096 files. It was refused before reading.',
   invalid_request: 'This session request is invalid or unsupported.', root_unavailable: 'The selected archive is unavailable. No other archive was used.',
   root_changed: 'The archive revision changed. Reload the session catalog.', unsafe_namespace: 'The source failed read-only path verification.',
   unsupported_harness: 'This agent has no qualified detail reader.', unsupported_export_context: 'This detail needs a separately contained exporter that is not qualified.',

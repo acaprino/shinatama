@@ -1,6 +1,7 @@
 import { openModal, topModal } from './modal.ts';
 import type { DetailRequest } from './session-detail.ts';
 import type { SessionRootSelector } from './session-library.ts';
+import { createProgressLine, type ProgressBackend } from './session-progress.ts';
 import './session-find.css';
 
 export type FindCursor = { offset: number; fingerprint: string };
@@ -11,8 +12,8 @@ export type FindPage = { root: SessionRootSelector; nativeId: string; sourceFing
 export type FindIssue = { code: 'invalid_query' | 'fingerprint_required' | 'output_limit' } | { code: 'detail'; detail: string };
 export type FindReply = { root: SessionRootSelector; nativeId: string; page: FindPage | null; issue: FindIssue | null };
 export type FindSelection = { root: SessionRootSelector; nativeId: string; entryOrdinal: number; eventOrdinal: number; fingerprint: string };
-type Options = { read: (request: FindRequest) => Promise<FindReply>; reportError: (message: string) => void;
-  onSelectHit: (selection: FindSelection) => void; restoreFocus?: () => void };
+type Options = { read: (request: FindRequest, requestId: string) => Promise<FindReply>; reportError: (message: string) => void;
+  onSelectHit: (selection: FindSelection) => void; restoreFocus?: () => void; progress?: ProgressBackend };
 const encoder = new TextEncoder();
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const integer = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) >= 0;
@@ -29,7 +30,7 @@ const ERRORS: Record<string, string> = {
   output_limit: 'The search response exceeded its fixed limit.', invalid_request: 'This search selector is invalid.',
   source_changed: 'The session changed. Close search and reload its detail.', root_changed: 'The archive revision changed. Reload its catalog.',
   root_unavailable: 'The selected archive is unavailable. No other archive was searched.', unsafe_namespace: 'The archive failed read-only path verification.',
-  input_too_large: 'This archive exceeds the 16 MiB input bound and was refused before parsing.',
+  input_too_large: 'This archive holds more than 4,096 files. It was refused before reading.',
   unsupported_harness: 'This agent has no qualified session reader.', unsupported_export_context: 'This native export context is not qualified.',
   session_not_found: 'The exact native session is unavailable.', ambiguous_session: 'This exact session cannot be distinguished safely.',
   read_unavailable: 'Session search is unavailable. Retry explicitly.', cleanup_unconfirmed: 'Reader cleanup remains unconfirmed; its resources stay reserved.',
@@ -87,7 +88,8 @@ export function createSessionFind(options: Options) {
   const position = document.createElement('span'); const next = document.createElement('button'); next.type = 'button'; next.textContent = 'Next matches'; pager.append(previous, position, next);
   const scope = document.createElement('p'); scope.id = 'session-find-scope'; scope.className = 'hint';
   scope.textContent = 'Searches canonical user, assistant, plain tool-result text and compaction summaries in this session. Case-insensitive literal matching; RAW, reasoning, tool arguments, structured results and attachment content are excluded. At most 50 matches per page. Choosing a match opens its saved transcript; it starts no agent.';
-  dialog.append(heading, source, form, status, results, pager, scope); document.body.append(dialog);
+  const progress = createProgressLine('search', options.progress);
+  dialog.append(heading, source, form, status, progress.element, results, pager, scope); (document.querySelector('#app') ?? document.body).append(dialog);
   let selected: DetailRequest | null = null; let page: FindPage | null = null; let cursor: FindCursor | null = null;
   let history: (FindCursor | null)[] = []; let generation = 0; let busy = false; let destroyed = false; let failed = false;
   let message = 'Enter text and select Search this session.';
@@ -122,14 +124,14 @@ export function createSessionFind(options: Options) {
     generation++; selected = null; page = null; cursor = null; history = []; query.value = ''; failed = false;
     message = 'Enter text and select Search this session.'; render();
   }
-  function close() { clear(); if (dialog.open) dialog.close(); }
+  function close() { progress.cancel(); clear(); if (dialog.open) dialog.close(); }
   async function read(target: FindCursor | null, direction: 'new' | 'next' | 'previous') {
     if (destroyed || busy || !selected || !validQuery(query.value)) return;
     const at = generation; const oldCursor = cursor;
     const request: FindRequest = { detail: { ...selected, root: { ...selected.root }, cursor: { ...selected.cursor! } }, query: query.value, cursor: target };
-    busy = true; failed = false; render();
+    const requestId = progress.begin(); busy = true; failed = false; render();
     try {
-      const decoded = decode(await options.read(request), request);
+      const decoded = decode(await options.read(request, requestId), request);
       if (destroyed || at !== generation || !dialog.open) return;
       if (direction === 'new') history = [];
       else if (direction === 'next') { if (history.length === 64) history.shift(); history.push(oldCursor); }
@@ -138,12 +140,16 @@ export function createSessionFind(options: Options) {
       message = decoded.totalHits ? 'Choose a match to open its saved transcript.' : 'No matching canonical text in this session.';
     } catch (error) {
       if (!destroyed && at === generation && dialog.open) {
-        page = null; cursor = null; history = []; failed = true;
-        const code = error instanceof Error ? error.message : '';
-        message = Object.hasOwn(ERRORS, code) ? ERRORS[code] : ERRORS.read_unavailable; options.reportError(message);
+        page = null; cursor = null; history = [];
+        if (progress.cancelled()) { failed = false; message = 'Search cancelled. Enter text and select Search this session.'; }
+        else {
+          failed = true;
+          const code = error instanceof Error ? error.message : '';
+          message = Object.hasOwn(ERRORS, code) ? ERRORS[code] : ERRORS.read_unavailable; options.reportError(message);
+        }
       }
     } finally {
-      busy = false;
+      progress.end(requestId); busy = false;
       if (!destroyed && at !== generation && dialog.open) message = 'The previous search finished. Search again explicitly.';
       render();
     }
@@ -164,6 +170,6 @@ export function createSessionFind(options: Options) {
   previous.onclick = () => { if (history.length) void read(history.at(-1)!, 'previous'); };
   next.onclick = () => { if (page?.next) void read(page.next, 'next'); };
   closeButton.onclick = close;
-  dialog.addEventListener('close', () => { if (!dialog.open) { clear(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); } });
-  render(); return { show, close, destroy: () => { close(); destroyed = true; dialog.remove(); } };
+  dialog.addEventListener('close', () => { if (!dialog.open) { progress.cancel(); clear(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); } });
+  render(); return { show, close, destroy: () => { close(); destroyed = true; progress.destroy(); dialog.remove(); } };
 }

@@ -703,6 +703,8 @@ fn main() {
         #[cfg(windows)]
         sessions::session_raw,
         sessions::session_find,
+        #[cfg(windows)]
+        sessions::session_cancel,
         files::files_list,
         files::files_search,
         files::files_cancel,
@@ -825,6 +827,8 @@ fn main() {
         #[cfg(windows)]
         sessions::session_raw,
         sessions::session_find,
+        #[cfg(windows)]
+        sessions::session_cancel,
         files::files_list,
         files::files_search,
         files::files_cancel,

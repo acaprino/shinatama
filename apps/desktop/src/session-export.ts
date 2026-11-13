@@ -1,5 +1,6 @@
 import { openModal } from './modal.ts';
 import type { SessionRootSelector } from './session-library.ts';
+import { createProgressLine, type ProgressBackend } from './session-progress.ts';
 import './session-export.css';
 
 export type ExportFormat = 'stx' | 'mukade' | 'md';
@@ -12,7 +13,8 @@ type Report = { items: number; redactions: Record<string, number>; omitted: { re
   declaration: { label: string; losses: string[]; lossless_backup: boolean } };
 export type ExportOutcome = { state: 'saved'; path: string; bytes: number; sha256: string; attachments: number; report: Report }
   | { state: 'cancelled' } | { state: 'refused'; issue: string };
-type Options = { save: (request: ExportUiRequest) => Promise<ExportOutcome>; reportError: (message: string) => void; restoreFocus?: () => void };
+type Options = { save: (request: ExportUiRequest, requestId: string) => Promise<ExportOutcome>; reportError: (message: string) => void; restoreFocus?: () => void;
+  progress?: ProgressBackend };
 
 /** Declarations shown before writing (FRD-0006 R31). Native export is not offered until proven. */
 const FORMATS: { value: ExportFormat; label: string; detail: string }[] = [
@@ -24,7 +26,7 @@ const ISSUES: Record<string, string> = {
   format_unavailable: 'This format is not available for this agent.', output_limit: 'The export exceeded its fixed size limit.',
   invalid_request: 'This export request is invalid.', source_changed: 'The session changed. Reload its detail and export again.',
   root_changed: 'The archive revision changed. Reload its catalog.', root_unavailable: 'The archive is unavailable. No other archive was used.',
-  input_too_large: 'This archive exceeds the 16 MiB input bound.', session_not_found: 'The exact session is no longer listed.',
+  input_too_large: 'This archive holds more than 4,096 files.', session_not_found: 'The exact session is no longer listed.',
   unsupported_harness: 'This agent has no qualified session reader.', unsupported_export_context: 'This agent needs a separately qualified exporter.',
   cleanup_unconfirmed: 'Reader cleanup remains unconfirmed; its resources stay reserved.', read_unavailable: 'Export is unavailable. Retry explicitly.',
 };
@@ -63,8 +65,9 @@ export function createSessionExport(options: Options) {
   const actions = document.createElement('div'); actions.className = 'session-export-actions';
   const save = document.createElement('button'); save.type = 'button'; save.className = 'primary'; save.textContent = 'Save as…'; actions.append(save);
   const status = document.createElement('p'); status.className = 'session-export-status'; status.setAttribute('role', 'status');
+  const progress = createProgressLine('export', options.progress);
   const report = document.createElement('dl'); report.className = 'session-export-report';
-  dialog.append(heading, source, formatSet, modeSet, attachRow, always, actions, status, report);
+  dialog.append(heading, source, formatSet, modeSet, attachRow, always, actions, status, progress.element, report);
   (document.querySelector('#app') ?? document.body).append(dialog);
   let selection: ExportSelection | null = null; let busy = false; let generation = 0;
   const chosenFormat = (): ExportFormat => [...radios].find(([, input]) => input.checked)?.[0] ?? 'stx';
@@ -81,12 +84,12 @@ export function createSessionExport(options: Options) {
   }
   save.onclick = async () => {
     if (busy || !selection) return;
-    const at = ++generation; busy = true; report.replaceChildren(); status.dataset.state = 'ready'; status.textContent = 'Reading and redacting the session…'; render();
+    const at = ++generation; const requestId = progress.begin(); busy = true; report.replaceChildren(); status.dataset.state = 'ready'; status.textContent = 'Reading and redacting the session…'; render();
     try {
       const outcome = await options.save({ root: { ...selection.root }, nativeId: selection.nativeId, fingerprint: selection.fingerprint,
-        format: chosenFormat(), mode: chosenMode(), withAttachments: attach.checked });
+        format: chosenFormat(), mode: chosenMode(), withAttachments: attach.checked }, requestId);
       if (at !== generation || !dialog.open) return;
-      if (outcome.state === 'cancelled') { status.textContent = 'Nothing was written.'; return; }
+      if (outcome.state === 'cancelled') { status.textContent = progress.cancelled() ? 'Export cancelled. Nothing was written.' : 'Nothing was written.'; return; }
       if (outcome.state === 'refused') {
         const code = outcome.issue.startsWith('write_failed:') ? outcome.issue.slice(13) : ISSUES[outcome.issue] ?? ISSUES.read_unavailable;
         status.dataset.state = 'error'; status.textContent = code; options.reportError(code); return;
@@ -101,10 +104,10 @@ export function createSessionExport(options: Options) {
       if (at !== generation || !dialog.open) return;
       const code = typeof error === 'string' ? error : (error as { issue?: string })?.issue ?? '';
       status.dataset.state = 'error'; status.textContent = ISSUES[code] ?? ISSUES.read_unavailable; options.reportError(status.textContent);
-    } finally { if (at === generation) { busy = false; render(); } }
+    } finally { progress.end(requestId); if (at === generation) { busy = false; render(); } }
   };
   closeButton.onclick = () => dialog.close();
-  dialog.addEventListener('close', () => { generation++; busy = false; selection = null; report.replaceChildren(); status.textContent = ''; render(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
+  dialog.addEventListener('close', () => { progress.cancel(); generation++; busy = false; selection = null; report.replaceChildren(); status.textContent = ''; render(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
   function show(value: ExportSelection) {
     if (!/^[a-f0-9]{64}$/i.test(value.fingerprint) || !/^[a-z0-9_-]{1,256}$/i.test(value.nativeId)) { options.reportError('This session cannot be exported safely.'); return; }
     selection = { root: { ...value.root }, nativeId: value.nativeId, fingerprint: value.fingerprint, harness: value.harness };

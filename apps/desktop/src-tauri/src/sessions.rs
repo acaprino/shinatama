@@ -7,8 +7,9 @@ use shinatama_engine::session_detail::{DetailReply, DetailRequest};
 use shinatama_engine::session_export::{ExportReply, ExportRequest};
 use shinatama_engine::session_find::{FindReply, FindRequest};
 use shinatama_engine::session_raw::{RawReply, RawRequest};
+use shinatama_engine::export_frames::Progress;
 use shinatama_engine::session_roots::{
-    PreparedSessionList, RootSelector, SessionCursor, SessionListPage, SessionListRead,
+    Framed, PreparedSessionList, RootSelector, SessionCursor, SessionListPage, SessionListRead,
     SessionReadIssue, metadata_worker_budget,
 };
 use shinatama_state::{
@@ -17,6 +18,7 @@ use shinatama_state::{
     records::{PreparedStoreRoot, RootAccess, RootKind, RootOrigin, RootScope, StoreRootRecord},
 };
 use std::{
+    collections::HashMap,
     fs::{File, OpenOptions},
     os::windows::fs::OpenOptionsExt,
     panic::{AssertUnwindSafe, catch_unwind},
@@ -26,7 +28,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
 };
-use tauri::{Manager, State, WebviewWindow};
+use tauri::{Emitter, Manager, State, WebviewWindow};
 use windows_sys::Win32::Storage::FileSystem::{
     FILE_FLAG_OPEN_REPARSE_POINT, FILE_SHARE_READ, FILE_SHARE_WRITE,
 };
@@ -34,6 +36,54 @@ use windows_sys::Win32::Storage::FileSystem::{
 pub mod export;
 pub mod hop;
 pub mod search;
+
+/// The event a long search or export sends the window, at most four a second, until it ends. The
+/// request id is the caller's: a window ignores an event of any other request. `file_bytes` is
+/// context (the session file's size), never a percentage.
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProgressEvent {
+    request_id: String,
+    kind: &'static str,
+    entries: u64,
+    bytes: u64,
+    hits: u64,
+    file_bytes: u64,
+}
+
+/// A search or an export a window can watch and stop: its progress goes out as `session-progress`
+/// events and its cancel flag is read on every turn of the worker's loop.
+pub struct Watch {
+    cancel: Arc<AtomicBool>,
+    emit: Box<dyn Fn(Progress, u64) + Send + Sync>,
+}
+impl Watch {
+    /// No one is watching and no one can stop it.
+    pub fn none() -> Self {
+        Self { cancel: Arc::new(AtomicBool::new(false)), emit: Box::new(|_, _| {}) }
+    }
+}
+/// Removes the request's cancel flag when the command ends, whatever way it ends: a cancel that
+/// arrives after the end finds nothing to stop.
+pub struct WatchGuard {
+    controller: Arc<Controller>,
+    id: String,
+}
+impl Drop for WatchGuard {
+    fn drop(&mut self) {
+        if let Ok(mut cancels) = self.controller.cancels.lock() {
+            cancels.remove(&self.id);
+        }
+    }
+}
+
+/// What an export streamed to a staged file came back as.
+pub enum StagedExport {
+    /// The worker finished: its final frame, and the staged body to commit when it holds a payload.
+    Done { reply: ExportReply, staged: shinatama_export::output::Staged },
+    /// Writing the staged body failed (disk full, folder gone); the worker was stopped.
+    WriteFailed,
+}
 const ROOT_LIMIT: usize = 100;
 const MIB: u64 = 1024 * 1024;
 type Result<T> = std::result::Result<T, SessionReadIssue>;
@@ -97,6 +147,8 @@ pub struct Controller {
     retained: Mutex<Option<SessionListRead>>,
     search: Mutex<Option<Arc<shinatama_state::search_index::SearchIndex>>>,
     run: Arc<search::RunState>,
+    /// The cancel flag of each watched request that is still running, by the window's request id.
+    cancels: Mutex<HashMap<String, Arc<AtomicBool>>>,
 }
 struct WorkerSlot(Arc<Controller>);
 impl Drop for WorkerSlot {
@@ -114,7 +166,61 @@ impl Controller {
             retained: Mutex::new(None),
             search: Mutex::new(None),
             run: Arc::new(search::RunState::default()),
+            cancels: Mutex::new(HashMap::new()),
         }
+    }
+    /// Makes a request watchable: `request_id` (1 to 64 of A-Z a-z 0-9 _ -) names its events and
+    /// its cancel. Without one the request is not watched.
+    pub fn watch(
+        self: &Arc<Self>,
+        window: &WebviewWindow,
+        kind: &'static str,
+        request_id: Option<String>,
+    ) -> Result<(Watch, Option<WatchGuard>)> {
+        let Some(id) = request_id else {
+            return Ok((Watch::none(), None));
+        };
+        if id.is_empty()
+            || id.len() > 64
+            || !id.bytes().all(|c| c.is_ascii_alphanumeric() || matches!(c, b'-' | b'_'))
+        {
+            return Err(SessionReadIssue::InvalidRequest);
+        }
+        let cancel = Arc::new(AtomicBool::new(false));
+        {
+            let mut cancels = self.cancels.lock().map_err(|_| SessionReadIssue::ReadUnavailable)?;
+            if cancels.contains_key(&id) {
+                return Err(SessionReadIssue::InvalidRequest);
+            }
+            cancels.insert(id.clone(), Arc::clone(&cancel));
+        }
+        let window = window.clone();
+        let event_id = id.clone();
+        let emit = Box::new(move |progress: Progress, file_bytes: u64| {
+            let _ = window.emit(
+                "session-progress",
+                ProgressEvent {
+                    request_id: event_id.clone(),
+                    kind,
+                    entries: progress.entries,
+                    bytes: progress.bytes,
+                    hits: progress.hits,
+                    file_bytes,
+                },
+            );
+        });
+        Ok((Watch { cancel, emit }, Some(WatchGuard { controller: Arc::clone(self), id })))
+    }
+    /// Stops the watched request `request_id` if it is still running; true when there was one.
+    pub fn cancel(&self, request_id: &str) -> bool {
+        self.cancels
+            .lock()
+            .ok()
+            .and_then(|cancels| cancels.get(request_id).cloned())
+            .is_some_and(|flag| {
+                flag.store(true, Ordering::Release);
+                true
+            })
     }
     async fn worker<T: Send + 'static>(
         self: &Arc<Self>,
@@ -216,6 +322,15 @@ impl Controller {
         state: &crate::storage::WorkspaceServices,
         prepared: &PreparedSessionList,
     ) -> Result<SessionListRead> {
+        self.read_prepared_with(state, prepared, None)
+    }
+    /// [`Controller::read_prepared`] for an export: `sink` receives each body frame as it arrives.
+    fn read_prepared_with(
+        &self,
+        state: &crate::storage::WorkspaceServices,
+        prepared: &PreparedSessionList,
+        hooks: Option<Framed<'_>>,
+    ) -> Result<SessionListRead> {
         let helper = helper_path()?;
         self.runtime
             .wait_for_admission()
@@ -224,7 +339,12 @@ impl Controller {
             .runtime
             .prepare_background_workload(metadata_worker_budget(), 768 * MIB, 15_000)
             .map_err(|_| SessionReadIssue::WorkerUnavailable)?;
-        let read = prepared.run_contained(&state.store, &helper, &state.location, workload);
+        let read = match hooks {
+            Some(hooks) => {
+                prepared.run_contained_framed(&state.store, &helper, &state.location, workload, hooks)
+            }
+            None => prepared.run_contained(&state.store, &helper, &state.location, workload),
+        };
         if read.cleanup_retained() {
             *self
                 .retained
@@ -275,7 +395,7 @@ impl Controller {
         })
         .await
     }
-    pub async fn find(self: &Arc<Self>, request: FindRequest) -> Result<FindReply> {
+    pub async fn find(self: &Arc<Self>, request: FindRequest, watch: Watch) -> Result<FindReply> {
         shinatama_engine::session_find::validate_request(&request)
             .map_err(|_| SessionReadIssue::InvalidRequest)?;
         self.worker(move |controller| {
@@ -286,15 +406,24 @@ impl Controller {
             controller.retry_retained(&state.store)?;
             let prepared =
                 PreparedSessionList::resolve_find(&state.store, &state.location, request)?;
-            controller
-                .read_prepared(state, &prepared)?
-                .find()
-                .cloned()
-                .ok_or(SessionReadIssue::ReadUnavailable)
+            let file_bytes = prepared.file_bytes();
+            let mut body = |_: &[u8]| -> std::io::Result<()> {
+                Err(std::io::Error::other("a search has no body"))
+            };
+            let mut progress = |progress: Progress| (watch.emit)(progress, file_bytes);
+            let cancel = || watch.cancel.load(Ordering::Acquire);
+            // The window learns the worker has started (it may have waited for a free slot).
+            progress(Progress::default());
+            let hooks = Framed { body: &mut body, progress: &mut progress, cancel: &cancel };
+            let read = controller.read_prepared_with(state, &prepared, Some(hooks))?;
+            read.find().cloned().ok_or(SessionReadIssue::ReadUnavailable)
         })
         .await
     }
-    pub async fn export(self: &Arc<Self>, request: ExportRequest) -> Result<ExportReply> {
+    /// An export held whole in memory, bounded to `MAX_EXPORT_CONTENT_BYTES`: for the hop
+    /// preview, which holds the whole transcript in memory by design. The file's content is the
+    /// reply's prefix followed by the body.
+    pub async fn export(self: &Arc<Self>, request: ExportRequest) -> Result<(ExportReply, Vec<u8>)> {
         shinatama_engine::session_export::validate_request(&request)
             .map_err(|_| SessionReadIssue::InvalidRequest)?;
         self.worker(move |controller| {
@@ -305,11 +434,79 @@ impl Controller {
             controller.retry_retained(&state.store)?;
             let prepared =
                 PreparedSessionList::resolve_export(&state.store, &state.location, request)?;
-            controller
-                .read_prepared(state, &prepared)?
+            let mut body = Vec::new();
+            let mut over = false;
+            let read = {
+                let mut sink = |bytes: &[u8]| {
+                    if body.len() + bytes.len()
+                        > shinatama_engine::session_export::MAX_EXPORT_CONTENT_BYTES
+                    {
+                        over = true;
+                        return Err(std::io::Error::other("export over its in-memory bound"));
+                    }
+                    body.extend_from_slice(bytes);
+                    Ok(())
+                };
+                let mut progress = |_: Progress| {};
+                let never = || false;
+                let hooks = Framed { body: &mut sink, progress: &mut progress, cancel: &never };
+                controller.read_prepared_with(state, &prepared, Some(hooks))
+            };
+            if over {
+                return Err(SessionReadIssue::OutputLimit);
+            }
+            let reply = read?
                 .export()
                 .cloned()
-                .ok_or(SessionReadIssue::ReadUnavailable)
+                .ok_or(SessionReadIssue::ReadUnavailable)?;
+            let mut content = reply
+                .payload
+                .as_ref()
+                .map(|payload| payload.prefix.as_bytes().to_vec())
+                .unwrap_or_default();
+            content.extend_from_slice(&body);
+            Ok((reply, content))
+        })
+        .await
+    }
+    /// An export of any size: the worker's body frames are written to `staged` as they arrive
+    /// and the caller commits after the final frame (the reply). Dropping `staged` removes it.
+    pub async fn export_staged(
+        self: &Arc<Self>,
+        request: ExportRequest,
+        staged: shinatama_export::output::Staged,
+        watch: Watch,
+    ) -> Result<StagedExport> {
+        shinatama_engine::session_export::validate_request(&request)
+            .map_err(|_| SessionReadIssue::InvalidRequest)?;
+        self.worker(move |controller| {
+            let state = controller
+                .services
+                .load()
+                .map_err(|_| SessionReadIssue::ReadUnavailable)?;
+            controller.retry_retained(&state.store)?;
+            let prepared =
+                PreparedSessionList::resolve_export(&state.store, &state.location, request)?;
+            let mut staged = staged;
+            let mut write_failed = false;
+            let file_bytes = prepared.file_bytes();
+            let read = {
+                let mut sink = |bytes: &[u8]| staged.write(bytes).inspect_err(|_| write_failed = true);
+                let mut progress = |progress: Progress| (watch.emit)(progress, file_bytes);
+                let cancel = || watch.cancel.load(Ordering::Acquire);
+                // The window learns the worker has started (it may have waited for a free slot).
+                progress(Progress::default());
+                let hooks = Framed { body: &mut sink, progress: &mut progress, cancel: &cancel };
+                controller.read_prepared_with(state, &prepared, Some(hooks))
+            };
+            if write_failed {
+                return Ok(StagedExport::WriteFailed);
+            }
+            let reply = read?
+                .export()
+                .cloned()
+                .ok_or(SessionReadIssue::ReadUnavailable)?;
+            Ok(StagedExport::Done { reply, staged })
         })
         .await
     }
@@ -484,7 +681,20 @@ pub async fn session_find(
     window: WebviewWindow,
     controller: State<'_, Arc<Controller>>,
     request: FindRequest,
+    request_id: Option<String>,
 ) -> Result<FindReply> {
     local(&window)?;
-    controller.inner().find(request).await
+    let (watch, _guard) = controller.inner().watch(&window, "search", request_id)?;
+    controller.inner().find(request, watch).await
+}
+/// Stops the watched search or export `request_id`, if it is still running. The worker is
+/// stopped, its resources are released and the staged export file is removed.
+#[tauri::command]
+pub async fn session_cancel(
+    window: WebviewWindow,
+    controller: State<'_, Arc<Controller>>,
+    request_id: String,
+) -> Result<bool> {
+    local(&window)?;
+    Ok(controller.inner().cancel(&request_id))
 }

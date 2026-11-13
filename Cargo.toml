@@ -56,9 +56,13 @@ shinatama-token-economy = { path = "crates/token-economy" }
 shinatama-messaging = { path = "crates/messaging" }
 shinatama-roundtable = { path = "crates/roundtable" }
 shinatama-browser = { path = "crates/browser" }
-mukade = { git = "https://github.com/acaprino/mukade", rev = "694cc3f1a9034da34a1a077e85206b998948fedc" }
+mukade = { git = "https://github.com/acaprino/mukade", rev = "694cc3f1a9034da34a1a077e85206b998948fedc", default-features = false }
 
 # Local debug builds verify large native executables inside a fixed deadline.
 # Optimize the digest implementation while keeping application debug symbols.
 [profile.dev.package.sha2]
 opt-level = 3
+
+# TEMPORARY (ADR-0053 v2): until the Mukade commit with the size-agnostic reads is pushed and pinned.
+[patch."https://github.com/acaprino/mukade"]
+mukade = { path = "../mukade-chunked" }

@@ -3,10 +3,13 @@
 La ricerca è una proiezione del reader Mukade già fissato, eseguita nel medesimo
 worker contenuto. La richiesta include il selettore dell'archivio, l'ID nativo
 esatto e l'impronta della sessione già visualizzata. Non cerca altre cartelle e
-non costruisce un indice persistente. Rimane il limite preventivo di 16 MiB
-sul file della sessione letta (e 4.096 file nell'archivio); la dimensione totale
-dell'archivio non conta. La paginazione riguarda i risultati, non la lettura
-dell'input.
+non costruisce un indice persistente. Nessuna sessione è troppo grande per la
+ricerca (ADR-0053 v2): il testo è letto da Mukade con `Reader::read_streamed`,
+una voce alla volta con il suo testo completo, senza trattenere la sessione. Resta
+solo il limite di 4.096 file nell'archivio; la dimensione totale dell'archivio e
+quella della sessione non contano. Il tempo concesso al worker è di 10 s più 1 s
+ogni 32 MiB del file della sessione, al massimo 120 s. La paginazione riguarda i
+risultati, non la lettura dell'input.
 
 La query letterale è obbligatoria, senza caratteri di controllo e limitata a
 128 byte UTF-8. Il confronto usa il lowercase Unicode semplice e occorrenze

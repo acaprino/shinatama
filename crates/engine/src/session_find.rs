@@ -1,13 +1,15 @@
 //! Explicit literal search in one verified canonical session, inside the reader
-//! worker. No persisted index, RAW, reasoning or attachment payload is searched.
+//! worker. No persisted index, RAW, reasoning or attachment payload is searched. The text is
+//! every word of the session, read one entry at a time through Mukade's streamed read, so no
+//! session is too large to search (ADR-0053 v2).
 use crate::{
     session_detail::{
-        DetailIssue, DetailRequest, TrustedRootSnapshot, read_verified_session,
-        session_fingerprint, visible_event_count,
+        DetailIssue, DetailRequest, StreamError, StreamStop, TrustedRootSnapshot, open,
+        visible_event_count,
     },
     session_roots::RootSelector,
 };
-use mukade::{Kind, model::ResultContent};
+use mukade::{Entry, Kind, model::ResultContent};
 use serde::{Deserialize, Serialize};
 
 pub const MAX_QUERY_BYTES: usize = 128;
@@ -106,12 +108,18 @@ pub fn validate_request(request: &FindRequest) -> Result<(), FindIssue> {
     Ok(())
 }
 pub fn read_find(snapshot: &TrustedRootSnapshot, request: &FindRequest) -> FindReply {
+    read_find_progress(snapshot, request, &mut |_, _| {})
+}
+/// [`read_find`] telling `progress(entries read, hits so far)` after every entry; the caller
+/// decides how often that is worth reporting.
+pub fn read_find_progress(
+    snapshot: &TrustedRootSnapshot,
+    request: &FindRequest,
+    progress: &mut dyn FnMut(usize, usize),
+) -> FindReply {
     let result = (|| {
         validate_request(request)?;
-        let (session, _) =
-            read_verified_session(snapshot, &request.detail).map_err(FindIssue::Detail)?;
-        let fingerprint = session_fingerprint(snapshot, &request.detail, &session)
-            .map_err(FindIssue::Detail)?;
+        let opened = open(snapshot, &request.detail).map_err(FindIssue::Detail)?;
         let mut search = Search {
             folded_query: request.query.to_lowercase(),
             offset: request.cursor.as_ref().map_or(0, |cursor| cursor.offset),
@@ -119,29 +127,27 @@ pub fn read_find(snapshot: &TrustedRootSnapshot, request: &FindRequest) -> FindR
             hits: Vec::with_capacity(MAX_FIND_HITS),
         };
         let mut event_ordinal = 0usize;
-        for (entry_ordinal, entry) in session.entries.iter().enumerate() {
-            match &entry.kind {
-                Kind::User { text, .. } => search.text(text, entry_ordinal, event_ordinal)?,
-                Kind::Step { text, .. } => {
-                    // Same canonical text order/separator as the detail event.
-                    search.text(&text.join("\n"), entry_ordinal, event_ordinal)?;
+        let mut entry_ordinal = 0usize;
+        let mut failure = None;
+        let streamed = opened.streamed(snapshot, &request.detail, &mut |entry| {
+            match scan(&mut search, entry_ordinal, event_ordinal, &entry) {
+                Ok(events) => {
+                    entry_ordinal += 1;
+                    event_ordinal += events;
+                    progress(entry_ordinal, search.total);
+                    Ok(())
                 }
-                Kind::Results { results } => {
-                    for (index, result) in results.iter().enumerate() {
-                        if let ResultContent::Text(text) = &result.content {
-                            search.text(text, entry_ordinal, event_ordinal + index)?;
-                        }
-                    }
+                Err(issue) => {
+                    failure = Some(issue);
+                    Err(StreamStop)
                 }
-                Kind::Compaction { summary, .. } => {
-                    search.text(summary, entry_ordinal, event_ordinal)?;
-                }
-                Kind::Meta { .. } => {}
             }
-            event_ordinal = event_ordinal
-                .checked_add(visible_event_count(entry))
-                .ok_or(FindIssue::OutputLimit)?;
-        }
+        });
+        let fingerprint = match streamed {
+            Ok((_, fingerprint)) => fingerprint,
+            Err(StreamError::Detail(issue)) => return Err(FindIssue::Detail(issue)),
+            Err(StreamError::Stopped) => return Err(failure.unwrap_or(FindIssue::OutputLimit)),
+        };
         if search.offset > search.total {
             return Err(FindIssue::Detail(DetailIssue::SourceChanged));
         }
@@ -171,6 +177,37 @@ pub fn read_find(snapshot: &TrustedRootSnapshot, request: &FindRequest) -> FindR
         Ok(reply)
     })();
     result.unwrap_or_else(|issue| FindReply::refuse(request, issue))
+}
+/// Searches one entry's visible text in the detail's order and separators; returns how many
+/// detail events the entry holds, so the next entry's events are numbered after them.
+fn scan(
+    search: &mut Search,
+    entry_ordinal: usize,
+    event_ordinal: usize,
+    entry: &Entry,
+) -> Result<usize, FindIssue> {
+    match &entry.kind {
+        Kind::User { text, .. } => search.text(text, entry_ordinal, event_ordinal)?,
+        Kind::Step { text, .. } => {
+            // Same canonical text order/separator as the detail event.
+            search.text(&text.join("\n"), entry_ordinal, event_ordinal)?;
+        }
+        Kind::Results { results } => {
+            for (index, result) in results.iter().enumerate() {
+                if let ResultContent::Text(text) = &result.content {
+                    search.text(text, entry_ordinal, event_ordinal + index)?;
+                }
+            }
+        }
+        Kind::Compaction { summary, .. } => {
+            search.text(summary, entry_ordinal, event_ordinal)?;
+        }
+        Kind::Meta { .. } => {}
+    }
+    event_ordinal
+        .checked_add(visible_event_count(entry))
+        .map(|next| next - event_ordinal)
+        .ok_or(FindIssue::OutputLimit)
 }
 struct Search {
     folded_query: String,
@@ -277,7 +314,7 @@ mod tests {
             origin:RootOrigin::Configured,config_revision:1,access:RootAccess::ReadWrite,available:true };
         let root=RootSelector {store_root_id:record.id.clone(),configuration_revision:1};
         let snapshot=TrustedRootSnapshot::from_record(&record,&root).unwrap();
-        let mut detail=DetailRequest {root,native_id:"find-fixture".into(),cursor:None,limit:50};
+        let mut detail=DetailRequest {root,native_id:"find-fixture".into(),cursor:None,limit:50, overview_only: false};
         let first=read_detail(&snapshot,&detail); assert!(first.issue.is_none());
         detail.cursor=Some(DetailCursor{offset:0,fingerprint:first.page.unwrap().fingerprint});
         let mut request=FindRequest {detail,query:"aLPHa".into(),cursor:None};
@@ -301,5 +338,35 @@ mod tests {
         assert_eq!(read_find(&snapshot,&request).issue,Some(FindIssue::Detail(DetailIssue::SourceChanged)));
         request.detail.cursor=None;
         assert_eq!(read_find(&snapshot,&request).issue,Some(FindIssue::FingerprintRequired));
+    }
+
+    #[test]
+    fn search_reads_every_word_of_a_session_past_16_mib() {
+        use crate::session_detail::{DetailEventKind, large_fixture};
+        let large = large_fixture::build();
+        let mut detail = large_fixture::request(&large);
+        let view = read_detail(&large.snapshot, &detail);
+        assert!(view.issue.is_none(), "{:?}", view.issue);
+        let page = view.page.unwrap();
+        // The view shows 4 KiB of the result: the marker, 12 MiB in, is not in it.
+        assert!(page.events.iter().all(|event| !event.text.contains(large_fixture::DEEP_MARKER)));
+        detail.cursor = Some(DetailCursor { offset: 0, fingerprint: page.fingerprint });
+        let mut request = FindRequest { detail, query: large_fixture::DEEP_MARKER.to_lowercase(), cursor: None };
+        let found = read_find(&large.snapshot, &request);
+        assert!(found.issue.is_none(), "{:?}", found.issue);
+        let hits = found.page.unwrap();
+        assert_eq!(hits.total_hits, 1);
+        assert!(hits.hits[0].snippet.contains(large_fixture::DEEP_MARKER));
+        // The hit's ordinals open the page that holds the result it was found in.
+        let mut jump = request.detail.clone();
+        jump.cursor.as_mut().unwrap().offset = hits.hits[0].event_ordinal;
+        let opened = read_detail(&large.snapshot, &jump).page.unwrap();
+        assert!(matches!(opened.events[0].kind, DetailEventKind::ToolResult));
+        // A change of the file after the page was read is still refused.
+        request.query = "done reading".into();
+        let mut grown = std::fs::read(&large.path).unwrap();
+        grown.push(10);
+        std::fs::write(&large.path, grown).unwrap();
+        assert_eq!(read_find(&large.snapshot, &request).issue, Some(FindIssue::Detail(DetailIssue::SourceChanged)));
     }
 }

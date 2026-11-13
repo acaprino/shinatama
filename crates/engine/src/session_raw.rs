@@ -1,9 +1,7 @@
 //! Confirmed single-entry RAW, invoked ONLY in the contained reader worker.
 //! Native payloads have no Debug implementation, log path or default projection.
 use crate::{
-    session_detail::{
-        DetailIssue, DetailRequest, TrustedRootSnapshot, read_verified_session, session_fingerprint,
-    },
+    session_detail::{DetailIssue, DetailRequest, TrustedRootSnapshot, read_clipped_verified},
     session_roots::RootSelector,
 };
 use serde::{Deserialize, Serialize};
@@ -121,10 +119,13 @@ pub fn read_raw(snapshot: &TrustedRootSnapshot, request: &RawRequest) -> RawRepl
         return refuse(request, RawIssue::Detail(DetailIssue::InvalidRequest));
     }
     let result = (|| {
-        let (session, _) =
-            read_verified_session(snapshot, &request.detail).map_err(RawIssue::Detail)?;
-        let source_fingerprint =
-            session_fingerprint(snapshot, &request.detail, &session).map_err(RawIssue::Detail)?;
+        // One entry's records, shown whole up to MAX_RAW_BYTES: Mukade clips every string at that
+        // length, so an entry whose RAW would not fit still does not (a clipped string alone fills
+        // the bound), and one that fits is the full record. The read holds the session's
+        // structure, never its text, whatever its size.
+        let (session, source_fingerprint) =
+            read_clipped_verified(snapshot, &request.detail, MAX_RAW_BYTES)
+                .map_err(RawIssue::Detail)?;
         let entry = session
             .entries
             .get(request.entry_ordinal)
@@ -234,7 +235,7 @@ mod tests {
             root,
             native_id: "raw-fixture".into(),
             cursor: None,
-            limit: 50,
+            limit: 50, overview_only: false,
         };
         let normal = read_detail(&snapshot, &detail);
         assert!(normal.issue.is_none());
@@ -246,7 +247,7 @@ mod tests {
             offset: 0,
             fingerprint: normal.page.unwrap().fingerprint,
         });
-        let (session, _) = read_verified_session(&snapshot, &detail).unwrap();
+        let (session, _) = read_clipped_verified(&snapshot, &detail, MAX_RAW_BYTES).unwrap();
         let opaque = session
             .entries
             .iter()
@@ -301,21 +302,36 @@ mod tests {
         assert_eq!(refused.issue, Some(RawIssue::OutputLimit));
         assert!(refused.raw_json.is_none());
         assert_eq!(fs::read(&path).unwrap(), bytes.as_bytes());
-        fs::OpenOptions::new()
-            .write(true)
-            .open(&path)
-            .unwrap()
-            .set_len(30 * 1024 * 1024)
-            .unwrap();
+        // A session past 16 MiB is read like any other: the entry asked for comes back whole, and
+        // an entry whose record does not fit the RAW bound is still refused for that and only that.
+        let mut grown = bytes.clone();
+        grown.push_str(
+            &serde_json::to_string(&serde_json::json!({"type":"user","uuid":"big","parentUuid":"b",
+                "sessionId":"raw-fixture","message":{"role":"user","content":"y".repeat(17 * 1024 * 1024)}}))
+            .unwrap(),
+        );
+        grown.push('\n');
+        fs::write(&path, &grown).unwrap();
+        let mut again = request.detail.clone();
+        again.cursor = None;
+        let fresh = read_detail(&snapshot, &again);
+        assert!(fresh.issue.is_none(), "{:?}", fresh.issue);
+        again.cursor = Some(DetailCursor { offset: 0, fingerprint: fresh.page.unwrap().fingerprint });
+        let (grown_session, _) = read_clipped_verified(&snapshot, &again, MAX_RAW_BYTES).unwrap();
+        request.detail = again;
+        request.entry_ordinal = opaque;
+        let past_bound = read_raw(&snapshot, &request);
+        assert!(past_bound.issue.is_none(), "{:?}", past_bound.issue);
+        assert!(past_bound.raw_json.as_ref().unwrap().contains("synthetic-opaque"));
+        request.entry_ordinal = grown_session.entries.len() - 1;
+        assert_eq!(
+            read_raw(&snapshot, &request).issue,
+            Some(RawIssue::OutputLimit)
+        );
         request.confirmed_raw = false;
         assert_eq!(
             read_raw(&snapshot, &request).issue,
             Some(RawIssue::ConfirmationRequired)
-        );
-        request.confirmed_raw = true;
-        assert_eq!(
-            read_raw(&snapshot, &request).issue,
-            Some(RawIssue::Detail(DetailIssue::InputTooLarge))
         );
     }
 }

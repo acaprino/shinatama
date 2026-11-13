@@ -7,8 +7,10 @@ pwsh -NoProfile -File scripts/package-local.ps1
 pwsh -NoProfile -File scripts/package-local.ps1 -Verify -Package 'D:\Projects\shinatama\.verification\portable\UUID-STAMPATO'
 ```
 
-Il comando usa esclusivamente la build già presente in `target/debug`: desktop,
-helper terminale, helper sessioni e helper hook. Il desktop deve avere il sottosistema Windows
+Il comando usa esclusivamente le build già presenti: `target/debug` per desktop,
+helper terminale e helper hook, `target/release` per l'helper sessioni
+(`cargo build --release --locked -p shinatama-engine --features session-reader --bin shinatama-session-helper`;
+l'helper di un pacchetto è sempre una build release, ADR-0053 v2). Il desktop deve avere il sottosistema Windows
 GUI. Non compila, scarica, ripristina dipendenze, esegue Node o avvia l'app.
 WebView2 deve essere già disponibile su Windows: il pacchetto non lo installa.
 
@@ -30,7 +32,7 @@ il catalogo Codex e le licenze MIT. `plugins.lock.json` fissa le revisioni
 upstream e i digest dei file. Il packager verifica i digest in copia e lega
 il lock alla ricevuta di staging. L'app li attiva a ogni avvio di sessione (Claude `--plugin-dir`; Codex cache privata più `-c`; Pi `-e` e `--skill`; OpenCode shim nella config privata). Vedi [Plugin inclusi](../../AVVIO.md#plugin-inclusi).
 
-`package-manifest.json` registra commit corrente, modalità debug e hash dei file.
+`package-manifest.json` registra commit corrente, modalità di build (`existing-target-debug+release-session-helper`: debug, salvo l'helper sessioni in release) e hash dei file.
 Non attribuisce automaticamente quel commit ai binari già compilati. La ricevuta
 separata `UUID.receipt.json` resta nella cartella di staging del progetto e lega
 il digest del manifest: `-Verify` rifiuta file mancanti, aggiunti o modificati e un
@@ -47,7 +49,7 @@ Il 2026-11-03 il verificatore ha accettato lo stage
 620 file di payload, 220.644.742 byte, HEAD registrato
 `7e5a2030a3adbddfa85f8171b421b5766999d847`. Manifest e ricevuta indipendente
 sono rimasti invariati durante la verifica. I binari sono copie della build
-debug esistente; il manifest non certifica che siano stati prodotti dal commit
+debug esistente (all'epoca anche l'helper sessioni); il manifest non certifica che siano stati prodotti dal commit
 registrato.
 
 La prova nativa della copia ha superato il flusso DB-only: progetto sintetico,

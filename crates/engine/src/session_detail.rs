@@ -1,20 +1,31 @@
-//! Worker-only projection of the reviewed Mukade whole-session reader. Input is
-//! capped BEFORE list/read; raw records, reasoning and attachment contents never
-//! leave the default detail projection. RAW has a separate confirmed request.
-//! No native export, auth read, alternate parser or command.
-use crate::session_roots::{MUKADE_REVISION, RootSelector, SessionReadIssue, pin_reader_namespace};
+//! Worker-only projection of what Mukade reads. Mukade owns how a session of any size is read
+//! (ADR-0053 v2): this module only asks for what each operation needs (the overview, the
+//! clipped read, the streamed read) and keeps no size bound of its own; the archive's file
+//! count is the one bound, and it bounds the archive, not a session. Raw records, reasoning
+//! and attachment contents never leave the default detail projection. RAW has a separate
+//! confirmed request. No native export, auth read, alternate parser or command.
+use crate::session_roots::{
+    MUKADE_REVISION, RootSelector, SessionNamespaceGuard, SessionReadIssue, pin_reader_namespace,
+};
 use mukade::{
-    Entry, HarnessId, Kind, Session, model::ResultContent, reader::SessionInfo, roots::StoreRoots,
+    Entry, HarnessId, Kind, Session,
+    model::{Meta, ResultContent},
+    reader::{Lookup, SessionInfo},
+    roots::StoreRoots,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use shinatama_state::records::StoreRootRecord;
 use std::path::{Path, PathBuf};
 
-pub const MAX_INPUT_BYTES: u64 = 16 * 1024 * 1024;
 pub const MAX_INPUT_FILES: usize = 4096;
 pub const MAX_DETAIL_EVENTS: usize = 50;
 pub const MAX_TEXT_BYTES: usize = 4096;
+/// The length Mukade clips every string to for the view. The view cuts a text at
+/// `MAX_TEXT_BYTES` and says it did; a string cut at exactly that length could not tell a text
+/// that fit from one that did not, and a cut at a UTF-8 boundary loses up to 3 bytes. Four bytes
+/// more (the longest UTF-8 character) keep every text over `MAX_TEXT_BYTES` over it.
+pub const VIEW_CLIP_BYTES: usize = MAX_TEXT_BYTES + 4;
 pub const MAX_DETAIL_REPLY_BYTES: usize = 256 * 1024;
 const EVENT_PAGE_BYTES: usize = MAX_DETAIL_REPLY_BYTES - 80 * 1024;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -60,6 +71,10 @@ pub struct DetailRequest {
     pub native_id: String,
     pub cursor: Option<DetailCursor>,
     pub limit: usize,
+    /// Only Mukade's overview of the session, read from the file's two ends: no event, no
+    /// ledger, and no bound on the session's size. Resume and thread names need no more.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub overview_only: bool,
 }
 /// Created only by trusted Rust from the resolved authoritative record. No path,
 /// state-ready flag or fabricated root record is accepted from a UI selector.
@@ -69,6 +84,9 @@ pub struct TrustedRootSnapshot {
     harness: HarnessId,
 }
 impl TrustedRootSnapshot {
+    pub(crate) fn harness_name(&self) -> String {
+        self.harness.to_string()
+    }
     pub fn from_record(record: &StoreRootRecord, root: &RootSelector) -> Result<Self, DetailIssue> {
         record.validate().map_err(|_| DetailIssue::InvalidRequest)?;
         if record.id != root.store_root_id || record.config_revision != root.configuration_revision
@@ -82,6 +100,10 @@ impl TrustedRootSnapshot {
             .harness
             .parse()
             .map_err(|_| DetailIssue::UnsupportedHarness)?;
+        if matches!(harness, HarnessId::Hermes | HarnessId::DeepSeekHarness) {
+            // Harnesses Mukade has gained that Shinatama registers no root for.
+            return Err(DetailIssue::UnsupportedHarness);
+        }
         if harness == HarnessId::OpenCode {
             // Its pinned Reader.read launches the harness exporter. The existing
             // in-worker file reader is not that separately qualified launch path.
@@ -189,13 +211,19 @@ fn explicit_roots(snapshot: &TrustedRootSnapshot) -> StoreRoots {
         HarnessId::Codex => roots.codex_home = path,
         HarnessId::Pi => roots.pi_agent_dir = path,
         HarnessId::OpenCode => {}
+        HarnessId::Hermes => roots.hermes_home = path,
+        HarnessId::DeepSeekHarness => roots.dsh_home = path,
     }
     roots
 }
 /// Invoked only inside the C09R-contained session helper, never the host/UI.
-/// Input pagination is NOT claimed: the pin still constructs its full Session.
+/// The view is built from Mukade's clipped read; no session is refused for its size.
 pub fn read_detail(snapshot: &TrustedRootSnapshot, request: &DetailRequest) -> DetailReply {
-    let result = read(snapshot, request);
+    let result = if request.overview_only {
+        read_overview(snapshot, request)
+    } else {
+        read(snapshot, request)
+    };
     match result {
         Ok(page) => {
             let reply = DetailReply {
@@ -225,80 +253,215 @@ fn failed(request: &DetailRequest, issue: DetailIssue) -> DetailReply {
         issue: Some(issue),
     }
 }
-fn read(
-    snapshot: &TrustedRootSnapshot,
-    request: &DetailRequest,
-) -> Result<DetailPage, DetailIssue> {
-    let (session, catalog) = read_verified_session(snapshot, request)?;
-    // The pinned Claude/Codex/Pi list readers do not supply session-parent
-    // metadata. A complete list must never turn this into "zero children".
-    let lineage = crate::session_lineage::derive_lineage(
-        &catalog, &request.native_id, crate::session_lineage::ParentMetadata::Unavailable,
-    )
-        .map_err(|_| DetailIssue::InvalidRequest)?;
-    project(snapshot, request, &session, lineage)
+/// Why a streamed read stopped: Mukade or the namespace refused it, or the caller's own
+/// callback did (it keeps its reason itself).
+pub(crate) enum StreamError {
+    Detail(DetailIssue),
+    Stopped,
 }
-/// Shared ONLY by confirmed in-worker projections. Returns actual Mukade data,
-/// never a host/default payload. All root, size, candidate, identity and source
-/// checks remain common to normal detail and the explicitly requested RAW entry.
-pub(crate) fn read_verified_session(
+/// What a streamed callback returns to stop the read; the callback records why.
+#[derive(Debug)]
+pub(crate) struct StreamStop;
+impl std::fmt::Display for StreamStop {
+    fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        out.write_str("stream stopped by its consumer")
+    }
+}
+impl std::error::Error for StreamStop {}
+fn lookup_issue(error: &anyhow::Error) -> DetailIssue {
+    match error.downcast_ref::<Lookup>() {
+        Some(Lookup::Ambiguous(_)) => DetailIssue::AmbiguousSession,
+        Some(Lookup::NotFound(_)) => DetailIssue::SessionNotFound,
+        _ => DetailIssue::ReadUnavailable,
+    }
+}
+/// The one session of the request, found by Mukade in the pinned namespace. Every read of a
+/// session (view, search, export, RAW) starts here and ends in `verified`.
+pub(crate) struct Opened {
+    guard: SessionNamespaceGuard,
+    roots: StoreRoots,
+    reader: Box<dyn mukade::reader::Reader>,
+    info: SessionInfo,
+    bytes: u64,
+}
+/// Common to every operation: request shape, namespace pin, the archive's file count, and
+/// Mukade's overview of the session, which names the exact whole id and the one file. The
+/// file must be one the pin holds, never a path from the caller.
+pub(crate) fn open(
     snapshot: &TrustedRootSnapshot,
     request: &DetailRequest,
-) -> Result<(Session, Vec<SessionInfo>), DetailIssue> {
+) -> Result<Opened, DetailIssue> {
     if request.root != snapshot.root
         || !native_id(&request.native_id)
         || !(1..=MAX_DETAIL_EVENTS).contains(&request.limit)
         || request
             .cursor
             .as_ref()
-            .is_some_and(|cursor| !digest(&cursor.fingerprint))
+            .is_some_and(|cursor| request.overview_only || !digest(&cursor.fingerprint))
     {
         return Err(DetailIssue::InvalidRequest);
     }
     let guard = pin_reader_namespace(&snapshot.record)?;
-    // The archive's size does not bound the read: the list reads only each file's two
-    // ends, and only the one session read below is materialized, bounded by its own size.
+    // The archive's size does not bound a read; only the number of files the pin holds.
     if guard.file_count() > MAX_INPUT_FILES {
         return Err(DetailIssue::InputTooLarge);
     }
     let roots = explicit_roots(snapshot);
     let reader = mukade::reader::for_harness(snapshot.harness)
         .map_err(|_| DetailIssue::UnsupportedHarness)?;
-    let catalog = reader
-        .list_all(&roots)
-        .map_err(|_| DetailIssue::ReadUnavailable)?;
+    let info = reader
+        .overview(&request.native_id, &roots)
+        .map_err(|error| lookup_issue(&error))?;
     guard.verify_current()?;
-    let mut exact = catalog.iter().filter(|info| info.id == request.native_id);
-    let candidate = exact.next().ok_or(DetailIssue::SessionNotFound)?;
-    if exact.next().is_some() {
-        return Err(DetailIssue::AmbiguousSession);
+    if info.id != request.native_id {
+        return Err(DetailIssue::SessionNotFound);
     }
-    // The path came from this root's actual catalog, not the caller. Prefixes are
-    // never accepted as session IDs; only an already pinned exact file may read.
-    if guard.file_size(Path::new(&candidate.path))? > MAX_INPUT_BYTES {
-        return Err(DetailIssue::InputTooLarge);
-    }
-    let session = reader.read(&request.native_id, &roots).map_err(|error| {
-        match error.downcast_ref::<mukade::reader::Lookup>() {
-            Some(mukade::reader::Lookup::Ambiguous(_)) => DetailIssue::AmbiguousSession,
-            Some(mukade::reader::Lookup::NotFound(_)) => DetailIssue::SessionNotFound,
-            _ => DetailIssue::ReadUnavailable,
-        }
-    })?;
-    guard.verify_current()?;
-    if session.meta.id != request.native_id || session.meta.harness != snapshot.harness {
-        return Err(DetailIssue::SourceChanged);
-    }
-    session_fingerprint(snapshot, request, &session)?;
-    Ok((session, catalog))
+    let bytes = guard.file_size(Path::new(&info.path))?;
+    Ok(Opened { guard, roots, reader, info, bytes })
 }
+impl Opened {
+    /// The session with every string cut to `max_string_bytes`: the entries, ids, kinds and
+    /// order of the full read, whatever its size.
+    fn clipped(
+        &self,
+        snapshot: &TrustedRootSnapshot,
+        request: &DetailRequest,
+        max_string_bytes: usize,
+    ) -> Result<(Session, String), DetailIssue> {
+        let clipped = self
+            .reader
+            .read_clipped(&request.native_id, &self.roots, max_string_bytes)
+            .map_err(|error| lookup_issue(&error))?;
+        let fingerprint = self.verified(snapshot, request, &clipped.session.meta)?;
+        Ok((clipped.session, fingerprint))
+    }
+    /// The entries of the full read, one at a time with their full content. `on_entry` returns
+    /// `StreamStop` to end the read early; the caller then knows why.
+    pub(crate) fn streamed(
+        &self,
+        snapshot: &TrustedRootSnapshot,
+        request: &DetailRequest,
+        on_entry: &mut dyn FnMut(Entry) -> Result<(), StreamStop>,
+    ) -> Result<(Meta, String), StreamError> {
+        let meta = self
+            .reader
+            .read_streamed(&request.native_id, &self.roots, &mut |entry| {
+                on_entry(entry).map_err(anyhow::Error::from)
+            })
+            .map_err(|error| {
+                if error.downcast_ref::<StreamStop>().is_some() {
+                    StreamError::Stopped
+                } else {
+                    StreamError::Detail(lookup_issue(&error))
+                }
+            })?;
+        let fingerprint = self
+            .verified(snapshot, request, &meta)
+            .map_err(StreamError::Detail)?;
+        Ok((meta, fingerprint))
+    }
+    /// After the read: the pinned files are unchanged, it is the session and harness asked for,
+    /// and the fingerprint (checked against the request's cursor) is the file's digest.
+    fn verified(
+        &self,
+        snapshot: &TrustedRootSnapshot,
+        request: &DetailRequest,
+        meta: &Meta,
+    ) -> Result<String, DetailIssue> {
+        self.guard.verify_current()?;
+        if meta.id != request.native_id || meta.harness != snapshot.harness {
+            return Err(DetailIssue::SourceChanged);
+        }
+        session_fingerprint(snapshot, request, meta)
+    }
+}
+/// The clipped read of one session, verified: for RAW, which clips at its own output bound.
+pub(crate) fn read_clipped_verified(
+    snapshot: &TrustedRootSnapshot,
+    request: &DetailRequest,
+    max_string_bytes: usize,
+) -> Result<(Session, String), DetailIssue> {
+    open(snapshot, request)?.clipped(snapshot, request, max_string_bytes)
+}
+fn read(
+    snapshot: &TrustedRootSnapshot,
+    request: &DetailRequest,
+) -> Result<DetailPage, DetailIssue> {
+    let opened = open(snapshot, request)?;
+    // Lineage needs every row of the listing, which reads each file's two ends and never a
+    // conversation: its cost follows the archive's file count, not any session's size.
+    let catalog = opened
+        .reader
+        .list_all(&opened.roots)
+        .map_err(|_| DetailIssue::ReadUnavailable)?;
+    let (session, fingerprint) = opened.clipped(snapshot, request, VIEW_CLIP_BYTES)?;
+    // The pinned Claude/Codex/Pi list readers do not supply session-parent
+    // metadata. A complete list must never turn this into "zero children".
+    let lineage = crate::session_lineage::derive_lineage(
+        &catalog, &request.native_id, crate::session_lineage::ParentMetadata::Unavailable,
+    )
+        .map_err(|_| DetailIssue::InvalidRequest)?;
+    project(snapshot, request, &session, fingerprint, lineage)
+}
+/// Mukade's overview of the session: what the list reads from the file's two ends. Constant
+/// cost whatever the session's size; no event, ledger or activity. Its lineage is that of the
+/// one row: the parent it names is unresolved here and the children are unknown, which is
+/// what the row knows; resume and thread names read neither.
+fn read_overview(
+    snapshot: &TrustedRootSnapshot,
+    request: &DetailRequest,
+) -> Result<DetailPage, DetailIssue> {
+    let opened = open(snapshot, request)?;
+    let info = &opened.info;
+    let lineage = crate::session_lineage::derive_lineage(
+        std::slice::from_ref(info), &request.native_id, crate::session_lineage::ParentMetadata::Unavailable,
+    )
+        .map_err(|_| DetailIssue::InvalidRequest)?;
+    // A change detector over what was read, never a cursor: an overview has no pages. The
+    // file's size comes from the pinned namespace, since the overview carries none.
+    let mut hash = Sha256::new();
+    hash.update(b"overview");
+    hash.update(MUKADE_REVISION.as_bytes());
+    hash.update(snapshot.record.id.as_bytes());
+    hash.update(snapshot.record.config_revision.to_le_bytes());
+    hash.update(request.native_id.as_bytes());
+    hash.update(opened.bytes.to_le_bytes());
+    for field in [&info.title, &info.cwd, &info.updated, &info.parent] {
+        let value = field.as_deref().unwrap_or("\u{0}");
+        hash.update((value.len() as u64).to_le_bytes());
+        hash.update(value.as_bytes());
+    }
+    Ok(DetailPage {
+        root: request.root.clone(),
+        native_id: request.native_id.clone(),
+        harness: snapshot.harness,
+        overview: DetailOverview {
+            title: optional(info.title.as_deref(), 512),
+            working_directory: optional(info.cwd.as_deref(), 1024),
+            created_at: None,
+            updated_at: optional(info.updated.as_deref(), 64),
+            parent_native_id: optional(info.parent.as_deref(), 256),
+            harness_version: None,
+        },
+        fingerprint: format!("{:x}", hash.finalize()),
+        total_events: 0,
+        events: Vec::new(),
+        next: None,
+        notices: vec!["Overview only: the conversation itself was not read.".to_owned()],
+        lineage,
+        ledger: Default::default(),
+        activity_title: None,
+        touched_paths: Vec::new(),
+    })
+}
+/// The digest of the whole file (Mukade's `source_sha256`, the same for a clipped, a streamed
+/// and a whole read) bound to the root, the pin revision and the session.
 pub(crate) fn session_fingerprint(
     snapshot: &TrustedRootSnapshot,
     request: &DetailRequest,
-    session: &Session,
+    meta: &Meta,
 ) -> Result<String, DetailIssue> {
-    let source = session
-        .meta
+    let source = meta
         .source_sha256
         .as_deref()
         .filter(|value| digest(value))
@@ -323,9 +486,9 @@ fn project(
     snapshot: &TrustedRootSnapshot,
     request: &DetailRequest,
     session: &Session,
+    fingerprint: String,
     lineage: crate::session_lineage::SessionLineage,
 ) -> Result<DetailPage, DetailIssue> {
-    let fingerprint = session_fingerprint(snapshot, request, session)?;
     let offset = request.cursor.as_ref().map_or(0, |cursor| cursor.offset);
     let mut projection = Projection {
         offset,
@@ -362,7 +525,6 @@ fn project(
             fingerprint,
         }),
         notices: [
-            "Detail reads are limited to archives up to 16 MiB.",
             "Raw records, reasoning, tool arguments and attachment content are omitted.",
             "Appends remain allowed; renaming or deleting pinned files may fail briefly during the read.",
         ].into_iter().map(str::to_owned).collect(),
@@ -606,7 +768,7 @@ mod tests {
         }
     }
     #[test]
-    fn real_reader_pages_utf8_without_raw_reasoning_and_refuses_large_input_before_parsing() {
+    fn real_reader_pages_utf8_without_raw_reasoning_and_reads_sessions_past_16_mib() {
         let fixture = Fixture(
             fs::canonicalize(std::env::temp_dir())
                 .unwrap()
@@ -662,10 +824,12 @@ mod tests {
             native_id: "fixture-session".into(),
             cursor: None,
             limit: 1,
+            overview_only: false,
         };
         let first = read_detail(&snapshot, &request);
         assert!(first.issue.is_none(), "{:?}", first.issue);
         let first_page = first.page.unwrap();
+        let first_page_fingerprint = first_page.fingerprint.clone();
         assert_eq!(first_page.events.len(), 1);
         assert_eq!(first_page.events[0].text, "hello");
         request.cursor = first_page.next;
@@ -706,17 +870,173 @@ mod tests {
         let beside_large = read_detail(&snapshot, &request);
         assert!(beside_large.issue.is_none(), "{:?}", beside_large.issue);
         fs::remove_file(&other).unwrap();
-        fs::OpenOptions::new()
-            .write(true)
-            .open(&path)
-            .unwrap()
-            .set_len(30 * 1024 * 1024)
+        // A session past 16 MiB is read like any other: Mukade clips its strings at the length the
+        // view shows, so the page comes back with the same events, the long result cut and said to be.
+        let mut grown = bytes.clone();
+        for row in [
+            serde_json::json!({"type":"assistant","uuid":"entry-call","parentUuid":"entry-assistant","sessionId":"fixture-session",
+                "message":{"id":"message-call","role":"assistant","model":"fixture-model","stop_reason":"tool_use",
+                    "content":[{"type":"tool_use","id":"call-1","name":"Read","input":{"file_path":"C:\\synthetic-project\\a.txt"}}]}}),
+            serde_json::json!({"type":"user","uuid":"entry-result","parentUuid":"entry-call","sessionId":"fixture-session",
+                "message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"call-1","content":"é".repeat(9 * 1024 * 1024)}]}}),
+        ] {
+            grown.push_str(&serde_json::to_string(&row).unwrap());
+            grown.push('\n');
+        }
+        fs::write(&path, &grown).unwrap();
+        assert!(fs::metadata(&path).unwrap().len() > 17 * 1024 * 1024);
+        request.cursor = None;
+        request.limit = 50;
+        let large = read_detail(&snapshot, &request);
+        assert!(large.issue.is_none(), "{:?}", large.issue);
+        let large_page = large.page.unwrap();
+        let result = large_page
+            .events
+            .iter()
+            .find(|event| matches!(event.kind, DetailEventKind::ToolResult))
             .unwrap();
-        // Sparse invalid JSON proves a session past the bound is refused before parsing.
+        assert_eq!(result.text, "é".repeat(2048));
+        assert!(result.truncated);
+        assert!(large_page.notices.iter().all(|notice| !notice.contains("16 MiB")));
+        assert_eq!(large_page.fingerprint.len(), 64);
+        assert_ne!(large_page.fingerprint, first_page_fingerprint);
+        assert_eq!(fs::read(&path).unwrap(), grown.as_bytes());
+        request.cursor = Some(DetailCursor { offset: 0, fingerprint: large_page.fingerprint.clone() });
+        assert!(read_detail(&snapshot, &request).issue.is_none());
+        request.cursor = None;
+        // An overview is Mukade's: the file's two ends, so no session is too large for it either.
+        request.overview_only = true;
+        let overview = read_detail(&snapshot, &request);
+        assert!(overview.issue.is_none(), "{:?}", overview.issue);
+        let page = overview.page.unwrap();
+        assert_eq!(page.overview.working_directory.as_deref(), Some("C:\\synthetic-project"));
+        assert!(page.events.is_empty() && page.next.is_none() && page.total_events == 0);
+        assert_eq!(page.fingerprint.len(), 64);
+        request.cursor = Some(DetailCursor { offset: 0, fingerprint: page.fingerprint });
         assert_eq!(
             read_detail(&snapshot, &request).issue,
-            Some(DetailIssue::InputTooLarge)
+            Some(DetailIssue::InvalidRequest)
         );
+    }
+}
+
+/// A Claude Code session of about 17.5 MiB (past Mukade's 16 MiB streaming threshold) whose one
+/// tool result holds a marker far beyond the 4 KiB the view shows.
+#[cfg(all(test, windows))]
+pub(crate) mod large_fixture {
+    use super::*;
+    use shinatama_state::{
+        location::{LocationRequest, StorageLocation},
+        records::{RootAccess, RootKind, RootOrigin, RootScope},
+    };
+    use std::fs;
+
+    pub const SESSION: &str = "large-session";
+    pub const DEEP_MARKER: &str = "DEEP-MARKER-ZEBRA";
+
+    pub struct LargeSession {
+        dir: PathBuf,
+        pub snapshot: TrustedRootSnapshot,
+        pub root: RootSelector,
+        pub path: PathBuf,
+        pub bytes: u64,
+        /// The archive root's path, for reading the session whole.
+        pub root_path: PathBuf,
+    }
+    impl LargeSession {
+        /// The session read whole by Mukade (what an in-memory render starts from).
+        pub fn whole(&self) -> Session {
+            let mut roots = StoreRoots::default();
+            roots.claude_config_dir = Some(self.root_path.clone());
+            mukade::reader::for_harness(HarnessId::ClaudeCode)
+                .unwrap()
+                .read(SESSION, &roots)
+                .unwrap()
+        }
+    }
+    impl Drop for LargeSession {
+        fn drop(&mut self) {
+            if self.dir.parent() == Some(fs::canonicalize(std::env::temp_dir()).unwrap().as_path())
+                && self.dir.file_name().unwrap().to_string_lossy().starts_with("shinatama-large-")
+            {
+                let _ = fs::remove_dir_all(&self.dir);
+            }
+        }
+    }
+
+    pub fn request(large: &LargeSession) -> DetailRequest {
+        DetailRequest {
+            root: large.root.clone(),
+            native_id: SESSION.into(),
+            cursor: None,
+            limit: 50,
+            overview_only: false,
+        }
+    }
+
+    pub fn build() -> LargeSession {
+        build_sized(1, 17 * 1024 * 1024 + 512 * 1024)
+    }
+
+    /// `results` tool results of about `result_bytes` each; the marker is in the first only.
+    pub fn build_sized(results: usize, result_bytes: usize) -> LargeSession {
+        let dir = fs::canonicalize(std::env::temp_dir())
+            .unwrap()
+            .join(format!("shinatama-large-{}", uuid::Uuid::new_v4()));
+        let location = StorageLocation::resolve(LocationRequest {
+            local_data_directory: std::env::temp_dir(),
+            home_override: Some(dir.clone()),
+            project_roots: Vec::new(),
+            synchronized_roots: Vec::new(),
+        })
+        .unwrap();
+        location.prepare_private_directory().unwrap();
+        let project = location.directory().join("projects/large-project");
+        fs::create_dir_all(&project).unwrap();
+        let path = project.join(format!("{SESSION}.jsonl"));
+        let mut rows = vec![serde_json::json!({"type":"user","uuid":"u1","parentUuid":null,"sessionId":SESSION,
+            "cwd":"C:\\synthetic-project","timestamp":"2026-11-13T00:00:00Z","message":{"role":"user","content":"read the big file"}})];
+        let mut parent = "u1".to_owned();
+        for index in 0..results {
+            let big = if index == 0 {
+                let head = result_bytes * 12 / 17;
+                format!("{}{DEEP_MARKER}{}", "a".repeat(head), "b".repeat(result_bytes - head - DEEP_MARKER.len()))
+            } else {
+                format!("result {index}
+{}", "c".repeat(result_bytes))
+            };
+            rows.push(serde_json::json!({"type":"assistant","uuid":format!("a{index}"),"parentUuid":parent,"sessionId":SESSION,
+                "message":{"id":format!("m{index}"),"role":"assistant","model":"fixture-model","stop_reason":"tool_use",
+                    "content":[{"type":"tool_use","id":format!("call-{index}"),"name":"Read","input":{"file_path":"C:\\synthetic-project\\big.txt"}}]}}));
+            rows.push(serde_json::json!({"type":"user","uuid":format!("r{index}"),"parentUuid":format!("a{index}"),"sessionId":SESSION,
+                "message":{"role":"user","content":[{"type":"tool_result","tool_use_id":format!("call-{index}"),"content":big}]}}));
+            parent = format!("r{index}");
+        }
+        rows.push(serde_json::json!({"type":"assistant","uuid":"a-last","parentUuid":parent,"sessionId":SESSION,
+            "message":{"id":"m-last","role":"assistant","model":"fixture-model","stop_reason":"end_turn",
+                "content":[{"type":"text","text":"done reading"}]}}));
+        let mut text = String::new();
+        for row in rows {
+            text.push_str(&serde_json::to_string(&row).unwrap());
+            text.push('\n');
+        }
+        fs::write(&path, &text).unwrap();
+        let record = StoreRootRecord {
+            id: "large-root".into(),
+            harness: "claude_code".into(),
+            kind: RootKind::Box,
+            scope: RootScope::Primary,
+            resolved_path: location.directory().to_string_lossy().trim_start_matches(r"\\?\").into(),
+            origin: RootOrigin::Configured,
+            config_revision: 1,
+            access: RootAccess::ReadWrite,
+            available: true,
+        };
+        let root = RootSelector { store_root_id: record.id.clone(), configuration_revision: 1 };
+        let snapshot = TrustedRootSnapshot::from_record(&record, &root).unwrap();
+        let bytes = text.len() as u64;
+        assert!(bytes >= (results * result_bytes) as u64, "{bytes}");
+        LargeSession { dir, snapshot, root, path, bytes, root_path: PathBuf::from(&record.resolved_path) }
     }
 }
 

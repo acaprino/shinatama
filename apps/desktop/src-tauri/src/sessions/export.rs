@@ -1,6 +1,8 @@
-//! C26 export from the session detail: the contained worker renders, the native Save dialog
-//! names the file (its overwrite prompt is the explicit consent), and the atomic writer commits.
-use super::Controller;
+//! C26 export from the session detail: the native Save dialog names the file first (its overwrite
+//! prompt is the explicit consent), the contained worker renders and streams the body in frames
+//! that are staged beside the destination as they arrive, and the atomic writer commits after the
+//! final frame. A session of any size exports; a failure or a cancel removes the staged file.
+use super::{Controller, StagedExport};
 use serde::{Deserialize, Serialize};
 use shinatama_engine::session_detail::{DetailCursor, DetailRequest};
 use shinatama_engine::session_export::{ExportIssue, ExportReport, ExportRequest};
@@ -60,6 +62,7 @@ pub async fn session_export(
     window: WebviewWindow,
     controller: State<'_, Arc<Controller>>,
     request: ExportUiRequest,
+    request_id: Option<String>,
 ) -> Result<ExportOutcome, SessionReadIssue> {
     super::local(&window)?;
     if request.fingerprint.len() != 64 || !request.fingerprint.bytes().all(|c| c.is_ascii_hexdigit()) {
@@ -79,6 +82,7 @@ pub async fn session_export(
                 fingerprint: request.fingerprint,
             }),
             limit: 1,
+            overview_only: false,
         },
         format,
         mode: request.mode,
@@ -86,8 +90,56 @@ pub async fn session_export(
         thread: None,
         home,
     };
-    let reply = match controller.inner().export(worker_request).await {
-        Ok(reply) => reply,
+    // The dialog comes first: the staged file lives beside the destination, so the destination
+    // must be known before the worker starts. The name is the session's id (a title is read by
+    // the worker, after the dialog); the dialog's overwrite prompt is the consent.
+    let extension = format.extension().trim_start_matches('.').to_owned();
+    let (sender, mut receiver) = tauri::async_runtime::channel(1);
+    window
+        .dialog()
+        .file()
+        .set_parent(&window)
+        .set_title("Export session")
+        .set_file_name(format!("{}{}", worker_request.detail.native_id, format.extension()))
+        .add_filter(
+            shinatama_export::formats::declaration(format, false).label,
+            &[extension.as_str()],
+        )
+        .save_file(move |path| {
+            let _ = sender.try_send(path);
+        });
+    let Some(Some(path)) = receiver.recv().await else {
+        return Ok(ExportOutcome::Cancelled);
+    };
+    let path = path
+        .into_path()
+        .map_err(|_| SessionReadIssue::InvalidRequest)?;
+    let staging = path.clone();
+    let staged = match tauri::async_runtime::spawn_blocking(move || {
+        output::stage(&staging, output::Overwrite::Replace)
+    })
+    .await
+    .map_err(|_| SessionReadIssue::WorkerUnavailable)?
+    {
+        Ok(staged) => staged,
+        Err(error) => {
+            return Ok(ExportOutcome::Refused {
+                issue: format!("write_failed:{error}"),
+            });
+        }
+    };
+    // Watched from the moment the worker starts: its progress is sent to the window and a cancel
+    // stops it. The id is registered only now, so a cancel before the dialog closes finds nothing.
+    let (watch, _guard) = controller.inner().watch(&window, "export", request_id)?;
+    let (reply, staged) = match controller.inner().export_staged(worker_request, staged, watch).await {
+        Ok(StagedExport::Done { reply, staged }) => (reply, staged),
+        Ok(StagedExport::WriteFailed) => {
+            return Ok(ExportOutcome::Refused {
+                issue: "write_failed:the file could not be written".into(),
+            });
+        }
+        // Stopped by the person: the staged file was removed with the dropped stage.
+        Err(SessionReadIssue::Cancelled) => return Ok(ExportOutcome::Cancelled),
         Err(issue) => {
             return Ok(ExportOutcome::Refused {
                 issue: read_issue_code(issue),
@@ -107,57 +159,20 @@ pub async fn session_export(
             });
         }
     };
-    let extension = format.extension().trim_start_matches('.').to_owned();
-    let (sender, mut receiver) = tauri::async_runtime::channel(1);
-    window
-        .dialog()
-        .file()
-        .set_parent(&window)
-        .set_title("Export session")
-        .set_file_name(&payload.suggested_name)
-        .add_filter(payload.report.declaration.label.clone(), &[extension.as_str()])
-        .save_file(move |path| {
-            let _ = sender.try_send(path);
-        });
-    let Some(Some(path)) = receiver.recv().await else {
-        return Ok(ExportOutcome::Cancelled);
-    };
-    let path = path
-        .into_path()
-        .map_err(|_| SessionReadIssue::InvalidRequest)?;
     tauri::async_runtime::spawn_blocking(move || {
-        let mut attachments = Vec::with_capacity(payload.attachments.len());
-        for blob in &payload.attachments {
-            let data = shinatama_export::base64::decode(
-                &blob.data_base64,
-                shinatama_engine::session_export::MAX_ATTACHMENT_BYTES,
-            )
-            .ok_or(SessionReadIssue::WorkerUnavailable)?;
-            attachments.push(output::AttachmentFile {
-                name: blob.name.clone(),
-                data,
-            });
-        }
         // The native Save dialog already asked before replacing an existing file.
-        Ok(
-            match output::write_export(
-                &path,
-                output::Overwrite::Replace,
-                payload.content.as_bytes(),
-                &attachments,
-            ) {
-                Ok(receipt) => ExportOutcome::Saved {
-                    path: receipt.path.display().to_string(),
-                    bytes: receipt.bytes,
-                    sha256: receipt.sha256,
-                    attachments: receipt.attachments,
-                    report: Box::new(payload.report),
-                },
-                Err(error) => ExportOutcome::Refused {
-                    issue: format!("write_failed:{error}"),
-                },
+        Ok(match shinatama_engine::session_export::commit_export(staged, &payload) {
+            Ok(receipt) => ExportOutcome::Saved {
+                path: receipt.path.display().to_string(),
+                bytes: receipt.bytes,
+                sha256: receipt.sha256,
+                attachments: receipt.attachments,
+                report: Box::new(payload.report),
             },
-        )
+            Err(error) => ExportOutcome::Refused {
+                issue: format!("write_failed:{error:?}"),
+            },
+        })
     })
     .await
     .map_err(|_| SessionReadIssue::WorkerUnavailable)?
