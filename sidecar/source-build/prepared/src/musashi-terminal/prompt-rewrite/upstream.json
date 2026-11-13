@@ -1,0 +1,16 @@
+{
+  "repository": "https://github.com/objctp/better-prompt",
+  "package": "@objctp/opencode-better-prompt",
+  "version": "0.9.0",
+  "tag": "0.9.0",
+  "commit": "a837f2303e809cfb2a4a2225a252afebc9d02e05",
+  "verifiedAt": "2026-10-17",
+  "license": "MIT",
+  "files": {
+    "upstream/prompt-enhancement.md": "b87b107f8f5bcb6bc27ebf7953d7dd37104edeb6c5ad9cdee231098652e6981c",
+    "upstream/LICENSE": "cccb69d5addfb166005b05a408aac9c391cc96eca7f96b7d9b9282c5e47bd124"
+  },
+  "adaptation": "../prompt-rewrite-contract.ts",
+  "scope": "Enhancement instructions only; no upstream translation, correction, conversation summaries, agents, audit files or TUI.",
+  "verification": "Official GitHub API revision verified by the coordinator on 2026-10-17 at 06:34 UTC; imported unchanged originals from Tri-Tech Code."
+}

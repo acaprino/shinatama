@@ -1,0 +1,2 @@
+# The lock hashes every byte of the prepared tree: never convert line endings.
+prepared/** -text
