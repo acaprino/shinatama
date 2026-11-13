@@ -662,6 +662,7 @@ mod tests {
             steering_level: Some(2),
             effort_routing: Some(false),
             prompt_rewrite_mode: Some("auto".into()),
+            stamped_at_request: Some(3),
         }));
         assert_eq!(observed["state"], "observed");
         assert_eq!(observed["capabilities"]["ccr"]["reason"], "codex_host");

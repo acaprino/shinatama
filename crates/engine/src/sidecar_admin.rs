@@ -152,6 +152,8 @@ pub struct SessionCapabilities {
     pub steering_level: Option<u64>,
     pub effort_routing: Option<bool>,
     pub prompt_rewrite_mode: Option<String>,
+    /// `session.stats.requests` when the stamp behind `ccr` / `readOriginalImage` was written.
+    pub stamped_at_request: Option<u64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -189,6 +191,9 @@ pub fn session_capabilities(target: &AdminTarget, native_id: &str) -> Capability
     }
 }
 
+/// Reason of a gate whose stamp is older than the latest request.
+const STALE_REASON: &str = "not_observed";
+
 /// Maps the wire report (nested `steering` / `promptRewrite`) to the flat type.
 /// The schema, the protocol shape, `requests`, `passthrough` and the three levers
 /// must be present and well typed; the optional values stay unknown when absent
@@ -202,18 +207,39 @@ fn capabilities_from_value(value: &Value) -> Option<SessionCapabilities> {
         Value::Null => String::new(),
         _ => return None,
     };
+    let requests = value["requests"].as_u64()?;
+    let passthrough = value["passthrough"].as_bool()?;
+    let stamped_at_request = value["stampedAtRequest"].as_u64();
+    let mut ccr = lever(&value["ccr"])?;
+    let mut read_original_image = lever(&value["readOriginalImage"])?;
+    // The stamp is written before the request is counted, so it describes the latest
+    // request exactly when `requests == stamped + 1`. A larger gap (a later request skipped
+    // the stamping site) or a missing stamp on a session that served requests means the
+    // gates were not observed for the latest request. Global passthrough is not stamped.
+    let stale = !passthrough
+        && match stamped_at_request {
+            Some(stamped) => requests > stamped.saturating_add(1),
+            None => requests > 0,
+        };
+    if stale {
+        for gate in [&mut ccr, &mut read_original_image] {
+            gate.applied = None;
+            gate.reason = STALE_REASON.to_owned();
+        }
+    }
     Some(SessionCapabilities {
         schema_version: 1,
         protocol,
-        requests: value["requests"].as_u64()?,
+        requests,
         profile: value["profile"].as_str().map(str::to_owned),
-        passthrough: value["passthrough"].as_bool()?,
-        ccr: lever(&value["ccr"])?,
-        read_original_image: lever(&value["readOriginalImage"])?,
+        passthrough,
+        ccr,
+        read_original_image,
         image_rescale: lever(&value["imageRescale"])?,
         steering_level: value["steering"]["level"].as_u64(),
         effort_routing: value["steering"]["effortRouting"].as_bool(),
         prompt_rewrite_mode: value["promptRewrite"]["mode"].as_str().map(str::to_owned),
+        stamped_at_request,
     })
 }
 
@@ -535,6 +561,7 @@ mod tests {
         let body = payload(serde_json::json!({
             "protocol": "responses",
             "requests": 12,
+            "stampedAtRequest": 11,
             "profile": null,
             "ccr": { "configured": true, "applied": false, "reason": "codex_host" },
             "readOriginalImage": { "applied": false, "reason": "codex_host" },
@@ -620,6 +647,89 @@ mod tests {
             );
             worker.join().unwrap();
         }
+    }
+
+    #[test]
+    fn a_stale_stamp_leaves_the_gates_unobserved() {
+        let read = |over: serde_json::Value| {
+            let (port, worker) = server_with(4242, vec![payload(over)]);
+            let CapabilityRead::Observed(read) =
+                session_capabilities(&target(port, 4242), "native-1")
+            else {
+                panic!("expected an observed report");
+            };
+            worker.join().unwrap();
+            read
+        };
+        // Fresh: the stamp was written for the latest request (requests == stamped + 1).
+        let fresh = read(serde_json::json!({ "requests": 3, "stampedAtRequest": 2 }));
+        assert_eq!(fresh.stamped_at_request, Some(2));
+        assert_eq!(fresh.ccr.applied, Some(true));
+        assert_eq!(fresh.ccr.reason, "none");
+        assert_eq!(fresh.read_original_image.applied, Some(true));
+        // A session that served nothing yet and has no stamp is not stale.
+        let idle = read(serde_json::json!({
+            "requests": 0,
+            "stampedAtRequest": null,
+            "ccr": { "configured": true, "applied": false, "reason": "not_observed" },
+            "readOriginalImage": { "applied": false, "reason": "not_observed" }
+        }));
+        assert_eq!(idle.stamped_at_request, None);
+        assert_eq!(idle.ccr.applied, Some(false));
+        // Stale: later requests skipped the stamping site.
+        let stale = read(serde_json::json!({ "requests": 5, "stampedAtRequest": 2 }));
+        assert_eq!(stale.stamped_at_request, Some(2));
+        for gate in [&stale.ccr, &stale.read_original_image] {
+            assert_eq!(gate.applied, None);
+            assert_eq!(gate.reason, "not_observed");
+        }
+        // The configured value and the other levers are untouched.
+        assert_eq!(stale.ccr.configured, Some(true));
+        assert_eq!(stale.image_rescale.reason, "encoder_missing");
+        // No stamp field at all, but requests were served: not observed.
+        let mut body: serde_json::Value = serde_json::from_str(&payload(serde_json::json!({}))).unwrap();
+        body.as_object_mut().unwrap().remove("stampedAtRequest");
+        let (port, worker) = server_with(4242, vec![body.to_string()]);
+        let CapabilityRead::Observed(absent) = session_capabilities(&target(port, 4242), "native-1")
+        else {
+            panic!("expected an observed report");
+        };
+        worker.join().unwrap();
+        assert_eq!(absent.requests, 3);
+        assert_eq!(absent.stamped_at_request, None);
+        assert_eq!(absent.ccr.applied, None);
+        assert_eq!(absent.ccr.reason, "not_observed");
+        assert_eq!(absent.read_original_image.applied, None);
+        // Global passthrough is reported as is: it is not a stamped decision.
+        let passthrough = read(serde_json::json!({
+            "requests": 9,
+            "stampedAtRequest": 2,
+            "passthrough": true,
+            "ccr": { "configured": true, "applied": false, "reason": "passthrough" },
+            "readOriginalImage": { "applied": false, "reason": "passthrough" }
+        }));
+        assert_eq!(passthrough.ccr.applied, Some(false));
+        assert_eq!(passthrough.ccr.reason, "passthrough");
+    }
+
+    #[test]
+    fn a_sidecar_that_never_answers_is_unavailable_within_the_timeout() {
+        // Accepts the connection and then says nothing: the identity proof never completes.
+        let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = NonZeroU16::new(listener.local_addr().unwrap().port()).unwrap();
+        let holder = std::thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            std::thread::sleep(Duration::from_millis(1500));
+            drop(stream);
+        });
+        let began = Instant::now();
+        assert_eq!(
+            session_capabilities(&target(port, 4242), "native-1"),
+            CapabilityRead::Unavailable
+        );
+        // target() allows 500 ms; the read is bounded by it, not by the silent peer.
+        assert!(began.elapsed() < Duration::from_millis(1400), "{:?}", began.elapsed());
+        holder.join().unwrap();
     }
 
     #[test]

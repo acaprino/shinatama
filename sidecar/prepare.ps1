@@ -71,6 +71,8 @@ function Assert-Output([string]$Root, $Lock) {
     Assert-Entries $Lock.artifactFiles $Root $Lock.artifactTreeSha256
     Assert-Entries $Lock.runtimeDependencyFiles (Join-Path $Root 'node_modules/zod') $Lock.runtimeDependencyTreeSha256
     $identity = Read-BoundedJson (Assert-RegularPath $Root 'bundle.identity.json')
+    $entryPin = @($Lock.artifactFiles | Where-Object { $_.path -ceq $Lock.entry })
+    if ($entryPin.Count -ne 1 -or $entryPin[0].sha256 -cne $Lock.entrySha256) { throw 'The pinned entry hash differs from its artifact pin.' }
     $staticBytes = (@($Lock.sourceFiles) + @($Lock.artifactFiles) + @($Lock.runtimeDependencyFiles) | Measure-Object -Property bytes -Sum).Sum
     if ($identity.entrySha256 -cne $Lock.entrySha256 -or $identity.sourceTreeSha256 -cne $Lock.sourceTreeSha256 -or
         $identity.artifactTreeSha256 -cne $Lock.artifactTreeSha256 -or $identity.runtimeDependencyTreeSha256 -cne $Lock.runtimeDependencyTreeSha256 -or

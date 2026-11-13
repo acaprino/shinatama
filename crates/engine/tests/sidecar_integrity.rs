@@ -852,10 +852,17 @@ fn capabilities_match_what_the_origin_received() {
     let codex = new_session();
     let result = marker_result("MARKER_C");
     let sent = responses_probe(&sidecar, &origin, &codex, &result);
+    // Parsed, not counted: the whole result must be the function_call_output the origin got,
+    // so a stage that trimmed the middle and kept both ends cannot pass.
+    let received: Value = serde_json::from_str(&sent).expect("the origin body is JSON");
+    let output = received["input"]
+        .as_array()
+        .and_then(|items| items.iter().find(|item| item["type"] == "function_call_output"))
+        .and_then(|item| item["output"].as_str())
+        .expect("a function_call_output reached the origin");
     assert_eq!(
-        sent.matches("MARKER_C").count(),
-        2,
-        "the result did not reach the origin verbatim"
+        output, result,
+        "the origin did not receive the result verbatim"
     );
     assert!(
         !sent.contains("[acp-stored"),
