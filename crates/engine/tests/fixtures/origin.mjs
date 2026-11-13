@@ -4,12 +4,13 @@
 // stream. Every request is kept on disk exactly as received, so a test can compare what
 // the sidecar sent with what the client handed it.
 //
-//   node origin.mjs --dir <path> [--delay-ms <n>]
+//   node origin.mjs --dir <path> [--delay-ms <n>] [--no-record]
 //
 // stdout: one line {"port":N} once listening.
 // <dir>/<n>.body  raw request body bytes; <dir>/<n>.json  {method, path, headers}
 // (the authorization and x-api-key headers are never written). n starts at 1.
 // --delay-ms: pause before the last stream event (message_stop), default 0.
+// --no-record: keep nothing on disk (a long soak would otherwise store every body).
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
@@ -24,6 +25,7 @@ if (!dir || !path.isAbsolute(dir)) {
   console.error('--dir <absolute path> is required');
   process.exit(2);
 }
+const keepRequests = !args.includes('--no-record');
 const delayMs = Number(option('--delay-ms') ?? 0);
 if (!Number.isInteger(delayMs) || delayMs < 0) {
   console.error('--delay-ms must be a non-negative integer');
@@ -88,6 +90,7 @@ const message = model => ({
 });
 
 function record(req, body) {
+  if (!keepRequests) return;
   const n = ++counter;
   const headers = {};
   for (const [name, value] of Object.entries(req.headers)) {
