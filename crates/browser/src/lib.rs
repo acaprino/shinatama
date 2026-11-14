@@ -9,6 +9,8 @@
 use serde::{Deserialize, Serialize};
 
 pub mod cdp;
+pub mod input;
+pub mod pages;
 
 pub const SCHEMA_VERSION: u32 = 1;
 
