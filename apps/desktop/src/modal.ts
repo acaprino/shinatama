@@ -3,8 +3,9 @@
 // minimize or close.
 //
 //   drawer  The default for openModal(). Docked along the right edge of the work area, no
-//           scrim, nothing inert: terminals keep working beside it. One at a time, except
-//           that a dialog opened from inside a drawer stacks over it and returns to it.
+//           scrim, nothing inert: terminals keep working beside it. One side panel at a time:
+//           a drawer replaces the open one, also when opened from inside it, and closes the
+//           side panels that are not dialogs (sidePanel()).
 //   modal   Only for decisions about the whole workspace (MODAL_ONLY). Everything below the
 //           titlebar becomes inert; containment and Escape are provided explicitly.
 //   sheet   openSheet(). Docked to the control or pane it belongs to; a press outside
@@ -53,6 +54,18 @@ function dismiss(dialog: HTMLDialogElement) {
   if (dialog.dispatchEvent(new Event('cancel', { cancelable: true }))) dialog.close();
 }
 
+/** Side panels that are not dialogs (the Model proxy panel): each closes when another side panel opens. */
+const sidePanels = new Set<() => void>();
+/** Registers a side panel's close; returns the call it makes when it opens, which closes every other one. */
+export function sidePanel(close: () => void): () => void {
+  sidePanels.add(close);
+  return () => {
+    for (const entry of [...stack].reverse()) if (!entry.modal) dismiss(entry.dialog);
+    stack = stack.filter(entry => entry.dialog.open); sync();
+    for (const other of sidePanels) if (other !== close) other();
+  };
+}
+
 export function openModal(dialog: HTMLDialogElement) {
   if (dialog.open) return;
   // A closed dialog's event may still be queued when another one replaces it.
@@ -60,13 +73,19 @@ export function openModal(dialog: HTMLDialogElement) {
   stack = stack.filter(entry => entry.dialog.open);
   const active = document.activeElement;
   const modal = dialog.matches(MODAL_ONLY) || stack.some(entry => entry.modal);
-  if (!modal && !stack.at(-1)?.dialog.contains(active)) {
-    // Opened from the toolbar or a shortcut: it takes the drawer's place. A drawer that
-    // refuses to close (work in flight) stays underneath and comes back afterwards.
-    for (const entry of [...stack].reverse()) dismiss(entry.dialog);
+  let restore = active instanceof HTMLElement && active !== document.body ? active : replaced?.restore ?? null;
+  if (!modal) {
+    // One side panel at a time: a drawer takes the place of the one open, also when it is
+    // opened from inside it. A drawer that refuses to close (work in flight) stays underneath
+    // and comes back afterwards. Focus goes back where the replaced drawer would have sent it.
+    for (const entry of [...stack].reverse()) {
+      if (entry.modal) continue;
+      if (restore && entry.dialog.contains(restore)) restore = entry.restore;
+      dismiss(entry.dialog);
+    }
     stack = stack.filter(entry => entry.dialog.open);
+    for (const close of sidePanels) close();
   }
-  const restore = active instanceof HTMLElement && active !== document.body ? active : replaced?.restore ?? null;
   stack.push({ dialog, restore, modal });
   if (modal) { delete dialog.dataset.sheet; dialog.setAttribute('aria-modal', 'true'); }
   else { dialog.dataset.sheet = 'drawer'; dialog.removeAttribute('aria-modal'); }

@@ -147,6 +147,22 @@ kbd { font: 12px var(--mono); color: var(--muted); letter-spacing: 0; text-trans
 .terminal-view { position: absolute; inset: 0; box-sizing: content-box; padding: 10px 8px 2px; }
 .xterm { height: 100%; }
 .xterm-viewport { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+/* The minimap takes the scrollbar's place: the 14px xterm's fit already leaves free. */
+.terminal-view.has-minimap > .xterm .xterm-scrollable-element > .scrollbar.vertical { opacity: 0 !important; pointer-events: none; }
+.terminal-minimap { position: absolute; top: 10px; right: 8px; bottom: 2px; width: 14px; z-index: 5; cursor: ns-resize; touch-action: none;
+  border-left: 1px solid color-mix(in srgb, var(--line) 70%, transparent); background: color-mix(in srgb, var(--chrome) 38%, transparent); }
+.terminal-minimap canvas { display: block; width: 100%; height: 100%; }
+.terminal-earlier { position: absolute; top: 10px; right: 28px; z-index: 6; min-height: 24px; padding: 2px 10px;
+  border: 1px solid var(--line-strong); background: var(--glass); backdrop-filter: var(--glass-blur); color: var(--ice); font: 12px var(--mono);
+  transition: opacity var(--base) var(--ease-out), translate var(--base) var(--ease-out); }
+.terminal-earlier:hover { border-color: var(--accent); color: var(--text); }
+@starting-style { .terminal-earlier { opacity: 0; translate: 0 -6px; } }
+.terminal-history { position: absolute; inset: 0; z-index: 8; display: flex; flex-direction: column; border-top: 2px solid var(--accent); }
+.terminal-history-bar { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--line);
+  background: var(--glass-strong); backdrop-filter: var(--glass-blur); font: 12px var(--mono); color: var(--text-2); }
+.terminal-history-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* No padding: xterm's fit reads this box's height as the room for rows. */
+.terminal-history-screen { position: relative; flex: 1; min-height: 0; margin: 6px 8px 2px; }
 
 .empty {
   display: flex;
@@ -234,6 +250,27 @@ dialog .hint { font-size: 12px; color: var(--muted); }
 .dialog-heading { display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 .dialog-heading button { width: 28px; padding: 0; border: 0; color: var(--muted); font: 400 20px/1 var(--mono); }
 .dialog-heading button:hover { color: var(--ice); }
+
+/* Data in panels. A button above is a centred uppercase label; a button that stands for a row of
+   data (a session, a match) reads as content instead: left-aligned, in its own case, wrapping. */
+:is(.session-library-table td button, .session-project-session, .session-search-open) { justify-content: flex-start; }
+.session-find-match { justify-content: stretch; }
+:is(.session-library-table td button, .session-project-session, .session-search-open, .session-find-match) {
+  height: auto; text-align: left; font-family: inherit; font-size: 13px; font-weight: 400; line-height: 1.4; letter-spacing: 0; text-transform: none; white-space: normal;
+}
+/* Tables read top-left, numbers in even figures. */
+dialog table { border-collapse: collapse; }
+dialog :is(th, td) { text-align: left; vertical-align: top; font-variant-numeric: tabular-nums; }
+/* Key/value facts: one look in every panel, the key a small label, the value aligned beside it. */
+:is(.agent-checkup, .hop-preview-facts, .session-detail-overview, .session-export-report, .session-library-metadata) {
+  display: grid; grid-template-columns: minmax(96px, max-content) minmax(0, 1fr); align-items: baseline; gap: 7px 18px; margin: 0; font-size: 13px;
+}
+:is(.agent-checkup, .hop-preview-facts, .session-detail-overview, .session-export-report, .session-library-metadata) > dt {
+  font: 10.5px/1.5 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+}
+:is(.agent-checkup, .hop-preview-facts, .session-detail-overview, .session-export-report, .session-library-metadata) > dd {
+  min-width: 0; margin: 0; color: var(--text); overflow-wrap: anywhere; font-variant-numeric: tabular-nums;
+}
 /* Actions stay reachable however far the dialog content scrolls. */
 .dialog-actions { position: sticky; bottom: -22px; z-index: 1; display: flex; justify-content: flex-end; gap: 8px; margin: 20px -24px -22px; padding: 12px 24px; border-top: 1px solid var(--line); background: var(--chrome-2); }
 
@@ -415,14 +452,14 @@ dialog[data-sheet="pane-top"], dialog[data-sheet="pane-bottom"] { width: var(--s
 /* Menus, sheets, drawers and notices: the same tinted glass; what is under them stays visible
    as a blur. Panels inside them are a darker step of it instead of opaque blocks. */
 .native-glass dialog, .native-glass .toolbar-menu, .native-glass #notice { border-color: color-mix(in srgb, var(--line-strong) 70%, transparent); }
-.native-glass dialog input, .native-glass dialog select, .native-glass dialog textarea, .native-glass .files-editor, .native-glass .files-preview pre, .native-glass .files-picture, .native-glass .files-visual .files-visual-code, .native-glass .files-visual-kept, .native-glass .session-detail-events article, .native-glass .session-raw-warning, .native-glass #session-raw-content { background: color-mix(in srgb, var(--terminal) 50%, transparent); }
+.native-glass dialog input, .native-glass dialog select, .native-glass dialog textarea, .native-glass .files-preview pre, .native-glass .files-picture, .native-glass .files-visual .files-visual-code, .native-glass .files-visual-kept, .native-glass .session-detail-events article, .native-glass .session-raw-warning, .native-glass #session-raw-content { background: color-mix(in srgb, var(--terminal) 50%, transparent); }
 .native-glass .session-library-table th { background: var(--glass-strong); }
 .native-glass #modal-scrim { background: color-mix(in srgb, var(--stage) 36%, transparent); }
 .native-glass #app { outline: 1px solid color-mix(in srgb, var(--line-strong) 60%, transparent); outline-offset: -1px; }
 .native-glass .thread-sidebar-heading { background: transparent; }
 .native-glass .wm-footer, .native-glass .wm-controls { background: var(--glass-bar); }
 /* The file browser needs two columns; it takes a wider drawer than the others. */
-:root:has(#files-dialog[open]) { --drawer-width: clamp(520px, 52vw, 860px); }
+:root:has(#files-dialog[open]) { --drawer-width: clamp(560px, 66vw, 1180px); }
 /* Model proxy: a side panel (an aside, not a dialog) docked like a drawer, below any dialog. */
 #model-proxy-panel { position: fixed; inset: calc(var(--titlebar-height) + 44px) 0 28px auto; z-index: 19; width: min(400px, calc(100vw - 16px)); overflow: auto; padding: 18px 20px; border-left: 1px solid color-mix(in srgb, var(--line-strong) 62%, transparent); background: linear-gradient(90deg, var(--accent), var(--ice) 46%, transparent 92%) top left / 100% 2px no-repeat, var(--glass); backdrop-filter: var(--glass-blur); color: var(--text); scrollbar-width: thin; }
 #model-proxy-panel[hidden] { display: none; }

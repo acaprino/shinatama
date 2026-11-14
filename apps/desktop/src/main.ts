@@ -13,6 +13,9 @@ import { createNewProjectDialog } from './new-project.ts';
 import { initializeMaintenance } from './maintenance.ts';
 import { openModal, openSheet } from './modal.ts';
 import { createTerminalFind } from './terminal-find.ts';
+import { createTerminalHistory, LIVE_SCROLLBACK, splitOutput, type TerminalHistory } from './terminal-history.ts';
+import { createTerminalMinimap, type TerminalMinimap } from './terminal-minimap.ts';
+import { openTerminalHistory } from './terminal-history-view.ts';
 import { createPresentation, PROFILES, setTerminalGlass } from './presentation.ts';
 import './presentation.css';
 import { startTerminalResources, formatTerminalResources, type TerminalResourceStatus } from './terminal-resources.ts';
@@ -45,6 +48,8 @@ type View = {
   info: SessionInfo; terminal: Terminal; fit: FitAddon; element: HTMLDivElement;
   group: string; hidden: boolean; visible: boolean; ended: boolean; disposed: boolean; profile: string;
   lastSize: string; resizeTimer: number; resizeChain: Promise<void>;
+  /** Lines that left the live buffer, its minimap, and the open history view, if any. */
+  history: TerminalHistory; minimap: TerminalMinimap; historyView: { close(): void } | null;
   /** The session this terminal runs and the thread (ADR-0055) that session belongs to. */
   threadId: string | null; workset: WorksetScope | null;
 };
@@ -157,7 +162,7 @@ const renderer = createWorkspaceRenderer({
   host: workspace, bindings,
   dispatch(action, expected) { if (expected === workspaceLayout) changeLayout(action); },
   onFocusView(id) { if (!modalOpen()) views.get(id)?.terminal.focus(); },
-  onVisibilityChange(id, visible) { const view = views.get(id); if (view) { view.visible = visible; if (visible) scheduleFit(view); } },
+  onVisibilityChange(id, visible) { const view = views.get(id); if (view) { view.visible = visible; if (visible) { scheduleFit(view); view.minimap.redraw(); } } },
   labelForView: panel => tabLabel(panel.id),
   tabFilter() {
     const project = tabFilter?.current();
@@ -254,6 +259,7 @@ function scheduleFit(view: View) {
     if (view.disposed || !view.visible || view.element.hidden || view.element.clientWidth < 50 || view.element.clientHeight < 50) return;
     view.fit.fit();
     const { rows, cols } = view.terminal; const size = `${cols}×${rows}`;
+    if (size !== view.lastSize) view.history.reflowed();
     if (rows < 2 || cols < 2 || size === view.lastSize) return;
     view.lastSize = size;
     const group = workspace.querySelector<HTMLElement>(`[data-group-id="${view.group}"]`);
@@ -358,7 +364,8 @@ function attachTerminal(info: SessionInfo, group: string, threadId: string | nul
   const element = document.createElement('div'); element.className = 'terminal-view';
   const initialProfile = ['Claude Code', 'claude_code'].includes(info.shell) ? 'claude' : 'neutral';
   const terminal = new Terminal({ ...presentation.optionsForProfile(initialProfile),
-    cursorBlink: false, scrollback: 5000,
+    // The live buffer is small; older lines move to the history archive (terminal-history.ts).
+    cursorBlink: false, scrollback: LIVE_SCROLLBACK,
     allowProposedApi: false, allowTransparency: desktop, screenReaderMode: true });
   const fit = new FitAddon(); terminal.loadAddon(fit);
   // A new terminal paints its profile background at once. On glass the pane behind it is clear,
@@ -369,8 +376,16 @@ function attachTerminal(info: SessionInfo, group: string, threadId: string | nul
   // bounded native attention controls are observed by Rust before rendering.
   for (const osc of [0, 1, 2, 7, 8, 9, 52, 777]) terminal.parser.registerOscHandler(osc, () => true);
   terminal.parser.registerCsiHandler({ final: 't' }, () => true);
+  const history = createTerminalHistory(terminal);
   const view: View = { info, terminal, fit, element, group, hidden: false, visible: false, ended: false, disposed: false,
-    profile: initialProfile, lastSize: '', resizeTimer: 0, resizeChain: Promise.resolve(), threadId, workset };
+    profile: initialProfile, lastSize: '', resizeTimer: 0, resizeChain: Promise.resolve(), threadId, workset,
+    history, historyView: null, minimap: createTerminalMinimap({ host: element, terminal, history,
+      shown: () => view.visible && !view.hidden && !view.disposed,
+      openHistory: line => {
+        view.historyView = openTerminalHistory({ host: element, history, line,
+          terminalOptions: presentation.optionsForProfile(view.profile), background: element.style.background,
+          closed: () => { view.historyView = null; if (!view.disposed && !modalOpen()) terminal.focus(); } });
+      } }) };
   views.set(info.id, view); bindings.set(info.id, element); resizeObserver.observe(element);
   tabFilter?.reveal(info.cwd);
   const restored = workspaceLayout.views.find(panel => panel.id === info.id);
@@ -409,7 +424,10 @@ async function drain(view: View) {
       if (view.disposed) return;
       for (const chunk of batch.chunks) {
         if (view.disposed) return;
-        await new Promise<void>(resolve => view.terminal.write(new Uint8Array(chunk), resolve));
+        for (const part of splitOutput(new Uint8Array(chunk))) {
+          await new Promise<void>(resolve => view.terminal.write(part, resolve));
+          view.history.capture();
+        }
       }
       if (batch.error) notify(`Terminal output: ${batch.error}`);
       if (batch.eof) { view.ended = true; showExit(view, batch.exit_code); render(); return; }
@@ -481,7 +499,9 @@ async function forgetSession(threadId: string) {
 }
 /** Removes a stopped terminal from the window; its saved session is not touched. */
 function discardView(view: View) {
-  view.disposed = true; clearTimeout(view.resizeTimer); view.terminal.dispose(); view.element.remove();
+  view.disposed = true; clearTimeout(view.resizeTimer);
+  view.historyView?.close(); view.minimap.dispose(); view.history.dispose();
+  view.terminal.dispose(); view.element.remove();
   resizeObserver.unobserve(view.element); bindings.delete(view.info.id); views.delete(view.info.id); rememberSessions();
   if (workspaceLayout.views.some(panel => panel.id === view.info.id)) {
     const group = tabGroups(workspaceLayout.root).find(candidate => candidate.tabs.includes(view.info.id));

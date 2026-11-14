@@ -44,6 +44,11 @@ Rust dependency is centralized in `Cargo.toml`. This is not the release-wide X3 
 | @xterm/xterm / addon-fit | 6.0.0 / 0.11.0 | MIT | Terminal emulation and sizing |
 | Vite / TypeScript | 8.3.5 / 7.0.2 | MIT / Apache-2.0 | Build and type checks |
 | @playwright/test | 1.64.1 | Apache-2.0 | Real WebView2 integration test |
+| windows-core | 0.62.2 | MIT OR Apache-2.0 | COM cast for WebView2's memory target when a window is hidden or minimized (2026-11-14); the version webview2-com already links |
+| @codemirror/state, view, commands, language, search | 6.7.6, 6.43.15, 6.11.1, 6.13.1, 6.7.2 | MIT | Files panel source view: syntax highlighting, search, folding; draws only visible lines, loaded on first use (2026-11-14) |
+| @lezer/highlight | 1.2.5 | MIT | Highlight tags mapped to the skin's colors |
+| @codemirror/lang-javascript, json, rust, python, css, html, markdown, yaml, xml, sql | 6.2.5, 6.0.2, 6.0.2, 6.2.1, 6.3.1, 6.4.12, 6.5.2, 6.1.3, 6.1.0, 6.10.0 | MIT | Lezer grammars, each loaded when a file of its kind is opened |
+| @codemirror/legacy-modes | 6.5.5 | MIT | Stream parsers for TOML, PowerShell, shell, C-family, Go, Lua, Ruby, Dockerfile, diff, ini |
 
 serde, anyhow and uuid reuse existing allowances. `shinatama-terminal` is the local
 workspace dependency. Node is needed to build, not to run the embedded executable.

@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { sidePanel } from './modal.ts';
 import { adoptStopReply, buttons, confirmStillNeeded, driftLine, parseStatus, phaseLabel, showsTraffic, startLabel, stopConsequence, trafficLine, type ProxyStatus } from './sidecar-status.ts';
 
 const POLL_MS = 1500;
@@ -77,12 +78,14 @@ export function createSidecarControl(desktop: boolean, notify: (message: string)
     }
     if (again) void request('sidecar_status');
   }
-  function open() { panel.hidden = false; button.setAttribute('aria-expanded', 'true'); render(); close.focus(); void request('sidecar_status'); }
+  function open() { opening(); panel.hidden = false; button.setAttribute('aria-expanded', 'true'); render(); close.focus(); void request('sidecar_status'); }
   function shut(returnFocus: boolean) {
     if (panel.hidden) return;
     generation++; panel.hidden = true; confirming = false; button.setAttribute('aria-expanded', 'false'); render();
     if (returnFocus) button.focus();
   }
+  // One side panel at a time: opening this one closes the drawer open, and a drawer closes this one.
+  const opening = sidePanel(() => shut(false));
   button.onclick = () => { if (panel.hidden) open(); else shut(true); };
   close.onclick = () => shut(true);
   const onKey = (event: KeyboardEvent) => {

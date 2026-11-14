@@ -1,8 +1,8 @@
 import { openModal } from './modal.ts';
+import { createFilesTree, type Entry, type Listing } from './files-tree.ts';
+import type { CodeView } from './code-view.ts';
 import './files-panel.css';
 
-type Entry = { name: string; path: string; kind: 'file' | 'directory' | 'link'; size: number | null; linkInside: boolean | null };
-type Listing = { path: string; entries: Entry[]; truncated: boolean };
 type Search = { query: string; hits: Entry[]; truncated: boolean; cancelled: boolean; timedOut: boolean };
 type TextFile = { path: string; text: string | null; binary: boolean; truncated: boolean; bytes: number; sha256: string };
 type SaveOutcome = { state: 'saved'; sha256: string } | { state: 'conflict'; disk_sha256: string } | { state: 'failed'; message: string };
@@ -15,6 +15,7 @@ type Options = { invoke: Invoke; project: () => string | null; reportError: (mes
 
 const id = () => crypto.randomUUID();
 const message = (error: unknown) => typeof error === 'string' ? error : error instanceof Error ? error.message : 'The file operation failed.';
+const MODES = [['source', 'Source'], ['split', 'Split'], ['preview', 'Preview'], ['visual', 'Visual']] as const;
 
 /** Read-only browsing plus explicit, version-checked saves. Opening a file never runs it. */
 export function createFilesPanel(options: Options) {
@@ -26,50 +27,116 @@ export function createFilesPanel(options: Options) {
   heading.append(title, chooser, closeButton);
   const body = document.createElement('div'); body.className = 'files-body';
   const side = document.createElement('div'); side.className = 'files-side';
-  const search = document.createElement('input'); search.type = 'search'; search.placeholder = 'Find a file by name'; search.setAttribute('aria-label', 'Find a file by name');
-  const crumbs = document.createElement('div'); crumbs.className = 'files-crumbs';
-  const list = document.createElement('ul'); list.className = 'files-list'; list.setAttribute('role', 'listbox');
-  side.append(search, crumbs, list);
+  const search = document.createElement('input'); search.type = 'search'; search.className = 'files-search'; search.placeholder = 'Find a file by name'; search.setAttribute('aria-label', 'Find a file by name');
+  const tree = createFilesTree({
+    list: async path => {
+      const project = projectPath(); if (!project) throw 'Choose a project first.';
+      return options.invoke<Listing>('files_list', { project, path, requestId: id() });
+    },
+    open: entry => { void openFile(entry.path).catch(error => setStatus(message(error), true)); },
+    failed: text => setStatus(text, true),
+  });
+  side.append(search, tree.element);
   const main = document.createElement('div'); main.className = 'files-main';
   const bar = document.createElement('div'); bar.className = 'files-bar';
-  const name = document.createElement('span'); name.className = 'files-name';
-  const modes = document.createElement('div'); modes.className = 'files-modes';
+  const crumbs = document.createElement('nav'); crumbs.className = 'files-crumbs'; crumbs.setAttribute('aria-label', 'Open file path');
+  const language = document.createElement('span'); language.className = 'files-language';
+  const modes = document.createElement('div'); modes.className = 'files-modes'; modes.setAttribute('role', 'group'); modes.setAttribute('aria-label', 'View');
   const modeButtons = new Map<string, HTMLButtonElement>();
-  for (const mode of ['source', 'preview', 'split', 'visual']) {
-    const button = document.createElement('button'); button.type = 'button'; button.textContent = mode[0].toUpperCase() + mode.slice(1);
-    button.onclick = () => { view = mode as typeof view; render(); if (view === 'visual') void renderVisual(); else schedulePreview(); }; modes.append(button); modeButtons.set(mode, button);
+  for (const [mode, label] of MODES) {
+    const button = document.createElement('button'); button.type = 'button'; button.textContent = label;
+    button.onclick = () => { view = mode; render(); if (view === 'visual') void renderVisual(); else schedulePreview(); }; modes.append(button); modeButtons.set(mode, button);
   }
   const save = document.createElement('button'); save.type = 'button'; save.className = 'primary'; save.textContent = 'Save';
-  bar.append(name, modes, save);
+  bar.append(crumbs, language, modes, save);
   const panes = document.createElement('div'); panes.className = 'files-panes';
-  const editor = document.createElement('textarea'); editor.className = 'files-editor'; editor.spellcheck = false; editor.setAttribute('aria-label', 'File source');
+  const code = document.createElement('div'); code.className = 'files-code'; code.setAttribute('aria-label', 'File source');
   const preview = document.createElement('div'); preview.className = 'files-preview'; preview.setAttribute('aria-label', 'Rendered Markdown');
   const picture = document.createElement('div'); picture.className = 'files-picture'; picture.hidden = true;
   const visual = document.createElement('div'); visual.className = 'files-visual'; visual.hidden = true; visual.setAttribute('aria-label', 'Visual editor');
-  panes.append(editor, preview, picture, visual);
+  const empty = document.createElement('div'); empty.className = 'files-empty'; empty.textContent = 'Choose a file in the tree, or find one by name.';
+  panes.append(code, preview, picture, visual, empty);
   const status = document.createElement('p'); status.className = 'files-status'; status.setAttribute('role', 'status');
   main.append(bar, panes, status);
-  body.append(side, main);
+  const split = document.createElement('div'); split.className = 'files-split'; split.tabIndex = 0;
+  split.setAttribute('role', 'separator'); split.setAttribute('aria-orientation', 'vertical'); split.setAttribute('aria-label', 'Resize the folder tree');
+  body.append(side, split, main);
   dialog.append(heading, body);
+  // The tree's width is the user's: dragged or nudged with the arrows, kept for the next opening.
+  const SIDE_KEY = 'shinatama.files.side';
+  const sideWidth = (value: number) => Math.round(Math.max(180, Math.min(value, body.clientWidth * 0.6 || 640)));
+  function setSide(value: number, keep = false) {
+    const width = sideWidth(value); body.style.setProperty('--files-side', `${width}px`);
+    split.setAttribute('aria-valuenow', String(width));
+    if (keep) try { localStorage.setItem(SIDE_KEY, String(width)); } catch { /* the width is only a convenience */ }
+  }
+  try { const saved = Number(localStorage.getItem(SIDE_KEY)); if (saved > 0) body.style.setProperty('--files-side', `${saved}px`); } catch { /* default width */ }
+  split.addEventListener('pointerdown', event => {
+    if (event.button !== 0) return; event.preventDefault();
+    split.setPointerCapture(event.pointerId); split.classList.add('dragging'); dialog.classList.add('resizing');
+    const left = body.getBoundingClientRect().left;
+    const move = (moved: PointerEvent) => setSide(moved.clientX - left);
+    const done = (ended: PointerEvent) => { split.removeEventListener('pointermove', move); split.classList.remove('dragging'); dialog.classList.remove('resizing'); setSide(ended.clientX - left, true); };
+    split.addEventListener('pointermove', move); split.addEventListener('pointerup', done, { once: true }); split.addEventListener('pointercancel', done, { once: true });
+  });
+  split.addEventListener('keydown', event => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault(); setSide(side.getBoundingClientRect().width + (event.key === 'ArrowLeft' ? -24 : 24), true);
+  });
   (document.querySelector('#app') ?? document.body).append(dialog);
 
   const buffers = new Map<string, Buffer>();
-  let current: Buffer | null = null; let folder = ''; let view: 'source' | 'preview' | 'split' | 'visual' = 'source';
+  let current: Buffer | null = null; let showingImage = false; let view: 'source' | 'preview' | 'split' | 'visual' = 'source';
   let visualAvailable = false; let visualGeneration = 0;
   let pending: string | null = null; let renderGeneration = 0; let renderTimer = 0;
+  let codeView: CodeView | null = null; let codeLoading: Promise<CodeView> | null = null;
   const markdown = (path: string) => /\.(md|markdown)$/i.test(path);
   const setStatus = (text: string, error = false) => { status.textContent = text; status.dataset.state = error ? 'error' : 'ready'; };
   const projectPath = () => chooser.value || null;
+  /** CodeMirror loads with the first file opened, not with the app. */
+  function editor(): Promise<CodeView> {
+    if (codeView) return Promise.resolve(codeView);
+    codeLoading ??= import('./code-view.ts').then(module => {
+      codeView = module.createCodeView(code, (path, text) => {
+        const buffer = buffers.get(path); if (!buffer?.editable) return;
+        buffer.text = text; if (buffer === current) { render(); schedulePreview(); }
+      });
+      return codeView;
+    });
+    return codeLoading;
+  }
 
+  function paintCrumbs() {
+    if (!current && !showingImage) { crumbs.replaceChildren(Object.assign(document.createElement('span'), { className: 'files-crumb-none', textContent: 'No file open' })); return; }
+    const path = current?.path ?? crumbs.dataset.path ?? '';
+    const parts = path.split('/').filter(Boolean); const items: Node[] = [];
+    parts.forEach((part, index) => {
+      if (index) items.push(Object.assign(document.createElement('span'), { className: 'files-crumb-sep', textContent: '/' }));
+      if (index === parts.length - 1) {
+        const leaf = document.createElement('strong'); leaf.className = 'files-crumb-leaf'; leaf.textContent = part; items.push(leaf);
+        if (current && current.text !== current.baseText) { const dirty = document.createElement('span'); dirty.className = 'files-dirty'; dirty.title = 'Unsaved changes'; dirty.setAttribute('aria-label', 'Unsaved changes'); items.push(dirty); }
+        return;
+      }
+      const folder = document.createElement('button'); folder.type = 'button'; folder.className = 'files-crumb'; folder.textContent = part;
+      folder.title = `Show ${parts.slice(0, index + 1).join('/')} in the tree`;
+      folder.onclick = () => { search.value = ''; void tree.reveal(parts.slice(0, index + 1).join('/')); };
+      items.push(folder);
+    });
+    crumbs.replaceChildren(...items);
+  }
   function render() {
     const md = !!current && markdown(current.path);
     modes.hidden = !md; if (!md) view = 'source';
     if (view === 'visual' && !visualAvailable) view = 'source';
-    for (const [mode, button] of modeButtons) { button.setAttribute('aria-pressed', String(mode === view)); if (mode === 'visual') { button.disabled = !visualAvailable; button.title = visualAvailable ? 'Edit headings, paragraphs and code; other Markdown is kept as source' : 'Not available: this document does not round-trip exactly'; } }
-    editor.hidden = !current || view === 'preview' || view === 'visual'; preview.hidden = !current || view === 'source' || view === 'visual'; visual.hidden = !current || view !== 'visual';
-    save.disabled = !current?.editable || current.text === current.baseText;
-    name.textContent = current ? `${current.path}${current.text !== current.baseText ? ' •' : ''}` : 'No file open';
-    editor.readOnly = !current?.editable;
+    for (const [mode, button] of modeButtons) {
+      button.setAttribute('aria-pressed', String(mode === view));
+      if (mode === 'visual') { button.disabled = !visualAvailable; button.title = visualAvailable ? 'Edit headings, paragraphs and code; other Markdown is kept as source' : 'Not available: this document does not round-trip exactly'; }
+    }
+    code.hidden = !current || view === 'preview' || view === 'visual'; preview.hidden = !current || view === 'source' || view === 'visual'; visual.hidden = !current || view !== 'visual';
+    empty.hidden = !!current || showingImage;
+    panes.dataset.view = view;
+    save.hidden = !current; save.disabled = !current?.editable || current.text === current.baseText;
+    paintCrumbs();
   }
   function schedulePreview() {
     if (!current || !markdown(current.path) || view === 'source') return;
@@ -85,66 +152,43 @@ export function createFilesPanel(options: Options) {
     }, 150);
   }
   async function cancelPending() { if (pending) { const old = pending; pending = null; await options.invoke('files_cancel', { requestId: old }).catch(() => {}); } }
-  function entryRow(entry: Entry) {
-    const item = document.createElement('li');
-    const button = document.createElement('button'); button.type = 'button';
-    const icon = entry.kind === 'directory' ? '▸ ' : entry.kind === 'link' ? '↪ ' : '';
-    button.textContent = `${icon}${entry.name}`;
-    button.title = entry.kind === 'link' ? (entry.linkInside ? 'Link inside the project' : 'Link outside the project: not opened') : entry.path;
-    button.disabled = entry.kind === 'link' && !entry.linkInside;
-    button.onclick = () => { void (entry.kind === 'directory' || entry.kind === 'link' ? openFolder(entry.path).catch(() => openFile(entry.path)) : openFile(entry.path)); };
-    item.append(button); return item;
-  }
-  async function openFolder(path: string) {
-    const project = projectPath(); if (!project) throw new Error('Choose a project first.');
-    await cancelPending(); const request = id(); pending = request;
-    const listing = await options.invoke<Listing>('files_list', { project, path, requestId: request });
-    if (pending !== request) return; pending = null;
-    folder = listing.path; list.replaceChildren();
-    crumbs.textContent = `/${folder}`;
-    if (folder) {
-      const up = document.createElement('li'); const button = document.createElement('button'); button.type = 'button'; button.textContent = '..';
-      button.onclick = () => { void openFolder(folder.split('/').slice(0, -1).join('/')).catch(error => setStatus(message(error), true)); };
-      up.append(button); list.append(up);
-    }
-    for (const entry of listing.entries) list.append(entryRow(entry));
-    if (listing.truncated) setStatus('This folder has more than 2,000 entries; only the first are shown.');
-  }
-  async function confirmLeave(): Promise<boolean> {
-    if (!current || current.text === current.baseText) return true;
-    return options.decide('Unsaved changes', `${current.path} has unsaved changes. They stay in this window while it is open; nothing is written until you press Save.`, 'Keep editing elsewhere');
-  }
   async function openImage(path: string) {
     const project = projectPath(); if (!project) return;
     const outcome = await options.invoke<{ state: 'ready'; image: { path: string; width: number; height: number; bytes: number; dataUrl: string } } | { state: 'refused'; message: string }>('files_image', { project, path });
-    current = null; editor.value = ''; preview.replaceChildren(); render(); editor.hidden = true; preview.hidden = true;
+    current = null; showingImage = true; crumbs.dataset.path = path; language.textContent = 'Image'; preview.replaceChildren(); render();
     picture.replaceChildren(); picture.hidden = false;
-    if (outcome.state === 'refused') { name.textContent = path; setStatus(outcome.message, true); return; }
+    if (outcome.state === 'refused') { setStatus(outcome.message, true); return; }
     const img = document.createElement('img'); img.alt = outcome.image.path; img.src = outcome.image.dataUrl; picture.append(img);
-    name.textContent = outcome.image.path; setStatus(`${outcome.image.width} x ${outcome.image.height} pixels, ${outcome.image.bytes.toLocaleString()} bytes. Read-only.`);
+    setStatus(`${outcome.image.width} × ${outcome.image.height} pixels, ${outcome.image.bytes.toLocaleString()} bytes. Read-only.`);
   }
   async function openFile(path: string) {
     const project = projectPath(); if (!project) throw new Error('Choose a project first.');
-    picture.hidden = true; picture.replaceChildren();
+    picture.hidden = true; picture.replaceChildren(); showingImage = false;
     if (/\.(png|jpe?g|gif|webp|docx?)$/i.test(path)) { await openImage(path); return; }
-    let buffer = buffers.get(path);
+    let buffer = buffers.get(path); let note = '';
     if (!buffer) {
       const file = await options.invoke<TextFile>('files_read', { project, path });
-      if (file.binary || file.text === null) { setStatus(`${file.path} is not text (${file.bytes} bytes); it is not opened or run.`); return; }
+      if (file.binary || file.text === null) { setStatus(`${file.path} is not text (${file.bytes.toLocaleString()} bytes); it is not opened or run.`); return; }
       buffer = { path: file.path, baseText: file.text, baseSha256: file.sha256, text: file.text, editable: !file.truncated };
       buffers.set(file.path, buffer);
-      if (file.truncated) setStatus('This file is larger than 4 MiB: shown read-only, first part only.');
+      if (file.truncated) note = 'This file is larger than 4 MiB: shown read-only, first part only.';
     }
-    current = buffer; editor.value = buffer.text; preview.replaceChildren();
+    const view_ = await editor();
+    current = buffer; preview.replaceChildren();
+    await view_.open(buffer.path, buffer.text, buffer.editable);
+    const { languageOf } = await import('./code-view.ts');
+    language.textContent = languageOf(buffer.path);
+    tree.select(buffer.path);
     visualAvailable = false;
     if (markdown(buffer.path) && buffer.editable) {
       const doc = await options.invoke<VisualDocument>('files_visual_parse', { text: buffer.text }).catch(() => null);
       visualAvailable = !!doc && doc.exact && doc.editableBlocks > 0;
     }
     if (markdown(buffer.path) && view === 'source') view = 'split';
-    setStatus(buffer.editable ? 'Opened for reading. Edit and press Save to write it.' : status.textContent ?? ''); render(); schedulePreview();
+    const lines = buffer.text.split('\n').length;
+    setStatus(note || `${lines.toLocaleString()} line${lines === 1 ? '' : 's'} · ${buffer.editable ? 'edit and press Save to write it' : 'read-only'}`);
+    render(); schedulePreview();
   }
-  editor.addEventListener('input', () => { if (current?.editable) { current.text = editor.value; render(); schedulePreview(); } });
   async function renderVisual() {
     if (!current || view !== 'visual') return;
     const at = ++visualGeneration;
@@ -170,7 +214,7 @@ export function createFilesPanel(options: Options) {
           if (!current) return;
           try {
             const text = await options.invoke<string>('files_visual_apply', { text: current.text, edits: [{ index, text: field.value }] });
-            current.text = text; editor.value = text; field.classList.remove('invalid'); setStatus('Edited visually; Save writes the file.'); render();
+            current.text = text; codeView?.replace(text); field.classList.remove('invalid'); setStatus('Edited visually; Save writes the file.'); render();
           } catch (error) { field.classList.add('invalid'); setStatus(message(error), true); }
         }, 300);
       });
@@ -196,24 +240,31 @@ export function createFilesPanel(options: Options) {
     setStatus(outcome.message, true); return false;
   }
   save.onclick = () => { void saveCurrent().catch(error => setStatus(message(error), true)); };
+  // Ctrl+S saves while the panel has the keyboard.
+  dialog.addEventListener('keydown', event => {
+    if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 's') { event.preventDefault(); if (!save.disabled && !save.hidden) save.click(); }
+  });
   let searchTimer = 0;
   search.addEventListener('input', () => {
     clearTimeout(searchTimer);
     searchTimer = window.setTimeout(async () => {
       const query = search.value.trim(); const project = projectPath();
-      if (!query) { void openFolder(folder).catch(() => {}); return; }
+      if (!query) { await cancelPending(); tree.results(null); setStatus(current ? status.textContent ?? '' : 'Files open for reading; nothing is run.'); return; }
       if (!project) return;
       await cancelPending(); const request = id(); pending = request;
       setStatus('Searching…');
       try {
         const result = await options.invoke<Search>('files_search', { project, query, requestId: request });
         if (pending !== request) return; pending = null;
-        list.replaceChildren(...result.hits.map(entryRow));
-        crumbs.textContent = `Results for “${result.query}”`;
+        tree.results(result.hits);
         setStatus(result.cancelled ? 'Search cancelled.' : result.timedOut ? 'Search stopped after 5 seconds; results are partial.'
-          : result.truncated ? 'Too many matches; refine the name.' : `${result.hits.length} match${result.hits.length === 1 ? '' : 'es'}.`);
+          : result.truncated ? 'Too many matches; refine the name.' : `${result.hits.length} match${result.hits.length === 1 ? '' : 'es'} for “${result.query}”.`);
       } catch (error) { if (pending === request) { pending = null; setStatus(message(error), true); } }
     }, 250);
+  });
+  search.addEventListener('keydown', event => {
+    if (event.key === 'ArrowDown') { event.preventDefault(); tree.focus(); }
+    else if (event.key === 'Escape' && search.value) { event.preventDefault(); event.stopPropagation(); search.value = ''; search.dispatchEvent(new Event('input')); }
   });
   closeButton.onclick = async () => {
     const dirty = [...buffers.values()].filter(b => b.text !== b.baseText);
@@ -221,12 +272,14 @@ export function createFilesPanel(options: Options) {
     dialog.close();
   };
   dialog.addEventListener('cancel', event => { event.preventDefault(); closeButton.click(); });
-  dialog.addEventListener('close', () => { void cancelPending(); buffers.clear(); current = null; editor.value = ''; preview.replaceChildren(); render(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
+  /** Everything the panel holds goes when it closes: buffers, editor states, the tree. */
+  function forgetAll() { buffers.clear(); current = null; showingImage = false; codeView?.clear(); preview.replaceChildren(); picture.replaceChildren(); visual.replaceChildren(); language.textContent = ''; render(); }
+  dialog.addEventListener('close', () => { void cancelPending(); forgetAll(); tree.clear(); search.value = ''; if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
   chooser.onchange = async () => {
     const dirty = [...buffers.values()].some(b => b.text !== b.baseText);
     if (dirty && !await options.decide('Discard unsaved changes?', 'Switching project discards unsaved changes in this panel.', 'Discard')) return;
-    buffers.clear(); current = null; editor.value = ''; preview.replaceChildren(); render();
-    try { await openFolder(''); } catch (error) { setStatus(message(error), true); }
+    forgetAll(); search.value = ''; tree.results(null);
+    try { await tree.load(); } catch (error) { setStatus(message(error), true); }
   };
   async function show() {
     const projects = await options.invoke<{ path: string; name: string; available: boolean }[]>('project_recent').catch(() => []);
@@ -237,9 +290,9 @@ export function createFilesPanel(options: Options) {
     chooser.value = usable.find(p => p.path.replace(/[\\/]+$/, '').toLowerCase() === preferred)?.path ?? usable[0].path;
     if (!dialog.open) openModal(dialog);
     render(); setStatus('Files open for reading; nothing is run.');
-    try { await openFolder(''); } catch (error) { setStatus(message(error), true); }
+    try { await tree.load(); } catch (error) { setStatus(message(error), true); }
     search.focus();
   }
-  void confirmLeave; render();
+  render();
   return { show };
 }

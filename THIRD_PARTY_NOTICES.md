@@ -6,7 +6,7 @@ Runtime and build-tool reachability are conservative package-level classificatio
 Full packaged LICENSE/COPYRIGHT/NOTICE texts and reviewed supplements are generated in `.verification/THIRD_PARTY_LICENSES.txt`; distribute that file with prototype artifacts.
 System WebView2 and system fonts are external dependencies, not bundled assets. npm, Python and the Rust toolchain are build/test tools. The separately pinned sidecar source/runtime preparation is outside this Cargo/npm inventory. Its complete publisher Node license bundle is verified by sidecar/prepare-runtime.ps1; that check does not close X3 or certify a product release.
 
-Target: `x86_64-pc-windows-msvc`. Indexed packages: 294.
+Target: `x86_64-pc-windows-msvc`. Indexed packages: 331.
 
 | Ecosystem | Package | Version | Reachability | Declared license | Policy | License text files |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -21,7 +21,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 294.
 | Rust | bit-vec | 0.8.0 | build-tool, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | bitflags | 1.3.2 | build-tool, runtime | MIT/Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | bitflags | 2.13.2 | build-tool, dev-test, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
-| Rust | block-buffer | 0.10.4 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
+| Rust | block-buffer | 0.10.4 | build-tool, dev-test, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | brotli | 9.1.1 | build-tool, runtime | BSD-3-Clause AND MIT | recognized | LICENSE.BSD-3-Clause; LICENSE.MIT |
 | Rust | brotli-decompressor | 6.2.0 | build-tool, runtime | BSD-3-Clause/MIT | recognized | LICENSE |
 | Rust | bs58 | 0.5.1 | build-tool, runtime | MIT/Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
@@ -37,11 +37,11 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 294.
 | Rust | cfg_aliases | 0.1.1 | build-tool | MIT | recognized | LICENSE; NOTICES.md |
 | Rust | chrono | 0.4.45 | build-tool, dev-test, runtime | MIT OR Apache-2.0 | recognized | LICENSE.txt |
 | Rust | cookie | 0.18.2 | runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
-| Rust | cpufeatures | 0.2.17 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
+| Rust | cpufeatures | 0.2.17 | build-tool, dev-test, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | crc32fast | 1.5.4 | build-tool | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | crossbeam-channel | 0.5.17 | runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT; LICENSE-THIRD-PARTY |
 | Rust | crossbeam-utils | 0.8.23 | runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
-| Rust | crypto-common | 0.1.7 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
+| Rust | crypto-common | 0.1.7 | build-tool, dev-test, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | cssparser | 0.37.0 | build-tool, runtime | MPL-2.0 | release-review-required | LICENSE |
 | Rust | cssparser-macros | 0.7.1 | build-tool | MPL-2.0 | release-review-required | LICENSE |
 | Rust | ctor | 1.0.13 | build-tool, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
@@ -54,7 +54,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 294.
 | Rust | deranged | 0.5.9 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-Apache; LICENSE-MIT |
 | Rust | derive_more | 2.1.1 | build-tool, runtime | MIT | recognized | LICENSE |
 | Rust | derive_more-impl | 2.1.1 | build-tool | MIT | recognized | LICENSE |
-| Rust | digest | 0.10.7 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
+| Rust | digest | 0.10.7 | build-tool, dev-test, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | dirs | 7.0.0 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | dirs-sys | 0.5.0 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | displaydoc | 0.2.7 | build-tool | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
@@ -78,7 +78,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 294.
 | Rust | fnv | 1.0.7 | build-tool, runtime | Apache-2.0 / MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | foldhash | 0.2.0 | build-tool, dev-test, runtime | Zlib | recognized | LICENSE |
 | Rust | form_urlencoded | 1.2.2 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
-| Rust | generic-array | 0.14.7 | build-tool, runtime | MIT | recognized | LICENSE |
+| Rust | generic-array | 0.14.7 | build-tool, dev-test, runtime | MIT | recognized | LICENSE |
 | Rust | getrandom | 0.3.4 | runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | getrandom | 0.4.3 | build-tool, dev-test, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | glob | 0.3.4 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
@@ -160,6 +160,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 294.
 | Rust | rusqlite | 0.40.2 | dev-test, runtime | MIT | recognized | LICENSE |
 | Rust | rustc-hash | 2.1.3 | build-tool, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | rustc_version | 0.4.1 | build-tool | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
+| Rust | ruzstd | 0.9.1 | runtime | MIT | recognized | LICENSE |
 | Rust | same-file | 1.0.6 | build-tool, runtime | Unlicense/MIT | recognized | COPYING; LICENSE-MIT |
 | Rust | schemars | 0.8.22 | build-tool, runtime | MIT | recognized | LICENSE |
 | Rust | schemars | 0.9.0 | build-tool, runtime | MIT | recognized | LICENSE |
@@ -182,7 +183,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 294.
 | Rust | serialize-to-javascript | 0.1.2 | runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | serialize-to-javascript-impl | 0.1.2 | build-tool | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | servo_arc | 0.4.3 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
-| Rust | sha2 | 0.10.9 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
+| Rust | sha2 | 0.10.9 | build-tool, dev-test, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | shared_library | 0.1.9 | runtime | Apache-2.0/MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | shell-words | 1.1.1 | runtime | MIT/Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | shlex | 2.0.1 | build-tool, dev-test | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
@@ -224,14 +225,15 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 294.
 | Rust | tinyvec | 1.13.3 | build-tool, runtime | Zlib OR Apache-2.0 OR MIT | recognized | LICENSE-APACHE.md; LICENSE-MIT.md; LICENSE-ZLIB.md |
 | Rust | tokio | 1.54.1 | runtime | MIT | recognized | LICENSE |
 | Rust | toml | 1.1.8+spec-1.1.0 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
-| Rust | toml_datetime | 1.1.2+spec-1.1.0 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
+| Rust | toml_datetime | 1.1.3+spec-1.1.0 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
+| Rust | toml_edit | 0.25.19+spec-1.1.0 | runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | toml_parser | 1.1.5+spec-1.1.0 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
-| Rust | toml_writer | 1.1.3+spec-1.1.0 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
+| Rust | toml_writer | 1.2.0+spec-1.1.0 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | tracing | 0.1.44 | runtime | MIT | recognized | LICENSE |
 | Rust | tracing-core | 0.1.36 | runtime | MIT | recognized | LICENSE |
 | Rust | tray-icon | 0.25.1 | runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT; LICENSE.spdx |
 | Rust | typeid | 1.0.3 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
-| Rust | typenum | 1.20.1 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE; LICENSE-APACHE; LICENSE-MIT |
+| Rust | typenum | 1.20.1 | build-tool, dev-test, runtime | MIT OR Apache-2.0 | recognized | LICENSE; LICENSE-APACHE; LICENSE-MIT |
 | Rust | unicode-ident | 1.0.27 | build-tool, dev-test, runtime | (MIT OR Apache-2.0) AND Unicode-3.0 | recognized | LICENSE-APACHE; LICENSE-MIT; LICENSE-UNICODE |
 | Rust | unicode-segmentation | 1.13.3 | runtime | MIT OR Apache-2.0 | recognized | COPYRIGHT; LICENSE-APACHE; LICENSE-MIT |
 | Rust | url | 2.5.8 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
@@ -240,7 +242,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 294.
 | Rust | utf_types | 1.0.0 | build-tool, runtime | Apache-2.0 OR MIT | recognized | COPYRIGHT; LICENSE-APACHE; LICENSE-MIT |
 | Rust | uuid | 1.29.0 | build-tool, dev-test, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | vcpkg | 0.2.15 | build-tool, dev-test | MIT/Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
-| Rust | version_check | 0.9.5 | build-tool | MIT/Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
+| Rust | version_check | 0.9.5 | build-tool, dev-test | MIT/Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | vswhom | 0.1.0 | build-tool | MIT | recognized | LICENSE |
 | Rust | vswhom-sys | 0.1.3 | build-tool | MIT | recognized | LICENSE |
 | Rust | walkdir | 2.5.0 | build-tool, runtime | Unlicense/MIT | recognized | COPYING; LICENSE-MIT |
@@ -279,6 +281,38 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 294.
 | Rust | zerovec-derive | 0.11.7 | build-tool | Unicode-3.0 | recognized | LICENSE |
 | Rust | zlib-rs | 0.6.8 | build-tool | Zlib | recognized | LICENSE |
 | Rust | zmij | 1.0.23 | build-tool, dev-test, runtime | MIT | recognized | LICENSE-MIT |
+| npm | @codemirror/autocomplete | 6.20.4 | runtime | MIT | recognized | LICENSE |
+| npm | @codemirror/commands | 6.11.1 | runtime | MIT | recognized | LICENSE |
+| npm | @codemirror/lang-css | 6.3.1 | runtime | MIT | recognized | LICENSE |
+| npm | @codemirror/lang-html | 6.4.12 | runtime | MIT | recognized | LICENSE |
+| npm | @codemirror/lang-javascript | 6.2.5 | runtime | MIT | recognized | LICENSE |
+| npm | @codemirror/lang-json | 6.0.2 | runtime | MIT | recognized | LICENSE |
+| npm | @codemirror/lang-markdown | 6.5.2 | runtime | MIT | recognized | LICENSE |
+| npm | @codemirror/lang-python | 6.2.1 | runtime | MIT | recognized | LICENSE |
+| npm | @codemirror/lang-rust | 6.0.2 | runtime | MIT | recognized | LICENSE |
+| npm | @codemirror/lang-sql | 6.10.0 | runtime | MIT | recognized | LICENSE |
+| npm | @codemirror/lang-xml | 6.1.0 | runtime | MIT | recognized | LICENSE |
+| npm | @codemirror/lang-yaml | 6.1.3 | runtime | MIT | recognized | LICENSE |
+| npm | @codemirror/language | 6.13.1 | runtime | MIT | recognized | LICENSE |
+| npm | @codemirror/legacy-modes | 6.5.5 | runtime | MIT | recognized | LICENSE |
+| npm | @codemirror/lint | 6.9.8 | runtime | MIT | recognized | LICENSE |
+| npm | @codemirror/search | 6.7.2 | runtime | MIT | recognized | LICENSE |
+| npm | @codemirror/state | 6.7.6 | runtime | MIT | recognized | LICENSE |
+| npm | @codemirror/streamparser | 6.0.0 | runtime | MIT | recognized | LICENSE |
+| npm | @codemirror/view | 6.43.15 | runtime | MIT | recognized | LICENSE |
+| npm | @lezer/common | 1.5.5 | runtime | MIT | recognized | LICENSE |
+| npm | @lezer/css | 1.3.9 | runtime | MIT | recognized | LICENSE |
+| npm | @lezer/highlight | 1.2.5 | runtime | MIT | recognized | LICENSE |
+| npm | @lezer/html | 1.3.13 | runtime | MIT | recognized | LICENSE |
+| npm | @lezer/javascript | 1.5.6 | runtime | MIT | recognized | LICENSE |
+| npm | @lezer/json | 1.0.3 | runtime | MIT | recognized | LICENSE |
+| npm | @lezer/lr | 1.4.12 | runtime | MIT | recognized | LICENSE |
+| npm | @lezer/markdown | 1.8.1 | runtime | MIT | recognized | LICENSE |
+| npm | @lezer/python | 1.1.19 | runtime | MIT | recognized | LICENSE |
+| npm | @lezer/rust | 1.0.3 | runtime | MIT | recognized | LICENSE |
+| npm | @lezer/xml | 1.0.6 | runtime | MIT | recognized | LICENSE |
+| npm | @lezer/yaml | 1.0.4 | runtime | MIT | recognized | LICENSE |
+| npm | @marijn/find-cluster-break | 1.0.4 | runtime | MIT | recognized | LICENSE |
 | npm | @oxc-project/types | 0.156.0 | build-tool | MIT | recognized | LICENSE |
 | npm | @playwright/test | 1.64.1 | build-tool | Apache-2.0 | recognized | LICENSE; NOTICE |
 | npm | @rolldown/binding-win32-x64-msvc | 1.2.16 | build-tool | MIT | recognized | rolldown/LICENSE |
@@ -289,6 +323,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 294.
 | npm | @typescript/typescript-win32-x64 | 7.0.2 | build-tool | Apache-2.0 | recognized | LICENSE; NOTICE.txt |
 | npm | @xterm/addon-fit | 0.11.0 | runtime | MIT | recognized | LICENSE |
 | npm | @xterm/xterm | 6.0.0 | runtime | MIT | recognized | LICENSE |
+| npm | crelt | 1.0.7 | runtime | MIT | recognized | LICENSE |
 | npm | detect-libc | 2.1.2 | build-tool | Apache-2.0 | recognized | LICENSE |
 | npm | fdir | 6.5.0 | build-tool | MIT | recognized | LICENSE |
 | npm | lightningcss | 1.33.0 | build-tool | MPL-2.0 | release-review-required | LICENSE |
@@ -301,9 +336,11 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 294.
 | npm | postcss | 8.5.32 | build-tool | MIT | recognized | LICENSE |
 | npm | rolldown | 1.2.16 | build-tool | MIT | recognized | LICENSE |
 | npm | source-map-js | 1.2.2 | build-tool | BSD-3-Clause | recognized | LICENSE |
+| npm | style-mod | 4.1.4 | runtime | MIT | recognized | LICENSE |
 | npm | tinyglobby | 0.2.17 | build-tool | MIT | recognized | LICENSE |
 | npm | typescript | 7.0.2 | build-tool | Apache-2.0 | recognized | LICENSE; NOTICE.txt |
 | npm | vite | 8.3.5 | build-tool | MIT | recognized | LICENSE.md |
+| npm | w3c-keyname | 2.2.8 | runtime | MIT | recognized | LICENSE |
 
 ## Project-owned bundled assets
 

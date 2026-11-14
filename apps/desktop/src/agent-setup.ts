@@ -141,7 +141,7 @@ export function createAgentSetup(options: Options) {
   button.onclick = show; dismiss.onclick = close;
   check.onclick = () => { void act('check'); }; launch.onclick = () => { void act('open'); }; login.onclick = () => { void act('login'); };
   provider.onchange = () => { generation++; snapshot = null; failure = ''; render(); };
-  dialog.addEventListener('close', () => { if (!dialog.open) { generation++; options.restoreFocus?.(); } });
+  dialog.addEventListener('close', () => { if (!dialog.open) { generation++; if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); } });
   render();
   return { show, close, destroy: () => { destroyed = true; close(); button.remove(); dialog.remove(); } };
 }

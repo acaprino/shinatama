@@ -36,6 +36,14 @@ function selector(value: unknown): value is SessionRootSelector & Record<string,
     && integer(value.configurationRevision) && value.configurationRevision > 0;
 }
 const same = (a: SessionRootSelector, b: SessionRootSelector) => a.storeRootId === b.storeRootId && a.configurationRevision === b.configurationRevision;
+/** "14 Nov 10:22", or "10:22" today; a value that is not a date is shown as recorded. */
+export function when(value: string | null | undefined): string {
+  if (!value) return 'Unknown';
+  const at = new Date(value); if (Number.isNaN(at.getTime())) return value;
+  const today = at.toDateString() === new Date().toDateString();
+  const time = at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return today ? time : `${at.toLocaleDateString([], { day: '2-digit', month: 'short', year: at.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' })} ${time}`;
+}
 function rootsValue(value: unknown): SessionLibraryRoot[] | null {
   if (!Array.isArray(value) || value.length > 100) return null;
   const result: SessionLibraryRoot[] = [];
@@ -131,7 +139,7 @@ export function createSessionLibrary(options: Options) {
   const scroll = document.createElement('div'); scroll.className = 'session-library-table';
   const table = document.createElement('table'); table.id = 'session-library-list'; table.setAttribute('aria-label', 'Session metadata');
   const head = document.createElement('thead'); const header = document.createElement('tr');
-  for (const label of ['Session ID', 'Title', 'Working folder', 'Updated']) { const cell = document.createElement('th'); cell.scope = 'col'; cell.textContent = label; header.append(cell); }
+  for (const label of ['Session', 'Working folder', 'Updated']) { const cell = document.createElement('th'); cell.scope = 'col'; cell.textContent = label; header.append(cell); }
   head.append(header); const body = document.createElement('tbody'); table.append(head, body); scroll.append(table);
   const projects = document.createElement('div'); projects.id = 'session-library-projects'; projects.setAttribute('aria-label', 'Projects and sessions on this page'); scroll.append(projects);
   const pagination = document.createElement('div'); pagination.className = 'session-library-pagination';
@@ -155,7 +163,11 @@ export function createSessionLibrary(options: Options) {
     const term = document.createElement('dt'); term.textContent = label; const detail = document.createElement('dd'); detail.textContent = value === null || value === '' ? 'Unknown' : String(value); metadata.append(term, detail);
   }
   function chooseSession(row: SessionMetadataRow, owner: SessionListPage) {
-    const choose = document.createElement('button'); choose.type = 'button'; choose.textContent = row.nativeId;
+    // The title is what a person recognises; the ID stays visible beneath it, shortened, in full on hover.
+    const choose = document.createElement('button'); choose.type = 'button'; choose.className = 'session-library-choose';
+    const name = document.createElement('span'); name.className = 'session-library-title'; name.textContent = row.title || 'Untitled session';
+    const native = document.createElement('span'); native.className = 'session-library-id'; native.textContent = row.nativeId.length > 18 ? `${row.nativeId.slice(0, 8)}…${row.nativeId.slice(-4)}` : row.nativeId;
+    choose.append(name, native); choose.title = row.nativeId; choose.setAttribute('aria-label', `${row.title || 'Untitled session'}, session ${row.nativeId}`);
     choose.dataset.nativeId = row.nativeId; choose.disabled = busy !== null;
     choose.setAttribute('aria-pressed', String(selected === row));
     choose.onclick = () => {
@@ -192,8 +204,11 @@ export function createSessionLibrary(options: Options) {
     const visible = page?.rows.filter(row => [row.nativeId, row.title, row.workingDirectory, row.updatedAt].some(value => value?.toLocaleLowerCase().includes(query))) ?? [];
     if (page && view === 'list') {
       for (const row of visible) {
-        const line = document.createElement('tr'); const id = document.createElement('td'); id.append(chooseSession(row, page)); line.append(id);
-        for (const value of [row.title, row.workingDirectory, row.updatedAt]) { const cell = document.createElement('td'); cell.textContent = value || 'Unknown'; line.append(cell); } body.append(line);
+        const line = document.createElement('tr'); line.setAttribute('aria-selected', String(selected === row));
+        const id = document.createElement('td'); id.append(chooseSession(row, page)); line.append(id);
+        const folder = document.createElement('td'); folder.className = 'session-library-folder'; folder.textContent = row.workingDirectory || 'Unknown'; folder.title = row.workingDirectory || '';
+        const updated = document.createElement('td'); updated.className = 'session-library-updated'; updated.textContent = when(row.updatedAt); updated.title = row.updatedAt || '';
+        line.append(folder, updated); body.append(line);
       }
     } else if (page) {
       const owner = page; const groups = new Map<string | null, SessionMetadataRow[]>();
@@ -303,7 +318,7 @@ export function createSessionLibrary(options: Options) {
   listView.onclick = () => { view = 'list'; render(); }; projectView.onclick = () => { view = 'projects'; render(); };
   button.onclick = show; closeButton.onclick = close;
   detail.onclick = () => { const root = currentRoot(); if (!busy && root?.available && selected) options.openDetail?.({storeRootId:root.storeRootId,configurationRevision:root.configurationRevision},selected.nativeId); };
-  dialog.addEventListener('close', () => { if (!dialog.open) { generation++; options.restoreFocus?.(); } });
+  dialog.addEventListener('close', () => { if (!dialog.open) { generation++; if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); } });
   render();
   return { show, close, destroy: () => { destroyed = true; close(); button.remove(); dialog.remove(); } };
 }
