@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { adoptStopReply, buttons, capabilityLines, confirmStillNeeded, driftLine, leverText, nextCapabilityLines, parseCapabilities, parseStatus, phaseLabel, showsTraffic, startLabel, stopConsequence, trafficLine, type CapabilityState, type Lever, type ProxyStatus } from '../src/sidecar-status.ts';
+import { adoptStopReply, buttons, capabilityLines, confirmStillNeeded, driftLine, indicatorTone, leverText, nextCapabilityLines, parseCapabilities, parseStatus, phaseLabel, showsTraffic, startLabel, stopConsequence, trafficLine, type CapabilityState, type Lever, type ProxyStatus } from '../src/sidecar-status.ts';
 
 const status = (over: Partial<ProxyStatus> = {}): ProxyStatus => ({
   phase: 'ready', healthy: true, message: null, inFlight: 0, agentSessions: 0,
@@ -216,4 +216,12 @@ test('a poll tick repaints only when the capability lines changed', () => {
   assert.equal(changed?.[0], 'Large-result storage: configured, not active here — this agent cannot call the retrieval tool');
   assert.deepEqual(nextCapabilityLines(first, { state: 'not_observed' }), capabilityLines({ state: 'not_observed' }));
   assert.deepEqual(nextCapabilityLines([], same), capabilityLines(same));
+});
+test('the indicator tone follows the phase, and an unknown phase is dark', () => {
+  assert.equal(indicatorTone('ready'), 'live');
+  assert.equal(indicatorTone('busy'), 'busy');
+  for (const phase of ['preparing', 'starting', 'recovering']) assert.equal(indicatorTone(phase), 'transit');
+  for (const phase of ['draining', 'degraded']) assert.equal(indicatorTone(phase), 'warn');
+  for (const phase of ['failed', 'retired']) assert.equal(indicatorTone(phase), 'fault');
+  for (const phase of ['stopped', 'unavailable', 'nonsense', 'toString']) assert.equal(indicatorTone(phase), 'off');
 });

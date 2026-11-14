@@ -63,6 +63,16 @@ export function phaseLabel(phase: string): string {
   return Object.hasOwn(LABELS, phase) ? LABELS[phase] : LABELS.unavailable;
 }
 
+/** The indicator light's tone for a phase: live steady, busy and transit sweep, warn and fault blink, off is dark. */
+export type IndicatorTone = 'live' | 'busy' | 'transit' | 'warn' | 'fault' | 'off';
+const TONES: Record<string, IndicatorTone> = {
+  ready: 'live', busy: 'busy', preparing: 'transit', starting: 'transit', recovering: 'transit',
+  draining: 'warn', degraded: 'warn', failed: 'fault', retired: 'fault', stopped: 'off', unavailable: 'off',
+};
+export function indicatorTone(phase: string): IndicatorTone {
+  return Object.hasOwn(TONES, phase) ? TONES[phase] : 'off';
+}
+
 /** True = enabled. While a command from the panel is outstanding nothing is. */
 export function buttons(status: ProxyStatus | null, outstanding: boolean): { start: boolean; stop: boolean; retry: boolean } {
   if (outstanding) return { start: false, stop: false, retry: false };
