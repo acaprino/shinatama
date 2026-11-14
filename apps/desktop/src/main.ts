@@ -753,13 +753,17 @@ async function openNewSession(group: string = focusedGroup(), path?: string, har
   const pressed = document.activeElement instanceof HTMLElement && document.activeElement.matches('#new-terminal,[data-new-terminal],.wm-add,.wm-empty-start,.thread-sidebar-create')
     ? document.activeElement : null;
   const selectedProject = threadSidebar?.currentProjectId();
-  const selectedPath = newSessionProject(scope, { explicit: path,
-    openThread: openWorkset ? recentThreadProjects.get(openWorkset.projectId) : undefined,
+  // The open thread's folder: from the project list, else from one of its open sessions.
+  const threadFolder = openWorkset ? recentThreadProjects.get(openWorkset.projectId)
+    ?? [...views.values()].find(view => view.workset?.id === openWorkset?.id && !view.disposed)?.info.cwd : undefined;
+  const selectedPath = newSessionProject(scope, { explicit: path, threadOpen: !!openWorkset,
+    openThread: threadFolder,
     sidebar: selectedProject ? recentThreadProjects.get(selectedProject) : undefined,
     selected: selectedProjectPath, current: projectPath });
   openingSessionDialog = true;
   try {
     await loadHarnessCatalog();
+    if (!selectedPath && scope === 'thread' && openWorkset) { notify('The folder of this thread\'s project is not available. Use New session beside the projects.', 'info'); return; }
     if (!selectedPath) { notify('Choose a project first: sessions start in the selected project.', 'info'); $('#project').click(); return; }
     $('#notice').hidden = true;
     if (harness && sessionHarnesses.some(candidate => candidate.id === harness)) { await launchSession(selectedPath, harness, group); return; }

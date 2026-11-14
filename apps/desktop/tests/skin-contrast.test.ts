@@ -44,7 +44,9 @@ test('chrome colors come only from the skin tokens (ADR-0039 INV-001)', () => {
 
 test('no glow and no rounded chrome in the default skin', () => {
   assert.doesNotMatch(css, /text-shadow/);
-  assert.doesNotMatch(css, /border-radius:\s*[1-9]/);
+  // A status lamp is a dot, not a rounded corner: only its exact circle is allowed.
+  const withoutLamps = css.replace(/\.lamp\s*\{[^}]*\}/g, block => block.replace(/border-radius:\s*50%;?/, ''));
+  assert.doesNotMatch(withoutLamps, /border-radius:\s*[1-9]/);
   for (const shadow of css.matchAll(/box-shadow:\s*([^;}]+)/g)) {
     assert.match(shadow[1], /var\(--shadow\)|^none$/, `only dark drop shadows are allowed: ${shadow[1]}`);
   }

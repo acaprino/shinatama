@@ -103,9 +103,10 @@ pub enum Priority {
     /// An explicit read that is worthless after `Instant` (the names on screen): it stops waiting
     /// for the worker and for admission at that moment, so no abandoned read is left queued.
     ExplicitBy(Instant),
-    /// Periodic work (instance summaries). It waits for healthy resource measurements without
-    /// holding the worker, and yields the worker to explicit reads.
-    Background,
+    /// Optional periodic work (instance summaries), worthless after `Instant`. It waits for the
+    /// governor's admission until then without holding the worker, and yields the worker to
+    /// explicit reads: under memory pressure it is deferred, as optional work must be.
+    BackgroundBy(Instant),
 }
 type Result<T> = std::result::Result<T, SessionReadIssue>;
 
@@ -329,9 +330,9 @@ impl Controller {
     /// for the read in progress to end.
     fn acquire(self: &Arc<Self>, priority: Priority) -> Result<WorkerSlot> {
         match priority {
-            Priority::Background => {
+            Priority::BackgroundBy(by) => {
                 self.runtime
-                    .wait_for_admission()
+                    .wait_for_admission_until(by)
                     .map_err(|_| SessionReadIssue::WorkerUnavailable)?;
                 // The reader may have been blocked during that wait: no replacement read begins.
                 if self.blocked.load(Ordering::Acquire) {
@@ -480,7 +481,7 @@ impl Controller {
             Priority::Explicit => self.explicit_workload(None)?,
             Priority::ExplicitBy(by) => self.explicit_workload(Some(by))?,
             // `acquire` already waited for healthy measurements.
-            Priority::Background => self
+            Priority::BackgroundBy(_) => self
                 .runtime
                 .prepare_background_workload(metadata_worker_budget(), 768 * MIB, 15_000)
                 .map_err(|_| SessionReadIssue::WorkerUnavailable)?,
@@ -510,8 +511,9 @@ impl Controller {
     pub async fn detail_by(self: &Arc<Self>, request: DetailRequest, by: Instant) -> Result<DetailReply> {
         self.detail_at(Priority::ExplicitBy(by), request).await
     }
-    pub async fn detail_background(self: &Arc<Self>, request: DetailRequest) -> Result<DetailReply> {
-        self.detail_at(Priority::Background, request).await
+    /// A background [`Controller::detail`] that gives up at `by`, waiting included.
+    pub async fn detail_background_by(self: &Arc<Self>, request: DetailRequest, by: Instant) -> Result<DetailReply> {
+        self.detail_at(Priority::BackgroundBy(by), request).await
     }
     async fn detail_at(self: &Arc<Self>, priority: Priority, request: DetailRequest) -> Result<DetailReply> {
         self.worker(priority, move |controller| {

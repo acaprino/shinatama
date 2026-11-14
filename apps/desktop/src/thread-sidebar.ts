@@ -1,5 +1,5 @@
 import './thread-sidebar.css';
-import { resumeFailureText } from './resume-failure.ts';
+import { resumeFailureCode, resumeFailureText } from './resume-failure.ts';
 
 export type CurrentThreadProject = { projectId: string; label?: string };
 export type ThreadCursor = { updatedAt: number; threadId: string };
@@ -88,14 +88,14 @@ function updatedText(timestamp: number) {
   const date = new Date(timestamp); return Number.isNaN(date.valueOf()) ? 'Unknown' : date.toLocaleString();
 }
 function failureText(error: unknown) {
-  const code = typeof error === 'string' ? error : record(error) ? error.code ?? error.issue : null;
+  const code = resumeFailureCode(error);
   if (code === 'project_missing') return 'The current project is unavailable. Choose it again.';
   if (code === 'busy') return 'Thread storage is busy. Reload explicitly.';
   if (code === 'source_changed' || code === 'conflict') return 'Thread records changed. Reload this project explicitly.';
   return 'Thread records could not be loaded. Reload explicitly.';
 }
 function recoveryFailureText(error: unknown) {
-  const code = typeof error === 'string' ? error : record(error) ? error.code ?? error.issue : null;
+  const code = resumeFailureCode(error);
   if (code === 'session_alive') return 'This session is still open. Stop it in its terminal before resuming.';
   if (code === 'owner_alive') return 'The app instance that owns this session is still running. Close that instance before recovering it.';
   if (code === 'cleanup_unproven') return 'This session could not be recovered because its shutdown was not confirmed. Its saved conversation is preserved.';
@@ -104,7 +104,7 @@ function recoveryFailureText(error: unknown) {
   return 'The previous session could not be verified. Its saved conversation is preserved.';
 }
 function archiveFailureText(error: unknown, forgetting: boolean) {
-  const code = typeof error === 'string' ? error : record(error) ? error.code ?? error.issue : null;
+  const code = resumeFailureCode(error);
   if (code === 'owned_elsewhere') return forgetting ? 'A session of this thread is open. Close it, then forget the thread.' : 'This conversation is open. Close it before archiving.';
   if (code === 'not_found') return 'This thread is already gone. Reload threads.';
   if (code === 'index_not_updated') return 'Thread forgotten, but the search index could not be updated; its text may still appear in search.';
@@ -581,7 +581,8 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     const chosen = page?.rows.find(row => row.id === clicked.id && row.projectId === selectedProject);
     if (!chosen || chosen.status === 'recorded_open' || chosen.status === 'archived') return;
     if (chosen.status === 'unbound' || chosen.nativeAvailable !== true) {
-      failed = true; message = 'No saved conversation yet'; render(); options.reportError(message); return;
+      failed = true; message = resumeFailureText({ code: chosen.status === 'unbound' ? 'unbound' : chosen.nativeAvailable === false ? 'native_missing' : 'native_unreachable' });
+      render(); options.reportError(message); return;
     }
     if (options.canResume?.(chosen) !== true) return;
     const project = selectedProject; const at = generation; const requested = cursor;

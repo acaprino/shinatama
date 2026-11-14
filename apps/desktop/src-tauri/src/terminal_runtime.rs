@@ -150,11 +150,9 @@ pub struct Runtime {
     configured: OnceLock<Result<(), String>>,
 }
 impl Runtime {
-    pub fn wait_for_admission(&self) -> Result<(), String> {
-        // Right after launch the governor is still calibrating (up to ~30 s). An
-        // explicit Open waits for that observation instead of failing, so the first
-        // session opened just after starting the app works.
-        let deadline = std::time::Instant::now() + Duration::from_secs(45);
+    /// Waits until `deadline` for the governor to admit background work: right after launch it
+    /// is still calibrating (up to ~30 s), and under memory pressure it defers optional work.
+    pub fn wait_for_admission_until(&self, deadline: std::time::Instant) -> Result<(), String> {
         loop {
             match self.admission.current_headroom(false) {
                 Ok(_) => return Ok(()),

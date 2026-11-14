@@ -9,9 +9,12 @@ export type NewSessionScope = 'thread' | 'project';
 /** The folder a new session starts in. `explicit` (Other folder…, a restart, a project's own
  * New session) is used as given; otherwise the control's own project comes first, then the others. */
 export function newSessionProject(scope: NewSessionScope, options: {
-  explicit?: string; openThread?: string; sidebar?: string; selected?: string; current: string;
+  explicit?: string; threadOpen?: boolean; openThread?: string; sidebar?: string; selected?: string; current: string;
 }): string | null {
   const { explicit, openThread, sidebar, selected, current } = options;
+  // A pane's + belongs to the open thread: when that thread's folder is unknown it starts nowhere
+  // rather than in another project, which would also leave the thread.
+  if (scope === 'thread' && !explicit && options.threadOpen && !openThread?.trim()) return null;
   const pick = scope === 'thread'
     ? [explicit, openThread, sidebar, selected, current]
     : [explicit, current, selected, sidebar, openThread];

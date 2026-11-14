@@ -17,6 +17,12 @@ test('an explicit folder (Other folder…, a restart) is used as given', () => {
   assert.equal(newSessionProject('project', { explicit: artcraft, openThread: jupiter, current: jupiter }), artcraft);
 });
 
+test('a pane\'s + never starts in another project when the open thread\'s folder is unknown', () => {
+  assert.equal(newSessionProject('thread', { threadOpen: true, sidebar: artcraft, selected: artcraft, current: artcraft }), null);
+  assert.equal(newSessionProject('thread', { threadOpen: true, explicit: artcraft, current: jupiter }), artcraft);
+  assert.equal(newSessionProject('project', { threadOpen: true, current: artcraft }), artcraft);
+});
+
 test('missing projects fall through in order, and nothing known gives null', () => {
   assert.equal(newSessionProject('thread', { sidebar: jupiter, selected: artcraft, current: artcraft }), jupiter);
   assert.equal(newSessionProject('project', { selected: artcraft, openThread: jupiter, current: '' }), artcraft);

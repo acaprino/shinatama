@@ -14,6 +14,8 @@ use tauri::{State, WebviewWindow};
 
 const REFRESH: Duration = Duration::from_secs(120);
 const MAX_READS_PER_CALL: usize = 8;
+/// The most time one `instance_titles` call spends reading summaries.
+const SUMMARIES_DEADLINE: Duration = Duration::from_secs(5);
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -82,6 +84,9 @@ pub async fn instance_titles(window: WebviewWindow, services: State<'_, Services
     };
     let mut rows = Vec::with_capacity(requests.len());
     let mut reads = 0;
+    // The overview waits for these summaries: past this deadline the rest are deferred to the
+    // next refresh instead of holding the panel while the governor defers optional work.
+    let deadline = Instant::now() + SUMMARIES_DEADLINE;
     let mut touched: HashMap<String, Vec<String>> = HashMap::new();
     for request in requests {
         let mut row = TitleRow { instance_id: request.instance_id, thread_id: request.thread_id.clone(), title: None, source: "verbatim", reason: None, touched: 0, usage: None };
@@ -103,7 +108,7 @@ pub async fn instance_titles(window: WebviewWindow, services: State<'_, Services
                     row.usage = snapshot.usage;
                     touched.insert(row.instance_id.clone(), snapshot.touched);
                 }
-                _ if reads >= MAX_READS_PER_CALL => row.reason = Some("refresh deferred"),
+                _ if reads >= MAX_READS_PER_CALL || Instant::now() >= deadline => row.reason = Some("refresh deferred"),
                 _ => {
                     reads += 1;
                     let target = {
@@ -119,13 +124,16 @@ pub async fn instance_titles(window: WebviewWindow, services: State<'_, Services
                         Some(target) => {
                             let detail = controller
                                 .inner()
-                                .detail_background(DetailRequest {
-                                    root: RootSelector { store_root_id: target.segment.native.store_root_id.clone(), configuration_revision: target.segment.native.store_revision },
-                                    native_id: target.segment.native.native_id.clone(),
-                                    cursor: None,
-                                    limit: 1,
-                                    overview_only: false,
-                                })
+                                .detail_background_by(
+                                    DetailRequest {
+                                        root: RootSelector { store_root_id: target.segment.native.store_root_id.clone(), configuration_revision: target.segment.native.store_revision },
+                                        native_id: target.segment.native.native_id.clone(),
+                                        cursor: None,
+                                        limit: 1,
+                                        overview_only: false,
+                                    },
+                                    deadline,
+                                )
                                 .await;
                             match detail.ok().and_then(|reply| reply.page) {
                                 Some(page) => {

@@ -15,6 +15,7 @@ export function resumeFailureText(error: unknown): string {
     case 'owned_elsewhere': return 'This conversation is already open.';
     case 'source_changed': case 'conflict': return 'This conversation changed. Reload threads and try again.';
     case 'unbound': case 'native_missing': return 'No saved conversation yet: nothing was said in this session.';
+    case 'native_unreachable': return 'The saved conversation cannot be reached now; nothing was started. Check that its folder is available, then resume again.';
     case 'project_unavailable': return 'The project folder of this conversation cannot be opened. Check that it still exists.';
     case 'unsupported_harness': return 'This agent cannot reopen its sessions.';
     case 'invalid_request': return 'This thread record is not valid. Reload threads.';
