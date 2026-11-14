@@ -46,6 +46,10 @@ tauri-plugin-dialog = "=2.8.4"
 windows-core = "0.62"
 # The desktop's async sleep in terminal_read; MIT. Already locked, now declared here (ADR-0047).
 tokio = { version = "1", features = ["time"] }
+# 2026-11-14: the CDP client of the Moli browser host (ADR-0056): WebSocket framing over the private
+# pipe, no TLS, no connector. MIT OR Apache-2.0 (futures-util), MIT (tokio-tungstenite).
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+tokio-tungstenite = { version = "0.28", default-features = false, features = ["handshake"] }
 # WebView2 process-failure and memory-target bindings; the version Tauri itself links. MIT.
 webview2-com = "0.39"
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_System_ProcessStatus", "Win32_System_Diagnostics_ToolHelp", "Win32_System_RemoteDesktop", "Win32_System_Console", "Win32_Security", "Win32_Storage_FileSystem", "Win32_Security_Authorization", "Win32_Security_Cryptography", "Win32_System_Registry", "Win32_System_Memory", "Win32_System_Environment", "Win32_System_SystemInformation", "Win32_System_Pipes", "Win32_System_IO", "Win32_System_DataExchange", "Win32_UI_Shell", "Wdk_Foundation", "Wdk_Storage_FileSystem"] }

@@ -8,6 +8,8 @@
 //! new command the user may choose. Nothing here starts an engine.
 use serde::{Deserialize, Serialize};
 
+pub mod cdp;
+
 pub const SCHEMA_VERSION: u32 = 1;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
