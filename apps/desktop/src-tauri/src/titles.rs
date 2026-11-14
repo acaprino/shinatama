@@ -119,7 +119,7 @@ pub async fn instance_titles(window: WebviewWindow, services: State<'_, Services
                         Some(target) => {
                             let detail = controller
                                 .inner()
-                                .detail(DetailRequest {
+                                .detail_background(DetailRequest {
                                     root: RootSelector { store_root_id: target.segment.native.store_root_id.clone(), configuration_revision: target.segment.native.store_revision },
                                     native_id: target.segment.native.native_id.clone(),
                                     cursor: None,
@@ -222,6 +222,9 @@ pub struct ThreadName {
     name: Option<String>,
 }
 
+/// The most time one `thread_names` call spends reading names.
+const NAMES_DEADLINE: Duration = Duration::from_secs(5);
+
 #[tauri::command]
 pub async fn thread_names(window: WebviewWindow, services: State<'_, Services>, controller: State<'_, Arc<sessions::Controller>>, thread_ids: Vec<String>) -> Result<Vec<ThreadName>, String> {
     crate::local(&window)?;
@@ -230,7 +233,15 @@ pub async fn thread_names(window: WebviewWindow, services: State<'_, Services>, 
     }
     let services = services.inner().clone();
     let mut rows = Vec::with_capacity(thread_ids.len());
+    // Names are what the sidebar shows; a launch or a Resume waits for them. However slow the
+    // reads, the names past this deadline stay unnamed (the harness label) instead of holding
+    // up the window.
+    let deadline = Instant::now() + NAMES_DEADLINE;
     for thread in thread_ids {
+        if Instant::now() >= deadline {
+            rows.push(ThreadName { thread_id: thread, name: None });
+            continue;
+        }
         let target = {
             let services = services.clone();
             let thread = thread.clone();
@@ -243,17 +254,16 @@ pub async fn thread_names(window: WebviewWindow, services: State<'_, Services>, 
             rows.push(ThreadName { thread_id: thread, name: None });
             continue;
         };
-        let detail = controller
-            .inner()
-            .detail(DetailRequest {
-                root: RootSelector { store_root_id: target.segment.native.store_root_id.clone(), configuration_revision: target.segment.native.store_revision },
-                native_id: target.segment.native.native_id.clone(),
-                cursor: None,
-                limit: 1,
-                overview_only: true,
-            })
-            .await;
-        let name = detail.ok().and_then(|reply| reply.page).and_then(|page| page.overview.title);
+        let read = controller.inner().detail(DetailRequest {
+            root: RootSelector { store_root_id: target.segment.native.store_root_id.clone(), configuration_revision: target.segment.native.store_revision },
+            native_id: target.segment.native.native_id.clone(),
+            cursor: None,
+            limit: 1,
+            overview_only: true,
+        });
+        // A read still running at the deadline finishes on its worker; only its name is dropped.
+        let detail = tokio::time::timeout(deadline.saturating_duration_since(Instant::now()), read).await;
+        let name = detail.ok().and_then(Result::ok).and_then(|reply| reply.page).and_then(|page| page.overview.title);
         rows.push(ThreadName { thread_id: thread, name });
     }
     Ok(rows)

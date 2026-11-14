@@ -52,6 +52,9 @@ fn snapshot_error(error: ThreadResumeError) -> Error {
 fn read_error(error: SessionReadIssue) -> Error {
     issue(match error {
         SessionReadIssue::RootChanged | SessionReadIssue::SourceChanged => "source_changed",
+        // The saved conversation is checked by a contained reader; it could not be admitted
+        // because the system is short of memory. Nothing was started.
+        SessionReadIssue::WorkerUnavailable => "resources",
         _ => "unavailable",
     })
 }

@@ -160,33 +160,63 @@ pub struct ArchiveRequest {
 pub struct Controller {
     services: Arc<Services>,
     runtime: Arc<Runtime>,
-    busy: AtomicBool,
+    gate: WorkerGate,
     blocked: AtomicBool,
-    /// Explicit reads waiting for the worker; background reads do not take it while any wait.
-    explicit_waiting: AtomicUsize,
     retained: Mutex<Option<SessionListRead>>,
     search: Mutex<Option<Arc<shinatama_state::search_index::SearchIndex>>>,
     run: Arc<search::RunState>,
     /// The cancel flag of each watched request that is still running, by the window's request id.
     cancels: Mutex<HashMap<String, Arc<AtomicBool>>>,
 }
+/// The one contained reader's slot. Explicit reads wait for it and go first: a background read
+/// never takes it while an explicit read is waiting.
+#[derive(Default)]
+struct WorkerGate {
+    busy: AtomicBool,
+    explicit_waiting: AtomicUsize,
+}
+#[derive(Debug, PartialEq, Eq)]
+enum GateRefusal {
+    /// The slot stayed taken until the deadline.
+    TimedOut,
+    /// The reader was blocked while the request waited.
+    Blocked,
+}
+impl WorkerGate {
+    fn try_take(&self) -> bool {
+        self.busy
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_ok()
+    }
+    fn release(&self) {
+        self.busy.store(false, Ordering::Release);
+    }
+    fn take_background(&self) -> bool {
+        self.explicit_waiting.load(Ordering::Acquire) == 0 && self.try_take()
+    }
+    fn take_explicit(&self, wait: Duration, blocked: impl Fn() -> bool) -> std::result::Result<(), GateRefusal> {
+        self.explicit_waiting.fetch_add(1, Ordering::AcqRel);
+        let deadline = Instant::now() + wait;
+        let result = loop {
+            if blocked() {
+                break Err(GateRefusal::Blocked);
+            }
+            if self.try_take() {
+                break Ok(());
+            }
+            if Instant::now() >= deadline {
+                break Err(GateRefusal::TimedOut);
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        };
+        self.explicit_waiting.fetch_sub(1, Ordering::AcqRel);
+        result
+    }
+}
 struct WorkerSlot(Arc<Controller>);
 impl Drop for WorkerSlot {
     fn drop(&mut self) {
-        self.0.busy.store(false, Ordering::Release);
-    }
-}
-/// Counts one explicit read as waiting for the worker until it is dropped.
-struct ExplicitWait<'a>(&'a AtomicUsize);
-impl<'a> ExplicitWait<'a> {
-    fn enter(count: &'a AtomicUsize) -> Self {
-        count.fetch_add(1, Ordering::AcqRel);
-        Self(count)
-    }
-}
-impl Drop for ExplicitWait<'_> {
-    fn drop(&mut self) {
-        self.0.fetch_sub(1, Ordering::AcqRel);
+        self.0.gate.release();
     }
 }
 impl Controller {
@@ -194,9 +224,8 @@ impl Controller {
         Self {
             services,
             runtime,
-            busy: AtomicBool::new(false),
+            gate: WorkerGate::default(),
             blocked: AtomicBool::new(false),
-            explicit_waiting: AtomicUsize::new(0),
             retained: Mutex::new(None),
             search: Mutex::new(None),
             run: Arc::new(search::RunState::default()),
@@ -279,12 +308,6 @@ impl Controller {
         .await
         .map_err(|_| SessionReadIssue::CleanupUnconfirmed)?
     }
-    fn try_slot(self: &Arc<Self>) -> Option<WorkerSlot> {
-        self.busy
-            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
-            .ok()
-            .map(|_| WorkerSlot(Arc::clone(self)))
-    }
     /// The one worker, for a read of `priority`. A background read waits for healthy resource
     /// measurements before it takes the worker, never while holding it, and leaves the worker to
     /// any explicit read that is waiting. An explicit read waits up to [`EXPLICIT_WORKER_WAIT`]
@@ -295,28 +318,19 @@ impl Controller {
                 self.runtime
                     .wait_for_admission()
                     .map_err(|_| SessionReadIssue::WorkerUnavailable)?;
-                if self.explicit_waiting.load(Ordering::Acquire) > 0 {
+                if !self.gate.take_background() {
                     return Err(SessionReadIssue::ReadUnavailable);
                 }
-                self.try_slot().ok_or(SessionReadIssue::ReadUnavailable)
             }
-            Priority::Explicit => {
-                let _waiting = ExplicitWait::enter(&self.explicit_waiting);
-                let deadline = Instant::now() + EXPLICIT_WORKER_WAIT;
-                loop {
-                    if self.blocked.load(Ordering::Acquire) {
-                        return Err(SessionReadIssue::CleanupUnconfirmed);
-                    }
-                    if let Some(slot) = self.try_slot() {
-                        return Ok(slot);
-                    }
-                    if Instant::now() >= deadline {
-                        return Err(SessionReadIssue::ReadUnavailable);
-                    }
-                    std::thread::sleep(Duration::from_millis(50));
-                }
-            }
+            Priority::Explicit => self
+                .gate
+                .take_explicit(EXPLICIT_WORKER_WAIT, || self.blocked.load(Ordering::Acquire))
+                .map_err(|refusal| match refusal {
+                    GateRefusal::Blocked => SessionReadIssue::CleanupUnconfirmed,
+                    GateRefusal::TimedOut => SessionReadIssue::ReadUnavailable,
+                })?,
         }
+        Ok(WorkerSlot(Arc::clone(self)))
     }
     /// The contained helper's admission for a read the user is waiting on: the same lightweight
     /// admission starting a session gets (a fresh memory sample and a startup allowance), never
@@ -806,4 +820,53 @@ pub async fn session_cancel(
 ) -> Result<bool> {
     local(&window)?;
     Ok(controller.inner().cancel(&request_id))
+}
+
+#[cfg(test)]
+mod gate_tests {
+    use super::{GateRefusal, WorkerGate};
+    use std::{sync::Arc, thread, time::{Duration, Instant}};
+
+    #[test]
+    fn an_explicit_read_waits_for_the_read_in_progress() {
+        let gate = Arc::new(WorkerGate::default());
+        assert!(gate.try_take());
+        let holder = Arc::clone(&gate);
+        let release = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(200));
+            holder.release();
+        });
+        let started = Instant::now();
+        assert_eq!(gate.take_explicit(Duration::from_secs(5), || false), Ok(()));
+        assert!(started.elapsed() >= Duration::from_millis(150));
+        release.join().unwrap();
+    }
+
+    #[test]
+    fn a_background_read_yields_to_a_waiting_explicit_read() {
+        let gate = Arc::new(WorkerGate::default());
+        assert!(gate.try_take());
+        let waiter = Arc::clone(&gate);
+        let explicit = thread::spawn(move || waiter.take_explicit(Duration::from_secs(5), || false));
+        while gate.explicit_waiting.load(std::sync::atomic::Ordering::Acquire) == 0 {
+            thread::yield_now();
+        }
+        gate.release();
+        // The freed slot is not taken by background work while the explicit read waits.
+        assert!(!gate.take_background() || explicit.is_finished());
+        assert_eq!(explicit.join().unwrap(), Ok(()));
+        assert!(!gate.take_background(), "the explicit read holds the slot");
+        gate.release();
+        assert!(gate.take_background());
+    }
+
+    #[test]
+    fn an_explicit_wait_is_bounded_and_counted_off() {
+        let gate = WorkerGate::default();
+        assert!(gate.try_take());
+        assert_eq!(gate.take_explicit(Duration::from_millis(120), || false), Err(GateRefusal::TimedOut));
+        assert_eq!(gate.explicit_waiting.load(std::sync::atomic::Ordering::Acquire), 0);
+        assert_eq!(gate.take_explicit(Duration::from_secs(5), || true), Err(GateRefusal::Blocked));
+        assert_eq!(gate.explicit_waiting.load(std::sync::atomic::Ordering::Acquire), 0);
+    }
 }

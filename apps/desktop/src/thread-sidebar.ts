@@ -1,4 +1,5 @@
 import './thread-sidebar.css';
+import { resumeFailureText } from './resume-failure.ts';
 
 export type CurrentThreadProject = { projectId: string; label?: string };
 export type ThreadCursor = { updatedAt: number; threadId: string };
@@ -92,13 +93,6 @@ function failureText(error: unknown) {
   if (code === 'busy') return 'Thread storage is busy. Reload explicitly.';
   if (code === 'source_changed' || code === 'conflict') return 'Thread records changed. Reload this project explicitly.';
   return 'Thread records could not be loaded. Reload explicitly.';
-}
-function resumeFailureText(error: unknown) {
-  const code = typeof error === 'string' ? error : record(error) ? error.code ?? error.issue : null;
-  if (code === 'unbound' || code === 'native_missing') return 'No saved conversation yet';
-  if (code === 'owned_elsewhere') return 'This conversation is already open.';
-  if (code === 'source_changed' || code === 'conflict') return 'This conversation changed. Reload threads and try again.';
-  return 'The conversation could not be resumed. Try again.';
 }
 function recoveryFailureText(error: unknown) {
   const code = typeof error === 'string' ? error : record(error) ? error.code ?? error.issue : null;

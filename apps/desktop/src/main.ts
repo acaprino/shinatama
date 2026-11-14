@@ -38,6 +38,8 @@ import { createSessionSearch } from './session-search.ts';
 import { createProjectMenu, createTabFilter, folderName, organizeToolbar, samePath } from './toolbar-simple.ts';
 import { createSessionRaw } from './session-raw.ts';
 import { createSessionFind } from './session-find.ts';
+import { resumeFailureText } from './resume-failure.ts';
+import { newSessionProject, type NewSessionScope } from './session-project.ts';
 import type { ThreadSidebarState, ThreadSummary } from './thread-sidebar.ts';
 import { createWorksetSidebar, type WorksetSummary } from './workset-sidebar.ts';
 import './styles.css';
@@ -177,7 +179,7 @@ const renderer = createWorkspaceRenderer({
   },
   isInputBlocked: modalOpen,
   onError: () => notify('That layout change is unavailable. The current workspace was preserved.'),
-  onNewTab: groupId => { void openNewSession(groupId); },
+  onNewTab: groupId => { void openNewSession(groupId, undefined, undefined, 'thread'); },
   onCloseView(id) { void closePanel(id); },
   placeholderFor: panel => savedSessionCard(panel.id),
 });
@@ -229,7 +231,7 @@ function render() {
     pane.classList.add('pane'); pane.classList.toggle('focused', workspaceLayout.focusedGroupId === group.id);
     const controls = pane.querySelector<HTMLElement>('.wm-controls')!;
     const open = document.createElement('button'); open.type = 'button'; open.dataset.newTerminal = ''; open.textContent = '+ Session'; open.setAttribute('aria-label', 'Open session');
-    open.onclick = () => openNewSession(group.id); controls.prepend(open);
+    open.onclick = () => openNewSession(group.id, undefined, undefined, 'thread'); controls.prepend(open);
     const active = group.activeTabId ? views.get(group.activeTabId) : null;
     const stop = document.createElement('button'); stop.type = 'button';
     stop.textContent = active?.threadId ? 'Close session' : active ? 'Stop' : 'Close session';
@@ -563,8 +565,7 @@ async function resumeSaved(saved: ThreadSummary) {
     });
     attachTerminal(started.session, focusedGroup(), started.threadId, openWorkset);
   } catch (error) {
-    const code = typeof error === 'object' && error && 'code' in error ? error.code : null;
-    notify(code === 'owned_elsewhere' ? 'This session is already open.' : code === 'conflict' || code === 'source_changed' ? 'This session changed. Try again.' : 'The session could not be resumed. Try again.');
+    notify(resumeFailureText(error));
   } finally { starting = false; $<HTMLButtonElement>('#new-terminal').disabled = false; await refreshMembers(); render(); }
 }
 async function recoverSaved(saved: ThreadSummary) {
@@ -744,16 +745,18 @@ async function launchSession(path: string, harnessId: string, group: string) {
   try { await startSession({ projectPath: path, harnessId, rows: 24, cols: 80 }); }
   catch (failure) { notify(typeof failure === 'string' ? failure : failure instanceof Error ? failure.message : 'The session could not be opened. Check the project folder and try again.'); }
 }
-/** New session: a menu of harnesses under the control that was pressed, for the selected
- * project. With both the folder and the harness already known (a restart) it starts at once. */
-async function openNewSession(group: string = focusedGroup(), path?: string, harness?: string) {
+/** New session: a menu of harnesses under the control that was pressed. A pane's + (`thread`)
+ * starts in the open thread's project; New session beside the projects (`project`) starts in the
+ * project shown there. With both the folder and the harness already known (a restart) it starts at once. */
+async function openNewSession(group: string = focusedGroup(), path?: string, harness?: string, scope: NewSessionScope = 'project') {
   if (starting || openingSessionDialog) return;
   const pressed = document.activeElement instanceof HTMLElement && document.activeElement.matches('#new-terminal,[data-new-terminal],.wm-add,.wm-empty-start,.thread-sidebar-create')
     ? document.activeElement : null;
   const selectedProject = threadSidebar?.currentProjectId();
-  // A session started from a pane belongs to the open thread, so it starts in that thread's project.
-  const selectedPath = path ?? (openWorkset ? recentThreadProjects.get(openWorkset.projectId) : undefined)
-    ?? (selectedProject ? recentThreadProjects.get(selectedProject) : undefined) ?? selectedProjectPath ?? projectPath;
+  const selectedPath = newSessionProject(scope, { explicit: path,
+    openThread: openWorkset ? recentThreadProjects.get(openWorkset.projectId) : undefined,
+    sidebar: selectedProject ? recentThreadProjects.get(selectedProject) : undefined,
+    selected: selectedProjectPath, current: projectPath });
   openingSessionDialog = true;
   try {
     await loadHarnessCatalog();
@@ -924,7 +927,7 @@ const projectsOverview = createProjectsOverview({
       await namesInFlight;
       const started = await invoke<{ session: SessionInfo; threadId: string }>('thread_resume', {
         request: { threadId: thread.id, projectId: row.id, expectedRevision: thread.revision, rows: 24, cols: 80 },
-      });
+      }).catch(error => { throw new Error(resumeFailureText(error)); });
       await attachSession(started.session, started.threadId);
     } finally { starting = false; }
   },
