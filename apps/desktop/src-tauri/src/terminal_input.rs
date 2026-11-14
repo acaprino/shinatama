@@ -3,7 +3,8 @@
 //! path it names: a dropped or copied file is its own path, a clipboard image is first saved
 //! as a file under `<home>\pastes`. The page pastes the paths into the terminal.
 use std::path::PathBuf;
-use std::time::{Duration, SystemTime};
+use std::sync::Mutex;
+use std::time::{Duration, Instant, SystemTime};
 use tauri::Manager;
 
 /// A clipboard image larger than this is refused rather than written.
@@ -11,15 +12,16 @@ const IMAGE_LIMIT: usize = 64 * 1024 * 1024;
 /// Saved clipboard images older than this are removed when a new one is saved.
 const KEEP_PASTES: Duration = Duration::from_secs(14 * 24 * 60 * 60);
 
+/// Old pastes are looked for at most this often, after a paste and off its request.
+const PRUNE_EVERY: Duration = Duration::from_secs(60 * 60);
+static LAST_PRUNE: Mutex<Option<Instant>> = Mutex::new(None);
+
 fn pastes_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let home = match std::env::var_os("SHINATAMA_HOME") {
-        Some(home) => PathBuf::from(home),
-        None => app.path().app_config_dir().map_err(|e| e.to_string())?,
-    };
-    Ok(home.join("pastes"))
+    Ok(crate::data_home(app).map_err(|e| e.to_string())?.join("pastes"))
 }
 
-/// The file extension for an image, read from its first bytes; `None` if it is not one.
+/// The file extension for an image every harness reads, from its first bytes; `None` otherwise.
+/// The page converts other images (BMP, TIFF...) to PNG before sending them.
 fn image_extension(bytes: &[u8]) -> Option<&'static str> {
     if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
         Some("png")
@@ -29,11 +31,19 @@ fn image_extension(bytes: &[u8]) -> Option<&'static str> {
         Some("gif")
     } else if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
         Some("webp")
-    } else if bytes.starts_with(b"BM") {
-        Some("bmp")
     } else {
         None
     }
+}
+
+/// Starts a removal of old pastes unless one ran within `PRUNE_EVERY`.
+fn prune_soon(dir: PathBuf) {
+    let mut last = LAST_PRUNE.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if last.is_some_and(|at| at.elapsed() < PRUNE_EVERY) {
+        return;
+    }
+    *last = Some(Instant::now());
+    std::thread::spawn(move || prune(&dir));
 }
 
 fn prune(dir: &std::path::Path) {
@@ -63,16 +73,16 @@ pub fn terminal_paste_image(
     if bytes.len() > IMAGE_LIMIT {
         return Err("The pasted image is larger than 64 MiB".into());
     }
-    let extension = image_extension(bytes).ok_or("The clipboard holds an image format the harnesses cannot read")?;
+    let extension = image_extension(bytes).ok_or("The pasted image is not PNG, JPEG, GIF or WebP")?;
     let dir = pastes_dir(window.app_handle())?;
     std::fs::create_dir_all(&dir).map_err(|e| format!("The pastes folder could not be created: {e}"))?;
-    prune(&dir);
     let stamp = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .map(|elapsed| elapsed.as_millis())
         .unwrap_or_default();
     let path = dir.join(format!("paste-{stamp}-{}.{extension}", &uuid::Uuid::new_v4().simple().to_string()[..8]));
     std::fs::write(&path, bytes).map_err(|e| format!("The pasted image could not be saved: {e}"))?;
+    prune_soon(dir);
     Ok(path.to_string_lossy().into_owned())
 }
 
@@ -144,5 +154,7 @@ mod tests {
         assert_eq!(image_extension(b"GIF89a.."), Some("gif"));
         assert_eq!(image_extension(b"RIFF\0\0\0\0WEBPVP8 "), Some("webp"));
         assert_eq!(image_extension(b"plain text"), None);
+        // BMP reaches the native side only as PNG; a raw one is refused.
+        assert_eq!(image_extension(&[0x42, 0x4D, 0x36, 0, 0, 0]), None);
     }
 }

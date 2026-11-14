@@ -662,6 +662,14 @@ fn portable_environment() {
         let _ = std::env::set_current_dir(profile);
     }
 }
+/// The folder that holds Shinatama's data: SHINATAMA_HOME (set for a portable install by
+/// `portable_environment`), otherwise the per-user configuration folder.
+pub(crate) fn data_home(app: &tauri::AppHandle) -> tauri::Result<PathBuf> {
+    match std::env::var_os("SHINATAMA_HOME") {
+        Some(home) => Ok(PathBuf::from(home)),
+        None => app.path().app_config_dir(),
+    }
+}
 fn main() {
     portable_environment();
     // This thread runs the event loop: the window comes before the work it starts.
@@ -675,10 +683,7 @@ fn main() {
         .manage(shinatama_engine::Engine::new())
         .manage(resources::Resources::start())
         .setup(|app| {
-            let directory = std::env::var_os("SHINATAMA_HOME")
-                .map(PathBuf::from)
-                .map(Ok)
-                .unwrap_or_else(|| app.path().app_config_dir());
+            let directory = data_home(app.handle());
             #[cfg(windows)]
             if let Ok(home) = &directory {
                 marionette::start(home);

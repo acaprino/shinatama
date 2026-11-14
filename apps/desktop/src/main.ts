@@ -51,6 +51,8 @@ type View = {
   lastSize: string; resizeTimer: number; resizeChain: Promise<void>;
   /** Lines that left the live buffer, its minimap, and the open history view, if any. */
   history: TerminalHistory; minimap: TerminalMinimap; historyView: { close(): void } | null;
+  /** Removes the listener for files and images pasted on this terminal. */
+  stopInput?: () => void;
   /** The session this terminal runs and the thread (ADR-0055) that session belongs to. */
   threadId: string | null; workset: WorksetScope | null;
 };
@@ -392,9 +394,10 @@ function attachTerminal(info: SessionInfo, group: string, threadId: string | nul
           closed: () => { view.historyView = null; if (!view.disposed && !modalOpen()) terminal.focus(); } });
       } }) };
   views.set(info.id, view); bindings.set(info.id, element); resizeObserver.observe(element);
-  const input: TerminalTarget = { terminal, element, accepts: () => !view.ended && !view.disposed && !modalOpen(),
+  const input: TerminalTarget = { terminal, element, reader: info.shell === 'PowerShell' ? 'powershell' : 'agent',
+    accepts: () => !view.ended && !view.disposed && !view.historyView && !modalOpen(),
     focus: () => { setFocus(view.group); terminal.focus(); } };
-  inputTargets.set(element, input); attachTerminalPaste(input, notify);
+  inputTargets.set(element, input); view.stopInput = attachTerminalPaste(input, notify);
   tabFilter?.reveal(info.cwd);
   const restored = workspaceLayout.views.find(panel => panel.id === info.id);
   if (restored?.resource.kind === 'terminal') { const applied = presentation.applyProfile(terminal, restored.resource.profileId); view.profile = applied.id; element.style.background = applied.background; }
@@ -509,6 +512,7 @@ async function forgetSession(threadId: string) {
 function discardView(view: View) {
   view.disposed = true; clearTimeout(view.resizeTimer);
   view.historyView?.close(); view.minimap.dispose(); view.history.dispose();
+  view.stopInput?.(); inputTargets.delete(view.element);
   view.terminal.dispose(); view.element.remove();
   resizeObserver.unobserve(view.element); bindings.delete(view.info.id); views.delete(view.info.id); rememberSessions();
   if (workspaceLayout.views.some(panel => panel.id === view.info.id)) {
