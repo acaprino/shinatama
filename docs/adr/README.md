@@ -92,6 +92,7 @@ run `index`; do not edit this block by hand.
 |---|---|---|---|
 | [ADR-0002 v4](<ADR-0002-v4-companion-feed.md>) | Companion pane fed by the canonical transcript, harness chosen per companion; credentials only as read-only OS bindings, no shinatama mcp, overview row from its own record | `docs/specs/companion-explainer.md`, `docs/technical-design.md`, `docs/functional-design.md`, `companion`, `explain-mode`, `read-only-session`, `adapter-headless` | `TL1.2` |
 | [ADR-0040 v2](<ADR-0040-v2-delivery-baseline.md>) | Terminal-first baseline, then read-only browsing and resume, then the seed hop; first-milestone gates decide the design | `docs/functional-design.md`, `docs/technical-design.md`, `docs/verification-register.md`, `delivery-plan`, `milestones`, `verification-gates`, `release` | `TL1.2` |
+| [ADR-0056](<ADR-0056-moli-browser-pane.md>) | An embedded browser pane drawn by Shinatama over a per-window Moli host reachable only through a private, token-checked named pipe | `crates/browser`, `sidecars/moli-host`, `crates/cli/src/mcp.rs`, `docs/frd/FRD-0011-browser.md`, `browser`, `browser-security`, `process-lifecycle` | user-decision-2026-11-14-embedded-low-memory-browser |
 
 ## Superseded
 
