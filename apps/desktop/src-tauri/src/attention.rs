@@ -432,6 +432,10 @@ fn place_without_activation(
             flags: u32,
         ) -> i32;
     }
+    // Normal before it is drawn, low once it is gone.
+    if visible {
+        crate::responsiveness::set_memory_target(widget, true);
+    }
     if let Ok(handle) = widget.hwnd() {
         // WS_EX_NOACTIVATE alone does not constrain explicit programmatic
         // activation. Use the native non-activating show and positioning flags.
@@ -445,6 +449,9 @@ fn place_without_activation(
                 ShowWindow(handle.0 as isize, 0);
             } // SW_HIDE
         }
+    }
+    if !visible {
+        crate::responsiveness::set_memory_target(widget, false);
     }
 }
 #[cfg(not(windows))]
@@ -643,7 +650,7 @@ impl Controller {
         present(app, self, false);
     }
 }
-#[tauri::command]
+#[tauri::command(async)]
 pub fn attention_current(
     window: tauri::WebviewWindow,
     controller: State<'_, Controller>,
@@ -651,7 +658,7 @@ pub fn attention_current(
     allowed(&window)?;
     Ok(lock(&controller)?.snapshot())
 }
-#[tauri::command]
+#[tauri::command(async)]
 pub fn attention_configure(
     window: tauri::WebviewWindow,
     controller: State<'_, Controller>,
@@ -670,7 +677,7 @@ pub fn attention_configure(
     present(window.app_handle(), &controller, false);
     Ok(snapshot)
 }
-#[tauri::command]
+#[tauri::command(async)]
 pub fn attention_preview(
     window: tauri::WebviewWindow,
     controller: State<'_, Controller>,
@@ -692,7 +699,7 @@ pub fn attention_preview(
     present(window.app_handle(), &controller, true);
     Ok(snapshot)
 }
-#[tauri::command]
+#[tauri::command(async)]
 pub fn attention_dismiss(
     window: tauri::WebviewWindow,
     controller: State<'_, Controller>,
@@ -715,7 +722,7 @@ pub fn attention_dismiss(
     present(window.app_handle(), &controller, false);
     Ok(())
 }
-#[tauri::command]
+#[tauri::command(async)]
 pub fn attention_open(
     window: tauri::WebviewWindow,
     controller: State<'_, Controller>,

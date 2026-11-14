@@ -22,7 +22,8 @@ use windows_sys::Win32::{
         Memory::{GetProcessHeap, HeapAlloc, HeapFree},
         Pipes::CreatePipe,
         Threading::{
-            CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT, CreateProcessW, DETACHED_PROCESS,
+            BELOW_NORMAL_PRIORITY_CLASS, CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT,
+            CreateProcessW, DETACHED_PROCESS,
             DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT, GetExitCodeProcess,
             InitializeProcThreadAttributeList, LPPROC_THREAD_ATTRIBUTE_LIST,
             PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROCESS_INFORMATION, ResumeThread,
@@ -297,10 +298,14 @@ pub fn spawn_suspended(
             null(),
             null(),
             1,
+            // The control window comes first: a busy agent waits for the CPU, the
+            // window never waits for an agent. The shell and every process it starts
+            // inherit the class, unless one asks for another.
             EXTENDED_STARTUPINFO_PRESENT
                 | CREATE_SUSPENDED
                 | CREATE_UNICODE_ENVIRONMENT
-                | DETACHED_PROCESS,
+                | DETACHED_PROCESS
+                | BELOW_NORMAL_PRIORITY_CLASS,
             environment.as_ptr().cast(),
             wide(cwd).as_ptr(),
             &startup.StartupInfo,

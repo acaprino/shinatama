@@ -41,6 +41,13 @@ portable-pty = "0.9"
 tauri = "2.9"
 tauri-build = "2.5"
 tauri-plugin-dialog = "=2.8.4"
+# 2026-11-14: COM interface cast for WebView2's memory target (desktop responsiveness.rs). The
+# version webview2-com already links, so no second binding; MIT OR Apache-2.0.
+windows-core = "0.62"
+# The desktop's async sleep in terminal_read; MIT. Already locked, now declared here (ADR-0047).
+tokio = { version = "1", features = ["time"] }
+# WebView2 process-failure and memory-target bindings; the version Tauri itself links. MIT.
+webview2-com = "0.39"
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_System_ProcessStatus", "Win32_System_Diagnostics_ToolHelp", "Win32_System_RemoteDesktop", "Win32_System_Console", "Win32_Security", "Win32_Storage_FileSystem", "Win32_Security_Authorization", "Win32_Security_Cryptography", "Win32_System_Registry", "Win32_System_Memory", "Win32_System_Environment", "Win32_System_SystemInformation", "Win32_System_Pipes", "Win32_System_IO", "Wdk_Foundation", "Wdk_Storage_FileSystem"] }
 libc = "0.2"
 shinatama-terminal = { path = "crates/terminal" }

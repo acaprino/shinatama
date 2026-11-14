@@ -22,6 +22,8 @@ mod projects;
 mod resource_governor;
 mod resources;
 #[cfg(windows)]
+mod responsiveness;
+#[cfg(windows)]
 mod marionette;
 #[cfg(windows)]
 mod sessions;
@@ -52,7 +54,7 @@ type Maintenance = Arc<maintenance::Controller>;
 #[derive(Default)]
 struct ExitIntent(AtomicBool);
 
-#[tauri::command]
+#[tauri::command(async)]
 fn maintenance_activity(
     window: tauri::WebviewWindow,
     maintenance: State<'_, Maintenance>,
@@ -62,7 +64,7 @@ fn maintenance_activity(
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn maintenance_status(
     window: tauri::WebviewWindow,
     maintenance: State<'_, Maintenance>,
@@ -174,7 +176,7 @@ fn local(window: &tauri::WebviewWindow) -> Result<(), String> {
         Err("Unknown workspace window".into())
     }
 }
-#[tauri::command]
+#[tauri::command(async)]
 fn project_path(window: tauri::WebviewWindow) -> Result<String, String> {
     local(&window)?;
     std::env::current_dir()
@@ -262,7 +264,7 @@ async fn shell_open(
     let session = terminal_start(window, host, services, cwd, rows, cols).await?;
     Ok(ThreadStarted { session, thread_id })
 }
-#[tauri::command]
+#[tauri::command(async)]
 fn terminal_list(
     window: tauri::WebviewWindow,
     host: State<'_, Host>,
@@ -270,7 +272,7 @@ fn terminal_list(
     local(&window)?;
     Ok(host.list())
 }
-#[tauri::command]
+#[tauri::command(async)]
 fn terminal_resources(
     window: tauri::WebviewWindow,
     host: State<'_, Host>,
@@ -309,7 +311,7 @@ async fn terminal_read(
     }
     Ok(batch)
 }
-#[tauri::command]
+#[tauri::command(async)]
 fn terminal_write(
     window: tauri::WebviewWindow,
     host: State<'_, Host>,
@@ -397,7 +399,7 @@ fn sidecar_active(window: &tauri::Window) -> bool {
     #[cfg(not(windows))]
     false
 }
-#[tauri::command]
+#[tauri::command(async)]
 fn agent_status(window: tauri::WebviewWindow) -> Result<serde_json::Value, String> {
     local(&window)?;
     #[cfg(windows)]
@@ -406,7 +408,7 @@ fn agent_status(window: tauri::WebviewWindow) -> Result<serde_json::Value, Strin
     Ok(serde_json::json!({"checking":false,"blocked":false}))
 }
 #[cfg(windows)]
-#[tauri::command]
+#[tauri::command(async)]
 fn harness_catalog(
     window: tauri::WebviewWindow,
 ) -> Result<Vec<agents::HarnessCapabilities>, String> {
@@ -414,7 +416,7 @@ fn harness_catalog(
     Ok(ready::<agents::Controller>(&window)?.catalog())
 }
 #[cfg(not(windows))]
-#[tauri::command]
+#[tauri::command(async)]
 fn harness_catalog(window: tauri::WebviewWindow) -> Result<Vec<serde_json::Value>, String> {
     local(&window)?;
     Ok(Vec::new())
@@ -541,7 +543,7 @@ fn sidecar_report(
     status.agent_sessions_known = count.is_some();
     serde_json::to_value(status).map_err(|_| "Model proxy status is unavailable.".into())
 }
-#[tauri::command]
+#[tauri::command(async)]
 fn sidecar_status(window: tauri::WebviewWindow) -> Result<serde_json::Value, String> {
     local(&window)?;
     #[cfg(windows)]
@@ -549,7 +551,7 @@ fn sidecar_status(window: tauri::WebviewWindow) -> Result<serde_json::Value, Str
     #[cfg(not(windows))]
     Err("The Model proxy is available on Windows.".into())
 }
-#[tauri::command]
+#[tauri::command(async)]
 fn sidecar_start(window: tauri::WebviewWindow) -> Result<serde_json::Value, String> {
     local(&window)?;
     if window.state::<ExitIntent>().0.load(Ordering::Acquire) {
@@ -565,7 +567,7 @@ fn sidecar_start(window: tauri::WebviewWindow) -> Result<serde_json::Value, Stri
 }
 /// Stop lets in-flight requests finish. While agent terminals are alive it
 /// answers the unchanged status with `"refused": true` unless `force` is set.
-#[tauri::command]
+#[tauri::command(async)]
 fn sidecar_stop(window: tauri::WebviewWindow, force: bool) -> Result<serde_json::Value, String> {
     local(&window)?;
     #[cfg(windows)]
@@ -593,7 +595,7 @@ fn sidecar_stop(window: tauri::WebviewWindow, force: bool) -> Result<serde_json:
         Err("The Model proxy is available on Windows.".into())
     }
 }
-#[tauri::command]
+#[tauri::command(async)]
 fn sidecar_retry(window: tauri::WebviewWindow) -> Result<serde_json::Value, String> {
     local(&window)?;
     if window.state::<ExitIntent>().0.load(Ordering::Acquire) {
@@ -661,6 +663,9 @@ fn portable_environment() {
 }
 fn main() {
     portable_environment();
+    // This thread runs the event loop: the window comes before the work it starts.
+    #[cfg(windows)]
+    responsiveness::prioritize_control_thread();
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(Arc::new(TerminalHost::default()))
@@ -1015,6 +1020,12 @@ fn main() {
             // Windows destroyed to be built again after a WebView2 loss are not a close.
             #[cfg(windows)]
             if webview_recovery::recovering() { return; }
+            #[cfg(windows)]
+            if window.label() == "main" && matches!(event, tauri::WindowEvent::Resized(_))
+                && let Some(main) = window.app_handle().get_webview_window("main")
+            {
+                responsiveness::main_resized(&main);
+            }
             if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
                 if let Some(widget) = window.app_handle().get_webview_window("attention") { let _ = widget.destroy(); }
                 return;

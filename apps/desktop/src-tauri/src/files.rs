@@ -75,7 +75,7 @@ pub async fn files_search(window: WebviewWindow, services: State<'_, Services>, 
     result
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn files_cancel(window: WebviewWindow, request_id: String) -> Result<(), String> {
     crate::local(&window)?;
     if let Some(flag) = cancels().lock().map_err(|_| "Cancellation is unavailable.")?.get(&request_id) {

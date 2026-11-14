@@ -29,9 +29,10 @@ shinatama-export.workspace = true
 shinatama-hop.workspace = true
 shinatama-files.workspace = true
 sha2.workspace = true
-tokio = { version = "1", features = ["time"] }
+tokio.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 windows-sys.workspace = true
 # The versions Tauri itself links: one WebView2 binding in the executable.
-webview2-com = "0.39"
+webview2-com.workspace = true
+windows-core.workspace = true

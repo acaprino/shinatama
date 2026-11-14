@@ -32,6 +32,14 @@ pub fn recovering() -> bool {
 pub fn build(app: &AppHandle, config: &tauri::utils::config::WindowConfig) -> tauri::Result<WebviewWindow> {
     let window = tauri::WebviewWindowBuilder::from_config(app, config)?.build()?;
     watch(&window);
+    // A window built hidden (the alert widget) holds only what it needs until shown.
+    if config.visible {
+        if config.label == "main" {
+            crate::responsiveness::main_rebuilt();
+        }
+    } else {
+        crate::responsiveness::set_memory_target(&window, false);
+    }
     Ok(window)
 }
 

@@ -189,7 +189,7 @@ fn read_only() -> Error {
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn workspace_allow_close(
     window: WebviewWindow,
     controller: State<'_, Arc<Controller>>,

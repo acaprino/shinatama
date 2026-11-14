@@ -186,7 +186,7 @@ pub struct CancelAck {
     pub status: CancelStatus,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn catalog_begin(
     window: WebviewWindow,
     catalog: State<'_, Arc<ProjectCatalog>>,
@@ -196,7 +196,7 @@ pub fn catalog_begin(
     catalog.begin(request_id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn catalog_cancel(
     window: WebviewWindow,
     catalog: State<'_, Arc<ProjectCatalog>>,

@@ -5,7 +5,7 @@ use shinatama_engine::{
 };
 use tauri::{State, WebviewWindow};
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn launch_preflight(
     window: WebviewWindow,
     engine: State<'_, Engine>,

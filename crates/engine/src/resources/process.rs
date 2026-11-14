@@ -27,8 +27,8 @@ use windows_sys::Win32::{
         Memory::{GetProcessHeap, HeapAlloc, HeapFree},
         Pipes::CreatePipe,
         Threading::{
-            CREATE_NO_WINDOW, CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT, CreateProcessW,
-            DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT, GetExitCodeProcess,
+            BELOW_NORMAL_PRIORITY_CLASS, CREATE_NO_WINDOW, CREATE_SUSPENDED,
+            CREATE_UNICODE_ENVIRONMENT, CreateProcessW, DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT, GetExitCodeProcess,
             InitializeProcThreadAttributeList, LPPROC_THREAD_ATTRIBUTE_LIST,
             PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROCESS_INFORMATION, ResumeThread,
             STARTF_USESTDHANDLES, STARTUPINFOEXW, TerminateProcess, UpdateProcThreadAttribute,
@@ -460,10 +460,13 @@ fn spawn_child(
                 null(),
                 null(),
                 1,
+                // Contained workloads (model proxy, harness checks) yield the CPU to
+                // the control window; their children inherit the class.
                 CREATE_SUSPENDED
                     | CREATE_UNICODE_ENVIRONMENT
                     | CREATE_NO_WINDOW
-                    | EXTENDED_STARTUPINFO_PRESENT,
+                    | EXTENDED_STARTUPINFO_PRESENT
+                    | BELOW_NORMAL_PRIORITY_CLASS,
                 command.environment.as_ptr().cast(),
                 cwd.as_ptr(),
                 &startup.StartupInfo,

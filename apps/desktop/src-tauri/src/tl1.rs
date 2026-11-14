@@ -119,7 +119,7 @@ fn read(root: &Path, relative_path: &str) -> Result<String, String> {
     String::from_utf8(bytes).map_err(|_| "Proof file must be UTF-8 text".into())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn tl1_files(window: tauri::WebviewWindow) -> Result<Workspace, String> {
     let root = root(&window)?;
     let mut entries = Vec::new();
@@ -130,7 +130,7 @@ pub fn tl1_files(window: tauri::WebviewWindow) -> Result<Workspace, String> {
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn tl1_read(window: tauri::WebviewWindow, relative_path: String) -> Result<String, String> {
     read(&root(&window)?, &relative_path)
 }

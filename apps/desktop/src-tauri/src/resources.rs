@@ -167,7 +167,7 @@ pub struct Telemetry {
     queued_launches: Option<u32>,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn resources_status(
     window: WebviewWindow,
     resources: State<'_, Resources>,
@@ -270,7 +270,7 @@ pub struct TelemetryReply {
     resources: ResourceStatus,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn resources_telemetry(
     window: WebviewWindow,
     resources: State<'_, Resources>,
