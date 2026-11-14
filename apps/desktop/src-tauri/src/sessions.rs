@@ -25,9 +25,11 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
+    time::{Duration, Instant},
 };
+use shinatama_engine::resources::admission::PreparedWorkload;
 use tauri::{Emitter, Manager, State, WebviewWindow};
 use windows_sys::Win32::Storage::FileSystem::{
     FILE_FLAG_OPEN_REPARSE_POINT, FILE_SHARE_READ, FILE_SHARE_WRITE,
@@ -86,6 +88,22 @@ pub enum StagedExport {
 }
 const ROOT_LIMIT: usize = 100;
 const MIB: u64 = 1024 * 1024;
+/// How long an explicit read waits for the shared worker to come free.
+const EXPLICIT_WORKER_WAIT: Duration = Duration::from_secs(20);
+/// How long an explicit read retries its admission through momentary dips in free memory.
+const EXPLICIT_ADMISSION_WAIT: Duration = Duration::from_secs(10);
+
+/// Who is waiting for a read.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Priority {
+    /// A read the user is waiting on: Resume, an opened session, the names on screen, a search
+    /// or an export. It gets the lightweight admission of an explicit Open, waits briefly for the
+    /// worker and goes before background reads.
+    Explicit,
+    /// Bulk or periodic work (the search index pass, instance summaries). It waits for healthy
+    /// resource measurements without holding the worker, and yields the worker to explicit reads.
+    Background,
+}
 type Result<T> = std::result::Result<T, SessionReadIssue>;
 
 #[derive(Clone, Serialize)]
@@ -144,6 +162,8 @@ pub struct Controller {
     runtime: Arc<Runtime>,
     busy: AtomicBool,
     blocked: AtomicBool,
+    /// Explicit reads waiting for the worker; background reads do not take it while any wait.
+    explicit_waiting: AtomicUsize,
     retained: Mutex<Option<SessionListRead>>,
     search: Mutex<Option<Arc<shinatama_state::search_index::SearchIndex>>>,
     run: Arc<search::RunState>,
@@ -156,6 +176,19 @@ impl Drop for WorkerSlot {
         self.0.busy.store(false, Ordering::Release);
     }
 }
+/// Counts one explicit read as waiting for the worker until it is dropped.
+struct ExplicitWait<'a>(&'a AtomicUsize);
+impl<'a> ExplicitWait<'a> {
+    fn enter(count: &'a AtomicUsize) -> Self {
+        count.fetch_add(1, Ordering::AcqRel);
+        Self(count)
+    }
+}
+impl Drop for ExplicitWait<'_> {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
+    }
+}
 impl Controller {
     pub fn new(services: Arc<Services>, runtime: Arc<Runtime>) -> Self {
         Self {
@@ -163,6 +196,7 @@ impl Controller {
             runtime,
             busy: AtomicBool::new(false),
             blocked: AtomicBool::new(false),
+            explicit_waiting: AtomicUsize::new(0),
             retained: Mutex::new(None),
             search: Mutex::new(None),
             run: Arc::new(search::RunState::default()),
@@ -224,18 +258,16 @@ impl Controller {
     }
     async fn worker<T: Send + 'static>(
         self: &Arc<Self>,
+        priority: Priority,
         work: impl FnOnce(&Self) -> Result<T> + Send + 'static,
     ) -> Result<T> {
         if self.blocked.load(Ordering::Acquire) {
             return Err(SessionReadIssue::CleanupUnconfirmed);
         }
-        self.busy
-            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
-            .map_err(|_| SessionReadIssue::ReadUnavailable)?;
-        let slot = WorkerSlot(Arc::clone(self));
         let controller = Arc::clone(self);
         tauri::async_runtime::spawn_blocking(move || {
-            let _slot = slot; // Dropping the IPC future never frees a running worker.
+            // Dropping the IPC future never frees a running worker.
+            let _slot = controller.acquire(priority)?;
             match catch_unwind(AssertUnwindSafe(|| work(&controller))) {
                 Ok(result) => result,
                 Err(_) => {
@@ -246,6 +278,68 @@ impl Controller {
         })
         .await
         .map_err(|_| SessionReadIssue::CleanupUnconfirmed)?
+    }
+    fn try_slot(self: &Arc<Self>) -> Option<WorkerSlot> {
+        self.busy
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .ok()
+            .map(|_| WorkerSlot(Arc::clone(self)))
+    }
+    /// The one worker, for a read of `priority`. A background read waits for healthy resource
+    /// measurements before it takes the worker, never while holding it, and leaves the worker to
+    /// any explicit read that is waiting. An explicit read waits up to [`EXPLICIT_WORKER_WAIT`]
+    /// for the read in progress to end.
+    fn acquire(self: &Arc<Self>, priority: Priority) -> Result<WorkerSlot> {
+        match priority {
+            Priority::Background => {
+                self.runtime
+                    .wait_for_admission()
+                    .map_err(|_| SessionReadIssue::WorkerUnavailable)?;
+                if self.explicit_waiting.load(Ordering::Acquire) > 0 {
+                    return Err(SessionReadIssue::ReadUnavailable);
+                }
+                self.try_slot().ok_or(SessionReadIssue::ReadUnavailable)
+            }
+            Priority::Explicit => {
+                let _waiting = ExplicitWait::enter(&self.explicit_waiting);
+                let deadline = Instant::now() + EXPLICIT_WORKER_WAIT;
+                loop {
+                    if self.blocked.load(Ordering::Acquire) {
+                        return Err(SessionReadIssue::CleanupUnconfirmed);
+                    }
+                    if let Some(slot) = self.try_slot() {
+                        return Ok(slot);
+                    }
+                    if Instant::now() >= deadline {
+                        return Err(SessionReadIssue::ReadUnavailable);
+                    }
+                    std::thread::sleep(Duration::from_millis(50));
+                }
+            }
+        }
+    }
+    /// The contained helper's admission for a read the user is waiting on: the same lightweight
+    /// admission starting a session gets (a fresh memory sample and a startup allowance), never
+    /// the governor's background deferral, which a busy desktop holds for minutes on end. The
+    /// helper keeps its Windows memory limits. Momentary dips in free memory are retried.
+    fn explicit_workload(&self) -> Result<PreparedWorkload> {
+        self.runtime
+            .wait_for_interactive_admission()
+            .map_err(|_| SessionReadIssue::WorkerUnavailable)?;
+        let deadline = Instant::now() + EXPLICIT_ADMISSION_WAIT;
+        loop {
+            match self.runtime.prepare_interactive_support_workload(
+                metadata_worker_budget(),
+                768 * MIB,
+                15_000,
+            ) {
+                Ok(workload) => return Ok(workload),
+                Err(_) if Instant::now() >= deadline => {
+                    return Err(SessionReadIssue::WorkerUnavailable);
+                }
+                Err(_) => std::thread::sleep(Duration::from_millis(250)),
+            }
+        }
     }
     fn require_no_retained(&self) -> Result<()> {
         if self
@@ -279,7 +373,7 @@ impl Controller {
         Ok(())
     }
     pub async fn roots(self: &Arc<Self>) -> Result<Vec<SessionLibraryRoot>> {
-        self.worker(|controller| {
+        self.worker(Priority::Explicit, |controller| {
             let state = controller
                 .services
                 .load()
@@ -296,7 +390,13 @@ impl Controller {
         .await
     }
     pub async fn list(self: &Arc<Self>, request: ListRequest) -> Result<SessionListPage> {
-        self.worker(move |controller| {
+        self.list_at(Priority::Explicit, request).await
+    }
+    pub async fn list_background(self: &Arc<Self>, request: ListRequest) -> Result<SessionListPage> {
+        self.list_at(Priority::Background, request).await
+    }
+    async fn list_at(self: &Arc<Self>, priority: Priority, request: ListRequest) -> Result<SessionListPage> {
+        self.worker(priority, move |controller| {
             let state = controller
                 .services
                 .load()
@@ -310,7 +410,7 @@ impl Controller {
                 request.limit,
                 request.include_children,
             )?;
-            let read = controller.read_prepared(state, &prepared)?;
+            let read = controller.read_prepared(state, &prepared, priority)?;
             read.page()
                 .cloned()
                 .ok_or(SessionReadIssue::ReadUnavailable)
@@ -321,8 +421,9 @@ impl Controller {
         &self,
         state: &crate::storage::WorkspaceServices,
         prepared: &PreparedSessionList,
+        priority: Priority,
     ) -> Result<SessionListRead> {
-        self.read_prepared_with(state, prepared, None)
+        self.read_prepared_with(state, prepared, None, priority)
     }
     /// [`Controller::read_prepared`] for an export: `sink` receives each body frame as it arrives.
     fn read_prepared_with(
@@ -330,15 +431,17 @@ impl Controller {
         state: &crate::storage::WorkspaceServices,
         prepared: &PreparedSessionList,
         hooks: Option<Framed<'_>>,
+        priority: Priority,
     ) -> Result<SessionListRead> {
         let helper = helper_path()?;
-        self.runtime
-            .wait_for_admission()
-            .map_err(|_| SessionReadIssue::WorkerUnavailable)?;
-        let workload = self
-            .runtime
-            .prepare_background_workload(metadata_worker_budget(), 768 * MIB, 15_000)
-            .map_err(|_| SessionReadIssue::WorkerUnavailable)?;
+        let workload = match priority {
+            Priority::Explicit => self.explicit_workload()?,
+            // `acquire` already waited for healthy measurements.
+            Priority::Background => self
+                .runtime
+                .prepare_background_workload(metadata_worker_budget(), 768 * MIB, 15_000)
+                .map_err(|_| SessionReadIssue::WorkerUnavailable)?,
+        };
         let read = match hooks {
             Some(hooks) => {
                 prepared.run_contained_framed(&state.store, &helper, &state.location, workload, hooks)
@@ -358,7 +461,13 @@ impl Controller {
         Ok(read)
     }
     pub async fn detail(self: &Arc<Self>, request: DetailRequest) -> Result<DetailReply> {
-        self.worker(move |controller| {
+        self.detail_at(Priority::Explicit, request).await
+    }
+    pub async fn detail_background(self: &Arc<Self>, request: DetailRequest) -> Result<DetailReply> {
+        self.detail_at(Priority::Background, request).await
+    }
+    async fn detail_at(self: &Arc<Self>, priority: Priority, request: DetailRequest) -> Result<DetailReply> {
+        self.worker(priority, move |controller| {
             let state = controller
                 .services
                 .load()
@@ -367,7 +476,7 @@ impl Controller {
             let prepared =
                 PreparedSessionList::resolve_detail(&state.store, &state.location, request)?;
             controller
-                .read_prepared(state, &prepared)?
+                .read_prepared(state, &prepared, priority)?
                 .detail()
                 .cloned()
                 .ok_or(SessionReadIssue::ReadUnavailable)
@@ -379,7 +488,7 @@ impl Controller {
         if !request.confirmed_raw {
             return Err(SessionReadIssue::InvalidRequest);
         }
-        self.worker(move |controller| {
+        self.worker(Priority::Explicit, move |controller| {
             let state = controller
                 .services
                 .load()
@@ -388,7 +497,7 @@ impl Controller {
             let prepared =
                 PreparedSessionList::resolve_raw(&state.store, &state.location, request)?;
             controller
-                .read_prepared(state, &prepared)?
+                .read_prepared(state, &prepared, Priority::Explicit)?
                 .raw()
                 .cloned()
                 .ok_or(SessionReadIssue::ReadUnavailable)
@@ -398,7 +507,7 @@ impl Controller {
     pub async fn find(self: &Arc<Self>, request: FindRequest, watch: Watch) -> Result<FindReply> {
         shinatama_engine::session_find::validate_request(&request)
             .map_err(|_| SessionReadIssue::InvalidRequest)?;
-        self.worker(move |controller| {
+        self.worker(Priority::Explicit, move |controller| {
             let state = controller
                 .services
                 .load()
@@ -415,7 +524,7 @@ impl Controller {
             // The window learns the worker has started (it may have waited for a free slot).
             progress(Progress::default());
             let hooks = Framed { body: &mut body, progress: &mut progress, cancel: &cancel };
-            let read = controller.read_prepared_with(state, &prepared, Some(hooks))?;
+            let read = controller.read_prepared_with(state, &prepared, Some(hooks), Priority::Explicit)?;
             read.find().cloned().ok_or(SessionReadIssue::ReadUnavailable)
         })
         .await
@@ -426,7 +535,7 @@ impl Controller {
     pub async fn export(self: &Arc<Self>, request: ExportRequest) -> Result<(ExportReply, Vec<u8>)> {
         shinatama_engine::session_export::validate_request(&request)
             .map_err(|_| SessionReadIssue::InvalidRequest)?;
-        self.worker(move |controller| {
+        self.worker(Priority::Explicit, move |controller| {
             let state = controller
                 .services
                 .load()
@@ -450,7 +559,7 @@ impl Controller {
                 let mut progress = |_: Progress| {};
                 let never = || false;
                 let hooks = Framed { body: &mut sink, progress: &mut progress, cancel: &never };
-                controller.read_prepared_with(state, &prepared, Some(hooks))
+                controller.read_prepared_with(state, &prepared, Some(hooks), Priority::Explicit)
             };
             if over {
                 return Err(SessionReadIssue::OutputLimit);
@@ -479,7 +588,7 @@ impl Controller {
     ) -> Result<StagedExport> {
         shinatama_engine::session_export::validate_request(&request)
             .map_err(|_| SessionReadIssue::InvalidRequest)?;
-        self.worker(move |controller| {
+        self.worker(Priority::Explicit, move |controller| {
             let state = controller
                 .services
                 .load()
@@ -497,7 +606,7 @@ impl Controller {
                 // The window learns the worker has started (it may have waited for a free slot).
                 progress(Progress::default());
                 let hooks = Framed { body: &mut sink, progress: &mut progress, cancel: &cancel };
-                controller.read_prepared_with(state, &prepared, Some(hooks))
+                controller.read_prepared_with(state, &prepared, Some(hooks), Priority::Explicit)
             };
             if write_failed {
                 return Ok(StagedExport::WriteFailed);
@@ -522,7 +631,7 @@ impl Controller {
         {
             return Err(SessionReadIssue::InvalidRequest);
         }
-        self.worker(move |controller| {
+        self.worker(Priority::Explicit, move |controller| {
             controller.require_no_retained()?;
             let state = controller
                 .services

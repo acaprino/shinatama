@@ -96,7 +96,10 @@ Shinatama.exe (window)                         shinatama-moli.exe (one per windo
 - New view kind `browser` in the workspace layout of a thread (ADR-0055): one page per tab, in
   the same groups as terminal tabs. The first browser tab of a thread opens a group of its own
   beside the focused group; later ones join that group as new tabs. The user can drag them like
-  any tab. Restoring a layout
+  any tab, and tile them like terminals (user, 2026-11-14): the layout's existing `split`,
+  `move`, `resize`, `maximize` and `collapse` actions apply to browser tabs unchanged, so two pages
+  side by side, or a page beside an agent's terminal, are ordinary tiles. Every visible tile has
+  its own viewport, sized to the tile, and its own screencast. Restoring a layout
   shows the last URL with a "Riapri" button and never reopens the page (FRD-0001 R30, FRD-0011
   R40).
 - Page area: a canvas showing frames from `Page.screencastFrame`; the viewport follows the pane
@@ -106,7 +109,8 @@ Shinatama.exe (window)                         shinatama-moli.exe (one per windo
   `Page.captureScreenshot` for an immediate fresh frame, because the screencast interval is fixed
   at host start (`--screencast-interval-ms`, default 1000 in `moli/src/cli.rs`) and only emits
   when the page changed.
-- Hidden panes (another thread open, pane collapsed) stop their screencast; the page stays.
+- Hidden tabs (behind another tab, another thread open, tile collapsed) stop their screencast;
+  the page stays. Resizing a tile changes that page's viewport after the resize settles.
 - Glass chrome and in-place sheets as every other pane (ADR-0039 v2); no popups.
 
 ### 4.4 Lifecycle and memory
