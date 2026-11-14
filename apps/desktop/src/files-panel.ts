@@ -11,7 +11,9 @@ type VisualDocument = { blocks: VisualBlock[]; exact: boolean; editableBlocks: n
 type Buffer = { path: string; baseText: string; baseSha256: string; text: string; editable: boolean };
 type Invoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 type Options = { invoke: Invoke; project: () => string | null; reportError: (message: string) => void;
-  decide: (title: string, message: string, accept: string) => Promise<boolean>; restoreFocus?: () => void };
+  decide: (title: string, message: string, accept: string) => Promise<boolean>; restoreFocus?: () => void;
+  /** Opens a local HTML document in a browser tab (ADR-0056); absent outside the desktop. */
+  openInBrowser?: (path: string) => void };
 
 const id = () => crypto.randomUUID();
 const message = (error: unknown) => typeof error === 'string' ? error : error instanceof Error ? error.message : 'The file operation failed.';
@@ -48,7 +50,14 @@ export function createFilesPanel(options: Options) {
     button.onclick = () => { view = mode; render(); if (view === 'visual') void renderVisual(); else schedulePreview(); }; modes.append(button); modeButtons.set(mode, button);
   }
   const save = document.createElement('button'); save.type = 'button'; save.className = 'primary'; save.textContent = 'Save';
-  bar.append(crumbs, language, modes, save);
+  const inBrowser = document.createElement('button'); inBrowser.type = 'button'; inBrowser.textContent = 'Browser'; inBrowser.hidden = true;
+  inBrowser.title = 'Open this page in a browser tab, with its own folder only';
+  inBrowser.onclick = () => {
+    const project = projectPath(); if (!current || !project) return;
+    options.openInBrowser?.([project.replace(/[\\/]+$/, ''), ...current.path.split('/').filter(Boolean)].join('\\'));
+    dialog.close();
+  };
+  bar.append(crumbs, language, modes, inBrowser, save);
   const panes = document.createElement('div'); panes.className = 'files-panes';
   const code = document.createElement('div'); code.className = 'files-code'; code.setAttribute('aria-label', 'File source');
   const preview = document.createElement('div'); preview.className = 'files-preview'; preview.setAttribute('aria-label', 'Rendered Markdown');
@@ -135,6 +144,7 @@ export function createFilesPanel(options: Options) {
     code.hidden = !current || view === 'preview' || view === 'visual'; preview.hidden = !current || view === 'source' || view === 'visual'; visual.hidden = !current || view !== 'visual';
     empty.hidden = !!current || showingImage;
     panes.dataset.view = view;
+    inBrowser.hidden = !current || !options.openInBrowser || !/\.html?$/i.test(current.path);
     save.hidden = !current; save.disabled = !current?.editable || current.text === current.baseText;
     paintCrumbs();
   }

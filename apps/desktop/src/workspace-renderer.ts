@@ -44,7 +44,7 @@ function element<K extends keyof HTMLElementTagNameMap>(tag: K, className: strin
 function control(label: string, key: string, run: () => void): HTMLButtonElement {
   const button = element('button', 'wm-control', label); button.type = 'button'; button.dataset.wmKey = key; button.addEventListener('click', run); return button;
 }
-/** Reparent the original terminal element; never clone, clear, dispose or reopen it. */
+/** Reparent the original view element (terminal or browser tab); never clone, clear, dispose or reopen it. */
 export function placeWorkspaceBinding(parent: HTMLElement, binding: HTMLElement, visible: boolean): void {
   binding.hidden = !visible;
   if (binding.parentNode !== parent) parent.appendChild(binding);
@@ -339,7 +339,7 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
       const leaves = tabGroups(parsed.value.root); const liveGroups = new Set(leaves.map(group => group.id)); const liveViews = new Map(parsed.value.views.map(view => [view.id, view]));
       // Hide/park first, so a new parent never exposes an inactive terminal.
       for (const [viewId, binding] of options.bindings) {
-        const group = leaves.find(group => group.activeTabId === viewId && liveViews.get(viewId)?.resource.kind === 'terminal' && !group.collapsed && !liveViews.get(viewId)?.hidden
+        const group = leaves.find(group => group.activeTabId === viewId && liveViews.has(viewId) && !group.collapsed && !liveViews.get(viewId)?.hidden
           && (layout.maximizedGroupId === null || layout.maximizedGroupId === group.id));
         markVisibility(viewId, group !== undefined, group?.id ?? null);
         if (!group) placeWorkspaceBinding(parking, binding, false);
@@ -348,7 +348,7 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
         let dom = groups.get(group.id); if (!dom) { dom = makeGroup(group.id); groups.set(group.id, dom); }
         buildChrome(group, index, dom);
         const selected = group.activeTabId ? liveViews.get(group.activeTabId) : undefined;
-        const binding = selected?.resource.kind === 'terminal' ? options.bindings.get(selected.id) : undefined;
+        const binding = selected ? options.bindings.get(selected.id) : undefined;
         if (binding && !group.collapsed && (layout.maximizedGroupId === null || layout.maximizedGroupId === group.id)) {
           for (const child of [...dom.body.children]) if (child !== binding) child.remove(); placeWorkspaceBinding(dom.body, binding, true);
         } else if (selected && options.placeholderFor?.(selected)) {
