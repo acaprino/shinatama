@@ -96,12 +96,15 @@ const EXPLICIT_ADMISSION_WAIT: Duration = Duration::from_secs(10);
 /// Who is waiting for a read.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Priority {
-    /// A read the user is waiting on: Resume, an opened session, the names on screen, a search
-    /// or an export. It gets the lightweight admission of an explicit Open, waits briefly for the
-    /// worker and goes before background reads.
+    /// A read the user is waiting on: Resume, an opened session, a search, the index pass the
+    /// user started, an export. It gets the lightweight admission of an explicit Open, waits
+    /// briefly for the worker and goes before background reads.
     Explicit,
-    /// Bulk or periodic work (the search index pass, instance summaries). It waits for healthy
-    /// resource measurements without holding the worker, and yields the worker to explicit reads.
+    /// An explicit read that is worthless after `Instant` (the names on screen): it stops waiting
+    /// for the worker and for admission at that moment, so no abandoned read is left queued.
+    ExplicitBy(Instant),
+    /// Periodic work (instance summaries). It waits for healthy resource measurements without
+    /// holding the worker, and yields the worker to explicit reads.
     Background,
 }
 type Result<T> = std::result::Result<T, SessionReadIssue>;
@@ -195,22 +198,34 @@ impl WorkerGate {
         self.explicit_waiting.load(Ordering::Acquire) == 0 && self.try_take()
     }
     fn take_explicit(&self, wait: Duration, blocked: impl Fn() -> bool) -> std::result::Result<(), GateRefusal> {
-        self.explicit_waiting.fetch_add(1, Ordering::AcqRel);
+        let _waiting = ExplicitWait::enter(&self.explicit_waiting);
         let deadline = Instant::now() + wait;
-        let result = loop {
+        loop {
             if blocked() {
-                break Err(GateRefusal::Blocked);
+                return Err(GateRefusal::Blocked);
             }
             if self.try_take() {
-                break Ok(());
+                return Ok(());
             }
             if Instant::now() >= deadline {
-                break Err(GateRefusal::TimedOut);
+                return Err(GateRefusal::TimedOut);
             }
             std::thread::sleep(Duration::from_millis(50));
-        };
-        self.explicit_waiting.fetch_sub(1, Ordering::AcqRel);
-        result
+        }
+    }
+}
+/// Counts one explicit read as waiting until it is dropped, unwinding included: a count left
+/// raised would make every background read yield forever.
+struct ExplicitWait<'a>(&'a AtomicUsize);
+impl<'a> ExplicitWait<'a> {
+    fn enter(count: &'a AtomicUsize) -> Self {
+        count.fetch_add(1, Ordering::AcqRel);
+        Self(count)
+    }
+}
+impl Drop for ExplicitWait<'_> {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
     }
 }
 struct WorkerSlot(Arc<Controller>);
@@ -318,17 +333,28 @@ impl Controller {
                 self.runtime
                     .wait_for_admission()
                     .map_err(|_| SessionReadIssue::WorkerUnavailable)?;
+                // The reader may have been blocked during that wait: no replacement read begins.
+                if self.blocked.load(Ordering::Acquire) {
+                    return Err(SessionReadIssue::CleanupUnconfirmed);
+                }
                 if !self.gate.take_background() {
                     return Err(SessionReadIssue::ReadUnavailable);
                 }
             }
-            Priority::Explicit => self
-                .gate
-                .take_explicit(EXPLICIT_WORKER_WAIT, || self.blocked.load(Ordering::Acquire))
-                .map_err(|refusal| match refusal {
-                    GateRefusal::Blocked => SessionReadIssue::CleanupUnconfirmed,
-                    GateRefusal::TimedOut => SessionReadIssue::ReadUnavailable,
-                })?,
+            Priority::Explicit | Priority::ExplicitBy(_) => {
+                let wait = match priority {
+                    Priority::ExplicitBy(by) => {
+                        EXPLICIT_WORKER_WAIT.min(by.saturating_duration_since(Instant::now()))
+                    }
+                    _ => EXPLICIT_WORKER_WAIT,
+                };
+                self.gate
+                    .take_explicit(wait, || self.blocked.load(Ordering::Acquire))
+                    .map_err(|refusal| match refusal {
+                        GateRefusal::Blocked => SessionReadIssue::CleanupUnconfirmed,
+                        GateRefusal::TimedOut => SessionReadIssue::ReadUnavailable,
+                    })?
+            }
         }
         Ok(WorkerSlot(Arc::clone(self)))
     }
@@ -336,11 +362,16 @@ impl Controller {
     /// admission starting a session gets (a fresh memory sample and a startup allowance), never
     /// the governor's background deferral, which a busy desktop holds for minutes on end. The
     /// helper keeps its Windows memory limits. Momentary dips in free memory are retried.
-    fn explicit_workload(&self) -> Result<PreparedWorkload> {
+    fn explicit_workload(&self, by: Option<Instant>) -> Result<PreparedWorkload> {
+        let late = || by.is_some_and(|by| Instant::now() >= by);
+        if late() {
+            return Err(SessionReadIssue::TimedOut);
+        }
         self.runtime
             .wait_for_interactive_admission()
             .map_err(|_| SessionReadIssue::WorkerUnavailable)?;
-        let deadline = Instant::now() + EXPLICIT_ADMISSION_WAIT;
+        let retry_until = Instant::now() + EXPLICIT_ADMISSION_WAIT;
+        let deadline = by.map_or(retry_until, |by| by.min(retry_until));
         loop {
             match self.runtime.prepare_interactive_support_workload(
                 metadata_worker_budget(),
@@ -406,9 +437,6 @@ impl Controller {
     pub async fn list(self: &Arc<Self>, request: ListRequest) -> Result<SessionListPage> {
         self.list_at(Priority::Explicit, request).await
     }
-    pub async fn list_background(self: &Arc<Self>, request: ListRequest) -> Result<SessionListPage> {
-        self.list_at(Priority::Background, request).await
-    }
     async fn list_at(self: &Arc<Self>, priority: Priority, request: ListRequest) -> Result<SessionListPage> {
         self.worker(priority, move |controller| {
             let state = controller
@@ -449,7 +477,8 @@ impl Controller {
     ) -> Result<SessionListRead> {
         let helper = helper_path()?;
         let workload = match priority {
-            Priority::Explicit => self.explicit_workload()?,
+            Priority::Explicit => self.explicit_workload(None)?,
+            Priority::ExplicitBy(by) => self.explicit_workload(Some(by))?,
             // `acquire` already waited for healthy measurements.
             Priority::Background => self
                 .runtime
@@ -476,6 +505,10 @@ impl Controller {
     }
     pub async fn detail(self: &Arc<Self>, request: DetailRequest) -> Result<DetailReply> {
         self.detail_at(Priority::Explicit, request).await
+    }
+    /// [`Controller::detail`] that gives up at `by`, waiting included.
+    pub async fn detail_by(self: &Arc<Self>, request: DetailRequest, by: Instant) -> Result<DetailReply> {
+        self.detail_at(Priority::ExplicitBy(by), request).await
     }
     pub async fn detail_background(self: &Arc<Self>, request: DetailRequest) -> Result<DetailReply> {
         self.detail_at(Priority::Background, request).await
@@ -856,6 +889,19 @@ mod gate_tests {
         assert!(!gate.take_background() || explicit.is_finished());
         assert_eq!(explicit.join().unwrap(), Ok(()));
         assert!(!gate.take_background(), "the explicit read holds the slot");
+        gate.release();
+        assert!(gate.take_background());
+    }
+
+    #[test]
+    fn a_panic_while_waiting_never_leaves_background_reads_yielding() {
+        let gate = WorkerGate::default();
+        assert!(gate.try_take());
+        let unwound = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _ = gate.take_explicit(Duration::from_secs(5), || panic!("blocked check failed"));
+        }));
+        assert!(unwound.is_err());
+        assert_eq!(gate.explicit_waiting.load(std::sync::atomic::Ordering::Acquire), 0);
         gate.release();
         assert!(gate.take_background());
     }

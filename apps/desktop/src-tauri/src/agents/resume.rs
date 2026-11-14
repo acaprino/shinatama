@@ -55,6 +55,8 @@ fn read_error(error: SessionReadIssue) -> Error {
         // The saved conversation is checked by a contained reader; it could not be admitted
         // because the system is short of memory. Nothing was started.
         SessionReadIssue::WorkerUnavailable => "resources",
+        // The reader stays blocked until the app restarts: retrying cannot help.
+        SessionReadIssue::CleanupUnconfirmed => "reader_blocked",
         _ => "unavailable",
     })
 }

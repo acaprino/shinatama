@@ -17,7 +17,7 @@ test('a memory refusal says so and that nothing was started', () => {
 });
 
 test('every backend code of thread_resume has its own sentence', () => {
-  const codes = ['resources', 'busy', 'owned_elsewhere', 'source_changed', 'conflict', 'unbound', 'native_missing',
+  const codes = ['resources', 'reader_blocked', 'busy', 'owned_elsewhere', 'source_changed', 'conflict', 'unbound', 'native_missing',
     'project_unavailable', 'unsupported_harness', 'invalid_request'];
   const generic = resumeFailureText({ code: 'unavailable' });
   for (const code of codes) assert.notEqual(resumeFailureText({ code }), generic, code);

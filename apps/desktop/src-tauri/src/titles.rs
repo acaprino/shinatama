@@ -254,16 +254,22 @@ pub async fn thread_names(window: WebviewWindow, services: State<'_, Services>, 
             rows.push(ThreadName { thread_id: thread, name: None });
             continue;
         };
-        let read = controller.inner().detail(DetailRequest {
-            root: RootSelector { store_root_id: target.segment.native.store_root_id.clone(), configuration_revision: target.segment.native.store_revision },
-            native_id: target.segment.native.native_id.clone(),
-            cursor: None,
-            limit: 1,
-            overview_only: true,
-        });
-        // A read still running at the deadline finishes on its worker; only its name is dropped.
-        let detail = tokio::time::timeout(deadline.saturating_duration_since(Instant::now()), read).await;
-        let name = detail.ok().and_then(Result::ok).and_then(|reply| reply.page).and_then(|page| page.overview.title);
+        // The read itself stops waiting at the deadline: no abandoned read stays queued on the
+        // reader ahead of a Resume or a launch.
+        let detail = controller
+            .inner()
+            .detail_by(
+                DetailRequest {
+                    root: RootSelector { store_root_id: target.segment.native.store_root_id.clone(), configuration_revision: target.segment.native.store_revision },
+                    native_id: target.segment.native.native_id.clone(),
+                    cursor: None,
+                    limit: 1,
+                    overview_only: true,
+                },
+                deadline,
+            )
+            .await;
+        let name = detail.ok().and_then(|reply| reply.page).and_then(|page| page.overview.title);
         rows.push(ThreadName { thread_id: thread, name });
     }
     Ok(rows)

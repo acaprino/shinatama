@@ -195,7 +195,7 @@ impl Controller {
                 limit: 50, overview_only: false,
             };
             let reply = self.call(run, |controller| {
-                tauri::async_runtime::block_on(controller.detail_background(request.clone()))
+                tauri::async_runtime::block_on(controller.detail(request.clone()))
             })?;
             let page = reply
                 .page
@@ -246,7 +246,7 @@ impl Controller {
                 include_children: true,
             };
             let page = self.call(run, |controller| {
-                tauri::async_runtime::block_on(controller.list_background(ListRequest {
+                tauri::async_runtime::block_on(controller.list(ListRequest {
                     root: request.root.clone(),
                     cursor: request.cursor.clone(),
                     limit: request.limit,

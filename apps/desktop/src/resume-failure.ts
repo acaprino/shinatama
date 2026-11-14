@@ -10,6 +10,7 @@ export function resumeFailureCode(error: unknown): string | null {
 export function resumeFailureText(error: unknown): string {
   switch (resumeFailureCode(error)) {
     case 'resources': return 'Not enough free memory to open the saved conversation right now; nothing was started. Close some programs or sessions, then resume again.';
+    case 'reader_blocked': return 'Saved conversations cannot be read until Shinatama restarts; nothing was started. Restart Shinatama, then resume again.';
     case 'busy': return 'Another session is opening, or saved conversations are being read. Resume again in a moment.';
     case 'owned_elsewhere': return 'This conversation is already open.';
     case 'source_changed': case 'conflict': return 'This conversation changed. Reload threads and try again.';
