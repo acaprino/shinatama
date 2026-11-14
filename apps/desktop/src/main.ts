@@ -16,6 +16,7 @@ import { createTerminalFind } from './terminal-find.ts';
 import { createTerminalHistory, LIVE_SCROLLBACK, splitOutput, type TerminalHistory } from './terminal-history.ts';
 import { createTerminalMinimap, type TerminalMinimap } from './terminal-minimap.ts';
 import { openTerminalHistory } from './terminal-history-view.ts';
+import { attachTerminalPaste, startTerminalDrop, type TerminalTarget } from './terminal-input.ts';
 import { createPresentation, PROFILES, setTerminalGlass } from './presentation.ts';
 import './presentation.css';
 import { startTerminalResources, formatTerminalResources, type TerminalResourceStatus } from './terminal-resources.ts';
@@ -65,6 +66,10 @@ let harnessCatalogLoaded = false;
 let harnessCatalogLoading: Promise<boolean> | null = null;
 let openingSessionDialog = false;
 const views = new Map<string, View>();
+/** Each terminal's element, for the files and images dropped or pasted on it. */
+const inputTargets = new WeakMap<Element, TerminalTarget>();
+if (desktop) void startTerminalDrop(element => { const host = element?.closest('.terminal-view'); return host ? inputTargets.get(host) ?? null : null; })
+  .catch(error => notify(`Dropping files on terminals is unavailable: ${error}`));
 const profiles = PROFILES;
 let workspaceLayout = emptyWorkspace();
 let persistence: WorkspacePersistence | null = null;
@@ -387,6 +392,9 @@ function attachTerminal(info: SessionInfo, group: string, threadId: string | nul
           closed: () => { view.historyView = null; if (!view.disposed && !modalOpen()) terminal.focus(); } });
       } }) };
   views.set(info.id, view); bindings.set(info.id, element); resizeObserver.observe(element);
+  const input: TerminalTarget = { terminal, element, accepts: () => !view.ended && !view.disposed && !modalOpen(),
+    focus: () => { setFocus(view.group); terminal.focus(); } };
+  inputTargets.set(element, input); attachTerminalPaste(input, notify);
   tabFilter?.reveal(info.cwd);
   const restored = workspaceLayout.views.find(panel => panel.id === info.id);
   if (restored?.resource.kind === 'terminal') { const applied = presentation.applyProfile(terminal, restored.resource.profileId); view.profile = applied.id; element.style.background = applied.background; }

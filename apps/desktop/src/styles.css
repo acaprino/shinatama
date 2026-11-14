@@ -477,3 +477,5 @@ dialog[data-sheet="pane-top"], dialog[data-sheet="pane-bottom"] { width: var(--s
 #app:has(> #model-proxy-panel:not([hidden])) #work-area { padding-right: min(400px, calc(100vw - 16px)); }
 @media (max-width: 1000px) { #app:has(> #model-proxy-panel:not([hidden])) #work-area { padding-right: 0; } }
 #notice { bottom: 68px; }
+/* Files dragged from Explorer over a terminal: the pane that receives their paths. */
+.terminal-view.drop-target { outline: 2px dashed var(--accent); outline-offset: -4px; }

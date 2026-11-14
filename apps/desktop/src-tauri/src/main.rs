@@ -33,6 +33,7 @@ mod storage;
 mod threads;
 #[cfg(windows)]
 mod terminal_runtime;
+mod terminal_input;
 #[cfg(windows)]
 mod webview_recovery;
 #[cfg(feature = "tl1-proof")]
@@ -868,6 +869,8 @@ fn main() {
         terminal_resources,
         terminal_read,
         terminal_write,
+        terminal_input::terminal_paste_image,
+        terminal_input::terminal_clipboard_files,
         terminal_resize,
         terminal_stop,
         terminal_shutdown
@@ -1002,6 +1005,8 @@ fn main() {
         terminal_resources,
         terminal_read,
         terminal_write,
+        terminal_input::terminal_paste_image,
+        terminal_input::terminal_clipboard_files,
         terminal_resize,
         terminal_stop,
         terminal_shutdown,
