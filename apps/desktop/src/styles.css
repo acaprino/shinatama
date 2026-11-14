@@ -460,32 +460,13 @@ dialog[data-sheet="pane-top"], dialog[data-sheet="pane-bottom"] { width: var(--s
 .native-glass .wm-footer, .native-glass .wm-controls { background: var(--glass-bar); }
 /* The file browser needs two columns; it takes a wider drawer than the others. */
 :root:has(#files-dialog[open]) { --drawer-width: clamp(560px, 66vw, 1180px); }
-/* Model proxy indicator: a HUD dial (thin outer ring, quadrant ticks, eight-segment gauge, diamond core).
-   Tone sets one color; live is steady, busy/transit sweep, warn/fault blink, off is dark. No glow. */
-.toolbar .proxy-indicator { --tone: var(--line); gap: 6px; padding: 0 8px 0 6px; border-color: transparent; }
+/* Model proxy indicator: one traffic light. Green serving, amber in transit or degraded, red failed, dark off. No glow. */
+.toolbar .proxy-indicator { width: 28px; padding: 0; border-color: transparent; }
 .toolbar .proxy-indicator:hover:not(:disabled), .toolbar .proxy-indicator[aria-expanded="true"] { border-color: var(--line); background: var(--surface-2); }
-.proxy-indicator svg { width: 22px; height: 22px; flex: none; overflow: visible; }
-.proxy-indicator .ring { fill: none; stroke: color-mix(in srgb, var(--tone) 45%, var(--line)); stroke-width: .75; }
-.proxy-indicator .ticks { stroke: var(--tone); stroke-width: 1; stroke-linecap: butt; }
-.proxy-indicator .segments { fill: none; stroke: var(--tone); stroke-width: 2.6; stroke-dasharray: 4.1 1.3978; stroke-dashoffset: 2.05; transform-origin: 12px 12px; transition: stroke var(--base); }
-.proxy-indicator .core { fill: var(--tone); transition: fill var(--base); }
-.proxy-indicator-tag { font: 500 10px/1 var(--mono); letter-spacing: .14em; color: var(--muted); }
-.proxy-indicator[data-tone="live"] { --tone: var(--live); }
-.proxy-indicator[data-tone="busy"] { --tone: var(--live); }
-.proxy-indicator[data-tone="transit"] { --tone: var(--ice); }
-.proxy-indicator[data-tone="warn"] { --tone: var(--warning); }
-.proxy-indicator[data-tone="fault"] { --tone: var(--error); }
-.proxy-indicator[data-tone="off"] .segments { stroke: var(--line); }
-.proxy-indicator[data-tone="off"] .core { fill: none; stroke: var(--muted); stroke-width: .75; }
-.proxy-indicator[data-tone="live"] .proxy-indicator-tag, .proxy-indicator[data-tone="busy"] .proxy-indicator-tag { color: var(--text-2); }
-.proxy-indicator[data-tone="fault"] .proxy-indicator-tag { color: var(--error); }
-.proxy-indicator[data-tone="busy"] .segments { animation: proxy-sweep 1.2s steps(8) infinite; }
-.proxy-indicator[data-tone="transit"] .segments { stroke-dasharray: 4.1 1.3978 4.1 1.3978 4.1 1.3978 4.1 23.39; animation: proxy-sweep 1.6s linear infinite; }
-.proxy-indicator[data-tone="warn"] .core { animation: proxy-blink 1.6s steps(2, jump-none) infinite; }
-.proxy-indicator[data-tone="fault"] .core, .proxy-indicator[data-tone="fault"] .segments { animation: proxy-blink .8s steps(2, jump-none) infinite; }
-@keyframes proxy-sweep { to { rotate: 360deg; } }
-@keyframes proxy-blink { 50% { opacity: .2; } }
-@media (prefers-reduced-motion: reduce) { .proxy-indicator .segments, .proxy-indicator .core { animation: none !important; } }
+.proxy-indicator .lamp { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--muted); background: transparent; transition: background-color var(--base), border-color var(--base); }
+.proxy-indicator[data-tone="green"] .lamp { border-color: var(--live); background: var(--live); }
+.proxy-indicator[data-tone="amber"] .lamp { border-color: var(--warning); background: var(--warning); }
+.proxy-indicator[data-tone="red"] .lamp { border-color: var(--error); background: var(--error); }
 
 /* Model proxy: a side panel (an aside, not a dialog) docked like a drawer, below any dialog. */
 #model-proxy-panel { position: fixed; inset: calc(var(--titlebar-height) + 44px) 0 28px auto; z-index: 19; width: min(400px, calc(100vw - 16px)); overflow: auto; padding: 18px 20px; border-left: 1px solid color-mix(in srgb, var(--line-strong) 62%, transparent); background: linear-gradient(90deg, var(--accent), var(--ice) 46%, transparent 92%) top left / 100% 2px no-repeat, var(--glass); backdrop-filter: var(--glass-blur); color: var(--text); scrollbar-width: thin; }

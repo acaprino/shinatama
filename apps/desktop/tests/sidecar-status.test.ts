@@ -217,11 +217,9 @@ test('a poll tick repaints only when the capability lines changed', () => {
   assert.deepEqual(nextCapabilityLines(first, { state: 'not_observed' }), capabilityLines({ state: 'not_observed' }));
   assert.deepEqual(nextCapabilityLines([], same), capabilityLines(same));
 });
-test('the indicator tone follows the phase, and an unknown phase is dark', () => {
-  assert.equal(indicatorTone('ready'), 'live');
-  assert.equal(indicatorTone('busy'), 'busy');
-  for (const phase of ['preparing', 'starting', 'recovering']) assert.equal(indicatorTone(phase), 'transit');
-  for (const phase of ['draining', 'degraded']) assert.equal(indicatorTone(phase), 'warn');
-  for (const phase of ['failed', 'retired']) assert.equal(indicatorTone(phase), 'fault');
+test('the traffic light follows the phase, and an unknown phase is dark', () => {
+  for (const phase of ['ready', 'busy']) assert.equal(indicatorTone(phase), 'green');
+  for (const phase of ['preparing', 'starting', 'recovering', 'draining', 'degraded']) assert.equal(indicatorTone(phase), 'amber');
+  for (const phase of ['failed', 'retired']) assert.equal(indicatorTone(phase), 'red');
   for (const phase of ['stopped', 'unavailable', 'nonsense', 'toString']) assert.equal(indicatorTone(phase), 'off');
 });

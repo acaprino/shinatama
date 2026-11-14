@@ -8,16 +8,11 @@ const POLL_MS = 1500;
  * confirmation before a costly stop is inline, inside the panel. */
 export function createSidecarControl(desktop: boolean, notify: (message: string) => void) {
   const el = <K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}) => Object.assign(document.createElement(tag), props);
-  // The toolbar shows an indicator light, not a labelled button: a segmented ring around a core,
-  // HUD-style; the phase is in its accessible name and tooltip, and a click still opens the panel.
+  // The toolbar shows a traffic light, not a labelled button: the phase is in its accessible name
+  // and tooltip, and a click still opens the panel.
   const button = el('button', { id: 'model-proxy', type: 'button', className: 'proxy-indicator', disabled: !desktop });
   button.setAttribute('aria-controls', 'model-proxy-panel'); button.setAttribute('aria-expanded', 'false');
-  button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">'
-    + '<circle class="ring" cx="12" cy="12" r="10.5"/>'
-    + '<path class="ticks" d="M12 .5v2M12 21.5v2M.5 12h2M21.5 12h2"/>'
-    + '<circle class="segments" cx="12" cy="12" r="7"/>'
-    + '<rect class="core" x="10" y="10" width="4" height="4" transform="rotate(45 12 12)"/>'
-    + '</svg><span class="proxy-indicator-tag" aria-hidden="true">PRX</span>';
+  button.append(el('span', { className: 'lamp' }));
   document.querySelector('.toolbar')?.append(button);
 
   const panel = el('aside', { id: 'model-proxy-panel', hidden: true });
