@@ -912,8 +912,9 @@ The detailed functional and technical contract is
   a new session without transferring cookies, login or control.
 - Static visual output uses native preview panes for supported artifacts, otherwise
   a private artifact plus textual alternative. Text alone is not a visual preview.
-  Interactive browsing remains external Chrome in the first integration; tiling
-  does not implicitly approve an embedded browser engine.
+  Since 2026-11-14 (ADR-0056, FRD-0011 v2) Shinatama has embedded browser tabs drawn
+  from a private Moli host; links and HTML documents open there, and visible Chrome
+  stays the explicit Patchright path.
 - Local roots, MCP/local services, redirects and subresources have explicit scope;
   `localhost` is not blanket permission. Temporary profiles are the default and
   screenshots/extracted content follow secret-aware retention rules.

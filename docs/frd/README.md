@@ -90,7 +90,7 @@ Open questions are not requirements. Each record lists them at the end, with the
 | [FRD-0008](FRD-0008-daodan.md) | Daodan preinstalled and native task support | 42 | X, V1 | 0032, 0033, 0034 |
 | [FRD-0009](FRD-0009-billioncontext-sidecar.md) | BillionContext sidecar | 30 | X | 0029, 0030 |
 | [FRD-0010](FRD-0010-overview-state-and-widget.md) | Overview, instance state and desktop widget | 44 | V1 | 0027, 0028 |
-| [FRD-0011](FRD-0011-browser.md) | Browser integration | 52 | V1 | 0035, 0036 |
+| [FRD-0011](FRD-0011-browser.md) | Browser integration (v2: embedded Moli browser tabs) | 60 | V1 | 0035, 0036, 0056 |
 | [FRD-0012](FRD-0012-companion-pane.md) | Companion pane, Aided Decision cards and web grounding | 96 | V1 (R1 to R5) | 0002 v3, 0003 v2, 0041, 0042, 0043 |
 | [FRD-0013](FRD-0013-token-savings.md) | Token savings | 40 | V1, EV | 0025, 0037, 0038 |
 | [FRD-0014](FRD-0014-shared-state-and-privacy.md) | Shared state, privacy and data retention | 32 | X | 0008, 0009 |

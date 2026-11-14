@@ -2,13 +2,13 @@
 
 | | |
 |---|---|
-| Version | 1 |
-| Status | Accepted 2026-11-01 (this Markdown text) |
-| Date | 2026-11-01 |
+| Version | 2 |
+| Status | v1 accepted 2026-11-01; v2 (section 2.10, R18, R43, R46) proposed 2026-11-14 with ADR-0056 |
+| Date | 2026-11-14 |
 | Sources | functional-design goal 13, 2 (non-goals), 4, 5.15, 7; technical-design 7.9; browser-integration 1 to 12 |
-| Governing ADRs | ADR-0035, ADR-0036 |
+| Governing ADRs | ADR-0035, ADR-0036, ADR-0056 |
 | Register sections | B1 to B10, O8 |
-| Related records | FRD-0001 (preview panes, no embedded browser), FRD-0007 (authority rules of 7.6), FRD-0014 (no secrets in the database) |
+| Related records | FRD-0001 (preview panes; browser tabs since v2), FRD-0007 (authority rules of 7.6), FRD-0014 (no secrets in the database) |
 
 ## 1. Purpose and scope
 
@@ -56,7 +56,7 @@ or `user`, exactly one for an interactive session.
 |---|---|---|---|---|---|
 | R16 | The fast path is the pinned Moli binary as a child for a bounded one-shot `fetch`, with fixed operations and output parsers; `moli serve` is not started; general `--eval` is not exposed to agents (a local probe may use it to measure the MCP use case). | P | V1 | B1 | 0035, 0036 |
 | R17 | Defaults of a Moli operation: no layout, images, fonts or optional resources for text extraction; layout only where needed; bounded time, output, response size, redirects, artifact count and size; a temporary dedicated profile unless the user configures persistence; no inherited agent credentials or unrelated secrets; target and subresource policy applied to the initial URL, redirects and local files. | P | V1 | B1, B8 | 0035 |
-| R18 | `moli serve`, persistent CDP or WebDriver automation and interactive Moli previews stay disabled until B4 proves a private authenticated transport or an equivalent verified boundary that untrusted pages cannot reach; loopback, an ephemeral port and a random path are not authentication; the same gate applies to Patchright transports. The source finding at Moli `dcae77e` (a TCP server on `127.0.0.1:9222` with no request credential check found) is a scoped reading, not a runtime result. | P | V1 | B4 (SEC) | 0036 |
+| R18 | (v2: for the embedded browser tabs, B4 is met by the private named pipe of R53; `moli serve` itself stays never started.) `moli serve`, persistent CDP or WebDriver automation and interactive Moli previews stay disabled until B4 proves a private authenticated transport or an equivalent verified boundary that untrusted pages cannot reach; loopback, an ephemeral port and a random path are not authentication; the same gate applies to Patchright transports. The source finding at Moli `dcae77e` (a TCP server on `127.0.0.1:9222` with no request credential check found) is a scoped reading, not a runtime result. | P | V1 | B4 (SEC) | 0036 |
 | R19 | The Patchright path: a Shinatama companion (Node.js or Python, the builder's choice) starts visible Chrome through a persistent context only after an explicit UI request; the companion and its dependencies are lazy-loaded; no helper, Chrome process or update check runs at startup; the companion exposes only the typed session operations the UI path needs, never a generic local automation socket; its transport, ports, process tree and cleanup are inventoried and verified. | P | V1 | B5, B4 | 0036 |
 | R20 | Patchright opens a real external Chrome window separate from the native workspace; the first integration embeds no interactive browser engine; static artifacts use native preview panes where supported, otherwise a private artifact plus a textual alternative. | P | V1 | B2 | 0035, 0005 |
 | R21 | Interactive Moli previews, screencasting, a Moli-owned window, shared cookie jars, reuse of the user's personal Chrome profile, simultaneous agent and user control of one page, a universal browser abstraction, site-capability heuristics, anti-bot guarantees, arbitrary multi-step automation through a JavaScript escape, and automatic download, installation or update of Moli, Chrome or Patchright are outside the first integration, as deliberate simplifications. | P | — | — | 0035, 0036 |
@@ -106,7 +106,7 @@ or `user`, exactly one for an interactive session.
 
 | ID | Requirement | Origin | Slice | Proof | ADR |
 |---|---|---|---|---|---|
-| R43 | Whether the reduced first integration (one-shot `fetch` plus explicit Patchright UI, without `serve` or interactive Moli previews) is sufficient, and the performance budget after a baseline exists, are the user's decisions; overall approval is O5. | S (open O8) | — | O8 | 0035 |
+| R43 | (v2: answered by the user 2026-11-14: an embedded, low-memory Moli browser for agents and browsing, section 2.10.) Whether the reduced first integration (one-shot `fetch` plus explicit Patchright UI, without `serve` or interactive Moli previews) is sufficient, and the performance budget after a baseline exists, are the user's decisions; overall approval is O5. | S (open O8) | — | O8 | 0035 |
 | R44 | Builder choices subject to the gates: Node.js or Python for the companion, the private transport, exact schema names, OS process cleanup, artifact viewer and retention defaults. | P | V1 | — | 0036 |
 
 ### 2.9 What was not verified
@@ -114,13 +114,26 @@ or `user`, exactly one for an interactive session.
 | ID | Requirement | Origin | Slice | Proof | ADR |
 |---|---|---|---|---|---|
 | R45 | No Moli, Patchright or Chrome binary has been installed or run for the proposal; no endpoint, exploit, traffic, rendering, compatibility, sandbox, cleanup or performance claim has been verified locally; source reading is not a pass. | S | — | B1 to B10 | 0010 |
-| R46 | `dsh web` (FRD-0001 R07) is an "open in the user's browser" action and not a browser request of this record; it is never embedded. | A | V1 | DS14 | 0007 |
+| R46 | (v2) `dsh web` (FRD-0001 R07) and every other Shinatama "open link" action open a user-controlled browser tab (R57); the system browser is the tab's explicit "open in the system browser" action. | A | V1 | DS14 | 0007 |
 | R47 | The companion's web grounding (FRD-0012) uses the companion harness's own web tool, not this broker, and is governed by ADR-0043. | U 2026-11-01 | V1 | CS-19 | 0043 |
 | R48 | Hostile-content tests include hostile pages, redirects and errors trying to change engine or scope, open Chrome or answer approvals, and a post-error switch that must be a new explicit request. | P | V1 | B6 | 0036 |
 | R49 | Lifecycle tests cover normal close, cancellation, startup failure, owner crash and PID reuse on Windows, macOS and Linux. | P | V1 | B7 | 0036 |
 | R50 | Scope tests cover symlinks, subresources, redirects, local services, proxies, temporary and persistent profiles, cookies and screenshots. | P | V1 | B8 | 0036 |
 | R51 | Control tests cover a second session, user takeover, agent resume and a stale queued action after close or control change. | P | V1 | B9 | 0036 |
 | R52 | The threat model of register X5 covers the browser broker with the emulator, the database, MCP and hooks, handoff files, local sockets and the widget. | S | V1 | X5 (SEC) | 0036 |
+
+### 2.10 Embedded browser tabs (v2, ADR-0056)
+
+| ID | Requirement | Origin | Slice | Proof | ADR |
+|---|---|---|---|---|---|
+| R53 | One `shinatama-moli.exe` per app run, built from pinned Moli crates, serves Moli's protocol router only on `\.\pipe\shinatama-moli-<128-bit random>`: first instance, remote clients rejected, DACL of the current user's SID only, and a 256-bit per-launch token read before any byte reaches Moli; name and token travel on stdin; no TCP listener. | U 2026-11-14 | V1 | M4 | 0056 |
+| R54 | The host runs in a kill-on-close Job Object owned by Shinatama, starts with the first page, ends with Shinatama or after 10 minutes without pages; at most 8 live pages, the 9th discards the least recently shown hidden page, which keeps its address and reloads when shown. | U 2026-11-14; P | V1 | M5 | 0056 |
+| R55 | Each page is a browser tab of the workspace, drawn from JPEG frames on a canvas; page content never runs in Shinatama's WebView2; the address bar shows the page's real URL; hidden tabs receive no frames. | U 2026-11-14 | V1 | M3 | 0056 |
+| R56 | Browser tabs tile like terminal tabs: split, move, resize, maximize and collapse apply unchanged; each visible tile has its own viewport; a restored layout shows the saved address with "Riapri" and never reopens the page. | U 2026-11-14 | V1 | — | 0056 |
+| R57 | Every http(s) link and HTML document the user opens from Shinatama opens in a new browser tab: Ctrl+click on a URL, an OSC 8 hyperlink or a local `.html`/`.htm` path in a terminal (the hover shows the real target), the Files panel's Browser button, `dsh web`. Other schemes are not opened. A local document reads only its own folder subtree, for that tab. | U 2026-11-14 | V1 | M7 | 0056 |
+| R58 | Agents use the fixed MCP tools `shinatama_browser_open`, `_read` (text or tree), `_click`, `_type`, `_screenshot`, `_close` on their authenticated session-control receiver; no raw CDP or script from the agent; agents open public http(s) pages only (no files, loopback, private or link-local literals); page text reaches them wrapped as untrusted web content. | P | V1 | M6 | 0056 |
+| R59 | A page an agent opens appears as a tab; the user takes control in place ("Prendi il controllo"), after which the agent gets `needs_user` until the page is handed back; the user's input never reaches a page an agent controls. | P | V1 | M6 | 0056 |
+| R60 | No memory figure is claimed before M2 measures the whole host tree against headless Chrome on the same fixtures (R37 applies unchanged). | P | V1 | M2 | 0056 |
 
 ## 3. Open questions
 
