@@ -31,7 +31,7 @@ import type { ProgressBackend, ProgressEvent } from './session-progress.ts';
 import { createHopPreview, type HopPreview } from './hop-preview.ts';
 import { createFilesPanel } from './files-panel.ts';
 import { createProjectsOverview } from './projects-overview.ts';
-import { createInstancesOverview } from './instances-overview.ts';
+import { createSessionsPanel } from './sessions-panel.ts';
 import { createSettingsPanel } from './settings-panel.ts';
 import { createSessionSearch } from './session-search.ts';
 import { createProjectMenu, createTabFilter, folderName, organizeToolbar, samePath } from './toolbar-simple.ts';
@@ -926,19 +926,29 @@ const projectsOverview = createProjectsOverview({
   button.onclick = () => { void projectsOverview.show(); };
   document.querySelector('#open-files')?.before(button);
 }
-const instancesOverview = createInstancesOverview({
-  invoke: (command, args) => desktop ? invoke(command, args) : Promise.reject('Open the desktop app to see instances.'),
+const unavailable = () => Promise.reject({ issue: 'read_unavailable' });
+// One panel for every session, running or saved. The archive browser and the search index stay
+// behind it for what it does not show (explicit paging of one archive, index management).
+const sessionsPanel = createSessionsPanel({
+  invoke: (command, args) => desktop ? invoke(command, args) : Promise.reject('Open the desktop app to see sessions.'),
   focus: id => {
     const view = views.get(id); if (!view || view.disposed) return false;
     changeLayout({ type: 'activate', groupId: view.group, viewId: id }); setFocus(view.group); return true;
   },
   threadOf: id => { const panel = workspaceLayout.views.find(p => p.id === id); return panel?.resource.kind === 'terminal' ? panel.resource.threadId ?? null : null; },
+  roots: () => desktop ? invoke('session_roots') : unavailable(),
+  list: request => desktop ? invoke('session_list', { request }) : Promise.reject({ issue: 'worker_unavailable' }),
+  search: request => desktop ? invoke('session_search', { request }) : unavailable(),
+  openDetail: (root, nativeId) => { sessionDetail.show(root, nativeId); },
+  openArchives: () => { sessionLibrary.show(); },
+  openIndex: () => { sessionSearch.show(); },
+  project: () => projectPath || null,
   restoreFocus: () => setFocus(focusedGroup()),
 });
 {
-  const button = document.createElement('button'); button.type = 'button'; button.id = 'open-instances'; button.textContent = 'Instances';
-  button.title = 'Every running instance with its observed state';
-  button.onclick = () => { void instancesOverview.show(); };
+  const button = document.createElement('button'); button.type = 'button'; button.id = 'open-sessions'; button.textContent = 'Sessions';
+  button.title = 'Every session: the ones running now and the ones saved';
+  button.onclick = () => { void sessionsPanel.show(); };
   document.querySelector('#open-projects')?.before(button);
 }
 const settingsPanel = createSettingsPanel({ desktop, invoke: (command, args) => invoke(command, args), notify, restoreFocus: () => setFocus(focusedGroup()) });
@@ -961,10 +971,11 @@ const sessionDetail = createSessionDetail({
   openFind: request => {sessionFind.show(request);},
   openExport: selection => { sessionExport.show(selection); },
   openHop: selection => { hopPreview.show(selection); },
+  back: { label: 'Sessions', open: () => { void sessionsPanel.show(); } },
   reportError: notify,
   restoreFocus: () => setFocus(focusedGroup()),
 });
-createSessionLibrary({
+const sessionLibrary = createSessionLibrary({
   roots: () => desktop ? invoke('session_roots') : Promise.reject({ issue: 'read_unavailable' }),
   list: request => desktop ? invoke('session_list', { request }) : Promise.reject({ issue: 'worker_unavailable' }),
   addArchive: desktop ? request => invoke('session_archive_add', { request }) : undefined,
@@ -972,8 +983,7 @@ createSessionLibrary({
   reportError: notify,
   restoreFocus: () => setFocus(focusedGroup()),
 });
-const unavailable = () => Promise.reject({ issue: 'read_unavailable' });
-createSessionSearch({
+const sessionSearch = createSessionSearch({
   search: request => desktop ? invoke('session_search', { request }) : unavailable(),
   indexStatus: () => desktop ? invoke('session_index_status') : unavailable(),
   indexStart: () => desktop ? invoke('session_index_start') : unavailable(),

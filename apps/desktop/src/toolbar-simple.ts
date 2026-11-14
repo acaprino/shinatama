@@ -41,7 +41,7 @@ export function organizeToolbar(): void {
   const { menu, close, toggle } = popover(more, 'toolbar-more-menu', 'right');
   const themeSelect = toolbar.querySelector('select'); const theme = themeSelect?.closest('label') ?? null;
   const appearance = [...toolbar.querySelectorAll<HTMLElement>('button')].find(button => button.textContent?.trim() === 'Appearance');
-  const secondary = ['#find-terminal', '#layout-toggle', '#restore', '#desktop-alerts', '#open-settings'].map(selector => toolbar.querySelector<HTMLElement>(selector));
+  const secondary = ['#find-terminal', '#layout-toggle', '#restore', '#desktop-alerts', '#open-settings', '#sessions', '#session-search'].map(selector => toolbar.querySelector<HTMLElement>(selector));
   for (const item of [...secondary, appearance, theme]) if (item) { item.classList.add('toolbar-menu-item'); menu.append(item); }
   menu.addEventListener('click', event => { if (event.target instanceof HTMLElement && event.target.closest('button')) close(); });
   more.onclick = () => toggle();

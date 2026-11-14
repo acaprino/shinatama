@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| Version | 2 |
-| Status | Accepted 2026-11-01; memory behavior amended by user request 2026-11-12 |
-| Date | 2026-11-12 |
+| Version | 3 |
+| Status | Accepted 2026-11-01; memory behavior amended by user request 2026-11-12; overview placed in the Sessions panel by user request 2026-11-14 (R14a) |
+| Date | 2026-11-14 |
 | Sources | functional-design goals 9 and 12, 5.8, 5.13, 7; technical-design 4.2 (`instance`, `event`, `summary_log`), 4.6, 8.1 to 8.5, 12; specs/token-savings 4.4.3, 7 (shared runtime) |
 | Governing ADRs | ADR-0027, ADR-0028 |
 | Register sections | I1 to I10, W1 to W10, Q3, Q8, O2, O3 |
@@ -47,6 +47,7 @@ low-cost model, branch and collision facts, and the widget's rules.
 | R11 | "How they collaborate" is built only from what Shinatama knows (threads that hopped, roundtable groups, instances sharing a folder) and infers no intent. | A | V1 | — | 0028 |
 | R12 | For each instance the table shows the git branch and the worktree (main tree or linked worktree), read from git at start and at each `idle` transition (`rev-parse --abbrev-ref HEAD`, `--show-toplevel`, `--git-dir`, `status --porcelain=v1 -z`), never guessed; non-git folders show none. Cost on large repositories is measured. | U (branch and worktree shown) | V1 | I3 | 0028 |
 | R13 | Collisions: a modified path is attributed to an instance from the tool-call targets in its events and transcript; two instances with equal worktree roots both attributed a modified path raise a `file_collision` naming both; a path that cannot be attributed while two or more instances work in that worktree raises a "possible collision" that names no instance; generated files are excluded; equal paths in different worktrees do not collide. | U 2026-11-01 | V1 | I4, Q3 | 0028 |
+| R14a | The overview is not a panel of its own: it is the "Running" section of the one Sessions panel, above the saved sessions of the agents' archives, under one search field that filters both and searches the indexed conversation text on Enter. A session that ends leaves the Running section and is found among the saved ones. The explicit archive browser and the search-index management stay reachable from the panel's options. | U 2026-11-14 | V1 | — | 0028 |
 | R14 | The overview is read-mostly: its only actions are focus a session, hop, and pause an instance's summaries. Starting an instance in its own worktree is an option of the new-instance command (FRD-0004), not an overview action. | U 2026-11-01 | V1 | — | 0028 |
 | R15 | Every tab shows its agent's icon and accent colour; the overview and the project manager show the same (FRD-0001 R48). A companion shows as a child row of its worker (FRD-0012). | U (icons) | V1 | I10 | 0028 |
 | R16 | The overview grows alongside the milestones: the instance table right after the PTY host, summaries and flows once hop and roundtable exist. | A | V1 | — | 0040 |

@@ -22,6 +22,8 @@ export type DetailReply = { root: SessionRootSelector; nativeId: string; page: D
 type Options = { read: (request: DetailRequest) => Promise<DetailReply>; capabilities?: (nativeId: string) => Promise<unknown>; openRaw?: (selection:RawSelection)=>void;
   openFind?: (request:DetailRequest)=>void; openExport?: (selection:{root:SessionRootSelector;nativeId:string;fingerprint:string;harness:string})=>void;
   openHop?: (selection:{root:SessionRootSelector;nativeId:string;fingerprint:string;harness:string})=>void;
+  /** Where the conversation was opened from; a way back is shown when given. */
+  back?: { label: string; open: () => void };
   reportError: (message: string) => void; restoreFocus?: () => void };
 const KINDS: Record<EventKind, string> = { user_text: 'User', assistant_text: 'Assistant', tool_call: 'Tool call', tool_result: 'Tool result',
   compaction: 'Compaction summary', meta: 'Metadata', attachment_omitted: 'Attachment omitted', reasoning_omitted: 'Reasoning omitted' };
@@ -113,6 +115,10 @@ export function createSessionDetail(options: Options) {
   const heading = document.createElement('div'); heading.className = 'dialog-heading';
   const title = document.createElement('h1'); title.id = 'session-detail-title'; title.textContent = 'Session detail';
   const closeButton = document.createElement('button'); closeButton.type = 'button'; closeButton.textContent = '×'; closeButton.setAttribute('aria-label', 'Close session detail'); heading.append(title, closeButton);
+  if (options.back) {
+    const back = document.createElement('button'); back.type = 'button'; back.className = 'dialog-back'; back.textContent = `‹ ${options.back.label}`;
+    back.setAttribute('aria-label', `Back to ${options.back.label}`); back.onclick = () => { dialog.close(); options.back!.open(); }; heading.prepend(back);
+  }
   const source = document.createElement('p'); source.className = 'hint session-detail-source';
   const status = document.createElement('p'); status.id = 'session-detail-status'; status.setAttribute('role', 'status');
   const tools = document.createElement('div'); tools.className = 'session-detail-tools';

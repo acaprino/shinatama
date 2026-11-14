@@ -44,7 +44,7 @@ export function when(value: string | null | undefined): string {
   const time = at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   return today ? time : `${at.toLocaleDateString([], { day: '2-digit', month: 'short', year: at.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' })} ${time}`;
 }
-function rootsValue(value: unknown): SessionLibraryRoot[] | null {
+export function rootsValue(value: unknown): SessionLibraryRoot[] | null {
   if (!Array.isArray(value) || value.length > 100) return null;
   const result: SessionLibraryRoot[] = [];
   for (const item of value) {
@@ -59,7 +59,7 @@ function rootsValue(value: unknown): SessionLibraryRoot[] | null {
   }
   return result;
 }
-function pageValue(value: unknown, root: SessionLibraryRoot, requested: SessionCursor | null): SessionListPage | null {
+export function pageValue(value: unknown, root: SessionLibraryRoot, requested: SessionCursor | null): SessionListPage | null {
   if (!record(value) || !selector(value.root) || !same(value.root, root) || value.harness !== root.harness
     || !fingerprint(value.fingerprint) || !integer(value.total) || !Array.isArray(value.rows) || value.rows.length > 50
     || (requested !== null && requested.fingerprint !== value.fingerprint)) return null;
@@ -94,18 +94,18 @@ const FAILURES: Record<string, string> = {
   invalid_request: 'Choose a supported agent and an existing absolute archive folder.',
   read_unavailable: 'Archive storage is busy or unavailable. Retry explicitly.', worker_unavailable: 'The contained metadata reader is unavailable. Retry explicitly when resources are ready.',
 };
-function failureText(value: unknown) {
+export function failureText(value: unknown) {
   const code = typeof value === 'string' ? value : record(value) ? value.issue ?? value.code : null;
   return typeof code === 'string' && Object.hasOwn(FAILURES, code) ? FAILURES[code] : 'Session information could not be loaded. Retry explicitly.';
 }
 
 /** Metadata only; one callback outstanding, including across close/root changes. */
 export function createSessionLibrary(options: Options) {
-  const button = document.createElement('button'); button.id = 'sessions'; button.type = 'button'; button.textContent = 'Sessions';
+  const button = document.createElement('button'); button.id = 'sessions'; button.type = 'button'; button.textContent = 'Archive browser'; button.title = 'Page through one session archive, or add a read-only archive';
   document.querySelector('.toolbar')?.append(button);
   const dialog = document.createElement('dialog'); dialog.id = 'session-library-dialog'; dialog.setAttribute('aria-labelledby', 'session-library-title');
   const heading = document.createElement('div'); heading.className = 'dialog-heading';
-  const title = document.createElement('h1'); title.id = 'session-library-title'; title.textContent = 'Sessions';
+  const title = document.createElement('h1'); title.id = 'session-library-title'; title.textContent = 'Archive browser';
   const closeButton = document.createElement('button'); closeButton.type = 'button'; closeButton.textContent = '×'; closeButton.setAttribute('aria-label', 'Close sessions'); heading.append(title, closeButton);
   const description = document.createElement('p'); description.textContent = 'Browse the metadata of an explicitly selected archive. Browsing never starts or resumes an agent.';
   const tools = document.createElement('div'); tools.className = 'session-library-tools';

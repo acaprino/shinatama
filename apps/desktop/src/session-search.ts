@@ -53,7 +53,7 @@ export function renderSnippet(target: HTMLElement, snippet: string) {
 }
 
 export function createSessionSearch(options: Options) {
-  const button = document.createElement('button'); button.id = 'session-search'; button.type = 'button'; button.textContent = 'Search';
+  const button = document.createElement('button'); button.id = 'session-search'; button.type = 'button'; button.textContent = 'Search index'; button.title = 'Index your sessions and search them by agent, folder or date';
   document.querySelector('.toolbar')?.append(button);
   const dialog = document.createElement('dialog'); dialog.id = 'session-search-dialog'; dialog.setAttribute('aria-labelledby', 'session-search-title');
   const heading = document.createElement('div'); heading.className = 'dialog-heading';

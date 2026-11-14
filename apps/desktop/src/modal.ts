@@ -3,9 +3,9 @@
 // minimize or close.
 //
 //   drawer  The default for openModal(). Docked along the right edge of the work area, no
-//           scrim, nothing inert: terminals keep working beside it. One side panel at a time:
-//           a drawer replaces the open one, also when opened from inside it, and closes the
-//           side panels that are not dialogs (sidePanel()).
+//           scrim, nothing inert: terminals keep working beside it. One side panel in view:
+//           from the toolbar it replaces the open one; from inside a drawer it covers it and
+//           returns to it. Either way it closes the non-dialog side panels (sidePanel()).
 //   modal   Only for decisions about the whole workspace (MODAL_ONLY). Everything below the
 //           titlebar becomes inert; containment and Escape are provided explicitly.
 //   sheet   openSheet(). Docked to the control or pane it belongs to; a press outside
@@ -73,17 +73,16 @@ export function openModal(dialog: HTMLDialogElement) {
   stack = stack.filter(entry => entry.dialog.open);
   const active = document.activeElement;
   const modal = dialog.matches(MODAL_ONLY) || stack.some(entry => entry.modal);
-  let restore = active instanceof HTMLElement && active !== document.body ? active : replaced?.restore ?? null;
+  const restore = active instanceof HTMLElement && active !== document.body ? active : replaced?.restore ?? null;
   if (!modal) {
-    // One side panel at a time: a drawer takes the place of the one open, also when it is
-    // opened from inside it. A drawer that refuses to close (work in flight) stays underneath
-    // and comes back afterwards. Focus goes back where the replaced drawer would have sent it.
-    for (const entry of [...stack].reverse()) {
-      if (entry.modal) continue;
-      if (restore && entry.dialog.contains(restore)) restore = entry.restore;
-      dismiss(entry.dialog);
+    // One side panel in view at a time. Opened from the toolbar or a shortcut, a drawer takes the
+    // place of the open one (a drawer that refuses to close, work in flight, stays underneath).
+    // Opened from inside a drawer (a conversation's Raw, Find or Export), it covers that drawer,
+    // which comes back when it closes: the way back is part of the task.
+    if (!stack.at(-1)?.dialog.contains(active)) {
+      for (const entry of [...stack].reverse()) if (!entry.modal) dismiss(entry.dialog);
+      stack = stack.filter(entry => entry.dialog.open);
     }
-    stack = stack.filter(entry => entry.dialog.open);
     for (const close of sidePanels) close();
   }
   stack.push({ dialog, restore, modal });

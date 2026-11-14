@@ -66,10 +66,10 @@ try {
   const asked = await waitFor(info.id, r => r.state === 'attention_requested', 'bell');
   expect(asked.stateSource).toBe('terminal_signal'); expect(asked.certain).toBe(false);
   evidence.checks.bellIsUnsureAttention = true;
-  await page.locator('#open-instances').click();
-  await expect(page.locator(`#instances-dialog li[data-instance-id="${info.id}"] .instances-state`)).toHaveText('Asked for attention · from a terminal signal, unsure', { timeout: 10000 });
-  await expect(page.locator('#instances-dialog .instances-item button')).toHaveText(['Focus'], { timeout: 10000 });
-  await page.locator('#instances-dialog .dialog-heading button').click();
+  await page.locator('#open-sessions').click();
+  await expect(page.locator(`#sessions-dialog li[data-instance-id="${info.id}"] .instances-state`)).toHaveText('Asked for attention · from a terminal signal, unsure', { timeout: 10000 });
+  await expect(page.locator('#sessions-dialog .instances-item button')).toHaveText(['Focus'], { timeout: 10000 });
+  await page.locator('#sessions-dialog .dialog-heading button').click();
   evidence.checks.uiShowsSourceAndOnlyFocus = true;
   const titles = await ipc('instance_titles', { requests: [{ instanceId: info.id, threadId: null, state: 'quiet' }] });
   expect(titles.enabled).toBe(true); expect(titles.rows[0].reason).toBe('no thread');

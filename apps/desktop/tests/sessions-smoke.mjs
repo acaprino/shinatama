@@ -123,7 +123,7 @@ try {
   owned = true; page.on('pageerror', error => { errors.push(error.message.slice(0, 1024)); });
   expect(await ipc('terminal_list')).toEqual([]);
   const sourceBefore = await assertSourceUnchanged();
-  await page.locator('#sessions').click();
+  await page.locator('#toolbar-more').click(); await page.locator('#sessions').click();
   const dialog = page.locator('#session-library-dialog');
   await dialog.getByRole('button', { name: 'Load archives', exact: true }).click();
   await expect(dialog.locator('#session-library-status')).toContainText('No registered archives');
@@ -147,7 +147,7 @@ try {
   const rows = dialog.locator('tbody tr');
   await expect(rows).toHaveCount(50, { timeout: 15000 });
   await expect(dialog.locator('.session-library-pagination')).toContainText('1–50 of 53');
-  const firstId = await rows.first().getByRole('button').textContent(); expect(firstId).toBe('idsession-00');
+  const firstId = await rows.first().getByRole('button').getAttribute('data-native-id'); expect(firstId).toBe('idsession-00');
   await dialog.getByRole('button', { name: 'Next', exact: true }).click();
   await expect(rows).toHaveCount(3, { timeout: 15000 });
   await expect(dialog.locator('.session-library-pagination')).toContainText('51–53 of 53');
@@ -155,7 +155,7 @@ try {
   await expect(rows).toHaveCount(50, { timeout: 15000 });
   await dialog.locator('#session-library-filter').fill(firstId);
   await expect(rows).toHaveCount(1);
-  await rows.getByRole('button', { name: firstId, exact: true }).click();
+  await rows.locator(`button[data-native-id="${firstId}"]`).click();
   await expect(dialog.locator('.session-library-metadata')).toContainText('Unknown');
   const openDetail = dialog.getByRole('button', { name: 'Open detail', exact: true });
   await expect(openDetail).toBeEnabled();
@@ -270,7 +270,7 @@ try {
   await expect(groups).toHaveCount(1);
   await expect(groups.first().locator('summary')).toContainText('C:\\synthetic-session-project');
   await groups.first().locator('summary').click();
-  await groups.first().getByRole('button',{name:firstId,exact:true}).click();
+  await groups.first().locator(`button[data-native-id="${firstId}"]`).click();
   await expect(openDetail).toBeEnabled();
   expect(await page.evaluate(()=>globalThis.__listReads)).toBe(0);
   await dialog.getByRole('button',{name:'List',exact:true}).click();

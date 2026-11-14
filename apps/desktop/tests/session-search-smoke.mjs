@@ -165,7 +165,7 @@ try {
   evidence.checks.deletedSourceStaysSearchableAndFlagged = true;
 
   // The visible UI: search, highlight, open detail.
-  await page.locator('#session-search').click();
+  await page.locator('#toolbar-more').click(); await page.locator('#session-search').click();
   const dialog = page.locator('#session-search-dialog');
   await expect(dialog).toBeVisible();
   await expect(dialog.locator('#session-search-index-info')).toContainText(`${words.length} sessions indexed`);
