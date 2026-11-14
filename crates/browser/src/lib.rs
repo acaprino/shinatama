@@ -13,6 +13,7 @@ pub mod cdp;
 pub mod host;
 pub mod input;
 pub mod pages;
+pub mod service;
 
 pub const SCHEMA_VERSION: u32 = 1;
 

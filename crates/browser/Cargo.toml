@@ -15,6 +15,7 @@ futures-util.workspace = true
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "sync", "time"] }
 tokio-tungstenite.workspace = true
 getrandom.workspace = true
+base64.workspace = true
 windows-sys.workspace = true
 
 [dev-dependencies]
