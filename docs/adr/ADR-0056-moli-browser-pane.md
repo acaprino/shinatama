@@ -64,13 +64,17 @@ measurements, not acceptance evidence.
 4. **Agents** use fixed `shinatama_browser_*` MCP tools (open, read, click, type, screenshot,
    close) through a per-window broker that authenticates the instance token; no raw CDP, no
    eval. One controller per page; the user takes control in place and hands it back explicitly.
-5. **Unchanged from ADR-0035/0036:** Moli default; Patchright visible Chrome only on explicit
+5. **Links open inside.** Every http(s) link and HTML document the user opens from Shinatama
+   (Ctrl+click in a terminal, the Files panel, `dsh web`) opens in a browser tab of its own,
+   user-controlled; a local HTML document grants only its own folder, for that tab
+   (user, 2026-11-14). Each tab can hand its URL to the system browser.
+6. **Unchanged from ADR-0035/0036:** Moli default; Patchright visible Chrome only on explicit
    request and opt-in; no automatic fallback or transfer between engines; temporary profiles by
    default; untrusted content; evidence before performance claims.
 
 ## Consequences
 
-- functional-design 5.15 line on external-only interactive browsing, FRD-0011 R18 and R43 and
+- functional-design 5.15 line on external-only interactive browsing, FRD-0011 R18, R43 and R46 and
   technical-design 7.9 are revised by FRD-0011 v2.
 - Shinatama carries a small patch on Moli (`ProtocolServer::serve_on`) until upstream accepts it,
   and requalifies on each Moli pin bump.
@@ -86,5 +90,5 @@ measurements, not acceptance evidence.
 
 ## Gates
 
-M1 build, M2 whole-tree memory, M3 input latency, M4 pipe security, M5 cleanup, M6 hostile pages
+M1 build, M2 whole-tree memory, M3 input latency, M4 pipe security, M5 cleanup, M6 hostile pages, M7 links
 (design document `docs/superpowers/specs/2026-11-14-moli-browser-pane-design.md`, section 6).

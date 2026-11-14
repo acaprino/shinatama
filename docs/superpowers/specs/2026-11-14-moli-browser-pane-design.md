@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Date | 2026-11-14 |
-| Status | Proposed, awaiting the user's approval |
+| Status | Approved by the user 2026-11-14 |
 | Decision record | ADR-0056 (Proposed) |
 | Changes | FRD-0011 (v2), functional-design 5.15, technical-design 7.9 |
 
@@ -11,7 +11,8 @@
 
 The user, 2026-11-14: "shinatama deve avere un browser embedded, molto low memory per agenti e
 navigazione". After an online survey (WebView2 child webview, Servo, Lightpanda, Moli) the user
-chose **Moli** as the engine.
+chose **Moli** as the engine. Approving the design, the user added: every http(s) link and every
+HTML document opens in the internal browser, "in un panel tab suo": each in a tab of its own.
 
 Shinatama gets a browser pane inside the workspace. The user browses in it; agents drive it
 through fixed operations; the whole thing costs a fraction of Chrome's memory. Moli
@@ -22,8 +23,10 @@ forwards mouse and keyboard over CDP.
 ## 2. Goals, non-goals, anti-goals
 
 Goals
-- A browser pane in a thread's layout (ADR-0055), next to terminals: address bar, back, forward,
-  reload, page area, controller badge.
+- Browser tabs in a thread's layout (ADR-0055), next to terminals: each page is a tab of its own
+  with address bar, back, forward, reload, page area and controller badge.
+- Every http(s) link and every HTML document the user opens from Shinatama opens in a new
+  browser tab (4.7).
 - Agents open, read, click, type and screenshot pages through MCP tools of `shinatama mcp`,
   in a pane the user can watch.
 - One Moli process per window, started only when the first page opens, holding every page of
@@ -88,9 +91,12 @@ Shinatama.exe (window)                         shinatama-moli.exe (one per windo
 - Only the desktop broker connects. Agents never see the pipe name or the token.
 - `moli serve` and the `moli` CLI binary are never started for this path.
 
-### 4.3 The pane
+### 4.3 The browser tab
 
-- New pane kind `browser` in the workspace layout of a thread (ADR-0055); restoring a layout
+- New view kind `browser` in the workspace layout of a thread (ADR-0055): one page per tab, in
+  the same groups as terminal tabs. The first browser tab of a thread opens a group of its own
+  beside the focused group; later ones join that group as new tabs. The user can drag them like
+  any tab. Restoring a layout
   shows the last URL with a "Riapri" button and never reopens the page (FRD-0001 R30, FRD-0011
   R40).
 - Page area: a canvas showing frames from `Page.screencastFrame`; the viewport follows the pane
@@ -108,7 +114,8 @@ Shinatama.exe (window)                         shinatama-moli.exe (one per windo
 - The host starts on the first page of the window and closes when the window closes, or after
   `browser.moli.idle_minutes` (default 10) with no page open.
 - All pages of the window are CDP targets of the same host: one process, at most
-  `browser.moli.max_pages` (default 6).
+  `browser.moli.max_live_pages` (default 8) live pages. Opening one more discards the least
+  recently shown hidden page: its tab keeps title and URL and reloads when shown again.
 - Default Moli policy: no real layout until the page is shown or a screenshot is asked (the host
   runs with `LayoutPolicy::OnDemand`, `--layout` equivalent); optional resources (images, fonts)
   on for user-visible pages, off for agent reads.
@@ -146,6 +153,28 @@ Moli is the default engine; Patchright with visible Chrome only on explicit requ
 no automatic fallback; no cookie or session transfer between engines; no secrets in logs or
 SQLite; window-owned process tree with whole-tree cleanup.
 
+### 4.7 Links and HTML documents open in a browser tab
+
+Every opening below is a user action, so the tab is user-controlled (origin `user`):
+
+| Source | How | Opens |
+|---|---|---|
+| Terminal text: `http(s)://` URLs found in the output, and OSC 8 hyperlinks (today swallowed at `apps/desktop/src/main.ts:384`) | Ctrl+click, as Windows Terminal; hover shows the real target, never only the OSC 8 text | a new browser tab |
+| Terminal text: a path to an existing `.html`/`.htm` file, or a `file://` URL to one | Ctrl+click | a new browser tab on that file |
+| Files panel: an `.html`/`.htm` file | a "Browser" button beside Source/Split/Preview/Visual | a new browser tab on that file |
+| A file dropped on the browser group, `dsh web` (FRD-0001 R07, formerly "never embedded", FRD-0011 R46) and other Shinatama "open link" actions | as today's action | a new browser tab |
+
+- A local HTML document grants read access to its own folder subtree, for that tab only, so its
+  relative CSS, scripts and images load; never the project root (FRD-0011 R27).
+- Only `http`, `https` and local HTML files open. Other schemes (`mailto:`, custom protocols)
+  are not opened; the hover says so.
+- Terminal output is untrusted: nothing opens without the Ctrl+click, the address bar always
+  shows the real URL, and a link never opens a tab controlled by an agent.
+- Each browser tab has "Apri nel browser di sistema" in its menu for the pages Moli does not
+  render well; it hands the URL only, no cookies (FRD-0011 R04).
+- Links the harnesses open themselves (for example a login started by the agent, ADR-0031 v2)
+  go through the harness's own call to the system browser and are not intercepted.
+
 ## 5. Constraints
 
 - Windows only; Tauri 2.9; the WebView2 binding is the one Tauri links.
@@ -166,6 +195,7 @@ SQLite; window-owned process tree with whole-tree cleanup.
 | M4 | Pipe security: another user's process, a remote client, a wrong token and a second pipe instance are all refused; no TCP listener in `netstat`. |
 | M5 | Window close, host crash and Shinatama crash leave no `shinatama-moli.exe`. |
 | M6 | Hostile page tests of FRD-0011 R48 against the pane and the agent tools. |
+| M7 | Links: Ctrl+click on a URL, an OSC 8 link with misleading text, a local HTML path and a `mailto:` in a terminal; the Files panel button; nine pages open with eight live. |
 
 ## 7. Left to the builder
 
