@@ -9,6 +9,8 @@
 use serde::{Deserialize, Serialize};
 
 pub mod cdp;
+#[cfg(windows)]
+pub mod host;
 pub mod input;
 pub mod pages;
 
