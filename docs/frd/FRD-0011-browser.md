@@ -126,7 +126,7 @@ or `user`, exactly one for an interactive session.
 
 | ID | Requirement | Origin | Slice | Proof | ADR |
 |---|---|---|---|---|---|
-| R53 | One `shinatama-moli.exe` per app run, built from pinned Moli crates, serves Moli's protocol router only on `\.\pipe\shinatama-moli-<128-bit random>`: first instance, remote clients rejected, DACL of the current user's SID only, and a 256-bit per-launch token read before any byte reaches Moli; name and token travel on stdin; no TCP listener. | U 2026-11-14 | V1 | M4 | 0056 |
+| R53 | One `shinatama-moli.exe` per app run, built from pinned Moli crates, serves Moli's protocol router only on `\\.\pipe\shinatama-moli-<128-bit random>`: first instance, remote clients rejected, DACL of the current user's SID only, and a 256-bit per-launch token read before any byte reaches Moli; name and token travel on stdin; no TCP listener. | U 2026-11-14 | V1 | M4 | 0056 |
 | R54 | The host runs in a kill-on-close Job Object owned by Shinatama, starts with the first page, ends with Shinatama or after 10 minutes without pages; at most 8 live pages, the 9th discards the least recently shown hidden page, which keeps its address and reloads when shown. | U 2026-11-14; P | V1 | M5 | 0056 |
 | R55 | Each page is a browser tab of the workspace, drawn from JPEG frames on a canvas; page content never runs in Shinatama's WebView2; the address bar shows the page's real URL; hidden tabs receive no frames. | U 2026-11-14 | V1 | M3 | 0056 |
 | R56 | Browser tabs tile like terminal tabs: split, move, resize, maximize and collapse apply unchanged; each visible tile has its own viewport; a restored layout shows the saved address with "Riapri" and never reopens the page. | U 2026-11-14 | V1 | — | 0056 |
