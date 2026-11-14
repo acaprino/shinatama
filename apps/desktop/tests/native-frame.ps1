@@ -76,8 +76,10 @@ switch ($Action) {
       $result.overlayName = $P::TextOf($overlay)
     }
     $menu = $P::GetSystemMenu($main, $false); $count = $P::GetMenuItemCount($menu)
-    $text = New-Object System.Text.StringBuilder 256; [void]$P::GetMenuStringW($menu, [uint32]($count - 1), $text, 256, 0x400)
-    $result.lastMenuItem = @{ id = $P::GetMenuItemID($menu, $count - 1); text = $text.ToString() }
+    if ($count -gt 0) {
+      $text = New-Object System.Text.StringBuilder 256; [void]$P::GetMenuStringW($menu, [uint32]($count - 1), $text, 256, 0x400)
+      $result.lastMenuItem = @{ id = $P::GetMenuItemID($menu, $count - 1); text = $text.ToString() }
+    }
     $result.dialogs = @($P::Owned($main) | ForEach-Object { , @($P::Texts($_)) })
     $result | ConvertTo-Json -Compress -Depth 5
   }

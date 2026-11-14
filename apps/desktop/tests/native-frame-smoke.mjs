@@ -42,18 +42,25 @@ function renderers() {
   return out.split(/\s+/).filter(Boolean).map(Number);
 }
 
-let browser;
-try {
-  for (let attempt = 0; attempt < 60 && !browser; attempt++) {
+let browser, context;
+const mainPage = () => context.pages().find(page => page.url().includes('tauri.localhost') && !page.url().includes('widget.html'));
+// After a renderer exit Playwright keeps the crashed page: a new connection sees the reloaded one.
+async function connect(ms = 30000) {
+  await browser?.close().catch(() => undefined); browser = undefined;
+  for (const deadline = Date.now() + ms; !browser && Date.now() < deadline;) {
     if (app.exitCode !== null) throw new Error(`Desktop exited: ${app.exitCode}\n${diagnostics}`);
     try { browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, { timeout: 1000 }); } catch { await delay(500); }
   }
   if (!browser) throw new Error(`WebView2 unavailable.\n${diagnostics}`);
-  const context = browser.contexts()[0];
-  const mainPage = () => context.pages().find(page => page.url().includes('tauri.localhost') && !page.url().includes('widget.html'));
-  const page = await until(mainPage, 30000);
+  context = browser.contexts()[0];
+  return until(mainPage, ms);
+}
+try {
+  const page = await connect();
   if (!page) throw new Error('Main window did not appear.');
   await page.waitForSelector('#window-maximize:not(:disabled)', { timeout: 30000 });
+  const t0 = Date.now(); if (process.env.NATIVE_DIAGNOSTICS) page.on('framenavigated', frame => { if (frame === page.mainFrame()) console.log(`  navigated +${Date.now() - t0} ms ${frame.url()}`); });
+  const step = name => { if (process.env.NATIVE_DIAGNOSTICS) console.log(`  step +${Date.now() - t0} ms ${name}`); };
   check('release build loads the embedded frontend', /^https?:\/\/tauri\.localhost\//.test(page.url()), page.url());
 
   // Snap Layouts: the native overlay answers HTMAXBUTTON over the HTML button.
@@ -80,18 +87,18 @@ try {
   check('window menu offers Reload interface', state.lastMenuItem.text === 'Reload interface' && state.lastMenuItem.id === 0x5350, JSON.stringify(state.lastMenuItem));
   await page.evaluate(() => { window.__marker = 1; });
   const started = Date.now();
-  native('reload-menu');
+  step('reload-menu'); native('reload-menu'); step('posted');
   const reloaded = await until(() => page.evaluate(() => window.__marker === undefined && !!document.querySelector('#window-maximize:not(:disabled)')), 10000);
   check('Reload interface reloads the page after it saved', !!reloaded && Date.now() - started < 2900, `${Date.now() - started} ms`);
 
   // Browser keys: a posted key the page handles arrives; F5 and Ctrl+R do not reload.
   await page.waitForSelector('#window-maximize:not(:disabled)');
-  await page.evaluate(() => { window.__marker = 2; window.__keys = []; document.addEventListener('keydown', event => window.__keys.push(event.key), true); });
-  native('key', ['-VirtualKey', '0x74']); native('key', ['-VirtualKey', '0x52', '-Control']);
+  const before = await page.evaluate(() => { window.__marker = 2; window.__keys = []; document.addEventListener('keydown', event => window.__keys.push(event.key), true); return performance.timeOrigin; });
+  step('marker 2'); native('key', ['-VirtualKey', '0x74']); step('F5 posted'); native('key', ['-VirtualKey', '0x52', '-Control']); step('Ctrl+R posted');
   await delay(1500);
-  const keys = await page.evaluate(() => ({ marker: window.__marker, keys: window.__keys }));
+  const keys = await page.evaluate(() => ({ marker: window.__marker, keys: window.__keys, origin: performance.timeOrigin }));
   check('posted keys reach the page (instrument works)', keys.keys?.includes('F5'), JSON.stringify(keys.keys));
-  check('F5 and Ctrl+R do not reload', keys.marker === 2);
+  check('F5 and Ctrl+R do not reload', keys.marker === 2, `document ${before} → ${keys.origin}`);
 
   // Navigation and new windows are refused, with no recovery question.
   const pages = context.pages().length;
@@ -127,12 +134,14 @@ try {
 
   // A renderer exit reloads by itself three times a minute; the fourth asks.
   for (let crash = 1; crash <= 4; crash++) {
-    await page.evaluate(value => { window.__marker = value; }, 100 + crash).catch(() => undefined);
+    await mainPage()?.evaluate(value => { window.__marker = value; }, 100 + crash).catch(() => undefined);
     const pids = renderers();
     if (!pids.length) { check(`renderer ${crash} found`, false); break; }
     for (const pid of pids) { try { process.kill(pid); } catch { /* already gone */ } }
     if (crash < 4) {
-      const back = await until(async () => { const current = mainPage(); return current && await current.evaluate(() => window.__marker === undefined && !!document.querySelector('#window-maximize')); }, 15000);
+      await delay(1500);
+      const current = await connect(15000);
+      const back = current && await until(() => current.evaluate(() => window.__marker === undefined && !!document.querySelector('#window-maximize:not(:disabled)')), 15000);
       check(`renderer exit ${crash} reloads without asking`, !!back && probe().dialogs.length === 0);
     } else {
       const asked = await until(() => { const s = probe(); return s.dialogs.length ? s : null; }, 10000);
