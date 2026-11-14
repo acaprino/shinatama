@@ -460,13 +460,18 @@ dialog[data-sheet="pane-top"], dialog[data-sheet="pane-bottom"] { width: var(--s
 .native-glass .wm-footer, .native-glass .wm-controls { background: var(--glass-bar); }
 /* The file browser needs two columns; it takes a wider drawer than the others. */
 :root:has(#files-dialog[open]) { --drawer-width: clamp(560px, 66vw, 1180px); }
-/* Model proxy indicator: one traffic light. Green serving, amber in transit or degraded, red failed, dark off. No glow. */
+/* Model proxy indicator: one blinking dot. Green serving (slow), amber in transit or degraded (faster), red failed (fast), dark off. No glow. */
 .toolbar .proxy-indicator { width: 28px; padding: 0; border-color: transparent; }
 .toolbar .proxy-indicator:hover:not(:disabled), .toolbar .proxy-indicator[aria-expanded="true"] { border-color: var(--line); background: var(--surface-2); }
 .proxy-indicator .lamp { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--muted); background: transparent; transition: background-color var(--base), border-color var(--base); }
 .proxy-indicator[data-tone="green"] .lamp { border-color: var(--live); background: var(--live); }
 .proxy-indicator[data-tone="amber"] .lamp { border-color: var(--warning); background: var(--warning); }
 .proxy-indicator[data-tone="red"] .lamp { border-color: var(--error); background: var(--error); }
+.proxy-indicator[data-tone="green"] .lamp { animation: proxy-blink 2s steps(2, jump-none) infinite; }
+.proxy-indicator[data-tone="amber"] .lamp { animation: proxy-blink 1s steps(2, jump-none) infinite; }
+.proxy-indicator[data-tone="red"] .lamp { animation: proxy-blink .5s steps(2, jump-none) infinite; }
+@keyframes proxy-blink { 50% { opacity: .15; } }
+@media (prefers-reduced-motion: reduce) { .proxy-indicator .lamp { animation: none !important; } }
 
 /* Model proxy: a side panel (an aside, not a dialog) docked like a drawer, below any dialog. */
 #model-proxy-panel { position: fixed; inset: calc(var(--titlebar-height) + 44px) 0 28px auto; z-index: 19; width: min(400px, calc(100vw - 16px)); overflow: auto; padding: 18px 20px; border-left: 1px solid color-mix(in srgb, var(--line-strong) 62%, transparent); background: linear-gradient(90deg, var(--accent), var(--ice) 46%, transparent 92%) top left / 100% 2px no-repeat, var(--glass); backdrop-filter: var(--glass-blur); color: var(--text); scrollbar-width: thin; }
