@@ -3075,10 +3075,12 @@ name = "shinatama-desktop"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "serde",
  "serde_json",
  "sha2",
  "shinatama-adapter",
+ "shinatama-browser",
  "shinatama-engine",
  "shinatama-export",
  "shinatama-files",

@@ -1,4 +1,4 @@
-import { invoke, isTauri } from '@tauri-apps/api/core';
+import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Terminal } from '@xterm/xterm';
@@ -8,6 +8,7 @@ import { createWorkspaceRenderer } from './workspace-renderer.ts';
 import { createTauriWorkspaceTransport, createWorkspacePersistence, type WorkspacePersistence } from './workspace-persistence.ts';
 import './workspace-renderer.css';
 import { initializeWindowControls } from './window-controls.ts';
+import { initializeDesktopShell } from './desktop-shell.ts';
 import { createProjectPicker } from './project-picker.ts';
 import { createNewProjectDialog } from './new-project.ts';
 import { initializeMaintenance } from './maintenance.ts';
@@ -31,6 +32,9 @@ import { createSessionExport } from './session-export.ts';
 import type { ProgressBackend, ProgressEvent } from './session-progress.ts';
 import { createHopPreview, type HopPreview } from './hop-preview.ts';
 import { createFilesPanel } from './files-panel.ts';
+import { createBrowserTabs, type BrowserTarget } from './browser-tab.ts';
+import './browser-tab.css';
+import { classifyTarget, findLinks, hoverText } from './terminal-links.ts';
 import { createProjectsOverview } from './projects-overview.ts';
 import { createSessionsPanel } from './sessions-panel.ts';
 import { createSettingsPanel } from './settings-panel.ts';
@@ -167,12 +171,32 @@ function filterTabs(project: string | null) {
   }
   render();
 }
+const browserTabs = createBrowserTabs({
+  invoke: (command, args) => desktop ? invoke(command, args) : Promise.reject('Open the desktop app to browse.'),
+  channel: onFrame => { const channel = new Channel<ArrayBuffer>(); channel.onmessage = onFrame; return channel; },
+  notify: message => notify(message),
+});
+/** Opens a page or a local HTML document in a browser tab of its own (ADR-0056). The first one
+ *  of the layout gets a column beside the focused pane; later ones join that pane as tabs. */
+async function openBrowserTab(target: BrowserTarget, viewId?: string) {
+  try {
+    const opened = await browserTabs.open(target, viewId);
+    bindings.set(opened.viewId, opened.element);
+    if (workspaceLayout.views.some(panel => panel.id === opened.viewId)) { render(); return; }
+    const view = { id: opened.viewId, resource: { kind: 'browser' as const, resourceId: opened.viewId }, hidden: false };
+    const home = tabGroups(workspaceLayout.root).find(group => group.tabs.some(id => workspaceLayout.views.find(panel => panel.id === id)?.resource.kind === 'browser'));
+    const focused = tabGroups(workspaceLayout.root).find(group => group.id === focusedGroup());
+    if (home) changeLayout({ type: 'add-view', groupId: home.id, view });
+    else if (focused && focused.tabs.length) changeLayout({ type: 'split', groupId: focused.id, view, axis: 'columns', side: 'after', newGroupId: `g-${opened.viewId}`, newSplitId: `s-${opened.viewId}` });
+    else changeLayout({ type: 'add-view', groupId: focusedGroup(), view });
+  } catch (error) { notify(error); }
+}
 const renderer = createWorkspaceRenderer({
   host: workspace, bindings,
   dispatch(action, expected) { if (expected === workspaceLayout) changeLayout(action); },
-  onFocusView(id) { if (!modalOpen()) views.get(id)?.terminal.focus(); },
-  onVisibilityChange(id, visible) { const view = views.get(id); if (view) { view.visible = visible; if (visible) { scheduleFit(view); view.minimap.redraw(); } } },
-  labelForView: panel => tabLabel(panel.id),
+  onFocusView(id) { if (modalOpen()) return; if (browserTabs.has(id)) browserTabs.focus(id); else views.get(id)?.terminal.focus(); },
+  onVisibilityChange(id, visible) { if (browserTabs.has(id)) { browserTabs.setVisible(id, visible); return; } const view = views.get(id); if (view) { view.visible = visible; if (visible) { scheduleFit(view); view.minimap.redraw(); } } },
+  labelForView: panel => panel.resource.kind === 'browser' ? browserTabs.label(panel.id) : tabLabel(panel.id),
   tabFilter() {
     const project = tabFilter?.current();
     return project ? { label: folderName(project), shows: panel => { const view = views.get(panel.id); return !!view && samePath(view.info.cwd, project); } } : null;
@@ -180,8 +204,13 @@ const renderer = createWorkspaceRenderer({
   isInputBlocked: modalOpen,
   onError: () => notify('That layout change is unavailable. The current workspace was preserved.'),
   onNewTab: groupId => { void openNewSession(groupId, undefined, undefined, 'thread'); },
-  onCloseView(id) { void closePanel(id); },
-  placeholderFor: panel => savedSessionCard(panel.id),
+  onCloseView(id) {
+    if (workspaceLayout.views.find(panel => panel.id === id)?.resource.kind === 'browser') {
+      bindings.delete(id); void browserTabs.close(id); changeLayout({ type: 'remove-view', viewId: id }); return;
+    }
+    void closePanel(id);
+  },
+  placeholderFor: panel => panel.resource.kind === 'browser' ? browserTabs.placeholder(panel.id, target => { void openBrowserTab(target, panel.id); }) : savedSessionCard(panel.id),
 });
 const resizeObserver = new ResizeObserver(entries => {
   for (const entry of entries) { const view = [...views.values()].find(view => view.element === entry.target); if (view) scheduleFit(view); }
@@ -381,9 +410,26 @@ function attachTerminal(info: SessionInfo, group: string, threadId: string | nul
   // so without this a fresh session has no tint and its text sits on the bare backdrop.
   element.style.background = String(terminal.options.theme?.background ?? '');
   workspace.append(element); terminal.open(element);
-  // No clipboard, link opener or image addon. Escape text never reaches HTML;
-  // bounded native attention controls are observed by Rust before rendering.
-  for (const osc of [0, 1, 2, 7, 8, 9, 52, 777]) terminal.parser.registerOscHandler(osc, () => true);
+  // No clipboard or image addon. Escape text never reaches HTML; bounded native attention
+  // controls are observed by Rust before rendering. Links (plain URLs, local .html paths and
+  // OSC 8 hyperlinks) open in a browser tab on Ctrl+click only; the hover shows the real target.
+  for (const osc of [0, 1, 2, 7, 9, 52, 777]) terminal.parser.registerOscHandler(osc, () => true);
+  const openLink = (event: MouseEvent, text: string) => {
+    if (!event.ctrlKey) return;
+    const target = classifyTarget(text, info.cwd);
+    if (target.kind === 'web') void openBrowserTab({ url: target.url });
+    else if (target.kind === 'file') void openBrowserTab({ file: target.path });
+    else notify(target.reason, 'info');
+  };
+  const hover = (text: string) => { element.title = hoverText(classifyTarget(text, info.cwd)); };
+  const leave = () => { element.title = ''; };
+  terminal.options.linkHandler = { activate: openLink, hover: (_event, text) => hover(text), leave, allowNonHttpProtocols: true };
+  terminal.registerLinkProvider({ provideLinks(y, callback) {
+    const line = terminal.buffer.active.getLine(y - 1)?.translateToString(true) ?? '';
+    const links = findLinks(line).map(link => ({ text: link.target, range: { start: { x: link.start + 1, y }, end: { x: link.end, y } },
+      activate: openLink, hover: () => hover(link.target), leave, decorations: { pointerCursor: true, underline: true } }));
+    callback(links.length ? links : undefined);
+  } });
   terminal.parser.registerCsiHandler({ final: 't' }, () => true);
   const history = createTerminalHistory(terminal);
   const view: View = { info, terminal, fit, element, group, hidden: false, visible: false, ended: false, disposed: false,
@@ -914,6 +960,7 @@ const filesPanel = createFilesPanel({
   reportError: notify,
   decide: (title, message, accept) => decide(title, message, accept),
   restoreFocus: () => setFocus(focusedGroup()),
+  openInBrowser: desktop ? path => { void openBrowserTab({ file: path }); } : undefined,
 });
 {
   const button = document.createElement('button'); button.type = 'button'; button.id = 'open-files'; button.textContent = 'Files';
@@ -1103,6 +1150,14 @@ async function initialize() {
       if (!payload.sessionId) return;
       focusAttentionSession(payload.sessionId);
     });
+    // A page an agent opened through its browser tools becomes a tab the user can watch and take over.
+    await listen<{ page: string; instance: string }>('browser-agent-page', ({ payload }) => {
+      if (!browserTabs.viewOf(payload.page)) void openBrowserTab({ page: payload.page });
+    });
+    await listen<{ page: string }>('browser-page-closed', ({ payload }) => {
+      const id = browserTabs.viewOf(payload.page); if (!id) return;
+      bindings.delete(id); void browserTabs.close(id); changeLayout({ type: 'remove-view', viewId: id });
+    });
     setProject(await invoke<string>('project_path'));
     // A development frontend reload reattaches existing processes; it never starts a new one.
     const existing = await invoke<SessionInfo[]>('terminal_list');
@@ -1125,6 +1180,7 @@ async function initialize() {
       } catch (error) { notify(error); }
     });
     await initializeWindowControls(notify);
+    await initializeDesktopShell({ notify, beforeReload: () => Promise.all([presentation.flush(), persistence?.flush(1500)]) });
     const stopResources = startTerminalResources(statuses => {
       terminalMetrics.clear();
       for (const status of statuses ?? []) terminalMetrics.set(status.id, status);

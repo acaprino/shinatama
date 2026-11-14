@@ -2,6 +2,10 @@
 #[cfg(windows)]
 mod agents;
 #[cfg(windows)]
+mod browser;
+#[cfg(windows)]
+mod browser_agent;
+#[cfg(windows)]
 mod collaboration;
 mod attention;
 mod attention_signals;
@@ -25,6 +29,8 @@ mod resources;
 mod responsiveness;
 #[cfg(windows)]
 mod marionette;
+#[cfg(windows)]
+mod native_frame;
 #[cfg(windows)]
 mod sessions;
 #[cfg(windows)]
@@ -683,6 +689,14 @@ fn main() {
         .manage(shinatama_engine::Engine::new())
         .manage(resources::Resources::start())
         .setup(|app| {
+            #[cfg(windows)]
+            {
+                let browser = Arc::new(browser::BrowserState::default());
+                browser::BrowserState::start_sweeper(Arc::clone(&browser));
+                let tools = Arc::new(browser_agent::AgentBrowser { state: Arc::clone(&browser), app: app.handle().clone() });
+                let _ = shinatama_engine::session_control::install_browser(tools);
+                app.manage(browser);
+            }
             let directory = data_home(app.handle());
             #[cfg(windows)]
             if let Ok(home) = &directory {
@@ -878,6 +892,30 @@ fn main() {
         terminal_input::terminal_clipboard_files,
         terminal_resize,
         terminal_stop,
+        #[cfg(windows)]
+        browser::browser_open,
+        #[cfg(windows)]
+        browser::browser_info,
+        #[cfg(windows)]
+        browser::browser_frames,
+        #[cfg(windows)]
+        browser::browser_navigate,
+        #[cfg(windows)]
+        browser::browser_input,
+        #[cfg(windows)]
+        browser::browser_resize,
+        #[cfg(windows)]
+        browser::browser_visibility,
+        #[cfg(windows)]
+        browser::browser_control,
+        #[cfg(windows)]
+        browser::browser_close,
+        #[cfg(windows)]
+        browser::browser_external,
+        #[cfg(windows)]
+        native_frame::window_caption_maximize,
+        #[cfg(windows)]
+        native_frame::interface_reload_ready,
         terminal_shutdown
     ]);
     #[cfg(feature = "tl1-proof")]

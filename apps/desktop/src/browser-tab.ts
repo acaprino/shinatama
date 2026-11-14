@@ -2,9 +2,11 @@
 // host's JPEG frames on a canvas. Page content never becomes DOM here; the
 // address bar shows the page's real URL. Tabs tile like terminal tabs.
 import { coalesce, keyEvent, mouseEvent, settle, wheelEvent, type BrowserInputEvent } from './browser-input.ts';
+import { confirmsField } from './desktop-shell-model.ts';
 
 export interface PageInfo { readonly id: string; readonly url: string; readonly title: string; readonly controller: string; readonly live: boolean }
-export type BrowserTarget = { readonly url: string } | { readonly file: string };
+/** `page`: a page the host already opened (an agent's), shown in a new tab. */
+export type BrowserTarget = { readonly url: string } | { readonly file: string } | { readonly page: string };
 
 export interface BrowserTabsDeps {
   invoke<T>(command: string, args?: Record<string, unknown>): Promise<T>;
@@ -102,7 +104,7 @@ export function createBrowserTabs(deps: BrowserTabsDeps) {
       button('↗', 'Open in the system browser', () => { if (tab.page) void deps.invoke('browser_external', { page: tab.page.id }).catch(error => deps.notify(String(error))); }),
     );
     address.addEventListener('keydown', event => {
-      if (event.key !== 'Enter') return;
+      if (!confirmsField(event)) return;
       let url = address.value.trim(); if (!url) return;
       if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) url = `https://${url}`;
       nav('go', url); canvas.focus();
@@ -136,7 +138,8 @@ export function createBrowserTabs(deps: BrowserTabsDeps) {
   }
 
   async function attach(tab: Tab, target: BrowserTarget) {
-    tab.page = await deps.invoke<PageInfo>('browser_open', 'url' in target ? { url: target.url } : { file: target.file });
+    tab.page = 'page' in target ? await deps.invoke<PageInfo>('browser_info', { page: target.page })
+      : await deps.invoke<PageInfo>('browser_open', 'url' in target ? { url: target.url } : { file: target.file });
     paintInfo(tab);
     await deps.invoke('browser_frames', { page: tab.page.id, channel: deps.channel(bytes => draw(tab, bytes)) });
     const box = tab.canvas.parentElement?.getBoundingClientRect();
@@ -151,6 +154,8 @@ export function createBrowserTabs(deps: BrowserTabsDeps) {
 
   return {
     has: (viewId: string) => tabs.has(viewId),
+    /** The view showing a host page, if any. */
+    viewOf: (pageId: string) => [...tabs.values()].find(tab => tab.page?.id === pageId)?.viewId ?? null,
     element: (viewId: string) => tabs.get(viewId)?.element ?? null,
 
     /** Opens a page in a new tab element; the caller places the view. */

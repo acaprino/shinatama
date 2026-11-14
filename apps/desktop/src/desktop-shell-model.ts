@@ -1,0 +1,55 @@
+// Decisions of the desktop shell (desktop-shell.ts) that need no window: which keys zoom,
+// where the engine's context menu and Select All stay. Kept free of Tauri imports for tests.
+
+/** Zoom levels of the interface; 200% is the WCAG minimum the app must reach on its own. */
+export const ZOOM_STEPS = [0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2] as const;
+
+export type ZoomCommand = 'in' | 'out' | 'reset';
+
+export interface KeyLike { readonly key: string; readonly code: string; readonly ctrlKey: boolean; readonly altKey: boolean; readonly metaKey: boolean; readonly shiftKey: boolean }
+
+/** Ctrl+= / Ctrl++ / Ctrl+- / Ctrl+0, by character or by physical key, on any layout. */
+export function zoomCommand(event: KeyLike): ZoomCommand | null {
+  if (!event.ctrlKey || event.altKey || event.metaKey) return null;
+  if (event.key === '+' || event.key === '=' || event.code === 'NumpadAdd' || (!event.shiftKey && event.code === 'Equal')) return 'in';
+  if (event.shiftKey) return null;
+  if (event.key === '-' || event.code === 'NumpadSubtract' || event.code === 'Minus') return 'out';
+  if (event.key === '0' || event.code === 'Digit0' || event.code === 'Numpad0') return 'reset';
+  return null;
+}
+
+/** The next level from any current one, including a level saved by an older step list. */
+export function nextZoom(current: number, command: ZoomCommand): number {
+  if (command === 'reset') return 1;
+  if (command === 'in') return ZOOM_STEPS.find(step => step > current + 0.001) ?? ZOOM_STEPS.at(-1)!;
+  return [...ZOOM_STEPS].reverse().find(step => step < current - 0.001) ?? ZOOM_STEPS[0];
+}
+
+/** A saved level, or 100% when it is missing or not one the app offers. */
+export function savedZoom(stored: string | null): number {
+  const value = Number(stored);
+  return ZOOM_STEPS.some(step => Math.abs(step - value) < 0.001) ? value : 1;
+}
+
+/** Fields, editors, terminals and the browser tab keep their own keys and menus. */
+export const OWN_INPUT = 'input, textarea, select, [contenteditable=""], [contenteditable="true"], .cm-editor, .xterm, .browser-canvas';
+
+export interface ElementLike { closest(selector: string): unknown }
+
+/** The engine's menu offers editing in fields and Copy over selected text; elsewhere it would
+ *  offer Back, Refresh, Print and Save as, which do not belong to the app. */
+export function keepsContextMenu(target: ElementLike | null, selectionContainsTarget: boolean): boolean {
+  return !!target && (target.closest(OWN_INPUT) !== null || selectionContainsTarget);
+}
+
+/** Ctrl+A selects inside a field or terminal; outside, at most the open panel's text. */
+export function keepsSelectAll(target: ElementLike | null): boolean {
+  return !!target && target.closest(OWN_INPUT) !== null;
+}
+
+export interface EnterLike { readonly key: string; readonly isComposing: boolean; readonly keyCode: number }
+
+/** Enter that confirms a field, not the Enter that picks an IME candidate (keyCode 229). */
+export function confirmsField(event: EnterLike): boolean {
+  return event.key === 'Enter' && !event.isComposing && event.keyCode !== 229;
+}

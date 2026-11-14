@@ -36,7 +36,7 @@
 #sessions-dialog .sessions-more:hover:not(:disabled) { border-color: var(--line-strong); color: var(--text); }
 
 .sessions-options { margin-top: 22px; padding-top: 10px; border-top: 1px solid var(--line); }
-.sessions-options summary { cursor: pointer; font: 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--text-2); }
+.sessions-options summary { cursor: default; font: 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--text-2); }
 .sessions-options summary:hover { color: var(--text); }
 .sessions-options-tools { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 2px; }
 #sessions-dialog .instances-options .instances-setting { border-bottom: 0; }

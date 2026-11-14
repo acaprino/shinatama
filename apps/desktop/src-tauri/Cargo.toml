@@ -28,6 +28,8 @@ shinatama-adapter.workspace = true
 shinatama-export.workspace = true
 shinatama-hop.workspace = true
 shinatama-files.workspace = true
+shinatama-browser.workspace = true
+base64.workspace = true
 sha2.workspace = true
 tokio.workspace = true
 

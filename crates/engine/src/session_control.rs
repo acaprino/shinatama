@@ -29,6 +29,22 @@ pub(crate) fn installed() -> Option<Arc<Broker>> {
     INSTALLED.get().cloned()
 }
 
+/// The desktop's browser tools (ADR-0056), served on the same authenticated
+/// receiver: the caller and project are the receiver's, never an argument.
+pub trait BrowserTools: Send + Sync {
+    /// MCP tool definitions; every name starts with `shinatama_browser_`.
+    fn tools(&self) -> Vec<Value>;
+    /// A complete MCP `tools/call` result (`content`, `isError`).
+    fn call(&self, caller: &str, project: &Path, name: &str, arguments: Value) -> Value;
+}
+static BROWSER: OnceLock<Arc<dyn BrowserTools>> = OnceLock::new();
+pub fn install_browser(tools: Arc<dyn BrowserTools>) -> Result<(), &'static str> {
+    BROWSER.set(tools).map_err(|_| "The browser tools are already installed.")
+}
+fn browser() -> Option<&'static Arc<dyn BrowserTools>> {
+    BROWSER.get()
+}
+
 #[derive(Clone, PartialEq, Eq)]
 pub struct LaunchRequest {
     pub request_id: String,
@@ -389,7 +405,13 @@ pub(crate) fn handle_rpc(
             "instructions":"Launch only within the user's task. A queued or opened receipt is not agent readiness. Default to Claude unless another harness is explicit."})
         }
         "ping" => json!({}),
-        "tools/list" => json!({"tools":tools()}),
+        "tools/list" => {
+            let mut list = tools().as_array().cloned().unwrap_or_default();
+            if let Some(browser) = browser() {
+                list.extend(browser.tools());
+            }
+            json!({"tools":list})
+        }
         "tools/call" => {
             #[derive(Deserialize)]
             #[serde(deny_unknown_fields)]
@@ -405,6 +427,13 @@ pub(crate) fn handle_rpc(
             let Ok(call) = serde_json::from_value::<Call>(params) else {
                 return Some(error(id, -32602, "Invalid tool arguments"));
             };
+            if call.name.starts_with("shinatama_browser_") {
+                let value = match browser() {
+                    Some(browser) => browser.call(caller, project, &call.name, call.arguments),
+                    None => json!({"content":[{"type":"text","text":"{\"error\":\"browser_unavailable\"}"}],"isError":true}),
+                };
+                return Some(json!({"jsonrpc":"2.0","id":id,"result":value}));
+            }
             let result = match call.name.as_str() {
                 "shinatama_session_open" => serde_json::from_value::<OpenArguments>(call.arguments)
                     .map_err(|_| "invalid_session_request")

@@ -383,6 +383,11 @@ impl Browser {
         self.pages.lock().unwrap().give_back(page).map_err(|_| BrowserError::Refused("this page was not opened by an agent"))
     }
 
+    /// The agent instance that opened the page, if an agent did.
+    pub fn opened_by(&self, page: PageId) -> Option<String> {
+        self.pages.lock().unwrap().get(page).and_then(|p| p.agent.clone())
+    }
+
     pub fn agent_may_act(&self, page: PageId, instance: &str) -> bool {
         self.pages.lock().unwrap().agent_may_act(page, instance)
     }

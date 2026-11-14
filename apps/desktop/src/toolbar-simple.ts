@@ -1,4 +1,5 @@
 import './toolbar-simple.css';
+import { confirmsField } from './desktop-shell-model.ts';
 
 type RecentProject = { id: string; path: string; available?: boolean };
 type FoundProject = { path: string; available?: boolean };
@@ -180,7 +181,7 @@ export function createProjectMenu(options: {
     if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && count) {
       event.preventDefault(); active = (active + (event.key === 'ArrowDown' ? 1 : count - 1)) % count; mark();
       list.querySelector<HTMLElement>(`#project-menu-row-${active}`)?.scrollIntoView({ block: 'nearest' });
-    } else if (event.key === 'Enter') {
+    } else if (confirmsField(event)) {
       event.preventDefault(); const row = list.querySelector<HTMLButtonElement>(`#project-menu-row-${active}`);
       if (row && !row.disabled) row.click();
     }

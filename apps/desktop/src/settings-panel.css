@@ -1,6 +1,6 @@
 #settings-dialog .settings-section { margin: 0 0 22px; }
 #settings-dialog .settings-section h2 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-2); }
-#settings-dialog .settings-check { display: flex; gap: 8px; align-items: center; margin: 6px 0 8px; font: 13px var(--mono); letter-spacing: 0; text-transform: none; color: var(--text); cursor: pointer; }
+#settings-dialog .settings-check { display: flex; gap: 8px; align-items: center; margin: 6px 0 8px; font: 13px var(--mono); letter-spacing: 0; text-transform: none; color: var(--text); cursor: default; }
 #settings-dialog .settings-check input { width: auto; height: auto; }
 #settings-dialog .settings-inline { display: flex; gap: 8px; align-items: stretch; }
 #settings-dialog .settings-inline input { flex: 1 1 auto; min-width: 0; }

@@ -1,5 +1,6 @@
 import { openModal } from './modal.ts';
 import './projects-overview.css';
+import { confirmsField } from './desktop-shell-model.ts';
 
 type Git = { state: 'known'; branch: string | null; dirty: number; untracked: number } | { state: 'not_repository' } | { state: 'unknown'; reason: string };
 type LastThread = { id: string; title: string | null; harness: string | null; revision: number; updatedAt: number };
@@ -70,7 +71,7 @@ export function createProjectsOverview(options: Options) {
     field.pattern = '[a-z0-9-]{1,40}';
     const create = document.createElement('button'); create.type = 'button'; create.className = 'primary'; create.textContent = 'Create and open';
     create.onclick = () => { void worktree(row, field.value.trim()); };
-    field.addEventListener('keydown', event => { if (event.key === 'Enter') create.click(); });
+    field.addEventListener('keydown', event => { if (confirmsField(event)) create.click(); });
     form.append(field, create);
     tree.onclick = () => { form.hidden = !form.hidden; if (!form.hidden) field.select(); };
     actions.append(resume, open, tree, form);

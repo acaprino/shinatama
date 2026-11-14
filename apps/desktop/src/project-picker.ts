@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { openModal, openSheet } from './modal.ts';
 import { beginMutation, browseFolder, cancelMutation, createCatalogClient, createRequestId, orderedCandidates, saveRoots,
   type Candidate, type Catalog, type CatalogRoot, type Project, type RootConfig, type RootDraft } from './project-catalog.ts';
+import { confirmsField } from './desktop-shell-model.ts';
 
 type Options = { desktop: boolean; getPath: () => string; onSelected: (path: string, chosen: boolean) => void; onCreate: () => void; reportError: (error: unknown, tone?: 'info' | 'error') => void };
 const $ = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
@@ -289,13 +290,13 @@ export function createProjectPicker(options: Options) {
   folder.oninput = () => { folder.setCustomValidity(''); error.hidden = true; };
   filter.oninput = () => { pageOffsets = []; queryPending = true; render(); client.query(filter.value, 0); };
   filter.onkeydown = event => {
-    if (event.key === 'Enter') {
+    if (confirmsField(event)) {
       event.preventDefault(); (projectList.querySelector<HTMLButtonElement>('button:not(:disabled)') || recentList.querySelector<HTMLButtonElement>('button:not(:disabled)'))?.click();
     }
   };
   const addTypedRoot = async () => { if (await addRoot(rootPath.value)) rootPath.value = ''; };
   rootPath.oninput = () => { error.hidden = true; };
-  rootPath.onkeydown = event => { if (event.key === 'Enter') { event.preventDefault(); void addTypedRoot(); } };
+  rootPath.onkeydown = event => { if (confirmsField(event)) { event.preventDefault(); void addTypedRoot(); } };
   $('#add-root').onclick = () => { void addTypedRoot(); };
   $('#browse-project').onclick = () => { void browseProject(); };
   $('#create-project').onclick = options.onCreate;

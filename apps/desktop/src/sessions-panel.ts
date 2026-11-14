@@ -10,6 +10,7 @@ import { failureText, pageValue, rootsValue, when, type SessionCursor, type Sess
 import { renderSnippet, type SearchHit, type SearchRequest } from './session-search.ts';
 import { byRecency, folderName, inProject } from './sessions-model.ts';
 import './sessions-panel.css';
+import { confirmsField } from './desktop-shell-model.ts';
 
 type Options = {
   invoke: <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
@@ -232,7 +233,7 @@ export function createSessionsPanel(options: Options) {
   }
   search.addEventListener('input', () => { if (hits) { hits = null; searched = ''; } quiet(); paint(); });
   search.addEventListener('keydown', event => {
-    if (event.key === 'Enter') { event.preventDefault(); void runSearch(); }
+    if (confirmsField(event)) { event.preventDefault(); void runSearch(); }
     else if (event.key === 'Escape' && search.value) { event.preventDefault(); event.stopPropagation(); search.value = ''; hits = null; paint(); }
     else if (event.key === 'ArrowDown') { event.preventDefault(); dialog.querySelector<HTMLElement>('.instances-item:not([hidden]) button, .sessions-row-head')?.focus(); }
   });

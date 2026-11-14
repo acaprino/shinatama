@@ -53,6 +53,14 @@
 * { box-sizing: border-box; }
 html, body, #app { height: 100%; margin: 0; }
 body { overflow: hidden; }
+/* Chrome is not text: no selection, the arrow cursor, nothing to drag out. Content opts in:
+   fields and editors, terminals (their own selection), panel bodies, notices, code. */
+html { cursor: default; -webkit-user-select: none; user-select: none; }
+input, textarea, select, [contenteditable=""], [contenteditable="true"], .cm-editor, pre, code, kbd,
+dialog, #notice > span, .selectable { -webkit-user-select: text; user-select: text; }
+input, textarea, [contenteditable=""], [contenteditable="true"] { cursor: text; }
+dialog button, dialog summary, dialog label, .dialog-heading, .dialog-actions { -webkit-user-select: none; user-select: none; }
+img, svg, a { -webkit-user-drag: none; }
 button, input, select { font: inherit; color: inherit; }
 ::selection { background: var(--selection); color: var(--text); }
 [hidden] { display: none !important; }
@@ -76,12 +84,12 @@ button {
   letter-spacing: .07em;
   text-transform: uppercase;
   white-space: nowrap;
-  cursor: pointer;
+  cursor: default;
   transition: background-color 120ms, border-color 120ms, color 120ms;
 }
 button:hover { border-color: var(--line-strong); background: var(--surface-2); }
 button:active { background: var(--line); }
-button:disabled { opacity: .45; cursor: not-allowed; }
+button:disabled { opacity: .45; cursor: default; }
 button:disabled:hover { border-color: var(--line); background: transparent; }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 button.primary:hover { background: var(--accent-soft); border-color: var(--accent-soft); }
@@ -104,8 +112,8 @@ kbd { font: 12px var(--mono); color: var(--muted); letter-spacing: 0; text-trans
 .prototype { margin-left: auto; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
 .window-controls { display: flex; align-self: stretch; margin-right: -14px; }
 .window-controls button { width: 44px; height: 100%; min-height: 0; padding: 0; border: 0; color: var(--muted); background: transparent; }
-.window-controls button:hover { color: var(--ice); background: var(--surface-2); }
-.window-controls button:active { color: var(--text); background: var(--line); }
+.window-controls button:hover, .window-controls #window-maximize.os-hover { color: var(--ice); background: var(--surface-2); }
+.window-controls button:active, .window-controls #window-maximize.os-pressed { color: var(--text); background: var(--line); }
 .window-controls button:focus-visible { outline-offset: -3px; }
 .window-controls #window-close:hover { color: var(--accent-ink); background: var(--accent); }
 .window-controls #window-close:active { background: var(--accent-soft); }

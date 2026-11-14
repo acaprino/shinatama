@@ -26,7 +26,7 @@
 .session-library-table td.session-library-folder { overflow: hidden; padding-top: 9px; font: 11.5px var(--mono); color: var(--text-2); text-overflow: ellipsis; white-space: nowrap; }
 .session-library-table td.session-library-updated { padding-top: 9px; font: 11.5px var(--mono); color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .session-project-group { border-bottom: 1px solid var(--line); }
-.session-project-group summary { cursor: pointer; padding: 11px; overflow-wrap: anywhere; color: var(--text); font-size: 12px; }
+.session-project-group summary { cursor: default; padding: 11px; overflow-wrap: anywhere; color: var(--text); font-size: 12px; }
 .session-project-count { margin-left: 10px; color: var(--muted); font-size: 11px; white-space: nowrap; }
 .session-project-group ul { display: grid; gap: 8px; margin: 0; padding: 0 12px 12px 26px; list-style: none; }
 .session-project-group li { display: grid; gap: 5px; min-width: 0; }
