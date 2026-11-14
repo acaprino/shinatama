@@ -394,6 +394,9 @@ function attachTerminal(info: SessionInfo, group: string, threadId: string | nul
   });
   terminal.attachCustomKeyEventHandler(event => {
     if (modalOpen()) return false;
+    // Ctrl+V / Ctrl+Shift+V / Shift+Insert paste: xterm must not consume the key (it would send ^V
+    // to the harness and cancel the browser's paste event), so the textarea's own paste reaches it.
+    if (event.type === 'keydown' && !event.altKey && ((event.ctrlKey && (event.key === 'v' || event.key === 'V')) || (event.shiftKey && event.key === 'Insert'))) return false;
     return !(event.ctrlKey && event.shiftKey && ['T', 't', 'F', 'f', 'ArrowLeft', 'ArrowRight'].includes(event.key));
   });
   render(); if (shownHere) setFocus(view.group);

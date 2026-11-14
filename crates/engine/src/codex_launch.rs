@@ -970,16 +970,14 @@ fn pin_hook_shell(
 }
 
 fn session_hook_arguments(
-    version: &Version,
+    _version: &Version,
     helper: &Path,
     shell: &Path,
     port: u16,
 ) -> Result<Vec<OsString>, CodexLaunchError> {
-    // This schema/hash is pinned to the source tag rust-v0.167.1, not inferred
-    // from a successful version probe. Other versions need schema validation.
-    if version != &Version::parse("0.167.1").map_err(|_| CodexLaunchError::Configuration)? {
-        return Err(CodexLaunchError::QualificationRequired);
-    }
+    // No version gate: Shinatama accepts whatever Codex build is installed. The hook
+    // identity below is computed from the command and matcher alone, so a build whose
+    // schema differs fails at Codex, not here.
     let command = session_hook_command(helper, shell, port)?;
     let matcher = "^(startup|resume|clear|compact|fork)$";
     // Codex hooks/engine/discovery.rs normalizes one handler to TOML, then
@@ -1509,6 +1507,17 @@ mod tests {
         );
     }
     #[test]
+    fn hook_arguments_do_not_depend_on_the_codex_version() {
+        let helper = Path::new(r"C:\App\shinatama-hook.exe");
+        let shell = Path::new("C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe");
+        let hook = |version: &str| {
+            session_hook_arguments(&Version::parse(version).unwrap(), helper, shell, 43210)
+        };
+        for version in ["0.167.0", "0.167.1", "0.169.0", "0.170.0", "1.0.0"] {
+            assert_eq!(hook(version).unwrap(), hook("0.167.1").unwrap(), "{version}");
+        }
+    }
+    #[test]
     fn tracked_codex_trust_is_scoped_to_its_definition_and_supported_schema() {
         let version = Version::parse("0.167.1").unwrap();
         let helper = Path::new(r"C:\App\shinatama-hook.exe");
@@ -1535,10 +1544,6 @@ mod tests {
         let other_port = session_hook_arguments(&version, helper, shell, 43211).unwrap();
         assert_ne!(arguments[3], other_port[3]);
         assert_ne!(arguments[5], other_port[5]);
-        assert_eq!(
-            session_hook_arguments(&Version::parse("0.167.0").unwrap(), helper, shell, 43210),
-            Err(CodexLaunchError::QualificationRequired)
-        );
         let descriptor = descriptor(&version, Operation::StartNew, TRACKED_RECIPE).unwrap();
         let recipe = CodexSessionOperation::start_new()
             .qualify_arguments_with_hooks(
