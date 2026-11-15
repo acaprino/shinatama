@@ -1,11 +1,12 @@
 // What the main window does as a desktop application rather than a web page (the native side
-// is native_frame.rs): the interface zooms on Ctrl+= / Ctrl+- / Ctrl+0, the engine's page menu
-// and Select All stay out of the chrome, the mouse's back and forward buttons do not navigate,
-// and "Reload interface" in the window menu saves the layout before the page reloads.
+// is native_frame.rs): the interface zooms on Ctrl+= / Ctrl+- / Ctrl+0, browser keys (F5,
+// Ctrl+R, Ctrl+P, Alt+Left...) do nothing, the engine's page menu and Select All stay out of the
+// chrome, the mouse's back and forward buttons do not navigate, and "Reload interface" in the
+// window menu saves the layout before the page reloads.
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
-import { keepsContextMenu, keepsSelectAll, nextZoom, savedZoom, zoomCommand } from './desktop-shell-model.ts';
+import { browserCommand, keepsContextMenu, keepsSelectAll, nextZoom, savedZoom, zoomCommand } from './desktop-shell-model.ts';
 
 const ZOOM_KEY = 'shinatama.zoom';
 
@@ -41,6 +42,8 @@ export async function initializeDesktopShell(options: DesktopShellOptions): Prom
       }).catch(() => { if (zoom === next) zoom = previous; options.notify('This window cannot change its zoom.', 'info'); });
       return;
     }
+    // Not stopped: the app's own handlers for the same keys (F3, Ctrl+S in the files panel) still run.
+    if (browserCommand(event) && !target?.closest('.xterm, .browser-canvas, .cm-editor')) { event.preventDefault(); return; }
     if (event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey && event.key.toLowerCase() === 'a' && !keepsSelectAll(target)) {
       event.preventDefault();
       const panel = document.activeElement?.closest('dialog[open]');

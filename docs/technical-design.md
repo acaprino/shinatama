@@ -309,6 +309,28 @@ place; when a render process exits, that page is reloaded. The terminals live in
 process and the page reattaches them from `terminal_list`. `terminal_read` waits up to one
 second for output, so a quiet terminal makes one request a second through the browser
 process. `apps/desktop/tests/webview-recovery.mjs` ends the browser process and checks both.
+WebView2's own error page is off: a page that fails to load is loaded again after a second, a
+render process that exits is reloaded, at most three times a minute per window; past that, or
+when a render process stops responding, a message box owned by the main window asks whether to
+reload. `apps/desktop/tests/native-frame-smoke.mjs` ends the render process four times.
+
+What keeps the window from behaving like a web page (`native_frame.rs`, `desktop-shell.ts`,
+checked by `apps/desktop/tests/desktop-native.test.ts` and `native-frame-smoke.mjs`):
+
+- Every window is built by `webview_recovery::build`, which refuses any navigation outside the
+  app's origin (`http://tauri.localhost`, and `devUrl` in a development build) and every new
+  window a page would open.
+- A release build turns WebView2's browser accelerators off; `desktop-shell.ts` also refuses
+  F5, Ctrl+R, Ctrl+P, Ctrl+F, Alt+Left and the other browser keys outside terminals, editors
+  and the browser tab, and keeps the engine's context menu only in fields and over selected text.
+- The interface zooms with Ctrl+= / Ctrl+- / Ctrl+0 from 50% to 200%, saved per machine.
+- The title bar is HTML, so Windows 11 would not offer Snap Layouts on the maximize button. A
+  child window that never paints lies over that button (the page reports its rectangle on every
+  layout change) and answers `HTMAXBUTTON`; it maximizes and restores on click and reports
+  hover and press back to the page. `minWidth` is 500 so the window fits the snap zones.
+- The window menu (Alt+Space) offers "Reload interface": the page saves the layout and
+  appearance, then reloads; a page that does not answer in three seconds is reloaded anyway.
+- Chrome is not selectable and uses the arrow cursor; fields, panels, notices and code are.
 
 `main.ts` adds the class `native-glass` to the root element in the desktop app only;
 the browser preview has no backdrop and keeps an opaque stage. Under that class

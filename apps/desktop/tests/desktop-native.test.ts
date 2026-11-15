@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { confirmsField, keepsContextMenu, keepsSelectAll, nextZoom, savedZoom, zoomCommand, ZOOM_STEPS } from '../src/desktop-shell-model.ts';
+import { browserCommand, confirmsField, keepsContextMenu, keepsSelectAll, nextZoom, savedZoom, zoomCommand, ZOOM_STEPS } from '../src/desktop-shell-model.ts';
 
 const src = new URL('../src/', import.meta.url);
 const files = readdirSync(src).filter(name => /\.(ts|css)$/.test(name));
@@ -109,4 +109,17 @@ test('an Enter that picks an IME candidate does not confirm', () => {
   assert.equal(confirmsField({ key: 'Enter', isComposing: true, keyCode: 13 }), false);
   assert.equal(confirmsField({ key: 'Enter', isComposing: false, keyCode: 229 }), false);
   assert.equal(confirmsField({ key: 'a', isComposing: false, keyCode: 65 }), false);
+});
+
+test('browser keys are refused, editing and app keys are not', () => {
+  const k = (key: string, extra: Partial<{ ctrlKey: boolean; shiftKey: boolean; altKey: boolean }> = {}) =>
+    ({ key, code: '', ctrlKey: false, shiftKey: false, altKey: false, metaKey: false, ...extra });
+  for (const event of [k('F5'), k('F5', { ctrlKey: true }), k('r', { ctrlKey: true }), k('R', { ctrlKey: true, shiftKey: true }), k('p', { ctrlKey: true }),
+    k('f', { ctrlKey: true }), k('u', { ctrlKey: true }), k('ArrowLeft', { altKey: true }), k('F12'), k('F7'), k('BrowserBack')]) {
+    assert.equal(browserCommand(event), true, JSON.stringify(event));
+  }
+  for (const event of [k('c', { ctrlKey: true }), k('v', { ctrlKey: true }), k('x', { ctrlKey: true }), k('z', { ctrlKey: true }), k('a', { ctrlKey: true }),
+    k('F', { ctrlKey: true, shiftKey: true }), k('T', { ctrlKey: true, shiftKey: true }), k('ArrowLeft', { ctrlKey: true, shiftKey: true }), k('F3'), k('r'), k('ArrowLeft')]) {
+    assert.equal(browserCommand(event), false, JSON.stringify(event));
+  }
 });

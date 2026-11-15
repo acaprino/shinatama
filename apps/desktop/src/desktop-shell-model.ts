@@ -53,3 +53,18 @@ export interface EnterLike { readonly key: string; readonly isComposing: boolean
 export function confirmsField(event: EnterLike): boolean {
   return event.key === 'Enter' && !event.isComposing && event.keyCode !== 229;
 }
+
+/** Keys the engine maps to browser features (reload, print, find, history, source, caret
+ *  browsing, DevTools). WebView2's browser accelerators are off in a release build; this
+ *  guard also covers the engine's handling of keys the page leaves unhandled. Terminals and
+ *  the browser tab consume their own keys before the engine sees them. */
+export function browserCommand(event: KeyLike): boolean {
+  const { key, ctrlKey: ctrl, shiftKey: shift, altKey: alt, metaKey: meta } = event;
+  if (meta) return false;
+  const lower = key.length === 1 ? key.toLowerCase() : key;
+  if (key === 'F5' || key === 'F7' || key === 'F12' || key === 'BrowserBack' || key === 'BrowserForward' || key === 'BrowserRefresh') return !alt;
+  if (alt && !ctrl && (key === 'ArrowLeft' || key === 'ArrowRight' || key === 'Home')) return true;
+  if (!ctrl || alt) return false;
+  if (shift) return ['r', 'g', 'i', 'j', 'c'].includes(lower);
+  return ['r', 'p', 'u', 'f', 'g', 's', 'h', 'j', 'd', 'o', 'n'].includes(lower);
+}

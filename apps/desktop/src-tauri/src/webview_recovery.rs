@@ -138,7 +138,6 @@ const RELOAD_PERIOD: Duration = Duration::from_secs(60);
 static ASKING: AtomicBool = AtomicBool::new(false);
 
 fn reload_or_ask(window: &WebviewWindow, failure: Failure) {
-    eprintln!("[recovery] {} {}", window.label(), match failure { Failure::Stopped => "stopped".to_string(), Failure::NotLoaded(s) => format!("not loaded {s}"), Failure::Unresponsive => "unresponsive".into() });
     let now = Instant::now();
     let allowed = {
         let mut reloads = RELOADS.lock().unwrap_or_else(|error| error.into_inner());

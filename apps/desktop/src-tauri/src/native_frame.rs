@@ -65,7 +65,6 @@ pub fn navigation_policy(app: &AppHandle) -> impl Fn(&Url) -> bool + Send + 'sta
 pub fn prepare(window: &WebviewWindow) {
     let _ = APP.set(window.app_handle().clone());
     if !tauri::is_dev() {
-        eprintln!("[native_frame] prepare {} accelerators off", window.label());
         let _ = window.with_webview(|webview| {
             use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Settings3;
             use windows_core::Interface;
@@ -75,9 +74,8 @@ pub fn prepare(window: &WebviewWindow) {
                 let Ok(settings) = core.Settings() else { return };
                 // WebView2's default is TRUE. Copy, cut, paste and the other editing keys stay.
                 if let Ok(settings) = settings.cast::<ICoreWebView2Settings3>() {
-                    let r = settings.SetAreBrowserAcceleratorKeysEnabled(false);
-                    eprintln!("[native_frame] SetAreBrowserAcceleratorKeysEnabled {r:?}");
-                } else { eprintln!("[native_frame] no Settings3"); }
+                    let _ = settings.SetAreBrowserAcceleratorKeysEnabled(false);
+                }
             }
         });
     }
@@ -149,7 +147,6 @@ fn request_reload() {
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_secs(3));
         if take_pending(token) {
-            eprintln!("[native_frame] reload after timeout");
             let _ = main.reload();
         }
     });
@@ -167,7 +164,6 @@ fn take_pending(token: u64) -> bool {
 /// The page saved what it could and is ready to be reloaded.
 #[tauri::command]
 pub fn interface_reload_ready(window: WebviewWindow, token: u64) {
-    eprintln!("[native_frame] reload ready {token}");
     if window.label() != "main" || !take_pending(token) {
         return;
     }
@@ -209,7 +205,6 @@ pub fn window_caption_maximize(
 
 unsafe fn place_overlay(parent: HWND, x: i32, y: i32, width: i32, height: i32) {
     unsafe {
-        eprintln!("[native_frame] place_overlay {x} {y} {width} {height} alive={}", IsWindow(parent));
         if IsWindow(parent) == 0 {
             return;
         }
@@ -251,7 +246,6 @@ unsafe fn place_overlay(parent: HWND, x: i32, y: i32, width: i32, height: i32) {
                 std::ptr::null(),
             );
             if overlay.is_null() {
-                eprintln!("[native_frame] overlay CreateWindowExW failed: {}", windows_sys::Win32::Foundation::GetLastError());
                 return;
             }
             SetPropW(parent, OVERLAY_PROP, overlay as HANDLE);

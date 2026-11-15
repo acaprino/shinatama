@@ -91,14 +91,16 @@ try {
   const reloaded = await until(() => page.evaluate(() => window.__marker === undefined && !!document.querySelector('#window-maximize:not(:disabled)')), 10000);
   check('Reload interface reloads the page after it saved', !!reloaded && Date.now() - started < 2900, `${Date.now() - started} ms`);
 
-  // Browser keys: a posted key the page handles arrives; F5 and Ctrl+R do not reload.
+  // Browser keys: a posted F5 reaches the page and does not reload it. Posted keys skip WebView2's
+  // accelerator stage and carry no reliable Ctrl state, so this proves the page's guard for F5;
+  // Ctrl+R and the others are covered by desktop-native.test.ts.
   await page.waitForSelector('#window-maximize:not(:disabled)');
-  const before = await page.evaluate(() => { window.__marker = 2; window.__keys = []; document.addEventListener('keydown', event => window.__keys.push(event.key), true); return performance.timeOrigin; });
-  step('marker 2'); native('key', ['-VirtualKey', '0x74']); step('F5 posted'); native('key', ['-VirtualKey', '0x52', '-Control']); step('Ctrl+R posted');
+  const before = await page.evaluate(() => { window.__marker = 2; window.__keys = []; document.addEventListener('keydown', event => window.__keys.push((event.ctrlKey ? 'Ctrl+' : '') + event.key), true); return performance.timeOrigin; });
+  step('marker 2'); native('key', ['-VirtualKey', '0x74']); step('F5 posted');
   await delay(1500);
   const keys = await page.evaluate(() => ({ marker: window.__marker, keys: window.__keys, origin: performance.timeOrigin }));
   check('posted keys reach the page (instrument works)', keys.keys?.includes('F5'), JSON.stringify(keys.keys));
-  check('F5 and Ctrl+R do not reload', keys.marker === 2, `document ${before} → ${keys.origin}`);
+  check('F5 does not reload', keys.marker === 2, `document ${before} → ${keys.origin}`);
 
   // Navigation and new windows are refused, with no recovery question.
   const pages = context.pages().length;
