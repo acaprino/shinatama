@@ -42,12 +42,49 @@ try {
   await expect.poll(async () => (await log()).created).toEqual(['p_bbbbbbbbbbbb']);
   passed.push('+ on a group makes a thread in that project');
 
+  const shot = async name => { if (process.env.SHOTS) await page.screenshot({ path: resolve(process.env.SHOTS, name + '.png') }); };
+  const alphaTwo = page.locator('.thread-sidebar-anchor[data-workset-id="w_aaaaaaaaaaa4"]');
+  const state = alphaTwo.locator('.thread-sidebar-state');
+  await expect(alphaTwo).toHaveAttribute('aria-pressed', 'false');
+  await expect(state).toHaveText('2 running · tabs hidden');
+  await alphaTwo.click();
+  await expect(alphaTwo).toHaveAttribute('aria-pressed', 'true');
+  await expect(state).toHaveText('3 sessions · 2 running');
+  await expect(alphaTwo.locator('.thread-sidebar-switch')).toHaveCSS('background-color', /rgb/);
+  await shot('sidebar-on');
+  await alphaTwo.click();
+  await expect(alphaTwo).toHaveAttribute('aria-pressed', 'false');
+  expect((await log()).closed).toEqual(['w_aaaaaaaaaaa4']);
+  passed.push('a click turns a thread on and off, and its row says so');
+
+  await page.getByRole('button', { name: 'Settings of Alpha two', exact: true }).click();
+  const details = page.locator('.thread-sidebar-details');
+  await expect(details).toBeVisible();
+  await expect(details.locator('#thread-rename-title')).toHaveValue('Alpha two');
+  await expect(details.locator('.thread-sidebar-closed-head')).toHaveText('Closed sessions (1)');
+  await expect(details.locator('.thread-sidebar-closed-name')).toHaveText('Codex');
+  await shot('sidebar-details');
+  await details.locator('#thread-rename-title').fill('Billing');
+  await details.locator('#thread-rename-title').press('Enter');
+  await expect.poll(async () => (await log()).renamed.at(-1)).toEqual({ worksetId: 'w_aaaaaaaaaaa4', expectedRevision: 1, title: 'Billing' });
+  await expect(details).toBeHidden();
+  await page.getByRole('button', { name: 'Settings of Alpha two', exact: true }).click();
+  await expect(details).toBeVisible();
+  await page.getByRole('button', { name: 'Settings of Alpha two', exact: true }).click();
+  await expect(details).toBeHidden();
+  passed.push('⋯ opens a thread\'s name, closed sessions and actions under its row');
+
   await page.getByRole('button', { name: 'Remove beta from the sidebar', exact: true }).click();
   await expect.poll(groups).toEqual(['alpha']);
+  expect((await log()).removed).toEqual(['p_bbbbbbbbbbbb']);
   await expect.poll(async () => (await log()).saved.at(-1)?.activeProjects).toEqual(['p_aaaaaaaaaaaa']);
   await page.evaluate(() => window.__sidebar.toggleActive('p_bbbbbbbbbbbb'));
   await expect.poll(groups).toEqual(['alpha', 'beta']);
-  passed.push('× and the Project menu tick remove and add a project');
+  await page.evaluate(() => window.__sidebar.toggleActive('p_bbbbbbbbbbbb'));
+  await expect.poll(groups).toEqual(['alpha']);
+  expect((await log()).removed).toEqual(['p_bbbbbbbbbbbb', 'p_bbbbbbbbbbbb']);
+  await page.evaluate(() => window.__sidebar.toggleActive('p_bbbbbbbbbbbb'));
+  passed.push('× and the Project menu tick remove and add a project, and the threads of a removed project are turned off');
 
   expect(errors).toEqual([]);
   console.log(passed.map(line => `ok - ${line}`).join('\n'));

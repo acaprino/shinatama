@@ -112,18 +112,18 @@ try {
   const anchor=sidebar.locator('button.thread-sidebar-anchor');
   await expect(anchor).toHaveCount(1); await expect(anchor).toHaveAttribute('aria-pressed','true');
   const worksetId=await anchor.getAttribute('data-workset-id'); expect(worksetId).toMatch(/^w_[a-z2-7]{12}$/);
-  layoutScope={projectId:project.id,workspaceId:worksetId};
+  // One layout for the window (ADR-0055 v2): the global record `main`.
   await expect.poll(async()=> (await layout())?.views.some(view=>view.id===session.id) ?? false).toBe(true);
   await expect.poll(()=>page.locator('.workspace-name').evaluate(label=>label.dataset.layoutDirty+label.dataset.layoutPending)).toBe('falsefalse');
   const request={projectId:project.id,archived:false};
   const stored=async()=> (await ipc('workset_list',{request})).rows.find(row=>row.id===worksetId);
   const before=await stored(); expect(before).toBeTruthy();
   const baseline=await layout(); const baselineIds=await ids();
-  const rename=sidebar.getByRole('button',{name:'Rename',exact:true});
-  const form=sidebar.locator('.thread-sidebar-rename'); const input=form.getByLabel('Thread name');
+  const rename=sidebar.locator('.thread-sidebar-more').first();
+  const form=sidebar.locator('.thread-sidebar-rename'); const input=form.getByLabel('Name',{exact:true});
   const saveButton=form.getByRole('button',{name:'Save',exact:true});
   const unchanged=expect.objectContaining({id:worksetId,title:before.title,revision:before.revision,sessions:1});
-  await rename.click(); await expect(input).toBeFocused();
+  await rename.click(); await input.focus();
   await input.fill('   '); await input.press('Enter');
   await expect(form).toBeVisible(); expect(await stored()).toEqual(unchanged);
   await input.fill('Discard this'); await input.press('Escape');

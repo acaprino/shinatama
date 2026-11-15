@@ -3,9 +3,8 @@
 .session-idle strong { color: var(--text); font: 600 14px var(--display, var(--mono)); }
 .thread-sidebar-heading h2 { margin-right: auto; }
 .thread-sidebar-new { font-weight: 600; }
-.thread-sidebar-closed { border-top: 1px solid var(--line); padding-top: 6px; color: var(--text-2); font: 12px var(--mono); }
-.thread-sidebar-closed summary { cursor: default; padding: 4px 0; }
-.thread-sidebar-closed ul { display: grid; gap: 4px; margin: 4px 0 0; padding: 0; list-style: none; }
+.thread-sidebar-closed { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; color: var(--text-2); font: 12px var(--mono); }
+.thread-sidebar-closed[hidden] { display: none; }
 .thread-sidebar-closed li { display: flex; align-items: center; gap: 4px; }
 .thread-sidebar-closed-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-sidebar-closed button { min-height: 24px; padding: 0 6px; font-size: 10px; }
@@ -27,3 +26,27 @@
 .thread-sidebar-row { display: flex; align-items: stretch; gap: 2px; }
 .thread-sidebar-row > .thread-sidebar-anchor { flex: 1; min-width: 0; }
 @media (prefers-reduced-motion: reduce) { .thread-sidebar-group-toggle::before { transition: none; } }
+
+/* On or off, at a glance: the square is filled when the thread's tabs are in the window. */
+.thread-sidebar-anchor { grid-template-columns: 10px minmax(0, 1fr) auto; column-gap: 9px; align-items: center; }
+.thread-sidebar-anchor > .thread-sidebar-title { grid-column: 2; grid-row: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-sidebar-anchor > .thread-sidebar-updated { grid-column: 3; grid-row: 1; white-space: nowrap; }
+.thread-sidebar-anchor > .thread-sidebar-state { grid-column: 2 / span 2; grid-row: 2; }
+.thread-sidebar-switch { grid-column: 1; grid-row: 1; width: 10px; height: 10px; box-sizing: border-box; border: 1px solid var(--line-strong); transition: background-color var(--fast) var(--ease-out), border-color var(--fast) var(--ease-out); }
+.thread-sidebar-anchor:hover .thread-sidebar-switch { border-color: var(--text-2); }
+/* Its colour is the one on its tabs. */
+.thread-sidebar-anchor[aria-pressed=true] .thread-sidebar-switch { border-color: var(--thread-tone, var(--accent)); background: var(--thread-tone, var(--accent)); }
+.thread-sidebar-anchor[aria-pressed=true] { border-left-color: var(--thread-tone, var(--accent)); background: color-mix(in srgb, var(--thread-tone, var(--accent)) 9%, transparent); }
+.thread-sidebar-anchor[aria-pressed=false] .thread-sidebar-title { color: var(--text-2); }
+.thread-sidebar-state::before { content: none; }
+.thread-sidebar-more { flex: none; width: 26px; min-height: 26px; padding: 0; border-color: transparent; background: transparent; color: var(--muted); font-size: 15px; line-height: 1; }
+.thread-sidebar-more:hover, .thread-sidebar-more[aria-expanded=true] { color: var(--accent); }
+/* A thread's settings, opened in place under its row. */
+.thread-sidebar-details { display: grid; gap: 8px; margin: 2px 0 8px 12px; padding: 8px 10px; border-left: 2px solid var(--thread-tone, var(--line-strong)); background: color-mix(in srgb, var(--surface-2) 70%, transparent); }
+.thread-sidebar-details .thread-sidebar-rename { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px; }
+.thread-sidebar-details .thread-sidebar-rename input { padding: 4px 6px; }
+.thread-sidebar-details .thread-sidebar-rename button, .thread-sidebar-details .thread-sidebar-actions button { min-height: 24px; padding: 0 8px; font-size: 10px; }
+.thread-sidebar-closed-head { margin: 0; color: var(--muted); font: 11px var(--mono); }
+.thread-sidebar-closed-head[hidden] { display: none; }
+.thread-sidebar-warning { margin: 0; color: var(--error); font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { .thread-sidebar-switch { transition: none; } }

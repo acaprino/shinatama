@@ -90,9 +90,9 @@ try {
   const sidebar = page.locator('.thread-sidebar'); const selector = sidebar.locator('.thread-sidebar-group[data-project-id="' + project.id + '"]');
   await expect(selector).toBeVisible();
   await expect(sidebar.locator('.thread-sidebar-body')).toHaveAttribute('aria-busy', 'false');
-  expect(await ipc('thread_sidebar_load')).toEqual({ revision: 0, settings: { version: 1, width: 264, collapsed: false } });
-  await expect(sidebar.locator('.thread-sidebar-status')).toContainText('No threads yet');
-  await sidebar.getByRole('button', { name: 'New thread', exact: true }).click();
+  expect(await ipc('thread_sidebar_load')).toEqual({ revision: 0, settings: { version: 1, width: 264, collapsed: false, activeProjects: [] } });
+  await expect(selector.locator('xpath=following-sibling::li[1]')).toHaveText('No threads yet.');
+  await selector.locator('.thread-sidebar-group-add').click();
   const anchor = sidebar.locator('button.thread-sidebar-anchor');
   await expect(anchor).toHaveCount(1); const worksetId = await anchor.getAttribute('data-workset-id');
   expect(worksetId).toMatch(/^w_[a-z2-7]{12}$/);
@@ -101,7 +101,7 @@ try {
   expect(listed.more).toBe(false); expect(listed.rows).toHaveLength(1);
   expect(listed.rows[0]).toMatchObject({ id: worksetId, projectId: project.id, title: null, archived: false, sessions: 0, open: 0 });
   await expect(anchor).toHaveAttribute('aria-pressed', 'true');
-  await expect(anchor.locator('.thread-sidebar-state')).toHaveText('No session yet');
+  await expect(anchor.locator('.thread-sidebar-state')).toHaveText('Empty · + adds a session');
   await expect(anchor.locator('.thread-sidebar-title')).toHaveText('New thread');
   expect(await ipc('terminal_list')).toEqual([]);
   evidence.checks.emptyThreadAndCanonicalProjectScope = true;
@@ -113,11 +113,11 @@ try {
   await sidebar.getByRole('button', { name: 'Collapse threads', exact: true }).click();
   const collapsed = { version: 1, width: 280, collapsed: true };
   await expect.poll(async () => {
-    const value = await ipc('thread_sidebar_load'); return value.revision > 0 && JSON.stringify(value.settings) === JSON.stringify(collapsed);
+    const value = await ipc('thread_sidebar_load'); return value.revision > 0 && Object.entries(collapsed).every(([key, wanted]) => value.settings[key] === wanted);
   }, { timeout: 15000 }).toBe(true);
   const acknowledged = await ipc('thread_sidebar_load');
   await page.reload(); await expect(page.locator('#runtime-status')).toContainText('Local runtime');
-  await expect(selector).toBeVisible();
+  await expect(selector).toBeAttached();
   await expect(sidebar.getByRole('button', { name: 'Expand threads', exact: true })).toBeVisible();
   await expect(sidebar).toHaveClass(/is-collapsed/);
   expect(await sidebar.evaluate(element => element.style.getPropertyValue('--thread-sidebar-width'))).toBe('280px');
@@ -134,28 +134,30 @@ try {
   await expect(anchor).toHaveCount(1); await expect(anchor).toHaveAttribute('data-workset-id', worksetId);
   // The thread that was open reopens after a reload; it holds no session and starts nothing.
   await expect(anchor).toHaveAttribute('aria-pressed', 'true');
-  await expect(anchor.locator('.thread-sidebar-state')).toHaveText('No session yet');
+  await expect(anchor.locator('.thread-sidebar-state')).toHaveText('Empty · + adds a session');
   expect((await ipc('workset_list', { request: listRequest })).rows.map(row => row.id)).toEqual([worksetId]);
 
   // Archiving hides the thread from the list without deleting it; the archived view lists it and Unarchive brings it back.
+  // A thread's actions open under its row with ⋯.
+  const more = sidebar.locator('.thread-sidebar-more');
   const archive = sidebar.getByRole('button', { name: 'Archive', exact: true });
-  await archive.click(); await expect(anchor).toHaveCount(0);
+  await more.click(); await archive.click(); await expect(anchor).toHaveCount(0);
   expect((await ipc('workset_list', { request: listRequest })).rows).toEqual([]);
   const archivedRows = (await ipc('workset_list', { request: { ...listRequest, archived: true } })).rows;
   expect(archivedRows.map(row => [row.id, row.archived])).toEqual([[worksetId, true]]);
   await sidebar.getByLabel('Show archived threads').check();
   await expect(anchor).toHaveCount(1); await expect(anchor.locator('.thread-sidebar-state')).toHaveText('Archived · 0 sessions');
-  await anchor.click();
+  await more.click();
   await sidebar.getByRole('button', { name: 'Unarchive', exact: true }).click();
   await expect(anchor).toHaveCount(0);
   await sidebar.getByLabel('Show archived threads').uncheck();
-  await expect(anchor).toHaveCount(1); await expect(anchor.locator('.thread-sidebar-state')).toHaveText('No session yet');
+  await expect(anchor).toHaveCount(1); await expect(anchor.locator('.thread-sidebar-state')).toHaveText('Empty · + adds a session');
   expect((await ipc('workset_list', { request: { ...listRequest, archived: true } })).rows).toEqual([]);
   evidence.checks.archiveAndUnarchiveKeepTheThread = true;
   expect(await ipc('terminal_list')).toEqual([]); expect(errors).toEqual([]);
   // Observe the last display acknowledgement before frame close, rather than racing its debounce.
   await expect.poll(async () => (await ipc('thread_sidebar_load')).settings, { timeout: 15000 })
-    .toEqual({ version: 1, width: 280, collapsed: false });
+    .toMatchObject({ version: 1, width: 280, collapsed: false });
   evidence.checks.sameThreadAfterReloadAndNoAutoStart = true;
   await page.screenshot({ path: resolve(output, `${receiptName}.png`), timeout: 3000 });
   const closing = Promise.all([page.waitForEvent('close', { timeout: 15000 }), exitWithin(15000)]); void closing.catch(() => {});

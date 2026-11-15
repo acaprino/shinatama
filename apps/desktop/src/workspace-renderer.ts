@@ -18,6 +18,8 @@ export interface WorkspaceRendererOptions {
   /** Update the runtime's visibility cache before any zero-size DOM observation. */
   readonly onVisibilityChange?: (viewId: string, visible: boolean, groupId: string | null) => void;
   readonly labelForView?: (view: PanelView) => string;
+  /** The colour of the thread a tab belongs to, drawn as a square before its name; null for none. */
+  readonly toneForView?: (view: PanelView) => string | null;
   /** Quick filter: only matching tabs are drawn; null shows every tab. Layout is not changed. */
   readonly tabFilter?: () => { readonly label: string; readonly shows: (view: PanelView) => boolean } | null;
   readonly isInputBlocked?: () => boolean;
@@ -228,7 +230,8 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
         tab.blur();
         if (current?.focusedGroupId !== group.id) emit({ type: 'focus', groupId: group.id });
         emit({ type: 'activate', groupId: group.id, viewId: view.id }); focusView(view.id);
-      });      tab.classList.add('wm-tab'); tab.dataset.viewId = view.id; tab.setAttribute('role', 'tab');
+      });
+      tab.classList.add('wm-tab'); tab.dataset.viewId = view.id; tab.setAttribute('role', 'tab');
       tab.id = `${namespace}-tab-${view.id}`; tab.setAttribute('aria-controls', dom.body.id);
       tab.setAttribute('aria-selected', String(group.activeTabId === view.id)); tab.tabIndex = group.activeTabId === view.id ? 0 : -1;
       tab.title = `${label(view)} · drag to another pane or to a side to split; Alt+Shift+arrow does the same from the keyboard`;
@@ -237,6 +240,8 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
       const wrap = element('span', 'wm-tabwrap'); wrap.classList.toggle('wm-tabwrap-active', group.activeTabId === view.id);
       const close = control('×', `close:${view.id}`, () => options.onCloseView?.(view.id)); close.classList.add('wm-tab-close');
       close.title = `Close ${label(view)}`; close.setAttribute('aria-label', `Close ${label(view)}`); close.tabIndex = -1;
+      const tone = options.toneForView?.(view) ?? null;
+      wrap.classList.toggle('wm-tab-toned', tone !== null); if (tone) wrap.style.setProperty('--tab-tone', tone);
       wrap.append(tab, close); tabs.push(wrap);
     }
     // Every tab of this pane belongs to other projects: say so instead of an empty strip.
@@ -380,7 +385,7 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
         } else if (selected && options.placeholderFor?.(selected)) {
           dom.body.replaceChildren(options.placeholderFor(selected)!);
         } else {
-          const placeholder = element('div', 'wm-placeholder', selected ? selected.resource.kind === 'terminal' ? 'Terminal unavailable. Your saved layout is preserved.' : 'This view is not available yet.' : 'Nothing open in this pane.');
+          const placeholder = element('div', 'wm-placeholder', selected ? selected.resource.kind === 'terminal' ? 'This terminal is no longer running.' : 'This view is not available yet.' : 'Nothing open in this pane.');
           if (!selected) { const start = element('button', 'wm-empty-start', '+ New session'); start.type = 'button'; start.addEventListener('click', () => options.onNewTab?.(group.id)); placeholder.append(start); }
           dom.body.replaceChildren(placeholder);
         }

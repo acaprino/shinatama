@@ -1,6 +1,6 @@
 ---
 adr_id: ADR-0055
-version: 2
+version: 3
 title: A thread is a named set of sessions; the window shows the sessions of the threads that are on, in one layout; the stored conversation record keeps its invariants and is called a session in the interface
 status: Accepted
 author: Alfio Caprino
@@ -67,6 +67,32 @@ changes from v1, everywhere below:
 - Per-session **Hide** is gone with the pane's option menu: a session keeps running without its
   tab when its thread is turned off. Close and Forget are unchanged.
 - A tab is named "thread · agent"; the project is shown by the tab filter, not in the name.
+
+## Amendment v3 (2026-11-15, user report)
+
+The user could not tell what the threads were doing ("non si capisce mai cosa accade con i
+thread", "ne apro uno, ne spuntano tanti", "ne chiudo uno, spariscono tutti"). Causes and changes:
+
+- The thread store refused every request that arrived while another ran ("busy"). The sidebar
+  reads its projects in parallel, so most of them failed at random and their rows came and went;
+  a new session whose move into the thread that was on was refused got a thread of its own. The
+  store now queues requests in arrival order (up to 15 s) instead of refusing them, and the
+  window asks once instead of retrying.
+- Each row carries a square that is filled when the thread is on; an off thread with running
+  sessions says "N running · tabs hidden".
+- Rename, Archive, Forget and the thread's closed sessions open under the row they belong to
+  (⋯), for that thread, on or off. The action bar under the list, which acted on the thread
+  worked in last, is gone.
+- Removing a project from the sidebar (its × or its tick in the Project menu) turns its threads
+  off, so no tab is left without a row to turn it off or on again.
+- A thread that is on has a colour: its row's square is filled with it and each of its tabs
+  carries a square of it before the name, so the tabs of two threads in one pane can be told
+  apart. Eight far-apart colours are handed out in turn and kept while the thread stays on; a
+  thread that is off has no colour and an empty grey square.
+- A tab of an unnamed thread is named "project folder · agent", never "agent · agent".
+- The window's layout `main`, when marked by an earlier Shinatama process proven dead, is taken
+  over at start without a button. While a live second window holds it, this window keeps its
+  own panes, says so once and asks again every 30 s, so it saves them once that window closes.
 
 ## Decision
 

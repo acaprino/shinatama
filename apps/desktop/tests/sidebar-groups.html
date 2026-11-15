@@ -11,17 +11,27 @@
 <script type="module">
 import '/src/styles.css';
 import { createWorksetSidebar } from '/src/workset-sidebar.ts';
+import { createToneKeeper } from '/src/thread-tone.ts';
+const tones = createToneKeeper();
 const A = 'p_aaaaaaaaaaaa'; const B = 'p_bbbbbbbbbbbb';
-const thread = (id, projectId, title) => ({ id, projectId, title, archived: false, revision: 1, usedAt: Date.now(), sessions: 1, open: 0, lead: null });
-const threads = { [A]: [thread('w_aaaaaaaaaaa3', A, 'Alpha one'), thread('w_aaaaaaaaaaa4', A, 'Alpha two')], [B]: [thread('w_bbbbbbbbbbb3', B, 'Beta one')] };
-const log = window.__log = { saved: [], created: [], added: [], opened: [] };
+const thread = (id, projectId, title, sessions = 1) => ({ id, projectId, title, archived: false, revision: 1, usedAt: Date.now(), sessions, open: 0, lead: null });
+const threads = { [A]: [thread('w_aaaaaaaaaaa3', A, 'Alpha one'), thread('w_aaaaaaaaaaa4', A, 'Alpha two', 3)], [B]: [thread('w_bbbbbbbbbbb3', B, 'Beta one')] };
+const log = window.__log = { saved: [], created: [], added: [], opened: [], closed: [], removed: [], renamed: [] };
+const on = new Set(); const running = { w_aaaaaaaaaaa4: 2 };
 const sidebar = window.__sidebar = createWorksetSidebar({
   host: document.getElementById('host'),
   list: async ({ projectId }) => ({ rows: threads[projectId] ?? [], more: false }),
   create: async ({ projectId }) => { log.created.push(projectId); return { id: 'w_cccccccccccc', revision: 1 }; },
-  onOpen: async thread => { log.opened.push(thread.id); return true; },
+  onOpen: async thread => { log.opened.push(thread.id); on.add(thread.id); return true; },
+  onClose: async thread => { log.closed.push(thread.id); on.delete(thread.id); return true; },
+  isOn: id => on.has(id),
+  tone: id => tones.tone([...on], id),
+  update: async request => { log.renamed.push(request); },
+  closed: async id => id === 'w_aaaaaaaaaaa4' ? [{ id: 't_aaaaaaaaaaa5', name: 'Codex', updatedAt: Date.now() - 3600000 }] : [],
+  onProjectsRemoved: projectIds => log.removed.push(...projectIds),
+  harnessLabel: id => ({ claude_code: 'Claude Code' })[id] ?? id,
   onAddSession: thread => log.added.push(thread.id),
-  openId: () => null, running: () => 0,
+  openId: () => null, running: id => running[id] ?? 0,
   loadState: async () => ({ version: 1, width: 264, collapsed: false, activeProjects: [B] }),
   saveState: async state => { log.saved.push(state); },
   reportError: message => { throw new Error(message); },

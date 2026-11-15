@@ -113,28 +113,28 @@ try {
   await page.locator('#confirm-dialog button[value="stop"]').click();
   await expect(tabs).toHaveCount(1, { timeout: 15000 });
   expect(await terminals()).toBe(2);
-  const closed = page.locator('.thread-sidebar-closed');
-  await expect(closed.locator('summary')).toHaveText('Closed sessions (1)', { timeout: 15000 });
+  const closed = page.locator('.thread-sidebar-details');
+  await page.locator(`.thread-sidebar-anchor[data-workset-id="${threadA}"] ~ .thread-sidebar-more`).click();
+  await expect(closed.locator('.thread-sidebar-closed-head')).toHaveText('Closed sessions (1)', { timeout: 15000 });
   await expect(page.locator('.thread-sidebar-anchor[aria-pressed="true"] .thread-sidebar-state')).toHaveText('2 sessions · 1 running');
-  await closed.locator('summary').click();
   await shot('4-closed-session-kept');
 
   // 7. Reopen puts it back as a tab that says it is not running; nothing starts.
   await closed.locator('button[data-restore]').click();
   await expect(page.locator('.wm-tab', { hasText: 'not running' })).toHaveCount(1, { timeout: 15000 });
   await expect(tabs).toHaveCount(2);
-  await expect(closed).toBeHidden();
+  await expect(closed.locator('.thread-sidebar-closed')).toBeHidden();
   expect(await terminals()).toBe(2);
   await expect(page.locator('.session-idle')).toBeVisible();
   await shot('5-reopened-session');
 
   // 8. The x on a tab that is not running closes it again without asking; Forget deletes it after a second click.
   await page.locator('.wm-tabwrap', { hasText: 'not running' }).locator('.wm-tab-close').click({ force: true });
-  await expect(closed.locator('summary')).toHaveText('Closed sessions (1)', { timeout: 15000 });
+  await expect(closed.locator('.thread-sidebar-closed-head')).toHaveText('Closed sessions (1)', { timeout: 15000 });
   await expect(tabs).toHaveCount(1);
-  const forget = closed.locator('li button').nth(1);
+  const forget = closed.locator('.thread-sidebar-closed li button').nth(1);
   await forget.click(); await expect(forget).toHaveText('Sure?'); await forget.click();
-  await expect(closed).toBeHidden({ timeout: 15000 });
+  await expect(closed.locator('.thread-sidebar-closed')).toBeHidden({ timeout: 15000 });
   await expect(page.locator('.thread-sidebar-anchor[aria-pressed="true"] .thread-sidebar-state')).toHaveText('1 session · 1 running', { timeout: 15000 });
 
   // 9. One layout for the window: split the first thread's tabs in two columns, turn the second thread on and off; the columns stay.

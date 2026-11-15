@@ -4,11 +4,9 @@ use serde::{Deserialize, Serialize};
 use shinatama_state::threads::{
     SidebarSnapshot, SidebarState, ThreadCursor, ThreadError, ThreadListPage,
 };
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-};
+use std::{sync::Arc, time::Duration};
 use tauri::{Manager, State, WebviewWindow};
+use tokio::sync::Mutex;
 
 #[derive(Serialize)]
 pub struct Error {
@@ -78,21 +76,19 @@ pub struct Recover {
     thread_id: String,
     expected_revision: u64,
 }
+/// How long a request waits for its turn before the store answers `busy`. Requests are short
+/// SQLite reads and writes: they queue rather than refuse, so a sidebar reading several projects
+/// and a session being started never fail each other.
+const TURN_WAIT: Duration = Duration::from_secs(15);
 pub struct Controller {
     services: Arc<Services>,
-    busy: AtomicBool,
-}
-struct Slot(Arc<Controller>);
-impl Drop for Slot {
-    fn drop(&mut self) {
-        self.0.busy.store(false, Ordering::Release);
-    }
+    turn: Arc<Mutex<()>>,
 }
 impl Controller {
     pub fn new(services: Arc<Services>) -> Self {
         Self {
             services,
-            busy: AtomicBool::new(false),
+            turn: Arc::new(Mutex::new(())),
         }
     }
     async fn work<T: Send + 'static>(
@@ -108,12 +104,14 @@ impl Controller {
         self: &Arc<Self>,
         work: impl FnOnce(&shinatama_state::database::Database) -> Result<T, Error> + Send + 'static,
     ) -> Result<T, Error> {
-        self.busy
-            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        // One request at a time, in arrival order; the turn is held until the blocking work ends.
+        let turn = tokio::time::timeout(TURN_WAIT, self.turn.clone().lock_owned())
+            .await
             .map_err(|_| Error { code: "busy" })?;
-        let slot = Slot(self.clone());
+        let services = self.services.clone();
         tauri::async_runtime::spawn_blocking(move || {
-            let state = slot.0.services.load().map_err(|_| Error {
+            let _turn = turn;
+            let state = services.load().map_err(|_| Error {
                 code: "unavailable",
             })?;
             work(&state.store)
@@ -322,7 +320,7 @@ fn local(window: &WebviewWindow) -> Result<(), Error> {
     if window
         .state::<crate::ExitIntent>()
         .0
-        .load(Ordering::Acquire)
+        .load(std::sync::atomic::Ordering::Acquire)
     {
         return Err(Error { code: "closing" });
     }
