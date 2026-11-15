@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cellStyle, createArchive, serializeLine, splitOutput, windowStart } from '../src/terminal-history.ts';
-import { lineAt, minimapGeometry } from '../src/terminal-minimap.ts';
+import { archivedLineAt, holdAt, LINE_PITCH, lineAt, minimapGeometry } from '../src/terminal-minimap.ts';
 
 type Fake = { chars: string; width?: number; bold?: boolean; fg?: number; fgRgb?: boolean; bg?: number };
 const cell = (value: Fake) => ({
@@ -51,14 +51,40 @@ test('the archive joins wrapped lines, fills whole chunks and drops the oldest p
   assert.deepEqual(await archive.read(3, 5), ['six', 'seven']);
 });
 
-test('the minimap gives the archive a fixed share and maps the thumb both ways', () => {
+test('the minimap gives the archive a capped share and maps the frame both ways', () => {
   const none = minimapGeometry(400, 0, 1024, 0, 24);
   assert.equal(none.archiveHeight, 0); assert.equal(none.liveHeight, 400);
   const some = minimapGeometry(400, 90_000, 1024, 1000, 24);
   assert.equal(some.archiveHeight, 120); assert.equal(some.liveHeight, 280);
-  assert.ok(some.thumbTop >= 120 && some.thumbTop + some.thumbHeight <= 400);
+  assert.ok(some.frameTop >= 120 && some.frameTop + some.frameHeight <= 400);
   assert.equal(lineAt(0, some, 1024, 24), 0);
   assert.equal(lineAt(400, some, 1024, 24), 1000);
+  // A few archived lines take a few pixels, not a third of the strip.
+  assert.equal(minimapGeometry(400, 10, 100, 0, 40).archiveHeight, 30);
+  assert.equal(archivedLineAt(0, some, 90_000), 0);
+  assert.equal(archivedLineAt(119, some, 90_000), 89_250);
+});
+
+test('a short scrollback keeps its lines a few pixels apart instead of stretching them', () => {
+  const fresh = minimapGeometry(700, 0, 43, 0, 43);
+  assert.equal(fresh.pitch, LINE_PITCH);
+  assert.deepEqual([fresh.frameTop, fresh.frameHeight], [0, 43 * LINE_PITCH]);
+  const scrolled = minimapGeometry(700, 0, 443, 400, 43);
+  assert.ok(scrolled.pitch < LINE_PITCH && scrolled.pitch > 1);
+  assert.equal(scrolled.frameTop + scrolled.frameHeight, 700);
+  // A click below what the strip holds goes to the end; at the top, to the start.
+  assert.equal(lineAt(699, fresh, 43, 43), 0);
+  assert.equal(lineAt(699, scrolled, 443, 43), 400);
+  assert.equal(lineAt(0, scrolled, 443, 43), 0);
+});
+
+test('a drag that takes the frame moves it without a jump', () => {
+  const shape = minimapGeometry(600, 0, 1043, 500, 43);
+  const y = shape.frameTop + 3; const hold = holdAt(y, shape, 500);
+  assert.equal(lineAt(y, shape, 1043, 43, hold), 500);
+  assert.equal(lineAt(y + 10 * shape.pitch, shape, 1043, 43, hold), 510);
+  // A click elsewhere centers the frame on the pointer: the frame's middle stands for where it is.
+  assert.ok(Math.abs(lineAt(shape.frameTop + shape.frameHeight / 2, shape, 1043, 43) - 500) <= 1);
 });
 
 test('output is cut after every few newlines and nothing is lost', () => {
