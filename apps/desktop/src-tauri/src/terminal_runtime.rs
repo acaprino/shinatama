@@ -88,16 +88,17 @@ fn policy() -> ReservationPolicy {
         max_lease_ms: LEASE_MS as u32,
     }
 }
-/// A policy stored by an earlier version: 8 workloads and 4 GiB, or the even older
-/// "half the free memory at first launch" (between 1 and 4 GiB). Its reservations keep it
-/// until they are released; then it is replaced by the current one.
+/// A policy stored by an earlier version: 8 workloads and 4 GiB, the even older "half the
+/// free memory at first launch" (between 1 and 4 GiB), or the 16 GiB one a build installed on
+/// 2026-11-15 wrote. Its reservations keep it until they are released; then it is replaced by
+/// the current one.
 fn is_previous_policy(previous: &ReservationPolicy) -> bool {
     let ceiling = previous.aggregate_ceiling;
     previous.stamp == stamp()
         && previous.per_slot_ceiling == PER_SLOT
         && previous.max_slots == 8
         && previous.max_lease_ms == LEASE_MS as u32
-        && (GIB..=4 * GIB).contains(&ceiling.memory_bytes)
+        && ((GIB..=4 * GIB).contains(&ceiling.memory_bytes) || ceiling.memory_bytes == 16 * GIB)
         && ceiling.processes == 128
         && ceiling.cpu_basis_points == 8000
         && ceiling.queue_bytes == 32 * MIB
@@ -877,6 +878,8 @@ mod memory_tests {
             is_previous_policy(&previous),
             "half the free memory at first launch"
         );
+        previous.aggregate_ceiling.memory_bytes = 16 * GIB;
+        assert!(is_previous_policy(&previous), "the 16 GiB policy of the build installed on 2026-11-15");
         previous.aggregate_ceiling.memory_bytes = 5 * GIB;
         assert!(!is_previous_policy(&previous));
         assert!(!is_previous_policy(&policy()));
