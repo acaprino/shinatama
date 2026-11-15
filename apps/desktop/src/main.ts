@@ -1275,7 +1275,9 @@ async function initialize() {
       try {
         const appearanceSaved = await presentation.flush();
         const saved = persistence?.status().ownership === 'ours' ? await persistence.release() : undefined;
-        if (!appearanceSaved || (saved && (!saved.ok || saved.dirty))) {
+        // Asked only when something would be lost: a release refused while nothing is unsaved (storage
+        // read-only, newer schema) loses nothing, and the next start takes the layout over.
+        if (!appearanceSaved || (saved && (saved.ok ? saved.dirty : persistence?.status().dirty))) {
           if (!await confirmStop('Close without saving the latest preferences?', 'Previously saved data is preserved. Recent layout or appearance changes could not be saved.')) return;
           await invoke('workspace_allow_close');
         }
