@@ -14,7 +14,7 @@ use std::{
     time::Duration,
 };
 
-use crate::pages::{content_type, inside};
+use crate::pages::{content_type, hex, inside, percent_decode};
 
 const MAX_HEADER: usize = 8 * 1024;
 const MAX_FILE: u64 = 32 << 20;
@@ -26,10 +26,6 @@ pub struct LocalServer {
     roots: Arc<Mutex<HashMap<String, PathBuf>>>,
 }
 
-fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
-}
-
 fn encode_path(text: &str) -> String {
     let mut out = String::new();
     for byte in text.bytes() {
@@ -39,22 +35,6 @@ fn encode_path(text: &str) -> String {
         }
     }
     out
-}
-
-fn percent_decode(s: &str) -> Option<String> {
-    let bytes = s.as_bytes();
-    let mut out = Vec::with_capacity(bytes.len());
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'%' {
-            out.push(u8::from_str_radix(s.get(i + 1..i + 3)?, 16).ok()?);
-            i += 3;
-        } else {
-            out.push(bytes[i]);
-            i += 1;
-        }
-    }
-    String::from_utf8(out).ok()
 }
 
 /// The file inside `root` that a request path (after the token) names.

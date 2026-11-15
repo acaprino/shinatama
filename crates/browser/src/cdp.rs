@@ -6,7 +6,7 @@ use std::{
     collections::HashMap,
     sync::{
         Arc, Mutex,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
     time::Duration,
 };
@@ -20,6 +20,8 @@ use tokio::{
 use tokio_tungstenite::tungstenite::{Message, protocol::WebSocketConfig};
 
 pub const CALL_TIMEOUT: Duration = Duration::from_secs(10);
+/// Sent once on the event stream when the connection ends, so listeners stop.
+pub const CLOSED_EVENT: &str = "Shinatama.connectionClosed";
 /// Screenshots of a large viewport are a few MiB of base64.
 const MAX_MESSAGE: usize = 64 << 20;
 const EVENT_BACKLOG: usize = 1024;
@@ -57,6 +59,7 @@ pub struct Cdp {
     pending: Pending,
     next_id: AtomicU64,
     events: broadcast::Sender<CdpEvent>,
+    closed: Arc<AtomicBool>,
 }
 
 /// Reads the browser WebSocket path from `/json/version` on a fresh,
@@ -126,24 +129,36 @@ impl Cdp {
 
         let reader_pending = Arc::clone(&pending);
         let reader_events = events.clone();
+        let closed = Arc::new(AtomicBool::new(false));
+        let reader_closed = Arc::clone(&closed);
         tokio::spawn(async move {
             while let Some(Ok(message)) = source.next().await {
                 let Message::Text(text) = message else { continue };
                 let Ok(value) = serde_json::from_str::<Value>(&text) else { continue };
                 dispatch(value, &reader_pending, &reader_events);
             }
+            // Closed before draining: a call that sees `closed` false and inserts its
+            // waiter after the drain is answered by the check in `call`.
+            reader_closed.store(true, Ordering::Release);
             for (_, waiter) in reader_pending.lock().unwrap().drain() {
                 let _ = waiter.send(Err(CdpError::Closed));
             }
+            let _ = reader_events.send(CdpEvent { session: None, method: CLOSED_EVENT.into(), params: Value::Null });
         });
 
-        Ok(Self { out, pending, next_id: AtomicU64::new(1), events })
+        Ok(Self { out, pending, next_id: AtomicU64::new(1), events, closed })
     }
 
     pub async fn call(&self, session: Option<&str>, method: &str, params: Value) -> Result<Value, CdpError> {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let (reply, answer) = oneshot::channel();
-        self.pending.lock().unwrap().insert(id, reply);
+        {
+            let mut pending = self.pending.lock().unwrap();
+            if self.closed.load(Ordering::Acquire) {
+                return Err(CdpError::Closed);
+            }
+            pending.insert(id, reply);
+        }
         let mut message = json!({ "id": id, "method": method, "params": params });
         if let Some(session) = session {
             message["sessionId"] = Value::String(session.to_owned());
@@ -166,8 +181,9 @@ impl Cdp {
         self.events.subscribe()
     }
 
+    /// True once the browser side ended the connection or the writer failed.
     pub fn is_closed(&self) -> bool {
-        self.out.is_closed()
+        self.closed.load(Ordering::Acquire) || self.out.is_closed()
     }
 }
 
@@ -260,6 +276,19 @@ mod tests {
             .unwrap();
         let event = events.recv().await.unwrap();
         assert_eq!(event, CdpEvent { session: Some("s9".into()), method: "Page.loadEventFired".into(), params: json!({"t": 1}) });
+    }
+
+    #[tokio::test]
+    async fn a_closed_peer_is_seen_at_once_and_later_calls_fail_fast() {
+        let (cdp, server) = pair().await;
+        let mut events = cdp.events();
+        drop(server);
+        let closed = tokio::time::timeout(Duration::from_secs(2), events.recv()).await.unwrap().unwrap();
+        assert_eq!(closed.method, CLOSED_EVENT);
+        assert!(cdp.is_closed());
+        let started = std::time::Instant::now();
+        assert_eq!(cdp.call(None, "A.b", json!({})).await, Err(CdpError::Closed));
+        assert!(started.elapsed() < Duration::from_secs(1));
     }
 
     #[tokio::test]

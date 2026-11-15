@@ -44,6 +44,17 @@ pub fn install_browser(tools: Arc<dyn BrowserTools>) -> Result<(), &'static str>
 fn browser() -> Option<&'static Arc<dyn BrowserTools>> {
     BROWSER.get()
 }
+/// True for a `tools/call` of a `shinatama_browser_*` tool: the receiver runs
+/// those off its accept loop.
+pub(crate) fn is_browser_call(bytes: &[u8]) -> bool {
+    serde_json::from_slice::<Value>(bytes).is_ok_and(|message| {
+        message.get("method").and_then(Value::as_str) == Some("tools/call")
+            && message
+                .pointer("/params/name")
+                .and_then(Value::as_str)
+                .is_some_and(|name| name.starts_with("shinatama_browser_"))
+    })
+}
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct LaunchRequest {
@@ -474,6 +485,14 @@ fn empty_object() -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn only_browser_tool_calls_leave_the_accept_loop() {
+        let call = |name: &str| json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":name,"arguments":{}}}).to_string();
+        assert!(is_browser_call(call("shinatama_browser_open").as_bytes()));
+        assert!(!is_browser_call(call("shinatama_session_open").as_bytes()));
+        assert!(!is_browser_call(br#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#));
+        assert!(!is_browser_call(b"not json"));
+    }
     fn args() -> Value {
         json!({"request_id":uuid::Uuid::new_v4().to_string(),"instruction":"Implement the approved filter; test empty inputs."})
     }

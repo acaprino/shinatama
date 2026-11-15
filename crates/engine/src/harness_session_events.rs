@@ -23,6 +23,11 @@ pub const MAX_CWD_BYTES: usize = 4096;
 pub const EVENT_QUEUE_CAPACITY: usize = 32;
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(2);
 const RESPONSE_TIMEOUT: Duration = Duration::from_millis(250);
+/// A browser tool call (ADR-0056) can take seconds and answer with a screenshot:
+/// it runs off the accept loop, at most this many at once across receivers.
+const MAX_BROWSER_CALLS: usize = 4;
+const BROWSER_RESPONSE_TIMEOUT: Duration = Duration::from_secs(10);
+static BROWSER_CALLS: AtomicUsize = AtomicUsize::new(0);
 const IO_POLL: Duration = Duration::from_millis(10);
 const MAX_HEADERS: usize = 32;
 const MAX_RECEIVERS: usize = 16;
@@ -286,7 +291,7 @@ fn run(
     record: &LaunchIdentityRecord,
     project: &str,
     sender: SyncSender<SessionEvent>,
-    shared: &Shared,
+    shared: &Arc<Shared>,
     harness: HarnessKind,
     expected_cwd: &Path,
     broker: Option<&crate::session_control::Broker>,
@@ -298,7 +303,7 @@ fn run(
                     let _ = stream.shutdown(Shutdown::Both);
                     continue;
                 }
-                let response = handle(
+                let Some(response) = handle(
                     &mut stream,
                     address,
                     route,
@@ -309,7 +314,10 @@ fn run(
                     harness,
                     expected_cwd,
                     broker,
-                );
+                ) else {
+                    // A browser call answers from its own thread.
+                    continue;
+                };
                 if !(200..300).contains(&response.status) {
                     let _ =
                         shared
@@ -318,7 +326,7 @@ fn run(
                                 Some(count.saturating_add(1))
                             });
                 }
-                respond(&mut stream, response, shared);
+                respond(&mut stream, response, shared, RESPONSE_TIMEOUT);
                 let _ = stream.shutdown(Shutdown::Both);
             }
             Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
@@ -377,36 +385,28 @@ fn handle(
     record: &LaunchIdentityRecord,
     project: &str,
     sender: &SyncSender<SessionEvent>,
-    shared: &Shared,
+    shared: &Arc<Shared>,
     harness: HarnessKind,
     expected_cwd: &Path,
     broker: Option<&crate::session_control::Broker>,
-) -> Response {
+) -> Option<Response> {
     let (mcp, body) = match read_request(stream, address, route, record, shared) {
         Ok(request) => request,
-        Err(status) => return status.into(),
+        Err(status) => return Some(status.into()),
     };
     if shared.stop.load(Ordering::Acquire) {
-        return 503.into();
+        return Some(503.into());
     }
     if mcp {
         let Some(broker) = broker else {
-            return 503.into();
+            return Some(503.into());
         };
-        return match crate::session_control::handle_rpc(
-            broker,
-            &record.instance_id,
-            expected_cwd,
-            &body,
-        ) {
-            Some(reply) => match serde_json::to_vec(&reply) {
-                Ok(body) => Response { status: 200, body },
-                Err(_) => 503.into(),
-            },
-            None => 202.into(),
-        };
+        if crate::session_control::is_browser_call(&body) {
+            return detach_browser_call(stream, record, expected_cwd, body, shared);
+        }
+        return Some(rpc_response(broker, &record.instance_id, expected_cwd, &body));
     }
-    match parse_event(&body, record, project, harness) {
+    Some(match parse_event(&body, record, project, harness) {
         Ok(event) if !shared.stop.load(Ordering::Acquire) => match sender.try_send(event) {
             Ok(()) => 204.into(),
             Err(TrySendError::Full(_)) => {
@@ -417,7 +417,52 @@ fn handle(
         },
         Ok(_) => 503.into(),
         Err(status) => status.into(),
+    })
+}
+fn rpc_response(broker: &crate::session_control::Broker, caller: &str, project: &Path, body: &[u8]) -> Response {
+    match crate::session_control::handle_rpc(broker, caller, project, body) {
+        Some(reply) => match serde_json::to_vec(&reply) {
+            Ok(body) => Response { status: 200, body },
+            Err(_) => 503.into(),
+        },
+        None => 202.into(),
     }
+}
+
+/// Runs one browser tool call on its own thread so a slow page never stalls
+/// this session's hook events. Returns `None` when that thread owns the reply.
+fn detach_browser_call(
+    stream: &mut TcpStream,
+    record: &LaunchIdentityRecord,
+    expected_cwd: &Path,
+    body: Vec<u8>,
+    shared: &Arc<Shared>,
+) -> Option<Response> {
+    if BROWSER_CALLS
+        .try_update(Ordering::AcqRel, Ordering::Acquire, |count| (count < MAX_BROWSER_CALLS).then_some(count + 1))
+        .is_err()
+    {
+        return Some(503.into());
+    }
+    let release = || {
+        BROWSER_CALLS.fetch_sub(1, Ordering::AcqRel);
+    };
+    let (Ok(mut own), Some(broker)) = (stream.try_clone(), crate::session_control::installed()) else {
+        release();
+        return Some(503.into());
+    };
+    let (caller, project, shared) = (record.instance_id.clone(), expected_cwd.to_path_buf(), Arc::clone(shared));
+    let spawned = thread::Builder::new().name("session-browser-call".into()).spawn(move || {
+        let response = rpc_response(&broker, &caller, &project, &body);
+        respond(&mut own, response, &shared, BROWSER_RESPONSE_TIMEOUT);
+        let _ = own.shutdown(Shutdown::Both);
+        BROWSER_CALLS.fetch_sub(1, Ordering::AcqRel);
+    });
+    if spawned.is_err() {
+        release();
+        return Some(503.into());
+    }
+    None
 }
 fn read_request(
     stream: &mut TcpStream,
@@ -634,7 +679,7 @@ fn parse_header(
     }
     Ok((length, mcp))
 }
-fn respond(stream: &mut TcpStream, response: Response, shared: &Shared) {
+fn respond(stream: &mut TcpStream, response: Response, shared: &Shared, timeout: Duration) {
     let status = response.status;
     let reason = match status {
         200 => "OK",
@@ -654,7 +699,7 @@ fn respond(stream: &mut TcpStream, response: Response, shared: &Shared) {
         "HTTP/1.1 {status} {reason}\r\nContent-Length: {}\r\nContent-Type: application/json\r\n{allow}Connection: close\r\nCache-Control: no-store\r\n\r\n", response.body.len()
     ).into_bytes();
     wire.extend_from_slice(&response.body);
-    let deadline = Instant::now() + RESPONSE_TIMEOUT;
+    let deadline = Instant::now() + timeout;
     let mut written = 0;
     while written < wire.len() && Instant::now() < deadline && !shared.stop.load(Ordering::Acquire)
     {

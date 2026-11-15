@@ -4,7 +4,7 @@
 //! visible to the user; once the user takes control the agent gets
 //! `needs_user` until it is handed back. Page content is untrusted data.
 
-use std::{net::IpAddr, path::Path, sync::Arc, time::Duration};
+use std::{net::Ipv4Addr, path::Path, sync::Arc, time::Duration};
 
 use base64::Engine as _;
 use serde::Deserialize;
@@ -24,42 +24,34 @@ pub struct AgentBrowser {
 }
 
 /// Agents may open public web pages only: no local files, no loopback, no
-/// private or link-local literal addresses, no `.local`/`localhost` names.
-/// A hostname that resolves to a private address is not caught here: the
-/// broker does not claim isolation from an agent with a shell (FRD-0011 R32).
+/// private, link-local or shared addresses, no `localhost`/`.local`/`.internal`
+/// names. The URL is parsed the way the browser parses it (WHATWG: `\` ends
+/// the authority, numeric and percent-encoded hosts become IPv4, IPv4-mapped
+/// IPv6 is checked as IPv4). A hostname that resolves to a private address is
+/// not caught here: the broker does not claim isolation from an agent with a
+/// shell (FRD-0011 R32).
 pub fn agent_url_allowed(url: &str) -> bool {
-    let Some(rest) = url.strip_prefix("https://").or_else(|| url.strip_prefix("http://")) else { return false };
-    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
-    if authority.contains('@') {
+    let Ok(parsed) = url::Url::parse(url.trim()) else { return false };
+    if !matches!(parsed.scheme(), "http" | "https") || !parsed.username().is_empty() || parsed.password().is_some() {
         return false;
     }
-    let host = if let Some(v6) = authority.strip_prefix('[') {
-        v6.split(']').next().unwrap_or_default().to_owned()
-    } else {
-        authority.rsplit_once(':').map_or(authority, |(h, _)| h).to_ascii_lowercase()
-    };
-    let host = host.trim_end_matches('.');
-    if host.is_empty() || host == "localhost" || host.ends_with(".localhost") || host.ends_with(".local") || host.ends_with(".internal") {
-        return false;
-    }
-    match host.parse::<IpAddr>() {
-        Ok(IpAddr::V4(ip)) => !(ip.is_loopback() || ip.is_private() || ip.is_link_local() || ip.is_unspecified() || ip.is_broadcast() || ip.octets()[0] == 100 && (64..128).contains(&ip.octets()[1])),
-        Ok(IpAddr::V6(ip)) => !(ip.is_loopback() || ip.is_unspecified() || (ip.segments()[0] & 0xfe00) == 0xfc00 || (ip.segments()[0] & 0xffc0) == 0xfe80),
-        // A browser reads any host whose last label is a number (decimal, octal or 0x hex:
-        // http://2130706433/, http://0x7f000001/, http://0177.0.0.1/) as an IPv4 address, and
-        // percent-decodes the host first: such hosts are refused outright.
-        Err(_) => !(host.contains('%') || ends_in_number(host)),
+    match parsed.host() {
+        Some(url::Host::Ipv4(ip)) => public_v4(ip),
+        Some(url::Host::Ipv6(ip)) => match ip.to_ipv4_mapped() {
+            Some(v4) => public_v4(v4),
+            None => !(ip.is_loopback() || ip.is_unspecified() || (ip.segments()[0] & 0xfe00) == 0xfc00 || (ip.segments()[0] & 0xffc0) == 0xfe80),
+        },
+        Some(url::Host::Domain(name)) => {
+            let name = name.trim_end_matches('.').to_ascii_lowercase();
+            !(name.is_empty() || name == "localhost" || [".localhost", ".local", ".internal"].iter().any(|suffix| name.ends_with(suffix)))
+        }
+        None => false,
     }
 }
 
-/// The WHATWG URL host parser's "ends in a number": the last label (a trailing dot ignored) is
-/// all decimal digits, or 0x / 0X followed by hex digits.
-fn ends_in_number(host: &str) -> bool {
-    let last = host.trim_end_matches('.').rsplit('.').next().unwrap_or_default();
-    if !last.is_empty() && last.bytes().all(|b| b.is_ascii_digit()) {
-        return true;
-    }
-    last.strip_prefix("0x").or_else(|| last.strip_prefix("0X")).is_some_and(|hex| hex.bytes().all(|b| b.is_ascii_hexdigit()))
+fn public_v4(ip: Ipv4Addr) -> bool {
+    let [a, b, ..] = ip.octets();
+    !(ip.is_loopback() || ip.is_private() || ip.is_link_local() || ip.is_unspecified() || ip.is_broadcast() || a == 0 || (a == 100 && (64..128).contains(&b)))
 }
 
 fn text(value: Value, is_error: bool) -> Value {
@@ -318,7 +310,8 @@ mod tests {
             "http://[::1]/", "http://[fd00::1]/", "http://printer.local/", "http://2130706433/", "http://0x7f000001/",
             "http://user@example.com/", "javascript:alert(1)", "about:blank", "http://100.64.0.1/",
             "http://0X7F000001/", "http://0x7f.0.0.1/", "http://0177.0.0.1/", "http://127.1/", "http://example.0x7f/",
-            "http://%31%32%37.0.0.1/", "http://0x/",
+            "http://%31%32%37.0.0.1/", r"http://127.0.0.1:8080\admin", r"http://127.0.0.1\@example.com/",
+            "http://[::ffff:127.0.0.1]/", "http://[::ffff:10.0.0.1]/", "http://[::ffff:7f00:1]/", "http://0.0.0.0/", "http://user:pw@example.com/",
         ] {
             assert!(!agent_url_allowed(no), "{no}");
         }

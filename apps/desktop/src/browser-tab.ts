@@ -4,7 +4,14 @@
 import { coalesce, keyEvent, mouseEvent, settle, wheelEvent, type BrowserInputEvent } from './browser-input.ts';
 import { confirmsField } from './desktop-shell-model.ts';
 
-export interface PageInfo { readonly id: string; readonly url: string; readonly title: string; readonly controller: string; readonly live: boolean }
+export interface PageInfo { readonly id: string; readonly url: string; readonly title: string; readonly controller: string; readonly live: boolean; readonly openedBy: string | null }
+
+/** What the control strip says for a page, or null when it is hidden. */
+export function controlStrip(page: Pick<PageInfo, 'controller' | 'openedBy'>): { readonly text: string; readonly action: 'take' | 'give' } | null {
+  if (page.controller.startsWith('agent:')) return { text: "L'agente sta usando questa pagina", action: 'take' };
+  if (page.openedBy) return { text: "Hai il controllo della pagina dell'agente", action: 'give' };
+  return null;
+}
 /** `page`: a page the host already opened (an agent's), shown in a new tab. */
 export type BrowserTarget = { readonly url: string } | { readonly file: string } | { readonly page: string };
 
@@ -61,7 +68,13 @@ export function createBrowserTabs(deps: BrowserTabsDeps) {
     const page = tab.page; if (!page) return;
     if (document.activeElement !== tab.address) tab.address.value = page.url;
     const agent = page.controller.startsWith('agent:');
-    tab.strip.hidden = !agent;
+    const strip = controlStrip(page);
+    tab.strip.hidden = !strip;
+    if (strip) {
+      tab.strip.querySelector('.browser-strip-text')!.textContent = strip.text;
+      tab.strip.querySelector<HTMLButtonElement>('[data-control="take"]')!.hidden = strip.action !== 'take';
+      tab.strip.querySelector<HTMLButtonElement>('[data-control="give"]')!.hidden = strip.action !== 'give';
+    }
     tab.element.dataset.controller = agent ? 'agent' : 'user';
     remember(tab);
   }
@@ -111,10 +124,12 @@ export function createBrowserTabs(deps: BrowserTabsDeps) {
       if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) url = `https://${url}`;
       nav('go', url); canvas.focus();
     });
-    strip.append(el('span', 'browser-strip-text', "L'agente sta usando questa pagina"),
-      button('Prendi il controllo', 'Take control of this page from the agent', () => {
-        if (tab.page) void deps.invoke<PageInfo>('browser_control', { page: tab.page.id, take: true }).then(info => { tab.page = info; paintInfo(tab); }, error => deps.notify(String(error)));
-      }));
+    const control = (take: boolean) => {
+      if (tab.page) void deps.invoke<PageInfo>('browser_control', { page: tab.page.id, take }).then(info => { tab.page = info; paintInfo(tab); }, error => deps.notify(String(error)));
+    };
+    const take = button('Prendi il controllo', 'Take control of this page from the agent', () => control(true)); take.dataset.control = 'take';
+    const give = button('Restituisci', 'Hand this page back to the agent', () => control(false)); give.dataset.control = 'give';
+    strip.append(el('span', 'browser-strip-text', ''), take, give);
     element.append(bar, strip, area);
 
     const rect = () => canvas.getBoundingClientRect();
@@ -165,7 +180,11 @@ export function createBrowserTabs(deps: BrowserTabsDeps) {
     async open(target: BrowserTarget, viewId = newBrowserViewId()): Promise<{ viewId: string; element: HTMLElement }> {
       const tab = build(viewId); tabs.set(viewId, tab);
       try { await attach(tab, target); }
-      catch (error) { tab.dispose(); tabs.delete(viewId); throw error; }
+      catch (error) {
+        // A page the host opened before a later step failed must not stay open in Moli.
+        if (tab.page) await deps.invoke('browser_close', { page: tab.page.id }).catch(() => undefined);
+        tab.dispose(); tabs.delete(viewId); throw error;
+      }
       return { viewId, element: tab.element };
     },
 

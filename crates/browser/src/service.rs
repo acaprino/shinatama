@@ -14,7 +14,7 @@ use serde_json::{Value, json};
 use tokio::sync::Mutex;
 
 use crate::{
-    cdp::{Cdp, CdpError, CdpEvent},
+    cdp::{CLOSED_EVENT, Cdp, CdpError, CdpEvent},
     input::{InputEvent, to_cdp},
     pages::{Controller, DEFAULT_MAX_LIVE_PAGES, PageId, PageSet, PageState},
 };
@@ -37,6 +37,8 @@ pub struct PageInfo {
     pub title: String,
     pub controller: String,
     pub live: bool,
+    /// The agent instance that opened the page, kept while the user holds it.
+    pub opened_by: Option<String>,
 }
 
 #[derive(Debug)]
@@ -70,6 +72,9 @@ impl From<CdpError> for BrowserError {
 struct Sessions {
     by_page: HashMap<PageId, String>,
     by_session: HashMap<String, PageId>,
+    /// The Moli target of every page that has one, discarded pages included
+    /// until their target is closed.
+    targets: HashMap<PageId, String>,
     sinks: HashMap<PageId, FrameSink>,
     viewport: HashMap<PageId, (u32, u32, f64)>,
 }
@@ -152,6 +157,9 @@ impl Browser {
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
                     Err(_) => return,
                 };
+                if event.method == CLOSED_EVENT {
+                    return;
+                }
                 handle_event(&cdp, &pages, &sessions, event).await;
             }
         });
@@ -177,6 +185,7 @@ impl Browser {
                 Controller::Agent(id) => format!("agent:{id}"),
             },
             live: matches!(p.state, PageState::Live { .. }),
+            opened_by: p.agent.clone(),
         })
     }
 
@@ -189,6 +198,8 @@ impl Browser {
             self.detach(old).await;
         }
         if let Err(error) = self.attach(id, url).await {
+            // A target or session created before the failure must not outlive the page.
+            self.detach(id).await;
             self.pages.lock().unwrap().close(id);
             return Err(error);
         }
@@ -198,6 +209,7 @@ impl Browser {
     async fn attach(&self, id: PageId, url: &str) -> Result<(), BrowserError> {
         let created = self.cdp.call(None, "Target.createTarget", json!({ "url": "about:blank" })).await?;
         let target = created["targetId"].as_str().ok_or(BrowserError::Refused("no target id"))?.to_owned();
+        self.sessions.lock().unwrap().targets.insert(id, target.clone());
         let attached = self.cdp.call(None, "Target.attachToTarget", json!({ "targetId": target, "flatten": true })).await?;
         let session = attached["sessionId"].as_str().ok_or(BrowserError::Refused("no session id"))?.to_owned();
         {
@@ -229,10 +241,9 @@ impl Browser {
             }
             session
         };
-        let target = match self.pages.lock().unwrap().get(id).map(|p| p.state.clone()) {
-            Some(PageState::Live { target: Some(target) }) => Some(target),
-            _ => None,
-        };
+        // From `targets`, not the page state: a page is already Discarded when
+        // the live-page limit detaches it.
+        let target = self.sessions.lock().unwrap().targets.remove(&id);
         if let Some(target) = target {
             let _ = self.cdp.call(None, "Target.closeTarget", json!({ "targetId": target })).await;
         }
@@ -351,7 +362,11 @@ impl Browser {
             }
             if reviving {
                 let url = self.pages.lock().unwrap().get(page).map(|p| p.url.clone()).unwrap_or_default();
-                return self.attach(page, &url).await;
+                let attached = self.attach(page, &url).await;
+                if attached.is_err() {
+                    self.detach(page).await;
+                }
+                return attached;
             }
             self.screencast(page, true).await
         } else {
@@ -409,26 +424,37 @@ fn decode(data: &Value) -> Result<Vec<u8>, BrowserError> {
     base64::engine::general_purpose::STANDARD.decode(text).map_err(|_| BrowserError::Refused("bad image data"))
 }
 
-async fn handle_event(cdp: &Cdp, pages: &StdMutex<PageSet>, sessions: &StdMutex<Sessions>, event: CdpEvent) {
-    let Some(session) = event.session.clone() else {
-        if event.method == "Target.targetInfoChanged" {
-            let info = &event.params["targetInfo"];
-            let target = info["targetId"].as_str().unwrap_or_default();
-            let mut pages = pages.lock().unwrap();
-            let found = pages.ids().into_iter().find(|id| {
-                matches!(pages.get(*id).map(|p| &p.state), Some(PageState::Live { target: Some(t) }) if t == target)
-            });
-            if let Some(id) = found {
-                pages.set_location(id, info["url"].as_str().unwrap_or_default(), info["title"].as_str().unwrap_or_default());
-            }
+/// Bounded title, control characters dropped.
+fn clean_title(raw: &str) -> String {
+    raw.chars().filter(|c| !c.is_control()).take(256).collect::<String>().trim().to_owned()
+}
+
+/// Reads the page's URL and title after a load: titles change without a CDP
+/// event Moli sends unasked. Spawned, so the event loop never waits on it.
+fn refresh_location(cdp: Arc<Cdp>, pages: Arc<StdMutex<PageSet>>, page: PageId, session: String) {
+    tokio::spawn(async move {
+        let read = cdp
+            .call(Some(&session), "Runtime.evaluate", json!({ "expression": "[location.href, document.title]", "returnByValue": true }))
+            .await;
+        if let Ok(result) = read
+            && let (Some(url), Some(title)) = (result["result"]["value"][0].as_str(), result["result"]["value"][1].as_str())
+        {
+            pages.lock().unwrap().set_location(page, url, &clean_title(title));
         }
-        return;
-    };
+    });
+}
+
+async fn handle_event(cdp: &Arc<Cdp>, pages: &Arc<StdMutex<PageSet>>, sessions: &StdMutex<Sessions>, event: CdpEvent) {
+    let Some(session) = event.session.clone() else { return };
     let Some(page) = sessions.lock().unwrap().by_session.get(&session).copied() else { return };
     match event.method.as_str() {
         "Page.screencastFrame" => {
+            // The ack is not awaited here: one slow reply must not hold every page's events.
             let ack = event.params["sessionId"].clone();
-            let _ = cdp.call(Some(&session), "Page.screencastFrameAck", json!({ "sessionId": ack })).await;
+            let (acker, ack_session) = (Arc::clone(cdp), session.clone());
+            tokio::spawn(async move {
+                let _ = acker.call(Some(&ack_session), "Page.screencastFrameAck", json!({ "sessionId": ack })).await;
+            });
             let sink = sessions.lock().unwrap().sinks.get(&page).cloned();
             if let (Some(sink), Ok(frame)) = (sink, decode(&event.params["data"])) {
                 sink(frame);
@@ -436,9 +462,11 @@ async fn handle_event(cdp: &Cdp, pages: &StdMutex<PageSet>, sessions: &StdMutex<
         }
         "Page.frameNavigated" if event.params["frame"]["parentId"].is_null() => {
             let url = event.params["frame"]["url"].as_str().unwrap_or_default().to_owned();
-            let mut pages = pages.lock().unwrap();
-            let title = pages.get(page).map(|p| p.title.clone()).unwrap_or_default();
-            pages.set_location(page, &url, &title);
+            pages.lock().unwrap().set_location(page, &url, "");
+            refresh_location(Arc::clone(cdp), Arc::clone(pages), page, session);
+        }
+        "Page.navigatedWithinDocument" | "Page.loadEventFired" | "Page.domContentEventFired" => {
+            refresh_location(Arc::clone(cdp), Arc::clone(pages), page, session);
         }
         _ => {}
     }
@@ -464,17 +492,26 @@ mod tests {
             let socket = tokio_tungstenite::accept_async(server).await.unwrap();
             let (mut sink, mut source) = socket.split();
             let mut shots = 0;
+            let mut targets = 0;
             while let Some(Ok(Message::Text(text))) = source.next().await {
                 let request: Value = serde_json::from_str(&text).unwrap();
                 let method = request["method"].as_str().unwrap().to_owned();
                 let detail = match method.as_str() {
                     "Input.dispatchKeyEvent" => format!("{method}:{}", request["params"]["key"].as_str().unwrap()),
+                    "Target.closeTarget" => format!("{method}:{}", request["params"]["targetId"].as_str().unwrap()),
                     _ => method.clone(),
                 };
                 record.lock().unwrap().push(detail);
                 let result = match method.as_str() {
-                    "Target.createTarget" => json!({ "targetId": "T1" }),
-                    "Target.attachToTarget" => json!({ "sessionId": "S1" }),
+                    "Target.createTarget" => {
+                        targets += 1;
+                        json!({ "targetId": format!("T{targets}") })
+                    }
+                    "Target.attachToTarget" => json!({ "sessionId": format!("S-{}", request["params"]["targetId"].as_str().unwrap()) }),
+                    "Page.navigate" if request["params"]["url"] == "https://fails.example/" => {
+                        sink.send(Message::text(json!({ "id": request["id"], "error": { "code": -32000, "message": "net error" } }).to_string())).await.unwrap();
+                        continue;
+                    }
                     "Page.captureScreenshot" => {
                         shots += 1;
                         if shots == 1 {
@@ -489,6 +526,45 @@ mod tests {
         });
         let cdp = Cdp::connect(client, &[0; 32], "/devtools/browser/x").await.unwrap();
         (Browser::with(cdp, None), log)
+    }
+
+    #[tokio::test]
+    async fn a_page_discarded_by_the_live_limit_closes_its_target() {
+        let (browser, log) = fake().await;
+        browser.pages.lock().unwrap().set_max_live(1);
+        let first = browser.open("https://a.example/", Controller::User, None).await.unwrap();
+        browser.open("https://b.example/", Controller::User, None).await.unwrap();
+        assert!(log.lock().unwrap().contains(&"Target.closeTarget:T1".to_owned()), "{:?}", log.lock().unwrap());
+        assert!(!browser.info(first).unwrap().live);
+    }
+
+    #[tokio::test]
+    async fn a_failed_open_closes_the_target_it_created() {
+        let (browser, log) = fake().await;
+        assert!(browser.open("https://fails.example/", Controller::User, None).await.is_err());
+        assert!(log.lock().unwrap().contains(&"Target.closeTarget:T1".to_owned()), "{:?}", log.lock().unwrap());
+        assert_eq!(browser.page_count(), 0);
+        assert!(browser.sessions.lock().unwrap().by_session.is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_closed_host_shows_dead_at_once() {
+        let (client, server) = tokio::io::duplex(1 << 16);
+        let accept = tokio::spawn(async move {
+            let mut server = server;
+            let mut token = [0u8; 32];
+            server.read_exact(&mut token).await.unwrap();
+            tokio_tungstenite::accept_async(server).await.unwrap()
+        });
+        let cdp = Cdp::connect(client, &[0; 32], "/x").await.unwrap();
+        let browser = Browser::with(cdp, None);
+        drop(accept.await.unwrap());
+        let dead = async {
+            while browser.is_alive() {
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        };
+        tokio::time::timeout(std::time::Duration::from_secs(2), dead).await.expect("the browser must show dead");
     }
 
     fn key(k: &str) -> InputEvent {

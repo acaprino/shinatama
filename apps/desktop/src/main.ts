@@ -199,7 +199,8 @@ const renderer = createWorkspaceRenderer({
   labelForView: panel => panel.resource.kind === 'browser' ? browserTabs.label(panel.id) : tabLabel(panel.id),
   tabFilter() {
     const project = tabFilter?.current();
-    return project ? { label: folderName(project), shows: panel => { const view = views.get(panel.id); return !!view && samePath(view.info.cwd, project); } } : null;
+    // Browser tabs belong to the thread, not to a project: the filter never hides them.
+    return project ? { label: folderName(project), shows: panel => { if (panel.resource.kind === 'browser') return true; const view = views.get(panel.id); return !!view && samePath(view.info.cwd, project); } } : null;
   },
   isInputBlocked: modalOpen,
   onError: () => notify('That layout change is unavailable. The current workspace was preserved.'),

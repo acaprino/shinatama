@@ -27,6 +27,15 @@ pub struct BrowserState {
     inner: Mutex<Inner>,
     /// Serves the local documents opened in tabs; started by the first one.
     documents: std::sync::OnceLock<LocalServer>,
+    /// The address granted to each page opened on a local document, revoked
+    /// with the page whatever it shows by then.
+    grants: std::sync::Mutex<std::collections::HashMap<String, String>>,
+}
+
+/// Ends a browser off the async runtime: dropping its host waits for Moli to
+/// flush its storage (up to 6 s).
+fn retire(browser: Arc<Browser>) {
+    let _ = std::thread::Builder::new().name("browser-retire".into()).spawn(move || drop(browser));
 }
 
 #[derive(Default)]
@@ -55,6 +64,9 @@ impl BrowserState {
         if let Some(browser) = inner.browser.as_ref().filter(|b| b.is_alive()) {
             return Ok(Arc::clone(browser));
         }
+        if let Some(dead) = inner.browser.take() {
+            retire(dead);
+        }
         let browser = Arc::new(Browser::start(&host_exe()?).await.map_err(|e| e.to_string())?);
         inner.browser = Some(Arc::clone(&browser));
         inner.empty_since = None;
@@ -73,7 +85,9 @@ impl BrowserState {
             (false, _) => inner.empty_since = None,
             (true, None) => inner.empty_since = Some(Instant::now()),
             (true, Some(since)) if since.elapsed() >= IDLE => {
-                inner.browser = None;
+                if let Some(idle) = inner.browser.take() {
+                    retire(idle);
+                }
                 inner.empty_since = None;
             }
             (true, Some(_)) => {}
@@ -119,7 +133,20 @@ pub async fn browser_open(state: State<'_, Arc<BrowserState>>, url: Option<Strin
         _ => return Err("Give either a link or a file.".into()),
     };
     let browser = state.browser().await?;
-    let id = browser.open(&url, Controller::User, root).await.map_err(|e| e.to_string())?;
+    let granted = root.is_some().then(|| url.clone());
+    let opened = browser.open(&url, Controller::User, root).await;
+    let id = match opened {
+        Ok(id) => id,
+        Err(error) => {
+            if let (Some(url), Some(documents)) = (&granted, state.documents.get()) {
+                documents.revoke(url);
+            }
+            return Err(error.to_string());
+        }
+    };
+    if let Some(url) = granted {
+        state.grants.lock().unwrap().insert(id.to_string(), url);
+    }
     browser.info(id).ok_or_else(|| "The page closed.".into())
 }
 
@@ -178,8 +205,9 @@ pub async fn browser_control(state: State<'_, Arc<BrowserState>>, page: String, 
 pub async fn browser_close(state: State<'_, Arc<BrowserState>>, page: String) -> Result<(), String> {
     if let Ok(browser) = state.existing().await {
         let id = self::page(&page)?;
-        if let (Some(info), Some(documents)) = (browser.info(id), state.documents.get()) {
-            documents.revoke(&info.url);
+        let granted = state.grants.lock().unwrap().remove(&page);
+        if let (Some(url), Some(documents)) = (granted, state.documents.get()) {
+            documents.revoke(&url);
         }
         browser.close(id).await;
     }

@@ -4,8 +4,13 @@
 
 use std::{
     collections::HashMap,
-    path::{Component, Path, PathBuf},
+    path::{Path, PathBuf},
+    sync::atomic::{AtomicU64, Ordering},
 };
+
+/// Page ids are unique for the whole run, across browser restarts, so a tab
+/// that outlived a crashed host can never address a newer page.
+static NEXT_PAGE: AtomicU64 = AtomicU64::new(1);
 
 pub const DEFAULT_MAX_LIVE_PAGES: usize = 8;
 
@@ -55,7 +60,6 @@ pub struct Page {
 #[derive(Debug)]
 pub struct PageSet {
     max_live: usize,
-    next_id: u64,
     clock: u64,
     pages: HashMap<PageId, Page>,
 }
@@ -68,7 +72,11 @@ pub enum ControlError {
 
 impl PageSet {
     pub fn new(max_live: usize) -> Self {
-        Self { max_live: max_live.max(1), next_id: 1, clock: 0, pages: HashMap::new() }
+        Self { max_live: max_live.max(1), clock: 0, pages: HashMap::new() }
+    }
+
+    pub fn set_max_live(&mut self, max_live: usize) {
+        self.max_live = max_live.max(1);
     }
 
     fn tick(&mut self) -> u64 {
@@ -80,8 +88,7 @@ impl PageSet {
     /// page discarded to make room (never a visible one).
     pub fn open(&mut self, url: &str, controller: Controller, local_root: Option<PathBuf>) -> (PageId, Option<PageId>) {
         let discarded = self.make_room(None);
-        let id = PageId(self.next_id);
-        self.next_id += 1;
+        let id = PageId(NEXT_PAGE.fetch_add(1, Ordering::Relaxed));
         let agent = match &controller {
             Controller::Agent(instance) => Some(instance.clone()),
             Controller::User => None,
@@ -199,37 +206,7 @@ impl PageSet {
     }
 }
 
-/// Whether a `file://` request stays inside `root`. Both sides are
-/// canonicalised, so `..` and links pointing outside are refused; Windows
-/// paths compare case-insensitively.
-pub fn local_allowed(root: &Path, requested: &str) -> bool {
-    let Some(path) = file_url_path(requested) else { return false };
-    if path.components().any(|c| matches!(c, Component::ParentDir)) {
-        return false;
-    }
-    let (Ok(root), Ok(path)) = (std::fs::canonicalize(root), std::fs::canonicalize(&path)) else {
-        return false;
-    };
-    let fold = |p: &Path| p.to_string_lossy().to_lowercase();
-    let (root, path) = (fold(&root), fold(&path));
-    path == root || path.strip_prefix(&root).is_some_and(|rest| rest.starts_with('\\') || rest.starts_with('/'))
-}
-
-/// `file:///D:/a%20b/c.html` → `D:/a b/c.html`. Hosts other than empty or
-/// `localhost` (UNC shares) are refused.
-pub fn file_url_path(url: &str) -> Option<PathBuf> {
-    let rest = url.strip_prefix("file://")?;
-    let rest = rest.strip_prefix("localhost").unwrap_or(rest);
-    let rest = rest.strip_prefix('/')?;
-    let rest = rest.split(['?', '#']).next()?;
-    let decoded = percent_decode(rest)?;
-    if decoded.len() < 2 || decoded.as_bytes()[1] != b':' {
-        return None;
-    }
-    Some(PathBuf::from(decoded))
-}
-
-fn percent_decode(s: &str) -> Option<String> {
+pub(crate) fn percent_decode(s: &str) -> Option<String> {
     let bytes = s.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
@@ -275,17 +252,9 @@ pub fn content_type(path: &Path) -> &'static str {
     }
 }
 
-/// `D:\a b\c.html` → `file:///D:/a%20b/c.html`.
-pub fn file_url(path: &Path) -> String {
-    let text = path.to_string_lossy().replace('\\', "/");
-    let mut out = String::from("file:///");
-    for byte in text.bytes() {
-        match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' | b'/' | b':' => out.push(byte as char),
-            _ => out.push_str(&format!("%{byte:02X}")),
-        }
-    }
-    out
+/// `D:\a b\c.html` → `file:/// Lowercase hex of `bytes`.
+pub(crate) fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 #[cfg(test)]
@@ -357,75 +326,10 @@ mod tests {
         assert!("42".parse::<PageId>().is_err());
     }
 
-    fn fixture() -> (tempdir::Dir, PathBuf) {
-        let dir = tempdir::Dir::new();
-        let root = dir.path().join("site");
-        std::fs::create_dir_all(root.join("css")).unwrap();
-        std::fs::write(root.join("index.html"), "<link href=css/a.css>").unwrap();
-        std::fs::write(root.join("css").join("a.css"), "").unwrap();
-        std::fs::write(dir.path().join("outside.txt"), "secret").unwrap();
-        (dir, root)
-    }
-
     #[test]
-    fn sibling_css_is_allowed() {
-        let (_dir, root) = fixture();
-        assert!(local_allowed(&root, &file_url(&root.join("css").join("a.css"))));
-        assert!(local_allowed(&root, &file_url(&root.join("index.html"))));
-    }
-
-    #[test]
-    fn parent_file_is_refused() {
-        let (dir, root) = fixture();
-        assert!(!local_allowed(&root, &file_url(&dir.path().join("outside.txt"))));
-        assert!(!local_allowed(&root, &format!("{}/../outside.txt", file_url(&root))));
-    }
-
-    #[test]
-    fn prefix_sibling_folder_is_refused() {
-        let (dir, root) = fixture();
-        let twin = dir.path().join("site2");
-        std::fs::create_dir_all(&twin).unwrap();
-        std::fs::write(twin.join("x.html"), "").unwrap();
-        assert!(!local_allowed(&root, &file_url(&twin.join("x.html"))));
-    }
-
-    #[test]
-    fn unc_and_other_drives_are_refused() {
-        let (_dir, root) = fixture();
-        assert!(!local_allowed(&root, "file://server/share/x.html"));
-        assert!(!local_allowed(&root, "file:///Z:/nowhere/x.html"));
-        assert!(!local_allowed(&root, "https://example.com/"));
-    }
-
-    #[test]
-    fn file_urls_round_trip() {
-        let path = PathBuf::from(r"D:\a b\c#d.html");
-        assert_eq!(file_url(&path), "file:///D:/a%20b/c%23d.html");
-        assert_eq!(file_url_path(&file_url(&path)), Some(PathBuf::from("D:/a b/c#d.html")));
-    }
-
-    mod tempdir {
-        use std::path::{Path, PathBuf};
-        pub struct Dir(PathBuf);
-        impl Dir {
-            pub fn new() -> Self {
-                let base = std::env::temp_dir().join(format!(
-                    "shinatama-browser-{}-{}",
-                    std::process::id(),
-                    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
-                ));
-                std::fs::create_dir_all(&base).unwrap();
-                Self(base)
-            }
-            pub fn path(&self) -> &Path {
-                &self.0
-            }
-        }
-        impl Drop for Dir {
-            fn drop(&mut self) {
-                let _ = std::fs::remove_dir_all(&self.0);
-            }
-        }
+    fn page_ids_never_repeat_across_page_sets() {
+        let (a, _) = PageSet::new(8).open("https://a", Controller::User, None);
+        let (b, _) = PageSet::new(8).open("https://b", Controller::User, None);
+        assert_ne!(a, b, "a restarted browser must not hand out an id an old tab still holds");
     }
 }

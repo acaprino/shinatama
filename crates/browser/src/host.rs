@@ -13,6 +13,8 @@ use std::{
 
 use tokio::net::windows::named_pipe::{ClientOptions, NamedPipeClient};
 
+use crate::pages::hex;
+
 pub const READY_TIMEOUT: Duration = Duration::from_secs(20);
 pub const HOST_EXE: &str = "shinatama-moli.exe";
 
@@ -44,10 +46,6 @@ pub struct Host {
     // Kept open: closing it asks the host to shut down.
     stdin: Option<ChildStdin>,
     job: job::Job,
-}
-
-fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 impl Host {
@@ -146,8 +144,9 @@ impl Host {
 impl Drop for Host {
     fn drop(&mut self) {
         drop(self.stdin.take());
-        // Give the host a moment to flush its storage, then the job ends it.
-        for _ in 0..20 {
+        // Moli's own shutdown budget is 5 s (storage flush); then the job ends it.
+        // Blocking: drop a Host off the async runtime (see the desktop's sweeper).
+        for _ in 0..120 {
             if !matches!(self.child.try_wait(), Ok(None)) {
                 break;
             }

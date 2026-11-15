@@ -3092,6 +3092,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-dialog",
  "tokio",
+ "url",
  "uuid",
  "webview2-com",
  "windows-core",
