@@ -64,13 +64,14 @@ impl DriverError {
     }
 }
 impl DriverError {
-    /// A refused admission names its measured cause (bounded, control-free) instead of a bare
-    /// "low on resources": the person can see which headroom check refused. The one-off text
-    /// is leaked; a refusal is rare and user-initiated.
+    /// A refused admission names its cause (bounded, control-free) instead of a bare "low on
+    /// resources": the cause is either measured Windows memory or Shinatama's own count of
+    /// open sessions, and only the cause can say which. The one-off text is leaked; a refusal
+    /// is rare and user-initiated.
     pub(super) fn deferred(cause: String) -> Self {
-        let cause: String = cause.chars().filter(|ch| !ch.is_control()).take(200).collect();
+        let cause: String = cause.chars().filter(|ch| !ch.is_control()).take(240).collect();
         Self::Failed(Box::leak(
-            format!("Windows is low on resources ({cause}). Close an unused app and try Open again.")
+            format!("The harness check could not start ({cause}). Try Open again.")
                 .into_boxed_str(),
         ))
     }
