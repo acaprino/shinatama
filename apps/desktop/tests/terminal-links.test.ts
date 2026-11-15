@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { classifyTarget, findLinks, hoverText } from '../src/terminal-links.ts';
+import { classifyTarget, findLinks, findLinksInRows, hoverText } from '../src/terminal-links.ts';
 
 const targets = (line: string) => findLinks(line).map(link => link.target);
 
@@ -47,4 +47,27 @@ test('osc8 hover shows the real target', () => {
   const hover = hoverText(classifyTarget('https://evil.example/', 'D:\\p'));
   assert.match(hover, /evil\.example/);
   assert.doesNotMatch(hover, /good\.example/);
+});
+
+test('a path the terminal wrapped over two rows is one link, its range running from row to row', () => {
+  const path = String.raw`D:\Projects\jupiter\.marionette\prototypes\chart-panel.html`;
+  const line = `  ⎿  wrote ${path} done`;
+  const cols = 30; const rows: { chars: string; x: number }[][] = [];
+  for (let offset = 0; offset < line.length; offset += cols) rows.push([...line.slice(offset, offset + cols)].map((chars, index) => ({ chars, x: index + 1 })));
+  const [link] = findLinksInRows(rows, 5);
+  assert.equal(link.target, path);
+  assert.deepEqual(link.start, { x: line.indexOf('D:') % cols + 1, y: 5 + Math.floor(line.indexOf('D:') / cols) });
+  const last = line.indexOf('.html') + 4;
+  assert.deepEqual(link.end, { x: last % cols + 1, y: 5 + Math.floor(last / cols) });
+  assert.deepEqual(classifyTarget(link.target, 'C:\\'), { kind: 'file', path });
+});
+
+test('a wide character before a link keeps the link on its own cells', () => {
+  const cells = [{ chars: '中', x: 1 }, { chars: ' ', x: 3 }, ...[...'a.html'].map((chars, index) => ({ chars, x: 4 + index }))];
+  const [link] = findLinksInRows([cells], 1);
+  assert.deepEqual([link.start, link.end], [{ x: 4, y: 1 }, { x: 9, y: 1 }]);
+});
+
+test('the hover says a click opens it', () => {
+  assert.match(hoverText({ kind: 'file', path: String.raw`D:\a.html` }), /^Click to open D:\\a\.html/);
 });

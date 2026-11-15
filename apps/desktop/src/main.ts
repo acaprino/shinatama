@@ -34,7 +34,7 @@ import { createHopPreview, type HopPreview } from './hop-preview.ts';
 import { createFilesPanel } from './files-panel.ts';
 import { createBrowserTabs, type BrowserTarget } from './browser-tab.ts';
 import './browser-tab.css';
-import { classifyTarget, findLinks, hoverText } from './terminal-links.ts';
+import { classifyTarget, findLinksInRows, hoverText, type CellText } from './terminal-links.ts';
 import { createProjectsOverview } from './projects-overview.ts';
 import { createSessionsPanel } from './sessions-panel.ts';
 import { createSettingsPanel } from './settings-panel.ts';
@@ -468,10 +468,11 @@ function attachTerminal(info: SessionInfo, group: string, threadId: string | nul
   workspace.append(element); terminal.open(element);
   // No clipboard or image addon. Escape text never reaches HTML; bounded native attention
   // controls are observed by Rust before rendering. Links (plain URLs, local .html paths and
-  // OSC 8 hyperlinks) open in a browser tab on Ctrl+click only; the hover shows the real target.
+  // OSC 8 hyperlinks) open in a browser tab on a click (ADR-0056 v2); a drag still selects text,
+  // and the hover shows the real target.
   for (const osc of [0, 1, 2, 7, 9, 52, 777]) terminal.parser.registerOscHandler(osc, () => true);
   const openLink = (event: MouseEvent, text: string) => {
-    if (!event.ctrlKey) return;
+    if (event.button !== 0) return;
     const target = classifyTarget(text, info.cwd);
     if (target.kind === 'web') void openBrowserTab({ url: target.url });
     else if (target.kind === 'file') void openBrowserTab({ file: target.path });
@@ -481,8 +482,20 @@ function attachTerminal(info: SessionInfo, group: string, threadId: string | nul
   const leave = () => { element.title = ''; };
   terminal.options.linkHandler = { activate: openLink, hover: (_event, text) => hover(text), leave, allowNonHttpProtocols: true };
   terminal.registerLinkProvider({ provideLinks(y, callback) {
-    const line = terminal.buffer.active.getLine(y - 1)?.translateToString(true) ?? '';
-    const links = findLinks(line).map(link => ({ text: link.target, range: { start: { x: link.start + 1, y }, end: { x: link.end, y } },
+    // The whole line the terminal wrapped over several rows, so a path cut by the right edge is one link.
+    const buffer = terminal.buffer.active; const blank = buffer.getNullCell();
+    let first = y - 1; while (first > 0 && y - 1 - first < 16 && buffer.getLine(first)?.isWrapped) first--;
+    let last = y - 1; while (last - (y - 1) < 16 && buffer.getLine(last + 1)?.isWrapped) last++;
+    const rows: CellText[][] = [];
+    for (let row = first; row <= last; row++) {
+      const line = buffer.getLine(row); const cells: CellText[] = [];
+      if (line) for (let x = 0; x < line.length; x++) {
+        const cell = line.getCell(x, blank); if (!cell || cell.getWidth() === 0) continue;
+        cells.push({ chars: cell.getChars() || ' ', x: x + 1 });
+      }
+      rows.push(cells);
+    }
+    const links = findLinksInRows(rows, first + 1).filter(link => link.start.y <= y && link.end.y >= y).map(link => ({ text: link.target, range: { start: link.start, end: link.end },
       activate: openLink, hover: () => hover(link.target), leave, decorations: { pointerCursor: true, underline: true } }));
     callback(links.length ? links : undefined);
   } });

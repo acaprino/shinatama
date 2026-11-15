@@ -65,9 +65,12 @@ measurements, not acceptance evidence.
    close) through a per-window broker that authenticates the instance token; no raw CDP, no
    eval. One controller per page; the user takes control in place and hands it back explicitly.
 5. **Links open inside.** Every http(s) link and HTML document the user opens from Shinatama
-   (Ctrl+click in a terminal, the Files panel, `dsh web`) opens in a browser tab of its own,
+   (a click in a terminal, the Files panel, `dsh web`) opens in a browser tab of its own,
    user-controlled; a local HTML document grants only its own folder, for that tab
-   (user, 2026-11-14). Each tab can hand its URL to the system browser.
+   (user, 2026-11-14). Each tab can hand its URL to the system browser. A plain click opens a
+   terminal link, not Ctrl+click (user, 2026-11-15: a click on an agent's
+   `D:\…\chart-panel.html` must open it); a drag still selects text, and a path the terminal
+   wrapped over several rows is one link.
 6. **Local documents are served by Shinatama** (amended 2026-11-15, found on the built exe).
    Moli's protocol server refuses every `file:` navigation (`LocalFileNavigationAccess::Denied`
    is hard-coded) and its `Fetch` domain pauses the document but not its stylesheets or images,

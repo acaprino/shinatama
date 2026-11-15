@@ -1,5 +1,5 @@
 // Links in terminal text: web URLs and local HTML paths, opened in a browser
-// tab with Ctrl+click (ADR-0056). Pure parsing; the xterm wiring is in main.
+// tab with a click (ADR-0056 v2). Pure parsing; the xterm wiring is in main.
 
 export interface FoundLink { readonly start: number; readonly end: number; readonly target: string }
 export type LinkTarget =
@@ -45,6 +45,17 @@ function joinWindows(cwd: string, relative: string): string {
   return parts.join('\\');
 }
 
+/** A terminal cell as the link finder reads it: its text and its 1-based column. */
+export interface CellText { readonly chars: string; readonly x: number }
+export interface CellLink { readonly target: string; readonly start: { x: number; y: number }; readonly end: { x: number; y: number } }
+/** Links in a line the terminal wrapped over several rows (`rows[0]` is row `firstY`, 1-based):
+ *  a path cut by the right edge is still one link, its range running from row to row. */
+export function findLinksInRows(rows: readonly (readonly CellText[])[], firstY: number): CellLink[] {
+  let text = ''; const at: { x: number; y: number }[] = [];
+  rows.forEach((cells, row) => { for (const cell of cells) { text += cell.chars; for (let unit = 0; unit < cell.chars.length; unit++) at.push({ x: cell.x, y: firstY + row }); } });
+  return findLinks(text).map(link => ({ target: link.target, start: at[link.start], end: at[link.end - 1] }));
+}
+
 /** What a found link (or an OSC 8 URI) would open. Nothing is opened here. */
 export function classifyTarget(target: string, cwd: string): LinkTarget {
   const text = target.trim();
@@ -64,8 +75,8 @@ export function classifyTarget(target: string, cwd: string): LinkTarget {
 /** The text shown on hover: always the real target, never the link's own text. */
 export function hoverText(target: LinkTarget): string {
   switch (target.kind) {
-    case 'web': return `Ctrl+click: open ${target.url} in a browser tab`;
-    case 'file': return `Ctrl+click: open ${target.path} in a browser tab`;
+    case 'web': return `Click to open ${target.url} in a browser tab`;
+    case 'file': return `Click to open ${target.path} in a browser tab`;
     case 'refused': return target.reason;
   }
 }
