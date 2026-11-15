@@ -16,6 +16,7 @@ use crate::{
         NativeProgramIdentity, NativeTrialReceipt, NativeTrialTracker, NativeTuiPermit,
     },
     sidecar_supervisor::SidecarSupervisor,
+    terminal_palette::HarnessPalette,
 };
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -104,6 +105,8 @@ pub struct CodexSessionOperation {
     require_mukade: bool,
     /// The user's launch policy asked for no sandbox and no approvals.
     full_access: bool,
+    /// Codex's syntax theme while the terminals follow the skin.
+    syntax_theme: Option<&'static str>,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum CodexSessionSelection {
@@ -117,6 +120,7 @@ impl CodexSessionOperation {
             initial_prompt: None,
             require_mukade: false,
             full_access: false,
+            syntax_theme: None,
         }
     }
     pub fn resume_native(native_id: &str) -> Result<Self, CodexLaunchError> {
@@ -138,12 +142,22 @@ impl CodexSessionOperation {
             initial_prompt: None,
             require_mukade: false,
             full_access: false,
+            syntax_theme: None,
         })
     }
     /// Start without Codex's sandbox and approval prompts. Only the launch
     /// policy sets this, and only for a real session, never a trial.
     fn with_full_access(mut self) -> Self {
         self.full_access = true;
+        self
+    }
+    /// Draw code and diffs with the terminal's palette. Only a real session sets
+    /// this, from the desktop's appearance. An override outranks `config.toml`,
+    /// which keeps the user's own `/theme` choice for when it is off. It is one
+    /// argument (`--config=key=value`): the fullest tracked argv sits at the
+    /// terminal host's 32-argument bound with it.
+    fn with_palette(mut self, palette: HarnessPalette) -> Self {
+        self.syntax_theme = palette.codex_syntax_theme();
         self
     }
     /// Keep the first user message as one positional argument in a new native
@@ -187,6 +201,9 @@ impl CodexSessionOperation {
         } else {
             fixed_arguments()
         });
+        if let Some(theme) = self.syntax_theme {
+            arguments.push(format!("--config=tui.theme=\"{theme}\"").into());
+        }
         arguments
     }
     fn qualify_arguments(
@@ -533,13 +550,14 @@ fn prepare(
     } else {
         crate::launch_policy::current()
     };
-    let full_access_session;
-    let session = if policy.full_access() {
-        full_access_session = session.clone().with_full_access();
-        &full_access_session
-    } else {
-        session
-    };
+    let mut composed = session.clone();
+    if policy.full_access() {
+        composed = composed.with_full_access();
+    }
+    if !trial {
+        composed = composed.with_palette(crate::terminal_palette::current());
+    }
+    let session = &composed;
     // The contained canary only ever qualifies the fresh-session startup.
     if trial && session.operation() != Operation::StartNew {
         return Err(CodexLaunchError::QualificationRequired);
@@ -1447,6 +1465,78 @@ mod tests {
             CodexSessionOperation::start_new(),
             CodexSessionOperation::start_new().with_full_access()
         );
+    }
+    #[test]
+    fn terminal_palette_adds_only_the_ansi_syntax_theme() {
+        let own = CodexSessionOperation::start_new().with_palette(HarnessPalette::Own);
+        assert_eq!(own.arguments(), fixed_arguments());
+        let palette = HarnessPalette::Terminal { light: false };
+        let followed = CodexSessionOperation::start_new()
+            .with_palette(palette)
+            .arguments();
+        assert_eq!(&followed[..fixed_arguments().len()], fixed_arguments());
+        let theme = OsString::from("--config=tui.theme=\"ansi\"");
+        assert_eq!(&followed[fixed_arguments().len()..], [theme.clone()]);
+        let open = CodexSessionOperation::start_new()
+            .with_full_access()
+            .with_palette(palette)
+            .arguments();
+        assert_eq!(open.last(), Some(&theme));
+        let id = "12cc3a11-45db-4f1e-89c8-40d5c6be1dd3";
+        let resume = CodexSessionOperation::resume_native(id)
+            .unwrap()
+            .with_palette(palette)
+            .arguments();
+        assert_eq!(resume[..2], [OsString::from("resume"), id.into()]);
+        assert_eq!(resume.last(), Some(&theme));
+        // The fullest tracked argv: hooks, session MCP, Mukade (one pair) and
+        // Marionette (two pairs), plus a prompt or a resume selection, stays
+        // within the terminal host's shared bound (SHELL_ARGUMENT_LIMIT = 32).
+        let version = Version::parse("0.169.0").unwrap();
+        let mut additions = session_hook_arguments(
+            &version,
+            Path::new(r"C:\App\shinatama-hook.exe"),
+            Path::new(r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"),
+            43210,
+        )
+        .unwrap();
+        additions.extend(mcp_arguments("http://127.0.0.1:32123/session-opaque"));
+        additions.extend(
+            [
+                "-c",
+                "mcp_servers.mukade={}",
+                "-c",
+                "marketplaces.m={}",
+                "-c",
+                "plugins={}",
+            ]
+            .map(OsString::from),
+        );
+        for operation in [
+            CodexSessionOperation::start_new()
+                .with_initial_prompt("Review")
+                .unwrap(),
+            CodexSessionOperation::resume_native(id).unwrap(),
+        ] {
+            let kind = operation.operation();
+            let descriptor = descriptor(&version, kind, TRACKED_RECIPE).unwrap();
+            let recipe = operation
+                .with_palette(palette)
+                .qualify_arguments_with_hooks(
+                    &descriptor,
+                    PathBuf::from(r"C:\App\codex.exe"),
+                    &additions,
+                )
+                .unwrap();
+            let command = shinatama_adapter::launch::arguments::plan_arguments(
+                &descriptor,
+                kind,
+                Path::new(r"C:\Project"),
+                Some(&recipe),
+            )
+            .unwrap();
+            assert_eq!(command.argv().len(), 32);
+        }
     }
     #[test]
     fn initial_prompt_is_bounded_and_cannot_be_attached_to_resume() {

@@ -42,3 +42,7 @@ test('profile fallback and follow-skin change presentation without writing or re
   assert.equal(follow.theme?.background, SKINS.sumi.tokens.terminal);
   assert.match(String(follow.fontFamily), /monospace/);
 });
+test('every skin paints a dark terminal, so followed harnesses start on their dark ANSI themes', () => {
+  // presentation.rs maps "follow skin" to the dark variants; a light skin must change it there.
+  for (const [id, skin] of Object.entries(SKINS)) assert.ok(luminance(skin.tokens.terminal) < 0.179, id);
+});

@@ -10,6 +10,7 @@ pub mod doctor;
 pub mod checkup;
 pub mod launch;
 pub mod launch_policy;
+pub mod terminal_palette;
 pub mod native_launch;
 pub mod claude_session_events;
 pub mod harness_session_events;

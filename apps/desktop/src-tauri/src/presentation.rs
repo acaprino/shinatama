@@ -1,6 +1,7 @@
 //! C08's fixed settings capability. No generic setting key, font path or asset URL.
 use crate::storage::Services;
 use serde::{Deserialize, Serialize};
+use shinatama_engine::terminal_palette::{self, HarnessPalette};
 use shinatama_state::database::{DatabaseAccess, DatabaseError};
 use std::sync::{
     Arc,
@@ -51,6 +52,16 @@ impl Settings {
             ));
         }
         Ok(())
+    }
+    /// Harnesses draw with the terminal's palette while the terminals follow
+    /// the skin. Every skin paints a dark terminal (its `terminal` token in
+    /// presentation.ts, checked by presentation.test.ts), so the dark variants.
+    fn harness_palette(&self) -> HarnessPalette {
+        if self.follow_skin {
+            HarnessPalette::Terminal { light: false }
+        } else {
+            HarnessPalette::Own
+        }
     }
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -117,7 +128,17 @@ impl Controller {
             })?;
         Ok(Slot(self.clone()))
     }
+    /// Loads the saved preferences and makes them the palette of later harness
+    /// launches; harnesses keep their own themes when they cannot be read,
+    /// just as the window then shows the profiles' colours.
     fn load(&self) -> Result<Snapshot, Error> {
+        let loaded = self.read();
+        terminal_palette::set_current(loaded.as_ref().map_or(HarnessPalette::Own, |snapshot| {
+            snapshot.settings.harness_palette()
+        }));
+        loaded
+    }
+    fn read(&self) -> Result<Snapshot, Error> {
         let state = self
             .services
             .load()
@@ -146,7 +167,7 @@ impl Controller {
     }
     fn save(&self, request: Save) -> Result<Snapshot, Error> {
         request.settings.validate()?;
-        if self.load()?.revision != request.expected_revision {
+        if self.read()?.revision != request.expected_revision {
             return Err(Error::new(
                 "conflict",
                 "Presentation preferences changed; reload before saving.",
@@ -178,6 +199,7 @@ impl Controller {
             .store
             .set_presentation_json(request.expected_revision, &json)
             .map_err(db_error)?;
+        terminal_palette::set_current(snapshot.settings.harness_palette());
         Ok(snapshot)
     }
 }

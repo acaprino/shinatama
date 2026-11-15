@@ -20,6 +20,7 @@
     "test:native-picker": "node apps/desktop/tests/native-picker-smoke.mjs",
     "test:new-project": "node apps/desktop/tests/new-project-smoke.mjs",
     "test:ui": "node apps/desktop/tests/ui-flow-smoke.mjs",
+    "test:palette": "node apps/desktop/tests/harness-palette-smoke.mjs",
     "test:native": "node apps/desktop/tests/native-frame-smoke.mjs",
     "test:browser": "node apps/desktop/tests/browser-smoke.mjs",
     "test:drag": "node apps/desktop/tests/pane-drag-smoke.mjs",

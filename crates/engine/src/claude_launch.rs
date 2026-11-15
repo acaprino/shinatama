@@ -14,6 +14,7 @@ use crate::{
         NativeTrialReceipt, NativeTrialTracker, NativeTuiPermit,
     },
     sidecar_supervisor::SidecarSupervisor,
+    terminal_palette::HarnessPalette,
 };
 use serde_json::Value;
 use shinatama_adapter::{
@@ -631,6 +632,9 @@ fn prepare(
     if policy.full_access() {
         apply_full_access(&mut settings)?;
     }
+    if !trial {
+        apply_terminal_palette(&mut settings, crate::terminal_palette::current())?;
+    }
     let session_events = if let Some(helper_path) = trusted_hook_exe {
         let mut helper = pin_session_hook(helper_path, deadline)?;
         let receiver = ClaudeSessionEventReceiver::start(identity.record(), &project)
@@ -988,6 +992,23 @@ fn apply_full_access(settings: &mut Value) -> Result<(), ClaudeLaunchError> {
         .ok_or(ClaudeLaunchError::Configuration)?;
     permissions.insert("defaultMode".into(), "bypassPermissions".into());
     object.insert("skipDangerousModePermissionPrompt".into(), true.into());
+    Ok(())
+}
+/// Terminals that follow the skin: Claude draws with the terminal's 16 colours
+/// ("ANSI colors only" in `/theme`). Merged settings beat the global config's
+/// `theme`, and these flag settings beat the user, project and local ones, so
+/// a stored theme is set aside for this launch only and its file is untouched.
+fn apply_terminal_palette(
+    settings: &mut Value,
+    palette: HarnessPalette,
+) -> Result<(), ClaudeLaunchError> {
+    let Some(theme) = palette.claude_theme() else {
+        return Ok(());
+    };
+    settings
+        .as_object_mut()
+        .ok_or(ClaudeLaunchError::Configuration)?
+        .insert("theme".into(), theme.into());
     Ok(())
 }
 /// Child-only switches: updates, telemetry, error reporting and marketplace
@@ -1477,6 +1498,35 @@ mod tests {
             );
         }
         assert!(session_hook_command(Path::new(r"C:\Shinatama\shinatama-hook.exe"), 0).is_err());
+    }
+    #[test]
+    fn terminal_palette_replaces_only_the_theme() {
+        let mut settings = serde_json::json!({"theme": "dark", "model": "opus"});
+        apply_terminal_palette(&mut settings, HarnessPalette::Own).unwrap();
+        assert_eq!(
+            settings["theme"], "dark",
+            "own palette keeps the stored theme"
+        );
+        apply_terminal_palette(&mut settings, HarnessPalette::Terminal { light: false }).unwrap();
+        assert_eq!(settings["theme"], "dark-ansi");
+        assert_eq!(settings["model"], "opus");
+        let mut settings = serde_json::json!({"theme": "dark-ansi"});
+        apply_terminal_palette(&mut settings, HarnessPalette::Terminal { light: true }).unwrap();
+        assert_eq!(
+            settings["theme"], "light-ansi",
+            "the background decides the variant"
+        );
+        let mut empty = serde_json::json!({});
+        apply_terminal_palette(&mut empty, HarnessPalette::Terminal { light: false }).unwrap();
+        assert_eq!(empty["theme"], "dark-ansi");
+        assert!(matches!(
+            apply_terminal_palette(
+                &mut serde_json::json!([]),
+                HarnessPalette::Terminal { light: false }
+            ),
+            Err(ClaudeLaunchError::Configuration)
+        ));
+        assert!(apply_terminal_palette(&mut serde_json::json!([]), HarnessPalette::Own).is_ok());
     }
     #[test]
     fn full_access_sets_bypass_mode_and_keeps_the_other_permissions() {
