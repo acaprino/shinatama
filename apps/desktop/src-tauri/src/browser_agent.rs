@@ -118,6 +118,8 @@ struct OpenArgs {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct PageArgs {
+    // Read before dispatch (`run`); kept so deny_unknown_fields accepts it.
+    #[allow(dead_code)]
     page_id: String,
 }
 #[derive(Deserialize)]
@@ -133,12 +135,16 @@ fn default_format() -> String {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ClickArgs {
+    // Read before dispatch (`run`); kept so deny_unknown_fields accepts it.
+    #[allow(dead_code)]
     page_id: String,
     r#ref: String,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct TypeArgs {
+    // Read before dispatch (`run`); kept so deny_unknown_fields accepts it.
+    #[allow(dead_code)]
     page_id: String,
     r#ref: String,
     text: String,
