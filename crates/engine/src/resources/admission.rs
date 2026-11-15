@@ -331,6 +331,8 @@ impl AdmissionCoordinator {
                 nonce: self.pool.nonce.to_string(),
             },
             budget: request.budget,
+            // A session the user opened runs with advisory limits: the ledger does not charge its CPU.
+            advisory: !native_budget.limits_enforced(),
             now_ms: request.now_ms,
             lease_expires_at_ms: request.lease_expires_at_ms,
         };

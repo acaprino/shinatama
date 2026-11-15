@@ -160,6 +160,11 @@ impl ReservationPolicy {
     }
 }
 
+/// A budget as the aggregate ceiling counts it: an advisory slot's CPU is not counted.
+fn charged(budget: Budget, advisory: bool) -> Budget {
+    if advisory { Budget { cpu_basis_points: 0, ..budget } } else { budget }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReservationOwner {
@@ -199,6 +204,11 @@ pub struct ReservationTicket {
     pub lease_expires_at_ms: i64,
     /// Assigned from the monotonic ledger revision, never restarted at one.
     pub revision: u64,
+    /// A session the user opened, whose CPU is advisory (no Windows rate control): its CPU is
+    /// not charged against the aggregate ceiling, so the count of open sessions is bounded by
+    /// slots, memory and processes, not by a CPU share nothing enforces. Written only when set.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub advisory: bool,
 }
 impl ReservationTicket {
     pub(crate) fn validate(&self) -> Result<()> {
@@ -219,6 +229,8 @@ pub struct ReservationRequest {
     pub job_key: String,
     pub owner: ReservationOwner,
     pub budget: Budget,
+    /// See `ReservationTicket::advisory`.
+    pub advisory: bool,
     pub now_ms: i64,
     pub lease_expires_at_ms: i64,
 }
@@ -236,6 +248,12 @@ impl ReservationSnapshot {
         self.slots
             .iter()
             .try_fold(Budget::default(), |total, slot| total.add(slot.budget))
+    }
+    /// What the aggregate ceiling is checked against: every budget, except the CPU of advisory slots.
+    pub fn charged_total(&self) -> Result<Budget> {
+        self.slots
+            .iter()
+            .try_fold(Budget::default(), |total, slot| total.add(charged(slot.budget, slot.advisory)))
     }
     fn validate(&self) -> Result<()> {
         if self.format_version != 1
@@ -261,7 +279,7 @@ impl ReservationSnapshot {
             }
         }
         if !self
-            .reserved_total()
+            .charged_total()
             .map_err(|_| ReservationError::Malformed)?
             .fits(self.policy.aggregate_ceiling)
         {
@@ -507,8 +525,8 @@ impl Database {
             if ledger.slots.len() >= usize::from(ledger.policy.max_slots)
                 || !request.budget.fits(ledger.policy.per_slot_ceiling)
                 || !ledger
-                    .reserved_total()?
-                    .add(request.budget)?
+                    .charged_total()?
+                    .add(charged(request.budget, request.advisory))?
                     .fits(ledger.policy.aggregate_ceiling)
             {
                 return Err(ReservationError::Capacity);
@@ -528,6 +546,7 @@ impl Database {
                 state: ReservationState::Reserved,
                 lease_expires_at_ms: request.lease_expires_at_ms,
                 revision: ledger.next_revision()?,
+                advisory: request.advisory,
             };
             ledger.slots.push(ticket.clone());
             Ok(ticket)
@@ -810,6 +829,7 @@ mod policy_replacement_tests {
                 state,
                 lease_expires_at_ms: 1000,
                 revision: before.revision,
+                advisory: false,
             });
             write_ledger(&connection, &before).unwrap();
             let original = raw(&connection);
@@ -1021,7 +1041,35 @@ mod tests {
             budget: budget(),
             now_ms: 100,
             lease_expires_at_ms: 1000,
+            advisory: false,
         }
+    }
+    #[test]
+    fn advisory_sessions_are_not_charged_cpu_and_older_ledgers_still_read() {
+        // Four advisory sessions whose CPU alone would exceed the ceiling fit; memory still counts.
+        let mut snapshot = ReservationSnapshot { format_version: 1, revision: 0, policy: policy(), slots: Vec::new() };
+        snapshot.policy.aggregate_ceiling.processes = 2;
+        let ceiling = snapshot.policy.aggregate_ceiling;
+        let session = Budget { cpu_basis_points: ceiling.cpu_basis_points, ..Budget { memory_bytes: 1, processes: 1, cpu_basis_points: 1, queue_bytes: 1, queue_items: 1 } };
+        for index in 0..2u64 {
+            snapshot.revision += 1;
+            snapshot.slots.push(ReservationTicket {
+                id: uuid::Uuid::new_v4().to_string(), job_key: uuid::Uuid::new_v4().to_string(), owner: owner(),
+                budget: session, state: ReservationState::Active, lease_expires_at_ms: 1000, revision: index + 1, advisory: true,
+            });
+        }
+        assert!(snapshot.reserved_total().unwrap().cpu_basis_points > ceiling.cpu_basis_points);
+        assert_eq!(snapshot.charged_total().unwrap().cpu_basis_points, 0);
+        snapshot.validate().unwrap();
+        // A non-advisory slot is charged in full.
+        snapshot.slots[0].advisory = false;
+        assert_eq!(snapshot.charged_total().unwrap().cpu_basis_points, ceiling.cpu_basis_points);
+        // `advisory` is written only when set, and a ticket saved without it reads as not advisory.
+        let plain = serde_json::to_string(&snapshot.slots[0]).unwrap();
+        assert!(!plain.contains("advisory"));
+        let read: ReservationTicket = serde_json::from_str(&plain).unwrap();
+        assert!(!read.advisory);
+        assert!(serde_json::to_string(&snapshot.slots[1]).unwrap().contains("\"advisory\":true"));
     }
     fn raw(database: &Database) -> String {
         database
@@ -1285,6 +1333,7 @@ mod tests {
                     state: ReservationState::Reserved,
                     lease_expires_at_ms: 1000,
                     revision: index + 1,
+                    advisory: false,
                 })
                 .collect(),
         };

@@ -275,6 +275,7 @@ fn reservation_process_helper() {
         budget: policy().per_slot_ceiling,
         now_ms: now,
         lease_expires_at_ms: now + 10_000,
+        advisory: false,
     };
     let outcome = match database.reserve_resources(&initial.policy.stamp, ready.revision, &request)
     {

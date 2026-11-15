@@ -125,6 +125,7 @@ fn active_ticket(
         budget,
         now_ms: 100,
         lease_expires_at_ms: 1000,
+        advisory: false,
     };
     let reserved = db
         .reserve_resources(&policy.stamp, snapshot.revision, &request)

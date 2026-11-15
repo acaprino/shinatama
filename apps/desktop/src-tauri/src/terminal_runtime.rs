@@ -109,7 +109,7 @@ fn is_previous_policy(previous: &ReservationPolicy) -> bool {
 fn capacity_refusal(ledger: &ReservationSnapshot, budget: Budget) -> String {
     let policy = &ledger.policy;
     let limit = policy.aggregate_ceiling;
-    let used = ledger.reserved_total().unwrap_or(limit);
+    let used = ledger.charged_total().unwrap_or(limit);
     let over = |used: u64, request: u64, limit: u64| used.saturating_add(request) > limit;
     let mut full = Vec::new();
     if ledger.slots.len() >= usize::from(policy.max_slots) {
@@ -845,6 +845,7 @@ mod memory_tests {
             state,
             lease_expires_at_ms: LEASE_MS,
             revision: 1,
+            advisory: false,
         }
     }
 

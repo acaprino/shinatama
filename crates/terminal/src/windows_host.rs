@@ -1676,6 +1676,7 @@ mod tests {
             state: ReservationState::Active,
             lease_expires_at_ms: 1000,
             revision: 7,
+            advisory: false,
         }
     }
     struct RecordedLifecycle {

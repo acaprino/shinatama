@@ -121,6 +121,7 @@ impl Fixture {
                     budget,
                     now_ms: at,
                     lease_expires_at_ms: at + 300_000,
+                    advisory: false,
                 },
             )
             .unwrap();
@@ -486,6 +487,7 @@ fn start_resume_owner(fixture: &Fixture) -> ResumeOwner {
                 budget,
                 now_ms: at,
                 lease_expires_at_ms: at + 300_000,
+                advisory: false,
             },
         )
         .unwrap();
