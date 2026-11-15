@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { ITheme, ITerminalOptions, Terminal } from '@xterm/xterm';
-import { openModal } from './modal.ts';
+import { confirmsField } from './desktop-shell-model.ts';
 
 const base = {
   stage: '#04070f', chrome: '#070c18', 'chrome-2': '#0a1120', surface: '#0e1729', 'surface-2': '#13203a', terminal: '#050912',
@@ -87,27 +87,26 @@ export function applyTerminalProfile(terminal: Terminal, id: string | null | und
   terminal.options.cursorStyle = next.cursorStyle; terminal.options.cursorBlink = next.cursorBlink;
   return { id: resolved.id, metricsChanged, background: next.theme?.background ?? resolved.profile.background, fallback: resolved.fallback };
 }
+/** The Appearance controls. They live in the Appearance section of Settings (settings-panel.ts);
+ * every change applies at once and is saved through presentation_save. */
 export function createPresentation(options: { desktop: boolean; notify(message: unknown, tone?: 'info' | 'error'): void; onChange(): void }) {
   let current = DEFAULT_PRESENTATION; let revision = 0; let loaded = !options.desktop; let blocked = false;
   let flight: Promise<void> | null = null; let pending: PresentationSettings | null = null; let timer = 0; let edits = 0;
   const warnedProfiles = new Set<string>();
-  const toolbar = document.querySelector('.toolbar')!;
-  const label = document.createElement('label'); label.className = 'presentation-skin'; label.textContent = 'Theme';
-  const selector = document.createElement('select'); selector.setAttribute('aria-label', 'Interface theme');
+  const theme = document.createElement('div'); theme.className = 'presentation-theme';
+  theme.innerHTML = '<label for="presentation-skin">Theme</label><select id="presentation-skin"></select>';
+  const selector = theme.querySelector<HTMLSelectElement>('#presentation-skin')!;
   for (const [id, skin] of Object.entries(SKINS)) { const option = document.createElement('option'); option.value = id; option.textContent = skin.name; selector.append(option); }
-  label.append(selector); toolbar.append(label);
-  const button = document.createElement('button'); button.type = 'button'; button.textContent = 'Appearance'; toolbar.append(button);
-  const dialog = document.createElement('dialog'); dialog.id = 'presentation-dialog'; dialog.setAttribute('aria-labelledby', 'presentation-title');
-  dialog.innerHTML = '<form><div class="dialog-heading"><h1 id="presentation-title">Appearance</h1><button type="button" data-close aria-label="Close appearance">×</button></div><label for="presentation-font">Terminal font</label><select id="presentation-font"></select><label for="presentation-size">Font size</label><input id="presentation-size" type="number" min="8" max="32" step="1"><label for="presentation-height">Line height (%)</label><input id="presentation-height" type="number" min="100" max="180" step="1"><label class="presentation-follow"><input type="checkbox" id="presentation-follow"> Follow interface theme in terminals</label><p class="hint">Follow theme changes default and ANSI colours; Claude Code and Codex started afterwards use their ANSI-colour themes. Application truecolour output stays untouched.</p><p class="hint">Uses local fonts with a system monospace fallback. No fonts or artwork are downloaded.</p><p id="presentation-status" role="status"></p><div class="dialog-actions"><button type="button" data-reload>Reload saved preferences</button><button type="submit" class="primary">Apply</button><button type="button" data-close>Close</button></div></form>';
-  document.querySelector('main')!.append(dialog);
-  const font = dialog.querySelector<HTMLSelectElement>('#presentation-font')!;
+  const form = document.createElement('form'); form.className = 'presentation-terminal';
+  form.innerHTML = '<label for="presentation-font">Terminal font</label><select id="presentation-font"></select><label for="presentation-size">Font size</label><input id="presentation-size" type="number" min="8" max="32" step="1" required><label for="presentation-height">Line height (%)</label><input id="presentation-height" type="number" min="100" max="180" step="1" required><label class="presentation-follow"><input type="checkbox" id="presentation-follow"> Follow interface theme in terminals</label><p class="hint">Follow theme changes default and ANSI colours; Claude Code and Codex started afterwards use their ANSI-colour themes. Application truecolour output stays untouched.</p><p class="hint">Uses local fonts with a system monospace fallback. No fonts or artwork are downloaded.</p><p id="presentation-status" role="status"></p>';
+  const font = form.querySelector<HTMLSelectElement>('#presentation-font')!;
   for (const name of fonts) { const option = document.createElement('option'); option.value = name; option.textContent = name === 'profile' ? 'Profile default' : name; font.append(option); }
-  const size = dialog.querySelector<HTMLInputElement>('#presentation-size')!; const height = dialog.querySelector<HTMLInputElement>('#presentation-height')!;
-  const follow = dialog.querySelector<HTMLInputElement>('#presentation-follow')!; const status = dialog.querySelector<HTMLElement>('#presentation-status')!;
+  const size = form.querySelector<HTMLInputElement>('#presentation-size')!; const height = form.querySelector<HTMLInputElement>('#presentation-height')!;
+  const follow = form.querySelector<HTMLInputElement>('#presentation-follow')!; const status = form.querySelector<HTMLElement>('#presentation-status')!;
   const equal = (a: PresentationSettings, b: PresentationSettings) => JSON.stringify(a) === JSON.stringify(b);
   function render() { selector.value = current.skin; font.value = current.fontFamily; size.value = String(current.fontSize); height.value = String(current.lineHeight); follow.checked = current.followSkin; }
   function apply() { for (const [name, value] of Object.entries(SKINS[current.skin].tokens)) document.documentElement.style.setProperty(`--${name}`, value); render(); }
-  function reportFailure() { blocked = true; status.textContent = 'Changes remain visible in this window. Saving is unavailable; reload saved preferences before trying again.'; options.notify(status.textContent); }
+  function reportFailure() { blocked = true; status.textContent = 'Changes remain visible in this window. Saving is unavailable; press Reload in Settings before trying again.'; options.notify(status.textContent); }
   function schedule() { clearTimeout(timer); if (!blocked && loaded && pending) timer = window.setTimeout(() => { void save(); }, 0); }
   async function save() {
     if (!options.desktop || !loaded || blocked || flight || !pending) return;
@@ -148,18 +147,26 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
     return !flight && !pending && !blocked;
   }
   function edit(settings: PresentationSettings) { current = Object.freeze({ ...settings }); edits++; pending = current; apply(); options.onChange(); schedule(); }
-  selector.onchange = () => { if (Object.hasOwn(SKINS, selector.value)) edit({ ...current, skin: selector.value }); };
-  button.onclick = () => { if (document.querySelector('dialog[open][aria-modal="true"]')) return; render(); openModal(dialog); };
-  dialog.querySelectorAll<HTMLButtonElement>('[data-close]').forEach(close => { close.onclick = () => dialog.close(); });
-  dialog.querySelector<HTMLButtonElement>('[data-reload]')!.onclick = () => { if (!flight) { edits++; void initialize(); } };
-  dialog.querySelector('form')!.onsubmit = event => {
-    event.preventDefault(); if (!dialog.querySelector('form')!.reportValidity()) return;
+  // A terminal field applies when its value is committed (a change, or Enter in a number), as the theme always has.
+  function applyFields() {
+    if (!form.reportValidity()) return;
     const settings = parseSettings({ ...current, fontFamily: font.value, fontSize: Number(size.value), lineHeight: Number(height.value), followSkin: follow.checked });
-    if (settings) { edit(settings); status.textContent = options.desktop ? blocked ? 'Applied locally. Reload saved preferences to restore saving.' : 'Applied; saving…' : 'Applied in browser preview.'; }
-  };
+    if (!settings || equal(settings, current)) return;
+    edit(settings); status.textContent = options.desktop ? blocked ? 'Applied locally. Press Reload in Settings to restore saving.' : 'Applied; saving…' : 'Applied in browser preview.';
+  }
+  selector.onchange = () => { if (Object.hasOwn(SKINS, selector.value)) edit({ ...current, skin: selector.value }); };
+  for (const field of [font, size, height, follow]) field.addEventListener('change', applyFields);
+  for (const field of [size, height]) field.addEventListener('keydown', event => { if (confirmsField(event)) { event.preventDefault(); applyFields(); } });
+  form.onsubmit = event => { event.preventDefault(); applyFields(); };
   window.addEventListener('pagehide', () => { clearTimeout(timer); pending = null; }, { once: true });
   apply();
   return { initialize, flush, profiles: PROFILES, settings: () => current,
+    /** The interface control (the theme) and the terminal controls, for the Appearance section. */
+    theme, terminal: form,
+    /** Shows the applied values again, dropping a half-typed number. */
+    reset: render,
+    /** Reads the saved preferences again; after a failed save this is what restores saving. */
+    reload() { if (!flight) { edits++; void initialize(); } },
     optionsForProfile: (id: string | null | undefined) => optionsForProfile(id, current),
     applyProfile: (terminal: Terminal, id: string | null | undefined) => {
       const result = applyTerminalProfile(terminal, id, current);

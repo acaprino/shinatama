@@ -65,18 +65,18 @@ async function sessionOf(harness) {
   if (!created) throw new Error(`${harness} did not start.`);
   return created;
 }
+// The option and the theme are in the Appearance section of Settings; each applies and saves at once.
 async function setFollow(on) {
   await page.locator('#toolbar-more').click();
-  await page.locator('#toolbar-more-menu button', { hasText: 'Appearance' }).click();
-  await expect(page.locator('#presentation-dialog')).toBeVisible();
+  await page.locator('#open-settings').click();
+  await expect(page.locator('#settings-dialog')).toBeVisible();
   const follow = page.locator('#presentation-follow');
   if (on) await follow.check(); else await follow.uncheck();
-  await page.locator('#presentation-dialog button[type="submit"]').click();
-  await expect(page.locator('#presentation-status')).toContainText('Preferences saved.');
-  await page.locator('#presentation-dialog .dialog-actions button[data-close]').click();
+  await expect.poll(async () => (await ipc('presentation_load')).settings.followSkin).toBe(on);
+  await page.locator('#settings-dialog button[aria-label="Close settings"]').click();
 }
 const setSkin = skin => page.evaluate(id => {
-  const select = document.querySelector('.presentation-skin select'); select.value = id; select.dispatchEvent(new Event('change'));
+  const select = document.querySelector('#presentation-skin'); select.value = id; select.dispatchEvent(new Event('change'));
 }, skin);
 async function capture(name) {
   const view = page.locator('.terminal-view:visible').first();

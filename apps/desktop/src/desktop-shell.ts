@@ -20,10 +20,39 @@ function readZoom(): number {
   try { return savedZoom(localStorage.getItem(ZOOM_KEY)); } catch { return 1; }
 }
 
+// The interface zoom is one preference with two controls: the keys below and the Appearance
+// section of Settings. Both move it through changeZoom, so they never disagree.
+let zoom = 1;
+let zoomWebview: ReturnType<typeof getCurrentWebview> | null = null;
+const zoomListeners = new Set<(level: number) => void>();
+/** The interface zoom now; 1 before the desktop shell starts or in a browser preview. */
+export const interfaceZoom = () => zoom;
+/** False until the desktop shell runs: a browser preview cannot zoom the window. */
+export const canZoom = () => zoomWebview !== null;
+/** Called with the level every time it changes, from either control. */
+export function onInterfaceZoom(listener: (level: number) => void): void { zoomListeners.add(listener); }
+/** Moves the interface to a level the app offers and saves it. False when the window cannot zoom. */
+export function changeZoom(next: number): Promise<boolean> {
+  const webview = zoomWebview; const level = savedZoom(String(next));
+  if (!webview) return Promise.resolve(false);
+  // The level moves at once, so presses faster than the engine count every step.
+  const previous = zoom; zoom = level;
+  for (const listener of zoomListeners) listener(zoom);
+  return webview.setZoom(level).then(() => {
+    try { localStorage.setItem(ZOOM_KEY, String(level)); } catch { /* the level lasts until restart */ }
+    return true;
+  }, () => {
+    if (zoom === level) { zoom = previous; for (const listener of zoomListeners) listener(zoom); }
+    return false;
+  });
+}
+
 export async function initializeDesktopShell(options: DesktopShellOptions): Promise<void> {
   const webview = getCurrentWebview();
-  let zoom = readZoom();
+  zoom = readZoom();
   if (zoom !== 1) await webview.setZoom(zoom).catch(() => { zoom = 1; });
+  zoomWebview = webview;
+  for (const listener of zoomListeners) listener(zoom);
 
   // Capture: a terminal or a field never sees these keys, as in Windows Terminal.
   document.addEventListener('keydown', event => {
@@ -32,14 +61,9 @@ export async function initializeDesktopShell(options: DesktopShellOptions): Prom
     if (command) {
       event.preventDefault(); event.stopPropagation();
       if (event.repeat && command === 'reset') return;
-      // The level moves at once, so presses faster than the engine count every step.
-      const previous = zoom; const next = nextZoom(zoom, command);
+      const next = nextZoom(zoom, command);
       if (next === zoom) { options.notify(`Zoom ${Math.round(zoom * 100)}%`, 'info'); return; }
-      zoom = next;
-      void webview.setZoom(next).then(() => {
-        try { localStorage.setItem(ZOOM_KEY, String(next)); } catch { /* the level lasts until restart */ }
-        options.notify(`Zoom ${Math.round(next * 100)}%`, 'info');
-      }).catch(() => { if (zoom === next) zoom = previous; options.notify('This window cannot change its zoom.', 'info'); });
+      void changeZoom(next).then(changed => options.notify(changed ? `Zoom ${Math.round(next * 100)}%` : 'This window cannot change its zoom.', 'info'));
       return;
     }
     // Not stopped: the app's own handlers for the same keys (F3, Ctrl+S in the files panel) still run.

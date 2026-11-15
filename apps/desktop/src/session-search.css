@@ -12,5 +12,4 @@
 .session-search-index { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
 .session-search-index summary { cursor: default; color: var(--text-2); }
 .session-search-index-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.session-search-enabled { display: inline-flex; align-items: center; gap: 4px; margin: 0; }
 @media (max-width: 560px) { .session-search-form { grid-template-columns: 1fr; } .session-search-form button[type=submit] { grid-column: 1; } }

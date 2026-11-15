@@ -842,6 +842,8 @@ fn main() {
         titles::instance_titles,
         titles::thread_names,
         #[cfg(windows)]
+        titles::titles_enabled,
+        #[cfg(windows)]
         titles::titles_set_enabled,
         #[cfg(windows)]
         titles::thread_summaries_pause,
@@ -1003,6 +1005,8 @@ fn main() {
         #[cfg(windows)]
         titles::instance_titles,
         titles::thread_names,
+        #[cfg(windows)]
+        titles::titles_enabled,
         #[cfg(windows)]
         titles::titles_set_enabled,
         #[cfg(windows)]

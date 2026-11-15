@@ -189,6 +189,17 @@ pub async fn instance_titles(window: WebviewWindow, services: State<'_, Services
     Ok(Titles { enabled, excluded, rows, collisions })
 }
 
+/// Whether activity titles are on, for the Sessions section of Settings. Unlike instance_titles it
+/// reads no session and runs no Git.
+#[tauri::command]
+pub async fn titles_enabled(window: WebviewWindow, services: State<'_, Services>) -> Result<bool, String> {
+    crate::local(&window)?;
+    let services = services.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || services.load()?.store.titles_enabled().map_err(|e| e.to_string()))
+        .await
+        .map_err(|_| "The title worker stopped.".to_owned())?
+}
+
 #[tauri::command]
 pub async fn titles_set_enabled(window: WebviewWindow, services: State<'_, Services>, enabled: bool) -> Result<(), String> {
     crate::local(&window)?;

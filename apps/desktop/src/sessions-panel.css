@@ -39,8 +39,7 @@
 .sessions-options summary { cursor: default; font: 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--text-2); }
 .sessions-options summary:hover { color: var(--text); }
 .sessions-options-tools { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 2px; }
-#sessions-dialog .instances-options .instances-setting { border-bottom: 0; }
-#sessions-dialog .instances-options .instances-legend { margin-top: 4px; }
+#sessions-dialog .sessions-options .instances-legend { margin-top: 4px; }
 
 /* The way back from a conversation to the list it was opened from. */
 #app dialog .dialog-back { width: auto; margin-right: 10px; padding: 0 8px 0 4px; border: 1px solid transparent; font: 500 12px/1 var(--display); letter-spacing: .07em; color: var(--text-2); }

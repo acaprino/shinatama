@@ -154,18 +154,21 @@ try {
   await type(first, "Write-Output ('SHINATAMA_' + 'DESKTOP_OK')");
   await expect(pane(first).locator('.xterm-accessibility')).toContainText('SHINATAMA_DESKTOP_OK');
   const beforeAppearance = await ids();
-  // Theme and Appearance live in the toolbar's "⋯" menu; choosing a theme leaves it open.
-  await page.locator('#toolbar-more').click();
-  await page.getByLabel('Interface theme', { exact: true }).selectOption('section9');
+  // Theme and terminal appearance live in the Appearance section of Settings (the last entry of the
+  // toolbar's "⋯" menu); every change applies at once and the drawer stays open.
+  await page.locator('#toolbar-more').click(); await page.locator('#open-settings').click();
+  await expect(page.locator('#settings-dialog')).toBeVisible();
+  await expect(page.locator('#toolbar-more-menu')).toBeHidden();
+  await page.getByLabel('Theme', { exact: true }).selectOption('section9');
   await expect.poll(async () => (await appearance())?.settings.skin).toBe('section9');
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim())).toBe('#78e2dc');
   expect(await ids()).toEqual(beforeAppearance);
-  await page.getByRole('button', { name: 'Appearance', exact: true }).click();
   await page.locator('#presentation-follow').check();
-  await page.locator('#presentation-size').fill('14');
-  await page.locator('#presentation-dialog').getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect.poll(async () => (await appearance())?.settings.followSkin).toBe(true);
+  await page.locator('#presentation-size').fill('14'); await page.locator('#presentation-size').press('Enter');
   await expect.poll(async () => (await appearance())?.settings.fontSize).toBe(14);
-  await page.locator('#presentation-dialog').getByRole('button', { name: 'Close', exact: true }).click();
+  await page.locator('#settings-dialog button[aria-label="Close settings"]').click();
+  await expect(page.locator('#settings-dialog')).toBeHidden();
   expect(await ids()).toEqual(beforeAppearance);
   const beforeFind = await ids();
   await page.locator('#toolbar-more').click(); await page.locator('#find-terminal').click();
@@ -213,7 +216,7 @@ try {
   await page.reload();
   await expect(page.locator('#runtime-status')).toContainText('Local runtime');
   await expect(page.locator('.wm-pane')).toHaveCount(3);
-  await expect(page.getByLabel('Interface theme', { exact: true })).toHaveValue('section9');
+  await expect(page.locator('#presentation-skin')).toHaveValue('section9');
   expect((await ipc('presentation_load')).settings.followSkin).toBe(true);
   expect(await ids()).toEqual(runtimeIds);
   await expect.poll(async () => shape(JSON.parse((await saved()).layoutJson).root)).toEqual(beforeReload);

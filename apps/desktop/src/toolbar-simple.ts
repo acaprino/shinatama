@@ -40,10 +40,9 @@ export function organizeToolbar(): void {
   const more = document.createElement('button'); more.type = 'button'; more.id = 'toolbar-more'; more.textContent = '⋯'; more.title = 'More'; more.setAttribute('aria-label', 'More options');
   toolbar.append(more);
   const { menu, close, toggle } = popover(more, 'toolbar-more-menu', 'right');
-  const themeSelect = toolbar.querySelector('select'); const theme = themeSelect?.closest('label') ?? null;
-  const appearance = [...toolbar.querySelectorAll<HTMLElement>('button')].find(button => button.textContent?.trim() === 'Appearance');
-  const secondary = ['#find-terminal', '#layout-toggle', '#restore', '#desktop-alerts', '#open-settings', '#sessions', '#session-search'].map(selector => toolbar.querySelector<HTMLElement>(selector));
-  for (const item of [...secondary, appearance, theme]) if (item) { item.classList.add('toolbar-menu-item'); menu.append(item); }
+  // Tools first; Settings, the one place for every preference, last.
+  const secondary = ['#find-terminal', '#layout-toggle', '#restore', '#sessions', '#session-search', '#open-settings'].map(selector => toolbar.querySelector<HTMLElement>(selector));
+  for (const item of secondary) if (item) { item.classList.add('toolbar-menu-item'); menu.append(item); }
   menu.addEventListener('click', event => { if (event.target instanceof HTMLElement && event.target.closest('button')) close(); });
   more.onclick = () => toggle();
 }

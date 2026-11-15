@@ -17,7 +17,7 @@ const reservation = createServer();
 await new Promise((ok,no) => {reservation.once('error',no);reservation.listen(0,'127.0.0.1',ok);});
 const port = reservation.address().port;
 await new Promise(ok => reservation.close(ok));
-const app = spawn(resolve(root,'target/debug/shinatama-desktop.exe'), [], {
+const app = spawn(process.env.SHINATAMA_EXE ?? resolve(root,'target/debug/shinatama-desktop.exe'), [], {
   cwd:root, windowsHide:true, stdio:['ignore','pipe','pipe'], env:{...process.env,
     SHINATAMA_HOME:resolve(fixture,'data'), WEBVIEW2_USER_DATA_FOLDER:resolve(fixture,'webview'),
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:`--remote-debugging-port=${port} --remote-debugging-address=127.0.0.1`},
@@ -47,17 +47,24 @@ try {
   const unmuted=(await ipc('attention_preview',{kind:'update'})).current;
   await ipc('attention_dismiss',{id:unmuted.id});
   evidence.checks.unmutedSystemSoundPathExercised=true;
-  await main.locator('#toolbar-more').click();await main.locator('#desktop-alerts').click();
+  // The alert switches live in the Alerts section of Settings, the last entry of the toolbar's "⋯" menu.
+  const openAlerts=async()=>{await main.locator('#toolbar-more').click();await main.locator('#open-settings').click();
+    await main.locator('#settings-dialog .settings-index-link',{hasText:'Alerts'}).click();
+    await expect(main.locator('#settings-section-alerts-title')).toBeFocused();};
+  await openAlerts();
   await main.locator('#attention-sound').uncheck();
   await expect.poll(async()=>(await ipc('attention_current')).muted).toBe(true);
-  await main.getByRole('button',{name:'Chiudi impostazioni avvisi'}).click();
+  await main.getByRole('button',{name:'Close settings'}).click();
   await main.reload();await expect(main.locator('#runtime-status')).toContainText('Local runtime');
   expect((await ipc('attention_current')).muted).toBe(true);
   evidence.checks.preferencesReappliedAfterFrontendReload=true;
-  await main.locator('#toolbar-more').click();await main.locator('#desktop-alerts').click();
+  await openAlerts();
+  await expect(main.locator('#attention-sound')).not.toBeChecked();
   const beforePreview=native().foreground;
   await main.locator('#attention-test').click();
-  await expect(main.locator('#attention-settings')).not.toBeVisible();
+  // Settings stays open: the test is one step of choosing the alerts, not the end of it.
+  await expect(main.locator('#attention-settings-status')).toHaveText('Test alert shown.');
+  await expect(main.locator('#settings-dialog')).toBeVisible();
   await expect(widget.locator('#attention-title')).toContainText('prova avviso');
   await expect.poll(() => widget.locator('#shinatama-portrait').evaluate(image => image.complete && image.naturalWidth >= 1024 && image.naturalHeight >= 1024)).toBe(true);
   const expressionBefore = await widget.locator('#shinatama-portrait').getAttribute('data-expression');

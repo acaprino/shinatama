@@ -8,7 +8,8 @@ import { createWorkspaceRenderer } from './workspace-renderer.ts';
 import { createTauriWorkspaceTransport, createWorkspacePersistence, type WorkspacePersistence } from './workspace-persistence.ts';
 import './workspace-renderer.css';
 import { initializeWindowControls } from './window-controls.ts';
-import { initializeDesktopShell } from './desktop-shell.ts';
+import { canZoom, changeZoom, initializeDesktopShell, interfaceZoom, onInterfaceZoom } from './desktop-shell.ts';
+import { ZOOM_STEPS } from './desktop-shell-model.ts';
 import { createProjectPicker } from './project-picker.ts';
 import { createNewProjectDialog } from './new-project.ts';
 import { initializeMaintenance } from './maintenance.ts';
@@ -1126,6 +1127,7 @@ const sessionsPanel = createSessionsPanel({
   openDetail: (root, nativeId) => { sessionDetail.show(root, nativeId); },
   openArchives: () => { sessionLibrary.show(); },
   openIndex: () => { sessionSearch.show(); },
+  openSettings: () => { settingsPanel.show('sessions'); },
   project: () => projectPath || null,
   restoreFocus: () => setFocus(focusedGroup()),
 });
@@ -1135,10 +1137,16 @@ const sessionsPanel = createSessionsPanel({
   button.onclick = () => { void sessionsPanel.show(); };
   document.querySelector('#open-projects')?.before(button);
 }
-const settingsPanel = createSettingsPanel({ desktop, invoke: (command, args) => invoke(command, args), notify, restoreFocus: () => setFocus(focusedGroup()) });
+// Every preference in one drawer. Each section keeps its owner's saving: presentation.ts for the
+// theme and terminals, attention-control.ts for alerts, desktop-shell.ts for the zoom.
+const settingsPanel = createSettingsPanel({
+  desktop, invoke: (command, args) => invoke(command, args), notify, restoreFocus: () => setFocus(focusedGroup()),
+  appearance: presentation, alerts: attentionControl,
+  zoom: { levels: ZOOM_STEPS, current: interfaceZoom, available: canZoom, set: changeZoom, subscribe: onInterfaceZoom },
+});
 {
   const button = document.createElement('button'); button.type = 'button'; button.id = 'open-settings'; button.textContent = 'Settings';
-  button.title = 'Full access, GitHub sign-in and environment variables for agents';
+  button.title = 'Appearance, agents, memory, alerts, GitHub, environment variables and sessions';
   button.onclick = () => { settingsPanel.show(); };
   document.querySelector('#open-projects')?.before(button);
 }
@@ -1172,9 +1180,9 @@ const sessionSearch = createSessionSearch({
   indexStatus: () => desktop ? invoke('session_index_status') : unavailable(),
   indexStart: () => desktop ? invoke('session_index_start') : unavailable(),
   indexCancel: () => desktop ? invoke('session_index_cancel') : unavailable(),
-  indexEnable: enabled => desktop ? invoke('session_index_enable', { enabled }) : unavailable(),
   indexForget: () => desktop ? invoke('session_index_forget', { storeRootId: null }) : unavailable(),
   openDetail: (root, nativeId) => { sessionDetail.show(root, nativeId); },
+  openSettings: () => { settingsPanel.show('sessions'); },
   reportError: notify,
   restoreFocus: () => setFocus(focusedGroup()),
 });

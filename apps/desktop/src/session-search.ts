@@ -18,9 +18,10 @@ type Options = {
   indexStatus: () => Promise<IndexState>;
   indexStart: () => Promise<IndexProgress>;
   indexCancel: () => Promise<void>;
-  indexEnable: (enabled: boolean) => Promise<void>;
   indexForget: () => Promise<number>;
   openDetail: (root: SessionRootSelector, nativeId: string) => void;
+  /** Settings at its Sessions section, where indexing is allowed or stopped. */
+  openSettings: () => void;
   reportError: (message: string) => void;
   restoreFocus?: () => void;
 };
@@ -36,6 +37,7 @@ const reason = (error: unknown) => {
 };
 const mib = (bytes: number) => `${(bytes / 1048576).toFixed(1)} MiB`;
 const isRunning = (state: IndexState | null) => state?.progress.phase === 'running';
+const VERBS = { running: 'Indexing', done: 'Finished', stopped: 'Stopped', failed: 'Failed' };
 
 /** Renders «match» markers as <mark> without ever parsing the snippet as HTML. */
 export function renderSnippet(target: HTMLElement, snippet: string) {
@@ -87,12 +89,11 @@ export function createSessionSearch(options: Options) {
   const start = document.createElement('button'); start.type = 'button'; start.textContent = 'Index sessions';
   const stop = document.createElement('button'); stop.type = 'button'; stop.textContent = 'Stop';
   const forget = document.createElement('button'); forget.type = 'button'; forget.textContent = 'Forget all indexed text';
-  const enabledLabel = document.createElement('label'); enabledLabel.className = 'session-search-enabled';
-  const enabled = document.createElement('input'); enabled.type = 'checkbox'; enabled.id = 'session-search-enabled';
-  enabledLabel.append(enabled, document.createTextNode(' Indexing allowed'));
+  // Allowing indexing is a preference: it is switched in Settings, and this tool says when it is off.
+  const allow = document.createElement('button'); allow.type = 'button'; allow.id = 'session-search-allow'; allow.textContent = 'Turn on in Settings'; allow.hidden = true;
   const indexHelp = document.createElement('p'); indexHelp.className = 'hint';
   indexHelp.textContent = 'Only changed sessions are read again. Forgetting removes the indexed text only; your sessions and threads are not touched.';
-  indexTools.append(start, stop, forget, enabledLabel); indexing.append(indexSummary, indexInfo, indexTools, indexHelp);
+  indexTools.append(start, stop, forget, allow); indexing.append(indexSummary, indexInfo, indexTools, indexHelp);
 
   dialog.append(heading, description, form, status, results, indexing);
   (document.querySelector('#app') ?? document.body).append(dialog);
@@ -104,15 +105,17 @@ export function createSessionSearch(options: Options) {
     const running = isRunning(state);
     const parts: string[] = [];
     if (idx) parts.push(`${idx.documents} sessions indexed · ${idx.sourceDeleted} with deleted source · ${mib(idx.bodyBytes)}`);
-    if (progress && progress.phase !== 'idle') {
-      const verb = { running: 'Indexing', done: 'Finished', stopped: 'Stopped', failed: 'Failed', idle: '' }[progress.phase];
+    // Before the first run the backend reports no phase at all; that is idle too.
+    const verb = progress && (VERBS as Record<string, string | undefined>)[progress.phase];
+    if (progress && verb) {
       parts.push(`${verb}: ${progress.rootsDone}/${progress.rootsTotal} archives · ${progress.indexed} read · ${progress.skipped} unchanged`
         + (progress.failed ? ` · ${progress.failed} unreadable` : '') + (progress.unsupportedArchives ? ` · ${progress.unsupportedArchives} archives skipped` : ''));
       if (progress.message) parts.push(progress.message);
     }
+    if (idx && !idx.enabled) parts.unshift('Indexing is off');
     indexInfo.textContent = parts.join('. ') || 'Index not loaded yet.';
     start.disabled = busy || running || !idx?.enabled; stop.disabled = !running; forget.disabled = busy || running || !idx || idx.documents === 0;
-    enabled.checked = idx?.enabled ?? true; enabled.disabled = busy;
+    allow.hidden = !idx || idx.enabled;
     submit.disabled = busy; dialog.setAttribute('aria-busy', String(busy));
   }
   async function refresh() {
@@ -174,11 +177,13 @@ export function createSessionSearch(options: Options) {
     options.indexForget().then(() => { results.replaceChildren(); status.textContent = 'Indexed text forgotten.'; },
       error => options.reportError(reason(error))).finally(() => { busy = false; void refresh(); });
   };
-  enabled.onchange = () => {
-    if (busy) { enabled.checked = !enabled.checked; return; }
-    busy = true; const wanted = enabled.checked; renderIndex();
-    options.indexEnable(wanted).catch(error => options.reportError(reason(error))).finally(() => { busy = false; void refresh(); });
-  };
+  allow.onclick = () => options.openSettings();
+  // Settings covers this drawer while it is open; what was switched there shows when it comes back.
+  new MutationObserver(() => {
+    if (!dialog.open || dialog.hasAttribute('data-covered')) return;
+    // Focus came back to the button that opened Settings; once indexing is on it hides, and Index sessions takes its place.
+    void refresh().then(() => { if (allow.hidden && (document.activeElement === document.body || document.activeElement === allow)) start.focus(); });
+  }).observe(dialog, { attributes: true, attributeFilter: ['data-covered'] });
   function show() {
     if (destroyed) return; generation++; busy = false; status.textContent = 'Type a word and press Search.'; renderIndex();
     openModal(dialog); query.focus(); void refresh().then(() => { if (isRunning(state)) poll(); });

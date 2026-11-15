@@ -1,7 +1,9 @@
 // Settings drawer and the launch policy, in the real app with a private SHINATAMA_HOME.
-// Proves: the drawer opens with full access on, a saved token and a secret variable never come
-// back and never sit in the file as text, and the agents really start the way the switch says
-// (Claude's per-instance settings, Codex's argv). No sign-in answers or prompts are sent.
+// Proves: Settings is the one drawer for every preference (the "⋯" menu has one Settings entry and
+// no Appearance, Theme or alerts entry; its index reaches each section); the switches that apply at
+// once reach the backend; the drawer opens with full access on, a saved token and a secret variable
+// never come back and never sit in the file as text, and the agents really start the way the switch
+// says (Claude's per-instance settings, Codex's argv). No sign-in answers or prompts are sent.
 import { chromium, expect } from '@playwright/test';
 import { execFileSync, spawn } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
@@ -86,12 +88,61 @@ try {
   page.setDefaultTimeout(15000); owned = true;
   await expect(page.locator('#runtime-status')).toContainText('Local runtime');
 
-  // 1. The drawer opens, full access is on by default, and nothing is saved yet.
+  // 1. One Settings entry in the "⋯" menu, and nothing else there that is a preference.
+  await page.locator('#toolbar-more').click();
+  const menu = (await page.locator('#toolbar-more-menu > *').allTextContents()).map(text => text.trim());
+  expect(menu.filter(text => /appearance|theme|alerts/i.test(text))).toEqual([]);
+  expect(menu.filter(text => text === 'Settings')).toHaveLength(1);
+  expect(menu.at(-1)).toBe('Settings');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#toolbar-more-menu')).toBeHidden();
+  console.log('ok  the menu has one Settings entry and no separate appearance, theme or alerts entry');
+
+  // 2. The drawer opens with full access on; its index reaches every section, in order.
   await openSettings();
   await expect(page.locator('#settings-full-access')).toBeChecked();
-  console.log('ok  drawer opens with full access on');
+  const sections = ['appearance', 'agents', 'memory', 'alerts', 'github', 'variables', 'sessions'];
+  const links = page.locator('#settings-dialog .settings-index-link');
+  await expect(links).toHaveText(['Appearance', 'Agents', 'Memory', 'Alerts', 'GitHub', 'Variables', 'Sessions']);
+  for (const [index, id] of sections.entries()) {
+    await links.nth(index).click();
+    await expect(page.locator(`#settings-section-${id}-title`)).toBeFocused();
+    await expect(page.locator(`#settings-section-${id}-title`)).toBeInViewport();
+    await expect(links.nth(index)).toHaveAttribute('aria-current', 'true');
+  }
+  console.log('ok  drawer opens with full access on; the index reaches all seven sections');
 
-  // 2. Save a GitHub sign-in and two variables.
+  // 3. Switches that apply at once: activity titles, indexing and the interface zoom.
+  await expect(page.locator('#settings-titles')).toBeEnabled();
+  const titlesOn = await ipc('titles_enabled');
+  await expect(page.locator('#settings-titles')).toBeChecked({ checked: titlesOn });
+  await page.locator('#settings-titles').setChecked(!titlesOn);
+  await expect.poll(() => ipc('titles_enabled')).toBe(!titlesOn);
+  await page.locator('#settings-titles').setChecked(titlesOn);
+  await expect.poll(() => ipc('titles_enabled')).toBe(titlesOn);
+  await page.locator('#settings-indexing').uncheck();
+  await expect.poll(async () => (await ipc('session_index_status')).index.enabled).toBe(false);
+  await page.locator('#settings-zoom').selectOption('1.1');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('shinatama.zoom'))).toBe('1.1');
+  await page.locator('#settings-zoom').selectOption('1');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('shinatama.zoom'))).toBe('1');
+  await page.locator('#settings-dialog button[aria-label="Close settings"]').click();
+  // The Search index says indexing is off and opens Settings at Sessions to turn it on.
+  await page.locator('#toolbar-more').click(); await page.locator('#session-search').click();
+  await page.locator('#session-search-dialog .session-search-index summary').click();
+  await page.locator('#session-search-allow').click();
+  await expect(page.locator('#settings-section-sessions-title')).toBeFocused();
+  await expect(page.locator('#settings-indexing')).not.toBeChecked();
+  await page.locator('#settings-indexing').check();
+  await expect.poll(async () => (await ipc('session_index_status')).index.enabled).toBe(true);
+  await page.locator('#settings-dialog button[aria-label="Close settings"]').click();
+  await expect(page.locator('#session-search-dialog')).toBeVisible();
+  await expect(page.locator('#session-search-allow')).toBeHidden();
+  await page.locator('#session-search-dialog button[aria-label="Close search"]').click();
+  console.log('ok  titles, indexing and zoom apply at once; Search index leads back to Settings');
+  await openSettings();
+
+  // 4. Save a GitHub sign-in and two variables.
   await page.locator('#settings-github-user').fill('octocat');
   await page.locator('#settings-github-token').fill(TOKEN);
   for (const [name, value, secret] of [['SMOKE_PLAIN', 'visible-value', false], ['SMOKE_SECRET', SECRET, true]]) {
@@ -106,7 +157,7 @@ try {
   expect(onDisk).not.toContain(TOKEN); expect(onDisk).not.toContain(SECRET); expect(onDisk).toContain('visible-value');
   console.log('ok  saved; the token and the secret are not in the file as text');
 
-  // 3. Reopened, the page never gets the secrets back.
+  // 5. Reopened, the page never gets the secrets back.
   await page.locator('#settings-dialog button[aria-label="Close settings"]').click();
   await openSettings();
   await expect(page.locator('#settings-github-token')).toHaveValue('');
@@ -117,7 +168,7 @@ try {
   console.log('ok  reopened: the page holds no secret');
   await page.locator('#settings-dialog button[aria-label="Close settings"]').click();
 
-  // 4. Full access on: Claude's per-instance settings and Codex's argv.
+  // 6. Full access on: Claude's per-instance settings and Codex's argv.
   const claude = await sessionOf('claude_code');
   const withAccess = (await instanceSettings()).filter(settings => settings.permissions?.defaultMode === 'bypassPermissions');
   expect(withAccess.length).toBeGreaterThan(0);
@@ -141,7 +192,7 @@ try {
     console.log('ok  Codex starts without its sandbox and approvals');
     await ipc('terminal_stop', { id: codex.id });
 
-    // 5. Full access off: Codex keeps its sandbox.
+    // 7. Full access off: Codex keeps its sandbox.
     await openSettings();
     await page.locator('#settings-full-access').uncheck();
     await page.locator('#settings-save').click();

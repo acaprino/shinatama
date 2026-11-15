@@ -62,24 +62,11 @@ export function createInstancesSection(options: Options) {
   const timeline = el('ol', 'instances-timeline');
   element.append(warnings, list, timelineHeading, timeline);
 
-  // Activity titles: a setting of this view, so a quiet switch rather than a form field.
-  const settings = el('div', 'instances-options');
-  const titleSwitch = el('div', 'instances-setting');
-  const titleBox = el('input', 'instances-switch'); titleBox.type = 'checkbox'; titleBox.id = 'instances-titles'; titleBox.setAttribute('role', 'switch');
-  const titleLabel = el('label', 'instances-setting-label', 'Activity titles'); titleLabel.htmlFor = titleBox.id;
-  const titleHint = el('span', 'instances-setting-hint', 'Verbatim from the last tool call or message; nothing leaves this computer.'); titleHint.id = 'instances-titles-hint';
-  titleBox.setAttribute('aria-describedby', titleHint.id);
-  titleSwitch.append(titleBox, titleLabel, titleHint);
-  titleBox.onchange = async () => {
-    titleBox.disabled = true;
-    await options.invoke('titles_set_enabled', { enabled: titleBox.checked }).catch(() => { titleBox.checked = !titleBox.checked; });
-    titleBox.disabled = false; void load(true).catch(() => {});
-  };
   const legend = el('p', 'instances-legend');
   const certain = el('span', 'instances-legend-item'); certain.append(el('i', 'instances-marker certain'), 'Certain, from the process');
   const inferred = el('span', 'instances-legend-item'); inferred.append(el('i', 'instances-marker'), 'Inferred from the terminal');
   legend.append(certain, inferred, el('span', 'instances-legend-note', 'States come only from what Shinatama observed. Running states are unsure until native agent hooks are connected; a terminal signal never approves anything.'));
-  settings.append(titleSwitch, legend);
+  // Activity titles are switched on and off in Settings (settings-panel.ts), with every other preference.
 
   let reading = false; let drawn = ''; let revision = 0; let rows: Row[] = []; let query = '';
 
@@ -151,7 +138,6 @@ export function createInstancesSection(options: Options) {
       if (signature === drawn) return;
       drawn = signature; rows = next;
       const focused = (document.activeElement as HTMLElement | null)?.dataset?.key;
-      titleBox.checked = titles?.enabled ?? false;
       const collisions = titles?.collisions ?? [];
       warnings.hidden = !collisions.length;
       const warningList = el('ul'); warningList.append(...collisions.map(entry => collision(entry, next)));
@@ -171,7 +157,7 @@ export function createInstancesSection(options: Options) {
     } finally { if (mine === revision) reading = false; }
   }
   return {
-    element, settings, load,
+    element, legend, load,
     rows: () => rows,
     filter(text: string) { query = text; return applyFilter(); },
     /** Forgets what was drawn, so the next load paints again. */

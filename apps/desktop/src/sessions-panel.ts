@@ -22,6 +22,8 @@ type Options = {
   openDetail: (root: SessionRootSelector, nativeId: string) => void;
   /** The explicit archive browser and the search index, for what this panel does not show. */
   openArchives: () => void; openIndex: () => void;
+  /** Settings at its Sessions section: activity titles and search indexing are switched there. */
+  openSettings: () => void;
   /** The open project's folder, or null. */
   project: () => string | null;
   restoreFocus?: () => void;
@@ -70,8 +72,9 @@ export function createSessionsPanel(options: Options) {
   const advancedTools = el('div', 'sessions-options-tools');
   const archivesButton = el('button', '', 'Archive browser…'); archivesButton.type = 'button'; archivesButton.title = 'Page through one archive, group it by folder, or add a read-only archive';
   const indexButton = el('button', '', 'Search index…'); indexButton.type = 'button'; indexButton.title = 'Index your sessions, filter a search by agent or date, or forget the indexed text';
-  advancedTools.append(archivesButton, indexButton);
-  advanced.append(advancedSummary, advancedTools, instances.settings);
+  const settingsButton = el('button', '', 'Settings…'); settingsButton.type = 'button'; settingsButton.title = 'Turn activity titles or search indexing on or off';
+  advancedTools.append(archivesButton, indexButton, settingsButton);
+  advanced.append(advancedSummary, advancedTools, instances.legend);
 
   dialog.append(heading, tools, status, runningHead, runningEmpty, instances.element, savedHead, savedList, savedEmpty, more, advanced);
   (document.querySelector('#app') ?? document.body).append(dialog);
@@ -245,6 +248,7 @@ export function createSessionsPanel(options: Options) {
   }
   archivesButton.onclick = () => options.openArchives();
   indexButton.onclick = () => options.openIndex();
+  settingsButton.onclick = () => options.openSettings();
   closeButton.onclick = () => dialog.close();
   dialog.addEventListener('close', () => { clearInterval(timer); clearTimeout(notice); instances.reset(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
 
