@@ -320,7 +320,19 @@ impl PrivateStorePlan {
                     "Il percorso privato supera il limite di Windows.",
                 ));
             }
-            verify_namespace(base, &path)?;
+            if role == StorePathRole::OpenCodeDatabase {
+                // A file OpenCode creates in its home at the first start: its folder is verified
+                // like the others, and the file, once there, must be a plain file (no link, no
+                // folder). Verifying the file as a folder refused every start after the first.
+                verify_namespace(base, path.parent().ok_or_else(namespace_error)?)?;
+                match std::fs::symlink_metadata(&path) {
+                    Ok(found) if !found.file_type().is_file() => return Err(namespace_error()),
+                    Err(error) if error.kind() != io::ErrorKind::NotFound => return Err(namespace_error()),
+                    _ => {}
+                }
+            } else {
+                verify_namespace(base, &path)?;
+            }
             paths.insert(role, path);
         }
         let mut directory_paths = BTreeSet::new();
@@ -901,6 +913,27 @@ mod tests {
             directory.location.verify_private_directory().unwrap();
         }
         assert!(!fixture.location().database_path().exists());
+
+        // OpenCode creates its database at the first start; the next resolution still succeeds.
+        let database = prepared.paths().path(StorePathRole::OpenCodeDatabase).unwrap().to_path_buf();
+        drop(prepared);
+        fs::write(&database, b"synthetic database").unwrap();
+        let again = PrivateStorePlan::resolve(
+            fixture.location(),
+            AgentStoreKey::new("opencode").unwrap(),
+            PrivateStoreRequest { extra_roles: vec![StorePathRole::OpenCodeDatabase], home_path_limit: None },
+        )
+        .unwrap();
+        assert_eq!(again.paths().path(StorePathRole::OpenCodeDatabase).unwrap(), database.as_path());
+        // A folder in its place is refused.
+        fs::remove_file(&database).unwrap();
+        fs::create_dir(&database).unwrap();
+        assert!(PrivateStorePlan::resolve(
+            fixture.location(),
+            AgentStoreKey::new("opencode").unwrap(),
+            PrivateStoreRequest { extra_roles: vec![StorePathRole::OpenCodeDatabase], home_path_limit: None },
+        )
+        .is_err());
     }
 
     #[test]

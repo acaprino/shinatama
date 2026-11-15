@@ -3,8 +3,7 @@
 // theme, once with "Follow interface theme in terminals" on; the second screen is captured again
 // after a skin change. Proves Claude's per-instance `theme` and Codex's argv; the screenshots in
 // SHINATAMA_SMOKE_SHOTS show every harness (OpenCode keeps its own theme, R69). No sign-in answers
-// or prompts are sent. SHINATAMA_SMOKE_HARNESSES and SHINATAMA_SMOKE_ROUNDS (own,follow) narrow it:
-// OpenCode refuses a second start in the same home ("opencode.db ... is a file"), unrelated to this.
+// or prompts are sent. SHINATAMA_SMOKE_HARNESSES and SHINATAMA_SMOKE_ROUNDS (own,follow) narrow it.
 import { chromium, expect } from '@playwright/test';
 import { execFileSync, spawn } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
@@ -31,10 +30,12 @@ await new Promise((accept, reject) => { reservation.once('error', reject); reser
 const port = reservation.address().port;
 await new Promise((accept, reject) => reservation.close(error => error ? reject(error) : accept()));
 const app = spawn(executable, [], {
-  cwd: packageExecutable ? dirname(executable) : workspace, windowsHide: true, stdio: 'ignore',
+  cwd: packageExecutable ? dirname(executable) : workspace, windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'],
   env: { ...process.env, SHINATAMA_HOME: data, WEBVIEW2_USER_DATA_FOLDER: resolve(fixture, 'webview-profile'),
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --remote-debugging-address=127.0.0.1` },
 });
+let diagnostics = '';
+app.stderr.on('data', chunk => { diagnostics = (diagnostics + chunk).slice(-8192); });
 let browser, page, owned = false;
 const ipc = (command, args = {}) => page.evaluate(({ command, args }) => window.__TAURI_INTERNALS__.invoke(command, args), { command, args });
 const processes = name => {
@@ -137,6 +138,11 @@ try {
   }
   if (refused.length) console.log(`refused:\n  ${refused.join('\n  ')}`);
   console.log(`PASS: harness palette in real sessions; screenshots in ${shots}`);
+} catch (error) {
+  // The app's own last words, when it went away under the test.
+  console.error(`app exit ${app.exitCode} ${app.signalCode ?? ''}
+${diagnostics.slice(-3000)}`);
+  throw error;
 } finally {
   if (owned && page && !page.isClosed()) {
     try { for (const session of await ipc('terminal_list')) await ipc('terminal_stop', { id: session.id }); } catch {}
