@@ -230,6 +230,10 @@ pub struct SidebarState {
     /// Projects whose threads the sidebar lists, in order. Absent in older saves.
     #[serde(default)]
     pub active_projects: Vec<String>,
+    /// The sidebar is closed altogether (a toolbar button brings it back). Absent in older saves;
+    /// written only when set, so an older Shinatama still reads the usual states.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub hidden: bool,
 }
 impl Default for SidebarState {
     fn default() -> Self {
@@ -238,6 +242,7 @@ impl Default for SidebarState {
             width: 264,
             collapsed: false,
             active_projects: Vec::new(),
+            hidden: false,
         }
     }
 }

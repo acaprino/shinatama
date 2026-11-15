@@ -16,7 +16,7 @@ const tones = createToneKeeper();
 const A = 'p_aaaaaaaaaaaa'; const B = 'p_bbbbbbbbbbbb';
 const thread = (id, projectId, title, sessions = 1) => ({ id, projectId, title, archived: false, revision: 1, usedAt: Date.now(), sessions, open: 0, lead: null });
 const threads = { [A]: [thread('w_aaaaaaaaaaa3', A, 'Alpha one'), thread('w_aaaaaaaaaaa4', A, 'Alpha two', 3)], [B]: [thread('w_bbbbbbbbbbb3', B, 'Beta one')] };
-const log = window.__log = { saved: [], created: [], added: [], opened: [], closed: [], removed: [], renamed: [] };
+const log = window.__log = { saved: [], created: [], added: [], opened: [], closed: [], removed: [], renamed: [], modes: [] };
 const on = new Set(); const running = { w_aaaaaaaaaaa4: 2 };
 const sidebar = window.__sidebar = createWorksetSidebar({
   host: document.getElementById('host'),
@@ -35,6 +35,7 @@ const sidebar = window.__sidebar = createWorksetSidebar({
   loadState: async () => ({ version: 1, width: 264, collapsed: false, activeProjects: [B] }),
   saveState: async state => { log.saved.push(state); },
   reportError: message => { throw new Error(message); },
+  onModeChange: mode => log.modes.push(mode),
 });
 sidebar.setProjects([{ projectId: A, label: 'alpha' }, { projectId: B, label: 'beta' }]);
 sidebar.setProject({ projectId: A, label: 'alpha' });

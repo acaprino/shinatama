@@ -12,6 +12,7 @@
 <symbol id="i-file" viewBox="0 0 16 16"><path d="M3.5 1.5h6l3 3v10h-9zM9.5 1.5v3h3"/></symbol>
 <symbol id="i-link" viewBox="0 0 16 16"><path d="M3.5 1.5h6l3 3v10h-9zM9.5 1.5v3h3M6 11.5l4-4M7 7.5h3v3"/></symbol>
     <symbol id="i-layout" viewBox="0 0 16 16"><path d="M2.5 2.5h11v11h-11zM8 2.5v11"/></symbol>
+    <symbol id="i-sidebar" viewBox="0 0 16 16"><path d="M2.5 2.5h11v11h-11zM6 2.5v11M3.8 5h1M3.8 7h1M3.8 9h1"/></symbol>
     <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
     <symbol id="i-move" viewBox="0 0 16 16"><path d="M2 5.5h11M10.5 3 13 5.5 10.5 8M14 10.5H3M5.5 8 3 10.5 5.5 13"/></symbol>
     <symbol id="i-hide" viewBox="0 0 16 16"><path d="M3 8h10"/></symbol>
@@ -52,6 +53,7 @@
       </div>
     </header>
     <nav class="toolbar" aria-label="Workspace controls">
+      <button id="threads-toggle" class="threads-toggle" type="button" title="Show or close the thread sidebar" aria-label="Thread sidebar" aria-pressed="true"><svg class="icon" aria-hidden="true"><use href="#i-sidebar"/></svg></button>
       <button id="project" class="project-picker" title="Projects: tick the ones whose threads the sidebar lists"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg><span id="project-name">Projects</span><svg class="icon caret" aria-hidden="true"><use href="#i-caret"/></svg></button>
       <span class="toolbar-divider"></span><span class="workspace-name">Workspace <small id="pane-count">2 panes</small></span>
       <span class="spring"></span>

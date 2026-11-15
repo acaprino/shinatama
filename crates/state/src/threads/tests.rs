@@ -629,11 +629,17 @@ fn v3_upgrade_preserves_saved_work_and_thread_exclusivity_survives_reopen() {
             width: 320,
             collapsed: true,
             active_projects: vec![thread.project_id.clone()],
+            hidden: true,
         },
     )
     .unwrap();
     let saved = other.thread_sidebar_snapshot().unwrap().settings;
     assert_eq!(saved.width, 320);
+    assert!(saved.hidden, "a sidebar closed altogether stays closed");
+    // An older save has no `hidden`: it reads as shown; a shown sidebar writes none, as before.
+    let older: SidebarState = serde_json::from_str(r#"{"version":1,"width":264,"collapsed":false}"#).unwrap();
+    assert!(!older.hidden);
+    assert!(!serde_json::to_string(&SidebarState::default()).unwrap().contains("hidden"));
     assert_eq!(saved.active_projects, vec![thread.project_id.clone()]);
     for active_projects in [vec!["not-a-project".to_owned()], vec![thread.project_id.clone(); 2]] {
         assert!(matches!(

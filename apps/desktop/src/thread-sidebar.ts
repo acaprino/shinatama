@@ -13,7 +13,7 @@ export type ThreadListRequest = { projectId: string; cursor: ThreadCursor | null
 export type ThreadArchiveRequest = { projectId: string; threadId: string; expectedRevision: number; archived: boolean };
 export type ThreadForgetRequest = { projectId: string; threadId: string; expectedRevision: number };
 export type ThreadRenameRequest = { projectId: string; threadId: string; expectedRevision: number; title: string };
-export type ThreadSidebarState = { version: 1; width: number; collapsed: boolean; activeProjects?: string[] };
+export type ThreadSidebarState = { version: 1; width: number; collapsed: boolean; activeProjects?: string[]; hidden?: boolean };
 export type ThreadSidebarOptions = {
   host: HTMLElement;
   list: (request: ThreadListRequest) => Promise<unknown>;

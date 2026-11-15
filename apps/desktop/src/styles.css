@@ -122,6 +122,8 @@ kbd { font: 12px var(--mono); color: var(--muted); letter-spacing: 0; text-trans
 /* Toolbar */
 .toolbar { display: flex; align-items: center; gap: 8px; padding: 0 10px; border-bottom: 1px solid var(--line); background: var(--chrome-2); }
 .project-picker { max-width: 280px; background: var(--surface); border-color: var(--line-strong); }
+.threads-toggle { padding: 0 8px; }
+.threads-toggle[aria-pressed=true] { color: var(--accent); border-color: var(--line-strong); }
 .project-picker .icon:first-child { color: var(--accent); }
 #project-name { overflow: hidden; text-overflow: ellipsis; font: 13px var(--mono); letter-spacing: 0; text-transform: none; }
 .caret, .muted { color: var(--muted); }

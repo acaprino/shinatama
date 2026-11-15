@@ -9,6 +9,8 @@ export type WorksetSummary = {
   id: string; projectId: string; title: string | null; archived: boolean; revision: number;
   usedAt: number; sessions: number; open: number; lead: WorksetLead | null;
 };
+/** Full list, a narrow rail of one square per thread, or no sidebar at all. */
+export type SidebarMode = 'open' | 'compact' | 'hidden';
 export type WorksetUpdate = { worksetId: string; expectedRevision: number; title?: string; archived?: boolean };
 export type WorksetSidebarOptions = {
   host: HTMLElement;
@@ -23,6 +25,8 @@ export type WorksetSidebarOptions = {
   onOpen: (thread: Readonly<WorksetSummary>) => Promise<boolean>;
   /** Turns the thread off: its tabs leave the window, its sessions keep running. */
   onClose?: (thread: Readonly<WorksetSummary>) => Promise<boolean>;
+  /** The sidebar was shown, made compact or closed: `mode` is what it is now. */
+  onModeChange?: (mode: SidebarMode) => void;
   /** Whether the thread is on. Without it, only `openId` is. */
   isOn?: (worksetId: string) => boolean;
   /** The thread the actions below the list apply to. */
@@ -81,7 +85,8 @@ function stateValue(value: unknown): ThreadSidebarState | null {
   if (!record(value) || value.version !== 1 || !integer(value.width) || value.width < MIN_WIDTH || value.width > MAX_WIDTH || typeof value.collapsed !== 'boolean') return null;
   const listed = value.activeProjects ?? [];
   if (!Array.isArray(listed) || listed.length > MAX_ACTIVE || !listed.every(projectId) || new Set(listed).size !== listed.length) return null;
-  return { version: 1, width: value.width, collapsed: value.collapsed, activeProjects: [...listed] };
+  if (value.hidden !== undefined && typeof value.hidden !== 'boolean') return null;
+  return { version: 1, width: value.width, collapsed: value.collapsed, activeProjects: [...listed], ...(value.hidden ? { hidden: true } : {}) };
 }
 function failureText(error: unknown, doing: string) {
   const code = typeof error === 'string' ? error : record(error) ? error.code ?? error.issue : null;
@@ -105,7 +110,11 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   const element = node('aside', 'thread-sidebar'); element.setAttribute('aria-label', 'Project threads');
   const heading = node('header', 'thread-sidebar-heading'); const collapse = node('button', 'thread-sidebar-toggle'); collapse.type = 'button';
   collapse.setAttribute('aria-controls', 'thread-sidebar-body');
-  heading.append(node('h2', '', 'Threads'), collapse);
+  const close = node('button', 'thread-sidebar-close', '×'); close.type = 'button';
+  close.title = 'Close the thread sidebar (the Threads button brings it back)'; close.setAttribute('aria-label', 'Close the thread sidebar');
+  heading.append(node('h2', '', 'Threads'), collapse, close);
+  // Compact: one square per thread, its colour when on; a click turns it on or off.
+  const rail = node('ul', 'thread-sidebar-rail'); rail.setAttribute('aria-label', 'Threads');
   const body = node('div', 'thread-sidebar-body'); body.id = 'thread-sidebar-body';
   const showArchivedLabel = node('label', 'thread-sidebar-archived-toggle'); const showArchived = node('input', ''); showArchived.type = 'checkbox';
   showArchivedLabel.append(showArchived, ' Show archived threads'); showArchivedLabel.hidden = !options.update;
@@ -130,7 +139,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   const separator = node('div', 'thread-sidebar-resize'); separator.tabIndex = 0; separator.setAttribute('role', 'separator');
   separator.setAttribute('aria-label', 'Thread sidebar width'); separator.setAttribute('aria-orientation', 'vertical');
   separator.setAttribute('aria-valuemin', String(MIN_WIDTH)); separator.setAttribute('aria-valuemax', String(MAX_WIDTH));
-  element.append(heading, body, separator); options.host.append(element);
+  element.append(heading, rail, body, separator); options.host.append(element);
 
   let display: ThreadSidebarState = { version: 1, width: 264, collapsed: false };
   /** `active`: the projects listed, in order; `currentProject`: the toolbar's project, marked among them. */
@@ -144,6 +153,8 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   let message = NO_PROJECTS; let failed = false;
   let editing = false; let removeArmed = 0; let forgetting: string | null = null; let saveTimer = 0; let changeTimer = 0;
   /** The thread whose settings are open under its row, and its closed sessions as last read. */
+  /** The mode last reported to `onModeChange`, also after the saved display is restored. */
+  let shownMode: SidebarMode = 'open';
   let expanded: string | null = null; let closedOf: { id: string; rows: readonly { id: string; name: string; updatedAt: number }[] } | null = null;
   let drag: { pointer: number; x: number; before: ThreadSidebarState } | null = null;
   const anchors = new Map<string, HTMLLIElement>();
@@ -177,14 +188,19 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
       finally { naming = false; }
     })();
   }
-  const namesTimer = window.setInterval(() => { if (!display.collapsed) requestNames(); }, 15000);
+  const namesTimer = window.setInterval(() => { if (!display.hidden) requestNames(); }, 15000);
 
   function render() {
     if (destroyed) return;
+    element.hidden = !!display.hidden;
     element.classList.toggle('is-collapsed', display.collapsed); element.style.setProperty('--thread-sidebar-width', `${display.width}px`);
-    body.hidden = display.collapsed; separator.hidden = display.collapsed; separator.setAttribute('aria-valuenow', String(display.width));
+    body.hidden = display.collapsed; rail.hidden = !display.collapsed; separator.hidden = display.collapsed; separator.setAttribute('aria-valuenow', String(display.width));
     collapse.textContent = display.collapsed ? '›' : '‹'; collapse.setAttribute('aria-label', display.collapsed ? 'Expand threads' : 'Collapse threads');
+    collapse.title = display.collapsed ? 'Show the full thread list' : 'Make the sidebar narrow: one square per thread';
     collapse.setAttribute('aria-expanded', String(!display.collapsed));
+    if (display.collapsed && !display.hidden) renderRail();
+    const now = display.hidden ? 'hidden' : display.collapsed ? 'compact' : 'open';
+    if (now !== shownMode) { shownMode = now; options.onModeChange?.(now); }
     showArchived.disabled = busy || !active.length; showArchived.checked = archivedView;
     body.setAttribute('aria-busy', String(busy)); status.textContent = message; status.dataset.state = failed ? 'error' : 'ready'; status.hidden = !message;
     const retained = new Set(rows.map(row => row.id));
@@ -242,6 +258,34 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
       item.append(name, restore, forget); return item;
     }));
     requestNames();
+  }
+  /** Two letters for a square: the first of the first two words, or the first two of one word. */
+  const initials = (name: string) => {
+    const words = name.match(/[\p{L}\p{N}]+/gu) ?? [];
+    const [first = '', second] = words; const letters = second ? first.slice(0, 1) + second.slice(0, 1) : first.slice(0, 2);
+    return (letters || '·').toUpperCase();
+  };
+  /** The compact rail: per listed project a line, then one square per thread with its initials. */
+  function renderRail() {
+    const items: HTMLElement[] = [];
+    active.forEach((project, index) => {
+      const group = groups.get(project); if (!group) return;
+      if (index > 0) items.push(node('li', 'thread-sidebar-rail-line'));
+      for (const row of group.rows) {
+        const item = node('li', ''); const square = node('button', 'thread-sidebar-rail-item'); square.type = 'button';
+        const name = shownTitle(row); const on = isOn(row.id); const tone = options.tone?.(row.id);
+        square.textContent = initials(name);
+        square.setAttribute('aria-pressed', String(on)); square.disabled = busy;
+        if (tone) square.style.setProperty('--thread-tone', tone);
+        const running = options.running(row.id);
+        square.title = `${name} · ${labelOf(project)}${running ? ` · ${running} running` : ''}\n${on ? 'Click to hide its tabs' : 'Click to show its tabs'}`;
+        square.setAttribute('aria-label', `${name}, ${labelOf(project)}`);
+        square.toggleAttribute('data-attention', options.attention?.(row.id) === true);
+        square.onclick = () => { const actual = rows.find(candidate => candidate.id === row.id); if (actual) void openThread(actual); };
+        item.append(square); items.push(item);
+      }
+    });
+    rail.replaceChildren(...items);
   }
   function threadItem(row: WorksetSummary): HTMLLIElement {
     let item = anchors.get(row.id);
@@ -452,12 +496,21 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     event.preventDefault(); display.width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, width)); changedDisplay();
   };
   collapse.onclick = () => { cancelDrag(); display.collapsed = !display.collapsed; changedDisplay(); };
+  close.onclick = () => { cancelDrag(); setMode('hidden'); };
+  const mode = (): SidebarMode => display.hidden ? 'hidden' : display.collapsed ? 'compact' : 'open';
+  /** Shows the sidebar full or compact, or closes it; saved with the rest of its display. */
+  function setMode(next: SidebarMode) {
+    if (next === mode()) return;
+    display = { ...display, hidden: next === 'hidden' ? true : undefined, collapsed: next === 'hidden' ? display.collapsed : next === 'compact' };
+    if (!display.hidden) delete display.hidden;
+    changedDisplay();
+  }
 
   render();
   if (options.loadState) void options.loadState().then(value => {
     if (destroyed || value === null) return;
     const restored = stateValue(value); if (!restored) return;
-    if (!drag) display = { version: 1, width: restored.width, collapsed: restored.collapsed };
+    if (!drag) display = { version: 1, width: restored.width, collapsed: restored.collapsed, ...(restored.hidden ? { hidden: true } : {}) };
     const saved = restored.activeProjects ?? [];
     setActive([...saved, ...active.filter(id => !saved.includes(id))], false);
   }).catch(() => { if (!destroyed) options.reportError('Sidebar display could not be restored. Default dimensions are in use.'); })
@@ -466,6 +519,9 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     element, setProject, setProjects, currentProjectId: (): string | null => currentProject,
     activeIds: (): readonly string[] => [...active],
     toggleActive(id: string) { if (!destroyed) setActive(active.includes(id) ? active.filter(other => other !== id) : [...active, id]); },
+    mode, setMode,
+    /** Whether the sidebar comes back compact when it is shown again. */
+    compactWhenShown: (): boolean => display.collapsed,
     /** Repaints counts and the open mark; reads nothing. */
     repaint: render,
     /** A saved change somewhere: read the list again, once, shortly. */

@@ -50,3 +50,18 @@
 .thread-sidebar-closed-head[hidden] { display: none; }
 .thread-sidebar-warning { margin: 0; color: var(--error); font-size: 12px; }
 @media (prefers-reduced-motion: reduce) { .thread-sidebar-switch { transition: none; } }
+
+/* Three ways to show the sidebar: full, compact (a rail of squares), closed. */
+.thread-sidebar[hidden] { display: none; }
+.thread-sidebar.is-collapsed { width: 48px; min-width: 48px; max-width: 48px; flex-basis: 48px; }
+.thread-sidebar.is-collapsed .thread-sidebar-heading { flex-direction: column; gap: 4px; padding: 6px 4px; }
+.thread-sidebar-close { width: 28px; padding: 0; font-size: 15px; color: var(--muted); }
+.thread-sidebar-close:hover { color: var(--error); }
+.thread-sidebar-rail { display: flex; flex: 1; flex-direction: column; align-items: center; gap: 5px; min-height: 0; margin: 0; padding: 8px 0; overflow: auto; list-style: none; scrollbar-width: none; }
+.thread-sidebar-rail[hidden] { display: none; }
+.thread-sidebar-rail-line { width: 22px; margin: 3px 0; border-top: 1px solid var(--line-strong); }
+.thread-sidebar-rail-item { position: relative; width: 30px; min-height: 30px; height: 30px; padding: 0; border: 1px solid var(--line-strong); background: transparent; color: var(--text-2); font: 600 12px var(--mono); letter-spacing: 0; text-transform: none; transition: background-color var(--fast) var(--ease-out), border-color var(--fast) var(--ease-out); }
+.thread-sidebar-rail-item:hover { border-color: var(--thread-tone, var(--text-2)); color: var(--text); }
+.thread-sidebar-rail-item[aria-pressed=true] { border-color: var(--thread-tone, var(--accent)); background: var(--thread-tone, var(--accent)); color: var(--accent-ink); }
+.thread-sidebar-rail-item[data-attention]::after { content: ''; position: absolute; top: -3px; right: -3px; width: 7px; height: 7px; background: var(--warning); }
+@media (prefers-reduced-motion: reduce) { .thread-sidebar-rail-item { transition: none; } }

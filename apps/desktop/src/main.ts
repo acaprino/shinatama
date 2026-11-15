@@ -944,8 +944,14 @@ threadSidebar = createWorksetSidebar({
     sidebarRevision = snapshot.revision;
   } : undefined,
   reportError: notify,
+  onModeChange: mode => { $('#threads-toggle').setAttribute('aria-pressed', String(mode !== 'hidden')); },
 });
 $('#work-area').prepend(threadSidebar.element);
+// The thread sidebar can be closed altogether; this button brings it back as it was (full or compact).
+$('#threads-toggle').onclick = () => {
+  if (!threadSidebar) return;
+  threadSidebar.setMode(threadSidebar.mode() === 'hidden' ? (threadSidebar.compactWhenShown() ? 'compact' : 'open') : 'hidden');
+};
 async function loadHarnessCatalog(): Promise<boolean> {
   if (!desktop || harnessCatalogLoaded) return true;
   if (harnessCatalogLoading) return harnessCatalogLoading;

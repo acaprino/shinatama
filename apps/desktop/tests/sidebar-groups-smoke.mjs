@@ -86,6 +86,26 @@ try {
   await page.evaluate(() => window.__sidebar.toggleActive('p_bbbbbbbbbbbb'));
   passed.push('× and the Project menu tick remove and add a project, and the threads of a removed project are turned off');
 
+  // Compact: one square per thread, a click turns it on; closed: no sidebar; shown again as it was.
+  await page.getByRole('button', { name: 'Collapse threads', exact: true }).click();
+  const squares = page.locator('.thread-sidebar-rail-item');
+  await expect(squares).toHaveCount(3);
+  await expect(squares).toHaveText(['AO', 'AT', 'BO']);
+  await squares.nth(1).click();
+  await expect(squares.nth(1)).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(async () => squares.nth(1).evaluate(item => getComputedStyle(item).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
+  await shot('sidebar-compact');
+  await page.getByRole('button', { name: 'Close the thread sidebar', exact: true }).click();
+  await expect(page.locator('.thread-sidebar')).toBeHidden();
+  await expect.poll(async () => (await log()).saved.at(-1)?.hidden).toBe(true);
+  await page.evaluate(() => window.__sidebar.setMode(window.__sidebar.compactWhenShown() ? 'compact' : 'open'));
+  await expect(squares).toHaveCount(3);
+  await page.getByRole('button', { name: 'Expand threads', exact: true }).click();
+  await expect(page.locator('.thread-sidebar-list')).toBeVisible();
+  expect((await log()).modes).toEqual(['compact', 'hidden', 'compact', 'open']);
+  await expect.poll(async () => (await log()).saved.at(-1)).toMatchObject({ collapsed: false });
+  passed.push('the sidebar goes compact (a square per thread), closes altogether and comes back as it was; each is saved');
+
   expect(errors).toEqual([]);
   console.log(passed.map(line => `ok - ${line}`).join('\n'));
 } catch (error) {
