@@ -8,6 +8,8 @@
 #settings-dialog .settings-var { display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 1fr) auto auto; gap: 8px; align-items: center; }
 #settings-dialog .settings-secret { display: flex; gap: 6px; align-items: center; margin: 0; font: 12px var(--mono); letter-spacing: 0; text-transform: none; color: var(--text-2); white-space: nowrap; }
 #settings-dialog .settings-secret input { width: auto; height: auto; }
+#settings-dialog #settings-memory-margin { max-width: 10rem; }
+#settings-dialog #settings-memory-margin:disabled { opacity: .5; }
 #settings-dialog .settings-status { min-height: 1.6em; margin: 0; font-size: 13px; color: var(--text-2); overflow-wrap: anywhere; }
 #settings-dialog .settings-status[data-tone="error"] { color: var(--error); }
 @media (max-width: 1000px) { #settings-dialog .settings-var { grid-template-columns: minmax(0, 1fr) auto auto; } #settings-dialog .settings-var input:nth-child(2) { grid-column: 1 / -1; grid-row: 2; } }

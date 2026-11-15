@@ -496,9 +496,22 @@ fn prepare_box(
         AgentStoreKey::new(harness).map_err(|_| "The private agent namespace is invalid.")?,
         request,
     )
-    .map_err(
-        |_| "The boxed home failed local/private path verification. No system home was used.",
-    )?;
+    .map_err(|error| -> &'static str {
+        // Say which check refused: the bare sentence left nothing to act on. The cause is
+        // bounded and control-free; the one-off text is leaked (a refusal is rare).
+        let cause: String = error
+            .to_string()
+            .chars()
+            .filter(|ch| !ch.is_control())
+            .take(240)
+            .collect();
+        Box::leak(
+            format!(
+                "The boxed home failed local/private path verification ({cause}). No system home was used."
+            )
+            .into_boxed_str(),
+        )
+    })?;
     // Inspect the authoritative binding BEFORE prepare() can recreate a child.
     // A missing or disconnected home needs an explicit reconnect, preserving its
     // previous identity and native session references.

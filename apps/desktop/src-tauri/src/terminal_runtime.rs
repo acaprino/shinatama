@@ -6,14 +6,15 @@ use anyhow::{Context, Result, anyhow, bail};
 use shinatama_engine::native_launch::NativeTuiPermit;
 use shinatama_engine::resources::{
     admission::{
-        AdmissionCoordinator, CleanupStatus, PrepareRequest, PreparedWorkload, QueueStatus,
+        AdmissionCoordinator, AdmissionError, CleanupStatus, PrepareRequest, PreparedWorkload,
+        QueueStatus,
     },
     job::{JobBudget, JobSnapshot, OwnedJobKey},
     monitor::ResourceMonitor,
     sampling::{Measurement, ProcessKey},
 };
 use shinatama_state::resource_reservations::{
-    Budget, PolicyStamp, ReservationPolicy, ReservationState,
+    Budget, PolicyStamp, ReservationError, ReservationPolicy, ReservationSnapshot, ReservationState,
 };
 use shinatama_state::{database::Database, location::StorageLocation};
 use shinatama_terminal::{
@@ -34,12 +35,20 @@ use std::{
 const MIB: u64 = 1024 * 1024;
 const GIB: u64 = 1024 * MIB;
 const LEASE_MS: i64 = 300_000;
+/// Native workloads open at once: the proxy, every harness session and shell, and the
+/// short helpers (probes, session reads). The ledger only counts them: memory, processes
+/// and CPU of an interactive terminal are advisory, and every start is still gated on the
+/// measured free RAM and commit (`check_start_headroom`).
+const MAX_WORKLOADS: u8 = 32;
+/// Sized for MAX_WORKLOADS at PER_SLOT, except CPU, which cannot exceed one machine.
+/// The previous 4 GiB / 8 slots refused a third harness session plus a shell on any PC,
+/// whatever its free memory ("Terminal admission was refused: Ledger(Capacity)").
 const MAX_TOTAL: Budget = Budget {
-    memory_bytes: 4 * GIB,
-    processes: 128,
-    cpu_basis_points: 8000,
-    queue_bytes: 32 * MIB,
-    queue_items: 8192,
+    memory_bytes: 32 * GIB,
+    processes: 1024,
+    cpu_basis_points: 10_000,
+    queue_bytes: 256 * MIB,
+    queue_items: 65_536,
 };
 const PER_SLOT: Budget = Budget {
     memory_bytes: GIB,
@@ -51,7 +60,8 @@ const PER_SLOT: Budget = Budget {
 const TERMINAL: Budget = Budget {
     memory_bytes: 512 * MIB,
     processes: 8,
-    cpu_basis_points: 1000,
+    // A shell has no CPU rate control (advisory); this is only its share of the ledger.
+    cpu_basis_points: 250,
     queue_bytes: 4 * MIB,
     queue_items: 512,
 };
@@ -68,6 +78,91 @@ fn stamp() -> PolicyStamp {
         version: 1,
         id: "windows.native.v1".into(),
     }
+}
+fn policy() -> ReservationPolicy {
+    ReservationPolicy {
+        stamp: stamp(),
+        aggregate_ceiling: MAX_TOTAL,
+        per_slot_ceiling: PER_SLOT,
+        max_slots: MAX_WORKLOADS,
+        max_lease_ms: LEASE_MS as u32,
+    }
+}
+/// A policy stored by an earlier version: 8 workloads and 4 GiB, or the even older
+/// "half the free memory at first launch" (between 1 and 4 GiB). Its reservations keep it
+/// until they are released; then it is replaced by the current one.
+fn is_previous_policy(previous: &ReservationPolicy) -> bool {
+    let ceiling = previous.aggregate_ceiling;
+    previous.stamp == stamp()
+        && previous.per_slot_ceiling == PER_SLOT
+        && previous.max_slots == 8
+        && previous.max_lease_ms == LEASE_MS as u32
+        && (GIB..=4 * GIB).contains(&ceiling.memory_bytes)
+        && ceiling.processes == 128
+        && ceiling.cpu_basis_points == 8000
+        && ceiling.queue_bytes == 32 * MIB
+        && ceiling.queue_items == 8192
+}
+/// Names what is full instead of a bare `Ledger(Capacity)`: this is Shinatama's own count
+/// of open workloads, not a shortage measured on Windows.
+fn capacity_refusal(ledger: &ReservationSnapshot, budget: Budget) -> String {
+    let policy = &ledger.policy;
+    let limit = policy.aggregate_ceiling;
+    let used = ledger.reserved_total().unwrap_or(limit);
+    let over = |used: u64, request: u64, limit: u64| used.saturating_add(request) > limit;
+    let mut full = Vec::new();
+    if ledger.slots.len() >= usize::from(policy.max_slots) {
+        full.push(format!(
+            "{} of {} workloads",
+            ledger.slots.len(),
+            policy.max_slots
+        ));
+    }
+    if over(used.memory_bytes, budget.memory_bytes, limit.memory_bytes) {
+        full.push(format!(
+            "memory {} of {} MiB",
+            used.memory_bytes / MIB,
+            limit.memory_bytes / MIB
+        ));
+    }
+    if over(
+        used.cpu_basis_points.into(),
+        budget.cpu_basis_points.into(),
+        limit.cpu_basis_points.into(),
+    ) {
+        full.push(format!(
+            "CPU {}% of {}%",
+            used.cpu_basis_points / 100,
+            limit.cpu_basis_points / 100
+        ));
+    }
+    if over(
+        used.processes.into(),
+        budget.processes.into(),
+        limit.processes.into(),
+    ) {
+        full.push(format!(
+            "processes {} of {}",
+            used.processes, limit.processes
+        ));
+    }
+    if over(used.queue_bytes, budget.queue_bytes, limit.queue_bytes)
+        || over(
+            used.queue_items.into(),
+            budget.queue_items.into(),
+            limit.queue_items.into(),
+        )
+    {
+        full.push("output buffers".into());
+    }
+    if full.is_empty() {
+        full.push("changed while starting".into());
+    }
+    format!(
+        "Shinatama's budget for concurrent sessions is full ({}; {} open): close a session or terminal you no longer use",
+        full.join(", "),
+        ledger.slots.len()
+    )
 }
 /// Releases the reservations whose owning Shinatama process is gone (exact pid and
 /// creation time no longer match) and whose job is certified gone: either its name no
@@ -221,7 +316,7 @@ impl Runtime {
                 monitor,
                 governor,
                 coordinator: OnceLock::new(),
-                approved: Mutex::new(Vec::with_capacity(8)),
+                approved: Mutex::new(Vec::with_capacity(usize::from(MAX_WORKLOADS))),
                 closing: AtomicBool::new(false),
             }),
             configured: OnceLock::new(),
@@ -311,8 +406,8 @@ impl Approved {
         // Memory, process count and CPU are advisory for an interactive terminal:
         // a coding agent's `npm ci` or test run takes dozens of processes. Only the
         // output queues, which bound Shinatama's own memory, stop the terminal.
-        let process_cap = self.native.limits_enforced()
-            && job.active_processes > self.native.max_processes();
+        let process_cap =
+            self.native.limits_enforced() && job.active_processes > self.native.max_processes();
         if process_cap
             || queues.current_bytes > self.queue_bytes
             || queues.current_items > self.queue_items
@@ -329,6 +424,7 @@ fn check_start_headroom(
     budget: Budget,
     ledger: &shinatama_state::resource_reservations::ReservationSnapshot,
     mode: AdmissionMode,
+    margin: u64,
 ) -> Result<()> {
     if mode != AdmissionMode::Background {
         // These are small startup estimates, not lifetime limits. Available
@@ -341,13 +437,15 @@ fn check_start_headroom(
             .filter(|slot| slot.state == ReservationState::Reserved)
             .map(|slot| startup_allowance(slot.budget))
             .sum();
-        let required = startup + pending + 128 * MIB;
+        let required = startup + pending + margin;
         if physical < required || commit < required {
             bail!(
-                "Not enough memory to open another terminal: {} MiB RAM and {} MiB allocatable are available; {} MiB are needed for startup and margin. Existing terminals keep running.",
+                "not enough free memory: {} MiB RAM and {} MiB allocatable are available, {} MiB are needed ({} MiB to start plus the {} MiB margin set in Settings > Memory safety). Running sessions are not affected",
                 physical / MIB,
                 commit / MIB,
-                required / MIB
+                required / MIB,
+                (startup + pending) / MIB,
+                margin / MIB
             );
         }
         return Ok(());
@@ -386,7 +484,7 @@ impl Admission {
             AdmissionMode::Interactive,
         )?;
         let registered = match self.approved.try_lock() {
-            Ok(mut approved) if approved.len() < 8 => {
+            Ok(mut approved) if approved.len() < usize::from(MAX_WORKLOADS) => {
                 let native = workload
                     .applied_budget()
                     .context("Native terminal limits are unavailable.")?;
@@ -413,6 +511,11 @@ impl Admission {
         if self.closing.load(Ordering::Acquire) {
             bail!("This application is closing; new starts are disabled.");
         }
+        if !crate::memory_settings::current().enabled {
+            // Memory safety is off in Settings: no start waits for, or is refused on,
+            // memory measurements. The workload count in the ledger still applies.
+            return Ok((u64::MAX, u64::MAX));
+        }
         if !interactive {
             let decision = self
                 .governor
@@ -434,7 +537,7 @@ impl Admission {
         let frame = monitor
             .current()
             .map_err(|_| anyhow!("Resource measurements are busy; retry explicitly."))?
-            .context("Resource measurements are not ready.")?;
+            .context("memory measurements are not ready yet")?;
         if (!interactive && !frame.complete())
             || !matches!(
                 status.phase,
@@ -446,7 +549,9 @@ impl Admission {
                 .checked_sub(frame.completed_at_ms)
                 .is_none_or(|age| age > 3000)
         {
-            bail!("Resource measurements are incomplete or stale; new terminals are deferred.");
+            bail!(
+                "memory measurements are incomplete or stale (Settings > Memory safety can turn this check off)"
+            );
         }
         let aggregate = frame
             .aggregate
@@ -457,7 +562,9 @@ impl Admission {
             .checked_sub(aggregate.at_ms)
             .is_none_or(|age| age > 3000)
         {
-            bail!("System memory measurements are stale; new terminals are deferred.");
+            bail!(
+                "system memory measurements are stale (Settings > Memory safety can turn this check off)"
+            );
         }
         let physical = match aggregate.system {
             Measurement::Available(system) => system.physical_available_bytes,
@@ -494,49 +601,36 @@ impl Admission {
             None => {
                 // The ledger bounds concurrent profiles; it does not allocate
                 // their maximum memory or require it all to be currently free.
-                database.initialize_resource_policy(&ReservationPolicy {
-                    stamp: stamp(),
-                    aggregate_ceiling: MAX_TOTAL,
-                    per_slot_ceiling: PER_SLOT,
-                    max_slots: 8,
-                    max_lease_ms: LEASE_MS as u32,
-                })?
+                database.initialize_resource_policy(&policy())?
             }
         };
         // A Shinatama that crashed or was killed never released its reservations, and
         // nothing else does: after a few such exits every Open was refused for capacity.
         let mut ledger = reclaim_orphaned_reservations(database, ledger);
-        let policy = &ledger.policy;
-        if policy.stamp != stamp()
-            || policy.per_slot_ceiling != PER_SLOT
-            || policy.max_slots != 8
-            || policy.max_lease_ms != LEASE_MS as u32
-            || policy.aggregate_ceiling.memory_bytes > MAX_TOTAL.memory_bytes
-            || policy.aggregate_ceiling.memory_bytes < GIB
-            || policy.aggregate_ceiling.processes != MAX_TOTAL.processes
-            || policy.aggregate_ceiling.cpu_basis_points != MAX_TOTAL.cpu_basis_points
-            || policy.aggregate_ceiling.queue_bytes != MAX_TOTAL.queue_bytes
-            || policy.aggregate_ceiling.queue_items != MAX_TOTAL.queue_items
-        {
-            bail!("The shared resource policy differs; no limit was raised.");
-        }
-        if ledger.slots.is_empty() && policy.aggregate_ceiling.memory_bytes < MAX_TOTAL.memory_bytes
-        {
-            // Older versions froze the ledger at half the free memory on first
-            // launch. Migrate that exact known policy only after every previous
-            // reservation has been released; never change an active job's budget.
-            let replacement = ReservationPolicy {
-                aggregate_ceiling: MAX_TOTAL,
-                ..policy.clone()
-            };
-            ledger =
-                database.replace_empty_resource_policy(policy, ledger.revision, &replacement)?;
+        if ledger.policy != policy() {
+            if !is_previous_policy(&ledger.policy) {
+                bail!("The shared resource policy differs; no limit was raised.");
+            }
+            if ledger.slots.is_empty() {
+                // Replace an earlier version's smaller budget only after every previous
+                // reservation has been released; never change an active job's budget.
+                // Until then the reservations made under it keep its lower limits.
+                let previous = ledger.policy.clone();
+                ledger = database.replace_empty_resource_policy(
+                    &previous,
+                    ledger.revision,
+                    &policy(),
+                )?;
+            }
         }
         let policy = &ledger.policy;
-        check_start_headroom(physical, commit, budget, &ledger, mode)?;
+        let margin = u64::from(crate::memory_settings::current().margin_mib) * MIB;
+        check_start_headroom(physical, commit, budget, &ledger, mode, margin)?;
         let coordinator = self
             .coordinator
-            .get_or_init(|| AdmissionCoordinator::new(8).map_err(|e| format!("{e:?}")))
+            .get_or_init(|| {
+                AdmissionCoordinator::new(usize::from(MAX_WORKLOADS)).map_err(|e| format!("{e:?}"))
+            })
             .as_ref()
             .map_err(|e| anyhow!(e.clone()))?;
         let now = now_ms()?;
@@ -557,7 +651,12 @@ impl Admission {
                 lease_expires_at_ms: now + lease_ms,
             },
         )
-        .map_err(|e| anyhow!("Terminal admission was refused: {e:?}"))?;
+        .map_err(|e| match e {
+            AdmissionError::Ledger(ReservationError::Capacity) => {
+                anyhow!(capacity_refusal(&ledger, budget))
+            }
+            e => anyhow!("Terminal admission was refused: {e:?}"),
+        })?;
         Ok(workload)
     }
 }
@@ -724,7 +823,7 @@ mod memory_tests {
                 stamp: stamp(),
                 aggregate_ceiling: MAX_TOTAL,
                 per_slot_ceiling: PER_SLOT,
-                max_slots: 8,
+                max_slots: MAX_WORKLOADS,
                 max_lease_ms: LEASE_MS as u32,
             },
             slots: vec![],
@@ -749,6 +848,58 @@ mod memory_tests {
     }
 
     #[test]
+    fn current_policy_is_valid_and_admits_many_sessions_with_shells() {
+        let policy = policy();
+        assert!(policy.per_slot_ceiling.memory_bytes <= policy.aggregate_ceiling.memory_bytes);
+        assert!(policy.aggregate_ceiling.cpu_basis_points <= 10_000);
+        assert!(usize::from(policy.max_slots) <= shinatama_state::resource_reservations::MAX_SLOTS);
+        // The proxy (2000), six harness sessions (1000 each), two shells and a session read.
+        let cpu = 2000 + 6 * 1000 + 2 * u32::from(TERMINAL.cpu_basis_points) + 1000;
+        assert!(cpu <= u32::from(MAX_TOTAL.cpu_basis_points));
+        let memory = GIB + 6 * GIB + 2 * TERMINAL.memory_bytes + GIB;
+        assert!(memory <= MAX_TOTAL.memory_bytes);
+    }
+
+    #[test]
+    fn earlier_policies_are_recognized_for_replacement_and_others_are_not() {
+        let mut previous = policy();
+        previous.max_slots = 8;
+        previous.aggregate_ceiling = Budget {
+            memory_bytes: 4 * GIB,
+            processes: 128,
+            cpu_basis_points: 8000,
+            queue_bytes: 32 * MIB,
+            queue_items: 8192,
+        };
+        assert!(is_previous_policy(&previous));
+        previous.aggregate_ceiling.memory_bytes = 3 * GIB;
+        assert!(
+            is_previous_policy(&previous),
+            "half the free memory at first launch"
+        );
+        previous.aggregate_ceiling.memory_bytes = 5 * GIB;
+        assert!(!is_previous_policy(&previous));
+        assert!(!is_previous_policy(&policy()));
+        let mut foreign = policy();
+        foreign.stamp.id = "other".into();
+        assert!(!is_previous_policy(&foreign));
+    }
+
+    #[test]
+    fn capacity_refusal_names_what_is_full_without_blaming_windows() {
+        let mut ledger = ledger();
+        ledger.policy.max_slots = 2;
+        ledger.slots = vec![
+            slot(ReservationState::Active),
+            slot(ReservationState::Active),
+        ];
+        let message = capacity_refusal(&ledger, TERMINAL);
+        assert!(message.contains("2 of 2 workloads"), "{message}");
+        assert!(!message.contains("Ledger("), "{message}");
+        assert!(!message.contains("Windows"), "{message}");
+    }
+
+    #[test]
     fn shell_can_start_with_256_mib_available_without_reserving_gigabytes() {
         assert!(
             check_start_headroom(
@@ -756,7 +907,8 @@ mod memory_tests {
                 256 * MIB,
                 TERMINAL,
                 &ledger(),
-                AdmissionMode::Interactive
+                AdmissionMode::Interactive,
+                128 * MIB,
             )
             .is_ok()
         );
@@ -775,7 +927,8 @@ mod memory_tests {
                 256 * MIB,
                 TERMINAL,
                 &ledger,
-                AdmissionMode::Interactive
+                AdmissionMode::Interactive,
+                128 * MIB,
             )
             .is_ok()
         );
@@ -790,7 +943,8 @@ mod memory_tests {
                     commit,
                     TERMINAL,
                     &ledger(),
-                    AdmissionMode::Interactive
+                    AdmissionMode::Interactive,
+                    128 * MIB,
                 )
                 .is_err()
             );
@@ -807,7 +961,8 @@ mod memory_tests {
                 256 * MIB,
                 TERMINAL,
                 &ledger,
-                AdmissionMode::Interactive
+                AdmissionMode::Interactive,
+                128 * MIB,
             )
             .is_err()
         );
@@ -817,10 +972,31 @@ mod memory_tests {
                 512 * MIB,
                 TERMINAL,
                 &ledger,
-                AdmissionMode::Interactive
+                AdmissionMode::Interactive,
+                128 * MIB,
             )
             .is_ok()
         );
+    }
+
+    #[test]
+    fn the_margin_from_settings_is_what_a_start_keeps_free() {
+        let free = 512 * MIB;
+        let start = |margin| {
+            check_start_headroom(
+                free,
+                free,
+                TERMINAL,
+                &ledger(),
+                AdmissionMode::Interactive,
+                margin,
+            )
+        };
+        assert!(start(128 * MIB).is_ok());
+        assert!(start(0).is_ok());
+        let refused = start(GIB).unwrap_err().to_string();
+        assert!(refused.contains("Memory safety"), "{refused}");
+        assert!(refused.contains("1024 MiB margin"), "{refused}");
     }
 
     #[test]
@@ -831,7 +1007,8 @@ mod memory_tests {
                 256 * MIB,
                 PER_SLOT,
                 &ledger(),
-                AdmissionMode::Background
+                AdmissionMode::Background,
+                128 * MIB,
             )
             .is_err()
         );
@@ -850,7 +1027,8 @@ mod memory_tests {
                 256 * MIB,
                 PER_SLOT,
                 &ledger,
-                AdmissionMode::InteractiveSupport
+                AdmissionMode::InteractiveSupport,
+                128 * MIB,
             )
             .is_ok()
         );

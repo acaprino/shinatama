@@ -18,6 +18,7 @@ mod project_overview;
 mod hop_run;
 mod launch;
 mod launch_settings;
+mod memory_settings;
 mod secret_store;
 pub mod maintenance;
 mod new_project;
@@ -706,6 +707,10 @@ fn main() {
             app.manage(launch_settings::Controller::start(
                 directory.as_ref().map(Clone::clone).map_err(|e| e.to_string()),
             ));
+            // Likewise the memory safety choice, before any start is admitted.
+            app.manage(memory_settings::Controller::start(
+                directory.as_ref().map(Clone::clone).map_err(|e| e.to_string()),
+            ));
             let services = Arc::new(storage::Services::new(directory.map_err(|e| e.to_string())));
             let maintenance = Arc::new(maintenance::Controller::start(services.clone()));
             app.state::<resources::Resources>()
@@ -781,6 +786,8 @@ fn main() {
         presentation::presentation_save,
         launch_settings::launch_settings_load,
         launch_settings::launch_settings_save,
+        memory_settings::memory_settings_load,
+        memory_settings::memory_settings_save,
         threads::thread_list,
         threads::thread_create,
         threads::workset_list,
@@ -941,6 +948,8 @@ fn main() {
         presentation::presentation_save,
         launch_settings::launch_settings_load,
         launch_settings::launch_settings_save,
+        memory_settings::memory_settings_load,
+        memory_settings::memory_settings_save,
         threads::thread_list,
         threads::thread_create,
         threads::workset_list,

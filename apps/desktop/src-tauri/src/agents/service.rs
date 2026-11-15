@@ -54,7 +54,7 @@ impl DriverError {
         match self {
             Self::Missing => "This harness is not installed. Install it and try Open again.",
             Self::AdmissionDeferred => {
-                "Windows is low on resources. Close an unused app and try Open again."
+                "Not started: the harness check or the local service was refused resources (free memory or Shinatama's count of open sessions). Try Open again."
             }
             Self::StaleQualification => {
                 "The harness build or private home changed. Try Open again."
@@ -64,15 +64,37 @@ impl DriverError {
     }
 }
 impl DriverError {
-    /// A refused admission names its measured cause (bounded, control-free) instead of a bare
-    /// "low on resources": the person can see which headroom check refused. The one-off text
-    /// is leaked; a refusal is rare and user-initiated.
+    /// A refused admission names its cause (bounded, control-free) instead of a bare "low on
+    /// resources": the cause is either measured free memory or Shinatama's own count of open
+    /// sessions, and only the cause can say which. Every harness and every stage (version
+    /// check, TUI check, session start) says it the same way, as a shell does:
+    /// "Not started: <cause>. Try Open again." The one-off text is leaked; a refusal is rare
+    /// and user-initiated.
     pub(super) fn deferred(cause: String) -> Self {
-        let cause: String = cause.chars().filter(|ch| !ch.is_control()).take(200).collect();
+        let cause = cause.trim();
+        let cause = cause
+            .strip_prefix(shinatama_terminal::ADMISSION_REFUSED)
+            .and_then(|rest| rest.strip_prefix(':'))
+            .map_or(cause, str::trim_start);
+        let cause: String = cause
+            .trim_end_matches('.')
+            .chars()
+            .filter(|ch| !ch.is_control())
+            .take(320)
+            .collect();
         Self::Failed(Box::leak(
-            format!("Windows is low on resources ({cause}). Close an unused app and try Open again.")
-                .into_boxed_str(),
+            format!(
+                "{}: {cause}. Try Open again.",
+                shinatama_terminal::ADMISSION_REFUSED
+            )
+            .into_boxed_str(),
         ))
+    }
+    /// Whether a terminal start failed in resource admission rather than for another reason.
+    pub(super) fn is_admission_refusal(cause: &str) -> bool {
+        cause
+            .strip_prefix(shinatama_terminal::ADMISSION_REFUSED)
+            .is_some_and(|rest| rest.starts_with(':'))
     }
 }
 impl From<&'static str> for DriverError {
@@ -808,6 +830,9 @@ impl<D: HarnessDriver> Service<D> {
                         .take(240)
                         .collect::<String>();
                     self.native_failure(&cause);
+                    if DriverError::is_admission_refusal(&cause) {
+                        return DriverError::deferred(cause);
+                    }
                     DriverError::Failed(Box::leak(
                         format!(
                             "The harness terminal did not confirm startup ({cause}). Its owned resources remain tracked; no shell fallback was used."
@@ -896,15 +921,28 @@ impl<D: HarnessDriver> Service<D> {
         {
             Ok(session) => session,
             Err(error) => {
+                let cause = format!("{error:#}")
+                    .chars()
+                    .filter(|ch| !ch.is_control())
+                    .take(240)
+                    .collect::<String>();
                 self.native_failure(error);
                 if owner.stop() {
                     drop(project);
                     owner.finish_released(base)?;
                     self.facts()?.canary = None;
                 }
-                return Err(DriverError::Failed(
-                    "The contained TUI check did not start. Any unconfirmed owner remains retained.",
-                ));
+                // A refused admission reads as it does for a qualified start; any other
+                // failure keeps its cause instead of the bare sentence it used to be.
+                if DriverError::is_admission_refusal(&cause) {
+                    return Err(DriverError::deferred(cause));
+                }
+                return Err(DriverError::Failed(Box::leak(
+                    format!(
+                        "The contained TUI check did not start ({cause}). Any unconfirmed owner remains retained."
+                    )
+                    .into_boxed_str(),
+                )));
             }
         };
         *owner
