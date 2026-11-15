@@ -337,7 +337,7 @@ function scheduleFit(view: View) {
     if (group) group.querySelector<HTMLElement>('.size')!.textContent = size;
     if (!view.ended) view.resizeChain = view.resizeChain.then(async () => {
       if (!view.disposed && !view.ended) await invoke('terminal_resize', { id: view.info.id, rows, cols });
-    }).catch(error => { view.lastSize = ''; if (!view.disposed) notify(error); });
+    }).catch(async error => { view.lastSize = ''; if (!view.disposed && !await endedElsewhere(view)) notify(error); });
   }, 80);
 }
 async function refreshThreadProject() {
@@ -562,7 +562,17 @@ async function drain(view: View) {
       if (batch.eof) { view.ended = true; showExit(view, batch.exit_code); render(); return; }
       await new Promise(resolve => setTimeout(resolve, 25));
     }
-  } catch (error) { if (!view.disposed) notify(`Terminal connection interrupted: ${error}`); }
+  } catch (error) { if (!view.disposed && !await endedElsewhere(view)) notify(`Terminal connection interrupted: ${error}`); }
+}
+/** A terminal stopped by something other than this window (another window, an agent's tool, a hop):
+ *  its tab says it exited, as when the process ends, instead of reporting an error. */
+async function endedElsewhere(view: View): Promise<boolean> {
+  if (view.ended) return true;
+  try {
+    const alive = await invoke<SessionInfo[]>('terminal_list');
+    if (alive.some(info => info.id === view.info.id) || view.disposed || view.ended) return view.ended;
+  } catch { return false; }
+  view.ended = true; showExit(view, null); render(); return true;
 }
 function showExit(view: View, code: number | null) {
   const banner = document.createElement('div'); banner.className = 'exit-banner'; banner.setAttribute('role', 'status');
