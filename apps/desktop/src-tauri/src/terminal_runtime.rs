@@ -159,7 +159,7 @@ fn capacity_refusal(ledger: &ReservationSnapshot, budget: Budget) -> String {
         full.push("changed while starting".into());
     }
     format!(
-        "Shinatama's budget for concurrent sessions is full ({}; {} open). Close a session or terminal you no longer use and retry",
+        "Shinatama's budget for concurrent sessions is full ({}; {} open): close a session or terminal you no longer use",
         full.join(", "),
         ledger.slots.len()
     )
@@ -424,6 +424,7 @@ fn check_start_headroom(
     budget: Budget,
     ledger: &shinatama_state::resource_reservations::ReservationSnapshot,
     mode: AdmissionMode,
+    margin: u64,
 ) -> Result<()> {
     if mode != AdmissionMode::Background {
         // These are small startup estimates, not lifetime limits. Available
@@ -436,13 +437,15 @@ fn check_start_headroom(
             .filter(|slot| slot.state == ReservationState::Reserved)
             .map(|slot| startup_allowance(slot.budget))
             .sum();
-        let required = startup + pending + 128 * MIB;
+        let required = startup + pending + margin;
         if physical < required || commit < required {
             bail!(
-                "Not enough memory to open another terminal: {} MiB RAM and {} MiB allocatable are available; {} MiB are needed for startup and margin. Existing terminals keep running.",
+                "not enough free memory: {} MiB RAM and {} MiB allocatable are available, {} MiB are needed ({} MiB to start plus the {} MiB margin set in Settings > Memory safety). Running sessions are not affected",
                 physical / MIB,
                 commit / MIB,
-                required / MIB
+                required / MIB,
+                (startup + pending) / MIB,
+                margin / MIB
             );
         }
         return Ok(());
@@ -508,6 +511,11 @@ impl Admission {
         if self.closing.load(Ordering::Acquire) {
             bail!("This application is closing; new starts are disabled.");
         }
+        if !crate::memory_settings::current().enabled {
+            // Memory safety is off in Settings: no start waits for, or is refused on,
+            // memory measurements. The workload count in the ledger still applies.
+            return Ok((u64::MAX, u64::MAX));
+        }
         if !interactive {
             let decision = self
                 .governor
@@ -529,7 +537,7 @@ impl Admission {
         let frame = monitor
             .current()
             .map_err(|_| anyhow!("Resource measurements are busy; retry explicitly."))?
-            .context("Resource measurements are not ready.")?;
+            .context("memory measurements are not ready yet")?;
         if (!interactive && !frame.complete())
             || !matches!(
                 status.phase,
@@ -541,7 +549,9 @@ impl Admission {
                 .checked_sub(frame.completed_at_ms)
                 .is_none_or(|age| age > 3000)
         {
-            bail!("Resource measurements are incomplete or stale; new terminals are deferred.");
+            bail!(
+                "memory measurements are incomplete or stale (Settings > Memory safety can turn this check off)"
+            );
         }
         let aggregate = frame
             .aggregate
@@ -552,7 +562,9 @@ impl Admission {
             .checked_sub(aggregate.at_ms)
             .is_none_or(|age| age > 3000)
         {
-            bail!("System memory measurements are stale; new terminals are deferred.");
+            bail!(
+                "system memory measurements are stale (Settings > Memory safety can turn this check off)"
+            );
         }
         let physical = match aggregate.system {
             Measurement::Available(system) => system.physical_available_bytes,
@@ -612,7 +624,8 @@ impl Admission {
             }
         }
         let policy = &ledger.policy;
-        check_start_headroom(physical, commit, budget, &ledger, mode)?;
+        let margin = u64::from(crate::memory_settings::current().margin_mib) * MIB;
+        check_start_headroom(physical, commit, budget, &ledger, mode, margin)?;
         let coordinator = self
             .coordinator
             .get_or_init(|| {
@@ -894,7 +907,8 @@ mod memory_tests {
                 256 * MIB,
                 TERMINAL,
                 &ledger(),
-                AdmissionMode::Interactive
+                AdmissionMode::Interactive,
+                128 * MIB,
             )
             .is_ok()
         );
@@ -913,7 +927,8 @@ mod memory_tests {
                 256 * MIB,
                 TERMINAL,
                 &ledger,
-                AdmissionMode::Interactive
+                AdmissionMode::Interactive,
+                128 * MIB,
             )
             .is_ok()
         );
@@ -928,7 +943,8 @@ mod memory_tests {
                     commit,
                     TERMINAL,
                     &ledger(),
-                    AdmissionMode::Interactive
+                    AdmissionMode::Interactive,
+                    128 * MIB,
                 )
                 .is_err()
             );
@@ -945,7 +961,8 @@ mod memory_tests {
                 256 * MIB,
                 TERMINAL,
                 &ledger,
-                AdmissionMode::Interactive
+                AdmissionMode::Interactive,
+                128 * MIB,
             )
             .is_err()
         );
@@ -955,10 +972,31 @@ mod memory_tests {
                 512 * MIB,
                 TERMINAL,
                 &ledger,
-                AdmissionMode::Interactive
+                AdmissionMode::Interactive,
+                128 * MIB,
             )
             .is_ok()
         );
+    }
+
+    #[test]
+    fn the_margin_from_settings_is_what_a_start_keeps_free() {
+        let free = 512 * MIB;
+        let start = |margin| {
+            check_start_headroom(
+                free,
+                free,
+                TERMINAL,
+                &ledger(),
+                AdmissionMode::Interactive,
+                margin,
+            )
+        };
+        assert!(start(128 * MIB).is_ok());
+        assert!(start(0).is_ok());
+        let refused = start(GIB).unwrap_err().to_string();
+        assert!(refused.contains("Memory safety"), "{refused}");
+        assert!(refused.contains("1024 MiB margin"), "{refused}");
     }
 
     #[test]
@@ -969,7 +1007,8 @@ mod memory_tests {
                 256 * MIB,
                 PER_SLOT,
                 &ledger(),
-                AdmissionMode::Background
+                AdmissionMode::Background,
+                128 * MIB,
             )
             .is_err()
         );
@@ -988,7 +1027,8 @@ mod memory_tests {
                 256 * MIB,
                 PER_SLOT,
                 &ledger,
-                AdmissionMode::InteractiveSupport
+                AdmissionMode::InteractiveSupport,
+                128 * MIB,
             )
             .is_ok()
         );

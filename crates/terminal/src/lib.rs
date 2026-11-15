@@ -17,6 +17,10 @@ pub use windows_host::{
     WindowsNativeSessionLifecycle, WindowsTerminalAdmission, WindowsTerminalConfig,
 };
 pub type TerminalResult<T> = anyhow::Result<T>;
+/// Starts every refusal by resource admission (free memory, the shared workload count),
+/// so callers can tell it from a start that failed for another reason and say it the same
+/// way for a shell and for every harness: "Not started: <cause>".
+pub const ADMISSION_REFUSED: &str = "Not started";
 
 #[cfg(not(windows))]
 use anyhow::Context;

@@ -72,3 +72,32 @@ export function summary(form: Form): string {
   if (count) parts.push(`${count} variable${count === 1 ? '' : 's'}`);
   return parts.join(' · ');
 }
+
+// Memory safety: whether a start first checks the free memory Windows measures, and how much
+// it leaves free. Saved apart from the launch settings (memory_settings_load/save).
+export type MemorySafety = { enabled: boolean; marginMib: number };
+export const DEFAULT_MEMORY: MemorySafety = { enabled: true, marginMib: 128 };
+export const MAX_MARGIN_MIB = 16384;
+
+export function parseMemory(value: unknown): MemorySafety | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const data = value as Record<string, unknown>;
+  if (typeof data.enabled !== 'boolean' || !Number.isInteger(data.marginMib)) return null;
+  const marginMib = data.marginMib as number;
+  if (marginMib < 0 || marginMib > MAX_MARGIN_MIB) return null;
+  return { enabled: data.enabled, marginMib };
+}
+
+/** The memory request from the checkbox and the margin box, or one sentence on what is wrong. */
+export function buildMemory(enabled: boolean, marginText: string): { request: MemorySafety } | { problem: string } {
+  const text = marginText.trim();
+  if (!/^\d{1,5}$/.test(text)) return { problem: `The memory margin must be a whole number of MiB between 0 and ${MAX_MARGIN_MIB}.` };
+  const marginMib = Number(text);
+  if (marginMib > MAX_MARGIN_MIB) return { problem: `The memory margin must be a whole number of MiB between 0 and ${MAX_MARGIN_MIB}.` };
+  return { request: { enabled, marginMib } };
+}
+
+/** How the next start treats memory, for the status line. */
+export function memorySummary(memory: MemorySafety): string {
+  return memory.enabled ? `memory check with ${memory.marginMib} MiB kept free` : 'no memory check';
+}

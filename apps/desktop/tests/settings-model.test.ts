@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSave, formFromView, parseView, summary, type Form, type Row } from '../src/settings-model.ts';
+import { buildMemory, buildSave, DEFAULT_MEMORY, formFromView, MAX_MARGIN_MIB, memorySummary, parseMemory, parseView, summary, type Form, type Row } from '../src/settings-model.ts';
 
 const row = (over: Partial<Row> = {}): Row => ({ name: 'REGION', secret: false, value: 'eu-west-1', hasValue: true, touched: false, ...over });
 const form = (over: Partial<Form> = {}): Form => ({ fullAccess: true, githubUsername: '', tokenInput: '', removeToken: false, hasToken: false, rows: [], ...over });
@@ -56,4 +56,18 @@ test('the summary says what the next sessions get', () => {
   assert.equal(summary(form({ hasToken: true, rows: [row()] })), 'full access · GitHub sign-in · 1 variable');
   assert.equal(summary(form({ hasToken: true, removeToken: true })), 'full access');
   assert.equal(summary(form({ rows: [row(), row({ name: 'B' })] })), 'full access · 2 variables');
+});
+
+test('memory safety is read strictly and the margin is a bounded whole number of MiB', () => {
+  assert.deepEqual(parseMemory({ enabled: false, marginMib: 512 }), { enabled: false, marginMib: 512 });
+  for (const bad of [null, {}, { enabled: 'no', marginMib: 1 }, { enabled: true, marginMib: 1.5 }, { enabled: true, marginMib: -1 }, { enabled: true, marginMib: MAX_MARGIN_MIB + 1 }]) {
+    assert.equal(parseMemory(bad), null);
+  }
+  const built = buildMemory(true, ' 256 ');
+  assert.ok('request' in built);
+  assert.deepEqual(built.request, { enabled: true, marginMib: 256 });
+  assert.ok('request' in buildMemory(false, '0'));
+  for (const bad of ['', 'abc', '-1', '1.5', String(MAX_MARGIN_MIB + 1), '999999']) assert.ok('problem' in buildMemory(true, bad), bad);
+  assert.equal(memorySummary(DEFAULT_MEMORY), 'memory check with 128 MiB kept free');
+  assert.equal(memorySummary({ enabled: false, marginMib: 128 }), 'no memory check');
 });

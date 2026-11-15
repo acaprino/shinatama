@@ -1,5 +1,8 @@
 import { openModal } from './modal.ts';
-import { buildSave, formFromView, parseView, summary, MAX_VARIABLES, type Form, type Row, type SaveRequest } from './settings-model.ts';
+import {
+  buildMemory, buildSave, DEFAULT_MEMORY, formFromView, memorySummary, parseMemory, parseView, summary, MAX_MARGIN_MIB, MAX_VARIABLES,
+  type Form, type MemorySafety, type Row, type SaveRequest,
+} from './settings-model.ts';
 import './settings-panel.css';
 
 type Options = {
@@ -14,8 +17,8 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, t
 };
 const message = (error: unknown) => typeof error === 'string' ? error : (error as { message?: string } | null)?.message ?? 'The settings could not be saved.';
 
-/** Settings drawer: full access, a GitHub sign-in, and variables every new agent session receives.
- * Saved secrets never come back to this page; they can be replaced or removed. */
+/** Settings drawer: full access, a GitHub sign-in, variables every new agent session receives, and
+ * memory safety. Saved secrets never come back to this page; they can be replaced or removed. */
 export function createSettingsPanel(options: Options) {
   const dialog = el('dialog'); dialog.id = 'settings-dialog'; dialog.setAttribute('aria-labelledby', 'settings-title');
   const heading = el('div', 'dialog-heading'); const title = el('h1', undefined, 'Settings'); title.id = 'settings-title';
@@ -50,17 +53,31 @@ export function createSettingsPanel(options: Options) {
   const varsHint = el('p', 'hint', 'Added to every new agent session. A secret value is stored encrypted and is never shown again; type a new one to replace it.');
   variables.append(list, add, varsHint);
 
+  // Memory safety
+  const memorySection = el('section', 'settings-section'); memorySection.append(el('h2', undefined, 'Memory safety'));
+  const memoryLabel = el('label', 'settings-check'); const memoryCheck = el('input'); memoryCheck.type = 'checkbox'; memoryCheck.id = 'settings-memory-safety';
+  memoryLabel.append(memoryCheck, document.createTextNode(' Check free memory before a session, shell or harness check starts'));
+  const marginLabel = el('label', undefined, 'Memory kept free (MiB)'); marginLabel.htmlFor = 'settings-memory-margin';
+  const margin = el('input'); margin.id = 'settings-memory-margin'; margin.type = 'number'; margin.min = '0'; margin.max = String(MAX_MARGIN_MIB); margin.step = '64'; margin.inputMode = 'numeric';
+  const memoryHint = el('p', 'hint', 'On: a start waits a few seconds for a fresh measurement and is refused when free RAM or allocatable memory '
+    + 'would drop below what it needs to start plus this margin. Off: nothing waits for or is refused on memory; Windows may then page or close apps '
+    + 'when memory runs out. Running sessions are never stopped by this setting. Applies to the next start after you save.');
+  memorySection.append(memoryLabel, marginLabel, margin, memoryHint);
+
   const status = el('p', 'settings-status'); status.setAttribute('role', 'status'); status.id = 'settings-status';
   const actions = el('div', 'dialog-actions');
   const reload = el('button', undefined, 'Reload'); reload.type = 'button';
   const save = el('button', 'primary', 'Save'); save.type = 'button'; save.id = 'settings-save';
   const close = el('button', undefined, 'Close'); close.type = 'button';
   actions.append(reload, save, close);
-  dialog.append(heading, access, github, variables, status, actions);
+  dialog.append(heading, access, github, variables, memorySection, status, actions);
   (document.querySelector('#app') ?? document.body).append(dialog);
 
   let form: Form = { fullAccess: true, githubUsername: '', tokenInput: '', removeToken: false, hasToken: false, rows: [] };
+  let memory: MemorySafety = { ...DEFAULT_MEMORY };
   let loaded = false; let busy = false;
+  const statusLine = () => `${summary(form)} · ${memorySummary(memory)}`;
+  function paintMemory() { memoryCheck.checked = memory.enabled; margin.value = String(memory.marginMib); margin.disabled = !memory.enabled; }
 
   const say = (text: string, error = false) => { status.textContent = text; status.dataset.tone = error ? 'error' : 'info'; };
   function paintToken() {
@@ -90,18 +107,25 @@ export function createSettingsPanel(options: Options) {
   }
   function paint() {
     full.checked = form.fullAccess; user.value = form.githubUsername; token.value = form.tokenInput;
-    paintToken(); paintRows();
+    paintToken(); paintRows(); paintMemory();
   }
   function read() { form.fullAccess = full.checked; form.githubUsername = user.value; form.tokenInput = token.value; }
 
   async function load() {
     if (!options.desktop) { say('Open the desktop app to change settings.', true); save.disabled = true; return; }
     busy = true; say('Loading…');
+    let memoryProblem = '';
+    try {
+      const saved = parseMemory(await options.invoke('memory_settings_load'));
+      if (!saved) throw new Error('The memory settings are not in a form this version understands.');
+      memory = saved;
+    } catch (error) { memory = { ...DEFAULT_MEMORY }; memoryProblem = ` ${message(error)} Memory safety stays on until you save.`; }
+    paintMemory();
     try {
       const view = parseView(await options.invoke('launch_settings_load'));
       if (!view) throw new Error('The saved settings are not in a form this version understands.');
       form = formFromView(view); loaded = true; save.disabled = false; paint();
-      say(`New sessions start with: ${summary(form)}.`);
+      say(`New sessions start with: ${statusLine()}.${memoryProblem}`, Boolean(memoryProblem));
     } catch (error) {
       loaded = false; save.disabled = false; say(`${message(error)} Agents start with their own protections until you save.`, true);
     } finally { busy = false; }
@@ -111,17 +135,26 @@ export function createSettingsPanel(options: Options) {
     read();
     const built = buildSave(form);
     if ('problem' in built) { say(built.problem, true); return; }
+    const memoryBuilt = buildMemory(memoryCheck.checked, margin.value);
+    if ('problem' in memoryBuilt) { say(memoryBuilt.problem, true); margin.focus(); return; }
     busy = true; save.disabled = true; say('Saving…');
     try {
       const view = parseView(await options.invoke<unknown>('launch_settings_save', { request: built.request satisfies SaveRequest }));
       if (!view) throw new Error('The saved settings could not be confirmed.');
-      form = formFromView(view); loaded = true; paint();
-      say(`Saved. New sessions start with: ${summary(form)}.`);
+      form = formFromView(view); loaded = true;
+      const savedMemory = parseMemory(await options.invoke<unknown>('memory_settings_save', { request: memoryBuilt.request }));
+      if (!savedMemory) throw new Error('The memory settings could not be confirmed.');
+      memory = savedMemory; paint();
+      say(`Saved. New sessions start with: ${statusLine()}.`);
     } catch (error) { say(message(error), true); options.notify(message(error), 'error'); }
     finally { busy = false; save.disabled = false; }
   }
 
   full.onchange = () => { form.fullAccess = full.checked; say(`Not saved yet: ${summary({ ...form, fullAccess: full.checked })}.`); };
+  memoryCheck.onchange = () => {
+    margin.disabled = !memoryCheck.checked;
+    say(`Not saved yet: ${memorySummary({ enabled: memoryCheck.checked, marginMib: Number(margin.value) || 0 })}.`);
+  };
   token.oninput = () => { form.tokenInput = token.value; paintToken(); };
   removeToken.onclick = () => { form.removeToken = true; token.value = ''; form.tokenInput = ''; paintToken(); say('The token will be removed when you save.'); };
   add.onclick = () => {
