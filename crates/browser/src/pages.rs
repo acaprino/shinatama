@@ -246,6 +246,35 @@ fn percent_decode(s: &str) -> Option<String> {
     String::from_utf8(out).ok()
 }
 
+/// `path` canonicalised, if it lies inside `root` (Windows: case-insensitive).
+pub(crate) fn inside(root: &Path, path: &Path) -> Option<PathBuf> {
+    let (root, path) = (std::fs::canonicalize(root).ok()?, std::fs::canonicalize(path).ok()?);
+    let fold = |p: &Path| p.to_string_lossy().to_lowercase();
+    let (r, p) = (fold(&root), fold(&path));
+    let within = p == r || p.strip_prefix(&r).is_some_and(|rest| rest.starts_with('\\') || rest.starts_with('/'));
+    within.then_some(path)
+}
+
+/// Content type of a served local file, by extension.
+pub fn content_type(path: &Path) -> &'static str {
+    match path.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).as_deref() {
+        Some("html" | "htm") => "text/html; charset=utf-8",
+        Some("css") => "text/css; charset=utf-8",
+        Some("js" | "mjs") => "text/javascript; charset=utf-8",
+        Some("json") => "application/json",
+        Some("svg") => "image/svg+xml",
+        Some("png") => "image/png",
+        Some("jpg" | "jpeg") => "image/jpeg",
+        Some("gif") => "image/gif",
+        Some("webp") => "image/webp",
+        Some("ico") => "image/x-icon",
+        Some("woff2") => "font/woff2",
+        Some("woff") => "font/woff",
+        Some("txt" | "md") => "text/plain; charset=utf-8",
+        _ => "application/octet-stream",
+    }
+}
+
 /// `D:\a b\c.html` → `file:///D:/a%20b/c.html`.
 pub fn file_url(path: &Path) -> String {
     let text = path.to_string_lossy().replace('\\', "/");

@@ -16,7 +16,7 @@ use tokio::sync::Mutex;
 use crate::{
     cdp::{Cdp, CdpError, CdpEvent},
     input::{InputEvent, to_cdp},
-    pages::{Controller, DEFAULT_MAX_LIVE_PAGES, PageId, PageSet, PageState, local_allowed},
+    pages::{Controller, DEFAULT_MAX_LIVE_PAGES, PageId, PageSet, PageState},
 };
 
 #[cfg(windows)]
@@ -84,12 +84,13 @@ pub struct Browser {
     _host: Option<Host>,
 }
 
-/// Only web pages and local documents open; anything else is refused before
-/// it reaches the engine.
+/// Only web pages open (local documents come from [`crate::local_server`]);
+/// anything else is refused before it reaches the engine.
 pub fn openable(url: &str) -> bool {
     let lower = url.trim().to_ascii_lowercase();
-    lower.starts_with("http://") || lower.starts_with("https://") || lower.starts_with("file:///") || lower == "about:blank"
+    lower.starts_with("http://") || lower.starts_with("https://") || lower == "about:blank"
 }
+
 
 impl Browser {
     #[cfg(windows)]
@@ -207,10 +208,6 @@ impl Browser {
         self.pages.lock().unwrap().set_target(id, target);
         let session = Some(session.as_str());
         self.cdp.call(session, "Page.enable", json!({})).await?;
-        let local = self.pages.lock().unwrap().get(id).and_then(|p| p.local_root.clone()).is_some();
-        if local {
-            self.cdp.call(session, "Fetch.enable", json!({ "patterns": [{ "urlPattern": "file://*" }] })).await?;
-        }
         let viewport = self.sessions.lock().unwrap().viewport.get(&id).copied();
         if let Some((width, height, dpr)) = viewport {
             self.metrics(session, width, height, dpr).await?;
@@ -443,17 +440,6 @@ async fn handle_event(cdp: &Cdp, pages: &StdMutex<PageSet>, sessions: &StdMutex<
             let title = pages.get(page).map(|p| p.title.clone()).unwrap_or_default();
             pages.set_location(page, &url, &title);
         }
-        "Fetch.requestPaused" => {
-            let request = event.params["requestId"].clone();
-            let url = event.params["request"]["url"].as_str().unwrap_or_default();
-            let root = pages.lock().unwrap().get(page).and_then(|p| p.local_root.clone());
-            let allowed = root.as_deref().is_some_and(|root: &Path| local_allowed(root, url));
-            let _ = if allowed {
-                cdp.call(Some(&session), "Fetch.continueRequest", json!({ "requestId": request })).await
-            } else {
-                cdp.call(Some(&session), "Fetch.failRequest", json!({ "requestId": request, "errorReason": "AccessDenied" })).await
-            };
-        }
         _ => {}
     }
 }
@@ -543,13 +529,6 @@ mod tests {
         let page = browser.open("https://example.com/", Controller::User, None).await.unwrap();
         assert_eq!(*log.lock().unwrap(), ["Target.createTarget", "Target.attachToTarget", "Page.enable", "Page.navigate"]);
         assert_eq!(browser.info(page).unwrap().controller, "user");
-    }
-
-    #[tokio::test]
-    async fn a_local_document_enables_file_interception() {
-        let (browser, log) = fake().await;
-        browser.open("file:///D:/site/index.html", Controller::User, Some(PathBuf::from("D:/site"))).await.unwrap();
-        assert!(log.lock().unwrap().contains(&"Fetch.enable".to_owned()));
     }
 
     #[tokio::test]

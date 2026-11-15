@@ -12,6 +12,7 @@ pub mod cdp;
 #[cfg(windows)]
 pub mod host;
 pub mod input;
+pub mod local_server;
 pub mod pages;
 pub mod service;
 

@@ -68,7 +68,16 @@ measurements, not acceptance evidence.
    (Ctrl+click in a terminal, the Files panel, `dsh web`) opens in a browser tab of its own,
    user-controlled; a local HTML document grants only its own folder, for that tab
    (user, 2026-11-14). Each tab can hand its URL to the system browser.
-6. **Unchanged from ADR-0035/0036:** Moli default; Patchright visible Chrome only on explicit
+6. **Local documents are served by Shinatama** (amended 2026-11-15, found on the built exe).
+   Moli's protocol server refuses every `file:` navigation (`LocalFileNavigationAccess::Denied`
+   is hard-coded) and its `Fetch` domain pauses the document but not its stylesheets or images,
+   so a local document cannot be confined through interception. A document opened from
+   Shinatama is served by `crates/browser/src/local_server.rs`: `127.0.0.1` on a random port,
+   GET and HEAD only, read-only, one random 128-bit token per granted folder in the path, the
+   exact `Host` checked (no DNS rebinding), every path canonicalised inside its folder, the
+   token withdrawn when the tab closes. It serves files the user already chose to open and
+   cannot drive the browser; the host itself still has no TCP listener (decision 2).
+7. **Unchanged from ADR-0035/0036:** Moli default; Patchright visible Chrome only on explicit
    request and opt-in; no automatic fallback or transfer between engines; temporary profiles by
    default; untrusted content; evidence before performance claims.
 

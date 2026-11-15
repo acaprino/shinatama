@@ -22,6 +22,8 @@ interface Tab {
   readonly address: HTMLInputElement;
   readonly strip: HTMLElement;
   page: PageInfo | null;
+  /** The local document a tab was opened on: served from its folder, so it reopens from the file. */
+  file: string | null;
   visible: boolean;
   queue: BrowserInputEvent[];
   sending: boolean;
@@ -30,7 +32,7 @@ interface Tab {
 }
 
 const STORE = 'shinatama.browser.tabs';
-type Saved = Record<string, { url: string; title: string }>;
+type Saved = Record<string, { url: string; title: string; file?: string }>;
 function readSaved(): Saved { try { return JSON.parse(localStorage.getItem(STORE) ?? '{}') as Saved; } catch { return {}; } }
 function writeSaved(saved: Saved) { try { localStorage.setItem(STORE, JSON.stringify(saved)); } catch { /* a convenience only */ } }
 
@@ -51,7 +53,7 @@ export function createBrowserTabs(deps: BrowserTabsDeps) {
 
   function remember(tab: Tab) {
     if (!tab.page) return;
-    const saved = readSaved(); saved[tab.viewId] = { url: tab.page.url, title: tab.page.title }; writeSaved(saved);
+    const saved = readSaved(); saved[tab.viewId] = { url: tab.page.url, title: tab.page.title, ...(tab.file ? { file: tab.file } : {}) }; writeSaved(saved);
   }
   function forget(viewId: string) { const saved = readSaved(); delete saved[viewId]; writeSaved(saved); }
 
@@ -94,7 +96,7 @@ export function createBrowserTabs(deps: BrowserTabsDeps) {
     const area = el('div', 'browser-page');
     const canvas = el('canvas', 'browser-canvas'); canvas.tabIndex = 0; canvas.setAttribute('aria-label', 'Web page');
     area.append(canvas);
-    const tab: Tab = { viewId, element, canvas, address, strip, page: null, visible: false, queue: [], sending: false, poll: 0, dispose: () => {} };
+    const tab: Tab = { viewId, element, canvas, address, strip, page: null, file: null, visible: false, queue: [], sending: false, poll: 0, dispose: () => {} };
     const nav = (action: string, url?: string) => { if (tab.page) void deps.invoke('browser_navigate', { page: tab.page.id, action, url }).then(() => refresh(tab), error => deps.notify(String(error))); };
     bar.append(
       button('←', 'Back', () => nav('back')),
@@ -138,6 +140,7 @@ export function createBrowserTabs(deps: BrowserTabsDeps) {
   }
 
   async function attach(tab: Tab, target: BrowserTarget) {
+    tab.file = 'file' in target ? target.file : null;
     tab.page = 'page' in target ? await deps.invoke<PageInfo>('browser_info', { page: target.page })
       : await deps.invoke<PageInfo>('browser_open', 'url' in target ? { url: target.url } : { file: target.file });
     paintInfo(tab);
@@ -194,7 +197,7 @@ export function createBrowserTabs(deps: BrowserTabsDeps) {
       const saved = readSaved()[viewId];
       const card = el('div', 'browser-closed');
       card.append(el('p', 'browser-closed-url', saved?.url ?? 'This page is closed.'));
-      if (saved?.url) card.append(button('Riapri', 'Open this page again', () => reopen(saved.url.startsWith('file:///') ? { file: decodeURIComponent(saved.url.slice(8)).replace(/\//g, '\\') } : { url: saved.url })));
+      if (saved?.url) card.append(button('Riapri', 'Open this page again', () => reopen(saved.file ? { file: saved.file } : { url: saved.url })));
       return card;
     },
   };

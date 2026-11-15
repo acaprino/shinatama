@@ -10,7 +10,8 @@ use std::{
 
 use shinatama_browser::{
     input::InputEvent,
-    pages::{Controller, PageId, file_url},
+    local_server::LocalServer,
+    pages::{Controller, PageId},
     service::{Browser, PageInfo},
 };
 use tauri::{
@@ -24,6 +25,8 @@ pub const IDLE: Duration = Duration::from_secs(10 * 60);
 #[derive(Default)]
 pub struct BrowserState {
     inner: Mutex<Inner>,
+    /// Serves the local documents opened in tabs; started by the first one.
+    documents: std::sync::OnceLock<LocalServer>,
 }
 
 #[derive(Default)]
@@ -39,6 +42,14 @@ fn host_exe() -> Result<PathBuf, String> {
 }
 
 impl BrowserState {
+    fn documents(&self) -> Result<&LocalServer, String> {
+        if let Some(server) = self.documents.get() {
+            return Ok(server);
+        }
+        let server = LocalServer::start().map_err(|e| format!("Local documents cannot be served: {e}"))?;
+        Ok(self.documents.get_or_init(|| server))
+    }
+
     pub(crate) async fn browser(&self) -> Result<Arc<Browser>, String> {
         let mut inner = self.inner.lock().await;
         if let Some(browser) = inner.browser.as_ref().filter(|b| b.is_alive()) {
@@ -83,9 +94,8 @@ fn page(id: &str) -> Result<PageId, String> {
     id.parse().map_err(|()| "Unknown page.".to_owned())
 }
 
-/// A local document: an existing `.html`/`.htm` file, readable with its own
-/// folder and nothing above it.
-pub fn local_document(path: &str) -> Result<(String, PathBuf), String> {
+/// A local document: an existing `.html`/`.htm` file and its folder.
+pub fn local_document(path: &str) -> Result<(PathBuf, PathBuf), String> {
     let path = std::fs::canonicalize(Path::new(path)).map_err(|_| "That file does not exist.".to_owned())?;
     let html = path.extension().and_then(|e| e.to_str()).is_some_and(|e| e.eq_ignore_ascii_case("html") || e.eq_ignore_ascii_case("htm"));
     if !html || !path.is_file() {
@@ -93,7 +103,7 @@ pub fn local_document(path: &str) -> Result<(String, PathBuf), String> {
     }
     let shown = PathBuf::from(path.to_string_lossy().trim_start_matches(r"\\?\"));
     let root = shown.parent().ok_or("That file has no folder.")?.to_owned();
-    Ok((file_url(&shown), root))
+    Ok((shown, root))
 }
 
 #[tauri::command]
@@ -101,7 +111,9 @@ pub async fn browser_open(state: State<'_, Arc<BrowserState>>, url: Option<Strin
     let (url, root) = match (url, file) {
         (Some(url), None) => (url, None),
         (None, Some(file)) => {
-            let (url, root) = local_document(&file)?;
+            // Read only through the document server, which serves this folder and nothing above it.
+            let (file, root) = local_document(&file)?;
+            let url = state.documents()?.grant(&root, &file).ok_or("That file is outside its folder.")?;
             (url, Some(root))
         }
         _ => return Err("Give either a link or a file.".into()),
@@ -165,7 +177,11 @@ pub async fn browser_control(state: State<'_, Arc<BrowserState>>, page: String, 
 #[tauri::command]
 pub async fn browser_close(state: State<'_, Arc<BrowserState>>, page: String) -> Result<(), String> {
     if let Ok(browser) = state.existing().await {
-        browser.close(self::page(&page)?).await;
+        let id = self::page(&page)?;
+        if let (Some(info), Some(documents)) = (browser.info(id), state.documents.get()) {
+            documents.revoke(&info.url);
+        }
+        browser.close(id).await;
     }
     Ok(())
 }
@@ -208,8 +224,8 @@ mod tests {
         let page = dir.join("a b.html");
         std::fs::write(&page, "<p>x").unwrap();
         std::fs::write(dir.join("notes.txt"), "x").unwrap();
-        let (url, root) = local_document(page.to_str().unwrap()).unwrap();
-        assert!(url.starts_with("file:///") && url.ends_with("/a%20b.html"), "{url}");
+        let (file, root) = local_document(page.to_str().unwrap()).unwrap();
+        assert_eq!(file.file_name().unwrap(), "a b.html");
         assert_eq!(root.file_name(), dir.file_name());
         assert!(local_document(dir.join("notes.txt").to_str().unwrap()).is_err());
         assert!(local_document(dir.join("missing.html").to_str().unwrap()).is_err());
