@@ -227,6 +227,9 @@ pub struct SidebarState {
     pub version: u8,
     pub width: u16,
     pub collapsed: bool,
+    /// Projects whose threads the sidebar lists, in order. Absent in older saves.
+    #[serde(default)]
+    pub active_projects: Vec<String>,
 }
 impl Default for SidebarState {
     fn default() -> Self {
@@ -234,16 +237,26 @@ impl Default for SidebarState {
             version: 1,
             width: 264,
             collapsed: false,
+            active_projects: Vec::new(),
         }
     }
 }
 impl SidebarState {
     fn validate(&self) -> Result<()> {
-        if self.version != 1 || !(180..=480).contains(&self.width) {
-            Err(ThreadError::Invalid)
-        } else {
-            Ok(())
+        if self.version != 1
+            || !(180..=480).contains(&self.width)
+            || self.active_projects.len() > 32
+        {
+            return Err(ThreadError::Invalid);
         }
+        let mut seen = std::collections::HashSet::new();
+        for project in &self.active_projects {
+            id(project, CanonicalIdKind::Project)?;
+            if !seen.insert(project) {
+                return Err(ThreadError::Invalid);
+            }
+        }
+        Ok(())
     }
 }
 #[derive(Clone, Serialize, Deserialize)]

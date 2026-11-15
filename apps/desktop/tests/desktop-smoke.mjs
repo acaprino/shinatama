@@ -287,7 +287,7 @@ try {
     await expect(sidebar).toHaveClass(/is-collapsed/);
     await sidebar.getByRole('button',{name:'Expand threads',exact:true}).click();
     await expect(sidebar.getByRole('separator',{name:'Thread sidebar width'})).toHaveAttribute('aria-valuenow','280');
-    await expect(sidebar.locator('#thread-sidebar-project')).toHaveValue(project.id,{timeout:10000});
+    await expect(sidebar.locator('.thread-sidebar-group[data-project-id="'+project.id+'"]')).toBeVisible({timeout:10000});
     await expect(sidebar.locator('button.thread-sidebar-anchor')).toHaveCount(1);
     expect(await ids()).toEqual([]);
     await expect.poll(async()=> (await ipc('thread_sidebar_load')).settings.collapsed).toBe(false);

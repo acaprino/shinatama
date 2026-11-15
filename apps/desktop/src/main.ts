@@ -775,8 +775,8 @@ function paneBody(groupId: string | null): Element | null {
   return [...workspace.querySelectorAll<HTMLElement>('.wm-pane')].find(pane => pane.dataset.groupId === group)?.querySelector('.wm-body') ?? null;
 }
 const sessionMenu = createSessionMenu({
-  start: harnessId => { void launchSession(sessionMenuTarget.path, harnessId, sessionMenuTarget.group); },
-  otherFolder: () => { newSession.setHarnesses(sessionHarnesses); newSessionGroup = sessionMenuTarget.group; newSession.show(sessionMenuTarget.path); },
+  start: (harnessId, path) => { void launchSession(path, harnessId, sessionMenuTarget.group); },
+  otherFolder: path => { newSession.setHarnesses(sessionHarnesses); newSessionGroup = sessionMenuTarget.group; newSession.show(path); },
 });
 let sessionMenuTarget = { path: '', group: '' };
 /** No dialog: the session starts where it was asked for, and a failure is reported as a notice. */
@@ -790,7 +790,7 @@ async function launchSession(path: string, harnessId: string, group: string) {
  * project shown there. With both the folder and the harness already known (a restart) it starts at once. */
 async function openNewSession(group: string = focusedGroup(), path?: string, harness?: string, scope: NewSessionScope = 'project') {
   if (starting || openingSessionDialog) return;
-  const pressed = document.activeElement instanceof HTMLElement && document.activeElement.matches('#new-terminal,[data-new-terminal],.wm-add,.wm-empty-start,.thread-sidebar-create')
+  const pressed = document.activeElement instanceof HTMLElement && document.activeElement.matches('#new-terminal,[data-new-terminal],.wm-add,.wm-empty-start,.thread-sidebar-create,.thread-sidebar-add-session')
     ? document.activeElement : null;
   const selectedProject = threadSidebar?.currentProjectId();
   // The open thread's folder: from the project list, else from one of its open sessions.
@@ -809,7 +809,11 @@ async function openNewSession(group: string = focusedGroup(), path?: string, har
     if (harness && sessionHarnesses.some(candidate => candidate.id === harness)) { await launchSession(selectedPath, harness, group); return; }
     const anchor = pressed?.isConnected ? pressed : $<HTMLElement>('#new-terminal');
     sessionMenuTarget = { path: selectedPath, group };
-    sessionMenu.show(anchor, sessionHarnesses, selectedPath.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || selectedPath, selectedPath);
+    // New session beside the projects offers every project listed in the sidebar; a pane's + stays in its thread's project.
+    const choices = scope === 'project' ? (threadSidebar?.activeIds() ?? []).map(id => recentThreadProjects.get(id))
+      .filter((path): path is string => !!path).map(path => ({ label: folderName(path), path })) : [];
+    if (choices.length && !choices.some(choice => samePath(choice.path, selectedPath))) choices.unshift({ label: folderName(selectedPath), path: selectedPath });
+    sessionMenu.show(anchor, sessionHarnesses, selectedPath.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || selectedPath, selectedPath, choices);
   } finally { openingSessionDialog = false; }
 }
 threadSidebar = createWorksetSidebar({
@@ -821,6 +825,12 @@ threadSidebar = createWorksetSidebar({
   closed: () => worksetMembers.filter(row => row.status === 'archived').map(row => ({ id: row.id, name: sessionName(row), updatedAt: row.updatedAt })),
   onRestore: restoreSession, onForgetSession: forgetSession,
   onOpen: thread => switchWorkset({ id: thread.id, projectId: thread.projectId }),
+  // + on a thread: that thread opens, then the agent menu hangs from the + that was pressed.
+  onAddSession: (thread, anchor) => { void (async () => {
+    if (!await switchWorkset({ id: thread.id, projectId: thread.projectId })) return;
+    if (anchor.isConnected) anchor.focus();
+    await openNewSession(focusedGroup(), undefined, undefined, 'thread');
+  })(); },
   openId: here,
   running: id => [...views.values()].filter(view => view.workset?.id === id && !view.ended && !view.disposed).length,
   // Never while a session starts: a name read and a launch share the same worker capacity.
@@ -1070,6 +1080,8 @@ createProjectMenu({
   load: () => desktop ? invoke('project_recent') : Promise.resolve([]),
   search: desktop ? onResults => createCatalogClient(snapshot => onResults(snapshot.projects), () => onResults([])) : undefined,
   current: () => projectPath,
+  active: () => new Set(threadSidebar?.activeIds() ?? []),
+  toggleActive: id => { threadSidebar?.toggleActive(id); },
   running: () => [...views.values()].filter(view => !view.ended && !view.disposed).map(view => view.info.cwd),
   choose: chooseProject,
   browse: () => { projectPicker.open(); void projectPicker.browse(); },

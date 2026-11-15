@@ -11,7 +11,7 @@ import { freemem, tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { setTimeout as delay } from 'node:timers/promises';
-import { startSession } from './session-flow.mjs';
+import { showProject, startSession } from './session-flow.mjs';
 
 if (process.platform !== 'win32') throw new Error('windows-required');
 const workspace = process.cwd();
@@ -295,7 +295,7 @@ try {
   await stage('app2-start'); await launchApp();
   require((await sessions()).length === 0, 'no-terminal-after-restart');
   const sidebar = page.locator('.thread-sidebar');
-  await sidebar.locator('#thread-sidebar-project').selectOption(projectId);
+  await showProject(page, projectId);
   await sidebar.locator(`button.thread-sidebar-anchor[data-thread-id="${bound.threadId}"]`).click();
   const recover = sidebar.getByRole('button', { name: 'Recover session', exact: true });
   await poll(async () => await recover.isVisible(), 10000, 'recover-button-missing');

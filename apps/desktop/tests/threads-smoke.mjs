@@ -87,8 +87,8 @@ try {
   const project = await ipc('project_select', { path: projectPath });
   expect(project.id).toMatch(/^p_[a-z2-7]{12}$/);
   await page.reload(); await expect(page.locator('#runtime-status')).toContainText('Local runtime');
-  const sidebar = page.locator('.thread-sidebar'); const selector = sidebar.locator('#thread-sidebar-project');
-  await expect(selector).toHaveValue(project.id);
+  const sidebar = page.locator('.thread-sidebar'); const selector = sidebar.locator('.thread-sidebar-group[data-project-id="' + project.id + '"]');
+  await expect(selector).toBeVisible();
   await expect(sidebar.locator('.thread-sidebar-body')).toHaveAttribute('aria-busy', 'false');
   expect(await ipc('thread_sidebar_load')).toEqual({ revision: 0, settings: { version: 1, width: 264, collapsed: false } });
   await expect(sidebar.locator('.thread-sidebar-status')).toContainText('No threads yet');
@@ -117,7 +117,7 @@ try {
   }, { timeout: 15000 }).toBe(true);
   const acknowledged = await ipc('thread_sidebar_load');
   await page.reload(); await expect(page.locator('#runtime-status')).toContainText('Local runtime');
-  await expect(selector).toHaveValue(project.id);
+  await expect(selector).toBeVisible();
   await expect(sidebar.getByRole('button', { name: 'Expand threads', exact: true })).toBeVisible();
   await expect(sidebar).toHaveClass(/is-collapsed/);
   expect(await sidebar.evaluate(element => element.style.getPropertyValue('--thread-sidebar-width'))).toBe('280px');

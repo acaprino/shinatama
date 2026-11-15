@@ -628,10 +628,19 @@ fn v3_upgrade_preserves_saved_work_and_thread_exclusivity_survives_reopen() {
             version: 1,
             width: 320,
             collapsed: true,
+            active_projects: vec![thread.project_id.clone()],
         },
     )
     .unwrap();
-    assert_eq!(other.thread_sidebar_snapshot().unwrap().settings.width, 320);
+    let saved = other.thread_sidebar_snapshot().unwrap().settings;
+    assert_eq!(saved.width, 320);
+    assert_eq!(saved.active_projects, vec![thread.project_id.clone()]);
+    for active_projects in [vec!["not-a-project".to_owned()], vec![thread.project_id.clone(); 2]] {
+        assert!(matches!(
+            db.save_thread_sidebar(1, SidebarState { active_projects, ..SidebarState::default() }),
+            Err(ThreadError::Invalid)
+        ));
+    }
     assert!(matches!(
         other.save_thread_sidebar(0, SidebarState::default()),
         Err(ThreadError::Conflict)

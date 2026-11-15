@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sidebar groups fixture</title>
+<style>html, body { margin: 0; height: 100%; } #host { display: flex; height: 100%; }</style>
+</head>
+<body>
+<!-- Only the thread sidebar: the real component, threads of two projects served from memory. -->
+<div id="host"></div>
+<script type="module">
+import '/src/styles.css';
+import { createWorksetSidebar } from '/src/workset-sidebar.ts';
+const A = 'p_aaaaaaaaaaaa'; const B = 'p_bbbbbbbbbbbb';
+const thread = (id, projectId, title) => ({ id, projectId, title, archived: false, revision: 1, usedAt: Date.now(), sessions: 1, open: 0, lead: null });
+const threads = { [A]: [thread('w_aaaaaaaaaaa3', A, 'Alpha one'), thread('w_aaaaaaaaaaa4', A, 'Alpha two')], [B]: [thread('w_bbbbbbbbbbb3', B, 'Beta one')] };
+const log = window.__log = { saved: [], created: [], added: [], opened: [] };
+const sidebar = window.__sidebar = createWorksetSidebar({
+  host: document.getElementById('host'),
+  list: async ({ projectId }) => ({ rows: threads[projectId] ?? [], more: false }),
+  create: async ({ projectId }) => { log.created.push(projectId); return { id: 'w_cccccccccccc', revision: 1 }; },
+  onOpen: async thread => { log.opened.push(thread.id); return true; },
+  onAddSession: thread => log.added.push(thread.id),
+  openId: () => null, running: () => 0,
+  loadState: async () => ({ version: 1, width: 264, collapsed: false, activeProjects: [B] }),
+  saveState: async state => { log.saved.push(state); },
+  reportError: message => { throw new Error(message); },
+});
+sidebar.setProjects([{ projectId: A, label: 'alpha' }, { projectId: B, label: 'beta' }]);
+sidebar.setProject({ projectId: A, label: 'alpha' });
+</script>
+</body>
+</html>

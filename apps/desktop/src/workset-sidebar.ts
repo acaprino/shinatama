@@ -17,6 +17,8 @@ export type WorksetSidebarOptions = {
   update?: (request: WorksetUpdate) => Promise<unknown>;
   /** Forgets every session of the thread, then the thread; refused while one of them runs. */
   remove?: (thread: Readonly<WorksetSummary>) => Promise<void>;
+  /** Adds a session to this thread: opens it, then asks for the agent under `anchor`. */
+  onAddSession?: (thread: Readonly<WorksetSummary>, anchor: HTMLElement) => void;
   /** Shows the thread's layout. Starts, resumes and stops nothing. */
   onOpen: (thread: Readonly<WorksetSummary>) => Promise<boolean>;
   openId: () => string | null;
@@ -37,6 +39,9 @@ export type WorksetSidebarOptions = {
 };
 const AGENT_LABELS: Record<string, string> = { claude_code: 'Claude Code', codex: 'Codex', opencode: 'OpenCode', pi: 'Pi', hermes: 'Hermes Agent', deepseek: 'DeepSeek Harness' };
 const MIN_WIDTH = 180; const MAX_WIDTH = 480; const WIDTH_STEP = 16;
+/** Projects the sidebar lists at once; matches the stored limit. */
+const MAX_ACTIVE = 32;
+const NO_PROJECTS = 'No project in the sidebar. Tick projects in the Project menu to see their threads.';
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const text = (value: unknown, cap: number): value is string => typeof value === 'string' && value.length <= cap && !/[\u0000-\u001f\u007f]/.test(value);
 const integer = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
@@ -62,8 +67,10 @@ function rowsValue(value: unknown, scope: string, archived: boolean): { rows: Wo
   return { rows, more: value.more };
 }
 function stateValue(value: unknown): ThreadSidebarState | null {
-  return record(value) && value.version === 1 && integer(value.width) && value.width >= MIN_WIDTH && value.width <= MAX_WIDTH
-    && typeof value.collapsed === 'boolean' ? { version: 1, width: value.width, collapsed: value.collapsed } : null;
+  if (!record(value) || value.version !== 1 || !integer(value.width) || value.width < MIN_WIDTH || value.width > MAX_WIDTH || typeof value.collapsed !== 'boolean') return null;
+  const listed = value.activeProjects ?? [];
+  if (!Array.isArray(listed) || listed.length > MAX_ACTIVE || !listed.every(projectId) || new Set(listed).size !== listed.length) return null;
+  return { version: 1, width: value.width, collapsed: value.collapsed, activeProjects: [...listed] };
 }
 function failureText(error: unknown, doing: string) {
   const code = typeof error === 'string' ? error : record(error) ? error.code ?? error.issue : null;
@@ -87,16 +94,12 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   const element = node('aside', 'thread-sidebar'); element.setAttribute('aria-label', 'Project threads');
   const heading = node('header', 'thread-sidebar-heading'); const collapse = node('button', 'thread-sidebar-toggle'); collapse.type = 'button';
   collapse.setAttribute('aria-controls', 'thread-sidebar-body');
-  const create = node('button', 'thread-sidebar-toggle thread-sidebar-new', '+'); create.type = 'button'; create.hidden = !options.create;
-  create.title = 'New thread'; create.setAttribute('aria-label', 'New thread');
-  heading.append(node('h2', '', 'Threads'), create, collapse);
+  heading.append(node('h2', '', 'Threads'), collapse);
   const body = node('div', 'thread-sidebar-body'); body.id = 'thread-sidebar-body';
-  const scopeLabel = node('label', 'thread-sidebar-scope', 'Project'); scopeLabel.htmlFor = 'thread-sidebar-project';
-  const scopeSelect = node('select', 'thread-sidebar-scope'); scopeSelect.id = 'thread-sidebar-project';
   const showArchivedLabel = node('label', 'thread-sidebar-archived-toggle'); const showArchived = node('input', ''); showArchived.type = 'checkbox';
   showArchivedLabel.append(showArchived, ' Show archived threads'); showArchivedLabel.hidden = !options.update;
   const status = node('p', 'thread-sidebar-status'); status.setAttribute('role', 'status');
-  const list = node('ul', 'thread-sidebar-list'); list.setAttribute('aria-label', 'Threads of this project');
+  const list = node('ul', 'thread-sidebar-list'); list.setAttribute('aria-label', 'Threads, by project');
   const actions = node('div', 'thread-sidebar-actions');
   const rename = node('button', '', 'Rename'); rename.type = 'button';
   const archive = node('button', ''); archive.type = 'button';
@@ -110,17 +113,22 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   renameButtons.append(renameSave, renameCancel); renameForm.append(renameLabel, renameInput, renameButtons);
   const closedBox = node('details', 'thread-sidebar-closed'); const closedSummary = node('summary', ''); const closedList = node('ul', '');
   closedBox.append(closedSummary, closedList);
-  body.append(scopeLabel, scopeSelect, showArchivedLabel, status, list, closedBox, actions, renameForm);
+  body.append(showArchivedLabel, status, list, closedBox, actions, renameForm);
   const separator = node('div', 'thread-sidebar-resize'); separator.tabIndex = 0; separator.setAttribute('role', 'separator');
   separator.setAttribute('aria-label', 'Thread sidebar width'); separator.setAttribute('aria-orientation', 'vertical');
   separator.setAttribute('aria-valuemin', String(MIN_WIDTH)); separator.setAttribute('aria-valuemax', String(MAX_WIDTH));
   element.append(heading, body, separator); options.host.append(element);
 
   let display: ThreadSidebarState = { version: 1, width: 264, collapsed: false };
-  let projects: CurrentThreadProject[] = []; let selectedProject: string | null = null;
-  let rows: WorksetSummary[] = []; let more = false; let archivedView = false;
+  /** `active`: the projects listed, in order; `currentProject`: the toolbar's project, marked among them. */
+  let projects: CurrentThreadProject[] = []; let active: string[] = []; let currentProject: string | null = null;
+  const groups = new Map<string, { rows: WorksetSummary[]; more: boolean; failed: boolean }>(); const collapsedGroups = new Set<string>();
+  const heads = new Map<string, HTMLLIElement>(); const notes = new Map<string, HTMLLIElement>();
+  let rows: WorksetSummary[] = []; let archivedView = false;
   let busy = false; let generation = 0; let destroyed = false; let rereadWanted = false;
-  let message = 'Choose a project to see its threads.'; let failed = false;
+  // Nothing is saved before the saved state is read: an early save would overwrite it.
+  let loaded = !options.loadState; let saveWanted = false;
+  let message = NO_PROJECTS; let failed = false;
   let editing = false; let removeArmed = 0; let forgetting: string | null = null; let saveTimer = 0; let changeTimer = 0;
   let drag: { pointer: number; x: number; before: ThreadSidebarState } | null = null;
   const anchors = new Map<string, HTMLLIElement>();
@@ -132,7 +140,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
 
   function requestNames() {
     if (!options.names || naming || destroyed || busy) return;
-    const now = Date.now(); const project = selectedProject;
+    const now = Date.now(); const at = generation;
     const ids = rows.filter(row => !row.title && row.lead && !leadTitle(row.lead) && row.lead.harness).map(row => row.lead!.threadId)
       .filter(id => { const at = namedAt.get(id); return at === undefined || now - at >= 60000; }).slice(0, 16);
     if (!ids.length) return;
@@ -140,7 +148,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     void (async () => {
       try {
         const value = await options.names!(ids);
-        if (destroyed || selectedProject !== project || !Array.isArray(value)) return;
+        if (destroyed || at !== generation || !Array.isArray(value)) return;
         for (const item of value) {
           if (!record(item) || !threadId(item.threadId)) continue;
           if (text(item.name, 512) && item.name.trim()) agentNames.set(item.threadId, item.name.trim()); else agentNames.delete(item.threadId);
@@ -158,32 +166,31 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     body.hidden = display.collapsed; separator.hidden = display.collapsed; separator.setAttribute('aria-valuenow', String(display.width));
     collapse.textContent = display.collapsed ? '›' : '‹'; collapse.setAttribute('aria-label', display.collapsed ? 'Expand threads' : 'Collapse threads');
     collapse.setAttribute('aria-expanded', String(!display.collapsed));
-    scopeSelect.disabled = !projects.length || busy; create.disabled = busy || selectedProject === null || archivedView; create.hidden = !options.create || display.collapsed;
-    showArchived.disabled = busy || selectedProject === null; showArchived.checked = archivedView;
+    showArchived.disabled = busy || !active.length; showArchived.checked = archivedView;
     body.setAttribute('aria-busy', String(busy)); status.textContent = message; status.dataset.state = failed ? 'error' : 'ready'; status.hidden = !message;
     const open = options.openId(); const retained = new Set(rows.map(row => row.id));
     for (const [id, item] of anchors) if (!retained.has(id)) { item.remove(); anchors.delete(id); }
-    rows.forEach((row, position) => {
-      let item = anchors.get(row.id);
-      if (!item) {
-        item = document.createElement('li'); const anchor = node('button', 'thread-sidebar-anchor'); anchor.type = 'button'; anchor.dataset.worksetId = row.id;
-        anchor.append(node('span', 'thread-sidebar-title'), node('span', 'thread-sidebar-state'), node('span', 'thread-sidebar-updated'));
-        anchor.onclick = () => { const actual = rows.find(candidate => candidate.id === row.id); if (actual) void openThread(actual); };
-        item.append(anchor); anchors.set(row.id, item);
+    const nodes: HTMLLIElement[] = [];
+    for (const project of active) {
+      const head = groupHead(project); const group = groups.get(project); const closed = collapsedGroups.has(project); const name = labelOf(project);
+      const toggle = head.querySelector<HTMLButtonElement>('.thread-sidebar-group-toggle')!; toggle.setAttribute('aria-expanded', String(!closed));
+      head.querySelector('.thread-sidebar-group-name')!.textContent = name;
+      head.querySelector('.thread-sidebar-group-count')!.textContent = group ? `${group.rows.length}${group.more ? '+' : ''}` : '';
+      head.toggleAttribute('data-current', project === currentProject);
+      const add = head.querySelector<HTMLButtonElement>('.thread-sidebar-group-add')!; add.disabled = busy || archivedView;
+      add.title = `New thread in ${name}`; add.setAttribute('aria-label', add.title);
+      const hide = head.querySelector<HTMLButtonElement>('.thread-sidebar-group-remove')!; hide.disabled = busy;
+      hide.title = `Remove ${name} from the sidebar`; hide.setAttribute('aria-label', hide.title);
+      nodes.push(head);
+      if (closed || !group) continue;
+      if (!group.rows.length) {
+        let note = notes.get(project); if (!note) { note = node('li', 'thread-sidebar-group-note'); notes.set(project, note); }
+        note.textContent = group.failed ? 'Its threads could not be read.' : archivedView ? 'No archived threads.' : 'No threads yet.'; nodes.push(note);
       }
-      const anchor = item.firstElementChild as HTMLButtonElement; anchor.disabled = busy;
-      const name = shownTitle(row); const titleLine = anchor.querySelector<HTMLElement>('.thread-sidebar-title')!;
-      if (titleLine.textContent !== name) { titleLine.textContent = name; anchor.title = name; }
-      const running = options.running(row.id); const waiting = options.attention?.(row.id) === true;
-      const kind = row.archived ? 'archived' : waiting ? 'recover' : running ? 'open' : 'resumable';
-      const sessions = `${row.sessions} session${row.sessions === 1 ? '' : 's'}`;
-      const said = row.archived ? `Archived · ${sessions}` : waiting ? `${sessions} · waiting for you` : running ? `${sessions} · ${running} running` : row.sessions ? sessions : 'No session yet';
-      const stateLine = anchor.querySelector<HTMLElement>('.thread-sidebar-state')!;
-      if (stateLine.dataset.state !== kind || stateLine.textContent !== said) { stateLine.dataset.state = kind; stateLine.textContent = said; }
-      anchor.querySelector('.thread-sidebar-updated')!.textContent = agoText(row.usedAt);
-      const pressed = String(open === row.id); if (anchor.getAttribute('aria-pressed') !== pressed) anchor.setAttribute('aria-pressed', pressed);
-      if (list.children[position] !== item) list.insertBefore(item, list.children[position] ?? null);
-    });
+      for (const row of group.rows) nodes.push(threadItem(row, open));
+    }
+    for (const child of [...list.children]) if (!nodes.includes(child as HTMLLIElement)) child.remove();
+    nodes.forEach((item, position) => { if (list.children[position] !== item) list.insertBefore(item, list.children[position] ?? null); });
     const current = chosen();
     actions.hidden = !current || editing; rename.hidden = !options.update; archive.hidden = !options.update; remove.hidden = !options.remove;
     rename.disabled = archive.disabled = remove.disabled = busy;
@@ -207,21 +214,67 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     }));
     requestNames();
   }
+  function threadItem(row: WorksetSummary, open: string | null): HTMLLIElement {
+    let item = anchors.get(row.id);
+    if (!item) {
+      item = node('li', 'thread-sidebar-row'); const anchor = node('button', 'thread-sidebar-anchor'); anchor.type = 'button'; anchor.dataset.worksetId = row.id;
+      anchor.append(node('span', 'thread-sidebar-title'), node('span', 'thread-sidebar-state'), node('span', 'thread-sidebar-updated'));
+      anchor.onclick = () => { const actual = rows.find(candidate => candidate.id === row.id); if (actual) void openThread(actual); };
+      item.append(anchor);
+      if (options.onAddSession) {
+        const add = node('button', 'thread-sidebar-add-session', '+'); add.type = 'button';
+        add.onclick = () => { const actual = rows.find(candidate => candidate.id === row.id); if (actual && !busy) options.onAddSession!(Object.freeze({ ...actual }), add); };
+        item.append(add);
+      }
+      anchors.set(row.id, item);
+    }
+    const anchor = item.firstElementChild as HTMLButtonElement; anchor.disabled = busy;
+    const name = shownTitle(row); const titleLine = anchor.querySelector<HTMLElement>('.thread-sidebar-title')!;
+    if (titleLine.textContent !== name) { titleLine.textContent = name; anchor.title = name; }
+    const running = options.running(row.id); const waiting = options.attention?.(row.id) === true;
+    const kind = row.archived ? 'archived' : waiting ? 'recover' : running ? 'open' : 'resumable';
+    const sessions = `${row.sessions} session${row.sessions === 1 ? '' : 's'}`;
+    const said = row.archived ? `Archived · ${sessions}` : waiting ? `${sessions} · waiting for you` : running ? `${sessions} · ${running} running` : row.sessions ? sessions : 'No session yet';
+    const stateLine = anchor.querySelector<HTMLElement>('.thread-sidebar-state')!;
+    if (stateLine.dataset.state !== kind || stateLine.textContent !== said) { stateLine.dataset.state = kind; stateLine.textContent = said; }
+    anchor.querySelector('.thread-sidebar-updated')!.textContent = agoText(row.usedAt);
+    const pressed = String(open === row.id); if (anchor.getAttribute('aria-pressed') !== pressed) anchor.setAttribute('aria-pressed', pressed);
+    const add = item.querySelector<HTMLButtonElement>('.thread-sidebar-add-session');
+    if (add) { add.disabled = busy; add.title = `Add a session to ${name}`; add.setAttribute('aria-label', add.title); }
+    return item;
+  }
+  function groupHead(project: string): HTMLLIElement {
+    let head = heads.get(project); if (head) return head;
+    head = node('li', 'thread-sidebar-group'); head.dataset.projectId = project;
+    const toggle = node('button', 'thread-sidebar-group-toggle'); toggle.type = 'button';
+    toggle.append(node('span', 'thread-sidebar-group-name'), node('span', 'thread-sidebar-group-count'));
+    toggle.onclick = () => { if (!collapsedGroups.delete(project)) collapsedGroups.add(project); render(); };
+    const add = node('button', 'thread-sidebar-group-add', '+'); add.type = 'button'; add.hidden = !options.create; add.onclick = () => createIn(project);
+    const hide = node('button', 'thread-sidebar-group-remove', '×'); hide.type = 'button'; hide.onclick = () => { if (!busy) setActive(active.filter(id => id !== project)); };
+    head.append(toggle, add, hide); heads.set(project, head); return head;
+  }
   function disarm() { window.clearTimeout(removeArmed); removeArmed = 0; remove.textContent = removeLabel; remove.classList.remove('danger'); }
   async function read(): Promise<boolean> {
-    if (destroyed || !selectedProject) return false;
+    if (destroyed || !active.length) return false;
     if (busy) { rereadWanted = true; return false; }
-    const project = selectedProject; const at = generation; busy = true; render();
+    const scope = [...active]; const at = generation; busy = true; render();
     try {
-      const value = rowsValue(await options.list({ projectId: project, archived: archivedView }), project, archivedView);
-      if (!value) throw new Error('invalid');
+      const results = await Promise.allSettled(scope.map(async project => {
+        const value = rowsValue(await options.list({ projectId: project, archived: archivedView }), project, archivedView);
+        if (!value) throw new Error('invalid'); return value;
+      }));
       if (destroyed || at !== generation) return false;
-      rows = value.rows; more = value.more; failed = false;
-      message = rows.length ? more ? 'Showing the 200 most recent threads.' : '' : archivedView ? 'No archived threads.' : 'No threads yet. Start a session or make a new thread.';
-      return true;
-    } catch (error) {
-      if (!destroyed && at === generation) { failed = true; message = failureText(error, 'read'); options.reportError(message); }
-      return false;
+      let error: unknown = null;
+      scope.forEach((project, index) => {
+        const result = results[index];
+        if (result.status === 'fulfilled') groups.set(project, { ...result.value, failed: false });
+        else { groups.set(project, { rows: [], more: false, failed: true }); error ??= result.reason ?? 'failed'; }
+      });
+      rows = scope.flatMap(project => groups.get(project)?.rows ?? []);
+      failed = error !== null;
+      message = failed ? failureText(error, 'read') : [...groups.values()].some(group => group.more) ? 'Showing the 200 most recent threads of each project.' : '';
+      if (failed) options.reportError(message);
+      return !failed;
     } finally { done(); }
   }
   function done() {
@@ -243,15 +296,15 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     catch { failed = true; message = 'The thread could not be opened. The current one stays open.'; }
     finally { done(); }
   }
-  create.onclick = () => {
-    const project = selectedProject; if (!project || !options.create) return;
+  function createIn(project: string) {
+    if (!options.create || busy) return;
     void operate('created', async () => {
       const made = await options.create!({ projectId: project });
       if (!record(made) || !worksetId(made.id) || !integer(made.revision)) throw new Error('invalid');
       const row: WorksetSummary = { id: made.id, projectId: project, title: null, archived: false, revision: made.revision, usedAt: Date.now(), sessions: 0, open: 0, lead: null };
       await options.onOpen(Object.freeze(row));
     });
-  };
+  }
   rename.onclick = () => { const current = chosen(); if (!current || busy) return; editing = true; renameInput.value = current.title ?? shownTitle(current); render(); renameInput.focus(); renameInput.select(); };
   renameCancel.onclick = () => { editing = false; render(); };
   renameForm.onsubmit = event => {
@@ -274,39 +327,42 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     disarm();
     void operate('forgotten', async () => { await options.remove!(Object.freeze({ ...current })); message = ''; });
   };
-  showArchived.onchange = () => { if (busy || !selectedProject) { showArchived.checked = archivedView; return; } archivedView = showArchived.checked; rows = []; void read(); };
+  showArchived.onchange = () => { if (busy || !active.length) { showArchived.checked = archivedView; return; } archivedView = showArchived.checked; generation++; rows = []; groups.clear(); render(); void read(); };
 
   function validProject(value: unknown): value is CurrentThreadProject { return record(value) && projectId(value.projectId) && (value.label === undefined || text(value.label, 128)); }
-  function renderProjects() {
-    const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'Choose a project'; scopeSelect.replaceChildren(placeholder);
-    for (const project of projects) { const option = document.createElement('option'); option.value = project.projectId; option.textContent = project.label || project.projectId; scopeSelect.append(option); }
-    scopeSelect.value = selectedProject ?? '';
-  }
+  const labelOf = (id: string) => projects.find(project => project.projectId === id)?.label || 'Project';
   function setProjects(values: readonly CurrentThreadProject[]): boolean {
     if (destroyed || !Array.isArray(values) || values.length > 100 || values.some(value => !validProject(value))) return false;
-    const retained = projects.find(project => project.projectId === selectedProject);
-    projects = values.map(value => ({ ...value }));
-    if (retained && !projects.some(project => project.projectId === retained.projectId)) { if (projects.length === 100) projects.pop(); projects.push(retained); }
-    renderProjects(); render(); return true;
+    // A listed project that left the recent list keeps its name.
+    const kept = projects.filter(project => active.includes(project.projectId) && !values.some(value => value.projectId === project.projectId));
+    projects = [...values.map(value => ({ ...value })), ...kept]; render(); return true;
   }
-  function choose(next: string | null) {
-    generation++; selectedProject = next; rows = []; more = false; editing = false; failed = false; archivedView = false;
-    message = next ? '' : 'Choose a project to see its threads.'; renderProjects(); render();
-    if (next) void read();
+  /** Lists exactly these projects, in this order, and reads their threads. */
+  function setActive(next: readonly string[], save = true) {
+    const unique = [...new Set(next)].filter(id => projectId(id)).slice(0, MAX_ACTIVE);
+    if (unique.length === active.length && unique.every((id, index) => id === active[index])) { render(); return; }
+    generation++; active = unique; editing = false; failed = false; message = active.length ? '' : NO_PROJECTS;
+    for (const id of [...groups.keys()]) if (!active.includes(id)) groups.delete(id);
+    for (const id of [...heads.keys()]) if (!active.includes(id)) { heads.delete(id); notes.delete(id); }
+    rows = active.flatMap(id => groups.get(id)?.rows ?? []);
+    if (save) changedDisplay(); else render();
+    if (active.length) void read();
   }
+  /** The toolbar's project: marked in the list, and listed if it was not. */
   function setProject(value: CurrentThreadProject | null) {
     if (destroyed) return false;
     if (value !== null && !validProject(value)) { options.reportError('The current project is unavailable. No other project was used.'); return false; }
-    if (value) projects = [{ ...projects.find(project => project.projectId === value.projectId), ...value }, ...projects.filter(project => project.projectId !== value.projectId)].slice(0, 100);
-    if ((value?.projectId ?? null) === selectedProject) { renderProjects(); return true; }
-    choose(value?.projectId ?? null); return true;
+    if (value) projects = [{ ...projects.find(project => project.projectId === value.projectId), ...value }, ...projects.filter(project => project.projectId !== value.projectId)];
+    currentProject = value?.projectId ?? null;
+    if (value && !active.includes(value.projectId)) setActive([...active, value.projectId]); else render();
+    return true;
   }
-  scopeSelect.onchange = () => { if (!busy && !destroyed) choose(projects.find(project => project.projectId === scopeSelect.value)?.projectId ?? null); else scopeSelect.value = selectedProject ?? ''; };
 
   function changedDisplay() {
     render(); if (!options.saveState) return;
+    if (!loaded) { saveWanted = true; return; }
     window.clearTimeout(saveTimer);
-    saveTimer = window.setTimeout(() => { void options.saveState!(Object.freeze({ ...display })).catch(() => options.reportError('The sidebar size could not be saved.')); }, 300);
+    saveTimer = window.setTimeout(() => { void options.saveState!(Object.freeze({ ...display, activeProjects: [...active] })).catch(() => options.reportError('The sidebar could not be saved.')); }, 300);
   }
   function cancelDrag() {
     if (!drag) return; const before = drag; drag = null; display = before.before;
@@ -329,17 +385,23 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   };
   collapse.onclick = () => { cancelDrag(); display.collapsed = !display.collapsed; changedDisplay(); };
 
-  renderProjects(); render();
+  render();
   if (options.loadState) void options.loadState().then(value => {
     if (destroyed || value === null) return;
-    const restored = stateValue(value); if (restored && !drag) { display = restored; render(); }
-  }).catch(() => { if (!destroyed) options.reportError('Sidebar display could not be restored. Default dimensions are in use.'); });
+    const restored = stateValue(value); if (!restored) return;
+    if (!drag) display = { version: 1, width: restored.width, collapsed: restored.collapsed };
+    const saved = restored.activeProjects ?? [];
+    setActive([...saved, ...active.filter(id => !saved.includes(id))], false);
+  }).catch(() => { if (!destroyed) options.reportError('Sidebar display could not be restored. Default dimensions are in use.'); })
+    .finally(() => { loaded = true; if (saveWanted && !destroyed) { saveWanted = false; changedDisplay(); } });
   return {
-    element, setProject, setProjects, currentProjectId: (): string | null => selectedProject,
+    element, setProject, setProjects, currentProjectId: (): string | null => currentProject,
+    activeIds: (): readonly string[] => [...active],
+    toggleActive(id: string) { if (!destroyed) setActive(active.includes(id) ? active.filter(other => other !== id) : [...active, id]); },
     /** Repaints counts and the open mark; reads nothing. */
     repaint: render,
     /** A saved change somewhere: read the list again, once, shortly. */
-    changed() { if (destroyed || !selectedProject) return; window.clearTimeout(changeTimer); changeTimer = window.setTimeout(() => { void read(); }, 400); },
+    changed() { if (destroyed || !active.length) return; window.clearTimeout(changeTimer); changeTimer = window.setTimeout(() => { void read(); }, 400); },
     refresh: read,
     row: (id: string): Readonly<WorksetSummary> | null => rows.find(row => row.id === id) ?? null,
     title: (id: string): string | null => { const row = rows.find(candidate => candidate.id === id); return row ? shownTitle(row) : null; },

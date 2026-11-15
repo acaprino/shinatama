@@ -1,9 +1,11 @@
 export type SessionMenuHarness = { id: string; label: string };
+/** A project the menu offers when more than one is listed in the sidebar. */
+export type SessionMenuProject = { label: string; path: string };
 type Options = {
-  /** Starts a session with this harness in the project the menu was opened for. */
-  start: (harnessId: string) => void;
-  /** The rare case: a session in a folder that is not the selected project. */
-  otherFolder: () => void;
+  /** Starts a session with this harness in the project chosen in the menu. */
+  start: (harnessId: string, projectPath: string) => void;
+  /** The rare case: a session in a folder that is not one of the projects. */
+  otherFolder: (projectPath: string) => void;
 };
 const rank = (id: string) => { const known = ['claude_code', 'codex', 'opencode'].indexOf(id); return known < 0 ? (id === 'powershell' ? 99 : 50) : known; };
 
@@ -21,19 +23,33 @@ export function createSessionMenu(options: Options) {
     if (restoreFocus && anchor?.isConnected) anchor.focus();
   }
   const items = () => [...menu.querySelectorAll<HTMLButtonElement>('button')];
-  function show(target: HTMLElement, harnesses: readonly SessionMenuHarness[], project: string, projectPath = project) {
+  function show(target: HTMLElement, harnesses: readonly SessionMenuHarness[], project: string, projectPath = project, choices: readonly SessionMenuProject[] = []) {
     if (!menu.hidden && anchor === target) { close(true); return; }
     for (const other of document.querySelectorAll<HTMLElement>('.toolbar-menu')) if (other !== menu && !other.hidden) other.dispatchEvent(new Event('toolbar-menu-close'));
     close(); anchor = target; menu.replaceChildren();
-    const where = document.createElement('p'); where.className = 'toolbar-menu-heading'; where.textContent = `New session in ${project}`; where.title = projectPath; menu.dataset.projectPath = projectPath; menu.append(where);
+    const where = document.createElement('p'); where.className = 'toolbar-menu-heading'; menu.append(where);
+    const place = (label: string, path: string) => { where.textContent = `New session in ${label}`; where.title = path; menu.dataset.projectPath = path; };
+    place(project, projectPath);
+    // Several projects in the sidebar: the project is chosen here too, then the agent.
+    if (choices.length > 1) {
+      const picks: HTMLButtonElement[] = [];
+      for (const choice of choices) {
+        const item = document.createElement('button'); item.type = 'button'; item.className = 'toolbar-menu-action session-menu-project';
+        item.setAttribute('role', 'menuitemradio'); item.textContent = choice.label; item.title = choice.path; item.dataset.projectPath = choice.path;
+        item.setAttribute('aria-checked', String(choice.path === projectPath));
+        item.onclick = () => { place(choice.label, choice.path); for (const other of picks) other.setAttribute('aria-checked', String(other === item)); };
+        picks.push(item); menu.append(item);
+      }
+      const rule = document.createElement('hr'); rule.className = 'session-menu-rule'; menu.append(rule);
+    }
     for (const harness of [...harnesses].sort((a, b) => rank(a.id) - rank(b.id))) {
       const item = document.createElement('button'); item.type = 'button'; item.className = 'toolbar-menu-action session-menu-harness';
       item.setAttribute('role', 'menuitem'); item.dataset.harness = harness.id; item.textContent = harness.label;
-      item.onclick = () => { last = harness.id; close(); options.start(harness.id); };
+      item.onclick = () => { last = harness.id; const path = menu.dataset.projectPath ?? projectPath; close(); options.start(harness.id, path); };
       menu.append(item);
     }
     const other = document.createElement('button'); other.type = 'button'; other.className = 'toolbar-menu-action session-menu-other';
-    other.setAttribute('role', 'menuitem'); other.textContent = 'Other folder…'; other.onclick = () => { close(); options.otherFolder(); };
+    other.setAttribute('role', 'menuitem'); other.textContent = 'Other folder…'; other.onclick = () => { const path = menu.dataset.projectPath ?? projectPath; close(); options.otherFolder(path); };
     menu.append(other);
     menu.hidden = false; target.setAttribute('aria-haspopup', 'menu'); target.setAttribute('aria-expanded', 'true');
     // Under the control, kept inside the window; above it when there is no room below.
@@ -41,7 +57,7 @@ export function createSessionMenu(options: Options) {
     const below = box.bottom + 4 + height <= window.innerHeight - 8;
     menu.style.left = `${Math.max(4, Math.min(box.left, window.innerWidth - width - 4))}px`;
     menu.style.top = `${below ? box.bottom + 4 : Math.max(4, box.top - height - 4)}px`;
-    (items().find(item => item.dataset.harness === last) ?? items()[0])?.focus();
+    (items().find(item => item.dataset.harness === last) ?? items().find(item => item.dataset.harness))?.focus();
   }
   menu.addEventListener('toolbar-menu-close', () => close());
   menu.addEventListener('keydown', event => {

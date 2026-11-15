@@ -62,3 +62,17 @@
 #new-terminal[aria-busy="true"] { opacity: 1; cursor: progress; }
 #new-terminal[aria-busy="true"] { animation: session-opening .7s ease-in-out infinite alternate; }
 @keyframes session-opening { from { opacity: .5; } }
+
+/* Project menu: the tick lists a project's threads in the sidebar; the name makes it current. */
+.toolbar-menu-line { display: flex; align-items: stretch; }
+.toolbar-menu-line > .toolbar-menu-project { flex: 1; min-width: 0; }
+.toolbar-menu-tick { flex: none; display: grid; place-items: center; width: 34px; padding: 0; border-color: transparent; background: transparent; }
+.toolbar-menu-tick::before { content: ''; width: 12px; height: 12px; box-sizing: border-box; border: 1px solid var(--muted); }
+.toolbar-menu-tick[aria-pressed=true]::before { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 2px var(--chrome-2); }
+.toolbar-menu-tick:hover::before { border-color: var(--accent-soft); }
+/* New session: the project, when several are listed, then the agent. */
+.session-menu-project { display: flex; align-items: center; gap: 8px; }
+.session-menu-project::before { content: ''; flex: none; width: 8px; height: 8px; border: 1px solid var(--muted); border-radius: 50%; }
+.session-menu-project[aria-checked=true] { color: var(--ice); }
+.session-menu-project[aria-checked=true]::before { border-color: var(--accent); background: var(--accent); }
+.session-menu-rule { width: 100%; margin: 4px 0; border: 0; border-top: 1px solid var(--line); }

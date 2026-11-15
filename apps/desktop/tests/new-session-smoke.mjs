@@ -7,7 +7,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { startSession } from './session-flow.mjs';
+import { showProject, startSession } from './session-flow.mjs';
 
 if (process.platform !== 'win32') throw new Error('This proof requires Windows.');
 const harness = process.env.SHINATAMA_SMOKE_SESSION_HARNESS || 'claude_code';
@@ -140,7 +140,7 @@ async function openSession(projectPath, expectedCount, route) {
     evidence.checks.sealedConversationHasLiveOwner = true;
   }
   const sidebar = page.locator('.thread-sidebar');
-  await expect(sidebar.locator('#thread-sidebar-project')).toHaveValue(project.id);
+  await expect(sidebar.locator(`.thread-sidebar-group[data-project-id="${project.id}"]`)).toBeVisible();
   await expect(sidebar.locator(`button[data-thread-id="${panel.resource.threadId}"]`)).toBeVisible();
   const selectedIds = await ids();
   await sidebar.locator(`button[data-thread-id="${panel.resource.threadId}"]`).click();
@@ -206,19 +206,22 @@ try {
     await openSession(projectPaths[1], 2, 'folder');
     evidence.checks.otherFolderStartsInAnotherProject = true;
     const stableIds = await ids(); const threadIds = opened.map(item => item.threadId).sort();
-    const selector = page.locator('#thread-sidebar-project');
+    // Both projects are listed in the sidebar, so New session asks which one.
     for (const item of opened) {
-      await expect(selector).toBeEnabled(); await selector.selectOption(item.projectId);
+      await showProject(page, item.projectId);
       await expect(page.locator(`.thread-sidebar button[data-thread-id="${item.threadId}"]`)).toBeVisible();
       await page.locator('#new-terminal').click();
       const menu = page.locator('#session-menu');
       await expect(menu).toBeVisible();
+      for (const choice of await menu.locator('.session-menu-project').all()) {
+        if (pathKey(await choice.getAttribute('data-project-path')) === pathKey(projectPaths[opened.indexOf(item)])) await choice.click();
+      }
       expect(pathKey(await menu.getAttribute('data-project-path'))).toBe(pathKey(projectPaths[opened.indexOf(item)]));
       await page.keyboard.press('Escape'); await expect(menu).toBeHidden();
       expect(await ids()).toEqual(stableIds);
       expect((await savedLayout()).views.map(view => view.resource.threadId).filter(Boolean).sort()).toEqual(threadIds);
     }
-    await expect(selector).toBeEnabled(); await selector.selectOption(first.projectId);
+    await showProject(page, first.projectId);
     await page.locator(`.thread-sidebar button[data-thread-id="${first.threadId}"]`).click();
     await ipc('terminal_write', { id: first.id, data: Array.from(Buffer.from("Write-Output ('SHINATAMA_' + 'HEALTHY')\r")) });
     await expect(pane(first.id).locator('.xterm-accessibility')).toContainText('SHINATAMA_HEALTHY');

@@ -75,3 +75,14 @@ export async function dragTab(page, tab, pane, where) {
   await until(() => page.locator('.wm-drop-preview').isVisible(), 5000, 'Dragging the tab showed no drop target.');
   await page.mouse.up();
 }
+
+/** Lists a project's threads in the sidebar through the Project menu's tick, unless they already are. */
+export async function showProject(page, projectId) {
+  const group = page.locator(`.thread-sidebar-group[data-project-id="${projectId}"]`);
+  if (!await group.count()) {
+    await page.locator('#project').click();
+    await page.locator(`#project-menu .toolbar-menu-tick[data-project-id="${projectId}"]`).click();
+    await page.keyboard.press('Escape');
+  }
+  await until(() => group.isVisible(), 10000, 'The project did not appear in the thread sidebar.');
+}

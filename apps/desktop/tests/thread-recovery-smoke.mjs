@@ -1,5 +1,6 @@
 // Root schedules this metadata/UI proof. It does NOT simulate a real native crash.
 // Only a newly created private database is seeded; no harness/account is started.
+import { showProject } from './session-flow.mjs';
 import { chromium, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -144,7 +145,7 @@ try {
     database.exec('COMMIT');
   } catch { database.exec('ROLLBACK'); fail('synthetic-seed-failed'); }
   await page.reload(); await expect(page.locator('#runtime-status')).toContainText('Local runtime');
-  const sidebar = page.locator('.thread-sidebar'); await sidebar.locator('#thread-sidebar-project').selectOption(projectId);
+  const sidebar = page.locator('.thread-sidebar'); await showProject(page, projectId);
   await sidebar.locator(`button.thread-sidebar-anchor[data-workset-id="${worksetId}"]`).click();
   const tabOf = item => page.locator(`.wm-tab[data-view-id="saved-${item.thread}"]`);
   const card = page.locator('.session-idle:visible');

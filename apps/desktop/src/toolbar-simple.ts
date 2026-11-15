@@ -89,6 +89,10 @@ export function createProjectMenu(options: {
   /** Searches the project roots. Results arrive through the callback, possibly more than once. */
   search?: (onResults: (projects: readonly FoundProject[]) => void) => { open(filter?: string): void; query(filter: string): void; close(): void };
   current: () => string;
+  /** Ids of the projects listed in the thread sidebar. */
+  active?: () => ReadonlySet<string>;
+  /** Lists or unlists a project in the thread sidebar; the current project does not change. */
+  toggleActive?: (projectId: string) => void;
   /** Folder of every running session, one entry per session. */
   running?: () => readonly string[];
   choose: (path: string) => Promise<void>;
@@ -133,13 +137,13 @@ export function createProjectMenu(options: {
     action('Open one folder…', options.browse, 'Open a single folder as a project, without adding a root'), action('New project…', options.create));
   menu.append(top, list, actions);
 
-  function rows(): { path: string; available: boolean }[] {
+  function rows(): { path: string; available: boolean; id?: string }[] {
     const query = filter.value.trim().toLocaleLowerCase();
     const matches = (path: string) => !query || `${folderName(path)} ${path}`.toLocaleLowerCase().includes(query);
     if (onlyRunning) {
-      return [...running.values()].map(entry => entry.path).filter(matches).map(path => ({ path, available: true }));
+      return [...running.values()].map(entry => entry.path).filter(matches).map(path => ({ path, available: true, id: recent.find(project => samePath(project.path, path))?.id }));
     }
-    const first = recent.filter(project => matches(project.path)).map(project => ({ path: project.path, available: project.available !== false }));
+    const first = recent.filter(project => matches(project.path)).map(project => ({ path: project.path, available: project.available !== false, id: project.id }));
     const rest = found.filter(project => matches(project.path) && !first.some(known => samePath(known.path, project.path)))
       .map(project => ({ path: project.path, available: project.available !== false }));
     return [...first, ...rest].slice(0, 60);
@@ -165,7 +169,16 @@ export function createProjectMenu(options: {
       path.textContent = `${sessions ? `● ${sessions} running · ` : ''}${project.available ? project.path : `${project.path} · unavailable`}`; row.append(name, path);
       row.onclick = () => pick(project.path);
       row.onpointermove = () => { if (active !== index) { active = index; mark(); } };
-      list.append(row);
+      // The tick lists the project's threads in the sidebar; Shift+Enter does the same from the finder.
+      const listed = !!project.id && !!options.active?.().has(project.id);
+      if (listed) row.setAttribute('aria-description', 'Listed in the thread sidebar');
+      if (!options.toggleActive || !project.id) { list.append(row); return; }
+      const id = project.id; row.dataset.projectId = id;
+      const tick = document.createElement('button'); tick.type = 'button'; tick.className = 'toolbar-menu-tick'; tick.tabIndex = -1;
+      tick.setAttribute('aria-pressed', String(listed)); tick.dataset.projectId = id;
+      tick.title = `${listed ? 'Remove' : 'List'} ${folderName(project.path)} ${listed ? 'from' : 'in'} the thread sidebar (Shift+Enter)`; tick.setAttribute('aria-label', tick.title);
+      tick.onclick = () => { options.toggleActive!(id); paint(); filter.focus(); };
+      const line = document.createElement('div'); line.className = 'toolbar-menu-line'; line.append(tick, row); list.append(line);
     });
     mark();
   }
@@ -181,6 +194,9 @@ export function createProjectMenu(options: {
     if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && count) {
       event.preventDefault(); active = (active + (event.key === 'ArrowDown' ? 1 : count - 1)) % count; mark();
       list.querySelector<HTMLElement>(`#project-menu-row-${active}`)?.scrollIntoView({ block: 'nearest' });
+    } else if (event.shiftKey && options.toggleActive && confirmsField(event)) {
+      event.preventDefault(); const id = list.querySelector<HTMLElement>(`#project-menu-row-${active}`)?.dataset.projectId;
+      if (id) { options.toggleActive(id); paint(); }
     } else if (confirmsField(event)) {
       event.preventDefault(); const row = list.querySelector<HTMLButtonElement>(`#project-menu-row-${active}`);
       if (row && !row.disabled) row.click();

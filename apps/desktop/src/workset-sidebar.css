@@ -9,3 +9,21 @@
 .thread-sidebar-closed li { display: flex; align-items: center; gap: 4px; }
 .thread-sidebar-closed-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-sidebar-closed button { min-height: 24px; padding: 0 6px; font-size: 10px; }
+
+/* Threads grouped by project: a header per listed project, its threads under it. */
+.thread-sidebar-group { display: flex; align-items: center; gap: 2px; min-height: 30px; }
+.thread-sidebar-list > .thread-sidebar-group:not(:first-child) { margin-top: 10px; }
+.thread-sidebar-group-toggle { display: flex; justify-content: flex-start; flex: 1; min-width: 0; align-items: center; gap: 6px; padding: 0 4px; border-color: transparent; background: transparent; color: var(--ice); font: 500 12px var(--display); letter-spacing: .05em; text-align: left; }
+.thread-sidebar-group-toggle::before { content: ''; flex: none; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translate(-2px, -1px); transition: transform var(--fast) var(--ease-out); }
+.thread-sidebar-group-toggle[aria-expanded=false]::before { transform: rotate(-45deg); }
+.thread-sidebar-group-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-sidebar-group-count { flex: none; color: var(--muted); font: 11px var(--mono); }
+.thread-sidebar-group[data-current] .thread-sidebar-group-name { color: var(--accent-soft); }
+.thread-sidebar-group-add, .thread-sidebar-group-remove, .thread-sidebar-add-session { flex: none; width: 26px; min-height: 26px; padding: 0; border-color: transparent; background: transparent; color: var(--text-2); font-size: 15px; line-height: 1; }
+.thread-sidebar-group-remove { color: var(--muted); font-size: 13px; }
+.thread-sidebar-group-add:hover, .thread-sidebar-add-session:hover { color: var(--accent); }
+.thread-sidebar-group-remove:hover { color: var(--error); }
+.thread-sidebar-group-note { padding: 2px 0 4px 18px; color: var(--muted); font: 12px var(--mono); }
+.thread-sidebar-row { display: flex; align-items: stretch; gap: 2px; }
+.thread-sidebar-row > .thread-sidebar-anchor { flex: 1; min-width: 0; }
+@media (prefers-reduced-motion: reduce) { .thread-sidebar-group-toggle::before { transition: none; } }
