@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createServer } from 'node:net';
-import { startSession } from './session-flow.mjs';
+import { dragTab, startSession } from './session-flow.mjs';
 
 if (process.platform !== 'win32') throw new Error('This test requires Windows.');
 const root = process.cwd();
@@ -90,12 +90,8 @@ try {
   // "New session" and a pane's own control open the harness menu for the selected project;
   // one choice starts exactly one PowerShell (ADR-0039 v2).
   const openShell = async trigger => { await (await startSession(page, { project: projectPath, harness: 'powershell', trigger })).done(30000); };
-  // Split, move, hide and "+ Session" sit behind each pane's own "⋯"; a new pane starts with it closed.
-  const layoutControls = async target => {
-    const more = target.locator('.wm-more');
-    if (await more.getAttribute('aria-expanded') !== 'true') await more.click();
-    return target;
-  };
+  // Panes are arranged by dragging a tab with the mouse onto a side of a pane.
+  const tab = id => page.locator('.wm-tab[data-view-id="' + id + '"]');
   const type = async (id, command) => {
     await pane(id).locator('.xterm-helper-textarea').focus();
     await page.keyboard.type(command); await page.keyboard.press('Enter');
@@ -183,20 +179,14 @@ try {
   await expect.poll(ids, { timeout: 30000 }).toHaveLength(2);
   const second = (await ids()).find(id => id !== first); await shell(second);
   await expect(page.locator('.wm-pane')).toHaveCount(1);
-  await layoutControls(pane(second));
-  await pane(second).getByLabel('Split edge', { exact: true }).selectOption('right');
-  await pane(second).getByRole('button', { name: 'Split', exact: true }).click();
+  await dragTab(page, tab(second), pane(second), 'right');
   await expect(page.locator('.wm-pane')).toHaveCount(2);
   const pair = await ids();
 
-  await openShell((await layoutControls(pane(second))).getByRole('button', { name: 'Open session', exact: true }));
+  await openShell(pane(second).locator('.wm-add'));
   await expect.poll(ids, { timeout: 30000 }).toHaveLength(3);
   const third = (await ids()).find(id => !pair.includes(id)); await shell(third);
-  const rightGroup = await pane(third).getAttribute('data-group-id');
-  await layoutControls(pane(third));
-  await pane(third).getByLabel('Destination pane', { exact: true }).selectOption(rightGroup);
-  await pane(third).getByLabel('Split edge', { exact: true }).selectOption('down');
-  await pane(third).getByRole('button', { name: 'Split', exact: true }).click();
+  await dragTab(page, tab(third), pane(third), 'bottom');
   await expect(page.locator('.wm-pane')).toHaveCount(3);
   const runtimeIds = await ids();
   const separator = page.getByRole('separator').first();
@@ -205,24 +195,14 @@ try {
   await expect(separator).not.toHaveAttribute('aria-valuenow', beforeResize);
   expect(await ids()).toEqual(runtimeIds);
 
-  const thirdGroup = await pane(third).getAttribute('data-group-id');
-  const thirdPane = page.locator('.wm-pane[data-group-id="' + thirdGroup + '"]');
-  await layoutControls(thirdPane);
-  await thirdPane.getByRole('button', { name: 'Hide', exact: true }).click();
-  await type(first, "Write-Output ('HEALTHY_' + 'WHILE_HIDDEN')");
-  await expect(pane(first).locator('.xterm-accessibility')).toContainText('HEALTHY_WHILE_HIDDEN');
+  // Every terminal keeps running through the drags; the arranged panes are saved as they look.
+  await type(first, "Write-Output ('HEALTHY_' + 'AFTER_DRAG')");
+  await expect(pane(first).locator('.xterm-accessibility')).toContainText('HEALTHY_AFTER_DRAG');
   expect(await ids()).toEqual(runtimeIds);
-  await expect.poll(async () => {
-    const record = await saved();
-    return record && JSON.parse(record.layoutJson).views.find(view => view.id === third)?.hidden;
-  }).toBe(true);
-  const beforeShowRevision = (await saved()).revision;
-  await thirdPane.getByRole('button', { name: 'Show', exact: true }).click();
-  await expect(thirdPane.getByRole('tab')).toHaveCount(1);
   const expectedActive = await page.locator('.wm-pane').evaluateAll(panes => Object.fromEntries(
     panes.map(pane => [pane.dataset.groupId, pane.querySelector('[role="tab"][aria-selected="true"]')?.dataset.viewId ?? null])));
   await expect.poll(async () => {
-    const record = await saved(); if (!record || record.revision <= beforeShowRevision) return false;
+    const record = await saved(); if (!record) return false;
     const layout = JSON.parse(record.layoutJson);
     return groupCount(layout.root) === 3 && layout.views.every(view => !view.hidden)
       && groups(layout.root).every(group => group.activeTabId === expectedActive[group.id]);

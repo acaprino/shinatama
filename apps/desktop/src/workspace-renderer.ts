@@ -33,9 +33,12 @@ export interface WorkspaceRenderer {
   render(layout: WorkspaceLayout): LayoutResult<void>;
   destroy(): void;
 }
-interface GroupDom { readonly element: HTMLElement; readonly tabs: HTMLElement; readonly controls: HTMLElement; readonly body: HTMLElement; readonly focus: HTMLButtonElement; readonly collapse: HTMLButtonElement; readonly maximize: HTMLButtonElement; readonly add: HTMLButtonElement; readonly more: HTMLButtonElement; advanced: boolean }
+interface GroupDom { readonly element: HTMLElement; readonly tabs: HTMLElement; readonly body: HTMLElement; readonly focus: HTMLButtonElement; readonly collapse: HTMLButtonElement; readonly maximize: HTMLButtonElement; readonly add: HTMLButtonElement }
 interface Bounds { readonly x: number; readonly y: number; readonly width: number; readonly height: number }
-interface DragState { readonly viewId: string; readonly gesture: LayoutGesture; readonly groupId: string; readonly splitId: string; action: LayoutAction | null }
+/** A tab held by the mouse. It becomes a drag (`gesture` set) only after it moves a few pixels, so a plain click still activates the tab. */
+interface DragState { readonly viewId: string; readonly pointerId: number; readonly startX: number; readonly startY: number; readonly tab: HTMLElement; readonly groupId: string; readonly splitId: string; gesture: LayoutGesture | null; action: LayoutAction | null }
+const DRAG_THRESHOLD = 6;
+const EDGE_WORDS = { columns: { before: 'left', after: 'right' }, rows: { before: 'top', after: 'bottom' } } as const;
 interface ResizeState { readonly gesture: LayoutGesture; readonly split: SplitNode; readonly boundary: number; readonly start: number; readonly free: number; readonly firstFree: number; readonly handle: HTMLElement; readonly pointerId: number; action: LayoutAction | null }
 
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text?: string): HTMLElementTagNameMap[K] {
@@ -64,8 +67,11 @@ function bounds(node: LayoutNode, panes: ReadonlyMap<string, PaneRect>): Bounds 
 export function createWorkspaceRenderer(options: WorkspaceRendererOptions): WorkspaceRenderer {
   const canvas = element('div', 'wm-canvas'); const parking = element('div', 'wm-parking'); parking.hidden = true; parking.setAttribute('aria-hidden', 'true');
   const preview = element('div', 'wm-drop-preview'); preview.hidden = true; preview.setAttribute('aria-hidden', 'true');
+  const previewLabel = element('span', 'wm-drop-label'); preview.appendChild(previewLabel);
+  const marker = element('div', 'wm-drop-marker'); marker.hidden = true; marker.setAttribute('aria-hidden', 'true');
+  const ghost = element('div', 'wm-drag-ghost'); ghost.hidden = true; ghost.setAttribute('aria-hidden', 'true');
   const status = element('div', 'wm-status'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
-  options.host.classList.add('wm-host'); options.host.append(canvas, parking, status); canvas.appendChild(preview);
+  options.host.classList.add('wm-host'); options.host.append(canvas, parking, status, ghost); canvas.append(preview, marker);
   const groups = new Map<string, GroupDom>(); const splitters = new Map<string, HTMLElement>(); const visibility = new Map<string, { visible: boolean; groupId: string | null }>();
   const namespace = `wm-${crypto.randomUUID()}`;
   let current: WorkspaceLayout | null = null; let drag: DragState | null = null; let resize: ResizeState | null = null;
@@ -75,7 +81,6 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
   const report = (error: LayoutError): void => { status.textContent = 'That layout change is unavailable.'; options.onError?.(error); };
   const label = (view: PanelView): string => (options.labelForView?.(view) ?? (view.resource.kind === 'terminal' ? 'Terminal' : view.resource.kind)).slice(0, 128);
   const emit = (action: LayoutAction, expected = current): void => { if (disposed || blocked() || !expected) return; status.textContent = ''; options.dispatch(action, expected); };
-  const active = (group: TabGroup): PanelView | undefined => current?.views.find(view => view.id === group.activeTabId);
   const focusView = (viewId: string | null): void => { if (viewId !== null && !blocked()) options.onFocusView?.(viewId); };
   const focusChrome = (groupId: string, key: string): void => { queueMicrotask(() => {
     if (disposed || blocked()) return;
@@ -88,9 +93,14 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
   const freshId = (kind: string): string => `wm-${kind}-${crypto.randomUUID()}`;
 
   function cancelGesture(): void {
-    drag = null;
+    if (drag) {
+      const held = drag; drag = null;
+      window.removeEventListener('pointermove', moveTab, true); window.removeEventListener('pointerup', dropTab, true);
+      window.removeEventListener('pointercancel', cancelGesture, true); window.removeEventListener('keydown', escapeDrag, true);
+      held.tab.classList.remove('wm-tab-dragging'); if (held.tab.hasPointerCapture(held.pointerId)) held.tab.releasePointerCapture(held.pointerId);
+    }
     if (resize) { const previous = resize; resize = null; if (previous.handle.hasPointerCapture(previous.pointerId)) previous.handle.releasePointerCapture(previous.pointerId); }
-    preview.hidden = true; options.host.classList.remove('wm-changing');
+    preview.hidden = true; marker.hidden = true; ghost.hidden = true; options.host.classList.remove('wm-changing', 'wm-dragging');
     if (current && !disposed) drawGeometry(current);
   }
   function commitGesture(gesture: LayoutGesture, action: LayoutAction | null): void {
@@ -103,33 +113,77 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
     emit(action, expected);
   }
 
-  function dropAction(event: DragEvent, target: TabGroup): LayoutAction | null {
+  /** Where the held tab would land: the tab strip reorders, a pane's centre joins its tabs, a side splits the pane there. */
+  function dropAction(x: number, y: number, hit: Element, target: TabGroup): { action: LayoutAction; before: HTMLElement | null } | null {
     if (!drag || !current) return null;
     const dom = groups.get(target.id); if (!dom) return null;
     const source = tabGroups(current.root).find(group => group.tabs.includes(drag?.viewId ?? ''));
-    const tabTarget = event.target instanceof Element ? event.target.closest<HTMLElement>('.wm-tab') : null;
-    if (tabTarget?.dataset.viewId && target.tabs.includes(tabTarget.dataset.viewId)) {
-      let index = target.tabs.indexOf(tabTarget.dataset.viewId);
+    if (hit.closest('.wm-header')) {
+      const before = [...dom.tabs.querySelectorAll<HTMLElement>('.wm-tab')].find(tab => { const box = tab.getBoundingClientRect(); return x < box.left + box.width / 2; }) ?? null;
+      let index = before?.dataset.viewId ? target.tabs.indexOf(before.dataset.viewId) : target.tabs.length;
       if (source?.id === target.id && source.tabs.indexOf(drag.viewId) < index) index -= 1;
-      return { type: 'move', viewId: drag.viewId, groupId: target.id, index };
+      if (source?.id === target.id && source.tabs.indexOf(drag.viewId) === index) return null;
+      return { action: { type: 'move', viewId: drag.viewId, groupId: target.id, index }, before };
     }
-    const rect = dom.element.getBoundingClientRect(); const x = event.clientX - rect.left; const y = event.clientY - rect.top;
-    const margin = Math.max(20, Math.min(56, Math.min(rect.width, rect.height) * 0.22));
-    const edge = x < margin ? { axis: 'columns' as const, side: 'before' as const } : x > rect.width - margin ? { axis: 'columns' as const, side: 'after' as const }
-      : y < margin ? { axis: 'rows' as const, side: 'before' as const } : y > rect.height - margin ? { axis: 'rows' as const, side: 'after' as const } : null;
-    return { type: 'move', viewId: drag.viewId, groupId: target.id,
-      ...(edge ? { edge: { ...edge, newGroupId: drag.groupId, newSplitId: drag.splitId } } : {}) };
+    const box = dom.body.getBoundingClientRect(); if (!box.width || !box.height) return null;
+    const dx = (x - box.left) / box.width - 0.5; const dy = (y - box.top) / box.height - 0.5;
+    if (Math.abs(dx) < 0.25 && Math.abs(dy) < 0.25) return source?.id === target.id ? null : { action: { type: 'move', viewId: drag.viewId, groupId: target.id }, before: null };
+    const edge = Math.abs(dx) >= Math.abs(dy) ? { axis: 'columns' as const, side: dx < 0 ? 'before' as const : 'after' as const }
+      : { axis: 'rows' as const, side: dy < 0 ? 'before' as const : 'after' as const };
+    return { action: { type: 'move', viewId: drag.viewId, groupId: target.id, edge: { ...edge, newGroupId: drag.groupId, newSplitId: drag.splitId } }, before: null };
   }
-  function showDrop(target: TabGroup, action: LayoutAction): void {
-    if (!current) return;
+  function showDrop(target: TabGroup, action: LayoutAction, before: HTMLElement | null): void {
+    if (!current || action.type !== 'move') return;
+    const dom = groups.get(target.id); if (!dom) return;
+    const origin = canvas.getBoundingClientRect();
+    if (action.index !== undefined) {
+      const strip = dom.tabs.getBoundingClientRect(); const last = dom.tabs.querySelector<HTMLElement>('.wm-tabwrap:last-of-type');
+      const at = before ? before.getBoundingClientRect().left : last ? last.getBoundingClientRect().right : strip.left;
+      Object.assign(marker.style, { left: `${at - origin.left - 1}px`, top: `${strip.top - origin.top}px`, height: `${strip.height}px` }); marker.hidden = false; return;
+    }
     const pane = paneRects(current, viewport()).panes.find(pane => pane.groupId === target.id); if (!pane) return;
     let { x, y, width, height } = pane;
-    if (action.type === 'move' && action.edge) {
+    if (action.edge) {
       if (action.edge.axis === 'columns') { width /= 2; if (action.edge.side === 'after') x += width; }
       else { height /= 2; if (action.edge.side === 'after') y += height; }
     }
+    previewLabel.textContent = action.edge ? `New pane on the ${EDGE_WORDS[action.edge.axis][action.edge.side]}` : 'Move to this pane';
     Object.assign(preview.style, { left: `${x}px`, top: `${y}px`, width: `${width}px`, height: `${height}px` }); preview.hidden = false;
   }
+  function holdTab(event: PointerEvent, viewId: string, tab: HTMLElement): void {
+    if (event.button !== 0 || !current || blocked() || drag || resize) return;
+    drag = { viewId, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, tab, groupId: freshId('group'), splitId: freshId('split'), gesture: null, action: null };
+    window.addEventListener('pointermove', moveTab, true); window.addEventListener('pointerup', dropTab, true);
+    window.addEventListener('pointercancel', cancelGesture, true); window.addEventListener('keydown', escapeDrag, true);
+  }
+  function moveTab(event: PointerEvent): void {
+    if (!drag || !current || event.pointerId !== drag.pointerId) return;
+    if (blocked() || !drag.tab.isConnected) { cancelGesture(); return; }
+    if (!drag.gesture) {
+      if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < DRAG_THRESHOLD) return;
+      drag.gesture = beginLayoutGesture(current); drag.tab.setPointerCapture(event.pointerId); drag.tab.classList.add('wm-tab-dragging');
+      ghost.textContent = drag.tab.textContent ?? ''; ghost.hidden = false; options.host.classList.add('wm-changing', 'wm-dragging');
+    }
+    event.preventDefault();
+    ghost.style.transform = `translate(${event.clientX + 14}px, ${event.clientY + 12}px)`;
+    drag.action = null; preview.hidden = true; marker.hidden = true;
+    const hit = document.elementFromPoint(event.clientX, event.clientY); const paneNode = hit?.closest<HTMLElement>('.wm-pane');
+    const group = hit && paneNode && canvas.contains(paneNode) ? tabGroups(current.root).find(group => group.id === paneNode.dataset.groupId) : undefined;
+    if (!hit || !group || group.collapsed) return;
+    const drop = dropAction(event.clientX, event.clientY, hit, group);
+    if (drop && previewLayoutGesture(drag.gesture, drop.action).ok) { drag.action = drop.action; showDrop(group, drop.action, drop.before); }
+  }
+  function dropTab(event: PointerEvent): void {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    const held = drag;
+    if (!held.gesture) { cancelGesture(); return; }
+    // The release after a drag is not a click on whatever sits under the pointer.
+    const swallow = (click: MouseEvent): void => { click.stopPropagation(); click.preventDefault(); };
+    window.addEventListener('click', swallow, { capture: true, once: true }); setTimeout(() => window.removeEventListener('click', swallow, true), 0);
+    event.preventDefault(); const viewId = held.viewId; const action = held.action;
+    commitGesture(held.gesture, action); if (action) focusView(viewId);
+  }
+  function escapeDrag(event: KeyboardEvent): void { if (event.key === 'Escape' && drag) { event.preventDefault(); event.stopPropagation(); cancelGesture(); } }
 
   function makeGroup(groupId: string): GroupDom {
     const pane = element('section', 'wm-pane'); pane.dataset.groupId = groupId; pane.setAttribute('aria-label', 'Workspace pane');
@@ -140,11 +194,10 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
     const collapse = control('−', 'collapse', () => { const group = current && tabGroups(current.root).find(group => group.id === groupId); if (group) emit({ type: 'collapse', groupId, collapsed: !group.collapsed }); });
     const maximize = control('□', 'maximize', () => emit({ type: 'maximize', groupId: current?.maximizedGroupId === groupId ? null : groupId }));
     const add = control('+', 'new-tab', () => options.onNewTab?.(groupId)); add.classList.add('wm-add'); add.title = 'New session in this pane'; add.setAttribute('aria-label', 'New session in this pane');
-    const more = control('⋯', 'more', () => { const dom = groups.get(groupId); if (!dom) return; dom.advanced = !dom.advanced; dom.controls.hidden = !dom.advanced || dom.element.classList.contains('wm-collapsed'); dom.more.setAttribute('aria-expanded', String(dom.advanced)); });
-    more.classList.add('wm-more'); more.title = 'Split, move and hide'; more.setAttribute('aria-label', 'Pane layout options'); more.setAttribute('aria-expanded', 'false');
-    header.append(focus, tabs, add, more, collapse, maximize);
-    const controls = element('div', 'wm-controls wm-chrome'); controls.hidden = true; const body = element('div', 'wm-body'); body.id = `${namespace}-panel-${groupId}`; body.setAttribute('role', 'tabpanel');
-    pane.append(header, controls, body); canvas.appendChild(pane);
+    collapse.classList.add('wm-pane-tools');
+    header.append(focus, tabs, add, collapse, maximize);
+    const body = element('div', 'wm-body'); body.id = `${namespace}-panel-${groupId}`; body.setAttribute('role', 'tabpanel');
+    pane.append(header, body); canvas.appendChild(pane);
     pane.addEventListener('pointerdown', event => {
       if (blocked() || (event.target instanceof Element && event.target.closest('.wm-chrome'))) return;
       const group = current && tabGroups(current.root).find(group => group.id === groupId);
@@ -155,16 +208,7 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
       const group = current && tabGroups(current.root).find(group => group.id === groupId);
       if (!blocked() && group?.activeTabId && !group.collapsed && current?.focusedGroupId !== groupId) emit({ type: 'focus', groupId });
     });
-    pane.addEventListener('dragover', event => {
-      if (!drag || !current || blocked()) return; const group = tabGroups(current.root).find(group => group.id === groupId); if (!group) return;
-      event.preventDefault(); event.stopPropagation(); const action = dropAction(event, group);
-      const result = action && previewLayoutGesture(drag.gesture, action);
-      drag.action = result?.ok ? action : null; preview.hidden = true;
-      if (drag.action) { showDrop(group, drag.action); if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'; }
-      else if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
-    });
-    pane.addEventListener('drop', event => { if (!drag) return; event.preventDefault(); event.stopPropagation(); const state = drag; commitGesture(state.gesture, state.action); });
-    return { element: pane, tabs, controls, body, focus, collapse, maximize, add, more, advanced: false };
+    return { element: pane, tabs, body, focus, collapse, maximize, add };
   }
 
   function buildChrome(group: TabGroup, index: number, dom: GroupDom): void {
@@ -184,15 +228,12 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
         tab.blur();
         if (current?.focusedGroupId !== group.id) emit({ type: 'focus', groupId: group.id });
         emit({ type: 'activate', groupId: group.id, viewId: view.id }); focusView(view.id);
-      });      tab.classList.add('wm-tab'); tab.dataset.viewId = view.id; tab.draggable = true; tab.setAttribute('role', 'tab');
+      });      tab.classList.add('wm-tab'); tab.dataset.viewId = view.id; tab.setAttribute('role', 'tab');
       tab.id = `${namespace}-tab-${view.id}`; tab.setAttribute('aria-controls', dom.body.id);
-      tab.setAttribute('aria-selected', String(group.activeTabId === view.id)); tab.tabIndex = group.activeTabId === view.id ? 0 : -1; tab.title = label(view);
-      tab.addEventListener('dragstart', event => {
-        if (!current || blocked()) { event.preventDefault(); return; }
-        cancelGesture(); drag = { viewId: view.id, gesture: beginLayoutGesture(current), groupId: freshId('group'), splitId: freshId('split'), action: null };
-        options.host.classList.add('wm-changing'); if (event.dataTransfer) { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('application/x-shinatama-view', view.id); }
-      });
-      tab.addEventListener('dragend', cancelGesture);
+      tab.setAttribute('aria-selected', String(group.activeTabId === view.id)); tab.tabIndex = group.activeTabId === view.id ? 0 : -1;
+      tab.title = `${label(view)} · drag to another pane or to a side to split; Alt+Shift+arrow does the same from the keyboard`;
+      // Mouse drag, not HTML drag and drop: on Windows the window's native file drop takes those events.
+      tab.addEventListener('pointerdown', event => holdTab(event, view.id, tab));
       const wrap = element('span', 'wm-tabwrap'); wrap.classList.toggle('wm-tabwrap-active', group.activeTabId === view.id);
       const close = control('×', `close:${view.id}`, () => options.onCloseView?.(view.id)); close.classList.add('wm-tab-close');
       close.title = `Close ${label(view)}`; close.setAttribute('aria-label', `Close ${label(view)}`); close.tabIndex = -1;
@@ -204,32 +245,7 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
     dom.element.classList.toggle('wm-filtered-out', empty);
     dom.tabs.replaceChildren(...tabs);
     if (group.activeTabId !== null) dom.body.setAttribute('aria-labelledby', `${namespace}-tab-${group.activeTabId}`); else dom.body.removeAttribute('aria-labelledby');
-    const previousDestination = dom.controls.querySelector<HTMLSelectElement>('[data-wm-key="destination"]')?.value;
-    const previousEdge = dom.controls.querySelector<HTMLSelectElement>('[data-wm-key="edge"]')?.value;
-    const previousHidden = dom.controls.querySelector<HTMLSelectElement>('[data-wm-key="hidden"]')?.value;
-    const destinationGroups = tabGroups(current.root);
-    const destination = destinationGroups.some(candidate => candidate.id === previousDestination) ? previousDestination
-      : destinationGroups.find(candidate => candidate.id !== group.id)?.id ?? group.id;
-    const selected = active(group); const destinations = element('select', 'wm-target'); destinations.setAttribute('aria-label', 'Destination pane'); destinations.dataset.wmKey = 'destination';
-    destinationGroups.forEach((candidate, destinationIndex) => { const option = element('option', '', `Pane ${destinationIndex + 1}`); option.value = candidate.id; option.selected = candidate.id === destination; destinations.appendChild(option); });
-    const move = control('Move', 'move', () => { if (selected) { emit({ type: 'move', viewId: selected.id, groupId: destinations.value }); focusView(selected.id); } });
-    const edge = element('select', 'wm-target'); edge.dataset.wmKey = 'edge'; edge.setAttribute('aria-label', 'Split edge');
-    for (const direction of ['left', 'right', 'up', 'down'] as const) { const option = element('option', '', direction); option.value = direction; option.selected = previousEdge === direction; edge.appendChild(option); }
-    const split = control('Split', 'split', () => { if (!selected) return; const direction = edge.value; emit({ type: 'move', viewId: selected.id, groupId: destinations.value,
-      edge: { axis: direction === 'left' || direction === 'right' ? 'columns' : 'rows', side: direction === 'left' || direction === 'up' ? 'before' : 'after', newGroupId: freshId('group'), newSplitId: freshId('split') } }); focusView(selected.id); });
-    const hide = control('Hide', 'hide', () => { if (selected) emit({ type: 'hide', viewId: selected.id, hidden: true }); });
-    const earlier = control('←', 'earlier', () => { if (selected) emit({ type: 'move', viewId: selected.id, groupId: group.id, index: Math.max(0, group.tabs.indexOf(selected.id) - 1) }); });
-    earlier.setAttribute('aria-label', 'Move tab earlier');
-    const later = control('→', 'later', () => { if (selected) emit({ type: 'move', viewId: selected.id, groupId: group.id, index: Math.min(group.tabs.length - 1, group.tabs.indexOf(selected.id) + 1) }); });
-    later.setAttribute('aria-label', 'Move tab later');
-    for (const button of [move, split, hide, earlier, later]) button.disabled = !selected;
-    const updateSplit = (): void => { split.disabled = !selected || (destinations.value === group.id && group.tabs.length === 1); }; updateSplit(); destinations.addEventListener('change', updateSplit);
-    const hidden = group.tabs.map(viewId => current?.views.find(view => view.id === viewId)).filter((view): view is PanelView => view !== undefined && view.hidden);
-    const hiddenSelect = element('select', 'wm-target'); hiddenSelect.dataset.wmKey = 'hidden'; hiddenSelect.setAttribute('aria-label', 'Hidden views');
-    for (const view of hidden) { const option = element('option', '', label(view)); option.value = view.id; option.selected = previousHidden === view.id; hiddenSelect.appendChild(option); }
-    const show = control('Show', 'show', () => { const viewId = hiddenSelect.value; if (viewId) emit({ type: 'hide', viewId, hidden: false }); });
-    hiddenSelect.hidden = show.hidden = hidden.length === 0;
-    dom.controls.replaceChildren(destinations, move, edge, split, earlier, later, hide, hiddenSelect, show); dom.controls.hidden = group.collapsed || !dom.advanced; dom.body.hidden = group.collapsed;
+    dom.body.hidden = group.collapsed;
   }
 
   function position(node: HTMLElement, rect: Bounds): void { Object.assign(node.style, { left: `${rect.x}px`, top: `${rect.y}px`, width: `${rect.width}px`, height: `${rect.height}px` }); }
@@ -296,6 +312,16 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
     if (target.classList.contains('wm-pane-focus') && group && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
       event.preventDefault(); const direction: Direction = event.key === 'ArrowLeft' ? 'left' : event.key === 'ArrowRight' ? 'right' : event.key === 'ArrowUp' ? 'up' : 'down';
       const neighbor = keyboardNeighbor(current, group.id, direction, viewport()); if (neighbor) { emit({ type: 'focus', groupId: neighbor }); focusChrome(neighbor, 'pane-focus'); } return;
+    }
+    if (target.classList.contains('wm-tab') && group && event.altKey && event.shiftKey && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+      event.preventDefault(); const viewId = target.dataset.viewId; if (!viewId) return;
+      const direction: Direction = event.key === 'ArrowLeft' ? 'left' : event.key === 'ArrowRight' ? 'right' : event.key === 'ArrowUp' ? 'up' : 'down';
+      const axis = direction === 'left' || direction === 'right' ? 'columns' as const : 'rows' as const;
+      const side = direction === 'left' || direction === 'up' ? 'before' as const : 'after' as const;
+      // The keyboard twin of dragging a tab to a side. A pane's only tab cannot split off itself: it joins the pane on that side.
+      if (group.tabs.length > 1) emit({ type: 'move', viewId, groupId: group.id, edge: { axis, side, newGroupId: freshId('group'), newSplitId: freshId('split') } });
+      else { const neighbor = keyboardNeighbor(current, group.id, direction, viewport()); if (!neighbor) return; emit({ type: 'move', viewId, groupId: neighbor }); }
+      focusView(viewId); return;
     }
     if (target.classList.contains('wm-tab') && group && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
       event.preventDefault(); const filter = options.tabFilter?.() ?? null;

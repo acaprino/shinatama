@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createServer } from 'node:net';
-import { startSession } from './session-flow.mjs';
+import { dragTab, startSession } from './session-flow.mjs';
 
 if (process.platform !== 'win32') throw new Error('This test requires Windows.');
 const root = process.cwd();
@@ -137,9 +137,7 @@ try {
   await expect(page.locator('.wm-pane')).toHaveCount(1);
   const selected = page.locator('.wm-pane [role="tab"][aria-selected="true"]');
   const split = page.locator('.wm-pane').first();
-  if (await split.locator('.wm-more').getAttribute('aria-expanded') !== 'true') await split.locator('.wm-more').click();
-  await split.getByLabel('Split edge', { exact: true }).selectOption('right');
-  await split.getByRole('button', { name: 'Split', exact: true }).click();
+  await dragTab(page, split.locator('.wm-tab').last(), split, 'right');
   await expect(page.locator('.wm-pane')).toHaveCount(2, { timeout: 15000 });
   const columns = await panes();
   expect(columns.map(group => group.length), 'tabs per column in thread A').toEqual([1, 1]);

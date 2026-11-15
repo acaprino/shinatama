@@ -61,3 +61,17 @@ export async function startSession(page, { project, harness, trigger = page.loca
   };
   return flow;
 }
+
+/** Drags a tab with the mouse, as a person does, and drops it on `where` of `pane`'s body
+ * ('left' | 'right' | 'top' | 'bottom' split the pane there, 'center' joins its tabs).
+ * Waits for the drop preview first, so a refused drop fails here instead of later. */
+export async function dragTab(page, tab, pane, where) {
+  const from = await tab.boundingBox(); const body = await pane.locator('.wm-body').boundingBox();
+  if (!from || !body) throw new Error('The tab or the target pane is not on screen.');
+  const fraction = { left: [0.1, 0.5], right: [0.9, 0.5], top: [0.5, 0.1], bottom: [0.5, 0.9], center: [0.5, 0.5] }[where];
+  if (!fraction) throw new Error('Unknown drop side: ' + where);
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2); await page.mouse.down();
+  await page.mouse.move(body.x + body.width * fraction[0], body.y + body.height * fraction[1], { steps: 12 });
+  await until(() => page.locator('.wm-drop-preview').isVisible(), 5000, 'Dragging the tab showed no drop target.');
+  await page.mouse.up();
+}

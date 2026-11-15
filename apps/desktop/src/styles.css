@@ -465,7 +465,7 @@ dialog[data-sheet="pane-top"], dialog[data-sheet="pane-bottom"] { width: var(--s
 .native-glass #modal-scrim { background: color-mix(in srgb, var(--stage) 36%, transparent); }
 .native-glass #app { outline: 1px solid color-mix(in srgb, var(--line-strong) 60%, transparent); outline-offset: -1px; }
 .native-glass .thread-sidebar-heading { background: transparent; }
-.native-glass .wm-footer, .native-glass .wm-controls { background: var(--glass-bar); }
+.native-glass .wm-footer { background: var(--glass-bar); }
 /* The file browser needs two columns; it takes a wider drawer than the others. */
 :root:has(#files-dialog[open]) { --drawer-width: clamp(560px, 66vw, 1180px); }
 /* Model proxy indicator: one blinking dot. Green serving (slow), amber in transit or degraded (faster), red failed (fast), dark off. No glow. */

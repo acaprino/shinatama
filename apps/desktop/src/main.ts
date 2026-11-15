@@ -238,7 +238,7 @@ function setFocus(groupId: string, terminal = true) {
   if (terminal && !modalOpen()) {
     const view = group.activeTabId ? views.get(group.activeTabId) : null;
     if (view) view.terminal.focus();
-    else workspace.querySelector<HTMLButtonElement>('[data-new-terminal]')?.focus();
+    else workspace.querySelector<HTMLButtonElement>(`.wm-pane[data-group-id="${groupId}"] .wm-empty-start`)?.focus();
   }
 }
 function threadHasRunningTab(threadId: string) {
@@ -259,14 +259,7 @@ function render() {
   for (const pane of workspace.querySelectorAll<HTMLElement>('.wm-pane')) {
     const group = tabGroups(workspaceLayout.root).find(group => group.id === pane.dataset.groupId); if (!group) continue;
     pane.classList.add('pane'); pane.classList.toggle('focused', workspaceLayout.focusedGroupId === group.id);
-    const controls = pane.querySelector<HTMLElement>('.wm-controls')!;
-    const open = document.createElement('button'); open.type = 'button'; open.dataset.newTerminal = ''; open.textContent = '+ Session'; open.setAttribute('aria-label', 'Open session');
-    open.onclick = () => openNewSession(group.id, undefined, undefined, 'thread'); controls.prepend(open);
     const active = group.activeTabId ? views.get(group.activeTabId) : null;
-    const stop = document.createElement('button'); stop.type = 'button';
-    stop.textContent = active?.threadId ? 'Close session' : active ? 'Stop' : 'Close session';
-    stop.setAttribute('aria-label', active && !active.threadId ? 'Stop terminal' : 'Close this session'); stop.disabled = !group.activeTabId;
-    stop.onclick = () => { if (group.activeTabId) void closePanel(group.activeTabId); }; controls.append(stop);
     let footer = pane.querySelector<HTMLElement>('.wm-footer');
     if (!footer) { footer = document.createElement('div'); footer.className = 'wm-footer pane-footer'; pane.append(footer); }
     footer.hidden = group.collapsed;

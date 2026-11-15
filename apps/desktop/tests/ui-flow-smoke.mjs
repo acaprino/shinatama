@@ -2,6 +2,7 @@
 import { chromium, expect } from '@playwright/test';
 import { resolve } from 'node:path';
 import { createServer } from 'vite';
+import { dragTab } from './session-flow.mjs';
 
 function installBridge() {
   const state = window.__bridge = { calls: [], listeners: {}, callbacks: {}, nextTerminal: 1,
@@ -115,25 +116,33 @@ try {
   await expect(page.getByRole('tab')).toHaveCount(2);
   const ids = await runtimeIds();
   const destination = await pane('t1').getAttribute('data-group-id');
-  await pane('t2').getByLabel('Split edge', { exact: true }).selectOption('right');
-  await pane('t2').getByRole('button', { name: 'Split', exact: true }).click();
-  await expect(page.locator('.wm-pane')).toHaveCount(2);
-  expect(await runtimeIds()).toEqual(ids);
-  await pane('t2').getByLabel('Destination pane', { exact: true }).selectOption(destination);
-  await pane('t2').getByRole('button', { name: 'Move', exact: true }).click();
+  const tab = id => page.locator('.wm-tab[data-view-id="' + id + '"]');
+  // A tab pressed and released without moving is a click: nothing is rearranged.
+  await tab('t2').click();
   await expect(page.locator('.wm-pane')).toHaveCount(1);
-  await pane('t2').getByLabel('Split edge', { exact: true }).selectOption('down');
-  await pane('t2').getByRole('button', { name: 'Split', exact: true }).click();
+  await dragTab(page, tab('t2'), pane('t2'), 'right');
+  await expect(page.locator('.wm-pane')).toHaveCount(2);
+  await expect(page.locator('.wm-drop-preview')).toBeHidden();
+  expect(await runtimeIds()).toEqual(ids);
+  await dragTab(page, tab('t2'), page.locator('.wm-pane[data-group-id="' + destination + '"]'), 'center');
+  await expect(page.locator('.wm-pane')).toHaveCount(1);
+  // Escape drops nothing.
+  const box = await tab('t2').boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
+  await page.mouse.move(box.x + 300, box.y + 200, { steps: 8 }); await expect(page.locator('.wm-drop-preview')).toBeVisible();
+  await page.keyboard.press('Escape'); await page.mouse.up();
+  await expect(page.locator('.wm-pane')).toHaveCount(1);
+  await expect(page.locator('.wm-drop-preview')).toBeHidden();
+  // The keyboard twin of a drag to the bottom.
+  await tab('t2').focus(); await page.keyboard.press('Alt+Shift+ArrowDown');
+  await expect(page.locator('.wm-pane')).toHaveCount(2);
   const secondId = await pane('t2').getAttribute('data-group-id');
   const second = page.locator('.wm-pane[data-group-id="' + secondId + '"]');
-  await second.getByRole('button', { name: 'Hide', exact: true }).click();
-  await expect(second.getByRole('tab')).toHaveCount(0);
-  await second.getByRole('button', { name: 'Show', exact: true }).click();
   await expect(second.getByRole('tab')).toHaveCount(1);
   expect(await runtimeIds()).toEqual(ids);
   expect(await calls('terminal_stop')).toEqual([]);
   expect((await calls('terminal_start')).length).toBe(2);
-  passed.push('split/move/hide/show preserve the original runtime identities');
+  passed.push('mouse drag split/join, Escape and Alt+Shift+arrow preserve the original runtime identities');
 
   await page.evaluate(() => { window.__bridge.exits.t2 = 3; });
   await expect(second.locator('.exit-banner')).toContainText('code 3');

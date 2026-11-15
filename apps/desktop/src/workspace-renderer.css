@@ -11,8 +11,6 @@
 .wm-tabs { display: flex; align-items: stretch; min-width: 0; flex: 1; overflow: auto; scrollbar-width: thin; }
 .wm-tab { display: block; min-width: 0; max-width: 190px; text-align: left; border-top: 0; border-bottom: 0; text-overflow: ellipsis; overflow: hidden; text-transform: none; font: 12px var(--mono); }
 .wm-tab[aria-selected="true"] { color: var(--ice); background: var(--surface); box-shadow: inset 0 -2px var(--accent); }
-.wm-controls { flex: 0 0 29px; display: flex; gap: 3px; align-items: center; overflow: auto; scrollbar-width: thin; background: var(--chrome-2); border-bottom: 1px solid var(--line); }
-.wm-target { max-width: 110px; min-width: 58px; background: var(--chrome); border: 1px solid var(--line); font: 12px var(--mono); color: var(--text-2); }
 .wm-body { flex: 1; position: relative; min-width: 0; min-height: 0; overflow: hidden; }
 .wm-body > .terminal-view { position: absolute; inset: 0; }
 .wm-placeholder { display: grid; align-content: center; justify-items: center; min-height: 100%; padding: 10px; color: var(--muted); font: 12px var(--mono); text-align: center; overflow-wrap: anywhere; }
@@ -29,7 +27,7 @@
 .wm-footer select { max-width: 100px; font: 12px var(--mono); }
 .wm-status:empty { display: none; }
 
-/* Simple tab strip: tabs with ×, "+" for a new session, ⋯ for layout options. */
+/* Simple tab strip: tabs with ×, "+" for a new session; tabs are dragged to arrange the panes. */
 .wm-tabwrap { display: inline-flex; align-items: stretch; flex: none; max-width: 230px; border-right: 1px solid var(--line); }
 .wm-tabwrap .wm-tab { border-right: 0; }
 .wm-tab-close { padding: 0 7px; font-size: 15px; line-height: 1; color: var(--muted); border: 0; background: transparent; }
@@ -38,18 +36,16 @@
 .wm-tabwrap-active .wm-tab { box-shadow: none; }
 .wm-add { padding: 0 11px; font-size: 17px; line-height: 1; color: var(--text-2); border-top: 0; border-bottom: 0; }
 .wm-add:hover { color: var(--accent); }
-.wm-more { padding: 0 8px; color: var(--muted); border-top: 0; border-bottom: 0; }
-.wm-more[aria-expanded=true] { color: var(--accent); }
 .wm-empty-start { margin-top: 14px; padding: 10px 18px; font: 600 13px var(--mono); border-color: var(--accent); color: var(--accent); }
-/* "+" sits right after the last tab, like a browser; the pane options stay at the far edge. */
+/* "+" sits right after the last tab, like a browser; collapse and maximize stay at the far edge. */
 .wm-tabs { flex: 0 1 auto; }
-.wm-more { margin-left: auto; }
+.wm-pane-tools { margin-left: auto; }
 
 /* Glass: panes float over the ambient field; an empty pane lets it through. */
 .wm-host { background: transparent; }
 .wm-pane { transition: border-color var(--base) var(--ease-out); }
 .wm-header { background: var(--glass-bar); }
-.wm-tab, .wm-tab-close, .wm-add, .wm-more { transition: color var(--fast) var(--ease-out), background-color var(--fast) var(--ease-out); }
+.wm-tab, .wm-tab-close, .wm-add { transition: color var(--fast) var(--ease-out), background-color var(--fast) var(--ease-out); }
 .wm-pane:has(> .wm-body > .wm-placeholder) { background: color-mix(in srgb, var(--terminal) 46%, transparent); }
 .wm-placeholder { position: relative; isolation: isolate; gap: 2px; font-size: 13px; color: var(--text-2); }
 .wm-empty-start { margin-top: 16px; min-height: 40px; padding: 0 22px; border-color: var(--accent); background: var(--accent); color: var(--accent-ink); font: 600 13px var(--display); letter-spacing: .08em; clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px)); transition: background-color var(--fast) var(--ease-out), scale var(--fast) var(--ease-out); }
@@ -61,3 +57,12 @@
 /* Tab quick filter: a pane with no tab of the chosen project says so and steps back. */
 .wm-tabs-filtered { align-self: center; padding: 0 10px; color: var(--muted); font: 12px var(--mono); white-space: nowrap; }
 .wm-filtered-out > .wm-body { opacity: .35; transition: opacity var(--base) var(--ease-out); }
+
+/* Tab drag: the tab follows the pointer, the target lights up with what the drop will do. */
+.wm-dragging, .wm-dragging * { cursor: grabbing !important; }
+.wm-tab-dragging { opacity: .45; }
+.wm-drag-ghost { position: fixed; left: 0; top: 0; z-index: 50; max-width: 240px; padding: 5px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; border: 1px solid var(--accent); background: var(--glass-strong); color: var(--text); font: 12px var(--mono); box-shadow: 0 8px 22px var(--shadow); }
+.wm-drop-preview { display: grid; place-items: center; transition: left var(--fast) var(--ease-out), top var(--fast) var(--ease-out), width var(--fast) var(--ease-out), height var(--fast) var(--ease-out); background: color-mix(in srgb, var(--accent) 14%, var(--scrim)); }
+.wm-drop-label { padding: 4px 10px; background: var(--chrome); border: 1px solid var(--accent); color: var(--accent-soft); font: 12px var(--mono); }
+.wm-drop-marker { position: absolute; z-index: 6; width: 2px; pointer-events: none; background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+@media (prefers-reduced-motion: reduce) { .wm-drop-preview { transition: none; } }

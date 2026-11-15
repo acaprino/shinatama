@@ -22,6 +22,7 @@
     "test:ui": "node apps/desktop/tests/ui-flow-smoke.mjs",
     "test:native": "node apps/desktop/tests/native-frame-smoke.mjs",
     "test:browser": "node apps/desktop/tests/browser-smoke.mjs",
+    "test:drag": "node apps/desktop/tests/pane-drag-smoke.mjs",
     "test:maintenance": "node apps/desktop/tests/maintenance-smoke.mjs",
     "plan:check": "python scripts/implementation.py validate",
     "plan:status": "python scripts/implementation.py status",
