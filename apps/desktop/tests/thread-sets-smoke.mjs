@@ -80,25 +80,32 @@ try {
     await expect(tabs.nth(index)).toHaveAttribute('aria-selected', 'true');
   }
 
-  // 4. A new thread shows none of the first thread's sessions; they keep running.
-  await page.locator('.thread-sidebar-new').click();
+  // 4. A new thread is turned on beside the first: the next session joins it; the first thread's tabs stay and keep running.
+  const threadA = await rows.first().getAttribute('data-workset-id');
+  const rowOf = id => page.locator(`.thread-sidebar-anchor[data-workset-id="${id}"]`);
+  await page.locator('.thread-sidebar-group-add').first().click();
   await expect(rows).toHaveCount(2, { timeout: 15000 });
-  await expect(tabs).toHaveCount(0);
+  await expect(tabs).toHaveCount(2);
   expect(await terminals()).toBe(2);
   await open();
+  await expect(tabs).toHaveCount(3, { timeout: 15000 });
+  expect(await terminals()).toBe(3);
+  await shot('2-two-threads-on');
+  const threadB = await rows.evaluateAll((list, a) => list.map(row => row.dataset.worksetId).find(id => id !== a), threadA);
+  await expect(rowOf(threadB).locator('.thread-sidebar-state')).toHaveText('1 session · 1 running');
+  await expect(rowOf(threadA).locator('.thread-sidebar-state')).toHaveText('2 sessions · 2 running');
+
+  // 5. Turning a thread off takes its tabs away and stops nothing; turning it on brings them back.
+  await rowOf(threadA).click();
   await expect(tabs).toHaveCount(1, { timeout: 15000 });
   expect(await terminals()).toBe(3);
-  await shot('2-second-thread-one-session');
-  const second = page.locator('.thread-sidebar-anchor[aria-pressed="true"]');
-  await expect(second.locator('.thread-sidebar-state')).toHaveText('1 session · 1 running');
-
-  // 5. Going back shows all and only the first thread's sessions; no process started or stopped.
-  const first = page.locator('.thread-sidebar-anchor[aria-pressed="false"]');
-  await first.click();
+  await rowOf(threadA).click();
+  await expect(tabs).toHaveCount(3, { timeout: 15000 });
+  await rowOf(threadB).click();
   await expect(tabs).toHaveCount(2, { timeout: 15000 });
+  await expect(rowOf(threadB)).toHaveAttribute('aria-pressed', 'false');
   expect(await terminals()).toBe(3);
-  await expect(page.locator('.terminal-view:not([hidden])')).toHaveCount(1);
-  await shot('3-back-to-first-thread');
+  await shot('3-first-thread-only');
 
   // 6. Closing a session stops it and keeps it: no tab, listed under Closed sessions, never deleted.
   await page.locator('.wm-tab-close').first().click({ force: true });
@@ -130,7 +137,7 @@ try {
   await expect(closed).toBeHidden({ timeout: 15000 });
   await expect(page.locator('.thread-sidebar-anchor[aria-pressed="true"] .thread-sidebar-state')).toHaveText('1 session · 1 running', { timeout: 15000 });
 
-  // 9. Each thread keeps its own columns: split thread A in two, visit B, come back to the same two panes.
+  // 9. One layout for the window: split the first thread's tabs in two columns, turn the second thread on and off; the columns stay.
   const panes = () => page.locator('.wm-pane').evaluateAll(list => list.map(pane => [...pane.querySelectorAll('[role="tab"]')].map(tab => tab.dataset.viewId)));
   await open();
   await expect(tabs).toHaveCount(2, { timeout: 15000 });
@@ -140,25 +147,25 @@ try {
   await dragTab(page, split.locator('.wm-tab').last(), split, 'right');
   await expect(page.locator('.wm-pane')).toHaveCount(2, { timeout: 15000 });
   const columns = await panes();
-  expect(columns.map(group => group.length), 'tabs per column in thread A').toEqual([1, 1]);
+  expect(columns.map(group => group.length), 'tabs per column of the first thread').toEqual([1, 1]);
   expect(new Set(columns.flat()).size).toBe(2);
   expect(await selected.count()).toBe(2);
-  await shot('6-thread-a-two-columns');
-  await page.locator('.thread-sidebar-anchor[aria-pressed="false"]').click();
-  await expect(page.locator('.wm-pane')).toHaveCount(1, { timeout: 15000 });
-  await expect(tabs).toHaveCount(1);
+  await shot('6-first-thread-two-columns');
+  await rowOf(threadB).click();
+  await expect(tabs).toHaveCount(3, { timeout: 15000 });
+  await expect(page.locator('.wm-pane')).toHaveCount(2);
   expect(await terminals()).toBe(3);
-  await shot('7-thread-b-one-pane');
-  await page.locator('.thread-sidebar-anchor[aria-pressed="false"]').click();
-  await expect(page.locator('.wm-pane')).toHaveCount(2, { timeout: 15000 });
-  expect(await panes(), 'thread A columns after the round trip').toEqual(columns);
+  await shot('7-second-thread-on-beside');
+  await rowOf(threadB).click();
+  await expect(tabs).toHaveCount(2, { timeout: 15000 });
+  expect(await panes(), 'the first thread columns after the round trip').toEqual(columns);
   expect(await terminals()).toBe(3);
-  await shot('8-thread-a-columns-restored');
+  await shot('8-columns-kept');
   const identify = () => rows.evaluateAll(list => list.map(row => row.dataset.worksetId + ' ' + row.querySelector('.thread-sidebar-title').textContent));
   const listBefore = await identify();
   expect(listBefore).toHaveLength(2);
 
-  // 10. A clean restart reopens the thread that was open, with its two columns, its sessions not running, nothing started.
+  // 10. A clean restart turns on the threads that were on, with the window's two columns, their sessions not running, nothing started.
   await page.getByRole('button', { name: 'Close window', exact: true }).click();
   await expect(page.locator('#confirm-title')).toHaveText('Close workspace?');
   const gone = new Promise(accept => app.once('exit', accept));
