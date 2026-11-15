@@ -88,15 +88,32 @@ const terminalMetrics = new Map<string, TerminalResourceStatus>();
 let projectPath = '';
 let selectedProjectPath = '';
 let threadSidebar: ReturnType<typeof createWorksetSidebar> | null = null;
-/** The open thread: the window shows all and only its sessions. Null shows terminals that belong to no thread. */
-let openWorkset: WorksetScope | null = null;
-/** The thread to reopen at this start, read before anything can overwrite it: reattaching a running terminal runs `rememberSessions` while no thread is open yet. */
-const threadToReopen = (() => { try { return localStorage.getItem('shinatama.thread'); } catch { return null; } })();
-/** The sessions of the open thread, as last read. */
+/** The threads that are on (ADR-0055 v2): the window shows their sessions together, in one layout,
+ *  with the terminals that belong to no thread. A thread turned off keeps its sessions running. */
+let openWorksets: WorksetScope[] = [];
+/** The threads to turn on at this start, read before anything can overwrite them: reattaching a running terminal runs `rememberSessions` while none is on yet. */
+const threadsToReopen = (() => { try { return localStorage.getItem('shinatama.threads') ?? `[${localStorage.getItem('shinatama.thread') ?? ''}]`; } catch { return null; } })();
+/** The sessions of the threads that are on, as last read, and the thread each belongs to. */
 let worksetMembers: ThreadSummary[] = [];
-/** Layouts of the threads this window has shown, so going back is immediate. */
-const layoutCache = new Map<string, WorkspaceLayout>();
+const memberOf = new Map<string, WorksetScope>();
 let switching = false;
+/** Whether a terminal of this thread is drawn: every terminal of no thread is. */
+const isOn = (worksetId: string | null | undefined) => worksetId == null || openWorksets.some(workset => workset.id === worksetId);
+/** The thread worked in last: the one last turned on, or the thread of the last tab used. */
+let currentWorkset: string | null = null;
+/** The thread a tab belongs to, when that thread is on. */
+function tabWorkset(viewId: string | null | undefined): WorksetScope | null {
+  if (!viewId) return null;
+  const view = views.get(viewId); if (view?.workset && isOn(view.workset.id)) return view.workset;
+  const panel = workspaceLayout.views.find(candidate => candidate.id === viewId);
+  return panel?.resource.kind === 'terminal' && panel.resource.threadId ? memberOf.get(panel.resource.threadId) ?? null : null;
+}
+const groupWorkset = (groupId: string) => tabWorkset(tabGroups(workspaceLayout.root).find(group => group.id === groupId)?.activeTabId);
+/** The thread New session and the sidebar's actions mean: the current one, else the focused tab's, else the last turned on. */
+function activeWorkset(): WorksetScope | null {
+  return openWorksets.find(workset => workset.id === currentWorkset) ?? groupWorkset(focusedGroup()) ?? openWorksets.at(-1) ?? null;
+}
+const threadTitle = (workset: WorksetScope) => threadSidebar?.title(workset.id) ?? null;
 /** The sidebar's last read of agent-given names; a launch waits for it so the two never share the worker. */
 let namesInFlight: Promise<unknown> = Promise.resolve();
 let sidebarRevision = 0;
@@ -126,8 +143,8 @@ function focusAttentionSession(id: string) {
   if (modalOpen()) { pendingAttentionFocus = id; return; }
   pendingAttentionFocus = null;
   const view = views.get(id);
-  if (view && (view.workset?.id ?? null) !== (openWorkset?.id ?? null)) {
-    void switchWorkset(view.workset).then(opened => { if (opened) focusAttentionSession(id); });
+  if (view?.workset && !isOn(view.workset.id)) {
+    void showWorkset(view.workset).then(opened => { if (opened) focusAttentionSession(id); });
     return;
   }
   const group = tabGroups(workspaceLayout.root).find(candidate => candidate.tabs.includes(id));
@@ -154,13 +171,19 @@ const presentation = createPresentation({ desktop, notify, onChange() {
   }
 } });
 
-/** "shinatama · Claude Code", numbered only when the same agent runs twice in one project. */
+/** "Fix browser tabs · Claude Code": the thread, then the agent, numbered only when the same agent runs twice in one thread.
+ *  The project is left out: the tab filter says it. A terminal of no thread is named by its folder. */
 function tabLabel(id: string) {
   const view = views.get(id);
-  if (!view) { const saved = savedSession(id); return saved ? `${sessionName(saved)} · not running` : 'Saved terminal · unavailable'; }
+  if (!view) {
+    const saved = savedSession(id); const owner = saved ? memberOf.get(saved.id) : undefined; const thread = owner ? threadTitle(owner) : null;
+    return saved ? `${thread ? `${thread} · ` : ''}${sessionName(saved)} · not running` : 'Saved terminal · unavailable';
+  }
   const harness = sessionHarnesses.find(item => item.id === view.info.shell)?.label ?? view.info.shell;
-  const twins = [...views.values()].filter(other => other.info.shell === view.info.shell && samePath(other.info.cwd, view.info.cwd));
-  return `${folderName(view.info.cwd)} · ${harness}${twins.length > 1 ? ` ${twins.indexOf(view) + 1}` : ''}${view.ended ? ' · exited' : ''}`;
+  const twins = [...views.values()].filter(other => other.info.shell === view.info.shell && (view.workset
+    ? other.workset?.id === view.workset.id : !other.workset && samePath(other.info.cwd, view.info.cwd)));
+  const where = (view.workset && threadTitle(view.workset)) || folderName(view.info.cwd);
+  return `${where} · ${harness}${twins.length > 1 ? ` ${twins.indexOf(view) + 1}` : ''}${view.ended ? ' · exited' : ''}`;
 }
 let tabFilter: ReturnType<typeof createTabFilter> | null = null;
 /** Shows one project's tabs; each pane switches to its first tab of that project, if it has one. */
@@ -194,7 +217,7 @@ async function openBrowserTab(target: BrowserTarget, viewId?: string) {
 const renderer = createWorkspaceRenderer({
   host: workspace, bindings,
   dispatch(action, expected) { if (expected === workspaceLayout) changeLayout(action); },
-  onFocusView(id) { if (modalOpen()) return; if (browserTabs.has(id)) browserTabs.focus(id); else views.get(id)?.terminal.focus(); },
+  onFocusView(id) { currentWorkset = tabWorkset(id)?.id ?? currentWorkset; if (modalOpen()) return; if (browserTabs.has(id)) browserTabs.focus(id); else views.get(id)?.terminal.focus(); },
   onVisibilityChange(id, visible) { if (browserTabs.has(id)) { browserTabs.setVisible(id, visible); return; } const view = views.get(id); if (view) { view.visible = visible; if (visible) { scheduleFit(view); view.minimap.redraw(); } } },
   labelForView: panel => panel.resource.kind === 'browser' ? browserTabs.label(panel.id) : tabLabel(panel.id),
   tabFilter() {
@@ -322,7 +345,8 @@ function sameApartFromSizes(a: WorkspaceLayout, b: WorkspaceLayout): boolean {
 /** Connects saving for the layout on screen: the open thread's, or the loose terminals'. */
 async function connectWorkspace(adoptSaved = true) {
   if (!desktop) return;
-  const scope = openWorkset ? { projectId: openWorkset.projectId, workspaceId: openWorkset.id } : { workspaceId: 'main' };
+  // One layout for the window, whichever threads are on (ADR-0055 v2).
+  const scope = { workspaceId: 'main' };
   const generation = ++scopeRevision;
   const previous = persistence; persistence = null;
   if (previous) { const released = await previous.release(); if (!released.ok || released.dirty) notify('The previous layout could not be fully saved.'); previous.dispose(); }
@@ -354,7 +378,7 @@ async function connectWorkspace(adoptSaved = true) {
       recover.onclick = async () => {
         recover.disabled = true;
         try {
-          await invoke(openWorkset ? 'workspace_recover' : 'global_workspace_recover', { request: { ...scope, expectedRevision: loaded.revision } });
+          await invoke('global_workspace_recover', { request: { ...scope, expectedRevision: loaded.revision } });
           controller.dispose(); persistence = null; recover.remove(); await connectWorkspace();
         } catch (error) { notify(typeof error === 'object' && error && 'message' in error ? error.message : 'Layout recovery was refused.'); recover.disabled = false; }
       };
@@ -374,21 +398,35 @@ async function startTerminal(group: string, cwd?: string): Promise<boolean> {
   try {
     await namesInFlight;
     const info = await invoke<SessionInfo>('terminal_start', { cwd: cwd ?? projectPath, rows: 24, cols: 80 });
-    attachTerminal(info, group, null, openWorkset);
+    attachTerminal(info, group, null, activeWorkset());
     return true;
   } catch (error) { notify(error); return false; }
   finally { starting = false; $<HTMLButtonElement>('#new-terminal').disabled = false; }
 }
 const instanceRef = (id: string) => /^i_[a-z2-7]{12}$/.test(id) ? id : `prototype-${id}`;
-const here = () => openWorkset?.id ?? null;
+/** The thread a session belongs to. The store may be busy with a sidebar read for a moment: it is asked again. */
+async function worksetOf(threadId: string): Promise<WorksetScope | null> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    try { const found = await invoke<WorksetScope | null>('workset_of', { request: { threadId } }); if (found) return found; } catch { /* busy: ask again */ }
+    await new Promise(resolve => setTimeout(resolve, 300));
+  }
+  return null;
+}
+/** The sessions of one thread. The store answers one request at a time and refuses the others while busy: asked again, then it fails. */
+async function worksetThreads(worksetId: string): Promise<ThreadSummary[]> {
+  for (let attempt = 0; ; attempt++) {
+    try { return await invoke<ThreadSummary[]>('workset_threads', { request: { worksetId } }); }
+    catch (error) { if (attempt >= 8) throw error; await new Promise(resolve => setTimeout(resolve, 250)); }
+  }
+}
 /** A session started outside this window's own flow (a hop, a collaboration): its thread comes from the saved record. */
 async function attachSession(info: SessionInfo, threadId: string) {
-  let workset: WorksetScope | null = openWorkset;
-  try { workset = await invoke<WorksetScope | null>('workset_of', { request: { threadId } }); } catch { /* keep it in the open thread */ }
+  let workset: WorksetScope | null = activeWorkset();
+  workset = await worksetOf(threadId) ?? workset;
   attachTerminal(info, focusedGroup(), threadId, workset);
-  if ((workset?.id ?? null) === here()) await refreshMembers(); else threadSidebar?.changed();
+  if (isOn(workset?.id)) await refreshMembers(); else threadSidebar?.changed();
 }
-/** `workset`: the thread the session belongs to. A terminal of another thread keeps running and is drawn when that thread opens. */
+/** `workset`: the thread the session belongs to. A terminal of a thread that is off keeps running and is drawn when that thread is turned on. */
 function attachTerminal(info: SessionInfo, group: string, threadId: string | null = null, workset: WorksetScope | null = null) {
   // Native collaboration events and reload recovery may see the same owned
   // process. Attach once; neither delivery path is permission to relaunch it.
@@ -443,7 +481,7 @@ function attachTerminal(info: SessionInfo, group: string, threadId: string | nul
   tabFilter?.reveal(info.cwd);
   const restored = workspaceLayout.views.find(panel => panel.id === info.id);
   if (restored?.resource.kind === 'terminal') { const applied = presentation.applyProfile(terminal, restored.resource.profileId); view.profile = applied.id; element.style.background = applied.background; }
-  const shownHere = (workset?.id ?? null) === here();
+  const shownHere = isOn(workset?.id);
   if (!restored && shownHere) {
     // The running terminal takes the place of the tab that said "not running".
     const stale = threadId ? workspaceLayout.views.find(panel => panel.resource.kind === 'terminal' && panel.resource.threadId === threadId && !views.has(panel.id)) : undefined;
@@ -515,12 +553,12 @@ async function confirmStop(title: string, message: string, group?: string, actio
 async function stopTerminal(view: View) {
   const kept = view.threadId !== null && view.workset !== null;
   if (!view.ended && !await confirmStop(kept ? 'Close session?' : 'Stop terminal?', kept
-    ? 'This stops the agent and the programs it started. The session stays in this thread under Closed sessions, where it can be reopened or forgotten. To keep it running without its tab, cancel and use ⋯ then Hide.'
-    : 'This stops the shell and the programs it started. To keep them running, cancel and use ⋯ then Hide instead.', view.group, kept ? 'Close' : 'Stop')) return;
+    ? 'This stops the agent and the programs it started. The session stays in this thread under Closed sessions, where it can be reopened or forgotten. To keep it running without its tab, cancel and turn its thread off in the sidebar.'
+    : 'This stops the shell and the programs it started.', view.group, kept ? 'Close' : 'Stop')) return;
   try {
     await invoke('terminal_stop', { id: view.info.id });
     discardView(view);
-    if (view.threadId && (view.workset?.id ?? null) === here()) { await refreshMembers(); await closeSession(view.threadId); }
+    if (view.threadId && isOn(view.workset?.id)) { await refreshMembers(); await closeSession(view.threadId); }
     setFocus(focusedGroup()); threadSidebar?.changed();
   } catch (error) { notify(error); }
 }
@@ -559,7 +597,7 @@ function discardView(view: View) {
   resizeObserver.unobserve(view.element); bindings.delete(view.info.id); views.delete(view.info.id); rememberSessions();
   if (workspaceLayout.views.some(panel => panel.id === view.info.id)) {
     const group = tabGroups(workspaceLayout.root).find(candidate => candidate.tabs.includes(view.info.id));
-    const member = view.threadId && (view.workset?.id ?? null) === here() ? worksetMembers.find(row => row.id === view.threadId) : undefined;
+    const member = view.threadId && isOn(view.workset?.id) ? worksetMembers.find(row => row.id === view.threadId) : undefined;
     if (group && member) changeLayout({ type: 'add-view', groupId: group.id, index: group.tabs.indexOf(view.info.id),
       view: { id: `saved-${member.id}`, resource: { kind: 'terminal', instanceId: null, threadId: member.id, profileId: null }, hidden: false } });
     changeLayout({ type: 'remove-view', viewId: view.info.id });
@@ -596,14 +634,15 @@ function savedSessionCard(panelId: string): HTMLElement | null {
   return card;
 }
 async function resumeSaved(saved: ThreadSummary) {
-  if (starting || !openWorkset) return;
+  const workset = memberOf.get(saved.id) ?? null;
+  if (starting || !workset) return;
   starting = true; $<HTMLButtonElement>('#new-terminal').disabled = true;
   try {
     await namesInFlight;
     const started = await invoke<{ session: SessionInfo; threadId: string }>('thread_resume', {
       request: { threadId: saved.id, projectId: saved.projectId, expectedRevision: saved.revision, rows: 24, cols: 80 },
     });
-    attachTerminal(started.session, focusedGroup(), started.threadId, openWorkset);
+    attachTerminal(started.session, focusedGroup(), started.threadId, workset);
   } catch (error) {
     notify(resumeFailureText(error));
   } finally { starting = false; $<HTMLButtonElement>('#new-terminal').disabled = false; await refreshMembers(); render(); }
@@ -622,12 +661,12 @@ async function closePanel(id: string) {
   // Nothing runs here, so nothing is asked: the session moves to Closed sessions and can come back.
   await closeSession(saved.id); threadSidebar?.changed();
 }
-/** Makes a layout hold all and only the sessions of the open thread (ADR-0055 INV-002). Starts nothing. */
+/** Makes a layout hold all and only the sessions of the threads that are on (ADR-0055 v2). Starts nothing. */
 function reconciled(layout: WorkspaceLayout): WorkspaceLayout {
-  let next = layout; const open = here();
+  let next = layout;
   const apply = (action: LayoutAction) => { const result = reduceWorkspaceLayout(next, action); if (result.ok) next = result.layout; };
   const members = new Map(worksetMembers.filter(row => row.status !== 'archived').map(row => [row.id, row]));
-  const mine = [...views.values()].filter(view => !view.disposed && (view.workset?.id ?? null) === open);
+  const mine = [...views.values()].filter(view => !view.disposed && isOn(view.workset?.id));
   const running = new Set(mine.map(view => view.threadId).filter((id): id is string => id !== null));
   const shown = new Set<string>();
   for (const panel of layout.views) {
@@ -644,61 +683,58 @@ function reconciled(layout: WorkspaceLayout): WorkspaceLayout {
     apply({ type: 'add-view', groupId: group(), view: { id: view.info.id, resource: { kind: 'terminal', instanceId: instanceRef(view.info.id), threadId: view.threadId, profileId: view.profile }, hidden: false } });
   return next;
 }
-/** Reads the open thread's sessions again and brings the layout in line. */
+/** Reads the sessions of the threads that are on again and brings the layout in line. */
 async function refreshMembers() {
-  const open = openWorkset; if (!open || !desktop) return;
+  if (!desktop) return;
+  const open = openWorksets;
   try {
-    const rows = await invoke<ThreadSummary[]>('workset_threads', { request: { worksetId: open.id } });
-    if (openWorkset?.id !== open.id) return;
-    worksetMembers = rows;
+    // One read at a time: the store refuses a second one while busy.
+    const lists: ThreadSummary[][] = [];
+    for (const workset of open) lists.push(await worksetThreads(workset.id));
+    if (openWorksets !== open) return;
+    worksetMembers = lists.flat(); memberOf.clear();
+    lists.forEach((rows, index) => { for (const row of rows) memberOf.set(row.id, open[index]); });
     const next = reconciled(workspaceLayout);
     if (next !== workspaceLayout) { workspaceLayout = next; persistence?.update(workspaceLayout); }
     render();
   } catch { /* the last read stays on screen */ }
   threadSidebar?.repaint();
 }
-/** Which thread each running terminal belongs to, kept for a frontend reload; and the thread to reopen at the next start. */
+/** Which thread each running terminal belongs to, kept for a frontend reload; and the threads to turn on at the next start. */
 function rememberSessions() {
   try {
     sessionStorage.setItem('shinatama.sessions', JSON.stringify(Object.fromEntries([...views.values()].map(view => [view.info.id, { threadId: view.threadId, workset: view.workset }]))));
-    if (openWorkset) localStorage.setItem('shinatama.thread', JSON.stringify(openWorkset)); else localStorage.removeItem('shinatama.thread');
+    localStorage.setItem('shinatama.threads', JSON.stringify(openWorksets)); localStorage.removeItem('shinatama.thread');
   } catch { /* remembering is a convenience */ }
 }
-/** Shows a thread: its saved layout, with all and only its sessions. Starts, resumes and stops nothing. */
-async function switchWorkset(target: WorksetScope | null): Promise<boolean> {
+/** Turns a thread on: its sessions join the window's layout beside the others. Starts, resumes and stops nothing. */
+async function showWorkset(target: WorksetScope): Promise<boolean> {
+  if (openWorksets.some(workset => workset.id === target.id)) return true;
   if (switching) return false;
-  if ((target?.id ?? null) === here()) return true;
   switching = true;
   try {
-    let members: ThreadSummary[] = [];
-    if (target) {
-      try { members = await invoke<ThreadSummary[]>('workset_threads', { request: { worksetId: target.id } }); }
-      catch { notify('That thread is unavailable. The current one stays open.'); return false; }
-    }
-    const previous = persistence;
-    if (previous?.status().ownership === 'ours') {
-      const released = await previous.release();
-      if (!released.ok || released.dirty) { notify('The layout of the open thread could not be saved, so it stays open.'); return false; }
-    }
-    previous?.dispose(); persistence = null; scopeRevision++;
-    layoutCache.set(here() ?? 'main', workspaceLayout);
-    openWorkset = target; worksetMembers = members;
-    const cached = layoutCache.get(target?.id ?? 'main');
-    workspaceLayout = reconciled(cached ?? emptyWorkspace());
-    rememberSessions(); render();
-    await connectWorkspace(cached === undefined);
-    setFocus(focusedGroup()); threadSidebar?.repaint();
+    try { await worksetThreads(target.id); }
+    catch { notify('That thread is unavailable. The window stays as it is.'); return false; }
+    openWorksets = [...openWorksets, target];
+    await refreshMembers(); rememberSessions(); render();
+    setFocus(focusedGroup()); currentWorkset = target.id; threadSidebar?.repaint();
     return true;
   } finally { switching = false; }
+}
+/** Turns a thread off: its tabs leave the window. Its sessions keep running and come back when it is turned on. */
+async function hideWorkset(id: string): Promise<boolean> {
+  if (!openWorksets.some(workset => workset.id === id)) return true;
+  openWorksets = openWorksets.filter(workset => workset.id !== id); if (currentWorkset === id) currentWorkset = null;
+  await refreshMembers(); rememberSessions(); render(); threadSidebar?.repaint();
+  return true;
 }
 /** Forgets every session of a thread, then the thread. Refused while one of its sessions runs. */
 async function forgetWorkset(thread: Readonly<WorksetSummary>) {
   const mine = [...views.values()].filter(view => view.workset?.id === thread.id && !view.disposed);
   if (mine.some(view => !view.ended)) throw { code: 'owned_elsewhere' };
   const rows = await invoke<ThreadSummary[]>('workset_threads', { request: { worksetId: thread.id } });
-  if (openWorkset?.id === thread.id && !await switchWorkset(null)) throw { code: 'busy' };
+  await hideWorkset(thread.id);
   for (const view of mine) discardView(view);
-  layoutCache.delete(thread.id);
   for (const row of rows) await invoke('thread_forget', { request: { projectId: row.projectId, threadId: row.id, expectedRevision: row.revision } });
   await invoke('workset_delete', { request: { worksetId: thread.id, expectedRevision: thread.revision } });
 }
@@ -715,7 +751,7 @@ const newProject = createNewProjectDialog({ desktop, onCreated: project => proje
 let newSessionGroup: string | null = null;
 const recentThreadProjects = new Map<string,string>();
 /** Starts one session in a project. Shared by the harness menu and the folder dialog. */
-async function startSession(selection: { projectPath: string; harnessId: string; rows: number; cols: number }) {
+async function startSession(selection: { projectPath: string; harnessId: string; rows: number; cols: number; workset?: WorksetScope | null }) {
   if (!desktop) throw new Error('Open the desktop app to start a session.');
   if (starting) throw new Error('A session is already opening.');
   const button = $<HTMLButtonElement>('#new-terminal');
@@ -740,18 +776,19 @@ async function startSession(selection: { projectPath: string; harnessId: string;
     setProject(selected.path);
     selectedProjectPath = selected.path;
     threadSidebar?.setProject({projectId:selected.id,label:selected.path.replace(/[\\/]+$/, '').split(/[\\/]/).pop()});
-    // The session joins the open thread of its project; otherwise its own new thread opens.
-    let workset = openWorkset && openWorkset.projectId === selected.id ? openWorkset : null;
+    // The session joins the thread it was asked for, else a thread of its project that is on; otherwise a new thread of its own is turned on.
+    const wanted = selection.workset ?? activeWorkset();
+    let workset = wanted && wanted.projectId === selected.id ? wanted : openWorksets.find(candidate => candidate.projectId === selected.id) ?? null;
     if (workset) {
       try { await invoke('workset_adopt', { request: { worksetId: workset.id, threadId: started.threadId } }); }
       catch { workset = null; }
     }
     if (!workset) {
-      workset = await invoke<WorksetScope | null>('workset_of', { request: { threadId: started.threadId } }).catch(() => null);
-      if (workset) await switchWorkset(workset);
+      workset = await worksetOf(started.threadId);
+      if (workset) await showWorkset(workset);
     }
     const group = tabGroups(workspaceLayout.root).some(group => group.id === newSessionGroup) ? newSessionGroup! : focusedGroup();
-    attachTerminal(started.session, group, started.threadId, (workset?.id ?? null) === here() ? workset : openWorkset);
+    attachTerminal(started.session, group, started.threadId, workset); currentWorkset = workset?.id ?? currentWorkset;
     await refreshMembers();
     await refreshThreadProject();
     void threadSidebar?.refresh();
@@ -775,40 +812,42 @@ function paneBody(groupId: string | null): Element | null {
   return [...workspace.querySelectorAll<HTMLElement>('.wm-pane')].find(pane => pane.dataset.groupId === group)?.querySelector('.wm-body') ?? null;
 }
 const sessionMenu = createSessionMenu({
-  start: (harnessId, path) => { void launchSession(path, harnessId, sessionMenuTarget.group); },
+  start: (harnessId, path) => { void launchSession(path, harnessId, sessionMenuTarget.group, sessionMenuTarget.workset); },
   otherFolder: path => { newSession.setHarnesses(sessionHarnesses); newSessionGroup = sessionMenuTarget.group; newSession.show(path); },
 });
-let sessionMenuTarget = { path: '', group: '' };
+let sessionMenuTarget: { path: string; group: string; workset: WorksetScope | null } = { path: '', group: '', workset: null };
 /** No dialog: the session starts where it was asked for, and a failure is reported as a notice. */
-async function launchSession(path: string, harnessId: string, group: string) {
+async function launchSession(path: string, harnessId: string, group: string, workset: WorksetScope | null = null) {
   newSessionGroup = group; sessionMenu.remember(harnessId);
-  try { await startSession({ projectPath: path, harnessId, rows: 24, cols: 80 }); }
+  try { await startSession({ projectPath: path, harnessId, rows: 24, cols: 80, workset }); }
   catch (failure) { notify(typeof failure === 'string' ? failure : failure instanceof Error ? failure.message : 'The session could not be opened. Check the project folder and try again.'); }
 }
 /** New session: a menu of harnesses under the control that was pressed. A pane's + (`thread`)
- * starts in the open thread's project; New session beside the projects (`project`) starts in the
- * project shown there. With both the folder and the harness already known (a restart) it starts at once. */
-async function openNewSession(group: string = focusedGroup(), path?: string, harness?: string, scope: NewSessionScope = 'project') {
+ * starts in its thread's project (`workset`, else the focused tab's thread); New session beside the
+ * projects (`project`) starts in the project shown there. With both the folder and the harness already
+ * known (a restart) it starts at once. */
+async function openNewSession(group: string = focusedGroup(), path?: string, harness?: string, scope: NewSessionScope = 'project', workset: WorksetScope | null = null) {
   if (starting || openingSessionDialog) return;
   const pressed = document.activeElement instanceof HTMLElement && document.activeElement.matches('#new-terminal,[data-new-terminal],.wm-add,.wm-empty-start,.thread-sidebar-create,.thread-sidebar-add-session')
     ? document.activeElement : null;
   const selectedProject = threadSidebar?.currentProjectId();
-  // The open thread's folder: from the project list, else from one of its open sessions.
-  const threadFolder = openWorkset ? recentThreadProjects.get(openWorkset.projectId)
-    ?? [...views.values()].find(view => view.workset?.id === openWorkset?.id && !view.disposed)?.info.cwd : undefined;
-  const selectedPath = newSessionProject(scope, { explicit: path, threadOpen: !!openWorkset,
+  // The thread's folder: from the project list, else from one of its open sessions.
+  const thread = scope === 'thread' ? workset ?? groupWorkset(group) ?? activeWorkset() : null;
+  const threadFolder = thread ? recentThreadProjects.get(thread.projectId)
+    ?? [...views.values()].find(view => view.workset?.id === thread.id && !view.disposed)?.info.cwd : undefined;
+  const selectedPath = newSessionProject(scope, { explicit: path, threadOpen: !!thread,
     openThread: threadFolder,
     sidebar: selectedProject ? recentThreadProjects.get(selectedProject) : undefined,
     selected: selectedProjectPath, current: projectPath });
   openingSessionDialog = true;
   try {
     await loadHarnessCatalog();
-    if (!selectedPath && scope === 'thread' && openWorkset) { notify('The folder of this thread\'s project is not available. Use New session beside the projects.', 'info'); return; }
+    if (!selectedPath && scope === 'thread' && thread) { notify('The folder of this thread\'s project is not available. Use New session beside the projects.', 'info'); return; }
     if (!selectedPath) { notify('Choose a project first: sessions start in the selected project.', 'info'); $('#project').click(); return; }
     $('#notice').hidden = true;
-    if (harness && sessionHarnesses.some(candidate => candidate.id === harness)) { await launchSession(selectedPath, harness, group); return; }
+    if (harness && sessionHarnesses.some(candidate => candidate.id === harness)) { await launchSession(selectedPath, harness, group, thread); return; }
     const anchor = pressed?.isConnected ? pressed : $<HTMLElement>('#new-terminal');
-    sessionMenuTarget = { path: selectedPath, group };
+    sessionMenuTarget = { path: selectedPath, group, workset: thread };
     // New session beside the projects offers every project listed in the sidebar; a pane's + stays in its thread's project.
     const choices = scope === 'project' ? (threadSidebar?.activeIds() ?? []).map(id => recentThreadProjects.get(id))
       .filter((path): path is string => !!path).map(path => ({ label: folderName(path), path })) : [];
@@ -824,14 +863,17 @@ threadSidebar = createWorksetSidebar({
   remove: desktop ? forgetWorkset : undefined,
   closed: () => worksetMembers.filter(row => row.status === 'archived').map(row => ({ id: row.id, name: sessionName(row), updatedAt: row.updatedAt })),
   onRestore: restoreSession, onForgetSession: forgetSession,
-  onOpen: thread => switchWorkset({ id: thread.id, projectId: thread.projectId }),
-  // + on a thread: that thread opens, then the agent menu hangs from the + that was pressed.
+  onOpen: thread => showWorkset({ id: thread.id, projectId: thread.projectId }),
+  onClose: thread => hideWorkset(thread.id),
+  isOn: id => openWorksets.some(workset => workset.id === id),
+  // + on a thread: that thread is turned on, then the agent menu hangs from the + that was pressed.
   onAddSession: (thread, anchor) => { void (async () => {
-    if (!await switchWorkset({ id: thread.id, projectId: thread.projectId })) return;
+    const scope = { id: thread.id, projectId: thread.projectId };
+    if (!await showWorkset(scope)) return;
     if (anchor.isConnected) anchor.focus();
-    await openNewSession(focusedGroup(), undefined, undefined, 'thread');
+    await openNewSession(focusedGroup(), undefined, undefined, 'thread', scope);
   })(); },
-  openId: here,
+  openId: () => activeWorkset()?.id ?? null,
   running: id => [...views.values()].filter(view => view.workset?.id === id && !view.ended && !view.disposed).length,
   // Never while a session starts: a name read and a launch share the same worker capacity.
   names: desktop ? threadIds => {
@@ -1073,7 +1115,8 @@ async function chooseProject(path: string) {
 }
 organizeToolbar();
 // Counts tabs, not running sessions: an exited tab still sits in the strip.
-tabFilter = createTabFilter({ tabs: () => [...views.values()].filter(view => !view.disposed).map(view => view.info.cwd), onChange: filterTabs });
+// The tabs on screen: the sessions of the threads that are on.
+tabFilter = createTabFilter({ tabs: () => [...views.values()].filter(view => !view.disposed && isOn(view.workset?.id)).map(view => view.info.cwd), onChange: filterTabs });
 tabFilter.paint();
 createProjectMenu({
   button: $('#project'),
@@ -1219,12 +1262,15 @@ async function initialize() {
     // Window controls stay usable while missing/removable paths are checked.
     await projectPicker.restore();
     await refreshThreadProject();
-    await connectWorkspace();
-    // Reopen the thread that was open; one that no longer exists leaves the window as it is.
+    // Turn on the threads that were on, before the saved layout loads, so their tabs keep their panes.
+    // One that no longer exists is left out.
     try {
-      const last = JSON.parse(threadToReopen ?? 'null');
-      if (last && /^w_[a-z2-7]{12}$/.test(last.id) && /^p_[a-z2-7]{12}$/.test(last.projectId)) await switchWorkset({ id: last.id, projectId: last.projectId });
+      const last: unknown = JSON.parse(threadsToReopen ?? '[]');
+      for (const item of Array.isArray(last) ? last.slice(0, 32) : []) {
+        if (item && /^w_[a-z2-7]{12}$/.test(item.id) && /^p_[a-z2-7]{12}$/.test(item.projectId)) await showWorkset({ id: item.id, projectId: item.projectId });
+      }
     } catch { /* nothing to reopen */ }
+    await connectWorkspace();
   } catch (error) { $('#runtime-status').textContent = 'Runtime unavailable'; notify(error); }
 }
 void initialize();

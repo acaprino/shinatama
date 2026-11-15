@@ -19,8 +19,13 @@ export type WorksetSidebarOptions = {
   remove?: (thread: Readonly<WorksetSummary>) => Promise<void>;
   /** Adds a session to this thread: opens it, then asks for the agent under `anchor`. */
   onAddSession?: (thread: Readonly<WorksetSummary>, anchor: HTMLElement) => void;
-  /** Shows the thread's layout. Starts, resumes and stops nothing. */
+  /** Turns the thread on: its sessions join the window. Starts, resumes and stops nothing. */
   onOpen: (thread: Readonly<WorksetSummary>) => Promise<boolean>;
+  /** Turns the thread off: its tabs leave the window, its sessions keep running. */
+  onClose?: (thread: Readonly<WorksetSummary>) => Promise<boolean>;
+  /** Whether the thread is on. Without it, only `openId` is. */
+  isOn?: (worksetId: string) => boolean;
+  /** The thread the actions below the list apply to. */
   openId: () => string | null;
   /** Sessions of this thread with a running terminal in this window. */
   running: (worksetId: string) => number;
@@ -137,6 +142,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   const leadTitle = (lead: WorksetLead) => lead.title && !(lead.harness && AGENT_LABELS[lead.harness] === lead.title) ? lead.title : null;
   const shownTitle = (row: WorksetSummary) => row.title || (row.lead && (leadTitle(row.lead) || agentNames.get(row.lead.threadId) || row.lead.title)) || 'New thread';
   const chosen = () => rows.find(row => row.id === options.openId()) ?? null;
+  const isOn = (id: string) => options.isOn?.(id) ?? options.openId() === id;
 
   function requestNames() {
     if (!options.names || naming || destroyed || busy) return;
@@ -168,7 +174,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     collapse.setAttribute('aria-expanded', String(!display.collapsed));
     showArchived.disabled = busy || !active.length; showArchived.checked = archivedView;
     body.setAttribute('aria-busy', String(busy)); status.textContent = message; status.dataset.state = failed ? 'error' : 'ready'; status.hidden = !message;
-    const open = options.openId(); const retained = new Set(rows.map(row => row.id));
+    const retained = new Set(rows.map(row => row.id));
     for (const [id, item] of anchors) if (!retained.has(id)) { item.remove(); anchors.delete(id); }
     const nodes: HTMLLIElement[] = [];
     for (const project of active) {
@@ -187,7 +193,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
         let note = notes.get(project); if (!note) { note = node('li', 'thread-sidebar-group-note'); notes.set(project, note); }
         note.textContent = group.failed ? 'Its threads could not be read.' : archivedView ? 'No archived threads.' : 'No threads yet.'; nodes.push(note);
       }
-      for (const row of group.rows) nodes.push(threadItem(row, open));
+      for (const row of group.rows) nodes.push(threadItem(row));
     }
     for (const child of [...list.children]) if (!nodes.includes(child as HTMLLIElement)) child.remove();
     nodes.forEach((item, position) => { if (list.children[position] !== item) list.insertBefore(item, list.children[position] ?? null); });
@@ -214,7 +220,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     }));
     requestNames();
   }
-  function threadItem(row: WorksetSummary, open: string | null): HTMLLIElement {
+  function threadItem(row: WorksetSummary): HTMLLIElement {
     let item = anchors.get(row.id);
     if (!item) {
       item = node('li', 'thread-sidebar-row'); const anchor = node('button', 'thread-sidebar-anchor'); anchor.type = 'button'; anchor.dataset.worksetId = row.id;
@@ -238,7 +244,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     const stateLine = anchor.querySelector<HTMLElement>('.thread-sidebar-state')!;
     if (stateLine.dataset.state !== kind || stateLine.textContent !== said) { stateLine.dataset.state = kind; stateLine.textContent = said; }
     anchor.querySelector('.thread-sidebar-updated')!.textContent = agoText(row.usedAt);
-    const pressed = String(open === row.id); if (anchor.getAttribute('aria-pressed') !== pressed) anchor.setAttribute('aria-pressed', pressed);
+    const pressed = String(isOn(row.id)); if (anchor.getAttribute('aria-pressed') !== pressed) anchor.setAttribute('aria-pressed', pressed);
     const add = item.querySelector<HTMLButtonElement>('.thread-sidebar-add-session');
     if (add) { add.disabled = busy; add.title = `Add a session to ${name}`; add.setAttribute('aria-label', add.title); }
     return item;
@@ -289,11 +295,14 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     catch (error) { if (!destroyed && at === generation) { failed = true; message = failureText(error, doing); options.reportError(message); } }
     finally { busy = false; if (!destroyed && at === generation) { rereadWanted = false; await read(); } else render(); }
   }
+  /** A click turns a thread on, or off when it is on. */
   async function openThread(row: WorksetSummary) {
-    if (busy || destroyed || options.openId() === row.id) return;
+    const on = isOn(row.id);
+    if (busy || destroyed || (on && !options.onClose)) return;
     editing = false; busy = true; render();
-    try { if (await options.onOpen(Object.freeze({ ...row }))) { failed = false; message = ''; } else { failed = true; message = 'The thread could not be opened. The current one stays open.'; } }
-    catch { failed = true; message = 'The thread could not be opened. The current one stays open.'; }
+    const refused = on ? 'The thread could not be turned off.' : 'The thread could not be opened. The window stays as it is.';
+    try { if (await (on ? options.onClose! : options.onOpen)(Object.freeze({ ...row }))) { failed = false; message = ''; } else { failed = true; message = refused; } }
+    catch { failed = true; message = refused; }
     finally { done(); }
   }
   function createIn(project: string) {
