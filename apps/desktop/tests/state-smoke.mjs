@@ -143,12 +143,12 @@ try {
   expect(imported.map(project => project.last_opened)).toEqual([1700000001000, 1700000000000]);
   expect(imported.every(project => project.available && /^p_[a-z2-7]{12}$/.test(project.id))).toBe(true);
   expect(new Set(imported.map(project => project.id)).size).toBe(2);
-  await expect(instance.page.locator('#project-name')).toHaveText('first-project');
+  await expect(instance.page.locator('#project')).toHaveAttribute('data-project', 'first-project');
   await instance.page.locator('#project').click(); await instance.page.getByRole('button', { name: 'Project roots…', exact: true }).click();
   await expect(instance.page.locator('.recent-project strong')).toHaveText(['first-project', 'second-project']);
   await instance.page.getByRole('button', { name: 'Close', exact: true }).click();
   await selectFolder(instance, second);
-  await expect(instance.page.locator('#project-name')).toHaveText('second-project');
+  await expect(instance.page.locator('#project')).toHaveAttribute('data-project', 'second-project');
   const selected = await invoke(instance, 'project_recent');
   expect(selected.map(project => project.id)).toEqual([imported[1].id, imported[0].id]);
   expect(selected[0].last_opened).toBeGreaterThan(imported[0].last_opened);
@@ -167,7 +167,7 @@ try {
   const corruptedLegacy = Buffer.from('deliberately invalid legacy JSON after completed SQLite import\n');
   await writeFile(legacyPath, corruptedLegacy);
   instance = await openApp();
-  await expect(instance.page.locator('#project-name')).toHaveText('second-project');
+  await expect(instance.page.locator('#project')).toHaveAttribute('data-project', 'second-project');
   const restored = await invoke(instance, 'project_recent');
   expect(restored).toEqual(selected);
   await instance.page.locator('#project').click(); await instance.page.getByRole('button', { name: 'Project roots…', exact: true }).click();
@@ -186,7 +186,7 @@ try {
   const beforeReadOnly = snapshotDatabase();
   expect(beforeReadOnly.version).toBe(999);
   instance = await openApp(true);
-  await expect(instance.page.locator('#project-name')).toHaveText('second-project');
+  await expect(instance.page.locator('#project')).toHaveAttribute('data-project', 'second-project');
   await expect(instance.page.locator('#notice')).toContainText('999');
   expect(await invoke(instance, 'project_recent')).toEqual(selected);
   const rejected = await invoke(instance, 'project_select', { path: first })
@@ -197,7 +197,7 @@ try {
   await instance.page.getByRole('button', { name: 'Use folder', exact: true }).click();
   await expect(instance.page.locator('#project-error')).toContainText('999');
   await expect(instance.page.locator('#project-dialog')).toBeVisible();
-  await expect(instance.page.locator('#project-name')).toHaveText('second-project');
+  await expect(instance.page.locator('#project')).toHaveAttribute('data-project', 'second-project');
   await instance.page.getByRole('button', { name: 'Close', exact: true }).click();
   await closeApp(instance);
   expect(await readFile(databasePath)).toEqual(futureBytes);

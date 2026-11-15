@@ -127,7 +127,7 @@ async function probeHealthyTerminal() {
     const newest = matches.at(-1);
     return { sessions: sessions.length, sequence: newest ? Number(newest[1]) : -1,
       timestamp: newest ? Number(newest[2]) : 0,
-      project: document.querySelector('#project-name')?.textContent || '' };
+      project: document.querySelector('#project')?.dataset.project || '' };
   });
   const rtt = performance.now() - started;
   uiRtts.push(rtt);
@@ -202,7 +202,7 @@ try {
   expect(storage.read_only).toBe(false);
   pageOwned = true;
   evidence.checks.ownedSyntheticStorageConfirmedBeforeInteraction = true;
-  await expect(page.locator('#project-name')).toHaveText('synthetic-project');
+  await expect(page.locator('#project')).toHaveAttribute('data-project', 'synthetic-project');
   expect(await invoke('terminal_list')).toEqual([]);
 
   evidence.stage = 'start-healthy-pty';

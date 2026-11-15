@@ -124,14 +124,14 @@ try {
   await page.locator('#project').click(); await page.getByRole('button', { name: 'Project roots…', exact: true }).click(); await page.locator('#folder').fill(original);
   await page.getByRole('button', { name: 'Use folder', exact: true }).click();
   await expect(page.locator('#project-dialog')).not.toBeVisible();
-  await expect(page.locator('#project-name')).toHaveText('original-project');
+  await expect(page.locator('#project')).toHaveAttribute('data-project', 'original-project');
   const beforeCancel = await invoke(instance, 'project_recent');
   expect(beforeCancel).toHaveLength(1); expect(key(beforeCancel[0].path)).toBe(key(original));
   await f3WithNativeAction(instance, 'Cancel');
   await expect(page.locator('#project-dialog')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Use folder', exact: true })).toBeEnabled();
   await expect(page.locator('#project-error')).not.toBeVisible();
-  await expect(page.locator('#project-name')).toHaveText('original-project');
+  await expect(page.locator('#project')).toHaveAttribute('data-project', 'original-project');
   expect(await invoke(instance, 'project_recent')).toEqual(beforeCancel);
   expect(await invoke(instance, 'terminal_list')).toEqual([]);
   evidence.checks.realF3NativeCancelReturnsCancelledWithoutSelectionOrHistoryWrite = true;
@@ -151,14 +151,14 @@ try {
 
   await f3WithNativeAction(instance, 'Choose');
   await expect(page.locator('#project-dialog')).not.toBeVisible();
-  await expect(page.locator('#project-name')).toHaveText('selected project à');
+  await expect(page.locator('#project')).toHaveAttribute('data-project', 'selected project à');
   const saved = await invoke(instance, 'project_recent');
   expect(saved).toHaveLength(2); expect(key(saved[0].path)).toBe(key(chosen));
   expect(saved[0].id).toMatch(/^p_[a-z2-7]{12}$/); expect(saved[1]).toEqual(beforeCancel[0]);
   evidence.checks.realF3NativeSelectionSavesExactSyntheticUnicodePath = true;
   await closeApp(instance);
   instance = await openApp();
-  await expect(instance.page.locator('#project-name')).toHaveText('selected project à');
+  await expect(instance.page.locator('#project')).toHaveAttribute('data-project', 'selected project à');
   const restored = await invoke(instance, 'project_recent');
   expect(restored).toEqual(saved); expect(await invoke(instance, 'terminal_list')).toEqual([]);
   await closeApp(instance);

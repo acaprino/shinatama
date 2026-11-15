@@ -138,7 +138,7 @@ try {
   await page.locator('#project-filter').fill('z-last-opened');
   await expect(page.locator('.catalog-project')).toHaveCount(1);
   await page.getByRole('button', { name: 'Close', exact: true }).click();
-  await expect(page.locator('#project-name')).toHaveText('z-last-opened');
+  await expect(page.locator('#project')).toHaveAttribute('data-project', 'z-last-opened');
   expect(await invoke(instance, 'terminal_list')).toEqual([originalSession]);
   evidence.checks.multipleRootsExplicitDefaultAnd100RowPagination = true;
   evidence.checks.usageOrderingAndIncrementalFilter = true;
@@ -162,7 +162,7 @@ try {
   expect(dirname(rootB)).toBe(fixture); expect(dirname(renamedRoot)).toBe(fixture);
   await rename(rootB, renamedRoot);
   instance = await openApp();
-  await expect(instance.page.locator('#project-name')).toHaveText('z-last-opened');
+  await expect(instance.page.locator('#project')).toHaveAttribute('data-project', 'z-last-opened');
   expect(await invoke(instance, 'terminal_list')).toEqual([]);
   await instance.page.locator('#project').click(); await instance.page.getByRole('button', { name: 'Project roots…', exact: true }).click();
   await expect(instance.page.locator('.catalog-root-status.missing')).toHaveCount(1, { timeout: 15000 });

@@ -173,8 +173,9 @@ document.addEventListener('close', () => {
 function setProject(path: string) {
   if (path.trim() !== projectPath) threadSidebar?.setProject(null);
   projectPath = path.trim();
-  $('#project-name').textContent = projectPath.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || 'Choose project';
-  $('#project').title = projectPath || 'Choose project folder';
+  // The sidebar lists several projects (ADR-0055 v2): the button says Projects, not the last one chosen.
+  // The selected one stays on the button for the code and tests that need it.
+  $('#project').dataset.project = projectPath.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? '';
 }
 const presentation = createPresentation({ desktop, notify, onChange() {
   for (const view of views.values()) {
@@ -1087,7 +1088,8 @@ const projectsOverview = createProjectsOverview({
   restoreFocus: () => setFocus(focusedGroup()),
 });
 {
-  const button = document.createElement('button'); button.type = 'button'; button.id = 'open-projects'; button.textContent = 'Projects';
+  // "Projects" is the menu on the left; this one is the overview of pinned projects.
+  const button = document.createElement('button'); button.type = 'button'; button.id = 'open-projects'; button.textContent = 'Overview';
   button.title = 'Pinned projects, Git status, last thread, new session or worktree';
   button.onclick = () => { void projectsOverview.show(); };
   document.querySelector('#open-files')?.before(button);

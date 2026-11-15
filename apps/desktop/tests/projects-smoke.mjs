@@ -69,12 +69,12 @@ try {
   await running.page.locator('#folder').fill(resolve(fixture, 'missing-project'));
   await running.page.getByRole('button', { name: 'Use folder', exact: true }).click();
   await expect(running.page.locator('#project-error')).toBeVisible();
-  await expect(running.page.locator('#project-name')).toHaveText('second-project');
+  await expect(running.page.locator('#project')).toHaveAttribute('data-project', 'second-project');
   await running.page.getByRole('button', { name: 'Close', exact: true }).click();
   await closeApp(running); running = null;
 
   running = await openApp();
-  await expect(running.page.locator('#project-name')).toHaveText('second-project');
+  await expect(running.page.locator('#project')).toHaveAttribute('data-project', 'second-project');
   expect(await running.page.evaluate(() => window.__TAURI_INTERNALS__.invoke('terminal_list'))).toEqual([]);
   await running.page.locator('#project').click(); await running.page.getByRole('button', { name: 'Project roots…', exact: true }).click();
   await expect(running.page.locator('.recent-project strong')).toHaveText(['second-project', 'first-project']);
@@ -90,7 +90,7 @@ try {
   await mkdir(first); await rmdir(second);
   await closeApp(running); running = null;
   running = await openApp();
-  await expect(running.page.locator('#project-name')).toHaveText('second-project');
+  await expect(running.page.locator('#project')).toHaveAttribute('data-project', 'second-project');
   await expect(running.page.locator('#notice')).toContainText('Last project unavailable');
   // New session offers its choices; nothing starts by itself in the unavailable folder.
   await running.page.locator('#new-terminal').click();

@@ -212,7 +212,7 @@ try {
   // App chrome and an idle picker outside its input both reach the same real dialog.
   await openCreator(instance); await expect(page.locator('#new-project-root')).toHaveValue(defaultId);
   await page.locator('#new-project-name').fill('cancelled-project'); await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-  expect(await rootFolders()).toEqual([]); await expect(page.locator('#project-name')).toHaveText('existing-terminal-folder');
+  expect(await rootFolders()).toEqual([]); await expect(page.locator('#project')).toHaveAttribute('data-project', 'existing-terminal-folder');
   await openCreator(instance, true); await expect(page.locator('#new-project-root')).toHaveValue(defaultId);
   for (const invalidName of ['CON', 'aux.txt', 'LPT1', 'trailing.']) {
     await page.locator('#new-project-name').fill(invalidName); await page.getByRole('button', { name: 'Create project', exact: true }).click();
@@ -221,7 +221,7 @@ try {
   }
   evidence.checks.explicitDefaultRootCancelAndWindowsNameValidation = true;
   await page.locator('#new-project-name').fill(projectName); await page.getByRole('button', { name: 'Create project', exact: true }).click();
-  await expect(page.locator('#new-project-dialog')).not.toBeVisible(); await expect(page.locator('#project-name')).toHaveText(projectName);
+  await expect(page.locator('#new-project-dialog')).not.toBeVisible(); await expect(page.locator('#project')).toHaveAttribute('data-project', projectName);
   expect(await rootFolders()).toEqual([projectName]); expect(await readdir(createdPath)).toEqual([]); // Git is explicitly false; no .git or app settings.
   const selected = (await invoke(instance, 'project_recent'))[0]; expect(key(selected.path)).toBe(key(createdPath)); expect(selected.id).toMatch(/^p_[a-z2-7]{12}$/);
   let expectedSelection = selected;
@@ -268,7 +268,7 @@ try {
   }
   await closeApp(instance);
 
-  instance = await openApp(); await expect(instance.page.locator('#project-name')).toHaveText(expectedSelection.name);
+  instance = await openApp(); await expect(instance.page.locator('#project')).toHaveAttribute('data-project', expectedSelection.name);
   const restored = (await invoke(instance, 'project_recent'))[0]; expect(restored.id).toBe(expectedSelection.id); expect(key(restored.path)).toBe(key(expectedSelection.path));
   expect(await invoke(instance, 'terminal_list')).toEqual([]); expect(await readFile(marker)).toEqual(markerBytes);
   evidence.checks.selectionAndIdentityPersistAcrossRestartWithoutAutomaticTerminals = true;
