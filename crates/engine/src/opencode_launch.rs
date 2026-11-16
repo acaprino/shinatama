@@ -177,7 +177,7 @@ fn chat_kit(base: &StorageLocation, instance: &Path, config: &str) -> Result<(cr
     let connection = crate::mukade_mcp::Connection::discover(base)
         .map_err(|error| error.to_string())?
         .ok_or("the Mukade service is not running")?;
-    let kit = crate::mukade_chat::plugin_kit("opencode", &instance.join("mukade-kit"), &connection, Some(config))?;
+    let kit = crate::mukade_chat::plugin_kit(base, "opencode", &instance.join("mukade-kit"), &connection, Some(config))?;
     let merged = kit.opencode_config.ok_or("Mukade gave no configuration")?;
     // The plugin and the MCP entry ride in the configuration; OpenCode takes no kit argument.
     if !kit.arguments.is_empty() {

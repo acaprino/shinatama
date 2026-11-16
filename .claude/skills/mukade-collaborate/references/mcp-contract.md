@@ -96,9 +96,10 @@ Per collegare anche Mukade, Shinatama avvia da solo il programma Mukade del
 proprio pacchetto (`mukade\mukade.exe`), con i dati in `mukade` nella propria
 cartella dati, e lo ferma alla chiusura. Ne verifica identita' e credenziali e
 configura le due connessioni MCP prima del lancio. Non serve alcuna
-preparazione. Solo se `MUKADE_DATA_DIR` e' impostata Shinatama usa quel servizio
-esterno, che deve essere gia' avviato: non lo avvia e non lo ferma.
-Il child usa membership e consumo manuali, senza hook Mukade aggiuntivi.
+preparazione. Non usa mai il servizio di un'altra installazione: una
+`MUKADE_DATA_DIR` ereditata dal sistema viene ignorata. Senza l'interruttore del
+thread il child usa membership e consumo manuali; con l'interruttore acceso gli
+hook o il kit di Mukade (ADR-0057).
 
 La CLI puo' costruire il kit per Claude/Codex e lanciare il processo:
 

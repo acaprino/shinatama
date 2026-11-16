@@ -1,9 +1,9 @@
 //! Connection to the local Mukade chat service.
 //! Shinatama owns one service: the Mukade program it ships (built in this workspace from the
-//! pinned Mukade revision, `crates/mukade`), with its
-//! data in `mukade` under Shinatama's own data folder; it is started on demand and
-//! stopped with the app. An explicit MUKADE_DATA_DIR selects an external service
-//! instead, which is only joined: never started, never stopped.
+//! pinned Mukade revision, `crates/mukade`), with its data in `mukade` under Shinatama's own data
+//! folder; it is started on demand and stopped with the app. It is never another installation's
+//! service: an inherited MUKADE_DATA_DIR is ignored, and no Mukade process Shinatama runs sees the
+//! system's Mukade settings or the harnesses' own stores (`isolate_environment`).
 //! No shared configuration or permission is changed.
 //! The credential crosses only the prepared child's environment, never argv/config.
 use serde::Deserialize;
@@ -73,27 +73,19 @@ struct Instance {
 }
 
 impl Connection {
-    /// Read-only: the running service, or `None` when none was ever selected or started.
+    /// Read-only: Shinatama's own running service, or `None` when it was never started.
     pub fn discover(base: &StorageLocation) -> Result<Option<Self>, Error> {
-        match std::env::var_os("MUKADE_DATA_DIR") {
-            Some(path) => Self::discover_at(base, Path::new(&path)).map(Some),
-            None => {
-                let own = own_directory(base);
-                match fs::symlink_metadata(own.join("bus")) {
-                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-                    _ => Self::discover_at(base, &own).map(Some),
-                }
-            }
+        let own = own_directory(base);
+        match fs::symlink_metadata(own.join("bus")) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            _ => Self::discover_at(base, &own).map(Some),
         }
     }
 
-    /// The running service, starting Shinatama's own one when it is stopped.
-    /// `None`: no external service is selected and no Mukade program is bundled.
+    /// Shinatama's own service, started when it is stopped.
+    /// `None`: no Mukade program is bundled.
     /// The error is the reason to show: Mukade's own words when its start failed.
     pub fn ensure_running(base: &StorageLocation) -> Result<Option<Self>, String> {
-        if std::env::var_os("MUKADE_DATA_DIR").is_some() {
-            return Self::discover(base).map_err(|e| e.to_string());
-        }
         if let Ok(Some(connection)) = Self::discover(base) {
             return Ok(Some(connection));
         }
@@ -241,11 +233,8 @@ impl Connection {
     }
 }
 
-/// Stop the service Shinatama started. An external service is left alone.
+/// Stop the service Shinatama started.
 pub fn stop_owned(base: &StorageLocation) {
-    if std::env::var_os("MUKADE_DATA_DIR").is_some() {
-        return;
-    }
     let own = own_directory(base);
     if fs::symlink_metadata(own.join("bus")).is_ok()
         && let Some(program) = bundled_program()
@@ -277,7 +266,7 @@ pub(crate) fn bundled_program() -> Option<PathBuf> {
 /// handles out of the service it detaches, so the pipe closes when this command ends.
 fn run_bundled(program: &Path, directory: &Path, operation: &str) -> Result<(), String> {
     let mut environment: BTreeMap<OsString, OsString> = std::env::vars_os().collect();
-    clear_environment(&mut environment);
+    isolate_environment(&mut environment);
     let mut command = std::process::Command::new(program);
     command.args(["chat", operation])
         .env_clear().envs(environment)
@@ -315,15 +304,31 @@ fn run_bundled(program: &Path, directory: &Path, operation: &str) -> Result<(), 
     }
 }
 
+/// For a harness session: no Mukade setting of the system reaches it. The app may itself have
+/// been started from a Mukade-managed terminal, or beside another Mukade installation: its
+/// member, listening settings, bearer, data folder (another service) and program overrides must
+/// never become the child's. A talking thread then sets Shinatama's own values.
 pub fn clear_environment(environment: &mut BTreeMap<OsString, OsString>) {
-    // The app may itself have been started from a Mukade-managed terminal.
-    // Its member/listen settings and bearer must never become the child's
-    // membership. MUKADE_DATA_DIR selects the service and remains inherited.
-    const SESSION_NAMES: &[&str] = &[
-        TOKEN_ENV, "MUKADE_CHAT_ROOM_ID", "MUKADE_CHAT_ROLE", "MUKADE_CHAT_LISTEN",
-        "MUKADE_CHAT_MAX_WAKES", "MUKADE_CHAT_AUTHORIZATION", "MUKADE_CHAT_SERVICE_ID",
-    ];
-    environment.retain(|name, _| !SESSION_NAMES.iter().any(|reserved| name.eq_ignore_ascii_case(reserved)));
+    environment.retain(|name, _| {
+        let upper = name.to_string_lossy().to_ascii_uppercase();
+        upper != TOKEN_ENV && !upper.starts_with("MUKADE_")
+    });
+}
+
+/// The harnesses' own store variables, which tell a Mukade process where their sessions live:
+/// Mukade's catalog (`catalog/harnesses.json`, `store.env`).
+const HARNESS_STORES: &[&str] = &["CLAUDE_CONFIG_DIR", "CODEX_HOME", "OPENCODE_DB", "PI_CODING_AGENT_DIR", "HERMES_HOME", "DSH_HOME"];
+
+/// For a Mukade process Shinatama runs (the service, a chat command, a trust or kit run): on top
+/// of `clear_environment`, none of the system's harness stores or Codex settings, so it neither
+/// reads nor writes another installation's sessions or configuration. The caller then sets what
+/// it needs: Shinatama's data folder, and for a trust run the private Codex home.
+pub(crate) fn isolate_environment(environment: &mut BTreeMap<OsString, OsString>) {
+    clear_environment(environment);
+    environment.retain(|name, _| {
+        let upper = name.to_string_lossy().to_ascii_uppercase();
+        !upper.starts_with("CODEX_") && !HARNESS_STORES.iter().any(|store| upper == *store)
+    });
 }
 
 fn endpoint_address(endpoint: &str) -> Result<SocketAddr, Error> {
@@ -491,6 +496,22 @@ mod tests {
         assert_eq!(env.get(&OsString::from(TOKEN_ENV)), Some(&OsString::from(TOKEN)));
         clear_environment(&mut env);
         assert_eq!(env, BTreeMap::from([("KEEP".into(), "yes".into())]));
+        // Another installation's service and program never reach a child or a Mukade process.
+        let mut env: BTreeMap<OsString, OsString> = BTreeMap::from([
+            ("MUKADE_DATA_DIR".into(), "C:/other/mukade".into()),
+            ("mukade_codex_exe".into(), "C:/other/codex.exe".into()),
+            ("CODEX_HOME".into(), "C:/Users/me/.codex".into()),
+            ("codex_sqlite_home".into(), "C:/x".into()),
+            ("CLAUDE_CONFIG_DIR".into(), "C:/Users/me/.claude".into()),
+            ("PI_CODING_AGENT_DIR".into(), "C:/Users/me/.pi".into()),
+            ("PATH".into(), "C:/Windows".into()),
+        ]);
+        let mut child = env.clone();
+        clear_environment(&mut child);
+        assert!(!child.contains_key(&OsString::from("MUKADE_DATA_DIR")) && !child.contains_key(&OsString::from("mukade_codex_exe")));
+        assert!(child.contains_key(&OsString::from("CODEX_HOME")), "a harness child's own home is its launcher's business");
+        isolate_environment(&mut env);
+        assert_eq!(env, BTreeMap::from([("PATH".into(), "C:/Windows".into())]));
     }
 
     /// `length: false` is the real service's HTTP/1.0 answer: no length, then close.

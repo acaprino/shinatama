@@ -133,13 +133,22 @@ pub struct PreparedPiStart {
     pub launch: PreparedLaunch,
     pub permit: NativeTuiPermit,
 }
+/// Pi's argv: discovery off, then the selected set (Marionette's `-e` and `--skill`), then a
+/// talking thread's Mukade extension and Pi's built-in MCP. The chat is only ever added.
+fn session_arguments(bundled: Option<ResourceArguments>, chat: Vec<OsString>) -> Vec<OsString> {
+    run::tui_arguments(&bundled.unwrap_or_else(ResourceArguments::empty))
+        .into_iter()
+        .chain(chat)
+        .collect()
+}
+
 /// Mukade's Pi extension, written beside the instance, as the arguments that load it, followed by
 /// Pi's built-in MCP, which registers the extension's server (Mukade's live record, run 10).
 fn chat_kit(base: &StorageLocation, instance: &Path) -> Result<(crate::mukade_mcp::Connection, Vec<OsString>), String> {
     let connection = crate::mukade_mcp::Connection::discover(base)
         .map_err(|error| error.to_string())?
         .ok_or("the Mukade service is not running")?;
-    let kit = crate::mukade_chat::plugin_kit("pi", &instance.join("mukade-kit"), &connection, None)?;
+    let kit = crate::mukade_chat::plugin_kit(base, "pi", &instance.join("mukade-kit"), &connection, None)?;
     if kit.arguments.len() != 2 || kit.arguments[0] != "-e" {
         return Err("Mukade's Pi kit is not the one extension Shinatama expects".into());
     }
@@ -551,10 +560,7 @@ fn prepare(
             node_version,
             minimum_node_version: Some(discovery::minimum_node()),
         },
-        run::tui_arguments(&bundled.unwrap_or_else(ResourceArguments::empty))
-            .into_iter()
-            .chain(chat_arguments)
-            .collect(),
+        session_arguments(bundled, chat_arguments),
         evidence(&descriptor)?,
     )
     .map_err(PiLaunchError::ArgumentsRecipe)?;
@@ -725,6 +731,17 @@ fn evidence(descriptor: &AdapterDescriptor) -> Result<FixtureEvidence, PiLaunchE
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_talking_thread_adds_mukade_after_marionette_and_removes_nothing() {
+        let marionette = shinatama_adapter::pi::sets::plan_marionette(Path::new(r"C:\Data\marionette")).unwrap();
+        let without = session_arguments(Some(marionette.clone()), Vec::new());
+        let chat: Vec<OsString> = ["-e", r"C:\Data\i\mukade-kit\pi-extension\mukade-chat.ts", "-e", "builtin:mcp"].map(OsString::from).to_vec();
+        let with = session_arguments(Some(marionette), chat.clone());
+        assert_eq!(with[..without.len()], without[..]);
+        assert_eq!(with[without.len()..], chat[..]);
+        assert!(without.iter().any(|token| token.to_string_lossy().ends_with("policy.js")));
+        assert!(without.contains(&OsString::from("--skill")));
+    }
     use super::*;
     use crate::launch::identity::LaunchIdentity;
 

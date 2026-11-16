@@ -131,6 +131,15 @@ a message addressed to the member and continues the session with it (bounded by
    the room's kit", the tab " · chat". Neither has resume yet, so only new sessions join. Hermes
    is not launched by Shinatama and Mukade has no chat kit for it: it does not take part.
 
+12. **Nothing mixes with another installation, and Marionette stays.** Shinatama only ever uses
+   its own Mukade service and data folder; an inherited MUKADE_DATA_DIR is ignored. The Mukade
+   processes it runs (service, chat commands, Codex's approval, kits) see none of the system's
+   `MUKADE_*` or `CODEX_*` variables nor the harnesses' store variables, so they read and write no
+   other installation's sessions or configuration; sessions get no system `MUKADE_*` variable.
+   Kits, approvals and adapter state live in the session's private home and Shinatama's data
+   folder. The chat only adds to a launch: Marionette's plugin, overrides and extension stay
+   (tests in `codex_launch` and `pi_launch`).
+
 ## Rejected alternatives
 
 - **RA-001: keep manual consumption only.** An idle session never answers; the user relays by hand.
