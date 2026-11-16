@@ -101,6 +101,8 @@ pub struct ClaudeSessionOperation {
     native_id: String,
     initial_prompt: Option<String>,
     require_mukade: bool,
+    /// The thread's Mukade room, when its sessions talk to each other (ADR-0057).
+    chat: Option<crate::mukade_chat::ChatHooks>,
 }
 impl ClaudeSessionOperation {
     /// The caller generates and durably records this UUID before releasing the
@@ -132,6 +134,7 @@ impl ClaudeSessionOperation {
             native_id: value.into(),
             initial_prompt: None,
             require_mukade: false,
+            chat: None,
         })
     }
     /// A bounded first user message for a new conversation, never shell syntax
@@ -151,6 +154,12 @@ impl ClaudeSessionOperation {
     /// The qualifier checks again after desktop preflight, before sealing.
     pub fn with_mukade_required(mut self) -> Self {
         self.require_mukade = true;
+        self
+    }
+    /// Make the session a member of its thread's room through Mukade's hooks. Without
+    /// a reachable service at launch the session opens as an ordinary one.
+    pub fn with_chat_hooks(mut self, hooks: crate::mukade_chat::ChatHooks) -> Self {
+        self.chat = Some(hooks);
         self
     }
     pub fn operation(&self) -> Operation {
@@ -649,12 +658,6 @@ fn prepare(
     } else {
         None
     };
-    let settings_path = create_json(
-        &instance_directory,
-        "settings.json",
-        &settings,
-        &mut artifacts,
-    )?;
     let mcp_endpoint = session_events
         .as_ref()
         .filter(|_| !trial && crate::session_control::is_installed())
@@ -668,6 +671,22 @@ fn prepare(
             Ok(None)
         },
         session.is_some_and(|session| session.require_mukade),
+    )?;
+    // ADR-0057: the thread's room, through Mukade's own hooks, beside the tracking
+    // hook above. Only with that hook (hooks enabled) and a reachable service.
+    // Hooks that cannot be written leave the session an ordinary one, never a failed launch.
+    let chat = session
+        .and_then(|session| session.chat.as_ref())
+        .filter(|chat| mukade.is_some() && session_events.is_some() && chat.claude_hooks().is_some());
+    if let Some(chat) = chat {
+        merge_chat_hooks(&mut settings, chat)?;
+        crate::mukade_chat::note_launch(context.thread_id, chat.room_id());
+    }
+    let settings_path = create_json(
+        &instance_directory,
+        "settings.json",
+        &settings,
+        &mut artifacts,
     )?;
     let mut mcp = mcp_configuration(mcp_endpoint.as_deref());
     if let Some(connection) = &mukade {
@@ -712,6 +731,9 @@ fn prepare(
     crate::mukade_mcp::clear_environment(&mut environment);
     if let Some(connection) = &mukade {
         connection.apply_environment(&mut environment);
+    }
+    if let Some(chat) = chat {
+        chat.apply_environment(&mut environment);
     }
     let system = std::env::var_os("SystemRoot").ok_or(ClaudeLaunchError::Composition)?;
     set(&mut environment, "SystemRoot", system.clone());
@@ -1116,6 +1138,26 @@ fn merge_session_hooks(settings: &mut Value, command: &str) -> Result<(), Claude
         entries.push(
             serde_json::json!({"hooks": [{"type": "command", "command": command, "timeout": 5}]}),
         );
+    }
+    Ok(())
+}
+/// Mukade's three hooks, appended to whatever the settings already hold.
+fn merge_chat_hooks(settings: &mut Value, chat: &crate::mukade_chat::ChatHooks) -> Result<(), ClaudeLaunchError> {
+    let entries = chat.claude_hooks().ok_or(ClaudeLaunchError::Configuration)?;
+    let hooks = settings
+        .as_object_mut()
+        .ok_or(ClaudeLaunchError::Configuration)?
+        .entry("hooks")
+        .or_insert_with(|| serde_json::json!({}))
+        .as_object_mut()
+        .ok_or(ClaudeLaunchError::Configuration)?;
+    for (event, entry) in entries {
+        hooks
+            .entry(event)
+            .or_insert_with(|| serde_json::json!([]))
+            .as_array_mut()
+            .ok_or(ClaudeLaunchError::Configuration)?
+            .push(entry);
     }
     Ok(())
 }

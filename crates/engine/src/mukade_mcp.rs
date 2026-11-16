@@ -1,5 +1,6 @@
 //! Connection to the local Mukade chat service.
-//! Shinatama owns one service: the Mukade program bundled beside the app, with its
+//! Shinatama owns one service: the Mukade program it ships (built in this workspace from the
+//! pinned Mukade revision, `crates/mukade`), with its
 //! data in `mukade` under Shinatama's own data folder; it is started on demand and
 //! stopped with the app. An explicit MUKADE_DATA_DIR selects an external service
 //! instead, which is only joined: never started, never stopped.
@@ -234,12 +235,15 @@ pub fn stop_owned(base: &StorageLocation) {
     }
 }
 
-fn own_directory(base: &StorageLocation) -> PathBuf {
+pub(crate) fn own_directory(base: &StorageLocation) -> PathBuf {
     base.directory().join("mukade")
 }
 
-/// `mukade\mukade.exe` beside the running program, or one folder up for programs in `cli\`.
-fn bundled_program() -> Option<PathBuf> {
+/// The Mukade program Shinatama ships (`crates/mukade`, built from the pinned revision), at its
+/// one fixed place: `mukade\mukade.exe` beside the running program, or one folder up for programs
+/// in `cli\`. A development build puts it at the same place (`npm run desktop`). The path is part
+/// of every hook command, so of Codex's trust in those hooks: it never moves.
+pub(crate) fn bundled_program() -> Option<PathBuf> {
     let executable = std::env::current_exe().ok()?;
     let folder = executable.parent()?;
     [Some(folder), folder.parent()].into_iter().flatten()
@@ -325,7 +329,7 @@ fn same_path(expected: &Path, actual: &Path) -> bool {
     actual.is_absolute() && key(expected).is_some() && key(expected) == key(actual)
 }
 
-fn reject_reparse(path: &Path) -> Result<(), Error> {
+pub(crate) fn reject_reparse(path: &Path) -> Result<(), Error> {
     let metadata = fs::symlink_metadata(path).map_err(|_| Error::PrivateStorageRequired)?;
     if metadata.file_type().is_symlink() { return Err(Error::PrivateStorageRequired); }
     #[cfg(windows)]

@@ -1,6 +1,6 @@
 ---
 name: mukade-collaborate
-description: "Use when the user asks to open another coding session, delegate work to Claude or Codex, discuss alternatives between sessions, review with another agent, or observe a session through Mukade; also for Italian requests such as apri un'altra sessione, apri Codex, fallo implementare, confrontatevi."
+description: "Use when the user asks to open another coding session, delegate work to Claude or Codex, discuss alternatives between sessions, review with another agent, talk to another session of the same Shinatama thread, or observe a session through Mukade; also for Italian requests such as apri un'altra sessione, apri Codex, fallo implementare, confrontatevi, chiedi all'altra sessione, parla con Codex nel thread."
 ---
 
 # Collaborazione tra sessioni con Mukade
@@ -36,6 +36,7 @@ mancanti che cambiano effettivamente destinazione o ambito del lavoro.
 | Discutere alternative prima di scrivere | Dialogo | `peer` |
 | Rivedere codice o diff | Revisione | `peer` |
 | Osservare una sessione esistente | Osservazione | `observer` |
+| Parlare con una sessione gia' aperta nello stesso thread | Dialogo nel thread | `peer` (nessun avvio) |
 
 I nomi delle modalita' sono una scelta della skill, non parametri di un tool.
 Il coordinatore puo' essere `peer` o `lead`. Usa `worker` solo per un
@@ -85,6 +86,31 @@ per far passare un avvio. Non duplicare identita', token o home privati
 della sessione madre. Riusa il launcher che possiede tali responsabilita'.
 
 ## 3. Preparare stanza, identita' e incarico
+
+**Stanza del thread.** In Shinatama un thread e' un insieme di sessioni
+(ADR-0055) e ha una propria stanza Mukade. Chiama `shinatama_thread_peers`
+(nessun argomento): restituisce `mukade.room_name`, il tuo `you.member_name` e
+le altre sessioni del thread con `member_name`, harness e stato. Apri la stanza
+con `chat_open` usando quel nome (stesso nome = stessa stanza per tutte le
+sessioni del thread) ed entra con `chat_join` come `peer` con il tuo
+`member_name`. Se il nome risulta gia' usato, una tua esecuzione precedente era
+entrata: trova il tuo `member_id` con `chat_members` e usa `chat_rejoin`.
+Indirizza i messaggi al `member_name` del destinatario.
+
+Se `mukade.delivery` e' `hooks`, il thread ha l'interruttore «Sessions talk to
+each other» acceso: gli hook di Mukade ti hanno gia' fatto entrare (nome e
+handle sono nella nota `[mukade chat]` di inizio sessione). Non rifare
+`chat_join`, non chiamare `chat_read`/`chat_wait`: i messaggi arrivano ai tuoi
+turni e una sessione in ascolto si risveglia quando le scrivi. L'utente vede la
+conversazione nel pannello «Conversation» e puo' scrivere come membro `user`.
+
+Per un nuovo partecipante in collaborazione usa questa stanza come `room_id` e
+il tuo `member_name` come `coordinator`: Shinatama apre la nuova scheda nello
+stesso thread. Una sessione esistente del thread si raggiunge senza avviarne
+un'altra; un peer con `chat: "none"` (OpenCode, Pi) non ha strumenti Mukade.
+Una sessione inattiva legge solo quando chiama `chat_read`/`chat_wait`: se non
+risponde entro l'attesa, chiedi all'utente di dirle di leggere la stanza del
+thread, senza dichiarare consegnato o letto il messaggio.
 
 Riusa la stanza corrente quando coerente. Crea una nuova stanza solo per una
 collaborazione distinta. Se un adapter Mukade ha gia' fornito room e membro,

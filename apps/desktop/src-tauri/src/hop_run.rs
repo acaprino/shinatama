@@ -124,7 +124,7 @@ pub async fn hop_launch(window: WebviewWindow, host: State<'_, Host>, request: L
         let (name, value) = control_header(ControlKind::Bootstrap, &preview.bootstrap);
         owner.open_handoff(&preview.destination, host.inner().clone(), cwd, request.rows, request.cols, format!("{name}: {value}")).await
     } else {
-        owner.open(&preview.destination, host.inner().clone(), cwd, request.rows, request.cols).await
+        owner.open(&preview.destination, host.inner().clone(), cwd, request.rows, request.cols, None).await
     };
     let started = match opened {
         Ok(started) => started,

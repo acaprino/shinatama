@@ -514,6 +514,32 @@ impl Database {
         Ok(list)
     }
 
+    /// Threads (worksets, ADR-0055) whose sessions talk to each other through the
+    /// thread's Mukade room (ADR-0057). Off unless listed.
+    pub fn chat_threads(&self) -> Result<Vec<String>> {
+        Ok(self
+            .setting_json::<Vec<String>>("threads.chat_enabled.v1")?
+            .into_iter()
+            .filter(|id| crate::records::validate_id(id, crate::records::CanonicalIdKind::Workset).is_ok())
+            .take(1000)
+            .collect())
+    }
+    pub fn thread_chat_enabled(&self, workset_id: &str) -> Result<bool> {
+        Ok(self.chat_threads()?.iter().any(|id| id == workset_id))
+    }
+    pub fn set_thread_chat(&self, workset_id: &str, enabled: bool) -> Result<Vec<String>> {
+        crate::records::validate_id(workset_id, crate::records::CanonicalIdKind::Workset)
+            .map_err(|_| DatabaseError::InvalidProject("thread id"))?;
+        let mut list = self.chat_threads()?;
+        list.retain(|id| id != workset_id);
+        if enabled {
+            list.insert(0, workset_id.to_owned());
+        }
+        list.truncate(1000);
+        self.set_setting_json("threads.chat_enabled.v1", &list)?;
+        Ok(list)
+    }
+
     /// C08's sole settings namespace. Reads never allocate an oversized value.
     pub fn presentation_json(&self) -> Result<Option<String>> {
         let connection = self.lock()?;

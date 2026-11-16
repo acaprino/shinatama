@@ -1,0 +1,22 @@
+[package]
+name = "shinatama-mukade"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+description = "The Mukade program Shinatama ships, built from the pinned Mukade release"
+
+# `mukade\mukade.exe` of a Shinatama package: the chat service, its hooks and its command line.
+# Built here from the workspace's pinned Mukade revision, so the program Shinatama runs is always
+# the version it was built and tested against; no checkout of Mukade beside Shinatama is used.
+# Build it on its own (`cargo build -p shinatama-mukade`): built together with the engine, Cargo
+# would unify the `chat` feature into the engine's session reader as well.
+[[bin]]
+name = "mukade"
+path = "src/main.rs"
+
+[dependencies]
+mukade = { workspace = true, features = ["chat"] }
+
+[dev-dependencies]
+serde_json.workspace = true

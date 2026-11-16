@@ -103,6 +103,8 @@ pub struct CodexSessionOperation {
     selection: CodexSessionSelection,
     initial_prompt: Option<String>,
     require_mukade: bool,
+    /// The thread's Mukade room, when its sessions talk to each other (ADR-0057).
+    chat: Option<crate::mukade_chat::ChatHooks>,
     /// The user's launch policy asked for no sandbox and no approvals.
     full_access: bool,
     /// Codex's syntax theme while the terminals follow the skin.
@@ -119,6 +121,7 @@ impl CodexSessionOperation {
             selection: CodexSessionSelection::New,
             initial_prompt: None,
             require_mukade: false,
+            chat: None,
             full_access: false,
             syntax_theme: None,
         }
@@ -141,6 +144,7 @@ impl CodexSessionOperation {
             selection: CodexSessionSelection::Resume(native_id.into()),
             initial_prompt: None,
             require_mukade: false,
+            chat: None,
             full_access: false,
             syntax_theme: None,
         })
@@ -177,6 +181,12 @@ impl CodexSessionOperation {
     /// as during the desktop's earlier room preflight.
     pub fn with_mukade_required(mut self) -> Self {
         self.require_mukade = true;
+        self
+    }
+    /// Make the session a member of its thread's room through Mukade's hooks. Without
+    /// a reachable service at launch the session opens as an ordinary one.
+    pub fn with_chat_hooks(mut self, hooks: crate::mukade_chat::ChatHooks) -> Self {
+        self.chat = Some(hooks);
         self
     }
     pub fn operation(&self) -> Operation {
@@ -724,6 +734,19 @@ fn prepare(
     }
     let mut artifacts = Vec::new();
     let mut hook_arguments = Vec::new();
+    // A required bus is checked again here; an optional outage must not
+    // prevent an ordinary native conversation from opening. It is resolved
+    // before the hooks: the thread's chat hooks (ADR-0057) need the service.
+    let mukade = resolve_optional_mukade(
+        if trusted_hook_exe.is_some() && !trial && crate::session_control::is_installed() {
+            crate::mukade_mcp::Connection::discover(context.base)
+        } else {
+            Ok(None)
+        },
+        session.require_mukade,
+    )?;
+    // Hooks that cannot be written leave the session an ordinary one, never a failed launch.
+    let chat = session.chat.as_ref().filter(|chat| mukade.is_some() && chat.codex_hooks().is_some());
     let session_events = if let Some(helper_path) = trusted_hook_exe {
         let mut helper = crate::harness_hooks::pin_session_hook(helper_path, deadline)
             .map_err(|_| CodexLaunchError::Configuration)?;
@@ -731,8 +754,14 @@ fn prepare(
         let receiver =
             SessionEventReceiver::start_for(HarnessKind::Codex, identity.record(), &project)
                 .map_err(|_| CodexLaunchError::Configuration)?;
-        hook_arguments =
-            session_hook_arguments(&version, &helper.path, &hook_shell.path, receiver.port())?;
+        hook_arguments = match chat.and_then(|chat| chat.codex_hooks().map(|hooks| (chat, hooks))) {
+            Some((chat, hooks)) => {
+                let arguments = session_and_chat_hook_arguments(&helper.path, &hook_shell.path, receiver.port(), &hooks)?;
+                crate::mukade_chat::note_launch(context.thread_id, chat.room_id());
+                arguments
+            }
+            None => session_hook_arguments(&version, &helper.path, &hook_shell.path, receiver.port())?,
+        };
         pinned.ancestors.append(&mut helper.ancestors);
         pinned.ancestors.append(&mut hook_shell.ancestors);
         artifacts.push(helper.file);
@@ -748,16 +777,6 @@ fn prepare(
     if let Some(endpoint) = &mcp_endpoint {
         hook_arguments.extend(mcp_arguments(endpoint));
     }
-    // A required bus is checked again here; an optional outage must not
-    // prevent an ordinary native conversation from opening.
-    let mukade = resolve_optional_mukade(
-        if mcp_endpoint.is_some() {
-            crate::mukade_mcp::Connection::discover(context.base)
-        } else {
-            Ok(None)
-        },
-        session.require_mukade,
-    )?;
     if let Some(connection) = &mukade {
         hook_arguments.extend(connection.codex_arguments());
     }
@@ -806,6 +825,10 @@ fn prepare(
     crate::mukade_mcp::clear_environment(&mut environment);
     if let Some(connection) = &mukade {
         connection.apply_environment(&mut environment);
+    }
+    // Only when the hooks above were composed: they need the tracking hook's helper.
+    if let Some(chat) = chat.filter(|_| session_events.is_some()) {
+        chat.apply_environment(&mut environment);
     }
     let system = std::env::var_os("SystemRoot").ok_or(CodexLaunchError::Composition)?;
     set(&mut environment, "SystemRoot", system.clone());
@@ -1001,13 +1024,7 @@ fn session_hook_arguments(
     // Codex hooks/engine/discovery.rs normalizes one handler to TOML, then
     // config/fingerprint.rs hashes its recursively sorted JSON. None fields
     // disappear in TOML; the default async=false remains part of the identity.
-    let mut identity = serde_json::json!({
-        "event_name": "session_start", "matcher": matcher,
-        "hooks": [{"type":"command", "command":command, "timeout":5, "async":false}]
-    });
-    identity.sort_all_objects();
-    let normalized = serde_json::to_vec(&identity).map_err(|_| CodexLaunchError::Configuration)?;
-    let hash = format!("sha256:{:x}", Sha256::digest(normalized));
+    let hash = hook_hash("session_start", Some(matcher), &command, 5)?;
     let quoted_command =
         serde_json::to_string(&command).map_err(|_| CodexLaunchError::Configuration)?;
     let quoted_matcher =
@@ -1099,6 +1116,66 @@ fn session_hook_command(
     Ok(format!(
         "{shell} -NoProfile -NonInteractive -EncodedCommand {encoded}"
     ))
+}
+
+/// ADR-0057: Shinatama's session hook and Mukade's chat hooks as ONE `hooks` table
+/// override, `hooks={state={…},SessionStart=[…],UserPromptSubmit=[…],Stop=[…]}`, so the argv
+/// stays within the terminal host's bound. The session-start entry and its trust are
+/// byte-identical to `session_hook_arguments`. Mukade's two hooks carry no trust here: Codex
+/// trusts them through the approval `mukade chat trust codex` recorded in this home's
+/// `config.toml` (`mukade_chat::trust_codex`). Codex reads hook trust from the user layer and
+/// the session-flags layer and merges it key by key, so this override does not hide that
+/// approval; a hash computed here instead would override the one Codex recorded.
+fn session_and_chat_hook_arguments(
+    helper: &Path,
+    shell: &Path,
+    port: u16,
+    chat: &[crate::mukade_chat::CodexHook],
+) -> Result<Vec<OsString>, CodexLaunchError> {
+    let quote = |text: &str| serde_json::to_string(text).map_err(|_| CodexLaunchError::Configuration);
+    let command = session_hook_command(helper, shell, port)?;
+    let matcher = "^(startup|resume|clear|compact|fork)$";
+    let hash = hook_hash("session_start", Some(matcher), &command, 5)?;
+    let mut definitions = vec![format!(
+        "SessionStart=[{{matcher={},hooks=[{{type=\"command\",command={},timeout=5,async=false}}]}}]",
+        quote(matcher)?,
+        quote(&command)?
+    )];
+    for hook in chat {
+        if hook.command.chars().any(char::is_control) {
+            return Err(CodexLaunchError::Configuration);
+        }
+        definitions.push(format!(
+            "{}=[{{hooks=[{{type=\"command\",command={},timeout={}}}]}}]",
+            hook.table_key,
+            quote(&hook.command)?,
+            hook.timeout
+        ));
+    }
+    Ok(vec![
+        "-c".into(),
+        "features.hooks=true".into(),
+        "-c".into(),
+        format!(
+            "hooks={{state={{'C:\\<session-flags>\\config.toml:session_start:0:0'={{enabled=true,trusted_hash=\"{hash}\"}}}},{}}}",
+            definitions.join(",")
+        )
+        .into(),
+    ])
+}
+/// Codex's identity of one command handler (see `session_hook_arguments`): the
+/// recursively sorted JSON of event, optional matcher and handler, hashed.
+fn hook_hash(event: &str, matcher: Option<&str>, command: &str, timeout: u64) -> Result<String, CodexLaunchError> {
+    let mut identity = serde_json::json!({
+        "event_name": event,
+        "hooks": [{"type":"command", "command":command, "timeout":timeout, "async":false}]
+    });
+    if let Some(matcher) = matcher {
+        identity["matcher"] = matcher.into();
+    }
+    identity.sort_all_objects();
+    let normalized = serde_json::to_vec(&identity).map_err(|_| CodexLaunchError::Configuration)?;
+    Ok(format!("sha256:{:x}", Sha256::digest(normalized)))
 }
 
 fn session_hook_script(helper: &str, port: u16) -> String {
@@ -1537,6 +1614,33 @@ mod tests {
             .unwrap();
             assert_eq!(command.argv().len(), 32);
         }
+    }
+    #[test]
+    fn chat_hooks_share_one_hooks_table_with_the_verified_session_hook() {
+        let version = Version::parse("0.169.0").unwrap();
+        let helper = Path::new(r"C:\App\shinatama-hook.exe");
+        let shell = Path::new(r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe");
+        let verified = session_hook_arguments(&version, helper, shell, 43210).unwrap();
+        let chat = [
+            crate::mukade_chat::CodexHook { table_key: "UserPromptSubmit", command: "& 'C:/App/mukade/mukade.exe' chat hook codex prompt".into(), timeout: 30 },
+            crate::mukade_chat::CodexHook { table_key: "Stop", command: "& 'C:/App/mukade/mukade.exe' chat hook codex stop".into(), timeout: 3630 },
+        ];
+        let combined = session_and_chat_hook_arguments(helper, shell, 43210, &chat).unwrap();
+        // Two arguments fewer than the state and definition pairs it replaces.
+        assert_eq!(combined.len(), verified.len() - 2);
+        assert_eq!(combined[..2], verified[..2]);
+        let table = combined[3].to_str().unwrap();
+        // The session-start trust and definition are the verified ones, byte for byte.
+        let verified_state = verified[3].to_str().unwrap();
+        let state = verified_state.strip_prefix("hooks={").unwrap().strip_suffix("}").unwrap();
+        assert!(table.starts_with(&format!("hooks={{{state},")), "{table}");
+        let definition = verified[5].to_str().unwrap().strip_prefix("hooks.").unwrap();
+        assert!(table.contains(&format!(",{definition},UserPromptSubmit=[{{hooks=[{{type=\"command\",command=\"& 'C:/App/mukade/mukade.exe' chat hook codex prompt\",timeout=30}}]}}]")));
+        assert!(table.ends_with(",Stop=[{hooks=[{type=\"command\",command=\"& 'C:/App/mukade/mukade.exe' chat hook codex stop\",timeout=3630}]}]}"));
+        // Only Shinatama's own hook is trusted here; Mukade's come from the recorded approval.
+        assert_eq!(table.matches("trusted_hash").count(), 1);
+        let bad = [crate::mukade_chat::CodexHook { table_key: "Stop", command: "a\nb".into(), timeout: 1 }];
+        assert!(session_and_chat_hook_arguments(helper, shell, 43210, &bad).is_err());
     }
     #[test]
     fn initial_prompt_is_bounded_and_cannot_be_attached_to_resume() {
