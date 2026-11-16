@@ -37,6 +37,7 @@ import { createBrowserTabs, type BrowserTarget } from './browser-tab.ts';
 import './browser-tab.css';
 import { classifyTarget, findLinksInRows, hoverText, type CellText } from './terminal-links.ts';
 import { createProjectsOverview } from './projects-overview.ts';
+import { createLeftoversPanel } from './leftovers-panel.ts';
 import { createSessionsPanel } from './sessions-panel.ts';
 import { createSettingsPanel } from './settings-panel.ts';
 import { createSessionSearch } from './session-search.ts';
@@ -1187,6 +1188,16 @@ const filesPanel = createFilesPanel({
   button.title = 'Browse and edit the project files (nothing is run)';
   button.onclick = () => { void filesPanel.show(); };
   document.querySelector('#new-terminal')?.before(button);
+}
+// What agent sessions create on disk (Xiox), docked right of the workspace and always in view.
+if (desktop) {
+  const leftovers = createLeftoversPanel({
+    invoke: (command, args) => invoke(command, args),
+    focusSession: id => focusAttentionSession(id),
+    reportError: notify,
+  });
+  $('#work-area').append(leftovers.element);
+  document.querySelector('#new-terminal')?.before(leftovers.toggle);
 }
 const projectsOverview = createProjectsOverview({
   invoke: (command, args) => desktop ? invoke(command, args) : Promise.reject('Open the desktop app to manage projects.'),

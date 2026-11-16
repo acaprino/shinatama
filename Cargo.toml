@@ -4,7 +4,7 @@
 [workspace]
 resolver = "3"
 # The terminal engine remains independent of the Tauri shell (ADR-0005).
-members = ["crates/terminal", "crates/projects", "crates/state", "crates/adapter", "crates/engine", "crates/export", "crates/hop", "crates/files", "crates/companion", "crates/token-economy", "crates/messaging", "crates/roundtable", "crates/browser", "crates/cli", "crates/mukade", "apps/desktop/src-tauri"]
+members = ["crates/terminal", "crates/projects", "crates/state", "crates/adapter", "crates/engine", "crates/export", "crates/hop", "crates/files", "crates/companion", "crates/token-economy", "crates/messaging", "crates/roundtable", "crates/browser", "crates/xiox", "crates/cli", "crates/mukade", "apps/desktop/src-tauri"]
 default-members = ["crates/terminal"]
 
 [workspace.package]
@@ -72,6 +72,7 @@ shinatama-token-economy = { path = "crates/token-economy" }
 shinatama-messaging = { path = "crates/messaging" }
 shinatama-roundtable = { path = "crates/roundtable" }
 shinatama-browser = { path = "crates/browser" }
+shinatama-xiox = { path = "crates/xiox" }
 # Mukade release v0.1.0 (tag v0.1.0 = this commit). Git dependencies are pinned by full revision.
 mukade = { git = "https://github.com/acaprino/mukade", rev = "31feb1e97a05caa268c2cc3b003d05297db14ec3", default-features = false }
 

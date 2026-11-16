@@ -34,6 +34,14 @@ tracks which launch, resume, and handoff paths have been exercised.
   When system memory runs low, it shows the highest-usage terminal it measured
   and keeps existing sessions running. New terminals have a small startup
   memory check. [Memory policy](docs/notes/2026-11-12-interactive-memory.md)
+- **See what sessions leave behind.** With [Xiox](https://github.com/acaprino/xiox)
+  beside Shinatama, the first agent session in a project starts `xiox observe` for it.
+  The **Leftovers** side panel lists every worktree, copy of the repository, bench and
+  backup folder, and session folder as it appears. It shows the size, the path and the
+  session that made it, or the sessions that were open at the time. A new one raises the
+  widget at once, so you can stop a session that keeps making copies. Shinatama never
+  removes anything; Xiox's `xiox clean` command is there to copy.
+  [How it works](docs/notes/2026-11-16-xiox-leftovers.md)
 
 ## Quickstart
 
@@ -85,6 +93,7 @@ display mod for supported Claude Code versions. [Marionette](AVVIO.md#marionette
 | Project | Role |
 | --- | --- |
 | [**Mukade**](https://github.com/acaprino/mukade) | Rust library and CLI for reading, converting, and moving native agent sessions between harnesses. Shinatama uses Mukade to read sessions. The [handover design](docs/mukade-handover.md) covers native session transfer. |
+| [**Xiox**](https://github.com/acaprino/xiox) | Windows cleaner for developers. Shinatama runs its `xiox observe` to list what agent sessions leave in a project; cleaning stays with `xiox clean`. |
 | [**Muro**](https://github.com/acaprino/acaprinoprivate#readme) | Builds packages from skills and plugins. The host agent selects the capabilities it needs for each task. Repository access required. |
 
 ## Development
