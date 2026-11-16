@@ -1,5 +1,5 @@
 @echo off
-rem Build Shinatama (+ Mukade) and assemble everything, directly usable, in .\release
+rem Build Shinatama (+ Mukade, + Xiox when ..\xiox exists) and assemble everything, directly usable, in .\release
 rem Usage: build-release.bat   (then run release\Shinatama.exe)
 setlocal
 cd /d "%~dp0"
@@ -8,10 +8,10 @@ where pwsh >nul 2>nul || (echo PowerShell 7.4+ ^(pwsh^) is required. & goto fail
 where npm >nul 2>nul || (echo npm is required. & goto fail)
 where cargo >nul 2>nul || (echo cargo is required. & goto fail)
 
-echo [1/5] Frontend build
+echo [1/6] Frontend build
 call npm run build || goto fail
 
-echo [2/5] Native build ^(desktop, hook, terminal-helper; session-helper in release^)
+echo [2/6] Native build ^(desktop, hook, terminal-helper; session-helper in release^)
 cargo build --locked -p shinatama-desktop --features custom-protocol || goto fail
 cargo build --locked -p shinatama-engine --features session-reader --bins || goto fail
 rem The session helper of a package is a release build (ADR-0053 v2, INV-006).
@@ -19,13 +19,13 @@ cargo build --release --locked -p shinatama-engine --features session-reader --b
 cargo build --locked -p shinatama-terminal --bins || goto fail
 cargo build --locked -p shinatama-cli || goto fail
 
-echo [3/5] Verified package
+echo [3/6] Verified package
 if not exist ".verification" mkdir ".verification"
 pwsh -NoProfile -File "scripts\package-local.ps1" > ".verification\last-package.json" || goto fail
 for /f "usebackq delims=" %%D in (`pwsh -NoProfile -Command "(Get-Content -Raw '.verification\last-package.json' | ConvertFrom-Json).directory"`) do set "STAGE=%%D"
 if not defined STAGE (echo Package directory not found in .verification\last-package.json & goto fail)
 
-echo [4/5] Copy to release
+echo [4/6] Copy to release
 robocopy "%STAGE%" "%~dp0release" /MIR /NFL /NDL /NJH /NJS /NP >nul
 if errorlevel 8 (echo Copy to release failed. & goto fail)
 
@@ -41,19 +41,40 @@ if not exist "%~dp0release\cli" mkdir "%~dp0release\cli"
 copy /y "%~dp0target\debug\shinatama.exe" "%~dp0release\cli\shinatama.exe" >nul || (echo Could not copy the CLI. & goto fail)
 copy /y "%~dp0target\release\shinatama-session-helper.exe" "%~dp0release\cli\shinatama-session-helper.exe" >nul || (echo Could not copy the CLI session helper. & goto fail)
 
-echo [5/5] Mukade ^(session library CLI and terminal browser^)
-set "MUKADE=%~dp0..\mukade"
-if not exist "%MUKADE%\build.bat" (echo Mukade not found at "%MUKADE%". & goto fail)
-call "%MUKADE%\build.bat" || goto fail
+echo [5/6] Mukade ^(embedded: chat service, hooks and session CLI; terminal browser^)
+rem mukade.exe is built in this workspace from the Mukade revision pinned in Cargo.toml
+rem (crates/mukade); no Mukade checkout beside Shinatama is used. Built on its own, so the
+rem chat feature is not unified into the engine's session reader.
+cargo build --release --locked -p shinatama-mukade || goto fail
 if not exist "%~dp0release\mukade" mkdir "%~dp0release\mukade"
-copy /y "%MUKADE%\target\release\mukade.exe" "%~dp0release\mukade\mukade.exe" >nul || goto fail
-copy /y "%MUKADE%\target\release\mukade-tui.exe" "%~dp0release\mukade\mukade-tui.exe" >nul || goto fail
+copy /y "%~dp0target\release\mukade.exe" "%~dp0release\mukade\mukade.exe" >nul || goto fail
+rem The terminal browser, from the same pinned revision and Mukade's own lockfile.
+for /f "usebackq delims=" %%R in (`pwsh -NoProfile -Command "(Get-Content -Raw 'scripts\mukade-pin.json' | ConvertFrom-Json).revision"`) do set "MUKADE_REV=%%R"
+if not defined MUKADE_REV (echo The Mukade revision was not found in scripts\mukade-pin.json. & goto fail)
+cargo install --locked --git https://github.com/acaprino/mukade --rev %MUKADE_REV% --root "%~dp0target\mukade-tui" mukade-tui || goto fail
+copy /y "%~dp0target\mukade-tui\bin\mukade-tui.exe" "%~dp0release\mukade\mukade-tui.exe" >nul || goto fail
 
+echo [6/6] Xiox ^(observer of what sessions leave: worktrees, copies, bench and backup folders^)
+rem Optional: without it Shinatama runs as before and the project overview says Xiox is missing.
+rem mukade.exe goes beside xiox.exe, the first place Xiox looks for it (its own vendored build).
+set "XIOX=%~dp0..\xiox"
+if not exist "%XIOX%\Cargo.toml" (echo Xiox not found at "%XIOX%": leftovers are not observed. & goto done)
+pushd "%XIOX%" || goto fail
+cargo build --release --locked -p xiox-cli
+set "RC=%ERRORLEVEL%"
+popd
+if not "%RC%"=="0" goto fail
+if not exist "%~dp0release\xiox" mkdir "%~dp0release\xiox"
+copy /y "%XIOX%\target\release\xiox.exe" "%~dp0release\xiox\xiox.exe" >nul || goto fail
+if exist "%XIOX%\vendor\mukade\mukade.exe" copy /y "%XIOX%\vendor\mukade\mukade.exe" "%~dp0release\xiox\mukade.exe" >nul || goto fail
+
+:done
 echo.
 echo OK. Package %STAGE%
 echo Ready: %~dp0release\Shinatama.exe
 echo        %~dp0release\cli\shinatama.exe ^(sessions, find, export, forget, check-state, mcp^)
 echo        %~dp0release\mukade\mukade.exe and mukade-tui.exe
+echo        %~dp0release\xiox\xiox.exe ^(when Xiox was built^)
 exit /b 0
 
 :fail

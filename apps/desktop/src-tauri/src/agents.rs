@@ -378,9 +378,12 @@ impl Controller {
             None,
             false,
             None,
+            None,
         )
         .await
     }
+    /// `workset`: the thread (ADR-0055) the new session is created in; `None` gives it
+    /// a thread of its own.
     pub async fn open(
         self: &Arc<Self>,
         agent_id: &str,
@@ -388,6 +391,7 @@ impl Controller {
         project: PathBuf,
         rows: u16,
         cols: u16,
+        workset: Option<String>,
     ) -> Result<AgentStarted, &'static str> {
         self.start_request(
             agent_id,
@@ -399,6 +403,7 @@ impl Controller {
             None,
             false,
             None,
+            workset,
         )
         .await
     }
@@ -423,6 +428,7 @@ impl Controller {
             None,
             false,
             Some(control_header),
+            None,
         )
         .await
     }
@@ -437,6 +443,7 @@ impl Controller {
         initial_prompt: Option<String>,
         require_mukade: bool,
         control_header: Option<String>,
+        workset: Option<String>,
     ) -> Result<AgentStarted, &'static str> {
         shinatama_terminal::validate_size(rows, cols)
             .map_err(|_| "The terminal size is invalid.")?;
@@ -456,6 +463,7 @@ impl Controller {
                             initial_prompt.as_deref(),
                             require_mukade,
                             control_header.as_deref(),
+                            workset.as_deref(),
                         )
                         .map_err(|error| error.message())
                 },
@@ -474,6 +482,7 @@ impl Controller {
         project: PathBuf,
         initial_prompt: String,
         require_mukade: bool,
+        workset: Option<String>,
     ) -> Result<AgentStarted, &'static str> {
         if !matches!(agent_id, "claude_code" | "codex") {
             return Err("This harness does not support collaborative startup.");
@@ -482,7 +491,7 @@ impl Controller {
             return Err("The initial collaboration instruction is invalid.");
         }
         self.start_request(agent_id, host, project, 24, 80,
-            OpenMode::PrepareWhenNeeded, Some(initial_prompt), require_mukade, None).await
+            OpenMode::PrepareWhenNeeded, Some(initial_prompt), require_mukade, None, workset).await
     }
 }
 fn prepare_box(

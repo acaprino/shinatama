@@ -607,6 +607,25 @@ impl Controller {
             present(app, self, true);
         }
     }
+    /// A notice about what a project gained (Xiox's leftovers). With a terminal it opens that
+    /// session; without one it opens Shinatama, and the next notice of this kind replaces it.
+    /// No sound.
+    pub fn advise(
+        &self,
+        app: &tauri::AppHandle,
+        title: String,
+        body: &str,
+        session_id: Option<String>,
+    ) {
+        let Ok(mut feed) = lock(self) else {
+            return;
+        };
+        let pushed = feed.push(notice(Kind::Update, title, body, session_id));
+        drop(feed);
+        if pushed {
+            present(app, self, false);
+        }
+    }
     /// A file the user saved: a short confirmation sound unless sound is muted.
     /// It never cuts an alert sound that started a moment ago, and rapid saves
     /// sound once.

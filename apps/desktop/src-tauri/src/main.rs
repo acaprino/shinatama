@@ -18,6 +18,7 @@ mod project_overview;
 mod hop_run;
 mod launch;
 mod launch_settings;
+mod leftovers;
 mod model_settings;
 mod memory_settings;
 mod secret_store;
@@ -39,6 +40,10 @@ mod sessions;
 mod sidecar;
 mod storage;
 mod threads;
+#[cfg(windows)]
+mod thread_chat;
+#[cfg(windows)]
+mod thread_peers;
 #[cfg(windows)]
 mod terminal_runtime;
 mod terminal_input;
@@ -317,6 +322,7 @@ async fn terminal_read(
     };
     if let Ok(session) = host.info(&id) {
         window.state::<attention::Controller>().observe(window.app_handle(), &session, &batch);
+        window.state::<leftovers::Leftovers>().observe(window.app_handle(), &session, &batch);
     }
     Ok(batch)
 }
@@ -511,6 +517,7 @@ async fn agent_open(
     cwd: String,
     rows: u16,
     cols: u16,
+    workset_id: Option<String>,
 ) -> Result<serde_json::Value, String> {
     local(&window)?;
     if window.state::<ExitIntent>().0.load(Ordering::Acquire) {
@@ -529,6 +536,7 @@ async fn agent_open(
                 PathBuf::from(cwd),
                 rows,
                 cols,
+                workset_id,
             )
             .await
             .map_err(str::to_owned)?;
@@ -536,7 +544,10 @@ async fn agent_open(
             .map_err(|_| "Agent startup status is unavailable.".into());
     }
     #[cfg(not(windows))]
-    Err("Agent startup is available on Windows.".into())
+    {
+        let _ = workset_id;
+        Err("Agent startup is available on Windows.".into())
+    }
 }
 /// The proxy status with the agent terminals alive now, which only the agents
 /// controller knows.
@@ -688,6 +699,7 @@ fn main() {
         .manage(Arc::new(TerminalHost::default()))
         .manage(ExitIntent::default())
         .manage(attention::Controller::default())
+        .manage(leftovers::Leftovers::default())
         .manage(shinatama_engine::Engine::new())
         .manage(resources::Resources::start())
         .setup(|app| {
@@ -724,6 +736,8 @@ fn main() {
             app.manage(Arc::new(workspace::Controller::new(services.clone())));
             app.manage(Arc::new(presentation::Controller::new(services.clone())));
             app.manage(Arc::new(threads::Controller::new(services.clone())));
+            #[cfg(windows)]
+            app.manage(Arc::new(thread_chat::Controller::default()));
             #[cfg(windows)]
             {
                 let (monitor, governor) = app.state::<resources::Resources>().admission_inputs();
@@ -803,6 +817,16 @@ fn main() {
         threads::workset_delete,
         threads::workset_adopt,
         threads::workset_of,
+        #[cfg(windows)]
+        thread_chat::thread_chat_list,
+        #[cfg(windows)]
+        thread_chat::thread_chat_set,
+        #[cfg(windows)]
+        thread_chat::thread_chat_overview,
+        #[cfg(windows)]
+        thread_chat::thread_chat_snapshot,
+        #[cfg(windows)]
+        thread_chat::thread_chat_send,
         threads::thread_rename,
         threads::thread_archive,
         threads::thread_forget,
@@ -856,6 +880,9 @@ fn main() {
         project_overview::project_pin,
         project_overview::project_worktree_plan,
         project_overview::project_worktree_create,
+        leftovers::project_leftovers,
+        leftovers::project_leftovers_check,
+        leftovers::leftovers_reveal,
         #[cfg(windows)]
         sessions::export::session_export,
         #[cfg(windows)]
@@ -969,6 +996,16 @@ fn main() {
         threads::workset_delete,
         threads::workset_adopt,
         threads::workset_of,
+        #[cfg(windows)]
+        thread_chat::thread_chat_list,
+        #[cfg(windows)]
+        thread_chat::thread_chat_set,
+        #[cfg(windows)]
+        thread_chat::thread_chat_overview,
+        #[cfg(windows)]
+        thread_chat::thread_chat_snapshot,
+        #[cfg(windows)]
+        thread_chat::thread_chat_send,
         threads::thread_rename,
         threads::thread_archive,
         threads::thread_forget,
@@ -1022,6 +1059,9 @@ fn main() {
         project_overview::project_pin,
         project_overview::project_worktree_plan,
         project_overview::project_worktree_create,
+        leftovers::project_leftovers,
+        leftovers::project_leftovers_check,
+        leftovers::leftovers_reveal,
         #[cfg(windows)]
         sessions::export::session_export,
         #[cfg(windows)]
@@ -1121,6 +1161,9 @@ fn main() {
             #[cfg(windows)]
             if matches!(_event, tauri::RunEvent::Exit) {
                 collaboration::stop(_app);
+            }
+            if matches!(_event, tauri::RunEvent::Exit) {
+                _app.state::<leftovers::Leftovers>().stop_all();
             }
         });
 }

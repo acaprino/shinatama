@@ -81,6 +81,7 @@ impl HarnessService for FakeService {
         _: Option<&str>,
         _: bool,
         _: Option<&str>,
+        _: Option<&str>,
     ) -> Result<AgentStarted, ServiceError> {
         panic!("request-isolation tests must not start a terminal")
     }
