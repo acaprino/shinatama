@@ -64,6 +64,17 @@ Il server **Shinatama**, distinto da Mukade, espone ora il ponte nativo:
 |---|---|
 | `shinatama_session_open` | `request_id` UUID, `instruction` (max4096 byte); opzionali `harness` (`claude_code` predefinito o `codex`), `mode` (`delegation` predefinito, `dialogue`, `review`), `room_id` e `coordinator` insieme. |
 | `shinatama_session_status` | `request_id` dello stesso chiamante. |
+| `shinatama_thread_peers` | Nessun argomento. Sola lettura: thread (workset) della sessione chiamante, `mukade.room_name`, `you.member_name`, `peers[]` con `session_id`, `harness`, `title`, `state` (`running`, `stopped`, `not_started`, `closed`), `member_name` e `chat` (`mukade` o `none`), passi in `how_to`. |
+
+**Sessioni dello stesso thread.** I nomi sono deterministici:
+`shinatama-thread-<suffisso del workset>` per la stanza e
+`<harness>-<suffisso della sessione>` per il membro (`claude-…`, `codex-…`).
+`chat_open` restituisce la stanza esistente per un nome gia' noto, quindi ogni
+sessione del thread arriva alla stessa stanza senza un registro di Shinatama.
+`state: running` significa apertura registrata, non agente in ascolto. Il
+chiamante e' quello autenticato dal ricevitore: nessun argomento puo' indicare
+un'altra sessione. Una sessione aperta con `shinatama_session_open` entra nel
+thread del chiamante; il suo bootstrap nomina la stanza del thread.
 
 La risposta distingue `queued`, `starting`, `opened`, `failed`, `cancelled`.
 `opened.result.session_id` e' l'istanza posseduta da Shinatama, mentre

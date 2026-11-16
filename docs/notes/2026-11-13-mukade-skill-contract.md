@@ -51,6 +51,20 @@ Il risultato `opened` prova il lancio del terminale, non READY, consegna o compl
 
 La deduplicazione vale per istanza chiamante e UUID. Stesso UUID con argomenti diversi viene rifiutato. Le ricevute restano per tutta l'esecuzione dell'app, con limiti di quattro richieste per chiamante e 256 totali; non vengono eliminate per fare spazio a retry ambiguamente nuovi. Il riavvio dell'app non riproduce gli avvii. Se il padre termina prima della presa in carico, il lavoro viene cancellato. Un lancio gia' iniziato conserva il suo risultato reale anche se il padre termina nel frattempo.
 
+## Sessioni dello stesso thread
+
+Aggiunto il 16 novembre 2026. Nell'interfaccia un thread e' un insieme di sessioni (ADR-0055, record `workset`). Le sessioni di uno stesso thread comunicano attraverso una stanza Mukade del thread:
+
+- `shinatama_thread_peers`, sullo stesso listener autenticato, senza argomenti e in sola lettura, restituisce il thread del chiamante, il nome della stanza, il nome membro del chiamante e le altre sessioni con harness, stato e nome membro. Il chiamante (istanza, sessione salvata, harness) e' fissato dal ricevitore che l'ha lanciato; nessun argomento puo' indicare un'altra sessione.
+- Nomi deterministici: stanza `shinatama-thread-<suffisso del workset>`, membro `<harness>-<suffisso della sessione>` (`claude-…`, `codex-…`). `chat_open` di Mukade restituisce la stanza esistente per un nome gia' noto, quindi tutte le sessioni del thread arrivano alla stessa stanza senza un registro in Shinatama. Il nome membro resta lo stesso dopo un resume: se e' gia' usato, la sessione rientra con `chat_rejoin`.
+- Una sessione aperta con `shinatama_session_open` viene spostata nel thread della sessione che l'ha chiesta prima che la finestra la mostri; il bootstrap nomina la stanza del thread. Se lo spostamento viene rifiutato, la sessione resta nel proprio thread e funziona comunque; nessun secondo avvio.
+- Le istruzioni MCP di inizializzazione dicono al modello che la sessione appartiene a un thread e indicano il tool, cosi' una richiesta dell'utente come «chiedi a Codex nel thread» trova la strada senza la skill.
+- Solo Claude Code e Codex ricevono gli strumenti Mukade da Shinatama: OpenCode e Pi compaiono fra i peer con `chat: "none"`.
+
+Limite invariato: il consumo resta manuale. Una sessione inattiva non si risveglia da sola quando riceve un messaggio; lo legge quando chiama `chat_read`/`chat_wait`, cioe' quando l'utente o il suo turno la portano a farlo. Il tool lo dice al modello.
+
+Verifiche: test unitari dei nomi, del tool e della proiezione (eseguiti compilando i moduli isolati su Linux), `cargo check` e `cargo clippy` dei crate engine e desktop per il target Windows con un compilatore C fittizio, `tsc --noEmit` e `npm test`. Non e' stata eseguita una prova end-to-end con due sessioni reali e il servizio Mukade su Windows.
+
 ## Mukade e primo utilizzo
 
 Shinatama avvia da solo il servizio: all'apertura esegue `mukade\mukade.exe chat start` del proprio pacchetto, con i dati in `mukade` dentro la propria cartella dati (`data\mukade` in un'installazione portatile), e alla chiusura esegue `chat stop`. Non serve alcuna variabile d'ambiente ne' un avvio manuale. Verifica file privati, lock del servizio e health con service/instance ID esatti. Gli endpoint sono solo loopback numerico; i token vengono passati nell'ambiente del figlio, non nella riga di comando o nei file di configurazione MCP. Il pin della vecchia libreria di lettura sessioni non e' stato cambiato.
@@ -65,7 +79,7 @@ Le sessioni gia' aperte non acquisiscono retroattivamente l'endpoint MCP di Muka
 
 Questa integrazione usa il consumo MCP **manuale**: il child fa join come peer, manda READY, legge/attende e conferma i batch. Non aggiunge hook Mukade, non sovrascrive quelli nativi di tracking e non modifica il trust di Codex. I kit della CLI Mukade restano un percorso separato. Nessuna promessa di risveglio permanente dopo la fine del turno: le attese sono limitate e il bootstrap dichiara il proprio budget.
 
-File principali: `crates/engine/src/session_control.rs`, `harness_session_events.rs`, `mukade_mcp.rs`, i due launcher nativi, `apps/desktop/src-tauri/src/collaboration.rs` e `apps/desktop/src/main.ts`.
+File principali: `crates/engine/src/session_control.rs`, `harness_session_events.rs`, `mukade_mcp.rs`, i due launcher nativi, `apps/desktop/src-tauri/src/collaboration.rs`, `thread_peers.rs` e `apps/desktop/src/main.ts`.
 
 ## Confini di verifica
 

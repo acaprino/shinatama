@@ -401,10 +401,10 @@ fn handle(
         let Some(broker) = broker else {
             return Some(503.into());
         };
-        if crate::session_control::is_browser_call(&body) {
-            return detach_browser_call(stream, record, expected_cwd, body, shared);
+        if crate::session_control::runs_detached(&body) {
+            return detach_browser_call(stream, record, harness, expected_cwd, body, shared);
         }
-        return Some(rpc_response(broker, &record.instance_id, expected_cwd, &body));
+        return Some(rpc_response(broker, record, harness, expected_cwd, &body));
     }
     Some(match parse_event(&body, record, project, harness) {
         Ok(event) if !shared.stop.load(Ordering::Acquire) => match sender.try_send(event) {
@@ -419,8 +419,19 @@ fn handle(
         Err(status) => status.into(),
     })
 }
-fn rpc_response(broker: &crate::session_control::Broker, caller: &str, project: &Path, body: &[u8]) -> Response {
-    match crate::session_control::handle_rpc(broker, caller, project, body) {
+fn rpc_response(
+    broker: &crate::session_control::Broker,
+    record: &LaunchIdentityRecord,
+    harness: HarnessKind,
+    project: &Path,
+    body: &[u8],
+) -> Response {
+    let caller = crate::session_control::Caller {
+        instance: &record.instance_id,
+        session: &record.thread_id,
+        harness: harness.id(),
+    };
+    match crate::session_control::handle_rpc(broker, &caller, project, body) {
         Some(reply) => match serde_json::to_vec(&reply) {
             Ok(body) => Response { status: 200, body },
             Err(_) => 503.into(),
@@ -429,11 +440,12 @@ fn rpc_response(broker: &crate::session_control::Broker, caller: &str, project: 
     }
 }
 
-/// Runs one browser tool call on its own thread so a slow page never stalls
-/// this session's hook events. Returns `None` when that thread owns the reply.
+/// Runs one browser or thread tool call on its own thread so a slow page or a
+/// busy store never stalls this session's hook events. Returns `None` when that thread owns the reply.
 fn detach_browser_call(
     stream: &mut TcpStream,
     record: &LaunchIdentityRecord,
+    harness: HarnessKind,
     expected_cwd: &Path,
     body: Vec<u8>,
     shared: &Arc<Shared>,
@@ -451,9 +463,9 @@ fn detach_browser_call(
         release();
         return Some(503.into());
     };
-    let (caller, project, shared) = (record.instance_id.clone(), expected_cwd.to_path_buf(), Arc::clone(shared));
-    let spawned = thread::Builder::new().name("session-browser-call".into()).spawn(move || {
-        let response = rpc_response(&broker, &caller, &project, &body);
+    let (caller, project, shared) = (record.clone(), expected_cwd.to_path_buf(), Arc::clone(shared));
+    let spawned = thread::Builder::new().name("session-detached-call".into()).spawn(move || {
+        let response = rpc_response(&broker, &caller, harness, &project, &body);
         respond(&mut own, response, &shared, BROWSER_RESPONSE_TIMEOUT);
         let _ = own.shutdown(Shutdown::Both);
         BROWSER_CALLS.fetch_sub(1, Ordering::AcqRel);

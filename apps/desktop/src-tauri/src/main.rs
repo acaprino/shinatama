@@ -39,6 +39,8 @@ mod sidecar;
 mod storage;
 mod threads;
 #[cfg(windows)]
+mod thread_peers;
+#[cfg(windows)]
 mod terminal_runtime;
 mod terminal_input;
 #[cfg(windows)]

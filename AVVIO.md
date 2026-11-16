@@ -39,6 +39,14 @@ pannello Threads non cambia la disposizione. Chiudere una vista conserva il thre
 La ripresa delle conversazioni Claude è collegata al comando **Resume**, quando disponibile,
 ma la prova completa con una conversazione reale resta aperta. Le finestre flottanti restano da implementare.
 
+Le sessioni Claude Code e Codex di uno stesso thread possono parlarsi attraverso Mukade:
+chiedi a una di esse, per esempio, «chiedi alla sessione Codex di questo thread di rivedere
+il diff». La sessione trova la stanza del thread e le altre sessioni con lo strumento
+`shinatama_thread_peers`. Una sessione aperta da un'altra entra nello stesso thread. Una
+sessione inattiva legge i messaggi solo al suo turno successivo: se non risponde, dille di
+leggere la stanza del thread. Servono il programma Mukade nel pacchetto e sessioni aperte
+dopo l'avvio del servizio. [Dettagli](docs/notes/2026-11-13-mukade-skill-contract.md#sessioni-dello-stesso-thread)
+
 Se dopo un arresto dell'app un thread risulta ancora aperto senza terminale,
 **Recover session** tenta di recuperarlo. Quando riesce, premi **Resume**.
 Se la fine della sessione precedente non può essere verificata, il recupero

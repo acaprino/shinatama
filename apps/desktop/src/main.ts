@@ -1264,13 +1264,16 @@ async function initialize() {
   }
   try {
     await loadHarnessCatalog();
-    const stopCollaborationUpdates = await listen<{started:{session:SessionInfo;threadId:string};harness:string;mode:string}>(
+    const stopCollaborationUpdates = await listen<{started:{session:SessionInfo;threadId:string};harness:string;mode:string;joinedParentThread?:boolean}>(
       'collaboration-session-opened', ({ payload }) => {
         const started = payload.started;
         if (!started?.session?.id || !started.threadId) return;
+        // The backend has already moved the session into the thread of the one that asked
+        // for it (ADR-0055), so attachSession finds that thread from the saved record.
         void attachSession(started.session, started.threadId);
         void threadSidebar?.refresh();
-        notify(`${payload.harness === 'codex' ? 'Codex' : 'Claude'} session opened.`, 'info');
+        const agent = payload.harness === 'codex' ? 'Codex' : 'Claude';
+        notify(payload.joinedParentThread ? `${agent} session opened in the same thread.` : `${agent} session opened.`, 'info');
       });
     window.addEventListener('pagehide', () => { stopCollaborationUpdates(); }, { once: true });
     const stopThreadUpdates = await listen<unknown>('thread-changed', ({ payload }) => {
