@@ -5,7 +5,7 @@
 use crate::storage;
 use serde_json::{Value, json};
 use shinatama_engine::session_control::{Caller, ThreadTools, thread_member_name, thread_room_name};
-use crate::thread_chat::{CHAT_HARNESSES, find_room, hooked_member, session_state};
+use crate::thread_chat::{CHAT_HARNESSES, MANUAL_HARNESSES, find_room, hooked_member, session_state};
 use shinatama_state::threads::ThreadSummary;
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -82,8 +82,14 @@ pub(crate) fn projection(
                 "harness": harness,
                 "title": session.title,
                 "state": session_state(session.status),
+                // OpenCode and Pi join through Mukade's kit under a name it chooses, not tied to the
+                // session here: chat_members lists it.
                 "member_name": if chat {
-                    names.get(&session.id).cloned().or_else(|| harness.and_then(|harness| thread_member_name(harness, &session.id)))
+                    names.get(&session.id).cloned().or_else(|| {
+                        harness
+                            .filter(|harness| MANUAL_HARNESSES.contains(harness))
+                            .and_then(|harness| thread_member_name(harness, &session.id))
+                    })
                 } else {
                     None
                 },
@@ -105,7 +111,7 @@ pub(crate) fn projection(
         format!("4. To bring a new session into this thread, call shinatama_session_open with your room_id and coordinator \"{me}\"."),
     ];
     let how_to: Vec<String> = if hooks { joined.to_vec() } else { manual.to_vec() };
-    let mut note = String::from("A peer with chat \"none\" has no mukade tools in Shinatama and cannot be reached this way.");
+    let mut note = String::from("A peer with chat \"none\" has no mukade tools in Shinatama and cannot be reached this way. An OpenCode or Pi peer joins the room under the name Mukade gives it (for example pi-1): find it with chat_members.");
     if service != "running" {
         note.push_str(" The mukade chat service is not running now: chat calls will fail until Shinatama starts it.");
     }
@@ -157,8 +163,9 @@ mod tests {
         assert_eq!(peers[0]["member_name"], "codex-bbbbbbbbbbbb");
         assert_eq!(peers[0]["state"], "running");
         assert_eq!(peers[0]["chat"], "mukade");
+        // Pi takes part through Mukade's kit, under a name not tied to the session here.
         assert_eq!(peers[1]["member_name"], Value::Null);
-        assert_eq!(peers[1]["chat"], "none");
+        assert_eq!(peers[1]["chat"], "mukade");
         assert!(value["how_to"][1].as_str().unwrap().contains("claude-aaaaaaaaaaaa"));
         assert!(!value["note"].as_str().unwrap().contains("not running now"));
     }

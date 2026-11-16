@@ -36,6 +36,9 @@ test('a snapshot is checked before it is drawn', () => {
   })!;
   assert.equal(parsed.members.length, 1);
   assert.equal(parsed.sessions[1].connection, 'not_connected');
+  const launched = parseSnapshot({ enabled: true, members: [], events: [],
+    sessions: [{ sessionId: 't_pppppppppppp', harness: 'pi', title: null, state: 'running', memberName: null, connection: 'launched', wakes: null }] })!;
+  assert.equal(launched.sessions[0].connection, 'launched');
   assert.equal(parsed.events.length, 1);
   assert.deepEqual(parsed.events[0].recipients, ['codex-1']);
 });

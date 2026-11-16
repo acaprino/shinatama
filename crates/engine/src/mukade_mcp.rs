@@ -192,6 +192,25 @@ impl Connection {
         ).into()]
     }
 
+    pub fn endpoint(&self) -> &str {
+        &self.endpoint
+    }
+    pub fn service_id(&self) -> &str {
+        &self.service_id
+    }
+    /// For a harness whose chat adapter is Mukade's plugin kit (OpenCode, Pi): the credential and
+    /// service the plugin's MCP entry and its hooks read from the environment, as Mukade's own
+    /// launcher sets them. Only the prepared child's environment holds them.
+    pub fn apply_kit_environment(&self, environment: &mut BTreeMap<OsString, OsString>) {
+        for (name, value) in [
+            ("MUKADE_CHAT_AUTHORIZATION", format!("Bearer {}", self.token)),
+            ("MUKADE_CHAT_SERVICE_ID", self.service_id.clone()),
+        ] {
+            environment.retain(|key, _| !key.eq_ignore_ascii_case(name));
+            environment.insert(name.into(), value.into());
+        }
+    }
+
     pub fn apply_environment(&self, environment: &mut BTreeMap<OsString, OsString>) {
         clear_environment(environment);
         environment.insert(TOKEN_ENV.into(), self.token.clone().into());

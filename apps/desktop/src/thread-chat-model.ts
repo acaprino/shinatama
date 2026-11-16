@@ -2,7 +2,7 @@
 export type ChatThread = { id: string; projectId: string };
 export type ChatSession = {
   sessionId: string; harness: string | null; title: string | null; state: string;
-  memberName: string | null; connection: 'in_room' | 'not_connected' | 'unsupported'; wakes: number | null;
+  memberName: string | null; connection: 'in_room' | 'launched' | 'not_connected' | 'unsupported'; wakes: number | null;
 };
 export type ChatMember = { memberId: string; name: string; harness: string; role: string; active: boolean; sessionId: string | null; user: boolean };
 export type ChatEvent = {
@@ -32,7 +32,7 @@ export function parseSnapshot(value: unknown): ChatSnapshot | null {
   const sessions: ChatSession[] = [];
   for (const item of value.sessions.slice(0, 256)) {
     if (!record(item) || !str(item.sessionId, 14) || !str(item.state, 16)) continue;
-    const connection = item.connection === 'in_room' || item.connection === 'unsupported' ? item.connection : 'not_connected';
+    const connection = item.connection === 'in_room' || item.connection === 'launched' || item.connection === 'unsupported' ? item.connection : 'not_connected';
     sessions.push({ sessionId: item.sessionId, harness: optional(item.harness, 64), title: optional(item.title, 256), state: item.state,
       memberName: optional(item.memberName, 32), connection, wakes: typeof item.wakes === 'number' && Number.isSafeInteger(item.wakes) ? item.wakes : null });
   }

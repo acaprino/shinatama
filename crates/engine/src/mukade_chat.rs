@@ -367,6 +367,43 @@ fn run(
     serde_json::from_slice(&output).map_err(|_| format!("Mukade chat {operation} gave no readable answer."))
 }
 
+/// Mukade's launch kit for OpenCode or Pi (`mukade shinatama-kit`, built on Mukade's own
+/// `chat_launch`), written into `folder`: the arguments it adds and, for OpenCode, the inline
+/// configuration merged into `opencode_config`. Starts no harness; holds no credential.
+pub struct PluginKit {
+    pub arguments: Vec<OsString>,
+    pub opencode_config: Option<String>,
+}
+pub fn plugin_kit(harness: &str, folder: &Path, connection: &crate::mukade_mcp::Connection, opencode_config: Option<&str>) -> Result<PluginKit, String> {
+    if !matches!(harness, "opencode" | "pi") {
+        return Err("Only OpenCode and Pi take Mukade's plugin kit.".into());
+    }
+    let folder = folder.to_str().ok_or("The kit folder cannot be named to Mukade.")?;
+    let argv = [
+        "shinatama-kit".to_owned(),
+        harness.to_owned(),
+        folder.strip_prefix(r"\\?\").unwrap_or(folder).to_owned(),
+        connection.endpoint().to_owned(),
+        connection.service_id().to_owned(),
+    ];
+    let extra: Vec<(OsString, OsString)> = opencode_config
+        .map(|config| vec![(OsString::from("OPENCODE_CONFIG_CONTENT"), OsString::from(config))])
+        .unwrap_or_default();
+    let value = run(&argv, &extra, None, None, CLI_TIMEOUT, "kit")?;
+    let arguments = value["arguments"]
+        .as_array()
+        .ok_or("Mukade gave no kit arguments.")?
+        .iter()
+        .map(|argument| argument.as_str().filter(|text| !text.chars().any(char::is_control)).map(OsString::from))
+        .collect::<Option<Vec<_>>>()
+        .ok_or("Mukade gave an invalid kit argument.")?;
+    let opencode_config = value["opencode_config"].as_str().map(str::to_owned);
+    if harness == "opencode" && opencode_config.is_none() {
+        return Err("Mukade gave no OpenCode configuration.".into());
+    }
+    Ok(PluginKit { arguments, opencode_config })
+}
+
 /// The room of a thread, opened (or found: Mukade returns the existing room for a
 /// known name) by its name. A fresh request id is right here: `open` is idempotent by
 /// name, not only by request.

@@ -29,6 +29,7 @@ const message = (error: unknown) => typeof error === 'string' ? error : (error a
 
 const CONNECTION_TEXT: Record<ChatSession['connection'], string> = {
   in_room: 'in the room',
+  launched: 'launched with the room\'s kit: it joins as it starts, under the name Mukade gives it (see the room\'s members)',
   not_connected: 'not in the room yet: it joins at its first turn when opened or resumed after the thread started talking',
   unsupported: 'cannot take part: Shinatama gives this agent no Mukade tools',
 };

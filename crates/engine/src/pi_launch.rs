@@ -108,6 +108,8 @@ pub struct PiStartContext<'a> {
     /// Synced Marionette store; required when the set is the Marionette one.
     pub plugins_root: Option<&'a Path>,
     pub thread_id: &'a str,
+    /// The thread's Mukade room (ADR-0057): Mukade's plugin kit joins the session to it.
+    pub chat: Option<&'a crate::mukade_chat::ChatHooks>,
 }
 pub struct PiTrialContext<'a> {
     pub candidate: &'a ProgramCandidate,
@@ -131,6 +133,21 @@ pub struct PreparedPiStart {
     pub launch: PreparedLaunch,
     pub permit: NativeTuiPermit,
 }
+/// Mukade's Pi extension, written beside the instance, as the arguments that load it, followed by
+/// Pi's built-in MCP, which registers the extension's server (Mukade's live record, run 10).
+fn chat_kit(base: &StorageLocation, instance: &Path) -> Result<(crate::mukade_mcp::Connection, Vec<OsString>), String> {
+    let connection = crate::mukade_mcp::Connection::discover(base)
+        .map_err(|error| error.to_string())?
+        .ok_or("the Mukade service is not running")?;
+    let kit = crate::mukade_chat::plugin_kit("pi", &instance.join("mukade-kit"), &connection, None)?;
+    if kit.arguments.len() != 2 || kit.arguments[0] != "-e" {
+        return Err("Mukade's Pi kit is not the one extension Shinatama expects".into());
+    }
+    let mut arguments = kit.arguments;
+    arguments.extend([OsString::from("-e"), OsString::from("builtin:mcp")]);
+    Ok((connection, arguments))
+}
+
 struct Context<'a> {
     candidate: &'a ProgramCandidate,
     observation: &'a PiProbeOutcome,
@@ -146,6 +163,7 @@ struct Context<'a> {
     selected_set: &'a SetManifest,
     plugins_root: Option<&'a Path>,
     thread_id: &'a str,
+    chat: Option<&'a crate::mukade_chat::ChatHooks>,
 }
 struct Prepared {
     launch: PreparedLaunch,
@@ -199,6 +217,7 @@ pub fn prepare_trial(context: PiTrialContext<'_>) -> Result<PreparedPiTrial, PiL
             selected_set: context.selected_set,
             plugins_root: None,
             thread_id: context.thread_id,
+            chat: None,
         },
         None,
         true,
@@ -236,6 +255,7 @@ pub fn prepare_start(
             selected_set: context.selected_set,
             plugins_root: context.plugins_root,
             thread_id: context.thread_id,
+            chat: context.chat,
         },
         Some(receipt),
         false,
@@ -446,6 +466,8 @@ fn prepare(
         }
         values.into_iter().collect()
     };
+    // Never another process's Mukade membership; a talking thread sets its own below.
+    crate::mukade_mcp::clear_environment(&mut environment);
     let system = std::env::var_os("SystemRoot").ok_or(PiLaunchError::InheritedEnvironment)?;
     set(&mut environment, "SystemRoot", system.clone());
     set(&mut environment, "WINDIR", system.clone());
@@ -502,6 +524,20 @@ fn prepare(
     if !trial {
         crate::launch_policy::current().apply_environment(&mut environment);
     }
+    // ADR-0057: a session of a talking thread loads Mukade's Pi extension and Pi's own MCP,
+    // which `--no-extensions` otherwise leaves off. Any failure leaves it an ordinary session.
+    let mut chat_arguments = Vec::new();
+    if let Some(chat) = context.chat.filter(|_| !trial) {
+        match chat_kit(context.base, instance_directory.directory()) {
+            Ok((connection, arguments)) => {
+                chat_arguments = arguments;
+                connection.apply_kit_environment(&mut environment);
+                chat.apply_environment(&mut environment);
+                crate::mukade_chat::note_launch(context.thread_id, chat.room_id());
+            }
+            Err(reason) => eprintln!("This Pi session opens without its thread's room: {reason}"),
+        }
+    }
     let descriptor = descriptor(&version)?;
     let mode = Placement::new(ProgramPlacement::System, HomePlacement::Box)
         .map_err(|_| PiLaunchError::PlacementMode)?;
@@ -515,7 +551,10 @@ fn prepare(
             node_version,
             minimum_node_version: Some(discovery::minimum_node()),
         },
-        run::tui_arguments(&bundled.unwrap_or_else(ResourceArguments::empty)),
+        run::tui_arguments(&bundled.unwrap_or_else(ResourceArguments::empty))
+            .into_iter()
+            .chain(chat_arguments)
+            .collect(),
         evidence(&descriptor)?,
     )
     .map_err(PiLaunchError::ArgumentsRecipe)?;
