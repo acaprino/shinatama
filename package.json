@@ -25,6 +25,8 @@
     "test:browser": "node apps/desktop/tests/browser-smoke.mjs",
     "test:drag": "node apps/desktop/tests/pane-drag-smoke.mjs",
     "test:maintenance": "node apps/desktop/tests/maintenance-smoke.mjs",
+    "test:models": "node apps/desktop/tests/model-settings-smoke.mjs",
+    "test:model-providers": "node apps/desktop/tests/model-provider-smoke.mjs",
     "plan:check": "python scripts/implementation.py validate",
     "plan:status": "python scripts/implementation.py status",
     "verify": "pwsh -NoProfile -File scripts/verify.ps1"

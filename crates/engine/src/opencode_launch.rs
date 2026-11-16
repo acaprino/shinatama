@@ -617,11 +617,12 @@ fn prepare(
     } else {
         crate::launch_policy::current()
     };
-    set(
-        &mut environment,
-        "OPENCODE_CONFIG_CONTENT",
-        config_content(policy.full_access()).into(),
-    );
+    let models = if trial { crate::model_config::Snapshot::default() } else {
+        crate::model_config::current().map_err(|_| OpenCodeLaunchError::Configuration)?
+    };
+    let config = models.opencode(serde_json::from_str(config_content(policy.full_access()))
+        .map_err(|_| OpenCodeLaunchError::Configuration)?);
+    set(&mut environment, "OPENCODE_CONFIG_CONTENT", config.to_string().into());
     for name in [
         "OPENCODE_DISABLE_PROJECT_CONFIG",
         "OPENCODE_DISABLE_AUTOUPDATE",
@@ -636,6 +637,7 @@ fn prepare(
         );
     }
     policy.apply_environment(&mut environment);
+    models.apply_key(crate::model_config::Harness::OpenCode, &mut environment);
     let descriptor = descriptor(&version)?;
     let mode = Placement::new(ProgramPlacement::System, HomePlacement::Box)
         .map_err(|_| OpenCodeLaunchError::PlacementMode)?;
@@ -829,7 +831,7 @@ fn bundled_shim(path: &str) -> String {
     }
     format!("export {{ default }} from \"{url}\";\n")
 }
-fn create_bytes(
+pub(crate) fn create_bytes(
     location: &StorageLocation,
     name: &str,
     bytes: &[u8],

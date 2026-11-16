@@ -1,0 +1,35 @@
+#settings-dialog .model-settings { border: 0; margin: 0; padding: 0; min-width: 0; }
+#settings-dialog .model-settings:disabled { opacity: .6; }
+#settings-dialog .model-connections { display: grid; gap: 10px; margin: 14px 0; }
+#settings-dialog .model-connection { border: 1px solid var(--line); border-radius: 6px; min-width: 0; }
+#settings-dialog .model-connection > summary { display: flex; justify-content: space-between; gap: 12px; padding: 12px; cursor: default; }
+#settings-dialog .model-connection > summary::before { content: '›'; color: var(--muted); }
+#settings-dialog .model-connection[open] > summary::before { content: '⌄'; }
+#settings-dialog .model-connection > summary strong { margin-right: auto; overflow-wrap: anywhere; }
+#settings-dialog .model-connection-body { padding: 0 12px 12px; }
+#settings-dialog .model-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+#settings-dialog .model-field { display: flex; flex-direction: column; min-width: 0; gap: 5px; margin: 0; }
+#settings-dialog .model-field > span { font-size: 11px; color: var(--text-2); }
+#settings-dialog .model-wide { grid-column: 1 / -1; }
+#settings-dialog .model-list { display: grid; gap: 14px; margin: 16px 0 12px; }
+#settings-dialog .model-entry { display: grid; grid-template-columns: minmax(0, 1fr) 110px 110px; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+#settings-dialog .model-entry .model-flags { grid-column: 1 / 3; display: flex; flex-wrap: wrap; gap: 12px; }
+#settings-dialog .model-entry .settings-check { font-size: 11px; margin: 0; }
+#settings-dialog .model-entry > button { justify-self: end; }
+#settings-dialog .model-remove-connection { float: right; color: var(--error); }
+#settings-dialog .model-add { margin: 10px 0; flex-wrap: wrap; }
+#settings-dialog .model-add select { flex: 1 1 180px; min-width: 0; }
+#settings-dialog .model-empty { padding: 14px; border: 1px dashed var(--line); color: var(--muted); line-height: 1.5; }
+#settings-dialog .model-settings h3 { margin: 24px 0 10px; font-size: 13px; }
+#settings-dialog .model-assignment { display: grid; grid-template-columns: 70px minmax(0, 1fr) minmax(0, 1fr); gap: 10px; align-items: center; margin: 10px 0; }
+#settings-dialog .model-assignment strong { font-size: 12px; }
+#settings-dialog .model-settings :is(input, select) { min-width: 0; width: 100%; }
+#settings-dialog .model-settings input[type="checkbox"] { width: auto; }
+@media (max-width: 650px) {
+  #settings-dialog .model-fields { grid-template-columns: 1fr; }
+  #settings-dialog .model-entry { grid-template-columns: 1fr 1fr; }
+  #settings-dialog .model-entry > :first-child { grid-column: 1 / -1; }
+  #settings-dialog .model-entry .model-flags { grid-column: auto; }
+  #settings-dialog .model-assignment { grid-template-columns: 1fr 1fr; }
+  #settings-dialog .model-assignment strong { grid-column: 1 / -1; }
+}

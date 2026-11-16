@@ -1,4 +1,6 @@
 import { openModal } from './modal.ts';
+import { createModelSettingsPanel } from './model-settings-panel.ts';
+import type { Save as ModelSave } from './model-settings-model.ts';
 import {
   buildMemory, buildSave, DEFAULT_MEMORY, formFromView, memorySummary, parseMemory, parseView, summary, MAX_MARGIN_MIB, MAX_VARIABLES,
   type Form, type MemorySafety, type Row, type SaveRequest,
@@ -7,7 +9,7 @@ import './settings-panel.css';
 
 /** Where each part of Settings sits, in order: the id after #settings-section-, the index label, the heading. */
 export const SETTINGS_SECTIONS = [
-  ['appearance', 'Appearance', 'Appearance'], ['agents', 'Agents', 'Agents'], ['memory', 'Memory', 'Memory'], ['alerts', 'Alerts', 'Alerts'],
+  ['appearance', 'Appearance', 'Appearance'], ['agents', 'Agents', 'Agents'], ['models', 'Models', 'Models & API keys'], ['memory', 'Memory', 'Memory'], ['alerts', 'Alerts', 'Alerts'],
   ['github', 'GitHub', 'GitHub'], ['variables', 'Variables', 'Environment variables'], ['sessions', 'Sessions', 'Sessions'],
 ] as const;
 export type SettingsSection = typeof SETTINGS_SECTIONS[number][0];
@@ -32,7 +34,7 @@ const message = (error: unknown) => typeof error === 'string' ? error : (error a
 const percent = (level: number) => `${Math.round(level * 100)}%`;
 
 /** Settings: one drawer for every preference of the app. Each section keeps saving the way its owner
- * always has: Appearance, Alerts and Sessions apply as they change; Agents, Memory, GitHub and the
+ * always has: Appearance, Alerts and Sessions apply as they change; Agents, Models, Memory, GitHub and the
  * variables wait for Save. Saved secrets never come back to this page; they can be replaced or removed. */
 export function createSettingsPanel(options: Options) {
   const dialog = el('dialog'); dialog.id = 'settings-dialog'; dialog.setAttribute('aria-labelledby', 'settings-title');
@@ -42,7 +44,7 @@ export function createSettingsPanel(options: Options) {
   heading.append(title, closeButton);
   const index = el('nav', 'settings-index'); index.setAttribute('aria-label', 'Settings sections');
   top.append(heading, index);
-  const intro = el('p', 'hint settings-intro', 'Appearance, Alerts and Sessions apply as you change them. Agents, Memory, GitHub and Environment variables apply when you press Save.');
+  const intro = el('p', 'hint settings-intro', 'Appearance, Alerts and Sessions apply as you change them. Agents, Models, Memory, GitHub and Environment variables apply when you press Save.');
   intro.id = 'settings-intro';
 
   const parts = new Map<SettingsSection, { section: HTMLElement; heading: HTMLHeadingElement; link: HTMLButtonElement }>();
@@ -70,6 +72,9 @@ export function createSettingsPanel(options: Options) {
     + 'Pi and PowerShell never asked. An agent can then change or delete anything your Windows account can, inside or outside the project. '
     + 'The private home keeps their settings and sign-ins apart; it does not confine their files. Applies to sessions started after you save.');
   part('agents').append(fullLabel, fullHint);
+
+  const models = createModelSettingsPanel(options.invoke, text => say(text));
+  part('models').append(models.element);
 
   // Memory
   const memoryLabel = el('label', 'settings-check'); const memoryCheck = el('input'); memoryCheck.type = 'checkbox'; memoryCheck.id = 'settings-memory-safety';
@@ -193,7 +198,8 @@ export function createSettingsPanel(options: Options) {
 
   async function load() {
     if (!options.desktop) { say('Open the desktop app to change settings.', true); save.disabled = true; return; }
-    busy = true; say('Loading…');
+    if (busy) return;
+    busy = true; save.disabled = true; models.setDisabled(true); say('Loading…');
     let memoryProblem = '';
     try {
       const saved = parseMemory(await options.invoke('memory_settings_load'));
@@ -201,14 +207,18 @@ export function createSettingsPanel(options: Options) {
       memory = saved;
     } catch (error) { memory = { ...DEFAULT_MEMORY }; memoryProblem = ` ${message(error)} Memory safety stays on until you save.`; }
     paintMemory();
+    let modelsReady = false;
     try {
+      await models.load();
+      modelsReady = true;
       const view = parseView(await options.invoke('launch_settings_load'));
       if (!view) throw new Error('The saved settings are not in a form this version understands.');
       form = formFromView(view); loaded = true; save.disabled = false; paint();
       say(`New sessions start with: ${statusLine()}.${memoryProblem}`, Boolean(memoryProblem));
     } catch (error) {
-      loaded = false; save.disabled = false; say(`${message(error)} Agents start with their own protections until you save.`, true);
-    } finally { busy = false; }
+      loaded = false; save.disabled = !modelsReady;
+      say(`${message(error)} ${modelsReady ? 'Agents start with their own protections until you save.' : 'Reload before saving.'}`, true);
+    } finally { busy = false; models.setDisabled(false); }
   }
   async function submit() {
     if (busy || !options.desktop) return;
@@ -217,17 +227,26 @@ export function createSettingsPanel(options: Options) {
     if ('problem' in built) { say(built.problem, true); return; }
     const memoryBuilt = buildMemory(memoryCheck.checked, margin.value);
     if ('problem' in memoryBuilt) { say(memoryBuilt.problem, true); margin.focus(); return; }
-    busy = true; save.disabled = true; say('Saving…');
+    let modelRequest: ModelSave;
+    try { modelRequest = models.prepare(); }
+    catch (error) { say(message(error), true); go('models'); return; }
+    busy = true; save.disabled = true; models.setDisabled(true); say('Saving…');
+    let modelsSaved = false;
     try {
+      await models.save(modelRequest);
+      modelsSaved = true;
       const view = parseView(await options.invoke<unknown>('launch_settings_save', { request: built.request satisfies SaveRequest }));
       if (!view) throw new Error('The saved settings could not be confirmed.');
       form = formFromView(view); loaded = true;
       const savedMemory = parseMemory(await options.invoke<unknown>('memory_settings_save', { request: memoryBuilt.request }));
       if (!savedMemory) throw new Error('The memory settings could not be confirmed.');
       memory = savedMemory; paint();
-      say(`Saved. New sessions start with: ${statusLine()}.`);
-    } catch (error) { say(message(error), true); options.notify(message(error), 'error'); }
-    finally { busy = false; save.disabled = false; }
+      say(`Saved. Shared models apply to new sessions. New sessions start with: ${statusLine()}.`);
+    } catch (error) {
+      const problem = `${modelsSaved ? 'Models were saved; the remaining settings were not all saved. ' : ''}${message(error)}`;
+      say(problem, true); options.notify(problem, 'error');
+    }
+    finally { busy = false; save.disabled = false; models.setDisabled(false); }
   }
 
   // Sessions: each switch applies at once through the command its view always used.
@@ -273,7 +292,7 @@ export function createSettingsPanel(options: Options) {
   save.onclick = () => { void submit(); };
   reload.onclick = () => { options.appearance.reload(); void loadSessions(); if (!busy) void load(); };
   closeButton.onclick = close.onclick = () => dialog.close();
-  dialog.addEventListener('close', () => { token.value = ''; form.tokenInput = ''; if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
+  dialog.addEventListener('close', () => { token.value = ''; form.tokenInput = ''; models.clearSecrets(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
   dialog.addEventListener('submit', event => event.preventDefault());
 
   return {

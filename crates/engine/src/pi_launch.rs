@@ -13,7 +13,7 @@ use crate::{
         NativeAdmissionProfile, NativeLaunchBinding, NativeLaunchError, NativeLaunchPins,
         NativeTrialReceipt, NativeTrialTracker, NativeTuiPermit,
     },
-    opencode_launch::{create_json, file_info, pin_directory, pin_file, same_path, set},
+    opencode_launch::{create_bytes, create_json, file_info, pin_directory, pin_file, same_path, set},
     pi_probe::{
         PiProbeIssue, PiProbeOutcome, ProbeCleanup, pin_node, pin_script, resolve_installation,
     },
@@ -502,6 +502,20 @@ fn prepare(
     if !trial {
         crate::launch_policy::current().apply_environment(&mut environment);
     }
+    let models = if trial { crate::model_config::Snapshot::default() } else {
+        crate::model_config::current().map_err(|_| PiLaunchError::Configuration)?
+    };
+    models.apply_key(crate::model_config::Harness::Pi, &mut environment);
+    let mut arguments = run::tui_arguments(&bundled.unwrap_or_else(ResourceArguments::empty));
+    if let Some(extension) = models.pi_extension() {
+        let path = create_bytes(&instance_directory, "model-provider.mjs", extension.as_bytes(), &mut artifacts)
+            .map_err(|_| PiLaunchError::Configuration)?;
+        if let Some((connection, selection)) = models.selected(crate::model_config::Harness::Pi) {
+            arguments.extend([OsString::from("-e"), path.into_os_string(),
+                "--provider".into(), crate::model_config::alias(connection).into(),
+                "--model".into(), selection.model_id.clone().into()]);
+        }
+    }
     let descriptor = descriptor(&version)?;
     let mode = Placement::new(ProgramPlacement::System, HomePlacement::Box)
         .map_err(|_| PiLaunchError::PlacementMode)?;
@@ -515,7 +529,7 @@ fn prepare(
             node_version,
             minimum_node_version: Some(discovery::minimum_node()),
         },
-        run::tui_arguments(&bundled.unwrap_or_else(ResourceArguments::empty)),
+        arguments,
         evidence(&descriptor)?,
     )
     .map_err(PiLaunchError::ArgumentsRecipe)?;

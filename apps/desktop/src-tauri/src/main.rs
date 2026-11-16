@@ -18,6 +18,7 @@ mod project_overview;
 mod hop_run;
 mod launch;
 mod launch_settings;
+mod model_settings;
 mod memory_settings;
 mod secret_store;
 pub mod maintenance;
@@ -708,6 +709,9 @@ fn main() {
                 directory.as_ref().map(Clone::clone).map_err(|e| e.to_string()),
             ));
             // Likewise the memory safety choice, before any start is admitted.
+            app.manage(model_settings::Controller::start(
+                directory.as_ref().map(Clone::clone).map_err(|e| e.to_string()),
+            ));
             app.manage(memory_settings::Controller::start(
                 directory.as_ref().map(Clone::clone).map_err(|e| e.to_string()),
             ));
@@ -786,6 +790,8 @@ fn main() {
         presentation::presentation_save,
         launch_settings::launch_settings_load,
         launch_settings::launch_settings_save,
+        model_settings::model_settings_load,
+        model_settings::model_settings_save,
         memory_settings::memory_settings_load,
         memory_settings::memory_settings_save,
         threads::thread_list,
@@ -950,6 +956,8 @@ fn main() {
         presentation::presentation_save,
         launch_settings::launch_settings_load,
         launch_settings::launch_settings_save,
+        model_settings::model_settings_load,
+        model_settings::model_settings_save,
         memory_settings::memory_settings_load,
         memory_settings::memory_settings_save,
         threads::thread_list,

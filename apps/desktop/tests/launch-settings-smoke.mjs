@@ -101,16 +101,16 @@ try {
   // 2. The drawer opens with full access on; its index reaches every section, in order.
   await openSettings();
   await expect(page.locator('#settings-full-access')).toBeChecked();
-  const sections = ['appearance', 'agents', 'memory', 'alerts', 'github', 'variables', 'sessions'];
+  const sections = ['appearance', 'agents', 'models', 'memory', 'alerts', 'github', 'variables', 'sessions'];
   const links = page.locator('#settings-dialog .settings-index-link');
-  await expect(links).toHaveText(['Appearance', 'Agents', 'Memory', 'Alerts', 'GitHub', 'Variables', 'Sessions']);
+  await expect(links).toHaveText(['Appearance', 'Agents', 'Models', 'Memory', 'Alerts', 'GitHub', 'Variables', 'Sessions']);
   for (const [index, id] of sections.entries()) {
     await links.nth(index).click();
     await expect(page.locator(`#settings-section-${id}-title`)).toBeFocused();
     await expect(page.locator(`#settings-section-${id}-title`)).toBeInViewport();
     await expect(links.nth(index)).toHaveAttribute('aria-current', 'true');
   }
-  console.log('ok  drawer opens with full access on; the index reaches all seven sections');
+  console.log('ok  drawer opens with full access on; the index reaches all eight sections');
 
   // 3. Switches that apply at once: activity titles, indexing and the interface zoom.
   await expect(page.locator('#settings-titles')).toBeEnabled();
