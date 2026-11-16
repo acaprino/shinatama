@@ -39,13 +39,10 @@ const TRUST_RETRY: Duration = Duration::from_secs(600);
 const MAX_OUTPUT: usize = 4 * 1024 * 1024;
 const MAX_ADAPTER_STATE: u64 = 16 * 1024;
 
-/// The data folder of the service sessions use: an explicit MUKADE_DATA_DIR, else
-/// Shinatama's own one.
+/// The data folder of the service sessions use: always Shinatama's own, never another
+/// installation's (an inherited MUKADE_DATA_DIR is ignored).
 pub fn data_directory(base: &StorageLocation) -> PathBuf {
-    match std::env::var_os("MUKADE_DATA_DIR") {
-        Some(path) => PathBuf::from(path),
-        None => crate::mukade_mcp::own_directory(base),
-    }
+    crate::mukade_mcp::own_directory(base)
 }
 
 /// A Mukade room ID as the service hands it out; also safe in an environment value.
@@ -239,7 +236,7 @@ pub fn call(base: &StorageLocation, operation: &str, arguments: &[(&str, &str)],
 /// approval is skipped or bypassed. `Ok` only when Codex then reports every one of Mukade's
 /// hooks trusted. Already trusted hooks are left as they are, so a repeat is harmless; each
 /// (home, Codex program) pair is checked once per run of Shinatama, a refusal again after a while.
-pub fn trust_codex(codex_home: &Path, private_root: &Path, codex_program: &Path, project: &Path) -> Result<(), String> {
+pub fn trust_codex(base: &StorageLocation, codex_home: &Path, private_root: &Path, codex_program: &Path, project: &Path) -> Result<(), String> {
     // A success holds for the run; a refusal is remembered for a while, so a Codex build that
     // does not take Mukade's hooks does not delay every launch with another attempt.
     type Outcomes = BTreeMap<(PathBuf, PathBuf), (Result<(), String>, Instant)>;
@@ -250,13 +247,13 @@ pub fn trust_codex(codex_home: &Path, private_root: &Path, codex_program: &Path,
     {
         return outcome;
     }
-    let outcome = trust_codex_now(codex_home, private_root, codex_program, project);
+    let outcome = trust_codex_now(base, codex_home, private_root, codex_program, project);
     if let Ok(mut outcomes) = OUTCOMES.lock() {
         outcomes.insert(pair, (outcome.clone(), Instant::now()));
     }
     outcome
 }
-fn trust_codex_now(codex_home: &Path, private_root: &Path, codex_program: &Path, project: &Path) -> Result<(), String> {
+fn trust_codex_now(base: &StorageLocation, codex_home: &Path, private_root: &Path, codex_program: &Path, project: &Path) -> Result<(), String> {
     // Codex is started as Shinatama starts it: its home, profile and application folders
     // are the private ones, so the approval lands in the config.toml that session reads.
     let environment = [
@@ -266,6 +263,7 @@ fn trust_codex_now(codex_home: &Path, private_root: &Path, codex_program: &Path,
         (OsString::from("APPDATA"), private_root.join("roaming").into_os_string()),
         (OsString::from("LOCALAPPDATA"), private_root.join("local").into_os_string()),
         (OsString::from("MUKADE_CODEX_EXE"), codex_program.as_os_str().to_owned()),
+        (OsString::from("MUKADE_DATA_DIR"), data_directory(base).into_os_string()),
     ];
     let argv = ["chat".to_owned(), "trust".to_owned(), "codex".to_owned()];
     let report = run(&argv, &environment, Some(project), None, TRUST_TIMEOUT, "trust")?;
@@ -294,7 +292,7 @@ fn run(
     let program = crate::mukade_mcp::bundled_program()
         .ok_or_else(|| "This Shinatama has no Mukade program in its mukade folder.".to_owned())?;
     let mut environment: BTreeMap<OsString, OsString> = std::env::vars_os().collect();
-    crate::mukade_mcp::clear_environment(&mut environment);
+    crate::mukade_mcp::isolate_environment(&mut environment);
     for (name, value) in extra {
         environment.retain(|key, _| !key.eq_ignore_ascii_case(name));
         environment.insert(name.clone(), value.clone());
@@ -365,6 +363,44 @@ fn run(
         return Err(format!("Mukade chat {operation} answered more than Shinatama reads."));
     }
     serde_json::from_slice(&output).map_err(|_| format!("Mukade chat {operation} gave no readable answer."))
+}
+
+/// Mukade's launch kit for OpenCode or Pi (`mukade shinatama-kit`, built on Mukade's own
+/// `chat_launch`), written into `folder`: the arguments it adds and, for OpenCode, the inline
+/// configuration merged into `opencode_config`. Starts no harness; holds no credential.
+pub struct PluginKit {
+    pub arguments: Vec<OsString>,
+    pub opencode_config: Option<String>,
+}
+pub fn plugin_kit(base: &StorageLocation, harness: &str, folder: &Path, connection: &crate::mukade_mcp::Connection, opencode_config: Option<&str>) -> Result<PluginKit, String> {
+    if !matches!(harness, "opencode" | "pi") {
+        return Err("Only OpenCode and Pi take Mukade's plugin kit.".into());
+    }
+    let folder = folder.to_str().ok_or("The kit folder cannot be named to Mukade.")?;
+    let argv = [
+        "shinatama-kit".to_owned(),
+        harness.to_owned(),
+        folder.strip_prefix(r"\\?\").unwrap_or(folder).to_owned(),
+        connection.endpoint().to_owned(),
+        connection.service_id().to_owned(),
+    ];
+    let mut extra = vec![(OsString::from("MUKADE_DATA_DIR"), data_directory(base).into_os_string())];
+    if let Some(config) = opencode_config {
+        extra.push((OsString::from("OPENCODE_CONFIG_CONTENT"), OsString::from(config)));
+    }
+    let value = run(&argv, &extra, None, None, CLI_TIMEOUT, "kit")?;
+    let arguments = value["arguments"]
+        .as_array()
+        .ok_or("Mukade gave no kit arguments.")?
+        .iter()
+        .map(|argument| argument.as_str().filter(|text| !text.chars().any(char::is_control)).map(OsString::from))
+        .collect::<Option<Vec<_>>>()
+        .ok_or("Mukade gave an invalid kit argument.")?;
+    let opencode_config = value["opencode_config"].as_str().map(str::to_owned);
+    if harness == "opencode" && opencode_config.is_none() {
+        return Err("Mukade gave no OpenCode configuration.".into());
+    }
+    Ok(PluginKit { arguments, opencode_config })
 }
 
 /// The room of a thread, opened (or found: Mukade returns the existing room for a

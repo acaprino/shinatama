@@ -119,6 +119,27 @@ a message addressed to the member and continues the session with it (bounded by
    signals after the event the user saw. The user's message is resent only when Mukade refused
    the handle (`stale_member`); a timeout is reported as uncertain, not repeated.
 
+11. **OpenCode and Pi through Mukade's plugin kit.** A new OpenCode or Pi session of a talking
+   thread loads Mukade's own kit, prepared by the embedded program's `shinatama-kit` command,
+   which calls Mukade's `chat_launch` and starts nothing. OpenCode: the plugin and the MCP entry
+   merged by Mukade into the inline configuration Shinatama already passes (`--standalone` is
+   already Shinatama's). Pi: `-e <Mukade's extension>` and `-e builtin:mcp`, which Shinatama's
+   `--no-extensions` otherwise leaves off. The child's environment carries the room and the
+   service's credential, as Mukade's launcher sets them (Mukade's live record, run 10: OpenCode
+   2.2.5 and Pi 1.4.0 on Windows join and wake). Shinatama records no native session for them, so
+   their member is listed in the room but not tied to their tab: the panel says "launched with
+   the room's kit", the tab " · chat". Neither has resume yet, so only new sessions join. Hermes
+   is not launched by Shinatama and Mukade has no chat kit for it: it does not take part.
+
+12. **Nothing mixes with another installation, and Marionette stays.** Shinatama only ever uses
+   its own Mukade service and data folder; an inherited MUKADE_DATA_DIR is ignored. The Mukade
+   processes it runs (service, chat commands, Codex's approval, kits) see none of the system's
+   `MUKADE_*` or `CODEX_*` variables nor the harnesses' store variables, so they read and write no
+   other installation's sessions or configuration; sessions get no system `MUKADE_*` variable.
+   Kits, approvals and adapter state live in the session's private home and Shinatama's data
+   folder. The chat only adds to a launch: Marionette's plugin, overrides and extension stay
+   (tests in `codex_launch` and `pi_launch`).
+
 ## Rejected alternatives
 
 - **RA-001: keep manual consumption only.** An idle session never answers; the user relays by hand.
@@ -148,7 +169,7 @@ a message addressed to the member and continues the session with it (bounded by
 - After each turn a listening session shows its stop hook running for up to 5 minutes; typing or
   Escape ends the wait. This is Mukade's behaviour and the price of being woken.
 - Sessions running when the switch is turned on join only when resumed.
-- OpenCode and Pi sessions are listed but cannot take part: Shinatama gives them no Mukade tools.
+- OpenCode and Pi take part through Mukade's plugin kit (new sessions only, member not tied to the tab); Hermes does not take part.
 - Mukade's adapter names members itself (`claude-1`, `codex-1`); `shinatama_thread_peers` reports
   those names when the hooks joined.
 

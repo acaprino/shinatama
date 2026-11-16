@@ -136,6 +136,7 @@ impl HarnessDriver for OpenCodeDriver {
                 selected_set: context.selected_set,
                 plugins_root: context.plugins_root,
                 thread_id: &context.thread.id,
+                chat: context.chat.as_ref(),
             },
             receipt,
         )

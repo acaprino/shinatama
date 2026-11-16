@@ -129,6 +129,8 @@ pub struct OpenCodeStartContext<'a> {
     /// Synced Marionette store; required when the set is the Marionette one.
     pub plugins_root: Option<&'a Path>,
     pub thread_id: &'a str,
+    /// The thread's Mukade room (ADR-0057): Mukade's plugin kit joins the session to it.
+    pub chat: Option<&'a crate::mukade_chat::ChatHooks>,
 }
 pub struct PreparedOpenCodeTrial {
     pub launch: PreparedLaunch,
@@ -163,10 +165,25 @@ struct Context<'a> {
     selected_set: &'a SetManifest,
     plugins_root: Option<&'a Path>,
     thread_id: &'a str,
+    chat: Option<&'a crate::mukade_chat::ChatHooks>,
 }
 pub struct PreparedOpenCodeStart {
     pub launch: PreparedLaunch,
     pub permit: NativeTuiPermit,
+}
+
+/// Mukade's OpenCode kit, written beside the instance, and the configuration it merged.
+fn chat_kit(base: &StorageLocation, instance: &Path, config: &str) -> Result<(crate::mukade_mcp::Connection, String), String> {
+    let connection = crate::mukade_mcp::Connection::discover(base)
+        .map_err(|error| error.to_string())?
+        .ok_or("the Mukade service is not running")?;
+    let kit = crate::mukade_chat::plugin_kit(base, "opencode", &instance.join("mukade-kit"), &connection, Some(config))?;
+    let merged = kit.opencode_config.ok_or("Mukade gave no configuration")?;
+    // The plugin and the MCP entry ride in the configuration; OpenCode takes no kit argument.
+    if !kit.arguments.is_empty() {
+        return Err("Mukade's OpenCode kit asked for arguments Shinatama does not pass".into());
+    }
+    Ok((connection, merged))
 }
 
 fn fixed_arguments() -> Vec<OsString> {
@@ -229,6 +246,7 @@ pub fn prepare_trial(
             selected_set: context.selected_set,
             plugins_root: None,
             thread_id: context.thread_id,
+            chat: None,
         },
         None,
         true,
@@ -265,6 +283,7 @@ pub fn prepare_start(
             selected_set: context.selected_set,
             plugins_root: context.plugins_root,
             thread_id: context.thread_id,
+            chat: context.chat,
         },
         Some(receipt),
         false,
@@ -528,6 +547,8 @@ fn prepare(
         }
         values.into_iter().collect()
     };
+    // Never another process's Mukade membership; a talking thread sets its own below.
+    crate::mukade_mcp::clear_environment(&mut environment);
     let system = std::env::var_os("SystemRoot").ok_or(OpenCodeLaunchError::InheritedEnvironment)?;
     set(&mut environment, "SystemRoot", system.clone());
     set(&mut environment, "WINDIR", system.clone());
@@ -620,9 +641,22 @@ fn prepare(
     let models = if trial { crate::model_config::Snapshot::default() } else {
         crate::model_config::current().map_err(|_| OpenCodeLaunchError::Configuration)?
     };
-    let config = models.opencode(serde_json::from_str(config_content(policy.full_access()))
-        .map_err(|_| OpenCodeLaunchError::Configuration)?);
-    set(&mut environment, "OPENCODE_CONFIG_CONTENT", config.to_string().into());
+    let mut config = models.opencode(serde_json::from_str(config_content(policy.full_access()))
+        .map_err(|_| OpenCodeLaunchError::Configuration)?).to_string();
+    // ADR-0057: a session of a talking thread loads Mukade's plugin kit, merged by Mukade into
+    // this configuration. Any failure leaves the session an ordinary one.
+    if let Some(chat) = context.chat.filter(|_| !trial) {
+        match chat_kit(context.base, instance_directory.directory(), &config) {
+            Ok((connection, merged)) => {
+                config = merged;
+                connection.apply_kit_environment(&mut environment);
+                chat.apply_environment(&mut environment);
+                crate::mukade_chat::note_launch(context.thread_id, chat.room_id());
+            }
+            Err(reason) => eprintln!("This OpenCode session opens without its thread's room: {reason}"),
+        }
+    }
+    set(&mut environment, "OPENCODE_CONFIG_CONTENT", config.into());
     for name in [
         "OPENCODE_DISABLE_PROJECT_CONFIG",
         "OPENCODE_DISABLE_AUTOUPDATE",

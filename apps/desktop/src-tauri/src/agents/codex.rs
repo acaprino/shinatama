@@ -162,7 +162,7 @@ impl HarnessDriver for CodexDriver {
         // ordinary one, and nothing (bootstrap, peers tool, panel) takes it for a member.
         let chat = context.chat.clone().filter(|_| {
             let paths = context.private_home.paths();
-            shinatama_engine::mukade_chat::trust_codex(paths.home(), paths.root(), &context.candidate.path, context.project)
+            shinatama_engine::mukade_chat::trust_codex(context.base, paths.home(), paths.root(), &context.candidate.path, context.project)
                 .inspect_err(|reason| eprintln!("Mukade's hooks are not trusted by Codex; this session opens without its room: {reason}"))
                 .is_ok()
         });

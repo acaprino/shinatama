@@ -1616,6 +1616,36 @@ mod tests {
         }
     }
     #[test]
+    fn a_talking_thread_keeps_marionette_and_stays_within_the_argument_bound() {
+        // The fullest tracked launch, as `codex_arguments_stay_within_the_terminal_bound` builds
+        // it, with the chat hooks in place of the session hook alone.
+        let version = Version::parse("0.169.0").unwrap();
+        let chat = [
+            crate::mukade_chat::CodexHook { table_key: "UserPromptSubmit", command: "& 'C:/App/mukade/mukade.exe' chat hook codex prompt".into(), timeout: 30 },
+            crate::mukade_chat::CodexHook { table_key: "Stop", command: "& 'C:/App/mukade/mukade.exe' chat hook codex stop".into(), timeout: 3630 },
+        ];
+        let mut additions = session_and_chat_hook_arguments(
+            Path::new(r"C:\App\shinatama-hook.exe"),
+            Path::new(r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"),
+            43210,
+            &chat,
+        )
+        .unwrap();
+        additions.extend(mcp_arguments("http://127.0.0.1:32123/session-opaque"));
+        let marionette = ["-c", "mcp_servers.mukade={}", "-c", "marketplaces.m={}", "-c", "plugins={}"].map(OsString::from);
+        additions.extend(marionette.clone());
+        assert!(additions.ends_with(&marionette), "Marionette's overrides are untouched");
+        let operation = CodexSessionOperation::start_new().with_initial_prompt("Review").unwrap();
+        let kind = operation.operation();
+        let descriptor = descriptor(&version, kind, TRACKED_RECIPE).unwrap();
+        let recipe = operation
+            .with_palette(HarnessPalette::Terminal { light: false })
+            .qualify_arguments_with_hooks(&descriptor, PathBuf::from(r"C:\App\codex.exe"), &additions)
+            .unwrap();
+        let command = shinatama_adapter::launch::arguments::plan_arguments(&descriptor, kind, Path::new(r"C:\Project"), Some(&recipe)).unwrap();
+        assert!(command.argv().len() <= 32);
+    }
+    #[test]
     fn chat_hooks_share_one_hooks_table_with_the_verified_session_hook() {
         let version = Version::parse("0.169.0").unwrap();
         let helper = Path::new(r"C:\App\shinatama-hook.exe");

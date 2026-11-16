@@ -144,7 +144,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   // ADR-0057: the switch that lets the thread's sessions talk to each other.
   const chatLabel = node('label', 'thread-sidebar-chat-switch'); const chatSwitch = node('input', ''); chatSwitch.type = 'checkbox'; chatSwitch.id = 'thread-chat-switch';
   chatLabel.append(chatSwitch, ' Sessions talk to each other');
-  const chatHint = node('p', 'thread-sidebar-chat-hint', 'Claude Code and Codex sessions opened or resumed from now on join the thread\'s Mukade room. Each reads the others at its turns and, after a turn, waits 5 minutes for a message to it. Chat opens the conversation.');
+  const chatHint = node('p', 'thread-sidebar-chat-hint', 'Claude Code, Codex, OpenCode and Pi sessions opened from now on (Claude Code and Codex also when resumed) join the thread\'s Mukade room. Each reads the others at its turns and, after a turn, waits 5 minutes for a message to it. Chat opens the conversation.');
   chatHint.id = 'thread-chat-switch-hint'; chatSwitch.setAttribute('aria-describedby', chatHint.id);
   chatLabel.hidden = chatHint.hidden = !options.chat;
   details.id = 'thread-sidebar-details';

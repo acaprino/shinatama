@@ -19,8 +19,12 @@ use std::{
 };
 use tauri::{State, WebviewWindow};
 
-/// Harnesses Shinatama gives Mukade's hooks and tools (`claude_launch`, `codex_launch`).
-pub(crate) const CHAT_HARNESSES: &[&str] = &["claude_code", "codex"];
+/// Harnesses whose sessions Shinatama launches into a thread's room: Claude Code and Codex through
+/// Mukade's hooks, OpenCode and Pi through Mukade's plugin kit.
+pub(crate) const CHAT_HARNESSES: &[&str] = &["claude_code", "codex", "opencode", "pi"];
+/// Those that also have Shinatama's own tools (`shinatama_thread_peers`) and a stable member name
+/// to join with by hand, and whose native session Shinatama records, so a member is tied to them.
+pub(crate) const MANUAL_HARNESSES: &[&str] = &["claude_code", "codex"];
 const MAX_EVENTS: usize = 400;
 const PAGE: &str = "500";
 const MAX_PAGES: usize = 8;
@@ -265,6 +269,8 @@ pub struct ChatOverview {
     /// Per thread, its sessions that are members of the room through hooks launched in this
     /// run. Read from Shinatama's launch record and the adapter's files: no service call.
     connected: BTreeMap<String, Vec<String>>,
+    /// Per thread, its OpenCode and Pi sessions launched in this run with the room's kit.
+    launched: BTreeMap<String, Vec<String>>,
 }
 fn later(a: &str, b: &str) -> bool {
     a.len() > b.len() || (a.len() == b.len() && a > b)
@@ -300,8 +306,9 @@ pub async fn thread_chat_overview(
         };
         let mut rooms = BTreeMap::new();
         let mut connected = BTreeMap::new();
+        let mut launched = BTreeMap::new();
         if service != "running" || request.workset_ids.is_empty() {
-            return Ok(ChatOverview { service, rooms, connected });
+            return Ok(ChatOverview { service, rooms, connected, launched });
         }
         let names: BTreeMap<String, &String> = request
             .workset_ids
@@ -345,8 +352,21 @@ pub async fn thread_chat_overview(
                 .map(|(session, _, _)| session)
                 .collect();
             connected.insert((*id).clone(), members);
+            // OpenCode and Pi: launched into this room in this run (their member is not tied).
+            let started: Vec<String> = state
+                .store
+                .workset_threads(id)
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|session| {
+                    session.harness.as_deref().is_some_and(|harness| !MANUAL_HARNESSES.contains(&harness))
+                        && mukade_chat::launched_room(&session.id).as_deref() == Some(room_id)
+                })
+                .map(|session| session.id)
+                .collect();
+            launched.insert((*id).clone(), started);
         }
-        Ok(ChatOverview { service, rooms, connected })
+        Ok(ChatOverview { service, rooms, connected, launched })
     })
     .await
 }
@@ -391,7 +411,8 @@ pub async fn thread_chat_snapshot(
                         .iter()
                         .find(|(id, _, _)| id == &summary.id)
                         .and_then(|(session, harness, native)| hooked_member(state, session, harness, native, room));
-                    SessionFacts { summary, adapter }
+                    let launched = mukade_chat::launched_room(&summary.id).as_deref() == Some(room);
+                    SessionFacts { summary, adapter, launched }
                 })
                 .collect();
             Ok(project(room, &members, &events, &sessions))
@@ -410,6 +431,10 @@ pub(crate) struct SessionFacts {
     /// Mukade's adapter record of the session's native conversation, in this room, when the
     /// session was launched in this run with the hooks (`hooked_member`).
     pub adapter: Option<AdapterMember>,
+    /// Launched in this run with this room's hooks or kit. For OpenCode and Pi, whose native
+    /// session Shinatama does not record, this is all that is known: their member is in the
+    /// room's list, not tied to the session.
+    pub launched: bool,
 }
 
 /// The window's view of a room. A member belongs to a session when the session's
@@ -426,7 +451,8 @@ pub(crate) fn project(room: &str, members: &[Value], events: &[Value], sessions:
                     .summary
                     .harness
                     .as_deref()
-                    .and_then(|harness| thread_member_name(harness, &session.summary.id))
+                    .filter(|harness| MANUAL_HARNESSES.contains(harness))
+                .and_then(|harness| thread_member_name(harness, &session.summary.id))
                     .is_some_and(|stable| stable == name)
         })
     };
@@ -459,6 +485,8 @@ pub(crate) fn project(room: &str, members: &[Value], events: &[Value], sessions:
                 "unsupported"
             } else if present {
                 "in_room"
+            } else if session.launched && !harness.is_some_and(|harness| MANUAL_HARNESSES.contains(&harness)) {
+                "launched"
             } else {
                 "not_connected"
             };
@@ -634,11 +662,12 @@ mod tests {
             SessionFacts {
                 summary: summary("t_aaaaaaaaaaaa", Some("claude_code"), ThreadStatus::RecordedOpen),
                 adapter: Some(AdapterMember { room_id: "r".into(), member_id: "m1".into(), name: "claude-1".into(), role: "peer".into(), wakes: 1 }),
+                launched: true,
             },
             // Joined by hand, under its stable name, and running.
-            SessionFacts { summary: summary("t_bbbbbbbbbbbb", Some("codex"), ThreadStatus::RecordedOpen), adapter: None },
-            SessionFacts { summary: summary("t_cccccccccccc", Some("pi"), ThreadStatus::RecordedOpen), adapter: None },
-            SessionFacts { summary: summary("t_dddddddddddd", Some("claude_code"), ThreadStatus::RecordedOpen), adapter: None },
+            SessionFacts { summary: summary("t_bbbbbbbbbbbb", Some("codex"), ThreadStatus::RecordedOpen), adapter: None, launched: false },
+            SessionFacts { summary: summary("t_cccccccccccc", Some("shell"), ThreadStatus::RecordedOpen), adapter: None, launched: false },
+            SessionFacts { summary: summary("t_dddddddddddd", Some("claude_code"), ThreadStatus::RecordedOpen), adapter: None, launched: false },
         ];
         let view = project("r", &members, &events, &sessions);
         assert_eq!(view["members"][0]["sessionId"], "t_aaaaaaaaaaaa");
@@ -657,9 +686,24 @@ mod tests {
     }
 
     #[test]
+    fn opencode_and_pi_are_launched_into_the_room_without_claiming_a_member() {
+        // A Pi member in the room is not tied to the Pi session: its native session is not recorded.
+        let members = [json!({"member_id":"m9","name":"pi-1","harness":"pi","role":"peer","left_at":null})];
+        let sessions = [
+            SessionFacts { summary: summary("t_pppppppppppp", Some("pi"), ThreadStatus::RecordedOpen), adapter: None, launched: true },
+            SessionFacts { summary: summary("t_oooooooooooo", Some("opencode"), ThreadStatus::RecordedOpen), adapter: None, launched: false },
+        ];
+        let view = project("r", &members, &[], &sessions);
+        assert_eq!(view["sessions"][0]["connection"], "launched");
+        assert_eq!(view["sessions"][0]["memberName"], Value::Null);
+        assert_eq!(view["sessions"][1]["connection"], "not_connected");
+        assert_eq!(view["members"][0]["sessionId"], Value::Null);
+    }
+
+    #[test]
     fn a_member_that_joined_by_hand_is_not_in_the_room_once_its_session_stops() {
         let members = [json!({"member_id":"m2","name":"codex-bbbbbbbbbbbb","harness":"codex","role":"peer","left_at":null})];
-        let sessions = [SessionFacts { summary: summary("t_bbbbbbbbbbbb", Some("codex"), ThreadStatus::Inactive), adapter: None }];
+        let sessions = [SessionFacts { summary: summary("t_bbbbbbbbbbbb", Some("codex"), ThreadStatus::Inactive), adapter: None, launched: false }];
         assert_eq!(project("r", &members, &[], &sessions)["sessions"][0]["connection"], "not_connected");
     }
 

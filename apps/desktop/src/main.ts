@@ -127,7 +127,7 @@ const toneOf = (worksetId: string) => tones.tone(openWorksets.map(workset => wor
 let chatThreads = new Set<string>();
 let threadChat: ReturnType<typeof createThreadChat> | null = null;
 /** Per thread: whether its room has news the user has not seen, and the sessions that are members through their hooks. */
-const chatUnreadIds = new Set<string>(); const chatConnected = new Map<string, Set<string>>();
+const chatUnreadIds = new Set<string>(); const chatConnected = new Map<string, Set<string>>(); const chatLaunched = new Map<string, Set<string>>();
 type ChatSeen = { eventId: string; timestamp: string };
 const CHAT_SEEN_KEY = 'shinatama.threadChat.seen.v2';
 /** The last event the user saw per thread, with its time (the backend reads the room from there):
@@ -152,17 +152,19 @@ function markChatSeen(id: string, eventId: string, timestamp: string) {
   try { localStorage.setItem(CHAT_SEEN_KEY, JSON.stringify(Object.fromEntries([...chatSeen].slice(-200)))); } catch { /* kept for this run */ }
 }
 const chatUnread = (id: string) => chatUnreadIds.has(id) && threadChat?.current() !== id;
-const CHAT_AGENTS = ['Claude Code', 'claude_code', 'Codex', 'codex'];
-/** " · in chat" on the tab of a session that is a member of its talking thread's room. */
+const CHAT_AGENTS = ['Claude Code', 'claude_code', 'Codex', 'codex', 'OpenCode', 'opencode', 'Pi', 'pi'];
+/** " · in chat" on the tab of a session that is a member of its talking thread's room; " · chat" on an
+ *  OpenCode or Pi session launched with the room's kit, whose member Shinatama cannot tie to it. */
 function chatMark(view: { info: SessionInfo; threadId: string | null; workset: WorksetScope | null }) {
   if (!view.workset || !chatThreads.has(view.workset.id) || !CHAT_AGENTS.includes(view.info.shell)) return '';
-  return view.threadId && chatConnected.get(view.workset.id)?.has(view.threadId) ? ' · in chat' : ' · not in chat yet';
+  if (view.threadId && chatConnected.get(view.workset.id)?.has(view.threadId)) return ' · in chat';
+  return view.threadId && chatLaunched.get(view.workset.id)?.has(view.threadId) ? ' · chat' : ' · not in chat yet';
 }
 async function setThreadChat(thread: Readonly<WorksetSummary>, enabled: boolean) {
   const result = await invoke<{ enabled: string[]; warning: string | null }>('thread_chat_set', { request: { worksetId: thread.id, enabled } });
   chatThreads = new Set(result.enabled);
   if (result.warning) notify(`The thread will talk, but its room is not ready now: ${result.warning}`, 'error');
-  else if (enabled) notify('Claude Code and Codex sessions of this thread opened or resumed from now on join its room.', 'info');
+  else if (enabled) notify('Claude Code, Codex, OpenCode and Pi sessions of this thread opened (or, for Claude Code and Codex, resumed) from now on join its room.', 'info');
   if (!enabled && threadChat?.current() === thread.id) threadChat.hide();
   await readChatOverview(); render();
 }
@@ -170,21 +172,23 @@ let chatReading = false;
 /** One cheap read for every talking thread: the marks on rows and tabs. */
 async function readChatOverview() {
   if (!desktop || chatReading) return;
-  const ids = [...chatThreads].slice(0, 64); if (!ids.length) { chatUnreadIds.clear(); chatConnected.clear(); return; }
+  const ids = [...chatThreads].slice(0, 64); if (!ids.length) { chatUnreadIds.clear(); chatConnected.clear(); chatLaunched.clear(); return; }
   chatReading = true;
   try {
     const seen = Object.fromEntries(ids.filter(id => chatSeen.has(id)).map(id => [id, chatSeen.get(id)!]));
-    const overview = await invoke<{ service: string; rooms: Record<string, { latest: string; lastActivity: string | null; unread: boolean }>; connected: Record<string, string[]> }>(
+    const overview = await invoke<{ service: string; rooms: Record<string, { latest: string; lastActivity: string | null; unread: boolean }>; connected: Record<string, string[]>; launched: Record<string, string[]> }>(
       'thread_chat_overview', { request: { worksetIds: ids, seen } });
-    const before = [...chatConnected].map(([id, set]) => `${id}:${[...set].join(',')}`).join(';');
-    chatUnreadIds.clear(); chatConnected.clear();
+    const marks = () => [chatConnected, chatLaunched].map(map => [...map].map(([id, set]) => `${id}:${[...set].join(',')}`).join(';')).join('|');
+    const before = marks();
+    chatUnreadIds.clear(); chatConnected.clear(); chatLaunched.clear();
     for (const [id, room] of Object.entries(overview.rooms ?? {})) {
       // A thread seen for the first time starts as read: old history is not news.
       if (!chatSeen.has(id)) markChatSeen(id, room.latest, room.lastActivity ?? new Date(0).toISOString());
       else if (room.unread) chatUnreadIds.add(id);
     }
     for (const [id, sessions] of Object.entries(overview.connected ?? {})) chatConnected.set(id, new Set(sessions));
-    const after = [...chatConnected].map(([id, set]) => `${id}:${[...set].join(',')}`).join(';');
+    for (const [id, sessions] of Object.entries(overview.launched ?? {})) chatLaunched.set(id, new Set(sessions));
+    const after = marks();
     threadSidebar?.repaint();
     if (before !== after) render();
   } catch { /* the marks keep their last state */ }
