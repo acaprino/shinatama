@@ -165,6 +165,8 @@ pub(super) struct SessionContext<'a, P> {
     pub thread: &'a ThreadRecord,
     pub initial_prompt: Option<&'a str>,
     pub require_mukade: bool,
+    /// The room of the session's thread when its sessions talk to each other (ADR-0057).
+    pub chat: Option<shinatama_engine::mukade_chat::ChatHooks>,
 }
 pub(super) struct BindingContext<'a> {
     pub database: Arc<Database>,
@@ -232,6 +234,7 @@ pub(super) trait HarnessService: Send + Sync {
         initial_prompt: Option<&str>,
         require_mukade: bool,
         control_header: Option<&str>,
+        workset: Option<&str>,
     ) -> Result<AgentStarted, ServiceError>;
 }
 pub(super) struct ServiceContext {
@@ -631,6 +634,7 @@ impl<D: HarnessDriver> Service<D> {
         initial_prompt: Option<&str>,
         require_mukade: bool,
         control_header: Option<&str>,
+        workset: Option<&str>,
     ) -> Result<AgentStarted, ServiceError> {
         shinatama_terminal::validate_size(rows, cols)
             .map_err(|_| DriverError::Failed("The terminal size is invalid."))?;
@@ -700,6 +704,24 @@ impl<D: HarnessDriver> Service<D> {
                 target.thread.clone()
             }
         };
+        // ADR-0055: a new session is created in the thread it was asked for; a resumed
+        // one stays in its own. ADR-0057: a thread whose sessions talk to each other
+        // gives the launch its room. The room is optional: the session opens anyway.
+        let workset = match &operation {
+            // Only a thread the session can join: one of its project, not archived. Otherwise
+            // it gets a thread of its own, as before; the launch is never refused for this.
+            SessionOperation::New => workset
+                .filter(|workset| {
+                    state.store.workset_record(workset).ok().flatten().is_some_and(|record| {
+                        record.project_id == requested_thread.project_id && !record.archived
+                    })
+                })
+                .map(str::to_owned),
+            SessionOperation::Resume(target) => state.store.workset_of_thread(&target.thread.id).ok().flatten(),
+        };
+        let chat = workset
+            .as_deref()
+            .and_then(|workset| crate::thread_chat::launch_hooks(state, descriptor.id, workset));
         // Refresh only preparation, at most once and before any native start.
         // A running/failed-started process is never repeated by this loop.
         for attempt in 0..2 {
@@ -770,6 +792,7 @@ impl<D: HarnessDriver> Service<D> {
                     thread: &requested_thread,
                     initial_prompt,
                     require_mukade,
+                    chat: chat.clone(),
                 },
                 &receipt,
                 &operation,
@@ -794,7 +817,7 @@ impl<D: HarnessDriver> Service<D> {
             })?;
             let thread = match &operation {
                 SessionOperation::New => {
-                    state.store.create_thread(&requested_thread).map_err(|_| {
+                    state.store.create_thread_in(&requested_thread, workset.as_deref()).map_err(|_| {
                         DriverError::Failed(
                             "The work thread could not be saved. No harness was started.",
                         )
@@ -1032,13 +1055,14 @@ impl<D: HarnessDriver> HarnessService for Service<D> {
         initial_prompt: Option<&str>,
         require_mukade: bool,
         control_header: Option<&str>,
+        workset: Option<&str>,
     ) -> Result<AgentStarted, ServiceError> {
         {
             let mut facts = self.facts()?;
             facts.last_error = None;
             facts.last_start_failure = None;
         }
-        let result = self.open_impl(host, project, rows, cols, operation, mode, initial_prompt, require_mukade, control_header);
+        let result = self.open_impl(host, project, rows, cols, operation, mode, initial_prompt, require_mukade, control_header, workset);
         if let Err(error) = result {
             self.remember(error);
         }

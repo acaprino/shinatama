@@ -48,6 +48,7 @@ import { resumeFailureText } from './resume-failure.ts';
 import { newSessionProject, type NewSessionScope } from './session-project.ts';
 import type { ThreadSidebarState, ThreadSummary } from './thread-sidebar.ts';
 import { createWorksetSidebar, type WorksetSummary } from './workset-sidebar.ts';
+import { createThreadChat, laterEvent } from './thread-chat.ts';
 import { createToneKeeper } from './thread-tone.ts';
 import './styles.css';
 
@@ -122,6 +123,73 @@ const threadTitle = (workset: WorksetScope) => threadSidebar?.title(workset.id) 
 /** The colour of a thread that is on, on its row and on its tabs; threads that are on keep different ones. */
 const tones = createToneKeeper();
 const toneOf = (worksetId: string) => tones.tone(openWorksets.map(workset => workset.id), worksetId);
+/* ADR-0057: threads whose sessions talk to each other through their Mukade room. */
+let chatThreads = new Set<string>();
+let threadChat: ReturnType<typeof createThreadChat> | null = null;
+/** Per thread: whether its room has news the user has not seen, and the sessions that are members through their hooks. */
+const chatUnreadIds = new Set<string>(); const chatConnected = new Map<string, Set<string>>();
+type ChatSeen = { eventId: string; timestamp: string };
+const CHAT_SEEN_KEY = 'shinatama.threadChat.seen.v2';
+/** The last event the user saw per thread, with its time (the backend reads the room from there):
+ *  a convenience of this window, kept in its own storage. */
+const chatSeen: Map<string, ChatSeen> = (() => {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(CHAT_SEEN_KEY) ?? '{}');
+    if (saved && typeof saved === 'object' && !Array.isArray(saved))
+      return new Map(Object.entries(saved as Record<string, unknown>).filter((entry): entry is [string, ChatSeen] => {
+        const value = entry[1] as Partial<ChatSeen> | null;
+        return /^w_[a-z2-7]{12}$/.test(entry[0]) && !!value && typeof value.eventId === 'string' && /^[0-9]{1,19}$/.test(value.eventId)
+          && typeof value.timestamp === 'string' && value.timestamp.length <= 64;
+      }).slice(0, 200));
+  } catch { /* no storage: nothing is marked seen */ }
+  return new Map();
+})();
+function markChatSeen(id: string, eventId: string, timestamp: string) {
+  const before = chatSeen.get(id); if (before && !laterEvent(eventId, before.eventId)) return;
+  chatSeen.set(id, { eventId, timestamp });
+  // Seen now: the mark goes at once, not at the next overview.
+  chatUnreadIds.delete(id);
+  try { localStorage.setItem(CHAT_SEEN_KEY, JSON.stringify(Object.fromEntries([...chatSeen].slice(-200)))); } catch { /* kept for this run */ }
+}
+const chatUnread = (id: string) => chatUnreadIds.has(id) && threadChat?.current() !== id;
+const CHAT_AGENTS = ['Claude Code', 'claude_code', 'Codex', 'codex'];
+/** " · in chat" on the tab of a session that is a member of its talking thread's room. */
+function chatMark(view: { info: SessionInfo; threadId: string | null; workset: WorksetScope | null }) {
+  if (!view.workset || !chatThreads.has(view.workset.id) || !CHAT_AGENTS.includes(view.info.shell)) return '';
+  return view.threadId && chatConnected.get(view.workset.id)?.has(view.threadId) ? ' · in chat' : ' · not in chat yet';
+}
+async function setThreadChat(thread: Readonly<WorksetSummary>, enabled: boolean) {
+  const result = await invoke<{ enabled: string[]; warning: string | null }>('thread_chat_set', { request: { worksetId: thread.id, enabled } });
+  chatThreads = new Set(result.enabled);
+  if (result.warning) notify(`The thread will talk, but its room is not ready now: ${result.warning}`, 'error');
+  else if (enabled) notify('Claude Code and Codex sessions of this thread opened or resumed from now on join its room.', 'info');
+  if (!enabled && threadChat?.current() === thread.id) threadChat.hide();
+  await readChatOverview(); render();
+}
+let chatReading = false;
+/** One cheap read for every talking thread: the marks on rows and tabs. */
+async function readChatOverview() {
+  if (!desktop || chatReading) return;
+  const ids = [...chatThreads].slice(0, 64); if (!ids.length) { chatUnreadIds.clear(); chatConnected.clear(); return; }
+  chatReading = true;
+  try {
+    const seen = Object.fromEntries(ids.filter(id => chatSeen.has(id)).map(id => [id, chatSeen.get(id)!]));
+    const overview = await invoke<{ service: string; rooms: Record<string, { latest: string; lastActivity: string | null; unread: boolean }>; connected: Record<string, string[]> }>(
+      'thread_chat_overview', { request: { worksetIds: ids, seen } });
+    const before = [...chatConnected].map(([id, set]) => `${id}:${[...set].join(',')}`).join(';');
+    chatUnreadIds.clear(); chatConnected.clear();
+    for (const [id, room] of Object.entries(overview.rooms ?? {})) {
+      // A thread seen for the first time starts as read: old history is not news.
+      if (!chatSeen.has(id)) markChatSeen(id, room.latest, room.lastActivity ?? new Date(0).toISOString());
+      else if (room.unread) chatUnreadIds.add(id);
+    }
+    for (const [id, sessions] of Object.entries(overview.connected ?? {})) chatConnected.set(id, new Set(sessions));
+    const after = [...chatConnected].map(([id, set]) => `${id}:${[...set].join(',')}`).join(';');
+    threadSidebar?.repaint();
+    if (before !== after) render();
+  } catch { /* the marks keep their last state */ }
+  finally { chatReading = false; }
+}
 /** The colour of the thread a tab belongs to; none for terminals of no thread and browser tabs. */
 function tabTone(panelId: string): string | null {
   const view = views.get(panelId); if (view) return view.workset ? toneOf(view.workset.id) : null;
@@ -203,7 +271,7 @@ function tabLabel(id: string) {
   const twins = [...views.values()].filter(other => other.info.shell === view.info.shell && (view.workset
     ? other.workset?.id === view.workset.id : !other.workset && samePath(other.info.cwd, view.info.cwd)));
   const where = (view.workset && threadTitle(view.workset)) || folderName(view.info.cwd);
-  return `${where} · ${harness}${twins.length > 1 ? ` ${twins.indexOf(view) + 1}` : ''}${view.ended ? ' · exited' : ''}`;
+  return `${where} · ${harness}${twins.length > 1 ? ` ${twins.indexOf(view) + 1}` : ''}${view.ended ? ' · exited' : chatMark(view)}`;
 }
 let tabFilter: ReturnType<typeof createTabFilter> | null = null;
 /** Shows one project's tabs; each pane switches to its first tab of that project, if it has one. */
@@ -829,11 +897,16 @@ async function startSession(selection: { projectPath: string; harnessId: string;
     // Those refusals are temporary: wait and retry instead of making the user press Open again.
     const warmingUp = (failure: unknown) => /still finishing|not yet ready|waiting for healthy resource|Retry when Resources/i.test(
       typeof failure === 'string' ? failure : failure instanceof Error ? failure.message : JSON.stringify(failure ?? ''));
+    // The session joins the thread it was asked for, else a thread of its project that is on; otherwise a new thread of its own is turned on.
+    // An agent is created in that thread, so a thread whose sessions talk (ADR-0057) gives it its room at launch.
+    const wanted = selection.workset ?? activeWorkset();
+    const target = wanted && wanted.projectId === selected.id ? wanted : openWorksets.find(candidate => candidate.projectId === selected.id) ?? null;
     let started: {session:SessionInfo;threadId:string} | undefined;
     for (let attempt = 0; !started; attempt++) {
       try {
         started = await invoke<{session:SessionInfo;threadId:string}>(selection.harnessId === 'powershell' ? 'shell_open' : 'agent_open',
-          {agentId:selection.harnessId,cwd:selected.path,rows:selection.rows,cols:selection.cols});
+          selection.harnessId === 'powershell' ? {agentId:selection.harnessId,cwd:selected.path,rows:selection.rows,cols:selection.cols}
+            : {agentId:selection.harnessId,cwd:selected.path,rows:selection.rows,cols:selection.cols,worksetId:target?.id ?? null});
       } catch (failure) {
         if (!warmingUp(failure) || attempt >= 30) throw failure;
         await new Promise(resolve => setTimeout(resolve, 2000));
@@ -842,9 +915,7 @@ async function startSession(selection: { projectPath: string; harnessId: string;
     setProject(selected.path);
     selectedProjectPath = selected.path;
     threadSidebar?.setProject({projectId:selected.id,label:selected.path.replace(/[\\/]+$/, '').split(/[\\/]/).pop()});
-    // The session joins the thread it was asked for, else a thread of its project that is on; otherwise a new thread of its own is turned on.
-    const wanted = selection.workset ?? activeWorkset();
-    let workset = wanted && wanted.projectId === selected.id ? wanted : openWorksets.find(candidate => candidate.projectId === selected.id) ?? null;
+    let workset = target;
     if (workset) {
       try { await invoke('workset_adopt', { request: { worksetId: workset.id, threadId: started.threadId } }); }
       catch { workset = null; }
@@ -943,6 +1014,12 @@ threadSidebar = createWorksetSidebar({
     if (anchor.isConnected) anchor.focus();
     await openNewSession(focusedGroup(), undefined, undefined, 'thread', scope);
   })(); },
+  chat: desktop ? {
+    enabled: id => chatThreads.has(id),
+    unread: id => chatUnread(id),
+    set: (thread, enabled) => setThreadChat(thread, enabled),
+    open: thread => { threadChat?.open({ id: thread.id, projectId: thread.projectId }); threadSidebar?.repaint(); },
+  } : undefined,
   openId: () => activeWorkset()?.id ?? null,
   running: id => [...views.values()].filter(view => view.workset?.id === id && !view.ended && !view.disposed).length,
   // Never while a session starts: a name read and a launch share the same worker capacity.
@@ -962,6 +1039,28 @@ threadSidebar = createWorksetSidebar({
   onModeChange: mode => { $('#threads-toggle').setAttribute('aria-pressed', String(mode !== 'hidden')); },
 });
 $('#work-area').prepend(threadSidebar.element);
+// ADR-0057: the conversation of a thread whose sessions talk to each other, beside the terminals.
+threadChat = createThreadChat({
+  invoke: (command, args) => invoke(command, args),
+  notify,
+  title: thread => threadTitle(thread) ?? 'Thread',
+  tone: thread => toneOf(thread.id),
+  harnessLabel: id => harnessLabel(id),
+  focusSession: id => { void focusThreadSession(id); },
+  seen: (id, eventId, timestamp) => { markChatSeen(id, eventId, timestamp); threadSidebar?.repaint(); },
+  restoreFocus: () => { setFocus(focusedGroup()); },
+});
+/** Shows a session of a thread: its thread comes on if it is off, then its tab is brought forward. Starts nothing. */
+async function focusThreadSession(threadId: string) {
+  const running = [...views.values()].find(view => view.threadId === threadId && !view.disposed);
+  if (running) { focusAttentionSession(running.info.id); return; }
+  const workset = await worksetOf(threadId);
+  if (workset && !isOn(workset.id) && !await showWorkset(workset)) return;
+  const panel = workspaceLayout.views.find(candidate => candidate.resource.kind === 'terminal' && candidate.resource.threadId === threadId);
+  const group = panel && tabGroups(workspaceLayout.root).find(candidate => candidate.tabs.includes(panel.id));
+  if (panel && group) { changeLayout({ type: 'activate', groupId: group.id, viewId: panel.id }); setFocus(group.id, false); }
+  else notify('That session has no tab in the window.', 'info');
+}
 // The thread sidebar can be closed altogether; this button brings it back as it was (full or compact).
 $('#threads-toggle').onclick = () => {
   if (!threadSidebar) return;
@@ -1275,13 +1374,20 @@ async function initialize() {
   }
   try {
     await loadHarnessCatalog();
-    const stopCollaborationUpdates = await listen<{started:{session:SessionInfo;threadId:string};harness:string;mode:string}>(
+    // ADR-0057: which threads talk, and the marks of their rooms; read again while the window is shown.
+    try { chatThreads = new Set(await invoke<string[]>('thread_chat_list')); } catch { chatThreads = new Set(); }
+    void readChatOverview().then(() => threadSidebar?.repaint());
+    window.setInterval(() => { if (!document.hidden) void readChatOverview(); }, 10000);
+    const stopCollaborationUpdates = await listen<{started:{session:SessionInfo;threadId:string};harness:string;mode:string;joinedParentThread?:boolean}>(
       'collaboration-session-opened', ({ payload }) => {
         const started = payload.started;
         if (!started?.session?.id || !started.threadId) return;
+        // The backend has already moved the session into the thread of the one that asked
+        // for it (ADR-0055), so attachSession finds that thread from the saved record.
         void attachSession(started.session, started.threadId);
         void threadSidebar?.refresh();
-        notify(`${payload.harness === 'codex' ? 'Codex' : 'Claude'} session opened.`, 'info');
+        const agent = payload.harness === 'codex' ? 'Codex' : 'Claude';
+        notify(payload.joinedParentThread ? `${agent} session opened in the same thread.` : `${agent} session opened.`, 'info');
       });
     window.addEventListener('pagehide', () => { stopCollaborationUpdates(); }, { once: true });
     const stopThreadUpdates = await listen<unknown>('thread-changed', ({ payload }) => {

@@ -41,13 +41,18 @@ if not exist "%~dp0release\cli" mkdir "%~dp0release\cli"
 copy /y "%~dp0target\debug\shinatama.exe" "%~dp0release\cli\shinatama.exe" >nul || (echo Could not copy the CLI. & goto fail)
 copy /y "%~dp0target\release\shinatama-session-helper.exe" "%~dp0release\cli\shinatama-session-helper.exe" >nul || (echo Could not copy the CLI session helper. & goto fail)
 
-echo [5/6] Mukade ^(session library CLI and terminal browser^)
-set "MUKADE=%~dp0..\mukade"
-if not exist "%MUKADE%\build.bat" (echo Mukade not found at "%MUKADE%". & goto fail)
-call "%MUKADE%\build.bat" || goto fail
+echo [5/6] Mukade ^(embedded: chat service, hooks and session CLI; terminal browser^)
+rem mukade.exe is built in this workspace from the Mukade revision pinned in Cargo.toml
+rem (crates/mukade); no Mukade checkout beside Shinatama is used. Built on its own, so the
+rem chat feature is not unified into the engine's session reader.
+cargo build --release --locked -p shinatama-mukade || goto fail
 if not exist "%~dp0release\mukade" mkdir "%~dp0release\mukade"
-copy /y "%MUKADE%\target\release\mukade.exe" "%~dp0release\mukade\mukade.exe" >nul || goto fail
-copy /y "%MUKADE%\target\release\mukade-tui.exe" "%~dp0release\mukade\mukade-tui.exe" >nul || goto fail
+copy /y "%~dp0target\release\mukade.exe" "%~dp0release\mukade\mukade.exe" >nul || goto fail
+rem The terminal browser, from the same pinned revision and Mukade's own lockfile.
+for /f "usebackq delims=" %%R in (`pwsh -NoProfile -Command "(Get-Content -Raw 'scripts\mukade-pin.json' | ConvertFrom-Json).revision"`) do set "MUKADE_REV=%%R"
+if not defined MUKADE_REV (echo The Mukade revision was not found in scripts\mukade-pin.json. & goto fail)
+cargo install --locked --git https://github.com/acaprino/mukade --rev %MUKADE_REV% --root "%~dp0target\mukade-tui" mukade-tui || goto fail
+copy /y "%~dp0target\mukade-tui\bin\mukade-tui.exe" "%~dp0release\mukade\mukade-tui.exe" >nul || goto fail
 
 echo [6/6] Xiox ^(observer of what sessions leave: worktrees, copies, bench and backup folders^)
 rem Optional: without it Shinatama runs as before and the project overview says Xiox is missing.

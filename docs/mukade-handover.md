@@ -36,13 +36,13 @@ silently tracking a moving branch. The current pin:
 
 ```toml
 [workspace.dependencies]
-mukade = { git = "https://github.com/acaprino/mukade", rev = "14edbf3cf71424a48b057e52c5532d6d4ab7d8a4" }
+mukade = { git = "https://github.com/acaprino/mukade", tag = "v0.1.0", default-features = false }
 ```
 
 `shinatama-engine` links it behind its `session-reader` feature, and `MUKADE_REVISION`
 (`session_roots.rs`) carries the same value into the metadata worker protocol. The reviewed source
 is exported offline by `scripts/mukade-pin.ps1` (manifest `scripts/mukade-pin.json`, snapshot
-`.verification/mukade-pin-14edbf3`). Updating the pin requires rechecking the API, harness
+`.verification/mukade-pin-31feb1e`). Updating the pin requires rechecking the API, harness
 versions and acceptance evidence. A Shinatama `.stx.jsonl`
 export (engine 5.5.1) is a separate proposed format, not Mukade's interchange JSON; no direct
 compatibility or automatic redaction between them is assumed.
@@ -263,6 +263,26 @@ native sessions, indexes or leftovers.
   consent, failure before/after write, crash recovery, concurrent hops and provider rejection.
   Exercise real providers only with approved accounts and spending limits. Validate macOS/Linux
   and actual customer workflows separately; no such host tests have been run by this document.
+
+## 8a. The pin advance to `31feb1e` (2026-11-16)
+
+The workspace dependency (by its release tag `v0.1.0`), `MUKADE_REVISION` and `scripts/mukade-pin.json` now all name
+`31feb1e97a05caa268c2cc3b003d05297db14ec3`, Mukade `master` and tag `v0.1.0`. Before this, the
+dependency was at `f189a70` while `MUKADE_REVISION` and the pin manifest still named `14edbf3`.
+Between `f189a70` and `31feb1e` only documentation changed (no file under `src/` or `Cargo.toml`);
+`Cargo.lock` changes only the Mukade source line. The manifest's tree, `Cargo.toml` digest,
+source digest and file count (374) were computed from `git archive` of the commit with the
+script's rules; the offline snapshot under `.verification/` was not regenerated here (the script
+needs PowerShell on Windows). `cargo check --locked` of `shinatama-engine` with `session-reader`,
+`shinatama-desktop` and `shinatama-cli` passes for the Windows target; the qualification fields of
+the manifest are carried over, not rerun.
+
+The same day Mukade became embedded: `crates/mukade` (package `shinatama-mukade`, binary
+`mukade`) builds Mukade's own program from this dependency with the `chat` feature, and
+`build-release.bat` ships it as `mukade\mukade.exe` (the terminal browser `mukade-tui.exe` is
+installed from the same revision). The program no longer comes from a Mukade checkout beside
+Shinatama. `crates/mukade/tests/pin.rs` fails when the dependency, the manifest and
+`MUKADE_REVISION` disagree.
 
 ## 8. The pin advance to `14edbf3` (2026-11-03)
 

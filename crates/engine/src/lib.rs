@@ -15,6 +15,7 @@ pub mod native_launch;
 pub mod claude_session_events;
 pub mod harness_session_events;
 pub mod session_control;
+pub mod mukade_chat;
 pub mod mukade_mcp;
 #[cfg(windows)]
 pub(crate) mod harness_hooks;

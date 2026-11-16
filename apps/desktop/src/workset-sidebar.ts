@@ -47,6 +47,14 @@ export type WorksetSidebarOptions = {
   onForgetSession?: (threadId: string) => Promise<void>;
   /** An agent of this thread is waiting for the user. */
   attention?: (worksetId: string) => boolean;
+  /** ADR-0057: the sessions of a thread talk to each other through its Mukade room. */
+  chat?: {
+    enabled: (worksetId: string) => boolean;
+    /** The room has events the user has not seen. */
+    unread: (worksetId: string) => boolean;
+    set: (thread: Readonly<WorksetSummary>, enabled: boolean) => Promise<void>;
+    open: (thread: Readonly<WorksetSummary>) => void;
+  };
   names?: (threadIds: readonly string[]) => Promise<unknown>;
   loadState?: () => Promise<unknown>;
   saveState?: (state: Readonly<ThreadSidebarState>) => Promise<void>;
@@ -133,8 +141,14 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   actions.append(archive, remove);
   const closedHead = node('p', 'thread-sidebar-closed-head'); const closedList = node('ul', 'thread-sidebar-closed');
   const warning = node('p', 'thread-sidebar-warning'); warning.hidden = true;
+  // ADR-0057: the switch that lets the thread's sessions talk to each other.
+  const chatLabel = node('label', 'thread-sidebar-chat-switch'); const chatSwitch = node('input', ''); chatSwitch.type = 'checkbox'; chatSwitch.id = 'thread-chat-switch';
+  chatLabel.append(chatSwitch, ' Sessions talk to each other');
+  const chatHint = node('p', 'thread-sidebar-chat-hint', 'Claude Code and Codex sessions opened or resumed from now on join the thread\'s Mukade room. Each reads the others at its turns and, after a turn, waits 5 minutes for a message to it. Chat opens the conversation.');
+  chatHint.id = 'thread-chat-switch-hint'; chatSwitch.setAttribute('aria-describedby', chatHint.id);
+  chatLabel.hidden = chatHint.hidden = !options.chat;
   details.id = 'thread-sidebar-details';
-  details.append(renameForm, closedHead, closedList, actions, warning);
+  details.append(renameForm, chatLabel, chatHint, closedHead, closedList, actions, warning);
   body.append(status, list, showArchivedLabel);
   const separator = node('div', 'thread-sidebar-resize'); separator.tabIndex = 0; separator.setAttribute('role', 'separator');
   separator.setAttribute('aria-label', 'Thread sidebar width'); separator.setAttribute('aria-orientation', 'vertical');
@@ -237,6 +251,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
       renameInput.value = current.title ?? '';
       renameInput.placeholder = shownTitle(current);
     }
+    if (options.chat && current) { chatSwitch.checked = options.chat.enabled(current.id); chatSwitch.disabled = busy || current.archived; }
     renameForm.hidden = !options.update; archive.hidden = !options.update; remove.hidden = !options.remove;
     renameSave.disabled = archive.disabled = remove.disabled = busy;
     archive.textContent = current?.archived ? 'Unarchive' : 'Archive';
@@ -302,6 +317,11 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
         add.onclick = () => { const actual = rows.find(candidate => candidate.id === row.id); if (actual && !busy) options.onAddSession!(Object.freeze({ ...actual }), add); };
         item.append(add);
       }
+      if (options.chat) {
+        const chat = node('button', 'thread-sidebar-chat', 'Chat'); chat.type = 'button';
+        chat.onclick = () => { const actual = rows.find(candidate => candidate.id === row.id); if (actual) options.chat!.open(Object.freeze({ ...actual })); };
+        item.append(chat);
+      }
       const more = node('button', 'thread-sidebar-more', '⋯'); more.type = 'button'; more.setAttribute('aria-controls', 'thread-sidebar-details');
       more.onclick = () => { toggleDetails(row.id); };
       item.append(more);
@@ -327,6 +347,12 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     const tone = options.tone?.(row.id); if (tone) item.style.setProperty('--thread-tone', tone); else item.style.removeProperty('--thread-tone');
     const add = item.querySelector<HTMLButtonElement>('.thread-sidebar-add-session');
     if (add) { add.disabled = busy; add.title = `Add a session to ${name}`; add.setAttribute('aria-label', add.title); }
+    const chat = item.querySelector<HTMLButtonElement>('.thread-sidebar-chat');
+    if (chat) {
+      const talking = options.chat!.enabled(row.id) && !row.archived; const unread = talking && options.chat!.unread(row.id);
+      chat.hidden = !talking; chat.toggleAttribute('data-unread', unread);
+      chat.title = `Conversation of ${name}${unread ? ' · new messages' : ''}`; chat.setAttribute('aria-label', chat.title);
+    }
     const more = item.querySelector<HTMLButtonElement>('.thread-sidebar-more')!;
     more.title = `Settings of ${name}`; more.setAttribute('aria-label', more.title); more.setAttribute('aria-expanded', String(expanded === row.id));
     return item;
@@ -423,6 +449,11 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     if (event.key !== 'Escape') return;
     event.preventDefault(); const id = expanded; editing = false; expanded = null; render();
     if (id) anchors.get(id)?.querySelector<HTMLButtonElement>('.thread-sidebar-more')?.focus();
+  };
+  chatSwitch.onchange = () => {
+    const current = chosen(); const wanted = chatSwitch.checked;
+    if (!current || !options.chat || busy) { if (current && options.chat) chatSwitch.checked = options.chat.enabled(current.id); return; }
+    void operate('changed', async () => { await options.chat!.set(Object.freeze({ ...current }), wanted); });
   };
   archive.onclick = () => {
     const current = chosen(); if (!current || !options.update) return;
