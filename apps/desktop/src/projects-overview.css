@@ -9,3 +9,14 @@
 .projects-overview-info small { color: var(--text-2); overflow-wrap: anywhere; }
 .projects-overview-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .projects-worktree { display: flex; gap: 6px; width: 100%; justify-content: flex-end; }
+.projects-leftovers { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 4px; padding-left: 44px; min-width: 0; }
+.projects-leftovers:empty { display: none; }
+.projects-leftovers small { color: var(--text-2); overflow-wrap: anywhere; }
+.projects-leftovers-head { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.projects-leftovers-head button { font-size: 12px; padding: 2px 8px; }
+.projects-leftovers-line[data-state=attention] { color: var(--accent); }
+.projects-leftovers-items { margin: 0; padding-left: 18px; font-size: 12px; color: var(--text-2); }
+.projects-leftovers-items li { overflow-wrap: anywhere; }
+.projects-leftovers-items li[data-blocked=true] { opacity: .75; }
+.projects-leftovers-command { display: block; font-size: 12px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; overflow-wrap: anywhere; white-space: pre-wrap; user-select: text; }
+.projects-leftovers > button { align-self: flex-start; font-size: 12px; }

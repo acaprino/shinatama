@@ -83,6 +83,25 @@ e hop restano distinti: non sono certificati dalla sola apertura della TUI.
   cifrati per il tuo utente Windows e non tornano mai nella pagina; ogni agente avviato può
   però leggerli.
 
+## Cosa lasciano le sessioni (Xiox)
+
+Se accanto a Shinatama c'è `xiox\xiox.exe` ([Xiox](https://github.com/acaprino/xiox), messo
+lì da `build-release.bat` quando trova `..\xiox`), la prima sessione agente in un progetto
+avvia `xiox observe` su quel progetto. L'osservatore fa una fotografia iniziale e poi
+controlla ogni due minuti, più subito quando una sessione agente si chiude. In **Projects**,
+sotto ogni progetto, la riga **Leftovers** dice cosa è comparso da allora: worktree, copie
+del repository, cartelle col nome del progetto (bench, backup…), cartelle create dalle
+sessioni, build e quanto spazio occupano. Il pulsante **Details** elenca i singoli elementi e
+segnala quelli bloccati (modifiche non salvate, commit che esistono solo lì). **Copy clean
+command** copia il comando `xiox clean --include …` che Xiox prepara per gli elementi nuovi
+raccomandati. Shinatama non lo esegue mai: lo incolli in un terminale e `xiox clean` chiede
+conferma prima di rimuovere. Quando una sessione si chiude lasciando qualcosa di nuovo, o una
+soglia viene superata (crescita oltre 2 GB, più di 3 worktree nuovi), il widget lo segnala.
+
+Un worktree e il suo progetto condividono un solo osservatore. Gli osservatori restano attivi
+finché Shinatama è aperto e si chiudono con lui. Per usare un altro `xiox.exe` imposta
+`SHINATAMA_XIOX` al suo percorso; per non osservare niente, `SHINATAMA_XIOX=off`.
+
 ## Marionette
 
 Ogni sessione di Claude Code, Codex, Pi e OpenCode aperta da Shinatama parte

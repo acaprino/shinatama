@@ -18,6 +18,7 @@ mod project_overview;
 mod hop_run;
 mod launch;
 mod launch_settings;
+mod leftovers;
 mod memory_settings;
 mod secret_store;
 pub mod maintenance;
@@ -316,6 +317,7 @@ async fn terminal_read(
     };
     if let Ok(session) = host.info(&id) {
         window.state::<attention::Controller>().observe(window.app_handle(), &session, &batch);
+        window.state::<leftovers::Leftovers>().observe(window.app_handle(), &session, &batch);
     }
     Ok(batch)
 }
@@ -687,6 +689,7 @@ fn main() {
         .manage(Arc::new(TerminalHost::default()))
         .manage(ExitIntent::default())
         .manage(attention::Controller::default())
+        .manage(leftovers::Leftovers::default())
         .manage(shinatama_engine::Engine::new())
         .manage(resources::Resources::start())
         .setup(|app| {
@@ -850,6 +853,8 @@ fn main() {
         project_overview::project_pin,
         project_overview::project_worktree_plan,
         project_overview::project_worktree_create,
+        leftovers::project_leftovers,
+        leftovers::project_leftovers_check,
         #[cfg(windows)]
         sessions::export::session_export,
         #[cfg(windows)]
@@ -1014,6 +1019,8 @@ fn main() {
         project_overview::project_pin,
         project_overview::project_worktree_plan,
         project_overview::project_worktree_create,
+        leftovers::project_leftovers,
+        leftovers::project_leftovers_check,
         #[cfg(windows)]
         sessions::export::session_export,
         #[cfg(windows)]
@@ -1113,6 +1120,9 @@ fn main() {
             #[cfg(windows)]
             if matches!(_event, tauri::RunEvent::Exit) {
                 collaboration::stop(_app);
+            }
+            if matches!(_event, tauri::RunEvent::Exit) {
+                _app.state::<leftovers::Leftovers>().stop_all();
             }
         });
 }

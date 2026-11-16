@@ -3088,6 +3088,7 @@ dependencies = [
  "shinatama-projects",
  "shinatama-state",
  "shinatama-terminal",
+ "shinatama-xiox",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
@@ -3215,6 +3216,14 @@ dependencies = [
 
 [[package]]
 name = "shinatama-token-economy"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "shinatama-xiox"
 version = "0.1.0"
 dependencies = [
  "serde",
