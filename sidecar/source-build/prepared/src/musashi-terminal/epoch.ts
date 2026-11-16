@@ -180,15 +180,17 @@ export function touchEpoch(session: Session, now: number): void {
     save(session, record);
 }
 
-/** A long turn near the window moves the frontier to its last step, once: then only a fold the model makes moves it again
- *  before the next human message. */
+/** A request the proxy would have to fold moves the frontier to the end of the history: inside a turn to its last step,
+ *  at a human message to that message. It moves again each time the history grows while the request still overflows: a
+ *  frontier left behind keeps the folds after it off the wire, and the proxy refuses what it cannot fit. */
 export function emergencyFrontier(session: Session, messages: readonly CoreMessage[], tokens: number, settings: FrontierSettings): boolean {
     const record = epochRecord(session);
     const groups = wireGroups(messages), last = groups.at(-1);
-    if (!record || !last || !carriesToolResult(messages, last.start, last.end)) return false;
+    if (!record || !last) return false;
     const id = messages[last.start]!.id;
-    if (record.frontier?.id === id || (record.frontier?.cause === 'emergency' && !record.pending)) return false;
-    record.frontier = { id, tokens, cause: record.pending ? 'compress' : 'emergency', step: true };
+    if (record.frontier?.id === id) return false;
+    const step = carriesToolResult(messages, last.start, last.end);
+    record.frontier = { id, tokens, cause: record.pending ? 'compress' : 'emergency', ...(step ? { step: true } : {}) };
     record.reached = Math.max(record.reached, level(tokens, settings));
     record.epoch += 1;
     save(session, record);

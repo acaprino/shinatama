@@ -232,6 +232,14 @@ pub struct PrivateStorePlan {
 }
 
 impl PrivateStorePlan {
+    /// Where `agent`'s private home sits under the data root `base`. Nothing is verified,
+    /// created or opened. `resolve` places the home exactly here; a process that only
+    /// reads the harness's metadata (the sidecar reads Codex's model table) uses the same
+    /// spelling instead of a copy of the layout.
+    pub fn home_path(base: &Path, agent: &AgentStoreKey) -> PathBuf {
+        agent_root(base, agent).join("home")
+    }
+
     /// Read-only resolution. C01 must already have prepared the application data
     /// root. Existing roots/directories are verified, never repaired or re-ACL'd, except the
     /// agent's temporary folder, whose permissions the harness itself may widen.
@@ -264,8 +272,8 @@ impl PrivateStorePlan {
         }
         base.verify_private_directory()?;
         verify_namespace(base, base.directory())?;
-        let agent_root = base.directory().join("agents").join(agent.as_str());
-        let home = agent_root.join("home");
+        let agent_root = agent_root(base.directory(), &agent);
+        let home = Self::home_path(base.directory(), &agent);
         let temporary = agent_root.join("tmp");
         let cache = agent_root.join("cache");
         if let Some(limit) = request.home_path_limit {
@@ -416,6 +424,10 @@ impl PrivateStorePlan {
             ))
         }
     }
+}
+
+fn agent_root(base: &Path, agent: &AgentStoreKey) -> PathBuf {
+    base.join("agents").join(agent.as_str())
 }
 
 fn namespace_error() -> StoreRootError {
@@ -866,6 +878,18 @@ mod tests {
             "deepseek_harness",
         ] {
             AgentStoreKey::new(key).unwrap();
+        }
+    }
+
+    #[test]
+    fn the_home_path_is_where_resolution_places_the_home_and_touches_nothing() {
+        let fixture = Fixture::new();
+        for key in ["codex", "opencode"] {
+            let agent = AgentStoreKey::new(key).unwrap();
+            let expected = PrivateStorePlan::home_path(fixture.location().directory(), &agent);
+            assert!(!fixture.location().directory().join("agents").exists());
+            assert_eq!(fixture.plan(key).paths().home(), expected.as_path());
+            assert!(expected.ends_with(format!("agents/{key}/home")));
         }
     }
 

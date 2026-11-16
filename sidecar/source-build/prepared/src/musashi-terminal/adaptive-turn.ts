@@ -1,6 +1,6 @@
 // Musashi Terminal: on adaptive sessions with a known capacity the past changes only when the frontier moves
 // (epoch.ts); unknown capacity and disabled policies keep the ordinary kernel turn.
-import { createContentStore, createRenderRefsNode, defaultCountTokens, runPipeline, storeCoveredOriginals, type CompressionCore, type CompressionState, type MessageContentStore, type CoreMessage, type ProcessTurnInput, type ProcessTurnResult } from 'acp-kernel';
+import { createContentStore, createRenderRefsNode, defaultCountTokens, runPipeline, storeCoveredOriginals, syncBlocks, type CompressionCore, type CompressionState, type MessageContentStore, type CoreMessage, type ProcessTurnInput, type ProcessTurnResult } from 'acp-kernel';
 import type { ResolvedKernelConfig } from '../compress-settings.js';
 import type { Session } from '../session.js';
 import { estimateWireOverhead } from '../server/budget.js';
@@ -102,7 +102,8 @@ function processEpochTurn(core: CompressionCore, input: ProcessTurnInput, contex
     if (advanced.moved) land(session, input, materializePending(session, advanced.record));
     let turn = epochView(core, { ...input, contentStore: session.contentStore ?? input.contentStore }, context, frontier);
     const tokens = overhead + tokensOf(turn.messages);
-    if (tokens >= EMERGENCY_WINDOW_RATIO * context.nativeWindow && emergencyFrontier(session, input.messages, tokens, frontier)) {
+    if (overflowing(session, tokens, Math.min(context.nativeWindow, config.modelContextLimit || context.nativeWindow))
+        && emergencyFrontier(session, input.messages, tokens, frontier)) {
         land(session, input, materializePending(session, epochRecord(session)!));
         turn = epochView(core, { ...input, contentStore: session.contentStore ?? input.contentStore }, context, frontier);
     }
@@ -112,6 +113,17 @@ function processEpochTurn(core: CompressionCore, input: ProcessTurnInput, contex
     turn.messages = settleView(session, turn.messages, turn.messages.length - turn.epoch!.tail, step ? lastAssistantIds(input.messages) : new Set());
     settleFrontier(session, turn.epoch!.invite === true);
     return turn;
+}
+
+/** Whether the proxy would have to fold this request before sending it. It judges the input against the window less the
+ *  share kept for the output (`modelContextLimit`), and on the provider's last count as well as the local one: the
+ *  provider bills images and reasoning the local count does not see. From here on the past must carry every accepted
+ *  fold, whatever the cache costs: folds held behind the frontier leave the proxy nothing to fit the request with, and it
+ *  refuses it. */
+function overflowing(session: Session, tokens: number, window: number): boolean {
+    const { lastInputTokens, lastInputTokensSource } = session.stats;
+    const billed = lastInputTokensSource === 'usage' || lastInputTokensSource === 'overflow-arm' ? lastInputTokens : 0;
+    return Math.max(tokens, billed) >= EMERGENCY_WINDOW_RATIO * window;
 }
 
 function epochView(core: CompressionCore, input: ProcessTurnInput, context: TurnContext, settings: FrontierSettings): AdaptiveTurn {
@@ -141,8 +153,19 @@ function epochView(core: CompressionCore, input: ProcessTurnInput, context: Turn
     // arrive. None of these depends on a message's position, so every later request sends them unchanged.
     const tokenCount = frontier && cut > 0 ? frontier.tokens : 0;
     const arrived = tail.length > 0 ? arrivalView(core, tail, state, input.config, contentStore, input.renderTags, tokenCount) : { messages: [], state, contentStore };
-    return { ...processed, messages: [...past, ...arrived.messages], state: arrived.state, contentStore: arrived.contentStore, nudge: undefined,
+    return { ...processed, messages: [...past, ...arrived.messages], state: wholeRequest(input.messages, arrived.state), contentStore: arrived.contentStore, nudge: undefined,
         epoch: { tail: arrived.messages.length, tokens: frontier && cut > 0 ? frontier.tokens : input.tokenCount ?? 0, invite } };
+}
+
+/** The state an ordinary kernel turn leaves for the whole request. The kernel ran over the past alone, so it took every
+ *  message after the frontier for gone: it deactivated the folds that cover them and kept only the past as the inbound
+ *  by which the next pass tells a folded message resent from a new copy (instance-reid.ts). The next pass (the proxy's
+ *  preflight, or the next request once the frontier moves) then took those messages for new copies and renamed them:
+ *  their folds never left the wire, and the ranges it offered for folding cited ids the request does not carry, so
+ *  nothing could be folded and the request was refused. The view sent is unchanged: after the frontier the messages
+ *  still go as they arrived, their folds waiting for it. */
+function wholeRequest(messages: readonly CoreMessage[], state: CompressionState): CompressionState {
+    return { ...syncBlocks([...messages], state).state, lastPassIds: messages.map(message => message.id) };
 }
 
 /** Folds that land with the frontier store their covered originals now, as an immediate fold does at commit

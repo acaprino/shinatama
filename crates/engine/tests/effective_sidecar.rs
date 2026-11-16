@@ -331,7 +331,7 @@ fn qualify(fixture: &mut Fixture, deadline: Instant) -> ProofResult<Value> {
         .filter_map(|key| std::env::var_os(key).map(|value| (key.into(), value)))
         .collect();
     let recipe = safe(
-        prepare_runtime(bundle, node, private.root(), &os, port),
+        prepare_runtime(bundle, node, private.root(), &os, port, None),
         "prepare exact private child environment",
     )?;
     let identity = recipe.summary();

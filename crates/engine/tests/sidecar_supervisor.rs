@@ -659,7 +659,7 @@ fn qualify(fixture: &Fixture) -> ProofResult<Value> {
         .filter_map(|key| std::env::var_os(key).map(|value| (key.into(), value)))
         .collect();
     let recipe = safe(
-        prepare_runtime(bundle, node, config.root(), &os, port),
+        prepare_runtime(bundle, node, config.root(), &os, port, None),
         "prepare verified child recipe",
     )?;
     let stamp = PolicyStamp {

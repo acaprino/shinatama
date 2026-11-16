@@ -13,7 +13,11 @@ use shinatama_engine::{
     },
     sidecar_supervisor::{Command, Phase, Reason, SidecarSupervisor, Snapshot, SupervisorConfig},
 };
-use shinatama_state::{database::DatabaseAccess, location::StorageLocation};
+use shinatama_state::{
+    database::DatabaseAccess,
+    location::StorageLocation,
+    store_roots::{AgentStoreKey, PrivateStorePlan},
+};
 use std::{
     collections::BTreeMap,
     fs::{File, OpenOptions},
@@ -567,7 +571,14 @@ impl Controller {
                 os.insert(name.into(), value);
             }
         }
-        let recipe = prepare_runtime(bundle, node, private.root(), &os, port)
+        // The sidecar sizes a Codex conversation by the window Codex itself uses, read from
+        // the model table Codex keeps in its private home. Without it a model newer than the
+        // sidecar's bundled table is held to a generic 272K window and refused long before
+        // Codex would compact it.
+        let codex_home = AgentStoreKey::new("codex")
+            .map(|agent| PrivateStorePlan::home_path(state.location.directory(), &agent))
+            .map_err(|_| "The private agent namespace is invalid.")?;
+        let recipe = prepare_runtime(bundle, node, private.root(), &os, port, Some(&codex_home))
             .map_err(|_| "The private proxy launch environment could not be verified.")?;
         let identity = recipe.summary();
         let provider = self

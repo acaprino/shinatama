@@ -347,12 +347,21 @@ impl SidecarRuntimeRecipe {
 
 /// Private directories/configuration must already exist under the held C01
 /// location. This method creates/copies nothing and reads no config contents.
+///
+/// `codex_home` is the private home Shinatama gives Codex. The sidecar sizes a
+/// Codex conversation by the window Codex itself works with, which Codex keeps
+/// there (`models_cache.json`, `config.toml`). Without it the sidecar's own
+/// private HOME leaves only a bundled model table, and a model newer than that
+/// table falls back to a generic 272K window: the sidecar then refuses a
+/// conversation long before Codex compacts it. The sidecar reads that model
+/// metadata only; the path is not created, verified or held here.
 pub fn prepare_runtime(
     bundle: VerifiedBundle,
     node: VerifiedNode,
     private: &StorageLocation,
     os_snapshot: &BTreeMap<OsString, OsString>,
     port: NonZeroU16,
+    codex_home: Option<&Path>,
 ) -> Result<SidecarRuntimeRecipe, PreparationError> {
     private
         .verify_private_directory()
@@ -399,7 +408,13 @@ pub fn prepare_runtime(
     let child_entry = node_path(&bundle.entry)?;
     let child_config = node_path(&config)?;
     let child_node = node_path(&node.executable)?;
-    let environment = environment(&child_root, &child_node, os_snapshot)?;
+    let child_codex_home = codex_home.map(node_path).transpose()?;
+    let environment = environment(
+        &child_root,
+        &child_node,
+        child_codex_home.as_deref(),
+        os_snapshot,
+    )?;
     let argv = arguments(&child_entry, &child_config, port);
     Ok(SidecarRuntimeRecipe {
         bundle,
@@ -449,6 +464,7 @@ fn arguments(entry: &Path, config: &Path, port: NonZeroU16) -> Vec<OsString> {
 fn environment(
     root: &Path,
     node: &Path,
+    codex_home: Option<&Path>,
     snapshot: &BTreeMap<OsString, OsString>,
 ) -> Result<BTreeMap<OsString, OsString>, PreparationError> {
     if snapshot.len() > 2048 {
@@ -491,6 +507,12 @@ fn environment(
         ("ACP_DUMP_DIR", "state/dumps"),
     ] {
         result.insert(name.into(), root.join(relative).into_os_string());
+    }
+    // Codex's own home, never the user's ~/.codex nor one inherited from the
+    // parent: only the Shinatama-owned path the caller passes is used.
+    if let Some(home) = codex_home {
+        valid_absolute(home)?;
+        result.insert("CODEX_HOME".into(), home.as_os_str().to_os_string());
     }
     result.insert(
         "PATH".into(),
@@ -650,12 +672,12 @@ mod tests {
     fn committed_pin_identifies_the_actual_entry_and_all_three_bounded_trees() {
         let pin: Pin = serde_json::from_str(PIN).unwrap();
         validate_pin(&pin).unwrap();
-        assert_eq!(pin.source_files.len(), 397);
+        assert_eq!(pin.source_files.len(), 398);
         assert_eq!(pin.artifact_files.len(), 15);
         assert_eq!(pin.runtime_dependency_files.len(), 205);
         assert_eq!(
             pin.entry_sha256,
-            "8194e65dae76017830c533e9cf2eda11f4947bc0396736b6d8d86d5b9030edbc"
+            "5dea8a6b2bff85b80593a3fc92bbf4e8f249a62f06403b426da2c5d216d1e070"
         );
     }
     #[test]
@@ -716,6 +738,7 @@ mod tests {
             ("NODE_PATH", "synthetic-modules"),
             ("FAKE_PROVIDER_KEY", "synthetic-secret"),
             ("BILI_CONFIG_FILE", "C:\\old-config"),
+            ("CODEX_HOME", "C:\\users\\someone\\.codex"),
         ]
         .into_iter()
         .map(|(k, v)| (k.into(), v.into()))
@@ -724,11 +747,17 @@ mod tests {
         let child = environment(
             Path::new("C:\\private-sidecar"),
             Path::new("C:\\bundle\\node.exe"),
+            None,
             &parent,
         )
         .unwrap();
         assert_eq!(parent, before);
-        for forbidden in ["NODE_OPTIONS", "NODE_PATH", "FAKE_PROVIDER_KEY"] {
+        for forbidden in [
+            "NODE_OPTIONS",
+            "NODE_PATH",
+            "FAKE_PROVIDER_KEY",
+            "CODEX_HOME",
+        ] {
             assert!(!child.contains_key(OsStr::new(forbidden)));
         }
         assert_eq!(
@@ -741,5 +770,43 @@ mod tests {
                 "C:\\private-sidecar\\config/billion-context.json"
             ))
         );
+    }
+    #[cfg(windows)]
+    #[test]
+    fn sidecar_reads_the_codex_home_it_is_given_and_never_the_inherited_one() {
+        let parent: BTreeMap<OsString, OsString> = [
+            ("SystemRoot", "C:\\Windows"),
+            ("CODEX_HOME", "C:\\users\\someone\\.codex"),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.into(), v.into()))
+        .collect();
+        let child = environment(
+            Path::new("C:\\private-sidecar"),
+            Path::new("C:\\bundle\\node.exe"),
+            Some(Path::new("C:\\data\\agents\\codex\\home")),
+            &parent,
+        )
+        .unwrap();
+        assert_eq!(
+            child.get(OsStr::new("CODEX_HOME")),
+            Some(&OsString::from("C:\\data\\agents\\codex\\home"))
+        );
+        // The sidecar's own HOME stays private: only the Codex metadata moves.
+        assert_eq!(
+            child.get(OsStr::new("HOME")),
+            Some(&OsString::from("C:\\private-sidecar\\home"))
+        );
+        for relative in ["relative\\codex\\home", "C:\\data\\..\\elsewhere"] {
+            assert_eq!(
+                environment(
+                    Path::new("C:\\private-sidecar"),
+                    Path::new("C:\\bundle\\node.exe"),
+                    Some(Path::new(relative)),
+                    &parent,
+                ),
+                Err(PreparationError::InvalidPath)
+            );
+        }
     }
 }

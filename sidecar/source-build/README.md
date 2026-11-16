@@ -13,6 +13,18 @@ in a scratch copy with `npm ci`). After a rebuild the lock's source and artifact
 entries, the tree hashes, `entrySha256` and `prepared/bundle.identity.json` are
 refreshed together.
 
+On Windows `npm ci` links `acp-kernel` and `billion-context-pi-subagents` as
+junctions, and esbuild then names their modules `kernel/dist/...` instead of
+`node_modules/acp-kernel/dist/...`: the bundle differs from the pinned one with
+no source change. After a first `node scripts/build.mjs` (it builds both
+packages' `dist`), replace the two junctions with copies of `kernel` and
+`pi-subagents` and build again: the unchanged tree then reproduces every pinned
+artifact byte for byte, so a rebuild changes only what the source changed. The
+build stamps `dist/build-info.json` with `MUSASHI_TERMINAL_BILI_SOURCE_FINGERPRINT`,
+which must be the new source tree hash. The tree hash is SHA-256 over each entry,
+in path order, as `path NUL sha256 NUL bytes LF`. Sidecar tests run with the pinned
+Node in the scratch copy: `node --experimental-transform-types --test <file>`.
+
 The six schema-v9 index names and incremental CCR method are checked in both the
 source and the pinned entry. The current entry fingerprint differs from the older
 storage-note fingerprint, while the release label remains `0.1.207`. A version

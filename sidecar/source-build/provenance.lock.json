@@ -5,11 +5,11 @@
   "upstreamCommit": "7e69b49ff4facb00b5ba6541b48d0f7fbe63d63d",
   "upstreamArchiveSha256": "10628db1ad6ae8f6a46f8886188ff6be7cb903036004d0f447c452880f4b3e53",
   "musashiSourceFingerprint": "0e9d1582bd90104d2fb56bd9cd92734ea5ac3bb4b683fc493d25a2258d744e3e",
-  "sourceTreeSha256": "36e726d812e5074c667be0536668758af1f30be94c955bf58b0ec352a3654291",
-  "artifactTreeSha256": "877fe9d8f0a7ff826e788cff380f62cb126fe29ba23cb78fa49d34466b862dd4",
+  "sourceTreeSha256": "195d09c3d22008088e8b2496344e850608811e1f3f7e7d789c178f652581d89e",
+  "artifactTreeSha256": "aa3a85749e025655674ddec16b1b57994a8bc823ca48d4c347ddbb364a3c1815",
   "runtimeDependencyTreeSha256": "89868025df4771c6daf2e5eb745549331af47bd6fbbae90681aacc19edceaea8",
   "entry": "dist/index.js",
-  "entrySha256": "8194e65dae76017830c533e9cf2eda11f4947bc0396736b6d8d86d5b9030edbc",
+  "entrySha256": "5dea8a6b2bff85b80593a3fc92bbf4e8f249a62f06403b426da2c5d216d1e070",
   "runtimeDependency": {
     "name": "zod",
     "version": "4.1.8",
@@ -1216,9 +1216,14 @@
       "sha256": "77d50bf5ff8bd6163ecf64bd169a7299633510de362942ceb6595c60902ee4ed"
     },
     {
+      "path": "src/musashi-terminal/adaptive-turn.test.ts",
+      "bytes": 7746,
+      "sha256": "48a9bde992873a159216d3c0efe18ebb48bd8631412882286ec92626465fbca1"
+    },
+    {
       "path": "src/musashi-terminal/adaptive-turn.ts",
-      "bytes": 13722,
-      "sha256": "38461ca86e7cd38c6970ce669b74f391411f0c7ef0523184721ad18241793e49"
+      "bytes": 15679,
+      "sha256": "2a0c0f22ed0bb31bac6d1f46bb756241c0bacf3394f15dcf961b30db8f67915c"
     },
     {
       "path": "src/musashi-terminal/compression-benefit.ts",
@@ -1242,8 +1247,8 @@
     },
     {
       "path": "src/musashi-terminal/epoch.ts",
-      "bytes": 20743,
-      "sha256": "5e7c86addc2ed37620998b2091472c6a7c5fd51e75753ee1c5f7696507239c78"
+      "bytes": 20906,
+      "sha256": "4ee242148e3410b296520a95dcc2b1f35ea22f4c9fb330a043aea3c71e2a125c"
     },
     {
       "path": "src/musashi-terminal/foreign-traffic.ts",
@@ -2044,13 +2049,13 @@
     },
     {
       "path": "dist/agent/pi-native.js",
-      "bytes": 5597977,
-      "sha256": "ce046f45d2e5f38043be8726ec7532a52c249c782a24631c01eaa525ce040041"
+      "bytes": 5598430,
+      "sha256": "19e2e25aaa089c5d6fc3b3c94afcfdd30d7f7e868ad4ee1dc7951e742e8bfae2"
     },
     {
       "path": "dist/agent/pi-native.js.map",
-      "bytes": 17079103,
-      "sha256": "30c5f9bf9da942e28e417d2f58a02d6f6e8cb81dcb9a717c17606cf2162bf45e"
+      "bytes": 17081649,
+      "sha256": "219b5e9dbfd9cc37c711138c1d347a27d1ec68a2faa4010c11447ce5385a8478"
     },
     {
       "path": "dist/agent/pi.js",
@@ -2065,7 +2070,7 @@
     {
       "path": "dist/build-info.json",
       "bytes": 139,
-      "sha256": "84275cf17fe977c06df561cf21fe67871f7535583bffe940d06c7e17e4969b6c"
+      "sha256": "fcc70de7b61c299cefebe11b8588665f0ef9df281249dfa311a85dced7739ad4"
     },
     {
       "path": "dist/claude-native-bootstrap.js",
@@ -2079,13 +2084,13 @@
     },
     {
       "path": "dist/index.js",
-      "bytes": 5520262,
-      "sha256": "8194e65dae76017830c533e9cf2eda11f4947bc0396736b6d8d86d5b9030edbc"
+      "bytes": 5520715,
+      "sha256": "5dea8a6b2bff85b80593a3fc92bbf4e8f249a62f06403b426da2c5d216d1e070"
     },
     {
       "path": "dist/index.js.map",
-      "bytes": 15762031,
-      "sha256": "f57ea4aece26178e47c0e696fac99a6c9e4807c701fbcfbc26de8fa6b3d5cd5d"
+      "bytes": 15764577,
+      "sha256": "f10a6009e22417ca809d4e9fa2227ed37f0f7e24333639f16637a0cd4671fb75"
     },
     {
       "path": "dist/mcp.js",

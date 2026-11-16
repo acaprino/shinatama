@@ -470,7 +470,7 @@ impl Fixture {
             .filter_map(|key| std::env::var_os(key).map(|value| (key.into(), value)))
             .collect();
         let recipe = checked(
-            prepare_runtime(bundle, node, config.root(), &os, port),
+            prepare_runtime(bundle, node, config.root(), &os, port, None),
             "private-runtime-recipe",
         )?;
         let fixture_path = config.root().directory().join("claude-proxy-tls.mjs");

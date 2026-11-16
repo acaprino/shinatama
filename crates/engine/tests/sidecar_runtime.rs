@@ -613,6 +613,7 @@ fn qualify(fixture: &Fixture) -> ProofResult<Value> {
             config.root(),
             &os,
             NonZeroU16::new(port).unwrap(),
+            None,
         ),
         "prepare private child-only environment",
     )?;
