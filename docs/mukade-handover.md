@@ -36,7 +36,7 @@ silently tracking a moving branch. The current pin:
 
 ```toml
 [workspace.dependencies]
-mukade = { git = "https://github.com/acaprino/mukade", rev = "31feb1e97a05caa268c2cc3b003d05297db14ec3", default-features = false }
+mukade = { git = "https://github.com/acaprino/mukade", tag = "v0.1.0", default-features = false }
 ```
 
 `shinatama-engine` links it behind its `session-reader` feature, and `MUKADE_REVISION`
@@ -266,7 +266,7 @@ native sessions, indexes or leftovers.
 
 ## 8a. The pin advance to `31feb1e` (2026-11-16)
 
-The workspace dependency, `MUKADE_REVISION` and `scripts/mukade-pin.json` now all name
+The workspace dependency (by its release tag `v0.1.0`), `MUKADE_REVISION` and `scripts/mukade-pin.json` now all name
 `31feb1e97a05caa268c2cc3b003d05297db14ec3`, Mukade `master` and tag `v0.1.0`. Before this, the
 dependency was at `f189a70` while `MUKADE_REVISION` and the pin manifest still named `14edbf3`.
 Between `f189a70` and `31feb1e` only documentation changed (no file under `src/` or `Cargo.toml`);
