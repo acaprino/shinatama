@@ -76,6 +76,12 @@ chiamante e' quello autenticato dal ricevitore: nessun argomento puo' indicare
 un'altra sessione. Una sessione aperta con `shinatama_session_open` entra nel
 thread del chiamante; il suo bootstrap nomina la stanza del thread.
 
+Con l'interruttore del thread acceso (ADR-0057) `mukade.delivery` vale `hooks`:
+Shinatama compone gli hook dell'adapter Mukade nel lancio, i nomi membro sono
+quelli scelti dall'adapter (`claude-1`, `codex-1`) e restituiti in `you`/`peers`,
+e il consumo di read/wait/ack appartiene agli hook. L'utente partecipa come
+membro `user` (harness `shinatama`).
+
 La risposta distingue `queued`, `starting`, `opened`, `failed`, `cancelled`.
 `opened.result.session_id` e' l'istanza posseduta da Shinatama, mentre
 `thread_id` identifica il thread salvato. Non sono il `session_id` da usare

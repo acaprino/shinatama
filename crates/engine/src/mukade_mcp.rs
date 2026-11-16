@@ -234,12 +234,12 @@ pub fn stop_owned(base: &StorageLocation) {
     }
 }
 
-fn own_directory(base: &StorageLocation) -> PathBuf {
+pub(crate) fn own_directory(base: &StorageLocation) -> PathBuf {
     base.directory().join("mukade")
 }
 
 /// `mukade\mukade.exe` beside the running program, or one folder up for programs in `cli\`.
-fn bundled_program() -> Option<PathBuf> {
+pub(crate) fn bundled_program() -> Option<PathBuf> {
     let executable = std::env::current_exe().ok()?;
     let folder = executable.parent()?;
     [Some(folder), folder.parent()].into_iter().flatten()
@@ -325,7 +325,7 @@ fn same_path(expected: &Path, actual: &Path) -> bool {
     actual.is_absolute() && key(expected).is_some() && key(expected) == key(actual)
 }
 
-fn reject_reparse(path: &Path) -> Result<(), Error> {
+pub(crate) fn reject_reparse(path: &Path) -> Result<(), Error> {
     let metadata = fs::symlink_metadata(path).map_err(|_| Error::PrivateStorageRequired)?;
     if metadata.file_type().is_symlink() { return Err(Error::PrivateStorageRequired); }
     #[cfg(windows)]

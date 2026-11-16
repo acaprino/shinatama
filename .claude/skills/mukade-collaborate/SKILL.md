@@ -97,6 +97,13 @@ sessioni del thread) ed entra con `chat_join` come `peer` con il tuo
 entrata: trova il tuo `member_id` con `chat_members` e usa `chat_rejoin`.
 Indirizza i messaggi al `member_name` del destinatario.
 
+Se `mukade.delivery` e' `hooks`, il thread ha l'interruttore «Sessions talk to
+each other» acceso: gli hook di Mukade ti hanno gia' fatto entrare (nome e
+handle sono nella nota `[mukade chat]` di inizio sessione). Non rifare
+`chat_join`, non chiamare `chat_read`/`chat_wait`: i messaggi arrivano ai tuoi
+turni e una sessione in ascolto si risveglia quando le scrivi. L'utente vede la
+conversazione nel pannello «Conversation» e puo' scrivere come membro `user`.
+
 Per un nuovo partecipante in collaborazione usa questa stanza come `room_id` e
 il tuo `member_name` come `coordinator`: Shinatama apre la nuova scheda nello
 stesso thread. Una sessione esistente del thread si raggiunge senza avviarne

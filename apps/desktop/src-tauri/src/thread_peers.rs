@@ -6,7 +6,7 @@ use crate::storage;
 use serde_json::{Value, json};
 use shinatama_engine::session_control::{Caller, ThreadTools, thread_member_name, thread_room_name};
 use shinatama_state::threads::{ThreadStatus, ThreadSummary};
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
 /// Harnesses Shinatama gives the Mukade chat tools at launch (`claude_launch`, `codex_launch`).
 const CHAT_HARNESSES: &[&str] = &["claude_code", "codex"];
@@ -33,7 +33,23 @@ impl ThreadTools for Peers {
             Ok(None) => "not_started",
             Err(_) => "unavailable",
         };
-        projection(&record.id, record.title.as_deref(), &sessions, caller, service)
+        // ADR-0057: in a thread that talks, Mukade's hooks joined its sessions under
+        // names the adapter chose; those are the names to address.
+        let mut names = BTreeMap::new();
+        let mut hooks = false;
+        if store.thread_chat_enabled(&workset).unwrap_or(false)
+            && let Ok(room) = crate::thread_chat::room_of(state, &workset)
+        {
+            for (session, harness, native) in store.workset_native_sessions(&workset).unwrap_or_default() {
+                if let Some(member) = shinatama_engine::mukade_chat::adapter_member(&state.location, &harness, &native)
+                    .filter(|member| member.room_id == room)
+                {
+                    hooks |= session == caller.session;
+                    names.insert(session, member.name);
+                }
+            }
+        }
+        projection(&record.id, record.title.as_deref(), &sessions, caller, service, &names, hooks)
     }
 }
 
@@ -55,9 +71,15 @@ pub(crate) fn projection(
     sessions: &[ThreadSummary],
     caller: &Caller<'_>,
     service: &str,
+    // Member names Mukade's hooks gave sessions, by session id; `hooks`: the caller is one.
+    names: &BTreeMap<String, String>,
+    hooks: bool,
 ) -> Result<Value, &'static str> {
     let room = thread_room_name(workset_id).ok_or("thread_not_found")?;
-    let me = thread_member_name(caller.harness, caller.session).ok_or("thread_not_found")?;
+    let me = match names.get(caller.session) {
+        Some(name) => name.clone(),
+        None => thread_member_name(caller.harness, caller.session).ok_or("thread_not_found")?,
+    };
     let peers: Vec<Value> = sessions
         .iter()
         .filter(|session| session.id != caller.session)
@@ -69,18 +91,29 @@ pub(crate) fn projection(
                 "harness": harness,
                 "title": session.title,
                 "state": session_state(session.status),
-                "member_name": if chat { harness.and_then(|harness| thread_member_name(harness, &session.id)) } else { None },
+                "member_name": if chat {
+                    names.get(&session.id).cloned().or_else(|| harness.and_then(|harness| thread_member_name(harness, &session.id)))
+                } else {
+                    None
+                },
                 "chat": if chat { "mukade" } else { "none" },
             })
         })
         .collect();
-    let how_to = [
+    let manual = [
         format!("1. chat_open with a fresh UUID request_id and name \"{room}\". It returns the same room_id to every session of this thread; keep it."),
         format!("2. chat_join with a fresh UUID request_id, that room_id, harness \"{}\", role \"peer\" and name \"{me}\". Keep the returned member_handle to yourself. If the answer is member_name_taken, an earlier run of this session joined: find the member_id named \"{me}\" with chat_members and call chat_rejoin with it instead.", caller.harness),
         "3. chat_send with recipients set to the peer's member_name. Refer to files by path; never send credentials or file contents.".to_owned(),
         "4. Another session sees a message only when it reads the room: an idle one does not wake by itself. To wait for an answer, call chat_wait in slices of at most 30 seconds for a bounded time and chat_ack each batch after handling it; otherwise tell the user to ask that session to read the thread's room.".to_owned(),
         format!("5. To bring a new session into this thread, call shinatama_session_open with this room_id and coordinator \"{me}\"."),
     ];
+    let joined = [
+        format!("1. You are already the member \"{me}\" of this thread's room \"{room}\": Shinatama's hooks joined you, and the [mukade chat] note at the start of your session gives your room_id and member_handle. Do not call chat_join again."),
+        "2. chat_send with recipients set to the peer's member_name. Refer to files by path; never send credentials or file contents.".to_owned(),
+        "3. Do not call chat_read or chat_wait: what other members write reaches you at your turns, and after each turn you wait a few minutes for a message addressed to you. A peer that listens the same way answers on its own; one with state other than running answers when resumed.".to_owned(),
+        format!("4. To bring a new session into this thread, call shinatama_session_open with your room_id and coordinator \"{me}\"."),
+    ];
+    let how_to: Vec<String> = if hooks { joined.to_vec() } else { manual.to_vec() };
     let mut note = String::from("A peer with chat \"none\" has no mukade tools in Shinatama and cannot be reached this way.");
     if service != "running" {
         note.push_str(" The mukade chat service is not running now: chat calls will fail until Shinatama starts it.");
@@ -88,7 +121,7 @@ pub(crate) fn projection(
     note.push_str(" A session started before the service ran has no mukade tools: resuming it, or a new session, gives them.");
     Ok(json!({
         "thread": {"id": workset_id, "title": title},
-        "mukade": {"service": service, "room_name": room},
+        "mukade": {"service": service, "room_name": room, "delivery": if hooks { "hooks" } else { "manual" }},
         "you": {"session_id": caller.session, "harness": caller.harness, "member_name": me},
         "peers": peers,
         "how_to": how_to,
@@ -124,7 +157,7 @@ mod tests {
             session("t_bbbbbbbbbbbb", Some("codex"), ThreadStatus::RecordedOpen),
             session("t_cccccccccccc", Some("pi"), ThreadStatus::Inactive),
         ];
-        let value = projection("w_dddddddddddd", Some("Billing"), &sessions, &caller, "running").unwrap();
+        let value = projection("w_dddddddddddd", Some("Billing"), &sessions, &caller, "running", &BTreeMap::new(), false).unwrap();
         assert_eq!(value["mukade"]["room_name"], "shinatama-thread-dddddddddddd");
         assert_eq!(value["you"]["member_name"], "claude-aaaaaaaaaaaa");
         let peers = value["peers"].as_array().unwrap();
@@ -139,12 +172,30 @@ mod tests {
     }
 
     #[test]
+    fn with_hooks_the_adapter_names_are_used_and_no_second_join_is_asked() {
+        let caller = Caller { instance: "i_aaaaaaaaaaaa", session: "t_aaaaaaaaaaaa", harness: "claude_code" };
+        let sessions = [
+            session("t_aaaaaaaaaaaa", Some("claude_code"), ThreadStatus::RecordedOpen),
+            session("t_bbbbbbbbbbbb", Some("codex"), ThreadStatus::RecordedOpen),
+        ];
+        let names = BTreeMap::from([
+            ("t_aaaaaaaaaaaa".to_owned(), "claude-1".to_owned()),
+            ("t_bbbbbbbbbbbb".to_owned(), "codex-1".to_owned()),
+        ]);
+        let value = projection("w_dddddddddddd", None, &sessions, &caller, "running", &names, true).unwrap();
+        assert_eq!(value["you"]["member_name"], "claude-1");
+        assert_eq!(value["peers"][0]["member_name"], "codex-1");
+        assert_eq!(value["mukade"]["delivery"], "hooks");
+        let steps = value["how_to"].to_string();
+        assert!(steps.contains("Do not call chat_join again") && steps.contains("Do not call chat_read"));
+    }
+    #[test]
     fn a_stopped_service_is_said_and_invalid_ids_are_refused() {
         let caller = Caller { instance: "i_aaaaaaaaaaaa", session: "t_aaaaaaaaaaaa", harness: "codex" };
-        let value = projection("w_dddddddddddd", None, &[], &caller, "not_started").unwrap();
+        let value = projection("w_dddddddddddd", None, &[], &caller, "not_started", &BTreeMap::new(), false).unwrap();
         assert!(value["note"].as_str().unwrap().contains("not running now"));
-        assert!(projection("bad", None, &[], &caller, "running").is_err());
+        assert!(projection("bad", None, &[], &caller, "running", &BTreeMap::new(), false).is_err());
         let stranger = Caller { session: "x", ..caller };
-        assert!(projection("w_dddddddddddd", None, &[], &stranger, "running").is_err());
+        assert!(projection("w_dddddddddddd", None, &[], &stranger, "running", &BTreeMap::new(), false).is_err());
     }
 }

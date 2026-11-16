@@ -39,13 +39,17 @@ pannello Threads non cambia la disposizione. Chiudere una vista conserva il thre
 La ripresa delle conversazioni Claude è collegata al comando **Resume**, quando disponibile,
 ma la prova completa con una conversazione reale resta aperta. Le finestre flottanti restano da implementare.
 
-Le sessioni Claude Code e Codex di uno stesso thread possono parlarsi attraverso Mukade:
-chiedi a una di esse, per esempio, «chiedi alla sessione Codex di questo thread di rivedere
-il diff». La sessione trova la stanza del thread e le altre sessioni con lo strumento
-`shinatama_thread_peers`. Una sessione aperta da un'altra entra nello stesso thread. Una
-sessione inattiva legge i messaggi solo al suo turno successivo: se non risponde, dille di
-leggere la stanza del thread. Servono il programma Mukade nel pacchetto e sessioni aperte
-dopo l'avvio del servizio. [Dettagli](docs/notes/2026-11-13-mukade-skill-contract.md#sessioni-dello-stesso-thread)
+**Sessioni che parlano tra loro.** Nelle impostazioni di un thread (⋯) attiva **Sessions talk
+to each other**. Da quel momento le sessioni Claude Code e Codex aperte o riprese nel thread
+entrano nella sua stanza Mukade: leggono ciò che scrivono le altre a ogni turno e, dopo un turno,
+aspettano fino a 5 minuti un messaggio indirizzato a loro (scrivere o Esc interrompe l'attesa).
+Chiedi a una sessione, per esempio, «chiedi alla sessione Codex di questo thread di rivedere il
+diff». Il pulsante **Chat** sulla riga del thread apre la conversazione accanto ai terminali:
+chi è nella stanza, i messaggi, e un campo per scrivere tu a una sessione (Ctrl+Invio invia). Un
+punto sul pulsante segnala messaggi nuovi; le schede dicono « · in chat». Le sessioni già aperte
+entrano quando le riprendi; OpenCode e Pi non partecipano. Serve il programma Mukade nel
+pacchetto. Senza interruttore le sessioni possono comunque usare la stanza a mano, ma una
+sessione inattiva legge solo al turno successivo. [Dettagli](docs/notes/2026-11-13-mukade-skill-contract.md#thread-che-parlano-hook-mukade-e-interfaccia-adr-0057)
 
 Se dopo un arresto dell'app un thread risulta ancora aperto senza terminale,
 **Recover session** tenta di recuperarlo. Quando riesce, premi **Resume**.

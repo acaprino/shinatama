@@ -176,6 +176,10 @@ impl HarnessDriver for ClaudeDriver {
             None => selection,
         };
         let selection = if context.require_mukade { selection.with_mukade_required() } else { selection };
+        let selection = match context.chat.clone() {
+            Some(chat) => selection.with_chat_hooks(chat),
+            None => selection,
+        };
         let inner = prepare_tracked_session(
             ClaudeStartContext {
                 candidate: context.candidate,

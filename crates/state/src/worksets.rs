@@ -205,6 +205,22 @@ impl Database {
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(rows)
     }
+    /// The latest native session of each session of one workset, oldest session first:
+    /// `(session id, harness, native id)`. A session without a segment is left out.
+    pub fn workset_native_sessions(&self, key: &str) -> Result<Vec<(String, String, String)>> {
+        id(key, CanonicalIdKind::Workset)?;
+        let connection = self.lock()?;
+        load(&connection, key)?;
+        let mut statement = connection.prepare(
+            "SELECT t.id,s.harness,s.native_id FROM workset_member m JOIN thread t ON t.id=m.thread_id
+ JOIN segment s ON s.id=(SELECT id FROM segment WHERE thread_id=t.id ORDER BY ordinal DESC LIMIT 1)
+ WHERE m.workset_id=?1 ORDER BY t.created_at,t.id LIMIT ?2",
+        )?;
+        let rows = statement
+            .query_map(params![key, MAX_MEMBERS as i64], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows)
+    }
     /// `name`: `Some(None)` clears the title, `None` leaves it.
     pub fn update_workset(
         &self,

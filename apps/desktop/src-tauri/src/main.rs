@@ -39,6 +39,8 @@ mod sidecar;
 mod storage;
 mod threads;
 #[cfg(windows)]
+mod thread_chat;
+#[cfg(windows)]
 mod thread_peers;
 #[cfg(windows)]
 mod terminal_runtime;
@@ -512,6 +514,7 @@ async fn agent_open(
     cwd: String,
     rows: u16,
     cols: u16,
+    workset_id: Option<String>,
 ) -> Result<serde_json::Value, String> {
     local(&window)?;
     if window.state::<ExitIntent>().0.load(Ordering::Acquire) {
@@ -530,6 +533,7 @@ async fn agent_open(
                 PathBuf::from(cwd),
                 rows,
                 cols,
+                workset_id,
             )
             .await
             .map_err(str::to_owned)?;
@@ -537,7 +541,10 @@ async fn agent_open(
             .map_err(|_| "Agent startup status is unavailable.".into());
     }
     #[cfg(not(windows))]
-    Err("Agent startup is available on Windows.".into())
+    {
+        let _ = workset_id;
+        Err("Agent startup is available on Windows.".into())
+    }
 }
 /// The proxy status with the agent terminals alive now, which only the agents
 /// controller knows.
@@ -723,6 +730,8 @@ fn main() {
             app.manage(Arc::new(presentation::Controller::new(services.clone())));
             app.manage(Arc::new(threads::Controller::new(services.clone())));
             #[cfg(windows)]
+            app.manage(Arc::new(thread_chat::Controller::default()));
+            #[cfg(windows)]
             {
                 let (monitor, governor) = app.state::<resources::Resources>().admission_inputs();
                 let runtime = Arc::new(terminal_runtime::Runtime::new(
@@ -799,6 +808,16 @@ fn main() {
         threads::workset_delete,
         threads::workset_adopt,
         threads::workset_of,
+        #[cfg(windows)]
+        thread_chat::thread_chat_list,
+        #[cfg(windows)]
+        thread_chat::thread_chat_set,
+        #[cfg(windows)]
+        thread_chat::thread_chat_overview,
+        #[cfg(windows)]
+        thread_chat::thread_chat_snapshot,
+        #[cfg(windows)]
+        thread_chat::thread_chat_send,
         threads::thread_rename,
         threads::thread_archive,
         threads::thread_forget,
@@ -963,6 +982,16 @@ fn main() {
         threads::workset_delete,
         threads::workset_adopt,
         threads::workset_of,
+        #[cfg(windows)]
+        thread_chat::thread_chat_list,
+        #[cfg(windows)]
+        thread_chat::thread_chat_set,
+        #[cfg(windows)]
+        thread_chat::thread_chat_overview,
+        #[cfg(windows)]
+        thread_chat::thread_chat_snapshot,
+        #[cfg(windows)]
+        thread_chat::thread_chat_send,
         threads::thread_rename,
         threads::thread_archive,
         threads::thread_forget,

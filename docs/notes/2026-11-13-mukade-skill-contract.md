@@ -61,7 +61,22 @@ Aggiunto il 16 novembre 2026. Nell'interfaccia un thread e' un insieme di sessio
 - Le istruzioni MCP di inizializzazione dicono al modello che la sessione appartiene a un thread e indicano il tool, cosi' una richiesta dell'utente come «chiedi a Codex nel thread» trova la strada senza la skill.
 - Solo Claude Code e Codex ricevono gli strumenti Mukade da Shinatama: OpenCode e Pi compaiono fra i peer con `chat: "none"`.
 
-Limite invariato: il consumo resta manuale. Una sessione inattiva non si risveglia da sola quando riceve un messaggio; lo legge quando chiama `chat_read`/`chat_wait`, cioe' quando l'utente o il suo turno la portano a farlo. Il tool lo dice al modello.
+Senza l'interruttore del thread (sotto) il consumo resta manuale: una sessione inattiva non si risveglia da sola quando riceve un messaggio; lo legge quando chiama `chat_read`/`chat_wait`. Il tool lo dice al modello.
+
+### Thread che parlano: hook Mukade e interfaccia (ADR-0057)
+
+Aggiunto il 16 novembre 2026 su richiesta dell'utente.
+
+- **Interruttore.** Nelle impostazioni del thread (⋯) «Sessions talk to each other». Spento di default; salvato in `threads.chat_enabled.v1`. Accenderlo apre subito la stanza, cosi' un problema si vede subito; non cambia le sessioni gia' aperte.
+- **Hook di Mukade, per lancio.** Le sessioni Claude Code e Codex create o riprese in un thread acceso ricevono gli hook dell'adapter Mukade (`mukade chat hook`) accanto all'hook di tracciamento di Shinatama, e la stanza nell'ambiente (`MUKADE_CHAT_ROOM_ID`, ruolo `peer`, ascolto 300 s, massimo 10 risvegli, `MUKADE_DATA_DIR`). L'adapter entra nella stanza al primo turno, consegna al modello cio' che gli altri hanno scritto a ogni turno e, dopo un turno, attende un messaggio indirizzato e riprende la sessione. Claude: tre voci aggiunte al `settings.json` dell'istanza. Codex: prompt e stop, con lo stesso schema di fiducia dell'hook di Shinatama (chiave di stato e hash di identita'), in un'unica tabella `hooks={…}` per restare nel limite di 32 argomenti. Nessuna configurazione globale, nessun trust aggirato.
+- **Sessioni nel loro thread.** `agent_open` riceve il thread, quindi il lancio lo conosce; una sessione aperta da un agente nasce nel thread del chiamante.
+- **Pannello «Conversation».** Il pulsante «Chat» sulla riga del thread apre un pannello laterale non modale: sessioni con stato di collegamento («in the room», «not in the room yet», «cannot take part») e pulsante per mostrarne la scheda; messaggi con mittente e destinatari, filtro; un campo per scrivere a una sessione o a tutta la stanza come membro `user`. Il pannello legge con `rooms`, `members`, `ledger` attraverso il programma Mukade del pacchetto e non consuma mai i batch dei membri.
+- **Segni.** Un punto sul pulsante «Chat» quando la stanza ha eventi non visti; « · in chat» o « · not in chat yet» sulle schede Claude e Codex del thread. Una sola chiamata `rooms` ogni 10 secondi.
+- **`shinatama_thread_peers`** con gli hook attivi riporta i nomi dati dall'adapter (`claude-1`, `codex-1`) e dice al modello di non rifare `chat_join` ne' leggere a mano; il bootstrap delle sessioni aperte da un agente fa lo stesso quando la stanza indicata e' quella del thread.
+
+Limiti: dopo ogni turno una sessione in ascolto mostra l'hook di stop in esecuzione per un massimo di 5 minuti (scrivere o Esc lo interrompe); le sessioni gia' aperte entrano solo quando riprese; OpenCode e Pi non partecipano. Lo schema di fiducia degli hook Mukade in Codex (chiavi `user_prompt_submit:0:0` e `stop:0:0`, hash senza matcher) segue quello verificato per l'hook di Shinatama ma non e' stato provato su Codex reale.
+
+Verifiche: test unitari di `mukade_chat`, della proiezione del pannello, di `thread_peers`, della tabella hook di Codex (anche analizzata come TOML) e del modello del pannello in TypeScript; `cargo check`/`clippy` per il target Windows; `tsc`, `npm test`, `npm run build`; aspetto del pannello e della sidebar controllato in Chromium con dati finti. Nessuna prova end-to-end con Mukade e agenti reali su Windows: la procedura e' nella sezione Confirmation di ADR-0057.
 
 Verifiche: test unitari dei nomi, del tool e della proiezione (eseguiti compilando i moduli isolati su Linux), `cargo check` e `cargo clippy` dei crate engine e desktop per il target Windows con un compilatore C fittizio, `tsc --noEmit` e `npm test`. Non e' stata eseguita una prova end-to-end con due sessioni reali e il servizio Mukade su Windows.
 
@@ -79,7 +94,7 @@ Le sessioni gia' aperte non acquisiscono retroattivamente l'endpoint MCP di Muka
 
 Questa integrazione usa il consumo MCP **manuale**: il child fa join come peer, manda READY, legge/attende e conferma i batch. Non aggiunge hook Mukade, non sovrascrive quelli nativi di tracking e non modifica il trust di Codex. I kit della CLI Mukade restano un percorso separato. Nessuna promessa di risveglio permanente dopo la fine del turno: le attese sono limitate e il bootstrap dichiara il proprio budget.
 
-File principali: `crates/engine/src/session_control.rs`, `harness_session_events.rs`, `mukade_mcp.rs`, i due launcher nativi, `apps/desktop/src-tauri/src/collaboration.rs`, `thread_peers.rs` e `apps/desktop/src/main.ts`.
+File principali: `crates/engine/src/session_control.rs`, `harness_session_events.rs`, `mukade_mcp.rs`, i due launcher nativi, `apps/desktop/src-tauri/src/collaboration.rs`, `thread_peers.rs`, `thread_chat.rs`, `crates/engine/src/mukade_chat.rs`, `apps/desktop/src/thread-chat.ts` e `apps/desktop/src/main.ts`.
 
 ## Confini di verifica
 
