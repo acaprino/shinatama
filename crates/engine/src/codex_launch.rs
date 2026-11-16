@@ -1125,12 +1125,13 @@ fn session_hook_command(
 }
 
 /// ADR-0057: Shinatama's session hook and Mukade's chat hooks as ONE `hooks` table
-/// override, `hooks={state={…},SessionStart=[…],UserPromptSubmit=[…],Stop=[…]}`.
-/// Trust follows `session_hook_arguments`: each handler's state key names its event
-/// and position in the session-flags layer, its hash the handler's identity. One
-/// override instead of a state and a definition per event keeps the argv within the
-/// terminal host's bound. The session-start entry is byte-identical to the one
-/// `session_hook_arguments` trusts.
+/// override, `hooks={state={…},SessionStart=[…],UserPromptSubmit=[…],Stop=[…]}`, so the argv
+/// stays within the terminal host's bound. The session-start entry and its trust are
+/// byte-identical to `session_hook_arguments`. Mukade's two hooks carry no trust here: Codex
+/// trusts them through the approval `mukade chat trust codex` recorded in this home's
+/// `config.toml` (`mukade_chat::trust_codex`). Codex reads hook trust from the user layer and
+/// the session-flags layer and merges it key by key, so this override does not hide that
+/// approval; a hash computed here instead would override the one Codex recorded.
 fn session_and_chat_hook_arguments(
     helper: &Path,
     shell: &Path,
@@ -1138,24 +1139,22 @@ fn session_and_chat_hook_arguments(
     chat: &[crate::mukade_chat::CodexHook],
 ) -> Result<Vec<OsString>, CodexLaunchError> {
     let quote = |text: &str| serde_json::to_string(text).map_err(|_| CodexLaunchError::Configuration);
-    let state = |event: &str, hash: &str| {
-        format!("'C:\\<session-flags>\\config.toml:{event}:0:0'={{enabled=true,trusted_hash=\"{hash}\"}}")
-    };
     let command = session_hook_command(helper, shell, port)?;
     let matcher = "^(startup|resume|clear|compact|fork)$";
-    let mut states = vec![state("session_start", &hook_hash("session_start", Some(matcher), &command, 5)?)];
+    let hash = hook_hash("session_start", Some(matcher), &command, 5)?;
     let mut definitions = vec![format!(
         "SessionStart=[{{matcher={},hooks=[{{type=\"command\",command={},timeout=5,async=false}}]}}]",
         quote(matcher)?,
         quote(&command)?
     )];
     for hook in chat {
-        let line = encoded_powershell(shell, &hook.script)?;
-        states.push(state(hook.event_name, &hook_hash(hook.event_name, None, &line, hook.timeout)?));
+        if hook.command.chars().any(char::is_control) {
+            return Err(CodexLaunchError::Configuration);
+        }
         definitions.push(format!(
-            "{}=[{{hooks=[{{type=\"command\",command={},timeout={},async=false}}]}}]",
+            "{}=[{{hooks=[{{type=\"command\",command={},timeout={}}}]}}]",
             hook.table_key,
-            quote(&line)?,
+            quote(&hook.command)?,
             hook.timeout
         ));
     }
@@ -1163,7 +1162,11 @@ fn session_and_chat_hook_arguments(
         "-c".into(),
         "features.hooks=true".into(),
         "-c".into(),
-        format!("hooks={{state={{{}}},{}}}", states.join(","), definitions.join(",")).into(),
+        format!(
+            "hooks={{state={{'C:\\<session-flags>\\config.toml:session_start:0:0'={{enabled=true,trusted_hash=\"{hash}\"}}}},{}}}",
+            definitions.join(",")
+        )
+        .into(),
     ])
 }
 /// Codex's identity of one command handler (see `session_hook_arguments`): the
@@ -1179,23 +1182,6 @@ fn hook_hash(event: &str, matcher: Option<&str>, command: &str, timeout: u64) ->
     identity.sort_all_objects();
     let normalized = serde_json::to_vec(&identity).map_err(|_| CodexLaunchError::Configuration)?;
     Ok(format!("sha256:{:x}", Sha256::digest(normalized)))
-}
-/// A PowerShell script run the way Shinatama's own Codex hook runs: the pinned
-/// Windows PowerShell, no profile, the script base64-encoded so no shell parses it.
-fn encoded_powershell(shell: &Path, script: &str) -> Result<String, CodexLaunchError> {
-    let shell = shell.to_str().ok_or(CodexLaunchError::Configuration)?;
-    let shell = shell.strip_prefix(r"\\?\").unwrap_or(shell).replace('\\', "/");
-    if shell.len() <= 3
-        || !shell.as_bytes()[0].is_ascii_alphabetic()
-        || &shell.as_bytes()[1..3] != b":/"
-        || !shell.bytes().all(|byte| byte.is_ascii_alphanumeric() || b":/_.-".contains(&byte))
-        || script.len() > 8192
-        || script.chars().any(char::is_control)
-    {
-        return Err(CodexLaunchError::Configuration);
-    }
-    let bytes: Vec<_> = script.encode_utf16().flat_map(u16::to_le_bytes).collect();
-    Ok(format!("{shell} -NoProfile -NonInteractive -EncodedCommand {}", encode_base64(&bytes)))
 }
 
 fn session_hook_script(helper: &str, port: u16) -> String {
@@ -1641,12 +1627,10 @@ mod tests {
         let helper = Path::new(r"C:\App\shinatama-hook.exe");
         let shell = Path::new(r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe");
         let verified = session_hook_arguments(&version, helper, shell, 43210).unwrap();
-        let chat = [crate::mukade_chat::CodexHook {
-            table_key: "Stop",
-            event_name: "stop",
-            script: "$ErrorActionPreference='Stop'; & 'C:/App/mukade/mukade.exe' chat hook codex stop; exit $LASTEXITCODE".into(),
-            timeout: 330,
-        }];
+        let chat = [
+            crate::mukade_chat::CodexHook { table_key: "UserPromptSubmit", command: "& 'C:/App/mukade/mukade.exe' chat hook codex prompt".into(), timeout: 30 },
+            crate::mukade_chat::CodexHook { table_key: "Stop", command: "& 'C:/App/mukade/mukade.exe' chat hook codex stop".into(), timeout: 3630 },
+        ];
         let combined = session_and_chat_hook_arguments(helper, shell, 43210, &chat).unwrap();
         // Two arguments fewer than the state and definition pairs it replaces.
         assert_eq!(combined.len(), verified.len() - 2);
@@ -1654,16 +1638,15 @@ mod tests {
         let table = combined[3].to_str().unwrap();
         // The session-start trust and definition are the verified ones, byte for byte.
         let verified_state = verified[3].to_str().unwrap();
-        let state = verified_state.strip_prefix("hooks={state={").unwrap().strip_suffix("}}").unwrap();
-        assert!(table.starts_with(&format!("hooks={{state={{{state},'C:\\<session-flags>\\config.toml:stop:0:0'=")));
+        let state = verified_state.strip_prefix("hooks={").unwrap().strip_suffix("}").unwrap();
+        assert!(table.starts_with(&format!("hooks={{{state},")), "{table}");
         let definition = verified[5].to_str().unwrap().strip_prefix("hooks.").unwrap();
-        assert!(table.contains(&format!(",{definition},Stop=[{{hooks=[{{type=\"command\",command=")));
-        assert!(table.contains("timeout=330,async=false}]}]}"));
-        // The chat hook's hash is computed like the session hook's, without a matcher.
-        let line = encoded_powershell(shell, &chat[0].script).unwrap();
-        assert!(table.contains(&hook_hash("stop", None, &line, 330).unwrap()));
-        assert_ne!(hook_hash("stop", None, &line, 330).unwrap(), hook_hash("stop", Some("x"), &line, 330).unwrap());
-        assert!(encoded_powershell(Path::new("powershell.exe"), "x").is_err());
+        assert!(table.contains(&format!(",{definition},UserPromptSubmit=[{{hooks=[{{type=\"command\",command=\"& 'C:/App/mukade/mukade.exe' chat hook codex prompt\",timeout=30}}]}}]")));
+        assert!(table.ends_with(",Stop=[{hooks=[{type=\"command\",command=\"& 'C:/App/mukade/mukade.exe' chat hook codex stop\",timeout=3630}]}]}"));
+        // Only Shinatama's own hook is trusted here; Mukade's come from the recorded approval.
+        assert_eq!(table.matches("trusted_hash").count(), 1);
+        let bad = [crate::mukade_chat::CodexHook { table_key: "Stop", command: "a\nb".into(), timeout: 1 }];
+        assert!(session_and_chat_hook_arguments(helper, shell, 43210, &bad).is_err());
     }
     #[test]
     fn initial_prompt_is_bounded_and_cannot_be_attached_to_resume() {

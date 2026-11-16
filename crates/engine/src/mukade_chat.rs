@@ -16,7 +16,7 @@ use std::{
     collections::BTreeMap,
     ffi::OsString,
     io::{Read, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
     time::{Duration, Instant},
 };
 
@@ -32,6 +32,8 @@ pub const USER_HARNESS: &str = "shinatama";
 /// Mukade bounds a hook's stop at the listening time plus a margin.
 const STOP_MARGIN_SECONDS: u64 = 30;
 const CLI_TIMEOUT: Duration = Duration::from_secs(20);
+/// Mukade bounds each answer of Codex's app-server at 30 s; trust asks it at most three times.
+const TRUST_TIMEOUT: Duration = Duration::from_secs(100);
 const MAX_OUTPUT: usize = 4 * 1024 * 1024;
 const MAX_ADAPTER_STATE: u64 = 16 * 1024;
 
@@ -58,15 +60,19 @@ pub struct ChatHooks {
     data_dir: PathBuf,
 }
 
-/// One Codex hook: its event, as the `-c hooks` table names it and as Codex's hook
-/// identity names it, and its command line.
+/// One Codex hook: its event, as the `-c hooks` table names it, its command line and timeout.
+/// Command and timeout are exactly Mukade's own (`harnesses::codex::chat_hooks`), because Codex
+/// trusts a hook by the hash of its event and definition: the approval `mukade chat trust codex`
+/// writes (`trust_codex`) is valid only for these same definitions.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CodexHook {
     pub table_key: &'static str,
-    pub event_name: &'static str,
-    pub script: String,
+    pub command: String,
     pub timeout: u64,
 }
+/// Mukade's `adapter::STOP_HOOK_TIMEOUT` (its longest listening, 3600 s, plus 30 s): the stop
+/// hook's timeout is part of the identity Codex trusts, so it is Mukade's, not Shinatama's.
+pub const CODEX_STOP_HOOK_TIMEOUT: u64 = 3600 + 30;
 
 impl ChatHooks {
     /// `None` without a bundled Mukade program: the hooks have nothing to run.
@@ -126,16 +132,17 @@ impl ChatHooks {
             ("Stop", hook("stop", Self::stop_timeout())),
         ])
     }
-    /// Codex's hooks, as PowerShell scripts that Shinatama's launcher wraps the way it
-    /// wraps its own hook. Codex has no session-start hook here: the first prompt joins.
+    /// Codex's prompt and stop hooks, as Mukade writes them for Windows, where Codex runs a hook
+    /// with PowerShell: `& '<program>' chat hook codex <event>` (Mukade's live record, runs 6-8).
+    /// No session-start hook: that place belongs to Shinatama's own hook, and the first prompt
+    /// joins the room. The two keep their place (`…:user_prompt_submit:0:0`, `…:stop:0:0`), which
+    /// is the key Mukade's trust records.
     pub fn codex_hooks(&self) -> Option<Vec<CodexHook>> {
         let program = self.program_path()?.replace('\'', "''");
-        let script = |event: &str| {
-            format!("$ErrorActionPreference='Stop'; & '{program}' chat hook codex {event}; exit $LASTEXITCODE")
-        };
+        let command = |event: &str| format!("& '{program}' chat hook codex {event}");
         Some(vec![
-            CodexHook { table_key: "UserPromptSubmit", event_name: "user_prompt_submit", script: script("prompt"), timeout: 30 },
-            CodexHook { table_key: "Stop", event_name: "stop", script: script("stop"), timeout: Self::stop_timeout() },
+            CodexHook { table_key: "UserPromptSubmit", command: command("prompt"), timeout: 30 },
+            CodexHook { table_key: "Stop", command: command("stop"), timeout: CODEX_STOP_HOOK_TIMEOUT },
         ])
     }
 }
@@ -195,8 +202,6 @@ pub fn call(base: &StorageLocation, operation: &str, arguments: &[(&str, &str)],
     if !matches!(operation, "open" | "join" | "rejoin" | "members" | "ledger" | "send" | "rooms") {
         return Err("This chat operation is not used by Shinatama.".into());
     }
-    let program = crate::mukade_mcp::bundled_program()
-        .ok_or_else(|| "This Shinatama has no Mukade program in its mukade folder.".to_owned())?;
     let mut argv: Vec<String> = vec!["chat".into(), operation.into()];
     for (name, value) in arguments {
         if !name.bytes().all(|c| c.is_ascii_lowercase() || c == b'-') || value.len() > 4096 || value.chars().any(char::is_control) {
@@ -209,17 +214,79 @@ pub fn call(base: &StorageLocation, operation: &str, arguments: &[(&str, &str)],
         argv.extend(["--text-file".into(), "-".into()]);
     }
     argv.push("--json".into());
+    let environment = [(OsString::from("MUKADE_DATA_DIR"), data_directory(base).into_os_string())];
+    run(&argv, &environment, None, text, CLI_TIMEOUT, operation)
+}
+
+/// Codex's own approval of Mukade's hooks, written by `mukade chat trust codex` into the
+/// `config.toml` of the Codex home Shinatama launches with (its private home), as Codex's
+/// `/hooks` would: Codex's app-server lists the hooks with their keys and hashes, and the
+/// approval is recorded for exactly those. Nothing outside that home is written, and no
+/// approval is skipped or bypassed. `Ok` only when Codex then reports every one of Mukade's
+/// hooks trusted. Already trusted hooks are left as they are, so a repeat is harmless; each
+/// (home, Codex program) pair is checked once per run of Shinatama.
+pub fn trust_codex(codex_home: &Path, private_root: &Path, codex_program: &Path, project: &Path) -> Result<(), String> {
+    static TRUSTED: std::sync::Mutex<Vec<(PathBuf, PathBuf)>> = std::sync::Mutex::new(Vec::new());
+    let pair = (codex_home.to_owned(), codex_program.to_owned());
+    if TRUSTED.lock().is_ok_and(|trusted| trusted.contains(&pair)) {
+        return Ok(());
+    }
+    // Codex is started as Shinatama starts it: its home, profile and application folders
+    // are the private ones, so the approval lands in the config.toml that session reads.
+    let environment = [
+        (OsString::from("CODEX_HOME"), codex_home.as_os_str().to_owned()),
+        (OsString::from("HOME"), codex_home.as_os_str().to_owned()),
+        (OsString::from("USERPROFILE"), codex_home.as_os_str().to_owned()),
+        (OsString::from("APPDATA"), private_root.join("roaming").into_os_string()),
+        (OsString::from("LOCALAPPDATA"), private_root.join("local").into_os_string()),
+        (OsString::from("MUKADE_CODEX_EXE"), codex_program.as_os_str().to_owned()),
+    ];
+    let argv = ["chat".to_owned(), "trust".to_owned(), "codex".to_owned()];
+    let report = run(&argv, &environment, Some(project), None, TRUST_TIMEOUT, "trust")?;
+    if report["status"] != "trusted" {
+        let hooks: Vec<String> = report["hooks"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|hook| format!("{} {}", hook["event"].as_str().unwrap_or("?"), hook["after"].as_str().unwrap_or("?")))
+            .collect();
+        return Err(format!("Codex did not confirm Mukade's hooks as trusted ({}).", hooks.join(", ")));
+    }
+    if let Ok(mut trusted) = TRUSTED.lock() {
+        trusted.push(pair);
+    }
+    Ok(())
+}
+
+/// One bounded run of the bundled program, without a console. Both pipes drain on their own
+/// threads: a long ledger page fills a pipe buffer long before the program ends.
+fn run(
+    argv: &[String],
+    extra: &[(OsString, OsString)],
+    cwd: Option<&Path>,
+    text: Option<&str>,
+    timeout: Duration,
+    operation: &str,
+) -> Result<Value, String> {
+    let program = crate::mukade_mcp::bundled_program()
+        .ok_or_else(|| "This Shinatama has no Mukade program in its mukade folder.".to_owned())?;
     let mut environment: BTreeMap<OsString, OsString> = std::env::vars_os().collect();
     crate::mukade_mcp::clear_environment(&mut environment);
+    for (name, value) in extra {
+        environment.retain(|key, _| !key.eq_ignore_ascii_case(name));
+        environment.insert(name.clone(), value.clone());
+    }
     let mut command = std::process::Command::new(&program);
     command
-        .args(&argv)
+        .args(argv)
         .env_clear()
         .envs(environment)
-        .env("MUKADE_DATA_DIR", data_directory(base))
         .stdin(if text.is_some() { std::process::Stdio::piped() } else { std::process::Stdio::null() })
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
+    if let Some(cwd) = cwd {
+        command.current_dir(cwd);
+    }
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -235,8 +302,6 @@ pub fn call(base: &StorageLocation, operation: &str, arguments: &[(&str, &str)],
             return Err("The message could not be handed to Mukade.".into());
         }
     }
-    // Both pipes drain on their own threads: a long ledger page fills a pipe buffer
-    // long before the program ends.
     let drain = |stream: Option<Box<dyn Read + Send>>| {
         std::thread::spawn(move || {
             let mut bytes = Vec::new();
@@ -248,7 +313,7 @@ pub fn call(base: &StorageLocation, operation: &str, arguments: &[(&str, &str)],
     };
     let stdout = drain(child.stdout.take().map(|s| Box::new(s) as Box<dyn Read + Send>));
     let stderr = drain(child.stderr.take().map(|s| Box::new(s) as Box<dyn Read + Send>));
-    let deadline = Instant::now() + CLI_TIMEOUT;
+    let deadline = Instant::now() + timeout;
     let status = loop {
         match child.try_wait() {
             Ok(Some(status)) => break status,
@@ -323,12 +388,15 @@ mod tests {
         assert_eq!(claude[2].1["hooks"][0]["command"], "'C:/Shinatama/mukade/mukade.exe' chat hook claude_code stop");
         assert_eq!(claude[2].1["hooks"][0]["timeout"], 330);
         let codex = hooks().codex_hooks().unwrap();
-        assert_eq!(codex[0].event_name, "user_prompt_submit");
-        assert!(codex[1].script.contains("& 'C:/Shinatama/mukade/mukade.exe' chat hook codex stop"));
+        // Exactly Mukade's Windows hook lines and timeouts, so Mukade's trust applies to them.
+        assert_eq!(codex[0].command, "& 'C:/Shinatama/mukade/mukade.exe' chat hook codex prompt");
+        assert_eq!((codex[0].table_key, codex[0].timeout), ("UserPromptSubmit", 30));
+        assert_eq!(codex[1].command, "& 'C:/Shinatama/mukade/mukade.exe' chat hook codex stop");
+        assert_eq!((codex[1].table_key, codex[1].timeout), ("Stop", 3630));
         let odd = ChatHooks::with_program("room", PathBuf::from("relative/mukade.exe"), PathBuf::new());
         assert!(odd.claude_hooks().is_none() && odd.codex_hooks().is_none());
         let quoted = ChatHooks::with_program("room", PathBuf::from(r"C:\O'Brien\mukade.exe"), PathBuf::new());
-        assert!(quoted.codex_hooks().unwrap()[0].script.contains("C:/O''Brien/mukade.exe"));
+        assert!(quoted.codex_hooks().unwrap()[0].command.contains("C:/O''Brien/mukade.exe"));
     }
 
     #[test]

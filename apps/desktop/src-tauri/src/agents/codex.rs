@@ -156,6 +156,16 @@ impl HarnessDriver for CodexDriver {
             None => selection,
         };
         let selection = if context.require_mukade { selection.with_mukade_required() } else { selection };
+        // ADR-0057: Codex runs Mukade's hooks only once it trusts them. Mukade records that
+        // approval in this private home's config.toml, through Codex's own app-server, before
+        // the launch. If it cannot, the session still opens; Codex then skips the hooks and the
+        // session shows as not in the room.
+        if context.chat.is_some() {
+            let paths = context.private_home.paths();
+            if let Err(reason) = shinatama_engine::mukade_chat::trust_codex(paths.home(), paths.root(), &context.candidate.path, context.project) {
+                eprintln!("Mukade's hooks are not trusted by Codex; this session will not join its room: {reason}");
+            }
+        }
         let selection = match context.chat.clone() {
             Some(chat) => selection.with_chat_hooks(chat),
             None => selection,

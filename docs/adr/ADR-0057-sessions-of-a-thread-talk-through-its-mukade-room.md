@@ -73,11 +73,22 @@ a message addressed to the member and continues the session with it (bounded by
    from, a thread that is on gets Mukade's hooks next to Shinatama's tracking hook, and the room in
    its environment (`MUKADE_CHAT_ROOM_ID`, role `peer`, listen 300 s, at most 10 wakes,
    `MUKADE_DATA_DIR`). Claude Code: three entries appended to the per-instance `settings.json`
-   (session start, prompt, stop). Codex: prompt and stop, trusted the way Shinatama's own hook is
-   (session-flags state key and identity hash), all in one `hooks={state=…,SessionStart=…,…}`
-   override so the argv stays within the terminal host's 32-argument bound. Nothing global is
-   written; no trust is bypassed. Without a reachable service or bundled program the session opens
-   as an ordinary one.
+   (session start, prompt, stop). Codex: prompt and stop, defined exactly as Mukade defines them
+   (`& '<…>/mukade/mukade.exe' chat hook codex <event>`, timeouts 30 and 3630 s), next to
+   Shinatama's session-start hook in one `hooks={state=…,SessionStart=…,…}` override so the argv
+   stays within the terminal host's 32-argument bound. Without a reachable service or bundled
+   program the session opens as an ordinary one.
+3a. **Codex trusts Mukade's hooks through Mukade.** Before such a launch Shinatama runs
+   `mukade chat trust codex` against the session's private Codex home: Codex's own app-server
+   lists the hooks with their keys and hashes, and the approval is written to that home's
+   `config.toml`, as `/hooks` would (Mukade's live record, run 8, Codex 0.167.2 on Windows). It is
+   accepted only when Codex then reports all of Mukade's hooks trusted, and is checked once per
+   run of Shinatama. The approval holds because the program's path never changes. Codex reads hook
+   trust from the user layer and the session-flags layer and merges it key by key
+   (`codex-rs/hooks/src/config_rules.rs`), so Shinatama's override for its own hook does not hide
+   it; Shinatama computes no hash for Mukade's hooks, which would override the one Codex recorded.
+   Nothing outside the private home is written; no trust is bypassed. A failure is logged and the
+   session opens without the room.
 4. **Sessions are created in their thread.** `agent_open` takes the thread, so the launch knows
    it; a session opened by another one (`shinatama_session_open`) is created in the caller's thread.
 5. **The window reads without consuming.** It uses `rooms`, `members` and `ledger` through the
@@ -105,6 +116,9 @@ a message addressed to the member and continues the session with it (bounded by
   share to the window's lifetime. The feature is linked into the separate `mukade` program instead.
 - **RA-004: Codex hooks as separate `-c` pairs.** Exceeds the 32-argument bound at the fullest
   launch.
+- **RA-006: Shinatama computes the trust hash of Mukade's hooks itself.** Its identity rules
+  are Codex's internals; an error would silently leave the hooks untrusted, and a session-flags
+  hash overrides the correct one Codex recorded. Codex computes it instead, through Mukade.
 - **RA-005: write the room into Mukade's adapter state before launch.** Writes another program's
   private records and needs a native id Codex chooses itself.
 
