@@ -233,7 +233,8 @@ pub struct PrivateStorePlan {
 
 impl PrivateStorePlan {
     /// Read-only resolution. C01 must already have prepared the application data
-    /// root. Existing roots/directories are verified, never repaired or re-ACL'd.
+    /// root. Existing roots/directories are verified, never repaired or re-ACL'd, except the
+    /// agent's temporary folder, whose permissions the harness itself may widen.
     /// System homes are deliberately not representable as a write destination.
     pub fn resolve(
         base: &StorageLocation,
@@ -368,7 +369,16 @@ impl PrivateStorePlan {
                 .try_exists()
                 .map_err(|error| StoreRootError::io(&path, error))?
             {
-                location.verify_private_directory()?;
+                let verified = location.verify_private_directory();
+                // The harness works in its temporary folder and may open it to its own sandbox
+                // (Codex on Windows adds an entry for its sandbox identity). It is the current
+                // user's and holds no credential: it is made private again here, where a refusal
+                // stopped every later start and resume. Home and cache are never repaired.
+                if verified.is_err() && path == temporary {
+                    location.prepare_private_directory()?;
+                } else {
+                    verified?;
+                }
             }
             directories.push(DirectoryPlan { path, location });
         }
@@ -1088,6 +1098,29 @@ mod tests {
             b"configuration fixture must remain unchanged"
         );
         fixture.location().verify_private_directory().unwrap();
+    }
+
+    /// Codex's Windows sandbox adds an entry for its sandbox identity to the temporary folder
+    /// it is given. Refusing that folder refused every later start and resume.
+    #[test]
+    fn a_temporary_folder_the_harness_opened_to_others_is_made_private_again_and_the_agent_starts()
+    {
+        let fixture = Fixture::new();
+        let prepared = fixture.plan("codex").prepare().unwrap();
+        let temporary = prepared.paths().temporary().to_path_buf();
+        let left = temporary.join("left-by-the-harness.fixture");
+        fs::write(&left, b"scratch").unwrap();
+        drop(prepared);
+        make_broad_acl(&temporary);
+        let prepared = fixture.plan("codex").prepare().unwrap();
+        assert_eq!(prepared.paths().temporary(), temporary);
+        fixture
+            .location()
+            .resolve_related_directory(&temporary)
+            .unwrap()
+            .verify_private_directory()
+            .unwrap();
+        assert_eq!(fs::read(left).unwrap(), b"scratch");
     }
 
     #[test]

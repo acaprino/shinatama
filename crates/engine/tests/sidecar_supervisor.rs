@@ -52,7 +52,7 @@ use windows_sys::Win32::{
         JobObjects::{IsProcessInJob, OpenJobObjectW},
         Pipes::PeekNamedPipe,
         Threading::{
-            GetProcessIdOfThread, GetProcessTimes, GetThreadTimes, OpenProcess, OpenThread,
+            GetPriorityClass, HIGH_PRIORITY_CLASS, GetProcessIdOfThread, GetProcessTimes, GetThreadTimes, OpenProcess, OpenThread,
             PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE, PROCESS_TERMINATE,
             ResumeThread, SuspendThread, THREAD_QUERY_LIMITED_INFORMATION, THREAD_SUSPEND_RESUME,
             TerminateProcess, WaitForSingleObject,
@@ -145,8 +145,9 @@ impl WorkloadProvider for Provider {
     }
     fn prepare(&mut self, at: i64, until: i64) -> Result<PreparedWorkload, AdmissionUnavailable> {
         let count = self.calls.fetch_add(1, Ordering::AcqRel);
-        // A broken restart loop fails visibly at3, with a finite fixture ceiling4.
-        if count >= 4 {
+        // The third admission is temporarily unavailable; recovery must retry it
+        // automatically without holding another process or widening the budget.
+        if count == 2 || count >= 5 {
             return Err(AdmissionUnavailable);
         }
         let sampled = WindowsSampler::new()
@@ -400,7 +401,9 @@ fn wait_status(
     condition: impl Fn(&Snapshot) -> bool,
 ) -> ProofResult<Snapshot> {
     loop {
-        check(Instant::now() < deadline, "supervisor observation deadline")?;
+        if Instant::now() >= deadline {
+            return Err(format!("supervisor observation deadline: expected {expected:?}, observed {:?}", supervisor.status()));
+        }
         if let Some(snapshot) = supervisor.status() {
             if snapshot.phase == expected && condition(&snapshot) {
                 return Ok(snapshot);
@@ -601,7 +604,7 @@ impl Drop for PausedThread {
 
 #[test]
 #[ignore = "local native supervisor proof; requires pinned Node, prepared bundle and offline synthetic CA tool"]
-fn real_owner_busy_keeps_identity_and_exits_restart_once_on_same_port() {
+fn real_owner_busy_keeps_identity_and_recovers_repeated_exits_on_same_port() {
     let mut fixture = Fixture::new();
     let result = qualify(&fixture);
     let evidence = match &result {
@@ -618,10 +621,8 @@ fn real_owner_busy_keeps_identity_and_exits_restart_once_on_same_port() {
 }
 fn qualify(fixture: &Fixture) -> ProofResult<Value> {
     let location = fixture.location();
-    let db = Arc::new(safe(
-        Database::open(&location, None),
-        "open private supervisor ledger",
-    )?);
+    let db = Arc::new(Database::open(&location, None)
+        .map_err(|error| format!("open private supervisor ledger: {error:?}"))?);
     let reserved = safe(
         TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0)),
         "reserve private CLI port",
@@ -679,7 +680,7 @@ fn qualify(fixture: &Fixture) -> ProofResult<Value> {
         AdmissionCoordinator::new(1),
         "create fixed fixture slot",
     )?);
-    let deadline = Instant::now() + Duration::from_secs(30);
+    let deadline = Instant::now() + Duration::from_secs(60);
     setup_ca(
         &recipe,
         config.root().directory(),
@@ -795,24 +796,34 @@ fn qualify(fixture: &Fixture) -> ProofResult<Value> {
             "replacement reused process identity",
         )?;
         second.crash()?;
-        let failed = wait_status(&supervisor, deadline, Phase::Failed, |value| {
-            value.phase == Phase::Failed && value.reason == Reason::RepeatedExit
+        let recovered_again = wait_status(&supervisor, deadline, Phase::Ready, |value| {
+            value.healthy && value.pid.is_some_and(|pid| pid != second_pid)
         })?;
-        thread::sleep(Duration::from_millis(300));
         check(
-            calls.load(Ordering::Acquire) == 2,
-            "repeated exit started a third process",
+            calls.load(Ordering::Acquire) == 4 && jobs.lock().unwrap().len() == 3,
+            "second exit did not recover automatically exactly once",
         )?;
+        let third = ExactChild::open(recovered_again.pid.unwrap(), jobs.lock().unwrap()[2])?;
+        check(unsafe { GetPriorityClass(third.process.as_raw_handle()) } == HIGH_PRIORITY_CLASS,
+            "recovered proxy does not have High process priority")?;
+        third.crash()?;
+        wait_status(&supervisor, deadline, Phase::Recovering, |value| {
+            value.reason == Reason::ProcessExited && value.process_alive == Some(false)
+        })?;
+        supervisor.request(Command::Stop).map_err(|_| "stop pending recovery")?;
+        wait_status(&supervisor, deadline, Phase::Stopped, |_| true)?;
+        thread::sleep(Duration::from_secs(9)); // Past the pending eight-second recovery deadline.
+        check(calls.load(Ordering::Acquire) == 4, "Stop did not cancel pending recovery")?;
         check(
             safe(fs::read(&marker), "read saved marker")? == b"saved-before-supervision",
             "saved fixture work changed",
         )?;
         Ok(
             json!({"passed":true,"actualPinnedCli":true,"busyKeptExactOwner":true,"busyProbeDelayMs":busy.health_probe_delay_ms,
-            "busyHeartbeatAdvanced":true,"healthyRecoveryResetDelayMs":recovered.health_probe_delay_ms,"automaticRestarts":1,
-            "sameAddressAfterRestart":true,"secondExitPhase":failed.phase,"secondExitReason":failed.reason,"prepareCalls":calls.load(Ordering::Acquire),
-            "savedMarkerPreserved":true,"agentCommandsReplayed":false,"nativeLimits":budget(),"perProcessCommitBytes":768*MIB,"wallBudgetSeconds":30,
-            "limits":["One Windows pinned CLI, finite main-thread pause and two controlled exits; no extended soak or provider traffic."]}),
+            "busyHeartbeatAdvanced":true,"healthyRecoveryResetDelayMs":recovered.health_probe_delay_ms,"automaticRestarts":2,
+            "sameAddressAfterRestart":true,"secondExitPhase":recovered_again.phase,"stopCancelledRecovery":true,"highPriority":true,"admissionRetriedAutomatically":true,"prepareCalls":calls.load(Ordering::Acquire),
+            "savedMarkerPreserved":true,"agentCommandsReplayed":false,"nativeLimits":budget(),"perProcessCommitBytes":768*MIB,"wallBudgetSeconds":60,
+            "limits":["One Windows pinned CLI, finite main-thread pause and three controlled exits; no extended soak or provider traffic."]}),
         )
     })();
     let stop = safe(

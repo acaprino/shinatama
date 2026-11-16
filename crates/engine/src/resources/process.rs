@@ -27,7 +27,7 @@ use windows_sys::Win32::{
         Memory::{GetProcessHeap, HeapAlloc, HeapFree},
         Pipes::CreatePipe,
         Threading::{
-            BELOW_NORMAL_PRIORITY_CLASS, CREATE_NO_WINDOW, CREATE_SUSPENDED,
+            BELOW_NORMAL_PRIORITY_CLASS, HIGH_PRIORITY_CLASS, CREATE_NO_WINDOW, CREATE_SUSPENDED,
             CREATE_UNICODE_ENVIRONMENT, CreateProcessW, DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT, GetExitCodeProcess,
             InitializeProcThreadAttributeList, LPPROC_THREAD_ATTRIBUTE_LIST,
             PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROCESS_INFORMATION, ResumeThread,
@@ -64,6 +64,7 @@ pub struct NativeCommand {
     cwd: PathBuf,
     command_line: Vec<u16>,
     environment: Vec<u16>,
+    priority_class: u32,
 }
 impl std::fmt::Debug for NativeCommand {
     fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -94,7 +95,14 @@ impl NativeCommand {
             cwd,
             command_line,
             environment,
+            priority_class: BELOW_NORMAL_PRIORITY_CLASS,
         })
+    }
+    /// The shared model proxy serves every interactive session. Other contained
+    /// workers keep their background priority and all job budgets still apply.
+    pub(crate) fn high_priority(mut self) -> Self {
+        self.priority_class = HIGH_PRIORITY_CLASS;
+        self
     }
 }
 fn absolute(path: &Path) -> bool {
@@ -460,13 +468,12 @@ fn spawn_child(
                 null(),
                 null(),
                 1,
-                // Contained workloads (model proxy, harness checks) yield the CPU to
-                // the control window; their children inherit the class.
+                // Priority is selected by the trusted owner, never by agent input.
                 CREATE_SUSPENDED
                     | CREATE_UNICODE_ENVIRONMENT
                     | CREATE_NO_WINDOW
                     | EXTENDED_STARTUPINFO_PRESENT
-                    | BELOW_NORMAL_PRIORITY_CLASS,
+                    | command.priority_class,
                 command.environment.as_ptr().cast(),
                 cwd.as_ptr(),
                 &startup.StartupInfo,

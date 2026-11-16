@@ -222,11 +222,13 @@ impl Controller {
             "stopped"
         };
         let message = self.failure.try_lock().ok().and_then(|value| *value).or_else(|| observation.as_ref().and_then(|snapshot| match snapshot.reason {
-            Reason::AdmissionDeferred => Some("Resources or a free process slot are unavailable. Wait or close unused terminals, then retry Start. Existing sessions keep their limits."),
-            Reason::StartupRefused => Some("The local service could not confirm startup. Existing files were preserved; retry explicitly."),
-            Reason::RepeatedExit => Some("The local service exited twice. Automatic recovery has stopped; saved sessions were preserved."),
+            Reason::AdmissionDeferred => Some("Waiting for resources. The proxy will retry automatically; existing sessions keep their limits."),
+            Reason::StartupRefused if snapshot.phase == Phase::Recovering => Some("The proxy could not start. Recovery will retry automatically; saved files are preserved."),
+            Reason::StartupRefused => Some("The proxy launch configuration is unavailable. Saved files are preserved; retry Start after correcting the installation."),
+            Reason::ProcessExited => Some("The proxy exited. Recovering automatically on the same address; saved sessions are preserved."),
+            Reason::CleanupUncertain if snapshot.phase == Phase::Recovering => Some("Waiting to confirm cleanup before restarting the proxy. Its reservation remains held."),
             Reason::CleanupUncertain => Some("Cleanup is not confirmed. Its reservation remains held; retry cleanup before another start."),
-            Reason::ResourceLimit => Some("The local service exceeded its own resource budget and was stopped. Saved sessions were preserved."),
+            Reason::ResourceLimit => Some("The proxy reached its resource limit. Recovery will retry with fresh resource checks; saved sessions are preserved."),
             _ => None,
         }));
         let resolved = observation

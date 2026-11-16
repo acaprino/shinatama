@@ -162,6 +162,9 @@ function focusAttentionSession(id: string) {
   }
   const group = tabGroups(workspaceLayout.root).find(candidate => candidate.tabs.includes(id));
   if (!view || !group) { notify('This terminal is no longer in the workspace.', 'info'); return; }
+  // A notification can target another project: reveal its tab before drawing its console.
+  tabFilter?.reveal(view.info.cwd);
+  currentWorkset = tabWorkset(id)?.id ?? currentWorkset;
   changeLayout({ type: 'hide', viewId: id, hidden: false });
   changeLayout({ type: 'collapse', groupId: group.id, collapsed: false });
   changeLayout({ type: 'maximize', groupId: null });
@@ -233,7 +236,7 @@ async function openBrowserTab(target: BrowserTarget, viewId?: string) {
 const renderer = createWorkspaceRenderer({
   host: workspace, bindings,
   dispatch(action, expected) { if (expected === workspaceLayout) changeLayout(action); },
-  onFocusView(id) { currentWorkset = tabWorkset(id)?.id ?? currentWorkset; if (modalOpen()) return; if (browserTabs.has(id)) browserTabs.focus(id); else views.get(id)?.terminal.focus(); },
+  onFocusView(id) { currentWorkset = tabWorkset(id)?.id ?? currentWorkset; threadSidebar?.repaint(); if (modalOpen()) return; if (browserTabs.has(id)) browserTabs.focus(id); else views.get(id)?.terminal.focus(); },
   onVisibilityChange(id, visible) { if (browserTabs.has(id)) { browserTabs.setVisible(id, visible); return; } const view = views.get(id); if (view) { view.visible = visible; if (visible) { scheduleFit(view); view.minimap.redraw(); } } },
   labelForView: panel => panel.resource.kind === 'browser' ? browserTabs.label(panel.id) : tabLabel(panel.id),
   toneForView: panel => panel.resource.kind === 'terminal' ? tabTone(panel.id) : null,

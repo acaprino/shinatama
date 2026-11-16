@@ -23,6 +23,7 @@
 .thread-sidebar-list > li + li { margin-top: 5px; }
 .thread-sidebar-anchor { display: grid; justify-content: stretch; gap: 3px; width: 100%; min-height: 88px; padding: 8px; text-align: left; white-space: normal; letter-spacing: 0; text-transform: none; border-color: var(--line); background: var(--surface); }
 .thread-sidebar-anchor[aria-pressed=true] { border-color: var(--accent); background: var(--surface-2); }
+.thread-sidebar-anchor[aria-current=true], .thread-sidebar-rail-item[aria-current=true] { box-shadow: inset 3px 0 var(--thread-tone, var(--accent)); }
 .thread-sidebar-anchor > span { min-width: 0; overflow-wrap: anywhere; }
 .thread-sidebar-title { color: var(--text); font: 500 13px var(--display); }
 .thread-sidebar-id { color: var(--ice); font: 11px var(--mono); }

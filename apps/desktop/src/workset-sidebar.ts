@@ -276,6 +276,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
         const name = shownTitle(row); const on = isOn(row.id); const tone = options.tone?.(row.id);
         square.textContent = initials(name);
         square.setAttribute('aria-pressed', String(on)); square.disabled = busy;
+        square.setAttribute('aria-current', String(options.openId() === row.id));
         if (tone) square.style.setProperty('--thread-tone', tone);
         const running = options.running(row.id);
         square.title = `${name} · ${labelOf(project)}${running ? ` · ${running} running` : ''}\n${on ? 'Click to hide its tabs' : 'Click to show its tabs'}`;
@@ -307,6 +308,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
       anchors.set(row.id, item);
     }
     const anchor = item.firstElementChild as HTMLButtonElement; anchor.disabled = busy;
+    anchor.setAttribute('aria-current', String(options.openId() === row.id));
     const on = isOn(row.id);
     const name = shownTitle(row); const titleLine = anchor.querySelector<HTMLElement>('.thread-sidebar-title')!;
     if (titleLine.textContent !== name) titleLine.textContent = name;

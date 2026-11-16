@@ -830,7 +830,6 @@ mod namespace {
         size: u64,
         modified: u64,
         attributes: u32,
-        links: u32,
     }
     struct Pin {
         file: File,
@@ -850,9 +849,10 @@ mod namespace {
         if unsafe { GetFileInformationByHandle(file.as_raw_handle(), &mut info) } == 0 {
             return Err(SessionReadIssue::ReadUnavailable);
         }
-        if info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT != 0
-            || (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY == 0 && info.nNumberOfLinks != 1)
-        {
+        // A second name is not refused: Claude Code gives every background agent's transcript
+        // one (its task output), and refusing it refused every read and resume in the box.
+        // The file is pinned by identity, size and write time whatever its names are.
+        if info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
             return Err(SessionReadIssue::UnsafeRoot);
         }
         let directory = info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY != 0;
@@ -873,7 +873,6 @@ mod namespace {
                     | u64::from(info.ftLastWriteTime.dwLowDateTime)
             },
             attributes: info.dwFileAttributes,
-            links: info.nNumberOfLinks,
         })
     }
     fn open(path: &Path) -> Result<Pin> {
@@ -1790,8 +1789,58 @@ mod tests {
         assert_eq!(session_file_bytes(&record, "abc-123"), 5000);
         assert_eq!(session_file_bytes(&record, "missing"), 0);
     }
+    /// Claude Code gives a background agent's transcript a second name, its task output under
+    /// the session's temp folder. A second name must never make the box unreadable: every
+    /// resume, list, search and export in it would be refused.
     #[test]
-    fn namespace_pins_allow_appends_but_reject_reparse_hardlinks_and_changed_membership() {
+    fn a_session_file_with_a_second_name_is_pinned_and_a_name_added_later_changes_nothing() {
+        let fixture = Fixture {
+            path: fs::canonicalize(std::env::temp_dir())
+                .unwrap()
+                .join(format!("shinatama-session-roots-{}", uuid::Uuid::new_v4())),
+        };
+        let location = StorageLocation::resolve(LocationRequest {
+            local_data_directory: std::env::temp_dir(),
+            home_override: Some(fixture.path.clone()),
+            project_roots: Vec::new(),
+            synchronized_roots: Vec::new(),
+        })
+        .unwrap();
+        location.prepare_private_directory().unwrap();
+        let subagents = location.directory().join("projects/project/session/subagents");
+        fs::create_dir_all(&subagents).unwrap();
+        let transcript = subagents.join("agent-a1.jsonl");
+        let later = subagents.join("agent-b2.jsonl");
+        let body = b"{\"sessionId\":\"synthetic\"}\n";
+        fs::write(&transcript, body).unwrap();
+        fs::write(&later, body).unwrap();
+        let tasks = location.directory().join("tmp/tasks");
+        fs::create_dir_all(&tasks).unwrap();
+        fs::hard_link(&transcript, tasks.join("a1.output")).unwrap();
+        let root = StoreRootRecord {
+            id: "second-name-fixture".into(),
+            harness: "claude_code".into(),
+            kind: RootKind::Box,
+            scope: RootScope::Primary,
+            resolved_path: location
+                .directory()
+                .to_string_lossy()
+                .trim_start_matches(r"\\?\")
+                .into(),
+            origin: RootOrigin::Configured,
+            config_revision: 1,
+            access: RootAccess::ReadWrite,
+            available: true,
+        };
+        let guard = pin_reader_namespace(&root).unwrap();
+        assert_eq!(guard.file_count(), 2);
+        assert_eq!(guard.total_input_bytes(), 2 * body.len() as u64);
+        // Claude adds the second name while a session runs: the bytes did not change.
+        fs::hard_link(&later, tasks.join("b2.output")).unwrap();
+        guard.verify_current().unwrap();
+    }
+    #[test]
+    fn namespace_pins_allow_appends_but_reject_reparse_and_changed_membership() {
         let fixture = Fixture {
             path: fs::canonicalize(std::env::temp_dir())
                 .unwrap()
@@ -1810,9 +1859,6 @@ mod tests {
         let source = project.join("synthetic.jsonl");
         let original = b"{\"sessionId\":\"synthetic\"}\n";
         fs::write(&source, original).unwrap();
-        // A credential-shaped sibling is outside the reader namespace. Even an
-        // unsafe alias there must not trigger a scan/read of this unrelated file.
-        fs::hard_link(&source, location.directory().join("auth.json")).unwrap();
         let root = StoreRootRecord {
             id: "guard-fixture".into(),
             harness: "claude_code".into(),
@@ -1828,11 +1874,7 @@ mod tests {
             access: RootAccess::ReadWrite,
             available: true,
         };
-        assert!(matches!(
-            pin_reader_namespace(&root),
-            Err(SessionReadIssue::UnsafeRoot)
-        ));
-        fs::remove_file(location.directory().join("auth.json")).unwrap();
+        // A credential-shaped sibling is outside the reader namespace: it is never pinned or read.
         fs::write(
             location.directory().join("auth.json"),
             b"synthetic credential sentinel",

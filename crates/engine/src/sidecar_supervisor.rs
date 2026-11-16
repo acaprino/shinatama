@@ -69,7 +69,6 @@ pub enum Reason {
     StartupTimedOut,
     HealthUnavailable,
     ProcessExited,
-    RepeatedExit,
     OutputLimit,
     ObservationUnavailable,
     CleanupUncertain,
@@ -257,6 +256,7 @@ impl SidecarSupervisor {
             lease_valid: true,
             queue_limits: (0, 0),
             busy_backoff: BusyBackoff::default(),
+            recovery: RecoveryBackoff::default(),
         };
         if thread::Builder::new()
             .name("shinatama-sidecar-owner".into())
@@ -317,9 +317,13 @@ struct Worker<P> {
     lease_valid: bool,
     queue_limits: (u64, u32),
     busy_backoff: BusyBackoff,
+    recovery: RecoveryBackoff,
 }
 impl<P: WorkloadProvider> Worker<P> {
     fn publish(&mut self, phase: Phase, reason: Reason) {
+        if !self.snapshot.healthy {
+            self.recovery.unhealthy();
+        }
         // Health keeps answering while a drain waits: that is still Draining.
         let phase = if self.drain.active() && matches!(phase, Phase::Ready | Phase::Busy) {
             Phase::Draining
@@ -354,6 +358,7 @@ impl<P: WorkloadProvider> Worker<P> {
             match self.receiver.recv_timeout(self.config.poll_period) {
                 Ok(Command::Stop) => {
                     self.requested_start = false;
+                    self.recovery.cancel();
                     self.stop(true);
                 }
                 Ok(Command::Drain) => self.drain_requested(),
@@ -367,14 +372,16 @@ impl<P: WorkloadProvider> Worker<P> {
                     if effect == DrainEffect::Cancel {
                         self.publish(Phase::Ready, Reason::None);
                     } else if self.snapshot.phase == Phase::Stopped {
+                        self.recovery = RecoveryBackoff::default();
                         self.requested_start = true;
                     }
                 }
                 Ok(Command::Retry) => {
-                    if self.retained.is_some() {
-                        self.retry_cleanup();
-                    } else if self.running.is_none() && self.snapshot.phase == Phase::Failed {
+                    if self.retained.is_some()
+                        || (self.running.is_none() && self.snapshot.phase == Phase::Failed)
+                    {
                         self.snapshot.restart_used = false;
+                        self.recovery.cancel();
                         self.requested_start = true;
                     } else {
                         self.next_health = Instant::now();
@@ -388,15 +395,28 @@ impl<P: WorkloadProvider> Worker<P> {
             }
             if self.stop_requested.swap(false, Ordering::AcqRel) {
                 self.requested_start = false;
+                self.recovery.cancel();
                 for _ in 0..4 {
                     let _ = self.receiver.try_recv();
                 }
                 self.stop(true);
                 continue;
             }
-            if self.requested_start && self.running.is_none() && self.retained.is_none() {
-                self.requested_start = false;
-                self.launch();
+            if self.requested_start && self.running.is_none() {
+                if self.recovery.ready(Instant::now()) {
+                    if self.retained.is_some() {
+                        self.retry_cleanup();
+                    }
+                    if self.retained.is_none() {
+                        self.requested_start = false;
+                        self.launch();
+                    } else {
+                        self.recover(Reason::CleanupUncertain);
+                    }
+                } else {
+                    // A scheduled retry is still a live supervisor observation.
+                    self.publish(self.snapshot.phase, self.snapshot.reason);
+                }
             }
             self.tick();
             self.drain_step();
@@ -418,6 +438,7 @@ impl<P: WorkloadProvider> Worker<P> {
             }
             DrainEffect::StopNow => {
                 self.requested_start = false;
+                self.recovery.cancel();
                 self.stop(true);
             }
             DrainEffect::Cancel | DrainEffect::Unaffected => {}
@@ -476,12 +497,12 @@ impl<P: WorkloadProvider> Worker<P> {
             return;
         };
         let Some(at) = now() else {
-            self.publish(Phase::Failed, Reason::ObservationUnavailable);
+            self.recover(Reason::ObservationUnavailable);
             return;
         };
         let until = at.saturating_add(self.config.reservation_lease.as_millis() as i64);
         let Ok(workload) = self.provider.prepare(at, until) else {
-            self.publish(Phase::Failed, Reason::AdmissionDeferred);
+            self.recover(Reason::AdmissionDeferred);
             return;
         };
         // Shared admission may stamp the reservation AFTER the request time.
@@ -492,7 +513,9 @@ impl<P: WorkloadProvider> Worker<P> {
             workload.ticket().budget.queue_bytes,
             workload.ticket().budget.queue_items,
         );
-        match spawn_contained(command, workload, self.provider.database(), at, until) {
+        match spawn_contained(
+            command.high_priority(), workload, self.provider.database(), at, until,
+        ) {
             Ok(running) => {
                 self.running = Some(running);
                 self.started = Instant::now();
@@ -512,34 +535,28 @@ impl<P: WorkloadProvider> Worker<P> {
                     Ok(CleanupStatus::Released { .. })
                 ) {
                     self.retained = Some(Retained::Reservation(failure.workload));
-                    self.publish(Phase::Retired, Reason::CleanupUncertain);
+                    self.recover(Reason::CleanupUncertain);
                 } else {
-                    self.publish(Phase::Failed, Reason::StartupRefused);
+                    self.recover(Reason::StartupRefused);
                 }
             }
         }
     }
     fn tick(&mut self) {
+        let draining = self.drain.active();
         let Some(running) = &mut self.running else {
             return;
         };
         let observed = running.process.try_wait();
         if matches!(observed, Ok(Some(_))) {
             // A process that exits while draining has done what the drain asked for.
-            let draining = self.drain.active();
             self.drain.clear();
             self.snapshot.process_alive = Some(false);
             self.snapshot.healthy = false;
             self.publish(Phase::Recovering, Reason::ProcessExited);
             self.stop(false);
-            if self.retained.is_none() && !draining {
-                if self.snapshot.restart_used {
-                    self.publish(Phase::Failed, Reason::RepeatedExit);
-                } else {
-                    self.snapshot.restart_used = true;
-                    self.requested_start = true;
-                    self.publish(Phase::Recovering, Reason::ProcessExited);
-                }
+            if !draining {
+                self.recover(Reason::ProcessExited);
             }
             return;
         }
@@ -580,15 +597,10 @@ impl<P: WorkloadProvider> Worker<P> {
             self.requested_start = false;
             self.publish(Phase::Recovering, Reason::ResourceLimit);
             self.stop(false); // exact retained process/job only; never another PID.
-            self.publish(
-                if self.retained.is_some() {
-                    Phase::Retired
-                } else {
-                    Phase::Failed
-                },
-                Reason::ResourceLimit,
-            );
-            return; // Explicit Retry only: never replay agent work or raise caps.
+            if !draining {
+                self.recover(Reason::ResourceLimit);
+            }
+            return; // Every replacement must pass fresh admission with the same caps.
         }
         if Instant::now() >= self.next_renew {
             self.next_renew = Instant::now() + self.config.reservation_lease / 3;
@@ -617,8 +629,8 @@ impl<P: WorkloadProvider> Worker<P> {
         ) {
             self.snapshot.healthy = false;
             self.stop(false);
-            if self.retained.is_none() {
-                self.publish(Phase::Failed, Reason::OutputLimit);
+            if !draining {
+                self.recover(Reason::OutputLimit);
             }
             return;
         }
@@ -636,6 +648,7 @@ impl<P: WorkloadProvider> Worker<P> {
             self.config.health_timeout,
         );
         if self.snapshot.healthy {
+            self.recovery.healthy(Instant::now());
             self.ever_healthy = true;
             self.busy_backoff.healthy();
             self.snapshot.port_held = None;
@@ -656,6 +669,7 @@ impl<P: WorkloadProvider> Worker<P> {
                 Reason::None,
             );
         } else {
+            self.recovery.unhealthy();
             // No fresh reading: an old count must not survive a failed probe.
             self.snapshot.in_flight = None;
             // The process may have exited DURING the bounded HTTP attempt.
@@ -694,6 +708,19 @@ impl<P: WorkloadProvider> Worker<P> {
             // No prepare/start/replay path is reachable from this transition.
             self.publish(phase, reason);
         }
+    }
+    /// Retry the proxy only, on its original address. Agent commands are never replayed.
+    /// Cleanup stays owned and must complete before another reservation is admitted.
+    fn recover(&mut self, reason: Reason) {
+        self.snapshot.restart_used = true;
+        self.requested_start = true;
+        self.recovery.schedule(Instant::now());
+        let reason = if self.retained.is_some() {
+            Reason::CleanupUncertain
+        } else {
+            reason
+        };
+        self.publish(Phase::Recovering, reason);
     }
     fn stop(&mut self, graceful: bool) {
         self.drain.clear();
@@ -777,6 +804,39 @@ impl<P: WorkloadProvider> Worker<P> {
             self.publish(Phase::Stopped, Reason::None);
         } else {
             self.publish(Phase::Retired, Reason::CleanupUncertain);
+        }
+    }
+}
+/// Repeated failures keep recovering; the delay rises to a maximum of 30 seconds.
+/// A full minute of observed health restores the initial one-second retry.
+#[derive(Default)]
+struct RecoveryBackoff {
+    failures: u32,
+    next: Option<Instant>,
+    healthy_since: Option<Instant>,
+}
+impl RecoveryBackoff {
+    fn schedule(&mut self, now: Instant) {
+        let seconds = (1u64 << self.failures.min(5)).min(30);
+        self.failures = self.failures.saturating_add(1);
+        self.next = Some(now + Duration::from_secs(seconds));
+        self.healthy_since = None;
+    }
+    fn ready(&self, now: Instant) -> bool {
+        self.next.is_none_or(|next| now >= next)
+    }
+    fn cancel(&mut self) {
+        self.next = None;
+        self.healthy_since = None;
+    }
+    fn unhealthy(&mut self) {
+        self.healthy_since = None;
+    }
+    fn healthy(&mut self, now: Instant) {
+        self.next = None;
+        let since = self.healthy_since.get_or_insert(now);
+        if now.duration_since(*since) >= Duration::from_secs(60) {
+            self.failures = 0;
         }
     }
 }
@@ -1399,6 +1459,27 @@ mod tests {
     use super::test_support::{StatusServer, server};
     use super::*;
     use std::net::TcpListener;
+
+    #[test]
+    fn recovery_keeps_retrying_with_a_bounded_delay_and_resets_only_after_stable_health() {
+        let mut recovery = RecoveryBackoff::default();
+        let mut now = Instant::now();
+        for delay in [1, 2, 4, 8, 16, 30, 30, 30] {
+            recovery.schedule(now);
+            assert!(!recovery.ready(now + Duration::from_secs(delay) - Duration::from_millis(1)));
+            now += Duration::from_secs(delay);
+            assert!(recovery.ready(now));
+            recovery.healthy(now); // Briefly responding must not reset a crash loop.
+        }
+        recovery.healthy(now + Duration::from_secs(59));
+        recovery.unhealthy();
+        recovery.healthy(now + Duration::from_secs(60));
+        recovery.healthy(now + Duration::from_secs(119));
+        assert_ne!(recovery.failures, 0);
+        recovery.healthy(now + Duration::from_secs(120));
+        recovery.schedule(now + Duration::from_secs(121));
+        assert!(recovery.ready(now + Duration::from_secs(122)));
+    }
 
     fn launch_snapshot(phase: Phase, healthy: bool, now: i64) -> Snapshot {
         Snapshot {
