@@ -1,5 +1,6 @@
 @echo off
-rem Build Shinatama (+ Mukade, + Xiox when ..\xiox exists) and assemble everything, directly usable, in .\release
+rem Build Shinatama (+ its Mukade program) and assemble everything, directly usable, in .\release,
+rem with the Mukade terminal browser and Xiox downloaded from their pinned GitHub releases
 rem Usage: build-release.bat   (then run release\Shinatama.exe)
 setlocal
 cd /d "%~dp0"
@@ -7,6 +8,7 @@ cd /d "%~dp0"
 where pwsh >nul 2>nul || (echo PowerShell 7.4+ ^(pwsh^) is required. & goto fail)
 where npm >nul 2>nul || (echo npm is required. & goto fail)
 where cargo >nul 2>nul || (echo cargo is required. & goto fail)
+where gh >nul 2>nul || (echo gh ^(GitHub CLI, signed in^) is required for the Mukade and Xiox releases. & goto fail)
 
 echo [1/6] Frontend build
 call npm run build || goto fail
@@ -42,39 +44,26 @@ copy /y "%~dp0target\debug\shinatama.exe" "%~dp0release\cli\shinatama.exe" >nul 
 copy /y "%~dp0target\release\shinatama-session-helper.exe" "%~dp0release\cli\shinatama-session-helper.exe" >nul || (echo Could not copy the CLI session helper. & goto fail)
 
 echo [5/6] Mukade ^(embedded: chat service, hooks and session CLI; terminal browser^)
-rem mukade.exe is built in this workspace from the Mukade revision pinned in Cargo.toml
-rem (crates/mukade); no Mukade checkout beside Shinatama is used. Built on its own, so the
-rem chat feature is not unified into the engine's session reader.
+rem mukade.exe is Shinatama's own program (crates/mukade): Mukade's command line from the revision
+rem pinned in Cargo.toml plus Shinatama's `shinatama-kit` command, so it is built here, not
+rem downloaded. Built on its own, so the chat feature is not unified into the engine's session reader.
 cargo build --release --locked -p shinatama-mukade || goto fail
 if not exist "%~dp0release\mukade" mkdir "%~dp0release\mukade"
 copy /y "%~dp0target\release\mukade.exe" "%~dp0release\mukade\mukade.exe" >nul || goto fail
-rem The terminal browser, from the same pinned revision and Mukade's own lockfile.
-for /f "usebackq delims=" %%R in (`pwsh -NoProfile -Command "(Get-Content -Raw 'scripts\mukade-pin.json' | ConvertFrom-Json).revision"`) do set "MUKADE_REV=%%R"
-if not defined MUKADE_REV (echo The Mukade revision was not found in scripts\mukade-pin.json. & goto fail)
-cargo install --locked --git https://github.com/acaprino/mukade --rev %MUKADE_REV% --root "%~dp0target\mukade-tui" mukade-tui || goto fail
-copy /y "%~dp0target\mukade-tui\bin\mukade-tui.exe" "%~dp0release\mukade\mukade-tui.exe" >nul || goto fail
+rem The terminal browser is Mukade's, unchanged: the pinned release's file (scripts\mukade-pin.json).
+pwsh -NoProfile -File "scripts\fetch-release.ps1" -Pin "scripts\mukade-pin.json" -Destination "%~dp0release\mukade" || goto fail
 
 echo [6/6] Xiox ^(observer of what sessions leave: worktrees, copies, bench and backup folders^)
-rem Optional: without it Shinatama runs as before and the project overview says Xiox is missing.
-rem mukade.exe goes beside xiox.exe, the first place Xiox looks for it (its own vendored build).
-set "XIOX=%~dp0..\xiox"
-if not exist "%XIOX%\Cargo.toml" (echo Xiox not found at "%XIOX%": leftovers are not observed. & goto done)
-pushd "%XIOX%" || goto fail
-cargo build --release --locked -p xiox-cli
-set "RC=%ERRORLEVEL%"
-popd
-if not "%RC%"=="0" goto fail
-if not exist "%~dp0release\xiox" mkdir "%~dp0release\xiox"
-copy /y "%XIOX%\target\release\xiox.exe" "%~dp0release\xiox\xiox.exe" >nul || goto fail
-if exist "%XIOX%\vendor\mukade\mukade.exe" copy /y "%XIOX%\vendor\mukade\mukade.exe" "%~dp0release\xiox\mukade.exe" >nul || goto fail
+rem The pinned release's xiox.exe (scripts\xiox-pin.json); no Xiox source is built. Xiox is given
+rem Shinatama's mukade\mukade.exe (XIOX_MUKADE_EXE), so no second Mukade goes beside it.
+pwsh -NoProfile -File "scripts\fetch-release.ps1" -Pin "scripts\xiox-pin.json" -Destination "%~dp0release\xiox" || goto fail
 
-:done
 echo.
 echo OK. Package %STAGE%
 echo Ready: %~dp0release\Shinatama.exe
 echo        %~dp0release\cli\shinatama.exe ^(sessions, find, export, forget, check-state, mcp^)
 echo        %~dp0release\mukade\mukade.exe and mukade-tui.exe
-echo        %~dp0release\xiox\xiox.exe ^(when Xiox was built^)
+echo        %~dp0release\xiox\xiox.exe
 exit /b 0
 
 :fail

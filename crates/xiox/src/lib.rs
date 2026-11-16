@@ -15,7 +15,7 @@
 mod observer;
 mod picture;
 
-pub use observer::{Observer, Options, Update};
+pub use observer::{MUKADE_ENV, Observer, Options, Update};
 pub use picture::{Change, MAX_NEW_ITEMS, NewItem, Phase, Picture, SessionRef};
 
 use std::{

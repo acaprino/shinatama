@@ -250,8 +250,9 @@ pub(crate) fn own_directory(base: &StorageLocation) -> PathBuf {
 /// The Mukade program Shinatama ships (`crates/mukade`, built from the pinned revision), at its
 /// one fixed place: `mukade\mukade.exe` beside the running program, or one folder up for programs
 /// in `cli\`. A development build puts it at the same place (`npm run desktop`). The path is part
-/// of every hook command, so of Codex's trust in those hooks: it never moves.
-pub(crate) fn bundled_program() -> Option<PathBuf> {
+/// of every hook command, so of Codex's trust in those hooks: it never moves. Xiox is given the
+/// same program for the session histories, so a package holds one Mukade.
+pub fn bundled_program() -> Option<PathBuf> {
     let executable = std::env::current_exe().ok()?;
     let folder = executable.parent()?;
     [Some(folder), folder.parent()].into_iter().flatten()

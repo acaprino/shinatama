@@ -280,7 +280,8 @@ the manifest are carried over, not rerun.
 The same day Mukade became embedded: `crates/mukade` (package `shinatama-mukade`, binary
 `mukade`) builds Mukade's own program from this dependency with the `chat` feature, and
 `build-release.bat` ships it as `mukade\mukade.exe` (the terminal browser `mukade-tui.exe` is
-installed from the same revision). The program no longer comes from a Mukade checkout beside
+the unchanged file of the same release, v0.1.0, downloaded and checked against the SHA-256 in
+`scripts/mukade-pin.json`). The program no longer comes from a Mukade checkout beside
 Shinatama. `crates/mukade/tests/pin.rs` fails when the dependency, the manifest and
 `MUKADE_REVISION` disagree.
 

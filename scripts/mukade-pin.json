@@ -12,5 +12,13 @@
   "offlineSnapshot": ".verification/mukade-pin-31feb1e",
   "runtimeUsesCheckout": false,
   "metadataWorkerQualification": "contained-synthetic-metadata-passed",
-  "metadataUiQualification": "explicit-read-only-archive-53-synthetic-rows-passed"
+  "metadataUiQualification": "explicit-read-only-archive-53-synthetic-rows-passed",
+  "release": {
+    "repository": "acaprino/mukade",
+    "tag": "v0.1.0",
+    "commit": "31feb1e97a05caa268c2cc3b003d05297db14ec3",
+    "assets": {
+      "mukade-tui.exe": "f46d2aa82456cc847e36787cee4706fd39fe8dbbc871c3c68243e70d5bc29ca1"
+    }
+  }
 }

@@ -97,8 +97,9 @@ e hop restano distinti: non sono certificati dalla sola apertura della TUI.
 
 ## Cosa lasciano le sessioni (Xiox)
 
-Se accanto a Shinatama c'è `xiox\xiox.exe` ([Xiox](https://github.com/acaprino/xiox), messo
-lì da `build-release.bat` quando trova `..\xiox`), la prima sessione agente in un progetto
+Se accanto a Shinatama c'è `xiox\xiox.exe` ([Xiox](https://github.com/acaprino/xiox): lo mette
+lì `build-release.bat`, scaricato dalla release fissata in `scripts\xiox-pin.json`; Xiox legge
+le sessioni con il `mukade\mukade.exe` di Shinatama), la prima sessione agente in un progetto
 avvia `xiox observe` su quel progetto. L'osservatore fa una fotografia iniziale e da quel
 momento segnala ciò che compare.
 

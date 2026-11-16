@@ -17,9 +17,13 @@ since it started, one JSON line at a time, without ever removing anything.
 
 - **Program.** `crates/xiox` (`shinatama-xiox`) looks for `SHINATAMA_XIOX` (a path, or `off`),
   then `xiox\xiox.exe` beside Shinatama (or one folder up, for `cli\`), then `PATH`.
-  `build-release.bat` builds Xiox from `..\xiox` when that folder exists and copies
-  `xiox.exe` into `release\xiox\`, with Xiox's own `mukade.exe` beside it. Without Xiox,
+  `build-release.bat` downloads `xiox.exe` from the Xiox release pinned in
+  `scripts/xiox-pin.json` (tag, commit, SHA-256; `scripts/fetch-release.ps1`, through `gh`)
+  into `release\xiox\`; no Xiox source is built. The observer is given Shinatama's own
+  `mukade\mukade.exe` as `XIOX_MUKADE_EXE`, so a package holds one Mukade. Without Xiox,
   Shinatama works as before and Projects says why nothing is observed.
+- **Schema.** Shinatama reads `observe` schema 1 (Xiox `v0.1.0`). Xiox's `feat/step4` moves to
+  schema 2, whose lines Shinatama ignores: a later pin needs the reader updated first.
 - **When it starts.** `terminal_read` already sees every batch of every terminal (as
   `attention` does). `apps/desktop/src-tauri/src/leftovers.rs` uses that: the first batch of a
   new agent terminal (Claude Code, Codex, OpenCode, Pi; not PowerShell) starts one observer for
@@ -67,8 +71,12 @@ since it started, one JSON line at a time, without ever removing anything.
 ## Checks
 
 - `cargo test -p shinatama-xiox`: event folding, program lookup, the child process (a stand-in
-  script), and, with `XIOX_TEST_PROGRAM=<xiox>`, the real program on a scratch repository
-  where a worktree and a `-bench` folder are created while it runs.
+  script), and, with `XIOX_TEST_PROGRAM=<xiox>` (and `XIOX_TEST_MUKADE=<mukade>`), the real
+  program on a scratch repository where a worktree and a `-bench` folder are created while it
+  runs. Run it with `TEMP`/`TMP` outside any git repository: with the scratch folder inside
+  another repository (an agent session's TEMP under another project), Xiox did not report the
+  `-bench` folder and the test failed.
+  2026-11-16: 9/9 against the `v0.1.0` release with Shinatama's `mukade.exe`.
 - `node --experimental-strip-types --test apps/desktop/tests/leftovers-model.test.ts`: the
   texts, ordering, authorship and folder matching of the panel and the overview.
 - Not verified yet on Windows: the desktop app with a real session (start, the one-minute
