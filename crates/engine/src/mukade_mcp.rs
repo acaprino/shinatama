@@ -1,5 +1,6 @@
 //! Connection to the local Mukade chat service.
-//! Shinatama owns one service: the Mukade program bundled beside the app, with its
+//! Shinatama owns one service: the Mukade program it ships (built in this workspace from the
+//! pinned Mukade revision, `crates/mukade`), with its
 //! data in `mukade` under Shinatama's own data folder; it is started on demand and
 //! stopped with the app. An explicit MUKADE_DATA_DIR selects an external service
 //! instead, which is only joined: never started, never stopped.
@@ -238,12 +239,15 @@ pub(crate) fn own_directory(base: &StorageLocation) -> PathBuf {
     base.directory().join("mukade")
 }
 
-/// `mukade\mukade.exe` beside the running program, or one folder up for programs in `cli\`.
+/// The Mukade program Shinatama ships (`crates/mukade`, built from the pinned revision):
+/// `mukade\mukade.exe` beside the running program, or one folder up for programs in `cli\`;
+/// in a development build, `mukade.exe` beside the program in `target\<profile>`.
 pub(crate) fn bundled_program() -> Option<PathBuf> {
     let executable = std::env::current_exe().ok()?;
     let folder = executable.parent()?;
     [Some(folder), folder.parent()].into_iter().flatten()
         .map(|root| root.join("mukade").join("mukade.exe"))
+        .chain(std::iter::once(folder.join("mukade.exe")))
         .find(|program| {
             reject_reparse(program).is_ok() && fs::metadata(program).is_ok_and(|m| m.is_file())
         })

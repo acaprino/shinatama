@@ -12,6 +12,8 @@ scope:
     - crates/engine/src/codex_launch.rs
     - crates/state/src/database.rs
     - crates/state/src/worksets.rs
+    - crates/mukade
+    - build-release.bat
     - apps/desktop/src-tauri/src/thread_chat.rs
     - apps/desktop/src-tauri/src/thread_peers.rs
     - apps/desktop/src-tauri/src/collaboration.rs
@@ -88,13 +90,19 @@ a message addressed to the member and continues the session with it (bounded by
    the user has not seen (the last one seen is kept per window); "· in chat" or "· not in chat yet"
    on the tabs of its Claude Code and Codex sessions. One `rooms` call every 10 s covers all of them.
 
+8. **Mukade is embedded.** The program that runs the service, the hooks and the window's
+   client is built in Shinatama's workspace (`crates/mukade`, the `chat` feature) from the Mukade
+   revision the workspace pins, and shipped as `mukade\mukade.exe`. The version Shinatama runs is
+   the version it was built and tested against; no Mukade checkout beside Shinatama is used.
+   A test keeps the dependency, `scripts/mukade-pin.json` and `MUKADE_REVISION` on one revision.
+
 ## Rejected alternatives
 
 - **RA-001: keep manual consumption only.** An idle session never answers; the user relays by hand.
 - **RA-002: Shinatama's own wake hook.** Re-implements Mukade's adapter, its batches and receipts.
-- **RA-003: link Mukade's `chat` feature into Shinatama.** Pulls an async runtime, an HTTP server
-  and client into the desktop's dependency set (ADR-0047) for calls the bundled program already
-  makes.
+- **RA-003: link Mukade's `chat` feature into the desktop process.** Pulls an async runtime, an
+  HTTP server and client into the desktop itself (ADR-0047), and ties a service other sessions
+  share to the window's lifetime. The feature is linked into the separate `mukade` program instead.
 - **RA-004: Codex hooks as separate `-c` pairs.** Exceeds the 32-argument bound at the fullest
   launch.
 - **RA-005: write the room into Mukade's adapter state before launch.** Writes another program's

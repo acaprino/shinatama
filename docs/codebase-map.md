@@ -30,6 +30,7 @@ shinatama/
 ├── Cargo.toml                    Rust workspace (edition 2024, resolver 3); the allowed dependency list
 ├── crates/terminal/              real PTY ownership, bounded I/O and explicit process stop
 ├── crates/projects/              validated MRU project settings, atomic writes and cooperative writer locking
+├── crates/mukade/                the embedded Mukade program (chat service, hooks, CLI) built from the pinned revision
 ├── apps/desktop/                 borderless Tauri shell, terminal/picker UI and real-app tests
 ├── scripts/                      implementation plan validation, rendering and checkpoint tests
 ├── .gitignore                    .jcode/, .daodan/, target/, verify/*/out/

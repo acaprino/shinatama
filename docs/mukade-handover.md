@@ -277,6 +277,13 @@ needs PowerShell on Windows). `cargo check --locked` of `shinatama-engine` with 
 `shinatama-desktop` and `shinatama-cli` passes for the Windows target; the qualification fields of
 the manifest are carried over, not rerun.
 
+The same day Mukade became embedded: `crates/mukade` (package `shinatama-mukade`, binary
+`mukade`) builds Mukade's own program from this dependency with the `chat` feature, and
+`build-release.bat` ships it as `mukade\mukade.exe` (the terminal browser `mukade-tui.exe` is
+installed from the same revision). The program no longer comes from a Mukade checkout beside
+Shinatama. `crates/mukade/tests/pin.rs` fails when the dependency, the manifest and
+`MUKADE_REVISION` disagree.
+
 ## 8. The pin advance to `14edbf3` (2026-11-03)
 
 The pin moved from `4124b1f` to `14edbf3cf71424a48b057e52c5532d6d4ab7d8a4` (Mukade `master` at

@@ -4,7 +4,7 @@
 [workspace]
 resolver = "3"
 # The terminal engine remains independent of the Tauri shell (ADR-0005).
-members = ["crates/terminal", "crates/projects", "crates/state", "crates/adapter", "crates/engine", "crates/export", "crates/hop", "crates/files", "crates/companion", "crates/token-economy", "crates/messaging", "crates/roundtable", "crates/browser", "crates/cli", "apps/desktop/src-tauri"]
+members = ["crates/terminal", "crates/projects", "crates/state", "crates/adapter", "crates/engine", "crates/export", "crates/hop", "crates/files", "crates/companion", "crates/token-economy", "crates/messaging", "crates/roundtable", "crates/browser", "crates/cli", "crates/mukade", "apps/desktop/src-tauri"]
 default-members = ["crates/terminal"]
 
 [workspace.package]
@@ -52,6 +52,9 @@ futures-util = { version = "0.3", default-features = false, features = ["sink", 
 tokio-tungstenite = { version = "0.28", default-features = false, features = ["handshake"] }
 # Decodes the browser's base64 frames; already locked through Tauri. MIT OR Apache-2.0.
 base64 = "0.22"
+# Parses the URLs the agents' browser tools are given (ADR-0056); already locked through Tauri.
+# MIT OR Apache-2.0. Declared here so the desktop inherits it like every other dependency.
+url = "2.5"
 # WebView2 process-failure and memory-target bindings; the version Tauri itself links. MIT.
 webview2-com = "0.39"
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_System_ProcessStatus", "Win32_System_Diagnostics_ToolHelp", "Win32_System_RemoteDesktop", "Win32_System_Console", "Win32_Security", "Win32_Storage_FileSystem", "Win32_Security_Authorization", "Win32_Security_Cryptography", "Win32_System_Registry", "Win32_System_Memory", "Win32_System_Environment", "Win32_System_SystemInformation", "Win32_System_Pipes", "Win32_System_IO", "Win32_System_DataExchange", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_HiDpi", "Win32_Graphics_Gdi", "Win32_System_LibraryLoader", "Wdk_Foundation", "Wdk_Storage_FileSystem"] }
@@ -69,7 +72,8 @@ shinatama-token-economy = { path = "crates/token-economy" }
 shinatama-messaging = { path = "crates/messaging" }
 shinatama-roundtable = { path = "crates/roundtable" }
 shinatama-browser = { path = "crates/browser" }
-mukade = { git = "https://github.com/acaprino/mukade", tag = "v0.1.0", default-features = false }
+# Mukade release v0.1.0 (tag v0.1.0 = this commit). Git dependencies are pinned by full revision.
+mukade = { git = "https://github.com/acaprino/mukade", rev = "31feb1e97a05caa268c2cc3b003d05297db14ec3", default-features = false }
 
 # Local debug builds verify large native executables inside a fixed deadline.
 # Optimize the digest implementation while keeping application debug symbols.
