@@ -10,7 +10,7 @@ const STARTED: &str = r#"{"schema":1,"event":"started","time":"2026-11-13T20:30:
 const CHANGED: &str = r#"{"schema":1,"event":"changed","time":"2026-11-13T20:30:22.707Z","added":[{"key":"c:\\w\\sampleapp-spike1","category":"worktrees","path":"C:\\w\\sampleapp-spike1","bytes":171,"level":"recommended","blocked":[],"why":{"type":"linked-worktree","branch":"spike1","head":"f0aa"},"target":{"type":"worktree","repo":"C:\\w\\sampleapp"},"new":true,"firstSeenMs":1794601822706,"measuredAtMs":1794601822706,"bytesPartial":false},{"key":"c:\\w\\sampleapp-bench","category":"named","path":"C:\\w\\sampleapp-bench","bytes":0,"level":"caution","blocked":[],"why":{"type":"name-only"},"target":{"type":"dir","kind":"project-folder"},"provenance":null,"new":true,"firstSeenMs":1794601822706,"measuredAtMs":1794601822706,"bytesPartial":false},{"key":"c:\\w\\sampleapp-copy","category":"copies","path":"C:\\w\\sampleapp-copy","bytes":4096,"level":"caution","blocked":["unsaved-work"],"why":{"type":"same-repository","sharedRootCommit":true,"sameOrigin":true,"hasOwnWork":true},"target":{"type":"dir","kind":"project-folder"},"new":true,"firstSeenMs":1794601822706,"measuredAtMs":null,"bytesPartial":true}],"removed":[],"growthBytes":2097494}"#;
 const ATTENTION: &str = r#"{"schema":1,"event":"attention","time":"2026-11-13T20:30:22.709Z","kind":"worktrees","value":4,"threshold":3,"cleanCommand":"xiox clean \"C:\\w\\sampleapp\" --include \"C:\\w\\sampleapp-spike1\""}"#;
 const REMOVED: &str = r#"{"schema":1,"event":"changed","time":"2026-11-13T20:30:32.967Z","added":[],"removed":["c:\\w\\sampleapp-spike1"],"growthBytes":2097323}"#;
-const REPORT: &str = r#"{"schema":1,"event":"report","time":"2026-11-13T20:31:00.000Z","project":{"root":"C:\\w\\sampleapp","name":"sampleapp","isRepo":true,"origin":null,"worktrees":[]},"items":[{"key":"c:\\w\\sampleapp\\target","category":"builds","path":"C:\\w\\sampleapp\\target","bytes":3145772,"level":"recommended","blocked":[],"why":{"type":"catalog-folder","labelEn":"Rust build"},"target":{"type":"dir","kind":"rust-target"},"new":false,"firstSeenMs":1,"measuredAtMs":2,"bytesPartial":false},{"key":"session:claude:abc","category":"sessions","path":null,"bytes":null,"level":"optional","blocked":[],"why":{"type":"archived-session","agent":"claude","title":"Bench the parser"},"target":{"type":"session","agent":"claude","id":"abc"},"new":true,"firstSeenMs":5,"measuredAtMs":null,"bytesPartial":false},{"key":"c:\\users\\a\\scratch\\bench-1","category":"scratch","path":"C:\\Users\\a\\scratch\\bench-1","bytes":10,"level":"caution","blocked":[],"why":{"type":"session-folder","strength":"created","fromScript":false,"risks":[],"activity":"unknown"},"target":{"type":"dir","kind":"project-folder"},"new":true,"firstSeenMs":6,"measuredAtMs":6,"bytesPartial":false}],"notes":[],"branches":[],"search":"bounded-walk","scannedAtMs":7,"elapsedMs":8,"totals":{"byCategory":{},"items":3,"recommendedBytes":0},"growthBytes":10,"attention":[],"stale":false,"cleanCommand":null,"cleanCommandTruncated":false,"startedAtMs":1794601865194,"checkedAtMs":1794601871137}"#;
+const REPORT: &str = r#"{"schema":1,"event":"report","time":"2026-11-13T20:31:00.000Z","project":{"root":"C:\\w\\sampleapp","name":"sampleapp","isRepo":true,"origin":null,"worktrees":[]},"items":[{"key":"c:\\w\\sampleapp\\target","category":"builds","path":"C:\\w\\sampleapp\\target","bytes":3145772,"level":"recommended","blocked":[],"why":{"type":"catalog-folder","labelEn":"Rust build"},"target":{"type":"dir","kind":"rust-target"},"new":false,"firstSeenMs":1,"measuredAtMs":2,"bytesPartial":false},{"key":"session:claude:abc","category":"sessions","path":null,"bytes":null,"level":"optional","blocked":[],"why":{"type":"archived-session","agent":"claude","title":"Bench the parser"},"target":{"type":"session","agent":"claude","id":"abc"},"new":true,"firstSeenMs":5,"measuredAtMs":null,"bytesPartial":false},{"key":"c:\\users\\a\\scratch\\bench-1","category":"scratch","path":"C:\\Users\\a\\scratch\\bench-1","bytes":10,"level":"caution","blocked":[],"why":{"type":"session-folder","strength":"created","fromScript":false,"risks":[],"activity":"unknown"},"target":{"type":"dir","kind":"project-folder"},"provenance":{"strength":"created","lastActivityMs":6,"sessions":[{"agent":"codex","harness":"codex","store":"s","id":"019a-bench","strength":"created","listedCwd":false,"operations":[],"omitted":0,"failed":0,"gaps":false}]},"new":true,"firstSeenMs":6,"measuredAtMs":6,"bytesPartial":false}],"notes":[],"branches":[],"search":"bounded-walk","scannedAtMs":7,"elapsedMs":8,"totals":{"byCategory":{},"items":3,"recommendedBytes":0},"growthBytes":10,"attention":[],"stale":false,"cleanCommand":null,"cleanCommandTruncated":false,"startedAtMs":1794601865194,"checkedAtMs":1794601871137}"#;
 
 #[test]
 fn started_then_changed_keeps_only_what_appeared() {
@@ -26,7 +26,16 @@ fn started_then_changed_keeps_only_what_appeared() {
         "the snapshot is the project as it was, not a leftover"
     );
 
-    assert_eq!(picture.apply(CHANGED), Ok(Change::Changed { added: 3 }));
+    assert_eq!(
+        picture.apply(CHANGED),
+        Ok(Change::Changed {
+            added: vec![
+                r"c:\w\sampleapp-spike1".into(),
+                r"c:\w\sampleapp-bench".into(),
+                r"c:\w\sampleapp-copy".into()
+            ]
+        })
+    );
     assert_eq!(picture.growth_bytes, 2_097_494);
     let reasons: Vec<&str> = picture
         .new_items
@@ -49,10 +58,16 @@ fn started_then_changed_keeps_only_what_appeared() {
     assert!(copy.bytes_partial);
 
     // The same line again lists nothing new: items are replaced by key.
-    assert_eq!(picture.apply(CHANGED), Ok(Change::Changed { added: 0 }));
+    assert_eq!(
+        picture.apply(CHANGED),
+        Ok(Change::Changed { added: vec![] })
+    );
     assert_eq!(picture.new_items.len(), 3);
 
-    assert_eq!(picture.apply(REMOVED), Ok(Change::Changed { added: 0 }));
+    assert_eq!(
+        picture.apply(REMOVED),
+        Ok(Change::Changed { added: vec![] })
+    );
     assert_eq!(picture.new_items.len(), 2);
     assert!(
         picture
@@ -102,6 +117,15 @@ fn a_report_replaces_the_picture() {
     assert_eq!(session.reason, "archived claude session");
     assert_eq!(session.path, None);
     assert_eq!(picture.new_items[1].reason, "created by an agent session");
+    assert_eq!(
+        picture.new_items[1].sessions,
+        [SessionRef {
+            harness: "codex".into(),
+            id: "019a-bench".into(),
+            strength: Some("created".into())
+        }]
+    );
+    assert!(picture.new_items[0].sessions.is_empty());
     assert!(picture.attention.is_empty());
     assert_eq!(picture.clean_command, None);
     assert_eq!(picture.started_at_ms, Some(1_794_601_865_194));
@@ -144,11 +168,8 @@ fn new_items_are_bounded() {
         r#"{{"schema":1,"event":"changed","added":[{}],"removed":[],"growthBytes":0}}"#,
         items.join(",")
     );
-    assert_eq!(
-        picture.apply(&line),
-        Ok(Change::Changed {
-            added: MAX_NEW_ITEMS
-        })
+    assert!(
+        matches!(picture.apply(&line), Ok(Change::Changed { added }) if added.len() == MAX_NEW_ITEMS)
     );
     assert_eq!(picture.new_items.len(), MAX_NEW_ITEMS);
     assert_eq!(picture.new_items_omitted, 5);

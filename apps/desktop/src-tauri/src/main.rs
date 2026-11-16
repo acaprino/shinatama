@@ -855,6 +855,7 @@ fn main() {
         project_overview::project_worktree_create,
         leftovers::project_leftovers,
         leftovers::project_leftovers_check,
+        leftovers::leftovers_reveal,
         #[cfg(windows)]
         sessions::export::session_export,
         #[cfg(windows)]
@@ -1021,6 +1022,7 @@ fn main() {
         project_overview::project_worktree_create,
         leftovers::project_leftovers,
         leftovers::project_leftovers_check,
+        leftovers::leftovers_reveal,
         #[cfg(windows)]
         sessions::export::session_export,
         #[cfg(windows)]

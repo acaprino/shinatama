@@ -87,20 +87,36 @@ e hop restano distinti: non sono certificati dalla sola apertura della TUI.
 
 Se accanto a Shinatama c'è `xiox\xiox.exe` ([Xiox](https://github.com/acaprino/xiox), messo
 lì da `build-release.bat` quando trova `..\xiox`), la prima sessione agente in un progetto
-avvia `xiox observe` su quel progetto. L'osservatore fa una fotografia iniziale e poi
-controlla ogni due minuti, più subito quando una sessione agente si chiude. In **Projects**,
-sotto ogni progetto, la riga **Leftovers** dice cosa è comparso da allora: worktree, copie
-del repository, cartelle col nome del progetto (bench, backup…), cartelle create dalle
-sessioni, build e quanto spazio occupano. Il pulsante **Details** elenca i singoli elementi e
-segnala quelli bloccati (modifiche non salvate, commit che esistono solo lì). **Copy clean
-command** copia il comando `xiox clean --include …` che Xiox prepara per gli elementi nuovi
-raccomandati. Shinatama non lo esegue mai: lo incolli in un terminale e `xiox clean` chiede
-conferma prima di rimuovere. Quando una sessione si chiude lasciando qualcosa di nuovo, o una
-soglia viene superata (crescita oltre 2 GB, più di 3 worktree nuovi), il widget lo segnala.
+avvia `xiox observe` su quel progetto. L'osservatore fa una fotografia iniziale e da quel
+momento segnala ciò che compare.
 
-Un worktree e il suo progetto condividono un solo osservatore. Gli osservatori restano attivi
-finché Shinatama è aperto e si chiudono con lui. Per usare un altro `xiox.exe` imposta
-`SHINATAMA_XIOX` al suo percorso; per non osservare niente, `SHINATAMA_XIOX=off`.
+- **Pannello Leftovers** (a destra, pulsante **Leftovers** nella barra con il numero degli
+  elementi nuovi). Per ogni progetto elenca, dal più recente, i worktree, le copie del
+  repository, le cartelle col nome del progetto (bench, backup…), le cartelle create dalle
+  sessioni, le build e i log. Di ognuno mostra dimensione, percorso, da quanto tempo esiste,
+  perché Xiox lo considera del progetto e se è bloccato (modifiche non salvate, commit che
+  esistono solo lì).
+- **Chi l'ha creato.** Se lo storico di una sessione mostra che l'ha creato, il pannello lo
+  dice ("Created by Codex session …"). Altrimenti mostra quali sessioni di Shinatama erano
+  aperte nel progetto quando è comparso, con un pulsante per andare alla sessione. Se ce n'era
+  una sola, è quasi certamente lei.
+- **Subito, non a fine sessione.** Mentre una sessione agente del progetto è aperta Xiox
+  controlla ogni minuto; senza sessioni aperte, ogni dieci minuti. Ogni nuovo worktree, copia,
+  cartella col nome del progetto o cartella di sessione fa comparire subito il widget. Se
+  poteva crearlo una sola sessione, il widget porta a quella sessione, così la fermi prima che
+  ne crei altre.
+- **Copy path**, **Show in Explorer** (seleziona la cartella e non apre niente) e **Copy clean
+  command**: copia il comando `xiox clean --include …` che Xiox prepara per gli elementi nuovi
+  raccomandati. Shinatama non lo esegue mai: lo incolli in un terminale, e `xiox clean` chiede
+  conferma prima di rimuovere. Copie e cartelle col nome del progetto non sono mai nel comando:
+  per quelle scegli tu, con `--include`.
+
+Le sessioni archiviate degli agenti non compaiono nell'elenco (ogni sessione ne lascia una): il
+pannello ne riporta solo il numero. La stessa sintesi c'è anche in **Projects**, alla riga
+**Leftovers** di ogni progetto. Un worktree e il suo progetto condividono un solo osservatore.
+Gli osservatori restano attivi finché Shinatama è aperto e si chiudono con lui. Per usare un
+altro `xiox.exe` imposta `SHINATAMA_XIOX` al suo percorso; per non osservare niente,
+`SHINATAMA_XIOX=off`.
 
 ## Marionette
 

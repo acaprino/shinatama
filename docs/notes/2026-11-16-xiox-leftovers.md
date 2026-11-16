@@ -28,18 +28,34 @@ since it started, one JSON line at a time, without ever removing anything.
 - **One observer per project.** Xiox resolves a worktree to the main working tree. When a
   second observer reports the same root as one that is already running, it is stopped and its
   folder is added to the first one.
-- **How long.** Observers run until Shinatama exits: what a session left is still listed after
-  the session ended. Each one checks every 120 seconds (Xiox's minimum is 60) at below-normal
-  priority with no console window. It also ends when its stdin closes, so it cannot outlive
+- **How long, how often.** Observers run until Shinatama exits: what a session left is still
+  listed after the session ended. Xiox's own interval is 600 seconds. While an agent terminal
+  of the project is open, Shinatama asks for a fresh check every 60 seconds (`report` on
+  stdin). The end of an agent terminal asks for one at once. Observers run at below-normal
+  priority with no console window and end when their stdin closes, so they cannot outlive
   Shinatama. There are at most 16 projects.
 - **What is kept.** `shinatama_xiox::Picture` keeps only the items with `new: true` (the first
-  snapshot is the project as the person left it), at most 200, plus growth, thresholds, the
-  last error and the `cleanCommand`. A `report` replaces what the events said between reports.
-- **What the person sees.** Projects → the **Leftovers** line of each project: how many new
-  items by category, the growth, **Details** with each path, size, reason and block, and **Copy
-  clean command**. The page updates on the `project-leftovers` event. The widget (in Italian,
-  like its other notices) says when a session that ended left something new, and when Xiox
-  reports a crossed threshold (growth over 2 GB, more than 3 new worktrees).
+  snapshot is the project as the person left it), at most 200. It also keeps the sessions that
+  Xiox's `provenance` names (at most 3 per item), growth, thresholds, the last error and the
+  `cleanCommand`. A `report` replaces what the events said between reports.
+- **Who made it.** The panel shows Xiox's evidence from the session histories first ("Created
+  by Codex session …"). Without evidence it shows the project's agent terminals that were open
+  when the item was first seen (90 s of slack, since a check comes after the folder is made).
+  That says "could have", never "did".
+- **What the person sees.**
+  - The **Leftovers** side panel (`leftovers-panel.ts`), right of the workspace, shown by
+    default and toggled from the toolbar button. The button carries the count of new items
+    across projects.
+  - Per project: open sessions, last check, the counts and the growth, then every item, newest
+    first. Each item has its kind, size, path, age, reason, author, blocks, **Copy path** and
+    **Show in Explorer** (`leftovers_reveal` accepts only a path that a current picture lists,
+    and only selects it). **Go to** jumps to the terminal. **Check now** and **Copy clean
+    command** act on the whole project. Archived agent sessions are only counted.
+  - Projects → **Leftovers** line: the same summary.
+  - The widget (in Italian, like its other notices) speaks as soon as a worktree, copy, named
+    folder or session folder appears. When one terminal alone could have made it, the notice
+    opens that terminal. Builds and logs are told when a session ends; each item is told once.
+    Crossed thresholds are told too (growth over 2 GB, more than 3 new worktrees).
 
 ## Never
 
@@ -54,5 +70,6 @@ since it started, one JSON line at a time, without ever removing anything.
   script), and, with `XIOX_TEST_PROGRAM=<xiox>`, the real program on a scratch repository
   where a worktree and a `-bench` folder are created while it runs.
 - `node --experimental-strip-types --test apps/desktop/tests/leftovers-model.test.ts`: the
-  texts and folder matching of the overview.
-- Not verified yet on Windows: the desktop app with a real session (start, end, widget notice).
+  texts, ordering, authorship and folder matching of the panel and the overview.
+- Not verified yet on Windows: the desktop app with a real session (start, the one-minute
+  checks, the widget notice that opens the terminal, Show in Explorer).

@@ -43,7 +43,26 @@ pub struct NewItem {
     /// Why Xiox lists it, in a few words.
     pub reason: String,
     pub first_seen_ms: Option<i64>,
+    /// The agent sessions whose history shows they made or wrote this folder (Xiox's
+    /// `provenance`), most recently active first. Empty when Xiox found no such evidence.
+    pub sessions: Vec<SessionRef>,
 }
+
+/// One agent session named by Xiox's evidence.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionRef {
+    #[serde(default)]
+    pub harness: String,
+    #[serde(default)]
+    pub id: String,
+    /// `created`, `written` or `used`.
+    #[serde(default)]
+    pub strength: Option<String>,
+}
+
+/// Sessions kept per item: the evidence can name many.
+const MAX_SESSIONS: usize = 3;
 
 /// Everything Shinatama knows about one observed project.
 #[derive(Clone, Debug, Default, Serialize)]
@@ -76,9 +95,9 @@ pub struct Picture {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Change {
     Started,
-    /// `added` new items that were not listed before.
+    /// The keys of the new items that were not listed before.
     Changed {
-        added: usize,
+        added: Vec<String>,
     },
     Attention {
         kind: String,
@@ -121,6 +140,14 @@ struct Item {
     bytes_partial: bool,
     #[serde(default)]
     first_seen_ms: Option<i64>,
+    #[serde(default)]
+    provenance: Option<Provenance>,
+}
+
+#[derive(Deserialize)]
+struct Provenance {
+    #[serde(default)]
+    sessions: Vec<SessionRef>,
 }
 
 #[derive(Deserialize)]
@@ -203,7 +230,7 @@ impl Picture {
                 growth_bytes,
             } => {
                 self.new_items.retain(|item| !removed.contains(&item.key));
-                let mut fresh = 0;
+                let mut fresh = Vec::new();
                 for item in added {
                     if !item.new {
                         // An item of the snapshot seen again in another category.
@@ -218,8 +245,8 @@ impl Picture {
                     {
                         *known = item;
                     } else if self.new_items.len() < MAX_NEW_ITEMS {
+                        fresh.push(item.key.clone());
                         self.new_items.push(item);
-                        fresh += 1;
                     } else {
                         self.new_items_omitted += 1;
                     }
@@ -315,6 +342,10 @@ impl From<Item> for NewItem {
             bytes_partial: item.bytes_partial,
             level: item.level,
             first_seen_ms: item.first_seen_ms,
+            sessions: item
+                .provenance
+                .map(|provenance| provenance.sessions.into_iter().take(MAX_SESSIONS).collect())
+                .unwrap_or_default(),
         }
     }
 }

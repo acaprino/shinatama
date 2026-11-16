@@ -1,33 +1,54 @@
 //! What agent sessions leave in their projects, watched with Xiox (`xiox observe`).
 //!
 //! The first agent terminal of a folder starts one observer for its project; it runs until
-//! Shinatama exits, so what a session left is still listed after the session ended. When an agent
-//! terminal ends, the observer is asked for a fresh report, and the widget says what appeared.
-//! Two folders of one repository (the project and one of its worktrees) share one observer: Xiox
-//! resolves both to the main working tree.
+//! Shinatama exits, so what a session left is still listed after the session ended. While an
+//! agent terminal of the project is open, the observer is asked for a fresh check every minute;
+//! when none is, Xiox checks on its own every ten minutes. The end of an agent terminal asks for
+//! one at once. Two folders of one repository (the project and one of its worktrees) share one
+//! observer: Xiox resolves both to the main working tree.
+//!
+//! A worktree, a copy, a folder named like the project or a session folder that appears is
+//! announced in the widget at once, naming the session when only one could have made it, so
+//! the person can stop a session that multiplies copies. The side panel lists them all.
+//!
+//! Who made an item: Xiox's own evidence from the session histories when it has some
+//! (`provenance`); otherwise the agent terminals of the project that were open when it appeared,
+//! which says "could have", never "did".
 //!
 //! Read-only: nothing here removes anything or runs `xiox clean`. The command Xiox prepares is
-//! shown to the person in the project overview, to copy.
-use crate::attention;
+//! shown to the person, to copy; "show in Explorer" selects a listed folder and opens nothing.
+use crate::{ExitIntent, attention};
 use serde::Serialize;
 use shinatama_terminal::{OutputBatch, SessionInfo};
-use shinatama_xiox::{Change, Observer, Options, Picture, Program, Update};
+use shinatama_xiox::{Change, NewItem, Observer, Options, Picture, Program, Update};
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap, HashSet},
     path::Path,
-    sync::{Arc, Mutex, OnceLock},
+    sync::{Arc, Mutex, OnceLock, atomic::Ordering},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use tauri::{Emitter, Manager, State};
 
 /// The terminals whose sessions are watched: the agent harnesses, not PowerShell.
 const AGENTS: [&str; 4] = ["claude_code", "codex", "opencode", "pi"];
+/// What multiplies on disk and is announced the moment it appears. Builds and logs are told at
+/// the end of a session; archived sessions are what every session leaves and are never told.
+const LOUD: [&str; 4] = ["worktrees", "copies", "named", "scratch"];
 const MAX_PROJECTS: usize = 16;
 const MAX_SESSIONS: usize = 256;
 const MAX_PATH: usize = 4096;
+/// A check every minute while a session of the project is open.
+const TICK: Duration = Duration::from_secs(60);
+/// Xiox's own interval when no session asks.
+const IDLE_INTERVAL_SECS: u32 = 600;
+/// An item is first seen by the check after it was made: a session that ended this long before
+/// that check could still have made it.
+const SLACK_MS: i64 = 90_000;
 
 #[derive(Default)]
 pub struct Leftovers {
     program: OnceLock<Program>,
+    ticker: OnceLock<()>,
     inner: Mutex<Inner>,
 }
 
@@ -41,7 +62,9 @@ struct Inner {
 
 struct Seen {
     folder: String,
-    ended: bool,
+    harness: String,
+    started_ms: i64,
+    ended_ms: Option<i64>,
 }
 
 struct Watch {
@@ -49,9 +72,20 @@ struct Watch {
     /// The folders whose sessions this observer covers, as [`folder_key`].
     folders: Vec<String>,
     observer: Arc<Observer>,
-    /// A session ended: the next report goes to the widget if it lists something new.
+    /// A session ended: the next report tells what it left that was not told yet.
     announce: bool,
-    announced_items: usize,
+    /// The item keys already told in the widget.
+    announced: HashSet<String>,
+}
+
+/// An agent terminal that could have made an item.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Suspect {
+    terminal_id: String,
+    harness: String,
+    /// The terminal still runs: the page can take the person to it.
+    open: bool,
 }
 
 /// One observed project, as the page receives it.
@@ -59,6 +93,10 @@ struct Watch {
 #[serde(rename_all = "camelCase")]
 pub struct Watched {
     folders: Vec<String>,
+    /// Agent terminals of the project open now.
+    live_sessions: usize,
+    /// By item key: the agent terminals that were open when the item appeared.
+    suspects: BTreeMap<String, Vec<Suspect>>,
     #[serde(flatten)]
     picture: Picture,
 }
@@ -72,6 +110,49 @@ pub struct Status {
     projects: Vec<Watched>,
 }
 
+impl Inner {
+    fn watched(&self, watch: &Watch, picture: Picture) -> Watched {
+        let runs: Vec<(&String, &Seen)> = self
+            .sessions
+            .iter()
+            .filter(|(_, seen)| watch.folders.contains(&seen.folder))
+            .collect();
+        let suspects = picture
+            .new_items
+            .iter()
+            .filter_map(|item| {
+                let seen_at = item.first_seen_ms?;
+                let mut found: Vec<Suspect> = runs
+                    .iter()
+                    .filter(|(_, run)| open_when(seen_at, run.started_ms, run.ended_ms))
+                    .map(|(id, run)| Suspect {
+                        terminal_id: (*id).clone(),
+                        harness: run.harness.clone(),
+                        open: run.ended_ms.is_none(),
+                    })
+                    .collect();
+                found.sort_by(|a, b| a.terminal_id.cmp(&b.terminal_id));
+                (!found.is_empty()).then(|| (item.key.clone(), found))
+            })
+            .collect();
+        Watched {
+            folders: watch.folders.clone(),
+            live_sessions: runs
+                .iter()
+                .filter(|(_, run)| run.ended_ms.is_none())
+                .count(),
+            suspects,
+            picture,
+        }
+    }
+
+    fn live(&self, watch: &Watch) -> bool {
+        self.sessions
+            .values()
+            .any(|seen| seen.ended_ms.is_none() && watch.folders.contains(&seen.folder))
+    }
+}
+
 impl Leftovers {
     /// From `terminal_read`, for every batch of every terminal: starts watching the folder of a
     /// new agent terminal and asks for a report when one ends. Cheap when nothing changes.
@@ -82,20 +163,22 @@ impl Leftovers {
         let Ok(mut inner) = self.inner.lock() else {
             return;
         };
-        let folder = folder_key(&session.cwd);
         match inner.sessions.get_mut(&session.id) {
             None => {
                 if inner.sessions.len() >= MAX_SESSIONS {
-                    inner.sessions.retain(|_, seen| !seen.ended);
+                    inner.sessions.retain(|_, seen| seen.ended_ms.is_none());
                 }
                 if inner.sessions.len() >= MAX_SESSIONS {
                     return;
                 }
+                let now = now_ms();
                 inner.sessions.insert(
                     session.id.clone(),
                     Seen {
-                        folder,
-                        ended: batch.eof,
+                        folder: folder_key(&session.cwd),
+                        harness: session.shell.clone(),
+                        started_ms: now,
+                        ended_ms: batch.eof.then_some(now),
                     },
                 );
                 drop(inner);
@@ -105,8 +188,8 @@ impl Leftovers {
                     eprintln!("Xiox does not observe {}: {reason}", session.cwd);
                 }
             }
-            Some(seen) if batch.eof && !seen.ended => {
-                seen.ended = true;
+            Some(seen) if batch.eof && seen.ended_ms.is_none() => {
+                seen.ended_ms = Some(now_ms());
                 let folder = seen.folder.clone();
                 if let Some(watch) = inner
                     .watches
@@ -137,10 +220,7 @@ impl Leftovers {
                 inner
                     .watches
                     .iter()
-                    .map(|watch| Watched {
-                        folders: watch.folders.clone(),
-                        picture: watch.observer.picture(),
-                    })
+                    .map(|watch| inner.watched(watch, watch.observer.picture()))
                     .collect()
             })
             .unwrap_or_default();
@@ -173,6 +253,21 @@ impl Leftovers {
         }
     }
 
+    /// True when `path` is a folder or file a current picture lists: the page may only ask to
+    /// show what Xiox reported.
+    fn listed(&self, path: &str) -> bool {
+        self.inner.lock().is_ok_and(|inner| {
+            inner.watches.iter().any(|watch| {
+                watch
+                    .observer
+                    .picture()
+                    .new_items
+                    .iter()
+                    .any(|item| item.path.as_deref() == Some(path))
+            })
+        })
+    }
+
     /// At exit: an observer must not outlive Shinatama (its stdin closes anyway).
     pub fn stop_all(&self) {
         let watches = self
@@ -191,6 +286,35 @@ impl Leftovers {
 
     fn program(&self) -> &Program {
         self.program.get_or_init(shinatama_xiox::locate)
+    }
+
+    /// Every [`TICK`]: a fresh check of each project with an agent terminal open.
+    fn tick(&self) {
+        let Ok(inner) = self.inner.lock() else {
+            return;
+        };
+        for watch in &inner.watches {
+            if !watch.observer.ended() && inner.live(watch) {
+                watch.observer.report();
+            }
+        }
+    }
+
+    fn start_ticker(&self, app: &tauri::AppHandle) {
+        self.ticker.get_or_init(|| {
+            let app = app.clone();
+            let _ = std::thread::Builder::new()
+                .name("xiox-tick".into())
+                .spawn(move || {
+                    loop {
+                        std::thread::sleep(TICK);
+                        if app.state::<ExitIntent>().0.load(Ordering::Acquire) {
+                            return;
+                        }
+                        app.state::<Leftovers>().tick();
+                    }
+                });
+        });
     }
 
     fn watch(&self, app: &tauri::AppHandle, folder: &str) -> Result<(), String> {
@@ -225,24 +349,25 @@ impl Leftovers {
         inner.next_id += 1;
         let id = inner.next_id;
         let listener = app.clone();
-        let observer = Observer::spawn(
-            &program,
-            path,
-            Options::default(),
-            move |picture, update| {
-                listener
-                    .state::<Leftovers>()
-                    .updated(&listener, id, picture, update);
-            },
-        )
+        let options = Options {
+            interval_secs: IDLE_INTERVAL_SECS,
+            no_drives: false,
+        };
+        let observer = Observer::spawn(&program, path, options, move |picture, update| {
+            listener
+                .state::<Leftovers>()
+                .updated(&listener, id, picture, update);
+        })
         .map_err(|error| format!("{} could not start: {error}", program.display()))?;
         inner.watches.push(Watch {
             id,
             folders: vec![key],
             observer,
             announce: false,
-            announced_items: 0,
+            announced: HashSet::new(),
         });
+        drop(inner);
+        self.start_ticker(app);
         Ok(())
     }
 
@@ -285,35 +410,53 @@ impl Leftovers {
             std::thread::spawn(move || duplicate.observer.stop());
             return;
         }
+        let watched = inner.watched(&inner.watches[index], picture.clone());
         let watch = &mut inner.watches[index];
-        let folders = watch.folders.clone();
-        let announce = match update {
-            Update::Line(Change::Attention { kind, value }) => Some(threshold(kind, *value)),
+        let tell: Vec<&NewItem> = match update {
+            Update::Line(Change::Changed { added }) => picture
+                .new_items
+                .iter()
+                .filter(|item| added.contains(&item.key) && LOUD.contains(&item.category.as_str()))
+                .collect(),
             Update::Line(Change::Report) if watch.announce => {
                 watch.announce = false;
-                let count = picture.new_items.len();
-                (count > watch.announced_items).then(|| {
-                    watch.announced_items = count;
-                    appeared(picture)
-                })
+                picture
+                    .new_items
+                    .iter()
+                    .filter(|item| item.category != "sessions")
+                    .collect()
             }
+            _ => Vec::new(),
+        };
+        let tell: Vec<&NewItem> = tell
+            .into_iter()
+            .filter(|item| watch.announced.insert(item.key.clone()))
+            .collect();
+        let announce = match update {
+            Update::Line(Change::Attention { kind, value }) => {
+                Some((threshold(kind, *value), None))
+            }
+            _ if !tell.is_empty() => Some(appeared(&tell, &watched.suspects)),
             _ => None,
         };
         drop(inner);
-        let _ = app.emit_to(
-            "main",
-            "project-leftovers",
-            Watched {
-                folders,
-                picture: picture.clone(),
-            },
-        );
-        if let Some(body) = announce {
+        let _ = app.emit_to("main", "project-leftovers", watched);
+        if let Some((body, session)) = announce {
             let name = picture.name.as_deref().unwrap_or("progetto");
-            app.state::<attention::Controller>()
-                .advise(app, format!("Xiox · {name}"), &body);
+            app.state::<attention::Controller>().advise(
+                app,
+                format!("Xiox · {name}"),
+                &body,
+                session,
+            );
         }
     }
+}
+
+/// An agent terminal opened at `started_ms` and ended at `ended_ms` (if it did) could have made
+/// an item that a check first saw at `seen_at`.
+fn open_when(seen_at: i64, started_ms: i64, ended_ms: Option<i64>) -> bool {
+    started_ms <= seen_at && ended_ms.is_none_or(|ended| ended + SLACK_MS >= seen_at)
 }
 
 /// The same folder spelled the same way: separators, trailing separator and, on Windows, case.
@@ -332,10 +475,14 @@ fn folder_key(folder: &str) -> String {
     }
 }
 
-/// The widget's text after a session ended. The widget speaks Italian.
-fn appeared(picture: &Picture) -> String {
+/// The widget's text for items that just appeared, and the terminal to open when exactly one
+/// agent terminal could have made all of them. The widget speaks Italian.
+fn appeared(
+    items: &[&NewItem],
+    suspects: &BTreeMap<String, Vec<Suspect>>,
+) -> (String, Option<String>) {
     let mut counts: Vec<(&str, usize)> = Vec::new();
-    for item in &picture.new_items {
+    for item in items {
         match counts
             .iter_mut()
             .find(|(category, _)| *category == item.category)
@@ -348,27 +495,67 @@ fn appeared(picture: &Picture) -> String {
         .iter()
         .map(|(category, count)| format!("{count} {}", category_it(category, *count)))
         .collect();
-    let growth = if picture.growth_bytes > 0 {
-        format!(" (+{})", size(picture.growth_bytes))
-    } else {
-        String::new()
+    let mut names: Vec<&str> = items
+        .iter()
+        .filter_map(|item| item.path.as_deref())
+        .map(|path| {
+            path.trim_end_matches(['/', '\\'])
+                .rsplit(['/', '\\'])
+                .next()
+                .unwrap_or(path)
+        })
+        .take(3)
+        .collect();
+    if items.len() > names.len() {
+        names.push("…");
+    }
+    let mut terminals: Vec<&Suspect> = items
+        .iter()
+        .flat_map(|item| suspects.get(&item.key).into_iter().flatten())
+        .collect();
+    terminals.sort_by(|a, b| a.terminal_id.cmp(&b.terminal_id));
+    terminals.dedup_by(|a, b| a.terminal_id == b.terminal_id);
+    let only = match terminals.as_slice() {
+        [one] if items.iter().all(|item| suspects.contains_key(&item.key)) => Some(*one),
+        _ => None,
     };
-    format!(
-        "Dall'inizio dell'osservazione: {}{growth}. Rivedili in Progetti; non è stato rimosso niente.",
-        parts.join(", ")
-    )
+    let what = format!("{} ({})", parts.join(", "), names.join(", "));
+    match only {
+        Some(terminal) => (
+            format!(
+                "Mentre era aperta solo {} #{}: {what}. Elenco nel pannello Leftovers; non è stato rimosso niente.",
+                harness_name(&terminal.harness),
+                terminal.terminal_id.chars().take(6).collect::<String>()
+            ),
+            terminal.open.then(|| terminal.terminal_id.clone()),
+        ),
+        None => (
+            format!("Nuovi: {what}. Elenco nel pannello Leftovers; non è stato rimosso niente."),
+            None,
+        ),
+    }
+}
+
+fn harness_name(harness: &str) -> &str {
+    match harness {
+        "claude_code" => "Claude Code",
+        "codex" => "Codex",
+        "opencode" => "OpenCode",
+        "pi" => "Pi",
+        other => other,
+    }
 }
 
 fn threshold(kind: &str, value: u64) -> String {
     match kind {
         "worktrees" => format!(
-            "{value} worktree nuovi in questo progetto. Rivedili in Progetti; non è stato rimosso niente."
+            "{value} worktree nuovi in questo progetto. Elenco nel pannello Leftovers; non è stato rimosso niente."
         ),
         "growth" => format!(
-            "Il progetto è cresciuto di {} da quando è osservato. Rivedi in Progetti; non è stato rimosso niente.",
+            "Il progetto è cresciuto di {} da quando è osservato. Elenco nel pannello Leftovers; non è stato rimosso niente.",
             size(value)
         ),
-        _ => "Xiox segnala una soglia superata. Rivedi in Progetti; non è stato rimosso niente."
+        _ => "Xiox segnala una soglia superata. Elenco nel pannello Leftovers; non è stato rimosso niente."
             .into(),
     }
 }
@@ -377,49 +564,17 @@ fn category_it(category: &str, count: usize) -> &'static str {
     let one = count == 1;
     match category {
         "worktrees" => "worktree",
-        "copies" => {
-            if one {
-                "copia del repository"
-            } else {
-                "copie del repository"
-            }
-        }
-        "named" => {
-            if one {
-                "cartella col nome del progetto"
-            } else {
-                "cartelle col nome del progetto"
-            }
-        }
-        "scratch" => {
-            if one {
-                "cartella di sessione"
-            } else {
-                "cartelle di sessione"
-            }
-        }
-        "builds" => {
-            if one {
-                "cartella di build"
-            } else {
-                "cartelle di build"
-            }
-        }
+        "copies" if one => "copia del repository",
+        "copies" => "copie del repository",
+        "named" if one => "cartella col nome del progetto",
+        "named" => "cartelle col nome del progetto",
+        "scratch" if one => "cartella di sessione",
+        "scratch" => "cartelle di sessione",
+        "builds" if one => "cartella di build",
+        "builds" => "cartelle di build",
         "logs" => "log",
-        "sessions" => {
-            if one {
-                "sessione archiviata"
-            } else {
-                "sessioni archiviate"
-            }
-        }
-        _ => {
-            if one {
-                "elemento"
-            } else {
-                "elementi"
-            }
-        }
+        _ if one => "elemento",
+        _ => "elementi",
     }
 }
 
@@ -436,6 +591,13 @@ fn size(bytes: u64) -> String {
     } else {
         format!("{value:.1} {}", UNITS[unit])
     }
+}
+
+fn now_ms() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_millis() as i64)
+        .unwrap_or_default()
 }
 
 #[tauri::command(async)]
@@ -460,6 +622,35 @@ pub fn project_leftovers_check(
     leftovers.check(window.app_handle(), &path)
 }
 
+/// Selects a listed item in Explorer. Only a path a current picture lists is accepted; nothing
+/// is opened or run.
+#[tauri::command(async)]
+pub fn leftovers_reveal(
+    window: tauri::WebviewWindow,
+    leftovers: State<'_, Leftovers>,
+    path: String,
+) -> Result<(), String> {
+    crate::local(&window)?;
+    if path.len() > MAX_PATH || !leftovers.listed(&path) {
+        return Err("Only a folder in the Leftovers list can be shown.".into());
+    }
+    if !Path::new(&path).exists() {
+        return Err("It is no longer there.".into());
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // The argument is one token: explorer reads `/select,` and the path after it.
+        std::process::Command::new("explorer.exe")
+            .raw_arg(format!("/select,\"{path}\""))
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| format!("Explorer could not start: {error}"))
+    }
+    #[cfg(not(windows))]
+    Err("Showing a folder is available on Windows.".into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -479,5 +670,20 @@ mod tests {
         assert_eq!(size(512), "512 B");
         assert_eq!(size(1536), "1.5 KB");
         assert_eq!(size(3 * 1024 * 1024 * 1024), "3.0 GB");
+    }
+
+    #[test]
+    fn a_terminal_could_have_made_what_appeared_while_it_ran() {
+        assert!(open_when(1_000, 500, None));
+        assert!(open_when(1_000, 500, Some(1_000)));
+        assert!(
+            open_when(1_000 + SLACK_MS, 500, Some(1_000)),
+            "the check comes after"
+        );
+        assert!(!open_when(2_000 + SLACK_MS, 500, Some(1_000)));
+        assert!(
+            !open_when(400, 500, None),
+            "it appeared before the terminal started"
+        );
     }
 }

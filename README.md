@@ -36,9 +36,11 @@ tracks which launch, resume, and handoff paths have been exercised.
   memory check. [Memory policy](docs/notes/2026-11-12-interactive-memory.md)
 - **See what sessions leave behind.** With [Xiox](https://github.com/acaprino/xiox)
   beside Shinatama, the first agent session in a project starts `xiox observe` for it.
-  **Projects** then lists the worktrees, copies of the repository, bench and backup
-  folders, and builds that have appeared since, with their size. It also offers Xiox's
-  `xiox clean` command to copy. Shinatama never removes anything.
+  The **Leftovers** side panel lists every worktree, copy of the repository, bench and
+  backup folder, and session folder as it appears. It shows the size, the path and the
+  session that made it, or the sessions that were open at the time. A new one raises the
+  widget at once, so you can stop a session that keeps making copies. Shinatama never
+  removes anything; Xiox's `xiox clean` command is there to copy.
   [How it works](docs/notes/2026-11-16-xiox-leftovers.md)
 
 ## Quickstart

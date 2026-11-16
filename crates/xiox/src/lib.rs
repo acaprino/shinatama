@@ -16,7 +16,7 @@ mod observer;
 mod picture;
 
 pub use observer::{Observer, Options, Update};
-pub use picture::{Change, MAX_NEW_ITEMS, NewItem, Phase, Picture};
+pub use picture::{Change, MAX_NEW_ITEMS, NewItem, Phase, Picture, SessionRef};
 
 use std::{
     ffi::{OsStr, OsString},

@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { countText, folderKey, itemText, leftoversFor, size, summaryText, type LeftoverItem, type Leftovers } from '../src/leftovers-model.ts';
+import { ago, authorText, baseName, countText, folderKey, itemText, leftoversFor, size, summaryText, visibleCount, visibleItems, type LeftoverItem, type Leftovers } from '../src/leftovers-model.ts';
 
 const item = (category: string, extra: Partial<LeftoverItem> = {}): LeftoverItem => ({
   key: `k-${category}`, category, path: `C:\\w\\app-${category}`, label: null, bytes: 2048, bytesPartial: false,
-  level: 'caution', blocked: [], reason: 'named like the project', firstSeenMs: 1, ...extra,
+  level: 'caution', blocked: [], reason: 'named like the project', firstSeenMs: 1, sessions: [], ...extra,
 });
 const picture = (extra: Partial<Leftovers> = {}): Leftovers => ({
-  folders: ['c:\\w\\app'], phase: 'watching', root: 'C:\\w\\app', name: 'app', isRepo: true, newItems: [], newItemsOmitted: 0,
+  folders: ['c:\\w\\app'], liveSessions: 0, suspects: {}, phase: 'watching', root: 'C:\\w\\app', name: 'app', isRepo: true, newItems: [], newItemsOmitted: 0,
   growthBytes: 0, attention: [], stale: false, cleanCommand: null, cleanCommandTruncated: false,
   startedAtMs: null, checkedAtMs: null, message: null, ...extra,
 });
@@ -38,4 +38,23 @@ test('an item line says where, how big, why, and what blocks it', () => {
     'caution · C:\\w\\app-copies · at least 2.0 KB · copy of the repository · cannot be removed: uncommitted changes',
   );
   assert.equal(itemText(item('sessions', { path: null, label: 'Bench the parser', bytes: null })).split(' · ').slice(1, 3).join(' · '), 'Bench the parser · size unknown');
+});
+
+test('the panel lists the newest first and leaves archived sessions out', () => {
+  const p = picture({ newItems: [item('worktrees', { key: 'a', firstSeenMs: 1 }), item('sessions', { key: 's' }), item('named', { key: 'b', firstSeenMs: 5 })] });
+  assert.deepEqual(visibleItems(p).map(i => i.key), ['b', 'a']);
+  assert.equal(visibleCount([p, picture()]), 2);
+  assert.equal(baseName('D:\\bench\\app-bench\\'), 'app-bench');
+  assert.equal(ago(0, 30_000), 'just now');
+  assert.equal(ago(0, 5 * 60_000), '5 min ago');
+  assert.equal(ago(0, 3 * 3_600_000), '3 h ago');
+});
+
+test('the author is the history evidence first, then who could have made it', () => {
+  const evidence = item('scratch', { sessions: [{ harness: 'codex', id: '019a1234567890abc', strength: 'created' }] });
+  assert.equal(authorText(evidence, []), 'Created by Codex session 019a12345678 (from its history)');
+  const claude = { terminalId: 'abcdef123', harness: 'claude_code', open: true };
+  assert.equal(authorText(item('copies'), [claude]), 'Only Claude Code #abcdef was open when it appeared');
+  assert.equal(authorText(item('copies'), [claude, { terminalId: 'zz9', harness: 'pi', open: false }]), 'Open when it appeared: Claude Code #abcdef, Pi #zz9');
+  assert.equal(authorText(item('copies'), []), null);
 });
