@@ -107,6 +107,18 @@ a message addressed to the member and continues the session with it (bounded by
    the version it was built and tested against; no Mukade checkout beside Shinatama is used.
    A test keeps the dependency, `scripts/mukade-pin.json` and `MUKADE_REVISION` on one revision.
 
+9. **What counts as "in the room".** A session is a member through its hooks only when its
+   launch in this run composed them (a launch record kept by the engine) and the adapter joined;
+   the adapter's file alone outlives the run that wrote it. A session that joined by hand counts
+   while it runs. If Codex's approval fails, the hooks are not composed at all. The bootstrap of a
+   session opened by an agent tells it to look for the `[mukade chat]` note and to join by hand
+   when there is none, since whether the hooks loaded is known only after the text is written.
+10. **Reads stay reads; sends happen once.** `shinatama_thread_peers` starts no service and
+   creates no room. A room's id is kept for the run once opened. The panel's first read takes the
+   newest events (a widening window ending now). The unread mark counts only messages and
+   signals after the event the user saw. The user's message is resent only when Mukade refused
+   the handle (`stale_member`); a timeout is reported as uncertain, not repeated.
+
 ## Rejected alternatives
 
 - **RA-001: keep manual consumption only.** An idle session never answers; the user relays by hand.

@@ -745,7 +745,8 @@ fn prepare(
         },
         session.require_mukade,
     )?;
-    let chat = session.chat.as_ref().filter(|_| mukade.is_some());
+    // Hooks that cannot be written leave the session an ordinary one, never a failed launch.
+    let chat = session.chat.as_ref().filter(|chat| mukade.is_some() && chat.codex_hooks().is_some());
     let session_events = if let Some(helper_path) = trusted_hook_exe {
         let mut helper = crate::harness_hooks::pin_session_hook(helper_path, deadline)
             .map_err(|_| CodexLaunchError::Configuration)?;
@@ -753,13 +754,12 @@ fn prepare(
         let receiver =
             SessionEventReceiver::start_for(HarnessKind::Codex, identity.record(), &project)
                 .map_err(|_| CodexLaunchError::Configuration)?;
-        hook_arguments = match chat {
-            Some(chat) => session_and_chat_hook_arguments(
-                &helper.path,
-                &hook_shell.path,
-                receiver.port(),
-                &chat.codex_hooks().ok_or(CodexLaunchError::Configuration)?,
-            )?,
+        hook_arguments = match chat.and_then(|chat| chat.codex_hooks().map(|hooks| (chat, hooks))) {
+            Some((chat, hooks)) => {
+                let arguments = session_and_chat_hook_arguments(&helper.path, &hook_shell.path, receiver.port(), &hooks)?;
+                crate::mukade_chat::note_launch(context.thread_id, chat.room_id());
+                arguments
+            }
             None => session_hook_arguments(&version, &helper.path, &hook_shell.path, receiver.port())?,
         };
         pinned.ancestors.append(&mut helper.ancestors);
@@ -1024,13 +1024,7 @@ fn session_hook_arguments(
     // Codex hooks/engine/discovery.rs normalizes one handler to TOML, then
     // config/fingerprint.rs hashes its recursively sorted JSON. None fields
     // disappear in TOML; the default async=false remains part of the identity.
-    let mut identity = serde_json::json!({
-        "event_name": "session_start", "matcher": matcher,
-        "hooks": [{"type":"command", "command":command, "timeout":5, "async":false}]
-    });
-    identity.sort_all_objects();
-    let normalized = serde_json::to_vec(&identity).map_err(|_| CodexLaunchError::Configuration)?;
-    let hash = format!("sha256:{:x}", Sha256::digest(normalized));
+    let hash = hook_hash("session_start", Some(matcher), &command, 5)?;
     let quoted_command =
         serde_json::to_string(&command).map_err(|_| CodexLaunchError::Configuration)?;
     let quoted_matcher =

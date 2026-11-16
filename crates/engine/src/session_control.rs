@@ -385,7 +385,9 @@ fn uuid(value: &str) -> bool {
                 && id.get_version().is_some()
         })
 }
-fn member_name(value: &str) -> bool {
+/// Mukade's member-name rule: 1-32 lowercase letters, digits, '_' or '-', starting with a
+/// letter or digit, never `all`. The one copy every Shinatama check uses.
+pub fn member_name(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 32
         && value != "all"

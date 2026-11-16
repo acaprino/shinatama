@@ -9,28 +9,50 @@ use serde_json::{Value, json};
 use shinatama_engine::{
     mukade_chat::{self, AdapterMember, ChatHooks, USER_HARNESS, USER_MEMBER},
     mukade_mcp::Connection,
-    session_control::{thread_member_name, thread_room_name},
+    session_control::{member_name, thread_member_name, thread_room_name},
 };
 use shinatama_state::threads::{ThreadStatus, ThreadSummary};
 use std::{
     collections::BTreeMap,
+    path::PathBuf,
     sync::{Arc, Mutex},
 };
 use tauri::{State, WebviewWindow};
 
 /// Harnesses Shinatama gives Mukade's hooks and tools (`claude_launch`, `codex_launch`).
-const CHAT_HARNESSES: &[&str] = &["claude_code", "codex"];
+pub(crate) const CHAT_HARNESSES: &[&str] = &["claude_code", "codex"];
 const MAX_EVENTS: usize = 400;
 const PAGE: &str = "500";
 const MAX_PAGES: usize = 8;
 const MAX_TEXT: usize = 16 * 1024;
 const MAX_OVERVIEW: usize = 64;
+/// Events the window draws, and the ones among them that are news for the user.
+const DRAWN: &[&str] = &["message", "signal", "join", "rejoin", "leave", "close", "reopen"];
+const NEWS: &[&str] = &["message", "signal"];
 
 /// The person's member handle in each room, for this run only: it is a credential and
 /// stays in memory. After a restart it is recovered with `rejoin`, which rotates it.
+/// `unread` remembers, per room, the answer for the last (revision, seen event) pair.
 #[derive(Default)]
 pub struct Controller {
     user: Mutex<BTreeMap<String, String>>,
+    unread: Mutex<BTreeMap<String, (String, String, bool)>>,
+}
+
+/// A thread's room ID never changes for a service's data folder: it is opened once and kept.
+type RoomKey = (PathBuf, String);
+static ROOMS: Mutex<BTreeMap<RoomKey, String>> = Mutex::new(BTreeMap::new());
+fn room_key(state: &WorkspaceServices, workset: &str) -> RoomKey {
+    (mukade_chat::data_directory(&state.location), workset.to_owned())
+}
+fn cached_room(state: &WorkspaceServices, workset: &str) -> Option<String> {
+    ROOMS.lock().ok()?.get(&room_key(state, workset)).cloned()
+}
+/// After a failed call the next one starts the service again if needed and reopens the room.
+fn forget_room(state: &WorkspaceServices, workset: &str) {
+    if let Ok(mut rooms) = ROOMS.lock() {
+        rooms.remove(&room_key(state, workset));
+    }
 }
 
 /// The hooks for a launch into `workset`, when that thread is on and the harness has
@@ -48,12 +70,61 @@ pub(crate) fn launch_hooks(state: &WorkspaceServices, harness: &str, workset: &s
     }
 }
 
-/// The thread's room ID, starting Shinatama's own service when it is stopped.
+/// The thread's room ID, starting Shinatama's own service when it is stopped and opening the
+/// room the first time. Kept for the run; `forget_room` after a failure.
 pub(crate) fn room_of(state: &WorkspaceServices, workset: &str) -> Result<String, String> {
+    if let Some(room) = cached_room(state, workset) {
+        return Ok(room);
+    }
     let name = thread_room_name(workset).ok_or("The thread is invalid.")?;
     Connection::ensure_running(&state.location)?
         .ok_or("This Shinatama has no Mukade program in its mukade folder.")?;
-    mukade_chat::open_room(&state.location, &name)
+    let room = mukade_chat::open_room(&state.location, &name)?;
+    if let Ok(mut rooms) = ROOMS.lock() {
+        rooms.insert(room_key(state, workset), room.clone());
+    }
+    Ok(room)
+}
+
+/// The thread's room ID without changing anything: no service is started and no room is
+/// created. `None` while the service is not running or the room was never opened.
+pub(crate) fn find_room(state: &WorkspaceServices, workset: &str) -> Option<String> {
+    if let Some(room) = cached_room(state, workset) {
+        return Some(room);
+    }
+    let name = thread_room_name(workset)?;
+    Connection::discover(&state.location).ok()??;
+    let (rooms, _) = listing(state, "rooms", &[]).ok()?;
+    let room = rooms
+        .iter()
+        .find(|room| room["name"] == name.as_str())?
+        .get("room_id")?
+        .as_str()
+        .filter(|id| mukade_chat::valid_room_id(id))?
+        .to_owned();
+    if let Ok(mut cache) = ROOMS.lock() {
+        cache.insert(room_key(state, workset), room.clone());
+    }
+    Some(room)
+}
+
+/// The room of a session that was launched in this run with Mukade's hooks into `room`, and
+/// whose adapter then joined it: only then is it a member through its hooks.
+pub(crate) fn hooked_member(state: &WorkspaceServices, session: &str, harness: &str, native: &str, room: &str) -> Option<AdapterMember> {
+    if mukade_chat::launched_room(session).as_deref() != Some(room) {
+        return None;
+    }
+    mukade_chat::adapter_member(&state.location, harness, native).filter(|member| member.room_id == room)
+}
+
+pub(crate) fn session_state(status: ThreadStatus) -> &'static str {
+    match status {
+        ThreadStatus::RecordedOpen => "running",
+        ThreadStatus::Inactive => "stopped",
+        ThreadStatus::Unbound => "not_started",
+        // The interface calls an archived session a closed one (ADR-0055).
+        ThreadStatus::Archived => "closed",
+    }
 }
 
 async fn blocking<T: Send + 'static>(
@@ -70,8 +141,9 @@ fn workset(value: &str) -> Result<(), String> {
     thread_room_name(value).map(|_| ()).ok_or_else(|| "The thread is invalid.".to_owned())
 }
 
-/// Every page of a listing (`rooms`, `members`, `ledger`), within a bound.
-fn listing(state: &WorkspaceServices, operation: &str, arguments: &[(&str, &str)]) -> Result<Vec<Value>, String> {
+/// The pages of a listing (`rooms`, `members`, `ledger`), within a bound; `true` when the
+/// listing ended before the bound.
+fn listing(state: &WorkspaceServices, operation: &str, arguments: &[(&str, &str)]) -> Result<(Vec<Value>, bool), String> {
     let mut items = Vec::new();
     let mut cursor: Option<String> = None;
     for _ in 0..MAX_PAGES {
@@ -84,10 +156,39 @@ fn listing(state: &WorkspaceServices, operation: &str, arguments: &[(&str, &str)
         items.extend(answer["items"].as_array().cloned().unwrap_or_default());
         match answer["next_cursor"].as_str() {
             Some(next) => cursor = Some(next.to_owned()),
-            None => return Ok(items),
+            None => return Ok((items, true)),
         }
     }
-    Ok(items)
+    Ok((items, false))
+}
+
+/// The room's most recent events. The ledger lists oldest first, so the first read asks for
+/// a widening window ending now (10 minutes, an hour, a day, a week, a month, everything) and
+/// keeps the widest one it could read whole, or the first that already holds enough.
+fn recent_events(state: &WorkspaceServices, room: &str) -> Result<Vec<Value>, String> {
+    use chrono::{Duration, SecondsFormat, Utc};
+    let now = Utc::now();
+    let mut kept: Option<Vec<Value>> = None;
+    for span in [Some(Duration::minutes(10)), Some(Duration::hours(1)), Some(Duration::days(1)),
+        Some(Duration::days(7)), Some(Duration::days(30)), None]
+    {
+        let since = span.map(|span| (now - span).to_rfc3339_opts(SecondsFormat::Millis, true));
+        let mut arguments = vec![("room-id", room)];
+        if let Some(since) = &since {
+            arguments.push(("since", since));
+        }
+        let (events, whole) = listing(state, "ledger", &arguments)?;
+        if !whole {
+            // Too many to read whole: a narrower window already read is newer and complete.
+            return Ok(kept.unwrap_or(events));
+        }
+        let enough = events.len() >= MAX_EVENTS;
+        kept = Some(events);
+        if enough {
+            break;
+        }
+    }
+    Ok(kept.unwrap_or_default())
 }
 
 #[derive(Serialize)]
@@ -125,7 +226,7 @@ pub async fn thread_chat_set(
             return Err("The thread no longer exists.".into());
         }
         let enabled = state.store.set_thread_chat(&request.workset_id, request.enabled).map_err(|e| e.to_string())?;
-        let warning = if request.enabled { room_of(state, &request.workset_id).err() } else { None };
+        let warning = if request.enabled { room_of(state, &request.workset_id).inspect_err(|_| forget_room(state, &request.workset_id)).err() } else { None };
         Ok(ChatSwitch { enabled, warning })
     })
     .await
@@ -133,69 +234,119 @@ pub async fn thread_chat_set(
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SeenEvent {
+    event_id: String,
+    timestamp: String,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ChatOverviewRequest {
     workset_ids: Vec<String>,
+    /// The last event the user saw in each thread's room, as the window keeps it.
+    #[serde(default)]
+    seen: BTreeMap<String, SeenEvent>,
+}
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RoomMark {
+    /// The room's latest event and its time: where a thread seen for the first time starts.
+    latest: String,
+    last_activity: Option<String>,
+    /// A message or signal after the event the user saw.
+    unread: bool,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatOverview {
     /// `running`, `not_started` or `unavailable`: a read never starts the service.
     service: &'static str,
-    /// The latest event of each thread's room, as a decimal string; absent while the
-    /// room has never been opened.
-    latest: BTreeMap<String, String>,
-    /// Per thread, its sessions whose native conversation Mukade's hooks made a member
-    /// of the thread's room. Read from the adapter's own records: no service call.
+    /// Per talking thread whose room exists.
+    rooms: BTreeMap<String, RoomMark>,
+    /// Per thread, its sessions that are members of the room through hooks launched in this
+    /// run. Read from Shinatama's launch record and the adapter's files: no service call.
     connected: BTreeMap<String, Vec<String>>,
 }
-/// One `rooms` call for every talking thread the window shows: enough for its marks.
+fn later(a: &str, b: &str) -> bool {
+    a.len() > b.len() || (a.len() == b.len() && a > b)
+}
+/// One `rooms` call for every talking thread the window shows; a room whose latest event is
+/// past what the user saw is read from that point to tell news (a message or a signal) from
+/// a join or a binding. Each answer is kept until the room or the seen event changes.
 #[tauri::command]
 pub async fn thread_chat_overview(
     window: WebviewWindow,
     services: State<'_, Arc<storage::Services>>,
+    controller: State<'_, Arc<Controller>>,
     request: ChatOverviewRequest,
 ) -> Result<ChatOverview, String> {
     crate::local(&window)?;
-    if request.workset_ids.len() > MAX_OVERVIEW {
+    if request.workset_ids.len() > MAX_OVERVIEW || request.seen.len() > MAX_OVERVIEW {
         return Err("Too many threads in one request.".into());
     }
-    for id in &request.workset_ids {
+    for id in request.workset_ids.iter().chain(request.seen.keys()) {
         workset(id)?;
     }
+    for seen in request.seen.values() {
+        if !seen.event_id.bytes().all(|c| c.is_ascii_digit()) || seen.event_id.len() > 20 || seen.timestamp.len() > 64 || seen.timestamp.chars().any(char::is_control) {
+            return Err("A read position is invalid.".into());
+        }
+    }
+    let controller = Arc::clone(controller.inner());
     blocking(services.inner(), move |state| {
         let service = match Connection::discover(&state.location) {
             Ok(Some(_)) => "running",
             Ok(None) => "not_started",
             Err(_) => "unavailable",
         };
-        let mut latest = BTreeMap::new();
+        let mut rooms = BTreeMap::new();
         let mut connected = BTreeMap::new();
-        if service == "running" && !request.workset_ids.is_empty() {
-            let names: BTreeMap<String, &String> = request
-                .workset_ids
-                .iter()
-                .filter_map(|id| thread_room_name(id).map(|name| (name, id)))
-                .collect();
-            for room in listing(state, "rooms", &[])? {
-                let (Some(name), Some(room_id)) = (room["name"].as_str(), room["room_id"].as_str()) else { continue };
-                let Some(id) = names.get(name) else { continue };
-                if let Some(revision) = room["revision"].as_str() {
-                    latest.insert((*id).clone(), revision.to_owned());
-                }
-                let members: Vec<String> = state
-                    .store
-                    .workset_native_sessions(id)
-                    .unwrap_or_default()
-                    .into_iter()
-                    .filter(|(_, harness, native)| {
-                        mukade_chat::adapter_member(&state.location, harness, native).is_some_and(|member| member.room_id == room_id)
-                    })
-                    .map(|(session, _, _)| session)
-                    .collect();
-                connected.insert((*id).clone(), members);
-            }
+        if service != "running" || request.workset_ids.is_empty() {
+            return Ok(ChatOverview { service, rooms, connected });
         }
-        Ok(ChatOverview { service, latest, connected })
+        let names: BTreeMap<String, &String> = request
+            .workset_ids
+            .iter()
+            .filter_map(|id| thread_room_name(id).map(|name| (name, id)))
+            .collect();
+        for room in listing(state, "rooms", &[])?.0 {
+            let (Some(name), Some(room_id), Some(revision)) = (room["name"].as_str(), room["room_id"].as_str(), room["revision"].as_str()) else { continue };
+            let Some(id) = names.get(name) else { continue };
+            let unread = match request.seen.get(*id) {
+                Some(seen) if later(revision, &seen.event_id) => {
+                    let known = controller.unread.lock().ok().and_then(|cache| cache.get(room_id).cloned());
+                    match known {
+                        Some((at, from, answer)) if at == revision && from == seen.event_id => answer,
+                        _ => {
+                            let (events, _) = listing(state, "ledger", &[("room-id", room_id), ("since", &seen.timestamp)])?;
+                            let answer = events.iter().any(|event| {
+                                event["kind"].as_str().is_some_and(|kind| NEWS.contains(&kind))
+                                    && event["event_id"].as_str().is_some_and(|event| later(event, &seen.event_id))
+                            });
+                            if let Ok(mut cache) = controller.unread.lock() {
+                                cache.insert(room_id.to_owned(), (revision.to_owned(), seen.event_id.clone(), answer));
+                            }
+                            answer
+                        }
+                    }
+                }
+                _ => false,
+            };
+            rooms.insert((*id).clone(), RoomMark {
+                latest: revision.to_owned(),
+                last_activity: room["last_activity"].as_str().map(str::to_owned),
+                unread,
+            });
+            let members: Vec<String> = state
+                .store
+                .workset_native_sessions(id)
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|(session, harness, native)| hooked_member(state, session, harness, native, room_id).is_some())
+                .map(|(session, _, _)| session)
+                .collect();
+            connected.insert((*id).clone(), members);
+        }
+        Ok(ChatOverview { service, rooms, connected })
     })
     .await
 }
@@ -224,49 +375,47 @@ pub async fn thread_chat_snapshot(
         if !state.store.thread_chat_enabled(&request.workset_id).map_err(|e| e.to_string())? {
             return Ok(json!({"enabled": false}));
         }
+        // Reads repeat safely: after a failure the room is opened again, once.
+        let read = |room: &str| -> Result<Value, String> {
+            let (members, _) = listing(state, "members", &[("room-id", room)])?;
+            let events = match &request.since {
+                Some(since) => listing(state, "ledger", &[("room-id", room), ("since", since)])?.0,
+                None => recent_events(state, room)?,
+            };
+            let summaries = state.store.workset_threads(&request.workset_id).map_err(|e| e.to_string())?;
+            let natives = state.store.workset_native_sessions(&request.workset_id).map_err(|e| e.to_string())?;
+            let sessions: Vec<SessionFacts> = summaries
+                .into_iter()
+                .map(|summary| {
+                    let adapter = natives
+                        .iter()
+                        .find(|(id, _, _)| id == &summary.id)
+                        .and_then(|(session, harness, native)| hooked_member(state, session, harness, native, room));
+                    SessionFacts { summary, adapter }
+                })
+                .collect();
+            Ok(project(room, &members, &events, &sessions))
+        };
         let room = room_of(state, &request.workset_id)?;
-        let members = listing(state, "members", &[("room-id", &room)])?;
-        let mut ledger_arguments = vec![("room-id", room.as_str())];
-        if let Some(since) = &request.since {
-            ledger_arguments.push(("since", since));
-        }
-        let events = listing(state, "ledger", &ledger_arguments)?;
-        let summaries = state.store.workset_threads(&request.workset_id).map_err(|e| e.to_string())?;
-        let natives = state.store.workset_native_sessions(&request.workset_id).map_err(|e| e.to_string())?;
-        let sessions: Vec<SessionFacts> = summaries
-            .into_iter()
-            .map(|summary| {
-                let adapter = natives
-                    .iter()
-                    .find(|(id, _, _)| id == &summary.id)
-                    .and_then(|(_, harness, native)| mukade_chat::adapter_member(&state.location, harness, native))
-                    .filter(|member| member.room_id == room);
-                SessionFacts { summary, adapter }
-            })
-            .collect();
-        Ok(project(&room, &members, &events, &sessions))
+        read(&room).or_else(|_| {
+            forget_room(state, &request.workset_id);
+            read(&room_of(state, &request.workset_id)?)
+        })
     })
     .await
 }
 
 pub(crate) struct SessionFacts {
     pub summary: ThreadSummary,
-    /// Mukade's adapter record of the session's native conversation, in this room.
+    /// Mukade's adapter record of the session's native conversation, in this room, when the
+    /// session was launched in this run with the hooks (`hooked_member`).
     pub adapter: Option<AdapterMember>,
-}
-
-fn session_state(status: ThreadStatus) -> &'static str {
-    match status {
-        ThreadStatus::RecordedOpen => "running",
-        ThreadStatus::Inactive => "stopped",
-        ThreadStatus::Unbound => "not_started",
-        ThreadStatus::Archived => "closed",
-    }
 }
 
 /// The window's view of a room. A member belongs to a session when the session's
 /// adapter record names it, or (a session that joined by hand) by the stable name
-/// `shinatama_thread_peers` gives it.
+/// `shinatama_thread_peers` gives it. A session is in the room when it is a member through
+/// its hooks, or, joined by hand, while it runs.
 pub(crate) fn project(room: &str, members: &[Value], events: &[Value], sessions: &[SessionFacts]) -> Value {
     let session_of = |member: &Value| -> Option<&SessionFacts> {
         let id = member["member_id"].as_str()?;
@@ -304,9 +453,11 @@ pub(crate) fn project(room: &str, members: &[Value], events: &[Value], sessions:
         .map(|session| {
             let harness = session.summary.harness.as_deref();
             let member = members.iter().find(|member| member["sessionId"].as_str() == Some(session.summary.id.as_str()));
+            let present = member.is_some_and(|member| member["active"] == true)
+                && (session.adapter.is_some() || session.summary.status == ThreadStatus::RecordedOpen);
             let connection = if !harness.is_some_and(|harness| CHAT_HARNESSES.contains(&harness)) {
                 "unsupported"
-            } else if member.is_some_and(|member| member["active"] == true) {
+            } else if present {
                 "in_room"
             } else {
                 "not_connected"
@@ -326,7 +477,7 @@ pub(crate) fn project(room: &str, members: &[Value], events: &[Value], sessions:
         .iter()
         .filter_map(|event| {
             let kind = event["kind"].as_str()?;
-            if !matches!(kind, "message" | "signal" | "join" | "rejoin" | "leave" | "close" | "reopen") {
+            if !DRAWN.contains(&kind) {
                 return None;
             }
             let payload = &event["payload"];
@@ -362,14 +513,14 @@ pub struct ChatSendRequest {
     recipients: Vec<String>,
     text: String,
 }
-fn member_name(value: &str) -> bool {
-    (1..=32).contains(&value.len())
-        && value != "all"
-        && value.bytes().next().is_some_and(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
-        && value.bytes().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, b'_' | b'-'))
+/// Mukade's refusal of a handle another run rotated or that no longer names a member.
+fn stale_handle(reason: &str) -> bool {
+    reason.starts_with("stale_member") || reason.starts_with("member_not_found")
 }
 /// The person's message, sent as the room's `user` member. A message addressed to a
 /// session wakes it when it is listening; otherwise it reads it at its next turn.
+/// It is sent at most once: only a refused handle is recovered and the send repeated, since
+/// then nothing was recorded; any other failure is reported, a timeout as uncertain.
 #[tauri::command]
 pub async fn thread_chat_send(
     window: WebviewWindow,
@@ -402,10 +553,20 @@ pub async fn thread_chat_send(
         };
         let cached = controller.user.lock().ok().and_then(|users| users.get(&room).cloned());
         let sent = match cached {
-            // A handle another run rotated is refused: recover once.
-            Some(handle) => send(&handle).or_else(|_| send(&user_handle(state, &controller, &room)?)),
+            Some(handle) => match send(&handle) {
+                Err(reason) if stale_handle(&reason) => send(&user_handle(state, &controller, &room)?),
+                other => other,
+            },
             None => send(&user_handle(state, &controller, &room)?),
-        }?;
+        };
+        let sent = sent.map_err(|reason| {
+            forget_room(state, &request.workset_id);
+            if reason.contains("did not finish in time") {
+                "Mukade did not answer in time: the message may have been sent. Check the conversation before sending it again.".to_owned()
+            } else {
+                reason
+            }
+        })?;
         Ok(json!({"eventId": sent["event_id"]}))
     })
     .await
@@ -423,7 +584,7 @@ fn user_handle(state: &WorkspaceServices, controller: &Controller, room: &str) -
     let answer = match joined {
         Ok(answer) => answer,
         Err(reason) if reason.contains("member_name_taken") => {
-            let members = listing(state, "members", &[("room-id", room)])?;
+            let (members, _) = listing(state, "members", &[("room-id", room)])?;
             let member_id = members
                 .iter()
                 .find(|member| member["name"] == USER_MEMBER && member["harness"] == USER_HARNESS)
@@ -474,7 +635,8 @@ mod tests {
                 summary: summary("t_aaaaaaaaaaaa", Some("claude_code"), ThreadStatus::RecordedOpen),
                 adapter: Some(AdapterMember { room_id: "r".into(), member_id: "m1".into(), name: "claude-1".into(), role: "peer".into(), wakes: 1 }),
             },
-            SessionFacts { summary: summary("t_bbbbbbbbbbbb", Some("codex"), ThreadStatus::Inactive), adapter: None },
+            // Joined by hand, under its stable name, and running.
+            SessionFacts { summary: summary("t_bbbbbbbbbbbb", Some("codex"), ThreadStatus::RecordedOpen), adapter: None },
             SessionFacts { summary: summary("t_cccccccccccc", Some("pi"), ThreadStatus::RecordedOpen), adapter: None },
             SessionFacts { summary: summary("t_dddddddddddd", Some("claude_code"), ThreadStatus::RecordedOpen), adapter: None },
         ];
@@ -485,6 +647,7 @@ mod tests {
         assert_eq!(view["sessions"][0]["connection"], "in_room");
         assert_eq!(view["sessions"][0]["wakes"], 1);
         assert_eq!(view["sessions"][1]["memberName"], "codex-bbbbbbbbbbbb");
+        assert_eq!(view["sessions"][1]["connection"], "in_room");
         assert_eq!(view["sessions"][2]["connection"], "unsupported");
         assert_eq!(view["sessions"][3]["connection"], "not_connected");
         // Only deliberate events are drawn; a bind is not one.
@@ -494,7 +657,18 @@ mod tests {
     }
 
     #[test]
-    fn recipients_are_member_names_and_never_the_person_s_own() {
-        assert!(member_name("codex-1") && !member_name("all") && !member_name("Codex") && !member_name(""));
+    fn a_member_that_joined_by_hand_is_not_in_the_room_once_its_session_stops() {
+        let members = [json!({"member_id":"m2","name":"codex-bbbbbbbbbbbb","harness":"codex","role":"peer","left_at":null})];
+        let sessions = [SessionFacts { summary: summary("t_bbbbbbbbbbbb", Some("codex"), ThreadStatus::Inactive), adapter: None }];
+        assert_eq!(project("r", &members, &[], &sessions)["sessions"][0]["connection"], "not_connected");
+    }
+
+    #[test]
+    fn only_a_refused_handle_is_recovered_and_event_ids_compare_as_numbers() {
+        assert!(stale_handle("stale_member: The member handle is stale; recover the member with chat_rejoin"));
+        assert!(stale_handle("member_not_found: No member has that ID in this room"));
+        assert!(!stale_handle("Mukade chat send did not finish in time."));
+        assert!(!stale_handle("room_closed: The room is closed"));
+        assert!(later("10", "9") && !later("9", "10") && !later("7", "7") && later("8", "7"));
     }
 }

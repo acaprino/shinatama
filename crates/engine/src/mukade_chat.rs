@@ -32,8 +32,10 @@ pub const USER_HARNESS: &str = "shinatama";
 /// Mukade bounds a hook's stop at the listening time plus a margin.
 const STOP_MARGIN_SECONDS: u64 = 30;
 const CLI_TIMEOUT: Duration = Duration::from_secs(20);
-/// Mukade bounds each answer of Codex's app-server at 30 s; trust asks it at most three times.
-const TRUST_TIMEOUT: Duration = Duration::from_secs(100);
+/// Mukade bounds each answer of Codex's app-server at 30 s; one is enough in practice.
+const TRUST_TIMEOUT: Duration = Duration::from_secs(60);
+/// How long a refused approval is remembered before a launch tries again.
+const TRUST_RETRY: Duration = Duration::from_secs(600);
 const MAX_OUTPUT: usize = 4 * 1024 * 1024;
 const MAX_ADAPTER_STATE: u64 = 16 * 1024;
 
@@ -76,12 +78,15 @@ pub const CODEX_STOP_HOOK_TIMEOUT: u64 = 3600 + 30;
 
 impl ChatHooks {
     /// `None` without a bundled Mukade program: the hooks have nothing to run.
+    /// `None` also when the program's path cannot be carried by a hook command line (not a
+    /// drive path, not UTF-8, control characters): the session then opens as an ordinary one.
     pub fn new(base: &StorageLocation, room_id: &str) -> Option<Self> {
         if !valid_room_id(room_id) {
             return None;
         }
         let program = crate::mukade_mcp::bundled_program()?;
-        Some(Self::with_program(room_id, program, data_directory(base)))
+        let hooks = Self::with_program(room_id, program, data_directory(base));
+        hooks.program_path().is_some().then_some(hooks)
     }
     fn with_program(room_id: &str, program: PathBuf, data_dir: PathBuf) -> Self {
         Self { room_id: room_id.into(), program, data_dir }
@@ -147,6 +152,21 @@ impl ChatHooks {
     }
 }
 
+/// The sessions launched in this run of Shinatama with Mukade's hooks, and the room each was
+/// launched into. The adapter's record of a session outlives the run that wrote it; only this
+/// says whether the session running now has the hooks.
+static LAUNCHED: std::sync::Mutex<BTreeMap<String, String>> = std::sync::Mutex::new(BTreeMap::new());
+/// Called by a launcher once it composed the hooks for `session` (a stored session record id).
+pub fn note_launch(session: &str, room_id: &str) {
+    if let Ok(mut launched) = LAUNCHED.lock() {
+        launched.insert(session.to_owned(), room_id.to_owned());
+    }
+}
+/// The room `session` was last launched into with Mukade's hooks in this run, if any.
+pub fn launched_room(session: &str) -> Option<String> {
+    LAUNCHED.lock().ok()?.get(session).cloned()
+}
+
 /// What Mukade's adapter remembers about one native session: its membership, never
 /// its handle, which is a credential and is not read into Shinatama.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
@@ -185,14 +205,8 @@ pub fn adapter_member(base: &StorageLocation, harness: &str, native_id: &str) ->
 fn parse_adapter_member(bytes: &[u8]) -> Option<AdapterMember> {
     // Unknown fields (the handle among them) are skipped, not kept.
     let member: AdapterMember = serde_json::from_slice(bytes).ok()?;
-    (valid_room_id(&member.room_id) && valid_room_id(&member.member_id) && member_name(&member.name))
+    (valid_room_id(&member.room_id) && valid_room_id(&member.member_id) && crate::session_control::member_name(&member.name))
         .then_some(member)
-}
-fn member_name(value: &str) -> bool {
-    (1..=32).contains(&value.len())
-        && value != "all"
-        && value.bytes().next().is_some_and(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
-        && value.bytes().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, b'_' | b'-'))
 }
 
 /// One `mukade chat <operation> … --json` through the bundled program, against the
@@ -224,13 +238,25 @@ pub fn call(base: &StorageLocation, operation: &str, arguments: &[(&str, &str)],
 /// approval is recorded for exactly those. Nothing outside that home is written, and no
 /// approval is skipped or bypassed. `Ok` only when Codex then reports every one of Mukade's
 /// hooks trusted. Already trusted hooks are left as they are, so a repeat is harmless; each
-/// (home, Codex program) pair is checked once per run of Shinatama.
+/// (home, Codex program) pair is checked once per run of Shinatama, a refusal again after a while.
 pub fn trust_codex(codex_home: &Path, private_root: &Path, codex_program: &Path, project: &Path) -> Result<(), String> {
-    static TRUSTED: std::sync::Mutex<Vec<(PathBuf, PathBuf)>> = std::sync::Mutex::new(Vec::new());
+    // A success holds for the run; a refusal is remembered for a while, so a Codex build that
+    // does not take Mukade's hooks does not delay every launch with another attempt.
+    type Outcomes = BTreeMap<(PathBuf, PathBuf), (Result<(), String>, Instant)>;
+    static OUTCOMES: std::sync::Mutex<Outcomes> = std::sync::Mutex::new(BTreeMap::new());
     let pair = (codex_home.to_owned(), codex_program.to_owned());
-    if TRUSTED.lock().is_ok_and(|trusted| trusted.contains(&pair)) {
-        return Ok(());
+    if let Some((outcome, at)) = OUTCOMES.lock().ok().and_then(|outcomes| outcomes.get(&pair).cloned())
+        && (outcome.is_ok() || at.elapsed() < TRUST_RETRY)
+    {
+        return outcome;
     }
+    let outcome = trust_codex_now(codex_home, private_root, codex_program, project);
+    if let Ok(mut outcomes) = OUTCOMES.lock() {
+        outcomes.insert(pair, (outcome.clone(), Instant::now()));
+    }
+    outcome
+}
+fn trust_codex_now(codex_home: &Path, private_root: &Path, codex_program: &Path, project: &Path) -> Result<(), String> {
     // Codex is started as Shinatama starts it: its home, profile and application folders
     // are the private ones, so the approval lands in the config.toml that session reads.
     let environment = [
@@ -251,9 +277,6 @@ pub fn trust_codex(codex_home: &Path, private_root: &Path, codex_program: &Path,
             .map(|hook| format!("{} {}", hook["event"].as_str().unwrap_or("?"), hook["after"].as_str().unwrap_or("?")))
             .collect();
         return Err(format!("Codex did not confirm Mukade's hooks as trusted ({}).", hooks.join(", ")));
-    }
-    if let Ok(mut trusted) = TRUSTED.lock() {
-        trusted.push(pair);
     }
     Ok(())
 }
@@ -397,6 +420,14 @@ mod tests {
         assert!(odd.claude_hooks().is_none() && odd.codex_hooks().is_none());
         let quoted = ChatHooks::with_program("room", PathBuf::from(r"C:\O'Brien\mukade.exe"), PathBuf::new());
         assert!(quoted.codex_hooks().unwrap()[0].command.contains("C:/O''Brien/mukade.exe"));
+    }
+
+    #[test]
+    fn launches_are_remembered_per_session_for_this_run() {
+        assert_eq!(launched_room("t_registrytest1"), None);
+        note_launch("t_registrytest1", "room-a");
+        note_launch("t_registrytest1", "room-b");
+        assert_eq!(launched_room("t_registrytest1").as_deref(), Some("room-b"));
     }
 
     #[test]

@@ -1,15 +1,13 @@
 //! `shinatama_thread_peers`: the sessions of the caller's thread (a workset, ADR-0055)
 //! and the Mukade names they talk to each other with. Every session of one thread
 //! opens the same room by name, so the room needs no record of its own here.
-//! Reads the shared state only: it starts, stops, joins and sends nothing.
+//! Reads only: it starts no service, creates no room, joins and sends nothing.
 use crate::storage;
 use serde_json::{Value, json};
 use shinatama_engine::session_control::{Caller, ThreadTools, thread_member_name, thread_room_name};
-use shinatama_state::threads::{ThreadStatus, ThreadSummary};
+use crate::thread_chat::{CHAT_HARNESSES, find_room, hooked_member, session_state};
+use shinatama_state::threads::ThreadSummary;
 use std::{collections::BTreeMap, sync::Arc};
-
-/// Harnesses Shinatama gives the Mukade chat tools at launch (`claude_launch`, `codex_launch`).
-const CHAT_HARNESSES: &[&str] = &["claude_code", "codex"];
 
 pub struct Peers {
     pub services: Arc<storage::Services>,
@@ -33,33 +31,22 @@ impl ThreadTools for Peers {
             Ok(None) => "not_started",
             Err(_) => "unavailable",
         };
-        // ADR-0057: in a thread that talks, Mukade's hooks joined its sessions under
-        // names the adapter chose; those are the names to address.
+        // ADR-0057: in a thread that talks, the sessions launched in this run with Mukade's
+        // hooks were joined by its adapter under names it chose; those are the names to
+        // address. The caller has the hooks only when its own launch composed them.
         let mut names = BTreeMap::new();
         let mut hooks = false;
         if store.thread_chat_enabled(&workset).unwrap_or(false)
-            && let Ok(room) = crate::thread_chat::room_of(state, &workset)
+            && let Some(room) = find_room(state, &workset)
         {
+            hooks = shinatama_engine::mukade_chat::launched_room(caller.session).as_deref() == Some(room.as_str());
             for (session, harness, native) in store.workset_native_sessions(&workset).unwrap_or_default() {
-                if let Some(member) = shinatama_engine::mukade_chat::adapter_member(&state.location, &harness, &native)
-                    .filter(|member| member.room_id == room)
-                {
-                    hooks |= session == caller.session;
+                if let Some(member) = hooked_member(state, &session, &harness, &native, &room) {
                     names.insert(session, member.name);
                 }
             }
         }
         projection(&record.id, record.title.as_deref(), &sessions, caller, service, &names, hooks)
-    }
-}
-
-fn session_state(status: ThreadStatus) -> &'static str {
-    match status {
-        ThreadStatus::RecordedOpen => "running",
-        ThreadStatus::Inactive => "stopped",
-        ThreadStatus::Unbound => "not_started",
-        // The interface calls an archived session a closed one (ADR-0055).
-        ThreadStatus::Archived => "closed",
     }
 }
 
@@ -76,10 +63,14 @@ pub(crate) fn projection(
     hooks: bool,
 ) -> Result<Value, &'static str> {
     let room = thread_room_name(workset_id).ok_or("thread_not_found")?;
-    let me = match names.get(caller.session) {
-        Some(name) => name.clone(),
-        None => thread_member_name(caller.harness, caller.session).ok_or("thread_not_found")?,
+    // With the hooks the adapter chose the name; before its first turn has joined, the name is
+    // the one its `[mukade chat]` note gives. Without them it is the stable name.
+    let known = match names.get(caller.session) {
+        Some(name) => Some(name.clone()),
+        None if hooks => None,
+        None => Some(thread_member_name(caller.harness, caller.session).ok_or("thread_not_found")?),
     };
+    let me = known.clone().unwrap_or_else(|| "the name your [mukade chat] note gives".to_owned());
     let peers: Vec<Value> = sessions
         .iter()
         .filter(|session| session.id != caller.session)
@@ -122,7 +113,7 @@ pub(crate) fn projection(
     Ok(json!({
         "thread": {"id": workset_id, "title": title},
         "mukade": {"service": service, "room_name": room, "delivery": if hooks { "hooks" } else { "manual" }},
-        "you": {"session_id": caller.session, "harness": caller.harness, "member_name": me},
+        "you": {"session_id": caller.session, "harness": caller.harness, "member_name": known},
         "peers": peers,
         "how_to": how_to,
         "note": note,
@@ -133,6 +124,7 @@ pub(crate) fn projection(
 mod tests {
     use super::*;
     use shinatama_state::records::ThreadKind;
+    use shinatama_state::threads::ThreadStatus;
 
     fn session(id: &str, harness: Option<&str>, status: ThreadStatus) -> ThreadSummary {
         ThreadSummary {

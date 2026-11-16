@@ -15,8 +15,8 @@ type Options = {
   harnessLabel(harness: string): string;
   /** Shows the session's tab, turning its thread on if needed. Starts nothing. */
   focusSession(sessionId: string): void;
-  /** The latest event the user has now seen in this thread's room. */
-  seen(threadId: string, eventId: string): void;
+  /** The latest event the user has now seen in this thread's room, and its time. */
+  seen(threadId: string, eventId: string, timestamp: string): void;
   restoreFocus?: () => void;
 };
 
@@ -130,7 +130,7 @@ export function createThreadChat(options: Options) {
       events = mergeEvents(events, value.events);
       setStatus('');
       render();
-      const latest = events.at(-1); if (latest) options.seen(scope.id, latest.eventId);
+      const latest = events.at(-1); if (latest) options.seen(scope.id, latest.eventId, latest.timestamp);
     } catch (error) {
       if (at === generation) setStatus(message(error), 'error');
     } finally { reading = false; }

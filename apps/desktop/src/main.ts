@@ -125,27 +125,32 @@ const toneOf = (worksetId: string) => tones.tone(openWorksets.map(workset => wor
 /* ADR-0057: threads whose sessions talk to each other through their Mukade room. */
 let chatThreads = new Set<string>();
 let threadChat: ReturnType<typeof createThreadChat> | null = null;
-/** Per thread: the latest event of its room, and the sessions Mukade's hooks made members. */
-const chatLatest = new Map<string, string>(); const chatConnected = new Map<string, Set<string>>();
-const CHAT_SEEN_KEY = 'shinatama.threadChat.seen.v1';
-/** The latest event the user saw per thread: a convenience of this window, kept in its own storage. */
-const chatSeen: Map<string, string> = (() => {
+/** Per thread: whether its room has news the user has not seen, and the sessions that are members through their hooks. */
+const chatUnreadIds = new Set<string>(); const chatConnected = new Map<string, Set<string>>();
+type ChatSeen = { eventId: string; timestamp: string };
+const CHAT_SEEN_KEY = 'shinatama.threadChat.seen.v2';
+/** The last event the user saw per thread, with its time (the backend reads the room from there):
+ *  a convenience of this window, kept in its own storage. */
+const chatSeen: Map<string, ChatSeen> = (() => {
   try {
     const saved: unknown = JSON.parse(localStorage.getItem(CHAT_SEEN_KEY) ?? '{}');
     if (saved && typeof saved === 'object' && !Array.isArray(saved))
-      return new Map(Object.entries(saved as Record<string, unknown>).filter((entry): entry is [string, string] => /^w_[a-z2-7]{12}$/.test(entry[0]) && typeof entry[1] === 'string' && /^[0-9]{1,19}$/.test(entry[1])).slice(0, 200));
+      return new Map(Object.entries(saved as Record<string, unknown>).filter((entry): entry is [string, ChatSeen] => {
+        const value = entry[1] as Partial<ChatSeen> | null;
+        return /^w_[a-z2-7]{12}$/.test(entry[0]) && !!value && typeof value.eventId === 'string' && /^[0-9]{1,19}$/.test(value.eventId)
+          && typeof value.timestamp === 'string' && value.timestamp.length <= 64;
+      }).slice(0, 200));
   } catch { /* no storage: nothing is marked seen */ }
   return new Map();
 })();
-function markChatSeen(id: string, eventId: string) {
-  const before = chatSeen.get(id); if (before && !laterEvent(eventId, before)) return;
-  chatSeen.set(id, eventId);
+function markChatSeen(id: string, eventId: string, timestamp: string) {
+  const before = chatSeen.get(id); if (before && !laterEvent(eventId, before.eventId)) return;
+  chatSeen.set(id, { eventId, timestamp });
+  // Seen now: the mark goes at once, not at the next overview.
+  chatUnreadIds.delete(id);
   try { localStorage.setItem(CHAT_SEEN_KEY, JSON.stringify(Object.fromEntries([...chatSeen].slice(-200)))); } catch { /* kept for this run */ }
 }
-const chatUnread = (id: string) => {
-  const latest = chatLatest.get(id); const seen = chatSeen.get(id);
-  return !!latest && !!seen && laterEvent(latest, seen) && threadChat?.current() !== id;
-};
+const chatUnread = (id: string) => chatUnreadIds.has(id) && threadChat?.current() !== id;
 const CHAT_AGENTS = ['Claude Code', 'claude_code', 'Codex', 'codex'];
 /** " · in chat" on the tab of a session that is a member of its talking thread's room. */
 function chatMark(view: { info: SessionInfo; threadId: string | null; workset: WorksetScope | null }) {
@@ -164,16 +169,18 @@ let chatReading = false;
 /** One cheap read for every talking thread: the marks on rows and tabs. */
 async function readChatOverview() {
   if (!desktop || chatReading) return;
-  const ids = [...chatThreads].slice(0, 64); if (!ids.length) { chatLatest.clear(); chatConnected.clear(); return; }
+  const ids = [...chatThreads].slice(0, 64); if (!ids.length) { chatUnreadIds.clear(); chatConnected.clear(); return; }
   chatReading = true;
   try {
-    const overview = await invoke<{ service: string; latest: Record<string, string>; connected: Record<string, string[]> }>('thread_chat_overview', { request: { worksetIds: ids } });
+    const seen = Object.fromEntries(ids.filter(id => chatSeen.has(id)).map(id => [id, chatSeen.get(id)!]));
+    const overview = await invoke<{ service: string; rooms: Record<string, { latest: string; lastActivity: string | null; unread: boolean }>; connected: Record<string, string[]> }>(
+      'thread_chat_overview', { request: { worksetIds: ids, seen } });
     const before = [...chatConnected].map(([id, set]) => `${id}:${[...set].join(',')}`).join(';');
-    chatLatest.clear(); chatConnected.clear();
-    for (const [id, latest] of Object.entries(overview.latest ?? {})) {
-      chatLatest.set(id, latest);
+    chatUnreadIds.clear(); chatConnected.clear();
+    for (const [id, room] of Object.entries(overview.rooms ?? {})) {
       // A thread seen for the first time starts as read: old history is not news.
-      if (!chatSeen.has(id)) markChatSeen(id, latest);
+      if (!chatSeen.has(id)) markChatSeen(id, room.latest, room.lastActivity ?? new Date(0).toISOString());
+      else if (room.unread) chatUnreadIds.add(id);
     }
     for (const [id, sessions] of Object.entries(overview.connected ?? {})) chatConnected.set(id, new Set(sessions));
     const after = [...chatConnected].map(([id, set]) => `${id}:${[...set].join(',')}`).join(';');
@@ -1039,7 +1046,7 @@ threadChat = createThreadChat({
   tone: thread => toneOf(thread.id),
   harnessLabel: id => harnessLabel(id),
   focusSession: id => { void focusThreadSession(id); },
-  seen: (id, eventId) => { markChatSeen(id, eventId); threadSidebar?.repaint(); },
+  seen: (id, eventId, timestamp) => { markChatSeen(id, eventId, timestamp); threadSidebar?.repaint(); },
   restoreFocus: () => { setFocus(focusedGroup()); },
 });
 /** Shows a session of a thread: its thread comes on if it is off, then its tab is brought forward. Starts nothing. */

@@ -674,11 +674,13 @@ fn prepare(
     )?;
     // ADR-0057: the thread's room, through Mukade's own hooks, beside the tracking
     // hook above. Only with that hook (hooks enabled) and a reachable service.
+    // Hooks that cannot be written leave the session an ordinary one, never a failed launch.
     let chat = session
         .and_then(|session| session.chat.as_ref())
-        .filter(|_| mukade.is_some() && session_events.is_some());
+        .filter(|chat| mukade.is_some() && session_events.is_some() && chat.claude_hooks().is_some());
     if let Some(chat) = chat {
         merge_chat_hooks(&mut settings, chat)?;
+        crate::mukade_chat::note_launch(context.thread_id, chat.room_id());
     }
     let settings_path = create_json(
         &instance_directory,
