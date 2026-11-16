@@ -1,7 +1,7 @@
-//! The Mukade revision is named in three places: the workspace dependency this crate builds the
-//! program from, the reviewed pin manifest (which `build-release.bat` reads for the terminal
-//! browser), and `MUKADE_REVISION`, which the session reader's worker protocol carries. A pin
-//! advance must move all three together.
+//! The Mukade revision is named in four places: the workspace dependency this crate builds the
+//! program from, the reviewed pin manifest, the commit of the release whose terminal browser
+//! `build-release.bat` downloads (the manifest's `release`), and `MUKADE_REVISION`, which the
+//! session reader's worker protocol carries. A pin advance must move all four together.
 use std::path::Path;
 
 fn read(relative: &str) -> String {
@@ -23,6 +23,7 @@ fn the_workspace_the_manifest_and_the_reader_name_one_mukade_revision() {
     assert!(!line.contains("tag") && !line.contains("branch"), "{line}");
     let manifest: serde_json::Value = serde_json::from_str(&read("scripts/mukade-pin.json")).unwrap();
     assert_eq!(manifest["revision"], dependency);
+    assert_eq!(manifest["release"]["commit"], dependency, "the release of the terminal browser");
     assert_eq!(quoted_after(&read("crates/engine/src/session_roots.rs"), "pub const MUKADE_REVISION: &str ="), dependency);
     assert!(read("scripts/mukade-pin.ps1").contains(dependency));
 }

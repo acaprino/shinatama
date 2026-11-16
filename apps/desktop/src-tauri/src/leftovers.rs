@@ -352,6 +352,7 @@ impl Leftovers {
         let options = Options {
             interval_secs: IDLE_INTERVAL_SECS,
             no_drives: false,
+            mukade: shinatama_engine::mukade_mcp::bundled_program(),
         };
         let observer = Observer::spawn(&program, path, options, move |picture, update| {
             listener

@@ -337,7 +337,26 @@ fn an_observer_that_fails_says_why() {
     );
 }
 
-/// Against the real program: `XIOX_TEST_PROGRAM=<path to xiox> cargo test -p shinatama-xiox`.
+#[cfg(unix)]
+#[test]
+fn the_observer_is_given_shinatamas_mukade() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = scratch("mukade");
+    let program = dir.join("echoing-xiox");
+    std::fs::write(&program, "#!/bin/sh\necho \"mukade: $XIOX_MUKADE_EXE\" >&2\nexit 1\n").unwrap();
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let seen = Seen::default();
+    let options = Options {
+        mukade: Some(PathBuf::from("/app/mukade/mukade")),
+        ..Options::default()
+    };
+    let _observer = Observer::spawn(&program, &dir, options, seen.listener()).unwrap();
+    let ended = seen.wait_for(|update| *update == Update::Ended, Duration::from_secs(10));
+    assert_eq!(ended.message.as_deref(), Some("mukade: /app/mukade/mukade"));
+}
+
+/// Against the real program: `XIOX_TEST_PROGRAM=<path to xiox> cargo test -p shinatama-xiox`
+/// (`XIOX_TEST_MUKADE=<path to mukade>` passes that Mukade, as Shinatama passes its own).
 /// A repository is created, then a worktree and a bench folder while the observer runs.
 #[test]
 fn the_real_observer_sees_a_new_worktree_and_a_bench_folder() {
@@ -363,6 +382,7 @@ fn the_real_observer_sees_a_new_worktree_and_a_bench_folder() {
     let options = Options {
         interval_secs: 60,
         no_drives: true,
+        mukade: std::env::var_os("XIOX_TEST_MUKADE").map(PathBuf::from),
     };
     let observer = Observer::spawn(&program, &project, options, seen.listener()).unwrap();
     seen.wait_for(

@@ -22,19 +22,26 @@ const MAX_STDERR_LINE: usize = 1024;
 const STOP_GRACE: Duration = Duration::from_secs(3);
 const EXIT_WAIT: Duration = Duration::from_secs(5);
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct Options {
     /// Seconds between two checks, at least 60 (Xiox refuses less).
     pub interval_secs: u32,
     /// Look for copies and name-matched folders only next to the project, not on every drive.
     pub no_drives: bool,
+    /// The `mukade.exe` Xiox runs to read the session histories, passed as [`MUKADE_ENV`].
+    /// `None` leaves Xiox's own lookup (beside `xiox.exe`, then its vendored copy).
+    pub mukade: Option<PathBuf>,
 }
+
+/// The variable Xiox reads for the `mukade.exe` it runs.
+pub const MUKADE_ENV: &str = "XIOX_MUKADE_EXE";
 
 impl Default for Options {
     fn default() -> Self {
         Self {
             interval_secs: 120,
             no_drives: false,
+            mukade: None,
         }
     }
 }
@@ -74,6 +81,9 @@ impl Observer {
             .arg(options.interval_secs.max(60).to_string());
         if options.no_drives {
             command.arg("--no-drives");
+        }
+        if let Some(mukade) = &options.mukade {
+            command.env(MUKADE_ENV, mukade);
         }
         command
             .stdin(Stdio::piped())
