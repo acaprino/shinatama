@@ -234,7 +234,7 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
       tab.classList.add('wm-tab'); tab.dataset.viewId = view.id; tab.setAttribute('role', 'tab');
       tab.id = `${namespace}-tab-${view.id}`; tab.setAttribute('aria-controls', dom.body.id);
       tab.setAttribute('aria-selected', String(group.activeTabId === view.id)); tab.tabIndex = group.activeTabId === view.id ? 0 : -1;
-      tab.title = `${label(view)} · drag to another pane or to a side to split; Alt+Shift+arrow does the same from the keyboard`;
+      tab.title = `${label(view)} · drag to another pane or to a side to split; Alt+Shift+arrow does the same from the keyboard, Delete closes it`;
       // Mouse drag, not HTML drag and drop: on Windows the window's native file drop takes those events.
       tab.addEventListener('pointerdown', event => holdTab(event, view.id, tab));
       const wrap = element('span', 'wm-tabwrap'); wrap.classList.toggle('wm-tabwrap-active', group.activeTabId === view.id);
@@ -318,6 +318,8 @@ export function createWorkspaceRenderer(options: WorkspaceRendererOptions): Work
       event.preventDefault(); const direction: Direction = event.key === 'ArrowLeft' ? 'left' : event.key === 'ArrowRight' ? 'right' : event.key === 'ArrowUp' ? 'up' : 'down';
       const neighbor = keyboardNeighbor(current, group.id, direction, viewport()); if (neighbor) { emit({ type: 'focus', groupId: neighbor }); focusChrome(neighbor, 'pane-focus'); } return;
     }
+    // The keyboard twin of a tab's "×", which stays out of the Tab order.
+    if (target.classList.contains('wm-tab') && event.key === 'Delete' && target.dataset.viewId) { event.preventDefault(); options.onCloseView?.(target.dataset.viewId); return; }
     if (target.classList.contains('wm-tab') && group && event.altKey && event.shiftKey && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
       event.preventDefault(); const viewId = target.dataset.viewId; if (!viewId) return;
       const direction: Direction = event.key === 'ArrowLeft' ? 'left' : event.key === 'ArrowRight' ? 'right' : event.key === 'ArrowUp' ? 'up' : 'down';

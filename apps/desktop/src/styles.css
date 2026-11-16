@@ -39,6 +39,7 @@
   --ambient-b: color-mix(in srgb, var(--accent) 14%, transparent);
   --drawer-width: clamp(400px, 38vw, 620px);
   --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --ease-in: cubic-bezier(.4, 0, 1, 1);
   --fast: 120ms;
   --base: 180ms;
   --slow: 320ms;
@@ -292,7 +293,7 @@ dialog :is(th, td) { text-align: left; vertical-align: top; font-variant-numeric
   display: grid; grid-template-columns: minmax(96px, max-content) minmax(0, 1fr); align-items: baseline; gap: 7px 18px; margin: 0; font-size: 13px;
 }
 :is(.agent-checkup, .hop-preview-facts, .session-detail-overview, .session-export-report, .session-library-metadata) > dt {
-  font: 10.5px/1.5 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+  font: 11px/1.5 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
 }
 :is(.agent-checkup, .hop-preview-facts, .session-detail-overview, .session-export-report, .session-library-metadata) > dd {
   min-width: 0; margin: 0; color: var(--text); overflow-wrap: anywhere; font-variant-numeric: tabular-nums;
@@ -366,7 +367,7 @@ dialog #new-project-git { width: 14px; height: 14px; padding: 0; accent-color: v
   .catalog-root-status, .root-add, .single-folder-row { flex-wrap: wrap; }
 }
 @media (prefers-reduced-motion: reduce) {
-  * { scroll-behavior: auto !important; transition: none !important; }
+  *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
 }
 
 /* Glass and motion. Chrome is translucent over a still ambient field; whatever floats over
@@ -399,10 +400,12 @@ dialog {
   translate: 0 -10px;
   scale: .985;
   pointer-events: none;
-  /* Closing is a transition too: display flips only after the dialog has faded. */
-  transition: opacity var(--fast) var(--ease-out), translate var(--base) var(--ease-out), scale var(--base) var(--ease-out), display var(--base) allow-discrete;
+  /* Closing is a transition too: display flips only after the dialog has faded. It leaves
+     accelerating (this rule is the closed state); it arrives decelerating (the open one). */
+  transition: opacity var(--fast) var(--ease-in), translate var(--base) var(--ease-in), scale var(--base) var(--ease-in), display var(--base) allow-discrete;
 }
-dialog[open] { opacity: 1; translate: 0 0; scale: 1; pointer-events: auto; animation: edge-draw var(--slow) var(--ease-out) both; }
+dialog[open] { opacity: 1; translate: 0 0; scale: 1; pointer-events: auto; animation: edge-draw var(--slow) var(--ease-out) both;
+  transition: opacity var(--fast) var(--ease-out), translate var(--base) var(--ease-out), scale var(--base) var(--ease-out), display var(--base) allow-discrete; }
 @starting-style { dialog[open] { opacity: 0; translate: 0 -10px; scale: .985; } }
 @keyframes edge-draw { from { background-size: 0% 2px, auto; } }
 dialog input, dialog select { background: color-mix(in srgb, var(--terminal) 72%, transparent); transition: border-color var(--fast) var(--ease-out), background-color var(--fast) var(--ease-out); }
@@ -445,7 +448,7 @@ dialog[data-sheet="pane-top"], dialog[data-sheet="pane-bottom"] { width: var(--s
 @starting-style { #notice { opacity: 0; translate: 0 12px; } }
 
 @media (prefers-reduced-motion: reduce) {
-  * { animation: none !important; }
+  *, *::before, *::after { animation: none !important; }
 }
 
 /* Native glass (desktop only, set in main.ts): the window is transparent over Windows acrylic.
@@ -486,17 +489,20 @@ dialog[data-sheet="pane-top"], dialog[data-sheet="pane-bottom"] { width: var(--s
 .native-glass .wm-footer { background: var(--glass-bar); }
 /* The file browser needs two columns; it takes a wider drawer than the others. */
 :root:has(#files-dialog[open]) { --drawer-width: clamp(560px, 66vw, 1180px); }
-/* Model proxy indicator: one blinking dot. Green serving (slow), amber in transit or degraded (faster), red failed (fast), dark off. No glow. */
+/* Model proxy indicator: one dot. Green is lit while serving; amber (in transit or degraded) and
+   red (failed) blink for five seconds to call the eye, then stay lit: a blink that never ends
+   cannot be paused (WCAG 2.2.2). Dark off. No glow. */
 .toolbar .proxy-indicator { width: 28px; padding: 0; border-color: transparent; }
 .toolbar .proxy-indicator:hover:not(:disabled), .toolbar .proxy-indicator[aria-expanded="true"] { border-color: var(--line); background: var(--surface-2); }
 .proxy-indicator .lamp { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--muted); background: transparent; transition: background-color var(--base), border-color var(--base); }
 .proxy-indicator[data-tone="green"] .lamp { border-color: var(--live); background: var(--live); }
 .proxy-indicator[data-tone="amber"] .lamp { border-color: var(--warning); background: var(--warning); }
 .proxy-indicator[data-tone="red"] .lamp { border-color: var(--error); background: var(--error); }
-.proxy-indicator[data-tone="green"] .lamp { animation: proxy-blink 2s steps(2, jump-none) infinite; }
-.proxy-indicator[data-tone="amber"] .lamp { animation: proxy-blink 1s steps(2, jump-none) infinite; }
-.proxy-indicator[data-tone="red"] .lamp { animation: proxy-blink .5s steps(2, jump-none) infinite; }
+/* Two names: a change from amber to red starts the blink again instead of inheriting a finished one. */
+.proxy-indicator[data-tone="amber"] .lamp { animation: proxy-blink 1s steps(2, jump-none) 5; }
+.proxy-indicator[data-tone="red"] .lamp { animation: proxy-alarm .5s steps(2, jump-none) 10; }
 @keyframes proxy-blink { 50% { opacity: .15; } }
+@keyframes proxy-alarm { 50% { opacity: .15; } }
 @media (prefers-reduced-motion: reduce) { .proxy-indicator .lamp { animation: none !important; } }
 
 /* Model proxy: a side panel (an aside, not a dialog) docked like a drawer, below any dialog. */
@@ -516,5 +522,13 @@ dialog[data-sheet="pane-top"], dialog[data-sheet="pane-bottom"] { width: var(--s
 #app:has(> #model-proxy-panel:not([hidden])) #work-area { padding-right: min(400px, calc(100vw - 16px)); }
 @media (max-width: 1000px) { #app:has(> #model-proxy-panel:not([hidden])) #work-area { padding-right: 0; } }
 #notice { bottom: 68px; }
+/* A notice never lies over an open side panel: it centres in the work area beside it. In a narrow
+   window the panel takes the whole width, so the notice moves up under the toolbar, away from the
+   panel's actions. */
+#app:has(> dialog[data-sheet="drawer"][open]:not([data-covered])) #notice { left: calc((100vw - var(--drawer-width)) / 2); min-width: 0; max-width: min(650px, calc(100vw - var(--drawer-width) - 24px)); }
+#app:has(> #model-proxy-panel:not([hidden])) #notice { left: calc((100vw - 400px) / 2); min-width: 0; max-width: min(650px, calc(100vw - 424px)); }
+@media (max-width: 1000px) {
+  #app:has(> dialog[data-sheet="drawer"][open]:not([data-covered])) #notice, #app:has(> #model-proxy-panel:not([hidden])) #notice { left: 50%; top: calc(var(--titlebar-height) + 52px); bottom: auto; max-width: calc(100vw - 96px); }
+}
 /* Files dragged from Explorer over a terminal: the pane that receives their paths. */
 .terminal-view.drop-target { outline: 2px dashed var(--accent); outline-offset: -4px; }

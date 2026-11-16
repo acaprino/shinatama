@@ -33,7 +33,7 @@
 #sessions-dialog .instances-state { margin: 2px 0 8px; font-size: 13px; line-height: 1.4; color: var(--muted); }
 .instances-state-name { font-weight: 600; color: var(--state); }
 .instances-facts { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 3px 10px; margin: 0; font: 12px/1.5 var(--mono); }
-.instances-facts dt { padding-top: 1px; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.instances-facts dt { padding-top: 1px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .instances-facts dd { min-width: 0; margin: 0; overflow: hidden; font-weight: 400; color: var(--text-2); text-overflow: ellipsis; white-space: nowrap; }
 .instances-facts dd.path { color: var(--text); }
 .instances-facts dd.muted { color: var(--muted); }

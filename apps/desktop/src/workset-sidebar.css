@@ -7,7 +7,7 @@
 .thread-sidebar-closed[hidden] { display: none; }
 .thread-sidebar-closed li { display: flex; align-items: center; gap: 4px; }
 .thread-sidebar-closed-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.thread-sidebar-closed button { min-height: 24px; padding: 0 6px; font-size: 10px; }
+.thread-sidebar-closed button { min-height: 24px; padding: 0 6px; font-size: 11px; }
 
 /* Threads grouped by project: a header per listed project, its threads under it. */
 .thread-sidebar-group { display: flex; align-items: center; gap: 2px; min-height: 30px; }
@@ -45,7 +45,7 @@
 .thread-sidebar-details { display: grid; gap: 8px; margin: 2px 0 8px 12px; padding: 8px 10px; border-left: 2px solid var(--thread-tone, var(--line-strong)); background: color-mix(in srgb, var(--surface-2) 70%, transparent); }
 .thread-sidebar-details .thread-sidebar-rename { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px; }
 .thread-sidebar-details .thread-sidebar-rename input { padding: 4px 6px; }
-.thread-sidebar-details .thread-sidebar-rename button, .thread-sidebar-details .thread-sidebar-actions button { min-height: 24px; padding: 0 8px; font-size: 10px; }
+.thread-sidebar-details .thread-sidebar-rename button, .thread-sidebar-details .thread-sidebar-actions button { min-height: 24px; padding: 0 8px; font-size: 11px; }
 .thread-sidebar-closed-head { margin: 0; color: var(--muted); font: 11px var(--mono); }
 .thread-sidebar-closed-head[hidden] { display: none; }
 .thread-sidebar-warning { margin: 0; color: var(--error); font-size: 12px; }

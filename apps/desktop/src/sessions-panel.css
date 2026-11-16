@@ -9,7 +9,7 @@
 #sessions-dialog .sessions-heading { display: flex; align-items: baseline; gap: 8px; margin: 20px 0 0; padding-bottom: 6px; border-bottom: 1px solid var(--line); font: 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--text-2); }
 .sessions-count { color: var(--text); font-variant-numeric: tabular-nums; }
 .sessions-heading-note { min-width: 0; overflow: hidden; letter-spacing: 0; text-transform: none; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
-#sessions-dialog .sessions-quiet { min-height: 22px; margin-left: auto; padding: 0 8px; border-color: transparent; font-size: 10.5px; color: var(--text-2); }
+#sessions-dialog .sessions-quiet { min-height: 24px; margin-left: auto; padding: 0 8px; border-color: transparent; font-size: 11px; color: var(--text-2); }
 #sessions-dialog .sessions-quiet:hover { border-color: var(--line-strong); color: var(--text); }
 #sessions-dialog .sessions-empty { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
 #sessions-dialog .instances-section .instances-list { margin-top: 0; }

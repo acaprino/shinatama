@@ -13,7 +13,7 @@
 .session-library-table th:nth-child(2) { width: 34%; }
 .session-library-table th:nth-child(3) { width: 118px; }
 .session-library-table th, .session-library-table td { padding: 0 10px; border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
-.session-library-table th { position: sticky; top: 0; z-index: 1; height: 30px; background: var(--chrome); font: 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 400; }
+.session-library-table th { position: sticky; top: 0; z-index: 1; height: 30px; background: var(--chrome); font: 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 400; }
 .session-library-table th:last-child, .session-library-updated { text-align: right; }
 .session-library-table tbody tr { transition: background-color var(--fast) var(--ease-out); }
 .session-library-table tbody tr:hover { background: color-mix(in srgb, var(--line-strong) 10%, transparent); }

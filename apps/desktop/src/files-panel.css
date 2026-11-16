@@ -63,7 +63,7 @@
 #files-dialog .cm-panel.cm-search input.cm-textfield { width: 180px; height: 24px; margin: 0; padding: 0 6px; font: 12px var(--mono); }
 #files-dialog .cm-panel.cm-search label { display: inline-flex; align-items: center; gap: 4px; margin: 0; font: 11px var(--mono); letter-spacing: 0; text-transform: none; color: var(--text-2); }
 #files-dialog .cm-panel.cm-search label input { width: auto; height: auto; }
-#files-dialog .cm-panel.cm-search button { min-height: 24px; padding: 0 8px; font-size: 10.5px; background-image: none; }
+#files-dialog .cm-panel.cm-search button { min-height: 24px; padding: 0 8px; font-size: 11px; background-image: none; }
 #files-dialog .cm-panel.cm-search button[name="close"] { margin-left: auto; border: 0; font-size: 16px; color: var(--muted); }
 .cm-fold-mark { display: inline-block; width: 6px; height: 6px; margin-top: 6px; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; rotate: -45deg; }
 .cm-fold-mark.open { rotate: 45deg; margin-top: 4px; }

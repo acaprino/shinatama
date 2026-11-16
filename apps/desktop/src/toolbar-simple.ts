@@ -42,9 +42,32 @@ export function organizeToolbar(): void {
   const { menu, close, toggle } = popover(more, 'toolbar-more-menu', 'right');
   // Tools first; Settings, the one place for every preference, last.
   const secondary = ['#find-terminal', '#layout-toggle', '#restore', '#sessions', '#session-search', '#open-settings'].map(selector => toolbar.querySelector<HTMLElement>(selector));
-  for (const item of secondary) if (item) { item.classList.add('toolbar-menu-item'); menu.append(item); }
+  for (const item of secondary) if (item) { item.classList.add('toolbar-menu-item'); item.setAttribute('role', 'menuitem'); menu.append(item); }
+  // A narrow window (down to the 500px minimum) cannot hold every tool: they fold into this menu,
+  // and return to their place when there is room, so the bar never scrolls "⋯" out of reach.
+  const narrow = window.matchMedia('(max-width: 700px)');
+  const folding = ['#open-sessions', '#open-projects', '#open-files'].flatMap(selector => {
+    const item = toolbar.querySelector<HTMLElement>(selector); if (!item) return [];
+    const home = document.createComment(selector); item.before(home); return [{ item, home }];
+  });
+  const fold = () => {
+    for (const { item, home } of folding) {
+      item.classList.toggle('toolbar-menu-item', narrow.matches);
+      if (narrow.matches) item.setAttribute('role', 'menuitem'); else { item.removeAttribute('role'); home.after(item); }
+    }
+    if (narrow.matches) menu.prepend(...folding.map(({ item }) => item));
+  };
+  narrow.addEventListener('change', fold); fold();
+  // A menu, as its role says: the arrows move through its items and Tab leaves it.
+  const entries = () => [...menu.querySelectorAll<HTMLButtonElement>('button')].filter(item => !item.hidden && !item.disabled);
+  menu.addEventListener('keydown', event => {
+    const all = entries(); const index = all.indexOf(document.activeElement as HTMLButtonElement);
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); all[(index + (event.key === 'ArrowDown' ? 1 : all.length - 1)) % all.length]?.focus(); }
+    else if (event.key === 'Home' || event.key === 'End') { event.preventDefault(); all.at(event.key === 'Home' ? 0 : -1)?.focus(); }
+    else if (event.key === 'Tab') close();
+  });
   menu.addEventListener('click', event => { if (event.target instanceof HTMLElement && event.target.closest('button')) close(); });
-  more.onclick = () => toggle();
+  more.onclick = () => toggle(() => entries()[0]?.focus());
 }
 
 /** Quick filter for the tabs: one chip per project with open tabs. A chip shows only that
