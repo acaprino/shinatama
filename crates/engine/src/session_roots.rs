@@ -796,6 +796,9 @@ impl SessionNamespaceGuard {
     pub fn verify_current(&self) -> Result<()> {
         Err(SessionReadIssue::ReadUnavailable)
     }
+    pub fn verify_session_current(&self, _: &Path) -> Result<()> {
+        Err(SessionReadIssue::ReadUnavailable)
+    }
     pub fn file_size(&self, _: &Path) -> Result<u64> {
         Err(SessionReadIssue::ReadUnavailable)
     }
@@ -978,8 +981,27 @@ mod namespace {
         /// Compare identities, file sizes/mtimes and the bounded namespace again.
         /// Concurrent ordinary mutations refuse the result; no fallback/root repair.
         pub fn verify_current(&self) -> Result<()> {
-            for pin in self.pins.values() {
-                if inspect(&pin.file).ok() != Some(pin.stamp) {
+            self.verify(None)
+        }
+        /// A single-session read depends on that transcript's bytes, not on writes by
+        /// other running agents (or Codex's shared title index). Keep every namespace
+        /// identity/membership check; scope size/write-time checks to the selected file.
+        /// The path must come from the reader and already be pinned, never from IPC.
+        pub fn verify_session_current(&self, path: &Path) -> Result<()> {
+            self.file_size(path)?;
+            self.verify(Some(path))
+        }
+        fn verify(&self, selected: Option<&Path>) -> Result<()> {
+            let unchanged = |path: &Path, before: Stamp, after: Stamp| {
+                if selected.is_none_or(|selected| selected == path) {
+                    before == after
+                } else {
+                    before.volume == after.volume && before.id == after.id
+                        && before.attributes == after.attributes
+                }
+            };
+            for (path, pin) in &self.pins {
+                if !inspect(&pin.file).is_ok_and(|now| unchanged(path, pin.stamp, now)) {
                     return Err(SessionReadIssue::SourceChanged);
                 }
             }
@@ -989,7 +1011,7 @@ mod namespace {
                     current
                         .pins
                         .get(path)
-                        .is_none_or(|now| now.stamp != pin.stamp)
+                        .is_none_or(|now| !unchanged(path, pin.stamp, now.stamp))
                 })
             {
                 return Err(SessionReadIssue::SourceChanged);
@@ -997,7 +1019,7 @@ mod namespace {
             Ok(())
         }
         /// Exact already-pinned candidate only, never a path selector from IPC.
-        /// Call verify_current before and after the actual reader; appends may race.
+        /// Verify the namespace around the actual reader; appends may race.
         pub fn file_size(&self, path: &Path) -> Result<u64> {
             let pin = self
                 .pins
@@ -1903,9 +1925,17 @@ mod tests {
             guard.verify_current(),
             Err(SessionReadIssue::SourceChanged)
         ));
+        assert!(matches!(
+            guard.verify_session_current(&ordinary_source),
+            Err(SessionReadIssue::SourceChanged)
+        ));
         drop(guard);
         let guard = pin_reader_namespace(&root).unwrap();
         fs::write(project.join("new.jsonl"), b"{}\n").unwrap();
+        assert!(matches!(
+            guard.verify_session_current(&ordinary_source),
+            Err(SessionReadIssue::SourceChanged)
+        ));
         assert!(matches!(
             guard.verify_current(),
             Err(SessionReadIssue::SourceChanged)

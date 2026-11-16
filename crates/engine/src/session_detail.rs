@@ -312,7 +312,7 @@ pub(crate) fn open(
     let info = reader
         .overview(&request.native_id, &roots)
         .map_err(|error| lookup_issue(&error))?;
-    guard.verify_current()?;
+    guard.verify_session_current(Path::new(&info.path))?;
     if info.id != request.native_id {
         return Err(DetailIssue::SessionNotFound);
     }
@@ -374,15 +374,15 @@ impl Opened {
             .map_err(StreamError::Detail)?;
         Ok((meta, fingerprint))
     }
-    /// After the read: the pinned files are unchanged, it is the session and harness asked for,
-    /// and the fingerprint (checked against the request's cursor) is the file's digest.
+    /// After the read: the namespace and selected file are unchanged, it is the session and
+    /// harness asked for, and the fingerprint (checked against the cursor) is the file's digest.
     fn verified(
         &self,
         snapshot: &TrustedRootSnapshot,
         request: &DetailRequest,
         meta: &Meta,
     ) -> Result<String, DetailIssue> {
-        self.guard.verify_current()?;
+        self.guard.verify_session_current(Path::new(&self.info.path))?;
         if meta.id != request.native_id || meta.harness != snapshot.harness {
             return Err(DetailIssue::SourceChanged);
         }
@@ -780,6 +780,71 @@ mod tests {
             );
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+    fn unrelated_writer(harness: &str) {
+        use std::io::Write;
+
+        let fixture = Fixture(fs::canonicalize(std::env::temp_dir()).unwrap()
+            .join(format!("shinatama-detail-{}", uuid::Uuid::new_v4())));
+        let location = StorageLocation::resolve(LocationRequest {
+            local_data_directory: std::env::temp_dir(),
+            home_override: Some(fixture.0.clone()),
+            project_roots: Vec::new(),
+            synchronized_roots: Vec::new(),
+        }).unwrap();
+        location.prepare_private_directory().unwrap();
+        let native_id = "01a17e07-93f7-7a73-85c7-9f0205836600";
+        let (relative, body) = if harness == "codex" {
+            (format!("sessions/2026/11/16/rollout-2026-11-16T12-00-00-{native_id}.jsonl"),
+                format!("{}\n{}\n",
+                    serde_json::json!({"type":"session_meta","payload":{"id":native_id,"cwd":"C:\\synthetic-project","timestamp":"2026-11-16T12:00:00Z","cli_version":"synthetic"}}),
+                    serde_json::json!({"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"hello"}]}})))
+        } else {
+            (format!("projects/fixture-project/{native_id}.jsonl"),
+                format!("{}\n", serde_json::json!({"type":"user","uuid":"entry-user","sessionId":native_id,
+                    "cwd":"C:\\synthetic-project","timestamp":"2026-11-16T12:00:00Z","message":{"role":"user","content":"hello"}})))
+        };
+        let selected = location.directory().join(&relative);
+        fs::create_dir_all(selected.parent().unwrap()).unwrap();
+        fs::write(&selected, &body).unwrap();
+        let other = location.directory().join(relative.replace(native_id, "01a17e07-93f7-7a73-85c7-9f0205836601"));
+        fs::write(&other, body.replace(native_id, "01a17e07-93f7-7a73-85c7-9f0205836601")).unwrap();
+        let index = location.directory().join("session_index.jsonl");
+        if harness == "codex" {
+            fs::write(&index, "").unwrap();
+        }
+        let record = StoreRootRecord {
+            id: "concurrent-detail-root".into(), harness: harness.into(),
+            kind: RootKind::Box, scope: RootScope::Primary,
+            resolved_path: location.directory().to_string_lossy().trim_start_matches(r"\\?\").into(),
+            origin: RootOrigin::Configured, config_revision: 1,
+            access: RootAccess::ReadWrite, available: true,
+        };
+        let root = RootSelector { store_root_id: record.id.clone(), configuration_revision: 1 };
+        let snapshot = TrustedRootSnapshot::from_record(&record, &root).unwrap();
+        let request = DetailRequest { root, native_id: native_id.into(), cursor: None, limit: 1, overview_only: true };
+        let opened = open(&snapshot, &request).unwrap();
+        // A different running agent writes while the chosen session is being read.
+        fs::OpenOptions::new().append(true).open(&other).unwrap().write_all(b"\n").unwrap();
+        if harness == "codex" {
+            fs::OpenOptions::new().append(true).open(&index).unwrap().write_all(
+                b"{\"id\":\"01a17e07-93f7-7a73-85c7-9f0205836601\",\"thread_name\":\"Other thread\"}\n").unwrap();
+        }
+        assert!(opened.clipped(&snapshot, &request, 4096).is_ok(),
+            "{harness}: an unrelated writer must not invalidate the chosen session");
+        // Archive-wide listings still require all their inputs to remain stable.
+        assert!(matches!(opened.guard.verify_current(), Err(SessionReadIssue::SourceChanged)));
+        // Changes to the chosen transcript must still be refused.
+        fs::OpenOptions::new().append(true).open(&selected).unwrap().write_all(b"\n").unwrap();
+        assert!(matches!(opened.clipped(&snapshot, &request, 4096), Err(DetailIssue::SourceChanged)));
+    }
+    #[test]
+    fn claude_selected_session_survives_an_unrelated_writer() {
+        unrelated_writer("claude_code");
+    }
+    #[test]
+    fn codex_selected_session_survives_an_unrelated_writer() {
+        unrelated_writer("codex");
     }
     #[test]
     fn real_reader_pages_utf8_without_raw_reasoning_and_reads_sessions_past_16_mib() {
