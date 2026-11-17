@@ -45,9 +45,15 @@ try {
   await card.getByLabel('Context tokens', { exact: true }).fill('32000');
   await card.getByLabel('Output tokens', { exact: true }).fill('4000');
   await card.locator('.model-api-key').fill(key);
-  const id = await page.getByLabel('Pi connection', { exact: true }).locator('option').last().getAttribute('value');
-  for (const name of ['OpenCode', 'Pi', 'Hermes']) await page.getByLabel(`${name} connection`, { exact: true }).selectOption(id);
-  await expect(page.locator('.model-settings')).toContainText('selection saved only');
+  // The new connection says no agent uses it, and one click assigns it.
+  await expect(card.locator('.model-status')).toHaveText('Not used');
+  await card.getByRole('button', { name: 'Use for OpenCode' }).click();
+  await expect(card.locator('.model-status')).toHaveText('Used by OpenCode');
+  const choice = await page.getByLabel('OpenCode model', { exact: true }).inputValue();
+  const id = JSON.parse(choice)[0];
+  for (const name of ['Pi', 'Hermes']) await page.getByLabel(`${name} model`, { exact: true }).selectOption(choice);
+  await expect(card.locator('.model-status')).toHaveText('Used by OpenCode, Pi and Hermes');
+  await expect(page.locator('.model-settings')).toContainText('Saved only');
   await page.locator('#settings-save').click();
   await expect(page.locator('#settings-status')).toContainText('Saved.');
   await expect(card.locator('.model-api-key')).toHaveValue('');
@@ -64,7 +70,10 @@ try {
   await page.locator('#toolbar-more').click(); await page.locator('#open-settings').click();
   await expect(page.locator('#settings-status')).toContainText('New sessions start with');
   await page.getByRole('button', { name: 'Models', exact: true }).click();
-  await expect(page.getByLabel('Pi model', { exact: true })).toHaveValue('org/test-model');
+  await expect(page.getByLabel('Pi model', { exact: true })).toHaveValue(choice);
+  // Saved connections start closed; Edit opens the form.
+  await expect(card.getByLabel('Base URL', { exact: true })).toBeHidden();
+  await card.getByRole('button', { name: /^Edit / }).click();
   await expect(card.locator('.model-api-key')).toHaveAttribute('placeholder', 'Saved · type to replace');
   // A rejected endpoint must leave the file unchanged.
   const beforeInvalid = await readFile(file, 'utf8');
@@ -85,16 +94,17 @@ try {
   expect((await ipc('model_settings_load')).connections[0].hasApiKey).toBe(true);
   await variable.getByRole('button').click();
   await page.getByRole('button', { name: 'Models', exact: true }).click();
-  // A removed connection stays visibly unresolved until the user explicitly chooses Native settings.
+  // A removed connection stays visibly unresolved until the user explicitly chooses the agent's own setup.
   await card.getByRole('button', { name: 'Remove connection' }).click();
-  await expect(page.getByLabel('Pi connection', { exact: true })).toHaveValue(id);
+  await expect(page.getByLabel('Pi model', { exact: true })).toHaveValue(choice);
+  await expect(page.getByLabel('Pi model', { exact: true })).toHaveAttribute('aria-invalid', 'true');
   await page.locator('#settings-save').click();
   await expect(page.locator('#settings-status')).toContainText('Choose an existing model');
-  for (const name of ['OpenCode', 'Pi', 'Hermes']) await page.getByLabel(`${name} connection`, { exact: true }).selectOption('');
+  for (const name of ['OpenCode', 'Pi', 'Hermes']) await page.getByLabel(`${name} model`, { exact: true }).selectOption('');
   await page.locator('#settings-save').click(); await expect(page.locator('#settings-status')).toContainText('Saved.');
   const cleared = await ipc('model_settings_load'); expect(cleared.connections).toEqual([]);
   expect(JSON.parse(await readFile(file, 'utf8')).keys).toEqual({});
-  console.log('ok reload, invalid URL preservation, explicit native fallback and orphan key removal');
+  console.log('ok reload, invalid URL preservation, explicit own-setup fallback and orphan key removal');
   console.log('PASS model settings native smoke');
 } finally {
   try { await browser?.close(); } catch {}
