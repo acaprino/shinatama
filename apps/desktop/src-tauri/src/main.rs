@@ -46,6 +46,10 @@ mod threads;
 #[cfg(windows)]
 mod thread_chat;
 #[cfg(windows)]
+mod team_announcer;
+#[cfg(windows)]
+mod thread_team;
+#[cfg(windows)]
 mod thread_peers;
 #[cfg(windows)]
 mod terminal_runtime;
@@ -843,6 +847,14 @@ fn main() {
         thread_chat::thread_chat_snapshot,
         #[cfg(windows)]
         thread_chat::thread_chat_send,
+        #[cfg(windows)]
+        thread_team::team_get,
+        #[cfg(windows)]
+        thread_team::team_evaluate,
+        #[cfg(windows)]
+        thread_team::team_apply,
+        #[cfg(windows)]
+        thread_team::team_place,
         threads::thread_rename,
         threads::thread_archive,
         threads::thread_forget,
@@ -1023,6 +1035,14 @@ fn main() {
         thread_chat::thread_chat_snapshot,
         #[cfg(windows)]
         thread_chat::thread_chat_send,
+        #[cfg(windows)]
+        thread_team::team_get,
+        #[cfg(windows)]
+        thread_team::team_evaluate,
+        #[cfg(windows)]
+        thread_team::team_apply,
+        #[cfg(windows)]
+        thread_team::team_place,
         threads::thread_rename,
         threads::thread_archive,
         threads::thread_forget,

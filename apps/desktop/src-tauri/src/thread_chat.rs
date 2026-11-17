@@ -131,7 +131,7 @@ pub(crate) fn session_state(status: ThreadStatus) -> &'static str {
     }
 }
 
-async fn blocking<T: Send + 'static>(
+pub(crate) async fn blocking<T: Send + 'static>(
     services: &Arc<storage::Services>,
     work: impl FnOnce(&WorkspaceServices) -> Result<T, String> + Send + 'static,
 ) -> Result<T, String> {
@@ -141,13 +141,13 @@ async fn blocking<T: Send + 'static>(
         .map_err(|_| "The chat worker is unavailable.".to_owned())?
 }
 
-fn workset(value: &str) -> Result<(), String> {
+pub(crate) fn workset(value: &str) -> Result<(), String> {
     thread_room_name(value).map(|_| ()).ok_or_else(|| "The thread is invalid.".to_owned())
 }
 
 /// The pages of a listing (`rooms`, `members`, `ledger`), within a bound; `true` when the
 /// listing ended before the bound.
-fn listing(state: &WorkspaceServices, operation: &str, arguments: &[(&str, &str)]) -> Result<(Vec<Value>, bool), String> {
+pub(crate) fn listing(state: &WorkspaceServices, operation: &str, arguments: &[(&str, &str)]) -> Result<(Vec<Value>, bool), String> {
     let mut items = Vec::new();
     let mut cursor: Option<String> = None;
     for _ in 0..MAX_PAGES {
@@ -402,19 +402,7 @@ pub async fn thread_chat_snapshot(
                 Some(since) => listing(state, "ledger", &[("room-id", room), ("since", since)])?.0,
                 None => recent_events(state, room)?,
             };
-            let summaries = state.store.workset_threads(&request.workset_id).map_err(|e| e.to_string())?;
-            let natives = state.store.workset_native_sessions(&request.workset_id).map_err(|e| e.to_string())?;
-            let sessions: Vec<SessionFacts> = summaries
-                .into_iter()
-                .map(|summary| {
-                    let adapter = natives
-                        .iter()
-                        .find(|(id, _, _)| id == &summary.id)
-                        .and_then(|(session, harness, native)| hooked_member(state, session, harness, native, room));
-                    let launched = mukade_chat::launched_room(&summary.id).as_deref() == Some(room);
-                    SessionFacts { summary, adapter, launched }
-                })
-                .collect();
+            let sessions = session_facts(state, &request.workset_id, Some(room))?;
             Ok(project(room, &members, &events, &sessions))
         };
         let room = room_of(state, &request.workset_id)?;
@@ -424,6 +412,27 @@ pub async fn thread_chat_snapshot(
         })
     })
     .await
+}
+
+/// The thread's sessions with what is known of them without a service call: their record, the
+/// adapter's record of the member each holds in `room` and whether this run launched them into it.
+/// Without a room no session is tied to a member.
+pub(crate) fn session_facts(state: &WorkspaceServices, workset: &str, room: Option<&str>) -> Result<Vec<SessionFacts>, String> {
+    let summaries = state.store.workset_threads(workset).map_err(|e| e.to_string())?;
+    let natives = state.store.workset_native_sessions(workset).map_err(|e| e.to_string())?;
+    Ok(summaries
+        .into_iter()
+        .map(|summary| {
+            let adapter = room.and_then(|room| {
+                natives
+                    .iter()
+                    .find(|(id, _, _)| id == &summary.id)
+                    .and_then(|(session, harness, native)| hooked_member(state, session, harness, native, room))
+            });
+            let launched = room.is_some_and(|room| mukade_chat::launched_room(&summary.id).as_deref() == Some(room));
+            SessionFacts { summary, adapter, launched }
+        })
+        .collect())
 }
 
 pub(crate) struct SessionFacts {
