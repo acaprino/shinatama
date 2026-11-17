@@ -706,3 +706,42 @@ fn codex_resume_rejects_wrong_source_or_uuid_and_retains_the_sealed_owner() {
         );
     }
 }
+
+/// Task 0 of the thread team: OpenCode and Pi give no session events, so the id their launch chose
+/// is recorded before they start; `workset_native_sessions` then names it for the thread.
+#[test]
+fn a_session_without_events_is_recorded_under_the_id_its_launch_chose() {
+    for (harness, native) in [
+        ("opencode", shinatama_engine::opencode_launch::new_session_id()),
+        ("pi", shinatama_engine::pi_launch::new_session_id()),
+    ] {
+        let fixture = Fixture::new(HarnessKind::ClaudeCode);
+        let database = fixture.db();
+        let archive = fixture
+            .location
+            .as_ref()
+            .unwrap()
+            .resolve_related_directory(&fixture.location.as_ref().unwrap().directory().join(format!("native-{harness}")))
+            .unwrap();
+        archive.prepare_private_directory().unwrap();
+        let root = StoreRootRecord {
+            id: format!("synthetic-{harness}-root"),
+            harness: harness.into(),
+            resolved_path: archive.directory().to_string_lossy().trim_start_matches(r"\?\").into(),
+            ..fixture.root.clone()
+        };
+        database.register_store_root(&PreparedStoreRoot::resolve(root.clone()).unwrap()).unwrap();
+        let at = now().unwrap();
+        let workset = database.create_workset(&fixture.thread.project_id, None, at).unwrap();
+        database.move_thread_to_workset(&fixture.thread.id, &workset.id, at).unwrap();
+        assert!(database.workset_native_sessions(&workset.id).unwrap().is_empty(), "{harness}");
+        record_chosen_native_session(database, &fixture.thread, &root, &native).unwrap();
+        assert_eq!(
+            database.workset_native_sessions(&workset.id).unwrap(),
+            vec![(fixture.thread.id.clone(), harness.to_string(), native.clone())],
+            "{harness}"
+        );
+        // Recording the same id twice is refused, never a second row.
+        assert!(record_chosen_native_session(database, &fixture.thread, &root, &native).is_err());
+    }
+}

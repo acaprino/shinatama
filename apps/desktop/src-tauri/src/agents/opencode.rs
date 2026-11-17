@@ -1,7 +1,12 @@
 //! OpenCode supplies its typed engine recipes to the shared harness service.
-use super::service::{
-    DriverError, HarnessDescriptor, HarnessDriver, HarnessPolicy, PreparedTrial, ProbeContext,
-    ProbeEvidence, ProbeProjection, SealedSession, SessionContext, SessionOperation, TrialContext,
+use super::{
+    notify_thread_changed,
+    service::{
+        BindingContext, DriverError, HarnessDescriptor, HarnessDriver, HarnessPolicy, PreparedTrial,
+        ProbeContext, ProbeEvidence, ProbeProjection, SealedSession, SessionContext,
+        SessionOperation, TrialContext,
+    },
+    thread_lifecycle::record_chosen_native_session,
 };
 use shinatama_adapter::catalog::ProgramCandidate;
 use shinatama_adapter::launch::placement::PathRole;
@@ -11,7 +16,7 @@ use shinatama_engine::{
     native_launch::NativeTrialReceipt,
     opencode_launch::{
         OpenCodeLaunchError, OpenCodeStartContext, OpenCodeTrialContext, PreparedOpenCodeStart,
-        prepare_start, prepare_trial,
+        new_session_id, prepare_start, prepare_trial,
     },
     opencode_probe::{
         OpenCodeProbeOutcome, PreparedOpenCodeProbe, ProbeIssue, discover_opencode, probe_budget,
@@ -20,12 +25,20 @@ use shinatama_engine::{
 };
 use shinatama_state::store_roots::StorePathRole;
 use shinatama_state::{database::Database, store_roots::PrivateStoreRequest};
+use std::sync::Arc;
+use shinatama_terminal::WindowsNativeSessionLifecycle;
 
 pub(super) struct OpenCodeDriver;
+/// A start and the session id it was given: OpenCode reports no session events, so the id the
+/// launcher chose is recorded for the thread when the launch is bound.
+pub(super) struct PreparedOpenCodeSession {
+    inner: PreparedOpenCodeStart,
+    native_id: String,
+}
 
 impl HarnessDriver for OpenCodeDriver {
     type Probe = OpenCodeProbeOutcome;
-    type PreparedSession = PreparedOpenCodeStart;
+    type PreparedSession = PreparedOpenCodeSession;
 
     fn descriptor(&self) -> HarnessDescriptor {
         HarnessDescriptor {
@@ -121,7 +134,8 @@ impl HarnessDriver for OpenCodeDriver {
                 "Native resume has not been qualified for OpenCode.",
             ));
         }
-        prepare_start(
+        let native_id = new_session_id();
+        let inner = prepare_start(
             OpenCodeStartContext {
                 candidate: context.candidate,
                 observation: context.observation,
@@ -137,20 +151,35 @@ impl HarnessDriver for OpenCodeDriver {
                 plugins_root: context.plugins_root,
                 thread_id: &context.thread.id,
                 chat: context.chat.as_ref(),
+                native_id: &native_id,
             },
             receipt,
         )
-        .map_err(launch_error)
+        .map_err(launch_error)?;
+        Ok(PreparedOpenCodeSession { inner, native_id })
     }
-    // The default bind_lifecycle returns None: native thread ownership and
-    // resume are not qualified by a successful OpenCode startup alone.
+    /// Returns no lifecycle: native thread ownership and resume are not qualified by a successful
+    /// OpenCode startup alone. It only records the session id the launch chose, so the tab's
+    /// session can be tied to its member in the thread's room. Failing to record it leaves an
+    /// ordinary session (a chat failure never prevents a session from opening).
+    fn bind_lifecycle(
+        &self,
+        prepared: &mut Self::PreparedSession,
+        binding: BindingContext<'_>,
+    ) -> Result<Option<Arc<dyn WindowsNativeSessionLifecycle>>, DriverError> {
+        match record_chosen_native_session(&binding.database, binding.thread, binding.root, &prepared.native_id) {
+            Ok(()) => notify_thread_changed(&binding.thread_observer, &binding.thread.project_id, &binding.thread.id),
+            Err(reason) => eprintln!("This OpenCode session is not recorded under its id: {reason}"),
+        }
+        Ok(None)
+    }
 }
 
-impl From<PreparedOpenCodeStart> for SealedSession {
-    fn from(prepared: PreparedOpenCodeStart) -> Self {
+impl From<PreparedOpenCodeSession> for SealedSession {
+    fn from(prepared: PreparedOpenCodeSession) -> Self {
         Self {
-            launch: prepared.launch,
-            permit: prepared.permit,
+            launch: prepared.inner.launch,
+            permit: prepared.inner.permit,
         }
     }
 }
@@ -247,6 +276,9 @@ fn launch_error(issue: OpenCodeLaunchError) -> DriverError {
         }
         OpenCodeLaunchError::Identity => {
             DriverError::Failed("The OpenCode launch identity could not be prepared.")
+        }
+        OpenCodeLaunchError::InvalidNativeSession => {
+            DriverError::Failed("The session id chosen for OpenCode is not in its own shape.")
         }
         OpenCodeLaunchError::Permit => DriverError::Failed(
             "The OpenCode native launch permit did not match its qualification.",

@@ -82,6 +82,8 @@ pub enum PiLaunchError {
     Identity,
     QualificationRequired,
     Permit,
+    /// The session id given to a new session is not a lowercase hyphenated UUID.
+    InvalidNativeSession,
 }
 impl std::fmt::Display for PiLaunchError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -114,6 +116,9 @@ pub struct PiStartContext<'a> {
     pub thread_id: &'a str,
     /// The thread's Mukade room (ADR-0057): Mukade's plugin kit joins the session to it.
     pub chat: Option<&'a crate::mukade_chat::ChatHooks>,
+    /// The id the new session starts with (`--session-id <id>`), made by `new_session_id`: Shinatama
+    /// records it and Mukade's extension keys its record by it, so a tab finds its member.
+    pub native_id: &'a str,
 }
 pub struct PiTrialContext<'a> {
     pub candidate: &'a ProgramCandidate,
@@ -148,11 +153,36 @@ fn bundled_adapter(store: &Path, home: &Path) -> Result<crate::marionette::Adapt
         .and_then(|adapter| adapter.private_copy(&home.join(crate::marionette::PI_COPY)))
         .map_err(|_| PiLaunchError::BundledPlugins)
 }
-fn session_arguments(bundled: Option<ResourceArguments>, chat: Vec<OsString>) -> Vec<OsString> {
+/// The session id, when the launch names one, is last: it is only ever added.
+fn session_arguments(bundled: Option<ResourceArguments>, chat: Vec<OsString>, native_id: Option<&str>) -> Vec<OsString> {
     run::tui_arguments(&bundled.unwrap_or_else(ResourceArguments::empty))
         .into_iter()
         .chain(chat)
+        .chain(native_id.into_iter().flat_map(|id| [OsString::from("--session-id"), OsString::from(id)]))
         .collect()
+}
+
+/// The chosen model: Shinatama's provider extension, then the provider and model it registers.
+fn model_arguments(extension: PathBuf, provider: &str, model: &str) -> Vec<OsString> {
+    vec![
+        "-e".into(),
+        extension.into_os_string(),
+        "--provider".into(),
+        provider.into(),
+        "--model".into(),
+        model.into(),
+    ]
+}
+
+/// Pi takes the id given with `--session-id`; a lowercase hyphenated UUID is what it was verified
+/// with (docs/verification/2026-11-17-opencode-pi-session-id.md).
+pub fn is_session_id(id: &str) -> bool {
+    uuid::Uuid::parse_str(id).is_ok_and(|uuid| uuid.hyphenated().to_string() == id)
+}
+
+/// A new Pi session id, chosen by Shinatama so that the session can be recorded before it starts.
+pub fn new_session_id() -> String {
+    uuid::Uuid::new_v4().hyphenated().to_string()
 }
 
 /// Mukade's Pi extension, written beside the instance, as the arguments that load it, followed by
@@ -186,6 +216,7 @@ struct Context<'a> {
     plugins_root: Option<&'a Path>,
     thread_id: &'a str,
     chat: Option<&'a crate::mukade_chat::ChatHooks>,
+    native_id: Option<&'a str>,
 }
 struct Prepared {
     launch: PreparedLaunch,
@@ -240,6 +271,7 @@ pub fn prepare_trial(context: PiTrialContext<'_>) -> Result<PreparedPiTrial, PiL
             plugins_root: None,
             thread_id: context.thread_id,
             chat: None,
+            native_id: None,
         },
         None,
         true,
@@ -278,6 +310,7 @@ pub fn prepare_start(
             plugins_root: context.plugins_root,
             thread_id: context.thread_id,
             chat: context.chat,
+            native_id: Some(context.native_id),
         },
         Some(receipt),
         false,
@@ -304,6 +337,9 @@ fn prepare(
     if context.candidate.agent.as_str() != "pi" || context.candidate.kind != ProgramKind::CmdWrapper
     {
         return Err(PiLaunchError::InvalidCandidate);
+    }
+    if context.native_id.is_some_and(|id| !is_session_id(id)) {
+        return Err(PiLaunchError::InvalidNativeSession);
     }
     let observation = context.observation.summary();
     let (version, node_version) = observation
@@ -562,14 +598,12 @@ fn prepare(
             Err(reason) => eprintln!("This Pi session opens without its thread's room: {reason}"),
         }
     }
-    let mut arguments = session_arguments(bundled, chat_arguments);
+    let mut arguments = session_arguments(bundled, chat_arguments, context.native_id);
     if let Some(extension) = models.pi_extension() {
         let path = create_bytes(&instance_directory, "model-provider.mjs", extension.as_bytes(), &mut artifacts)
             .map_err(|_| PiLaunchError::Configuration)?;
         if let Some((connection, selection)) = models.selected(crate::model_config::Harness::Pi) {
-            arguments.extend([OsString::from("-e"), path.into_os_string(),
-                "--provider".into(), crate::model_config::alias(connection).into(),
-                "--model".into(), selection.model_id.clone().into()]);
+            arguments.extend(model_arguments(path, &crate::model_config::alias(connection), &selection.model_id));
         }
     }
     let descriptor = descriptor(&version)?;
@@ -759,13 +793,44 @@ mod tests {
     #[test]
     fn a_talking_thread_adds_mukade_after_marionette_and_removes_nothing() {
         let marionette = shinatama_adapter::pi::sets::plan_marionette(Path::new(r"C:\Data\marionette")).unwrap();
-        let without = session_arguments(Some(marionette.clone()), Vec::new());
+        let without = session_arguments(Some(marionette.clone()), Vec::new(), None);
         let chat: Vec<OsString> = ["-e", r"C:\Data\i\mukade-kit\pi-extension\mukade-chat.ts", "-e", "builtin:mcp"].map(OsString::from).to_vec();
-        let with = session_arguments(Some(marionette), chat.clone());
+        let with = session_arguments(Some(marionette), chat.clone(), None);
         assert_eq!(with[..without.len()], without[..]);
         assert_eq!(with[without.len()..], chat[..]);
         assert!(without.iter().any(|token| token.to_string_lossy().ends_with("policy.js")));
         assert!(without.contains(&OsString::from("--skill")));
+    }
+    /// Task 0 of the thread team: Pi keeps the id given with `--session-id` and Mukade's extension keys
+    /// its record by it (docs/verification/2026-11-17-opencode-pi-session-id.md).
+    #[test]
+    fn pi_starts_with_the_session_id_it_is_given() {
+        let id = "0e8a7129-1f2c-486d-bb80-3f2e8ac8a864";
+        assert!(is_session_id(id));
+        for refused in ["", "ses_f4a4700c4988qHjfJkARDz8LLp", "0E8A7129-1F2C-486D-BB80-3F2E8AC8A864",
+                        "0e8a71291f2c486dbb803f2e8ac8a864", "0e8a7129-1f2c-486d-bb80-3f2e8ac8a864 "] {
+            assert!(!is_session_id(refused), "{refused}");
+        }
+        let made = new_session_id();
+        assert!(is_session_id(&made), "{made}");
+        assert_ne!(made, new_session_id());
+        let plain = session_arguments(None, Vec::new(), None);
+        let named = session_arguments(None, Vec::new(), Some(id));
+        assert_eq!(named[..plain.len()], plain[..]);
+        assert_eq!(named[plain.len()..], ["--session-id", id].map(OsString::from));
+    }
+    /// The terminal host refuses more than `MAX_LAUNCH_ARGUMENTS` (crates/terminal/src/protocol.rs,
+    /// 32; the terminal crate depends on this one, so the number is repeated here). The fullest Pi
+    /// launch: Marionette, the talking thread's extension, a chosen model, and the session id; the
+    /// script is the first token after Node.
+    #[test]
+    fn pi_arguments_stay_within_the_launch_bound_at_the_fullest_launch() {
+        let marionette = shinatama_adapter::pi::sets::plan_marionette(Path::new(r"C:\Data\marionette")).unwrap();
+        let chat: Vec<OsString> = ["-e", r"C:\Data\i\mukade-kit\pi-extension\mukade-chat.ts", "-e", "builtin:mcp"].map(OsString::from).to_vec();
+        let mut fullest = session_arguments(Some(marionette), chat, Some(&new_session_id()));
+        fullest.extend(model_arguments(PathBuf::from(r"C:\Data\i\model-provider.mjs"), "provider", "model"));
+        assert!(fullest.len() + 1 <= 32, "{} arguments", fullest.len() + 1);
+        assert!(fullest.contains(&OsString::from("--session-id")));
     }
     use super::*;
     use crate::launch::identity::LaunchIdentity;

@@ -103,6 +103,8 @@ pub enum OpenCodeLaunchError {
     Identity,
     QualificationRequired,
     Permit,
+    /// The session id given to a new session is not in OpenCode's own shape.
+    InvalidNativeSession,
 }
 impl std::fmt::Display for OpenCodeLaunchError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -135,6 +137,9 @@ pub struct OpenCodeStartContext<'a> {
     pub thread_id: &'a str,
     /// The thread's Mukade room (ADR-0057): Mukade's plugin kit joins the session to it.
     pub chat: Option<&'a crate::mukade_chat::ChatHooks>,
+    /// The id the new session starts with (`--session <id>`), made by `new_session_id`: Shinatama
+    /// records it and Mukade's plugin keys its record by it, so a tab finds its member.
+    pub native_id: &'a str,
 }
 pub struct PreparedOpenCodeTrial {
     pub launch: PreparedLaunch,
@@ -170,6 +175,7 @@ struct Context<'a> {
     plugins_root: Option<&'a Path>,
     thread_id: &'a str,
     chat: Option<&'a crate::mukade_chat::ChatHooks>,
+    native_id: Option<&'a str>,
 }
 pub struct PreparedOpenCodeStart {
     pub launch: PreparedLaunch,
@@ -190,8 +196,45 @@ fn chat_kit(base: &StorageLocation, instance: &Path, config: &str) -> Result<(cr
     Ok((connection, merged))
 }
 
-fn fixed_arguments() -> Vec<OsString> {
-    vec!["--standalone".into()]
+/// OpenCode's arguments: its own standalone service, and for a real session the id it starts with.
+/// OpenCode refuses a UUID (`Expected a string starting with "ses"`); see `is_session_id`.
+fn fixed_arguments(native_id: Option<&str>) -> Vec<OsString> {
+    let mut arguments = vec![OsString::from("--standalone")];
+    if let Some(id) = native_id {
+        arguments.extend([OsString::from("--session"), OsString::from(id)]);
+    }
+    arguments
+}
+
+/// The shape of OpenCode's own session ids: `ses_`, 12 lowercase hex digits, 14 letters or digits.
+/// Anything else is refused by OpenCode before its plugins run
+/// (docs/verification/2026-11-17-opencode-pi-session-id.md).
+pub fn is_session_id(id: &str) -> bool {
+    id.len() == 30
+        && id.strip_prefix("ses_").is_some_and(|rest| {
+            let (hex, tail) = rest.split_at(12);
+            hex.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+                && tail.bytes().all(|byte| byte.is_ascii_alphanumeric())
+        })
+}
+
+/// A new OpenCode session id, in the shape `is_session_id` accepts. Chosen by Shinatama, not by
+/// OpenCode, so that the session can be recorded before it starts.
+pub fn new_session_id() -> String {
+    const ALPHABET: &[u8; 62] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut bytes = [0u8; 26];
+    getrandom::fill(&mut bytes).expect("the operating system has randomness");
+    let mut id = String::from("ses_");
+    for byte in &bytes[..12] {
+        id.push(char::from(HEX[usize::from(byte & 0x0f)]));
+    }
+    for byte in &bytes[12..] {
+        // 256 = 4 * 62 + 8: the first 248 values fold evenly; the rest are folded too, with a
+        // negligible bias that an id has no use for (it is a name, not a secret).
+        id.push(char::from(ALPHABET[usize::from(*byte) % ALPHABET.len()]));
+    }
+    id
 }
 
 /// The inline config of a real session. Full access adds one allow-all rule so
@@ -251,6 +294,7 @@ pub fn prepare_trial(
             plugins_root: None,
             thread_id: context.thread_id,
             chat: None,
+            native_id: None,
         },
         None,
         true,
@@ -288,6 +332,7 @@ pub fn prepare_start(
             plugins_root: context.plugins_root,
             thread_id: context.thread_id,
             chat: context.chat,
+            native_id: Some(context.native_id),
         },
         Some(receipt),
         false,
@@ -321,6 +366,9 @@ fn prepare(
         || context.candidate.kind != ProgramKind::DirectExe
     {
         return Err(OpenCodeLaunchError::InvalidCandidate);
+    }
+    if context.native_id.is_some_and(|id| !is_session_id(id)) {
+        return Err(OpenCodeLaunchError::InvalidNativeSession);
     }
     let observation = context.observation.summary();
     let version = observation
@@ -676,7 +724,7 @@ fn prepare(
     let mode = Placement::new(ProgramPlacement::System, HomePlacement::Box)
         .map_err(|_| OpenCodeLaunchError::PlacementMode)?;
     let placement_recipe = placement_recipe(&descriptor, mode)?;
-    let args = fixed_arguments();
+    let args = fixed_arguments(context.native_id);
     let arguments_recipe = QualifiedArgvRecipe::qualify(
         &descriptor,
         Operation::StartNew,
@@ -1151,7 +1199,7 @@ mod tests {
             &descriptor,
             Operation::StartNew,
             CommandForm::NativeExe("C:/program/opencode.exe".into()),
-            fixed_arguments(),
+            fixed_arguments(None),
             evidence(&descriptor).unwrap(),
         )
         .unwrap();
@@ -1167,7 +1215,30 @@ mod tests {
         )
         .with_private_paths(&paths);
         let launch = compose_launch(&descriptor, Operation::StartNew, mode, &inputs).unwrap();
-        assert_eq!(launch.command().argv(), fixed_arguments());
+        assert_eq!(launch.command().argv(), fixed_arguments(None));
+        let given = new_session_id();
+        let with_id = QualifiedArgvRecipe::qualify(
+            &descriptor,
+            Operation::StartNew,
+            CommandForm::NativeExe("C:/program/opencode.exe".into()),
+            fixed_arguments(Some(&given)),
+            evidence(&descriptor).unwrap(),
+        )
+        .unwrap();
+        let inputs = LaunchInputs::new(
+            &placement,
+            &with_id,
+            Path::new("C:/project"),
+            Path::new("C:/private/index.sqlite"),
+            &inherited,
+            &identity,
+        )
+        .with_private_paths(&paths);
+        let launch_with_id = compose_launch(&descriptor, Operation::StartNew, mode, &inputs).unwrap();
+        assert_eq!(
+            launch_with_id.command().argv(),
+            ["--standalone", "--session", given.as_str()].map(OsString::from)
+        );
         for (name, role) in [
             ("OPENCODE_DB", PathRole::OpenCodeDatabase),
             ("XDG_CONFIG_HOME", PathRole::XdgConfig),
@@ -1229,9 +1300,47 @@ mod tests {
     }
     #[test]
     fn opencode_standalone_keeps_native_permission_prompts() {
-        assert_eq!(fixed_arguments(), vec![OsString::from("--standalone")]);
+        assert_eq!(fixed_arguments(None), vec![OsString::from("--standalone")]);
         let protected: Value = serde_json::from_str(config_content(false)).unwrap();
         assert!(protected.get("permissions").is_none());
+    }
+    /// Task 0 of the thread team: the session id a launch chooses is the one OpenCode keeps.
+    /// OpenCode refuses a UUID (`Expected a string starting with "ses"`); its own shape is
+    /// `ses_` + 12 lowercase hex + 14 letters or digits (docs/verification/2026-11-17-opencode-pi-session-id.md).
+    #[test]
+    fn opencode_starts_with_the_session_id_it_is_given() {
+        let id = "ses_f4a4700c4988qHjfJkARDz8LLp";
+        assert!(is_session_id(id));
+        assert_eq!(
+            fixed_arguments(Some(id)),
+            ["--standalone", "--session", id].map(OsString::from)
+        );
+        // The trial has no session of its own to name.
+        assert_eq!(fixed_arguments(None), ["--standalone"].map(OsString::from));
+        for _ in 0..64 {
+            let made = new_session_id();
+            assert!(is_session_id(&made), "{made}");
+            assert_eq!(made.len(), 30);
+        }
+        assert_ne!(new_session_id(), new_session_id());
+        for refused in [
+            "0e8a7129-1f2c-486d-bb80-3f2e8ac8a864",
+            "",
+            "ses_",
+            "ses_F4a4700c4988qHjfJkARDz8LLp",
+            "ses_f4a4700c4988qHjfJkARDz8LL",
+            "ses_f4a4700c4988qHjfJkARDz8LLpp",
+            "ses_f4a4700c4988qHjfJkARDz8L-p",
+            "xes_f4a4700c4988qHjfJkARDz8LLp",
+        ] {
+            assert!(!is_session_id(refused), "{refused}");
+        }
+    }
+    /// The terminal host refuses more than `MAX_LAUNCH_ARGUMENTS` (crates/terminal/src/protocol.rs,
+    /// 32; the terminal crate depends on this one, so the number is repeated here).
+    #[test]
+    fn opencode_arguments_stay_within_the_launch_bound() {
+        assert!(fixed_arguments(Some(&new_session_id())).len() <= 32);
     }
     #[test]
     fn opencode_full_access_adds_one_allow_all_rule_and_keeps_the_rest() {
