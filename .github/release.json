@@ -3,6 +3,7 @@
   "tagPrefix": "v",
   "files": [
     "package.json",
+    "package-lock.json",
     "Cargo.toml",
     "apps/desktop/src-tauri/tauri.conf.json"
   ],
