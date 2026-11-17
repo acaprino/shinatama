@@ -1,0 +1,870 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shinatama · Team map (mockup)</title>
+<style>
+:root {
+  color-scheme: dark;
+  --stage:#04070f; --chrome:#070c18; --chrome-2:#0a1120; --surface:#0e1729; --surface-2:#13203a; --terminal:#050912;
+  --line:#1c3563; --line-strong:#4a78e6; --ice:#a9c8ff; --text:#e6f0ff; --text-2:#b4c8e8; --muted:#8fa6c9;
+  --accent:#f48fb8; --accent-soft:#ffb3d0; --accent-ink:#1c0811; --live:#6fe3d2; --warning:#e8bb72; --error:#ff8495;
+  --mono:'Cascadia Mono','Cascadia Code',Consolas,monospace; --display:Bahnschrift,'Segoe UI Variable Display','Segoe UI',sans-serif;
+  font:13px/1.45 'Segoe UI Variable Text','Segoe UI',sans-serif; background:var(--stage); color:var(--text);
+}
+* { box-sizing:border-box; }
+html,body { height:100%; margin:0; }
+body { display:flex; flex-direction:column; -webkit-user-select:none; user-select:none; }
+input,textarea,#terminal,.event .text { -webkit-user-select:text; user-select:text; }
+button,input,select,textarea { font:inherit; color:inherit; }
+button { min-height:30px; padding:0 12px; border:1px solid var(--line-strong); background:color-mix(in srgb,var(--surface-2) 80%,transparent); cursor:pointer; }
+button:hover:not(:disabled) { border-color:var(--ice); }
+button:disabled { opacity:.45; cursor:default; }
+button.primary { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); font-weight:600; }
+button.quiet { border-color:transparent; background:none; color:var(--text-2); padding:0 6px; }
+:focus-visible { outline:2px solid var(--accent-soft); outline-offset:2px; }
+[hidden] { display:none !important; }
+
+#guide { flex:none; padding:12px 18px 10px; background:#0b0f1a; border-bottom:1px solid var(--line); }
+#guide h1 { margin:0 0 8px; font:500 15px var(--display); letter-spacing:.06em; }
+#guide h1 small { font:12px 'Segoe UI',sans-serif; color:var(--muted); letter-spacing:0; margin-left:8px; }
+#steps { display:flex; flex-wrap:wrap; gap:6px; margin:0; padding:0; list-style:none; }
+#steps button { min-height:28px; font-size:12px; border-color:var(--line); }
+#steps button[aria-current="step"] { border-color:var(--accent); color:var(--accent-soft); background:color-mix(in srgb,var(--accent) 14%,transparent); }
+#caption { margin:10px 0 0; max-width:1180px; min-height:3.1em; font-size:13.5px; line-height:1.55; color:var(--text-2); }
+#caption b { color:var(--text); }
+
+#app { flex:1 1 auto; min-height:0; display:grid; grid-template-columns:210px minmax(0,1fr) 330px; background:
+  radial-gradient(60% 50% at 20% 0%, #4a78e622, transparent), radial-gradient(40% 40% at 90% 100%, #f48fb814, transparent), var(--stage); }
+#sidebar { border-right:1px solid var(--line); background:color-mix(in srgb,var(--chrome) 70%,transparent); padding:12px 10px; overflow:auto; }
+#sidebar h2 { margin:0 0 8px; font:11px var(--mono); letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+.thread-row { display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:6px; border:1px solid var(--line); background:var(--surface); }
+.thread-row .tone { width:10px; height:10px; background:var(--accent); flex:none; }
+.thread-row .name { flex:1; font:12px var(--mono); }
+.thread-row button { min-height:24px; padding:0 8px; font-size:11px; }
+.thread-row button[aria-pressed="true"] { border-color:var(--accent); color:var(--accent-soft); }
+.session-tab { display:block; width:100%; text-align:left; margin-top:4px; padding:6px 8px 6px 14px; border:1px solid transparent; border-left:4px solid var(--tone,transparent); background:none; min-height:0; touch-action:none; }
+.session-tab[data-free] { cursor:grab; border-style:dashed; border-color:var(--line); border-left:4px solid var(--tone); }
+.session-tab[aria-selected="true"] { border-color:var(--line-strong); border-left-color:var(--tone); background:var(--surface-2); }
+.session-tab .t1 { display:block; font:12px var(--mono); color:var(--text); }
+.session-tab .t2 { display:block; font-size:11px; color:var(--muted); }
+.session-tab .t2 .in { color:var(--live); } .session-tab .t2 .hint { color:var(--warning); }
+.new { margin-top:8px; padding:0 0 0 18px; font-size:11px; color:var(--muted); }
+[data-harness="Claude Code"] { --tone:#f48fb8; } [data-harness="OpenCode"] { --tone:#6fe3d2; } [data-harness="Codex"] { --tone:#a9c8ff; } [data-harness="Pi"] { --tone:#e8bb72; }
+
+#work { display:flex; flex-direction:column; min-width:0; min-height:0; }
+#worktabs { flex:none; display:flex; align-items:stretch; height:34px; border-bottom:1px solid var(--line); overflow:hidden; }
+#worktabs button { min-height:0; border:0; border-right:1px solid var(--line); background:none; font:12px var(--mono); color:var(--text-2); padding:0 14px; white-space:nowrap; }
+#worktabs button[aria-selected="true"] { color:var(--text); background:var(--surface); box-shadow:inset 0 -2px var(--accent); }
+#terminal { flex:1; margin:0; padding:14px 16px; overflow:auto; background:var(--terminal); font:12.5px/1.6 var(--mono); color:#c8d6ee; white-space:pre-wrap; }
+#terminal .dim { color:var(--muted); } #terminal .me { color:var(--accent-soft); } #terminal .sys { color:var(--live); } #terminal .ag { color:var(--ice); }
+
+/* The team map. */
+#map { position:relative; display:flex; flex-direction:column; flex:1; min-height:0; }
+#tpl-open[aria-expanded="true"] { border-color:var(--accent); color:var(--accent-soft); }
+#templates { top:50px; left:12px; width:400px; z-index:12; }
+#templates h3 { margin:0; }
+.tpl-list { list-style:none; margin:8px 0; padding:0; max-height:250px; overflow:auto; scrollbar-width:thin; }
+.tpl-list li { display:grid; grid-template-columns:64px 1fr auto auto; gap:8px; align-items:center; padding:6px 0; border-top:1px solid var(--line); }
+.tpl-list li.none { display:block; font-size:12px; color:var(--muted); }
+.tpl-list b { display:block; font:600 12.5px var(--mono); color:var(--text); } .tpl-list span { font-size:11px; color:var(--muted); }
+.tpl-list button { min-height:26px; padding:0 10px; font-size:12px; }
+.mini { width:64px; height:40px; background:var(--terminal); border:1px solid var(--line); }
+.tpl-save { display:grid; grid-template-columns:1fr auto; gap:6px; padding-top:8px; border-top:1px solid var(--line); }
+.tpl-save input { height:30px; padding:0 8px; border:1px solid var(--line-strong); border-radius:0; background:color-mix(in srgb,var(--terminal) 72%,transparent); font:12.5px var(--mono); color:var(--text); }
+.node[data-slot] { border-style:dashed; background:repeating-linear-gradient(135deg, color-mix(in srgb,var(--surface) 95%,transparent) 0 10px, color-mix(in srgb,var(--surface-2) 80%,transparent) 10px 20px); }
+.node[data-slot] .n-dot { border-style:dashed; }
+#mapbar { flex:none; display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:8px 12px; background:color-mix(in srgb,var(--chrome) 86%,transparent); border-bottom:1px solid var(--line); }
+#mapbar .lab { font:11px var(--mono); letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+#shapes { display:flex; gap:4px; }
+#shapes button { display:flex; align-items:center; gap:6px; min-height:32px; padding:0 9px; border-color:var(--line); font-size:12px; }
+#shapes svg { width:26px; height:20px; fill:currentColor; stroke:currentColor; stroke-width:1.3; }
+#tidy { min-height:32px; padding:0 10px; font-size:12px; border-color:var(--line); }
+#auto { display:flex; align-items:center; gap:5px; font:11px var(--mono); color:var(--text-2); cursor:pointer; } #auto input { accent-color:var(--accent); margin:0; }
+#team-state { flex:1; min-width:120px; text-align:right; font:11.5px var(--mono); color:var(--muted); }
+#team-state[data-tone="dirty"] { color:var(--warning); } #team-state[data-tone="ok"] { color:var(--live); }
+#scroll { position:relative; flex:1; min-height:0; overflow:hidden auto; background:
+  linear-gradient(#1c356326 1px, transparent 1px) 0 0/100% 30px, linear-gradient(90deg,#1c356326 1px, transparent 1px) 0 0/30px 100%, color-mix(in srgb,var(--terminal) 70%,transparent); }
+#scroll.drop { box-shadow:inset 0 0 0 2px var(--accent); }
+#canvas { position:relative; min-height:100%; }
+#wires { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
+.wire { fill:none; stroke:var(--c); stroke-width:2; }
+.wire[data-pending] { stroke-dasharray:8 5; }
+.wire[data-type="observes"] { stroke-dasharray:2 6; stroke-width:1.6; }
+.wire.rubber { stroke:var(--accent); stroke-dasharray:5 4; }
+.wire[data-bad] { stroke:var(--error); }
+.wire-label[data-bad] { fill:var(--error); }
+.node[data-bad] { border-color:var(--error); border-style:solid; box-shadow:0 0 0 1px var(--error), 0 8px 24px #0008; }
+#problems { flex:none; margin:0; padding:6px 12px; list-style:none; border-bottom:1px solid var(--line); background:color-mix(in srgb,var(--error) 8%,var(--chrome)); font-size:12.5px; line-height:1.45; }
+#problems li { display:grid; grid-template-columns:16px 1fr; gap:6px; padding:2px 0; color:var(--text-2); cursor:pointer; }
+#problems li::before { content:"✕"; color:var(--error); font-weight:700; }
+#problems li[data-level="warn"]::before { content:"!"; color:var(--warning); }
+#problems li:hover { color:var(--text); }
+#problems b { color:var(--text); font-weight:600; }
+#linkbox .types > button:disabled { opacity:1; cursor:not-allowed; } #linkbox .types > button:disabled b { color:var(--muted); text-decoration:line-through; } #linkbox .types > button:disabled span { color:var(--error); }
+.hit { fill:none; stroke:transparent; stroke-width:16; pointer-events:stroke; cursor:pointer; }
+.hit:hover + .wire, .wire[data-on] { stroke-width:3.5; }
+.wire-label { font:11px var(--mono); fill:var(--c); paint-order:stroke; stroke:var(--terminal); stroke-width:6px; pointer-events:none; }
+.wire-note { font:11px var(--mono); fill:var(--live); paint-order:stroke; stroke:var(--terminal); stroke-width:6px; pointer-events:none; }
+
+.node { position:absolute; width:190px; min-height:78px; padding:8px 10px 7px 14px; border:1px solid var(--line-strong); background:color-mix(in srgb,var(--surface) 95%,transparent);
+  box-shadow:0 8px 24px #0008; cursor:grab; touch-action:none; transition:left .34s cubic-bezier(.2,.8,.2,1), top .34s cubic-bezier(.2,.8,.2,1), border-color .12s, opacity .12s; }
+.node::before { content:""; position:absolute; inset:0 auto 0 0; width:4px; background:var(--tone,var(--muted)); }
+.node:hover { border-color:var(--ice); }
+.node[aria-pressed="true"] { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent), 0 8px 24px #0008; }
+.node[data-pending] { border-style:dashed; border-color:var(--warning); }
+.node.drop { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 16%,var(--surface)); }
+.node.lifted { opacity:.85; transition:none; pointer-events:none; z-index:8; }
+.n-top { display:flex; align-items:center; gap:7px; }
+.n-dot { flex:none; width:9px; height:9px; border:1.5px solid var(--muted); border-radius:50%; }
+.node[data-in] .n-dot { border-color:var(--live); background:var(--live); }
+.n-alias { flex:1; min-width:0; font:600 14px var(--mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.n-kind { font:10px var(--mono); letter-spacing:.05em; text-transform:uppercase; color:var(--ice); border:1px solid currentColor; padding:0 4px; }
+.n-kind[data-k="lead"] { color:var(--accent-soft); } .n-kind[data-k="worker"] { color:var(--warning); }
+.n-role { margin-top:1px; height:1.35em; font:500 13px var(--display); letter-spacing:.05em; color:var(--accent-soft); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+#inspector .role-line { padding:6px 8px; border-left:2px solid var(--accent); background:color-mix(in srgb,var(--terminal) 60%,transparent); font-size:12px; color:var(--text-2); }
+#inspector .role-line b { color:var(--accent-soft); font:500 13px var(--display); letter-spacing:.05em; }
+.n-meta { font:11px var(--mono); color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.n-foot { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-top:5px; padding-top:4px; border-top:1px solid color-mix(in srgb,var(--line) 80%,transparent); font-size:11px; color:var(--muted); white-space:nowrap; }
+.n-told[data-s="told"] { color:var(--live); } .n-told[data-s="pending"], .n-told[data-s="edited"] { color:var(--warning); }
+.n-wakes { display:flex; gap:2px; } .n-wakes i { width:4px; height:9px; background:var(--line); } .n-wakes i.on { background:var(--warning); }
+.port { position:absolute; right:-13px; top:50%; width:26px; height:26px; min-height:0; margin-top:-13px; padding:0; border-radius:50%; border:1px solid var(--line-strong); background:var(--chrome-2); font:14px/1 var(--mono); color:var(--ice); cursor:crosshair; touch-action:none; }
+.port:hover { border-color:var(--accent); color:var(--accent-ink); background:var(--accent); }
+@keyframes ping { from { box-shadow:0 0 0 0 #6fe3d2cc; } to { box-shadow:0 0 0 20px #6fe3d200; } }
+.node.ping { animation:ping .9s ease-out 2; }
+@keyframes soft { 50% { border-color:var(--ice); } }
+.node.noticed { animation:soft 1.2s ease-in-out 1; }
+#ghost { position:fixed; z-index:20; left:0; top:0; padding:4px 10px 4px 12px; border:1px solid var(--accent); border-left:4px solid var(--tone,var(--accent)); background:var(--chrome-2); font:600 13px var(--mono); pointer-events:none; box-shadow:0 10px 30px #000c; }
+
+#hint { position:absolute; left:50%; top:110px; transform:translateX(-50%); z-index:3; width:min(460px,84%); margin:0; padding:14px 16px; text-align:center; font-size:13px; line-height:1.6; color:var(--text-2); border:1px dashed var(--line-strong); background:color-mix(in srgb,var(--chrome) 80%,transparent); pointer-events:none; }
+#hint b { color:var(--text); }
+#tray { flex:none; display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; min-height:44px; padding:7px 12px; background:color-mix(in srgb,var(--chrome) 90%,transparent); border-top:1px solid var(--line); font-size:12px; color:var(--muted); transition:background .12s; }
+#tray.drop { background:color-mix(in srgb,var(--accent) 18%,var(--chrome)); color:var(--accent-soft); }
+#tray button { min-height:28px; border-style:dashed; font:12px var(--mono); }
+#tray .key { display:flex; align-items:center; gap:6px; font:11px var(--mono); color:var(--text-2); }
+#tray .key i { display:inline-block; width:22px; border-top:2px solid var(--c); } #tray .key i.dot { border-top-style:dotted; }
+#tray .sep { flex:1; }
+
+.pop { position:absolute; z-index:9; padding:11px 12px 12px; border:1px solid var(--accent); background:var(--chrome-2); box-shadow:0 14px 40px #000b; }
+.pop h3 { display:flex; justify-content:space-between; align-items:center; gap:8px; margin:0 0 6px; font:11px var(--mono); letter-spacing:.06em; text-transform:uppercase; color:var(--text-2); }
+.pop p { margin:6px 0 0; font-size:11.5px; line-height:1.45; color:var(--muted); }
+.pop .foot { display:flex; justify-content:space-between; margin-top:8px; }
+#inspector { width:262px; display:grid; grid-template-columns:1fr 1fr; gap:6px 8px; }
+#inspector h3, #inspector p, #inspector .foot { grid-column:1 / -1; margin:0; }
+#inspector label { display:grid; gap:2px; font:10.5px var(--mono); letter-spacing:.06em; text-transform:uppercase; color:var(--text-2); }
+#inspector label.wide { grid-column:1 / -1; }
+#inspector :is(input,textarea,select), #compose :is(select,textarea) { width:100%; height:30px; padding:0 8px; border:1px solid var(--line-strong); border-radius:0;
+  background:color-mix(in srgb,var(--terminal) 72%,transparent); font:12.5px var(--mono); text-transform:none; letter-spacing:0; color:var(--text); }
+#inspector textarea { height:auto; min-height:56px; padding:6px 8px; resize:vertical; line-height:1.4; }
+#linkbox { width:330px; }
+#linkbox .types { display:grid; gap:4px; }
+#linkbox .types > button { display:grid; grid-template-columns:30px 1fr; align-items:center; gap:2px 8px; min-height:0; padding:6px 8px; text-align:left; border-color:var(--line); }
+#linkbox .types > button[aria-pressed="true"] { border-color:var(--c); background:color-mix(in srgb,var(--c) 14%,transparent); }
+#linkbox .types i { grid-row:1 / span 2; display:block; border-top:2.5px solid var(--c); } #linkbox .types i.dot { border-top-style:dotted; }
+#linkbox .types b { font:600 12.5px var(--mono); color:var(--c); } #linkbox .types span { font-size:11px; color:var(--muted); }
+#linkbox .switch { display:grid; grid-template-columns:18px 1fr; gap:8px; align-items:start; padding:6px 8px; border:1px solid var(--line); font-size:11.5px; line-height:1.45; color:var(--muted); cursor:pointer; }
+#linkbox .switch b { color:var(--warning); font:600 12px var(--mono); }
+#linkbox .switch input { margin:2px 0 0; accent-color:var(--warning); }
+#linkbox .how { display:grid; gap:3px; margin-top:4px; }
+#inspector .lab { margin:2px 0 -3px; }
+#inspector .seg3 { grid-column:1 / -1; }
+#linkbox .lab, #inspector .lab, #linkbox .words { font:10.5px var(--mono); letter-spacing:.06em; text-transform:uppercase; color:var(--text-2); }
+#linkbox .seg3, #inspector .seg3 { display:grid; grid-template-columns:repeat(3,1fr); }
+:is(#linkbox, #inspector) .seg3 button { min-height:28px; padding:0 4px; font-size:11.5px; border-color:var(--line); }
+:is(#linkbox, #inspector) .seg3 button[aria-pressed="true"] { border-color:var(--accent); color:var(--accent-soft); background:color-mix(in srgb,var(--accent) 14%,transparent); }
+#linkbox .seg3 button:disabled { text-decoration:line-through; cursor:not-allowed; }
+#linkbox .words { display:grid; gap:3px; margin-top:4px; }
+#linkbox .words input { width:100%; height:30px; padding:0 8px; border:1px solid var(--line-strong); border-radius:0; background:color-mix(in srgb,var(--terminal) 72%,transparent); font:12.5px var(--mono); text-transform:none; letter-spacing:0; color:var(--text); }
+#linkbox .says { padding:6px 8px; border-left:2px solid var(--live); background:color-mix(in srgb,var(--terminal) 60%,transparent); font:11.5px/1.5 var(--mono); color:var(--text-2); }
+
+#panel { display:flex; flex-direction:column; min-height:0; padding:16px 16px 14px; border-left:1px solid color-mix(in srgb,var(--line-strong) 62%,transparent);
+  background:linear-gradient(90deg,var(--accent),var(--ice) 46%,transparent 92%) top left/100% 2px no-repeat, color-mix(in srgb,var(--chrome-2) 84%,transparent); overflow:hidden; }
+#panel h1 { margin:0; font:500 17px var(--display); letter-spacing:.09em; text-transform:uppercase; }
+#panel .thread { display:flex; align-items:center; gap:8px; margin:6px 0 8px; font:13px var(--mono); color:var(--text-2); }
+#panel .thread::before { content:""; width:10px; height:10px; background:var(--accent); }
+#log { flex:1 1 auto; min-height:90px; overflow:auto; margin:0; padding:0; list-style:none; scrollbar-width:thin; }
+.event { display:grid; grid-template-columns:auto minmax(0,1fr); gap:0 8px; padding:6px 0; border-top:1px solid color-mix(in srgb,var(--line) 50%,transparent); }
+.event time { font:11px var(--mono); color:var(--muted); }
+.event .who { font:12px var(--mono); color:var(--ice); }
+.event .who[data-user] { color:var(--accent-soft); }
+.event .text { grid-column:2; margin:2px 0 0; font-size:13px; line-height:1.5; white-space:pre-wrap; overflow-wrap:anywhere; }
+.event[data-kind="team"] { padding-left:8px; border-left:2px solid var(--live); }
+.event[data-kind="team"] .who { color:var(--live); }
+.event[data-kind="team"] .text { font:12px/1.5 var(--mono); color:var(--text-2); }
+.event[data-kind="presence"] :is(.who,.text) { color:var(--muted); font-size:11px; }
+.event .tag { display:inline-block; margin-left:6px; padding:0 5px; border:1px solid currentColor; font:10px var(--mono); text-transform:uppercase; letter-spacing:.05em; opacity:.85; }
+#log-empty { margin:8px 0; font-size:12px; color:var(--muted); }
+#compose { flex:none; display:grid; grid-template-columns:1fr auto; gap:6px; margin-top:8px; padding-top:10px; border-top:1px solid var(--line); }
+#compose select { grid-column:1 / -1; }
+#compose textarea { height:52px; padding:6px 8px; resize:none; line-height:1.4; }
+@media (max-width:1180px) { #app { grid-template-columns:190px minmax(0,1fr); } #panel { display:none; } }
+@media (prefers-reduced-motion: reduce) { .node { transition:none; } .node.ping, .node.noticed { animation:none; } }
+</style>
+</head>
+<body>
+<header id="guide">
+  <h1>Team map <small>mockup cliccabile · i testi dell'app restano in inglese, come il resto di Shinatama</small></h1>
+  <ol id="steps"></ol>
+  <p id="caption"></p>
+</header>
+
+<div id="app">
+  <nav id="sidebar" aria-label="Threads">
+    <h2>Threads</h2>
+    <div class="thread-row"><span class="tone"></span><span class="name" id="thread-name">Billing rewrite</span>
+      <button type="button" id="open-map" title="Team map of Billing rewrite">Team</button>
+      <button type="button" title="Conversation of Billing rewrite">Chat</button>
+      <button type="button" title="Thread settings">⋯</button></div>
+    <div id="tabs"></div>
+    <p class="new">+ New session in this thread</p>
+  </nav>
+
+  <main id="work">
+    <div id="worktabs" role="tablist"></div>
+    <div id="map">
+      <div id="mapbar">
+        <button type="button" id="tpl-open" aria-expanded="false">Templates ▾</button>
+        <span class="lab">Arrange as</span>
+        <div id="shapes" role="group" aria-label="Arrange the team as"></div>
+        <button type="button" id="tidy" title="Place the cards by their arrows: who gives work above, who takes it below, observers on the right">⤢ Tidy up</button>
+        <label id="auto" title="Rearrange by itself whenever an arrow or a card changes"><input type="checkbox" id="auto-box"> keep tidy</label>
+        <span id="team-state"></span>
+        <button type="button" id="discard" class="quiet">Discard</button>
+        <button type="button" id="apply" class="primary">Apply</button>
+      </div>
+      <ul id="problems" hidden></ul>
+      <div id="templates" class="pop" hidden></div>
+      <div id="scroll" data-drop="map">
+        <div id="canvas">
+          <svg id="wires"><defs id="defs"></defs><g id="wire-layer"></g></svg>
+          <div id="nodes"></div>
+          <p id="hint" hidden><b>Drag the sessions from the list on the left onto this map</b>, or add a new agent below.<br>Then pull the → of a card onto another to connect them, and click the arrow to say what kind of relation it is.</p>
+          <div id="inspector" class="pop" hidden></div>
+          <div id="linkbox" class="pop" hidden></div>
+        </div>
+      </div>
+      <div id="tray" data-drop="tray"></div>
+    </div>
+    <pre id="terminal" hidden></pre>
+  </main>
+
+  <aside id="panel" aria-labelledby="panel-title">
+    <h1 id="panel-title">Conversation</h1>
+    <p class="thread" id="thread-name-2">Billing rewrite</p>
+    <p id="log-empty">Nothing was written yet.</p>
+    <ol id="log" aria-label="Conversation of the thread"></ol>
+    <form id="compose">
+      <select id="to" aria-label="To"></select>
+      <textarea id="msg" aria-label="Message" placeholder="Write as yourself…"></textarea>
+      <button type="submit" class="primary">Send</button>
+    </form>
+  </aside>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+const svg = (tag, attrs) => { const n = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const k in attrs) n.setAttribute(k, attrs[k]); return n; };
+const clone = (v) => JSON.parse(JSON.stringify(v));
+const NL = String.fromCharCode(10);
+const NW = 190, NH = 78;
+
+const SESSIONS0 = [
+  { id: 'a', model: 'Fable 5.2', member: 'claude-1', inRoom: true, wakes: 2 },
+  { id: 'b', model: 'janura-qwen', member: 'opencode-1', inRoom: true, wakes: 0 },
+  { id: 'd', model: 'janura-qwen-mini', member: 'pi-1', inRoom: true, wakes: 0 },
+  { id: 'e', model: 'Sonnet 5.5', member: 'claude-2', inRoom: true, wakes: 1 },
+  { id: 'c', model: 'gpt-5.5', member: null, inRoom: false, wakes: 0 },
+];
+/* A card has a name and, if the user wants, notes. Its role is inferred from its arrows. */
+/* The models set up in the Models panel. Each one says which agent program runs it. */
+const MODELS = [
+  { model: 'Fable 5.2', harness: 'Claude Code' }, { model: 'Sonnet 5.5', harness: 'Claude Code' },
+  { model: 'janura-qwen', harness: 'OpenCode' }, { model: 'janura-qwen-mini', harness: 'Pi' }, { model: 'gpt-5.5', harness: 'Codex' },
+];
+const harnessOf = (model) => MODELS.find((o) => o.model === model)?.harness ?? null;
+const CARD = {
+  a: { alias: 'planner', duties: 'Writes the plan and reviews the results.' },
+  b: { alias: 'implementer', duties: 'Implements the plan step by step. Reports RESULT with the checks it ran.' },
+  d: { alias: 'tester', duties: '' },
+  e: { alias: 'reviewer', duties: 'Reviews the diff for defects, with evidence. Does not modify code.' },
+  c: { alias: 'watcher', duties: '' },
+};
+/* A relation is an arrow, and its type is what both ends are told. */
+const TYPES = {
+  work: { name: 'gives work to', c: '#5f8cff', tip: 'Gives work; the other does it and reports back.',
+    from: (x) => `You give work to ${x}; ${x} reports back to you.`, to: (x) => `You take work from ${x} and report back to ${x}.` },
+  strict: { name: 'gives work to · only executes', c: '#e8bb72', tip: 'The other only executes, and answers done or blocked.',
+    from: (x) => `You instruct ${x}; ${x} only executes and answers done or blocked.`, to: (x) => `You execute what ${x} sends and answer only done or blocked.` },
+  observes: { name: 'observes', c: '#a9c8ff', tip: 'Watches what the other does and explains it to you. Never writes to it.',
+    from: (x) => `You observe ${x}: follow what it does and explain it to the user when asked. Do not write to it.`, to: (x) => `${x} observes you and may read what you do.` },
+};
+const kindKey = (l) => l.type === 'observes' ? 'observes' : l.strict ? 'strict' : 'work';
+const T = (l) => TYPES[kindKey(l)];
+const linkKey = (l) => `${l.from}>${l.to}:${kindKey(l)}:${l.steps ? 'steps' : ''}:${l.note ?? ''}`;
+function told(l, giver, team) {
+  const x = alias(giver ? l.to : l.from, team);
+  const base = l.type === 'observes' ? (giver ? `You observe ${x}: follow what it does, to explain it to the user when asked. Do not write to it.` : `${x} observes you and may read what you do.`)
+    : l.strict ? (giver ? `You instruct ${x}; ${x} only executes and answers done or blocked.` : `You wait for instructions from ${x}, execute them, and answer only done or blocked.`)
+    : l.steps ? (giver ? `You give work to ${x}; ${x} tells you what it is doing at every step.` : `You wait for work from ${x}, do it, and tell ${x} what you are doing at every step.`)
+    : (giver ? `You give work to ${x}; ${x} reports back to you when it is done.` : `You wait for work from ${x}, do it, and report back to ${x} when it is done.`);
+  return l.note ? `${base} The user adds: “${l.note}”.` : base;
+}
+const SHARE = {
+  split: { name: 'Splits it', short: 'splits the work', says: (x) => `You give work to ${x}: split it among them, a different part to each, and put their results together.` },
+  same: { name: 'Same to all', short: 'same work to all', says: (x) => `You give work to ${x}: give each of them the same task, then compare their results.` },
+  free: { name: 'First free', short: 'to whoever is free', says: (x) => `You give work to ${x}: hand each task to whichever of them is free.` },
+};
+const givesTo = (id, team) => team.links.filter((l) => l.from === id && l.type === 'work').map((l) => alias(l.to, team));
+const list = (names) => names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0];
+const shareOf = (id, team) => givesTo(id, team).length > 1 ? SHARE[team.members[id].share ?? 'split'] : null;
+const empty = () => ({ members: {}, links: [] });
+const pack = (ids, links) => ({ members: Object.fromEntries(ids.map((id) => [id, clone(CARD[id])])), links: links.map(([from, to, type]) => ({ from, to, type })) });
+const STAR = () => { const team = pack(['a', 'b', 'd', 'e', 'c'], [['a', 'b', 'work'], ['a', 'd', 'work'], ['a', 'e', 'work'], ['c', 'a', 'observes']]); team.links[0].steps = true; team.links[3].note = 'to explain it to me in plain words'; return team; };
+
+let S, clock = 0, pos = {}, effects = [], grab = null;
+function reset() {
+  clock = 0; effects = [];
+  S = { sessions: SESSIONS0.map((o) => ({ ...o, harness: harnessOf(o.model) })), team: empty(), draft: empty(), told: {}, revision: 0, events: [], sel: null, edge: null, view: 'map', term: {}, notes: {}, at: {}, menu: false, thread: 'Billing rewrite' };
+}
+const time = () => { clock += 1; return `10:${String(clock + 2).padStart(2, '0')}`; };
+const session = (id) => S.sessions.find((s) => s.id === id);
+const order = (team) => S.sessions.map((s) => s.id).filter((id) => team.members[id]);
+const alias = (id, team = S.team) => team.members[id]?.alias ?? session(id)?.member ?? 'a session';
+const where = (id) => session(id).member ?? (session(id).slot ? 'a new session' : 'not in the room yet');
+const card = (id) => clone(CARD[id] ?? { alias: session(id).member ?? session(id).harness.toLowerCase(), duties: '' });
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const linksOf = (id, team) => team.links.filter((l) => l.from === id || l.to === id);
+const signature = (id, team) => team.members[id] && JSON.stringify([team.members[id], linksOf(id, team).map((l) => linkKey(l)).sort()]);
+const dirty = () => !same(S.team, S.draft);
+const post = (who, text, kind = 'message', tag) => S.events.push({ time: time(), who, text, kind, tag });
+function kindOf(id, team) {        // what the arrows make of a session
+  const out = team.links.filter((l) => l.from === id), inn = team.links.filter((l) => l.to === id);
+  if (out.length && out.every((l) => l.type === 'observes') && !inn.some((l) => l.type === 'work')) return 'observer';
+  return null;
+}
+/* Relations that cannot work together. An error stops Apply; a warning only says what may go wrong. */
+function check(team) {
+  const issues = [], n = (id) => `<b>${alias(id, team)}</b>`, work = (l) => l.type === 'work';
+  const add = (level, text, links, nodes) => issues.push({ level, text, links, nodes });
+  const at = (pick) => team.links.map((l, i) => pick(l) ? i : -1).filter((i) => i >= 0);
+  for (const id of order(team)) if (session(id).slot && !session(id).model) add('error', `${n(id)} has no model yet: click its card and choose one.`, [], [id]);
+  // 1. A loop of work: each one waits for the next, for ever.
+  const seen = new Set();
+  team.links.forEach((first, i) => {
+    if (!work(first)) return;
+    const path = [i]; let here = first.to;
+    for (let guard = 0; here !== first.from && guard < 12; guard += 1) {
+      const next = team.links.findIndex((l, j) => work(l) && l.from === here && !path.includes(j)); if (next < 0) return;
+      path.push(next); here = team.links[next].to;
+    }
+    if (here !== first.from) return;
+    const key = [...path].sort().join(); if (seen.has(key)) return; seen.add(key);
+    const ring = path.map((j) => team.links[j].from);
+    add('error', `Loop: ${[...ring, ring[0]].map(n).join(' → ')}. Each would wait for the next and no one would ever finish. Remove or reverse one arrow.`, path, ring);
+  });
+  for (const id of order(team)) {
+    const mine = at((l) => l.from === id || l.to === id), boss = at((l) => l.to === id && l.type === 'work' && l.strict), eyes = at((l) => l.from === id && l.type === 'observes');
+    const watched = (i) => team.links[i].to === id && team.links[i].type === 'observes';
+    // 2. A worker only answers done or blocked: it cannot hold any other relation.
+    const extra = mine.filter((i) => !boss.includes(i) && !watched(i));
+    if (boss.length && extra.length) add('error', `${n(id)} only executes, so it can answer only done or blocked: it cannot also be in “${relation(team.links[extra[0]], team)}”. Switch off “only executes” on its arrow, or remove the other one.`, [...boss, ...extra], [id]);
+    // 3. An observer cannot write: it cannot give or take work, or talk.
+    const loud = mine.filter((i) => !eyes.includes(i) && !watched(i) && !boss.includes(i));
+    if (eyes.length && loud.length && !boss.length) add('error', `${n(id)} observes, so it cannot write in the room: it cannot also be in “${relation(team.links[loud[0]], team)}”. Keep one of the two.`, [...eyes, ...loud], [id]);
+    // 4. Two sessions giving work to the same one.
+    const givers = at((l) => l.to === id && work(l));
+    if (givers.length > 1) add(boss.length > 1 ? 'error' : 'warn', `${n(id)} takes work from ${givers.map((i) => n(team.links[i].from)).join(' and ')}: ${boss.length > 1 ? 'a session that only executes takes work from one session only.' : 'their instructions may conflict, and it reports to both.'}`, givers, [id]);
+    // 5. Work given to a session that is not there to take it.
+    if (givers.length && !session(id).inRoom && !session(id).slot) add('warn', `${n(id)} is not in the room yet: work sent to it waits until its session is resumed.`, givers, [id]);
+  }
+  return issues;
+}
+/* The role is never typed: it is what the arrows of a session add up to. Four words are enough. */
+function roleOf(id, team) {
+  const gives = team.links.filter((l) => l.from === id && l.type === 'work'), takes = team.links.filter((l) => l.to === id && l.type === 'work');
+  const names = (list, end) => [...new Set(list.map((l) => alias(l[end], team)))].join(', ');
+  if (kindOf(id, team) === 'observer') return { name: 'Observer', detail: `watches ${names(team.links.filter((l) => l.from === id), 'to')}` };
+  const said = [gives.length && `gives work to ${names(gives, 'to')}`, takes.length && `takes work from ${names(takes, 'from')}${takes.some((l) => l.strict) ? ' (only executes)' : ''}`].filter(Boolean).join('; ');
+  if (gives.length && takes.length) return { name: 'Lead + Worker', detail: said };
+  if (gives.length) return { name: 'Lead', detail: said };
+  if (takes.length) return { name: 'Worker', detail: said };
+  return { name: 'Peer', detail: 'no arrow: talks with everyone as an equal' };
+}
+const relation = (l, team) => `${alias(l.from, team)} ${T(l).name} ${alias(l.to, team)}`;
+function formation(team) {
+  return [...order(team).map((id) => `· ${team.members[id].alias} (${where(id)}), ${roleOf(id, team).name}`), ...team.links.map((l) => `· ${relation(l, team)}`)].join(NL);
+}
+function personal(id, team) {
+  const m = team.members[id], mine = linksOf(id, team).map((l) => told(l, l.from === id, team));
+  return [`TEAM revision ${S.revision}, set by the user in Shinatama.`, `You are ${m.alias} (member ${where(id)}). Role: ${roleOf(id, team).name}.`,
+    ...(mine.length ? mine : ['No relation was set for you: you talk with the others as an equal.']), ...(shareOf(id, team) ? [shareOf(id, team).says(list(givesTo(id, team)))] : []), ...(m.duties ? [`Notes from the user: ${m.duties}`] : []), 'The team:', formation(team)].join(NL);
+}
+function tell(id) {
+  const text = personal(id, S.team), lines = text.split(NL), cut = lines.indexOf('The team:');
+  post('shinatama', lines.slice(1, cut).join(NL) + `${NL}… and the team: ${order(S.team).length} members, ${S.team.links.length} relations.`, 'team', `to ${alias(id)} · wakes it`);
+  session(id).wakes += 1; S.told[id] = S.revision; effects.push(['tell', id]);
+  S.term[id] = `<span class="sys">[mukade chat] From the user, through Shinatama:</span>${NL}${text}`;
+}
+function apply() {
+  const before = S.team, after = clone(S.draft), changes = [], touched = new Set();
+  S.revision += 1; S.team = after;
+  for (const id of order(after)) {
+    if (signature(id, before) === signature(id, after)) continue;
+    touched.add(id);
+    if (!before.members[id]) changes.push(`Added: ${after.members[id].alias} (${where(id)})`);
+    if (session(id).inRoom) tell(id); else delete S.told[id];
+  }
+  const key = (l) => linkKey(l), had = new Set(before.links.map(key)), has = new Set(after.links.map(key));
+  for (const l of after.links) if (!had.has(key(l))) changes.push(`New: ${relation(l, after)}`);
+  for (const l of before.links) if (!has.has(key(l))) changes.push(`Ended: ${relation(l, before)}`);
+  for (const id of order(before)) if (!after.members[id]) {
+    changes.push(`Left the team: ${before.members[id].alias}`); touched.add(id); delete S.told[id];
+    if (session(id).inRoom) post('shinatama', `TEAM revision ${S.revision}. You no longer have a place in this thread's team.`, 'team', `to ${before.members[id].alias} · wakes it`);
+  }
+  if (changes.length && S.sessions.filter((s) => s.inRoom).length > 1) {
+    post('shinatama', `TEAM revision ${S.revision}.${NL}${changes.join(NL)}`, 'team', 'notice · wakes nobody');
+    for (const s of S.sessions) if (s.inRoom && after.members[s.id] && !touched.has(s.id)) effects.push(['notice', s.id]);
+  }
+  S.sel = null; S.edge = null;
+}
+function joins(id) {
+  const s = session(id); s.inRoom = true; s.member = 'codex-1';
+  post(s.member, 'joined the room', 'presence');
+  if (S.team.members[id]) tell(id);
+}
+
+/* ---------- shapes: one click draws the arrows and tidies the cards ---------- */
+const SHAPES = [
+  { id: 'star', name: 'Star', tip: 'One session in the centre gives work to all the others. Click a card first to choose the centre.', icon: '<path d="M13 10L4 3M13 10L22 3M13 10L4 17M13 10L22 17" fill="none"/><circle cx="13" cy="10" r="3.2"/><circle cx="4" cy="3" r="2"/><circle cx="22" cy="3" r="2"/><circle cx="4" cy="17" r="2"/><circle cx="22" cy="17" r="2"/>' },
+  { id: 'chain', name: 'Chain', tip: 'A pipeline: each session gives work to the next.', icon: '<path d="M6 10H10M16 10H20" fill="none"/><circle cx="3.5" cy="10" r="2.6"/><circle cx="13" cy="10" r="2.6"/><circle cx="22.5" cy="10" r="2.6"/>' },
+  { id: 'peers', name: 'Peers', tip: 'No one is in charge: remove the arrows, everyone talks to everyone.', icon: '<circle cx="5" cy="10" r="2.6"/><circle cx="13" cy="10" r="2.6"/><circle cx="21" cy="10" r="2.6"/>' },
+];
+const watchers = (team) => order(team).filter((id) => kindOf(id, team) === 'observer');
+function shape(kind) {
+  const team = S.draft;
+  if (!order(team).length) for (const s of S.sessions) if (!s.slot) team.members[s.id] = card(s.id);
+  const side = watchers(team), ids = order(team).filter((id) => !side.includes(id));
+  const hub = ids.includes(S.sel) ? S.sel : ids.find((id) => team.links.some((l) => l.from === id && l.type !== 'observes')) ?? ids[0], rest = ids.filter((id) => id !== hub);
+  team.links = team.links.filter((l) => l.type === 'observes');
+  if (kind === 'star' || kind === 'lead') for (const id of rest) team.links.push({ from: hub, to: id, type: 'work' });
+  if (kind === 'chain') [hub, ...rest].forEach((id, i, all) => { if (i) team.links.push({ from: all[i - 1], to: id, type: 'work' }); });
+  S.sel = null; S.edge = null; arrange(kind, hub);
+}
+const mapWidth = () => Math.max($('work').clientWidth, 560);
+function arrange(kind, hub) {
+  const team = S.draft, side = watchers(team), ids = order(team).filter((id) => !side.includes(id)), width = mapWidth(), out = {};
+  const put = (id, cx, cy) => { out[id] = { x: Math.round(Math.max(8, Math.min(cx - NW / 2, width - NW - 22))), y: Math.round(Math.max(8, cy - NH / 2)) }; };
+  const roomy = width - (side.length ? 220 : 0), cx = roomy / 2, line = [hub, ...ids.filter((id) => id !== hub)];
+  if ((kind === 'star' || kind === 'lead') && ids.length > 2) {
+    const rest = line.slice(1), rx = Math.min(cx - NW / 2 - 14, 300), ry = 170, cy = 60 + ry + NH / 2;
+    put(hub, cx, cy);
+    const corners = { 2: [[-1, 0], [1, 0]], 3: [[-1, -1], [1, -1], [0, 1.1]], 4: [[-1, -1], [1, -1], [-1, 1], [1, 1]] }[rest.length];   // few spokes: corners, so the arrows have room
+    rest.forEach((id, i) => { const t = -Math.PI / 2 + Math.PI / rest.length + i * 2 * Math.PI / rest.length, [ux, uy] = corners ? corners[i] : [Math.cos(t), Math.sin(t)]; put(id, cx + rx * ux, cy + ry * uy); });
+  } else if (kind === 'chain' && ids.length * (NW + 50) <= roomy) {
+    line.forEach((id, i) => put(id, (i + 0.5) * roomy / line.length, 190));
+  } else {
+    const per = Math.max(1, Math.floor(roomy / (NW + 40))), list = kind === 'chain' ? line : ids;
+    list.forEach((id, i) => { const row = Math.floor(i / per), n = Math.min(per, list.length - row * per); put(id, ((i % per) + 0.5) * roomy / n, 110 + row * 160); });
+  }
+  side.forEach((id, i) => put(id, width - 22 - NW / 2, 80 + i * (NH + 20)));
+  S.at = out;
+}
+/* Tidy up: the cards placed by their arrows, whatever was drawn. Who gives work is above who takes it
+   (layers by the longest chain of work); inside a layer the cards are ordered to cross as few arrows
+   as possible (each one moved under the average of those it is tied to, a few sweeps down and up);
+   an observer goes to the right, level with what it watches; unconnected peers in a row below. */
+let AUTO = false;
+function tidy() {
+  const team = S.draft, all = order(team), side = watchers(team), width = mapWidth();
+  const work = team.links.filter((l) => l.type === 'work' && !side.includes(l.from) && !side.includes(l.to));
+  const tied = new Set(work.flatMap((l) => [l.from, l.to])), main = all.filter((id) => tied.has(id)), alone = all.filter((id) => !tied.has(id) && !side.includes(id));
+  const rank = {};
+  const depthOf = (id, trail = new Set()) => {
+    if (rank[id] != null) return rank[id]; if (trail.has(id)) return 0;          // a loop: stop, the checks report it
+    trail.add(id); const above = work.filter((l) => l.to === id).map((l) => depthOf(l.from, trail)); trail.delete(id);
+    return (rank[id] = above.length ? 1 + Math.max(...above) : 0);
+  };
+  const layers = []; for (const id of main) (layers[depthOf(id)] ??= []).push(id);
+  const rows = layers.filter(Boolean), room = width - (side.length ? NW + 56 : 0) - 16, cx = {}, out = {};
+  const spread = (layer) => layer.forEach((id, i) => { cx[id] = (i + 0.5) * room / layer.length; });
+  rows.forEach(spread);
+  const pull = (id, mine, other) => { const xs = work.filter((l) => l[mine] === id && cx[l[other]] != null).map((l) => cx[l[other]]); return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : cx[id]; };
+  for (let sweep = 0; sweep < 6; sweep += 1) {
+    const down = sweep % 2 === 0, list = down ? rows.slice(1) : rows.slice(0, -1).reverse();
+    for (const layer of list) { const key = Object.fromEntries(layer.map((id) => [id, down ? pull(id, 'to', 'from') : pull(id, 'from', 'to')])); layer.sort((a, b) => key[a] - key[b]); spread(layer); }
+  }
+  const per = Math.max(1, Math.floor(room / (NW + 30))); let y = 26;
+  const row = (list, gap) => { if (!list.length) return;
+    list.forEach((id, i) => { const line = Math.floor(i / per), n = Math.min(per, list.length - line * per); out[id] = { x: Math.round(8 + ((i % per) + 0.5) * room / n - NW / 2), y: y + line * (NH + 24) }; });
+    y += Math.ceil(list.length / per) * (NH + 24) + gap; };
+  rows.forEach((layer) => row(layer, 66));
+  row(alone, 40);
+  let last = -Infinity;
+  for (const id of side) { const seen = team.links.find((l) => l.from === id), level = out[seen?.to]?.y ?? 26; last = Math.max(level, last + NH + 18); out[id] = { x: width - NW - 22, y: last }; }
+  S.at = out;
+}
+function layout() {
+  pos = {};
+  order(S.draft).forEach((id, i) => { S.at[id] ??= { x: 30 + i * 34, y: 60 + i * 30 }; pos[id] = { ...S.at[id], w: NW, h: NH }; });
+  $('canvas').style.height = `${Math.max(380, ...Object.values(pos).map((p) => p.y + p.h)) + 60}px`;
+}
+const centre = (id) => ({ x: pos[id].x + NW / 2, y: pos[id].y + NH / 2 });
+function border(id, towards, gap) {     // where the line from this card's centre to `towards` leaves the card
+  const c = centre(id), dx = towards.x - c.x, dy = towards.y - c.y; if (!dx && !dy) return c;
+  const s = Math.min(dx ? (NW / 2 + gap) / Math.abs(dx) : Infinity, dy ? (NH / 2 + gap) / Math.abs(dy) : Infinity, 0.5);
+  return { x: c.x + dx * s, y: c.y + dy * s };
+}
+function toldState(id) {
+  if (session(id).slot) return ['pending', session(id).model ? 'new session · opens at Apply' : 'choose a model'];
+  if (signature(id, S.team) !== signature(id, S.draft)) return ['edited', S.team.members[id] ? 'changed · not applied' : 'new · not applied'];
+  if (S.told[id] != null) return ['told', ''];
+  return ['pending', session(id).inRoom ? 'not told yet' : 'told when it joins'];
+}
+
+/* ---------- drawing ---------- */
+const cards = new Map();     // cards are kept between draws so they glide when a shape arranges them
+function drawMap() {
+  layout();
+  const ids = order(S.draft), nodes = $('nodes');
+  $('hint').hidden = ids.length > 0;
+  for (const [id, node] of cards) if (!ids.includes(id)) { node.remove(); cards.delete(id); }
+  for (const id of ids) {
+    let node = cards.get(id);
+    if (!node) { node = el('div', 'node'); node.dataset.id = id; node.dataset.drop = id; node.tabIndex = 0; node.setAttribute('role', 'button'); cards.set(id, node); nodes.append(node);
+      node.onpointerdown = (e) => press(e, id, 'move');
+      node.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); S.sel = S.sel === id ? null : id; S.edge = null; draw(); } }; }
+    node.style.left = `${pos[id].x}px`; node.style.top = `${pos[id].y}px`; node.classList.remove('drop', 'lifted');
+    const s = session(id), m = S.draft.members[id];
+    node.dataset.harness = s.harness; node.setAttribute('aria-pressed', String(S.sel === id));
+    node.toggleAttribute('data-in', s.inRoom); node.toggleAttribute('data-slot', !!s.slot); node.toggleAttribute('data-pending', signature(id, S.team) !== signature(id, S.draft));
+    const head = el('div', 'n-top'); head.append(el('span', 'n-dot'), el('span', 'n-alias', m.alias || '(no name)'));
+    const is = roleOf(id, S.draft), share = shareOf(id, S.draft), role = el('div', 'n-role', share ? `${is.name} · ${share.short}` : is.name); role.title = `${is.name}: ${is.detail}. Inferred from its arrows.`;
+    const [state, words] = toldState(id); const told = el('span', 'n-told', words); told.dataset.s = state;
+    const wakes = el('span', 'n-told', s.wakes >= 7 ? `${10 - s.wakes} wakes left` : ''); wakes.dataset.s = 'pending';
+    const foot = el('div', 'n-foot'); foot.append(told, wakes); foot.hidden = !words && s.wakes < 7;
+    const port = el('button', 'port', '→'); port.type = 'button'; port.title = 'Pull onto another session to connect them'; port.setAttribute('aria-label', `Connect ${m.alias} to another session`);
+    port.onpointerdown = (e) => { e.stopPropagation(); press(e, id, 'link'); };
+    node.replaceChildren(head, role, el('div', 'n-meta', s.model ? `${s.model} · via ${s.harness}` : 'no model yet'), foot, port);
+  }
+  drawWires(); drawInspector(); drawLinkbox(); drawTray(); drawBar();
+}
+const ends = (l) => [border(l.from, centre(l.to), 3), border(l.to, centre(l.from), 8)];
+function drawWires() {
+  const layer = $('wire-layer'); layer.replaceChildren();
+  const applied = new Set(S.team.links.map((l) => linkKey(l)));
+  const wrong = check(S.draft).filter((p) => p.level === 'error'), bad = new Set(wrong.flatMap((p) => p.links)), badNodes = new Set(wrong.flatMap((p) => p.nodes));
+  for (const [id, node] of cards) node.toggleAttribute('data-bad', badNodes.has(id));
+  S.draft.links.forEach((l, i) => {
+    if (!pos[l.from] || !pos[l.to]) return;
+    const [a, b] = ends(l), t = T(l), mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, d = `M${a.x} ${a.y}L${b.x} ${b.y}`;
+    const hit = svg('path', { class: 'hit', d }); hit.onpointerdown = (e) => { e.stopPropagation(); S.edge = S.edge === i ? null : i; S.sel = null; draw(); };
+    const title = svg('title', {}); title.textContent = `${relation(l, S.draft)}: click to change`; hit.append(title);
+    const line = svg('path', { class: 'wire', d, 'data-type': kindKey(l), style: `--c:${t.c}` }); line.setAttribute('marker-end', `url(#head-${kindKey(l)})`);
+    if (!applied.has(linkKey(l))) line.setAttribute('data-pending', ''); if (S.edge === i) line.setAttribute('data-on', '');
+    const label = svg('text', { class: 'wire-label', x: mid.x, y: mid.y - 6, 'text-anchor': 'middle', style: `--c:${t.c}` }); const short = (l.note ?? '').length > 26 ? `${l.note.slice(0, 25)}…` : l.note; label.textContent = (l.type === 'work' ? (l.strict ? 'gives work · only executes' : l.steps ? 'gives work · reports every step' : 'gives work to') : 'observes') + (short ? ` · “${short}”` : '');
+    if (bad.has(i)) { line.setAttribute('data-bad', ''); line.setAttribute('marker-end', 'url(#head-bad)'); label.setAttribute('data-bad', ''); label.textContent = `✕ ${label.textContent}`; }
+    layer.append(hit, line, label);
+    const said = S.notes[`${l.from}>${l.to}`]; if (said) { const note = svg('text', { class: 'wire-note', x: mid.x, y: mid.y + 16, 'text-anchor': 'middle' }); note.textContent = said; layer.append(note); }
+  });
+}
+function place(box, x, y, w) { box.style.left = `${Math.max(8, Math.min(x, $('canvas').clientWidth - w - 8))}px`; box.style.top = `${Math.max(8, y)}px`; }
+function drawInspector() {
+  const box = $('inspector'), id = S.sel, m = id && S.draft.members[id];
+  box.hidden = !m; if (!m) return;
+  const right = pos[id].x + NW + 22; place(box, right + 262 < $('canvas').clientWidth ? right : pos[id].x - 274, pos[id].y - 16, 262);
+  const s = session(id), head = el('h3', null, s.slot ? 'Agent · new session' : 'Agent · running session'); const close = el('button', 'quiet', '×'); close.type = 'button'; close.setAttribute('aria-label', 'Close'); close.onclick = () => { S.sel = null; draw(); }; head.append(close);
+  const model = el('label', 'wide', 'Model');
+  if (s.slot) { const pick = el('select'); pick.append(new Option('Choose a model…', '')); for (const o of MODELS) pick.append(new Option(`${o.model}   ·   runs in ${o.harness}`, o.model));
+    pick.value = s.model ?? ''; pick.onchange = () => { s.model = pick.value || null; s.harness = harnessOf(s.model); draw(); }; model.append(pick); }
+  else { const fixed = el('input'); fixed.value = `${s.model} · via ${s.harness}`; fixed.disabled = true; fixed.title = 'A running session keeps its model'; model.append(fixed); }
+  const field = (label, key, tag = 'input', wide, hint) => { const l = el('label', wide ? 'wide' : null, label), n = el(tag); n.value = m[key]; if (hint) n.placeholder = hint;
+    n.oninput = () => { m[key] = n.value.replace(/@/g, ''); drawBar(); }; n.onchange = () => drawMap(); l.append(n); return l; };
+  const out = el('button', 'quiet', 'Take off the map'); out.type = 'button'; out.onclick = () => { remove(id); draw(); };
+  const foot = el('div', 'foot'); foot.append(el('span'), out);
+  const is = roleOf(id, S.draft), role = el('p', 'role-line'); role.append(el('b', null, is.name), ` · ${is.detail}`);
+  const handing = [];
+  if (shareOf(id, S.draft)) { const seg = el('div', 'seg3');
+    for (const [key, o] of Object.entries(SHARE)) { const b3 = el('button', null, o.name); b3.type = 'button'; b3.title = o.says(list(givesTo(id, S.draft))); b3.setAttribute('aria-pressed', String((m.share ?? 'split') === key));
+      b3.onclick = () => { m.share = key; if (key === 'split') delete m.share; draw(); }; seg.append(b3); }
+    handing.push(el('p', 'lab', `How it hands out work to ${list(givesTo(id, S.draft))}`), seg); }
+  box.replaceChildren(head, field('Name', 'alias', 'input', true), model, role, ...handing,
+    el('p', null, 'The role is inferred from its arrows: change an arrow and it changes.'),
+    field('Notes for it (optional)', 'duties', 'textarea', true, 'Anything the arrows do not say, in your words.'), foot);
+}
+function drawLinkbox() {
+  const box = $('linkbox'), l = S.edge != null && S.draft.links[S.edge];
+  box.hidden = !l; if (!l) return;
+  const [a, b] = ends(l); place(box, (a.x + b.x) / 2 - 165, (a.y + b.y) / 2 + 14, 330);
+  const A = alias(l.from, S.draft), B = alias(l.to, S.draft);
+  const head = el('h3', null, `${A} → ${B}`); const close = el('button', 'quiet', '×'); close.type = 'button'; close.setAttribute('aria-label', 'Close'); close.onclick = () => { S.edge = null; draw(); }; head.append(close);
+  // Two arrows to choose from, and one switch. What cannot work with the other arrows is not offered, and says why.
+  const stopped = (change) => { const trial = clone(S.draft); Object.assign(trial.links[S.edge], change); return check(trial).find((p) => p.level === 'error' && p.links.includes(S.edge)); };
+  const types = el('div', 'types');
+  for (const [type, key] of [['work', 'work'], ['observes', 'observes']]) { const t = TYPES[key], pick = el('button'); pick.type = 'button'; pick.style.setProperty('--c', t.c); pick.setAttribute('aria-pressed', String(l.type === type));
+    const stop = type !== l.type && stopped({ type, strict: false }), why = el('span'); if (stop) { why.innerHTML = stop.text; pick.disabled = true; } else why.textContent = type === 'work' ? `${B} waits for work from ${A}, does it and reports.` : `${A} watches what ${B} does, to explain it to you. Never writes to it.`;
+    pick.append(el('i', key === 'observes' ? 'dot' : null), el('b', null, `${A} ${t.name} ${B}`), why); pick.onclick = () => { l.type = type; l.strict = false; l.steps = false; draw(); }; types.append(pick); }
+  if (l.type === 'work') { const row = el('div', 'how'); row.append(el('span', 'lab', `How ${B} reports`)); const seg = el('div', 'seg3');
+    const stop = !l.strict && stopped({ strict: true });
+    for (const [key, text, tip] of [['end', 'When done', 'It works on its own and reports the result.'], ['steps', 'At every step', 'Constant feedback: it says what it is doing as it goes.'], ['strict', 'Only done / blocked', 'It only executes: no questions, no messages, just done or blocked.']]) {
+      const on = key === 'strict' ? !!l.strict : key === 'steps' ? !!l.steps && !l.strict : !l.strict && !l.steps, b3 = el('button', null, text); b3.type = 'button'; b3.title = tip; b3.setAttribute('aria-pressed', String(on));
+      if (key === 'strict' && stop) { b3.disabled = true; b3.title = stop.text.replace(/<[^>]+>/g, ''); }
+      b3.onclick = () => { l.strict = key === 'strict'; l.steps = key === 'steps'; draw(); }; seg.append(b3); }
+    row.append(seg); types.append(row); }
+  const words = el('label', 'words', 'In your words (optional)'), note = el('input'); note.value = l.note ?? ''; note.maxLength = 120;
+  note.placeholder = l.type === 'work' ? 'e.g. ask before touching files outside the plan' : 'e.g. to check it follows the plan';
+  note.oninput = () => { l.note = note.value.replace(/@/g, ''); if (!l.note) delete l.note; drawBar(); }; note.onchange = () => draw();
+  words.append(note); types.append(words);
+  const says = el('p', 'says'); says.append(`${A} is told: ${told(l, true, S.draft)}`, document.createElement('br'), document.createElement('br'), `${B} is told: ${told(l, false, S.draft)}`);
+  const flip = el('button', 'quiet', '⇄ Reverse'); flip.type = 'button'; flip.onclick = () => { [l.from, l.to] = [l.to, l.from]; draw(); };
+  const del = el('button', 'quiet', 'Delete the arrow'); del.type = 'button'; del.onclick = () => { S.draft.links.splice(S.edge, 1); S.edge = null; draw(); };
+  const foot = el('div', 'foot'); foot.append(flip, del);
+  box.replaceChildren(head, types, says, foot);
+}
+function drawTray() {
+  const tray = $('tray'); tray.classList.remove('drop'); tray.replaceChildren();
+  const fresh = el('button', null, '+ New agent'); fresh.type = 'button'; fresh.title = 'An agent with no session yet: name it, give it a model, connect it. Its session is opened when you apply.'; fresh.onclick = () => { newAgent(); draw(); }; tray.append(fresh);
+  for (const [key, t] of Object.entries(TYPES)) { const k = el('span', 'key'); k.style.setProperty('--c', t.c); k.append(el('i', key === 'observes' ? 'dot' : null), t.name); tray.append(k); }
+  tray.append(el('span', 'sep'), order(S.draft).length ? 'Drag a card down here to take it off the map' : '');
+}
+function drawBar() {
+  const state = $('team-state'), d = dirty(), members = order(S.team).length;
+  const waiting = order(S.team).filter((id) => S.told[id] == null).length;
+  state.textContent = d ? 'not applied: nothing was sent yet' : !members ? 'no team' : waiting ? `revision ${S.revision} · ${waiting} told when it joins` : `revision ${S.revision} · everyone was told`;
+  state.dataset.tone = d || waiting ? 'dirty' : members ? 'ok' : '';
+  const issues = check(S.draft), errors = issues.filter((p) => p.level === 'error').length, list = $('problems');
+  list.hidden = !issues.length; list.replaceChildren();
+  for (const p of issues) { const li = el('li'); li.dataset.level = p.level; const text = el('span'); text.innerHTML = p.text; li.append(text);
+    li.onclick = () => { S.edge = p.links[0] ?? null; S.sel = p.links.length ? null : p.nodes[0] ?? null; draw(); }; list.append(li); }
+  if (errors) { state.textContent = `${errors} problem${errors > 1 ? 's' : ''} to fix before it can be applied`; state.dataset.tone = 'dirty'; }
+  $('apply').disabled = !d || errors > 0; $('discard').disabled = !d;
+  const slots = order(S.draft).filter((id) => session(id).slot).length;
+  $('apply').textContent = slots ? `Open ${slots} session${slots > 1 ? 's' : ''} and apply` : 'Apply';
+}
+
+/* ---------- drag and drop: sessions onto the map, cards around it, an arrow from one card to another ---------- */
+function remove(id) { S.draft.links = S.draft.links.filter((l) => l.from !== id && l.to !== id); delete S.draft.members[id]; delete S.at[id]; S.sel = null; S.edge = null; S.sessions = S.sessions.filter((s) => !(s.slot && s.id === id)); }
+function connect(from, to) {
+  S.draft.links = S.draft.links.filter((l) => !((l.from === from && l.to === to) || (l.from === to && l.to === from)));
+  S.draft.links.push({ from, to, type: 'work' }); S.edge = S.draft.links.length - 1; S.sel = null;
+}
+function press(e, id, kind, side = false) {
+  if (e.button) return; if (!side) e.preventDefault();
+  const box = cards.get(id)?.getBoundingClientRect();
+  grab = { id, kind, side, x: e.clientX, y: e.clientY, dx: box ? e.clientX - box.left : NW / 2, dy: box ? e.clientY - box.top : NH / 2, moving: false, over: null };
+  window.addEventListener('pointermove', move); window.addEventListener('pointerup', release, { once: true });
+}
+const zoneAt = (e) => document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-drop]')?.dataset.drop ?? null;
+function point(e) { const box = $('canvas').getBoundingClientRect(); return { x: e.clientX - box.left, y: e.clientY - box.top }; }
+function move(e) {
+  const { id, kind } = grab;
+  if (!grab.moving) {
+    if (Math.hypot(e.clientX - grab.x, e.clientY - grab.y) < 6) return;
+    grab.moving = true; S.sel = null; S.edge = null;
+    if (S.view !== 'map') { S.view = 'map'; draw(); }
+    $('inspector').hidden = true; $('linkbox').hidden = true;
+    if (kind === 'new') { const ghost = el('div', null, card(id).alias); ghost.id = 'ghost'; ghost.dataset.harness = session(id).harness; document.body.append(ghost); }
+    if (kind === 'move') cards.get(id).classList.add('lifted');
+    if (kind === 'link') $('wire-layer').append(svg('path', { class: 'wire rubber', id: 'rubber' }));
+  }
+  const at = point(e), zone = zoneAt(e); let over = null;
+  if (kind === 'new') { $('ghost').style.transform = `translate(${e.clientX + 12}px,${e.clientY + 10}px)`; if (cards.has(zone) && session(zone).slot) over = zone; else if (zone && zone !== 'tray') over = 'map'; }
+  if (kind === 'move') {
+    const x = Math.max(4, Math.min(at.x - grab.dx, mapWidth() - NW - 18)), y = Math.max(4, at.y - grab.dy);
+    S.at[id] = { x, y }; pos[id] = { x, y, w: NW, h: NH };
+    const node = cards.get(id); node.style.left = `${x}px`; node.style.top = `${y}px`; drawWires();
+    if (zone === 'tray') over = 'tray';
+  }
+  if (kind === 'link') { const a = centre(id); $('rubber').setAttribute('d', `M${a.x} ${a.y}L${at.x} ${at.y}`); if (cards.has(zone) && zone !== id) over = zone; }
+  grab.over = over;
+  for (const [key, node] of cards) node.classList.toggle('drop', key === over);
+  $('tray').classList.toggle('drop', over === 'tray'); $('scroll').classList.toggle('drop', over === 'map');
+}
+function release(e) {
+  window.removeEventListener('pointermove', move);
+  const { id, kind, moving, side, over } = grab; $('ghost')?.remove(); $('scroll').classList.remove('drop'); grab = null;
+  if (!moving) { if (side || kind !== 'move') return; S.sel = S.sel === id ? null : id; S.edge = null; return draw(); }
+  const at = point(e);
+  if (kind === 'link' && over) connect(id, over);
+  if (kind === 'move' && over === 'tray') remove(id);
+  if (kind === 'new' && cards.has(over)) fill(over, id);
+  if (kind === 'new' && over === 'map') { S.draft.members[id] = card(id); S.at[id] = { x: Math.max(4, Math.min(at.x - NW / 2, mapWidth() - NW - 18)), y: Math.max(4, at.y - NH / 2) }; }
+  draw();
+}
+
+/* ---------- templates: a formation saved for every project, recreated with new sessions ---------- */
+const TONE = { 'Claude Code': '#f48fb8', OpenCode: '#6fe3d2', Codex: '#a9c8ff', Pi: '#e8bb72' };
+const PREFIX = { 'Claude Code': 'claude', OpenCode: 'opencode', Codex: 'codex', Pi: 'pi' };
+const BUILT_IN = [
+  { name: 'Plan, build, review', w: 720, slots: [
+      { alias: 'planner', model: 'Fable 5.2', duties: 'Writes the plan and reviews the results.', x: 250, y: 40 },
+      { alias: 'implementer', model: 'janura-qwen', duties: 'Implements the plan step by step.', x: 50, y: 250 },
+      { alias: 'reviewer', model: 'Sonnet 5.5', duties: 'Reviews the diff for defects, with evidence.', x: 450, y: 250 },
+      { alias: 'watcher', model: 'gpt-5.5', duties: '', x: 510, y: 40 } ],
+    links: [[0, 1, 'work'], [0, 2, 'work'], [3, 0, 'observes']] },
+  { name: 'One lead, two executors', w: 720, slots: [
+      { alias: 'lead', model: 'Fable 5.2', duties: '', x: 265, y: 50 },
+      { alias: 'executor-1', model: 'janura-qwen', duties: '', x: 90, y: 250 },
+      { alias: 'executor-2', model: 'janura-qwen-mini', duties: '', x: 440, y: 250 } ],
+    links: [[0, 1, 'work', true], [0, 2, 'work', true]] },
+];
+const STORE = 'shinatama.mockup.team-templates.2';
+let TEMPLATES = (() => { try { const kept = JSON.parse(localStorage.getItem(STORE)); if (Array.isArray(kept)) return kept; } catch { /* a private window */ } return clone(BUILT_IN); })(), seq = 0;
+function keepTemplates() { try { localStorage.setItem(STORE, JSON.stringify(TEMPLATES)); } catch { /* shown, not kept */ } }
+function saveTemplate(name) {
+  const ids = order(S.draft);
+  TEMPLATES.unshift({ name, w: mapWidth(), slots: ids.map((id) => ({ alias: S.draft.members[id].alias, duties: S.draft.members[id].duties, ...(S.draft.members[id].share ? { share: S.draft.members[id].share } : {}), model: session(id).model, x: S.at[id].x, y: S.at[id].y })),
+    links: S.draft.links.map((l) => [ids.indexOf(l.from), ids.indexOf(l.to), l.type, !!l.strict, !!l.steps, l.note ?? '']) });
+  keepTemplates();
+}
+/* The cards of a template are places for sessions that do not exist yet. */
+function useTemplate(t) {
+  S.sessions = S.sessions.filter((s) => !s.slot); S.draft = empty(); S.at = {};
+  const k = mapWidth() / t.w, ids = t.slots.map((slot) => { const id = `n${seq += 1}`;
+    S.sessions.push({ id, harness: harnessOf(slot.model), model: harnessOf(slot.model) ? slot.model : null, member: null, inRoom: false, wakes: 0, slot: true });
+    S.draft.members[id] = { alias: slot.alias, duties: slot.duties, ...(slot.share ? { share: slot.share } : {}) }; S.at[id] = { x: Math.round(Math.max(8, Math.min(slot.x * k, mapWidth() - NW - 18))), y: slot.y }; return id; });
+  S.draft.links = t.links.map(([a, b, type, strict, steps, note]) => ({ from: ids[a], to: ids[b], type, ...(strict ? { strict: true } : {}), ...(steps ? { steps: true } : {}), ...(note ? { note } : {}) }));
+  S.menu = false; S.sel = null; S.edge = null;
+}
+/* A session of this thread dropped on such a card takes its place, name and arrows. */
+function fill(slot, id) {
+  S.draft.members[id] = S.draft.members[slot]; delete S.draft.members[slot]; S.at[id] = S.at[slot]; delete S.at[slot];
+  for (const l of S.draft.links) { if (l.from === slot) l.from = id; if (l.to === slot) l.to = id; }
+  S.sessions = S.sessions.filter((s) => s.id !== slot);
+}
+function newAgent() {
+  const id = `n${seq += 1}`; S.sessions.push({ id, harness: null, model: null, member: null, inRoom: false, wakes: 0, slot: true });
+  S.draft.members[id] = { alias: `agent-${order(S.draft).length + 1}`, duties: '' }; S.sel = id; S.edge = null; S.menu = false;
+}
+function openSlots() {
+  for (const s of S.sessions) if (s.slot && s.model && S.draft.members[s.id]) {
+    const n = S.sessions.filter((o) => o.member?.startsWith(`${PREFIX[s.harness]}-`)).length + 1;
+    s.slot = false; s.inRoom = true; s.member = `${PREFIX[s.harness]}-${n}`; post(s.member, 'opened by Shinatama and joined the room', 'presence');
+  }
+}
+function mini(t) {
+  const v = svg('svg', { viewBox: '0 0 64 40', class: 'mini' }), xs = t.slots.map((o) => o.x), ys = t.slots.map((o) => o.y);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const at = (o) => [8 + 48 * (x1 > x0 ? (o.x - x0) / (x1 - x0) : 0.5), 8 + 24 * (y1 > y0 ? (o.y - y0) / (y1 - y0) : 0.5)];
+  for (const [a, b, type] of t.links) { const [ax, ay] = at(t.slots[a]), [bx, by] = at(t.slots[b]);
+    v.append(svg('line', { x1: ax, y1: ay, x2: bx, y2: by, stroke: type === 'observes' ? '#a9c8ff' : '#5f8cff', 'stroke-width': 1.2, 'stroke-dasharray': type === 'observes' ? '1 2.5' : 'none' })); }
+  for (const o of t.slots) { const [x, y] = at(o); v.append(svg('rect', { x: x - 5, y: y - 3.5, width: 10, height: 7, fill: TONE[harnessOf(o.model)] ?? '#8fa6c9' })); }
+  return v;
+}
+function drawTemplates() {
+  const box = $('templates'); box.hidden = !S.menu; $('tpl-open').setAttribute('aria-expanded', String(S.menu)); if (!S.menu) return;
+  const list = el('ul', 'tpl-list');
+  TEMPLATES.forEach((t, i) => { const li = el('li'), words = el('div');
+    words.append(el('b', null, t.name), el('span', null, `${t.slots.length} agents · ${[...new Set(t.slots.map((o) => o.model))].join(', ')}`));
+    const use = el('button', null, 'Use'); use.type = 'button'; use.onclick = () => { useTemplate(t); draw(); };
+    const del = el('button', 'quiet', '×'); del.type = 'button'; del.setAttribute('aria-label', `Delete the template ${t.name}`); del.onclick = () => { TEMPLATES.splice(i, 1); keepTemplates(); draw(); };
+    li.append(mini(t), words, use, del); list.append(li); });
+  if (!TEMPLATES.length) list.append(el('li', 'none', 'No template yet.'));
+  const form = el('form', 'tpl-save'), input = el('input'), save = el('button', 'primary', 'Save this team'), some = order(S.draft).length > 0;
+  const can = () => input.value.trim() && some && !check(S.draft).some((p) => p.level === 'error');
+  input.placeholder = 'Name for the team on the map'; input.setAttribute('aria-label', 'Name of the template'); input.maxLength = 60; input.disabled = !some; input.oninput = () => { save.disabled = !can(); };
+  save.type = 'submit'; save.disabled = true; form.onsubmit = (e) => { e.preventDefault(); if (!can()) return; saveTemplate(input.value.trim()); draw(); }; form.append(input, save);
+  box.replaceChildren(el('h3', null, 'Team templates'),
+    el('p', null, 'Kept on this computer for every project and thread. Using one puts its agents and arrows on the map, each with its model; their sessions are opened new when you apply. To use a session you already have, drop it onto the card.'),
+    list, form, el('p', null, some ? 'Saves the agents with their names, notes and models, the arrows and their places. No conversation is saved.' : 'Put agents on the map to save them as a template.'));
+}
+
+function drawTabs() {
+  const tabs = $('tabs'), work = $('worktabs'); tabs.replaceChildren(); work.replaceChildren();
+  $('thread-name').textContent = S.thread; $('thread-name-2').textContent = S.thread;
+  const mapTab = el('button', null, '◇ Team'); mapTab.type = 'button'; mapTab.setAttribute('role', 'tab'); mapTab.setAttribute('aria-selected', String(S.view === 'map')); mapTab.onclick = () => { S.view = 'map'; draw(); }; work.append(mapTab);
+  $('open-map').setAttribute('aria-pressed', String(S.view === 'map'));
+  for (const s of S.sessions) {
+    if (s.slot) continue;
+    const m = S.team.members[s.id], free = !S.draft.members[s.id], open = () => { S.view = s.id; draw(); };
+    const b = el('button', 'session-tab'); b.type = 'button'; b.dataset.harness = s.harness; b.setAttribute('aria-selected', String(S.view === s.id));
+    const t2 = el('span', 't2'); t2.append(m ? `${roleOf(s.id, S.team).name} · ${s.model} ` : `via ${s.harness} `, el('span', s.inRoom ? 'in' : '', s.inRoom ? '· in chat' : '· not in chat yet'));
+    b.append(el('span', 't1', m ? m.alias : s.model), t2); b.onclick = open;
+    if (free) { b.dataset.free = ''; b.title = 'Drag onto the team map'; b.onpointerdown = (e) => press(e, s.id, 'new', true); t2.append(el('span', 'hint', ' · drag onto the map')); }
+    tabs.append(b);
+    const w = el('button', null, m ? m.alias : s.model); w.type = 'button'; w.setAttribute('role', 'tab'); w.setAttribute('aria-selected', String(S.view === s.id)); w.onclick = open; work.append(w);
+  }
+  const term = $('terminal'); $('map').hidden = S.view !== 'map'; term.hidden = S.view === 'map';
+  if (S.view !== 'map') { const s = session(S.view);
+    term.innerHTML = S.term[s.id] ?? `<span class="dim">${s.harness} · ${s.model}${NL}${s.inRoom ? "In the thread's room as " + s.member + '.' : 'Stopped. It joins the room when resumed.'}${NL}${NL}› </span>`; }
+}
+function drawLog() {
+  const log = $('log'); log.replaceChildren(); $('log-empty').hidden = S.events.length > 0;
+  for (const e of S.events) {
+    const li = el('li', 'event'); li.dataset.kind = e.kind;
+    const who = el('span', 'who', e.who); if (e.who === 'user') who.dataset.user = '';
+    if (e.tag) who.append(el('span', 'tag', e.tag));
+    li.append(el('time', null, e.time), who, el('p', 'text', e.text)); log.append(li);
+  }
+  log.scrollTop = log.scrollHeight;
+  const to = $('to'), keep = to.value; to.replaceChildren(new Option('To: everyone (wakes nobody)', ''));
+  for (const s of S.sessions) if (s.inRoom) to.append(new Option(`To: ${S.team.members[s.id]?.alias ?? s.member} (${s.member})`, s.id));
+  to.value = [...to.options].some((o) => o.value === keep) ? keep : '';
+}
+function play() {     // what Apply sent, shown on the map
+  const run = effects; effects = [];
+  if (S.view !== 'map' || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  for (const [kind, id] of run) { const node = cards.get(id); if (!node) continue;
+    node.classList.remove('ping', 'noticed'); void node.offsetWidth; node.classList.add(kind === 'tell' ? 'ping' : 'noticed'); }
+}
+function draw() { if (AUTO && !grab) tidy(); drawTabs(); if (S.view === 'map') { drawMap(); drawTemplates(); } drawLog(); play(); }
+$('tidy').onclick = () => { tidy(); S.sel = null; S.edge = null; draw(); };
+$('auto-box').onchange = (e) => { AUTO = e.target.checked; draw(); };
+
+for (const [key, t] of Object.entries(TYPES)) { const m = svg('marker', { id: `head-${key}`, viewBox: '0 0 10 10', refX: 9, refY: 5, markerUnits: 'userSpaceOnUse', markerWidth: 13, markerHeight: 13, orient: 'auto' }); m.append(svg('path', { d: 'M0 0L10 5L0 10z', fill: t.c })); $('defs').append(m); }
+{ const m = svg('marker', { id: 'head-bad', viewBox: '0 0 10 10', refX: 9, refY: 5, markerUnits: 'userSpaceOnUse', markerWidth: 13, markerHeight: 13, orient: 'auto' }); m.append(svg('path', { d: 'M0 0L10 5L0 10z', fill: '#ff8495' })); $('defs').append(m); }
+for (const s of SHAPES) { const b = el('button'); b.type = 'button'; b.title = s.tip; b.innerHTML = `<svg viewBox="0 0 26 20" aria-hidden="true">${s.icon}</svg>`; b.append(s.name); b.onclick = () => { shape(s.id); draw(); }; $('shapes').append(b); }
+$('apply').onclick = () => { openSlots(); apply(); draw(); };
+$('tpl-open').onclick = () => { S.menu = !S.menu; S.sel = null; S.edge = null; draw(); };
+$('discard').onclick = () => { S.draft = clone(S.team); S.sessions = S.sessions.filter((s) => !s.slot); S.sel = null; S.edge = null; draw(); };
+$('open-map').onclick = () => { S.view = 'map'; draw(); };
+$('scroll').onpointerdown = (e) => { if (!e.target.closest('.node, .pop') && (S.sel || S.edge != null || S.menu)) { S.sel = null; S.edge = null; S.menu = false; draw(); } };
+$('compose').onsubmit = (e) => { e.preventDefault(); const text = $('msg').value.trim(); if (!text) return;
+  const id = $('to').value; post('user', text, 'message', id ? `to ${S.team.members[id]?.alias ?? session(id).member}` : null); $('msg').value = ''; drawLog(); };
+window.addEventListener('resize', () => { if (S.view === 'map') drawMap(); });
+
+/* ---------- the guided steps ---------- */
+const star = (applied) => { S.draft = STAR(); arrange('star', 'a'); if (applied) { apply(); effects = []; } };
+const STEPS = [
+  { title: '1 · Disponi', text: `<b>La mappa è vuota: la riempi tu.</b> Trascina le sessioni dall’elenco a sinistra e lasciale dove vuoi; poi le sposti liberamente. Ogni scheda è un <b>agente</b>: prima il nome, poi il ruolo, poi il modello (e in piccolo il programma in cui gira). Con <b>+ New agent</b> in basso crei un agente che non ha ancora una sessione: gli dai un nome e un modello, e la sessione viene aperta all’Apply. Per toglierne una, trascinala sulla fascia in basso.`,
+    run() {} },
+  { title: '2 · Collega', text: `<b>Tira una freccia.</b> Trascina il cerchio <b>→</b> sul bordo di una scheda sopra un’altra: nasce una relazione, e si apre subito il riquadro per sceglierne il <b>tipo</b>. Qui <b>planner → implementer</b> è appena stata creata. Prova a collegare anche <b>tester</b>.`,
+    run() { S.draft = pack(['a', 'b', 'd'], [['a', 'b', 'work']]); S.at = { a: { x: 60, y: 70 }, b: { x: 440, y: 70 }, d: { x: 250, y: 330 } }; S.edge = 0; } },
+  { title: '3 · Cosa dice la freccia', text: `<b>Ogni freccia dice tre cose.</b> <b>Il tipo</b>: <i>gives work to</i> oppure <i>observes</i>. <b>Come riferisce</b> chi riceve il lavoro: alla fine, a ogni passo (feedback costante), oppure solo «fatto / bloccato». <b>Parole tue</b>: una riga libera. I tuoi due esempi: «watcher osserva planner per spiegare» è la freccia punteggiata aperta qui; «implementer attende ordini da planner ed esegue dando feedback costante» è la freccia planner → implementer con <b>At every step</b>. Il terzo, «planner dà lavoro a implementer, tester e reviewer distribuendolo», non sta su una freccia sola: clicca la scheda <b>planner</b> e scegli come distribuisce (divide / lo stesso a tutti / al primo libero). Nel riquadro della freccia leggi le frasi esatte che riceveranno le due sessioni, e sulla freccia resta scritto in breve. Il ruolo (Lead, Worker, Observer, Peer) è dedotto.`,
+    run() { star(false); S.edge = 3; } },
+  { title: '4 · Forme e riordino', text: `<b>Se non vuoi disegnare a mano.</b> I pulsanti «Arrange as» tracciano le frecce e sistemano le schede in un colpo: <b>Star</b> (una al centro dà lavoro alle altre), <b>Chain</b> (ognuna dà lavoro alla successiva), <b>Peers</b> (nessuna freccia). Per scegliere chi sta al centro clicca prima la sua scheda. <b>⤢ Tidy up</b> invece non tocca le frecce: rimette in ordine le schede in base a quelle che hai disegnato (chi dà lavoro sopra, chi lo riceve sotto, meno incroci possibile, osservatori a destra). Con <b>keep tidy</b> acceso lo fa da sola a ogni modifica.`,
+    run() { S.draft = pack(['a', 'b', 'd', 'e'], []); arrange('peers'); } },
+  { title: '5 · Template', text: `<b>Una formazione che funziona la salvi una volta e la riusi ovunque.</b> Qui sei in <b>un altro progetto</b>, in un thread ancora senza sessioni. Apri <b>Templates</b>: ci sono le formazioni salvate, valide per ogni progetto. Premi <b>Use</b>: compaiono le schede con le frecce già tracciate; ogni scheda tratteggiata è un <b>agente</b> con il suo modello, senza sessione; l’harness non si sceglie, segue dal modello (cambialo dalla scheda). <b>Open … sessions and apply</b> le apre tutte e dice a ciascuna il suo ruolo. Per salvare la tua: disponi e collega, poi Templates → nome → <b>Save this team</b>.`,
+    run() { S.sessions = []; S.thread = 'Invoices API · another project'; S.menu = true; } },
+  { title: '6 · Controlli', text: `<b>La mappa non ti lascia costruire una formazione che si blocca.</b> Qui c’è un anello: planner dà lavoro a implementer, che lo dà a tester, che lo dà di nuovo a planner: ognuno aspetterebbe l’altro all’infinito. Le frecce coinvolte diventano rosse, sopra la mappa leggi il perché e come uscirne, e <b>Apply resta spento</b>. Clicca una freccia rossa: i tipi incompatibili sono barrati con il motivo. Controlla anche: chi «esegue soltanto» e dovrebbe dare lavoro, un osservatore che dovrebbe lavorare, due sessioni che danno lavoro alla stessa (avviso), lavoro dato a una sessione ferma (avviso).`,
+    run() { S.draft = pack(['a', 'b', 'd', 'e', 'c'], [['a', 'b', 'work'], ['b', 'd', 'work'], ['d', 'a', 'work'], ['a', 'e', 'work'], ['c', 'a', 'observes']]);
+      S.at = { a: { x: 250, y: 40 }, b: { x: 40, y: 250 }, d: { x: 460, y: 250 }, e: { x: 250, y: 420 }, c: { x: 620, y: 40 } }; } },
+  { title: '7 · Apply', text: `<b>Finché non premi Apply non parte nulla</b> (bordi e frecce tratteggiati = non applicato). Premilo: ogni sessione toccata riceve un messaggio personale con le sue relazioni (la scheda lampeggia); le altre solo un avviso che non le interrompe. <b>watcher</b> non è ancora nella stanza (pallino vuoto): verrà informato quando entra.`,
+    run() { star(false); } },
+  { title: '8 · Cosa vede l’agente', text: `<b>Dal lato della sessione.</b> Questo è il terminale di <b>implementer</b> (OpenCode con janura-qwen): le relazioni arrivano come provenienti da te attraverso Shinatama, non come opinione di un altro agente. Le frasi sono quelle che hai visto nel riquadro della freccia.`,
+    run() { star(true); S.view = 'b'; } },
+  { title: '9 · Una frase sola', text: `<b>Il tuo primo esempio.</b> Al planner (Fable) hai scritto solo «fai eseguire il piano all’implementatore»: sa chi è perché c’è la freccia. Sulla freccia vedi l’ultimo scambio; a destra la conversazione. La scheda <b>planner</b> in alto mostra il suo terminale.`,
+    run() { star(true);
+      S.term.a = `<span class="me">› Fai eseguire il piano docs/plans/billing.md all'implementatore.</span>${NL}${NL}<span class="ag">● Nel team io do lavoro a implementer, che è opencode-1 (OpenCode, janura-qwen)${NL}  e riferisce a me. Gli mando il piano.</span>${NL}${NL}<span class="dim">  chat_send → opencode-1</span>${NL}${NL}<span class="ag">● Consegnato. Aspetto il suo RESULT e poi verifico il diff.</span>`;
+      post('claude-1', 'TASK billing-1 rev 1. Implement docs/plans/billing.md, steps 1 to 4. Report RESULT with the checks you ran.', 'message', 'to implementer');
+      post('opencode-1', 'Taken. Starting from step 1.', 'message', 'to planner');
+      post('opencode-1', 'RESULT billing-1 rev 1. Steps 1 to 4 done; 3 files changed; cargo test: 41 passed.', 'message', 'to planner');
+      S.notes['a>b'] = 'RESULT billing-1 · 10:10'; } },
+  { title: '10 · Cambia la formazione', text: `<b>La formazione cambia, e lo sanno tutti.</b> Codex è stato ripreso: entrando nella stanza ha ricevuto da solo le sue relazioni. Ora prova tu: tira una freccia da <b>implementer</b> a <b>tester</b>, oppure cambia il tipo di una freccia, poi Apply. Solo le due sessioni ai capi vengono risvegliate; le altre leggono l’avviso al turno successivo.`,
+    run() { star(true); joins('c'); effects = []; } },
+  { title: '11 · L’osservatore', text: `<b>Il tuo secondo esempio.</b> La freccia punteggiata <b>watcher observes planner</b> è tutto ciò che serve: nel terminale di watcher (Codex) chiedi «cosa sta facendo il planner?» e te lo spiega, senza interrompere il planner.`,
+    run() { star(true); joins('c'); effects = []; S.view = 'c';
+      S.term.c = `<span class="me">› Cosa sta facendo il planner?</span>${NL}${NL}<span class="dim">  chat_observe → planner (claude-1)</span>${NL}${NL}<span class="ag">● Il planner (Claude Code, Fable 5.2) ha consegnato all'implementatore il piano${NL}  docs/plans/billing.md, passi 1-4, e ne ha ricevuto il RESULT.${NL}  Ora sta rileggendo il diff di src/billing/invoice.rs.${NL}${NL}  Dichiarato da lui: «3 file modificati, 41 test passati».${NL}  Mia deduzione: non ha ancora rieseguito i test di persona.</span>`; } },
+];
+function go(i) {
+  reset(); for (const node of cards.values()) node.remove(); cards.clear();
+  STEPS[i].run();
+  [...$('steps').children].forEach((li, n) => n === i ? li.firstChild.setAttribute('aria-current', 'step') : li.firstChild.removeAttribute('aria-current'));
+  $('caption').innerHTML = STEPS[i].text; draw();
+}
+STEPS.forEach((step, i) => { const li = el('li'); const b = el('button', null, step.title); b.type = 'button'; b.onclick = () => go(i); li.append(b); $('steps').append(li); });
+go(0);
+</script>
+</body>
+</html>

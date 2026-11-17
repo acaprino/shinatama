@@ -1,280 +1,343 @@
-# Thread team: who is in a thread, in what role, and telling the sessions
+# Team map: the agents of a thread, their relations, and telling the sessions
 
-Design, 2026-11-17. Status: approach C and the changes to Mukade decided by the owner. Builds on ADR-0055 (a thread is a set
-of sessions) and ADR-0057 (the sessions of a thread talk through its Mukade room). The
+Design, 2026-11-17, second version. It replaces the first version of this file (a list of sessions
+with a role each), which the owner set aside after trying a mockup. The mockup that settled this
+version is `docs/mockups/thread-team.html`; open it beside this text. Builds on ADR-0055 (a thread
+is a set of sessions) and ADR-0057 (the sessions of a thread talk through its Mukade room). The
 implementation needs a new ADR (next free number: 0058).
 
 ## Intent
 
-User, 2026-11-17: the way sessions talk to each other is "goffa, inutilizzabile, macchinosa".
-Two things they could not do in one sentence: have a Claude Code (Fable) session hand an
-implementation plan to an OpenCode session running `janura-qwen`, and have a Codex session
-explain what a Claude session is doing. They asked for a graphical way to set "la tassonomia
-delle istanze e le relazioni", and for the sessions to be told their role by a message, again at
-every change of formation: a member added, removed, or given another role.
+Owner, 2026-11-17: the way sessions talk to each other is "goffa, inutilizzabile, macchinosa".
+Things they could not say in one sentence: have a Claude Code (Fable) session hand a plan to an
+OpenCode session running `janura-qwen`; have a Codex session explain what a Claude session is
+doing. What they asked for, in the order they asked:
 
-Why it is clumsy today (verified in the code):
+- a graphical way to set "la tassonomia delle istanze e le relazioni", by drag and drop: "io li
+  dispongo nel pannello grafico e poi posso collegarli con frecce", "per ogni freccia, che è una
+  relazione, impostarne il tipo";
+- the sessions told their place by a message, again at every change of formation;
+- "controlli di compatibilità tra le relazioni, evitando circolari infinite, stuck, dead lock";
+- roles "inferiti automaticamente dalla relazione";
+- simpler "senza perdere potenza";
+- "salvare template e ricrearli con nuove sessioni, salvati globali e riapribili in qualsiasi
+  progetto";
+- "prima c'è l'attore/agente": the harness "è una proprietà del modello, non nasce a priori";
+- an automatic arrangement "per vedere meglio la mappa";
+- to be able to say "x osserva y per spiegare", "x attende ordini da y ed esegue dando un
+  feedback costante", "x dà lavoro a y, k, g distribuendolo".
 
-- The room is flat. Every session joins as `peer` (`MUKADE_CHAT_ROLE` is fixed in
-  `crates/engine/src/mukade_chat.rs`), and who does what exists only in the prompts the user types.
-- Members are called `claude-1`, `opencode-1`; the user sees tabs. An OpenCode or Pi member is not
-  tied to its tab at all (`thread_chat.rs`, `project`), so "that OpenCode session" cannot be named.
-- An agent can open only Claude Code and Codex (`session_control.rs`, the `harness` enum).
-- Nothing tells a session who the others are and what they are for; each has to discover it.
+Why it is clumsy today (verified in the code): the room is flat and every session joins as `peer`
+(`crates/engine/src/mukade_chat.rs`); who does what exists only in the prompts the user types;
+members are called `claude-1`, `opencode-1` while the user sees tabs, and an OpenCode or Pi member
+is not tied to its tab (`apps/desktop/src-tauri/src/thread_chat.rs`, `project`); an agent can
+open only Claude Code and Codex (`crates/engine/src/session_control.rs`); nothing tells a session
+who the others are.
+
+## The words
+
+| Word | Meaning |
+|---|---|
+| **Agent** | A place in the team: a name, optional notes, a model. It comes first. It may or may not have a session yet. |
+| **Model** | What the agent thinks with. Each model says which program runs it (Claude Code, Codex, OpenCode, Pi); the program is never chosen by itself. |
+| **Session** | A running conversation of an agent, in a tab. Opened by the user as today, or by Shinatama for an agent that has none. |
+| **Relation** | An arrow from one agent to another. Two kinds: *gives work to* and *observes*. |
+| **Role** | Lead, Worker, Observer or Peer. Never typed: what the arrows of an agent add up to. |
+| **Formation** | The agents of one thread and their relations. It has a revision. |
+| **Template** | A formation saved without its sessions, for every project. |
 
 ## Goals
 
-1. A **Team** view per thread where the user gives each session a name, a role, whom it answers
-   to, and whether it may write or only observe.
-2. Shinatama tells the sessions: each one learns its own role and the formation when it joins,
-   and learns of every later change, without the user writing it into any prompt.
-3. After that, "have the implementer run the plan" and "explain what the planner is doing" are
-   sentences a session can resolve by itself.
-4. An agent can open an OpenCode or Pi session into the thread, not only Claude Code and Codex.
+1. A **Team map** per thread: agents as cards the user places, relations as arrows the user draws.
+2. Each relation says its kind, how the work is reported, and a line in the user's words.
+3. Roles are inferred; formations that cannot work are refused before they are applied.
+4. Shinatama tells each session its place when it joins and at every change, without the user
+   writing it into a prompt, and without waking sessions the change does not concern.
+5. An agent without a session gets one opened for it, with its model.
+6. A formation is saved as a template and recreated in any thread of any project.
 
 ## Non-goals
 
-- A model per session. A harness's model stays the one set in the Models panel ("Model for new
-  sessions"); the Team view shows it, read-only. `janura-qwen` on OpenCode is that assignment.
-- Enforced delegation. "Answers to" is said to the agents, not enforced: Mukade has no such rule.
-- A graph editor. The formation is a list with a "answers to" menu per row.
-- Team templates shared across threads; opening a whole formation in one click.
-- Hermes, and any session of a thread whose switch is off.
+- Enforcing what is only said. Of everything on the map Mukade enforces two things: an observer
+  cannot write, and an agent that "only executes" answers only done or blocked. The rest
+  (reporting at every step, how work is handed out, the user's words) is told to the agents.
+- Changing the model of a running session.
+- Sharing templates between computers or users.
+- Hermes, and threads whose "Sessions talk to each other" switch is off.
 
 ## Anti-goals
 
-- A formation change that wakes every session. Wakes are bounded (10 per session) and each one
-  interrupts an agent and spends tokens.
-- A role the panel shows but the session was never told, with nothing saying so.
-- A role message an agent could mistake for another agent's opinion, or one agent passing off
-  its own message as the user's formation.
+- A change of formation that wakes every session. Wakes are bounded (10 for a member's whole life
+  in the room, never reset) and each one interrupts an agent and spends tokens.
+- A formation applied while it holds a loop of work or an impossible combination.
+- A relation shown on the map that the two sessions were never told, with nothing saying so.
+- A formation message an agent could take for another agent's opinion, or an agent passing its
+  own message off as the user's formation.
 
 ## Approaches
 
-- **A. Messages only.** At each change Shinatama writes the whole formation to the room, addressed
-  to everyone. Simple and visible, but every addressed message is a wake: a few edits spend half
-  of each session's budget and interrupt work in progress.
-- **B. State only.** The formation is thread state, read through `shinatama_thread_peers` when a
-  session wants it. No noise, but a session whose role changed does not find out; and OpenCode and
-  Pi have no Shinatama tools to read it with.
-- **C. State plus targeted messages (chosen by the user, 2026-11-17).** The formation is thread
-  state and always readable; at a change, only the sessions it concerns personally get an
-  addressed message, and the rest get one unaddressed message, which they read at their next turn
-  and which wakes nobody (`thread_chat.rs`: "none writes to the whole room, which wakes nobody";
-  Mukade's adapter waits with `addressed_only`).
+For the interface:
+
+- **A. A list in the Conversation panel**, a row per session with role, "answers to" and access.
+  Built as the first mockup; the owner asked for "qualcosa di più grafico".
+- **B. A map where each card carries its permissions** (writes, executes, observes) and one kind of
+  arrow ("answers to"). Built as the second and third mockups; the owner asked what the three
+  buttons meant and that the arrow carry the type.
+- **C. A map where the relation is the arrow (chosen by the owner).** The arrow has a kind and its
+  properties; the card has a name, a model and notes; the role is inferred.
+
+For telling the sessions (chosen by the owner earlier the same day, unchanged): the formation is
+state of the thread, always readable; a change sends an addressed message only to the sessions it
+concerns and one unaddressed notice to the others. Messages only would wake everyone; state only
+would leave a session ignorant of its own change.
 
 ## Design
 
-### 1. The formation is state of the thread
+### 1. The map
 
-One setting, `threads.team.v1`, next to `threads.chat_enabled.v1` (`crates/state/src/database.rs`):
-per workset, a `revision` (integer, +1 at each Apply) and its `members`. A member is a session
-of the thread (`t_…`) with:
+A view of the thread in the work area, beside the terminals, opened by a **Team** button on the
+thread's row (next to Chat) and listed among the thread's tabs. One per thread.
 
-| Field | Meaning |
-|---|---|
-| `alias` | The name the user gives it ("planner"). Shown in the panel and said to the agents next to the Mukade member name; it does not replace it, since Mukade names members itself. |
-| `role` | A short title ("Implementer"). |
-| `duties` | Free text, at most 1 KB: what this session is for. |
-| `answers_to` | Another member's session id, `user`, or nothing. |
-| `access` | `write` or `observe`. |
+- **Placing.** The thread's sessions that are not on the map are dragged onto it from the list on
+  the left. **+ New agent** adds an agent that has no session. A card is moved freely; dragged onto
+  the strip at the bottom it leaves the map (its session is not closed).
+- **Connecting.** The → on a card's edge is pulled onto another card: a relation is created, kind
+  *gives work to*, and its box opens.
+- **The card.** Name; inferred role (with "· splits the work" and the like when it applies);
+  model and, smaller, the program that runs it; a dot when its session is in the room. A status
+  line only when there is something to say: not applied, will be told when it joins, new session
+  opens at Apply, no model yet, few wakes left (3 or fewer).
+- **The card's box** (click): name; model (a menu for an agent without a session, fixed for a
+  running one); the inferred role with its reason, not editable; when it gives work to two or more
+  agents, how it hands the work out; optional notes; "Take off the map".
+- **The arrow's box** (click on the arrow): the two kinds, each written from both ends ("B waits
+  for work from A, does it and reports"); for *gives work to*, how the receiver reports; a line
+  "in your words", with no suggestions; the exact sentences both sessions will be told; Reverse;
+  Delete. A kind or a setting that cannot work with the other arrows is struck out with the reason.
+- **Tidy up** places the cards by their arrows without changing them; "keep tidy" does so at every
+  change. **Arrange as** Star, Chain, Peers draws the arrows and places the cards in one click.
+- **Apply / Discard.** Nothing is sent until Apply. What is not applied is drawn dashed.
 
-A session of the thread with no entry is simply not in the team: it behaves as today.
-Per member the setting also keeps what was last delivered to it (`told_revision`, and the Mukade
-`member_id` it was delivered to), so a restart of Shinatama repeats nothing.
+### 2. Relations
 
-Only the user edits the formation. No tool lets an agent change it (see Anti-goals).
-
-### 2. The Team view
-
-A "Team" section at the top of the thread's Conversation panel (`apps/desktop/src/thread-chat.ts`),
-which already lists the thread's sessions and their connection. Reached as today, by the thread's
-Chat button; the thread's settings (⋯) get a "Team…" entry that opens the same panel.
-
-```
-Team                                             revision 3 · all told
-┌──────────────────────────────────────────────────────────────────────┐
-│ planner      Claude Code · in chat (claude-1)            wakes 2/10 │
-│   Role [Planner        ]  Answers to [you ▾]   Access [Writes  ▾]   │
-│   Duties [Writes the plan, reviews the implementer's result.     ]  │
-├──────────────────────────────────────────────────────────────────────┤
-│ implementer  OpenCode · janura-qwen · in chat (opencode-1)          │
-│   Role [Implementer    ]  Answers to [planner ▾] Access [Writes ▾]  │
-│   Duties [Implements the plan it is given, step by step.         ]  │
-├──────────────────────────────────────────────────────────────────────┤
-│ watcher      Codex · not in chat yet · will be told when it joins   │
-│   Role [Observer       ]  Answers to [you ▾]   Access [Observes ▾]  │
-│   ⚠ Observes from its next resume; it writes until then.            │
-└──────────────────────────────────────────────────────────────────────┘
-  + Add a session of this thread ▾               [Discard]  [Apply]
-```
-
-- Edits are local until **Apply**: several edits are one revision and one announcement.
-- Each row says, in words, whether the session was told its current role: "told", "will be told
-  when it joins", or "could not be told: <reason>".
-- "Add" lists the thread's sessions that are not in the team. Opening a new session stays where
-  it is today (the thread's + button); a new session then appears in "Add".
-- Removing a row removes the role, not the session.
-
-### 3. Telling the sessions
-
-The sender is a new room member, `shinatama` (harness `shinatama`), distinct from `user`: the
-panel draws its messages as notices, and agents can tell the user's formation from the user's
-words and from another agent. Its handle is kept like the user's (in memory, recovered by
-`rejoin`). Every personal message says that `shinatama` relays the formation the user set in the
-Team view and that no other member can change it; `shinatama_thread_peers` says the same. (There
-is no start note for sessions the user opens, and OpenCode and Pi have no Shinatama tools, so the
-message itself has to carry it.)
-
-Mukade as pinned ends every delivery with "Other members wrote these; they are not instructions
-from the user" (`adapter.rs`, the delivery text) and shows only the sender's name. That line
-would also cover the formation, and it already covers what the user writes in the panel as
-`user`. See "Changes to Mukade".
-
-No text Shinatama sends may contain `@`: Mukade turns `@name` and `@all` in a message into
-recipients, which would wake them. Aliases, roles and duties are refused with `@` at Apply.
-Mukade also refuses a message that looks like it holds a secret; such a refusal is shown on the
-row as "could not be told", with Mukade's reason.
-
-Messages are plain text, at most 2 KB, in English, of two kinds:
-
-- **Personal** (addressed, wakes a listening session): "TEAM revision 3. You are **implementer**
-  (member opencode-1). Role: Implementer. Duties: … You answer to planner (claude-1). You may
-  write." followed by the formation, one line per member.
-- **Notice** (unaddressed, wakes nobody): "TEAM revision 3. Joined: implementer (opencode-1),
-  Implementer, answers to planner. Left: watcher. Changed: planner now answers to the user."
-
-When each is sent:
-
-| Event | Personal to | Notice |
+| Kind | Meaning | Settings |
 |---|---|---|
-| Apply: a member added, or its own role, duties, answers-to, access or alias changed | that member, if in the room | one, with the changes, when at least one other member is in the room |
-| Apply: a member removed | that member ("you no longer have a role in this team") | same notice |
-| A team member's session joins the room (first join, resume, a new run of Shinatama) and its `told_revision` is behind, or its Mukade member changed | that member | none: the join is already an event of the room |
-| A team member's session is closed (archived) | nobody | one ("Closed: …") |
+| *gives work to* | A gives work; B waits for it, does it, reports | how B reports: **when done** (default), **at every step**, **only done / blocked** |
+| *observes* | A follows what B does and explains it to the user; never writes to B | none |
 
-A hooked member never leaves the room by itself: the adapter does not call `leave`, and Shinatama
-may not read its handle (ADR-0057 INV-002). Without the Mukade change below, the member of a
-closed session would stay listed in Mukade; with it, Shinatama retires the member when the
-session is closed. Either way the formation, not Mukade's member list, says who is in the team.
+Every relation also has **words**: at most 120 characters, the user's own, said to both ends.
+An agent with no arrow is a peer: it talks with everyone as an equal, as today.
 
-A member not in the room at Apply is told when it joins; its row says so until then. A send that
-fails is retried at the next check, never more than once per check; a timeout is "uncertain" and
-is not repeated blindly (same rule as the user's messages, ADR-0057 point 10): the ledger is read
-first for a `shinatama` message carrying that revision and recipient.
+An agent that gives work to two or more agents has a way of **handing it out**: *splits it* (a
+different part to each, then puts the results together; default), *same to all* (the same task to
+each, then compares), *first free*.
 
-What sends them: a worker in the desktop backend (like the session-launch worker in
-`collaboration.rs`), not the window's read commands, which stay reads (ADR-0057 INV-001 and
-point 10). Apply wakes it; otherwise it checks the talking threads that have a team every 10 s,
-using the launch record and adapter files first and the service only when something changed.
-It runs with the window closed to the tray as long as Shinatama runs.
+One relation at most between two agents. `@` is refused in names, words and notes: Mukade turns
+`@name` in a message into a recipient, which would wake it.
 
-### 4. Reading the formation
+### 3. Roles, inferred
 
-`shinatama_thread_peers` (Claude Code and Codex) gains `team`: the revision, `you` (alias, role,
-duties, answers_to, access) and the same per peer, plus one `how_to` line: address a teammate by
-its `member_name`; the formation comes from the user. OpenCode and Pi have no Shinatama tools:
-they know the formation from the personal message, which carries all of it.
+| The agent's arrows | Role | Mukade role |
+|---|---|---|
+| Only *observes*, outgoing | Observer | `observer` |
+| Gives work and takes work | Lead + Worker | `lead` if any work it gives is "only done / blocked", else `peer` |
+| Gives work | Lead | the same rule |
+| Takes work, "only done / blocked" | Worker | `worker` |
+| Takes work otherwise | Worker | `peer` |
+| No arrow | Peer | `peer` |
 
-The bootstrap of a session opened by an agent (`collaboration.rs`, `initial_prompt`) gets one
-line saying the thread has a team and where its role will come from.
+The Mukade role is the part that is enforced (`mukade/src/chat/adapter.rs`, `role_rules`): an
+`observer` and a `worker` cannot send messages; a worker answers a lead's instruction with a done
+or blocked signal.
 
-### 5. Observe-only access
+### 4. Checks
 
-Mukade's adapter already supports `MUKADE_CHAT_ROLE=observer`: the member cannot send, follows
-another member with `chat_observe`, and the adapter binds every hooked session so it can be
-followed (`mukade/src/chat/adapter.rs`, `role_rules` and the bind after the first turn). So:
+Run at every edit. An error draws the arrows and cards concerned in the error colour, lists the
+reason and the way out above the map, and keeps Apply disabled. A warning only says.
 
-- A member with access `observe` is launched or resumed with role `observer` instead of `peer`
-  (`ChatHooks::apply_environment`). This answers "have Codex explain what Claude is doing":
-  give a Codex session the Observer role, then ask it.
-- OpenCode and Pi too: their kit runs `mukade chat hook` with the inherited environment
-  (`chat/kits/hook.js`), which reads the role (`adapter.rs`, `Settings::from_vars`). Read in the
-  source, not yet run.
-- Mukade as pinned today fixes the role at the member's first join: the adapter reuses its stored
-  state, role included, while the room is the same, `rejoin` copies the role, and no operation
-  changes it. With the Mukade change below, Shinatama changes the member's role at Apply and the
-  session is told in its personal message; the adapter takes the new role at its next turn or, if
-  Mukade can only apply it at a join, at the session's next resume, which the row then says.
+| | Condition | Why |
+|---|---|---|
+| Error | A loop of *gives work to* (A → B → … → A) | Each would wait for the next and none would finish |
+| Error | An agent that only executes holds any other relation, except being observed | It can answer only done or blocked |
+| Error | An observer holds any relation other than its *observes* arrows and being observed | It cannot write |
+| Error | Two agents give "only done / blocked" work to the same agent | A worker answers one lead |
+| Error | An agent without a session has no model | It cannot be opened |
+| Warning | Two agents give work to the same agent | Instructions may conflict |
+| Warning | Work given to an agent whose session is stopped | It waits until the session is resumed |
 
-### 6. Tying an OpenCode or Pi member to its session
+### 5. Apply
 
-Needed so that a role can be delivered to "that OpenCode tab". Mukade chooses the member name and
-Shinatama records no native session for these harnesses, so the tie is made by exclusion: when a
-kit launch of session S into room R is recorded (`mukade_chat::note_launch`), the first member of
-that harness that joins R afterwards and is tied to no session belongs to S, provided S is the
-only untied kit launch of that harness waiting in R. The tie is stored with the team
-(`member_id`). When two launches of the same harness wait at once, neither is tied automatically:
-the row offers a menu of the room's untied members of that harness ("Which member is this
-session?"). A tie can always be corrected from that menu.
+1. For each agent without a session, Shinatama opens one in the thread, with the agent's model,
+   and ties it to the agent. The button then reads "Open N sessions and apply".
+2. The revision goes up by one. The Mukade role of every member whose role changed is set.
+3. Each agent whose own name, notes, model, hand-out or relations changed, and that is in the room,
+   gets a **personal** message, addressed to it (it wakes a listening session).
+4. One **notice**, unaddressed (it wakes nobody), lists the changes for the others, when at least
+   one other member is in the room.
+5. An agent not in the room is told when it joins; its card says so until then. An agent taken off
+   the map is told it has no place in the team any more.
 
-### 7. An agent opens OpenCode or Pi
+Later, without the user: a team agent's session that joins the room (first join, resume, a new
+run of Shinatama) and was not told the current revision gets its personal message; a session
+closed gets a "Closed" notice and its member is retired from the room.
 
-`shinatama_session_open` accepts `opencode` and `pi` (`session_control.rs`; `open_collaboration`
-in `agents.rs`). Per AGENTS.md no harness version is gated. These launches require the thread's
-switch to be on, since the kit is their only way into the room; otherwise the request fails with
-that reason, never as an isolated session. The model is the one assigned in the Models panel; the
-receipt reports it. Today `open_collaboration` refuses both and neither launcher
-(`opencode_launch.rs`, `pi_launch.rs`) takes an initial prompt, while OpenCode's kit joins the
-room only at the first prompt: this step therefore includes passing the bootstrap as the
-harness's own initial prompt, verified against the installed CLI, without which the session would
-sit outside the room until the user typed. The bootstrap for these two omits the Shinatama tools they do not have and
-names the coordinator's member. A session opened this way is not added to the team by the agent:
-it appears in "Add" for the user.
+**What is said.** Plain English, at most 2 KB per message. The personal message: the revision; the
+agent's name, member name and role; one sentence per relation, from its own side; the hand-out
+sentence when it applies; the user's notes; the formation (members with roles, then relations).
+The sentences are those the arrow's box shows, for example:
 
-The `mukade-collaborate` skill and its `references/mcp-contract.md` are updated to match
-(harnesses, the `team` object, the `shinatama` member, the observer role).
+- gives work, when done — giver: "You give work to B; B reports back to you when it is done."
+  receiver: "You wait for work from A, do it, and report back to A when it is done."
+- at every step — receiver: "You wait for work from A, do it, and tell A what you are doing at
+  every step."
+- only done / blocked — receiver: "You wait for instructions from A, execute them, and answer only
+  done or blocked."
+- observes — observer: "You observe B: follow what it does, to explain it to the user when asked.
+  Do not write to it." observed: "A observes you and may read what you do."
+- words — appended to both: `The user adds: “…”.`
+- hand-out — "You give work to B, C and D: split it among them, a different part to each, and put
+  their results together."
+
+**Who says it.** A room member `shinatama` (harness `shinatama`), distinct from the member `user`
+the Conversation panel writes as, so the panel can draw formation messages as notices. Its handle
+is kept as the user's is (in memory, recovered by `rejoin`). Its messages reach the agents under
+their own heading, as coming from the user (see "Changes to Mukade").
+
+**What sends it.** A worker in the desktop backend, as the session-launch worker in
+`apps/desktop/src-tauri/src/collaboration.rs`; never the window's read commands (ADR-0057 INV-001).
+Apply wakes it; otherwise it checks the talking threads that have a formation every 10 s, reading
+the launch record and Mukade's adapter files first and the service only when something changed.
+A send that fails is retried at the next check; a timeout is "uncertain" and the ledger is read for
+a `shinatama` message with that revision and recipient before sending again (ADR-0057, point 10).
+
+### 6. Reading the formation
+
+`shinatama_thread_peers` (Claude Code and Codex) gains `team`: the revision; for `you` and each
+peer, the agent's name, role and relations as the sentences above. OpenCode and Pi have no
+Shinatama tools: they know the formation from the personal message, which carries all of it.
+
+### 7. Models
+
+The model menu lists what the Models panel holds, each entry naming the program that runs it:
+"Claude Code · its own sign-in and model", "Codex · its own sign-in and model", and each model of
+a connection that OpenCode or Pi can use (`crates/engine/src/model_config.rs`: `Assignments` has
+`opencode` and `pi`; Claude Code and Codex have no model setting in Shinatama today). A model both
+OpenCode and Pi can run appears once per program.
+
+A launch for an agent uses the agent's model instead of the program's "Model for new sessions"
+(`Snapshot::selected`). The Models panel's assignment stays the default for sessions the user opens
+by hand.
+
+### 8. Opening a session for an agent
+
+Shinatama opens the session in the agent's thread through the launcher that already owns each
+program's launch, with a first message naming the agent, the room and where its role will come
+from. Claude Code and Codex already take a first message (`with_initial_prompt` in
+`claude_launch.rs` and `codex_launch.rs`). OpenCode and Pi do not (`opencode_launch.rs`,
+`pi_launch.rs`), and OpenCode's kit joins the room only at its first prompt: for them this work
+includes passing the first message as the program's own initial prompt, verified against the
+installed CLI. Per AGENTS.md no program version is gated.
+
+### 9. Tying an OpenCode or Pi member to its session
+
+Mukade names the member and Shinatama records no native session for these programs, so the tie is
+made by exclusion: when a kit launch of session S into room R is recorded
+(`mukade_chat::note_launch`), the first member of that program that joins R afterwards and is tied
+to no session belongs to S, provided S is the only untied kit launch of that program waiting in R.
+When two wait at once, neither is tied automatically and the card offers the room's untied members
+of that program. The tie is stored with the formation and can be corrected from the card.
+
+### 10. Templates
+
+**Templates** in the map's bar lists the saved formations, each with a small drawing of its shape,
+the number of agents and their models, Use and delete; below, a name and "Save this team".
+
+- A template keeps the agents (name, notes, model, hand-out), the relations with their settings and
+  words, and the cards' places. No session, no conversation, no revision.
+- Kept in Shinatama's data, for every project and thread.
+- **Use** replaces the draft on the map with the template's agents, none with a session. A session
+  of the thread dropped onto such a card takes its place, name and arrows. A model the Models panel
+  no longer holds leaves the agent without a model, which the checks report.
+- A formation with errors cannot be saved.
+
+### 11. Arrangement
+
+**Tidy up**: an agent's layer is the longest chain of *gives work to* that reaches it, givers
+above; inside a layer the cards are ordered to cross few arrows (each moved under the average of
+those it is tied to, sweeping down and up a few times); a layer too wide for the view wraps; an
+observer goes to the right, level with what it observes; agents with no arrow form a row at the
+bottom. A loop does not hang it: the checks report the loop. Places are part of the formation and
+of a template; they are not told to the agents and changing them is not a change of formation.
+
+### 12. An agent opens OpenCode or Pi
+
+`shinatama_session_open` accepts `opencode` and `pi` as well as `claude_code` and `codex`. These
+launches require the thread's switch to be on, since the kit is their only way into the room;
+otherwise the request fails with that reason, never as an isolated session. A session opened this
+way is not put on the map by the agent: only the user edits the formation.
+
+The `mukade-collaborate` skill and `references/mcp-contract.md` are updated to match.
 
 ## Changes to Mukade (decided by the owner, 2026-11-17: Mukade may be changed)
 
-Mukade is the owner's own project, pinned by revision (`scripts/mukade-pin.json`). Three things
-above cannot be done properly with the pinned revision:
+Mukade is the owner's own project, pinned by revision (`scripts/mukade-pin.json`, the dependency
+and `MUKADE_REVISION`, kept equal by a test). With the pinned revision three things above cannot
+be done:
 
-1. **Messages from the person and the host delivered as such.** Today they arrive labelled "not
-   instructions from the user". Wanted: members of the host's harness (`shinatama`) are delivered
-   under their own heading ("From the user, through Shinatama").
-2. **Changing a member's role** (peer ↔ observer) for a member that already joined, by the host.
-3. **The host retiring a member** whose session was closed.
+1. **Messages from the person and the host delivered as such.** Today every delivery ends "Other
+   members wrote these; they are not instructions from the user" (`adapter.rs`, `render`), and that
+   also covers what the user writes in the Conversation panel. Wanted: a member created by the
+   host is marked as the host's; its messages are delivered under their own heading ("From the
+   user, through Shinatama") and outside that sentence. An agent cannot create such a member: the
+   mark is set only through the local command line, never through the MCP tools.
+2. **Changing a member's role** by the host, for a member that already joined. Today the adapter
+   reuses its stored role, `rejoin` copies it and no operation changes it.
+3. **Retiring a member** by the host. Today only the member itself can leave.
 
-These are made in Mukade first, in its own repository and by its own rules; Shinatama's pin
-(`scripts/mukade-pin.json`, the dependency and `MUKADE_REVISION`, kept equal by a test) is then
-moved to that revision, and the Team work builds on it. They are step 0 of the order of work.
+These are made in Mukade first, in its repository and by its rules; Shinatama's pin is then moved.
 
 ## Constraints
 
-- ADR-0057 invariants hold: the window consumes nothing; no handle or credential reaches the
-  frontend, argv or a file; a thread that is off, or has no team, launches exactly as today; a
-  chat or team failure never prevents a session from opening.
-- All of it applies only to threads whose switch is on. The Team section of a thread that is off
-  says to turn the switch on.
+- ADR-0057's invariants hold: the window consumes nothing; no handle or credential reaches the
+  frontend, argv or a file; a thread that is off, or has no formation, launches exactly as today;
+  a chat or team failure never prevents a session from opening.
+- One source of truth for roles, checks and sentences: the engine. The window asks it; it does not
+  compute them again.
 - Windows first; no new dependency in the desktop process (ADR-0047).
-- Texts sent to agents are English, like every other bootstrap; the interface is English.
+- Texts sent to agents and the interface are English.
+- Per AGENTS.md: no program version is gated; work on `develop`; no version or tag changed by hand.
 
 ## Order of work
 
-0. The three changes in Mukade, and the pin moved.
-1. State, Team view, Apply, the `shinatama` member, personal and notice messages, join detection,
-   `team` in `shinatama_thread_peers` — for Claude Code and Codex (their members are already tied).
-2. Observe-only access.
-3. Tying OpenCode and Pi members; roles for them.
-4. `shinatama_session_open` for OpenCode and Pi.
+0. The three changes in Mukade; the pin moved.
+1. The formation: state, roles, checks, sentences; the map for the sessions a thread already has;
+   Apply, the messages, telling a session that joins; `team` in `shinatama_thread_peers`. Claude
+   Code and Codex, whose members are already tied.
+2. Templates, and agents without a session filled by dropping a session on them.
+3. Opening a session for an agent, Claude Code and Codex.
+4. A model per agent; opening OpenCode and Pi; tying their members.
+5. `shinatama_session_open` for OpenCode and Pi; the skill.
 
-Each step is usable on its own and verified with real agents before the next (the confirmation
-of ADR-0057 itself — "Not yet run on Windows with real agents" — is a prerequisite of step 1).
-
-## Left to the builder
-
-- The exact wording of the two messages and of the panel's texts, within the limits above.
-- The shape of the stored setting and its migration-free reading (absent means no team).
-- How the worker is woken and paced, within "no service call when nothing changed".
-- Tests: pure projections (what to send for a given old/new formation and room state) in Rust;
-  the panel's model in TypeScript; one real-agent run per step, recorded in `docs/verification`.
+Each step is usable on its own and verified with real agents before the next. The confirmation of
+ADR-0057 itself ("Not yet run on Windows with real agents") is a prerequisite of step 1.
 
 ## To verify before building on it
 
-- That an unaddressed message really leaves a listening hooked session asleep (Mukade's wait
-  uses `addressed_only: true`; not yet observed live).
-- That OpenCode and Pi kits take the observer role live (read in the source only).
-- The wake count is never reset: a session has 10 wakes for its whole life in the room, and
-  personal team messages draw on them. Whether that budget is enough in practice.
-- That a `rooms`/`members` read is enough to notice a join within one 10 s check.
+- That an unaddressed message leaves a listening hooked session asleep (Mukade's wait uses
+  `addressed_only: true`; not yet observed live).
+- That a `lead` and a `worker` launched through Shinatama's hooks behave as Mukade's own launcher
+  makes them (read in the source only).
+- That OpenCode and Pi take the observer and worker roles through the kit (their hook reads
+  `MUKADE_CHAT_ROLE`; read in the source only).
+- How OpenCode and Pi take a first message from the command line, on the installed versions.
+- Whether 10 wakes for a member's whole life are enough with formation messages drawing on them.
+- Whether one model may run in more than one program in the owner's set-up (section 7 assumes it
+  may, and lists it once per program).
+
+## Left to the builder
+
+- The exact wording of the messages and of the interface, within what is fixed above.
+- The shape of the stored formation and templates (absent means none; no migration).
+- How the worker is woken and paced, within "no service call when nothing changed".
+- The drawing of the cards, arrows and boxes, following the mockup and the skin in
+  `apps/desktop/src/styles.css`.
