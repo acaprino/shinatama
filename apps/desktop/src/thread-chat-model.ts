@@ -55,8 +55,14 @@ export function mergeEvents(held: readonly ChatEvent[], fresh: readonly ChatEven
 }
 
 /** One line of the conversation, as the user reads it. */
-export function eventLine(event: ChatEvent): { who: string; what: string; kind: 'message' | 'signal' | 'presence' } {
+/** The member through which Shinatama tells the sessions their place in the team (ADR-0058). Its messages are notices of the team, not a person's chat line. */
+export const TEAM_MEMBER = 'shinatama';
+
+export function eventLine(event: ChatEvent): { who: string; what: string; kind: 'message' | 'signal' | 'presence' | 'team'; tag?: string } {
   const who = event.actor ?? 'Mukade';
+  if (event.kind === 'message' && event.actor === TEAM_MEMBER) {
+    return { who, what: event.text ?? '', kind: 'team', tag: event.recipients.length ? `to ${event.recipients.join(', ')}` : 'notice' };
+  }
   if (event.kind === 'message') return { who: event.recipients.length ? `${who} → ${event.recipients.join(', ')}` : `${who} → room`, what: event.text ?? '', kind: 'message' };
   if (event.kind === 'signal') return { who, what: `signalled ${event.signal ?? '?'}${event.reason ? `: ${event.reason}` : ''}`, kind: 'signal' };
   const said: Record<string, string> = { join: 'joined the room', rejoin: 'joined the room again', leave: 'left the room', close: 'closed the room', reopen: 'reopened the room' };

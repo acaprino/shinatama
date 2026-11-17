@@ -50,3 +50,12 @@ test('lines say who wrote to whom, and presence apart from messages', () => {
   assert.deepEqual(eventLine(event('3', { kind: 'join', text: null })), { who: 'claude-1', what: 'joined the room', kind: 'presence' });
   assert.equal(eventLine(event('4', { kind: 'signal', signal: 'blocked', reason: 'needs a key' })).what, 'signalled blocked: needs a key');
 });
+
+test('what the member shinatama writes is a notice of the team, addressed or not', () => {
+  const personal = eventLine(event('5', { actor: 'shinatama', recipients: ['claude-1'], text: 'TEAM revision 2, set by the user in Shinatama.' }));
+  assert.deepEqual(personal, { who: 'shinatama', what: 'TEAM revision 2, set by the user in Shinatama.', kind: 'team', tag: 'to claude-1' });
+  assert.deepEqual(eventLine(event('6', { actor: 'shinatama', recipients: [], text: 'TEAM revision 2.' })).tag, 'notice');
+  // A person called shinatama-ish, and the user, stay chat lines.
+  assert.equal(eventLine(event('7', { actor: 'shinatama-2', text: 'hi' })).kind, 'message');
+  assert.equal(eventLine(event('8', { actor: 'user', text: 'hi' })).kind, 'message');
+});

@@ -55,6 +55,8 @@ export type WorksetSidebarOptions = {
     set: (thread: Readonly<WorksetSummary>, enabled: boolean) => Promise<void>;
     open: (thread: Readonly<WorksetSummary>) => void;
   };
+  /** The thread's team map (the arrows between its agents), offered beside Chat on a thread whose sessions talk. */
+  team?: { open: (thread: Readonly<WorksetSummary>) => void };
   names?: (threadIds: readonly string[]) => Promise<unknown>;
   loadState?: () => Promise<unknown>;
   saveState?: (state: Readonly<ThreadSidebarState>) => Promise<void>;
@@ -322,6 +324,11 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
         chat.onclick = () => { const actual = rows.find(candidate => candidate.id === row.id); if (actual) options.chat!.open(Object.freeze({ ...actual })); };
         item.append(chat);
       }
+      if (options.team) {
+        const team = node('button', 'thread-sidebar-team', 'Team'); team.type = 'button';
+        team.onclick = () => { const actual = rows.find(candidate => candidate.id === row.id); if (actual) options.team!.open(Object.freeze({ ...actual })); };
+        item.append(team);
+      }
       const more = node('button', 'thread-sidebar-more', '⋯'); more.type = 'button'; more.setAttribute('aria-controls', 'thread-sidebar-details');
       more.onclick = () => { toggleDetails(row.id); };
       item.append(more);
@@ -352,6 +359,11 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
       const talking = options.chat!.enabled(row.id) && !row.archived; const unread = talking && options.chat!.unread(row.id);
       chat.hidden = !talking; chat.toggleAttribute('data-unread', unread);
       chat.title = `Conversation of ${name}${unread ? ' · new messages' : ''}`; chat.setAttribute('aria-label', chat.title);
+    }
+    const team = item.querySelector<HTMLButtonElement>('.thread-sidebar-team');
+    if (team) {
+      team.hidden = !(options.chat?.enabled(row.id) && !row.archived);
+      team.title = `Team map of ${name}: who gives work to whom`; team.setAttribute('aria-label', team.title);
     }
     const more = item.querySelector<HTMLButtonElement>('.thread-sidebar-more')!;
     more.title = `Settings of ${name}`; more.setAttribute('aria-label', more.title); more.setAttribute('aria-expanded', String(expanded === row.id));

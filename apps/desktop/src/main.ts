@@ -35,6 +35,7 @@ import { createHopPreview, type HopPreview } from './hop-preview.ts';
 import { createFilesPanel } from './files-panel.ts';
 import { createBrowserTabs, type BrowserTarget } from './browser-tab.ts';
 import './browser-tab.css';
+import { createTeamMap, teamViewId } from './team-map.ts';
 import { classifyTarget, findLinksInRows, hoverText, type CellText } from './terminal-links.ts';
 import { createProjectsOverview } from './projects-overview.ts';
 import { createLeftoversPanel } from './leftovers-panel.ts';
@@ -310,6 +311,37 @@ const browserTabs = createBrowserTabs({
   channel: onFrame => { const channel = new Channel<ArrayBuffer>(); channel.onmessage = onFrame; return channel; },
   notify: message => notify(message),
 });
+/** ADR-0058: the team map of a thread, a pane view of its own (a resource of kind team) that lists beside the thread's tabs. */
+const teamMap = createTeamMap({
+  invoke: (command, args) => desktop ? invoke(command, args) : Promise.reject('Open the desktop app to use the team map.'),
+  title: id => threadSidebar?.title(id) ?? 'Thread',
+  harnessLabel: id => harnessLabel(id),
+  focusSession: id => { void focusThreadSession(id); },
+});
+const isTeamView = (id: string) => workspaceLayout.views.find(panel => panel.id === id)?.resource.kind === 'team';
+/** Opens the thread's team map: one per thread. The first one of the layout gets a column beside the focused pane; later ones join that pane. */
+function openTeamTab(thread: { id: string; projectId?: string }) {
+  try {
+    const opened = teamMap.open(thread);
+    bindings.set(opened.viewId, opened.element);
+    const present = workspaceLayout.views.find(panel => panel.id === opened.viewId);
+    if (present) {
+      const group = tabGroups(workspaceLayout.root).find(candidate => candidate.tabs.includes(opened.viewId));
+      if (present.hidden) changeLayout({ type: 'hide', viewId: opened.viewId, hidden: false });
+      if (group) { changeLayout({ type: 'collapse', groupId: group.id, collapsed: false }); changeLayout({ type: 'activate', groupId: group.id, viewId: opened.viewId }); setFocus(group.id, false); teamMap.focus(opened.viewId); }
+      render(); return;
+    }
+    const view = { id: opened.viewId, resource: { kind: 'team' as const, resourceId: opened.viewId }, hidden: false };
+    const home = tabGroups(workspaceLayout.root).find(group => group.tabs.some(id => isTeamView(id)));
+    const focused = tabGroups(workspaceLayout.root).find(group => group.id === focusedGroup());
+    if (home) changeLayout({ type: 'add-view', groupId: home.id, view });
+    else if (focused && focused.tabs.length) changeLayout({ type: 'split', groupId: focused.id, view, axis: 'columns', side: 'after', newGroupId: `g-${opened.viewId}`, newSplitId: `s-${opened.viewId}` });
+    else changeLayout({ type: 'add-view', groupId: focusedGroup(), view });
+    const group = tabGroups(workspaceLayout.root).find(candidate => candidate.tabs.includes(opened.viewId));
+    if (group) { changeLayout({ type: 'activate', groupId: group.id, viewId: opened.viewId }); setFocus(group.id, false); }
+  } catch (error) { notify(error); }
+}
+function closeTeamTab(viewId: string) { bindings.delete(viewId); teamMap.close(viewId); changeLayout({ type: 'remove-view', viewId }); }
 /** Opens a page or a local HTML document in a browser tab of its own (ADR-0056). The first one
  *  of the layout gets a column beside the focused pane; later ones join that pane as tabs. */
 async function openBrowserTab(target: BrowserTarget, viewId?: string) {
@@ -328,14 +360,14 @@ async function openBrowserTab(target: BrowserTarget, viewId?: string) {
 const renderer = createWorkspaceRenderer({
   host: workspace, bindings,
   dispatch(action, expected) { if (expected === workspaceLayout) changeLayout(action); },
-  onFocusView(id) { currentWorkset = tabWorkset(id)?.id ?? currentWorkset; threadSidebar?.repaint(); if (modalOpen()) return; if (browserTabs.has(id)) browserTabs.focus(id); else views.get(id)?.terminal.focus(); },
-  onVisibilityChange(id, visible) { if (browserTabs.has(id)) { browserTabs.setVisible(id, visible); return; } const view = views.get(id); if (view) { view.visible = visible; if (visible) { scheduleFit(view); view.minimap.redraw(); } } },
-  labelForView: panel => panel.resource.kind === 'browser' ? browserTabs.label(panel.id) : tabLabel(panel.id),
+  onFocusView(id) { currentWorkset = tabWorkset(id)?.id ?? currentWorkset; threadSidebar?.repaint(); if (modalOpen()) return; if (browserTabs.has(id)) browserTabs.focus(id); else if (teamMap.has(id)) teamMap.focus(id); else views.get(id)?.terminal.focus(); },
+  onVisibilityChange(id, visible) { if (browserTabs.has(id)) { browserTabs.setVisible(id, visible); return; } if (teamMap.has(id)) { teamMap.setVisible(id, visible); return; } const view = views.get(id); if (view) { view.visible = visible; if (visible) { scheduleFit(view); view.minimap.redraw(); } } },
+  labelForView: panel => panel.resource.kind === 'browser' ? browserTabs.label(panel.id) : panel.resource.kind === 'team' ? teamMap.label(panel.id) : tabLabel(panel.id),
   toneForView: panel => panel.resource.kind === 'terminal' ? tabTone(panel.id) : null,
   tabFilter() {
     const project = tabFilter?.current();
     // Browser tabs belong to the thread, not to a project: the filter never hides them.
-    return project ? { label: folderName(project), shows: panel => { if (panel.resource.kind === 'browser') return true; const view = views.get(panel.id); return !!view && samePath(view.info.cwd, project); } } : null;
+    return project ? { label: folderName(project), shows: panel => { if (panel.resource.kind === 'browser' || panel.resource.kind === 'team') return true; const view = views.get(panel.id); return !!view && samePath(view.info.cwd, project); } } : null;
   },
   isInputBlocked: modalOpen,
   onError: () => notify('That layout change is unavailable. The current workspace was preserved.'),
@@ -344,9 +376,11 @@ const renderer = createWorkspaceRenderer({
     if (workspaceLayout.views.find(panel => panel.id === id)?.resource.kind === 'browser') {
       bindings.delete(id); void browserTabs.close(id); changeLayout({ type: 'remove-view', viewId: id }); return;
     }
+    if (isTeamView(id)) { closeTeamTab(id); return; }
     void closePanel(id);
   },
-  placeholderFor: panel => panel.resource.kind === 'browser' ? browserTabs.placeholder(panel.id, target => { void openBrowserTab(target, panel.id); }) : savedSessionCard(panel.id),
+  placeholderFor: panel => panel.resource.kind === 'browser' ? browserTabs.placeholder(panel.id, target => { void openBrowserTab(target, panel.id); })
+    : panel.resource.kind === 'team' ? teamMap.placeholder(panel.id, thread => openTeamTab(thread)) : savedSessionCard(panel.id),
 });
 const resizeObserver = new ResizeObserver(entries => {
   for (const entry of entries) { const view = [...views.values()].find(view => view.element === entry.target); if (view) scheduleFit(view); }
@@ -890,6 +924,7 @@ async function showWorkset(target: WorksetScope): Promise<boolean> {
 async function hideWorksets(ids: readonly string[]): Promise<boolean> {
   if (!openWorksets.some(workset => ids.includes(workset.id))) return true;
   openWorksets = openWorksets.filter(workset => !ids.includes(workset.id)); if (currentWorkset && ids.includes(currentWorkset)) currentWorkset = null;
+  for (const id of ids) if (workspaceLayout.views.some(panel => panel.id === teamViewId(id))) closeTeamTab(teamViewId(id));
   await refreshMembers(); rememberSessions(); render(); threadSidebar?.repaint();
   return true;
 }
@@ -1052,6 +1087,7 @@ threadSidebar = createWorksetSidebar({
     set: (thread, enabled) => setThreadChat(thread, enabled),
     open: thread => { threadChat?.open({ id: thread.id, projectId: thread.projectId }); threadSidebar?.repaint(); },
   } : undefined,
+  team: desktop ? { open: thread => openTeamTab({ id: thread.id, projectId: thread.projectId }) } : undefined,
   openId: () => activeWorkset()?.id ?? null,
   running: id => [...views.values()].filter(view => view.workset?.id === id && !view.ended && !view.disposed).length,
   // Never while a session starts: a name read and a launch share the same worker capacity.

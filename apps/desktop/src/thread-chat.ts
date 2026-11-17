@@ -104,6 +104,7 @@ export function createThreadChat(options: Options) {
       const at = new Date(event.timestamp); time.textContent = Number.isNaN(at.valueOf()) ? '' : at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const who = el('span', 'thread-chat-who', line.who); if (event.actor === 'user') who.dataset.user = '';
       const what = el('p', 'thread-chat-text', line.what);
+      if (line.tag) { const tag = el('span', 'thread-chat-tag', line.tag); who.append(' ', tag); }
       item.append(time, who, what); return item;
     }));
     empty.hidden = shown.length > 0;

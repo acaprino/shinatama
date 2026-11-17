@@ -38,6 +38,11 @@
 #thread-chat-panel .thread-chat-event[data-kind="presence"] .thread-chat-text,
 #thread-chat-panel .thread-chat-event[data-kind="presence"] .thread-chat-who { color: var(--muted); font-size: 11px; }
 #thread-chat-panel .thread-chat-event[data-kind="signal"] .thread-chat-text { color: var(--warning); }
+/* The team's notices: Shinatama telling a session its place, drawn apart from what the sessions and the user write. */
+#thread-chat-panel .thread-chat-event[data-kind="team"] { padding-left: 8px; border-left: 2px solid var(--live); }
+#thread-chat-panel .thread-chat-event[data-kind="team"] .thread-chat-who { color: var(--live); }
+#thread-chat-panel .thread-chat-event[data-kind="team"] .thread-chat-text { font: 12px/1.5 var(--mono); color: var(--text-2); }
+#thread-chat-panel .thread-chat-tag { display: inline-block; margin-left: 4px; padding: 0 5px; border: 1px solid currentColor; font: 11px var(--mono); }
 #thread-chat-panel .thread-chat-empty { margin: 8px 0; font-size: 12px; color: var(--muted); }
 #thread-chat-panel .thread-chat-empty[hidden] { display: none; }
 #thread-chat-panel .thread-chat-compose { flex: none; display: grid; gap: 4px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
