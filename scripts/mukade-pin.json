@@ -1,24 +1,24 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/acaprino/mukade",
-  "revision": "31feb1e97a05caa268c2cc3b003d05297db14ec3",
-  "tree": "54f6fbd4779edc6ee0b54023ae87d0fe5abe44bf",
-  "cargoTomlSha256": "e9e8dc4d14597d9535d00d901ceca48720cfc304aa7d56f38ad2c9401b1ff915",
-  "sourceFilesSha256": "d6a0b388b7e3a5c534a268b7e432ba3e40866d80517962ac004b2d3e71ccc598",
+  "revision": "1d2950a0c4b0f7c982edc748dc18200b7ac58351",
+  "tree": "f6ce0ae72bba70ed7d17934709d73a73a7a21694",
+  "cargoTomlSha256": "78164735ec78ead93eb9b2c2a6225f549bfc3a394f3f891d2d5c19893301b2e9",
+  "sourceFilesSha256": "2b149596f4cccaf5b59c094068ded3de89794bbf11a90da8c6742db796c3f617",
   "sourceFilesOrder": "ordinal relative-path, UTF-8 path TAB lowercase SHA256, LF separators",
-  "fileCount": 374,
+  "fileCount": 379,
   "buildPreparation": "cargo fetch --locked",
   "reviewedSnapshotPreparation": "pwsh -NoProfile -File scripts/mukade-pin.ps1 -Repository <explicit-git-mirror>",
-  "offlineSnapshot": ".verification/mukade-pin-31feb1e",
+  "offlineSnapshot": ".verification/mukade-pin-1d2950a",
   "runtimeUsesCheckout": false,
   "metadataWorkerQualification": "contained-synthetic-metadata-passed",
   "metadataUiQualification": "explicit-read-only-archive-53-synthetic-rows-passed",
   "release": {
     "repository": "acaprino/mukade",
-    "tag": "v0.1.0",
-    "commit": "31feb1e97a05caa268c2cc3b003d05297db14ec3",
+    "tag": "v0.1.1",
+    "commit": "1d2950a0c4b0f7c982edc748dc18200b7ac58351",
     "assets": {
-      "mukade-tui.exe": "f46d2aa82456cc847e36787cee4706fd39fe8dbbc871c3c68243e70d5bc29ca1"
+      "mukade-tui.exe": "8252126d3830173f08d09e095fb442ac8e5d1f12050a352342a413135dd998e2"
     }
   }
 }

@@ -26,7 +26,7 @@ use std::{
     time::Duration,
 };
 
-pub const MUKADE_REVISION: &str = "31feb1e97a05caa268c2cc3b003d05297db14ec3";
+pub const MUKADE_REVISION: &str = "1d2950a0c4b0f7c982edc748dc18200b7ac58351";
 pub const MAX_REQUEST_BYTES: usize = 8192;
 pub const MAX_REPLY_BYTES: usize = 256 * 1024;
 pub const MAX_ROWS: usize = 50;

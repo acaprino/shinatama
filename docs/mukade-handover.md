@@ -42,7 +42,7 @@ mukade = { git = "https://github.com/acaprino/mukade", tag = "v0.1.0", default-f
 `shinatama-engine` links it behind its `session-reader` feature, and `MUKADE_REVISION`
 (`session_roots.rs`) carries the same value into the metadata worker protocol. The reviewed source
 is exported offline by `scripts/mukade-pin.ps1` (manifest `scripts/mukade-pin.json`, snapshot
-`.verification/mukade-pin-31feb1e`). Updating the pin requires rechecking the API, harness
+`.verification/mukade-pin-1d2950a`). Updating the pin requires rechecking the API, harness
 versions and acceptance evidence. A Shinatama `.stx.jsonl`
 export (engine 5.5.1) is a separate proposed format, not Mukade's interchange JSON; no direct
 compatibility or automatic redaction between them is assumed.
@@ -358,6 +358,17 @@ no reader for either, so section 9 is unchanged. Open in Mukade's own
 paginated threads (0.165) read from hand-made files only, Codex subagent threads not linked to
 their root, native compaction records never written by a portable hop, the 100 MB read not
 re-measured after the speed work. CX10 and SS2 inherit them.
+
+## 8b. The pin advance to `1d2950a` (2026-11-17)
+
+`1d2950a0c4b0f7c982edc748dc18200b7ac58351`, Mukade `main` and tag `v0.1.1`, the first release made by the
+shared release workflow. Between `31feb1e` and it: the chat service gains a second credential,
+`host-credential`, read only by `mukade chat` for `join --host`, `set-role` and `retire` (an agent holds the
+member credential and cannot use them); members carry `host` (bus schema 4) and a host member's messages are
+delivered to a model as the user's. Nothing Shinatama calls was removed or renamed; the rest is build and
+release scripts. Rechecked: the workspace builds with `--locked`, `crates/mukade/tests/pin.rs` holds, and the
+digest of the exported source (379 files) was computed again the way `scripts/mukade-pin.ps1` does.
+The pin test requires the pin's commit to be the commit of a release, so a pin advance waits for one.
 
 ## 9. Hermes Agent and DeepSeek Harness (requested 2026-10-31)
 
