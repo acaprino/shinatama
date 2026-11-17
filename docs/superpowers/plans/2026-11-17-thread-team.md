@@ -12,17 +12,22 @@
 
 ## Scope of this plan
 
-Steps 0 to 3 of the spec's order of work, in four phases. Steps 4 and 5 (a model per agent,
-opening and tying OpenCode and Pi, `shinatama_session_open` for them) get their own plan after
-phase 3, because they start with facts not yet known: how the installed OpenCode and Pi take a
-first message, and how a launch overrides `Snapshot::selected`.
+The whole of the spec, in five phases. OpenCode and Pi are in from phase 1: the owner wants this
+for them.
 
 | Phase | Repository | Delivers |
 |---|---|---|
 | 0 | `D:\Projects\mukade`, branch `develop` | host members, `set-role`, `retire`; then Shinatama's pin moved |
-| 1 | Shinatama | formation logic, state, map for existing Claude Code and Codex sessions, Apply, messages |
+| 1 | Shinatama | OpenCode and Pi members tied to their tabs; formation logic, state, the map for the sessions a thread has (all four programs), Apply, messages |
 | 2 | Shinatama | templates; agents without a session, filled by dropping a session |
-| 3 | Shinatama | Apply opens Claude Code and Codex sessions for agents without one |
+| 3 | Shinatama | a model per agent; a first message for OpenCode and Pi; Apply opens the sessions agents lack |
+| 4 | Shinatama | `shinatama_session_open` for OpenCode and Pi; the skill |
+
+Facts read on 2026-11-17 on this machine (`--help` only; none run yet): OpenCode 2.2.5 has
+`--prompt <text>` and `--session <id>` ("to continue, or to create if it does not exist"); Pi 1.4.0
+takes trailing `[messages...]`, `--session-id <id>` ("creating it if missing"), `--provider` and
+`--model`. A launch may pass at most 32 arguments (`crates/terminal/src/protocol.rs`,
+`MAX_LAUNCH_ARGUMENTS`).
 
 ## Global Constraints
 
@@ -127,6 +132,24 @@ Read first: `src/bus/chat_mutation.rs` (`prepare`, `finish`, `join`, `send`), `s
 | `apps/desktop/src/team-map-model.ts` (new) | Parsing of the IPC payloads; pure edits of a draft; geometry; `tidy`; `arrange`. |
 | `apps/desktop/src/team-map.ts`, `team-map.css` (new) | The view: cards, arrows, boxes, drag and drop, bar. |
 | `apps/desktop/src/main.ts`, `workset-sidebar.ts` | The pane kind and the Team button. |
+| `crates/engine/src/opencode_launch.rs`, `pi_launch.rs`, `apps/desktop/src-tauri/src/agents/opencode.rs`, `pi.rs` | A native session id chosen at launch and recorded. |
+
+### Task 0: OpenCode and Pi members are tied to their tabs
+
+**Files:**
+- Modify: `crates/engine/src/opencode_launch.rs` (`OpenCodeStartContext`, `fixed_arguments`), `crates/engine/src/pi_launch.rs` (`PiStartContext`, the argument list near line 566), `apps/desktop/src-tauri/src/agents/opencode.rs`, `apps/desktop/src-tauri/src/agents/pi.rs` (record the id as `agents/claude.rs:148-153` records the one it gives `ClaudeSessionOperation::start_new`), `apps/desktop/src-tauri/src/thread_chat.rs` (`MANUAL_HARNESSES` stays the two with Shinatama's tools; the tie in `project` and `thread_chat_overview` already goes through `hooked_member` for any session with a recorded native id)
+- Test: the launch modules' own tests; `thread_chat.rs` tests
+
+**Interfaces:**
+- Both start contexts gain `pub native_id: &'a str`. OpenCode's arguments become `--standalone --session <id>`; Pi's gain `--session-id <id>`.
+- Produces: `Database::workset_native_sessions` returns a row for an OpenCode or Pi session opened from now on, so `hooked_member(state, session, harness, native, room)` finds its member.
+
+- [ ] **Step 1: Verify with the real programs, before any code.** In a scratch folder outside the repository, with the thread's switch on in a throwaway thread: start OpenCode by hand with Shinatama's kit environment and `--session <candidate>`, try a UUID first; type one prompt; read Mukade's adapter record (`<Shinatama data>\mukade\…`, the path `mukade_chat::adapter_member` reads) and note the session id it is keyed by. The same for Pi with `--session-id`. Write what each accepted and reported in `docs/verification/2026-11-…-opencode-pi-session-id.md`. **If either does not report the id it was given, stop: tell the owner, and replace this task by the exclusion rule of spec section 9.**
+- [ ] **Step 2: Failing tests.** `opencode_starts_with_the_session_id_it_is_given` and `pi_starts_with_the_session_id_it_is_given` (the prepared launch's arguments contain the flag and the id, in the form step 1 found; the count stays within `MAX_LAUNCH_ARGUMENTS` at the fullest launch, chat and Marionette on); in `thread_chat.rs`, `an_opencode_member_is_tied_by_its_recorded_native_session` (replaces `opencode_and_pi_are_launched_into_the_room_without_claiming_a_member`: with an adapter record for the session's native id, `project` gives `connection: "in_room"`, the member's name and its `sessionId`).
+- [ ] **Step 3: Run** `cargo test -p shinatama-engine opencode_launch pi_launch && cargo test -p shinatama-desktop thread_chat` — expected: FAIL.
+- [ ] **Step 4: Implement.**
+- [ ] **Step 5: Run** — expected: PASS. Open an OpenCode session from the window in a talking thread: the Conversation panel names its member beside the tab.
+- [ ] **Step 6: Commit** `feat(chat): an OpenCode or Pi member is tied to its tab`.
 
 ### Task 1: The formation, roles and checks
 
@@ -140,7 +163,11 @@ Read first: `src/bus/chat_mutation.rs` (`prepare`, `finish`, `join`, `send`), `s
 pub struct Formation { pub revision: u64, pub agents: Vec<Agent>, pub links: Vec<Link> }
 pub struct Agent { pub id: String,            // "a_" + 12 of [a-z2-7], made by the window
                    pub session: Option<String>, // a session of the thread ("t_…"), or none yet
+                   pub model: Option<ModelRef>, // what an agent without a session is opened with
                    pub name: String, pub notes: String, pub share: Share, pub x: i32, pub y: i32 }
+/// A choice of the model menu. `connection` and `model` absent: the program's own sign-in and model.
+pub struct ModelRef { pub program: String,     // "claude_code" | "codex" | "opencode" | "pi"
+                      pub connection: Option<String>, pub model: Option<String> }
 pub enum Share { Split, Same, Free }             // default Split
 pub struct Link { pub from: String, pub to: String, pub kind: Kind, pub report: Report, pub words: String }
 pub enum Kind { Work, Observes }
@@ -157,7 +184,7 @@ pub fn mukade_role(f: &Formation, agent: &str) -> MukadeRole;
 pub fn check(f: &Formation, stopped: &BTreeSet<String>) -> Vec<Issue>;
 ```
 
-Issue codes: `loop`, `only_executes`, `observer_writes`, `two_leads`, `two_givers` (warning), `stopped` (warning). (`no_model` arrives in the later plan.) Rules and role table: spec sections 3 and 4.
+Issue codes: `loop`, `only_executes`, `observer_writes`, `two_leads`, `no_model` (an agent with neither a session nor a model), `two_givers` (warning), `stopped` (warning). Rules and role table: spec sections 3 and 4.
 
 - [ ] **Step 1: Failing tests**, with the spec's values:
 
@@ -305,7 +332,8 @@ The worker: for each talking thread with a record, build `seats` from `thread_ch
 
 ```ts
 export type Share = 'split' | 'same' | 'free'; export type Kind = 'work' | 'observes'; export type Report = 'done' | 'steps' | 'strict';
-export type Agent = { id: string; session: string | null; name: string; notes: string; share: Share; x: number; y: number };
+export type ModelRef = { program: string; connection: string | null; model: string | null };
+export type Agent = { id: string; session: string | null; model: ModelRef | null; name: string; notes: string; share: Share; x: number; y: number };
 export type Link = { from: string; to: string; kind: Kind; report: Report; words: string };
 export type Formation = { revision: number; agents: Agent[]; links: Link[] };
 export type Issue = { level: 'error' | 'warning'; code: string; text: string; agents: string[]; links: number[] };
@@ -351,8 +379,8 @@ Accessibility and skin: every action reachable from the keyboard (cards and arro
 ### Task 9: With real agents
 
 - [ ] **Step 1:** Build and copy the executables over `D:\Software\Shinatama` in place (no backup).
-- [ ] **Step 2:** Run ADR-0057's confirmation, then: a thread that is on, one Claude Code and one Codex session; put both on the map; Claude gives work to Codex, at every step; Apply. Record in `docs/verification/2026-11-…-team-map.md` the text each session received, that the heading says it comes from the user, the wake counts before and after, and that a third session not concerned stayed asleep on a later change.
-- [ ] **Step 3:** Change the arrow to `observes`, Apply: Codex is refused `chat_send`, and `chat_observe` of Claude works.
+- [ ] **Step 2:** Run ADR-0057's confirmation, then: a thread that is on, one Claude Code session and one OpenCode session whose model is `janura-qwen`, both opened by hand; put both on the map; Claude gives work to OpenCode, at every step; Apply. Then say to Claude only "have the implementer run docs/plans/<a small plan>" and watch it reach OpenCode. Repeat the Apply with a Codex and a Pi session added. Record in `docs/verification/2026-11-…-team-map.md` the text each session received, that the heading says it comes from the user, the wake counts before and after, and that a third session not concerned stayed asleep on a later change.
+- [ ] **Step 3:** Draw `observes` from Codex to Claude, Apply: Codex is refused `chat_send`, and `chat_observe` of Claude works. Make OpenCode "only done / blocked": it answers with a signal, and Claude's role in the room is `lead`.
 - [ ] **Step 4:** Restart Shinatama, resume both: neither is told again; change one word, Apply: both ends are told once.
 - [ ] **Step 5:** Record what failed as it failed. Set ADR-0058 Accepted only if the owner approves its text.
 
@@ -389,36 +417,106 @@ export function fromTemplate(t: Template, width: number, id: () => string): Form
 export function fillAgent(f: Formation, agent: string, session: string): Formation;       // the session takes the agent's place, name and arrows
 export function miniature(t: Template): { cards: Point[]; lines: { a: Point; b: Point; kind: Kind }[] };  // in a 64 × 40 box
 ```
-The view: a Templates menu (list with miniature, agent count, Use, delete; a name field and "Save this team", disabled on an empty map or an error); **+ New agent**; an agent without a session drawn hatched with "no session yet"; a session dropped on it fills it. In this phase Apply is disabled while an agent has no session, with the reason "Drop a session on <name>, or take it off the map" (phase 3 lifts this for Claude Code and Codex).
+The view: a Templates menu (list with miniature, agent count, Use, delete; a name field and "Save this team", disabled on an empty map or an error); **+ New agent**; an agent without a session drawn hatched with "no session yet"; a session dropped on it fills it. In this phase Apply is disabled while an agent has no session, with the reason "Drop a session on <name>, or take it off the map" (phase 3 lifts this).
 
 - [ ] **Step 1: Failing tests** `a_template_gets_new_ids_and_fits_the_width`, `a_session_dropped_on_an_agent_takes_its_arrows`, `a_miniature_stays_in_its_box`; the smoke test gains: save, see it listed after a restart of the window, use it in another thread, fill by dropping.
 - [ ] **Step 2–4:** run, implement, run. **Step 5: Commit** `feat(desktop): team templates on the map`.
 
 ---
 
-## Phase 3 — Apply opens Claude Code and Codex sessions
+## Phase 3 — A model per agent, and Apply opens the sessions
 
-### Task 12: An agent says which program it wants
+### Task 12: A launch with the agent's model
 
-**Files:** `crates/engine/src/team.rs` (`Agent.program: Option<String>`, `check` code `no_program`: an agent without a session and without a program is an error; a program other than `claude_code` or `codex` is the error `cannot_open_yet` in this phase), `team-map-model.ts` and the card's box (a menu "Claude Code · its own sign-in and model" / "Codex · its own sign-in and model"; the later plan turns this menu into the model menu of spec section 7).
+**Files:**
+- Modify: `crates/engine/src/model_config.rs`, `crates/engine/src/opencode_launch.rs` (near line 641), `crates/engine/src/pi_launch.rs` (near line 547), their start contexts
+- Test: the three modules' own tests
 
-- [ ] **Step 1: Failing tests** `an_agent_without_a_session_needs_a_program`, `a_running_agent_keeps_its_program` (the field is ignored when `session` is set). **Step 2–4:** run, implement, run. **Step 5: Commit** `feat(team): an agent without a session says what runs it`.
+**Interfaces — Produces:**
 
-### Task 13: Apply opens the sessions
+```rust
+impl Snapshot {
+    /// The same configuration with one program's selection replaced, for one launch. `None`:
+    /// the program's own sign-in and model, whatever the Models panel assigns.
+    pub fn with_selection(self, harness: Harness, selection: Option<Selection>) -> Result<Snapshot, String>;
+}
+```
+It fails when the connection or the model is no longer in the configuration ("The model <id> is no longer in the Models panel."). `OpenCodeStartContext` and `PiStartContext` gain `pub model: Option<Option<&'a Selection>>` (outer `None`: the panel's assignment, as today).
 
-**Files:** `apps/desktop/src-tauri/src/thread_team.rs` (`team_apply`), `apps/desktop/src-tauri/src/agents.rs` (reuse `open_collaboration`), `apps/desktop/src-tauri/src/collaboration.rs` (the event the window already listens to), `team-map.ts`.
+- [ ] **Step 1: Failing tests** `one_launch_takes_another_selection_and_the_panel_keeps_its_own`, `a_removed_model_is_refused_by_name`, `pi_passes_the_agent_s_model` (the prepared arguments hold `--provider <alias>` `--model <id>` of the override), `opencode_s_configuration_holds_the_agent_s_model` (the inline configuration built by `Snapshot::opencode`), `no_override_launches_as_before` (arguments and configuration equal today's).
+- [ ] **Step 2: Run** `cargo test -p shinatama-engine model_config opencode_launch pi_launch` — expected: FAIL. **Step 3: Implement.** **Step 4: Run** — expected: PASS.
+- [ ] **Step 5: Commit** `feat(models): one launch can take its own model`.
+
+### Task 13: A first message for OpenCode and Pi
+
+**Files:** `crates/engine/src/opencode_launch.rs`, `crates/engine/src/pi_launch.rs`, their contexts and tests.
+
+**Interfaces:** both start contexts gain `pub initial_prompt: Option<&'a str>`, at most 8192 bytes, no NUL, as `collaboration.rs` bounds it. OpenCode: `--prompt <text>`. Pi: `--` then the text as the last argument, after every option.
+
+- [ ] **Step 1: Verify with the real programs first:** by hand, `opencode --standalone --prompt "say only: ready"` and `pi -- "say only: ready"` open the interactive interface and run that turn. Add what happened to the verification note of task 0. **If one does not, stop and tell the owner.**
+- [ ] **Step 2: Failing tests** `opencode_takes_its_first_message`, `pi_takes_its_first_message_last` (the text is the final argument and follows `--`), `a_first_message_with_a_nul_or_over_8192_bytes_is_refused`, `the_fullest_launch_stays_within_32_arguments` (chat on, Marionette on, model override, session id, first message; both programs).
+- [ ] **Step 3: Run** — expected: FAIL. **Step 4: Implement.** **Step 5: Run** — expected: PASS.
+- [ ] **Step 6: Commit** `feat(launch): OpenCode and Pi start with a first message`.
+
+### Task 14: The model menu and its checks
+
+**Files:** `crates/engine/src/team.rs`, `apps/desktop/src-tauri/src/thread_team.rs`, `apps/desktop/src/team-map-model.ts`, `team-map.ts`.
 
 **Interfaces:**
-- `team_apply` opens, one after another, a session per agent without one through `Controller::open_collaboration(program, host, project, prompt, true, Some(workset))`, sets `agent.session` to the returned thread id, emits `collaboration-session-opened` as `collaboration.rs` does, then stores. The first message is built by `team::opening(agent_name, room_name) -> String`: "You are <name> in this thread's team. The thread's Mukade room is <room>. Your role and relations arrive there from the user, through the member shinatama. Wait for them before acting."
-- A launch that fails stops the opening, stores the formation with the sessions opened so far, and returns `{ formation, failed: { agent, reason } }`: the map shows the reason on that card and Apply reads "Open 1 session and apply" again.
+- `team_get` and `team_evaluate` take the configured models from `model_config::current()` and report `no_model` (error) for an agent without a session and without a model, and `model_gone` (error) for a model the panel no longer holds; `check` gains the parameter `models: &BTreeSet<(String, Option<String>, Option<String>)>` (program, connection, model) for that.
+- `team_get` answers `models: [{ program, connection, model, label }]`: the four "its own sign-in and model" entries first, then each model of each connection OpenCode or Pi can use, once per program; `label` is `"<model> · runs in <Program>"`.
+- The card's box: a menu of those for an agent without a session; for a running one the model and program, fixed. The card shows `<model> · via <Program>`.
+- `fromTemplate` keeps a template's model only if `models` holds it; otherwise the agent has none.
+
+- [ ] **Step 1: Failing tests** `an_agent_without_a_session_needs_a_model`, `a_model_no_longer_configured_is_an_error_naming_it`, `a_running_agent_s_model_is_not_checked`, `a_template_s_missing_model_leaves_the_agent_without_one` (TypeScript).
+- [ ] **Step 2–4:** run, implement, run (`cargo test -p shinatama-engine team:: && npm test`). **Step 5: Commit** `feat(team): an agent's model, chosen from the Models panel`.
+
+### Task 15: Apply opens the sessions
+
+**Files:** `apps/desktop/src-tauri/src/agents.rs` (`open_collaboration` refuses everything but Claude Code and Codex at line 496: a new `open_agent` beside it), `apps/desktop/src-tauri/src/agents/service.rs`, `agents/opencode.rs`, `agents/pi.rs` (pass `model` and `initial_prompt` into the start contexts), `apps/desktop/src-tauri/src/thread_team.rs` (`team_apply`), `crates/engine/src/team.rs`, `team-map.ts`.
+
+**Interfaces — Produces:**
+
+```rust
+/// Opens a session of `program` in `workset`, with the agent's model and first message.
+pub async fn open_agent(self: &Arc<Self>, program: &str, host: Arc<TerminalHost>, project: PathBuf,
+    model: Option<Selection>, own_model: bool, initial_prompt: String, workset: String) -> Result<AgentStarted, &'static str>;
+/// "You are <name> in this thread's team. The thread's Mukade room is <room>. Your role and
+/// relations arrive there from the user, through the member shinatama. Wait for them before acting."
+pub fn opening(agent_name: &str, room_name: &str) -> String;   // in team.rs
+```
+- `team_apply` opens, one after another, a session for each agent without one, sets `agent.session` to the returned thread id, emits `collaboration-session-opened` as `collaboration.rs` does, then stores and wakes the announcer.
+- A launch that fails stops the opening, stores the formation with the sessions opened so far, and answers `{ formation, failed: { agent, reason } }`: the map shows the reason on that card and Apply reads "Open 1 session and apply" again.
+- The thread's switch must be on (it is, or the map would not open); the Mukade service must be reachable before the first launch, else nothing is opened.
 - The window's Apply button reads "Open N sessions and apply" when N agents have none.
 
-- [ ] **Step 1: Failing tests** on the pure sequencing, with the opener as a closure: `sessions_are_opened_before_the_formation_is_stored`, `a_failed_opening_keeps_what_was_opened_and_names_the_agent`, `an_agent_opened_once_is_not_opened_again_on_retry`.
-- [ ] **Step 2–4:** run, implement, run. The smoke test gains: a template used in an empty thread, Apply, two tabs appear.
-- [ ] **Step 5: Verify with real agents** (as task 9): use the template "Plan, build, review" with Claude Code and Codex only, Apply, each new session says its role unprompted. Record it. Commit `feat(team): Apply opens the sessions an agent lacks`.
+- [ ] **Step 1: Failing tests** on the pure sequencing, with the opener as a closure: `sessions_are_opened_before_the_formation_is_stored`, `a_failed_opening_keeps_what_was_opened_and_names_the_agent`, `an_agent_opened_once_is_not_opened_again_on_retry`, `nothing_is_opened_while_the_service_is_unreachable`.
+- [ ] **Step 2–4:** run, implement, run. The smoke test gains: a template used in an empty thread, Apply, the tabs appear.
+- [ ] **Step 5: Verify with real agents.** In an empty thread of another project, use a template whose agents are Claude Code (its own model) and OpenCode on `janura-qwen`; Apply. Record: both tabs open; OpenCode lists and uses `janura-qwen` although the Models panel assigns OpenCode something else; each session states its role unprompted after its first message; the Conversation panel ties each member to its tab. Then the same with a Pi and a Codex agent. Record what failed as it failed.
+- [ ] **Step 6: Commit** `feat(team): Apply opens the sessions an agent lacks`.
+
+---
+
+## Phase 4 — An agent opens OpenCode or Pi
+
+### Task 16: `shinatama_session_open` for all four programs
+
+**Files:** `crates/engine/src/session_control.rs` (the check at line 405, the schema at line 442, the tool's description), `apps/desktop/src-tauri/src/collaboration.rs` (`open`, `initial_prompt`), `.claude/skills/mukade-collaborate/SKILL.md`, `references/mcp-contract.md`.
+
+**Interfaces:**
+- `harness` accepts `claude_code`, `codex`, `opencode`, `pi`; the default stays `claude_code`; an explicit harness is never replaced by another.
+- For `opencode` and `pi`: the caller's thread must have its switch on and `room_id` must be that thread's room, else `failed` with "An OpenCode or Pi session joins a room only in a thread whose sessions talk to each other. Turn it on in the thread's settings."; the launch goes through `open_agent` with the program's own or assigned model.
+- Their bootstrap leaves out `shinatama_thread_peers` and the manual `chat_join` path (they have neither), and says: the kit has joined you; send READY to the coordinator named here.
+- The session is created in the caller's thread and is not put on the map.
+
+- [ ] **Step 1: Failing tests** `opencode_and_pi_are_accepted_and_an_unknown_harness_is_not` (extends `defaults_to_claude_but_never_substitutes_explicit_codex`), `a_kit_session_is_refused_in_a_thread_that_does_not_talk`, `the_kit_bootstrap_names_no_tool_the_session_lacks` (the text holds neither `shinatama_thread_peers` nor `chat_join`).
+- [ ] **Step 2–4:** run (`cargo test -p shinatama-engine session_control && cargo test -p shinatama-desktop collaboration`), implement, run.
+- [ ] **Step 5:** Update the skill and its contract: the four harnesses, the `team` object, the member `shinatama`, roles set by the host, OpenCode and Pi tied to their tabs. Remove "un peer con `chat: \"none\"` (OpenCode, Pi) non ha strumenti Mukade".
+- [ ] **Step 6: Verify with real agents:** in a talking thread, tell a Claude Code session "open an OpenCode session and have it run <a small plan>"; it opens, READY arrives, the task is delivered, RESULT comes back. Record it. Commit `feat(collaboration): an agent can open OpenCode and Pi sessions`.
 
 ---
 
 ## Not in this plan
 
-A model per agent and the per-launch override of `Snapshot::selected`; a first message for OpenCode and Pi; tying their members (spec section 9); `shinatama_session_open` for them. To be planned after phase 3, starting from a verification task for each unknown listed in the spec's "To verify".
+Changing the model of a running session; resuming an OpenCode or Pi session (the id chosen at
+launch makes it possible, but it is its own piece of work); sharing templates between computers.

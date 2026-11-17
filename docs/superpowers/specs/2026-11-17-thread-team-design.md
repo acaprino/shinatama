@@ -219,33 +219,51 @@ Shinatama tools: they know the formation from the personal message, which carrie
 ### 7. Models
 
 The model menu lists what the Models panel holds, each entry naming the program that runs it:
-"Claude Code · its own sign-in and model", "Codex · its own sign-in and model", and each model of
-a connection that OpenCode or Pi can use (`crates/engine/src/model_config.rs`: `Assignments` has
-`opencode` and `pi`; Claude Code and Codex have no model setting in Shinatama today). A model both
-OpenCode and Pi can run appears once per program.
+"Claude Code · its own sign-in and model", "Codex · its own sign-in and model", "OpenCode · its own
+sign-in and model", "Pi · its own sign-in and model", and each model of a connection that OpenCode
+or Pi can use (`crates/engine/src/model_config.rs`: `Assignments` has `opencode` and `pi`; Claude
+Code and Codex have no model setting in Shinatama today). A model both OpenCode and Pi can run
+appears once per program.
 
-A launch for an agent uses the agent's model instead of the program's "Model for new sessions"
-(`Snapshot::selected`). The Models panel's assignment stays the default for sessions the user opens
-by hand.
+A launch for an agent uses the agent's model instead of the program's "Model for new sessions":
+both launchers read `model_config::current()` and its `selected(harness)`, OpenCode into its
+inline configuration (`Snapshot::opencode`), Pi into `--provider` and `--model`. The Models
+panel's assignment stays the default for sessions the user opens by hand.
 
 ### 8. Opening a session for an agent
 
 Shinatama opens the session in the agent's thread through the launcher that already owns each
 program's launch, with a first message naming the agent, the room and where its role will come
-from. Claude Code and Codex already take a first message (`with_initial_prompt` in
-`claude_launch.rs` and `codex_launch.rs`). OpenCode and Pi do not (`opencode_launch.rs`,
-`pi_launch.rs`), and OpenCode's kit joins the room only at its first prompt: for them this work
-includes passing the first message as the program's own initial prompt, verified against the
-installed CLI. Per AGENTS.md no program version is gated.
+from. All four programs take one from the command line:
+
+| Program | First message | Read where |
+|---|---|---|
+| Claude Code | `with_initial_prompt` | `claude_launch.rs`, in use by `shinatama_session_open` |
+| Codex | `with_initial_prompt` | `codex_launch.rs`, in use |
+| OpenCode | `--prompt <text>` | `opencode --help`, 2.2.5 installed, 2026-11-17; not yet run |
+| Pi | the trailing `[messages...]` argument | `pi --help`, 1.4.0 installed, 2026-11-17; not yet run |
+
+OpenCode's kit joins the room only at its first prompt, so without the first message an OpenCode
+session opened by Shinatama would sit outside the room until the user typed. Per AGENTS.md no
+program version is gated: a version that refuses the argument makes that one launch fail with its
+reason.
 
 ### 9. Tying an OpenCode or Pi member to its session
 
-Mukade names the member and Shinatama records no native session for these programs, so the tie is
-made by exclusion: when a kit launch of session S into room R is recorded
-(`mukade_chat::note_launch`), the first member of that program that joins R afterwards and is tied
-to no session belongs to S, provided S is the only untied kit launch of that program waiting in R.
-When two wait at once, neither is tied automatically and the card offers the room's untied members
-of that program. The tie is stored with the formation and can be corrected from the card.
+Mukade's adapter keeps a member per native session (`mukade_chat::adapter_member(base, harness,
+native)`), which is how a Claude Code or Codex member is tied to its tab: Shinatama chose or
+recorded the native id (`ClaudeSessionOperation::start_new(uuid)`). OpenCode and Pi are not tied
+today only because Shinatama records no native session for them.
+
+Both programs accept an id chosen by the launcher: OpenCode `--session <id>` ("Session ID to
+continue, or to create if it does not exist"), Pi `--session-id <id>` ("Use exact project session
+ID, creating it if missing"). Shinatama passes one, records it as the session's native id, and the
+member is then tied exactly as for the other two.
+
+This holds only if the id the program reports to Mukade's plugin is the one passed; it is the
+first thing verified. If it is not, the fallback is by exclusion: the first member of that program
+that joins the room after a recorded kit launch, tied to no session, belongs to it when it is the
+only one waiting; when two wait at once the card offers the room's untied members of that program.
 
 ### 10. Templates
 
@@ -309,17 +327,22 @@ These are made in Mukade first, in its repository and by its rules; Shinatama's 
 
 ## Order of work
 
-0. The three changes in Mukade; the pin moved.
-1. The formation: state, roles, checks, sentences; the map for the sessions a thread already has;
-   Apply, the messages, telling a session that joins; `team` in `shinatama_thread_peers`. Claude
-   Code and Codex, whose members are already tied.
-2. Templates, and agents without a session filled by dropping a session on them.
-3. Opening a session for an agent, Claude Code and Codex.
-4. A model per agent; opening OpenCode and Pi; tying their members.
-5. `shinatama_session_open` for OpenCode and Pi; the skill.
+OpenCode and Pi are the reason the owner wants this (2026-11-17: "opencode e pi adesso, è il
+motivo per cui lo voglio"), so nothing about them is left for later.
 
-Each step is usable on its own and verified with real agents before the next. The confirmation of
-ADR-0057 itself ("Not yet run on Windows with real agents") is a prerequisite of step 1.
+0. The three changes in Mukade; the pin moved.
+1. OpenCode and Pi sessions get a native id Shinatama chooses, so their members are tied. The
+   formation: state, roles, checks, sentences; the map for the sessions a thread already has, of
+   all four programs; Apply, the messages, telling a session that joins; `team` in
+   `shinatama_thread_peers`.
+2. Templates, and agents without a session filled by dropping a session on them.
+3. A model per agent; a first message for OpenCode and Pi; Apply opens the sessions agents lack,
+   for all four programs.
+4. `shinatama_session_open` for OpenCode and Pi; the skill.
+
+Each step is usable on its own and verified with real agents before the next, always including an
+OpenCode session on `janura-qwen`. The confirmation of ADR-0057 itself ("Not yet run on Windows
+with real agents") is a prerequisite of step 1.
 
 ## To verify before building on it
 
@@ -329,7 +352,10 @@ ADR-0057 itself ("Not yet run on Windows with real agents") is a prerequisite of
   makes them (read in the source only).
 - That OpenCode and Pi take the observer and worker roles through the kit (their hook reads
   `MUKADE_CHAT_ROLE`; read in the source only).
-- How OpenCode and Pi take a first message from the command line, on the installed versions.
+- That OpenCode honours `--session <id>` for a new session and reports that id to Mukade's plugin,
+  and which form of id it accepts; the same for Pi's `--session-id`.
+- That `--prompt` (OpenCode) and a trailing message (Pi) start the first turn in the interactive
+  interface, so the kit joins the room at once.
 - Whether 10 wakes for a member's whole life are enough with formation messages drawing on them.
 - Whether one model may run in more than one program in the owner's set-up (section 7 assumes it
   may, and lists it once per program).
