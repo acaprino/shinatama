@@ -67,6 +67,8 @@ pub fn in_flight(target: &AdminTarget) -> Option<u64> {
 #[serde(rename_all = "camelCase")]
 pub struct ResolvedBaseline {
     pub prompt_rewrite_mode: Option<String>,
+    /// `compress.visibilityMarkers`: absent means the sidecar's default, which is on.
+    pub visibility_markers: Option<bool>,
     pub tiers: Option<bool>,
     pub absorb_enabled: Option<bool>,
     pub absorb_min_tool_tokens: Option<u64>,
@@ -100,6 +102,7 @@ pub fn baseline_from_config_value(config: &Value) -> ResolvedBaseline {
     let steering = &compress["outputSteering"];
     ResolvedBaseline {
         prompt_rewrite_mode: prompt_rewrite_mode(config, root),
+        visibility_markers: compress["visibilityMarkers"].as_bool(),
         tiers: compress["tiers"].as_bool(),
         absorb_enabled: absorb["enabled"].as_bool(),
         absorb_min_tool_tokens: absorb["minToolTokens"].as_u64(),
@@ -341,6 +344,7 @@ mod tests {
         assert_eq!(parsed.verbosity_level, Some(2));
         assert_eq!(parsed.effort_routing, Some(false));
         assert_eq!(parsed.prompt_rewrite_mode.as_deref(), Some("auto"));
+        assert_eq!(parsed.visibility_markers, Some(false));
         assert_eq!(parsed.tiers, Some(true));
         assert_eq!(parsed.absorb_enabled, Some(true));
         assert_eq!(parsed.absorb_min_tool_tokens, Some(4000));
@@ -376,6 +380,7 @@ mod tests {
             baseline_from_config_value(&served),
             ResolvedBaseline {
                 prompt_rewrite_mode: Some("auto".into()),
+                visibility_markers: Some(false),
                 tiers: Some(true),
                 absorb_enabled: Some(true),
                 absorb_min_tool_tokens: Some(4000),
@@ -427,6 +432,7 @@ mod tests {
         assert_eq!(parsed.ccr_min_tool_tokens, None);
         assert_eq!(parsed.verbosity_level, None);
         assert_eq!(parsed.tiers, None);
+        assert_eq!(parsed.visibility_markers, None);
         let empty = baseline_from_config_value(&serde_json::json!({}));
         assert_eq!(empty.adaptive_max_tokens, None);
         assert_eq!(empty.effort_routing, None);

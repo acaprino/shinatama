@@ -143,6 +143,7 @@ fn config_differences(resolved: Option<&ResolvedBaseline>) -> Vec<ConfigDifferen
         }
     }
     check(&mut out, "Prompt rewrite", &resolved.prompt_rewrite_mode, &baseline.prompt_rewrite_mode);
+    check(&mut out, "Proxy messages in the conversation", &resolved.visibility_markers, &baseline.visibility_markers);
     check(&mut out, "Tiers", &resolved.tiers, &baseline.tiers);
     check(&mut out, "Absorb", &resolved.absorb_enabled, &baseline.absorb_enabled);
     check(&mut out, "Absorb minimum tool tokens", &resolved.absorb_min_tool_tokens, &baseline.absorb_min_tool_tokens);
@@ -776,15 +777,18 @@ mod tests {
         resolved.verbosity_level = Some(3);
         resolved.effort_routing = Some(true);
         resolved.ccr_min_tool_tokens = None;
+        // A configuration written before FRD-0009 R31 has no visibilityMarkers key.
+        resolved.visibility_markers = None;
         let found = config_differences(Some(&resolved));
         let line = |setting: &str| {
             let item = found.iter().find(|item| item.setting == setting).expect(setting);
             (item.read.as_str(), item.baseline.as_str())
         };
-        assert_eq!(found.len(), 3);
+        assert_eq!(found.len(), 4);
         assert_eq!(line("Verbosity level"), ("3", "2"));
         assert_eq!(line("Effort routing"), ("true", "false"));
         assert_eq!(line("Large-result storage minimum tool tokens"), ("not reported", "4000"));
+        assert_eq!(line("Proxy messages in the conversation"), ("not reported", "false"));
     }
 
     #[test]

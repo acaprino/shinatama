@@ -165,6 +165,9 @@ fn baseline(root: &Path, port: NonZeroU16) -> Result<Vec<u8>, ConfigError> {
         "storage": { "unified": "full", "backend": "sqlite", "sqliteAutoDownload": false },
         "promptRewrite": { "mode": "auto" },
         "compress": {
+            // FRD-0009 R31: the proxy writes nothing into an agent's conversation —
+            // no acp_status report, no compress/decompress confirmation lines.
+            "visibilityMarkers": false,
             "tiers": true,
             "absorb": { "enabled": true, "minToolTokens": 4000 },
             "ccr": { "enabled": true, "minToolTokens": 4000 },
@@ -189,6 +192,7 @@ fn baseline(root: &Path, port: NonZeroU16) -> Result<Vec<u8>, ConfigError> {
 pub fn intended_baseline() -> crate::sidecar_admin::ResolvedBaseline {
     crate::sidecar_admin::ResolvedBaseline {
         prompt_rewrite_mode: Some("auto".to_owned()),
+        visibility_markers: Some(false),
         tiers: Some(true),
         absorb_enabled: Some(true),
         absorb_min_tool_tokens: Some(4000),
@@ -238,6 +242,7 @@ mod tests {
         assert_eq!(value["port"], 8787);
         assert_eq!(value["storage"]["unified"], "full");
         assert_eq!(value["storage"]["sqliteAutoDownload"], false);
+        assert_eq!(value["compress"]["visibilityMarkers"], false);
         assert_eq!(value["compress"]["ccr"]["minToolTokens"], 4000);
         assert_eq!(value["compress"]["outputSteering"]["effortRouting"], false);
         assert_eq!(value["compress"]["adaptivePressure"]["enabled"], true);
