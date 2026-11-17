@@ -1,6 +1,6 @@
 # Thread team: who is in a thread, in what role, and telling the sessions
 
-Design, 2026-11-17. Status: awaiting the owner's approval. Builds on ADR-0055 (a thread is a set
+Design, 2026-11-17. Status: approach C and the changes to Mukade decided by the owner. Builds on ADR-0055 (a thread is a set
 of sessions) and ADR-0057 (the sessions of a thread talk through its Mukade room). The
 implementation needs a new ADR (next free number: 0058).
 
@@ -155,8 +155,8 @@ When each is sent:
 
 A hooked member never leaves the room by itself: the adapter does not call `leave`, and Shinatama
 may not read its handle (ADR-0057 INV-002). Without the Mukade change below, the member of a
-closed session stays listed in Mukade; the formation, not Mukade's member list, says who is in
-the team, and the notice tells the others.
+closed session would stay listed in Mukade; with it, Shinatama retires the member when the
+session is closed. Either way the formation, not Mukade's member list, says who is in the team.
 
 A member not in the room at Apply is told when it joins; its row says so until then. A send that
 fails is retried at the next check, never more than once per check; a timeout is "uncertain" and
@@ -191,11 +191,11 @@ followed (`mukade/src/chat/adapter.rs`, `role_rules` and the bind after the firs
 - OpenCode and Pi too: their kit runs `mukade chat hook` with the inherited environment
   (`chat/kits/hook.js`), which reads the role (`adapter.rs`, `Settings::from_vars`). Read in the
   source, not yet run.
-- Mukade as pinned fixes the role at the member's first join: the adapter reuses its stored
+- Mukade as pinned today fixes the role at the member's first join: the adapter reuses its stored
   state, role included, while the room is the same, `rejoin` copies the role, and no operation
-  changes it. So without the Mukade change below, access can be chosen only for a session that
-  has not joined yet; for one that has, the menu is disabled and says why. The panel's "Observes
-  from its next resume" line in the sketch above holds only with that change.
+  changes it. With the Mukade change below, Shinatama changes the member's role at Apply and the
+  session is told in its personal message; the adapter takes the new role at its next turn or, if
+  Mukade can only apply it at a join, at the session's next resume, which the row then says.
 
 ### 6. Tying an OpenCode or Pi member to its session
 
@@ -225,7 +225,7 @@ it appears in "Add" for the user.
 The `mukade-collaborate` skill and its `references/mcp-contract.md` are updated to match
 (harnesses, the `team` object, the `shinatama` member, the observer role).
 
-## Changes to Mukade (the owner's decision, open)
+## Changes to Mukade (decided by the owner, 2026-11-17: Mukade may be changed)
 
 Mukade is the owner's own project, pinned by revision (`scripts/mukade-pin.json`). Three things
 above cannot be done properly with the pinned revision:
@@ -236,10 +236,9 @@ above cannot be done properly with the pinned revision:
 2. **Changing a member's role** (peer ↔ observer) for a member that already joined, by the host.
 3. **The host retiring a member** whose session was closed.
 
-With them, steps 1 and 2 meet their goals fully. Without them, step 1 relies on wording alone
-(an agent may discount the formation), access is choosable only before the first join, and closed
-sessions stay listed in Mukade. Recommended: make the three changes in Mukade first, bump the
-pin, then build.
+These are made in Mukade first, in its own repository and by its own rules; Shinatama's pin
+(`scripts/mukade-pin.json`, the dependency and `MUKADE_REVISION`, kept equal by a test) is then
+moved to that revision, and the Team work builds on it. They are step 0 of the order of work.
 
 ## Constraints
 
@@ -253,6 +252,7 @@ pin, then build.
 
 ## Order of work
 
+0. The three changes in Mukade, and the pin moved.
 1. State, Team view, Apply, the `shinatama` member, personal and notice messages, join detection,
    `team` in `shinatama_thread_peers` — for Claude Code and Codex (their members are already tied).
 2. Observe-only access.
