@@ -17,6 +17,7 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), String> {
     let services = app.state::<Arc<storage::Services>>().inner().clone();
     session_control::install_threads(Arc::new(thread_peers::Peers { services }))
         .map_err(|_| "The thread tools are already installed.".to_owned())?;
+    crate::team_announcer::start(app)?;
     let app = app.clone();
     std::thread::Builder::new().name("session-launch-requests".into()).spawn(move || {
         // Sessions opened from now on find the chat tools of the bundled Mukade.
@@ -44,6 +45,7 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), String> {
 /// At exit: the chat service Shinatama started must not outlive it, or its program
 /// file stays locked in the install folder.
 pub fn stop(app: &tauri::AppHandle) {
+    crate::team_announcer::stop();
     if let Some(state) = app.state::<Arc<storage::Services>>().ready() {
         shinatama_engine::mukade_mcp::stop_owned(&state.location);
     }

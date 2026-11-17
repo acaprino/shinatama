@@ -195,7 +195,7 @@ pub async fn team_get(
             .unwrap_or_default();
         let facts = thread_chat::session_facts(state, &request.workset_id, room.as_deref())?;
         let sessions = thread_chat::project(room.as_deref().unwrap_or_default(), &members, &[], &facts)["sessions"].clone();
-        Ok(answer(&record, &thread, sessions, &BTreeMap::new()))
+        Ok(answer(&record, &thread, sessions, &crate::team_announcer::refusals(&request.workset_id)))
     })
     .await
 }

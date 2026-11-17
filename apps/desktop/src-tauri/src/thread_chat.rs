@@ -34,12 +34,13 @@ const MAX_OVERVIEW: usize = 64;
 const DRAWN: &[&str] = &["message", "signal", "join", "rejoin", "leave", "close", "reopen"];
 const NEWS: &[&str] = &["message", "signal"];
 
-/// The person's member handle in each room, for this run only: it is a credential and
-/// stays in memory. After a restart it is recovered with `rejoin`, which rotates it.
+/// The handles of the host members (the person's `user` and Shinatama's `shinatama`) in each room,
+/// by (room, member name), for this run only: a handle is a credential and stays in memory.
+/// After a restart it is recovered with `rejoin`, which rotates it.
 /// `unread` remembers, per room, the answer for the last (revision, seen event) pair.
 #[derive(Default)]
 pub struct Controller {
-    user: Mutex<BTreeMap<String, String>>,
+    hosts: Mutex<BTreeMap<(String, String), String>>,
     unread: Mutex<BTreeMap<String, (String, String, bool)>>,
 }
 
@@ -588,14 +589,7 @@ pub async fn thread_chat_send(
             }
             mukade_chat::call(&state.location, "send", &arguments, Some(&request.text))
         };
-        let cached = controller.user.lock().ok().and_then(|users| users.get(&room).cloned());
-        let sent = match cached {
-            Some(handle) => match send(&handle) {
-                Err(reason) if stale_handle(&reason) => send(&user_handle(state, &controller, &room)?),
-                other => other,
-            },
-            None => send(&user_handle(state, &controller, &room)?),
-        };
+        let sent = as_host(state, &controller, &room, USER_MEMBER, send);
         let sent = sent.map_err(|reason| {
             forget_room(state, &request.workset_id);
             if reason.contains("did not finish in time") {
@@ -609,24 +603,56 @@ pub async fn thread_chat_send(
     .await
 }
 
-/// Join as `user`, or recover that member after a restart. Never another member.
-fn user_handle(state: &WorkspaceServices, controller: &Controller, room: &str) -> Result<String, String> {
+/// Act as the host member `name` (`user` or `shinatama`) of `room`: with the handle kept
+/// for this run, or one made by `host_handle`. See `with_recovery` for what is repeated.
+pub(crate) fn as_host<T>(
+    state: &WorkspaceServices,
+    controller: &Controller,
+    room: &str,
+    name: &str,
+    act: impl Fn(&str) -> Result<T, String>,
+) -> Result<T, String> {
+    let cached = controller.hosts.lock().ok().and_then(|hosts| hosts.get(&(room.to_owned(), name.to_owned())).cloned());
+    with_recovery(cached, act, || host_handle(state, controller, room, name))
+}
+
+/// `act` with `cached`; a handle Mukade refused (another run rotated it, or it no longer names a
+/// member) is replaced once by `recover` and `act` repeated, since nothing was recorded. Any other
+/// failure is returned as it is, a timeout too: whether it happened is for the caller to find out.
+fn with_recovery<T>(
+    cached: Option<String>,
+    act: impl Fn(&str) -> Result<T, String>,
+    recover: impl FnOnce() -> Result<String, String>,
+) -> Result<T, String> {
+    match cached {
+        Some(handle) => match act(&handle) {
+            Err(reason) if stale_handle(&reason) => act(&recover()?),
+            other => other,
+        },
+        None => act(&recover()?),
+    }
+}
+
+/// What `mukade chat join` is given for a host member: the flag that makes it the host's (the
+/// program reads the host's credential itself) and the harness name Mukade asks every member for.
+fn host_join<'a>(request_id: &'a str, room: &'a str, name: &'a str) -> [(&'a str, &'a str); 6] {
+    [("request-id", request_id), ("room-id", room), ("harness", USER_HARNESS), ("role", "peer"), ("name", name), ("host", "")]
+}
+
+/// Join as the host member `name`, or recover that member after a restart (`rejoin` keeps its
+/// mark). Never another member: only one that holds this name under Shinatama's harness.
+fn host_handle(state: &WorkspaceServices, controller: &Controller, room: &str, name: &str) -> Result<String, String> {
     let request_id = uuid::Uuid::new_v4().to_string();
-    let joined = mukade_chat::call(
-        &state.location,
-        "join",
-        &[("request-id", &request_id), ("room-id", room), ("harness", USER_HARNESS), ("role", "peer"), ("name", USER_MEMBER)],
-        None,
-    );
+    let joined = mukade_chat::call(&state.location, "join", &host_join(&request_id, room, name), None);
     let answer = match joined {
         Ok(answer) => answer,
         Err(reason) if reason.contains("member_name_taken") => {
             let (members, _) = listing(state, "members", &[("room-id", room)])?;
             let member_id = members
                 .iter()
-                .find(|member| member["name"] == USER_MEMBER && member["harness"] == USER_HARNESS)
+                .find(|member| member["name"] == name && member["harness"] == USER_HARNESS)
                 .and_then(|member| member["member_id"].as_str())
-                .ok_or("The room's user member belongs to someone else.")?
+                .ok_or_else(|| format!("The room's {name} member belongs to someone else."))?
                 .to_owned();
             let request_id = uuid::Uuid::new_v4().to_string();
             mukade_chat::call(&state.location, "rejoin", &[("request-id", &request_id), ("room-id", room), ("member-id", &member_id)], None)?
@@ -638,8 +664,8 @@ fn user_handle(state: &WorkspaceServices, controller: &Controller, room: &str) -
         .filter(|handle| uuid::Uuid::parse_str(handle).is_ok())
         .ok_or("Mukade did not return the member.")?
         .to_owned();
-    if let Ok(mut users) = controller.user.lock() {
-        users.insert(room.to_owned(), handle.clone());
+    if let Ok(mut hosts) = controller.hosts.lock() {
+        hosts.insert((room.to_owned(), name.to_owned()), handle.clone());
     }
     Ok(handle)
 }
@@ -714,6 +740,50 @@ mod tests {
         let members = [json!({"member_id":"m2","name":"codex-bbbbbbbbbbbb","harness":"codex","role":"peer","left_at":null})];
         let sessions = [SessionFacts { summary: summary("t_bbbbbbbbbbbb", Some("codex"), ThreadStatus::Inactive), adapter: None, launched: false }];
         assert_eq!(project("r", &members, &[], &sessions)["sessions"][0]["connection"], "not_connected");
+    }
+
+    #[test]
+    fn a_host_member_joins_with_the_host_flag_under_the_name_it_is_given() {
+        let joined = host_join("req", "room", "shinatama");
+        for pair in [("host", ""), ("name", "shinatama"), ("harness", "shinatama"), ("role", "peer"), ("room-id", "room")] {
+            assert!(joined.contains(&pair), "{pair:?}");
+        }
+        assert!(host_join("req", "room", "user").contains(&("name", "user")));
+    }
+
+    #[test]
+    fn a_refused_host_handle_is_recovered_once_and_nothing_else_is_repeated() {
+        use std::cell::Cell;
+        let stale = || Err::<String, String>("stale_member: The member handle is stale".to_owned());
+        // A handle another run rotated: recovered, and the act repeated once with the new one.
+        let recovered = Cell::new(0);
+        let acted = with_recovery(Some("old".into()), |handle| if handle == "old" { stale() } else { Ok(handle.to_owned()) }, || {
+            recovered.set(recovered.get() + 1);
+            Ok("new".into())
+        });
+        assert_eq!((acted, recovered.get()), (Ok("new".to_owned()), 1));
+        // A recovered handle that is refused again is reported, not recovered again.
+        let recovered = Cell::new(0);
+        let acted = with_recovery(Some("old".into()), |_| stale(), || {
+            recovered.set(recovered.get() + 1);
+            Ok("new".into())
+        });
+        assert!(acted.is_err());
+        assert_eq!(recovered.get(), 1);
+        // Any other failure, a timeout among them, is returned as it is: nothing is sent twice.
+        let tries = Cell::new(0);
+        let acted: Result<String, String> = with_recovery(Some("h".into()), |_| {
+            tries.set(tries.get() + 1);
+            Err("Mukade chat send did not finish in time.".into())
+        }, || Ok("new".into()));
+        assert_eq!((acted.is_err(), tries.get()), (true, 1));
+        // No handle yet: one is made, and used once.
+        let tries = Cell::new(0);
+        let acted = with_recovery(None, |handle| {
+            tries.set(tries.get() + 1);
+            Ok(handle.to_owned())
+        }, || Ok("made".into()));
+        assert_eq!((acted, tries.get()), (Ok("made".to_owned()), 1));
     }
 
     #[test]
