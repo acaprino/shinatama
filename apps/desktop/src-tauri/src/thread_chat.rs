@@ -738,8 +738,30 @@ mod tests {
     }
 
     #[test]
-    fn opencode_and_pi_are_launched_into_the_room_without_claiming_a_member() {
-        // A Pi member in the room is not tied to the Pi session: its native session is not recorded.
+    fn an_opencode_member_is_tied_by_its_recorded_native_session() {
+        // The launch chose the native id and recorded it, so Mukade's adapter record for it names the
+        // member: the session is in the room, with that member, and the member shows its tab.
+        let members = [
+            json!({"member_id":"m8","name":"opencode-1","harness":"opencode","role":"peer","left_at":null}),
+            json!({"member_id":"m9","name":"pi-1","harness":"pi","role":"peer","left_at":null}),
+        ];
+        let tied = |member: &str, name: &str| Some(AdapterMember { room_id: "r".into(), member_id: member.into(), name: name.into(), role: "peer".into(), wakes: 2 });
+        let sessions = [
+            SessionFacts { summary: summary("t_oooooooooooo", Some("opencode"), ThreadStatus::RecordedOpen), adapter: tied("m8", "opencode-1"), launched: true },
+            SessionFacts { summary: summary("t_pppppppppppp", Some("pi"), ThreadStatus::RecordedOpen), adapter: tied("m9", "pi-1"), launched: true },
+        ];
+        let view = project("r", &members, &[], &sessions);
+        for (row, session, member) in [(0, "t_oooooooooooo", "opencode-1"), (1, "t_pppppppppppp", "pi-1")] {
+            assert_eq!(view["sessions"][row]["connection"], "in_room");
+            assert_eq!(view["sessions"][row]["memberName"], member);
+            assert_eq!(view["sessions"][row]["wakes"], 2);
+            assert_eq!(view["members"][row]["sessionId"], session);
+        }
+    }
+
+    #[test]
+    fn an_opencode_or_pi_session_without_a_recorded_native_id_claims_no_member() {
+        // A session opened before its id was recorded: its member in the room is not tied to it.
         let members = [json!({"member_id":"m9","name":"pi-1","harness":"pi","role":"peer","left_at":null})];
         let sessions = [
             SessionFacts { summary: summary("t_pppppppppppp", Some("pi"), ThreadStatus::RecordedOpen), adapter: None, launched: true },
