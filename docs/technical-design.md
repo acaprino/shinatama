@@ -675,17 +675,17 @@ probed the harnesses using an external converter, not this current API. **No thi
 converter is used** (the user's decision of 2026-10-27;
 it replaces the earlier plan to link an external converter).
 
-- **Spec:** [`session-interchange-spec.md`](https://github.com/acaprino/mukade/blob/master/docs/session-interchange-spec.md) — the `Session` model
+- **Spec:** [`session-interchange-spec.md`](https://github.com/acaprino/mukade/blob/main/docs/session-interchange-spec.md) — the `Session` model
   (semantic core + each source record kept verbatim) and the reader requirements are what
   Shinatama consumes. The writer requirements, the hop options (compaction modes, resume prompt,
   reasoning policy) and their live evidence describe the closed write route and are preserved in
   [the handover record](mukade-handover.md).
-- **Tools:** [`tool-conversion-tables.md`](https://github.com/acaprino/mukade/blob/master/docs/tool-conversion-tables.md) — the write-side tool
+- **Tools:** [`tool-conversion-tables.md`](https://github.com/acaprino/mukade/blob/main/docs/tool-conversion-tables.md) — the write-side tool
   mapping (the destination's equivalent tool where one exists, else text); part of the closed
   route, dated tables.
 - **Evidence:** H27 (the probe record of 2026-10-27, since removed from Mukade's documentation
   in its reorganization; its current records are indexed in
-  [docs/README.md](https://github.com/acaprino/mukade/blob/master/docs/README.md#verification-records);
+  [docs/README.md](https://github.com/acaprino/mukade/blob/main/docs/README.md#verification-records);
   bench in `verify/H27/`): native
   record shapes of the four agents, what each sends to the model on resume and after its own
   compaction, and how each destination reacts to wrongly shaped sessions. Mukade's own tests

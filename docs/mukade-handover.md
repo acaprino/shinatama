@@ -15,10 +15,10 @@ reasoning proofs, on top of the OpenCode listing, `SourceChanged`, `WriteUncerta
 destination ids/paths required by the Sessions and recovery design. Updating the pin still
 requires rechecking the complete API, harness versions and acceptance evidence. Shinatama uses
 only read-side Mukade APIs through its adapters; native writes are out of scope in every
-version (ADR-0016 v2, Accepted 2026-11-04). The upstream [README](https://github.com/acaprino/mukade/blob/master/README.md),
-[specification](https://github.com/acaprino/mukade/blob/master/docs/session-interchange-spec.md),
-[usage guide](https://github.com/acaprino/mukade/blob/master/docs/usage.md) and
-[open points](https://github.com/acaprino/mukade/blob/master/next.md) remain authoritative for
+version (ADR-0016 v2, Accepted 2026-11-04). The upstream [README](https://github.com/acaprino/mukade/blob/main/README.md),
+[specification](https://github.com/acaprino/mukade/blob/main/docs/session-interchange-spec.md),
+[usage guide](https://github.com/acaprino/mukade/blob/main/docs/usage.md) and
+[open points](https://github.com/acaprino/mukade/blob/main/next.md) remain authoritative for
 later Mukade versions. Shinatama's [engine design](technical-design.md#6-the-hop) owns the user
 journey and transaction semantics.
 
@@ -245,15 +245,15 @@ native sessions, indexes or leftovers.
 
 - H27 (its record was removed from Mukade's documentation in the reorganization of commit
   `5ea6bd6`; Mukade's current records are indexed in its
-  [docs/README.md](https://github.com/acaprino/mukade/blob/master/docs/README.md#verification-records))
+  [docs/README.md](https://github.com/acaprino/mukade/blob/main/docs/README.md#verification-records))
   is a harness probe, including 36/36 reported writes/resumes and four destination-native
   compactions in that scenario. It used an external converter as a probe; it does not validate
   Shinatama's future in-process integration.
-- [Summary live record](https://github.com/acaprino/mukade/blob/master/docs/verification/source-model-summary-live.md)
+- [Summary live record](https://github.com/acaprino/mukade/blob/main/docs/verification/source-model-summary-live.md)
   reports real source-model summary hops from Claude, Pi and OpenCode; Codex used a mock because
   the real account hit its usage limit. Claude hooks did change side files. The result is scoped
   to those versions, sessions and configurations, not all pairs or providers.
-- Mukade's [open points](https://github.com/acaprino/mukade/blob/master/next.md) include real
+- Mukade's [open points](https://github.com/acaprino/mukade/blob/main/next.md) include real
   Codex summary and encrypted-reasoning checks, provider-specific reasoning validation, large
   sessions, native compaction records, Codex multi-page history and subagent linkage. The recorded
   Codex quota reset date is historical, not evidence of a successful subsequent run.
@@ -354,7 +354,7 @@ capability serves hosts that write OpenCode sessions, such as JanuraCode's sessi
 
 Hermes Agent and DeepSeek Harness remain at Mukade's ADR-0002 (read-first proposal): the pin has
 no reader for either, so section 9 is unchanged. Open in Mukade's own
-[`next.md`](https://github.com/acaprino/mukade/blob/master/next.md) and relevant here: Codex
+[`next.md`](https://github.com/acaprino/mukade/blob/main/next.md) and relevant here: Codex
 paginated threads (0.165) read from hand-made files only, Codex subagent threads not linked to
 their root, native compaction records never written by a portable hop, the 100 MB read not
 re-measured after the speed work. CX10 and SS2 inherit them.
