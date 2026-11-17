@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CARD, addSession, arrange, borderPoint, changed, connect, newAgentId, parseEvaluation, parseTeam, pendingLinks, removeAgent, tidy,
-  type Agent, type Evaluation, type Formation, type Link,
+  CARD, MIN_WIDTH, addAgent, addSession, arrange, borderPoint, changed, connect, emptyAgent, fillAgent, fromTemplate, miniature, newAgentId, parseEvaluation,
+  parseTeam, parseTemplates, pendingLinks, removeAgent, tidy,
+  type Agent, type Evaluation, type Formation, type Link, type Template,
 } from '../src/team-map-model.ts';
 
 const agent = (id: string, extra: Partial<Agent> = {}): Agent => ({
@@ -285,4 +286,99 @@ test('parse refuses what is not a team', () => {
   }
   assert.equal(parseEvaluation(null), null);
   assert.equal(parseEvaluation({ roles: {}, issues: [] }), null);
+});
+
+// ----------------------------------------------------------------------------------------------------------- templates
+const sample = (extra: Partial<Template> = {}): Template => ({
+  id: 'tm_aaaaaaaaaaaa', name: 'Review',
+  agents: [agent('boss', { x: 400, y: 30, notes: 'plans' }), agent('left', { x: 120, y: 200, name: 'Left' }), agent('right', { x: 700, y: 200, name: 'Right' }), agent('watch', { x: 960, y: 90 })],
+  links: [link('boss', 'left'), link('boss', 'right', { report: 'strict', words: 'go' }), link('watch', 'boss', { kind: 'observes' })], ...extra,
+});
+const counter = () => { let n = 0; return () => `a_${String(n++).padStart(12, 'x')}`; };
+
+test('a template gets new ids and fits the width', () => {
+  const t = sample();
+  const f = fromTemplate(t, 900, counter());
+  assert.equal(f.revision, 0);
+  assert.equal(f.agents.length, 4);
+  const old = new Set(t.agents.map((a) => a.id));
+  assert.ok(f.agents.every((a) => !old.has(a.id) && a.session === null), 'new ids, no session');
+  assert.deepEqual(f.agents.map((a) => a.name), ['boss', 'Left', 'Right', 'watch']);
+  assert.equal(f.agents[0].notes, 'plans');
+  // The arrows follow the new ids and keep their settings.
+  assert.deepEqual(f.links.map((l) => [l.from, l.to, l.kind, l.report, l.words]), [
+    [f.agents[0].id, f.agents[1].id, 'work', 'done', ''], [f.agents[0].id, f.agents[2].id, 'work', 'strict', 'go'], [f.agents[3].id, f.agents[0].id, 'observes', 'done', ''],
+  ]);
+  // Every card is inside the width, on the grid of the template, and no two overlap.
+  for (const width of [900, 640, MIN_WIDTH, 300]) {
+    const g = fromTemplate(t, width, counter()), total = Math.max(width, MIN_WIDTH);
+    assert.ok(g.agents.every((a) => a.x >= 0 && a.y >= 0 && a.x + CARD.width <= total), `inside ${width}: ${JSON.stringify(g.agents.map((a) => [a.x, a.y]))}`);
+    assert.deepEqual(closeCards(Object.fromEntries(g.agents.map((a) => [a.id, { x: a.x, y: a.y }]))), [], `no overlap at ${width}`);
+  }
+  // A template that already fits keeps its shape: the same distances between the cards.
+  const wide = fromTemplate(t, 1600, counter());
+  assert.equal(wide.agents[2].x - wide.agents[1].x, 580);
+  assert.equal(wide.agents[2].y - wide.agents[0].y, 170);
+  // Two uses of one template share nothing.
+  assert.notDeepEqual(fromTemplate(t, 900, () => newAgentId()).agents.map((a) => a.id), f.agents.map((a) => a.id));
+  assert.equal(fromTemplate(sample({ agents: [], links: [] }), 900, counter()).agents.length, 0);
+});
+
+test('a session dropped on an agent takes its arrows', () => {
+  const f = fromTemplate(sample(), 900, counter());
+  const target = f.agents[1];
+  const filled = fillAgent(f, target.id, 's_aaaaaaaaaaaa');
+  const after = filled.agents.find((a) => a.id === target.id)!;
+  assert.equal(after.session, 's_aaaaaaaaaaaa');
+  assert.equal(after.name, 'Left');
+  assert.deepEqual([after.x, after.y], [target.x, target.y]);
+  assert.deepEqual(filled.links, f.links, 'same ids, so the same arrows');
+  assert.equal(filled.agents.filter((a) => a.session).length, 1);
+  assert.equal(f.agents[1].session, null, 'the formation it was made from is untouched');
+  // One session fills one agent; an agent that has a session, or is not on the map, is left alone.
+  assert.equal(fillAgent(filled, f.agents[2].id, 's_aaaaaaaaaaaa'), filled);
+  assert.equal(fillAgent(filled, target.id, 's_bbbbbbbbbbbb'), filled);
+  assert.equal(fillAgent(filled, 'a_zzzzzzzzzzzz', 's_bbbbbbbbbbbb'), filled);
+  assert.equal(emptyAgent(filled)?.id, f.agents[0].id);
+  assert.equal(emptyAgent({ ...filled, agents: filled.agents.map((a) => ({ ...a, session: 's_x' })) }), null);
+});
+
+test('a new agent has no session and a name of its own', () => {
+  const f = addAgent(team([]), 'Agent', { x: 20.4, y: 30 });
+  assert.equal(f.agents.length, 1);
+  assert.deepEqual([f.agents[0].session, f.agents[0].model, f.agents[0].name, f.agents[0].x], [null, null, 'Agent', 20]);
+  assert.match(f.agents[0].id, /^a_[a-z2-7]{12}$/);
+  assert.equal(addAgent(f, 'Agent', { x: 0, y: 0 }).agents[1].name, 'Agent 2');
+  assert.equal(addAgent(team(Array.from({ length: 24 }, (_, i) => `n${i}`)), 'Agent', { x: 0, y: 0 }).agents.length, 24);
+  assert.equal(addAgent(f, ' @all\n', { x: 0, y: 0 }).agents[1].name, 'all');
+});
+
+test('a miniature stays in its box', () => {
+  const box = { width: 64, height: 40 };
+  const inside = (p: { x: number; y: number }) => p.x >= 0 && p.x <= box.width && p.y >= 0 && p.y <= box.height;
+  for (const t of [sample(), sample({ agents: [agent('solo', { x: -5000, y: 90000 })], links: [] }),
+    sample({ agents: [agent('a', { x: -300, y: -300 }), agent('b', { x: 40000, y: 20 })], links: [link('a', 'b')] })]) {
+    const m = miniature(t);
+    assert.equal(m.cards.length, t.agents.length);
+    assert.ok(m.cards.every(inside), JSON.stringify(m.cards));
+    assert.ok(m.lines.every((l) => inside(l.a) && inside(l.b)));
+    assert.equal(m.lines.length, t.links.length);
+  }
+  const m = miniature(sample());
+  assert.deepEqual(m.lines.map((l) => l.kind), ['work', 'work', 'observes']);
+  // The first card is the highest and the observer is the rightmost, as in the template.
+  assert.ok(m.cards[0].y < m.cards[1].y && m.cards[3].x > m.cards[2].x);
+  assert.deepEqual(miniature(sample({ agents: [], links: [] })), { cards: [], lines: [] });
+});
+
+test('templates are read one by one and what is not a template is left out', () => {
+  const good = sample();
+  const read = parseTemplates([good, { id: 'tm_bbbbbbbbbbbb', name: 'Bad', agents: 'x', links: [] }, null, { ...good, id: 4 },
+    { ...good, id: 'tm_cccccccccccc', links: [link('boss', 'nobody')] }]);
+  assert.deepEqual(read?.map((t) => t.id), ['tm_aaaaaaaaaaaa']);
+  assert.equal(read?.[0].agents.length, 4);
+  assert.ok(read?.[0].agents.every((a) => a.session === null));
+  assert.equal(parseTemplates('x'), null);
+  assert.equal(parseTemplates(null), null);
+  assert.deepEqual(parseTemplates([]), []);
 });

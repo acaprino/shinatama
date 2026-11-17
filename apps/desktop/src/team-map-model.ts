@@ -300,3 +300,73 @@ export function arrange(f: Formation, shape: 'star' | 'chain' | 'peers', hub: st
   side.forEach((id, i) => put(id, total - 22 - NW / 2, 80 + i * (NH + 20)));
   return { ...f, agents: f.agents.map((a) => ({ ...a, ...out[a.id] })), links };
 }
+
+// ----------------------------------------------------------------------------------------------------------- templates
+/** A saved team (spec section 10): agents without a session, their arrows and their places. It is the engine's `Template`. */
+export type Template = { id: string; name: string; agents: Agent[]; links: Link[] };
+
+/** The answer of `team_templates`, one by one: what is not a template is left out; null when the answer is not a list. */
+export function parseTemplates(value: unknown): Template[] | null {
+  if (!Array.isArray(value)) return null;
+  const found: Template[] = [];
+  for (const item of value.slice(0, 64)) {
+    if (!record(item) || !str(item.id, 64) || !item.id || !str(item.name, 256)) continue;
+    const parsed = parseFormation({ revision: 0, agents: item.agents, links: item.links });
+    if (parsed) found.push({ id: item.id, name: item.name, agents: parsed.agents.map((a) => ({ ...a, session: null })), links: parsed.links });
+  }
+  return found;
+}
+
+/** A new agent with no session, at `at`; a full map changes nothing. A name already on the map gets a number. */
+export function addAgent(f: Formation, name: string, at: Point): Formation {
+  if (f.agents.length >= MAX_AGENTS) return f;
+  const base = nameFrom(name), taken = new Set(f.agents.map((a) => a.name));
+  let chosen = base;
+  for (let n = 2; taken.has(chosen) && n < 100; n += 1) chosen = `${Array.from(base).slice(0, MAX_NAME - String(n).length - 1).join('')} ${n}`;
+  const agent: Agent = { id: newAgentId(), session: null, model: null, name: chosen, notes: '', share: 'split', x: Math.round(at.x), y: Math.round(at.y) };
+  return { ...f, agents: [...f.agents, agent] };
+}
+
+/** The first agent that has no session: Apply waits for it (phase 3 opens one for it). */
+export function emptyAgent(f: Formation): Agent | null { return f.agents.find((a) => !a.session) ?? null; }
+
+/** The session takes the place of an agent that has none: its name, notes, arrows and card stay. One session fills one agent. */
+export function fillAgent(f: Formation, agent: string, session: string): Formation {
+  const target = f.agents.find((a) => a.id === agent);
+  if (!target || target.session || f.agents.some((a) => a.session === session)) return f;
+  return { ...f, agents: f.agents.map((a) => a.id === agent ? { ...a, session, model: null } : a) };
+}
+
+const overlap = (agents: readonly Agent[]) => agents.some((a, i) => agents.slice(i + 1).some((b) => Math.abs(a.x - b.x) < CARD.width && Math.abs(a.y - b.y) < CARD.height));
+
+/** The team a template makes: new ids, no session, revision 0. Its places keep their shape and are scaled down to fit `width`
+ *  (a layout that would then overlap is tidied instead). */
+export function fromTemplate(t: Template, width: number, id: () => string): Formation {
+  if (!t.agents.length) return { revision: 0, agents: [], links: [] };
+  const ids = new Map(t.agents.map((a) => [a.id, id()] as const));
+  const links = t.links.filter((l) => ids.has(l.from) && ids.has(l.to)).map((l) => ({ ...l, from: ids.get(l.from)!, to: ids.get(l.to)! }));
+  const total = Math.max(width, MIN_WIDTH), room = total - NW - 22 - 8;
+  const xs = t.agents.map((a) => a.x), minX = Math.min(...xs), minY = Math.min(...t.agents.map((a) => a.y)), span = Math.max(...xs) - minX;
+  const scale = span > room ? room / span : 1, centre = scale === 1 ? Math.max(0, (room - span) / 2) : 0;
+  const agents = t.agents.map((a): Agent => ({ ...a, id: ids.get(a.id)!, session: null,
+    x: Math.round(8 + centre + (a.x - minX) * scale), y: Math.round(a.y - minY + 26) }));
+  const formation: Formation = { revision: 0, agents, links };
+  if (!overlap(agents)) return formation;
+  const places = tidy(formation, {}, width);
+  return { ...formation, agents: agents.map((a) => ({ ...a, x: Math.round(places[a.id]?.x ?? a.x), y: Math.round(places[a.id]?.y ?? a.y) })) };
+}
+
+/** The drawing of a template in a 64 × 40 box: the centres of its cards and the lines between them. */
+export function miniature(t: Template): { cards: Point[]; lines: { a: Point; b: Point; kind: Kind }[] } {
+  if (!t.agents.length) return { cards: [], lines: [] };
+  const BOX = { width: 64, height: 40, pad: 4 };
+  const minX = Math.min(...t.agents.map((a) => a.x)), minY = Math.min(...t.agents.map((a) => a.y));
+  const width = Math.max(...t.agents.map((a) => a.x)) + CARD.width - minX, height = Math.max(...t.agents.map((a) => a.y)) + CARD.height - minY;
+  const scale = Math.min((BOX.width - 2 * BOX.pad) / width, (BOX.height - 2 * BOX.pad) / height);
+  const dx = (BOX.width - width * scale) / 2, dy = (BOX.height - height * scale) / 2, tenth = (n: number) => Math.round(n * 10) / 10;
+  const centres = new Map(t.agents.map((a) => [a.id, { x: tenth(dx + (a.x - minX + CARD.width / 2) * scale), y: tenth(dy + (a.y - minY + CARD.height / 2) * scale) }] as const));
+  return {
+    cards: t.agents.map((a) => centres.get(a.id)!),
+    lines: t.links.flatMap((l) => { const a = centres.get(l.from), b = centres.get(l.to); return a && b ? [{ a, b, kind: l.kind }] : []; }),
+  };
+}

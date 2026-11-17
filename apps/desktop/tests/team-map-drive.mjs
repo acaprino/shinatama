@@ -336,3 +336,187 @@ export async function driveNotices(page, expect, log = console.log) {
   await expect(page.locator('.thread-chat-event[data-kind="message"]')).toHaveCount(1);
   log('ok the member shinatama is drawn as notices');
 }
+
+// ------------------------------------------------------------------------------------------------------------- templates
+// The template commands (`team_templates`, `team_template_save`, `team_template_delete`) are NOT stubbed: they run against the real backend
+// and its SQLite store, so what is saved here is what a restart of the window reads back.
+const tools = (page, expect) => {
+  // Several threads may hold a map in the pane: the one on show is the one driven.
+  const map = page.locator('.team-map[data-view-id]:visible').first();
+  const bar = name => map.locator('.team-bar').getByRole('button', { name, exact: true });
+  const byName = name => map.locator('.team-card').filter({ has: page.locator('.team-card-name', { hasText: new RegExp(`^${name}$`) }) });
+  const idOf = async name => byName(name).getAttribute('data-agent');
+  const byId = id => map.locator(`.team-card[data-agent="${id}"]`);
+  const link = (from, to) => map.locator(`.team-link[data-from="${from}"][data-to="${to}"]`);
+  const box = map.locator('.team-box-link');
+  const agentBox = map.locator('.team-box-agent');
+  const menu = map.locator('.team-templates');
+  const chip = title => map.locator('.team-session', { hasText: title });
+  const calls = command => page.evaluate(name => window.__teamStub.calls.filter(call => call.command === name), command);
+  const openLink = async (from, to) => { await link(from, to).focus(); await page.keyboard.press('Enter'); };
+  const pull = async (from, to) => {
+    if (await box.isVisible()) await box.getByRole('button', { name: 'Close the arrow box' }).click();
+    if (await agentBox.isVisible()) await agentBox.getByRole('button', { name: 'Close the agent box' }).click();
+    await byId(from).locator('.team-port').dragTo(byId(to));
+  };
+  const row = name => menu.locator('.team-template').filter({ has: page.locator('.team-template-text b', { hasText: new RegExp(`^${name}$`) }) });
+  const save = menu.getByRole('button', { name: 'Save this team', exact: true });
+  return { map, bar, byName, idOf, byId, link, box, agentBox, menu, chip, calls, openLink, pull, row, save };
+};
+
+/** On the map of a thread that has a team (the three agents applied): the menu, an error that blocks Save, Save, a refused name, Delete. */
+export async function driveTemplateSave(page, expect, log = console.log) {
+  const t = tools(page, expect); const { map, bar, menu, save, row } = t;
+  if (await bar('Discard').isEnabled()) await bar('Discard').click();
+  await expect(map.locator('.team-card')).toHaveCount(3);
+  const planner = await t.idOf('Lead dev'), builder = await t.idOf('Builder'), qwen = await t.idOf('Local qwen');
+
+  // The menu opens empty; Save waits for a name.
+  await bar('Templates ▾').click();
+  await expect(menu).toBeVisible();
+  await expect(bar('Templates ▾')).toHaveAttribute('aria-expanded', 'true');
+  await expect(menu.locator('.team-template-empty')).toContainText('No template yet');
+  await expect(save).toBeDisabled();
+  await menu.getByLabel('Name of the template').fill('Review crew');
+  await expect(save).toBeEnabled();
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  await expect(bar('Templates ▾')).toBeFocused();
+  log('ok the Templates menu opens empty, Save waits for a name, Escape closes it');
+
+  // An error of the checks blocks Save: the engine decides, the window only says so.
+  await t.openLink(planner, builder);
+  await t.box.locator('.team-seg button[data-report="strict"]').click();
+  await t.pull(builder, qwen);
+  await expect(map.locator('.team-problems button[data-level="error"]').first()).toContainText('Error: Builder only executes');
+  await bar('Templates ▾').click();
+  await expect(save).toBeDisabled();
+  await expect(save).toHaveAttribute('title', 'Fix the problems above first.');
+  await page.keyboard.press('Escape');
+  await bar('Discard').click();
+  await expect(map.locator('.team-problems')).toBeHidden();
+  log('ok Save is disabled while the team has an error');
+
+  // Save keeps the team with a drawing of its shape; the same name, in other letters, is refused by the store.
+  await bar('Templates ▾').click();
+  await menu.getByLabel('Name of the template').fill('Review crew');
+  await save.click();
+  await expect(menu.locator('.team-template')).toHaveCount(1);
+  await expect(row('Review crew').locator('.team-template-text span')).toHaveText('3 agents');
+  await expect(row('Review crew').locator('.team-mini-card')).toHaveCount(3);
+  await expect(row('Review crew').locator('.team-mini-line')).toHaveCount(2);
+  await expect(menu.locator('.team-template-said')).toHaveText('Saved “Review crew”.');
+  await menu.getByLabel('Name of the template').fill('REVIEW crew');
+  await save.click();
+  await expect(menu.locator('.team-template-said[data-tone="error"]')).toContainText('A template named Review crew already exists.');
+  await expect(menu.locator('.team-template')).toHaveCount(1);
+  log('ok Save keeps the team with its miniature and agent count; the same name twice is refused');
+
+  // Delete asks twice; the other template stays.
+  await menu.getByLabel('Name of the template').fill('Second');
+  await save.click();
+  await expect(menu.locator('.team-template')).toHaveCount(2);
+  const second = row('Second').getByRole('button', { name: 'Delete Second' });
+  await second.click();
+  await expect(second).toHaveText('Delete it?');
+  await expect(menu.locator('.team-template')).toHaveCount(2);
+  await second.click();
+  await expect(menu.locator('.team-template')).toHaveCount(1);
+  await expect(row('Review crew')).toBeVisible();
+  await page.keyboard.press('Escape');
+  log('ok Delete asks twice and keeps the others');
+}
+
+/** After a restart of the window, on a map: the saved template is listed with what it was saved with. */
+export async function driveTemplateListed(page, expect, log = console.log) {
+  const t = tools(page, expect); const { bar, menu, row } = t;
+  await bar('Templates ▾').click();
+  await expect(menu).toBeVisible();
+  await expect(menu.locator('.team-template')).toHaveCount(1);
+  await expect(row('Review crew').locator('.team-template-text span')).toHaveText('3 agents');
+  await expect(row('Review crew').locator('.team-mini-card')).toHaveCount(3);
+  await page.keyboard.press('Escape');
+  log('ok the template is listed after a restart of the window');
+}
+
+/** In another thread: Use, agents with no session, Apply waiting for them, a session dropped on an agent, + New agent. */
+export async function driveTemplateUse(page, expect, log = console.log) {
+  const t = tools(page, expect); const { map, bar, menu, row, chip, byName, agentBox } = t;
+  await expect(map.locator('.team-card')).toHaveCount(0);
+  await bar('Templates ▾').click();
+  await row('Review crew').getByRole('button', { name: 'Use Review crew' }).click();
+  await expect(menu).toBeHidden();
+  await expect(map.locator('.team-card')).toHaveCount(3);
+  await expect(map.locator('.team-card[data-empty]')).toHaveCount(3);
+  for (const meta of await map.locator('.team-card-meta').all()) await expect(meta).toHaveText('no session yet');
+  await expect(map.locator('.team-link')).toHaveCount(2);
+  await expect(map.locator('.team-hint')).toBeHidden();
+  const reason = 'Drop a session on Lead dev, or take it off the map';
+  await expect(bar('Apply')).toBeDisabled();
+  await expect(bar('Apply')).toHaveAttribute('title', reason);
+  await expect(map.locator('.team-state')).toHaveText(reason);
+  await expect(map.locator('.team-session')).toHaveCount(3);
+  log('ok Use puts the template on the map: agents with no session, hatched, Apply says what to do');
+
+  // A session dropped on an agent takes its place, name and arrows.
+  const lead = await t.idOf('Lead dev');
+  await chip('Planner').dragTo(byName('Lead dev'));
+  await expect(map.locator('.team-card[data-empty]')).toHaveCount(2);
+  await expect(t.byId(lead)).not.toHaveAttribute('data-empty', '');
+  await expect(t.byId(lead).locator('.team-card-name')).toHaveText('Lead dev');
+  await expect(t.byId(lead).locator('.team-card-meta')).toContainText('Planner');
+  // The template kept the agent's hand-out: it works as a lead that gives the same work to all.
+  await expect(t.byId(lead).locator('.team-card-role')).toHaveText('Lead · same work to all');
+  await expect(map.locator('.team-link')).toHaveCount(2);
+  await expect(map.locator('.team-session')).toHaveCount(2);
+  await expect(bar('Apply')).toHaveAttribute('title', 'Drop a session on Builder, or take it off the map');
+  // The keyboard's way: the agent's box offers the sessions of the thread.
+  await byName('Builder').locator('.team-card-name').click();
+  await expect(agentBox).toBeVisible();
+  await expect(agentBox.locator('h3')).toContainText('no session yet');
+  await agentBox.getByLabel('Use a session…').selectOption({ label: 'Builder' });
+  await expect(map.locator('.team-card[data-empty]')).toHaveCount(1);
+  await expect(agentBox.locator('h3')).toContainText('running session');
+  await agentBox.getByRole('button', { name: 'Close the agent box' }).click();
+  log('ok a session dropped on an agent, or chosen in its box, fills it and keeps its name and arrows');
+
+  // + New agent adds one with no session: Apply waits until it is filled or taken off.
+  await chip('Local qwen').dragTo(byName('Local qwen'));
+  await expect(map.locator('.team-card[data-empty]')).toHaveCount(0);
+  await expect(bar('Apply')).toBeEnabled();
+  await map.getByRole('button', { name: '+ New agent' }).click();
+  await expect(map.locator('.team-card')).toHaveCount(4);
+  await expect(map.locator('.team-card[data-empty]')).toHaveCount(1);
+  await expect(byName('Agent').locator('.team-card-meta')).toHaveText('no session yet');
+  await expect(bar('Apply')).toBeDisabled();
+  await expect(bar('Apply')).toHaveAttribute('title', 'Drop a session on Agent, or take it off the map');
+  await byName('Agent').locator('.team-card-name').click();
+  await agentBox.getByRole('button', { name: 'Take off the map' }).click();
+  await expect(map.locator('.team-card')).toHaveCount(3);
+  await expect(bar('Apply')).toBeEnabled();
+  await bar('Apply').click();
+  await expect(map.locator('.team-state')).toContainText('revision 1');
+  const applied = await t.calls('team_apply');
+  expect(applied).toHaveLength(1);
+  expect(applied[0].request.formation.agents.map(a => a.session).sort()).toEqual(SESSIONS.map(s => s.sessionId));
+  log('ok + New agent, and Apply once every agent has a session');
+
+  // Use over a team on the map asks first; Discard brings the applied team back.
+  await bar('Templates ▾').click();
+  const use = row('Review crew').getByRole('button', { name: 'Use Review crew' });
+  await use.click();
+  await expect(use).toHaveText('Replace the map?');
+  await expect(map.locator('.team-card[data-empty]')).toHaveCount(0);
+  await use.click();
+  await expect(map.locator('.team-card[data-empty]')).toHaveCount(3);
+  await bar('Discard').click();
+  await expect(map.locator('.team-card[data-empty]')).toHaveCount(0);
+  await expect(map.locator('.team-card')).toHaveCount(3);
+  // And the template is deleted at last.
+  await bar('Templates ▾').click();
+  const del = row('Review crew').getByRole('button', { name: 'Delete Review crew' });
+  await del.click(); await del.click();
+  await expect(menu.locator('.team-template-empty')).toContainText('No template yet');
+  await page.keyboard.press('Escape');
+  log('ok Use over a team asks first, Discard brings it back, and the template is deleted');
+}

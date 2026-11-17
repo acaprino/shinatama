@@ -2,14 +2,15 @@
 // relations as arrows the user draws, and Apply, which has Shinatama tell each session its place. Roles, checks and the sentences
 // sent to the sessions are the engine's (`team_evaluate`); this view asks and draws, and computes none of them (ADR-0057: it never
 // reads, waits for or acknowledges a message, and holds no member handle or credential).
-// Phase 1 only: the agents are the thread's sessions. Seams for the later phases are marked "phase 2" (templates, agents without a
-// session) and "phase 3" (a model per agent); nothing of them is built here.
+// Phase 2: an agent may have no session yet (+ New agent, or a template), and a session dropped on it fills it. Until phase 3 opens a
+// session for such an agent, Apply waits for every agent to have one. Seams for phase 3 (a model per agent) are marked "phase 3".
 import './team-map.css';
 import { confirmsField } from './desktop-shell-model.ts';
 import { createEvaluator } from './team-map-evaluate.ts';
 import {
-  CARD, MAX_AGENTS, MAX_LINKS, MAX_NAME, addSession, arrange, borderPoint, changed, connect, parseEvaluation, parseFormation, parseTeam, pendingLinks,
-  removeAgent, tidy, type Agent, type Evaluation, type Formation, type Link, type Point, type Report, type Share, type TeamSession, type TeamSnapshot,
+  CARD, MAX_AGENTS, MAX_LINKS, MAX_NAME, addAgent, addSession, arrange, borderPoint, changed, connect, emptyAgent, fillAgent, fromTemplate, miniature,
+  newAgentId, parseEvaluation, parseFormation, parseTeam, parseTemplates, pendingLinks, removeAgent, tidy,
+  type Agent, type Evaluation, type Formation, type Link, type Point, type Report, type Share, type TeamSession, type TeamSnapshot, type Template,
 } from './team-map-model.ts';
 
 export type TeamThread = { id: string; projectId?: string };
@@ -103,6 +104,12 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   let grab: Grab | null = null;
   let box: Box | null = null;
   let timer = 0;
+  /** The Templates menu: the saved teams (null until read), whether it is open, what it last said, and the button that waits for a second press. */
+  let templates: Template[] | null = null;
+  let templatesOpen = false;
+  let templatesBusy = false;
+  let confirming: string | null = null;
+  let templateNote: { text: string; tone: 'info' | 'error' } = { text: '', tone: 'info' };
 
   const evaluator = createEvaluator<Formation, Evaluation>(async formation => {
     const value = parseEvaluation(await deps.invoke<unknown>('team_evaluate', { request: { worksetId: thread.id, formation } }));
@@ -125,15 +132,29 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   tidyButton.title = 'Place the cards by their arrows: who gives work above, who takes it below, observers on the right';
   const autoLabel = el('label', 'team-auto'); autoLabel.title = 'Rearrange by itself whenever an arrow or a card changes';
   const autoBox = el('input'); autoBox.type = 'checkbox'; autoBox.checked = keepTidy; autoLabel.append(autoBox, ' keep tidy');
+  const templatesButton = el('button', 'team-templates-button', 'Templates ▾'); templatesButton.type = 'button';
+  templatesButton.setAttribute('aria-haspopup', 'dialog'); templatesButton.setAttribute('aria-expanded', 'false');
+  templatesButton.title = 'Teams saved to use again, in any thread';
   const state = el('span', 'team-state'); state.setAttribute('role', 'status');
   const discard = el('button', 'quiet', 'Discard'); discard.type = 'button'; discard.title = 'Throw away what is not applied and read the team again';
   const apply = el('button', 'primary', 'Apply'); apply.type = 'button';
-  bar.append(shapesLabel, shapes, tidyButton, autoLabel, state, discard, apply);
+  bar.append(shapesLabel, shapes, tidyButton, autoLabel, templatesButton, state, discard, apply);
+  // The Templates menu: the saved teams, each with a drawing of its shape; below, a name and "Save this team".
+  const menu = el('div', 'team-templates'); menu.setAttribute('role', 'dialog'); menu.setAttribute('aria-label', 'Templates'); menu.hidden = true;
+  const menuHead = el('h3', undefined, 'Templates'); const menuClose = quietButton('×'); menuClose.setAttribute('aria-label', 'Close the templates'); menuHead.append(menuClose);
+  const templateList = el('ul', 'team-template-list'); templateList.setAttribute('aria-label', 'Saved teams');
+  const templateName = el('input'); templateName.maxLength = 60; templateName.placeholder = 'Name this team'; templateName.setAttribute('aria-label', 'Name of the template');
+  const templateSave = el('button', 'primary', 'Save this team'); templateSave.type = 'button';
+  const templateForm = el('div', 'team-template-form'); templateForm.append(templateName, templateSave);
+  const templateSaid = el('p', 'team-template-said'); templateSaid.setAttribute('role', 'status');
+  menu.append(menuHead, templateList, templateForm, templateSaid);
   const problems = el('ul', 'team-problems'); problems.setAttribute('aria-label', 'Problems with this team'); problems.hidden = true;
   const body = el('div', 'team-body');
   const side = el('aside', 'team-side'); side.setAttribute('aria-label', 'Sessions of the thread');
   const sideList = el('ul', 'team-sessions'); const sideNote = el('p');
-  side.append(el('h2', undefined, 'Sessions'), sideList, sideNote);
+  const newAgent = el('button', 'team-new-agent', '+ New agent'); newAgent.type = 'button';
+  newAgent.title = 'An agent with no session yet: drop a session of the thread on it to fill it';
+  side.append(el('h2', undefined, 'Sessions'), sideList, sideNote, newAgent);
   const stage = el('div', 'team-stage');
   const scroll = el('div', 'team-scroll'); const canvas = el('div', 'team-canvas');
   const wires = svg('svg', { class: 'team-wires' }); 
@@ -146,22 +167,26 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   }
   const wireLayer = svg('g'); wires.append(defs, wireLayer);
   const nodes = el('div', 'team-nodes');
-  const hint = el('p', 'team-hint'); hint.innerHTML = '<b>Drag the sessions from the list on the left onto this map</b> (or press one to add it).<br>Then pull the → of a card onto another to connect them, and click the arrow to say what kind of relation it is.';
+  const hint = el('p', 'team-hint'); hint.innerHTML = '<b>Drag the sessions from the list on the left onto this map</b> (or press one to add it).<br>Then pull the → of a card onto another to connect them, and click the arrow to say what kind of relation it is.<br>Or start from <b>Templates</b>, or add <b>+ New agent</b> and drop a session on it later.';
   canvas.append(wires, nodes, hint); scroll.append(canvas);
   const tray = el('div', 'team-tray'); tray.dataset.zone = 'tray';
   const statusLine = el('p', 'team-status'); statusLine.hidden = true;
   stage.append(scroll, tray, statusLine); body.append(side, stage);
   const off = el('p', 'team-off'); off.hidden = true;
-  root.append(bar, problems, body, off);
+  root.append(bar, problems, body, off, menu);
 
   // ------------------------------------------------------------------------------------------------------------- lookups
   const agentOf = (id: string) => draft.agents.find(a => a.id === id);
   const sessionOf = (a: Agent): TeamSession | undefined => a.session ? snap?.sessions.find(s => s.sessionId === a.session) : undefined;
   const programOf = (a: Agent) => { const h = sessionOf(a)?.harness; return h ? deps.harnessLabel(h) : 'Agent'; };
+  const sessionLabel = (s: TeamSession) => { const label = s.harness ? deps.harnessLabel(s.harness) : 'Session'; return s.title && s.title !== label ? s.title : label; };
   const current = () => evaluation ?? snap?.evaluation ?? null;
   const fresh = () => current() !== null && evaluatedFor === structureOf(draft);
   const pending = () => changed(applied, draft);
-  const errors = () => fresh() ? current()!.issues.filter(i => i.level === 'error') : [];
+  /** What the engine found, once its answer fits the draft. `no_model` is left out for now (phase 3): an agent with no session is
+   *  waiting for one to be dropped on it, which `emptyAgent` says; the model menu of phase 3 makes the missing model a problem. */
+  const issues = () => fresh() ? current()!.issues.filter(i => i.code !== 'no_model') : [];
+  const errors = () => issues().filter(i => i.level === 'error');
   const linkIndex = (from: string, to: string) => draft.links.findIndex(l => l.from === from && l.to === to);
   const selectedLink = () => selection && 'link' in selection ? linkIndex(selection.link.from, selection.link.to) : -1;
   const selectedAgent = () => selection && 'agent' in selection ? agentOf(selection.agent) ?? null : null;
@@ -286,6 +311,22 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     setStatus(''); selection = { link: { from, to } }; edit(next);
     focusBox();
   }
+  /** An agent with no session, at a free place; it is filled by dropping a session of the thread on it. */
+  function addEmptyAgent() {
+    const next = addAgent(draft, 'Agent', freeSpot());
+    if (next === draft) { setStatus(`The map holds ${MAX_AGENTS} agents at most.`, 'error'); draw(); return; }
+    setStatus(''); edit(next);
+    const added = next.agents.at(-1);
+    if (added) cards.get(added.id)?.focus({ preventScroll: true });
+  }
+  /** The session takes the place of an agent that has none: its name and arrows stay. */
+  function fillWith(session: TeamSession, agent: string) {
+    if (session.connection === 'unsupported') { setStatus('Shinatama gives this agent no Mukade tools: it cannot take part in a team.', 'error'); draw(); return; }
+    const next = fillAgent(draft, agent, session.sessionId);
+    if (next === draft) { setStatus(draft.agents.some(a => a.session === session.sessionId) ? 'That session is already on the map.' : 'That agent already has a session.', 'error'); draw(); return; }
+    setStatus(''); edit(next);
+    cards.get(agent)?.focus({ preventScroll: true });
+  }
   function takeOff(id: string) {
     if (selection && 'agent' in selection && selection.agent === id) selection = null;
     edit(removeAgent(draft, id));
@@ -301,7 +342,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   }
 
   async function applyNow() {
-    if (applying || !pending() || errors().length || !fresh()) return;
+    if (applying || !pending() || errors().length || !fresh() || emptyAgent(draft)) return;
     const sent = clone(draft); applying = true; setStatus(''); draw();
     try {
       const result = await ask<{ formation?: unknown }>('team_apply', { formation: sent, expectedRevision: applied?.revision ?? 0 });
@@ -318,6 +359,101 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     await refresh(true);
   }
 
+
+  // ---------------------------------------------------------------------------------------------------------- templates
+  const saySaved = (text: string, tone: 'info' | 'error' = 'info') => { templateNote = { text, tone }; };
+  async function loadTemplates() {
+    try {
+      const list = parseTemplates(await deps.invoke<unknown>('team_templates'));
+      if (disposed) return;
+      if (!list) { saySaved('The templates could not be read.', 'error'); } else { templates = list; if (templateNote.tone === 'error') saySaved(''); }
+    } catch (error) { if (!disposed) saySaved(`The templates could not be read: ${message(error)}`, 'error'); }
+    drawTemplates();
+  }
+  function openTemplates() {
+    templatesOpen = true; confirming = null; saySaved('');
+    drawTemplates(); void loadTemplates();
+    document.addEventListener('pointerdown', outside, true);
+    templateName.focus({ preventScroll: true });
+  }
+  function closeTemplates(refocus = false) {
+    if (!templatesOpen) return;
+    templatesOpen = false; confirming = null;
+    document.removeEventListener('pointerdown', outside, true);
+    drawTemplates();
+    if (refocus) templatesButton.focus({ preventScroll: true });
+  }
+  function outside(event: PointerEvent) {
+    const target = event.target as Node | null;
+    if (target && !menu.contains(target) && !templatesButton.contains(target)) closeTemplates();
+  }
+  /** What stops the draft being kept as a template: an empty map, or an error of the checks (as the engine decides it, not the window). */
+  const saveBlock = () => !draft.agents.length ? 'Put at least one agent on the map first.' : errors().length ? 'Fix the problems above first.' : '';
+  /** Replaces the draft with the template's agents, none with a session. What is on the map is asked about first: a second press. */
+  function useTemplate(t: Template) {
+    if (applying) return;
+    if (draft.agents.length && confirming !== `use:${t.id}`) { confirming = `use:${t.id}`; drawTemplates(); focusRow(t.id, 'use'); return; }
+    confirming = null; selection = null; trialsFor = ''; setStatus('');
+    closeTemplates();
+    edit(fromTemplate(t, canvasWidth(), newAgentId), { tidy: false });
+  }
+  async function saveTemplate() {
+    const name = plain(templateName.value).trim();
+    if (!name || templatesBusy || saveBlock()) return;
+    templatesBusy = true; confirming = null; saySaved(''); drawTemplates();
+    try {
+      const list = parseTemplates(await deps.invoke<unknown>('team_template_save', { request: { name, formation: clone(draft) } }));
+      if (!list) throw 'The answer to Save was not understood. Open the menu again to read the templates.';
+      templates = list; templateName.value = ''; saySaved(`Saved “${name}”.`);
+    } catch (error) { saySaved(message(error), 'error'); }
+    finally { templatesBusy = false; drawTemplates(); }
+  }
+  async function deleteTemplate(t: Template) {
+    if (confirming !== `delete:${t.id}`) { confirming = `delete:${t.id}`; drawTemplates(); focusRow(t.id, 'delete'); return; }
+    confirming = null; saySaved('');
+    try {
+      const list = parseTemplates(await deps.invoke<unknown>('team_template_delete', { request: { id: t.id } }));
+      if (!list) throw 'The answer to Delete was not understood. Open the menu again to read the templates.';
+      templates = list; saySaved(`Deleted “${t.name}”.`);
+    } catch (error) { saySaved(message(error), 'error'); }
+    drawTemplates();
+    templateName.focus({ preventScroll: true });
+  }
+  const focusRow = (id: string, act: 'use' | 'delete') => templateList.querySelector<HTMLElement>(`[data-id="${id}"] [data-act="${act}"]`)?.focus({ preventScroll: true });
+
+  function miniatureOf(t: Template): SVGElement {
+    const m = miniature(t); const drawing = svg('svg', { class: 'team-mini', viewBox: '0 0 64 40', width: '64', height: '40', 'aria-hidden': 'true' });
+    for (const line of m.lines) { const l = svg('line', { x1: String(line.a.x), y1: String(line.a.y), x2: String(line.b.x), y2: String(line.b.y), class: 'team-mini-line' }); l.dataset.kind = line.kind; drawing.append(l); }
+    for (const c of m.cards) drawing.append(svg('rect', { x: String(c.x - 3.5), y: String(c.y - 2.5), width: '7', height: '5', class: 'team-mini-card' }));
+    return drawing;
+  }
+  function drawTemplates() {
+    menu.hidden = !templatesOpen; templatesButton.setAttribute('aria-expanded', String(templatesOpen));
+    if (!templatesOpen) return;
+    menu.style.top = `${bar.offsetHeight}px`;
+    if (templates === null) templateList.replaceChildren(el('li', 'team-template-empty', 'Reading the templates…'));
+    else if (!templates.length) templateList.replaceChildren(el('li', 'team-template-empty', 'No template yet. Build a team, name it below and press Save this team.'));
+    else templateList.replaceChildren(...templates.map(t => {
+      const item = el('li', 'team-template'); item.dataset.id = t.id;
+      const text = el('div', 'team-template-text'); text.append(el('b', undefined, t.name), el('span', undefined, `${t.agents.length} agent${t.agents.length === 1 ? '' : 's'}`));
+      const use = quietButton(confirming === `use:${t.id}` ? 'Replace the map?' : 'Use'); use.dataset.act = 'use'; use.setAttribute('aria-label', `Use ${t.name}`);
+      use.title = confirming === `use:${t.id}` ? 'Press again: the agents on the map are replaced by the template\'s. Discard brings back what was applied.' : 'Replace the draft with this team; no agent has a session yet';
+      use.disabled = applying; use.onclick = () => useTemplate(t);
+      const del = quietButton(confirming === `delete:${t.id}` ? 'Delete it?' : 'Delete'); del.dataset.act = 'delete'; del.setAttribute('aria-label', `Delete ${t.name}`);
+      del.title = 'Delete this template; the teams made from it are not touched'; del.onclick = () => { void deleteTemplate(t); };
+      item.append(miniatureOf(t), text, use, del); return item;
+    }));
+    drawTemplateForm();
+  }
+  /** The name field's Save button and the line under it: they follow the draft (an error, an empty map) without the list being rebuilt. */
+  function drawTemplateForm() {
+    if (!templatesOpen) return;
+    const block = saveBlock(); const named = !!plain(templateName.value).trim();
+    templateSave.disabled = !!block || !named || templatesBusy;
+    templateSave.title = block || (!named ? 'Give the team a name first.' : 'Keep this team, with its places, to use again in any thread');
+    templateSaid.textContent = templateNote.text; templateSaid.dataset.tone = templateNote.tone; templateSaid.hidden = !templateNote.text;
+  }
+
   // -------------------------------------------------------------------------------------------------------- the pieces
   const cards = new Map<string, HTMLElement>();
 
@@ -325,6 +461,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   const signature = (f: Formation, a: Agent) => JSON.stringify([[a.session, a.name, a.notes, a.share, a.model],
     f.links.filter(l => l.from === a.id || l.to === a.id).map(l => [l.from, l.to, l.kind, l.kind === 'work' ? l.report : null, l.words]).sort()]);
   function toldState(a: Agent): [string, string] {
+    if (!a.session) return ['edited', 'drop a session here'];
     const before = applied?.agents.find(x => x.id === a.id);
     if (!applied || !before) return ['edited', 'new · not applied'];
     if (signature(draft, a) !== signature(applied, before)) return ['edited', 'changed · not applied'];
@@ -352,6 +489,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
       node.dataset.harness = harness;
       node.setAttribute('aria-pressed', String(!!selection && 'agent' in selection && selection.agent === a.id));
       node.toggleAttribute('data-in', session?.connection === 'in_room');
+      node.toggleAttribute('data-empty', !a.session);
       const [told, toldText] = toldState(a);
       node.toggleAttribute('data-pending', told === 'edited');
       node.toggleAttribute('data-bad', bad.has(a.id));
@@ -361,7 +499,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
       const view = roles[a.id]; const roleName = view ? ROLE_NAME[view.role] ?? view.role : 'checking…';
       const role = el('div', 'team-card-role', view && workOut(a.id) > 1 ? `${roleName} · ${SHARE_SHORT[a.share]}` : roleName);
       if (view) role.title = `${roleName}: ${view.detail}. Inferred from its arrows.`;
-      const meta = el('div', 'team-card-meta', `${programOf(a)}${session?.title ? ` · ${session.title}` : ''}${session?.memberName ? ` · ${session.memberName}` : ''}`);
+      const meta = el('div', 'team-card-meta', !a.session ? 'no session yet' : `${programOf(a)}${session?.title ? ` · ${session.title}` : ''}${session?.memberName ? ` · ${session.memberName}` : ''}`);
       const toldNode = el('span', 'team-told', toldText); toldNode.dataset.s = told;
       const left = session?.wakes != null && session.wakes >= 7 ? `${Math.max(0, 10 - session.wakes)} wakes left` : '';
       const wakes = el('span', 'team-wakes', left);
@@ -438,9 +576,9 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   }
 
   function drawProblems() {
-    const issues = fresh() ? current()!.issues : [];
-    problems.hidden = !issues.length;
-    problems.replaceChildren(...issues.map(issue => {
+    const shown = issues();
+    problems.hidden = !shown.length;
+    problems.replaceChildren(...shown.map(issue => {
       const li = el('li'); const b = el('button'); b.type = 'button'; b.dataset.level = issue.level;
       b.append(issue.level === 'error' ? 'Error: ' : 'Warning: ', issue.text);
       b.onclick = () => {
@@ -453,11 +591,13 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   }
 
   function drawBar() {
-    const bad = errors().length; const dirty = pending();
+    const bad = errors().length; const dirty = pending(); const empty = emptyAgent(draft);
+    const reason = empty ? `Drop a session on ${empty.name}, or take it off the map` : '';
     const members = applied?.agents.length ?? 0;
     const waiting = (applied?.agents ?? []).filter(a => !snap?.told[a.id]).length;
     let text: string; let tone: string;
     if (applying) { text = 'applying…'; tone = 'dirty'; }
+    else if (empty) { text = reason; tone = 'dirty'; }
     else if (bad) { text = `✕ ${bad} problem${bad > 1 ? 's' : ''} to fix before it can be applied`; tone = 'error'; }
     else if (dirty) { text = 'not applied: nothing was sent yet'; tone = 'dirty'; }
     else if (!members) { text = 'no team'; tone = ''; }
@@ -465,9 +605,11 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     else { text = `revision ${applied!.revision} · everyone was told`; tone = 'ok'; }
     state.textContent = text; state.dataset.tone = tone;
     const ready = !draft.agents.length || (fresh() && !evaluating);
-    apply.disabled = !snap?.enabled || !dirty || bad > 0 || applying || !ready;
-    apply.title = bad ? 'Fix the problems above first' : !dirty ? 'Nothing to apply' : !ready ? 'Checking the team…' : 'Tell each concerned session its place';
+    apply.disabled = !snap?.enabled || !dirty || bad > 0 || applying || !ready || !!empty;
+    apply.title = empty ? reason : bad ? 'Fix the problems above first' : !dirty ? 'Nothing to apply' : !ready ? 'Checking the team…' : 'Tell each concerned session its place';
     discard.disabled = !dirty || applying;
+    newAgent.disabled = applying || draft.agents.length >= MAX_AGENTS;
+    newAgent.title = draft.agents.length >= MAX_AGENTS ? `The map holds ${MAX_AGENTS} agents at most.` : 'An agent with no session yet: drop a session of the thread on it to fill it';
     tidyButton.disabled = draft.agents.length < 1 || applying;
     for (const b of shapeButtons) b.disabled = draft.agents.length < 2 || applying;
   }
@@ -480,13 +622,13 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
 
   function agentBox(a: Agent): Box {
     const element = el('div', 'team-box team-box-agent'); element.setAttribute('role', 'dialog'); element.setAttribute('aria-label', `Agent ${a.name}`);
-    const head = el('h3', undefined, 'Agent · running session'); head.append(closeButton('the agent box'));
+    const headText = el('span'); const head = el('h3'); head.append(headText, closeButton('the agent box'));
     const name = el('input'); name.maxLength = MAX_NAME; name.value = a.name; name.id = `${viewId}-name`; name.dataset.first = '1';
     name.oninput = () => { const clean = plain(name.value); if (clean !== name.value) name.value = clean; if (clean.trim()) updateAgent(a.id, { name: clean }); };
     name.onblur = () => { if (!name.value.trim()) name.value = agentOf(a.id)?.name ?? 'Agent'; };
     const nameLabel = el('label', undefined, 'Name'); nameLabel.append(name);
     // Phase 3 puts a model menu here for an agent without a session; a running one keeps its own, as now.
-    const model = el('input'); model.disabled = true; model.value = `${programOf(a)} · its own sign-in and model`; model.title = 'A running session keeps its model';
+    const model = el('input'); model.disabled = true;
     const modelLabel = el('label', undefined, 'Model'); modelLabel.append(model);
     const role = el('p', 'role-line'); const roleName = el('b'); const roleDetail = el('span'); role.append(roleName, roleDetail);
     const inferred = el('p', undefined, 'The role is inferred from its arrows: change an arrow and it changes.');
@@ -501,14 +643,31 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     const to = el('select'); to.setAttribute('aria-label', 'Connect to…'); to.title = 'The keyboard\'s way to draw an arrow: this agent gives work to the one chosen';
     const toLabel = el('label', undefined, 'Connect to…'); toLabel.append(to);
     to.onchange = () => { const id = to.value; to.value = ''; if (id) connectAgents(a.id, id); };
-    const fields = el('div', 'team-fields'); fields.append(nameLabel, modelLabel, role, inferred, handOut, notesLabel, toLabel);
-    const show = quietButton('Show its tab', 'Show this session\'s tab in the window'); show.onclick = () => { if (a.session) deps.focusSession(a.session); }; show.hidden = !a.session;
+    // An agent with no session takes one of the thread's: dropped on its card, or chosen here (the keyboard's way).
+    const pick = el('select'); pick.setAttribute('aria-label', 'Use a session…'); pick.title = 'The session takes this agent\'s place: its name and arrows stay';
+    const pickLabel = el('label', undefined, 'Use a session…'); pickLabel.append(pick);
+    pick.onchange = () => { const id = pick.value; pick.value = ''; const s = snap?.sessions.find(x => x.sessionId === id); if (s) fillWith(s, a.id); };
+    const fields = el('div', 'team-fields'); fields.append(nameLabel, modelLabel, pickLabel, role, inferred, handOut, notesLabel, toLabel);
+    const show = quietButton('Show its tab', 'Show this session\'s tab in the window'); show.onclick = () => { const at = agentOf(a.id)?.session; if (at) deps.focusSession(at); };
     const out = quietButton('Take off the map', 'The session stays open; it only leaves the team map'); out.onclick = () => takeOff(a.id);
     const foot = el('div', 'foot'); foot.append(show, out);
     element.append(head, fields, foot);
     const update = () => {
       const live = agentOf(a.id); if (!live) return;
       const view = current()?.roles[a.id];
+      headText.textContent = live.session ? 'Agent · running session' : 'Agent · no session yet';
+      element.setAttribute('aria-label', `Agent ${live.name}`);
+      model.value = live.session ? `${programOf(live)} · its own sign-in and model` : 'Chosen when a session is opened for it';
+      model.title = live.session ? 'A running session keeps its model' : 'A session dropped on this agent keeps its own model';
+      show.hidden = !live.session;
+      const free = (snap?.sessions ?? []).filter(x => x.connection !== 'unsupported' && !draft.agents.some(other => other.session === x.sessionId));
+      pickLabel.hidden = !!live.session;
+      const sessionOptions = ['', ...free.map(x => x.sessionId)].join('|');
+      if (pick.dataset.options !== sessionOptions) {
+        pick.replaceChildren(new Option('Use a session…', ''), ...free.map(x => new Option(sessionLabel(x), x.sessionId)));
+        pick.dataset.options = sessionOptions;
+      }
+      pick.disabled = !free.length;
       roleName.textContent = view ? ROLE_NAME[view.role] ?? view.role : 'checking…'; roleDetail.textContent = view ? ` · ${view.detail}` : '';
       const gives = draft.links.filter(l => l.kind === 'work' && l.from === a.id).map(l => nameOf(l.to));
       handOut.hidden = gives.length < 2;
@@ -607,7 +766,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     const enabled = snap?.enabled !== false;
     off.hidden = enabled; body.hidden = !enabled; bar.hidden = !enabled;
     if (!enabled) { problems.hidden = true; off.textContent = 'The sessions of this thread do not talk to each other, so it has no team. Turn it on in the thread\'s settings (⋯).'; return; }
-    drawBar(); drawProblems(); drawSide(); drawCards(); drawWires(); drawBoxes(); drawTray();
+    drawBar(); drawProblems(); drawSide(); drawCards(); drawWires(); drawBoxes(); drawTray(); drawTemplateForm();
     hint.hidden = draft.agents.length > 0 || !snap;
     if (status.text === 'Reading the team…' && snap) setStatus('');
     root.dataset.pending = String(pending());
@@ -656,6 +815,9 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
       g.ghost ??= (() => { const gh = el('div', 'team-ghost', g.target.querySelector('b')?.textContent ?? 'Session'); gh.dataset.harness = g.target.dataset.harness ?? ''; document.body.append(gh); return gh; })();
       g.ghost.style.transform = `translate(${event.clientX + 12}px, ${event.clientY + 8}px)`;
       scroll.toggleAttribute('data-drop', overMap(event));
+      // A card with no session takes the session dropped on it.
+      const hover = over(event)?.closest<HTMLElement>('.team-card[data-empty]');
+      for (const [id, node] of cards) node.toggleAttribute('data-over', node === hover && !agentOf(id)?.session);
     }
   }
   function releaseGrab(event: PointerEvent) {
@@ -672,7 +834,9 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
       const to = hover?.dataset.agent; if (g.moved && to && to !== g.id) connectAgents(g.id, to); else draw();
     } else {
       const s = snap?.sessions.find(x => x.sessionId === g.id); if (!s) return;
-      if (g.moved && droppedOnMap) addSessionAt(s, { x: Math.max(0, Math.round(point.x - CARD.width / 2)), y: Math.max(0, Math.round(point.y - CARD.height / 2)) });
+      const empty = hover?.dataset.agent && !agentOf(hover.dataset.agent)?.session ? hover.dataset.agent : null;
+      if (g.moved && empty) fillWith(s, empty);
+      else if (g.moved && droppedOnMap) addSessionAt(s, { x: Math.max(0, Math.round(point.x - CARD.width / 2)), y: Math.max(0, Math.round(point.y - CARD.height / 2)) });
       else if (!g.moved) addSessionAt(s, freeSpot());
     }
   }
@@ -692,10 +856,17 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   let nudge = 0;
 
   root.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && templatesOpen && !event.defaultPrevented) { event.preventDefault(); event.stopPropagation(); closeTemplates(true); return; }
     if (event.key === 'Escape' && selection && !event.defaultPrevented) { event.preventDefault(); event.stopPropagation(); closeBox(true); }
   });
   scroll.addEventListener('pointerdown', event => { if (!grab && selection && !(event.target as Element).closest('.team-box, .team-card, .team-link')) closeBox(false); });
   tidyButton.onclick = () => tidyNow();
+  templatesButton.onclick = () => { if (templatesOpen) closeTemplates(); else openTemplates(); };
+  menuClose.onclick = () => closeTemplates(true);
+  templateSave.onclick = () => { void saveTemplate(); };
+  templateName.oninput = () => { const clean = plain(templateName.value); if (clean !== templateName.value) templateName.value = clean; drawTemplateForm(); };
+  templateName.onkeydown = event => { if (confirmsField(event)) { event.preventDefault(); void saveTemplate(); } };
+  newAgent.onclick = () => addEmptyAgent();
   autoBox.onchange = () => { keepTidy = autoBox.checked; writeKeepTidy(keepTidy); if (keepTidy) tidyNow(); };
   apply.onclick = () => { void applyNow(); };
   discard.onclick = () => { void discardNow(); };
@@ -710,7 +881,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     viewId, element: root, thread,
     setVisible(next: boolean) { if (visible === next) return; visible = next; if (next) void refresh(); },
     focus() { (cards.values().next().value ?? root).focus({ preventScroll: true }); },
-    dispose() { disposed = true; window.clearInterval(timer); window.clearTimeout(nudge); evaluator.cancel(); document.removeEventListener('visibilitychange', visibility); endGrab(); root.remove(); onClose(); },
+    dispose() { disposed = true; window.clearInterval(timer); window.clearTimeout(nudge); evaluator.cancel(); document.removeEventListener('visibilitychange', visibility); endGrab(); document.removeEventListener('pointerdown', outside, true); root.remove(); onClose(); },
   };
 }
 

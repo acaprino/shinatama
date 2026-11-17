@@ -133,6 +133,32 @@
 .team-closed p { margin: 0; color: var(--text-2); }
 @media (prefers-reduced-motion: reduce) { .team-card { transition: none; } }
 
+/* An agent with no session yet (+ New agent, or a template): hatched, and it takes the session dropped on it. */
+.team-card[data-empty] { border-style: dashed; background: repeating-linear-gradient(135deg, transparent 0 7px, color-mix(in srgb, var(--line-strong) 45%, transparent) 7px 8px), color-mix(in srgb, var(--surface) 95%, transparent); }
+.team-card[data-empty] .team-card-meta { color: var(--text-2); font-style: italic; }
+.team-card[data-empty][data-over] { border-color: var(--accent); background: repeating-linear-gradient(135deg, transparent 0 7px, color-mix(in srgb, var(--accent) 40%, transparent) 7px 8px), color-mix(in srgb, var(--accent) 16%, var(--surface)); }
+.team-new-agent { display: block; width: 100%; margin-top: 10px; min-height: 30px; border-style: dashed; }
+
+/* The Templates menu: the saved teams with a drawing of their shape, Use and Delete; below, a name and Save this team. */
+.team-templates-button { min-height: 32px; padding: 0 10px; font-size: 12px; }
+.team-templates { position: absolute; right: 12px; z-index: 12; width: min(380px, calc(100% - 24px)); max-height: min(70%, 520px); display: flex; flex-direction: column; padding: 11px 12px 12px; border: 1px solid var(--accent); background: var(--chrome-2); box-shadow: 0 14px 40px var(--shadow); }
+.team-templates h3 { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 6px; font: 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); }
+.team-template-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; overflow: auto; min-height: 0; }
+.team-template { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto auto; align-items: center; gap: 4px 8px; padding: 4px 6px; border: 1px solid var(--line); }
+.team-template-text { min-width: 0; }
+.team-template-text b { display: block; font: 600 12.5px var(--mono); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team-template-text span { font: 11px var(--mono); color: var(--muted); }
+.team-template-empty { padding: 8px 2px; font-size: 12px; color: var(--muted); }
+.team-mini { display: block; width: 64px; height: 40px; border: 1px solid var(--line); background: color-mix(in srgb, var(--terminal) 70%, transparent); }
+.team-mini-card { fill: var(--line-strong); }
+.team-mini-line { stroke: var(--line-strong); stroke-width: 1; }
+.team-mini-line[data-kind="observes"] { stroke: var(--ice); stroke-dasharray: 1 2; }
+.team-template-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; margin-top: 8px; }
+.team-template-form input { height: 30px; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: 0; background: color-mix(in srgb, var(--terminal) 72%, transparent); font: 12.5px var(--mono); color: var(--text); }
+.team-template-said { margin: 6px 0 0; font: 11.5px var(--mono); color: var(--text-2); }
+.team-template-said[data-tone="error"] { color: var(--error); }
+.team-template-said[data-tone="error"]::before { content: "✕ "; font-weight: 700; }
+
 /* The program that runs a session gives its card and its list entry the stripe. */
 .team-card[data-harness="claude_code"], .team-session[data-harness="claude_code"], .team-ghost[data-harness="claude_code"] { --tone: var(--accent); }
 .team-card[data-harness="codex"], .team-session[data-harness="codex"], .team-ghost[data-harness="codex"] { --tone: var(--ice); }

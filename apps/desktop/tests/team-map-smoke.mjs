@@ -7,7 +7,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { driveNotices, driveTeamMap, installStub } from './team-map-drive.mjs';
+import { driveNotices, driveTeamMap, driveTemplateListed, driveTemplateSave, driveTemplateUse, installStub } from './team-map-drive.mjs';
 
 if (process.platform !== 'win32') throw new Error('This proof requires Windows.');
 const fixture = await mkdtemp(resolve(process.env.SHINATAMA_SMOKE_TEMP || tmpdir(), 'shinatama-team-map-'));
@@ -58,6 +58,25 @@ try {
   await expect(page.locator('.wm-tab[data-view-id^="team-"]')).toBeVisible();
   await driveTeamMap(page, expect, message => console.log(message));
   await driveNotices(page, expect, message => console.log(message));
+
+  // Templates run on the real backend: save in this thread, restart the window, see it listed, use it in another thread.
+  const log = message => console.log(message);
+  const runtime = async () => { await page.reload(); await expect(page.locator('#runtime-status')).toContainText('Local runtime'); await installStub(page); };
+  const teamOf = id => sidebar.locator('li.thread-sidebar-row', { has: page.locator(`button.thread-sidebar-anchor[data-workset-id="${id}"]`) }).locator('.thread-sidebar-team');
+  await teamOf(worksetId).click();
+  await driveTemplateSave(page, expect, log);
+  await runtime();
+  await teamOf(worksetId).click();
+  await expect(page.locator('.team-map[data-view-id]').first()).toBeVisible();
+  await driveTemplateListed(page, expect, log);
+  await sidebar.locator(`.thread-sidebar-group[data-project-id="${project.id}"] .thread-sidebar-group-add`).click();
+  await expect(sidebar.locator('button.thread-sidebar-anchor')).toHaveCount(2);
+  const otherId = (await sidebar.locator('button.thread-sidebar-anchor').evaluateAll(nodes => nodes.map(n => n.dataset.worksetId))).find(id => id !== worksetId);
+  await ipc('thread_chat_set', { request: { worksetId: otherId, enabled: true } });
+  await runtime();
+  await teamOf(otherId).click();
+  await expect(page.locator('.team-map[data-view-id="team-' + otherId + '"]')).toBeVisible();
+  await driveTemplateUse(page, expect, log);
   expect(errors).toEqual([]);
   console.log('PASS team map native smoke');
 } finally {
