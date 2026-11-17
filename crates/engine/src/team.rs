@@ -848,6 +848,193 @@ pub fn evaluate(f: &Formation, stopped: &BTreeSet<String>) -> Evaluation {
 }
 
 
+// ---- What is owed to the room ----
+
+/// One agent as the room sees it now: the member its session holds.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Seat {
+    pub member_id: String,
+    pub member_name: String,
+    /// The Mukade role the member has now.
+    pub role: String,
+    /// Whether the member is in the room (a session that is not running or never joined is not).
+    pub in_room: bool,
+}
+
+/// What an agent was last told: the member that was told, and a fingerprint of everything the
+/// message said about the agent itself. A new revision that changes nothing about it is not a
+/// reason to tell it again (and to wake it).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Told {
+    pub revision: u64,
+    pub member: String,
+    #[serde(default)]
+    pub digest: String,
+}
+
+/// The key under which `told` remembers the last revision whose notice was sent. Not an agent id.
+pub const NOTICE_KEY: &str = "notice";
+const REMOVED: &str = "removed";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Delivery {
+    SetRole { member_id: String, role: MukadeRole },
+    Personal { agent: String, member_name: String, text: String },
+    Notice { text: String },
+    Retire { member_id: String },
+}
+
+/// FNV-1a: stable across Rust versions, which a stored fingerprint needs.
+fn fingerprint(text: &str) -> String {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in text.bytes() {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0100_0000_01b3);
+    }
+    format!("{hash:016x}")
+}
+
+/// Everything a personal message says about the agent itself: its name, notes, model, how it
+/// hands work out, its Mukade role and the sentences of its relations.
+fn digest(f: &Formation, agent: &str) -> String {
+    let Some(me) = f.agents.iter().find(|a| a.id == agent) else {
+        return REMOVED.into();
+    };
+    let sentences: Vec<String> = f
+        .links
+        .iter()
+        .enumerate()
+        .filter(|(_, l)| l.from == agent || l.to == agent)
+        .map(|(k, l)| told(f, k, l.from == agent))
+        .collect();
+    fingerprint(&format!(
+        "{}\n{}\n{}\n{:?}\n{}\n{}\n{}",
+        me.name,
+        me.notes,
+        serde_json::to_string(&me.model).unwrap_or_default(),
+        me.share,
+        mukade_role(f, agent).as_str(),
+        sentences.join("\n"),
+        hand_out(f, agent).unwrap_or_default()
+    ))
+}
+
+/// The message to an agent taken off the map.
+fn no_place(revision: u64) -> String {
+    format!(
+        "TEAM revision {revision}\nYou have no place in this thread's team any more: the user took you off the map. Go on as an equal with everyone."
+    )
+}
+
+/// What is owed to the room, given what was stored, what was told and who is in it. Pure and
+/// idempotent: with `told` updated by `mark` for each delivery that succeeded, a second call
+/// returns nothing. Order: the roles that changed, then the personal messages that explain them,
+/// then one notice for the members the change does not concern (those it does are told
+/// personally), then the sessions that closed.
+///
+/// `seats`: the agents of the thread's sessions that are in this thread (an agent whose session
+/// left the thread has none and is owed nothing). `closed`: members of sessions that were closed.
+pub fn deliveries(
+    before: Option<&Formation>,
+    now: &Formation,
+    told: &BTreeMap<String, Told>,
+    seats: &BTreeMap<String, Seat>,
+    closed: &[Seat],
+) -> Vec<Delivery> {
+    let mut out = Vec::new();
+    let present = |id: &str| seats.get(id).filter(|seat| seat.in_room);
+    let on_map = |id: &str| now.agents.iter().any(|a| a.id == id);
+    let gone: Vec<&String> = seats
+        .keys()
+        .filter(|id| !on_map(id) && told.get(*id).is_some_and(|t| t.digest != REMOVED))
+        .collect();
+    for agent in &now.agents {
+        if let Some(seat) = present(&agent.id) {
+            let wanted = mukade_role(now, &agent.id);
+            if seat.role != wanted.as_str() {
+                out.push(Delivery::SetRole { member_id: seat.member_id.clone(), role: wanted });
+            }
+        }
+    }
+    for id in &gone {
+        if let Some(seat) = present(id).filter(|seat| seat.role != MukadeRole::Peer.as_str()) {
+            out.push(Delivery::SetRole { member_id: seat.member_id.clone(), role: MukadeRole::Peer });
+        }
+    }
+    let members: BTreeMap<String, String> = seats
+        .iter()
+        .filter(|(_, seat)| seat.in_room)
+        .map(|(id, seat)| (id.clone(), seat.member_name.clone()))
+        .collect();
+    for agent in &now.agents {
+        let Some(seat) = present(&agent.id) else { continue };
+        let owed = match told.get(&agent.id) {
+            None => true,
+            Some(t) => t.member != seat.member_id || t.digest != digest(now, &agent.id),
+        };
+        if owed {
+            out.push(Delivery::Personal {
+                agent: agent.id.clone(),
+                member_name: seat.member_name.clone(),
+                text: personal(now, &agent.id, &members),
+            });
+        }
+    }
+    for id in &gone {
+        if let Some(seat) = present(id) {
+            out.push(Delivery::Personal {
+                agent: (*id).clone(),
+                member_name: seat.member_name.clone(),
+                text: no_place(now.revision),
+            });
+        }
+    }
+    let change = changes(before, now);
+    let noticed = told.get(NOTICE_KEY).is_some_and(|t| t.revision >= now.revision);
+    let others = now
+        .agents
+        .iter()
+        .any(|a| present(&a.id).is_some() && !change.touched.contains(&a.id));
+    if !change.lines.is_empty() && !noticed && others {
+        out.push(Delivery::Notice { text: notice(now.revision, &change.lines) });
+    }
+    if !closed.is_empty() {
+        let lines: Vec<String> = closed
+            .iter()
+            .map(|seat| format!("{} closed its session and left the room.", seat.member_name))
+            .collect();
+        out.push(Delivery::Notice { text: notice(now.revision, &lines) });
+        for seat in closed {
+            out.push(Delivery::Retire { member_id: seat.member_id.clone() });
+        }
+    }
+    out
+}
+
+/// Record that one delivery succeeded, so that `deliveries` does not owe it again. A notice of a
+/// closed session shares the change notice's mark: both say "the room was told at this revision".
+pub fn mark(now: &Formation, seats: &BTreeMap<String, Seat>, delivery: &Delivery, told: &mut BTreeMap<String, Told>) {
+    match delivery {
+        Delivery::Personal { agent, .. } => {
+            if let Some(seat) = seats.get(agent) {
+                told.insert(
+                    agent.clone(),
+                    Told { revision: now.revision, member: seat.member_id.clone(), digest: digest(now, agent) },
+                );
+            }
+        }
+        Delivery::Notice { .. } => {
+            told.insert(
+                NOTICE_KEY.into(),
+                Told { revision: now.revision, member: String::new(), digest: String::new() },
+            );
+        }
+        Delivery::SetRole { .. } | Delivery::Retire { .. } => {}
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1313,5 +1500,174 @@ mod tests {
         assert_eq!(e.roles["b"].mukade, MukadeRole::Worker);
         assert_eq!(e.sentences, vec![[told(&f, 0, true), told(&f, 0, false)]]);
         assert!(e.issues.is_empty());
+    }
+
+    // ---- What is owed to the room ----
+
+    fn seat(member: &str, role: &str, in_room: bool) -> Seat {
+        Seat { member_id: format!("id-{member}"), member_name: member.into(), role: role.into(), in_room }
+    }
+
+    /// The seats of every agent of `f`, all in the room, with the Mukade role the formation asks for.
+    fn seated(f: &Formation) -> BTreeMap<String, Seat> {
+        f.agents
+            .iter()
+            .map(|a| (a.id.clone(), seat(&format!("m-{}", a.id), mukade_role(f, &a.id).as_str(), true)))
+            .collect()
+    }
+
+    /// What the worker does with a run: every delivery succeeds.
+    fn run(before: Option<&Formation>, now: &Formation, told: &mut BTreeMap<String, Told>, seats: &BTreeMap<String, Seat>) -> Vec<Delivery> {
+        let owed = deliveries(before, now, told, seats, &[]);
+        for delivery in &owed {
+            mark(now, seats, delivery, told);
+        }
+        owed
+    }
+
+    fn kinds(owed: &[Delivery]) -> Vec<&'static str> {
+        owed.iter()
+            .map(|d| match d {
+                Delivery::SetRole { .. } => "role",
+                Delivery::Personal { .. } => "personal",
+                Delivery::Notice { .. } => "notice",
+                Delivery::Retire { .. } => "retire",
+            })
+            .collect()
+    }
+
+    fn personal_for(owed: &[Delivery]) -> Vec<&str> {
+        owed.iter().filter_map(|d| if let Delivery::Personal { agent, .. } = d { Some(agent.as_str()) } else { None }).collect()
+    }
+
+    #[test]
+    fn a_new_formation_tells_everyone_in_the_room_and_sends_no_notice_to_nobody() {
+        let f = team(&["a", "b", "c"], &[("a", "b", Work, Strict)]);
+        let mut seats = seated(&f);
+        for seat in seats.values_mut() {
+            seat.role = "peer".into();
+        }
+        let owed = deliveries(None, &f, &BTreeMap::new(), &seats, &[]);
+        assert_eq!(personal_for(&owed), vec!["a", "b", "c"]);
+        assert!(!kinds(&owed).contains(&"notice"), "{:?}", kinds(&owed));
+        let roles: Vec<_> = owed.iter().filter_map(|d| if let Delivery::SetRole { member_id, role } = d { Some((member_id.as_str(), *role)) } else { None }).collect();
+        assert_eq!(roles, vec![("id-m-a", MukadeRole::Lead), ("id-m-b", MukadeRole::Worker)]);
+    }
+
+    #[test]
+    fn a_role_is_set_before_the_message_that_explains_it() {
+        let f = team(&["a", "b"], &[("a", "b", Work, Strict)]);
+        let mut seats = seated(&f);
+        seats.get_mut("b").unwrap().role = "peer".into();
+        let owed = deliveries(None, &f, &BTreeMap::new(), &seats, &[]);
+        let k = kinds(&owed);
+        assert!(k.iter().position(|x| *x == "role").unwrap() < k.iter().position(|x| *x == "personal").unwrap(), "{k:?}");
+    }
+
+    #[test]
+    fn one_changed_arrow_tells_its_two_ends_and_notices_the_rest() {
+        let before = team(&["a", "b", "c"], &[("a", "b", Work, Done)]);
+        let mut told = BTreeMap::new();
+        let seats = seated(&before);
+        run(None, &before, &mut told, &seats);
+        let mut now = before.clone();
+        now.revision = 2;
+        now.links[0].report = Steps;
+        let owed = run(Some(&before), &now, &mut told, &seated(&now));
+        assert_eq!(personal_for(&owed), vec!["a", "b"]);
+        assert_eq!(kinds(&owed).iter().filter(|k| **k == "notice").count(), 1, "{:?}", kinds(&owed));
+        let Some(Delivery::Notice { text }) = owed.iter().find(|d| matches!(d, Delivery::Notice { .. })) else { panic!() };
+        assert!(text.starts_with("TEAM revision 2 changes\n"), "{text}");
+    }
+
+    #[test]
+    fn moving_a_card_or_bumping_the_revision_owes_nothing() {
+        let before = team(&["a", "b"], &[("a", "b", Work, Done)]);
+        let mut told = BTreeMap::new();
+        run(None, &before, &mut told, &seated(&before));
+        let mut now = before.clone();
+        now.revision = 5;
+        now.agents[0].x = 300;
+        assert!(run(Some(&before), &now, &mut told, &seated(&now)).is_empty());
+    }
+
+    #[test]
+    fn an_agent_not_in_the_room_is_told_when_it_joins() {
+        let f = team(&["a", "b"], &[]);
+        let mut seats = seated(&f);
+        seats.get_mut("b").unwrap().in_room = false;
+        let mut told = BTreeMap::new();
+        assert_eq!(personal_for(&run(None, &f, &mut told, &seats)), vec!["a"]);
+        seats.get_mut("b").unwrap().in_room = true;
+        assert_eq!(personal_for(&run(None, &f, &mut told, &seats)), vec!["b"]);
+        assert!(run(None, &f, &mut told, &seats).is_empty());
+    }
+
+    #[test]
+    fn a_new_member_of_a_told_agent_is_told_again_once() {
+        let f = team(&["a"], &[]);
+        let mut seats = seated(&f);
+        let mut told = BTreeMap::new();
+        run(None, &f, &mut told, &seats);
+        // The session was resumed and Mukade gave it another member.
+        seats.insert("a".into(), seat("m-new", "peer", true));
+        assert_eq!(personal_for(&run(None, &f, &mut told, &seats)), vec!["a"]);
+        assert!(run(None, &f, &mut told, &seats).is_empty(), "told once, not at every check");
+    }
+
+    #[test]
+    fn nothing_is_owed_twice() {
+        let before = team(&["a", "b", "c"], &[("a", "b", Work, Strict)]);
+        let mut now = before.clone();
+        now.revision = 2;
+        now.links.push(Link { from: "a".into(), to: "c".into(), kind: Work, report: Done, words: "go".into() });
+        let mut told = BTreeMap::new();
+        run(None, &before, &mut told, &seated(&before));
+        let first = run(Some(&before), &now, &mut told, &seated(&now));
+        assert!(!first.is_empty());
+        assert!(run(Some(&before), &now, &mut told, &seated(&now)).is_empty());
+    }
+
+    #[test]
+    fn an_agent_taken_off_the_map_is_told_it_has_no_place() {
+        let before = team(&["a", "b"], &[("a", "b", Work, Done)]);
+        let mut told = BTreeMap::new();
+        let seats = seated(&before);
+        run(None, &before, &mut told, &seats);
+        let mut now = team(&["a"], &[]);
+        now.revision = 2;
+        let owed = run(Some(&before), &now, &mut told, &seats);
+        let removed = owed.iter().find_map(|d| match d {
+            Delivery::Personal { agent, text, .. } if agent == "b" => Some(text.clone()),
+            _ => None,
+        });
+        let text = removed.expect("the removed agent is told");
+        assert!(text.starts_with("TEAM revision 2\n") && text.contains("no place"), "{text}");
+        assert!(personal_for(&owed).contains(&"a"), "its former giver is told the arrow is gone");
+        let again = run(Some(&before), &now, &mut told, &seats);
+        assert!(again.is_empty(), "{again:?}");
+    }
+
+    #[test]
+    fn an_agent_whose_session_left_the_thread_gets_nothing() {
+        let f = team(&["a", "b"], &[("a", "b", Work, Done)]);
+        let mut seats = seated(&f);
+        seats.remove("b");
+        let owed = deliveries(None, &f, &BTreeMap::new(), &seats, &[]);
+        assert_eq!(personal_for(&owed), vec!["a"]);
+        assert!(owed.iter().all(|d| !matches!(d, Delivery::SetRole { member_id, .. } if member_id.contains('b'))));
+    }
+
+    #[test]
+    fn a_closed_session_gets_a_closed_notice_and_its_member_is_retired() {
+        let f = team(&["a", "b"], &[("a", "b", Work, Done)]);
+        let seats = seated(&f);
+        let closed = vec![seat("m-gone", "peer", true)];
+        let owed = deliveries(Some(&f), &f, &BTreeMap::new(), &seats, &closed);
+        let k = kinds(&owed);
+        assert_eq!(&k[k.len() - 2..], ["notice", "retire"], "{k:?}");
+        let Some(Delivery::Notice { text }) = owed.iter().rev().find(|d| matches!(d, Delivery::Notice { .. })) else { panic!() };
+        assert!(text.contains("m-gone") && text.contains("closed"), "{text}");
+        assert!(owed.iter().any(|d| matches!(d, Delivery::Retire { member_id } if member_id == "id-m-gone")));
     }
 }
