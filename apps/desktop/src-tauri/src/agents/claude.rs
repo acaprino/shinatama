@@ -300,8 +300,39 @@ fn launch_error(error: ClaudeLaunchError) -> DriverError {
         ClaudeLaunchError::InvalidNativeSession => {
             DriverError::Failed("The saved Claude conversation identifier is invalid.")
         }
-        _ => DriverError::Failed(
-            "Claude startup no longer matches its qualified configuration. Try Open again.",
+        // One message per cause: a shared catch-all hid which check refused the start.
+        ClaudeLaunchError::Expired => DriverError::Failed(
+            "Claude startup preparation took too long. Try Open again.",
+        ),
+        ClaudeLaunchError::PrivateHome => {
+            DriverError::Failed("Claude's private home could not be prepared. Try Open again.")
+        }
+        ClaudeLaunchError::InvalidProject => {
+            DriverError::Failed("The selected project folder cannot be used for Claude.")
+        }
+        ClaudeLaunchError::SidecarUnavailable => DriverError::Failed(
+            "The Shinatama network sidecar is not ready. Try Open again in a moment.",
+        ),
+        ClaudeLaunchError::InvalidCa => {
+            DriverError::Failed("The sidecar certificate file could not be verified.")
+        }
+        ClaudeLaunchError::UnsupportedSet => {
+            DriverError::Failed("The selected plugin set is not supported for Claude.")
+        }
+        ClaudeLaunchError::BundledPlugins => DriverError::Failed(
+            "The bundled Marionette plugins could not be verified or copied for Claude.",
+        ),
+        ClaudeLaunchError::Configuration => DriverError::Failed(
+            "Claude's launch settings could not be prepared (settings, hooks or session tracking).",
+        ),
+        ClaudeLaunchError::Composition => {
+            DriverError::Failed("Claude's launch command could not be composed.")
+        }
+        ClaudeLaunchError::Identity => {
+            DriverError::Failed("A launch identity for Claude could not be created.")
+        }
+        ClaudeLaunchError::Permit => DriverError::Failed(
+            "Claude's native launch permit could not be prepared (pinned files or binding).",
         ),
     }
 }
