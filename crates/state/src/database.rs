@@ -540,6 +540,39 @@ impl Database {
         Ok(list)
     }
 
+    /// What a thread keeps of its team map: the applied formation and, per agent, what it was last
+    /// told (`{ "formation": …, "told": { "<agent id>": { "revision", "member" } } }`). The shape
+    /// belongs to the engine; this only keeps it. One setting per thread, because a setting holds
+    /// 64 KiB and a full formation takes more than half of that.
+    pub fn thread_team(&self, workset_id: &str) -> Result<Option<serde_json::Value>> {
+        let key = Self::team_key(workset_id)?;
+        let saved: Option<serde_json::Value> = self.setting_json(&key)?;
+        Ok(saved.filter(|value| !value.is_null()))
+    }
+
+    /// `None` removes the thread's team.
+    pub fn set_thread_team(&self, workset_id: &str, record: Option<&serde_json::Value>) -> Result<()> {
+        let key = Self::team_key(workset_id)?;
+        match record {
+            Some(record) => self.set_setting_json(&key, record),
+            None => {
+                self.require_writable()?;
+                let mut connection = self.lock()?;
+                let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+                schema::require_write_version(&transaction)?;
+                transaction.execute("DELETE FROM setting WHERE key=?1", params![key])?;
+                transaction.commit()?;
+                Ok(())
+            }
+        }
+    }
+
+    fn team_key(workset_id: &str) -> Result<String> {
+        crate::records::validate_id(workset_id, crate::records::CanonicalIdKind::Workset)
+            .map_err(|_| DatabaseError::InvalidProject("thread id"))?;
+        Ok(format!("threads.team.v1.{workset_id}"))
+    }
+
     /// C08's sole settings namespace. Reads never allocate an oversized value.
     pub fn presentation_json(&self) -> Result<Option<String>> {
         let connection = self.lock()?;
@@ -1007,5 +1040,74 @@ mod fault_tests {
         drop(database);
         drop(location);
         fs::remove_dir_all(root).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod team_tests {
+    use super::*;
+    use crate::location::LocationRequest;
+    use serde_json::json;
+
+    fn database() -> Database {
+        let root = crate::test_scratch::root()
+            .join("shinatama-team-tests")
+            .join(uuid::Uuid::new_v4().to_string());
+        std::fs::create_dir_all(root.join("projects")).unwrap();
+        let location = StorageLocation::resolve(LocationRequest {
+            local_data_directory: root.clone(),
+            home_override: Some(root.join("data")),
+            project_roots: vec![root.join("projects")],
+            synchronized_roots: Vec::new(),
+        })
+        .unwrap();
+        Database::open(&location, None).unwrap()
+    }
+
+    const ONE: &str = "w_aaaaaaaaaaaa";
+    const OTHER: &str = "w_bbbbbbbbbbbb";
+
+    #[test]
+    fn a_thread_s_team_is_kept_and_removed() {
+        let database = database();
+        assert_eq!(database.thread_team(ONE).unwrap(), None);
+        let record = json!({"formation": {"revision": 2, "agents": [], "links": []}, "told": {}});
+        database.set_thread_team(ONE, Some(&record)).unwrap();
+        assert_eq!(database.thread_team(ONE).unwrap(), Some(record));
+        database.set_thread_team(ONE, None).unwrap();
+        assert_eq!(database.thread_team(ONE).unwrap(), None);
+    }
+
+    #[test]
+    fn an_invalid_thread_id_is_refused() {
+        let database = database();
+        for bad in ["", "x_aaaaaaaaaaaa", "w_short", "w_AAAAAAAAAAAA", "w_aaaaaaaaaaaa/../x"] {
+            assert!(database.set_thread_team(bad, Some(&json!({}))).is_err(), "{bad}");
+            assert!(database.thread_team(bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn another_thread_s_team_is_untouched() {
+        let database = database();
+        let first = json!({"formation": {"revision": 1}, "told": {}});
+        let second = json!({"formation": {"revision": 9}, "told": {"a_aaaaaaaaaaaa": {"revision": 9, "member": "m"}}});
+        database.set_thread_team(ONE, Some(&first)).unwrap();
+        database.set_thread_team(OTHER, Some(&second)).unwrap();
+        database.set_thread_team(ONE, None).unwrap();
+        assert_eq!(database.thread_team(OTHER).unwrap(), Some(second));
+    }
+
+    #[test]
+    fn a_full_formation_fits_in_its_own_record() {
+        let database = database();
+        let agents: Vec<_> = (0..24)
+            .map(|i| json!({"id": format!("a_{i:012}"), "name": "n".repeat(40), "notes": "k".repeat(1024)}))
+            .collect();
+        let links: Vec<_> = (0..64).map(|i| json!({"from": "a", "to": "b", "words": "w".repeat(120), "i": i})).collect();
+        let record = json!({"formation": {"revision": 1, "agents": agents, "links": links}, "told": {}});
+        database.set_thread_team(ONE, Some(&record)).unwrap();
+        database.set_thread_team(OTHER, Some(&record)).unwrap();
+        assert_eq!(database.thread_team(OTHER).unwrap(), Some(record));
     }
 }
