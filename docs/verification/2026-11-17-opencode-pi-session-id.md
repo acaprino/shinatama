@@ -35,3 +35,21 @@ The model call failed for lack of credits; not what was asked.
 - That the id a tab's session records in Shinatama's database is the one passed: that is the code of task 0.
 
 The plan's stop condition ("if either does not report the id it was given, stop") did not apply: both do.
+
+# OpenCode and Pi: a first message on the command line (plan task 13, step 1)
+
+Date: 2026-11-18. Programs: OpenCode v2.2.5, Pi 1.4.0 (the installed ones). Both were run in a pseudo-console
+(ConPTY, 120x40) so that their real interactive interface drew, from a scratch folder as the project, with
+OpenCode's state in scratch XDG folders and Pi's in a scratch `PI_CODING_AGENT_DIR`; no Mukade and nothing of
+Shinatama's or the owner's was involved.
+
+| Command | Result |
+|---|---|
+| `opencode --standalone --prompt "say only: ready"` | the interactive interface opened, the text appeared as the first user message of a new session and the turn started; it then failed with `Insufficient credits` (the provider default of this machine) |
+| `opencode --standalone --session ses_<id> --prompt "say only: ready"` | the same, with the session created under the id passed |
+| `pi -- "say only: ready"` | the interactive interface opened, `say only: ready` was submitted as the first message, `Working` showed, then `Error: 402 ... Insufficient credits` |
+| `pi --session-id <uuid> --no-skills -- "say only: ready"` | the same: options before `--`, the text last |
+
+The model calls failed for lack of credits; what was asked, whether the program accepts the argument and runs
+the turn, holds for both. Neither refused. Not checked: that the Mukade plugin and extension join the room at
+that first turn (they were not loaded here); that is the owner's run in task 9.

@@ -153,6 +153,7 @@ impl HarnessDriver for OpenCodeDriver {
                 chat: context.chat.as_ref(),
                 native_id: &native_id,
                 model: None,
+                initial_prompt: None,
             },
             receipt,
         )
@@ -281,6 +282,9 @@ fn launch_error(issue: OpenCodeLaunchError) -> DriverError {
         OpenCodeLaunchError::InvalidNativeSession => {
             DriverError::Failed("The session id chosen for OpenCode is not in its own shape.")
         }
+        OpenCodeLaunchError::InvalidFirstMessage => DriverError::Failed(
+            "The first message for OpenCode is empty, over 8192 bytes or holds a NUL.",
+        ),
         OpenCodeLaunchError::Model => {
             DriverError::Failed("The model chosen for OpenCode is no longer in the Models panel.")
         }

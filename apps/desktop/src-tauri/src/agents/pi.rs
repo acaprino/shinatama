@@ -145,6 +145,7 @@ impl HarnessDriver for PiDriver {
                 chat: context.chat.as_ref(),
                 native_id: &native_id,
                 model: None,
+                initial_prompt: None,
             },
             receipt,
         )
@@ -277,6 +278,9 @@ fn launch_error(issue: PiLaunchError) -> DriverError {
         PiLaunchError::InvalidNativeSession => {
             DriverError::Failed("The session id chosen for Pi is not a valid identifier.")
         }
+        PiLaunchError::InvalidFirstMessage => DriverError::Failed(
+            "The first message for Pi is empty, over 8192 bytes or holds a NUL.",
+        ),
         PiLaunchError::Model => {
             DriverError::Failed("The model chosen for Pi is no longer in the Models panel.")
         }

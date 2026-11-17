@@ -107,6 +107,8 @@ pub enum OpenCodeLaunchError {
     InvalidNativeSession,
     /// The model chosen for this launch is no longer in the Models panel.
     Model,
+    /// The first message is blank, over 8192 bytes or holds a NUL.
+    InvalidFirstMessage,
 }
 impl std::fmt::Display for OpenCodeLaunchError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -146,6 +148,9 @@ pub struct OpenCodeStartContext<'a> {
     /// opened by hand. `Some(None)`: OpenCode's own sign-in and model. `Some(Some(selection))`:
     /// the model of a team agent, which replaces the panel's for this launch only.
     pub model: Option<Option<&'a crate::model_config::Selection>>,
+    /// The first message of the session (`--prompt <text>`): at most 8192 bytes, no NUL. OpenCode's
+    /// chat kit joins its room at the first prompt, so a session opened for a team starts with one.
+    pub initial_prompt: Option<&'a str>,
 }
 pub struct PreparedOpenCodeTrial {
     pub launch: PreparedLaunch,
@@ -183,6 +188,7 @@ struct Context<'a> {
     chat: Option<&'a crate::mukade_chat::ChatHooks>,
     native_id: Option<&'a str>,
     model: Option<Option<&'a crate::model_config::Selection>>,
+    initial_prompt: Option<&'a str>,
 }
 pub struct PreparedOpenCodeStart {
     pub launch: PreparedLaunch,
@@ -203,14 +209,26 @@ fn chat_kit(base: &StorageLocation, instance: &Path, config: &str) -> Result<(cr
     Ok((connection, merged))
 }
 
-/// OpenCode's arguments: its own standalone service, and for a real session the id it starts with.
-/// OpenCode refuses a UUID (`Expected a string starting with "ses"`); see `is_session_id`.
-fn fixed_arguments(native_id: Option<&str>) -> Vec<OsString> {
+/// OpenCode's arguments: its own standalone service, for a real session the id it starts with,
+/// and then its first message. OpenCode refuses a UUID (`Expected a string starting with "ses"`);
+/// see `is_session_id`.
+fn fixed_arguments(native_id: Option<&str>, initial_prompt: Option<&str>) -> Vec<OsString> {
     let mut arguments = vec![OsString::from("--standalone")];
     if let Some(id) = native_id {
         arguments.extend([OsString::from("--session"), OsString::from(id)]);
     }
+    if let Some(prompt) = initial_prompt {
+        arguments.extend([OsString::from("--prompt"), OsString::from(prompt)]);
+    }
     arguments
+}
+
+/// A first message is bounded as `collaboration.rs` bounds it (`crate::launch::is_first_message`).
+fn check_first_message(prompt: Option<&str>) -> Result<(), OpenCodeLaunchError> {
+    match prompt {
+        Some(text) if !crate::launch::is_first_message(text) => Err(OpenCodeLaunchError::InvalidFirstMessage),
+        _ => Ok(()),
+    }
 }
 
 /// The shape of OpenCode's own session ids: `ses_`, 12 lowercase hex digits, 14 letters or digits.
@@ -303,6 +321,7 @@ pub fn prepare_trial(
             chat: None,
             native_id: None,
             model: None,
+            initial_prompt: None,
         },
         None,
         true,
@@ -342,6 +361,7 @@ pub fn prepare_start(
             chat: context.chat,
             native_id: Some(context.native_id),
             model: context.model,
+            initial_prompt: context.initial_prompt,
         },
         Some(receipt),
         false,
@@ -379,6 +399,7 @@ fn prepare(
     if context.native_id.is_some_and(|id| !is_session_id(id)) {
         return Err(OpenCodeLaunchError::InvalidNativeSession);
     }
+    check_first_message(context.initial_prompt)?;
     let observation = context.observation.summary();
     let version = observation
         .version
@@ -736,7 +757,7 @@ fn prepare(
     let mode = Placement::new(ProgramPlacement::System, HomePlacement::Box)
         .map_err(|_| OpenCodeLaunchError::PlacementMode)?;
     let placement_recipe = placement_recipe(&descriptor, mode)?;
-    let args = fixed_arguments(context.native_id);
+    let args = fixed_arguments(context.native_id, context.initial_prompt);
     let arguments_recipe = QualifiedArgvRecipe::qualify(
         &descriptor,
         Operation::StartNew,
@@ -1211,7 +1232,7 @@ mod tests {
             &descriptor,
             Operation::StartNew,
             CommandForm::NativeExe("C:/program/opencode.exe".into()),
-            fixed_arguments(None),
+            fixed_arguments(None, None),
             evidence(&descriptor).unwrap(),
         )
         .unwrap();
@@ -1227,13 +1248,13 @@ mod tests {
         )
         .with_private_paths(&paths);
         let launch = compose_launch(&descriptor, Operation::StartNew, mode, &inputs).unwrap();
-        assert_eq!(launch.command().argv(), fixed_arguments(None));
+        assert_eq!(launch.command().argv(), fixed_arguments(None, None));
         let given = new_session_id();
         let with_id = QualifiedArgvRecipe::qualify(
             &descriptor,
             Operation::StartNew,
             CommandForm::NativeExe("C:/program/opencode.exe".into()),
-            fixed_arguments(Some(&given)),
+            fixed_arguments(Some(&given), None),
             evidence(&descriptor).unwrap(),
         )
         .unwrap();
@@ -1312,7 +1333,7 @@ mod tests {
     }
     #[test]
     fn opencode_standalone_keeps_native_permission_prompts() {
-        assert_eq!(fixed_arguments(None), vec![OsString::from("--standalone")]);
+        assert_eq!(fixed_arguments(None, None), vec![OsString::from("--standalone")]);
         let protected: Value = serde_json::from_str(config_content(false)).unwrap();
         assert!(protected.get("permissions").is_none());
     }
@@ -1324,11 +1345,11 @@ mod tests {
         let id = "ses_f4a4700c4988qHjfJkARDz8LLp";
         assert!(is_session_id(id));
         assert_eq!(
-            fixed_arguments(Some(id)),
+            fixed_arguments(Some(id), None),
             ["--standalone", "--session", id].map(OsString::from)
         );
         // The trial has no session of its own to name.
-        assert_eq!(fixed_arguments(None), ["--standalone"].map(OsString::from));
+        assert_eq!(fixed_arguments(None, None), ["--standalone"].map(OsString::from));
         for _ in 0..64 {
             let made = new_session_id();
             assert!(is_session_id(&made), "{made}");
@@ -1352,7 +1373,40 @@ mod tests {
     /// 32; the terminal crate depends on this one, so the number is repeated here).
     #[test]
     fn opencode_arguments_stay_within_the_launch_bound() {
-        assert!(fixed_arguments(Some(&new_session_id())).len() <= 32);
+        assert!(fixed_arguments(Some(&new_session_id()), None).len() <= 32);
+    }
+    /// Task 13 of the thread team: OpenCode's first message is `--prompt <text>`. Verified with the
+    /// installed 2.2.5: the interface opens and runs that turn
+    /// (docs/verification/2026-11-17-opencode-pi-session-id.md).
+    #[test]
+    fn opencode_takes_its_first_message() {
+        let id = "ses_f4a4700c4988qHjfJkARDz8LLp";
+        let text = "You are Ada in this thread's team. -- not an option";
+        assert_eq!(
+            fixed_arguments(Some(id), Some(text)),
+            ["--standalone", "--session", id, "--prompt", text].map(OsString::from)
+        );
+        // Without one, the arguments are what they were.
+        assert_eq!(fixed_arguments(Some(id), None), ["--standalone", "--session", id].map(OsString::from));
+        assert_eq!(fixed_arguments(None, None), ["--standalone"].map(OsString::from));
+    }
+    #[test]
+    fn a_first_message_with_a_nul_or_over_8192_bytes_is_refused() {
+        assert_eq!(check_first_message(None), Ok(()));
+        assert_eq!(check_first_message(Some(&"x".repeat(8192))), Ok(()));
+        assert_eq!(check_first_message(Some(&"é".repeat(4096))), Ok(()));
+        for refused in ["x".repeat(8193), "é".repeat(4097), "a\0b".into(), "\0".into(), String::new(), " \r\n\t".into()] {
+            assert_eq!(check_first_message(Some(&refused)), Err(OpenCodeLaunchError::InvalidFirstMessage), "{refused:?}");
+        }
+    }
+    /// The terminal host refuses more than `MAX_LAUNCH_ARGUMENTS` (32, as above). OpenCode's chat
+    /// kit, Marionette and the model ride in its configuration and environment; the arguments of
+    /// the fullest launch are the session id and the first message.
+    #[test]
+    fn the_fullest_launch_stays_within_32_arguments() {
+        let fullest = fixed_arguments(Some(&new_session_id()), Some(&"x".repeat(8192)));
+        assert_eq!(fullest.len(), 5);
+        assert!(fullest.len() <= 32);
     }
     /// Task 12 of the thread team: the agent's model goes into the inline configuration; the
     /// panel's assignment stays the default for the sessions the user opens by hand.

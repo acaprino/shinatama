@@ -24,6 +24,15 @@ use std::path::Path;
 
 const INVALID_SELECTORS: &str = "Invalid launch selectors.";
 
+/// The longest first message a launch may carry, as `collaboration.rs` and Claude's
+/// `with_initial_prompt` bound it. The argument qualifier refuses a longer token as well.
+pub const MAX_FIRST_MESSAGE_BYTES: usize = 8192;
+/// A first message for a new session: not blank, at most 8192 bytes, no NUL. It is one argument
+/// (never shell syntax), so nothing else is checked.
+pub fn is_first_message(text: &str) -> bool {
+    !text.trim().is_empty() && text.len() <= MAX_FIRST_MESSAGE_BYTES && !text.contains('\0')
+}
+
 #[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum LaunchAction {

@@ -86,6 +86,8 @@ pub enum PiLaunchError {
     InvalidNativeSession,
     /// The model chosen for this launch is no longer in the Models panel.
     Model,
+    /// The first message is blank, over 8192 bytes or holds a NUL.
+    InvalidFirstMessage,
 }
 impl std::fmt::Display for PiLaunchError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -125,6 +127,8 @@ pub struct PiStartContext<'a> {
     /// opened by hand. `Some(None)`: Pi's own sign-in and model. `Some(Some(selection))`: the
     /// model of a team agent, which replaces the panel's for this launch only.
     pub model: Option<Option<&'a crate::model_config::Selection>>,
+    /// The first message of the session, after `--` and every option: at most 8192 bytes, no NUL.
+    pub initial_prompt: Option<&'a str>,
 }
 pub struct PiTrialContext<'a> {
     pub candidate: &'a ProgramCandidate,
@@ -180,6 +184,23 @@ fn model_arguments(extension: PathBuf, provider: &str, model: &str) -> Vec<OsStr
     ]
 }
 
+/// Pi's first message is its trailing `[messages...]`: `--` ends option parsing, then the text, so
+/// it is the last argument and never an option, whatever it starts with.
+fn with_first_message(mut arguments: Vec<OsString>, initial_prompt: Option<&str>) -> Vec<OsString> {
+    if let Some(prompt) = initial_prompt {
+        arguments.extend([OsString::from("--"), OsString::from(prompt)]);
+    }
+    arguments
+}
+
+/// A first message is bounded as `collaboration.rs` bounds it (`crate::launch::is_first_message`).
+fn check_first_message(prompt: Option<&str>) -> Result<(), PiLaunchError> {
+    match prompt {
+        Some(text) if !crate::launch::is_first_message(text) => Err(PiLaunchError::InvalidFirstMessage),
+        _ => Ok(()),
+    }
+}
+
 /// The model arguments of a launch's snapshot: the panel's assignment, or the agent's model when
 /// the launch took one; nothing when Pi keeps its own sign-in and model.
 fn selected_model_arguments(models: &crate::model_config::Snapshot, extension: PathBuf) -> Vec<OsString> {
@@ -233,6 +254,7 @@ struct Context<'a> {
     chat: Option<&'a crate::mukade_chat::ChatHooks>,
     native_id: Option<&'a str>,
     model: Option<Option<&'a crate::model_config::Selection>>,
+    initial_prompt: Option<&'a str>,
 }
 struct Prepared {
     launch: PreparedLaunch,
@@ -289,6 +311,7 @@ pub fn prepare_trial(context: PiTrialContext<'_>) -> Result<PreparedPiTrial, PiL
             chat: None,
             native_id: None,
             model: None,
+            initial_prompt: None,
         },
         None,
         true,
@@ -329,6 +352,7 @@ pub fn prepare_start(
             chat: context.chat,
             native_id: Some(context.native_id),
             model: context.model,
+            initial_prompt: context.initial_prompt,
         },
         Some(receipt),
         false,
@@ -359,6 +383,7 @@ fn prepare(
     if context.native_id.is_some_and(|id| !is_session_id(id)) {
         return Err(PiLaunchError::InvalidNativeSession);
     }
+    check_first_message(context.initial_prompt)?;
     let observation = context.observation.summary();
     let (version, node_version) = observation
         .version
@@ -625,6 +650,8 @@ fn prepare(
             .map_err(|_| PiLaunchError::Configuration)?;
         arguments.extend(selected_model_arguments(&models, path));
     }
+    // The first message is last, after `--`, so that no word of it is read as an option.
+    let arguments = with_first_message(arguments, context.initial_prompt);
     let descriptor = descriptor(&version)?;
     let mode = Placement::new(ProgramPlacement::System, HomePlacement::Box)
         .map_err(|_| PiLaunchError::PlacementMode)?;
@@ -854,6 +881,47 @@ mod tests {
     use super::*;
     use crate::launch::identity::LaunchIdentity;
 
+    /// Task 13 of the thread team: Pi's first message is the trailing `[messages...]`, after `--` so
+    /// that it is never read as an option, and after every option. Verified with the installed
+    /// 1.4.0: the interface opens and runs that turn (docs/verification/2026-11-17-opencode-pi-session-id.md).
+    #[test]
+    fn pi_takes_its_first_message_last() {
+        let marionette = shinatama_adapter::pi::sets::plan_marionette(Path::new(r"C:\Data\marionette")).unwrap();
+        let chat: Vec<OsString> = ["-e", r"C:\Data\i\mukade-kit\pi-extension\mukade-chat.ts", "-e", "builtin:mcp"].map(OsString::from).to_vec();
+        let mut options = session_arguments(Some(marionette), chat, Some("0e8a7129-1f2c-486d-bb80-3f2e8ac8a864"));
+        options.extend(model_arguments(PathBuf::from(r"C:\Data\i\model-provider.mjs"), "provider", "model"));
+        for text in ["You are Ada in this thread's team.", "-p --provider x -- not options"] {
+            let arguments = with_first_message(options.clone(), Some(text));
+            assert_eq!(arguments[..options.len()], options[..]);
+            assert_eq!(arguments[options.len()..], [OsString::from("--"), OsString::from(text)]);
+            assert_eq!(arguments.last().unwrap(), &OsString::from(text));
+            // No option follows the `--` and none of ours is `--` itself.
+            assert!(!options.contains(&OsString::from("--")));
+        }
+        // Without one, the arguments are what they were.
+        assert_eq!(with_first_message(options.clone(), None), options);
+    }
+    #[test]
+    fn a_first_message_with_a_nul_or_over_8192_bytes_is_refused() {
+        assert_eq!(check_first_message(None), Ok(()));
+        assert_eq!(check_first_message(Some(&"x".repeat(8192))), Ok(()));
+        assert_eq!(check_first_message(Some(&"é".repeat(4096))), Ok(()));
+        for refused in ["x".repeat(8193), "é".repeat(4097), "a\0b".into(), "\0".into(), String::new(), " \r\n\t".into()] {
+            assert_eq!(check_first_message(Some(&refused)), Err(PiLaunchError::InvalidFirstMessage), "{refused:?}");
+        }
+    }
+    /// The terminal host refuses more than `MAX_LAUNCH_ARGUMENTS` (32, as above): Marionette, the
+    /// talking thread's extension and MCP, the agent's model, the session id and the first message.
+    #[test]
+    fn the_fullest_launch_stays_within_32_arguments() {
+        let marionette = shinatama_adapter::pi::sets::plan_marionette(Path::new(r"C:\Data\marionette")).unwrap();
+        let chat: Vec<OsString> = ["-e", r"C:\Data\i\mukade-kit\pi-extension\mukade-chat.ts", "-e", "builtin:mcp"].map(OsString::from).to_vec();
+        let mut fullest = session_arguments(Some(marionette), chat, Some(&new_session_id()));
+        fullest.extend(model_arguments(PathBuf::from(r"C:\Data\i\model-provider.mjs"), "provider", "model"));
+        let fullest = with_first_message(fullest, Some(&"x".repeat(8192)));
+        assert!(fullest.len() + 1 <= 32, "{} arguments", fullest.len() + 1);
+        assert_eq!(fullest[fullest.len() - 2], OsString::from("--"));
+    }
     /// Task 12 of the thread team: a launch for an agent carries the agent's model, the panel's
     /// assignment stays the default for the sessions the user opens by hand.
     #[test]
