@@ -7,6 +7,7 @@ export type Connection = { id: string; name: string; api: Api; baseUrl: string; 
 export type Selection = { connectionId: string; modelId: string };
 export const HARNESSES = ['opencode', 'pi', 'hermes'] as const;
 export type Harness = typeof HARNESSES[number];
+export const HARNESS_NAMES: Record<Harness, string> = { opencode: 'OpenCode', pi: 'Pi', hermes: 'Hermes' };
 export type Assignments = Record<Harness, Selection | null>;
 export type View = { revision: number; connections: { connection: Connection; hasApiKey: boolean }[]; assignments: Assignments };
 export type Edit = { connection: Connection; hasApiKey: boolean; keyInput: string; removeKey: boolean };
@@ -25,6 +26,38 @@ export const PRESETS: { name: string; api: Api; baseUrl: string }[] = [
   { name: 'Custom endpoint', api: 'openai-completions', baseUrl: '' },
 ];
 export const newModel = (): Model => ({ id: '', contextWindow: 128000, maxTokens: 8192, reasoning: false, vision: false });
+
+/** The agents whose new sessions start with this connection, in display order. */
+export function usedBy(form: Form, connectionId: string): Harness[] {
+  return HARNESSES.filter(h => form.assignments[h]?.connectionId === connectionId);
+}
+/** The model a one-click assignment picks: the first one with an ID, or null while none has one. */
+export function firstModelId(connection: Connection): string | null {
+  return connection.models.map(m => m.id.trim()).find(Boolean) ?? null;
+}
+export function connectionHost(baseUrl: string): string {
+  try { return new URL(baseUrl.trim()).host; } catch { return ''; }
+}
+/** A readable default name from the endpoint: the provider's domain, or host:port for local servers. */
+export function suggestedName(baseUrl: string): string | null {
+  let url: URL; try { url = new URL(baseUrl.trim()); } catch { return null; }
+  if (!/^https?:$/.test(url.protocol) || !url.hostname) return null;
+  const host = url.hostname;
+  if (host === 'localhost' || /^[\d.]+$/.test(host) || host.startsWith('[') || !host.includes('.')) return url.host;
+  const labels = host.split('.'); labels.pop();
+  if (labels.length > 1 && /^[a-z]{2}$/.test(host.split('.').pop() ?? '') && /^(co|com|org|net|gov|ac|edu)$/.test(labels[labels.length - 1])) labels.pop();
+  const name = labels[labels.length - 1];
+  return name ? name[0].toUpperCase() + name.slice(1) : url.host;
+}
+/** One menu picks connection and model together; its option values carry both. */
+export function writeChoice(selection: Selection): string { return JSON.stringify([selection.connectionId, selection.modelId]); }
+export function readChoice(value: string): Selection | null {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (Array.isArray(parsed) && parsed.length === 2 && parsed.every(part => typeof part === 'string')) return { connectionId: parsed[0], modelId: parsed[1] };
+  } catch { /* not a choice */ }
+  return null;
+}
 export const emptyForm = (): Form => ({ revision: 0, connections: [], assignments: { opencode: null, pi: null, hermes: null } });
 export function fromView(view: View): Form {
   return { revision: view.revision, assignments: structuredClone(view.assignments), connections: view.connections.map(c => ({
@@ -90,7 +123,7 @@ export function buildModelSave(form: Form): { request: Save } | { problem: strin
   for (const harness of HARNESSES) {
     const selection = form.assignments[harness];
     if (selection && !connections.some(c => c.connection.id === selection.connectionId && c.connection.models.some(m => m.id === selection.modelId)))
-      return { problem: `Choose an existing model for ${harness}, or select native settings.` };
+      return { problem: `Choose an existing model for ${HARNESS_NAMES[harness]}, or let it use its own sign-in and model.` };
   }
   return { request: { revision: form.revision, connections, assignments: structuredClone(form.assignments) } };
 }
