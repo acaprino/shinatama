@@ -20,8 +20,8 @@ pub(crate) fn start(home: &Path) {
     let _ = std::thread::Builder::new()
         .name("marionette-sync".into())
         .spawn(move || match marionette::sync(&store, &SystemFetch) {
-            Ok(outcome) => eprintln!("Marionette: {outcome:?}"),
-            Err(error) => eprintln!("Marionette sync skipped: {error}"),
+            Ok(outcome) => crate::app_log::write("marionette", &format!("{outcome:?}")),
+            Err(error) => crate::app_log::write("marionette", &format!("Sync skipped: {error}.")),
         });
 }
 

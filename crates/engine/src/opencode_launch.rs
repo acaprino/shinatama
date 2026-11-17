@@ -55,7 +55,11 @@ use windows_sys::Win32::Storage::FileSystem::{
 };
 
 const MIB: u64 = 1024 * 1024;
-const PREPARE_BUDGET: Duration = Duration::from_secs(10);
+/// The preparation of a launch, the SHA-256 of the whole harness executable included. Claude's
+/// exe is ~370 MB: the first launch after a start or an update reads it cold, often while an
+/// antivirus scans it, and 10 s failed a click the next one passed. The budget only bounds a
+/// stuck read; a launch that finishes sooner does not wait for it.
+const PREPARE_BUDGET: Duration = Duration::from_secs(60);
 const RECIPE: &str = "opencode-system-box-standalone-tui-v1";
 // D17's reviewed 2.x shell hook. Fixed launcher artifact, never a plugin chosen
 // by IPC. Its pinned file is kept for the lifetime of this exact invocation.
@@ -337,11 +341,7 @@ fn prepare(
         let root = context
             .plugins_root
             .ok_or(OpenCodeLaunchError::BundledPlugins)?;
-        Some(
-            Marionette::current(root)
-                .and_then(|release| release.verify(Host::OpenCode))
-                .map_err(|_| OpenCodeLaunchError::BundledPlugins)?,
-        )
+        Some(bundled_adapter(root, context.base.directory())?)
     } else {
         return Err(OpenCodeLaunchError::UnsupportedSet);
     };
@@ -500,8 +500,8 @@ fn prepare(
         &mut artifacts,
     )?;
     if let Some(adapter) = &bundled {
-        // A shim only: the adapter registers its skills and policy relative to
-        // its own tree, so it is imported where it was verified, never copied.
+        // A shim only: the adapter registers its skills and policy relative to its own
+        // tree, so the shim imports the whole private copy (`bundled_adapter`).
         let target = adapter.dir_arg() + MARIONETTE_ENTRY;
         create_bytes(
             &plugin_directory,
@@ -845,6 +845,16 @@ pub(crate) fn create_json(
     let bytes = serde_json::to_vec(value).map_err(|_| OpenCodeLaunchError::Configuration)?;
     create_bytes(location, name, &bytes, pins)
 }
+/// The Marionette adapter an OpenCode session loads: verified in the synced `store`, then
+/// mirrored into OpenCode's private copy under `home`. A session writes into the tree it loads
+/// (Python leaves `__pycache__` beside the muro scripts the agent runs), and one stray file in
+/// the store fails the digest check of every later launch, so the store is never handed out.
+fn bundled_adapter(store: &Path, home: &Path) -> Result<crate::marionette::Adapter, OpenCodeLaunchError> {
+    Marionette::current(store)
+        .and_then(|release| release.verify(Host::OpenCode))
+        .and_then(|adapter| adapter.private_copy(&home.join(crate::marionette::OPENCODE_COPY)))
+        .map_err(|_| OpenCodeLaunchError::BundledPlugins)
+}
 /// Shim file in the instance's plugin folder, and the adapter's entry it imports
 /// (the `exports` of the adapter's `package.json`).
 const MARIONETTE_SHIM: &str = "shn-marionette.js";
@@ -1056,6 +1066,29 @@ fn pin_program(path: &Path, deadline: Instant) -> Result<ProgramPin, OpenCodeLau
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn a_cache_written_where_opencode_loads_marionette_never_reaches_the_store() {
+        // 2026-11-17: Python left `__pycache__` beside the muro scripts of the adapter OpenCode
+        // loaded from the synced store; every later OpenCode launch then failed its digest check
+        // ("The bundled plugins could not be verified for OpenCode.").
+        use crate::marionette::{self, tests::{FakeFetch, scratch}};
+        let home = scratch("opencode-copy-home");
+        let store = home.join(marionette::STORE);
+        marionette::sync(&store, &FakeFetch::new("marionette-v0.1.0", "0.1.0")).unwrap();
+        for _launch in 0..2 {
+            let adapter = bundled_adapter(&store, &home).unwrap();
+            assert!(adapter.dir().starts_with(home.join(marionette::OPENCODE_COPY)));
+            assert!(adapter.dir().join("index.js").is_file());
+            let cache = adapter.dir().join("skills/marionette/__pycache__");
+            std::fs::create_dir_all(&cache).unwrap();
+            std::fs::write(cache.join("core.cpython-313.pyc"), b"bytecode").unwrap();
+        }
+        let current = Marionette::current(&store).unwrap();
+        for host in Host::ALL {
+            current.verify(host).unwrap();
+        }
+        let _ = std::fs::remove_dir_all(&home);
+    }
     #[test]
     fn bundled_shim_is_a_file_url_reexport() {
         assert_eq!(

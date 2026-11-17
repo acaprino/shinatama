@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { emptyWorkspace, reduceWorkspaceLayout } from '../src/workspace-model.ts';
-import { createWorkspacePersistence } from '../src/workspace-persistence.ts';
+import { createWorkspacePersistence, layoutLoadFailureText, transientLayoutFailure } from '../src/workspace-persistence.ts';
 import type { WorkspaceLayout } from '../src/workspace-model.ts';
 import type { WorkspaceSnapshot, WorkspaceTransport, WorkspaceWrite } from '../src/workspace-persistence.ts';
 
@@ -35,6 +35,34 @@ async function ready(client: ReturnType<typeof createWorkspacePersistence>): Pro
   assert.equal((await client.load()).ok, true); assert.equal((await client.claim()).ok, true);
 }
 async function turn(): Promise<void> { await new Promise<void>(resolve => setTimeout(resolve, 0)); }
+
+test('a refused load says the storage reason, and the next load can still succeed', async t => {
+  let refusals = 1;
+  const transport: WorkspaceTransport = {
+    async load() { if (refusals-- > 0) throw { code: 'unavailable', message: 'Workspace storage is busy; retry explicitly.' }; return null; },
+    async claim(request) { return acknowledged(request); }, async save(request) { return acknowledged(request); }, async release() { return null; },
+  };
+  const client = createWorkspacePersistence({ scope, initialLayout: emptyWorkspace(), transport }); t.after(() => client.dispose());
+  const refused = await client.load();
+  assert.equal(refused.ok, false); if (refused.ok) return;
+  assert.equal(refused.error, 'unavailable'); assert.equal(refused.detail, 'Workspace storage is busy; retry explicitly.');
+  assert.equal(transientLayoutFailure(refused.error), true);
+  const text = layoutLoadFailureText(refused.error, refused.detail);
+  assert.match(text, /storage is busy/); assert.match(text, /panes on screen stay/); assert.match(text, /shinatama\.log/);
+  assert.equal((await client.load()).ok, true); assert.equal((await client.claim()).ok, true);
+});
+
+test('a saved layout that fails its checks is not retried and says so', async t => {
+  const transport: WorkspaceTransport = {
+    async load() { return { ...scope, revision: 3, schemaVersion: 1, layoutJson: '{"version":1}', ownership: 'ours', readOnly: false }; },
+    async claim(request) { return acknowledged(request); }, async save(request) { return acknowledged(request); }, async release() { return null; },
+  };
+  const client = createWorkspacePersistence({ scope, initialLayout: emptyWorkspace(), transport }); t.after(() => client.dispose());
+  const refused = await client.load();
+  assert.equal(refused.ok, false); if (refused.ok) return;
+  assert.equal(refused.error, 'invalid'); assert.equal(transientLayoutFailure(refused.error), false);
+  assert.match(layoutLoadFailureText(refused.error, refused.detail), /did not pass its checks/);
+});
 
 test('one in-flight save coalesces intermediate edits and releases only the acknowledged revision', async t => {
   const { client, writes, maximum, releases } = fixture(); t.after(() => client.dispose()); await ready(client);

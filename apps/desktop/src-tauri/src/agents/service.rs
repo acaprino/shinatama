@@ -237,6 +237,16 @@ pub(super) trait HarnessService: Send + Sync {
         workset: Option<&str>,
     ) -> Result<AgentStarted, ServiceError>;
 }
+/// How long an open waits for the model proxy it asked to start. It stops waiting at once when
+/// the proxy fails, is retired or is being stopped. The first open after each start used to give
+/// up after 30 s while the proxy was still loading, and the next click passed.
+const PROXY_START_WAIT: Duration = Duration::from_secs(120);
+/// How long a launch waits for a proxy that was ready and is momentarily unhealthy (health
+/// checks missed on a busy host: busy, not dead, R20) before it gives up. It was 5 s.
+const PROXY_READY_WAIT: Duration = Duration::from_secs(60);
+/// How long the TUI check waits for the harness's first screen. It ends as soon as the screen is
+/// seen; a cold start of a ~370 MB executable (an antivirus scan included) took longer than 7 s.
+const TUI_CHECK_WAIT: Duration = Duration::from_secs(30);
 pub(super) struct ServiceContext {
     pub services: Arc<Services>,
     pub runtime: Arc<Runtime>,
@@ -257,7 +267,7 @@ impl ServiceContext {
             thread_observer,
         }
     }
-    fn ensure_sidecar(&self) -> Result<(), ServiceError> {
+    fn ensure_sidecar(&self, harness: &str) -> Result<(), ServiceError> {
         if self.sidecar.qualified_owner().is_ok() {
             return Ok(());
         }
@@ -266,21 +276,30 @@ impl ServiceContext {
         if previous.phase == "draining" {
             return Err(DriverError::Failed(sidecar::STOPPING));
         }
+        crate::opening::report(harness, "proxy");
         let observed = previous
             .observation
             .as_ref()
             .and_then(|value| value.observed_at_unix_ms);
         self.sidecar.start()?;
-        let deadline = Instant::now() + Duration::from_secs(30);
+        let began = Instant::now();
+        let deadline = began + PROXY_START_WAIT;
+        // The proxy waiting for free memory or a process slot retries by itself (R18): the
+        // open keeps waiting for it, says so, and reports the refusal only at the deadline.
+        let mut deferred = false;
+        let mut changed = false;
         loop {
             let status = self.sidecar.status();
-            let changed = status.phase != previous.phase
+            // Since the start, not only now: a proxy that had failed passes through
+            // "preparing" and can fail again, which reads as the same "failed" as before.
+            changed |= status.phase != previous.phase
                 || status
                     .observation
                     .as_ref()
                     .and_then(|value| value.observed_at_unix_ms)
                     != observed;
             if sidecar::launch_allowed(status.phase, status.healthy) {
+                crate::app_log::write("proxy", &format!("Ready {} ms after an open started it.", began.elapsed().as_millis()));
                 return self
                     .sidecar
                     .qualified_owner()
@@ -288,6 +307,7 @@ impl ServiceContext {
                     .map_err(Into::into);
             }
             if changed
+                && !deferred
                 && status.observation.as_ref().is_some_and(|snapshot| {
                     matches!(
                         snapshot.reason,
@@ -296,7 +316,8 @@ impl ServiceContext {
                     )
                 })
             {
-                return Err(DriverError::AdmissionDeferred);
+                deferred = true;
+                crate::opening::report(harness, "proxy_resources");
             }
             if changed && matches!(status.phase, "failed" | "retired") {
                 return Err(DriverError::Failed(
@@ -305,10 +326,17 @@ impl ServiceContext {
                         .unwrap_or("The local session service could not be prepared."),
                 ));
             }
+            if status.phase == "draining" {
+                return Err(DriverError::Failed(sidecar::STOPPING));
+            }
             if Instant::now() >= deadline {
-                return Err(DriverError::Failed(
-                    "Session preparation is still finishing. Try Open again in a few seconds.",
-                ));
+                return Err(if deferred {
+                    DriverError::AdmissionDeferred
+                } else {
+                    DriverError::Failed(
+                        "The model proxy did not become ready within 2 minutes. Its state is in the Model proxy panel; try Open again.",
+                    )
+                });
             }
             std::thread::sleep(Duration::from_millis(100));
         }
@@ -316,7 +344,7 @@ impl ServiceContext {
     fn wait_for_qualified_sidecar(
         &self,
     ) -> Result<(&SidecarSupervisor, NonZeroU16, PathBuf), ServiceError> {
-        let deadline = Instant::now() + Duration::from_secs(5);
+        let deadline = Instant::now() + PROXY_READY_WAIT;
         loop {
             match self.sidecar.qualified_owner() {
                 Ok(owner) => return Ok(owner),
@@ -656,8 +684,9 @@ impl<D: HarnessDriver> Service<D> {
             DriverError::Failed("Storage admission is unavailable; no harness process was started.")
         })?;
         if mode == OpenMode::PrepareWhenNeeded {
-            self.context.ensure_sidecar()?;
+            self.context.ensure_sidecar(descriptor.id)?;
             if !self.reusable()? {
+                crate::opening::report(descriptor.id, "check");
                 self.qualify()?;
             }
         }
@@ -766,14 +795,16 @@ impl<D: HarnessDriver> Service<D> {
             }
             if home.record != observation.root {
                 if mode == OpenMode::PrepareWhenNeeded && attempt == 0 {
+                    crate::opening::report(descriptor.id, "check");
                     self.qualify()?;
                     continue;
                 }
                 return Err(DriverError::StaleQualification);
             }
             let (sidecar, port, ca) = self.context.wait_for_qualified_sidecar()?;
-            let (selected_set, plugins_root) = session_set(self.driver.bundled_plugins())?;
+            let (selected_set, plugins_root) = session_set(self.driver.bundled_plugins(), descriptor.id)?;
             let root = home.record.clone();
+            crate::opening::report(descriptor.id, "prepare");
             let prepared = self.driver.prepare_session(
                 SessionContext {
                     candidate: &observation.candidate,
@@ -802,6 +833,7 @@ impl<D: HarnessDriver> Service<D> {
                 Err(DriverError::StaleQualification)
                     if mode == OpenMode::PrepareWhenNeeded && attempt == 0 =>
                 {
+                    crate::opening::report(descriptor.id, "check");
                     self.qualify()?;
                     continue;
                 }
@@ -841,6 +873,7 @@ impl<D: HarnessDriver> Service<D> {
                     "The sealed launch does not match the saved thread.",
                 ));
             }
+            crate::opening::report(descriptor.id, "start");
             let session = host.start_prepared_with_lifecycle(prepared.launch, prepared.permit, rows, cols, lifecycle)
                 .map_err(|error| {
                     // Say why, so the person is not left with a bare refusal. The cause is
@@ -937,7 +970,7 @@ impl<D: HarnessDriver> Service<D> {
             _keep_alive: Mutex::new(prepared.keep_alive),
         });
         self.facts()?.canary = Some(Arc::clone(&owner));
-        let deadline = Instant::now() + Duration::from_secs(7);
+        let deadline = Instant::now() + TUI_CHECK_WAIT;
         let session = match owner
             .host
             .start_prepared(prepared.launch, prepared.permit, 24, 80)

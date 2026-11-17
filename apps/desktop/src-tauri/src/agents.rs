@@ -447,30 +447,39 @@ impl Controller {
     ) -> Result<AgentStarted, &'static str> {
         shinatama_terminal::validate_size(rows, cols)
             .map_err(|_| "The terminal size is invalid.")?;
-        let slot = self.registered(agent_id)?.reserve()?;
-        tauri::async_runtime::spawn_blocking(move || {
-            slot.run(
-                "Harness startup stopped unexpectedly. Its owned resources remain tracked.",
-                |service| {
-                    service
-                        .open(
-                            &host,
-                            &project,
-                            rows,
-                            cols,
-                            SessionOperation::New,
-                            mode,
-                            initial_prompt.as_deref(),
-                            require_mukade,
-                            control_header.as_deref(),
-                            workset.as_deref(),
-                        )
-                        .map_err(|error| error.message())
-                },
-            )
-        })
-        .await
-        .map_err(|_| "The harness worker is unavailable; no replacement was started.")?
+        let began = std::time::Instant::now();
+        let result = match self.registered(agent_id).and_then(|entry| entry.reserve()) {
+            Err(message) => Err(message),
+            Ok(slot) => tauri::async_runtime::spawn_blocking(move || {
+                slot.run(
+                    "Harness startup stopped unexpectedly. Its owned resources remain tracked.",
+                    |service| {
+                        service
+                            .open(
+                                &host,
+                                &project,
+                                rows,
+                                cols,
+                                SessionOperation::New,
+                                mode,
+                                initial_prompt.as_deref(),
+                                require_mukade,
+                                control_header.as_deref(),
+                                workset.as_deref(),
+                            )
+                            .map_err(|error| error.message())
+                    },
+                )
+            })
+            .await
+            .unwrap_or(Err("The harness worker is unavailable; no replacement was started.")),
+        };
+        let elapsed = began.elapsed().as_millis();
+        crate::app_log::write("open", &match &result {
+            Ok(_) => format!("{agent_id} opened after {elapsed} ms."),
+            Err(message) => format!("{agent_id} refused after {elapsed} ms: {message}"),
+        });
+        result
     }
 
     /// A bounded instruction, never caller-supplied argv, uses the same native
@@ -624,16 +633,35 @@ fn latest_box(database: &Database, harness: &str) -> Result<Option<StoreRootReco
 /// (`SHINATAMA_MARIONETTE=off`); otherwise the empty set. The launcher checks the
 /// host's adapter files; a missing or altered copy never blocks a launch, it only
 /// drops Marionette.
+/// Marionette for `harness` when its adapter in the synced store passes its digest check;
+/// otherwise the empty set, so the session starts without Marionette (as AVVIO.md says) instead
+/// of being refused: one stray file in the store refused every OpenCode launch until a restart.
 fn session_set(
     supported: bool,
+    harness: &str,
 ) -> Result<(SetManifest, Option<std::path::PathBuf>), &'static str> {
-    use shinatama_engine::marionette;
+    use shinatama_engine::marionette::{self, Host, Marionette, MarionetteError};
     if supported
         && !marionette::switched_off()
         && let Some(store) = crate::marionette::store()
-        && marionette::Marionette::current(store).is_ok()
     {
-        return Ok((marionette::marionette_set(), Some(store.to_path_buf())));
+        let host = match harness {
+            "claude_code" => Some(Host::ClaudeCode),
+            "codex" => Some(Host::Codex),
+            "opencode" => Some(Host::OpenCode),
+            "pi" => Some(Host::Pi),
+            _ => None,
+        };
+        let verified = Marionette::current(store).and_then(|release| {
+            release.verify(host.ok_or(MarionetteError::Missing)?).map(|_| ())
+        });
+        match verified {
+            Ok(()) => return Ok((marionette::marionette_set(), Some(store.to_path_buf()))),
+            Err(error) => crate::app_log::write(
+                "marionette",
+                &format!("{harness} starts without Marionette: {error}; the next start repairs the copy."),
+            ),
+        }
     }
     Ok((empty_set()?, None))
 }

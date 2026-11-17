@@ -49,7 +49,11 @@ use std::{
 };
 
 const MIB: u64 = 1024 * 1024;
-const PREPARE_BUDGET: Duration = Duration::from_secs(10);
+/// The preparation of a launch, the SHA-256 of the whole harness executable included. Claude's
+/// exe is ~370 MB: the first launch after a start or an update reads it cold, often while an
+/// antivirus scans it, and 10 s failed a click the next one passed. The budget only bounds a
+/// stuck read; a launch that finishes sooner does not wait for it.
+const PREPARE_BUDGET: Duration = Duration::from_secs(60);
 const TRIAL_PREFIX: &str = "pi-tui-trial-";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -135,6 +139,15 @@ pub struct PreparedPiStart {
 }
 /// Pi's argv: discovery off, then the selected set (Marionette's `-e` and `--skill`), then a
 /// talking thread's Mukade extension and Pi's built-in MCP. The chat is only ever added.
+/// The Marionette adapter a Pi session loads: verified in the synced `store`, then mirrored into
+/// Pi's private copy under `home`, as for OpenCode. Whatever the session writes into the tree it
+/// loads (a Python cache beside the muro scripts) stays in the copy; the store is never handed out.
+fn bundled_adapter(store: &Path, home: &Path) -> Result<crate::marionette::Adapter, PiLaunchError> {
+    Marionette::current(store)
+        .and_then(|release| release.verify(Host::Pi))
+        .and_then(|adapter| adapter.private_copy(&home.join(crate::marionette::PI_COPY)))
+        .map_err(|_| PiLaunchError::BundledPlugins)
+}
 fn session_arguments(bundled: Option<ResourceArguments>, chat: Vec<OsString>) -> Vec<OsString> {
     run::tui_arguments(&bundled.unwrap_or_else(ResourceArguments::empty))
         .into_iter()
@@ -311,9 +324,7 @@ fn prepare(
         None
     } else if is_marionette_set(context.selected_set) && !trial {
         let root = context.plugins_root.ok_or(PiLaunchError::BundledPlugins)?;
-        let adapter = Marionette::current(root)
-            .and_then(|release| release.verify(Host::Pi))
-            .map_err(|_| PiLaunchError::BundledPlugins)?;
+        let adapter = bundled_adapter(root, context.base.directory())?;
         let arguments =
             shinatama_adapter::pi::sets::plan_marionette(Path::new(&adapter.dir_arg()))
         .map_err(|_| PiLaunchError::BundledPlugins)?;
@@ -759,6 +770,25 @@ mod tests {
     use super::*;
     use crate::launch::identity::LaunchIdentity;
 
+    #[test]
+    fn a_cache_written_where_pi_loads_marionette_never_reaches_the_store() {
+        use crate::marionette::{self, tests::{FakeFetch, scratch}};
+        let home = scratch("pi-copy-home");
+        let store = home.join(marionette::STORE);
+        marionette::sync(&store, &FakeFetch::new("marionette-v0.1.0", "0.1.0")).unwrap();
+        for _launch in 0..2 {
+            let adapter = bundled_adapter(&store, &home).unwrap();
+            assert!(adapter.dir().starts_with(home.join(marionette::PI_COPY)));
+            let cache = adapter.dir().join("__pycache__");
+            std::fs::create_dir_all(&cache).unwrap();
+            std::fs::write(cache.join("core.cpython-313.pyc"), b"bytecode").unwrap();
+        }
+        let current = Marionette::current(&store).unwrap();
+        for host in Host::ALL {
+            current.verify(host).unwrap();
+        }
+        let _ = std::fs::remove_dir_all(&home);
+    }
     #[test]
     fn node_script_composition_requires_private_home_temp_and_compile_cache() {
         let version = Version::parse("1.4.0").unwrap();

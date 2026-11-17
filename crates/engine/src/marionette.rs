@@ -33,6 +33,10 @@ pub const STORE: &str = "marionette";
 /// Folder under the Shinatama home that holds Claude Code's private copy of
 /// its adapter; never inside [`STORE`].
 pub const CLAUDE_COPY: &str = "marionette-claude";
+/// OpenCode's private copy of its adapter, likewise never inside [`STORE`].
+pub const OPENCODE_COPY: &str = "marionette-opencode";
+/// Pi's private copy of its adapter, likewise never inside [`STORE`].
+pub const PI_COPY: &str = "marionette-pi";
 /// `SHINATAMA_MARIONETTE=off` starts every session without Marionette and
 /// skips the sync.
 pub const SWITCH: &str = "SHINATAMA_MARIONETTE";

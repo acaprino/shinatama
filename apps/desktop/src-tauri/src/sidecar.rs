@@ -84,6 +84,41 @@ fn decide_stop(agent_sessions: Option<usize>, force: bool) -> StopDecision {
 }
 /// Only a healthy proxy backs a new launch: ready, or busy with requests in
 /// flight (another agent is streaming). A draining one never does.
+/// Starts the proxy when Shinatama starts (it used to wait for the first Open, which then spent
+/// 15-30 s on it) and logs when it is ready. Its start has the same admission as an Open's; one
+/// refused for resources retries by itself. A user's Stop still stops it.
+pub(crate) fn start_at_launch(controller: &Arc<Controller>) {
+    let began = std::time::Instant::now();
+    if let Err(message) = controller.start() {
+        crate::app_log::write("proxy", &format!("Not started at launch: {message}"));
+        return;
+    }
+    crate::app_log::write("proxy", "Starting at launch.");
+    let owner = Arc::clone(controller);
+    let _ = std::thread::Builder::new()
+        .name("proxy-at-launch".into())
+        .spawn(move || {
+            let deadline = began + Duration::from_secs(180);
+            loop {
+                let status = owner.status();
+                let elapsed = began.elapsed().as_millis();
+                if launch_allowed(status.phase, status.healthy) {
+                    crate::app_log::write("proxy", &format!("Ready {elapsed} ms after launch."));
+                    return;
+                }
+                if matches!(status.phase, "failed" | "retired" | "stopped" | "draining") && elapsed > 10_000 {
+                    crate::app_log::write("proxy", &format!("Not ready {elapsed} ms after launch: {} ({}).",
+                        status.phase, status.message.unwrap_or("no message")));
+                    return;
+                }
+                if std::time::Instant::now() >= deadline {
+                    crate::app_log::write("proxy", &format!("Still {} 3 minutes after launch.", status.phase));
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(250));
+            }
+        });
+}
 pub(crate) fn launch_allowed(phase: &str, healthy: bool) -> bool {
     matches!(phase, "ready" | "busy") && healthy
 }

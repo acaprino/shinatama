@@ -57,7 +57,11 @@ use windows_sys::Win32::Storage::FileSystem::{
 };
 
 const MIB: u64 = 1024 * 1024;
-const PREPARE_BUDGET: Duration = Duration::from_secs(10);
+/// The preparation of a launch, the SHA-256 of the whole harness executable included. Claude's
+/// exe is ~370 MB: the first launch after a start or an update reads it cold, often while an
+/// antivirus scans it, and 10 s failed a click the next one passed. The budget only bounds a
+/// stuck read; a launch that finishes sooner does not wait for it.
+const PREPARE_BUDGET: Duration = Duration::from_secs(60);
 const RECIPE: &str = "codex-system-box-no-daemon-workspace-tui-v1";
 const TRACKED_RECIPE: &str = "codex-system-box-tracked-no-daemon-workspace-tui-v1";
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

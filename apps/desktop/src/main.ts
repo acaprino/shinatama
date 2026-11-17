@@ -45,6 +45,7 @@ import { createProjectMenu, createTabFilter, folderName, organizeToolbar, samePa
 import { createSessionRaw } from './session-raw.ts';
 import { createSessionFind } from './session-find.ts';
 import { resumeFailureText } from './resume-failure.ts';
+import { layoutLoadFailureText, transientLayoutFailure } from './workspace-persistence.ts';
 import { newSessionProject, type NewSessionScope } from './session-project.ts';
 import type { ThreadSidebarState, ThreadSummary } from './thread-sidebar.ts';
 import { createWorksetSidebar, type WorksetSummary } from './workset-sidebar.ts';
@@ -211,15 +212,33 @@ const workspace = $('#workspace');
 const confirmDialog = $<HTMLDialogElement>('#confirm-dialog');
 
 let noticeTimer = 0;
+/** True while the notice shows what an open is waiting for (`showOpening`). */
+let openingShown = false;
 function notify(message: unknown, tone: Tone = 'error') {
   const notice = $('#notice');
   notice.dataset.tone = tone;
   notice.setAttribute('role', tone === 'error' ? 'alert' : 'status');
   $('#notice span').textContent = String(message);
   notice.hidden = false;
-  clearTimeout(noticeTimer);
+  clearTimeout(noticeTimer); openingShown = false;
   if (tone !== 'error') noticeTimer = window.setTimeout(() => { notice.hidden = true; }, 6000);
 }
+/** What the open in progress is waiting for, said until the open ends (a first open after a start
+ * waits for the model proxy and the harness check; it no longer fails while they finish). */
+const openingSteps: Record<string, (agent: string) => string> = {
+  proxy: () => 'starting the model proxy', proxy_resources: () => 'waiting for free memory to start the model proxy',
+  check: agent => `checking ${agent}`, reading: () => 'reading the saved conversation',
+  prepare: () => 'preparing the session', start: agent => `starting ${agent}`,
+};
+function showOpening(harness: string, step: string) {
+  const text = openingSteps[step]; if (!text) return;
+  const agent = sessionHarnesses.find(item => item.id === harness)?.label ?? harness;
+  notify(`Opening ${agent}: ${text(agent)}…`, 'info'); clearTimeout(noticeTimer); openingShown = true;
+}
+/** Ends the progress line of an open; a result notice shown since stays. */
+function endOpening() { if (openingShown) $('#notice').hidden = true; openingShown = false; }
+/** Writes one line in shinatama.log (data folder); a log that cannot be written changes nothing. */
+function appLog(source: 'layout' | 'page', message: string) { if (desktop) void invoke('app_log', { source, message }).catch(() => {}); }
 $('#notice button').onclick = () => { $('#notice').hidden = true; };
 const attentionControl = createAttentionControl(desktop, notify);
 createSidecarControl(desktop, notify);
@@ -457,10 +476,19 @@ async function connectWorkspace(adoptSaved = true, recovered = false) {
     });
     const beforeLoad = workspaceLayout;
     // Not yet the window's saver: an edit reported while the saved layout loads would count as a local edit and keep it from being restored.
-    const loaded = await controller.load();
+    // A refusal that can pass (storage busy with another operation, still starting) is retried a few times before it is reported.
+    let loaded = await controller.load();
+    for (let attempt = 1; !loaded.ok && transientLayoutFailure(loaded.error) && attempt <= 4 && generation === scopeRevision; attempt++) {
+      appLog('layout', `Load refused (attempt ${attempt}): ${loaded.error}${loaded.detail ? ` (${loaded.detail})` : ''}. Retrying.`);
+      await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+      if (generation === scopeRevision) loaded = await controller.load();
+    }
     if (generation === scopeRevision) persistence = controller;
     if (generation !== scopeRevision) { controller.dispose(); return; }
-    if (!loaded.ok) { notify('The saved layout is unavailable. The current workspace is preserved.'); return; }
+    if (!loaded.ok) {
+      appLog('layout', `Load refused: ${loaded.error}${loaded.detail ? ` (${loaded.detail})` : ''}. The window keeps its panes and does not save its layout.`);
+      notify(layoutLoadFailureText(loaded.error, loaded.detail)); return;
+    }
     if (loaded.restored && adoptSaved && sameApartFromSizes(workspaceLayout, beforeLoad)) {
       workspaceLayout = reconciled(loaded.layout);
       controller.update(workspaceLayout); render();
@@ -780,7 +808,7 @@ async function resumeSaved(saved: ThreadSummary) {
     attachTerminal(started.session, focusedGroup(), started.threadId, workset);
   } catch (error) {
     notify(resumeFailureText(error));
-  } finally { starting = false; $<HTMLButtonElement>('#new-terminal').disabled = false; await refreshMembers(); render(); }
+  } finally { endOpening(); starting = false; $<HTMLButtonElement>('#new-terminal').disabled = false; await refreshMembers(); render(); }
 }
 async function recoverSaved(saved: ThreadSummary) {
   try { await invoke('thread_recover', { request: { threadId: saved.id, projectId: saved.projectId, expectedRevision: saved.revision } }); }
@@ -933,7 +961,7 @@ async function startSession(selection: { projectPath: string; harnessId: string;
     await refreshMembers();
     await refreshThreadProject();
     void threadSidebar?.refresh();
-  } finally { starting = false; button.disabled = false; button.removeAttribute('aria-busy'); }
+  } finally { endOpening(); starting = false; button.disabled = false; button.removeAttribute('aria-busy'); }
 }
 const newSession = createNewSession({
   projects: () => desktop ? invoke('project_recent') : Promise.resolve([]),
@@ -1215,7 +1243,7 @@ const projectsOverview = createProjectsOverview({
         request: { threadId: thread.id, projectId: row.id, expectedRevision: thread.revision, rows: 24, cols: 80 },
       }).catch(error => { throw new Error(resumeFailureText(error)); });
       await attachSession(started.session, started.threadId);
-    } finally { starting = false; }
+    } finally { endOpening(); starting = false; }
   },
   decide: (title, message, accept) => decide(title, message, accept),
   reportError: notify,
@@ -1394,6 +1422,10 @@ async function initialize() {
         notify(payload.joinedParentThread ? `${agent} session opened in the same thread.` : `${agent} session opened.`, 'info');
       });
     window.addEventListener('pagehide', () => { stopCollaborationUpdates(); }, { once: true });
+    const stopOpeningSteps = await listen<{ harness: string; step: string }>('agent-opening', ({ payload }) => {
+      if (starting && typeof payload?.harness === 'string' && typeof payload.step === 'string') showOpening(payload.harness, payload.step);
+    }).catch(() => null);
+    window.addEventListener('pagehide', () => { stopOpeningSteps?.(); }, { once: true });
     const stopThreadUpdates = await listen<unknown>('thread-changed', ({ payload }) => {
       void payload; threadSidebar?.changed(); void refreshMembers();
     }).catch(() => null);
@@ -1453,6 +1485,7 @@ async function initialize() {
     initializeMaintenance(notify);
     await presentation.initialize();
     $('#runtime-status').innerHTML = '<i></i>Local runtime · experimental';
+    appLog('page', 'The main window loaded.');
     render();
     try {
       const storage = await invoke<{ directory: string; database_path: string; read_only: boolean; message: string | null }>('storage_location');

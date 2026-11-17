@@ -10,13 +10,13 @@ use std::sync::{
     Arc, OnceLock,
     atomic::{AtomicBool, Ordering},
 };
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{State, WebviewWindow};
 
 pub struct Controller {
     services: Arc<Services>,
     busy: Arc<AtomicBool>,
-    owner: OnceLock<Result<WorkspaceOwner, Error>>,
+    owner: OnceLock<WorkspaceOwner>,
     owned: AtomicBool,
 }
 impl Controller {
@@ -31,7 +31,7 @@ impl Controller {
     pub fn owns_layout(&self) -> bool {
         self.owned.load(Ordering::Acquire)
     }
-    fn reserve(&self) -> Result<Reservation, Error> {
+    fn try_reserve(&self) -> Result<Reservation, Error> {
         self.busy
             .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
             .map_err(|_| {
@@ -42,33 +42,45 @@ impl Controller {
             })?;
         Ok(Reservation(Arc::clone(&self.busy)))
     }
+    /// One operation at a time, as before, but one that arrives while another runs (the save a
+    /// reloaded page left in flight, the load of the page that replaced it) waits its turn for
+    /// [`RESERVE_WAIT`] instead of failing at once: that refusal read as "The saved layout is
+    /// unavailable" and left the window without layout saving.
+    async fn reserve(&self) -> Result<Reservation, Error> {
+        let deadline = Instant::now() + RESERVE_WAIT;
+        loop {
+            match self.try_reserve() {
+                Ok(reservation) => return Ok(reservation),
+                Err(error) if Instant::now() >= deadline => return Err(error),
+                Err(_) => tokio::time::sleep(Duration::from_millis(20)).await,
+            }
+        }
+    }
+    /// The identity of this process, read once it can be read: a failed read is not kept, so
+    /// one failure does not refuse every layout operation until the next start.
     fn owner(&self) -> Result<&WorkspaceOwner, Error> {
-        self.owner
-            .get_or_init(|| {
-                #[cfg(windows)]
-                {
-                    let key = shinatama_engine::resources::sampling::WindowsSampler::identify(
-                        std::process::id(),
-                    )
-                    .map_err(|_| {
-                        Error::new("unavailable", "Workspace ownership could not be verified.")
-                    })?;
-                    Ok(WorkspaceOwner {
-                        window_id: format!("main-{}-{}", key.pid, key.created_at_100ns),
-                        pid: key.pid,
-                        start_time: format!("win-{}", key.created_at_100ns),
-                    })
-                }
-                #[cfg(not(windows))]
-                {
-                    Err(Error::new(
-                        "unavailable",
-                        "Workspace ownership requires Windows.",
-                    ))
-                }
-            })
-            .as_ref()
-            .map_err(Clone::clone)
+        if let Some(owner) = self.owner.get() {
+            return Ok(owner);
+        }
+        let owner = process_owner()?;
+        Ok(self.owner.get_or_init(|| owner))
+    }
+}
+const RESERVE_WAIT: Duration = Duration::from_secs(5);
+fn process_owner() -> Result<WorkspaceOwner, Error> {
+    #[cfg(windows)]
+    {
+        let key = shinatama_engine::resources::sampling::WindowsSampler::identify(std::process::id())
+            .map_err(|_| Error::new("unavailable", "Workspace ownership could not be verified."))?;
+        Ok(WorkspaceOwner {
+            window_id: format!("main-{}-{}", key.pid, key.created_at_100ns),
+            pid: key.pid,
+            start_time: format!("win-{}", key.created_at_100ns),
+        })
+    }
+    #[cfg(not(windows))]
+    {
+        Err(Error::new("unavailable", "Workspace ownership requires Windows."))
     }
 }
 struct Reservation(Arc<AtomicBool>);
@@ -209,7 +221,7 @@ pub async fn workspace_load(
 ) -> Result<Option<Snapshot>, Error> {
     local(&window)?;
     scope(&request.project_id, &request.workspace_id)?;
-    let reservation = controller.reserve()?;
+    let reservation = controller.reserve().await?;
     let controller = Arc::clone(controller.inner());
     tauri::async_runtime::spawn_blocking(move || {
         let _reservation = reservation;
@@ -246,7 +258,7 @@ pub async fn workspace_save(
             "Workspace layout exceeds its limits.",
         ));
     }
-    let reservation = controller.reserve()?;
+    let reservation = controller.reserve().await?;
     let controller = Arc::clone(controller.inner());
     tauri::async_runtime::spawn_blocking(move || {
         let _reservation = reservation;
@@ -296,7 +308,7 @@ pub async fn workspace_release(
 ) -> Result<(), Error> {
     local(&window)?;
     scope(&request.project_id, &request.workspace_id)?;
-    let reservation = controller.reserve()?;
+    let reservation = controller.reserve().await?;
     let controller = Arc::clone(controller.inner());
     tauri::async_runtime::spawn_blocking(move || {
         let _reservation = reservation;
@@ -331,7 +343,7 @@ pub async fn workspace_recover(
 ) -> Result<Snapshot, Error> {
     local(&window)?;
     scope(&request.project_id, &request.workspace_id)?;
-    let reservation = controller.reserve()?;
+    let reservation = controller.reserve().await?;
     let controller = Arc::clone(controller.inner());
     tauri::async_runtime::spawn_blocking(move || {
         let _reservation = reservation;
@@ -368,7 +380,7 @@ fn global_snapshot(record: GlobalWorkspaceRecord, owner: &WorkspaceOwner, read_o
 }
 enum GlobalOperation { Load, Save(GlobalSave), Release(u64), Recover(u64) }
 async fn global_operation(controller: &State<'_, Arc<Controller>>, operation: GlobalOperation) -> Result<Option<Snapshot>, Error> {
-    let reservation = controller.reserve()?;
+    let reservation = controller.reserve().await?;
     let controller = Arc::clone(controller.inner());
     tauri::async_runtime::spawn_blocking(move || {
         let _reservation = reservation;
