@@ -17,6 +17,10 @@ const HISTORY_LIMIT: usize = 10;
 const MAX_LEGACY_BYTES: u64 = 256 * 1024;
 const IMPORT_MARKER: &str = "migration.projects_json.v1";
 const APPEARANCE_KEY: &str = "ui.appearance.v1";
+/// The key of the list of template ids; each template is the setting `<key>.<id>`.
+const TEMPLATES_INDEX: &str = "team.templates.v1";
+/// How many team templates are kept.
+pub const MAX_TEMPLATES: usize = 64;
 
 #[derive(Debug)]
 pub enum DatabaseError {
@@ -573,6 +577,112 @@ impl Database {
         Ok(format!("threads.team.v1.{workset_id}"))
     }
 
+    /// The team templates, global to every thread and project, in the order the user keeps them.
+    /// One setting per template (`team.templates.v1.<id>`) and an index (`team.templates.v1`, the
+    /// ids in order): a setting holds 64 KiB and a full template takes more than half of that, so
+    /// 64 of them could never share one. A template the index lists and the store lost, or that is
+    /// not an object carrying its own id, is left out.
+    pub fn team_templates(&self) -> Result<Vec<serde_json::Value>> {
+        let connection = self.lock()?;
+        Ok(Self::read_templates(&connection)?.into_iter().map(|(_, value)| value).collect())
+    }
+
+    /// Replace the whole list (see `edit_team_templates`).
+    pub fn set_team_templates(&self, list: &[serde_json::Value]) -> Result<()> {
+        self.edit_team_templates::<std::convert::Infallible>(|kept| {
+            *kept = list.to_vec();
+            Ok(())
+        })?
+        .map(|_| ())
+        .map_err(|never| match never {})
+    }
+
+    /// Read the list, let `edit` change it and store the result, all in one write transaction, so
+    /// that a check made by `edit` (at most 64 templates, one name once) holds when the list is
+    /// stored even with two windows saving at once. An `edit` that refuses stores nothing and its
+    /// refusal is the inner result. Only the templates that changed are written.
+    pub fn edit_team_templates<E>(
+        &self,
+        edit: impl FnOnce(&mut Vec<serde_json::Value>) -> std::result::Result<(), E>,
+    ) -> Result<std::result::Result<Vec<serde_json::Value>, E>> {
+        self.require_writable()?;
+        let mut connection = self.lock()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        schema::require_write_version(&transaction)?;
+        let before = Self::read_templates(&transaction)?;
+        let mut list: Vec<serde_json::Value> = before.iter().map(|(_, value)| value.clone()).collect();
+        if let Err(refusal) = edit(&mut list) {
+            return Ok(Err(refusal));
+        }
+        if list.len() > MAX_TEMPLATES {
+            return Err(DatabaseError::InvalidProject("too many templates"));
+        }
+        let mut ids = Vec::with_capacity(list.len());
+        let mut texts = Vec::with_capacity(list.len());
+        for value in &list {
+            let id = value.get("id").and_then(serde_json::Value::as_str).ok_or(DatabaseError::InvalidProject("template id"))?;
+            Self::template_key(id)?;
+            if ids.iter().any(|seen: &String| seen == id) {
+                return Err(DatabaseError::InvalidProject("template id"));
+            }
+            let text = serde_json::to_string(value).map_err(|_| DatabaseError::InvalidProject("setting"))?;
+            if text.len() > 65536 {
+                return Err(DatabaseError::InvalidProject("setting too large"));
+            }
+            ids.push(id.to_owned());
+            texts.push(text);
+        }
+        for (id, text) in ids.iter().zip(&texts) {
+            let unchanged = before.iter().any(|(old, value)| old == id && serde_json::to_string(value).is_ok_and(|was| &was == text));
+            if !unchanged {
+                transaction.execute(
+                    "INSERT INTO setting(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                    params![Self::template_key(id)?, text],
+                )?;
+            }
+        }
+        for (old, _) in &before {
+            if !ids.contains(old) {
+                transaction.execute("DELETE FROM setting WHERE key=?1", params![Self::template_key(old)?])?;
+            }
+        }
+        let index = serde_json::to_string(&ids).map_err(|_| DatabaseError::InvalidProject("setting"))?;
+        transaction.execute(
+            "INSERT INTO setting(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            params![TEMPLATES_INDEX, index],
+        )?;
+        transaction.commit()?;
+        Ok(Ok(list))
+    }
+
+    fn template_key(id: &str) -> Result<String> {
+        if id.is_empty() || id.len() > 40 || !id.bytes().all(|b| matches!(b, b'a'..=b'z' | b'0'..=b'9' | b'_')) {
+            return Err(DatabaseError::InvalidProject("template id"));
+        }
+        Ok(format!("{TEMPLATES_INDEX}.{id}"))
+    }
+
+    fn read_templates(connection: &rusqlite::Connection) -> Result<Vec<(String, serde_json::Value)>> {
+        let read = |key: &str| -> Result<Option<String>> {
+            Ok(connection
+                .query_row("SELECT value FROM setting WHERE key=?1 AND octet_length(value)<=65536", [key], |row| row.get(0))
+                .optional()?)
+        };
+        let ids: Vec<String> = read(TEMPLATES_INDEX)?.and_then(|json| serde_json::from_str(&json).ok()).unwrap_or_default();
+        let mut found: Vec<(String, serde_json::Value)> = Vec::new();
+        for id in ids.into_iter().take(MAX_TEMPLATES) {
+            let Ok(key) = Self::template_key(&id) else { continue };
+            if found.iter().any(|(seen, _)| *seen == id) {
+                continue;
+            }
+            let value: Option<serde_json::Value> = read(&key)?.and_then(|json| serde_json::from_str(&json).ok());
+            if let Some(value) = value.filter(|value| value.get("id").and_then(serde_json::Value::as_str) == Some(id.as_str())) {
+                found.push((id, value));
+            }
+        }
+        Ok(found)
+    }
+
     /// C08's sole settings namespace. Reads never allocate an oversized value.
     pub fn presentation_json(&self) -> Result<Option<String>> {
         let connection = self.lock()?;
@@ -1109,5 +1219,89 @@ mod team_tests {
         database.set_thread_team(ONE, Some(&record)).unwrap();
         database.set_thread_team(OTHER, Some(&record)).unwrap();
         assert_eq!(database.thread_team(OTHER).unwrap(), Some(record));
+    }
+
+    fn template(id: &str, name: &str) -> serde_json::Value {
+        json!({"id": id, "name": name, "agents": [], "links": []})
+    }
+
+    #[test]
+    fn templates_outlive_a_thread() {
+        let database = database();
+        assert_eq!(database.team_templates().unwrap(), Vec::<serde_json::Value>::new());
+        let kept = vec![template("tm_aaaaaaaaaaaa", "Review"), template("tm_bbbbbbbbbbbb", "Ship")];
+        database.set_team_templates(&kept).unwrap();
+        database.set_thread_team(ONE, Some(&json!({"formation": {"revision": 1}, "told": {}}))).unwrap();
+        database.set_thread_team(ONE, None).unwrap();
+        assert_eq!(database.team_templates().unwrap(), kept);
+        // Another thread, another handle on the same store: the list is global.
+        database.set_thread_team(OTHER, Some(&json!({}))).unwrap();
+        assert_eq!(database.team_templates().unwrap(), kept);
+        // Removing one keeps the order of the others.
+        database.set_team_templates(&kept[1..]).unwrap();
+        assert_eq!(database.team_templates().unwrap(), kept[1..].to_vec());
+    }
+
+    #[test]
+    fn sixty_four_templates_of_fifty_kib_each_are_kept_in_their_own_settings() {
+        let database = database();
+        let big = |i: usize| {
+            let agents: Vec<_> = (0..24).map(|k| json!({"id": format!("a_{k:012}"), "notes": "k".repeat(1024)})).collect();
+            json!({"id": format!("tm_{i:012}"), "name": format!("Team {i}"), "agents": agents, "links": [], "pad": "p".repeat(24_000)})
+        };
+        let list: Vec<_> = (0..64).map(big).collect();
+        assert!(serde_json::to_string(&list).unwrap().len() > 65536);
+        database.set_team_templates(&list).unwrap();
+        assert_eq!(database.team_templates().unwrap(), list);
+        // A template over a setting's size is refused and the stored list stays whole.
+        let mut too_big = list.clone();
+        too_big[3]["pad"] = json!("p".repeat(70_000));
+        assert!(database.set_team_templates(&too_big).is_err());
+        assert_eq!(database.team_templates().unwrap(), list);
+        // A sixty-fifth one is refused by the store itself.
+        let mut more = list.clone();
+        more.push(big(64));
+        assert!(database.set_team_templates(&more).is_err());
+        assert_eq!(database.team_templates().unwrap().len(), 64);
+    }
+
+    #[test]
+    fn an_edit_that_refuses_stores_nothing_and_one_that_adds_sees_the_stored_list() {
+        let database = database();
+        database.set_team_templates(&[template("tm_aaaaaaaaaaaa", "Review")]).unwrap();
+        let refused = database
+            .edit_team_templates(|list| {
+                list.push(template("tm_bbbbbbbbbbbb", "Ship"));
+                Err("no")
+            })
+            .unwrap();
+        assert_eq!(refused, Err("no"));
+        assert_eq!(database.team_templates().unwrap().len(), 1);
+        let added: std::result::Result<_, ()> = database
+            .edit_team_templates(|list| {
+                assert_eq!(list.len(), 1);
+                list.insert(0, template("tm_bbbbbbbbbbbb", "Ship"));
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(added.unwrap().iter().map(|t| t["name"].as_str().unwrap()).collect::<Vec<_>>(), ["Ship", "Review"]);
+        assert_eq!(database.team_templates().unwrap()[0]["id"], "tm_bbbbbbbbbbbb");
+    }
+
+    #[test]
+    fn a_template_without_a_usable_id_is_refused_and_a_lost_one_is_skipped() {
+        let database = database();
+        for bad in ["", "tm/../x", "TM_AAAAAAAAAAAA", "tm_a b"] {
+            assert!(database.set_team_templates(&[template(bad, "x")]).is_err(), "{bad}");
+        }
+        assert!(database.set_team_templates(&[json!({"name": "no id"})]).is_err());
+        assert!(database.set_team_templates(&[template("tm_aaaaaaaaaaaa", "A"), template("tm_aaaaaaaaaaaa", "B")]).is_err());
+        assert!(database.team_templates().unwrap().is_empty());
+        database.set_team_templates(&[template("tm_aaaaaaaaaaaa", "A"), template("tm_bbbbbbbbbbbb", "B")]).unwrap();
+        // The store loses one setting: the other is still listed.
+        database.lock().unwrap().execute("DELETE FROM setting WHERE key='team.templates.v1.tm_aaaaaaaaaaaa'", []).unwrap();
+        let left = database.team_templates().unwrap();
+        assert_eq!(left.len(), 1);
+        assert_eq!(left[0]["id"], "tm_bbbbbbbbbbbb");
     }
 }

@@ -6,7 +6,7 @@ use crate::storage::{self, WorkspaceServices};
 use crate::thread_chat;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use shinatama_engine::team::{self, Formation, Level, Told};
+use shinatama_engine::team::{self, Formation, Level, Template, Told};
 use shinatama_state::database::Database;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
@@ -267,6 +267,94 @@ pub async fn team_place(
     Ok(json!({}))
 }
 
+/// The templates, which belong to no thread. The store runs `change` in the transaction that
+/// writes the list (`Database::edit_team_templates`), so the 64 limit and the name's uniqueness
+/// hold when two windows save at once. A stored template that cannot be read is left out.
+fn edit_templates(store: &Database, change: impl FnOnce(&mut Vec<Template>) -> Result<(), String>) -> Result<Vec<Template>, String> {
+    let stored = store
+        .edit_team_templates(|values| {
+            let mut list: Vec<Template> = values.drain(..).filter_map(|value| serde_json::from_value(value).ok()).collect();
+            change(&mut list)?;
+            for template in &list {
+                let value = serde_json::to_value(template).map_err(|_| "The template could not be stored.".to_owned())?;
+                if value.to_string().len() > MAX_RECORD {
+                    return Err("This team is too large to be kept as a template.".to_owned());
+                }
+                values.push(value);
+            }
+            Ok(())
+        })
+        .map_err(|e| e.to_string())??;
+    Ok(stored.into_iter().filter_map(|value| serde_json::from_value(value).ok()).collect())
+}
+
+pub(crate) fn templates(store: &Database) -> Result<Vec<Template>, String> {
+    let stored = store.team_templates().map_err(|e| e.to_string())?;
+    Ok(stored.into_iter().filter_map(|value| serde_json::from_value(value).ok()).collect())
+}
+
+/// Keep the formation's team as a template of that name, at the end of the list.
+pub(crate) fn save_template(store: &Database, name: &str, formation: &Formation, id: String) -> Result<Vec<Template>, String> {
+    let template = team::template_of(id, name, formation)?;
+    edit_templates(store, |list| team::add_template(list, template))
+}
+
+pub(crate) fn delete_template(store: &Database, id: &str) -> Result<Vec<Template>, String> {
+    edit_templates(store, |list| {
+        team::remove_template(list, id);
+        Ok(())
+    })
+}
+
+fn new_template_id() -> String {
+    let random = uuid::Uuid::new_v4();
+    let bytes = random.as_bytes();
+    team::template_id(&[bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13]])
+}
+
+/// The saved templates, every project's and every thread's.
+#[tauri::command]
+pub async fn team_templates(window: WebviewWindow, services: State<'_, Arc<storage::Services>>) -> Result<Vec<Template>, String> {
+    crate::local(&window)?;
+    thread_chat::blocking(services.inner(), move |state| templates(&state.store)).await
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SaveTemplateRequest {
+    name: String,
+    formation: Formation,
+}
+/// Keep a team as a template. Answers the list.
+#[tauri::command]
+pub async fn team_template_save(
+    window: WebviewWindow,
+    services: State<'_, Arc<storage::Services>>,
+    request: SaveTemplateRequest,
+) -> Result<Vec<Template>, String> {
+    crate::local(&window)?;
+    thread_chat::blocking(services.inner(), move |state| {
+        save_template(&state.store, &request.name, &request.formation, new_template_id())
+    })
+    .await
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DeleteTemplateRequest {
+    id: String,
+}
+/// Delete a template. Answers the list.
+#[tauri::command]
+pub async fn team_template_delete(
+    window: WebviewWindow,
+    services: State<'_, Arc<storage::Services>>,
+    request: DeleteTemplateRequest,
+) -> Result<Vec<Template>, String> {
+    crate::local(&window)?;
+    thread_chat::blocking(services.inner(), move |state| delete_template(&state.store, &request.id)).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -451,5 +539,77 @@ mod tests {
         // A thread without a team has no formation and no evaluation.
         let none = answer(&Record::default(), &thread(), json!([]), &BTreeMap::new());
         assert_eq!((none["formation"].is_null(), none["evaluation"].is_null()), (true, true));
+    }
+
+    fn linked() -> Formation {
+        let mut f = two();
+        f.revision = 4;
+        f.agents[0].notes = "plans".into();
+        f.links.push(Link { from: "a_aaaaaaaaaaaa".into(), to: "a_bbbbbbbbbbbb".into(), kind: Kind::Work, report: Report::Steps, words: "go".into() });
+        f
+    }
+
+    fn id(n: usize) -> String {
+        format!("tm_{}{}", "a".repeat(10), ["aa", "ab", "ac", "ad", "ae"][n])
+    }
+
+    #[test]
+    fn a_saved_template_is_listed_for_every_thread_and_keeps_no_session() {
+        let store = database();
+        assert!(templates(&store).unwrap().is_empty());
+        let list = save_template(&store, "Review", &linked(), id(0)).unwrap();
+        assert_eq!(list.len(), 1);
+        assert!(list[0].agents.iter().all(|a| a.session.is_none()));
+        assert_eq!((list[0].agents[0].notes.as_str(), list[0].links.len()), ("plans", 1));
+        // A thread's team does not touch it, and removing the team leaves it.
+        apply(&store, WORKSET, &thread(), two(), 0).unwrap();
+        store.set_thread_team(WORKSET, None).unwrap();
+        assert_eq!(templates(&store).unwrap(), list);
+        // The saved text holds no session and no revision.
+        let kept = store.team_templates().unwrap();
+        assert!(kept[0].get("revision").is_none());
+        assert!(!kept[0].to_string().contains("t_aaaaaaaaaaaa"));
+    }
+
+    #[test]
+    fn a_name_twice_a_loop_and_the_sixty_fifth_are_refused_and_change_nothing() {
+        let store = database();
+        save_template(&store, "Review", &linked(), id(0)).unwrap();
+        assert_eq!(
+            save_template(&store, "  review", &linked(), id(1)).unwrap_err(),
+            "A template named Review already exists."
+        );
+        let mut circle = linked();
+        circle.links.push(Link { from: "a_bbbbbbbbbbbb".into(), to: "a_aaaaaaaaaaaa".into(), kind: Kind::Work, report: Report::Done, words: String::new() });
+        assert!(save_template(&store, "Circle", &circle, id(2)).is_err());
+        assert!(save_template(&store, "Nothing", &formation(Vec::new()), id(2)).is_err());
+        assert_eq!(templates(&store).unwrap().len(), 1);
+        // 64 are kept; the next is refused.
+        for i in 1..64 {
+            let tail: String = [(b'a' + (i / 26) as u8) as char, (b'a' + (i % 26) as u8) as char].iter().collect();
+            save_template(&store, &format!("Team {i}"), &linked(), format!("tm_{}{tail}", "b".repeat(10))).unwrap();
+        }
+        assert_eq!(save_template(&store, "One more", &linked(), id(3)).unwrap_err(), "A team keeps at most 64 templates. Delete one first.");
+        assert_eq!(templates(&store).unwrap().len(), 64);
+    }
+
+    #[test]
+    fn deleting_a_template_keeps_the_others_in_order_and_an_unknown_one_is_not_an_error() {
+        let store = database();
+        for (n, name) in ["One", "Two", "Three"].iter().enumerate() {
+            save_template(&store, name, &linked(), id(n)).unwrap();
+        }
+        let left = delete_template(&store, &id(1)).unwrap();
+        assert_eq!(left.iter().map(|t| t.name.as_str()).collect::<Vec<_>>(), ["One", "Three"]);
+        assert_eq!(delete_template(&store, "tm_zzzzzzzzzzzz").unwrap().len(), 2);
+        // The freed name can be used again.
+        assert_eq!(save_template(&store, "Two", &linked(), id(1)).unwrap().len(), 3);
+    }
+
+    #[test]
+    fn a_made_up_id_is_a_valid_one() {
+        let first = new_template_id();
+        assert_ne!(first, new_template_id());
+        assert!(save_template(&database(), "Made", &linked(), first).is_ok());
     }
 }

@@ -1035,6 +1035,95 @@ pub fn mark(now: &Formation, seats: &BTreeMap<String, Seat>, delivery: &Delivery
 }
 
 
+/// How many templates are kept (the store's own bound).
+pub const MAX_TEMPLATES: usize = shinatama_state::database::MAX_TEMPLATES;
+pub const MAX_TEMPLATE_NAME: usize = 60;
+
+/// A team kept to be used again, in any thread: its agents (none has a session), their relations
+/// and their places. It carries no revision: a team made from it starts at revision 0.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Template {
+    /// `tm_` and 12 of `[a-z2-7]`, made by `template_id`.
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub agents: Vec<Agent>,
+    #[serde(default)]
+    pub links: Vec<Link>,
+}
+
+fn valid_template_id(id: &str) -> bool {
+    id.strip_prefix("tm_").is_some_and(|tail| {
+        tail.len() == 12 && tail.bytes().all(|b| matches!(b, b'a'..=b'z' | b'2'..=b'7'))
+    })
+}
+
+/// An id for a new template from 12 random bytes.
+pub fn template_id(random: &[u8; 12]) -> String {
+    const ALPHABET: &[u8; 32] = b"abcdefghijklmnopqrstuvwxyz234567";
+    let tail: String = random.iter().map(|b| char::from(ALPHABET[usize::from(b % 32)])).collect();
+    format!("tm_{tail}")
+}
+
+/// The template a formation makes. Its sessions and its revision are left out. It is refused when
+/// the formation could not be valid, is empty, or has an error of the checks, except `no_model`:
+/// an agent with no session and no model is what a template's agents are until the team is used.
+pub fn template_of(id: String, name: &str, f: &Formation) -> Result<Template, String> {
+    if !valid_template_id(&id) {
+        return Err("A template has an invalid id.".into());
+    }
+    let name = name.trim();
+    if name.is_empty() || name.chars().count() > MAX_TEMPLATE_NAME || has_control(name) {
+        return Err(format!("A template's name takes 1 to {MAX_TEMPLATE_NAME} characters, on one line."));
+    }
+    if name.contains('@') {
+        return Err("A template's name cannot hold @.".into());
+    }
+    validate(f)?;
+    if f.agents.is_empty() {
+        return Err("An empty team is not saved.".into());
+    }
+    if let Some(error) = check(f, &BTreeSet::new())
+        .into_iter()
+        .find(|issue| issue.level == Level::Error && issue.code != "no_model")
+    {
+        return Err(error.text);
+    }
+    Ok(Template {
+        id,
+        name: name.to_owned(),
+        agents: f.agents.iter().map(|agent| Agent { session: None, ..agent.clone() }).collect(),
+        links: f.links.clone(),
+    })
+}
+
+fn same_name(a: &str, b: &str) -> bool {
+    a.trim().to_lowercase() == b.trim().to_lowercase()
+}
+
+/// Add a template to the end of the list, refusing the sixty-fifth, a name the list already has
+/// (without regard to case) and an id it already has. The store runs this inside the transaction
+/// that writes the list, so two windows cannot both take the last place or the same name.
+pub fn add_template(list: &mut Vec<Template>, template: Template) -> Result<(), String> {
+    if list.len() >= MAX_TEMPLATES {
+        return Err(format!("A team keeps at most {MAX_TEMPLATES} templates. Delete one first."));
+    }
+    if let Some(taken) = list.iter().find(|kept| same_name(&kept.name, &template.name)) {
+        return Err(format!("A template named {} already exists.", taken.name));
+    }
+    if list.iter().any(|kept| kept.id == template.id) {
+        return Err("A template with this id already exists.".into());
+    }
+    list.push(template);
+    Ok(())
+}
+
+/// Delete a template; one that is not there (another window deleted it) is not an error.
+pub fn remove_template(list: &mut Vec<Template>, id: &str) {
+    list.retain(|kept| kept.id != id);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1669,5 +1758,122 @@ mod tests {
         let Some(Delivery::Notice { text }) = owed.iter().rev().find(|d| matches!(d, Delivery::Notice { .. })) else { panic!() };
         assert!(text.contains("m-gone") && text.contains("closed"), "{text}");
         assert!(owed.iter().any(|d| matches!(d, Delivery::Retire { member_id } if member_id == "id-m-gone")));
+    }
+
+    const TEMPLATE: &str = "tm_aaaaaaaaaaaa";
+
+    fn linked(n: usize, links: &[(usize, usize, Kind, Report)]) -> Formation {
+        let mut f = proper(n);
+        let ids: Vec<String> = f.agents.iter().map(|a| a.id.clone()).collect();
+        f.links = links
+            .iter()
+            .map(|(from, to, kind, report)| Link {
+                from: ids[*from].clone(),
+                to: ids[*to].clone(),
+                kind: *kind,
+                report: *report,
+                words: String::new(),
+            })
+            .collect();
+        f
+    }
+
+    #[test]
+    fn a_template_keeps_no_session_and_no_revision() {
+        let mut f = linked(2, &[(0, 1, Work, Strict)]);
+        f.revision = 7;
+        f.links[0].words = "ship it".into();
+        f.agents[0].notes = "plans".into();
+        f.agents[0].share = Share::Free;
+        f.agents[0].model = Some(ModelRef { program: "codex".into(), connection: None, model: Some("gpt".into()) });
+        (f.agents[1].x, f.agents[1].y) = (140, -20);
+        let t = template_of(TEMPLATE.into(), "  Review team  ", &f).unwrap();
+        assert_eq!((t.id.as_str(), t.name.as_str()), (TEMPLATE, "Review team"));
+        assert!(t.agents.iter().all(|a| a.session.is_none()));
+        assert_eq!(t.agents[0].notes, "plans");
+        assert_eq!(t.agents[0].share, Share::Free);
+        assert_eq!(t.agents[0].model, f.agents[0].model);
+        assert_eq!((t.agents[1].x, t.agents[1].y), (140, -20));
+        assert_eq!(t.links, f.links);
+        let shown = serde_json::to_value(&t).unwrap();
+        assert!(shown.get("revision").is_none(), "{shown}");
+        assert!(f.agents.iter().all(|a| a.session.is_some()), "the team itself keeps its sessions");
+        // What was stored reads back as it was.
+        assert_eq!(serde_json::from_value::<Template>(shown).unwrap(), t);
+    }
+
+    #[test]
+    fn a_team_with_agents_that_have_no_session_yet_is_saved() {
+        let mut f = linked(2, &[(0, 1, Work, Done)]);
+        for agent in &mut f.agents {
+            agent.session = None;
+        }
+        let t = template_of(TEMPLATE.into(), "Empty hands", &f).unwrap();
+        assert_eq!(t.agents.len(), 2);
+    }
+
+    #[test]
+    fn a_formation_with_a_loop_is_not_saved() {
+        let f = linked(3, &[(0, 1, Work, Done), (1, 2, Work, Done), (2, 0, Work, Done)]);
+        let refused = template_of(TEMPLATE.into(), "Circle", &f).unwrap_err();
+        assert!(refused.contains("circle"), "{refused}");
+        // Nor what cannot be valid, nor nothing.
+        let mut at = proper(1);
+        at.agents[0].notes = "ask @all".into();
+        assert!(template_of(TEMPLATE.into(), "At", &at).unwrap_err().contains('@'));
+        assert_eq!(template_of(TEMPLATE.into(), "None", &proper(0)).unwrap_err(), "An empty team is not saved.");
+        let observer = linked(3, &[(0, 1, Observes, Done), (2, 0, Work, Done)]);
+        assert!(template_of(TEMPLATE.into(), "Observer", &observer).unwrap_err().contains("observes"));
+    }
+
+    #[test]
+    fn a_template_has_a_name_of_one_to_sixty_characters_and_an_id_of_its_own_shape() {
+        let f = proper(1);
+        for bad in ["", "   ", "a\nb", "@all", &"n".repeat(61)] {
+            assert!(template_of(TEMPLATE.into(), bad, &f).is_err(), "{bad:?}");
+        }
+        assert!(template_of(TEMPLATE.into(), &"n".repeat(60), &f).is_ok());
+        for bad in ["", "tm_short", "a_aaaaaaaaaaaa", "tm_AAAAAAAAAAAA", "tm_aaaaaaaaaaa1"] {
+            assert!(template_of(bad.into(), "Name", &f).is_err(), "{bad}");
+        }
+        let made = template_id(&[0, 1, 25, 26, 31, 32, 255, 7, 8, 9, 10, 11]);
+        assert_eq!(made, "tm_abz27a7hijkl");
+        assert!(template_of(made, "Name", &f).is_ok());
+    }
+
+    #[test]
+    fn a_second_template_of_the_same_name_is_refused() {
+        let f = proper(1);
+        let mut list = Vec::new();
+        add_template(&mut list, template_of(TEMPLATE.into(), "Review", &f).unwrap()).unwrap();
+        for same in ["Review", " review ", "REVIEW"] {
+            let again = template_of("tm_bbbbbbbbbbbb".into(), same, &f).unwrap();
+            let refused = add_template(&mut list, again).unwrap_err();
+            assert_eq!(refused, "A template named Review already exists.");
+        }
+        assert_eq!(list.len(), 1);
+        add_template(&mut list, template_of("tm_bbbbbbbbbbbb".into(), "Review 2", &f).unwrap()).unwrap();
+        assert_eq!(list.len(), 2);
+        // The same id is refused as well, whatever the name.
+        assert!(add_template(&mut list, template_of(TEMPLATE.into(), "Other", &f).unwrap()).is_err());
+    }
+
+    #[test]
+    fn the_sixty_fifth_template_is_refused() {
+        let mut list = Vec::new();
+        let id = |i: usize| format!("tm_{}{}", "a".repeat(10), [(b'a' + (i / 26) as u8) as char, (b'a' + (i % 26) as u8) as char].iter().collect::<String>());
+        for i in 0..64 {
+            add_template(&mut list, template_of(id(i), &format!("Team {i}"), &proper(1)).unwrap()).unwrap();
+        }
+        let refused = add_template(&mut list, template_of(id(64), "One more", &proper(1)).unwrap()).unwrap_err();
+        assert_eq!(refused, "A team keeps at most 64 templates. Delete one first.");
+        assert_eq!(list.len(), 64);
+        // Deleting makes room.
+        remove_template(&mut list, &id(3));
+        assert_eq!(list.len(), 63);
+        add_template(&mut list, template_of(id(64), "One more", &proper(1)).unwrap()).unwrap();
+        // Deleting what is not there changes nothing.
+        remove_template(&mut list, "tm_zzzzzzzzzzzz");
+        assert_eq!(list.len(), 64);
     }
 }

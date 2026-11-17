@@ -855,6 +855,12 @@ fn main() {
         thread_team::team_apply,
         #[cfg(windows)]
         thread_team::team_place,
+        #[cfg(windows)]
+        thread_team::team_templates,
+        #[cfg(windows)]
+        thread_team::team_template_save,
+        #[cfg(windows)]
+        thread_team::team_template_delete,
         threads::thread_rename,
         threads::thread_archive,
         threads::thread_forget,
@@ -1043,6 +1049,12 @@ fn main() {
         thread_team::team_apply,
         #[cfg(windows)]
         thread_team::team_place,
+        #[cfg(windows)]
+        thread_team::team_templates,
+        #[cfg(windows)]
+        thread_team::team_template_save,
+        #[cfg(windows)]
+        thread_team::team_template_delete,
         threads::thread_rename,
         threads::thread_archive,
         threads::thread_forget,
