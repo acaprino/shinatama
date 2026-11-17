@@ -105,6 +105,8 @@ pub enum OpenCodeLaunchError {
     Permit,
     /// The session id given to a new session is not in OpenCode's own shape.
     InvalidNativeSession,
+    /// The model chosen for this launch is no longer in the Models panel.
+    Model,
 }
 impl std::fmt::Display for OpenCodeLaunchError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -140,6 +142,10 @@ pub struct OpenCodeStartContext<'a> {
     /// The id the new session starts with (`--session <id>`), made by `new_session_id`: Shinatama
     /// records it and Mukade's plugin keys its record by it, so a tab finds its member.
     pub native_id: &'a str,
+    /// The model of this launch. Outer `None`: the Models panel's assignment, as for a session
+    /// opened by hand. `Some(None)`: OpenCode's own sign-in and model. `Some(Some(selection))`:
+    /// the model of a team agent, which replaces the panel's for this launch only.
+    pub model: Option<Option<&'a crate::model_config::Selection>>,
 }
 pub struct PreparedOpenCodeTrial {
     pub launch: PreparedLaunch,
@@ -176,6 +182,7 @@ struct Context<'a> {
     thread_id: &'a str,
     chat: Option<&'a crate::mukade_chat::ChatHooks>,
     native_id: Option<&'a str>,
+    model: Option<Option<&'a crate::model_config::Selection>>,
 }
 pub struct PreparedOpenCodeStart {
     pub launch: PreparedLaunch,
@@ -295,6 +302,7 @@ pub fn prepare_trial(
             thread_id: context.thread_id,
             chat: None,
             native_id: None,
+            model: None,
         },
         None,
         true,
@@ -333,6 +341,7 @@ pub fn prepare_start(
             thread_id: context.thread_id,
             chat: context.chat,
             native_id: Some(context.native_id),
+            model: context.model,
         },
         Some(receipt),
         false,
@@ -687,7 +696,10 @@ fn prepare(
         crate::launch_policy::current()
     };
     let models = if trial { crate::model_config::Snapshot::default() } else {
-        crate::model_config::current().map_err(|_| OpenCodeLaunchError::Configuration)?
+        crate::model_config::current()
+            .map_err(|_| OpenCodeLaunchError::Configuration)?
+            .for_launch(crate::model_config::Harness::OpenCode, context.model)
+            .map_err(|_| OpenCodeLaunchError::Model)?
     };
     let mut config = models.opencode(serde_json::from_str(config_content(policy.full_access()))
         .map_err(|_| OpenCodeLaunchError::Configuration)?).to_string();
@@ -1341,6 +1353,33 @@ mod tests {
     #[test]
     fn opencode_arguments_stay_within_the_launch_bound() {
         assert!(fixed_arguments(Some(&new_session_id())).len() <= 32);
+    }
+    /// Task 12 of the thread team: the agent's model goes into the inline configuration; the
+    /// panel's assignment stays the default for the sessions the user opens by hand.
+    #[test]
+    fn opencode_s_configuration_holds_the_agent_s_model() {
+        use crate::model_config::{Harness, fixtures};
+        let (panel, other) = fixtures::panel_and_other();
+        let base = || serde_json::from_str::<Value>(config_content(false)).unwrap();
+        let launch = panel.clone().for_launch(Harness::OpenCode, Some(Some(&other))).unwrap();
+        let config = launch.opencode(base());
+        assert_eq!(config["model"], "shinatama-other/big");
+        assert_eq!(config["provider"]["shinatama-other"]["name"], "Other");
+        assert!(config["provider"].get("shinatama-example").is_none());
+        assert_eq!(config["update"], base()["update"]);
+        // OpenCode's own sign-in and model: the configuration is left as it is.
+        let own = panel.for_launch(Harness::OpenCode, Some(None)).unwrap();
+        assert_eq!(own.opencode(base()), base());
+    }
+    #[test]
+    fn no_override_launches_as_before() {
+        use crate::model_config::{Harness, fixtures};
+        let panel = fixtures::panel();
+        let base = || serde_json::from_str::<Value>(config_content(false)).unwrap();
+        let before = panel.opencode(base());
+        assert_eq!(before["model"], "shinatama-example/org/model:v2");
+        let same = panel.clone().for_launch(Harness::OpenCode, None).unwrap();
+        assert_eq!(same.opencode(base()), before);
     }
     #[test]
     fn opencode_full_access_adds_one_allow_all_rule_and_keeps_the_rest() {

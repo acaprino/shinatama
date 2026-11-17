@@ -84,6 +84,8 @@ pub enum PiLaunchError {
     Permit,
     /// The session id given to a new session is not a lowercase hyphenated UUID.
     InvalidNativeSession,
+    /// The model chosen for this launch is no longer in the Models panel.
+    Model,
 }
 impl std::fmt::Display for PiLaunchError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -119,6 +121,10 @@ pub struct PiStartContext<'a> {
     /// The id the new session starts with (`--session-id <id>`), made by `new_session_id`: Shinatama
     /// records it and Mukade's extension keys its record by it, so a tab finds its member.
     pub native_id: &'a str,
+    /// The model of this launch. Outer `None`: the Models panel's assignment, as for a session
+    /// opened by hand. `Some(None)`: Pi's own sign-in and model. `Some(Some(selection))`: the
+    /// model of a team agent, which replaces the panel's for this launch only.
+    pub model: Option<Option<&'a crate::model_config::Selection>>,
 }
 pub struct PiTrialContext<'a> {
     pub candidate: &'a ProgramCandidate,
@@ -174,6 +180,15 @@ fn model_arguments(extension: PathBuf, provider: &str, model: &str) -> Vec<OsStr
     ]
 }
 
+/// The model arguments of a launch's snapshot: the panel's assignment, or the agent's model when
+/// the launch took one; nothing when Pi keeps its own sign-in and model.
+fn selected_model_arguments(models: &crate::model_config::Snapshot, extension: PathBuf) -> Vec<OsString> {
+    models
+        .selected(crate::model_config::Harness::Pi)
+        .map(|(connection, selection)| model_arguments(extension, &crate::model_config::alias(connection), &selection.model_id))
+        .unwrap_or_default()
+}
+
 /// Pi takes the id given with `--session-id`; a lowercase hyphenated UUID is what it was verified
 /// with (docs/verification/2026-11-17-opencode-pi-session-id.md).
 pub fn is_session_id(id: &str) -> bool {
@@ -217,6 +232,7 @@ struct Context<'a> {
     thread_id: &'a str,
     chat: Option<&'a crate::mukade_chat::ChatHooks>,
     native_id: Option<&'a str>,
+    model: Option<Option<&'a crate::model_config::Selection>>,
 }
 struct Prepared {
     launch: PreparedLaunch,
@@ -272,6 +288,7 @@ pub fn prepare_trial(context: PiTrialContext<'_>) -> Result<PreparedPiTrial, PiL
             thread_id: context.thread_id,
             chat: None,
             native_id: None,
+            model: None,
         },
         None,
         true,
@@ -311,6 +328,7 @@ pub fn prepare_start(
             thread_id: context.thread_id,
             chat: context.chat,
             native_id: Some(context.native_id),
+            model: context.model,
         },
         Some(receipt),
         false,
@@ -581,7 +599,10 @@ fn prepare(
         crate::launch_policy::current().apply_environment(&mut environment);
     }
     let models = if trial { crate::model_config::Snapshot::default() } else {
-        crate::model_config::current().map_err(|_| PiLaunchError::Configuration)?
+        crate::model_config::current()
+            .map_err(|_| PiLaunchError::Configuration)?
+            .for_launch(crate::model_config::Harness::Pi, context.model)
+            .map_err(|_| PiLaunchError::Model)?
     };
     models.apply_key(crate::model_config::Harness::Pi, &mut environment);
     // ADR-0057: a session of a talking thread loads Mukade's Pi extension and Pi's own MCP,
@@ -602,9 +623,7 @@ fn prepare(
     if let Some(extension) = models.pi_extension() {
         let path = create_bytes(&instance_directory, "model-provider.mjs", extension.as_bytes(), &mut artifacts)
             .map_err(|_| PiLaunchError::Configuration)?;
-        if let Some((connection, selection)) = models.selected(crate::model_config::Harness::Pi) {
-            arguments.extend(model_arguments(path, &crate::model_config::alias(connection), &selection.model_id));
-        }
+        arguments.extend(selected_model_arguments(&models, path));
     }
     let descriptor = descriptor(&version)?;
     let mode = Placement::new(ProgramPlacement::System, HomePlacement::Box)
@@ -834,6 +853,38 @@ mod tests {
     }
     use super::*;
     use crate::launch::identity::LaunchIdentity;
+
+    /// Task 12 of the thread team: a launch for an agent carries the agent's model, the panel's
+    /// assignment stays the default for the sessions the user opens by hand.
+    #[test]
+    fn pi_passes_the_agent_s_model() {
+        use crate::model_config::fixtures;
+        let (panel, other) = fixtures::panel_and_other();
+        let path = PathBuf::from(r"C:\Data\i\model-provider.mjs");
+        let launch = panel.clone().for_launch(crate::model_config::Harness::Pi, Some(Some(&other))).unwrap();
+        assert_eq!(
+            selected_model_arguments(&launch, path.clone()),
+            ["-e", r"C:\Data\i\model-provider.mjs", "--provider", "shinatama-other", "--model", "big"].map(OsString::from)
+        );
+        // The extension that registers the provider holds the agent's connection, not the panel's.
+        let extension = launch.pi_extension().unwrap();
+        assert!(extension.contains("\"name\":\"Other\"") && !extension.contains("Local"));
+        // Pi's own sign-in and model: no provider extension and no model arguments at all.
+        let own = panel.for_launch(crate::model_config::Harness::Pi, Some(None)).unwrap();
+        assert!(selected_model_arguments(&own, path).is_empty());
+        assert!(own.pi_extension().is_none());
+    }
+    #[test]
+    fn no_override_launches_as_before() {
+        use crate::model_config::{Harness, fixtures};
+        let panel = fixtures::panel();
+        let path = PathBuf::from(r"C:\Data\i\model-provider.mjs");
+        let before = selected_model_arguments(&panel, path.clone());
+        assert_eq!(before, ["-e", r"C:\Data\i\model-provider.mjs", "--provider", "shinatama-example", "--model", "org/model:v2"].map(OsString::from));
+        let same = panel.clone().for_launch(Harness::Pi, None).unwrap();
+        assert_eq!(selected_model_arguments(&same, path), before);
+        assert_eq!(same.pi_extension(), panel.pi_extension());
+    }
 
     #[test]
     fn a_cache_written_where_pi_loads_marionette_never_reaches_the_store() {

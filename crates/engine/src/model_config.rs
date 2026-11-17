@@ -176,6 +176,33 @@ impl Snapshot {
             .find(|c| c.id == selection.connection_id)
             .map(|c| (c, selection))
     }
+    /// The same configuration with one program's selection replaced, for one launch. `None`:
+    /// the program's own sign-in and model, whatever the Models panel assigns. The panel's
+    /// snapshot (a value, `self` is consumed) is untouched where it is kept. Fails when the
+    /// connection or the model is no longer in the configuration.
+    pub fn with_selection(mut self, harness: Harness, selection: Option<Selection>) -> Result<Snapshot, String> {
+        if let Some(selection) = &selection {
+            let held = self.configuration.connections.iter().any(|c| {
+                c.id == selection.connection_id && c.models.iter().any(|m| m.id == selection.model_id)
+            });
+            if !held {
+                return Err(format!("The model {} is no longer in the Models panel.", selection.model_id));
+            }
+        }
+        match harness {
+            Harness::OpenCode => self.configuration.assignments.opencode = selection,
+            Harness::Pi => self.configuration.assignments.pi = selection,
+        }
+        Ok(self)
+    }
+    /// A launch's snapshot: the outer `None` is the panel's assignment as it is, `Some(None)` the
+    /// program's own sign-in and model, `Some(Some(selection))` the model of one agent.
+    pub fn for_launch(self, harness: Harness, model: Option<Option<&Selection>>) -> Result<Snapshot, String> {
+        match model {
+            None => Ok(self),
+            Some(selection) => self.with_selection(harness, selection.cloned()),
+        }
+    }
     /// Never inherit another session's provider key, even when native settings are selected.
     pub fn apply_key(&self, harness: Harness, environment: &mut BTreeMap<OsString, OsString>) {
         environment.retain(|name, _| !name.eq_ignore_ascii_case(KEY_ENV));
@@ -281,9 +308,10 @@ pub fn current() -> Result<Snapshot, String> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod fixtures {
     use super::*;
-    fn snapshot() -> Snapshot {
+    /// The panel's snapshot: one connection, assigned to OpenCode and to Pi.
+    pub fn panel() -> Snapshot {
         let c = Connection {
             id: "example".into(),
             name: "Local \"model\"".into(),
@@ -312,6 +340,27 @@ mod tests {
             },
             keys: BTreeMap::from([("example".into(), "synthetic-secret".into())]),
         }
+    }
+    /// The panel's snapshot with a second connection, and a selection of its model.
+    pub fn panel_and_other() -> (Snapshot, Selection) {
+        let mut s = panel();
+        s.configuration.connections.push(Connection {
+            id: "other".into(),
+            name: "Other".into(),
+            api: Api::AnthropicMessages,
+            base_url: "https://other.example/anthropic".into(),
+            models: vec![Model { id: "big".into(), context_window: 200_000, max_tokens: 8000, reasoning: false, vision: true }],
+        });
+        s.keys.insert("other".into(), "other-secret".into());
+        (s, Selection { connection_id: "other".into(), model_id: "big".into() })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn snapshot() -> Snapshot {
+        fixtures::panel()
     }
     #[test]
     fn shared_selection_translates_without_persisting_a_key_or_replacing_permissions() {
@@ -380,6 +429,49 @@ mod tests {
         let mut env = BTreeMap::from([(KEY_ENV.to_ascii_lowercase().into(), "old-secret".into())]);
         s.apply_key(Harness::Pi, &mut env);
         assert!(env.is_empty());
+    }
+    #[test]
+    fn one_launch_takes_another_selection_and_the_panel_keeps_its_own() {
+        let (panel, other) = fixtures::panel_and_other();
+        let launch = panel.clone().with_selection(Harness::Pi, Some(other.clone())).unwrap();
+        launch.configuration.validate().unwrap();
+        assert_eq!(launch.selected(Harness::Pi).unwrap().1, &other);
+        // The other program keeps what the panel assigns it.
+        assert_eq!(launch.selected(Harness::OpenCode).unwrap().1.connection_id, "example");
+        // The panel's own snapshot is a value: it is what it was.
+        assert_eq!(panel.selected(Harness::Pi).unwrap().1.connection_id, "example");
+        assert_eq!(panel.configuration.assignments.pi.as_ref().unwrap().model_id, "org/model:v2");
+        // Only the chosen connection's key goes to the program.
+        let mut env = BTreeMap::new();
+        launch.apply_key(Harness::Pi, &mut env);
+        assert_eq!(env[&OsString::from(KEY_ENV)], "other-secret");
+        // `None` is the program's own sign-in and model, whatever the panel assigns.
+        let native = panel.clone().with_selection(Harness::OpenCode, None).unwrap();
+        assert!(native.selected(Harness::OpenCode).is_none());
+        assert_eq!(native.opencode(json!({"permission": "ask"})), json!({"permission": "ask"}));
+        assert!(native.selected(Harness::Pi).is_some());
+        // `for_launch`: no override is the panel's assignment, an override is `with_selection`.
+        assert_eq!(panel.clone().for_launch(Harness::Pi, None).unwrap().configuration, panel.configuration);
+        let over = panel.clone().for_launch(Harness::Pi, Some(Some(&other))).unwrap();
+        assert_eq!(over.selected(Harness::Pi).unwrap().1, &other);
+        let own = panel.clone().for_launch(Harness::Pi, Some(None)).unwrap();
+        assert!(own.selected(Harness::Pi).is_none());
+    }
+    #[test]
+    fn a_removed_model_is_refused_by_name() {
+        let (panel, other) = fixtures::panel_and_other();
+        let gone_model = Selection { connection_id: other.connection_id.clone(), model_id: "gone".into() };
+        let gone_connection = Selection { connection_id: "removed".into(), model_id: "big".into() };
+        for (harness, bad) in [(Harness::Pi, &gone_model), (Harness::OpenCode, &gone_connection)] {
+            assert_eq!(
+                panel.clone().with_selection(harness, Some(bad.clone())).unwrap_err(),
+                format!("The model {} is no longer in the Models panel.", bad.model_id)
+            );
+            assert!(panel.clone().for_launch(harness, Some(Some(bad))).is_err());
+        }
+        // A model of another connection under this connection's id is not found either.
+        let crossed = Selection { connection_id: "example".into(), model_id: "big".into() };
+        assert!(panel.with_selection(Harness::Pi, Some(crossed)).is_err());
     }
     #[test]
     fn rejects_dangling_selections_duplicates_interpolation_and_invalid_limits() {

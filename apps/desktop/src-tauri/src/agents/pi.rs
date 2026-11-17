@@ -144,6 +144,7 @@ impl HarnessDriver for PiDriver {
                 thread_id: &context.thread.id,
                 chat: context.chat.as_ref(),
                 native_id: &native_id,
+                model: None,
             },
             receipt,
         )
@@ -275,6 +276,9 @@ fn launch_error(issue: PiLaunchError) -> DriverError {
         }
         PiLaunchError::InvalidNativeSession => {
             DriverError::Failed("The session id chosen for Pi is not a valid identifier.")
+        }
+        PiLaunchError::Model => {
+            DriverError::Failed("The model chosen for Pi is no longer in the Models panel.")
         }
         PiLaunchError::Permit => {
             DriverError::Failed("The Pi native launch permit did not match its qualification.")
