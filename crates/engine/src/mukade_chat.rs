@@ -60,6 +60,8 @@ pub struct ChatHooks {
     room_id: String,
     program: PathBuf,
     data_dir: PathBuf,
+    /// The Mukade role the session joins with: a peer's unless its thread's team says otherwise.
+    role: &'static str,
 }
 
 /// One Codex hook: its event, as the `-c hooks` table names it, its command line and timeout.
@@ -89,7 +91,13 @@ impl ChatHooks {
         hooks.program_path().is_some().then_some(hooks)
     }
     fn with_program(room_id: &str, program: PathBuf, data_dir: PathBuf) -> Self {
-        Self { room_id: room_id.into(), program, data_dir }
+        Self { room_id: room_id.into(), program, data_dir, role: "peer" }
+    }
+    /// The role the session joins the room with (`MUKADE_CHAT_ROLE`): `peer`, `lead`, `worker` or
+    /// `observer`, as the thread's team map gives it (`team::mukade_role`).
+    pub fn with_role(mut self, role: &'static str) -> Self {
+        self.role = role;
+        self
     }
     pub fn room_id(&self) -> &str {
         &self.room_id
@@ -102,7 +110,7 @@ impl ChatHooks {
     pub fn apply_environment(&self, environment: &mut BTreeMap<OsString, OsString>) {
         for (name, value) in [
             ("MUKADE_CHAT_ROOM_ID", OsString::from(&self.room_id)),
-            ("MUKADE_CHAT_ROLE", "peer".into()),
+            ("MUKADE_CHAT_ROLE", self.role.into()),
             ("MUKADE_CHAT_LISTEN", LISTEN_SECONDS.to_string().into()),
             ("MUKADE_CHAT_MAX_WAKES", MAX_WAKES.to_string().into()),
             ("MUKADE_DATA_DIR", self.data_dir.clone().into_os_string()),
@@ -462,6 +470,34 @@ mod tests {
         assert_eq!(environment.get(&OsString::from("MUKADE_CHAT_LISTEN")).unwrap(), "300");
         assert_eq!(environment.get(&OsString::from("MUKADE_DATA_DIR")).unwrap(), r"C:\Shinatama\data\mukade");
         assert_eq!(environment.get(&OsString::from("KEEP")).unwrap(), "yes");
+    }
+
+    fn launched_with(hooks: &ChatHooks) -> BTreeMap<OsString, OsString> {
+        let mut environment = BTreeMap::from([(OsString::from("KEEP"), OsString::from("yes"))]);
+        hooks.apply_environment(&mut environment);
+        environment
+    }
+
+    #[test]
+    fn the_launch_takes_the_agent_s_mukade_role() {
+        let role = |hooks: &ChatHooks| launched_with(hooks).get(&OsString::from("MUKADE_CHAT_ROLE")).cloned().unwrap();
+        assert_eq!(role(&hooks().with_role("observer")), "observer");
+        assert_eq!(role(&hooks().with_role("worker")), "worker");
+        assert_eq!(role(&hooks().with_role("lead")), "lead");
+        // The role is the only thing that changes.
+        let mut observer = launched_with(&hooks().with_role("observer"));
+        let peer = launched_with(&hooks());
+        observer.insert(OsString::from("MUKADE_CHAT_ROLE"), "peer".into());
+        assert_eq!(observer, peer);
+    }
+
+    #[test]
+    fn a_thread_without_a_formation_launches_as_before() {
+        // Without a role the environment is the one launches had before teams: the role is a peer's.
+        let before = launched_with(&hooks());
+        assert_eq!(before.get(&OsString::from("MUKADE_CHAT_ROLE")).unwrap(), "peer");
+        assert_eq!(before, launched_with(&hooks().with_role("peer")));
+        assert_eq!(before.len(), 6);
     }
 
     #[test]

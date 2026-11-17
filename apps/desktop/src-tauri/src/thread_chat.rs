@@ -10,6 +10,7 @@ use shinatama_engine::{
     mukade_chat::{self, AdapterMember, ChatHooks, USER_HARNESS, USER_MEMBER},
     mukade_mcp::Connection,
     session_control::{member_name, thread_member_name, thread_room_name},
+    team::{self, Formation, MukadeRole},
 };
 use shinatama_state::threads::{ThreadStatus, ThreadSummary};
 use std::{
@@ -61,18 +62,34 @@ fn forget_room(state: &WorkspaceServices, workset: &str) {
 }
 
 /// The hooks for a launch into `workset`, when that thread is on and the harness has
-/// them. A failure leaves the session an ordinary one; the reason goes to the log.
-pub(crate) fn launch_hooks(state: &WorkspaceServices, harness: &str, workset: &str) -> Option<ChatHooks> {
+/// them. A failure leaves the session an ordinary one; the reason goes to the log. `session` is
+/// the session being resumed: it joins in the Mukade role its agent's arrows give it; a new
+/// session, one not on the map and a thread without a formation join as a peer, as before.
+pub(crate) fn launch_hooks(state: &WorkspaceServices, harness: &str, workset: &str, session: Option<&str>) -> Option<ChatHooks> {
     if !CHAT_HARNESSES.contains(&harness) || !state.store.thread_chat_enabled(workset).unwrap_or(false) {
         return None;
     }
     match room_of(state, workset) {
-        Ok(room) => ChatHooks::new(&state.location, &room),
+        Ok(room) => {
+            let formation = crate::thread_team::load(&state.store, workset).ok().and_then(|record| record.formation);
+            ChatHooks::new(&state.location, &room).map(|hooks| hooks.with_role(launch_role(formation.as_ref(), session).as_str()))
+        }
         Err(reason) => {
             eprintln!("A session of a talking thread opens without its room: {reason}");
             None
         }
     }
+}
+
+/// The Mukade role of the agent of `formation` whose session is `session`; a peer when there is
+/// no formation, no session yet, or the session is not on the map.
+pub(crate) fn launch_role(formation: Option<&Formation>, session: Option<&str>) -> MukadeRole {
+    let (Some(formation), Some(session)) = (formation, session) else { return MukadeRole::Peer };
+    formation
+        .agents
+        .iter()
+        .find(|agent| agent.session.as_deref() == Some(session))
+        .map_or(MukadeRole::Peer, |agent| team::mukade_role(formation, &agent.id))
 }
 
 /// The thread's room ID, starting Shinatama's own service when it is stopped and opening the
@@ -740,6 +757,37 @@ mod tests {
         let members = [json!({"member_id":"m2","name":"codex-bbbbbbbbbbbb","harness":"codex","role":"peer","left_at":null})];
         let sessions = [SessionFacts { summary: summary("t_bbbbbbbbbbbb", Some("codex"), ThreadStatus::Inactive), adapter: None, launched: false }];
         assert_eq!(project("r", &members, &[], &sessions)["sessions"][0]["connection"], "not_connected");
+    }
+
+    #[test]
+    fn a_session_launches_in_the_role_the_arrows_of_its_agent_give_it() {
+        use shinatama_engine::team::{Agent, Formation, Kind, Link, MukadeRole, Report, Share};
+        let agent = |id: &str, session: Option<&str>| Agent {
+            id: id.into(), session: session.map(Into::into), model: None, name: id.into(),
+            notes: String::new(), share: Share::Split, x: 0, y: 0,
+        };
+        let link = |from: &str, to: &str, kind: Kind, report: Report| Link { from: from.into(), to: to.into(), kind, report, words: String::new() };
+        let formation = Formation {
+            revision: 1,
+            agents: vec![
+                agent("a_aaaaaaaaaaaa", Some("t_aaaaaaaaaaaa")),
+                agent("a_bbbbbbbbbbbb", Some("t_bbbbbbbbbbbb")),
+                agent("a_cccccccccccc", Some("t_cccccccccccc")),
+                agent("a_dddddddddddd", None),
+            ],
+            links: vec![
+                link("a_aaaaaaaaaaaa", "a_bbbbbbbbbbbb", Kind::Work, Report::Strict),
+                link("a_cccccccccccc", "a_bbbbbbbbbbbb", Kind::Observes, Report::Done),
+            ],
+        };
+        let role = |session: Option<&str>| launch_role(Some(&formation), session);
+        assert_eq!(role(Some("t_aaaaaaaaaaaa")), MukadeRole::Lead);
+        assert_eq!(role(Some("t_bbbbbbbbbbbb")), MukadeRole::Worker);
+        assert_eq!(role(Some("t_cccccccccccc")), MukadeRole::Observer);
+        // A session that is not on the map, a new session and a thread without a formation: a peer.
+        assert_eq!(role(Some("t_eeeeeeeeeeee")), MukadeRole::Peer);
+        assert_eq!(role(None), MukadeRole::Peer);
+        assert_eq!(launch_role(None, Some("t_aaaaaaaaaaaa")), MukadeRole::Peer);
     }
 
     #[test]

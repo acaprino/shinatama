@@ -82,6 +82,21 @@ quelli scelti dall'adapter (`claude-1`, `codex-1`) e restituiti in `you`/`peers`
 e il consumo di read/wait/ack appartiene agli hook. L'utente partecipa come
 membro `user` (harness `shinatama`).
 
+**Team map (ADR-0058).** When the user applied a formation to a thread whose switch
+is on, `shinatama_thread_peers` adds `team` for a caller that is on the map:
+`{ "revision": n, "you": { "name", "role", "relations": [sentences] }, "peers":
+{ "<session id>": { "name", "role" } }, "note" }`. `role` is `lead`, `worker`,
+`leadWorker`, `observer` or `peer`; `relations` are the sentences the arrows say
+from the caller's side; `peers` lists only the other agents that have a session.
+A caller that is not on the map, or a thread without a formation, gets no `team`.
+The Mukade role (`peer`, `lead`, `worker`, `observer`) is set by the host: at
+launch from `MUKADE_CHAT_ROLE`, and afterwards by `mukade chat set-role` when
+the formation changes. The member `shinatama` (harness `shinatama`) is a host
+member: what it writes reaches a member under `From the user, through shinatama:`
+(`TEAM revision <n>` for a personal message, addressed; `TEAM revision <n>
+changes` for the notice, unaddressed). Host-only operations (`join --host`,
+`set-role`, `retire`) are not among the `chat_*` tools: an agent cannot call them.
+
 La risposta distingue `queued`, `starting`, `opened`, `failed`, `cancelled`.
 `opened.result.session_id` e' l'istanza posseduta da Shinatama, mentre
 `thread_id` identifica il thread salvato. Non sono il `session_id` da usare

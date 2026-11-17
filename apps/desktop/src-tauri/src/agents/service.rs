@@ -748,9 +748,14 @@ impl<D: HarnessDriver> Service<D> {
                 .map(str::to_owned),
             SessionOperation::Resume(target) => state.store.workset_of_thread(&target.thread.id).ok().flatten(),
         };
+        // A resumed session joins in the role its agent has on the thread's team map.
+        let resumed = match &operation {
+            SessionOperation::Resume(target) => Some(target.thread.id.as_str()),
+            _ => None,
+        };
         let chat = workset
             .as_deref()
-            .and_then(|workset| crate::thread_chat::launch_hooks(state, descriptor.id, workset));
+            .and_then(|workset| crate::thread_chat::launch_hooks(state, descriptor.id, workset, resumed));
         // Refresh only preparation, at most once and before any native start.
         // A running/failed-started process is never repeated by this loop.
         for attempt in 0..2 {

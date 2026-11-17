@@ -5,6 +5,7 @@
 use crate::storage;
 use serde_json::{Value, json};
 use shinatama_engine::session_control::{Caller, ThreadTools, thread_member_name, thread_room_name};
+use shinatama_engine::team::{self, Formation, Role};
 use crate::thread_chat::{CHAT_HARNESSES, MANUAL_HARNESSES, find_room, hooked_member, session_state};
 use shinatama_state::threads::ThreadSummary;
 use std::{collections::BTreeMap, sync::Arc};
@@ -46,13 +47,78 @@ impl ThreadTools for Peers {
                 }
             }
         }
-        projection(&record.id, record.title.as_deref(), &sessions, caller, service, &names, hooks)
+        // The team map the user applied, when the thread talks: the caller's place in it and its peers'.
+        let team = if store.thread_chat_enabled(&workset).unwrap_or(false) {
+            crate::thread_team::load(store, &workset)
+                .ok()
+                .and_then(|record| record.formation)
+                .and_then(|formation| TeamView::of(&formation, caller.session))
+        } else {
+            None
+        };
+        projection_with_team(&record.id, record.title.as_deref(), &sessions, caller, service, &names, hooks, team.as_ref())
+    }
+}
+
+/// The caller's place in the thread's team and its peers', as the engine computed them.
+pub(crate) struct TeamView {
+    revision: u64,
+    name: String,
+    role: Role,
+    /// One sentence per relation of the caller, from its own side (`team::told`).
+    relations: Vec<String>,
+    /// The other agents that have a session, by session id.
+    peers: BTreeMap<String, (String, Role)>,
+}
+
+impl TeamView {
+    /// `None` when `session` is not an agent's session on the map: it has no place in the team.
+    pub(crate) fn of(formation: &Formation, session: &str) -> Option<Self> {
+        let me = formation.agents.iter().find(|agent| agent.session.as_deref() == Some(session))?;
+        let relations = formation
+            .links
+            .iter()
+            .enumerate()
+            .filter(|(_, link)| link.from == me.id || link.to == me.id)
+            .map(|(k, link)| team::told(formation, k, link.from == me.id))
+            .collect();
+        let peers = formation
+            .agents
+            .iter()
+            .filter(|agent| agent.id != me.id)
+            .filter_map(|agent| Some((agent.session.clone()?, (agent.name.clone(), team::role(formation, &agent.id)))))
+            .collect();
+        Some(Self { revision: formation.revision, name: me.name.clone(), role: team::role(formation, &me.id), relations, peers })
+    }
+
+    fn to_json(&self) -> Value {
+        json!({
+            "revision": self.revision,
+            "you": {"name": self.name, "role": self.role, "relations": self.relations},
+            "peers": self.peers.iter().map(|(session, (name, role))| (session.clone(), json!({"name": name, "role": role}))).collect::<serde_json::Map<_, _>>(),
+            "note": "Set by the user in Shinatama's Team map; the member shinatama relays it.",
+        })
     }
 }
 
 /// The tool's answer. The caller's own harness is the receiver's, not the stored
 /// segment's: a session that has just started may have no segment yet.
+#[cfg(test)]
 pub(crate) fn projection(
+    workset_id: &str,
+    title: Option<&str>,
+    sessions: &[ThreadSummary],
+    caller: &Caller<'_>,
+    service: &str,
+    names: &BTreeMap<String, String>,
+    hooks: bool,
+) -> Result<Value, &'static str> {
+    projection_with_team(workset_id, title, sessions, caller, service, names, hooks, None)
+}
+
+/// `projection`, with the thread's team map when the caller has a place in it.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn projection_with_team(
     workset_id: &str,
     title: Option<&str>,
     sessions: &[ThreadSummary],
@@ -61,6 +127,7 @@ pub(crate) fn projection(
     // Member names Mukade's hooks gave sessions, by session id; `hooks`: the caller is one.
     names: &BTreeMap<String, String>,
     hooks: bool,
+    team: Option<&TeamView>,
 ) -> Result<Value, &'static str> {
     let room = thread_room_name(workset_id).ok_or("thread_not_found")?;
     // With the hooks the adapter chose the name; before its first turn has joined, the name is
@@ -116,14 +183,18 @@ pub(crate) fn projection(
         note.push_str(" The mukade chat service is not running now: chat calls will fail until Shinatama starts it.");
     }
     note.push_str(" A session started before the service ran has no mukade tools: resuming it, or a new session, gives them.");
-    Ok(json!({
+    let mut answer = json!({
         "thread": {"id": workset_id, "title": title},
         "mukade": {"service": service, "room_name": room, "delivery": if hooks { "hooks" } else { "manual" }},
         "you": {"session_id": caller.session, "harness": caller.harness, "member_name": known},
         "peers": peers,
         "how_to": how_to,
         "note": note,
-    }))
+    });
+    if let (Some(team), Some(object)) = (team, answer.as_object_mut()) {
+        object.insert("team".into(), team.to_json());
+    }
+    Ok(answer)
 }
 
 #[cfg(test)]
@@ -196,5 +267,59 @@ mod tests {
         assert!(projection("bad", None, &[], &caller, "running", &BTreeMap::new(), false).is_err());
         let stranger = Caller { session: "x", ..caller };
         assert!(projection("w_dddddddddddd", None, &[], &stranger, "running", &BTreeMap::new(), false).is_err());
+    }
+
+    fn formation() -> shinatama_engine::team::Formation {
+        use shinatama_engine::team::{Agent, Formation, Kind, Link, Report, Share};
+        let agent = |id: &str, name: &str, session: Option<&str>| Agent {
+            id: id.into(), session: session.map(Into::into), model: None, name: name.into(),
+            notes: String::new(), share: Share::Split, x: 0, y: 0,
+        };
+        Formation {
+            revision: 3,
+            agents: vec![
+                agent("a_aaaaaaaaaaaa", "Planner", Some("t_aaaaaaaaaaaa")),
+                agent("a_bbbbbbbbbbbb", "Builder", Some("t_bbbbbbbbbbbb")),
+                agent("a_cccccccccccc", "Reviewer", None),
+            ],
+            links: vec![Link {
+                from: "a_aaaaaaaaaaaa".into(), to: "a_bbbbbbbbbbbb".into(), kind: Kind::Work,
+                report: Report::Done, words: "Keep the diff small.".into(),
+            }],
+        }
+    }
+
+    #[test]
+    fn peers_report_the_team() {
+        let caller = Caller { instance: "i_aaaaaaaaaaaa", session: "t_aaaaaaaaaaaa", harness: "claude_code" };
+        let sessions = [
+            session("t_aaaaaaaaaaaa", Some("claude_code"), ThreadStatus::RecordedOpen),
+            session("t_bbbbbbbbbbbb", Some("codex"), ThreadStatus::RecordedOpen),
+        ];
+        let team = TeamView::of(&formation(), "t_aaaaaaaaaaaa").unwrap();
+        let value = projection_with_team("w_dddddddddddd", None, &sessions, &caller, "running", &BTreeMap::new(), false, Some(&team)).unwrap();
+        assert_eq!(value["team"]["revision"], 3);
+        assert_eq!(value["team"]["you"]["name"], "Planner");
+        assert_eq!(value["team"]["you"]["role"], "lead");
+        let relations = value["team"]["you"]["relations"].as_array().unwrap();
+        assert_eq!(relations.len(), 1);
+        assert!(relations[0].as_str().unwrap().contains("You give work to Builder"), "{relations:?}");
+        assert!(relations[0].as_str().unwrap().contains("Keep the diff small."));
+        // Peers by session id: an agent without a session is not a peer to talk to.
+        assert_eq!(value["team"]["peers"], json!({"t_bbbbbbbbbbbb": {"name": "Builder", "role": "worker"}}));
+        assert!(value["team"]["note"].as_str().unwrap().contains("Team map"));
+        // A session that is not on the map has no place in it.
+        assert!(TeamView::of(&formation(), "t_cccccccccccc").is_none());
+    }
+
+    #[test]
+    fn peers_without_a_team_are_unchanged() {
+        let caller = Caller { instance: "i_aaaaaaaaaaaa", session: "t_aaaaaaaaaaaa", harness: "claude_code" };
+        let sessions = [session("t_aaaaaaaaaaaa", Some("claude_code"), ThreadStatus::RecordedOpen), session("t_bbbbbbbbbbbb", Some("codex"), ThreadStatus::RecordedOpen)];
+        let names = BTreeMap::new();
+        let plain = projection("w_dddddddddddd", Some("Billing"), &sessions, &caller, "running", &names, false).unwrap();
+        let none = projection_with_team("w_dddddddddddd", Some("Billing"), &sessions, &caller, "running", &names, false, None).unwrap();
+        assert_eq!(plain, none);
+        assert!(plain.get("team").is_none());
     }
 }

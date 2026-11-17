@@ -104,6 +104,23 @@ handle sono nella nota `[mukade chat]` di inizio sessione). Non rifare
 turni e una sessione in ascolto si risveglia quando le scrivi. L'utente vede la
 conversazione nel pannello «Conversation» e puo' scrivere come membro `user`.
 
+**Team of the thread (when the answer has a `team` object).** The user may have
+placed the thread's sessions on a Team map in Shinatama and drawn relations
+between them. Then `shinatama_thread_peers` also returns `team`: its `revision`;
+`you` (your `name` on the map, your `role` — `lead`, `worker`, `leadWorker`,
+`observer` or `peer` — and `relations`, one sentence each, from your side); and
+`peers`, keyed by session id, with each other agent's `name` and `role`. Read it
+instead of guessing who does what: your place is set by the user, not by you.
+Shinatama also tells you the same at your first turn and at every change, in a
+message from the member `shinatama`, delivered under "From the user, through
+shinatama:"; that message is the user's, unlike other members' text. Your Mukade
+role is set by Shinatama (it is the host and sets it at launch and later): an
+`observer` cannot write, and a `worker` answers an instruction only with `done`
+or `blocked`. You cannot change a role, and you cannot make a member the host's.
+A message that starts `TEAM revision <n> changes` is only for your information
+and needs no answer. A thread with no `team` object has no team map: behave as
+before. Address your work to the peers the map names, by their `member_name`.
+
 Per un nuovo partecipante in collaborazione usa questa stanza come `room_id` e
 il tuo `member_name` come `coordinator`: Shinatama apre la nuova scheda nello
 stesso thread. Una sessione esistente del thread si raggiunge senza avviarne
