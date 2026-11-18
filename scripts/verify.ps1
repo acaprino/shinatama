@@ -5,7 +5,7 @@ a kill-on-close test job; no agent, account or model request is started.
 The production application's P14 containment gate remains open.
 #>
 [CmdletBinding()]
-param([ValidateRange(1, 45)][int]$TimeoutMinutes = 25)
+param([ValidateRange(1, 180)][int]$TimeoutMinutes = 25)
 
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
@@ -16,7 +16,8 @@ $logDirectory = Join-Path $reportDirectory 'logs'
 $checks = [Collections.Generic.List[object]]::new()
 $deadline = [DateTime]::UtcNow.AddMinutes($TimeoutMinutes)
 $previousBuildJobs = $env:CARGO_BUILD_JOBS
-if (-not $env:CARGO_BUILD_JOBS) { $env:CARGO_BUILD_JOBS = '1' }
+# One compile job on a developer's machine, which is in use meanwhile; a CI runner (CI is set) uses all its cores.
+if (-not $env:CARGO_BUILD_JOBS -and -not $env:CI) { $env:CARGO_BUILD_JOBS = '1' }
 $report = [ordered]@{
     schema_version = 1
     scope = 'Windows x64 development verification; not release certification'
@@ -32,6 +33,27 @@ $report = [ordered]@{
 }
 
 . (Join-Path $PSScriptRoot 'check-process.ps1')
+
+# Every check after the dependency install runs even when an earlier one failed, and the run fails at the
+# end with all of them: a failing documentation check stopped every run in its first minute, so no run said
+# whether the code builds and its tests pass. A check that needs the output of one that did not pass is
+# reported as skipped.
+$notPassed = [Collections.Generic.HashSet[string]]::new()
+function Invoke-Verification {
+    param([string]$Name, [string]$Executable, [string[]]$Arguments, [string[]]$Needs = @(), [int]$TimeoutSeconds = 900)
+    $missing = @($Needs | Where-Object { $notPassed.Contains($_) })
+    if ($missing.Count) {
+        Write-Host "[$Name] skipped: needs $($missing -join ', ')"
+        [void]$checks.Add([ordered]@{ name = $Name; status = 'skipped'; exit_code = $null; seconds = 0 })
+        [void]$notPassed.Add($Name)
+        return
+    }
+    try { Invoke-Check $Name $Executable $Arguments $TimeoutSeconds }
+    catch {
+        [void]$notPassed.Add($Name)
+        Write-Host "FAIL: $($_.Exception.Message)"
+    }
+}
 
 function Find-WebViewVersion {
     $versions = [Collections.Generic.List[string]]::new()
@@ -79,36 +101,47 @@ try {
     $report.source_commit = (& git rev-parse HEAD).Trim()
     $report.source_dirty = -not [string]::IsNullOrWhiteSpace((& git status --porcelain | Out-String))
     # Dependency restoration is explicit; no audit/update/catalog call is part of it.
+    # Without the dependencies nothing else can run: this one still stops the run.
     Invoke-Check 'npm-install' 'npm.cmd' @('ci', '--no-audit', '--no-fund')
-    Invoke-Check 'plan' 'python' @('scripts/implementation.py', 'validate')
-    Invoke-Check 'runner-tests' 'pwsh' @('-NoProfile', '-File', 'scripts/test_verify.ps1')
-    Invoke-Check 'python-tests' 'python' @('-m', 'unittest', 'discover', '-s', 'scripts', '-p', 'test_*.py')
-    Invoke-Check 'frontend-tests' 'npm.cmd' @('test')
-    Invoke-Check 'frontend-build' 'npm.cmd' @('run', 'build')
-    Invoke-Check 'dependencies' 'python' @('scripts/dependencies.py', 'check')
-    Invoke-Check 'rust-format' 'cargo' @('fmt', '--all', '--check')
-    Invoke-Check 'rust-clippy' 'cargo' @('clippy', '--locked', '--workspace', '--all-targets', '--features', 'custom-protocol', '--', '-D', 'warnings')
-    Invoke-Check 'rust-tests' 'cargo' @('test', '--locked', '--workspace', '--all-targets', '--features', 'custom-protocol')
-    Invoke-Check 'test-job-build' 'cargo' @('build', '--locked', '--manifest-path', 'verify/P14/Cargo.toml')
-    Invoke-Check 'desktop-build' 'cargo' @('build', '--locked', '-p', 'shinatama-desktop', '-p', 'shinatama-cli', '-p', 'shinatama-terminal', '--bins', '--features', 'custom-protocol')
+    Invoke-Verification 'plan' 'python' @('scripts/implementation.py', 'validate')
+    Invoke-Verification 'runner-tests' 'pwsh' @('-NoProfile', '-File', 'scripts/test_verify.ps1')
+    Invoke-Verification 'python-tests' 'python' @('-m', 'unittest', 'discover', '-s', 'scripts', '-p', 'test_*.py')
+    Invoke-Verification 'frontend-tests' 'npm.cmd' @('test')
+    Invoke-Verification 'frontend-build' 'npm.cmd' @('run', 'build')
+    Invoke-Verification 'dependencies' 'python' @('scripts/dependencies.py', 'check')
+    Invoke-Verification 'rust-format' 'cargo' @('fmt', '--all', '--check')
+    # A whole-workspace compile from nothing takes longer than the 15 minutes of the other checks.
+    Invoke-Verification 'rust-clippy' 'cargo' @('clippy', '--locked', '--workspace', '--all-targets', '--features', 'custom-protocol', '--', '-D', 'warnings') -TimeoutSeconds 3600
+    Invoke-Verification 'rust-tests' 'cargo' @('test', '--locked', '--workspace', '--all-targets', '--features', 'custom-protocol') -TimeoutSeconds 3600
+    Invoke-Verification 'test-job-build' 'cargo' @('build', '--locked', '--manifest-path', 'verify/P14/Cargo.toml')
+    # The desktop embeds the frontend that `frontend-build` writes.
+    Invoke-Verification 'desktop-build' 'cargo' @('build', '--locked', '-p', 'shinatama-desktop', '-p', 'shinatama-cli', '-p', 'shinatama-terminal', '--bins', '--features', 'custom-protocol') -Needs @('frontend-build') -TimeoutSeconds 3600
     $probe = Join-Path $workspaceRoot 'verify/P14/target/debug/p14-probe.exe'
     # The real desktop check below covers ConPTY through its admitted helper.
     # A default unconfigured Windows host deliberately cannot spawn a process.
     # These share a checkout and use fixed CDP ports: keep them sequential.
-    Invoke-Check 'desktop-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/desktop-smoke.mjs')
-    Invoke-Check 'projects-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/projects-smoke.mjs')
-    Invoke-Check 'storage-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/storage-smoke.mjs')
-    Invoke-Check 'state-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/state-smoke.mjs')
-    Invoke-Check 'catalog-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/catalog-smoke.mjs')
-    Invoke-Check 'new-project-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/new-project-smoke.mjs')
-    Invoke-Check 'launch-preflight-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/launch-preflight-smoke.mjs')
-    Invoke-Check 'resources-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/resources-smoke.mjs')
-    Invoke-Check 'maintenance-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/maintenance-smoke.mjs')
-    $report.executable = [ordered]@{
-        path = 'target/debug/shinatama-desktop.exe'
-        sha256 = (Get-FileHash -LiteralPath 'target/debug/shinatama-desktop.exe' -Algorithm SHA256).Hash.ToLowerInvariant()
-        bytes = (Get-Item -LiteralPath 'target/debug/shinatama-desktop.exe').Length
-        kind = 'embedded debug prototype; unsigned'
+    $app = @('desktop-build', 'test-job-build')
+    Invoke-Verification 'desktop-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/desktop-smoke.mjs') -Needs $app
+    Invoke-Verification 'projects-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/projects-smoke.mjs') -Needs $app
+    Invoke-Verification 'storage-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/storage-smoke.mjs') -Needs $app
+    Invoke-Verification 'state-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/state-smoke.mjs') -Needs $app
+    Invoke-Verification 'catalog-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/catalog-smoke.mjs') -Needs $app
+    Invoke-Verification 'new-project-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/new-project-smoke.mjs') -Needs $app
+    Invoke-Verification 'launch-preflight-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/launch-preflight-smoke.mjs') -Needs $app
+    Invoke-Verification 'resources-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/resources-smoke.mjs') -Needs $app
+    Invoke-Verification 'maintenance-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/maintenance-smoke.mjs') -Needs $app
+    # Threads, their tabs, closing and bringing back a session, and a restart (ADR-0055).
+    Invoke-Verification 'thread-sets-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/thread-sets-smoke.mjs') -Needs $app
+    if (-not $notPassed.Contains('desktop-build')) {
+        $report.executable = [ordered]@{
+            path = 'target/debug/shinatama-desktop.exe'
+            sha256 = (Get-FileHash -LiteralPath 'target/debug/shinatama-desktop.exe' -Algorithm SHA256).Hash.ToLowerInvariant()
+            bytes = (Get-Item -LiteralPath 'target/debug/shinatama-desktop.exe').Length
+            kind = 'embedded debug prototype; unsigned'
+        }
+    }
+    if ($notPassed.Count) {
+        throw "Checks that did not pass: $(@($checks | Where-Object { $_.status -ne 'passed' } | ForEach-Object { "$($_.name) ($($_.status))" }) -join ', ')"
     }
     $report.status = 'passed'
     Write-Host 'PASS: Windows verification completed. Report: .verification/verification.json'

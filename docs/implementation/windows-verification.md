@@ -36,9 +36,12 @@ run simultanei nello stesso checkout. I processi sintetici passano per il job
 kill-on-close del probe P14; questo protegge la pulizia della verifica, non
 aggiunge il job globale al runtime del prodotto e non chiude P14.
 
-Ogni controllo ha un limite di 15 minuti; il run locale ha un limite predefinito
-di 25 minuti, modificabile entro 1–45 con `-TimeoutMinutes`. Il job remoto dura
-al massimo 30 minuti. Un processo in timeout viene terminato con il proprio
+Ogni controllo ha un limite di 15 minuti, 60 per clippy, test Rust e build
+desktop; il run locale ha un limite predefinito di 25 minuti, modificabile entro
+1–180 con `-TimeoutMinutes`. Il job remoto usa 140 minuti e dura al massimo 150.
+Dopo l'installazione delle dipendenze ogni controllo gira anche se uno precedente
+è fallito: il run fallisce alla fine elencandoli tutti, e un controllo che dipende
+da uno non passato risulta saltato. In CI la compilazione usa tutti i core. Un processo in timeout viene terminato con il proprio
 albero; i test GUI hanno anche il loro job di contenimento. Log per controllo
 limitati a 32 MiB, diagnostica mostrata limitata a 4 KiB per stream. Le prove
 del runner coprono errore, timeout singolo/globale e output eccessivo.
