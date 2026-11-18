@@ -542,7 +542,9 @@ mod tests {
         let line = |operation: &str, arguments: &[(&str, &str)], text: Option<&str>| command_line(operation, arguments, text);
         let join = line("join", &[("request-id", "r"), ("room-id", "room"), ("name", "shinatama"), ("host", "")], None).unwrap();
         assert_eq!(join, ["chat", "join", "--request-id", "r", "--room-id", "room", "--name", "shinatama", "--host", "--json"]);
-        let role = line("set-role", &[("room-id", "room"), ("member-handle", "h"), ("member-id", "m"), ("role", "lead")], None).unwrap();
+        let rejoin = line("rejoin", &[("request-id", "r"), ("room-id", "room"), ("member-id", "m"), ("host", "")], None).unwrap();
+        assert_eq!(rejoin, ["chat", "rejoin", "--request-id", "r", "--room-id", "room", "--member-id", "m", "--host", "--json"]);
+        let role = line("set-role",&[("room-id", "room"), ("member-handle", "h"), ("member-id", "m"), ("role", "lead")], None).unwrap();
         assert_eq!(&role[..2], ["chat", "set-role"]);
         assert!(line("retire", &[("member-id", "m")], None).is_ok());
         // The text goes through standard input, never the command line.

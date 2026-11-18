@@ -660,6 +660,12 @@ fn host_join<'a>(request_id: &'a str, room: &'a str, name: &'a str) -> [(&'a str
     [("request-id", request_id), ("room-id", room), ("harness", USER_HARNESS), ("role", "peer"), ("name", name), ("host", "")]
 }
 
+/// What `mukade chat rejoin` is given to recover a host member: since Mukade 0.1.2 only the bare
+/// `--host` flag (the program reads the host's credential itself) can recover a host member.
+fn host_rejoin<'a>(request_id: &'a str, room: &'a str, member_id: &'a str) -> [(&'a str, &'a str); 4] {
+    [("request-id", request_id), ("room-id", room), ("member-id", member_id), ("host", "")]
+}
+
 /// Join as the host member `preferred`, or recover that member after a restart (`rejoin` keeps
 /// its mark). Never a member that is not a host (under Shinatama's harness): when an agent that
 /// joined by hand holds the name, the host joins as `<name>-2`, `-3` … (`mukade_chat::host_name`),
@@ -701,7 +707,7 @@ fn host_handle(state: &WorkspaceServices, controller: &Controller, room: &str, n
         || listing(state, "members", &[("room-id", room)]).map(|(members, _)| members),
         |member_id| {
             let request_id = uuid::Uuid::new_v4().to_string();
-            mukade_chat::call(&state.location, "rejoin", &[("request-id", &request_id), ("room-id", room), ("member-id", member_id)], None)
+            mukade_chat::call(&state.location, "rejoin", &host_rejoin(&request_id, room, member_id), None)
         },
     )?;
     let handle = answer["member_handle"]
@@ -866,6 +872,16 @@ mod tests {
             assert!(joined.contains(&pair), "{pair:?}");
         }
         assert!(host_join("req", "room", "user").contains(&("name", "user")));
+    }
+
+    #[test]
+    fn a_host_member_is_recovered_with_the_host_flag() {
+        // Mukade's `rejoin` of a member the host created needs the host's credential, which the
+        // program reads from its own folder when it is given the bare `--host` flag.
+        let rejoined = host_rejoin("req", "room", "m0");
+        for pair in [("host", ""), ("member-id", "m0"), ("room-id", "room"), ("request-id", "req")] {
+            assert!(rejoined.contains(&pair), "{pair:?}");
+        }
     }
 
     /// A scripted room for `host_member`: the names held by members (name, harness, host), by id.
