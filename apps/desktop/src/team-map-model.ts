@@ -24,10 +24,12 @@ export type TeamSession = {
 };
 /** What was last told, by agent id; the key `notice` is the last notice, not an agent. */
 export type TeamTold = Record<string, { revision: number; member: string }>;
+/** Why the announcer could not tell: by agent id, `service` (Mukade is stopped or unreachable) or `notice` (the message for the other members); kept until something changes. */
+export type TeamRefused = Record<string, string>;
 export type TeamModel = { program: string; connection: string | null; model: string | null; label: string };
 /** The answer of `team_get`. */
 export type TeamSnapshot = {
-  enabled: boolean; formation: Formation | null; told: TeamTold; sessions: TeamSession[]; models: TeamModel[]; evaluation: Evaluation | null;
+  enabled: boolean; formation: Formation | null; told: TeamTold; refused: TeamRefused; sessions: TeamSession[]; models: TeamModel[]; evaluation: Evaluation | null;
 };
 
 export const CARD = { width: 190, height: 78 } as const;
@@ -106,7 +108,7 @@ export function parseEvaluation(value: unknown): Evaluation | null {
 
 export function parseTeam(value: unknown): TeamSnapshot | null {
   if (!record(value) || typeof value.enabled !== 'boolean') return null;
-  if (!value.enabled) return { enabled: false, formation: null, told: {}, sessions: [], models: [], evaluation: null };
+  if (!value.enabled) return { enabled: false, formation: null, told: {}, refused: {}, sessions: [], models: [], evaluation: null };
   if (!Array.isArray(value.sessions)) return null;
   let formation: Formation | null = null, evaluation: Evaluation | null = null;
   if (value.formation !== null && value.formation !== undefined && !(formation = parseFormation(value.formation))) return null;
@@ -132,7 +134,13 @@ export function parseTeam(value: unknown): TeamSnapshot | null {
       if (connection !== undefined && model !== undefined) models.push({ program: item.program, connection, model, label: item.label });
     }
   }
-  return { enabled: true, formation, told, sessions, models, evaluation };
+  const refused: TeamRefused = {};
+  if (record(value.refused)) {
+    for (const [key, reason] of Object.entries(value.refused).slice(0, 256)) {
+      if (key && key.length <= 128 && typeof reason === 'string' && reason) refused[key] = reason.slice(0, 400);
+    }
+  }
+  return { enabled: true, formation, told, refused, sessions, models, evaluation };
 }
 
 // ---------------------------------------------------------------------------------------------- editing
@@ -144,9 +152,22 @@ export function newAgentId(): string {
   return `a_${Array.from(bytes, (b) => letters[b % 32]).join('')}`;
 }
 
+/**
+ * What the engine refuses in a name, a note or the words of an arrow besides `@`: control characters, line and paragraph
+ * separators, and format characters (soft hyphen, zero-width and bidirectional marks, tag characters). Kept in step with
+ * `is_unsafe_char` in `crates/engine/src/team.rs`.
+ */
+const HIDDEN_RANGES: ReadonlyArray<readonly [number, number]> = [
+  [0x00ad, 0x00ad], [0x061c, 0x061c], [0x180e, 0x180e], [0x200b, 0x200f], [0x2028, 0x202e], [0x2060, 0x206f], [0xfeff, 0xfeff], [0xfff9, 0xfffb], [0xe0000, 0xe007f],
+];
+const isHidden = (mark: string) => /\p{Cc}/u.test(mark) || HIDDEN_RANGES.some(([from, to]) => { const code = mark.codePointAt(0) ?? -1; return code >= from && code <= to; });
+const withoutHidden = (text: string, instead: (mark: string) => string) => Array.from(text, (mark) => (isHidden(mark) ? instead(mark) : mark)).join('');
+/** Typed text as the engine accepts it: without `@` and the hidden characters (a tab and a newline stay, for the notes). */
+export const plainText = (text: string) => withoutHidden(text.replace(/@/g, ''), (mark) => (mark === '\t' || mark === '\n' ? mark : ''));
+
 /** What the engine accepts as a name: one line, no `@`, 1 to 40 characters. */
 function nameFrom(text: string): string {
-  const clean = Array.from(text.replace(/@/g, ' ').replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim()).slice(0, MAX_NAME).join('').trim();
+  const clean = Array.from(withoutHidden(text.replace(/@/g, ' '), () => ' ').replace(/\s+/g, ' ').trim()).slice(0, MAX_NAME).join('').trim();
   return clean || 'Agent';
 }
 

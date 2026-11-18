@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   CARD, MIN_WIDTH, addAgent, addSession, arrange, borderPoint, changed, connect, emptyAgent, fillAgent, fromTemplate, miniature, newAgentId, parseEvaluation,
-  parseTeam, parseTemplates, pendingLinks, removeAgent, tidy,
+  parseTeam, parseTemplates, pendingLinks, plainText, removeAgent, tidy,
   type Agent, type Evaluation, type Formation, type Link, type Template,
 } from '../src/team-map-model.ts';
 
@@ -258,7 +258,7 @@ test('the answer of team_get is read, with the wire format of the engine', () =>
   assert.equal(parsed.evaluation?.roles.a_bbbbbbbbbbbb.handOut, 'x');
   assert.equal(parsed.told.a_aaaaaaaaaaaa.member, 'claude-1');
   assert.equal(parsed.models[0].label, 'Claude Code');
-  assert.deepEqual(parseTeam({ enabled: false }), { enabled: false, formation: null, told: {}, sessions: [], models: [], evaluation: null });
+  assert.deepEqual(parseTeam({ enabled: false }), { enabled: false, formation: null, told: {}, refused: {}, sessions: [], models: [], evaluation: null });
   assert.deepEqual(parseTeam({ ...wire, formation: null, evaluation: null })?.formation, null);
   assert.deepEqual(parseEvaluation(wire.evaluation)?.sentences, [['You give work.', 'You take work.']]);
   for (const role of ['lead', 'worker', 'leadWorker', 'observer', 'peer']) {
@@ -395,4 +395,25 @@ test('templates are read one by one and what is not a template is left out', () 
   assert.equal(parseTemplates('x'), null);
   assert.equal(parseTemplates(null), null);
   assert.deepEqual(parseTemplates([]), []);
+});
+
+test('why a message was refused is read: by agent, for the service and for the notice, as text only', () => {
+  assert.deepEqual(parseTeam(wire)?.refused, {}, 'nothing refused');
+  const reasons = { a_bbbbbbbbbbbb: 'secret_refused: it looks like a secret', service: 'Mukade chat is not running.', notice: 'room_closed: The room is closed', bad: 7, '': 'x' };
+  const parsed = parseTeam({ ...wire, refused: reasons });
+  assert.deepEqual(parsed?.refused, { a_bbbbbbbbbbbb: 'secret_refused: it looks like a secret', service: 'Mukade chat is not running.', notice: 'room_closed: The room is closed' });
+  assert.equal(parseTeam({ ...wire, refused: 'x' })?.refused && Object.keys(parseTeam({ ...wire, refused: 'x' })!.refused).length, 0);
+  const long = parseTeam({ ...wire, refused: { service: 'x'.repeat(5000) } })!;
+  assert.ok(long.refused.service.length <= 400, 'a reason is cut');
+});
+
+test('a name taken from a session title, and what is typed, loses separators and format characters', () => {
+  const hidden = [0x2028, 0x2029, 0x202e, 0x2066, 0x200b, 0xfeff, 0xad, 0xe0041, 0x85].map((code) => String.fromCodePoint(code));
+  for (const mark of hidden) {
+    const added = addSession(team([]), 't_abcdefghij', `Ann${mark}Bob`, { x: 0, y: 0 }).agents[0];
+    assert.ok(!added.name.includes(mark) && /^Ann\s?Bob$|^AnnBob$/.test(added.name), `${JSON.stringify(mark)} left in ${JSON.stringify(added.name)}`);
+    assert.equal(plainText(`one${mark}two`), 'onetwo', JSON.stringify(mark));
+  }
+  assert.equal(plainText('a\tb\nc @all'), 'a\tb\nc all', 'a tab and a newline stay for notes; @ goes');
+  assert.equal(addAgent(team([]), `x${String.fromCodePoint(0x202e)}y`, { x: 0, y: 0 }).agents[0].name, 'x y');
 });

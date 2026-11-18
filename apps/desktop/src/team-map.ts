@@ -9,7 +9,7 @@ import { confirmsField } from './desktop-shell-model.ts';
 import { createEvaluator } from './team-map-evaluate.ts';
 import {
   CARD, MAX_AGENTS, MAX_LINKS, MAX_NAME, addAgent, addSession, arrange, borderPoint, changed, connect, fillAgent, fromTemplate, holdsModel, miniature,
-  newAgentId, parseEvaluation, parseFormation, parseTeam, parseTemplates, pendingLinks, removeAgent, tidy,
+  newAgentId, parseEvaluation, parseFormation, parseTeam, parseTemplates, pendingLinks, plainText, removeAgent, tidy,
   type Agent, type Evaluation, type Formation, type Link, type ModelRef, type Point, type Report, type Share, type TeamSession, type TeamSnapshot, type Template,
 } from './team-map-model.ts';
 
@@ -68,7 +68,7 @@ const clone = <T,>(value: T): T => structuredClone(value);
 const bytes = (text: string) => new TextEncoder().encode(text).length;
 const emptyFormation = (): Formation => ({ revision: 0, agents: [], links: [] });
 /** What the engine refuses in names, words and notes: `@` (it would wake a member) and control characters. */
-const plain = (text: string) => text.replace(/@/g, '').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '');
+const plain = plainText;
 const rectOf = (a: Agent) => ({ x: a.x, y: a.y, width: CARD.width, height: CARD.height });
 const centreOf = (a: Agent): Point => ({ x: a.x + CARD.width / 2, y: a.y + CARD.height / 2 });
 const readKeepTidy = () => { try { return localStorage.getItem(KEEP_TIDY_KEY) === '1'; } catch { return false; } };
@@ -206,31 +206,43 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   }
 
   // ----------------------------------------------------------------------------------------------------------- reading
-  /** Reads the stored team. What the user has edited and not applied is kept, unless `force`. */
-  async function refresh(force = false) {
-    if (reading || disposed) return; reading = true;
-    try {
-      const value = parseTeam(await ask<unknown>('team_get'));
-      if (disposed) return;
-      if (!value) { setStatus('The team could not be read.', 'error'); return; }
-      snap = value;
-      if (!value.enabled) { applied = null; draft = emptyFormation(); evaluation = null; selection = null; draw(); return; }
-      if (status.text === 'Reading the team…') setStatus('');
-      const stored = value.formation;
-      if (force || !pending()) {
-        const before = new Map(draft.agents.map(a => [a.id, a] as const));
-        applied = stored; draft = stored ? clone(stored) : emptyFormation();
-        // A card the user moved keeps its place (it is stored when its move ends, so the two agree again soon).
-        if (!force) for (const a of draft.agents) { const mine = before.get(a.id); if (mine) { a.x = mine.x; a.y = mine.y; } }
-        if (value.evaluation) { evaluation = value.evaluation; evaluatedFor = structureOf(draft); evaluating = false; }
-        else request();
-        if (selection && ('agent' in selection ? !agentOf(selection.agent) : selectedLink() < 0)) selection = null;
-      } else if (stored && stored.revision !== applied?.revision) {
-        setStatus(`The team was changed elsewhere (revision ${stored.revision}). Discard reads it again.`, 'error');
-      }
-      draw();
-    } catch (error) { if (!disposed) setStatus(message(error), 'error'); }
-    finally { reading = false; }
+  /** Numbers the reads of the stored team. A read numbered below `notBefore` began before the last Apply: its answer shows the team as it was, and is dropped. */
+  let readSeq = 0; let notBefore = 0; let inFlight: Promise<void> = Promise.resolve();
+  /** Reads the stored team. What the user has edited and not applied is kept, unless `force`. A refresh after Apply waits for a read that began after it. */
+  async function refresh(force = false): Promise<void> {
+    while (reading && !disposed) {
+      // A read under way is enough unless it began before the last Apply; either way the caller waits for it.
+      const fresh = readSeq >= notBefore;
+      await inFlight;
+      if (fresh) return;
+    }
+    if (disposed) return;
+    reading = true; const seq = ++readSeq;
+    inFlight = (async () => {
+      try {
+        const value = parseTeam(await ask<unknown>('team_get'));
+        if (disposed || seq < notBefore) return;
+        if (!value) { setStatus('The team could not be read.', 'error'); return; }
+        snap = value;
+        if (!value.enabled) { applied = null; draft = emptyFormation(); evaluation = null; selection = null; draw(); return; }
+        if (status.text === 'Reading the team…') setStatus('');
+        const stored = value.formation;
+        if (force || !pending()) {
+          const before = new Map(draft.agents.map(a => [a.id, a] as const));
+          applied = stored; draft = stored ? clone(stored) : emptyFormation();
+          // A card the user moved keeps its place (it is stored when its move ends, so the two agree again soon).
+          if (!force) for (const a of draft.agents) { const mine = before.get(a.id); if (mine) { a.x = mine.x; a.y = mine.y; } }
+          if (value.evaluation) { evaluation = value.evaluation; evaluatedFor = structureOf(draft); evaluating = false; }
+          else request();
+          if (selection && ('agent' in selection ? !agentOf(selection.agent) : selectedLink() < 0)) selection = null;
+        } else if (stored && stored.revision !== applied?.revision) {
+          setStatus(`The team was changed elsewhere (revision ${stored.revision}). Discard reads it again.`, 'error');
+        }
+        draw();
+      } catch (error) { if (!disposed && seq >= notBefore) setStatus(message(error), 'error'); }
+      finally { reading = false; }
+    })();
+    await inFlight;
   }
 
   /** Asks the engine about the draft, at most once per EVALUATE_GAP_MS; the latest request is the one answered. */
@@ -354,6 +366,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
       const result = await ask<{ formation?: unknown; failed?: { agent?: unknown; reason?: unknown } | null }>('team_apply', { formation: sent, expectedRevision: applied?.revision ?? 0 });
       const stored = parseFormation(result?.formation);
       if (!stored) throw 'The answer to Apply was not understood. The team may have been stored: Discard reads it again.';
+      notBefore = readSeq + 1; // a read already under way began before this Apply: its answer is stale
       applied = stored; draft = clone(stored); selection = null; trialsFor = ''; evaluation = null; evaluatedFor = ''; if (snap) snap = { ...snap, evaluation: null };
       const failed = result?.failed;
       const who = typeof failed?.agent === 'string' ? stored.agents.find(a => a.id === failed.agent) : undefined;
@@ -478,6 +491,10 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     if (!applied || !before) return ['edited', 'new · not applied'];
     if (signature(draft, a) !== signature(applied, before)) return ['edited', 'changed · not applied'];
     const told = snap?.told[a.id];
+    // A message the announcer could not send (Mukade refused it, or the service is not running)
+    // says why, instead of "not told yet" or an older "told" that no longer holds.
+    const why = snap?.refused[a.id] ?? (told ? undefined : snap?.refused.service);
+    if (why) return ['failed', `could not be told: ${why}`];
     if (told) return ['told', `told · revision ${told.revision}`];
     return ['pending', sessionOf(a)?.connection === 'in_room' ? 'not told yet' : 'told when it joins'];
   }
@@ -504,7 +521,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
       node.toggleAttribute('data-empty', !a.session);
       const [told, toldText] = toldState(a);
       node.toggleAttribute('data-pending', told === 'edited');
-      node.toggleAttribute('data-bad', bad.has(a.id) || failures.has(a.id));
+      node.toggleAttribute('data-bad', bad.has(a.id) || failures.has(a.id) || told === 'failed');
       const head = el('div', 'team-card-top'); const dot = el('span', 'team-dot'); dot.setAttribute('aria-hidden', 'true');
       head.append(dot, el('span', 'team-card-name', a.name || '(no name)'));
       if (bad.has(a.id)) { const mark = el('span', 'team-card-bad', '✕'); mark.title = 'A problem with this agent: see the list above the map'; head.append(mark); }
@@ -513,7 +530,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
       if (view) role.title = `${roleName}: ${view.detail}. Inferred from its arrows.`;
       const meta = el('div', 'team-card-meta', !a.session ? (a.model ? modelText(a.model) : 'no session yet')
         : `${programOf(a)}${a.model?.model ? ` · ${a.model.model}` : ''}${session?.title ? ` · ${session.title}` : ''}${session?.memberName ? ` · ${session.memberName}` : ''}`);
-      const toldNode = el('span', 'team-told', toldText); toldNode.dataset.s = told;
+      const toldNode = el('span', 'team-told', toldText); toldNode.dataset.s = told; toldNode.title = told === 'failed' ? toldText : '';
       const left = session?.wakes != null && session.wakes >= 7 ? `${Math.max(0, 10 - session.wakes)} wakes left` : '';
       const wakes = el('span', 'team-wakes', left);
       const foot = el('div', 'team-card-foot'); foot.append(toldNode, wakes);
@@ -607,12 +624,16 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     const bad = errors().length; const dirty = pending(); const open = lacking();
     const members = applied?.agents.length ?? 0;
     const waiting = (applied?.agents ?? []).filter(a => !snap?.told[a.id]).length;
+    const refusedAgents = (applied?.agents ?? []).filter(a => snap?.refused[a.id]).length;
     let text: string; let tone: string;
     if (applying) { text = 'applying…'; tone = 'dirty'; }
     else if (bad) { text = `✕ ${bad} problem${bad > 1 ? 's' : ''} to fix before it can be applied`; tone = 'error'; }
     else if (dirty) { text = open ? `not applied: ${open} session${open > 1 ? 's' : ''} to open, nothing was sent yet` : 'not applied: nothing was sent yet'; tone = 'dirty'; }
     else if (open) { text = `${open} agent${open > 1 ? 's' : ''} still without a session: Apply opens ${open > 1 ? 'them' : 'it'}`; tone = 'dirty'; }
     else if (!members) { text = 'no team'; tone = ''; }
+    else if (snap?.refused.service) { text = `revision ${applied!.revision} · could not be told: ${snap.refused.service}`; tone = 'error'; }
+    else if (refusedAgents) { text = `revision ${applied!.revision} · ${refusedAgents} could not be told: see the cards`; tone = 'error'; }
+    else if (snap?.refused.notice) { text = `revision ${applied!.revision} · the notice to the other sessions could not be sent: ${snap.refused.notice}`; tone = 'error'; }
     else if (waiting) { text = `revision ${applied!.revision} · ${waiting} told when ${waiting > 1 ? 'they join' : 'it joins'}`; tone = 'dirty'; }
     else { text = `revision ${applied!.revision} · everyone was told`; tone = 'ok'; }
     state.textContent = text; state.dataset.tone = tone;

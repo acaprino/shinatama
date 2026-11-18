@@ -11,7 +11,7 @@ export const SESSIONS = [
 /** Replaces the page's `invoke` for the team commands (and the room's snapshot); every other command goes on to the real one. */
 export async function installStub(page) {
   await page.evaluate(sessions => {
-    const stub = { calls: [], stored: null, told: {}, enabled: true, stale: false, sessions, events: [] };
+    const stub = { calls: [], stored: null, told: {}, refused: {}, enabled: true, stale: false, holdNext: false, sessions, events: [] };
     const roleOf = (f, id) => {
       const gives = f.links.filter(l => l.kind === 'work' && l.from === id), takes = f.links.filter(l => l.kind === 'work' && l.to === id);
       const sees = f.links.some(l => l.kind === 'observes' && l.from === id);
@@ -59,7 +59,7 @@ export async function installStub(page) {
     stub.held = [];
     stub.release = () => { for (const [id, record] of stub.held) stub.told[id] = record; stub.held = []; };
     const handlers = {
-      team_get: () => ({ enabled: stub.enabled, formation: stub.stored, told: stub.told, sessions: stub.sessions, models: stub.models, evaluation: stub.stored ? stub.evaluate(stub.stored) : null }),
+      team_get: () => ({ enabled: stub.enabled, formation: stub.stored, told: stub.told, refused: stub.refused, sessions: stub.sessions, models: stub.models, evaluation: stub.stored ? stub.evaluate(stub.stored) : null }),
       team_evaluate: ({ formation }) => stub.evaluate(formation),
       team_apply: ({ formation, expectedRevision }) => {
         const revision = stub.stored?.revision ?? 0;
@@ -98,7 +98,12 @@ export async function installStub(page) {
       const request = init?.body ? JSON.parse(String(init.body)).request ?? {} : {};
       stub.calls.push({ command, request: JSON.parse(JSON.stringify(request)), at: performance.now() });
       const answer = (ok, value) => new Response(JSON.stringify(value), { status: 200, headers: { 'Tauri-Response': ok ? 'ok' : 'error', 'Content-Type': 'application/json' } });
-      try { return answer(true, handler(request)); } catch (error) { return answer(false, String(error)); }
+      try {
+        const value = handler(request);
+        // A read the test holds answers late, with what the stub held when it was asked: the window must not take it for the truth.
+        if (command === 'team_get' && stub.holdNext) { stub.holdNext = false; await new Promise(resolve => { stub.letGo = resolve; }); }
+        return answer(true, value);
+      } catch (error) { return answer(false, String(error)); }
     };
     window.__teamStub = stub;
   }, SESSIONS);
@@ -282,6 +287,28 @@ export async function driveTeamMap(page, expect, log = console.log) {
   expect(await count('team_get')).toBeGreaterThan(polls);
   log('ok Apply, and the told states from team_get polled every 10 s');
 
+  // A message Mukade refused, or a service that is not running, is said on the card and in the bar: not "not told yet", not an old "told".
+  const lookAgain = () => page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await page.evaluate(id => { window.__teamStub.refused = { [id]: 'secret_refused: the notes look like a secret' }; }, builder);
+  await lookAgain();
+  await expect(byId(builder).locator('.team-told')).toHaveText('could not be told: secret_refused: the notes look like a secret');
+  await expect(byId(builder)).toHaveAttribute('data-bad', '');
+  await expect(byId(planner).locator('.team-told')).toHaveText('told · revision 1');
+  await expect(map.locator('.team-state')).toHaveText('revision 1 · 1 could not be told: see the cards');
+  const wasTold = await page.evaluate(() => window.__teamStub.told);
+  await page.evaluate(id => { window.__teamStub.refused = { service: 'Mukade chat is not running.' }; window.__teamStub.told = { [id]: window.__teamStub.told[id] }; }, planner);
+  await lookAgain();
+  await expect(byId(builder).locator('.team-told')).toHaveText('could not be told: Mukade chat is not running.');
+  await expect(byId(qwen).locator('.team-told')).toHaveText('could not be told: Mukade chat is not running.');
+  await expect(byId(planner).locator('.team-told')).toHaveText('told · revision 1');
+  await expect(map.locator('.team-state')).toHaveText('revision 1 · could not be told: Mukade chat is not running.');
+  await expect(map.locator('.team-state')).toHaveAttribute('data-tone', 'error');
+  await page.evaluate(told => { window.__teamStub.refused = {}; window.__teamStub.told = told; }, wasTold);
+  await lookAgain();
+  await expect(map.locator('.team-state')).toHaveText('revision 1 · everyone was told');
+  await expect(byId(builder).locator('.team-told')).toHaveText('told · revision 1');
+  log('ok a refused message and a stopped service are shown on the cards and in the bar');
+
   // With nothing pending a moved card is stored with team_place.
   await byId(builder).locator('.team-card-name').dragTo(canvas, { targetPosition: { x: farRight, y: Math.min(330, Math.round(view.height) - 60) } });
   await expect.poll(() => count('team_place')).toBe(1);
@@ -335,15 +362,35 @@ export async function driveTeamMap(page, expect, log = console.log) {
   await page.keyboard.press('Escape');
   await expect(byId(planner)).toHaveAttribute('role', 'button');
   log('ok keyboard: Enter on a card, Connect to…, Escape, Enter on an arrow');
+
+  // An older read that is still on its way when Apply answers must not put the team back as it was: the window takes the answer of a read that began after Apply.
+  await bar('Discard').click();
+  await openLink(planner, builder);
+  await box.locator('input').fill('after the stale read');
+  await page.evaluate(() => { window.__teamStub.holdNext = true; });
+  const readsBefore = await count('team_get');
+  await lookAgain();
+  await expect.poll(() => count('team_get')).toBeGreaterThan(readsBefore);
+  await bar('Apply').click();
+  await expect(map.locator('.team-state')).toContainText('revision 2');
+  await page.evaluate(() => window.__teamStub.letGo());
+  await expect.poll(() => count('team_get')).toBeGreaterThan(readsBefore + 1);
+  await page.waitForTimeout(500);
+  await expect(map.locator('.team-state')).toContainText('revision 2');
+  await expect(map.locator('.team-status[data-tone="error"]')).toBeHidden();
+  await expect(map.locator('.team-wire-label', { hasText: 'after the stale read' })).toBeVisible();
+  await expect(bar('Apply')).toBeDisabled();
+  log('ok a read that began before Apply does not overwrite its result');
 }
 
 /** The room's notices: what the member `shinatama` writes is drawn apart from what people write. */
 export async function driveNotices(page, expect, log = console.log) {
   await page.evaluate(() => {
     window.__teamStub.events = [
-      { eventId: '1', timestamp: '2026-11-17T10:00:00Z', kind: 'message', actor: 'shinatama', recipients: ['claude-1'], text: 'TEAM revision 1, set by the user in Shinatama.', signal: null, reason: null },
-      { eventId: '2', timestamp: '2026-11-17T10:00:01Z', kind: 'message', actor: 'shinatama', recipients: [], text: 'TEAM revision 1. New: Lead dev gives work to Builder', signal: null, reason: null },
+      { eventId: '1', timestamp: '2026-11-17T10:00:00Z', kind: 'message', actor: 'shinatama', actorHost: true, recipients: ['claude-1'], text: 'TEAM revision 1, set by the user in Shinatama.', signal: null, reason: null },
+      { eventId: '2', timestamp: '2026-11-17T10:00:01Z', kind: 'message', actor: 'shinatama', actorHost: true, recipients: [], text: 'TEAM revision 1. New: Lead dev gives work to Builder', signal: null, reason: null },
       { eventId: '3', timestamp: '2026-11-17T10:00:02Z', kind: 'message', actor: 'claude-2', recipients: ['claude-1'], text: 'Done.', signal: null, reason: null },
+      { eventId: '4', timestamp: '2026-11-17T10:00:03Z', kind: 'message', actor: 'shinatama', actorHost: false, recipients: [], text: 'I joined as shinatama by hand.', signal: null, reason: null },
     ];
   });
   await page.locator('.thread-sidebar-chat').first().click();
@@ -351,8 +398,8 @@ export async function driveNotices(page, expect, log = console.log) {
   await expect(notices).toHaveCount(2);
   await expect(notices.nth(0).locator('.thread-chat-tag')).toHaveText('to claude-1');
   await expect(notices.nth(1).locator('.thread-chat-tag')).toHaveText('notice');
-  await expect(page.locator('.thread-chat-event[data-kind="message"]')).toHaveCount(1);
-  log('ok the member shinatama is drawn as notices');
+  await expect(page.locator('.thread-chat-event[data-kind="message"]')).toHaveCount(2);
+  log('ok the host member shinatama is drawn as notices, an agent that took the name is not');
 }
 
 // ------------------------------------------------------------------------------------------------------------- templates
