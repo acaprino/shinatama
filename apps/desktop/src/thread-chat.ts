@@ -3,7 +3,7 @@
 // without consuming anything a session has not read, and writes only as the user's own member.
 import './thread-chat.css';
 import { confirmsField } from './desktop-shell-model.ts';
-import { eventLine, mergeEvents, parseSnapshot, type ChatEvent, type ChatSession, type ChatSnapshot, type ChatThread } from './thread-chat-model.ts';
+import { eventLine, isUserLine, mergeEvents, parseSnapshot, type ChatEvent, type ChatSession, type ChatSnapshot, type ChatThread } from './thread-chat-model.ts';
 export { laterEvent } from './thread-chat-model.ts';
 export type { ChatThread } from './thread-chat-model.ts';
 
@@ -102,8 +102,9 @@ export function createThreadChat(options: Options) {
       const line = eventLine(event); const item = el('li', 'thread-chat-event'); item.dataset.kind = line.kind;
       const time = el('time', 'thread-chat-time'); time.dateTime = event.timestamp;
       const at = new Date(event.timestamp); time.textContent = Number.isNaN(at.valueOf()) ? '' : at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const who = el('span', 'thread-chat-who', line.who); if (event.actor === 'user') who.dataset.user = '';
+      const who = el('span', 'thread-chat-who', line.who); if (isUserLine(event)) who.dataset.user = '';
       const what = el('p', 'thread-chat-text', line.what);
+      if (line.tag) { const tag = el('span', 'thread-chat-tag', line.tag); who.append(' ', tag); }
       item.append(time, who, what); return item;
     }));
     empty.hidden = shown.length > 0;

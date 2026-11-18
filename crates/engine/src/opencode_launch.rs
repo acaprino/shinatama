@@ -55,7 +55,11 @@ use windows_sys::Win32::Storage::FileSystem::{
 };
 
 const MIB: u64 = 1024 * 1024;
-const PREPARE_BUDGET: Duration = Duration::from_secs(10);
+/// The preparation of a launch, the SHA-256 of the whole harness executable included. Claude's
+/// exe is ~370 MB: the first launch after a start or an update reads it cold, often while an
+/// antivirus scans it, and 10 s failed a click the next one passed. The budget only bounds a
+/// stuck read; a launch that finishes sooner does not wait for it.
+const PREPARE_BUDGET: Duration = Duration::from_secs(60);
 const RECIPE: &str = "opencode-system-box-standalone-tui-v1";
 // D17's reviewed 2.x shell hook. Fixed launcher artifact, never a plugin chosen
 // by IPC. Its pinned file is kept for the lifetime of this exact invocation.
@@ -99,6 +103,12 @@ pub enum OpenCodeLaunchError {
     Identity,
     QualificationRequired,
     Permit,
+    /// The session id given to a new session is not in OpenCode's own shape.
+    InvalidNativeSession,
+    /// The model chosen for this launch is no longer in the Models panel.
+    Model,
+    /// The first message is blank, over 8192 bytes or holds a NUL.
+    InvalidFirstMessage,
 }
 impl std::fmt::Display for OpenCodeLaunchError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -131,6 +141,16 @@ pub struct OpenCodeStartContext<'a> {
     pub thread_id: &'a str,
     /// The thread's Mukade room (ADR-0057): Mukade's plugin kit joins the session to it.
     pub chat: Option<&'a crate::mukade_chat::ChatHooks>,
+    /// The id the new session starts with (`--session <id>`), made by `new_session_id`: Shinatama
+    /// records it and Mukade's plugin keys its record by it, so a tab finds its member.
+    pub native_id: &'a str,
+    /// The model of this launch. Outer `None`: the Models panel's assignment, as for a session
+    /// opened by hand. `Some(None)`: OpenCode's own sign-in and model. `Some(Some(selection))`:
+    /// the model of a team agent, which replaces the panel's for this launch only.
+    pub model: Option<Option<&'a crate::model_config::Selection>>,
+    /// The first message of the session (`--prompt <text>`): at most 8192 bytes, no NUL. OpenCode's
+    /// chat kit joins its room at the first prompt, so a session opened for a team starts with one.
+    pub initial_prompt: Option<&'a str>,
 }
 pub struct PreparedOpenCodeTrial {
     pub launch: PreparedLaunch,
@@ -166,6 +186,9 @@ struct Context<'a> {
     plugins_root: Option<&'a Path>,
     thread_id: &'a str,
     chat: Option<&'a crate::mukade_chat::ChatHooks>,
+    native_id: Option<&'a str>,
+    model: Option<Option<&'a crate::model_config::Selection>>,
+    initial_prompt: Option<&'a str>,
 }
 pub struct PreparedOpenCodeStart {
     pub launch: PreparedLaunch,
@@ -186,8 +209,57 @@ fn chat_kit(base: &StorageLocation, instance: &Path, config: &str) -> Result<(cr
     Ok((connection, merged))
 }
 
-fn fixed_arguments() -> Vec<OsString> {
-    vec!["--standalone".into()]
+/// OpenCode's arguments: its own standalone service, for a real session the id it starts with,
+/// and then its first message. OpenCode refuses a UUID (`Expected a string starting with "ses"`);
+/// see `is_session_id`.
+fn fixed_arguments(native_id: Option<&str>, initial_prompt: Option<&str>) -> Vec<OsString> {
+    let mut arguments = vec![OsString::from("--standalone")];
+    if let Some(id) = native_id {
+        arguments.extend([OsString::from("--session"), OsString::from(id)]);
+    }
+    if let Some(prompt) = initial_prompt {
+        arguments.extend([OsString::from("--prompt"), OsString::from(prompt)]);
+    }
+    arguments
+}
+
+/// A first message is bounded as `collaboration.rs` bounds it (`crate::launch::is_first_message`).
+fn check_first_message(prompt: Option<&str>) -> Result<(), OpenCodeLaunchError> {
+    match prompt {
+        Some(text) if !crate::launch::is_first_message(text) => Err(OpenCodeLaunchError::InvalidFirstMessage),
+        _ => Ok(()),
+    }
+}
+
+/// The shape of OpenCode's own session ids: `ses_`, 12 lowercase hex digits, 14 letters or digits.
+/// Anything else is refused by OpenCode before its plugins run
+/// (docs/verification/2026-11-17-opencode-pi-session-id.md).
+pub fn is_session_id(id: &str) -> bool {
+    id.len() == 30
+        && id.strip_prefix("ses_").is_some_and(|rest| {
+            let (hex, tail) = rest.split_at(12);
+            hex.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+                && tail.bytes().all(|byte| byte.is_ascii_alphanumeric())
+        })
+}
+
+/// A new OpenCode session id, in the shape `is_session_id` accepts. Chosen by Shinatama, not by
+/// OpenCode, so that the session can be recorded before it starts.
+pub fn new_session_id() -> String {
+    const ALPHABET: &[u8; 62] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut bytes = [0u8; 26];
+    getrandom::fill(&mut bytes).expect("the operating system has randomness");
+    let mut id = String::from("ses_");
+    for byte in &bytes[..12] {
+        id.push(char::from(HEX[usize::from(byte & 0x0f)]));
+    }
+    for byte in &bytes[12..] {
+        // 256 = 4 * 62 + 8: the first 248 values fold evenly; the rest are folded too, with a
+        // negligible bias that an id has no use for (it is a name, not a secret).
+        id.push(char::from(ALPHABET[usize::from(*byte) % ALPHABET.len()]));
+    }
+    id
 }
 
 /// The inline config of a real session. Full access adds one allow-all rule so
@@ -247,6 +319,9 @@ pub fn prepare_trial(
             plugins_root: None,
             thread_id: context.thread_id,
             chat: None,
+            native_id: None,
+            model: None,
+            initial_prompt: None,
         },
         None,
         true,
@@ -284,6 +359,9 @@ pub fn prepare_start(
             plugins_root: context.plugins_root,
             thread_id: context.thread_id,
             chat: context.chat,
+            native_id: Some(context.native_id),
+            model: context.model,
+            initial_prompt: context.initial_prompt,
         },
         Some(receipt),
         false,
@@ -318,6 +396,10 @@ fn prepare(
     {
         return Err(OpenCodeLaunchError::InvalidCandidate);
     }
+    if context.native_id.is_some_and(|id| !is_session_id(id)) {
+        return Err(OpenCodeLaunchError::InvalidNativeSession);
+    }
+    check_first_message(context.initial_prompt)?;
     let observation = context.observation.summary();
     let version = observation
         .version
@@ -337,11 +419,7 @@ fn prepare(
         let root = context
             .plugins_root
             .ok_or(OpenCodeLaunchError::BundledPlugins)?;
-        Some(
-            Marionette::current(root)
-                .and_then(|release| release.verify(Host::OpenCode))
-                .map_err(|_| OpenCodeLaunchError::BundledPlugins)?,
-        )
+        Some(bundled_adapter(root, context.base.directory())?)
     } else {
         return Err(OpenCodeLaunchError::UnsupportedSet);
     };
@@ -500,8 +578,8 @@ fn prepare(
         &mut artifacts,
     )?;
     if let Some(adapter) = &bundled {
-        // A shim only: the adapter registers its skills and policy relative to
-        // its own tree, so it is imported where it was verified, never copied.
+        // A shim only: the adapter registers its skills and policy relative to its own
+        // tree, so the shim imports the whole private copy (`bundled_adapter`).
         let target = adapter.dir_arg() + MARIONETTE_ENTRY;
         create_bytes(
             &plugin_directory,
@@ -639,7 +717,10 @@ fn prepare(
         crate::launch_policy::current()
     };
     let models = if trial { crate::model_config::Snapshot::default() } else {
-        crate::model_config::current().map_err(|_| OpenCodeLaunchError::Configuration)?
+        crate::model_config::current()
+            .map_err(|_| OpenCodeLaunchError::Configuration)?
+            .for_launch(crate::model_config::Harness::OpenCode, context.model)
+            .map_err(|_| OpenCodeLaunchError::Model)?
     };
     let mut config = models.opencode(serde_json::from_str(config_content(policy.full_access()))
         .map_err(|_| OpenCodeLaunchError::Configuration)?).to_string();
@@ -676,7 +757,7 @@ fn prepare(
     let mode = Placement::new(ProgramPlacement::System, HomePlacement::Box)
         .map_err(|_| OpenCodeLaunchError::PlacementMode)?;
     let placement_recipe = placement_recipe(&descriptor, mode)?;
-    let args = fixed_arguments();
+    let args = fixed_arguments(context.native_id, context.initial_prompt);
     let arguments_recipe = QualifiedArgvRecipe::qualify(
         &descriptor,
         Operation::StartNew,
@@ -844,6 +925,16 @@ pub(crate) fn create_json(
 ) -> Result<PathBuf, OpenCodeLaunchError> {
     let bytes = serde_json::to_vec(value).map_err(|_| OpenCodeLaunchError::Configuration)?;
     create_bytes(location, name, &bytes, pins)
+}
+/// The Marionette adapter an OpenCode session loads: verified in the synced `store`, then
+/// mirrored into OpenCode's private copy under `home`. A session writes into the tree it loads
+/// (Python leaves `__pycache__` beside the muro scripts the agent runs), and one stray file in
+/// the store fails the digest check of every later launch, so the store is never handed out.
+fn bundled_adapter(store: &Path, home: &Path) -> Result<crate::marionette::Adapter, OpenCodeLaunchError> {
+    Marionette::current(store)
+        .and_then(|release| release.verify(Host::OpenCode))
+        .and_then(|adapter| adapter.private_copy(&home.join(crate::marionette::OPENCODE_COPY)))
+        .map_err(|_| OpenCodeLaunchError::BundledPlugins)
 }
 /// Shim file in the instance's plugin folder, and the adapter's entry it imports
 /// (the `exports` of the adapter's `package.json`).
@@ -1057,6 +1148,29 @@ fn pin_program(path: &Path, deadline: Instant) -> Result<ProgramPin, OpenCodeLau
 mod tests {
     use super::*;
     #[test]
+    fn a_cache_written_where_opencode_loads_marionette_never_reaches_the_store() {
+        // 2026-11-17: Python left `__pycache__` beside the muro scripts of the adapter OpenCode
+        // loaded from the synced store; every later OpenCode launch then failed its digest check
+        // ("The bundled plugins could not be verified for OpenCode.").
+        use crate::marionette::{self, tests::{FakeFetch, scratch}};
+        let home = scratch("opencode-copy-home");
+        let store = home.join(marionette::STORE);
+        marionette::sync(&store, &FakeFetch::new("marionette-v0.1.0", "0.1.0")).unwrap();
+        for _launch in 0..2 {
+            let adapter = bundled_adapter(&store, &home).unwrap();
+            assert!(adapter.dir().starts_with(home.join(marionette::OPENCODE_COPY)));
+            assert!(adapter.dir().join("index.js").is_file());
+            let cache = adapter.dir().join("skills/marionette/__pycache__");
+            std::fs::create_dir_all(&cache).unwrap();
+            std::fs::write(cache.join("core.cpython-313.pyc"), b"bytecode").unwrap();
+        }
+        let current = Marionette::current(&store).unwrap();
+        for host in Host::ALL {
+            current.verify(host).unwrap();
+        }
+        let _ = std::fs::remove_dir_all(&home);
+    }
+    #[test]
     fn bundled_shim_is_a_file_url_reexport() {
         assert_eq!(
             bundled_shim(r"D:\My App\data\marionette\adapters\opencode/index.js"),
@@ -1118,7 +1232,7 @@ mod tests {
             &descriptor,
             Operation::StartNew,
             CommandForm::NativeExe("C:/program/opencode.exe".into()),
-            fixed_arguments(),
+            fixed_arguments(None, None),
             evidence(&descriptor).unwrap(),
         )
         .unwrap();
@@ -1134,7 +1248,30 @@ mod tests {
         )
         .with_private_paths(&paths);
         let launch = compose_launch(&descriptor, Operation::StartNew, mode, &inputs).unwrap();
-        assert_eq!(launch.command().argv(), fixed_arguments());
+        assert_eq!(launch.command().argv(), fixed_arguments(None, None));
+        let given = new_session_id();
+        let with_id = QualifiedArgvRecipe::qualify(
+            &descriptor,
+            Operation::StartNew,
+            CommandForm::NativeExe("C:/program/opencode.exe".into()),
+            fixed_arguments(Some(&given), None),
+            evidence(&descriptor).unwrap(),
+        )
+        .unwrap();
+        let inputs = LaunchInputs::new(
+            &placement,
+            &with_id,
+            Path::new("C:/project"),
+            Path::new("C:/private/index.sqlite"),
+            &inherited,
+            &identity,
+        )
+        .with_private_paths(&paths);
+        let launch_with_id = compose_launch(&descriptor, Operation::StartNew, mode, &inputs).unwrap();
+        assert_eq!(
+            launch_with_id.command().argv(),
+            ["--standalone", "--session", given.as_str()].map(OsString::from)
+        );
         for (name, role) in [
             ("OPENCODE_DB", PathRole::OpenCodeDatabase),
             ("XDG_CONFIG_HOME", PathRole::XdgConfig),
@@ -1196,9 +1333,107 @@ mod tests {
     }
     #[test]
     fn opencode_standalone_keeps_native_permission_prompts() {
-        assert_eq!(fixed_arguments(), vec![OsString::from("--standalone")]);
+        assert_eq!(fixed_arguments(None, None), vec![OsString::from("--standalone")]);
         let protected: Value = serde_json::from_str(config_content(false)).unwrap();
         assert!(protected.get("permissions").is_none());
+    }
+    /// Task 0 of the thread team: the session id a launch chooses is the one OpenCode keeps.
+    /// OpenCode refuses a UUID (`Expected a string starting with "ses"`); its own shape is
+    /// `ses_` + 12 lowercase hex + 14 letters or digits (docs/verification/2026-11-17-opencode-pi-session-id.md).
+    #[test]
+    fn opencode_starts_with_the_session_id_it_is_given() {
+        let id = "ses_f4a4700c4988qHjfJkARDz8LLp";
+        assert!(is_session_id(id));
+        assert_eq!(
+            fixed_arguments(Some(id), None),
+            ["--standalone", "--session", id].map(OsString::from)
+        );
+        // The trial has no session of its own to name.
+        assert_eq!(fixed_arguments(None, None), ["--standalone"].map(OsString::from));
+        for _ in 0..64 {
+            let made = new_session_id();
+            assert!(is_session_id(&made), "{made}");
+            assert_eq!(made.len(), 30);
+        }
+        assert_ne!(new_session_id(), new_session_id());
+        for refused in [
+            "0e8a7129-1f2c-486d-bb80-3f2e8ac8a864",
+            "",
+            "ses_",
+            "ses_F4a4700c4988qHjfJkARDz8LLp",
+            "ses_f4a4700c4988qHjfJkARDz8LL",
+            "ses_f4a4700c4988qHjfJkARDz8LLpp",
+            "ses_f4a4700c4988qHjfJkARDz8L-p",
+            "xes_f4a4700c4988qHjfJkARDz8LLp",
+        ] {
+            assert!(!is_session_id(refused), "{refused}");
+        }
+    }
+    /// The terminal host refuses more than `MAX_LAUNCH_ARGUMENTS` (crates/terminal/src/protocol.rs,
+    /// 32; the terminal crate depends on this one, so the number is repeated here).
+    #[test]
+    fn opencode_arguments_stay_within_the_launch_bound() {
+        assert!(fixed_arguments(Some(&new_session_id()), None).len() <= 32);
+    }
+    /// Task 13 of the thread team: OpenCode's first message is `--prompt <text>`. Verified with the
+    /// installed 2.2.5: the interface opens and runs that turn
+    /// (docs/verification/2026-11-17-opencode-pi-session-id.md).
+    #[test]
+    fn opencode_takes_its_first_message() {
+        let id = "ses_f4a4700c4988qHjfJkARDz8LLp";
+        let text = "You are Ada in this thread's team. -- not an option";
+        assert_eq!(
+            fixed_arguments(Some(id), Some(text)),
+            ["--standalone", "--session", id, "--prompt", text].map(OsString::from)
+        );
+        // Without one, the arguments are what they were.
+        assert_eq!(fixed_arguments(Some(id), None), ["--standalone", "--session", id].map(OsString::from));
+        assert_eq!(fixed_arguments(None, None), ["--standalone"].map(OsString::from));
+    }
+    #[test]
+    fn a_first_message_with_a_nul_or_over_8192_bytes_is_refused() {
+        assert_eq!(check_first_message(None), Ok(()));
+        assert_eq!(check_first_message(Some(&"x".repeat(8192))), Ok(()));
+        assert_eq!(check_first_message(Some(&"é".repeat(4096))), Ok(()));
+        for refused in ["x".repeat(8193), "é".repeat(4097), "a\0b".into(), "\0".into(), String::new(), " \r\n\t".into()] {
+            assert_eq!(check_first_message(Some(&refused)), Err(OpenCodeLaunchError::InvalidFirstMessage), "{refused:?}");
+        }
+    }
+    /// The terminal host refuses more than `MAX_LAUNCH_ARGUMENTS` (32, as above). OpenCode's chat
+    /// kit, Marionette and the model ride in its configuration and environment; the arguments of
+    /// the fullest launch are the session id and the first message.
+    #[test]
+    fn the_fullest_launch_stays_within_32_arguments() {
+        let fullest = fixed_arguments(Some(&new_session_id()), Some(&"x".repeat(8192)));
+        assert_eq!(fullest.len(), 5);
+        assert!(fullest.len() <= 32);
+    }
+    /// Task 12 of the thread team: the agent's model goes into the inline configuration; the
+    /// panel's assignment stays the default for the sessions the user opens by hand.
+    #[test]
+    fn opencode_s_configuration_holds_the_agent_s_model() {
+        use crate::model_config::{Harness, fixtures};
+        let (panel, other) = fixtures::panel_and_other();
+        let base = || serde_json::from_str::<Value>(config_content(false)).unwrap();
+        let launch = panel.clone().for_launch(Harness::OpenCode, Some(Some(&other))).unwrap();
+        let config = launch.opencode(base());
+        assert_eq!(config["model"], "shinatama-other/big");
+        assert_eq!(config["provider"]["shinatama-other"]["name"], "Other");
+        assert!(config["provider"].get("shinatama-example").is_none());
+        assert_eq!(config["update"], base()["update"]);
+        // OpenCode's own sign-in and model: the configuration is left as it is.
+        let own = panel.for_launch(Harness::OpenCode, Some(None)).unwrap();
+        assert_eq!(own.opencode(base()), base());
+    }
+    #[test]
+    fn no_override_launches_as_before() {
+        use crate::model_config::{Harness, fixtures};
+        let panel = fixtures::panel();
+        let base = || serde_json::from_str::<Value>(config_content(false)).unwrap();
+        let before = panel.opencode(base());
+        assert_eq!(before["model"], "shinatama-example/org/model:v2");
+        let same = panel.clone().for_launch(Harness::OpenCode, None).unwrap();
+        assert_eq!(same.opencode(base()), before);
     }
     #[test]
     fn opencode_full_access_adds_one_allow_all_rule_and_keeps_the_rest() {

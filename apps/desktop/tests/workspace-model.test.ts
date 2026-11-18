@@ -96,6 +96,13 @@ test('saved layouts contain only references; restore has no launch path and gate
   const gated = apply(original, { type: 'add-view', groupId: 'group-main', view: browser });
   assert.deepEqual(panelAvailability(browser, new Set()), { available: false, reason: 'gated-panel' });
   assert.equal(serializeWorkspaceLayout(gated).ok, true);
+  // The team map of a thread is a pane resource of its own kind and survives a restart as a view.
+  const team: PanelView = { id: 'team-w_aaaaaaaaaaaa', hidden: false, resource: { kind: 'team', resourceId: 'team-w_aaaaaaaaaaaa' } };
+  const withTeam = apply(original, { type: 'add-view', groupId: 'group-main', view: team });
+  const savedTeam = serializeWorkspaceLayout(withTeam);
+  assert.equal(savedTeam.ok, true);
+  assert.equal(restoreWorkspaceLayout(savedTeam.ok ? savedTeam.value : '', emptyWorkspace()).layout.views.at(-1)?.resource.kind, 'team');
+  assert.deepEqual(panelAvailability(team, new Set()), { available: false, reason: 'gated-panel' });
   for (const corrupt of ['{', JSON.stringify({ ...original, version: 99 }), JSON.stringify({ ...original, pid: 12 }), JSON.stringify({ ...original, dirty_buffer: 'unsaved' })]) {
     const recovery = restoreWorkspaceLayout(corrupt, original);
     assert.equal(recovery.layout, original);

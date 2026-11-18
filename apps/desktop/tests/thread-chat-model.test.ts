@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { eventLine, laterEvent, mergeEvents, parseSnapshot, type ChatEvent } from '../src/thread-chat-model.ts';
 
 const event = (eventId: string, extra: Partial<ChatEvent> = {}): ChatEvent => ({
-  eventId, timestamp: '2026-11-16T10:00:00.000Z', kind: 'message', actor: 'claude-1', recipients: [], text: 'hi', signal: null, reason: null, ...extra,
+  eventId, timestamp: '2026-11-16T10:00:00.000Z', kind: 'message', actor: 'claude-1', host: false, recipients: [], text: 'hi', signal: null, reason: null, ...extra,
 });
 
 test('event ids compare as 64-bit numbers, not as text or floats', () => {
@@ -32,7 +32,7 @@ test('a snapshot is checked before it is drawn', () => {
     members: [{ memberId: 'm1', name: 'codex-1', harness: 'codex', role: 'peer', active: true, sessionId: 't_aaaaaaaaaaaa', user: false }, { name: 42 }],
     sessions: [{ sessionId: 't_aaaaaaaaaaaa', harness: 'codex', title: null, state: 'running', memberName: 'codex-1', connection: 'in_room', wakes: 2 },
       { sessionId: 't_bbbbbbbbbbbb', harness: 'pi', title: null, state: 'stopped', memberName: null, connection: 'bogus', wakes: null }],
-    events: [{ eventId: '5', timestamp: 't', kind: 'message', actor: 'user', recipients: ['codex-1', 7], text: 'x' }, { eventId: '1.5', kind: 'message', timestamp: 't' }],
+    events: [{ eventId: '5', timestamp: 't', kind: 'message', actor: 'user', actorHost: true, recipients: ['codex-1', 7], text: 'x' }, { eventId: '1.5', kind: 'message', timestamp: 't' }],
   })!;
   assert.equal(parsed.members.length, 1);
   assert.equal(parsed.sessions[1].connection, 'not_connected');
@@ -41,6 +41,8 @@ test('a snapshot is checked before it is drawn', () => {
   assert.equal(launched.sessions[0].connection, 'launched');
   assert.equal(parsed.events.length, 1);
   assert.deepEqual(parsed.events[0].recipients, ['codex-1']);
+  assert.equal(parsed.events[0].host, true);
+  assert.equal(parsed.members[0].host, false);
 });
 
 test('lines say who wrote to whom, and presence apart from messages', () => {
@@ -49,4 +51,17 @@ test('lines say who wrote to whom, and presence apart from messages', () => {
   assert.equal(eventLine(event('2')).who, 'claude-1 → room');
   assert.deepEqual(eventLine(event('3', { kind: 'join', text: null })), { who: 'claude-1', what: 'joined the room', kind: 'presence' });
   assert.equal(eventLine(event('4', { kind: 'signal', signal: 'blocked', reason: 'needs a key' })).what, 'signalled blocked: needs a key');
+});
+
+test('what the member shinatama writes is a notice of the team, addressed or not', () => {
+  const personal = eventLine(event('5', { actor: 'shinatama', host: true, recipients: ['claude-1'], text: 'TEAM revision 2, set by the user in Shinatama.' }));
+  assert.deepEqual(personal, { who: 'shinatama', what: 'TEAM revision 2, set by the user in Shinatama.', kind: 'team', tag: 'to claude-1' });
+  assert.deepEqual(eventLine(event('6', { actor: 'shinatama', host: true, recipients: [], text: 'TEAM revision 2.' })).tag, 'notice');
+  // An agent called shinatama-ish (not a host), and the user, stay chat lines; the host that took another name is a notice.
+  assert.equal(eventLine(event('7', { actor: 'shinatama-2', text: 'hi' })).kind, 'message');
+  assert.equal(eventLine(event('8', { actor: 'user', host: true, text: 'hi' })).kind, 'message');
+  assert.equal(eventLine(event('9', { actor: 'shinatama', host: false, text: 'hi' })).kind, 'message', 'an agent that took the name is no host');
+  assert.equal(eventLine(event('10', { actor: 'shinatama-2', host: true, recipients: ['claude-1'], text: 'TEAM revision 3' })).kind, 'team');
+  assert.equal(eventLine(event('11', { actor: 'user-2', host: true, text: 'hi' })).kind, 'message');
+  assert.equal(eventLine(event('12', { actor: 'shinatama-x', host: true, text: 'hi' })).kind, 'message');
 });

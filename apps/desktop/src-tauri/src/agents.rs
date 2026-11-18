@@ -15,6 +15,7 @@ use service::{HarnessService, OpenMode, Service, ServiceContext, SessionOperatio
 use shinatama_adapter::sets::{SET_SCHEMA_VERSION, SetManifest};
 use shinatama_engine::{
     check_scratch::{self, OwnedScratch},
+    model_config::Selection,
     native_launch::{NativeTrialReceipt, NativeTrialTracker},
 };
 use shinatama_state::{
@@ -379,6 +380,7 @@ impl Controller {
             false,
             None,
             None,
+            None,
         )
         .await
     }
@@ -404,6 +406,7 @@ impl Controller {
             false,
             None,
             workset,
+            None,
         )
         .await
     }
@@ -429,6 +432,7 @@ impl Controller {
             false,
             Some(control_header),
             None,
+            None,
         )
         .await
     }
@@ -444,33 +448,44 @@ impl Controller {
         require_mukade: bool,
         control_header: Option<String>,
         workset: Option<String>,
+        model: Option<Option<Selection>>,
     ) -> Result<AgentStarted, &'static str> {
         shinatama_terminal::validate_size(rows, cols)
             .map_err(|_| "The terminal size is invalid.")?;
-        let slot = self.registered(agent_id)?.reserve()?;
-        tauri::async_runtime::spawn_blocking(move || {
-            slot.run(
-                "Harness startup stopped unexpectedly. Its owned resources remain tracked.",
-                |service| {
-                    service
-                        .open(
-                            &host,
-                            &project,
-                            rows,
-                            cols,
-                            SessionOperation::New,
-                            mode,
-                            initial_prompt.as_deref(),
-                            require_mukade,
-                            control_header.as_deref(),
-                            workset.as_deref(),
-                        )
-                        .map_err(|error| error.message())
-                },
-            )
-        })
-        .await
-        .map_err(|_| "The harness worker is unavailable; no replacement was started.")?
+        let began = std::time::Instant::now();
+        let result = match self.registered(agent_id).and_then(|entry| entry.reserve()) {
+            Err(message) => Err(message),
+            Ok(slot) => tauri::async_runtime::spawn_blocking(move || {
+                slot.run(
+                    "Harness startup stopped unexpectedly. Its owned resources remain tracked.",
+                    |service| {
+                        service
+                            .open(
+                                &host,
+                                &project,
+                                rows,
+                                cols,
+                                SessionOperation::New,
+                                mode,
+                                initial_prompt.as_deref(),
+                                require_mukade,
+                                control_header.as_deref(),
+                                workset.as_deref(),
+                                model.as_ref().map(Option::as_ref),
+                            )
+                            .map_err(|error| error.message())
+                    },
+                )
+            })
+            .await
+            .unwrap_or(Err("The harness worker is unavailable; no replacement was started.")),
+        };
+        let elapsed = began.elapsed().as_millis();
+        crate::app_log::write("open", &match &result {
+            Ok(_) => format!("{agent_id} opened after {elapsed} ms."),
+            Err(message) => format!("{agent_id} refused after {elapsed} ms: {message}"),
+        });
+        result
     }
 
     /// A bounded instruction, never caller-supplied argv, uses the same native
@@ -491,7 +506,38 @@ impl Controller {
             return Err("The initial collaboration instruction is invalid.");
         }
         self.start_request(agent_id, host, project, 24, 80,
-            OpenMode::PrepareWhenNeeded, Some(initial_prompt), require_mukade, None, workset).await
+            OpenMode::PrepareWhenNeeded, Some(initial_prompt), require_mukade, None, workset, None).await
+    }
+
+    /// A session of `program` for an agent of a thread's team, created in `workset` with the
+    /// agent's model and a first message. `own_model`: the program's own sign-in and model, and
+    /// `model` is then ignored; otherwise `model` is the Models panel's entry the program runs
+    /// (only OpenCode and Pi take one). The thread's room is joined through the launch's hooks as
+    /// for any session of a talking thread; a failure of the chat never refuses the launch.
+    pub async fn open_agent(
+        self: &Arc<Self>,
+        program: &str,
+        host: Arc<TerminalHost>,
+        project: PathBuf,
+        model: Option<Selection>,
+        own_model: bool,
+        initial_prompt: String,
+        workset: String,
+    ) -> Result<AgentStarted, &'static str> {
+        if !matches!(program, "claude_code" | "codex" | "opencode" | "pi") {
+            return Err("This program cannot be opened for a team.");
+        }
+        if initial_prompt.trim().is_empty() || initial_prompt.len() > 8192 || initial_prompt.contains('\0') {
+            return Err("The agent's first message is invalid.");
+        }
+        let model = match (own_model, model) {
+            (true, _) => Some(None),
+            (false, Some(selection)) if matches!(program, "opencode" | "pi") => Some(Some(selection)),
+            (false, Some(_)) => return Err("This program has no model setting: use its own sign-in and model."),
+            (false, None) => return Err("The agent has no model."),
+        };
+        self.start_request(program, host, project, 24, 80,
+            OpenMode::PrepareWhenNeeded, Some(initial_prompt), false, None, Some(workset), model).await
     }
 }
 fn prepare_box(
@@ -624,16 +670,35 @@ fn latest_box(database: &Database, harness: &str) -> Result<Option<StoreRootReco
 /// (`SHINATAMA_MARIONETTE=off`); otherwise the empty set. The launcher checks the
 /// host's adapter files; a missing or altered copy never blocks a launch, it only
 /// drops Marionette.
+/// Marionette for `harness` when its adapter in the synced store passes its digest check;
+/// otherwise the empty set, so the session starts without Marionette (as AVVIO.md says) instead
+/// of being refused: one stray file in the store refused every OpenCode launch until a restart.
 fn session_set(
     supported: bool,
+    harness: &str,
 ) -> Result<(SetManifest, Option<std::path::PathBuf>), &'static str> {
-    use shinatama_engine::marionette;
+    use shinatama_engine::marionette::{self, Host, Marionette, MarionetteError};
     if supported
         && !marionette::switched_off()
         && let Some(store) = crate::marionette::store()
-        && marionette::Marionette::current(store).is_ok()
     {
-        return Ok((marionette::marionette_set(), Some(store.to_path_buf())));
+        let host = match harness {
+            "claude_code" => Some(Host::ClaudeCode),
+            "codex" => Some(Host::Codex),
+            "opencode" => Some(Host::OpenCode),
+            "pi" => Some(Host::Pi),
+            _ => None,
+        };
+        let verified = Marionette::current(store).and_then(|release| {
+            release.verify(host.ok_or(MarionetteError::Missing)?).map(|_| ())
+        });
+        match verified {
+            Ok(()) => return Ok((marionette::marionette_set(), Some(store.to_path_buf()))),
+            Err(error) => crate::app_log::write(
+                "marionette",
+                &format!("{harness} starts without Marionette: {error}; the next start repairs the copy."),
+            ),
+        }
     }
     Ok((empty_set()?, None))
 }

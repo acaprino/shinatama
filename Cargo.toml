@@ -74,7 +74,7 @@ shinatama-roundtable = { path = "crates/roundtable" }
 shinatama-browser = { path = "crates/browser" }
 shinatama-xiox = { path = "crates/xiox" }
 # Mukade release v0.1.0 (tag v0.1.0 = this commit). Git dependencies are pinned by full revision.
-mukade = { git = "https://github.com/acaprino/mukade", rev = "31feb1e97a05caa268c2cc3b003d05297db14ec3", default-features = false }
+mukade = { git = "https://github.com/acaprino/mukade", rev = "41f858222132d7e9af0cd637c8c25aaa7588cb7d", default-features = false }
 
 # Local debug builds verify large native executables inside a fixed deadline.
 # Optimize the digest implementation while keeping application debug symbols.

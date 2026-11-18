@@ -38,7 +38,7 @@ shinatama/
 │   ├── functional-design.md      WHAT and WHY: goals, non-goals, surfaces, the parts (5.1–5.16), adapter requirements
 │   ├── technical-design.md       HOW: invariants I1–I7, process model, SQLite, adapters, hop, messaging, state, sidecar
 │   ├── browser-integration.md    Moli fast path and explicit Patchright UI (proposed 2026-10-29)
-│   ├── mukade-handover.md        integration guide for the Mukade library, pinned at 31feb1e (v0.1.0)
+│   ├── mukade-handover.md        integration guide for the Mukade library, pinned at 41f8582 (v0.1.2)
 │   ├── daodan-native-support.md  Daodan task layer inside Shinatama (proposed 2026-10-27)
 │   ├── harness-tools.md          web mode and read-only tool allowlists of the six harnesses, for the companion
 │   ├── verification-register.md  every unproved claim, one row each (295 rows), with gates G0/G1/G2
@@ -63,7 +63,7 @@ shinatama/
 | `docs/functional-design.md` | Intent, goals, the parts, the adapter requirements, open questions (7), builder choices (8) | Functional authority. Marks every statement **Decided** (user), **My call** (author) or **Open** | draft, not approved |
 | `docs/technical-design.md` | Engine: invariants (1), process model (3), tiling host (3.1), SQLite (4), adapters (5), hop (6), messages and MCP (7), state (8), sidecar (9), first milestone (10), acceptance (11) | Wins over the functional summary where they differ (functional-design 5.2). Evidence tags `[V] [D] [R] [S] [U] [C]` (section 0) | draft, not approved |
 | `docs/browser-integration.md` | Browser routing, contract, lifecycle, security, gates B1–B10 | Detail for functional-design 5.15 and technical-design 7.9 | requirements decided 2026-10-29; shape proposed |
-| `docs/mukade-handover.md` | How Shinatama calls Mukade, at pin `31feb1e`; the pin advances and their rechecks (8a, 8); Hermes and DeepSeek (9) | Detail for technical-design 5.4.1 | handover proposal, not implemented; the read side is linked in `shinatama-engine` behind `session-reader` |
+| `docs/mukade-handover.md` | How Shinatama calls Mukade, at pin `41f8582`; the pin advances and their rechecks (8a, 8); Hermes and DeepSeek (9) | Detail for technical-design 5.4.1 | handover proposal, not implemented; the read side is linked in `shinatama-engine` behind `session-reader` |
 | `docs/daodan-native-support.md` | Agenda reading, thread-task link, task across a hop, onboarding | Detail for functional-design 5.5 | proposed, not approved |
 | `docs/harness-tools.md` | Web tools and read-only allowlists per harness, with a probe for every unproved fact | Detail for the companion spec 5.9, 6 A and 10.2; the tool inventories themselves are Mukade's | draft, nothing run but `--help` |
 | `docs/specs/companion-explainer.md` | Companion pane, decision cards (revision 2) | Its decisions are ADR-0002 and ADR-0003 (Accepted) | spec |

@@ -1,7 +1,7 @@
 //! Explicit resume resolves one saved thread, then invokes its registered harness service.
 use super::{
     AgentStarted, Controller, latest_box,
-    service::{OpenMode, SessionOperation},
+    service::{OpenMode, ServiceError, SessionOperation},
 };
 use serde::{Deserialize, Serialize};
 use shinatama_engine::{
@@ -19,6 +19,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
     sync::Arc,
+    time::Instant,
 };
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -32,10 +33,34 @@ pub struct Request {
 #[derive(Clone, Copy, Debug, Serialize)]
 pub struct Error {
     pub code: &'static str,
+    /// The harness's own reason when its start failed after every check passed: the window
+    /// shows it with the code's sentence and the log keeps it. A bare "Try again" told nothing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<&'static str>,
+}
+impl Error {
+    pub const fn new(code: &'static str) -> Self {
+        Self { code, message: None }
+    }
 }
 type Result<T> = std::result::Result<T, Error>;
 fn issue(code: &'static str) -> Error {
-    Error { code }
+    Error::new(code)
+}
+fn not_started(error: ServiceError) -> Error {
+    Error { code: "unavailable", message: Some(error.message()) }
+}
+/// One log line per Resume: the thread, the outcome, its reason and how long it took.
+fn record(thread: &str, began: Instant, result: &Result<AgentStarted>) {
+    let elapsed = began.elapsed().as_millis();
+    crate::app_log::write("resume", &match result {
+        Ok(_) => format!("{thread} opened after {elapsed} ms."),
+        Err(error) => format!(
+            "{thread} refused after {elapsed} ms: {}{}",
+            error.code,
+            error.message.map(|message| format!(" ({message})")).unwrap_or_default()
+        ),
+    });
 }
 fn unavailable<T>(_: T) -> Error {
     issue("unavailable")
@@ -169,7 +194,8 @@ impl Controller {
         shinatama_terminal::validate_size(request.rows, request.cols)
             .map_err(|_| issue("invalid_request"))?;
         let owner = Arc::clone(self);
-        tauri::async_runtime::spawn_blocking(move || {
+        let (thread, began) = (request.thread_id.clone(), Instant::now());
+        let result = tauri::async_runtime::spawn_blocking(move || {
             let state = owner.services.load().map_err(unavailable)?;
             let saved = target(&state.store, &request)?;
             let entry = owner
@@ -188,6 +214,7 @@ impl Controller {
                 {
                     return Err(issue("source_changed"));
                 }
+                crate::opening::report(&saved.segment.harness, "reading");
                 verify_native(&reader, &state.location, &saved, &project)?;
                 if target(&state.store, &request)? != saved {
                     return Err(issue("source_changed"));
@@ -204,11 +231,14 @@ impl Controller {
                         false,
                         None,
                         None,
+                        None,
                     )
-                    .map_err(unavailable)
+                    .map_err(not_started)
             })
         })
         .await
-        .map_err(unavailable)?
+        .unwrap_or(Err(issue("unavailable")));
+        record(&thread, began, &result);
+        result
     }
 }

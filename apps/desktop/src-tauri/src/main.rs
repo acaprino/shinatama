@@ -1,6 +1,7 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
 #[cfg(windows)]
 mod agents;
+mod app_log;
 #[cfg(windows)]
 mod browser;
 #[cfg(windows)]
@@ -24,6 +25,8 @@ mod memory_settings;
 mod secret_store;
 pub mod maintenance;
 mod new_project;
+#[cfg(windows)]
+mod opening;
 mod presentation;
 mod projects;
 mod resource_governor;
@@ -42,6 +45,10 @@ mod storage;
 mod threads;
 #[cfg(windows)]
 mod thread_chat;
+#[cfg(windows)]
+mod team_announcer;
+#[cfg(windows)]
+mod thread_team;
 #[cfg(windows)]
 mod thread_peers;
 #[cfg(windows)]
@@ -443,15 +450,11 @@ async fn thread_resume(
     host: State<'_, Host>,
     request: agents::resume::Request,
 ) -> Result<agents::AgentStarted, agents::resume::Error> {
-    local(&window).map_err(|_| agents::resume::Error {
-        code: "invalid_request",
-    })?;
+    local(&window).map_err(|_| agents::resume::Error::new("invalid_request"))?;
     if window.state::<ExitIntent>().0.load(Ordering::Acquire) {
-        return Err(agents::resume::Error {
-            code: "unavailable",
-        });
+        return Err(agents::resume::Error::new("unavailable"));
     }
-    let not_ready = |_| agents::resume::Error { code: "unavailable" };
+    let not_ready = |_| agents::resume::Error::new("unavailable");
     let owner = ready::<agents::Controller>(&window).map_err(not_ready)?;
     let reader = ready::<sessions::Controller>(&window).map_err(not_ready)?;
     owner.resume(host.inner().clone(), reader, request).await
@@ -712,6 +715,10 @@ fn main() {
                 app.manage(browser);
             }
             let directory = data_home(app.handle());
+            if let Ok(home) = &directory {
+                app_log::start(home);
+                app_log::write("start", &format!("Shinatama {} started (process {}).", env!("CARGO_PKG_VERSION"), std::process::id()));
+            }
             #[cfg(windows)]
             if let Ok(home) = &directory {
                 marionette::start(home);
@@ -763,6 +770,18 @@ fn main() {
                         }));
                     }),
                 )));
+                // The steps an open the user waits on passes (proxy, check, prepare): the window
+                // says which one it is waiting for.
+                let progress_window = app.handle().clone();
+                opening::install(Box::new(move |harness, step| {
+                    let _ = progress_window.emit_to("main", "agent-opening", serde_json::json!({
+                        "harness": harness, "step": step,
+                    }));
+                }));
+                // Every agent session goes through the model proxy, and starting it took 15-30 s
+                // of the first click after each start. It starts now, in the background, with the
+                // same admission as an Open; a user's Stop still stops it.
+                sidecar::start_at_launch(&sidecar);
                 app.manage(sidecar);
                 app.manage(runtime);
             }
@@ -788,6 +807,7 @@ fn main() {
         attention::attention_preview,
         attention::attention_open,
         attention::attention_dismiss,
+        app_log::app_log,
         launch::launch_preflight,
         resources::resources_status,
         resources::resources_telemetry,
@@ -827,6 +847,20 @@ fn main() {
         thread_chat::thread_chat_snapshot,
         #[cfg(windows)]
         thread_chat::thread_chat_send,
+        #[cfg(windows)]
+        thread_team::team_get,
+        #[cfg(windows)]
+        thread_team::team_evaluate,
+        #[cfg(windows)]
+        thread_team::team_apply,
+        #[cfg(windows)]
+        thread_team::team_place,
+        #[cfg(windows)]
+        thread_team::team_templates,
+        #[cfg(windows)]
+        thread_team::team_template_save,
+        #[cfg(windows)]
+        thread_team::team_template_delete,
         threads::thread_rename,
         threads::thread_archive,
         threads::thread_forget,
@@ -967,6 +1001,7 @@ fn main() {
         attention::attention_preview,
         attention::attention_open,
         attention::attention_dismiss,
+        app_log::app_log,
         launch::launch_preflight,
         resources::resources_status,
         resources::resources_telemetry,
@@ -1006,6 +1041,20 @@ fn main() {
         thread_chat::thread_chat_snapshot,
         #[cfg(windows)]
         thread_chat::thread_chat_send,
+        #[cfg(windows)]
+        thread_team::team_get,
+        #[cfg(windows)]
+        thread_team::team_evaluate,
+        #[cfg(windows)]
+        thread_team::team_apply,
+        #[cfg(windows)]
+        thread_team::team_place,
+        #[cfg(windows)]
+        thread_team::team_templates,
+        #[cfg(windows)]
+        thread_team::team_template_save,
+        #[cfg(windows)]
+        thread_team::team_template_delete,
         threads::thread_rename,
         threads::thread_archive,
         threads::thread_forget,

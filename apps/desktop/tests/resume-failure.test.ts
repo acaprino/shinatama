@@ -23,6 +23,16 @@ test('every backend code of thread_resume has its own sentence', () => {
   for (const code of codes) assert.notEqual(resumeFailureText({ code }), generic, code);
 });
 
+test('a start that failed after the checks says the harness reason, never a bare retry', () => {
+  const reason = 'The TUI check did not produce a qualified startup receipt. No provider message was sent.';
+  const text = resumeFailureText({ code: 'unavailable', message: reason });
+  assert.ok(text.includes(reason), text);
+  assert.match(text, /saved conversation is kept/i);
+  assert.doesNotMatch(text, /Try again\.$/);
+  assert.equal(resumeFailureText({ code: 'unavailable', message: '  ' }), resumeFailureText({ code: 'unavailable' }));
+  assert.ok(resumeFailureText({ code: 'unavailable', message: 'x'.repeat(5000) }).length < 600);
+});
+
 test('an unknown failure keeps the conversation and offers a retry', () => {
   assert.match(resumeFailureText({ code: 'unavailable' }), /saved conversation is kept/i);
   assert.match(resumeFailureText(undefined), /saved conversation is kept/i);

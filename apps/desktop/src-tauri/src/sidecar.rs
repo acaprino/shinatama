@@ -84,6 +84,41 @@ fn decide_stop(agent_sessions: Option<usize>, force: bool) -> StopDecision {
 }
 /// Only a healthy proxy backs a new launch: ready, or busy with requests in
 /// flight (another agent is streaming). A draining one never does.
+/// Starts the proxy when Shinatama starts (it used to wait for the first Open, which then spent
+/// 15-30 s on it) and logs when it is ready. Its start has the same admission as an Open's; one
+/// refused for resources retries by itself. A user's Stop still stops it.
+pub(crate) fn start_at_launch(controller: &Arc<Controller>) {
+    let began = std::time::Instant::now();
+    if let Err(message) = controller.start() {
+        crate::app_log::write("proxy", &format!("Not started at launch: {message}"));
+        return;
+    }
+    crate::app_log::write("proxy", "Starting at launch.");
+    let owner = Arc::clone(controller);
+    let _ = std::thread::Builder::new()
+        .name("proxy-at-launch".into())
+        .spawn(move || {
+            let deadline = began + Duration::from_secs(180);
+            loop {
+                let status = owner.status();
+                let elapsed = began.elapsed().as_millis();
+                if launch_allowed(status.phase, status.healthy) {
+                    crate::app_log::write("proxy", &format!("Ready {elapsed} ms after launch."));
+                    return;
+                }
+                if matches!(status.phase, "failed" | "retired" | "stopped" | "draining") && elapsed > 10_000 {
+                    crate::app_log::write("proxy", &format!("Not ready {elapsed} ms after launch: {} ({}).",
+                        status.phase, status.message.unwrap_or("no message")));
+                    return;
+                }
+                if std::time::Instant::now() >= deadline {
+                    crate::app_log::write("proxy", &format!("Still {} 3 minutes after launch.", status.phase));
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(250));
+            }
+        });
+}
 pub(crate) fn launch_allowed(phase: &str, healthy: bool) -> bool {
     matches!(phase, "ready" | "busy") && healthy
 }
@@ -143,6 +178,7 @@ fn config_differences(resolved: Option<&ResolvedBaseline>) -> Vec<ConfigDifferen
         }
     }
     check(&mut out, "Prompt rewrite", &resolved.prompt_rewrite_mode, &baseline.prompt_rewrite_mode);
+    check(&mut out, "Proxy messages in the conversation", &resolved.visibility_markers, &baseline.visibility_markers);
     check(&mut out, "Tiers", &resolved.tiers, &baseline.tiers);
     check(&mut out, "Absorb", &resolved.absorb_enabled, &baseline.absorb_enabled);
     check(&mut out, "Absorb minimum tool tokens", &resolved.absorb_min_tool_tokens, &baseline.absorb_min_tool_tokens);
@@ -776,15 +812,18 @@ mod tests {
         resolved.verbosity_level = Some(3);
         resolved.effort_routing = Some(true);
         resolved.ccr_min_tool_tokens = None;
+        // A configuration written before FRD-0009 R31 has no visibilityMarkers key.
+        resolved.visibility_markers = None;
         let found = config_differences(Some(&resolved));
         let line = |setting: &str| {
             let item = found.iter().find(|item| item.setting == setting).expect(setting);
             (item.read.as_str(), item.baseline.as_str())
         };
-        assert_eq!(found.len(), 3);
+        assert_eq!(found.len(), 4);
         assert_eq!(line("Verbosity level"), ("3", "2"));
         assert_eq!(line("Effort routing"), ("true", "false"));
         assert_eq!(line("Large-result storage minimum tool tokens"), ("not reported", "4000"));
+        assert_eq!(line("Proxy messages in the conversation"), ("not reported", "false"));
     }
 
     #[test]

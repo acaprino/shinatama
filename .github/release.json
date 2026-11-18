@@ -1,0 +1,33 @@
+{
+  "app": "Shinatama",
+  "tagPrefix": "v",
+  "files": [
+    "package.json",
+    "package-lock.json",
+    "Cargo.toml",
+    "apps/desktop/src-tauri/tauri.conf.json"
+  ],
+  "locks": [
+    "Cargo.lock"
+  ],
+  "crates": [
+    "shinatama-desktop",
+    "shinatama-adapter",
+    "shinatama-browser",
+    "shinatama-cli",
+    "shinatama-companion",
+    "shinatama-engine",
+    "shinatama-export",
+    "shinatama-files",
+    "shinatama-hop",
+    "shinatama-messaging",
+    "shinatama-mukade",
+    "shinatama-projects",
+    "shinatama-roundtable",
+    "shinatama-state",
+    "shinatama-terminal",
+    "shinatama-token-economy",
+    "shinatama-xiox"
+  ],
+  "prepare": []
+}

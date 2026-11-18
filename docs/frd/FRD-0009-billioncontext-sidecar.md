@@ -4,7 +4,7 @@
 |---|---|
 | Version | 1 |
 | Status | Accepted 2026-11-01 (this Markdown text) |
-| Date | 2026-11-01; R24 amended 2026-11-02 at the user's request |
+| Date | 2026-11-01; R24 amended 2026-11-02 at the user's request; R31 added 2026-11-17 at the user's request |
 | Sources | functional-design goal 6, 2 (anti-goal), 3, 5.6, 5.9; technical-design 9; specs/token-savings 7.2 (baseline); records of 2026-10-31 and 2026-11-01 on proxy stalls; [2026-11-02 storage fix](../notes/2026-11-02-sidecar-storage-latency.md) |
 | Governing ADRs | ADR-0029, ADR-0030 |
 | Register sections | SC1 to SC16, Q5, Q7, HM12, DS12 |
@@ -69,6 +69,8 @@ isolation properties that are acceptance, the supervision rules learned from the
 |---|---|---|---|---|---|
 | R25 | No sidecar diagnostic is ever written to an agent's terminal: diagnostics go to Shinatama's log and the proxy status (busy, recovering) shows in the window. | U 2026-11-01 | X | SC15 | 0030 |
 | R26 | The rule covers every line a launcher or proxy can write (owner renewal, attach refusals, stale-proxy rotation included): the bytes on an agent's PTY come only from the agent. It is verified by capturing the terminal from launch to exit while faults are injected one at a time (a held event loop, a timed-out and a refused owner renewal, a killed proxy, a stale proxy on the port, an unarmed daemon proxy), each fault appearing once in the log and never in the capture, on every launch path under SC5 and again on every sidecar upgrade; never by auditing messages one path at a time. | U 2026-11-01 | X | SC15 | 0030 |
+| R31 | The proxy writes nothing into an agent's conversation either: no text of its own in the model's reply (the `acp_status` report, the `📦 [ACP] Compressed …`, decompress, search and absorb confirmations, the `❌ [ACP] … FAILED` lines), so no harness shows or stores it. Shinatama writes `compress.visibilityMarkers: false` into the baseline, and a running configuration without it shows as a difference (R29). | U 2026-11-17 | X | — | 0030 |
+| R32 | The proxy starts with Shinatama, in the background and with an open's admission, not at the first open; a user's Stop still stops it. An open the user clicked waits for the proxy (up to 2 minutes; at once on a failed, retired or stopping proxy) and says it is waiting, instead of failing while the proxy still starts. [Note](../notes/2026-11-17-first-click-resume.md) | U 2026-11-17 | X | — | 0030 |
 
 ### 2.6 Baseline configuration Shinatama sets
 

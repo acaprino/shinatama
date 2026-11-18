@@ -56,6 +56,17 @@ Se dopo un arresto dell'app un thread risulta ancora aperto senza terminale,
 Se la fine della sessione precedente non può essere verificata, il recupero
 viene rifiutato e la conversazione salvata viene conservata.
 
+**Il primo Resume dopo l'avvio.** Il proxy dei modelli parte insieme a Shinatama. Il primo
+Resume o New session dopo un avvio aspetta che il proxy sia pronto e che l'agente superi il suo
+controllo, e intanto la barra dei messaggi dice cosa aspetta (per esempio «Opening Claude Code:
+checking Claude Code…»). Non serve più un secondo clic; se l'apertura non riesce, il messaggio
+dice il motivo.
+
+**Log diagnostico.** `shinatama.log` nella cartella dati (accanto a `shinatama.db`; il
+precedente è `shinatama.log.1`) dice perché un'apertura, un Resume o il layout salvato non sono
+riusciti, quando il proxy è stato pronto e cosa ha fatto la sincronizzazione di Marionette.
+Contiene solo frasi fisse, codici e durate, mai il testo delle conversazioni.
+
 Per consultare un archivio esistente, apri **Sessions** e **Add a read-only archive**.
 Scegli Claude Code, Codex o Pi e indica la cartella archivio dell'agente; premi
 **Add archive**, poi **Reload sessions**. Le pagine contengono fino a 50 sessioni;
@@ -146,7 +157,10 @@ SHA-256 e la usa per le sessioni aperte da quel momento. Senza rete resta in uso
 copia scaricata; al primo avvio senza rete le sessioni partono senza Marionette.
 Prima di ogni sessione Shinatama verifica i file dell'adapter di quell'agente:
 se uno è stato modificato, quella sessione parte senza Marionette e il
-controllo successivo ripara la copia. Per disattivarla imposta la variabile
+controllo successivo ripara la copia. Claude Code, OpenCode e Pi caricano una copia privata
+del loro adapter (`marionette-claude\`, `marionette-opencode\`, `marionette-pi\` nella
+cartella dati): ciò che una sessione ci scrive, come la cache di Python accanto agli script,
+non tocca la copia verificata. Per disattivarla imposta la variabile
 d'ambiente `SHINATAMA_MARIONETTE=off` prima di aprire Shinatama.
 
 In Codex le istruzioni di sessione arrivano dagli hook di Marionette, che

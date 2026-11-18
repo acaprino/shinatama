@@ -29,6 +29,27 @@ pub const MAX_WAKES: u32 = 10;
 pub const USER_MEMBER: &str = "user";
 /// The harness name of that member: Mukade asks every member for one.
 pub const USER_HARNESS: &str = "shinatama";
+/// The member Shinatama itself tells the sessions their place in the thread's team with (ADR-0058):
+/// distinct from `user`, so the panel can draw its messages as notices. It is a host member too.
+pub const TEAM_MEMBER: &str = "shinatama";
+/// How many names a host member tries for one preferred name: an agent that joined by hand under
+/// it first must not stop the host from joining.
+pub const MAX_HOST_NAMES: usize = 9;
+
+/// The name a host member tries at its `attempt`th try (from 1) for `preferred`: the name itself,
+/// then `<name>-2`, `<name>-3`, …
+pub fn host_name(preferred: &str, attempt: usize) -> String {
+    if attempt <= 1 { preferred.to_owned() } else { format!("{preferred}-{attempt}") }
+}
+
+/// Whether `name` is one of the names `host_name` makes for `preferred`.
+pub fn is_host_name(preferred: &str, name: &str) -> bool {
+    name == preferred
+        || name
+            .strip_prefix(preferred)
+            .and_then(|tail| tail.strip_prefix('-'))
+            .is_some_and(|number| !number.is_empty() && number.bytes().all(|b| b.is_ascii_digit()))
+}
 /// Mukade bounds a hook's stop at the listening time plus a margin.
 const STOP_MARGIN_SECONDS: u64 = 30;
 const CLI_TIMEOUT: Duration = Duration::from_secs(20);
@@ -57,6 +78,8 @@ pub struct ChatHooks {
     room_id: String,
     program: PathBuf,
     data_dir: PathBuf,
+    /// The Mukade role the session joins with: a peer's unless its thread's team says otherwise.
+    role: &'static str,
 }
 
 /// One Codex hook: its event, as the `-c hooks` table names it, its command line and timeout.
@@ -86,7 +109,13 @@ impl ChatHooks {
         hooks.program_path().is_some().then_some(hooks)
     }
     fn with_program(room_id: &str, program: PathBuf, data_dir: PathBuf) -> Self {
-        Self { room_id: room_id.into(), program, data_dir }
+        Self { room_id: room_id.into(), program, data_dir, role: "peer" }
+    }
+    /// The role the session joins the room with (`MUKADE_CHAT_ROLE`): `peer`, `lead`, `worker` or
+    /// `observer`, as the thread's team map gives it (`team::mukade_role`).
+    pub fn with_role(mut self, role: &'static str) -> Self {
+        self.role = role;
+        self
     }
     pub fn room_id(&self) -> &str {
         &self.room_id
@@ -99,7 +128,7 @@ impl ChatHooks {
     pub fn apply_environment(&self, environment: &mut BTreeMap<OsString, OsString>) {
         for (name, value) in [
             ("MUKADE_CHAT_ROOM_ID", OsString::from(&self.room_id)),
-            ("MUKADE_CHAT_ROLE", "peer".into()),
+            ("MUKADE_CHAT_ROLE", self.role.into()),
             ("MUKADE_CHAT_LISTEN", LISTEN_SECONDS.to_string().into()),
             ("MUKADE_CHAT_MAX_WAKES", MAX_WAKES.to_string().into()),
             ("MUKADE_DATA_DIR", self.data_dir.clone().into_os_string()),
@@ -209,24 +238,46 @@ fn parse_adapter_member(bytes: &[u8]) -> Option<AdapterMember> {
 /// One `mukade chat <operation> … --json` through the bundled program, against the
 /// service of `data_directory`. `text` goes through standard input (`--text-file -`),
 /// never the command line. The error is Mukade's own `code: message` line.
+///
+/// `join` with the bare flag `("host", "")`, `set-role` and `retire` are what only the host may
+/// do (ADR-0058): the program then reads the host's own credential from the service's folder, as
+/// it reads the member credential for every other operation. No credential is ever an argument.
 pub fn call(base: &StorageLocation, operation: &str, arguments: &[(&str, &str)], text: Option<&str>) -> Result<Value, String> {
-    if !matches!(operation, "open" | "join" | "rejoin" | "members" | "ledger" | "send" | "rooms") {
+    let argv = command_line(operation, arguments, text)?;
+    let environment = [(OsString::from("MUKADE_DATA_DIR"), data_directory(base).into_os_string())];
+    run(&argv, &environment, None, text, CLI_TIMEOUT, operation)
+}
+
+/// The operations Shinatama runs, and the names that are bare flags (no value follows them).
+const OPERATIONS: &[&str] = &["open", "join", "rejoin", "members", "ledger", "send", "rooms", "set-role", "retire"];
+const FLAGS: &[&str] = &["host"];
+/// Names no argument may have: the service's and the host's credentials stay in Mukade's folder.
+const CREDENTIALS: &[&str] = &["credential", "host-credential", "token", "authorization"];
+
+fn command_line(operation: &str, arguments: &[(&str, &str)], text: Option<&str>) -> Result<Vec<String>, String> {
+    if !OPERATIONS.contains(&operation) {
         return Err("This chat operation is not used by Shinatama.".into());
     }
     let mut argv: Vec<String> = vec!["chat".into(), operation.into()];
     for (name, value) in arguments {
-        if !name.bytes().all(|c| c.is_ascii_lowercase() || c == b'-') || value.len() > 4096 || value.chars().any(char::is_control) {
+        if !name.bytes().all(|c| c.is_ascii_lowercase() || c == b'-')
+            || CREDENTIALS.contains(name)
+            || value.len() > 4096
+            || value.chars().any(char::is_control)
+            || (FLAGS.contains(name) && !value.is_empty())
+        {
             return Err("A chat argument is invalid.".into());
         }
         argv.push(format!("--{name}"));
-        argv.push((*value).into());
+        if !FLAGS.contains(name) {
+            argv.push((*value).into());
+        }
     }
     if text.is_some() {
         argv.extend(["--text-file".into(), "-".into()]);
     }
     argv.push("--json".into());
-    let environment = [(OsString::from("MUKADE_DATA_DIR"), data_directory(base).into_os_string())];
-    run(&argv, &environment, None, text, CLI_TIMEOUT, operation)
+    Ok(argv)
 }
 
 /// Codex's own approval of Mukade's hooks, written by `mukade chat trust codex` into the
@@ -439,6 +490,34 @@ mod tests {
         assert_eq!(environment.get(&OsString::from("KEEP")).unwrap(), "yes");
     }
 
+    fn launched_with(hooks: &ChatHooks) -> BTreeMap<OsString, OsString> {
+        let mut environment = BTreeMap::from([(OsString::from("KEEP"), OsString::from("yes"))]);
+        hooks.apply_environment(&mut environment);
+        environment
+    }
+
+    #[test]
+    fn the_launch_takes_the_agent_s_mukade_role() {
+        let role = |hooks: &ChatHooks| launched_with(hooks).get(&OsString::from("MUKADE_CHAT_ROLE")).cloned().unwrap();
+        assert_eq!(role(&hooks().with_role("observer")), "observer");
+        assert_eq!(role(&hooks().with_role("worker")), "worker");
+        assert_eq!(role(&hooks().with_role("lead")), "lead");
+        // The role is the only thing that changes.
+        let mut observer = launched_with(&hooks().with_role("observer"));
+        let peer = launched_with(&hooks());
+        observer.insert(OsString::from("MUKADE_CHAT_ROLE"), "peer".into());
+        assert_eq!(observer, peer);
+    }
+
+    #[test]
+    fn a_thread_without_a_formation_launches_as_before() {
+        // Without a role the environment is the one launches had before teams: the role is a peer's.
+        let before = launched_with(&hooks());
+        assert_eq!(before.get(&OsString::from("MUKADE_CHAT_ROLE")).unwrap(), "peer");
+        assert_eq!(before, launched_with(&hooks().with_role("peer")));
+        assert_eq!(before.len(), 6);
+    }
+
     #[test]
     fn hook_commands_run_mukade_s_adapter_for_each_turn_boundary() {
         let claude = hooks().claude_hooks().unwrap();
@@ -456,6 +535,31 @@ mod tests {
         assert!(odd.claude_hooks().is_none() && odd.codex_hooks().is_none());
         let quoted = ChatHooks::with_program("room", PathBuf::from(r"C:\O'Brien\mukade.exe"), PathBuf::new());
         assert!(quoted.codex_hooks().unwrap()[0].command.contains("C:/O''Brien/mukade.exe"));
+    }
+
+    #[test]
+    fn the_host_operations_are_run_with_a_bare_flag_and_no_credential_on_the_command_line() {
+        let line = |operation: &str, arguments: &[(&str, &str)], text: Option<&str>| command_line(operation, arguments, text);
+        let join = line("join", &[("request-id", "r"), ("room-id", "room"), ("name", "shinatama"), ("host", "")], None).unwrap();
+        assert_eq!(join, ["chat", "join", "--request-id", "r", "--room-id", "room", "--name", "shinatama", "--host", "--json"]);
+        let rejoin = line("rejoin", &[("request-id", "r"), ("room-id", "room"), ("member-id", "m"), ("host", "")], None).unwrap();
+        assert_eq!(rejoin, ["chat", "rejoin", "--request-id", "r", "--room-id", "room", "--member-id", "m", "--host", "--json"]);
+        let role = line("set-role",&[("room-id", "room"), ("member-handle", "h"), ("member-id", "m"), ("role", "lead")], None).unwrap();
+        assert_eq!(&role[..2], ["chat", "set-role"]);
+        assert!(line("retire", &[("member-id", "m")], None).is_ok());
+        // The text goes through standard input, never the command line.
+        assert_eq!(line("send", &[("room-id", "room")], Some("hello")).unwrap()[4..], ["--text-file", "-", "--json"]);
+        // `host` is a flag, not a field: it takes no value, and nothing else is a bare flag.
+        assert!(line("join", &[("host", "true")], None).is_err());
+        assert!(line("join", &[("name", "")], None).is_ok());
+        // The host's credential is read by Mukade's command from its own folder; none is ever an argument.
+        for name in ["host-credential", "credential", "token", "authorization"] {
+            assert!(line("set-role", &[(name, "x")], None).is_err(), "{name}");
+        }
+        // Operations Shinatama does not use stay refused.
+        for operation in ["delete", "close", "read", "wait", "ack", "observe"] {
+            assert!(line(operation, &[], None).is_err(), "{operation}");
+        }
     }
 
     #[test]

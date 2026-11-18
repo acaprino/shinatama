@@ -41,7 +41,8 @@ export interface WorkspacePersistenceStatus {
 export type WorkspaceOutcome = { readonly ok: true; readonly revision: number; readonly dirty: boolean }
   | { readonly ok: false; readonly error: WorkspaceFailureCode };
 export type WorkspaceLoadOutcome = { readonly ok: true; readonly layout: WorkspaceLayout; readonly restored: boolean; readonly exists: boolean; readonly revision: number; readonly ownership: WorkspaceOwnership }
-  | { readonly ok: false; readonly error: WorkspaceFailureCode };
+  /** `detail`: the storage's own sentence for the refusal, when it gave one. */
+  | { readonly ok: false; readonly error: WorkspaceFailureCode; readonly detail?: string };
 export interface WorkspacePersistenceOptions {
   readonly scope: WorkspaceScope; readonly initialLayout: WorkspaceLayout; readonly transport: WorkspaceTransport;
   readonly debounceMs?: number;
@@ -82,6 +83,22 @@ function failure(value: unknown, write: boolean): WorkspaceFailureCode {
     }
   }
   return write ? 'uncertain' : 'unavailable';
+}
+/** The storage's own sentence of a refusal ({ code, message }) or a bare string, bounded. */
+function describe(cause: unknown): string | null {
+  const text = typeof cause === 'string' ? cause
+    : typeof cause === 'object' && cause !== null && 'message' in cause && typeof cause.message === 'string' ? cause.message : null;
+  const bounded = text?.replace(/\s+/g, ' ').trim().slice(0, 300);
+  return bounded || null;
+}
+/** A refusal a moment later may not repeat: storage busy with another operation, or still starting. */
+export function transientLayoutFailure(code: WorkspaceFailureCode): boolean {
+  return code === 'unavailable' || code === 'busy' || code === 'timeout' || code === 'uncertain';
+}
+/** What the window says when the saved layout did not load, and what that means for the panes. */
+export function layoutLoadFailureText(code: WorkspaceFailureCode, detail?: string | null): string {
+  const why = detail ?? messages[code];
+  return `The saved layout could not be loaded (${code}: ${why.replace(/[.\s]+$/, '')}). The panes on screen stay, but this window does not save its layout until Shinatama restarts. The reason is in shinatama.log in the data folder.`;
 }
 function isRevision(value: unknown): value is number { return typeof value === 'number' && Number.isSafeInteger(value) && value >= 1; }
 function readSnapshot(value: unknown, scope: WorkspaceScope): { readonly snapshot: WorkspaceSnapshot; readonly layout: WorkspaceLayout; readonly canonicalJson: string } | null {
@@ -208,13 +225,14 @@ export function createWorkspacePersistence(options: WorkspacePersistenceOptions)
     async load(): Promise<WorkspaceLoadOutcome> {
       if (disposed) return { ok: false, error: 'disposed' }; if (flight || releasing || flushing) return { ok: false, error: 'busy' };
       automatic = false; closing = false; stopTimer(); phase = 'loading'; error = null;
-      const version = editVersion; const preserveLocal = localEdits; let restored = false; let exists = false;
+      const version = editVersion; const preserveLocal = localEdits; let restored = false; let exists = false; let detail: string | null = null;
       const result = await run('load', async () => {
         try {
           const raw = await options.transport.load(scope); if (disposed) return refused('disposed');
           if (raw === null) { loaded = true; revision = 0; ownership = 'unclaimed'; readOnly = false; savedJson = null; }
           else {
-            const parsed = readSnapshot(raw, scope); if (!parsed) return stop('invalid');
+            const parsed = readSnapshot(raw, scope);
+            if (!parsed) { detail = 'The saved layout did not pass its checks'; return stop('invalid'); }
             exists = true; loaded = true; revision = parsed.snapshot.revision; ownership = parsed.snapshot.ownership; readOnly = parsed.snapshot.readOnly; savedJson = parsed.canonicalJson;
             if (!preserveLocal && version === editVersion) { live = parsed.layout; liveJson = parsed.canonicalJson; localEdits = false; restored = true; }
             else localEdits = liveJson !== savedJson;
@@ -222,9 +240,9 @@ export function createWorkspacePersistence(options: WorkspacePersistenceOptions)
           blocked = false; needsReload = false; phase = 'loaded';
           if (readOnly || ownership === 'other') { blocked = true; error = readOnly ? 'read_only' : 'owned_elsewhere'; phase = 'blocked'; }
           return outcome();
-        } catch (cause) { return stop(failure(cause, false)); }
+        } catch (cause) { detail = describe(cause); return stop(failure(cause, false)); }
       });
-      return result.ok ? { ok: true, layout: live, restored, exists, revision: revision ?? 0, ownership } : result;
+      return result.ok ? { ok: true, layout: live, restored, exists, revision: revision ?? 0, ownership } : detail ? { ...result, detail } : result;
     },
     claim: () => write('claim'),
     update(layout): LayoutResult<void> {

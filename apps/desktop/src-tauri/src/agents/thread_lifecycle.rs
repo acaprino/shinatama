@@ -404,6 +404,37 @@ impl Drop for ThreadLifecycle {
         // Drop stops the receiver/consumer, but never closes a saved activation.
     }
 }
+/// OpenCode and Pi report no session events: the launcher chooses the native id and passes it
+/// to the program, so it is recorded as the thread's first segment before the program starts
+/// (as Claude's sealed UUID is). It is a name, not a claim that the session exists or can be
+/// resumed: those two harnesses declare no native resume, and nothing here opens an activation.
+pub(super) fn record_chosen_native_session(
+    database: &Database,
+    thread: &ThreadRecord,
+    root: &StoreRootRecord,
+    native_id: &str,
+) -> Result<()> {
+    database
+        .attach_thread_segment(
+            &SegmentRecord {
+                id: new_id(CanonicalIdKind::Segment),
+                thread_id: thread.id.clone(),
+                ordinal: 1,
+                harness: root.harness.clone(),
+                native: NativeSessionKey {
+                    store_root_id: root.id.clone(),
+                    store_revision: root.config_revision,
+                    native_id: native_id.into(),
+                },
+                archived: false,
+                revision: 1,
+                created_at: now()?.max(thread.created_at),
+            },
+            thread.revision,
+        )
+        .map(|_| ())
+        .map_err(|_| TRACKING)
+}
 fn now() -> Result<i64> {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
