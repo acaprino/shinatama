@@ -41,6 +41,9 @@ pub trait WorkloadProvider: Send + 'static {
         now_ms: i64,
         lease_until_ms: i64,
     ) -> Result<PreparedWorkload, AdmissionUnavailable>;
+    /// The proxy's process ended by itself. Told once per exit, so the owner can record why
+    /// in Shinatama's log (ADR-0030): what the child wrote is read nowhere else.
+    fn exited(&mut self, _exit: &ProxyExit) {}
 }
 #[derive(Debug)]
 pub struct AdmissionUnavailable;
@@ -113,6 +116,18 @@ pub enum RequestError {
     Full,
     Closed,
 }
+/// How the proxy's process last ended by itself.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct ProxyExit {
+    pub code: u32,
+    pub uptime_ms: u64,
+    pub at_unix_ms: Option<i64>,
+    /// What the runtime last said outside the proxy's own log (a refused start, Node's
+    /// fatal error): one bounded line without control characters. None when it said nothing.
+    pub detail: Option<String>,
+    /// Exits seen by this owner since Shinatama started.
+    pub count: u32,
+}
 #[derive(Clone, Debug, Serialize)]
 pub struct Snapshot {
     pub phase: Phase,
@@ -134,6 +149,8 @@ pub struct Snapshot {
     /// Fresh bind result after a missed health response; never inferred from connect.
     pub port_held: Option<bool>,
     pub health_probe_delay_ms: u64,
+    /// Kept after the proxy recovers: it says why the last interruption happened.
+    pub last_exit: Option<ProxyExit>,
 }
 impl Phase {
     /// Phases in which a healthy proxy backs a new launch. Busy is a healthy
@@ -167,7 +184,6 @@ pub struct SupervisorConfig {
     /// Longest a requested drain waits for in-flight requests before it stops anyway.
     pub drain_timeout: Duration,
     pub reservation_lease: Duration,
-    pub output_bytes_per_stream: u64,
 }
 impl SupervisorConfig {
     fn valid(&self, recipe: &SidecarRuntimeRecipe) -> bool {
@@ -180,7 +196,6 @@ impl SupervisorConfig {
             && (Duration::from_secs(1)..=Duration::from_secs(120)).contains(&self.drain_timeout)
             && self.reservation_lease >= self.startup_timeout
             && self.reservation_lease <= Duration::from_secs(300)
-            && (4096..=64 * 1024 * 1024).contains(&self.output_bytes_per_stream)
             && recipe.arguments().get(4).is_some_and(|a| a == "--port")
             && recipe
                 .arguments()
@@ -231,6 +246,7 @@ impl SidecarSupervisor {
             resource_limit: None,
             port_held: None,
             health_probe_delay_ms: config.health_period.as_millis() as u64,
+            last_exit: None,
         };
         let status = Arc::new(Mutex::new(snapshot.clone()));
         let shutdown = Arc::new(AtomicBool::new(false));
@@ -257,6 +273,8 @@ impl SidecarSupervisor {
             queue_limits: (0, 0),
             busy_backoff: BusyBackoff::default(),
             recovery: RecoveryBackoff::default(),
+            stderr_tail: OutputTail::default(),
+            exits: 0,
         };
         if thread::Builder::new()
             .name("shinatama-sidecar-owner".into())
@@ -318,6 +336,8 @@ struct Worker<P> {
     queue_limits: (u64, u32),
     busy_backoff: BusyBackoff,
     recovery: RecoveryBackoff,
+    stderr_tail: OutputTail,
+    exits: u32,
 }
 impl<P: WorkloadProvider> Worker<P> {
     fn publish(&mut self, phase: Phase, reason: Reason) {
@@ -524,6 +544,7 @@ impl<P: WorkloadProvider> Worker<P> {
                 self.lease_valid = true;
                 self.snapshot.stdout_bytes = 0;
                 self.snapshot.stderr_bytes = 0;
+                self.stderr_tail.clear();
                 self.snapshot.process_alive = Some(true);
                 self.snapshot.pid = self.running.as_ref().map(|running| running.process.key().pid);
             }
@@ -548,7 +569,30 @@ impl<P: WorkloadProvider> Worker<P> {
             return;
         };
         let observed = running.process.try_wait();
-        if matches!(observed, Ok(Some(_))) {
+        if let Ok(Some(code)) = &observed {
+            // What it wrote last is still in its pipes: read it before they are closed.
+            for _ in 0..64 {
+                let before = self.snapshot.stderr_bytes;
+                if !drain(
+                    running,
+                    &mut self.snapshot.stdout_bytes,
+                    &mut self.snapshot.stderr_bytes,
+                    &mut self.stderr_tail,
+                ) || self.snapshot.stderr_bytes == before
+                {
+                    break;
+                }
+            }
+            self.exits = self.exits.saturating_add(1);
+            let exit = ProxyExit {
+                code: *code,
+                uptime_ms: u64::try_from(self.started.elapsed().as_millis()).unwrap_or(u64::MAX),
+                at_unix_ms: now(),
+                detail: self.stderr_tail.diagnostic(),
+                count: self.exits,
+            };
+            self.provider.exited(&exit);
+            self.snapshot.last_exit = Some(exit);
             // A process that exits while draining has done what the drain asked for.
             self.drain.clear();
             self.snapshot.process_alive = Some(false);
@@ -625,7 +669,7 @@ impl<P: WorkloadProvider> Worker<P> {
             running,
             &mut self.snapshot.stdout_bytes,
             &mut self.snapshot.stderr_bytes,
-            self.config.output_bytes_per_stream,
+            &mut self.stderr_tail,
         ) {
             self.snapshot.healthy = false;
             self.stop(false);
@@ -758,7 +802,7 @@ impl<P: WorkloadProvider> Worker<P> {
                     &mut running,
                     &mut self.snapshot.stdout_bytes,
                     &mut self.snapshot.stderr_bytes,
-                    self.config.output_bytes_per_stream,
+                    &mut self.stderr_tail,
                 ) {
                     break;
                 }
@@ -1008,32 +1052,41 @@ fn resource_limit(
             applied: limit,
         })
     };
-    exceeded(
-        ResourceLimitKind::Processes,
-        u64::from(sample.active_processes),
-        u64::from(applied.max_processes()),
-    )
-    .or_else(|| {
+    // An advisory budget is a share of the ledger, not a quota: every session's model
+    // traffic goes through the proxy, so its memory or process count never stops it.
+    let quota = || {
         exceeded(
-            ResourceLimitKind::JobCommit,
-            sample.observed_private_commit_bytes,
-            applied.job_commit_bytes(),
+            ResourceLimitKind::Processes,
+            u64::from(sample.active_processes),
+            u64::from(applied.max_processes()),
         )
-    })
-    .or_else(|| {
-        sample
-            .processes
-            .iter()
-            .find_map(|process| match process.counters {
-                Measurement::Available(counters) => exceeded(
-                    ResourceLimitKind::ProcessCommit,
-                    counters.private_commit_bytes,
-                    applied.process_commit_bytes(),
-                ),
-                Measurement::Unavailable(_) => None,
-            })
-    })
-    .or_else(|| {
+        .or_else(|| {
+            exceeded(
+                ResourceLimitKind::JobCommit,
+                sample.observed_private_commit_bytes,
+                applied.job_commit_bytes(),
+            )
+        })
+        .or_else(|| {
+            sample
+                .processes
+                .iter()
+                .find_map(|process| match process.counters {
+                    Measurement::Available(counters) => exceeded(
+                        ResourceLimitKind::ProcessCommit,
+                        counters.private_commit_bytes,
+                        applied.process_commit_bytes(),
+                    ),
+                    Measurement::Unavailable(_) => None,
+                })
+        })
+    };
+    let quota = if applied.limits_enforced() {
+        quota()
+    } else {
+        None
+    };
+    quota.or_else(|| {
         exceeded(
             ResourceLimitKind::QueueBytes,
             queues.current_bytes,
@@ -1054,15 +1107,25 @@ fn now() -> Option<i64> {
         .ok()
         .and_then(|value| i64::try_from(value.as_millis()).ok())
 }
-fn drain(running: &mut SpawnedProcess, stdout: &mut u64, stderr: &mut u64, limit: u64) -> bool {
+fn drain(
+    running: &mut SpawnedProcess,
+    stdout: &mut u64,
+    stderr: &mut u64,
+    tail: &mut OutputTail,
+) -> bool {
     let Ok(_credit) = running.process.queue_credits().acquire(8192, 2) else {
         return false;
     };
-    drain_pipe(&mut running.stdout, stdout, limit) && drain_pipe(&mut running.stderr, stderr, limit)
+    drain_pipe(&mut running.stdout, stdout, None)
+        && drain_pipe(&mut running.stderr, stderr, Some(tail))
 }
-fn drain_pipe(pipe: &mut File, total: &mut u64, limit: u64) -> bool {
-    let mut buffer = [0; 4096];
-    for _ in 0..4 {
+/// Reads what is waiting and discards it, keeping only the end of stderr. The totals are
+/// counters, not a ceiling: the proxy copies its log to stderr for as long as it lives, and
+/// a ceiling on the volume written since its start stops a healthy proxy once its log has
+/// grown that far. False only when the pipe itself fails.
+fn drain_pipe(pipe: &mut File, total: &mut u64, mut tail: Option<&mut OutputTail>) -> bool {
+    let mut buffer = [0; 16 * 1024];
+    for _ in 0..16 {
         let mut available = 0;
         if unsafe {
             PeekNamedPipe(
@@ -1086,11 +1149,91 @@ fn drain_pipe(pipe: &mut File, total: &mut u64, limit: u64) -> bool {
             return false;
         };
         *total = total.saturating_add(read as u64);
-        if *total > limit {
-            return false;
+        if let Some(tail) = tail.as_deref_mut() {
+            tail.push(&buffer[..read]);
         }
     }
     true
+}
+/// The end of what the proxy wrote to stderr since it started. The proxy copies its own log
+/// there, and that is already in its log file; what explains an exit is what the runtime
+/// added: a refused start, Node's fatal error.
+#[derive(Default)]
+struct OutputTail {
+    bytes: std::collections::VecDeque<u8>,
+    /// Earlier output was dropped: the first line kept may be the end of a longer one.
+    cut: bool,
+}
+impl OutputTail {
+    const LIMIT: usize = 8 * 1024;
+    const DIAGNOSTIC_CHARS: usize = 300;
+    fn clear(&mut self) {
+        self.bytes.clear();
+        self.cut = false;
+    }
+    fn push(&mut self, chunk: &[u8]) {
+        let chunk = if chunk.len() > Self::LIMIT {
+            self.cut = true;
+            &chunk[chunk.len() - Self::LIMIT..]
+        } else {
+            chunk
+        };
+        let excess = (self.bytes.len() + chunk.len()).saturating_sub(Self::LIMIT);
+        if excess > 0 {
+            self.bytes.drain(..excess);
+            self.cut = true;
+        }
+        self.bytes.extend(chunk);
+    }
+    /// One line for the log and the window: the last whole line that words an error, else
+    /// the last thing said. Lines of the proxy's own log and Node's warnings are not candidates.
+    fn diagnostic(&self) -> Option<String> {
+        let bytes: Vec<u8> = self.bytes.iter().copied().collect();
+        let text = String::from_utf8_lossy(&bytes);
+        let said: Vec<&str> = text
+            .lines()
+            .skip(usize::from(self.cut))
+            .filter(|line| {
+                !line.trim().is_empty() && !proxy_log_line(line) && !node_warning_line(line)
+            })
+            .collect();
+        // An indented line continues another one: a stack frame, a field of a printed error.
+        let whole = |line: &&&str| !line.starts_with(char::is_whitespace);
+        let chosen = said
+            .iter()
+            .rev()
+            .filter(whole)
+            .find(|line| {
+                ["FATAL ERROR", "Error:", "failed"]
+                    .iter()
+                    .any(|wording| line.contains(wording))
+            })
+            .or_else(|| said.iter().rev().find(whole))
+            .or_else(|| said.last())?;
+        Some(
+            chosen
+                .trim()
+                .chars()
+                .filter(|character| !character.is_control())
+                .take(Self::DIAGNOSTIC_CHARS)
+                .collect(),
+        )
+    }
+}
+/// `(node:46300) ExperimentalWarning: ...` and the hint Node prints under it: said at every
+/// start, and never why a process ended.
+fn node_warning_line(line: &str) -> bool {
+    (line.starts_with("(node:") && line.contains("Warning:"))
+        || line.starts_with("(Use `node --trace-")
+}
+/// `2026-11-18T11:25:15.481Z [info] ...`: a line of the proxy's own log.
+fn proxy_log_line(line: &str) -> bool {
+    let bytes = line.as_bytes();
+    bytes.len() > 26
+        && bytes[..4].iter().all(u8::is_ascii_digit)
+        && bytes[4] == b'-'
+        && bytes[10] == b'T'
+        && &bytes[23..26] == b"Z ["
 }
 pub(crate) fn connect(port: NonZeroU16, timeout: Duration) -> Option<TcpStream> {
     TcpStream::connect_timeout(&([127, 0, 0, 1], port.get()).into(), timeout).ok()
@@ -1498,6 +1641,7 @@ mod tests {
             resource_limit: None,
             port_held: None,
             health_probe_delay_ms: 250,
+            last_exit: None,
         }
     }
     #[test]
@@ -1636,6 +1780,148 @@ mod tests {
                 .kind,
             ResourceLimitKind::QueueItems
         );
+    }
+    /// Observed on 2026-11-18: a 768 MiB Windows quota on the proxy's process, which Node
+    /// reached in minutes with six sessions, ended every session's connection at once.
+    #[test]
+    fn an_advisory_budget_never_stops_the_proxy_for_memory_or_process_count() {
+        use crate::resources::sampling::{ProcessCounters, ProcessKey, ProcessSample};
+        let advisory = JobBudget::new(100, 60, 8, 2000)
+            .unwrap()
+            .with_advisory_limits();
+        let sample = JobSnapshot {
+            active_processes: 13,
+            total_processes: 13,
+            total_terminated_processes: 0,
+            cpu_time_100ns: 0,
+            peak_job_commit_bytes: 1_000_000,
+            observed_private_commit_bytes: 1_000_000,
+            observed_resident_bytes: 1_000_000,
+            membership_complete: true,
+            members: vec![],
+            processes: vec![ProcessSample {
+                key: ProcessKey {
+                    pid: 1,
+                    created_at_100ns: 1,
+                },
+                counters: Measurement::Available(ProcessCounters {
+                    private_commit_bytes: 1_000_000,
+                    resident_bytes: 1000,
+                    cpu_time_100ns: 0,
+                }),
+            }],
+        };
+        let mut queue = QueueStatus {
+            closed: false,
+            current_bytes: 0,
+            current_items: 0,
+            peak_bytes: 0,
+            peak_items: 0,
+            refusals: 0,
+        };
+        assert_eq!(resource_limit(&sample, advisory, queue, (9, 4)), None);
+        // The supervisor's own reader queue is still bounded.
+        queue.current_bytes = 10;
+        assert_eq!(
+            resource_limit(&sample, advisory, queue, (9, 4))
+                .unwrap()
+                .kind,
+            ResourceLimitKind::QueueBytes
+        );
+    }
+    /// The proxy copies its log to stderr: a long-lived proxy writes without end, and the
+    /// volume it has written since it started is no reason to stop it.
+    #[test]
+    fn output_is_read_without_a_lifetime_ceiling_and_its_last_lines_are_kept() {
+        let (reader, mut writer) = std::io::pipe().unwrap();
+        let mut pipe = File::from(std::os::windows::io::OwnedHandle::from(reader));
+        let line = b"2026-11-18T11:16:31.083Z [debug] [v=0.1.207] [conn#4884] tcp closed\n";
+        let lines = 3000;
+        let feeder = thread::spawn(move || {
+            for _ in 0..lines {
+                writer.write_all(line).unwrap();
+            }
+            writer
+                .write_all(b"bili: failed to start: Error: EBUSY: resource busy or locked\n")
+                .unwrap();
+        });
+        let (mut total, mut tail) = (0, OutputTail::default());
+        let expected = (lines * line.len() + 61) as u64;
+        let until = Instant::now() + Duration::from_secs(20);
+        while total < expected && Instant::now() < until {
+            assert!(drain_pipe(&mut pipe, &mut total, Some(&mut tail)));
+        }
+        feeder.join().unwrap();
+        assert_eq!(total, expected);
+        // A closed pipe is the child's exit, not a failure of the reader.
+        assert!(drain_pipe(&mut pipe, &mut total, Some(&mut tail)));
+        assert!(tail.bytes.len() <= OutputTail::LIMIT);
+        assert_eq!(
+            tail.diagnostic().as_deref(),
+            Some("bili: failed to start: Error: EBUSY: resource busy or locked")
+        );
+    }
+    #[test]
+    fn the_exit_diagnostic_is_what_the_runtime_said_not_the_proxys_own_log() {
+        let said = |text: &str| {
+            let mut tail = OutputTail::default();
+            tail.push(text.as_bytes());
+            tail.diagnostic()
+        };
+        // The refused start of 2026-11-18, as Node wrote it.
+        assert_eq!(
+            said(concat!(
+                "2026-11-18T11:25:15.481Z [info] [v=0.1.207] [persist] enabled\n",
+                "(node:46300) ExperimentalWarning: SQLite is an experimental feature\n",
+                "2026-11-18T11:25:15.509Z [warn] [v=0.1.207] os-store merge skipped (win32): Error: spawnSync powershell ENOENT\n",
+                "bili: failed to start: Error: EBUSY: resource busy or locked, open 'D:\\data\\ca\\combined-ca.pem'\n",
+                "    at Object.openSync (node:fs:560:18)\n",
+                "    at Object.writeFileSync (node:fs:2427:35) {\n",
+                "  errno: -4082,\n  code: 'EBUSY',\n  syscall: 'open',\n}\n",
+            ))
+            .as_deref(),
+            Some(
+                "bili: failed to start: Error: EBUSY: resource busy or locked, open 'D:\\data\\ca\\combined-ca.pem'"
+            )
+        );
+        // Node out of memory.
+        assert_eq!(
+            said(concat!(
+                "<--- Last few GCs --->\n\n",
+                "[4242:0000] 91234 ms: Mark-Compact 760.1 (771.2) -> 759.8 (771.2) MB\n\n",
+                "FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory\n",
+                "----- Native stack trace -----\n 1: 00007FF6 node::SetCppgcReference\n",
+            ))
+            .as_deref(),
+            Some("FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory")
+        );
+        // Nothing but the proxy's own log lines: they are in its log file already.
+        assert_eq!(
+            said("2026-11-18T11:16:31.083Z [debug] [v=0.1.207] [conn#4884] tcp closed\n"),
+            None
+        );
+        // Killed from outside (2026-11-18, test copy): Node had only warned at its start.
+        // A warning is not why the process ended.
+        assert_eq!(
+            said(concat!(
+                "(node:10932) ExperimentalWarning: SQLite is an experimental feature and might change at any time\n",
+                "(Use `node --trace-warnings ...` to show where the warning was created)\n",
+                "2026-11-18T12:02:41.227Z [info] [v=0.1.207] acp-proxy v0.1.207 listening\n",
+            )),
+            None
+        );
+        // No error wording: the last thing the runtime said. Control characters never pass.
+        assert_eq!(
+            said("Node.js v24.14.1\r\nabnormal\x1b[31m end\n").as_deref(),
+            Some("abnormal[31m end")
+        );
+        assert_eq!(said(&"x".repeat(4000)).map(|text| text.chars().count()), Some(300));
+        // Only the end of a long output is kept, and a cut line is not mistaken for a whole one.
+        let mut tail = OutputTail::default();
+        tail.push("Error: early\n".as_bytes());
+        tail.push(&vec![b'a'; OutputTail::LIMIT]);
+        tail.push(b"\nError: late\n");
+        assert_eq!(tail.diagnostic().as_deref(), Some("Error: late"));
     }
     #[test]
     fn slow_drip_body_cannot_outlive_the_deadline() {

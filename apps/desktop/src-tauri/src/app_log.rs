@@ -2,7 +2,8 @@
 //! why an open, a Resume or the saved layout failed, and how long the start steps took, so a
 //! refusal can still be explained after its notice is gone. Each line is bounded and
 //! control-free and holds fixed sentences, codes and durations: never a transcript, a prompt,
-//! a terminal's text or a secret.
+//! a terminal's text or a secret. The one line taken from a child is what the model proxy's
+//! runtime said when its process ended (`sidecar::ExitLog`, ADR-0030).
 use std::{
     fs::{self, OpenOptions},
     io::Write,

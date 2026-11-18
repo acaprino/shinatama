@@ -37,8 +37,6 @@ const TOKEN_CAP: usize = 150_000;
 const BYTES_PER_TOKEN: usize = 4;
 /// A tool result goes into every third turn.
 const TOOL_EVERY: usize = 3;
-/// The per-stream output cap the product's owner enforces on the sidecar (64 MiB).
-const OUTPUT_LIMIT: u64 = 64 * 1024 * 1024;
 const PERIOD: Duration = Duration::from_millis(250);
 const DEFAULT_SECONDS: u64 = 3600;
 /// What a `CONNECT` the sidecar did not answer with 200 is called.
@@ -467,7 +465,7 @@ fn result_path() -> PathBuf {
 fn five_instances_for_one_hour_refuse_no_connection() {
     let seconds = soak_seconds();
     let stream_ms = read_stream_ms();
-    let sidecar = Running::start_with_output_limit(OUTPUT_LIMIT).expect("start the pinned sidecar");
+    let sidecar = Running::start().expect("start the pinned sidecar");
     let origin = Origin::start_unrecorded(&sidecar, stream_ms).expect("start the synthetic origin");
     assert!(
         sidecar.health().expect("health")["pid"].is_u64(),

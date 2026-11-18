@@ -8,7 +8,11 @@ export type ProxyStatus = {
   agentSessionsKnown?: boolean;
   /** The values read from the running process that differ from the baseline. */
   configDifferences?: ConfigDifference[];
+  /** How the proxy process last ended by itself; kept after it recovers. */
+  lastExit?: ProxyExit;
 };
+/** `detail` is what the runtime last said outside the proxy's own log, when it said anything. */
+export type ProxyExit = { code: number; uptimeMs: number; atUnixMs: number | null; detail: string | null; count: number };
 export type ConfigDifference = { setting: string; read: string; baseline: string };
 
 const LABELS: Record<string, string> = {
@@ -21,6 +25,7 @@ const DOWN = ['stopped', 'failed', 'retired', 'unavailable'];
 const MESSAGE_LIMIT = 400;
 const DIFFERENCE_LIMIT = 16;
 const DIFFERENCE_TEXT_LIMIT = 80;
+const EXIT_DETAIL_LIMIT = 300;
 const isCount = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value >= 0;
 
 function parseDifferences(value: unknown): ConfigDifference[] | null {
@@ -36,6 +41,18 @@ function parseDifferences(value: unknown): ConfigDifference[] | null {
   return out;
 }
 
+/** `undefined` for no exit (absent or null), `null` for a malformed one. */
+function parseExit(value: unknown): ProxyExit | undefined | null {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'object' || Array.isArray(value)) return null;
+  const { code, uptimeMs, atUnixMs, detail, count } = value as Record<string, unknown>;
+  if (!isCount(code) || !isCount(uptimeMs) || !isCount(count) || count === 0) return null;
+  if (!(atUnixMs === null || (typeof atUnixMs === 'number' && Number.isFinite(atUnixMs)))) return null;
+  // One line: the backend never sends a control character, so one here is not its reply.
+  if (!(detail === null || (typeof detail === 'string' && detail.length <= EXIT_DETAIL_LIMIT && !/[\u0000-\u001f\u007f]/.test(detail)))) return null;
+  return { code, uptimeMs, atUnixMs, detail: detail === '' ? null : detail, count };
+}
+
 /** The accepted shape of a status reply, or null: a reply is never half-trusted. */
 export function parseStatus(value: unknown): ProxyStatus | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -49,6 +66,8 @@ export function parseStatus(value: unknown): ProxyStatus | null {
   if (raw.agentSessionsKnown !== undefined && typeof raw.agentSessionsKnown !== 'boolean') return null;
   const differences = raw.configDifferences === undefined ? undefined : parseDifferences(raw.configDifferences);
   if (differences === null) return null;
+  const lastExit = parseExit(raw.lastExit);
+  if (lastExit === null) return null;
   const status: ProxyStatus = {
     phase: raw.phase, healthy: raw.healthy, message: raw.message, inFlight: raw.inFlight, agentSessions: raw.agentSessions,
     drainDeadlineUnixMs: raw.drainDeadlineUnixMs, configDrift: raw.configDrift,
@@ -56,6 +75,7 @@ export function parseStatus(value: unknown): ProxyStatus | null {
   if (raw.refused !== undefined) status.refused = raw.refused;
   if (raw.agentSessionsKnown !== undefined) status.agentSessionsKnown = raw.agentSessionsKnown;
   if (differences !== undefined) status.configDifferences = differences;
+  if (lastExit !== undefined) status.lastExit = lastExit;
   return status;
 }
 
@@ -105,6 +125,25 @@ export function trafficLine(status: ProxyStatus): string {
   const n = status.inFlight;
   if (n === null) return 'Traffic not observed';
   return n === 0 ? 'No request running' : `${n} request${n === 1 ? '' : 's'} running`;
+}
+
+function lasted(ms: number): string {
+  if (ms < 1000) return 'less than a second';
+  if (ms < 60_000) return `${Math.floor(ms / 1000)} s`;
+  const minutes = Math.floor(ms / 60_000);
+  return minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
+}
+const wallClock = (unixMs: number) => new Date(unixMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+/** Why the proxy last went down, in the proxy's own words when it gave any. Shown while it
+ * recovers and after: "it went down again" is otherwise a fact with no cause. */
+export function exitLine(status: ProxyStatus, clock: (unixMs: number) => string = wallClock): string | null {
+  const exit = status.lastExit;
+  if (!exit) return null;
+  const when = exit.atUnixMs === null ? '' : ` at ${clock(exit.atUnixMs)}`;
+  const said = exit.detail === null ? 'It reported no error.' : `It said: ${exit.detail}`;
+  const repeated = exit.count > 1 ? ` Interruptions since Shinatama started: ${exit.count}.` : '';
+  return `Last interruption${when}: the proxy process ended with code ${exit.code} after ${lasted(exit.uptimeMs)}. ${said}${repeated}`;
 }
 
 const DRIFT_SHOWN = 4;
