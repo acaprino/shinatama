@@ -261,9 +261,7 @@ fn launch_error(issue: OpenCodeLaunchError) -> DriverError {
         OpenCodeLaunchError::InvalidProject => {
             DriverError::Failed("The selected project cannot be used for OpenCode.")
         }
-        OpenCodeLaunchError::SidecarUnavailable => {
-            DriverError::Failed("The local session service changed during OpenCode preparation.")
-        }
+        OpenCodeLaunchError::SidecarUnavailable => DriverError::Failed(crate::sidecar::NOT_BACKING),
         OpenCodeLaunchError::InvalidCa => DriverError::Failed(
             "The local session service certificate could not be pinned for OpenCode.",
         ),

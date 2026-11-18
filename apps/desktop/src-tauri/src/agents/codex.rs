@@ -338,9 +338,7 @@ fn launch_error(issue: CodexLaunchError) -> DriverError {
         CodexLaunchError::InvalidProject => {
             DriverError::Failed("The selected project cannot be used for Codex.")
         }
-        CodexLaunchError::SidecarUnavailable => {
-            DriverError::Failed("The local session service changed during Codex preparation.")
-        }
+        CodexLaunchError::SidecarUnavailable => DriverError::Failed(crate::sidecar::NOT_BACKING),
         CodexLaunchError::InvalidCa => DriverError::Failed(
             "The local session service certificate could not be pinned for Codex.",
         ),

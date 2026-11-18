@@ -257,9 +257,7 @@ fn launch_error(issue: PiLaunchError) -> DriverError {
         PiLaunchError::InvalidProject => {
             DriverError::Failed("The selected project cannot be used for Pi.")
         }
-        PiLaunchError::SidecarUnavailable => {
-            DriverError::Failed("The local session service changed during Pi preparation.")
-        }
+        PiLaunchError::SidecarUnavailable => DriverError::Failed(crate::sidecar::NOT_BACKING),
         PiLaunchError::InvalidCa => {
             DriverError::Failed("The local session service certificate could not be pinned for Pi.")
         }

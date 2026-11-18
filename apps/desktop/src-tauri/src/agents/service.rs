@@ -324,11 +324,9 @@ impl ServiceContext {
                 crate::opening::report(harness, "proxy_resources");
             }
             if changed && matches!(status.phase, "failed" | "retired") {
-                return Err(DriverError::Failed(
-                    status
-                        .message
-                        .unwrap_or("The local session service could not be prepared."),
-                ));
+                return Err(DriverError::Failed(Box::leak(
+                    self.sidecar.refusal().into_boxed_str(),
+                )));
             }
             if status.phase == "draining" {
                 return Err(DriverError::Failed(sidecar::STOPPING));
@@ -337,9 +335,13 @@ impl ServiceContext {
                 return Err(if deferred {
                     DriverError::AdmissionDeferred
                 } else {
-                    DriverError::Failed(
-                        "The model proxy did not become ready within 2 minutes. Its state is in the Model proxy panel; try Open again.",
-                    )
+                    DriverError::Failed(Box::leak(
+                        format!(
+                            "{} It did not become ready within 2 minutes; try Open again.",
+                            self.sidecar.refusal()
+                        )
+                        .into_boxed_str(),
+                    ))
                 });
             }
             std::thread::sleep(Duration::from_millis(100));
@@ -1130,11 +1132,37 @@ impl<D: HarnessDriver> HarnessService for Service<D> {
             facts.last_error = None;
             facts.last_start_failure = None;
         }
-        let result = self.open_impl(host, project, rows, cols, operation, mode, initial_prompt, require_mukade, control_header, workset, model);
+        let result = self
+            .open_impl(host, project, rows, cols, operation, mode, initial_prompt, require_mukade, control_header, workset, model)
+            .map_err(|error| {
+                explain(error, || self.context.sidecar.refusal(), self.context.sidecar.disk_full_line())
+            });
         if let Err(error) = result {
             self.remember(error);
         }
         result
+    }
+}
+/// A refusal that only says the proxy did not back the launch becomes the proxy's actual state,
+/// the same sentence for every harness; and while the data disk is full, any other failure also
+/// names it, since whatever step failed, the full disk is the cause the user can act on. Other
+/// kinds of error keep their kind: callers decide on them.
+pub(super) fn explain(
+    error: DriverError,
+    proxy_refusal: impl FnOnce() -> String,
+    disk_full: Option<String>,
+) -> DriverError {
+    match error {
+        DriverError::Failed(message)
+            if message == sidecar::NOT_BACKING || message == sidecar::NOT_READY =>
+        {
+            DriverError::Failed(Box::leak(proxy_refusal().into_boxed_str()))
+        }
+        DriverError::Failed(message) => match disk_full {
+            Some(line) => DriverError::Failed(Box::leak(format!("{message} {line}").into_boxed_str())),
+            None => error,
+        },
+        error => error,
     }
 }
 /// A New open refused before any process could start leaves no session behind (2026-11-18:

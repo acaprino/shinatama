@@ -310,9 +310,7 @@ fn launch_error(error: ClaudeLaunchError) -> DriverError {
         ClaudeLaunchError::InvalidProject => {
             DriverError::Failed("The selected project folder cannot be used for Claude.")
         }
-        ClaudeLaunchError::SidecarUnavailable => DriverError::Failed(
-            "The Shinatama network sidecar is not ready. Try Open again in a moment.",
-        ),
+        ClaudeLaunchError::SidecarUnavailable => DriverError::Failed(crate::sidecar::NOT_BACKING),
         ClaudeLaunchError::InvalidCa => {
             DriverError::Failed("The sidecar certificate file could not be verified.")
         }
