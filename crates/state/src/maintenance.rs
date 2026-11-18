@@ -29,6 +29,9 @@ const QUICK_CHECK_INTERVAL_MILLIS: i64 = 7 * 24 * 60 * 60 * 1000;
 const OPTIMIZE_INTERVAL_MILLIS: i64 = 24 * 60 * 60 * 1000;
 const WRITE_RESERVE_BYTES: u64 = 1024 * 1024;
 const MIN_FREE_BYTES: u64 = 64 * 1024 * 1024;
+/// Below this much free space a typed write is refused: the minimum margin plus one write.
+/// The desktop names a disk under it as full.
+pub const SAVE_FLOOR_BYTES: u64 = MIN_FREE_BYTES + WRITE_RESERVE_BYTES;
 const SOFT_ADMISSION_TIME: Duration = Duration::from_millis(500);
 
 /// Shared pre-transaction admission for typed writers. This conservative check
@@ -41,7 +44,7 @@ pub(crate) fn admit_write(location: &StorageLocation) -> Result<()> {
             "il database e i suoi file di lavoro hanno raggiunto il budget di spazio",
         ));
     }
-    if free_bytes(location.directory())? < MIN_FREE_BYTES.saturating_add(WRITE_RESERVE_BYTES) {
+    if free_bytes(location.directory())? < SAVE_FLOOR_BYTES {
         return Err(DatabaseError::CapacityBudget(
             "lo spazio libero è inferiore al margine minimo per un salvataggio",
         ));
@@ -49,8 +52,9 @@ pub(crate) fn admit_write(location: &StorageLocation) -> Result<()> {
     Ok(())
 }
 
+/// Bytes the current user may still write on the volume that holds `directory`.
 #[cfg(windows)]
-fn free_bytes(directory: &std::path::Path) -> Result<u64> {
+pub fn free_bytes(directory: &std::path::Path) -> Result<u64> {
     use std::os::windows::ffi::OsStrExt;
     use windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
     let path = directory
@@ -73,7 +77,7 @@ fn free_bytes(directory: &std::path::Path) -> Result<u64> {
     Ok(available)
 }
 #[cfg(not(windows))]
-fn free_bytes(_directory: &std::path::Path) -> Result<u64> {
+pub fn free_bytes(_directory: &std::path::Path) -> Result<u64> {
     Err(DatabaseError::UnsupportedConfiguration)
 }
 

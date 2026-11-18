@@ -10,6 +10,7 @@ mod browser_agent;
 mod collaboration;
 mod attention;
 mod attention_signals;
+mod disk_space;
 mod files;
 mod instances;
 #[cfg(windows)]
