@@ -79,6 +79,8 @@ pub enum Reason {
     ListenerUnavailable,
     PortProbeUnavailable,
     DrainTimedOut,
+    /// The supervisor's own loop panicked; `Snapshot::fault` says with what.
+    SupervisorFault,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -151,6 +153,9 @@ pub struct Snapshot {
     pub health_probe_delay_ms: u64,
     /// Kept after the proxy recovers: it says why the last interruption happened.
     pub last_exit: Option<ProxyExit>,
+    /// What stopped the supervisor's own loop (a panic), one bounded line; cleared by the next
+    /// start or Retry.
+    pub fault: Option<String>,
 }
 impl Phase {
     /// Phases in which a healthy proxy backs a new launch. Busy is a healthy
@@ -172,6 +177,38 @@ impl Snapshot {
                 .observed_at_unix_ms
                 .is_some_and(|at| at <= now_unix_ms && now_unix_ms - at <= 10_000)
     }
+}
+/// Longest panic text a snapshot carries.
+const FAULT_CHARS: usize = 300;
+/// A panic payload as one line: its text when it has one (control characters become spaces,
+/// runs of spaces collapse), at most [`FAULT_CHARS`] characters.
+pub(crate) fn panic_text(payload: &(dyn std::any::Any + Send)) -> String {
+    let text = payload
+        .downcast_ref::<&str>()
+        .copied()
+        .or_else(|| payload.downcast_ref::<String>().map(String::as_str));
+    let Some(text) = text else {
+        return "unknown panic payload".to_owned();
+    };
+    let spaced: String = text
+        .chars()
+        .map(|character| if character.is_control() { ' ' } else { character })
+        .collect();
+    spaced
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+        .take(FAULT_CHARS)
+        .collect()
+}
+/// The state a panic in the supervisor's loop leaves: Failed, unhealthy, and why. Start and
+/// Retry recovery act on a Failed owner, so the panel keeps an action that works.
+fn fault_snapshot(snapshot: &mut Snapshot, text: String) {
+    snapshot.phase = Phase::Failed;
+    snapshot.reason = Reason::SupervisorFault;
+    snapshot.healthy = false;
+    snapshot.fault = Some(text);
 }
 pub struct SupervisorConfig {
     pub port: NonZeroU16,
@@ -247,6 +284,7 @@ impl SidecarSupervisor {
             port_held: None,
             health_probe_delay_ms: config.health_period.as_millis() as u64,
             last_exit: None,
+            fault: None,
         };
         let status = Arc::new(Mutex::new(snapshot.clone()));
         let shutdown = Arc::new(AtomicBool::new(false));
@@ -275,6 +313,7 @@ impl SidecarSupervisor {
             recovery: RecoveryBackoff::default(),
             stderr_tail: OutputTail::default(),
             exits: 0,
+            faulted: false,
         };
         if thread::Builder::new()
             .name("shinatama-sidecar-owner".into())
@@ -338,6 +377,8 @@ struct Worker<P> {
     recovery: RecoveryBackoff,
     stderr_tail: OutputTail,
     exits: u32,
+    /// A panic stopped a turn: no recovery or health work until a command arrives.
+    faulted: bool,
 }
 impl<P: WorkloadProvider> Worker<P> {
     fn publish(&mut self, phase: Phase, reason: Reason) {
@@ -360,8 +401,30 @@ impl<P: WorkloadProvider> Worker<P> {
             *status = self.snapshot.clone();
         }
     }
+    /// Runs [`Worker::turn`] until the worker ends. A panic inside a turn used to end this thread
+    /// silently and freeze its last snapshot, leaving the panel with no working button; now it is
+    /// a Failed owner that says why, and Start or Retry recovery act on it.
     fn run(mut self) {
         loop {
+            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.turn())) {
+                Ok(true) => {}
+                Ok(false) => return,
+                Err(payload) => self.fault(panic_text(&*payload)),
+            }
+        }
+    }
+    /// After a panic: Failed with its text, no recovery scheduled, and no further work until a
+    /// command arrives, so a panic that repeats on every turn cannot spin or flood the log.
+    fn fault(&mut self, text: String) {
+        self.requested_start = false;
+        self.recovery.cancel();
+        self.faulted = true;
+        fault_snapshot(&mut self.snapshot, text);
+        self.publish(Phase::Failed, Reason::SupervisorFault);
+    }
+    /// One iteration of the owner loop; false once the worker has ended.
+    fn turn(&mut self) -> bool {
+        {
             if self.shutdown.load(Ordering::Acquire) {
                 self.stop(true);
                 if self.retained.is_some() {
@@ -373,9 +436,13 @@ impl<P: WorkloadProvider> Worker<P> {
                     }
                 }
                 CLAIMED.store(false, Ordering::Release);
-                return;
+                return false;
             }
-            match self.receiver.recv_timeout(self.config.poll_period) {
+            let received = self.receiver.recv_timeout(self.config.poll_period);
+            if matches!(&received, Ok(command) if !matches!(command, Command::Activity(_))) {
+                self.faulted = false;
+            }
+            match received {
                 Ok(Command::Stop) => {
                     self.requested_start = false;
                     self.recovery.cancel();
@@ -397,6 +464,7 @@ impl<P: WorkloadProvider> Worker<P> {
                     }
                 }
                 Ok(Command::Retry) => {
+                    self.snapshot.fault = None;
                     if self.retained.is_some()
                         || (self.running.is_none() && self.snapshot.phase == Phase::Failed)
                     {
@@ -416,11 +484,15 @@ impl<P: WorkloadProvider> Worker<P> {
             if self.stop_requested.swap(false, Ordering::AcqRel) {
                 self.requested_start = false;
                 self.recovery.cancel();
+                self.faulted = false;
                 for _ in 0..4 {
                     let _ = self.receiver.try_recv();
                 }
                 self.stop(true);
-                continue;
+                return true;
+            }
+            if self.faulted {
+                return true;
             }
             if self.requested_start && self.running.is_none() {
                 if self.recovery.ready(Instant::now()) {
@@ -441,6 +513,7 @@ impl<P: WorkloadProvider> Worker<P> {
             self.tick();
             self.drain_step();
         }
+        true
     }
     fn drain_requested(&mut self) {
         let began = Instant::now();
@@ -492,6 +565,7 @@ impl<P: WorkloadProvider> Worker<P> {
         }
     }
     fn launch(&mut self) {
+        self.snapshot.fault = None;
         self.publish(Phase::Starting, Reason::None);
         self.snapshot.healthy = false;
         self.snapshot.process_alive = None;
@@ -1624,6 +1698,28 @@ mod tests {
         assert!(recovery.ready(now + Duration::from_secs(122)));
     }
 
+    #[test]
+    fn a_panic_payload_becomes_one_bounded_line() {
+        assert_eq!(panic_text(&"boom"), "boom");
+        assert_eq!(panic_text(&String::from("disk\nfull\u{7}")), "disk full");
+        assert_eq!(panic_text(&42_u8), "unknown panic payload");
+        assert_eq!(panic_text(&"x".repeat(900)).chars().count(), 300);
+    }
+    #[test]
+    fn a_fault_is_a_failed_snapshot_that_says_why() {
+        let mut snapshot = launch_snapshot(Phase::Recovering, true, 1);
+        fault_snapshot(&mut snapshot, "boom".into());
+        assert_eq!(
+            (snapshot.phase, snapshot.reason, snapshot.healthy),
+            (Phase::Failed, Reason::SupervisorFault, false)
+        );
+        assert_eq!(snapshot.fault.as_deref(), Some("boom"));
+        assert_eq!(
+            serde_json::to_value(Reason::SupervisorFault).unwrap(),
+            "supervisor_fault"
+        );
+    }
+
     fn launch_snapshot(phase: Phase, healthy: bool, now: i64) -> Snapshot {
         Snapshot {
             phase,
@@ -1642,6 +1738,7 @@ mod tests {
             port_held: None,
             health_probe_delay_ms: 250,
             last_exit: None,
+            fault: None,
         }
     }
     #[test]
