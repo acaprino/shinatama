@@ -137,3 +137,21 @@ test('turning threads off stops their running sessions, after asking only when o
   assert.deepEqual(threadsOff([all[1]], ['w_a']), { stop: [], leave: [all[1]], ask: false });
   assert.deepEqual(threadsOff(all, ['w_c']), { stop: [], leave: [], ask: false });
 });
+
+// 2026-11-18: a closed session offered "Reopen", which only put back a tab that does not run; Resume was a second step.
+import { closedSessionAction } from '../src/session-tabs.ts';
+test('a closed session that its agent can resume offers Resume; another one offers Reopen', () => {
+  const rows = [summary('t_a', { status: 'archived', harness: 'claude_code', nativeAvailable: true }),
+    summary('t_b', { status: 'archived', harness: 'opencode', nativeAvailable: true }),
+    summary('t_c', { status: 'archived', harness: null, nativeAvailable: null }),
+    summary('t_d', { status: 'archived', harness: 'claude_code', nativeAvailable: false })];
+  const canResume = (harness: string | null) => harness === 'claude_code' || harness === 'codex';
+  const listed = threadSessions(rows, () => 'Claude Code', new Set(), row => row.harness !== null && row.nativeAvailable === true && canResume(row.harness));
+  assert.deepEqual(listed.map(item => item.resumable), [true, false, false, false]);
+  assert.equal(closedSessionAction(listed[0]).label, 'Resume');
+  assert.match(closedSessionAction(listed[0]).title, /resumes/);
+  assert.equal(closedSessionAction(listed[1]).label, 'Reopen');
+  assert.match(closedSessionAction(listed[1]).title, /nothing starts/);
+  // A host that does not say whether a session can resume keeps the old Reopen.
+  assert.equal(closedSessionAction(threadSessions(rows, () => 'Codex', new Set())[0]).label, 'Reopen');
+});

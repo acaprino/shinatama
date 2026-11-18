@@ -3,7 +3,7 @@
 import './thread-sidebar.css';
 import './workset-sidebar.css';
 import type { CurrentThreadProject, ThreadSidebarState } from './thread-sidebar.ts';
-import { sessionStateText, type ThreadSession } from './session-tabs.ts';
+import { closedSessionAction, sessionStateText, type ThreadSession } from './session-tabs.ts';
 
 export type WorksetLead = { threadId: string; title: string | null; harness: string | null };
 export type WorksetSummary = {
@@ -53,7 +53,7 @@ export type WorksetSidebarOptions = {
   onProjectsRemoved?: (projectIds: readonly string[]) => void;
   /** The label of an agent, as the rest of the window shows it. */
   harnessLabel?: (harness: string) => string;
-  /** Puts a closed session back among the tabs; starts nothing. */
+  /** Puts a closed session back among the tabs, and resumes it when its agent can (`ThreadSession.resumable`). */
   onRestore?: (threadId: string) => Promise<void>;
   /** Deletes one session for good: a closed one after a second click, one with nothing saved (Remove) at once. */
   onForgetSession?: (threadId: string) => Promise<void>;
@@ -295,7 +295,8 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     if (!closed.some(session => session.id === forgetting)) forgetting = null;
     closedList.replaceChildren(...closed.map(session => {
       const item = document.createElement('li'); const name = node('span', 'thread-sidebar-closed-name', session.name); name.title = `${session.name} · ${agoText(session.updatedAt)}`;
-      const restore = node('button', '', 'Reopen'); restore.type = 'button'; restore.disabled = busy; restore.dataset.restore = session.id;
+      const action = closedSessionAction(session);
+      const restore = node('button', '', action.label); restore.type = 'button'; restore.disabled = busy; restore.dataset.restore = session.id; restore.title = action.title;
       restore.onclick = () => { void operate('reopened', async () => { await options.onRestore?.(session.id); await loadSessions(); }); };
       const forget = node('button', forgetting === session.id ? 'danger' : '', forgetting === session.id ? 'Sure?' : 'Delete'); forget.type = 'button'; forget.disabled = busy;
       forget.title = 'Delete this session from Shinatama. The agent\'s own session files stay.';
