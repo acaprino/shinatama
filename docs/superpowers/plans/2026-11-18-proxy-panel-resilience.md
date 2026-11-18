@@ -90,7 +90,7 @@ Expected: all pass, including the existing ones.
 
 **Interfaces:**
 - Produces (state): `pub const SAVE_FLOOR_BYTES: u64` (= `MIN_FREE_BYTES + WRITE_RESERVE_BYTES`), `pub fn free_bytes(directory: &Path) -> Result<u64>` (the existing private function, made public; `admit_write` uses the constant).
-- Produces (desktop): `pub(crate) const LOW_BYTES: u64 = 1 << 30`; `#[derive(Clone, Copy, Debug, PartialEq, Eq)] pub(crate) enum DiskLevel { Ok, Low, Full }`; `pub(crate) fn level(free_bytes: u64) -> DiskLevel`; `pub(crate) fn root_of(path: &Path) -> String`; `pub(crate) fn line(root: &str, free_bytes: u64) -> Option<String>`; `pub(crate) struct DiskWatch` with `pub(crate) fn start(directory: PathBuf) -> Arc<Self>`, `pub(crate) fn free_bytes(&self) -> Option<u64>`, `pub(crate) fn root(&self) -> &str`.
+- Produces (desktop): `pub(crate) const LOW_BYTES: u64 = 1 << 30`; `#[derive(Clone, Copy, Debug, PartialEq, Eq)] pub(crate) enum DiskLevel { Ok, Low, Full }`; `pub(crate) fn level(free_bytes: u64) -> DiskLevel`; `pub(crate) fn root_of(path: &Path) -> String`; `pub(crate) fn line(root: &str, free_bytes: u64) -> Option<String>`; `pub(crate) struct DiskWatch` with `pub(crate) fn start(directory: PathBuf) -> Arc<Self>`, `pub(crate) fn unsampled(directory: PathBuf) -> Self` (no thread; `start` builds on it), `pub(crate) fn free_bytes(&self) -> Option<u64>`, `pub(crate) fn root(&self) -> &str`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -158,6 +158,7 @@ Expected: compile errors, because the names are not defined.
 **Interfaces:**
 - Consumes: Task 1 `Reason::SupervisorFault`, `Snapshot.fault`; Task 2 `DiskWatch`, `level`, `line`, `DiskLevel`.
 - Produces:
+  - `fn reason_message(phase: Phase, reason: Reason) -> Option<&'static str>` (the status message match, moved out)
   - `pub const NOT_BACKING: &str = "The model proxy stopped backing new sessions."`
   - `pub const NOT_READY: &str = "Start the Model proxy and wait until it is ready."`, which `qualified_owner` returns.
   - `pub(crate) const STALL_AFTER_MS: i64 = 15_000`
