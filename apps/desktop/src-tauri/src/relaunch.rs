@@ -9,7 +9,10 @@ const ARG: &str = "--after-exit=";
 /// The process a relaunched Shinatama waits for, read from its arguments.
 pub(crate) fn after_exit_pid(args: impl IntoIterator<Item = String>) -> Option<u32> {
     args.into_iter()
-        .find_map(|arg| arg.strip_prefix(ARG).and_then(|pid| pid.parse::<u32>().ok()))
+        .find_map(|arg| {
+            arg.strip_prefix(ARG)
+                .and_then(|pid| pid.parse::<u32>().ok())
+        })
         .filter(|pid| *pid > 0)
 }
 
@@ -50,7 +53,9 @@ pub(crate) fn spawn_after_exit() -> std::io::Result<()> {
             .creation_flags(flags)
             .spawn()
     };
-    spawn(CREATE_BREAKAWAY_FROM_JOB).or_else(|_| spawn(0)).map(|_| ())
+    spawn(CREATE_BREAKAWAY_FROM_JOB)
+        .or_else(|_| spawn(0))
+        .map(|_| ())
 }
 
 /// The panel's Restart Shinatama: starts the next Shinatama, then the window closes as usual. A

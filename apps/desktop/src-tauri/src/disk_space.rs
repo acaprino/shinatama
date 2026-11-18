@@ -127,7 +127,10 @@ mod tests {
             line("D:", 5 * MIB).as_deref(),
             Some("Disk D: is full (5 MB free): saving fails for the proxy and for Shinatama.")
         );
-        assert_eq!(line("D:", 512 * MIB).as_deref(), Some("Disk D: has 512 MB free."));
+        assert_eq!(
+            line("D:", 512 * MIB).as_deref(),
+            Some("Disk D: has 512 MB free.")
+        );
         assert_eq!(line("D:", 2 * LOW_BYTES), None);
     }
     #[test]
