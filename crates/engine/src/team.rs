@@ -142,8 +142,27 @@ pub struct Issue {
     pub links: Vec<usize>,
 }
 
+/// A control character, a line or paragraph separator, or a format character (zero-width and
+/// bidirectional marks, soft hyphen, tag characters): text that can hide, reorder or break lines
+/// in a message the agents read as coming from the user.
+pub fn is_unsafe_char(c: char) -> bool {
+    c.is_control()
+        || matches!(
+            c,
+            '\u{00ad}'
+                | '\u{061c}'
+                | '\u{180e}'
+                | '\u{200b}'..='\u{200f}'
+                | '\u{2028}'..='\u{202e}'
+                | '\u{2060}'..='\u{206f}'
+                | '\u{feff}'
+                | '\u{fff9}'..='\u{fffb}'
+                | '\u{e0000}'..='\u{e007f}'
+        )
+}
+
 fn has_control(text: &str) -> bool {
-    text.chars().any(char::is_control)
+    text.chars().any(is_unsafe_char)
 }
 
 fn valid_id(id: &str) -> bool {
@@ -162,6 +181,7 @@ pub fn validate(f: &Formation) -> Result<(), String> {
         return Err(format!("A team holds at most {MAX_LINKS} relations."));
     }
     let mut ids = BTreeSet::new();
+    let mut sessions = BTreeSet::new();
     for agent in &f.agents {
         if !valid_id(&agent.id) {
             return Err("An agent has an invalid id.".into());
@@ -181,14 +201,27 @@ pub fn validate(f: &Formation) -> Result<(), String> {
         if agent.notes.len() > MAX_NOTES {
             return Err(format!("An agent's notes take at most {MAX_NOTES} bytes."));
         }
-        if agent.notes.chars().any(|c| c.is_control() && c != '\n' && c != '\t') {
+        if agent.notes.chars().any(|c| is_unsafe_char(c) && c != '\n' && c != '\t') {
             return Err("An agent's notes cannot hold control characters.".into());
         }
         if agent.notes.contains('@') {
             return Err("An agent's notes cannot hold @.".into());
         }
-        if agent.session.as_deref().is_some_and(str::is_empty) {
+        if agent.session.as_deref().is_some_and(|session| session.is_empty() || has_control(session)) {
             return Err("An agent's session cannot be empty.".into());
+        }
+        if let Some(session) = agent.session.as_deref()
+            && !sessions.insert(session)
+        {
+            return Err("Two agents cannot hold the same session.".into());
+        }
+        if let Some(model) = &agent.model
+            && [Some(model.program.as_str()), model.connection.as_deref(), model.model.as_deref()]
+                .into_iter()
+                .flatten()
+                .any(has_control)
+        {
+            return Err("An agent's model cannot hold control characters.".into());
         }
     }
     let mut pairs = BTreeSet::new();
@@ -556,13 +589,93 @@ fn hand_out(f: &Formation, agent: &str) -> Option<String> {
     if receivers.len() < 2 {
         return None;
     }
-    let share = f.agents.iter().find(|a| a.id == agent)?.share;
-    let how = match share {
+    Some(format!("You give work to {}: {}", names(f, &receivers), share_how(f, agent)?))
+}
+
+/// The same, for a message whose sentences are grouped: the receivers are already named there.
+fn hand_out_short(f: &Formation, agent: &str) -> Option<String> {
+    let receivers = f.links.iter().filter(|l| l.kind == Kind::Work && l.from == agent).count();
+    (receivers >= 2).then_some(())?;
+    Some(format!("You hand that work out: {}", share_how(f, agent)?))
+}
+
+fn share_how(f: &Formation, agent: &str) -> Option<&'static str> {
+    Some(match f.agents.iter().find(|a| a.id == agent)?.share {
         Share::Split => "split it among them, a different part to each, and put their results together.",
         Share::Same => "give the same task to each, then compare their results.",
         Share::Free => "give each task to whichever of them is free.",
-    };
-    Some(format!("You give work to {}: {how}", names(f, &receivers)))
+    })
+}
+
+const LEFT_OUT_POINTER: &str =
+    "\nSome names are left out above: the `team` object of shinatama_thread_peers names every agent and relation.";
+
+/// `names` of at most `max` of the agents (in the order given), then how many were left out;
+/// `true` when some were.
+fn some_names(f: &Formation, ids: &[String], max: usize) -> (String, bool) {
+    if ids.len() <= max {
+        return (names(f, ids), false);
+    }
+    if max == 0 {
+        return (format!("{} agents", ids.len()), true);
+    }
+    let shown: Vec<&str> = ids[..max].iter().map(|id| name_of(f, id)).collect();
+    (format!("{} and {} more", shown.join(", "), ids.len() - max), true)
+}
+
+/// The agent's own relations, one sentence for each kind of relation and side (the same meaning
+/// as `told`, without the user's words), naming at most `max_names` agents in each. `true` when a
+/// name was left out.
+fn grouped_with(f: &Formation, agent: &str, max_names: usize) -> (Vec<String>, bool) {
+    let mut sentences = Vec::new();
+    let mut cut_names = false;
+    let mut keys: Vec<(Kind, Report, bool)> = Vec::new();
+    for l in f.links.iter().filter(|l| l.from == agent || l.to == agent) {
+        let report = if l.kind == Kind::Observes { Report::Done } else { l.report };
+        let key = (l.kind, report, l.from == agent);
+        if !keys.contains(&key) {
+            keys.push(key);
+        }
+    }
+    for (kind, report, giver) in keys {
+        let of_kind: Vec<(usize, &Link)> = f
+            .links
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| {
+                (l.from == agent) == giver
+                    && (l.from == agent || l.to == agent)
+                    && l.kind == kind
+                    && (kind == Kind::Observes || l.report == report)
+            })
+            .collect();
+        if let [(k, _)] = of_kind[..] {
+            sentences.push(told_with(f, k, giver, 0));
+            continue;
+        }
+        let others: Vec<String> = of_kind.iter().map(|(_, l)| if giver { l.to.clone() } else { l.from.clone() }).collect();
+        let (who, left_out) = some_names(f, &others, max_names);
+        cut_names |= left_out;
+        sentences.push(match (kind, report, giver) {
+            (Kind::Work, Report::Done, true) => format!("You give work to {who}; each reports back to you when it is done."),
+            (Kind::Work, Report::Steps, true) => format!("You give work to {who}; each tells you what it is doing at every step."),
+            (Kind::Work, Report::Strict, true) => format!("You give work to {who}; each answers only done or blocked."),
+            (Kind::Work, Report::Done, false) => {
+                format!("You wait for work from {who}, do it, and report back to whichever of them gave it when it is done.")
+            }
+            (Kind::Work, Report::Steps, false) => format!(
+                "You wait for work from {who}, do it, and tell whichever of them gave it what you are doing at every step."
+            ),
+            (Kind::Work, Report::Strict, false) => {
+                format!("You wait for instructions from {who}, execute them, and answer only done or blocked.")
+            }
+            (Kind::Observes, _, true) => format!(
+                "You observe {who}: follow what each does, to explain it to the user when asked. Do not write to them."
+            ),
+            (Kind::Observes, _, false) => format!("{who} observe you and may read what you do."),
+        });
+    }
+    (sentences, cut_names)
 }
 
 /// The most of `text` that fits in `max` bytes, cut at a character and marked.
@@ -636,17 +749,30 @@ pub fn personal(f: &Formation, agent: &str, members: &BTreeMap<String, String>) 
             .map(|(k, l)| told_with(f, k, l.from == agent, max_words))
             .collect()
     };
-    let hand = hand_out(f, agent);
-    let fixed = out.len() + hand.as_ref().map_or(0, |h| h.len() + 1);
-    let size = |own: &[String]| fixed + own.iter().map(|s| s.len() + 3).sum::<usize>();
-    // shortcut: when the agent's own sentences alone pass the limit, the user's words in them
-    // are cut (every sentence keeps its meaning); upgrade by sending a second message.
+    let mut hand = hand_out(f, agent);
+    let mut pointer = "";
+    let size = |own: &[String], hand: &Option<String>, pointer: &str| {
+        out.len() + own.iter().map(|s| s.len() + 3).sum::<usize>() + hand.as_ref().map_or(0, |h| h.len() + 1) + pointer.len()
+    };
+    // The agent's own sentences keep their meaning as they shrink: when they pass the limit, first
+    // the user's words in them are cut, then the sentences of one kind of relation become one
+    // sentence naming the other ends, and only then do the names themselves give way, with the
+    // count of those left out and a pointer to the full `team` object of shinatama_thread_peers.
     let mut own = own_with(usize::MAX);
     for max_words in [96, 72, 48, 24, 0] {
-        if size(&own) <= MESSAGE_LIMIT {
+        if size(&own, &hand, pointer) <= MESSAGE_LIMIT {
             break;
         }
         own = own_with(max_words);
+    }
+    for max_names in [usize::MAX, 12, 8, 6, 4, 3, 2, 1, 0] {
+        if size(&own, &hand, pointer) <= MESSAGE_LIMIT {
+            break;
+        }
+        let (grouped, cut_names) = grouped_with(f, agent, max_names);
+        own = grouped;
+        hand = hand_out_short(f, agent);
+        pointer = if cut_names { LEFT_OUT_POINTER } else { "" };
     }
     if own.is_empty() {
         out.push_str("\nYou have no relation: you work as an equal with everyone.");
@@ -659,6 +785,7 @@ pub fn personal(f: &Formation, agent: &str, members: &BTreeMap<String, String>) 
         out.push('\n');
         out.push_str(&sentence);
     }
+    out.push_str(pointer);
     let left = |out: &str| MESSAGE_LIMIT.saturating_sub(out.len());
     if !me.notes.trim().is_empty() {
         let label = "\nNotes from the user: ";
@@ -1270,7 +1397,7 @@ mod tests {
         Formation {
             revision: 0,
             agents: (0..n)
-                .map(|i| Agent { name: format!("Agent {i}"), ..agent(&id(i)) })
+                .map(|i| Agent { name: format!("Agent {i}"), session: Some(format!("t_{i}")), ..agent(&id(i)) })
                 .collect(),
             links: Vec::new(),
         }
@@ -1530,6 +1657,43 @@ mod tests {
         refused(&f, "a control character in a name");
     }
 
+    #[test]
+    fn validate_refuses_separators_format_characters_odd_models_and_one_session_for_two_agents() {
+        for hidden in ['\u{2028}', '\u{2029}', '\u{202e}', '\u{2066}', '\u{200b}', '\u{feff}', '\u{00ad}', '\u{e0041}'] {
+            let mut f = proper(3);
+            f.agents[1].name = format!("Ann{hidden}Bob");
+            assert!(validate(&f).is_err(), "{hidden:?} in a name");
+            let mut f = proper(3);
+            f.agents[1].notes = format!("one{hidden}two");
+            assert!(validate(&f).is_err(), "{hidden:?} in notes");
+            let mut f = proper(3);
+            f.links.push(Link {
+                from: f.agents[0].id.clone(),
+                to: f.agents[1].id.clone(),
+                kind: Work,
+                report: Done,
+                words: format!("fast{hidden}now"),
+            });
+            assert!(validate(&f).is_err(), "{hidden:?} in words");
+        }
+        let mut f = proper(3);
+        f.agents[1].notes = "line one\n\tline two".into();
+        assert_eq!(validate(&f), Ok(()), "a newline and a tab stay allowed in notes");
+        let mut f = proper(3);
+        f.agents[1].model = Some(ModelRef { program: "claude_code".into(), connection: None, model: Some("opus\n4".into()) });
+        assert!(validate(&f).is_err(), "a control character in a model");
+        f.agents[1].model = Some(ModelRef { program: "claude_code".into(), connection: Some("a\u{2028}b".into()), model: None });
+        assert!(validate(&f).is_err(), "a separator in a connection");
+        f.agents[1].model = Some(ModelRef { program: "claude_code".into(), connection: None, model: Some("opus-4".into()) });
+        assert_eq!(validate(&f), Ok(()));
+        let mut f = proper(3);
+        f.agents[2].session = f.agents[0].session.clone();
+        assert!(validate(&f).is_err(), "one session held by two agents");
+        f.agents[0].session = None;
+        f.agents[2].session = None;
+        assert_eq!(validate(&f), Ok(()), "agents without a session are many");
+    }
+
     // ---- What each session is told ----
 
     fn named(mut f: Formation, names: &[(&str, &str)]) -> Formation {
@@ -1676,6 +1840,62 @@ mod tests {
         }
         let text = personal(&f, &f.agents[0].id, &members);
         assert!(text.contains('\u{2026}'), "what was left out is said");
+    }
+
+    /// A star of `n` agents: the first gives work to every other, `kind`/`report` on each arrow.
+    fn star(n: usize, name_len: usize, kind: Kind, report: Report) -> (Formation, BTreeMap<String, String>) {
+        let mut f = proper(n);
+        for (i, agent) in f.agents.iter_mut().enumerate() {
+            agent.name = format!("{:0>2}{}", i, "n".repeat(name_len - 2));
+            agent.share = Share::Split;
+        }
+        f.links = (1..n)
+            .map(|i| Link { from: f.agents[0].id.clone(), to: f.agents[i].id.clone(), kind, report, words: "w".repeat(120) })
+            .collect();
+        assert_eq!(validate(&f), Ok(()));
+        let members = f.agents.iter().map(|a| (a.id.clone(), format!("member-{}", &a.id[2..]))).collect();
+        (f, members)
+    }
+
+    #[test]
+    fn a_hub_of_a_crowded_star_is_told_in_grouped_sentences_within_2048_bytes() {
+        for (kind, report) in [(Work, Done), (Work, Steps), (Work, Strict), (Observes, Done)] {
+            for name_len in [10, 25, 40] {
+                let (f, members) = star(24, name_len, kind, report);
+                let hub = personal(&f, &f.agents[0].id, &members);
+                assert!(hub.len() <= 2048, "{kind:?} {report:?} names of {name_len}: hub {} bytes", hub.len());
+                assert!(hub.starts_with("TEAM revision 0\n"));                let own_part = hub.split("\nThe team:").next().unwrap_or_default().split("\nRelations:").next().unwrap_or_default();
+                let named = f.agents[1..].iter().filter(|a| own_part.contains(&a.name)).count();
+                let left_out = own_part
+                    .split("and ")
+                    .filter_map(|tail| tail.split_once(" more"))
+                    .filter_map(|(n, _)| n.trim().parse::<usize>().ok())
+                    .next();
+                match left_out {
+                    Some(n) => assert_eq!(named + n, 23, "{kind:?} names of {name_len}: {named} named and {n} left out"),
+                    None => assert_eq!(named, 23, "{kind:?} names of {name_len}: every receiver is named"),
+                }
+                if left_out.is_some() {
+                    assert!(hub.contains("shinatama_thread_peers"), "the rest is pointed to");
+                }
+                for agent in &f.agents {
+                    let text = personal(&f, &agent.id, &members);
+                    assert!(text.len() <= 2048, "agent {}: {} bytes", agent.name, text.len());
+                }
+            }
+        }
+        // Ten-character names fit whole in one sentence per kind of relation.
+        let (f, members) = star(24, 10, Work, Done);
+        let hub = personal(&f, &f.agents[0].id, &members);
+        assert!(hub.contains("each reports back to you when it is done"), "{hub}");
+        assert!(hub.matches("You give work to").count() == 1, "one sentence for the 23 arrows");
+        // A taker with several givers is grouped the same way.
+        let (mut f, members) = star(24, 40, Work, Steps);
+        for link in &mut f.links {
+            std::mem::swap(&mut link.from, &mut link.to);
+        }
+        let taker = personal(&f, &f.agents[0].id, &members);
+        assert!(taker.len() <= 2048, "{} bytes", taker.len());
     }
 
     #[test]
