@@ -16,7 +16,8 @@ jobs:
   windows:
     name: Build and verify Windows x64
     runs-on: windows-2025
-    timeout-minutes: 30
+    # Every check runs even after one fails (scripts/verify.ps1), and the workspace compiles from nothing.
+    timeout-minutes: 150
     defaults:
       run:
         shell: pwsh
@@ -48,7 +49,7 @@ jobs:
         run: rustup show active-toolchain
 
       - name: Run the shared local and CI verification entrypoint
-        run: ./scripts/verify.ps1
+        run: ./scripts/verify.ps1 -TimeoutMinutes 140
 
       # Deliberate allowlist: never upload WebView profiles, app settings or logs.
       - name: Upload verification reports and synthetic screenshots
@@ -70,8 +71,9 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Upload verified embedded prototype executable
-        if: success()
+      # Uploaded whenever it was built: the verification report beside it says which checks passed.
+      - name: Upload embedded prototype executable
+        if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: shinatama-prototype-debug-windows-x64-${{ github.sha }}
@@ -81,5 +83,5 @@ jobs:
             THIRD_PARTY_NOTICES.md
             .verification/THIRD_PARTY_LICENSES.txt
           include-hidden-files: true
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 7

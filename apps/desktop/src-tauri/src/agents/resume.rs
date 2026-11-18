@@ -82,6 +82,9 @@ fn read_error(error: SessionReadIssue) -> Error {
         SessionReadIssue::WorkerUnavailable => "resources",
         // The reader stays blocked until the app restarts: retrying cannot help.
         SessionReadIssue::CleanupUnconfirmed => "reader_blocked",
+        // The saved conversation was not read within its wall: the machine was busy or the
+        // file is very large. Nothing was started; a later try can pass.
+        SessionReadIssue::TimedOut => "slow_read",
         _ => "unavailable",
     })
 }

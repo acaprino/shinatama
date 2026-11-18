@@ -91,11 +91,23 @@ const STATE_TEXT: Record<SessionState, string> = {
   open: 'Not running · marked open by a session that is no longer here', unbound: 'Not running · nothing saved', closed: 'Closed',
 };
 export const sessionStateText = (state: SessionState) => STATE_TEXT[state];
-export type ThreadSession = { id: string; name: string; state: SessionState; updatedAt: number };
+/** `resumable`: its agent can resume its saved conversation (absent when the host does not say). */
+export type ThreadSession = { id: string; name: string; state: SessionState; updatedAt: number; resumable?: boolean };
 /** Every session of a thread (`rows` oldest first, closed ones included), named as its tab is. */
-export function threadSessions<T extends Row>(rows: readonly T[], nameOf: (row: T) => string, running: ReadonlySet<string>): ThreadSession[] {
+export function threadSessions<T extends Row>(rows: readonly T[], nameOf: (row: T) => string, running: ReadonlySet<string>, resumable?: (row: T) => boolean): ThreadSession[] {
   const named = rows.map(row => ({ id: row.id, name: nameOf(row) }));
-  return rows.map(row => ({ id: row.id, name: sessionTabName(named, row.id) ?? nameOf(row), state: sessionState(row, running.has(row.id)), updatedAt: row.updatedAt }));
+  return rows.map(row => {
+    const session: ThreadSession = { id: row.id, name: sessionTabName(named, row.id) ?? nameOf(row), state: sessionState(row, running.has(row.id)), updatedAt: row.updatedAt };
+    if (resumable) session.resumable = resumable(row);
+    return session;
+  });
+}
+/** What brings a closed session back. One its agent can resume comes back running, in one step: Reopen
+ *  alone put back a tab that did not run, and Resume was a second step nobody saw (2026-11-18). */
+export function closedSessionAction(session: Pick<ThreadSession, 'resumable'>): { label: 'Resume' | 'Reopen'; title: string } {
+  return session.resumable === true
+    ? { label: 'Resume', title: 'Brings this session back to its thread and resumes its conversation.' }
+    : { label: 'Reopen', title: 'Brings this session back to its thread as a tab; nothing starts.' };
 }
 
 /** The sessions a forget of their thread recovers first: still marked open by a Shinatama that is

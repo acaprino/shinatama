@@ -17,10 +17,18 @@ test('a memory refusal says so and that nothing was started', () => {
 });
 
 test('every backend code of thread_resume has its own sentence', () => {
-  const codes = ['resources', 'reader_blocked', 'busy', 'owned_elsewhere', 'source_changed', 'conflict', 'unbound', 'native_missing', 'native_unreachable',
+  const codes = ['resources', 'reader_blocked', 'slow_read', 'busy', 'owned_elsewhere', 'source_changed', 'conflict', 'unbound', 'native_missing', 'native_unreachable',
     'project_unavailable', 'unsupported_harness', 'invalid_request'];
   const generic = resumeFailureText({ code: 'unavailable' });
   for (const code of codes) assert.notEqual(resumeFailureText({ code }), generic, code);
+});
+
+// 2026-11-18: a Resume refused at the reader's wall said only that it "could not be resumed".
+test('a read that ran out of time says so, that nothing started, and what to do', () => {
+  const text = resumeFailureText({ code: 'slow_read' });
+  assert.match(text, /took too long/);
+  assert.match(text, /nothing was started/);
+  assert.match(text, /new session/);
 });
 
 test('a start that failed after the checks says the harness reason, never a bare retry', () => {

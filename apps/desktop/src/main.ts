@@ -780,7 +780,7 @@ async function stopTerminal(view: View) {
   try {
     await invoke('terminal_stop', { id: view.info.id });
     discardView(view);
-    if (view.threadId && isOn(view.workset?.id)) { await refreshMembers(); await closeSession(view.threadId); }
+    if (view.threadId && isOn(view.workset?.id)) { await refreshMembers(); await closeSession(view.threadId); sayClosed(view.threadId); }
     setFocus(focusedGroup()); threadSidebar?.changed();
   } catch (error) { notify(error); }
 }
@@ -796,6 +796,16 @@ async function closeSession(threadId: string) {
   }
   // It stays as a tab that says "not running"; nothing is lost.
 }
+/** Closing a tab closes its session: it leaves the tabs and waits under Closed sessions of its thread. That
+ *  was not visible (2026-11-18: "2 sessions" over one tab, a session the user did not know was closed), so a
+ *  close says where the session went and how it comes back. Nothing is said when the close did not happen. */
+function sayClosed(threadId: string) {
+  const row = worksetMembers.find(member => member.id === threadId);
+  if (row?.status !== 'archived') return;
+  const owner = memberOf.get(threadId); const thread = owner ? threadTitle(owner) : null;
+  const back = row.harness !== null && row.nativeAvailable === true && canResume(row.harness) ? 'Resume' : 'Reopen';
+  notify(`${memberName(row)} is closed. It is kept in ${thread ? `the thread "${thread}"` : 'its thread'}, under Closed sessions of its ⋯ menu, where ${back} brings it back.`, 'info');
+}
 /** A saved session and its thread, also when that thread is off. */
 async function sessionRow(threadId: string): Promise<{ row: ThreadSummary; workset: WorksetScope } | null> {
   const known = worksetMembers.find(member => member.id === threadId); const knownSet = memberOf.get(threadId);
@@ -804,16 +814,25 @@ async function sessionRow(threadId: string): Promise<{ row: ThreadSummary; works
   const row = (await worksetThreads(workset.id)).find(member => member.id === threadId);
   return row ? { row, workset } : null;
 }
-/** Brings a closed session back as a tab of its thread. Starts nothing: the tab offers Resume. */
+/** Brings a closed session back as a tab of its thread, and resumes it when its agent can (the panel's
+ *  Resume): a closed session comes back in one step, the way it is used. One no agent can resume comes
+ *  back as a tab that does not run (Reopen). */
 async function restoreSession(threadId: string) {
   const found = await sessionRow(threadId); if (!found) return; const { row, workset } = found;
   await invoke('thread_archive', { request: { projectId: row.projectId, threadId, expectedRevision: row.revision, archived: false } });
   // Reopened from a thread that is off: the thread comes on, so the reopened tab is seen.
   if (isOn(workset.id)) await refreshMembers();
   else if (!await showWorkset(workset)) { notify('The session is back in its thread. Turn the thread on to see its tab.', 'info'); return; }
-  const panel = workspaceLayout.views.find(candidate => candidate.resource.kind === 'terminal' && candidate.resource.threadId === threadId);
-  const group = panel && tabGroups(workspaceLayout.root).find(candidate => candidate.tabs.includes(panel.id));
-  if (panel && group) { changeLayout({ type: 'activate', groupId: group.id, viewId: panel.id }); setFocus(group.id, false); }
+  // Shown as Show shows a session: its project selected above the tabs, never another project's (2026-11-18).
+  await focusThreadSession(threadId);
+  const resumable = (member: ThreadSummary | undefined): member is ThreadSummary =>
+    member?.status === 'inactive' && member.nativeAvailable === true && canResume(member.harness);
+  if (!resumable(worksetMembers.find(member => member.id === threadId))) return;
+  // One open at a time: resumeSaved returns without opening while another session opens, so this waits for it.
+  for (const deadline = Date.now() + 120_000; starting && Date.now() < deadline;) await new Promise(resolve => setTimeout(resolve, 200));
+  if (starting) { notify('Another session is still opening. Press Resume on the tab of this one when it is done.', 'info'); return; }
+  const latest = worksetMembers.find(member => member.id === threadId);
+  if (resumable(latest) && ![...views.values()].some(view => view.threadId === threadId && !view.disposed)) await resumeSaved(latest);
 }
 /** Deletes one session from Shinatama: a closed one (the sidebar's Delete) or one with nothing saved (Remove). */
 async function forgetSession(threadId: string) {
@@ -962,8 +981,8 @@ async function closePanel(id: string) {
   const saved = savedSession(id);
   if (!saved) { changeLayout({ type: 'remove-view', viewId: id }); return; }
   // Nothing runs here, so nothing is asked: the session moves to Closed sessions and can come back
-  // (as a new tab that does not say it ran, so it stays not running).
-  await closeSession(saved.id); threadSidebar?.changed();
+  // (as a new tab that does not say it ran, so it stays not running). The notice says so.
+  await closeSession(saved.id); threadSidebar?.changed(); sayClosed(saved.id);
 }
 /** Makes a layout hold all and only the sessions of the threads that are on (ADR-0055 v2). Starts nothing. */
 function reconciled(layout: WorkspaceLayout): WorkspaceLayout {
@@ -1203,7 +1222,8 @@ threadSidebar = createWorksetSidebar({
   update: desktop ? request => invoke('workset_update', {request}) : undefined,
   remove: desktop ? forgetWorkset : undefined,
   // Every session of the thread, named as its tab is; whether one runs is asked again at each paint.
-  sessions: desktop ? async worksetId => threadSessions(await worksetThreads(worksetId), sessionName, new Set()) : undefined,
+  sessions: desktop ? async worksetId => threadSessions(await worksetThreads(worksetId), sessionName, new Set(),
+    row => row.harness !== null && row.nativeAvailable === true && canResume(row.harness)) : undefined,
   sessionRunning: threadId => [...views.values()].some(view => view.threadId === threadId && !view.ended && !view.disposed),
   onShowSession: focusThreadSession, onRenameSession: renameSession,
   onRestore: restoreSession, onForgetSession: forgetSession,
@@ -1272,8 +1292,9 @@ async function focusThreadSession(threadId: string) {
   const panel = workspaceLayout.views.find(candidate => candidate.resource.kind === 'terminal' && candidate.resource.threadId === threadId);
   const group = panel && tabGroups(workspaceLayout.root).find(candidate => candidate.tabs.includes(panel.id));
   if (panel && group) {
-    // A tab of another project than the filtered one must not stay hidden.
-    const folder = panelFolder(panel.id); if (folder) tabFilter?.reveal(folder);
+    // A tab of another project than the filtered one must not stay hidden, nor another project stay
+    // selected above it: a folder that is not known clears the filter (it shows every project).
+    tabFilter?.reveal(panelFolder(panel.id) ?? '');
     if (panel.hidden) changeLayout({ type: 'hide', viewId: panel.id, hidden: false });
     if (group.collapsed) changeLayout({ type: 'collapse', groupId: group.id, collapsed: false });
     if (workspaceLayout.maximizedGroupId !== null && workspaceLayout.maximizedGroupId !== group.id) changeLayout({ type: 'maximize', groupId: null });
