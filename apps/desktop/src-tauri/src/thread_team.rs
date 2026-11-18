@@ -136,7 +136,10 @@ pub(crate) fn apply(
         let mut record = load(store, workset)?;
         admit_record(&record, thread, &formation, expected)?;
         formation.revision = expected.checked_add(1).ok_or("The team's revision is exhausted.")?;
-        record.before = record.formation.take();
+        // The formation the notice is made from is the oldest one whose changes were not yet
+        // noticed (the worker lets it go once nothing is owed): a second apply before a check
+        // must not lose the first one's lines.
+        record.before = record.before.take().or_else(|| record.formation.take());
         record.formation = Some(formation.clone());
         save(store, workset, &record)?;
         Ok(formation)
@@ -439,11 +442,19 @@ pub async fn team_place(
 
 /// The templates, which belong to no thread. The store runs `change` in the transaction that
 /// writes the list (`Database::edit_team_templates`), so the 64 limit and the name's uniqueness
-/// hold when two windows save at once. A stored template that cannot be read is left out.
+/// hold when two windows save at once. A stored template that cannot be read is left out of the
+/// list and kept in the store.
 fn edit_templates(store: &Database, change: impl FnOnce(&mut Vec<Template>) -> Result<(), String>) -> Result<Vec<Template>, String> {
     let stored = store
         .edit_team_templates(|values| {
-            let mut list: Vec<Template> = values.drain(..).filter_map(|value| serde_json::from_value(value).ok()).collect();
+            let mut list: Vec<Template> = Vec::new();
+            let mut unreadable = Vec::new();
+            for value in values.drain(..) {
+                match serde_json::from_value(value.clone()) {
+                    Ok(template) => list.push(template),
+                    Err(_) => unreadable.push(value),
+                }
+            }
             change(&mut list)?;
             for template in &list {
                 let value = serde_json::to_value(template).map_err(|_| "The template could not be stored.".to_owned())?;
@@ -452,6 +463,10 @@ fn edit_templates(store: &Database, change: impl FnOnce(&mut Vec<Template>) -> R
                 }
                 values.push(value);
             }
+            // What this build cannot read (a template of another format) is kept as it is, after
+            // the others and within the bound, so that one save does not delete it.
+            let room = shinatama_state::database::MAX_TEMPLATES.saturating_sub(values.len());
+            values.extend(unreadable.into_iter().take(room));
             Ok(())
         })
         .map_err(|e| e.to_string())??;
@@ -663,11 +678,42 @@ mod tests {
     }
 
     #[test]
+    fn two_applies_before_a_check_keep_the_oldest_formation_the_notice_is_made_from() {
+        let store = database();
+        apply(&store, WORKSET, &thread(), two(), 0).unwrap();
+        // The first formation was noticed (the worker found nothing owed and let `before` go).
+        let mut record = load(&store, WORKSET).unwrap();
+        record.before = None;
+        save(&store, WORKSET, &record).unwrap();
+        let mut changed = two();
+        changed.agents[0].name = "Ada".into();
+        apply(&store, WORKSET, &thread(), changed.clone(), 1).unwrap();
+        let mut again = changed;
+        again.agents[1].name = "Bo".into();
+        apply(&store, WORKSET, &thread(), again, 2).unwrap();
+        let kept = load(&store, WORKSET).unwrap();
+        assert_eq!(kept.formation.as_ref().unwrap().revision, 3);
+        let oldest = kept.before.expect("the notice is still owed");
+        assert_eq!(oldest.revision, 1, "not the formation of revision 2: its change would lose its notice");
+        let changes = shinatama_engine::team::changes(Some(&oldest), kept.formation.as_ref().unwrap());
+        let lines = changes.lines.join("\n");
+        assert!(lines.contains("Ada") && lines.contains("Bo"), "both changes are in the one notice: {lines}");
+    }
+
+    #[test]
+    fn two_agents_cannot_hold_one_session() {
+        let mut f = two();
+        f.agents[1].session = f.agents[0].session.clone();
+        assert!(apply(&database(), WORKSET, &thread(), f, 0).is_err());
+    }
+
+    #[test]
     fn a_record_too_big_with_its_previous_formation_is_kept_without_it() {
         let store = database();
         let big = |revision: u64| {
             let mut f = formation((0..team::MAX_AGENTS).map(|k| {
-                let mut a = agent(&format!("a_{}", "abcdefghijklmnopqrstuvwx".chars().nth(k).unwrap().to_string().repeat(12)), Some("t_aaaaaaaaaaaa"));
+                let letter = "abcdefghijklmnopqrstuvwx".chars().nth(k).unwrap().to_string().repeat(12);
+                let mut a = agent(&format!("a_{letter}"), Some(&format!("t_{letter}")));
                 a.notes = "n".repeat(team::MAX_NOTES);
                 a
             }).collect());
@@ -684,8 +730,10 @@ mod tests {
             f
         };
         let first = big(0);
-        apply(&store, WORKSET, &thread(), first, 0).unwrap();
-        apply(&store, WORKSET, &thread(), big(0), 1).unwrap();
+        let mut crowded = thread();
+        crowded.sessions = big(0).agents.iter().filter_map(|a| a.session.clone()).map(|s| (s, "running".to_owned())).collect();
+        apply(&store, WORKSET, &crowded, first, 0).unwrap();
+        apply(&store, WORKSET, &crowded, big(0), 1).unwrap();
         let kept = load(&store, WORKSET).unwrap();
         assert_eq!(kept.formation.unwrap().revision, 2);
         assert!(kept.before.is_none());
@@ -866,6 +914,24 @@ mod tests {
 
     fn id(n: usize) -> String {
         format!("tm_{}{}", "a".repeat(10), ["aa", "ab", "ac", "ad", "ae"][n])
+    }
+
+    #[test]
+    fn a_template_this_build_cannot_read_survives_a_save_and_a_delete() {
+        let store = database();
+        let list = save_template(&store, "Review", &linked(), id(0)).unwrap();
+        let mut odd = serde_json::to_value(&list[0]).unwrap();
+        odd["id"] = json!("tm_zzzzzzzzzzzz");
+        odd["fromANewerBuild"] = json!(true);
+        let mut raw = store.team_templates().unwrap();
+        raw.push(odd.clone());
+        store.set_team_templates(&raw).unwrap();
+        assert_eq!(templates(&store).unwrap().len(), 1, "not listed: this build cannot read it");
+        save_template(&store, "Ship", &linked(), id(1)).unwrap();
+        assert!(store.team_templates().unwrap().contains(&odd), "kept by a save");
+        delete_template(&store, &list[0].id).unwrap();
+        assert!(store.team_templates().unwrap().contains(&odd), "kept by a delete");
+        assert_eq!(templates(&store).unwrap().len(), 1);
     }
 
     #[test]

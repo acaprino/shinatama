@@ -584,7 +584,7 @@ impl Database {
     /// not an object carrying its own id, is left out.
     pub fn team_templates(&self) -> Result<Vec<serde_json::Value>> {
         let connection = self.lock()?;
-        Ok(Self::read_templates(&connection)?.into_iter().map(|(_, value)| value).collect())
+        Ok(Self::read_templates(&connection)?.0.into_iter().map(|(_, value)| value).collect())
     }
 
     /// Replace the whole list (see `edit_team_templates`).
@@ -609,7 +609,7 @@ impl Database {
         let mut connection = self.lock()?;
         let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         schema::require_write_version(&transaction)?;
-        let before = Self::read_templates(&transaction)?;
+        let (before, unreadable) = Self::read_templates(&transaction)?;
         let mut list: Vec<serde_json::Value> = before.iter().map(|(_, value)| value.clone()).collect();
         if let Err(refusal) = edit(&mut list) {
             return Ok(Err(refusal));
@@ -646,7 +646,15 @@ impl Database {
                 transaction.execute("DELETE FROM setting WHERE key=?1", params![Self::template_key(old)?])?;
             }
         }
-        let index = serde_json::to_string(&ids).map_err(|_| DatabaseError::InvalidProject("setting"))?;
+        // What this build cannot read stays listed (after the others) and its setting untouched,
+        // as long as the list keeps within its bound: a format change must not lose templates.
+        let mut listed = ids.clone();
+        for kept in unreadable {
+            if listed.len() < MAX_TEMPLATES && !listed.contains(&kept) {
+                listed.push(kept);
+            }
+        }
+        let index = serde_json::to_string(&listed).map_err(|_| DatabaseError::InvalidProject("setting"))?;
         transaction.execute(
             "INSERT INTO setting(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
             params![TEMPLATES_INDEX, index],
@@ -662,7 +670,10 @@ impl Database {
         Ok(format!("{TEMPLATES_INDEX}.{id}"))
     }
 
-    fn read_templates(connection: &rusqlite::Connection) -> Result<Vec<(String, serde_json::Value)>> {
+    /// The readable templates by id, and the ids of those the index lists whose setting exists but
+    /// is not a template carrying its own id (a format this build does not know): an edit leaves
+    /// those alone.
+    fn read_templates(connection: &rusqlite::Connection) -> Result<(Vec<(String, serde_json::Value)>, Vec<String>)> {
         let read = |key: &str| -> Result<Option<String>> {
             Ok(connection
                 .query_row("SELECT value FROM setting WHERE key=?1 AND octet_length(value)<=65536", [key], |row| row.get(0))
@@ -670,17 +681,21 @@ impl Database {
         };
         let ids: Vec<String> = read(TEMPLATES_INDEX)?.and_then(|json| serde_json::from_str(&json).ok()).unwrap_or_default();
         let mut found: Vec<(String, serde_json::Value)> = Vec::new();
+        let mut unreadable: Vec<String> = Vec::new();
         for id in ids.into_iter().take(MAX_TEMPLATES) {
             let Ok(key) = Self::template_key(&id) else { continue };
-            if found.iter().any(|(seen, _)| *seen == id) {
+            if found.iter().any(|(seen, _)| *seen == id) || unreadable.contains(&id) {
                 continue;
             }
-            let value: Option<serde_json::Value> = read(&key)?.and_then(|json| serde_json::from_str(&json).ok());
-            if let Some(value) = value.filter(|value| value.get("id").and_then(serde_json::Value::as_str) == Some(id.as_str())) {
-                found.push((id, value));
+            let stored = read(&key)?;
+            let value: Option<serde_json::Value> = stored.as_ref().and_then(|json| serde_json::from_str(json).ok());
+            match value.filter(|value| value.get("id").and_then(serde_json::Value::as_str) == Some(id.as_str())) {
+                Some(value) => found.push((id, value)),
+                None if stored.is_some() => unreadable.push(id),
+                None => {}
             }
         }
-        Ok(found)
+        Ok((found, unreadable))
     }
 
     /// C08's sole settings namespace. Reads never allocate an oversized value.
@@ -1288,6 +1303,22 @@ mod team_tests {
         assert_eq!(database.team_templates().unwrap()[0]["id"], "tm_bbbbbbbbbbbb");
     }
 
+
+    #[test]
+    fn editing_the_templates_keeps_one_that_cannot_be_read() {
+        let database = database();
+        database.set_team_templates(&[template("tm_aaaaaaaaaaaa", "A"), template("tm_bbbbbbbbbbbb", "B")]).unwrap();
+        database.lock().unwrap().execute("UPDATE setting SET value='7' WHERE key='team.templates.v1.tm_aaaaaaaaaaaa'", []).unwrap();
+        assert_eq!(database.team_templates().unwrap().len(), 1, "the odd one is not listed");
+        database.set_team_templates(&[template("tm_bbbbbbbbbbbb", "B"), template("tm_cccccccccccc", "C")]).unwrap();
+        let connection = database.lock().unwrap();
+        let text = |key: &str| -> Option<String> {
+            connection.query_row("SELECT value FROM setting WHERE key=?1", [key], |row| row.get(0)).ok()
+        };
+        assert_eq!(text("team.templates.v1.tm_aaaaaaaaaaaa").as_deref(), Some("7"), "its setting is untouched");
+        let index: Vec<String> = serde_json::from_str(&text("team.templates.v1").unwrap()).unwrap();
+        assert_eq!(index, ["tm_bbbbbbbbbbbb", "tm_cccccccccccc", "tm_aaaaaaaaaaaa"], "and the index still names it, after the others");
+    }
     #[test]
     fn a_template_without_a_usable_id_is_refused_and_a_lost_one_is_skipped() {
         let database = database();
