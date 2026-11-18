@@ -497,7 +497,10 @@ pub(crate) fn project(room: &str, members: &[Value], events: &[Value], sessions:
                 "role": member["role"],
                 "active": member["left_at"].is_null(),
                 "sessionId": session_of(member).map(|session| session.summary.id.clone()),
-                "user": name == USER_MEMBER,
+                "host": member["host"] == true,
+                // The person at the window: Shinatama's own harness under `user` (or `user-<n>`, when an
+                // agent held the name); an agent that joined as `user` is not.
+                "user": member["harness"] == USER_HARNESS && mukade_chat::is_host_name(USER_MEMBER, name),
             }))
         })
         .collect();
@@ -547,6 +550,7 @@ pub(crate) fn project(room: &str, members: &[Value], events: &[Value], sessions:
                 "timestamp": event["timestamp"],
                 "kind": kind,
                 "actor": event["actor"]["name"],
+                "actorHost": event["actor"]["host"] == true,
                 "recipients": recipients,
                 "text": payload["text"],
                 "signal": payload["signal"],
@@ -656,26 +660,50 @@ fn host_join<'a>(request_id: &'a str, room: &'a str, name: &'a str) -> [(&'a str
     [("request-id", request_id), ("room-id", room), ("harness", USER_HARNESS), ("role", "peer"), ("name", name), ("host", "")]
 }
 
-/// Join as the host member `name`, or recover that member after a restart (`rejoin` keeps its
-/// mark). Never another member: only one that holds this name under Shinatama's harness.
-fn host_handle(state: &WorkspaceServices, controller: &Controller, room: &str, name: &str) -> Result<String, String> {
-    let request_id = uuid::Uuid::new_v4().to_string();
-    let joined = mukade_chat::call(&state.location, "join", &host_join(&request_id, room, name), None);
-    let answer = match joined {
-        Ok(answer) => answer,
-        Err(reason) if reason.contains("member_name_taken") => {
-            let (members, _) = listing(state, "members", &[("room-id", room)])?;
-            let member_id = members
-                .iter()
-                .find(|member| member["name"] == name && member["harness"] == USER_HARNESS)
-                .and_then(|member| member["member_id"].as_str())
-                .ok_or_else(|| format!("The room's {name} member belongs to someone else."))?
-                .to_owned();
-            let request_id = uuid::Uuid::new_v4().to_string();
-            mukade_chat::call(&state.location, "rejoin", &[("request-id", &request_id), ("room-id", room), ("member-id", &member_id)], None)?
+/// Join as the host member `preferred`, or recover that member after a restart (`rejoin` keeps
+/// its mark). Never a member that is not a host (under Shinatama's harness): when an agent that
+/// joined by hand holds the name, the host joins as `<name>-2`, `-3` … (`mukade_chat::host_name`),
+/// at most `MAX_HOST_NAMES` names. `join(candidate)`, `members()` and `rejoin(member id)` are the
+/// room's three calls.
+fn host_member(
+    preferred: &str,
+    join: impl Fn(&str) -> Result<Value, String>,
+    members: impl Fn() -> Result<Vec<Value>, String>,
+    rejoin: impl Fn(&str) -> Result<Value, String>,
+) -> Result<Value, String> {
+    for attempt in 1..=mukade_chat::MAX_HOST_NAMES {
+        let candidate = mukade_chat::host_name(preferred, attempt);
+        match join(&candidate) {
+            Ok(answer) => return Ok(answer),
+            Err(reason) if reason.contains("member_name_taken") => {
+                let held = members()?;
+                let ours = held.iter().find(|member| {
+                    member["name"] == candidate.as_str() && member["harness"] == USER_HARNESS && member["host"] == true
+                });
+                if let Some(member_id) = ours.and_then(|member| member["member_id"].as_str()) {
+                    return rejoin(member_id);
+                }
+            }
+            Err(reason) => return Err(reason),
         }
-        Err(reason) => return Err(reason),
-    };
+    }
+    Err(format!("The room's {preferred} member, and the names it could take instead, belong to someone else."))
+}
+
+/// The host member `name`'s handle: see `host_member` for the name it may end up with.
+fn host_handle(state: &WorkspaceServices, controller: &Controller, room: &str, name: &str) -> Result<String, String> {
+    let answer = host_member(
+        name,
+        |candidate| {
+            let request_id = uuid::Uuid::new_v4().to_string();
+            mukade_chat::call(&state.location, "join", &host_join(&request_id, room, candidate), None)
+        },
+        || listing(state, "members", &[("room-id", room)]).map(|(members, _)| members),
+        |member_id| {
+            let request_id = uuid::Uuid::new_v4().to_string();
+            mukade_chat::call(&state.location, "rejoin", &[("request-id", &request_id), ("room-id", room), ("member-id", member_id)], None)
+        },
+    )?;
     let handle = answer["member_handle"]
         .as_str()
         .filter(|handle| uuid::Uuid::parse_str(handle).is_ok())
@@ -735,6 +763,25 @@ mod tests {
         assert_eq!(view["events"].as_array().unwrap().len(), 1);
         assert_eq!(view["events"][0]["recipients"], json!(["codex-bbbbbbbbbbbb"]));
         assert_eq!(view["events"][0]["text"], "Rivedi il diff");
+    }
+
+    #[test]
+    fn a_host_that_took_another_name_is_marked_as_the_host_and_an_agent_called_user_is_no_user() {
+        let members = [
+            json!({"member_id":"m1","name":"shinatama","harness":"claude_code","role":"peer","left_at":null,"host":false}),
+            json!({"member_id":"m2","name":"shinatama-2","harness":"shinatama","role":"peer","left_at":null,"host":true}),
+            json!({"member_id":"m3","name":"user","harness":"codex","role":"peer","left_at":null,"host":false}),
+            json!({"member_id":"m4","name":"user-2","harness":"shinatama","role":"peer","left_at":null,"host":true}),
+        ];
+        let events = [
+            json!({"event_id":"1","timestamp":"2026-11-16T10:00:00.000Z","kind":"message","actor":{"name":"shinatama-2","host":true},"payload":{"text":"TEAM revision 1"},"recipient_ids":[]}),
+            json!({"event_id":"2","timestamp":"2026-11-16T10:00:01.000Z","kind":"message","actor":{"name":"shinatama","host":false},"payload":{"text":"hi"},"recipient_ids":[]}),
+        ];
+        let view = project("r", &members, &events, &[]);
+        let flags: Vec<(bool, bool)> = (0..4).map(|i| (view["members"][i]["host"] == true, view["members"][i]["user"] == true)).collect();
+        assert_eq!(flags, [(false, false), (true, false), (false, false), (true, true)]);
+        assert_eq!(view["events"][0]["actorHost"], true);
+        assert_eq!(view["events"][1]["actorHost"], false);
     }
 
     #[test]
@@ -819,6 +866,71 @@ mod tests {
             assert!(joined.contains(&pair), "{pair:?}");
         }
         assert!(host_join("req", "room", "user").contains(&("name", "user")));
+    }
+
+    /// A scripted room for `host_member`: the names held by members (name, harness, host), by id.
+    struct Held(Vec<(&'static str, &'static str, bool)>);
+    impl Held {
+        fn run(&self, name: &str) -> (Result<Value, String>, Vec<String>) {
+            let log = std::cell::RefCell::new(Vec::new());
+            let members = || -> Result<Vec<Value>, String> {
+                Ok(self.0.iter().enumerate().map(|(i, (n, h, host))| json!({"member_id": format!("m{i}"), "name": n, "harness": h, "host": host})).collect())
+            };
+            let joined = host_member(
+                name,
+                |candidate| {
+                    log.borrow_mut().push(format!("join {candidate}"));
+                    if self.0.iter().any(|(held, _, _)| *held == candidate) {
+                        Err("member_name_taken: The name is taken".to_owned())
+                    } else {
+                        Ok(json!({"member_handle": candidate}))
+                    }
+                },
+                members,
+                |member_id| {
+                    log.borrow_mut().push(format!("rejoin {member_id}"));
+                    Ok(json!({"member_handle": member_id}))
+                },
+            );
+            (joined, log.into_inner())
+        }
+    }
+
+    #[test]
+    fn a_host_whose_name_a_hand_joined_agent_took_joins_under_another_and_never_adopts_that_agent() {
+        // An agent joined by hand as `shinatama` (not a host, and under another harness).
+        let (joined, log) = Held(vec![("shinatama", "claude_code", false)]).run("shinatama");
+        assert_eq!(joined.unwrap()["member_handle"], "shinatama-2");
+        assert_eq!(log, ["join shinatama", "join shinatama-2"], "no rejoin of the squatter");
+        // Even under Shinatama's harness: only a member the room marks as a host is recovered.
+        let (joined, log) = Held(vec![("shinatama", "shinatama", false), ("shinatama-2", "claude_code", false)]).run("shinatama");
+        assert_eq!(joined.unwrap()["member_handle"], "shinatama-3");
+        assert!(log.iter().all(|line| !line.starts_with("rejoin")), "{log:?}");
+        // The host that holds the name after a restart is recovered, not duplicated.
+        let (joined, log) = Held(vec![("shinatama", "shinatama", true)]).run("shinatama");
+        assert_eq!(joined.unwrap()["member_handle"], "m0");
+        assert_eq!(log, ["join shinatama", "rejoin m0"]);
+        // ...and so is the host that already moved to the second name.
+        let (joined, _) = Held(vec![("shinatama", "claude_code", false), ("shinatama-2", "shinatama", true)]).run("shinatama");
+        assert_eq!(joined.unwrap()["member_handle"], "m1");
+        // Every name taken by others is a refusal naming the member.
+        let mut all = vec![("shinatama", "claude_code", false)];
+        all.extend((2..=9).map(|n| (&*Box::leak(format!("shinatama-{n}").into_boxed_str()), "claude_code", false)));
+        let (joined, log) = Held(all).run("shinatama");
+        assert!(joined.unwrap_err().contains("belong to someone else"));
+        assert_eq!(log.len(), 9, "bounded");
+        // Another error is returned as it is.
+        let failed = host_member("shinatama", |_| Err("Mukade chat join failed.".into()), || Ok(Vec::new()), |_| Ok(json!({})));
+        assert_eq!(failed.unwrap_err(), "Mukade chat join failed.");
+    }
+
+    #[test]
+    fn a_host_name_is_the_preferred_one_then_numbered_from_two() {
+        assert_eq!(mukade_chat::host_name("shinatama", 1), "shinatama");
+        assert_eq!(mukade_chat::host_name("shinatama", 3), "shinatama-3");
+        assert!(mukade_chat::is_host_name("shinatama", "shinatama") && mukade_chat::is_host_name("shinatama", "shinatama-12"));
+        assert!(!mukade_chat::is_host_name("shinatama", "shinatama-") && !mukade_chat::is_host_name("shinatama", "shinatama-x") && !mukade_chat::is_host_name("shinatama", "shinatamas"));
+        assert!(!mukade_chat::is_host_name("shinatama", "user-2"));
     }
 
     #[test]

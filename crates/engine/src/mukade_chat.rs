@@ -32,6 +32,24 @@ pub const USER_HARNESS: &str = "shinatama";
 /// The member Shinatama itself tells the sessions their place in the thread's team with (ADR-0058):
 /// distinct from `user`, so the panel can draw its messages as notices. It is a host member too.
 pub const TEAM_MEMBER: &str = "shinatama";
+/// How many names a host member tries for one preferred name: an agent that joined by hand under
+/// it first must not stop the host from joining.
+pub const MAX_HOST_NAMES: usize = 9;
+
+/// The name a host member tries at its `attempt`th try (from 1) for `preferred`: the name itself,
+/// then `<name>-2`, `<name>-3`, …
+pub fn host_name(preferred: &str, attempt: usize) -> String {
+    if attempt <= 1 { preferred.to_owned() } else { format!("{preferred}-{attempt}") }
+}
+
+/// Whether `name` is one of the names `host_name` makes for `preferred`.
+pub fn is_host_name(preferred: &str, name: &str) -> bool {
+    name == preferred
+        || name
+            .strip_prefix(preferred)
+            .and_then(|tail| tail.strip_prefix('-'))
+            .is_some_and(|number| !number.is_empty() && number.bytes().all(|b| b.is_ascii_digit()))
+}
 /// Mukade bounds a hook's stop at the listening time plus a margin.
 const STOP_MARGIN_SECONDS: u64 = 30;
 const CLI_TIMEOUT: Duration = Duration::from_secs(20);

@@ -161,13 +161,15 @@ fn head(text: &str) -> String {
     format!("{}\n", text.lines().next().unwrap_or_default())
 }
 
-/// Whether the ledger's `events` hold a message of the member `shinatama` that starts with
+/// Whether the ledger's `events` hold a message of Shinatama's host member (`shinatama`, or the
+/// `shinatama-<n>` it took when an agent held that name; the event's actor says it is a host) that starts with
 /// `head` and is addressed to `to` (a member name; none for an unaddressed notice). `names` gives
 /// the name of each member id an event lists as a recipient.
 pub(crate) fn ledger_has(events: &[Value], names: &BTreeMap<String, String>, head: &str, to: Option<&str>) -> bool {
     events.iter().any(|event| {
         event["kind"] == "message"
-            && event["actor"]["name"] == TEAM_MEMBER
+            && event["actor"]["host"] == true
+            && event["actor"]["name"].as_str().is_some_and(|name| mukade_chat::is_host_name(TEAM_MEMBER, name))
             && event["payload"]["text"].as_str().is_some_and(|text| text.starts_with(head))
             && {
                 let recipients: Vec<&str> = event["recipient_ids"]
@@ -823,12 +825,12 @@ mod tests {
     #[test]
     fn the_ledger_is_searched_for_the_message_by_its_first_line_and_recipient() {
         let names = BTreeMap::from([("m1".to_owned(), "claude-1".to_owned()), ("m2".to_owned(), "codex-1".to_owned())]);
-        let event = |actor: &str, text: &str, to: &[&str]| json!({"kind": "message", "actor": {"name": actor}, "payload": {"text": text}, "recipient_ids": to});
+        let event = |actor: &str, host: bool, text: &str, to: &[&str]| json!({"kind": "message", "actor": {"name": actor, "host": host}, "payload": {"text": text}, "recipient_ids": to});
         let events = [
-            event("user", "TEAM revision 2\nyou", &["m1"]),
-            event("shinatama", "TEAM revision 1\nold", &["m1"]),
-            event("shinatama", "TEAM revision 2\nYou are A.", &["m2"]),
-            event("shinatama", "TEAM revision 2 changes\n- B joined", &[]),
+            event("user", true, "TEAM revision 2\nyou", &["m1"]),
+            event("shinatama", true, "TEAM revision 1\nold", &["m1"]),
+            event("shinatama", true, "TEAM revision 2\nYou are A.", &["m2"]),
+            event("shinatama", true, "TEAM revision 2 changes\n- B joined", &[]),
         ];
         assert!(ledger_has(&events, &names, &head("TEAM revision 2\nanything"), Some("codex-1")));
         // Another recipient, another revision, another author: not the message.
@@ -837,6 +839,11 @@ mod tests {
         // A notice is unaddressed.
         assert!(ledger_has(&events, &names, "TEAM revision 2 changes\n", None));
         assert!(!ledger_has(&events, &names, "TEAM revision 2\n", None));
+        // The host that had to take another name is the author; an agent of that name is not.
+        let renamed = [event("shinatama-2", true, "TEAM revision 4\nYou are A.", &["m1"])];
+        assert!(ledger_has(&renamed, &names, "TEAM revision 4\n", Some("claude-1")));
+        let squatter = [event("shinatama", false, "TEAM revision 4\nYou are A.", &["m1"])];
+        assert!(!ledger_has(&squatter, &names, "TEAM revision 4\n", Some("claude-1")), "a member that is no host did not send it");
     }
 
     #[test]
