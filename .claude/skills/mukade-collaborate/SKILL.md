@@ -1,6 +1,6 @@
 ---
 name: mukade-collaborate
-description: "Use when the user asks to open another coding session, delegate work to Claude or Codex, discuss alternatives between sessions, review with another agent, talk to another session of the same Shinatama thread, or observe a session through Mukade; also for Italian requests such as apri un'altra sessione, apri Codex, fallo implementare, confrontatevi, chiedi all'altra sessione, parla con Codex nel thread."
+description: "Use when the user asks to open another coding session, delegate work to Claude, Codex, OpenCode or Pi, discuss alternatives between sessions, review with another agent, talk to another session of the same Shinatama thread, or observe a session through Mukade; also for Italian requests such as apri un'altra sessione, apri Codex, fallo implementare, confrontatevi, chiedi all'altra sessione, parla con Codex nel thread."
 ---
 
 # Collaborazione tra sessioni con Mukade
@@ -21,7 +21,8 @@ mancanti che cambiano effettivamente destinazione o ambito del lavoro.
 **Selezione dell'harness:**
 
 1. Un harness nominato esplicitamente prevale: «apri Codex» = `codex`;
-   «apri Claude» = `claude_code`.
+   «apri Claude» = `claude_code`; «apri OpenCode» = `opencode`; «apri Pi» = `pi`
+   (i quattro valori ammessi dallo schema; ogni altro valore e' rifiutato).
 2. Per una nuova sessione senza harness esplicito usa **`claude_code`**,
    anche se la sessione madre e' Codex.
 3. Per «usa quella sessione» conserva l'harness della sessione identificata.
@@ -121,10 +122,31 @@ A message that starts `TEAM revision <n> changes` is only for your information
 and needs no answer. A thread with no `team` object has no team map: behave as
 before. Address your work to the peers the map names, by their `member_name`.
 
+**Opening OpenCode or Pi.** `shinatama_session_open` accepts `harness`
+`opencode` and `pi` as well as `claude_code` and `codex`; the default stays
+`claude_code` and an explicit program is never replaced by another. These two
+join a room only through Mukade's kit, so the request needs the thread's switch
+on ("Sessions talk to each other") and a `room_id` that is that thread's room
+(`mukade.room_name` from `shinatama_thread_peers`) with your `member_name` as
+`coordinator`; otherwise it ends `failed` with "An OpenCode or Pi session joins
+a room only in a thread whose sessions talk to each other. Turn it on in the
+thread's settings." Do not retry it with another program: tell the user. The
+session runs with the program's own sign-in and model, is created in your
+thread, and is not put on the Team map: only the user edits the map. Its
+bootstrap leaves out `shinatama_thread_peers` and `chat_join` (it has neither):
+the kit has already joined it, and it sends READY to your `coordinator` name.
+Wait for that READY as for any other program before sending the task. Its
+member is named by Mukade's kit; read it from `chat_members` rather than
+deriving it, and when the READY comes from a member whose name you did not
+expect, check that it belongs to the session you opened. A session of either
+program that Shinatama opened is tied to its tab by the session id the launcher
+chose, so the Team map can place it.
+
 Per un nuovo partecipante in collaborazione usa questa stanza come `room_id` e
 il tuo `member_name` come `coordinator`: Shinatama apre la nuova scheda nello
 stesso thread. Una sessione esistente del thread si raggiunge senza avviarne
-un'altra; un peer con `chat: "none"` (OpenCode, Pi) non ha strumenti Mukade.
+un'altra; un peer con `chat: "none"` e' un programma che Shinatama non porta
+nella stanza (non OpenCode ne' Pi, che entrano con il kit di Mukade).
 Una sessione inattiva legge solo quando chiama `chat_read`/`chat_wait`: se non
 risponde entro l'attesa, chiedi all'utente di dirle di leggere la stanza del
 thread, senza dichiarare consegnato o letto il messaggio.

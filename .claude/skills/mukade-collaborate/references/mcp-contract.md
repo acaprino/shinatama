@@ -62,9 +62,9 @@ Il server **Shinatama**, distinto da Mukade, espone ora il ponte nativo:
 
 | Tool host | Input |
 |---|---|
-| `shinatama_session_open` | `request_id` UUID, `instruction` (max4096 byte); opzionali `harness` (`claude_code` predefinito o `codex`), `mode` (`delegation` predefinito, `dialogue`, `review`), `room_id` e `coordinator` insieme. |
+| `shinatama_session_open` | `request_id` UUID, `instruction` (max4096 byte); opzionali `harness` (`claude_code` predefinito, `codex`, `opencode` o `pi`), `mode` (`delegation` predefinito, `dialogue`, `review`), `room_id` e `coordinator` insieme. |
 | `shinatama_session_status` | `request_id` dello stesso chiamante. |
-| `shinatama_thread_peers` | Nessun argomento. Sola lettura: thread (workset) della sessione chiamante, `mukade.room_name`, `you.member_name`, `peers[]` con `session_id`, `harness`, `title`, `state` (`running`, `stopped`, `not_started`, `closed`), `member_name` e `chat` (`mukade` o `none`), passi in `how_to`. |
+| `shinatama_thread_peers` | Nessun argomento. Sola lettura: thread (workset) della sessione chiamante, `mukade.room_name`, `you.member_name`, `peers[]` con `session_id`, `harness`, `title`, `state` (`running`, `stopped`, `not_started`, `closed`), `member_name` e `chat` (`mukade` o `none`; `none` per i programmi che Shinatama non porta nella stanza), passi in `how_to`. |
 
 **Sessioni dello stesso thread.** I nomi sono deterministici:
 `shinatama-thread-<suffisso del workset>` per la stanza e
@@ -96,6 +96,18 @@ member: what it writes reaches a member under `From the user, through shinatama:
 (`TEAM revision <n>` for a personal message, addressed; `TEAM revision <n>
 changes` for the notice, unaddressed). Host-only operations (`join --host`,
 `set-role`, `retire`) are not among the `chat_*` tools: an agent cannot call them.
+
+**OpenCode and Pi (ADR-0058).** `harness` `opencode` and `pi` launch through the same
+route as a team agent's session (`open_agent`): the program's own sign-in and model, the
+bootstrap as the first message. They need the thread's switch on and `room_id` equal to the
+thread's room, else the receipt is `failed` with "An OpenCode or Pi session joins a room only in
+a thread whose sessions talk to each other. Turn it on in the thread's settings."; `room_id` and
+`coordinator` are then required together as for any communicating launch. The bootstrap says
+"The kit has joined you to this room" and asks for `READY <request_id>` to the coordinator; it
+names neither `shinatama_thread_peers` nor `chat_join`, since these two programs have neither.
+The session is created in the caller's thread and is not put on the Team map. Both programs
+accept an id chosen by the launcher, so their member is tied to the tab as for Claude Code and
+Codex; Mukade's kit names the member.
 
 La risposta distingue `queued`, `starting`, `opened`, `failed`, `cancelled`.
 `opened.result.session_id` e' l'istanza posseduta da Shinatama, mentre

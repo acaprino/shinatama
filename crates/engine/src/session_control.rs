@@ -402,7 +402,7 @@ pub fn member_name(value: &str) -> bool {
 impl OpenArguments {
     fn into_request(self, caller: &str, caller_thread: &str, project: &Path) -> Result<LaunchRequest, &'static str> {
         if !uuid(&self.request_id)
-            || !matches!(self.harness.as_str(), "claude_code" | "codex")
+            || !matches!(self.harness.as_str(), "claude_code" | "codex" | "opencode" | "pi")
             || !matches!(self.mode.as_str(), "delegation" | "dialogue" | "review")
             || self.instruction.trim().is_empty()
             || self.instruction.len() > MAX_INSTRUCTION_BYTES
@@ -436,10 +436,10 @@ impl OpenArguments {
 
 pub fn tools() -> Value {
     json!([
-        {"name":"shinatama_session_open","description":"Open one real Shinatama tab in this session's project and thread. Defaults to Claude; explicit codex stays Codex. Use only for a user-authorized new session. Returns queued, not ready. Retry an uncertain call with the same request_id and arguments; inspect status. No shell, arbitrary environment or permission changes.",
+        {"name":"shinatama_session_open","description":"Open one real Shinatama tab in this session's project and thread. Defaults to Claude; an explicit codex, opencode or pi stays that program. opencode and pi need room_id and coordinator and join only in a thread whose sessions talk to each other (the switch on, room_id the thread's room); the session is created in your thread and is not put on the team map. Use only for a user-authorized new session. Returns queued, not ready. Retry an uncertain call with the same request_id and arguments; inspect status. No shell, arbitrary environment or permission changes.",
          "inputSchema":{"type":"object","additionalProperties":false,"required":["request_id","instruction"],"dependentRequired":{"room_id":["coordinator"],"coordinator":["room_id"]},"properties":{
             "request_id":{"type":"string","format":"uuid"},
-            "harness":{"type":"string","enum":["claude_code","codex"],"default":"claude_code"},
+            "harness":{"type":"string","enum":["claude_code","codex","opencode","pi"],"default":"claude_code"},
             "mode":{"type":"string","enum":["delegation","dialogue","review"],"default":"delegation"},
             "instruction":{"type":"string","minLength":1,"maxLength":4096,"description":"Authorized brief, at most 4096 UTF-8 bytes. Refer to files instead of copying them."},
             "room_id":{"type":"string","minLength":1,"maxLength":128},
@@ -640,6 +640,39 @@ mod tests {
         assert_eq!(failed["state"], "failed");
         assert_eq!(failed["harness"], "codex");
         assert!(broker.next().is_none());
+    }
+    #[test]
+    fn opencode_and_pi_are_accepted_and_an_unknown_harness_is_not() {
+        let broker = Broker::new();
+        let _caller = caller(&broker, "caller");
+        // The default stays Claude and an explicit program is never replaced by another.
+        let plain = call(&broker, "caller", "shinatama_session_open", args());
+        assert_eq!(plain["harness"], "claude_code");
+        assert_eq!(broker.next().unwrap().harness, "claude_code");
+        // A caller keeps four receipts at most, so each program has a caller of its own.
+        let callers: Vec<_> = ["claude_code", "codex", "opencode", "pi"]
+            .into_iter()
+            .map(|harness| (harness, caller(&broker, harness)))
+            .collect();
+        for (harness, _) in &callers {
+            let mut arguments = args();
+            arguments["harness"] = json!(harness);
+            let opened = call(&broker, harness, "shinatama_session_open", arguments);
+            assert_eq!(opened["harness"], *harness);
+            assert_eq!(broker.next().unwrap().harness, *harness);
+        }
+        for harness in ["unknown", "OpenCode", "hermes", "", "opencode "] {
+            let mut arguments = args();
+            arguments["harness"] = json!(harness);
+            assert_eq!(call(&broker, "caller", "shinatama_session_open", arguments)["error"], "invalid_session_request", "{harness:?}");
+        }
+        assert!(broker.next().is_none());
+        // The schema and the description say the same four programs.
+        let tool = &tools()[0];
+        assert_eq!(tool["inputSchema"]["properties"]["harness"]["enum"], json!(["claude_code", "codex", "opencode", "pi"]));
+        let description = tool["description"].as_str().unwrap();
+        assert!(description.contains("opencode") && description.contains("pi"));
+        assert!(description.contains("thread whose sessions talk"));
     }
     #[test]
     fn retry_is_one_launch_and_receipts_are_scoped_to_the_caller() {
