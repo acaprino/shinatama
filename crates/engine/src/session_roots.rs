@@ -30,18 +30,23 @@ pub const MUKADE_REVISION: &str = "41f858222132d7e9af0cd637c8c25aaa7588cb7d";
 pub const MAX_REQUEST_BYTES: usize = 8192;
 pub const MAX_REPLY_BYTES: usize = 256 * 1024;
 pub const MAX_ROWS: usize = 50;
-/// The wall of a list, a detail and an overview. A search and an export read every word of one
-/// session and get more (`worker_wall_for`).
+/// The wall of a list. A read of one session (its detail or overview, a search, an export) gets
+/// more, by the size of its file (`worker_wall_for`).
 pub const WORKER_WALL: Duration = Duration::from_secs(10);
+/// The least wall of a read of one session. The helper's own start counts in the wall, and on a
+/// busy machine a 5.7 MB session already went past a flat 10 s (2026-11-18).
+pub const SESSION_WALL: Duration = Duration::from_secs(30);
 pub const WORKER_WALL_MAX: Duration = Duration::from_secs(120);
 /// One more second of wall for each this many bytes of the session's file.
-pub const WORKER_WALL_STEP_BYTES: u64 = 32 * 1024 * 1024;
-/// The wall of a search or an export of a session file of `session_bytes`: `WORKER_WALL` plus
-/// one second per `WORKER_WALL_STEP_BYTES`, at most `WORKER_WALL_MAX`. Mukade reads such a file
-/// twice, one record at a time; the time grows with its size (a 229 MiB session takes 1.4 s in a
-/// release build, and the helper runs under a CPU cap far below one core).
+pub const WORKER_WALL_STEP_BYTES: u64 = 2 * 1024 * 1024;
+/// The wall of a read of one session whose file holds `session_bytes`: `SESSION_WALL` plus one
+/// second per `WORKER_WALL_STEP_BYTES`, at most `WORKER_WALL_MAX`. Mukade reads such a file one
+/// record at a time and the helper runs under a CPU cap far below one core, so the time grows
+/// with the size and with the load of the machine: on 2026-11-18 the overview that a Resume
+/// reads first went past a flat 10 s for Claude sessions of 23 and 28 MB while other builds ran,
+/// and every such Resume was refused as "unavailable" (a 229 MiB session took 1.4 s unloaded).
 pub fn worker_wall_for(session_bytes: u64) -> Duration {
-    (WORKER_WALL + Duration::from_secs(session_bytes / WORKER_WALL_STEP_BYTES))
+    (SESSION_WALL + Duration::from_secs(session_bytes / WORKER_WALL_STEP_BYTES))
         .min(WORKER_WALL_MAX)
 }
 #[cfg(windows)]
@@ -187,7 +192,7 @@ enum SessionPayload {
 pub struct PreparedSessionList {
     root: StoreRootRecord,
     request: Vec<u8>,
-    /// How long the contained worker may run: `WORKER_WALL`, or more for a search or an export.
+    /// How long the contained worker may run: `WORKER_WALL` for a list, `worker_wall_for` for a read of one session.
     wall: Duration,
     /// The size of the session's file, for a search or an export (0 when not found): context for
     /// a progress line, never a percentage.
@@ -318,6 +323,10 @@ impl PreparedSessionList {
         if prepared.request.len() > MAX_REQUEST_BYTES {
             return Err(SessionReadIssue::InvalidRequest);
         }
+        // A detail of a large session needs the same time a search of it gets: the overview
+        // that a Resume verifies first is such a read.
+        prepared.file_bytes = session_file_bytes(&prepared.root, &request.native_id);
+        prepared.wall = worker_wall_for(prepared.file_bytes);
         prepared.detail_request = Some(request);
         Ok(prepared)
     }
@@ -372,9 +381,8 @@ impl PreparedSessionList {
         if prepared.request.len() > MAX_REQUEST_BYTES {
             return Err(SessionReadIssue::InvalidRequest);
         }
+        // The wall and the size hint come with the detail read of the same session.
         prepared.detail_request = None;
-        prepared.file_bytes = session_file_bytes(&prepared.root, &request.detail.native_id);
-        prepared.wall = worker_wall_for(prepared.file_bytes);
         prepared.find_request = Some(request);
         Ok(prepared)
     }
@@ -397,9 +405,8 @@ impl PreparedSessionList {
         if prepared.request.len() > MAX_REQUEST_BYTES {
             return Err(SessionReadIssue::InvalidRequest);
         }
+        // The wall and the size hint come with the detail read of the same session.
         prepared.detail_request = None;
-        prepared.file_bytes = session_file_bytes(&prepared.root, &request.detail.native_id);
-        prepared.wall = worker_wall_for(prepared.file_bytes);
         prepared.export_request = Some(request);
         Ok(prepared)
     }
@@ -407,7 +414,7 @@ impl PreparedSessionList {
     pub fn reply_limit(&self) -> usize {
         MAX_REPLY_BYTES
     }
-    /// The size of the session's file, for a search or an export; 0 when it was not found.
+    /// The size of the session's file, for a read of one session; 0 when it was not found or for a list.
     pub fn file_bytes(&self) -> u64 {
         self.file_bytes
     }
@@ -746,8 +753,8 @@ fn roots(root: &StoreRootRecord, harness: HarnessId) -> StoreRoots {
 /// The largest ordinal or hit count the host accepts from a worker reply.
 #[cfg(windows)]
 const SANE_ORDINAL: usize = 1 << 40;
-/// The size of the file of session `native_id` under the root, for the wall of a search or an
-/// export only: a regular file whose name holds the id, found by a bounded walk that follows no
+/// The size of the file of session `native_id` under the root, for the wall of a read of that
+/// session only: a regular file whose name holds the id, found by a bounded walk that follows no
 /// link. A miss is 0 and costs the base wall; it never changes what is read, and the helper
 /// still reads the session through Mukade and the pinned namespace.
 #[cfg(windows)]
@@ -1779,12 +1786,17 @@ mod tests {
         }
     }
     #[test]
-    fn the_wall_of_a_search_or_an_export_grows_with_the_session_file_and_is_capped() {
+    fn the_wall_of_a_read_of_one_session_grows_with_its_file_and_is_capped() {
         const MIB: u64 = 1024 * 1024;
-        assert_eq!(worker_wall_for(0), WORKER_WALL);
-        assert_eq!(worker_wall_for(32 * MIB - 1), WORKER_WALL);
-        assert_eq!(worker_wall_for(32 * MIB), WORKER_WALL + Duration::from_secs(1));
-        assert_eq!(worker_wall_for(320 * MIB), WORKER_WALL + Duration::from_secs(10));
+        assert_eq!(worker_wall_for(0), SESSION_WALL);
+        assert_eq!(worker_wall_for(2 * MIB - 1), SESSION_WALL);
+        assert_eq!(worker_wall_for(2 * MIB), SESSION_WALL + Duration::from_secs(1));
+        // The Claude sessions whose Resume was refused at a flat 10 s on 2026-11-18.
+        assert_eq!(worker_wall_for(5_700_000), SESSION_WALL + Duration::from_secs(2));
+        assert_eq!(worker_wall_for(23_049_796), SESSION_WALL + Duration::from_secs(10));
+        assert_eq!(worker_wall_for(28_208_575), SESSION_WALL + Duration::from_secs(13));
+        assert_eq!(worker_wall_for(180 * MIB), WORKER_WALL_MAX);
+        assert_eq!(worker_wall_for(179 * MIB), SESSION_WALL + Duration::from_secs(89));
         assert_eq!(worker_wall_for(u64::MAX), WORKER_WALL_MAX);
     }
     #[test]
