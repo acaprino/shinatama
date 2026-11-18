@@ -237,10 +237,14 @@ pub(crate) fn execute(room: &impl Room, seats: &BTreeMap<String, Seat>, deliveri
 // ---- Who is in the room ----
 
 /// The seat of each agent of the formation whose session is in the thread, of each agent that was
-/// told and is no longer on the map (found by the member it was told as), and the active members
-/// of closed sessions of agents on the map. `projected` is `thread_chat::project`'s answer. An
-/// agent whose session left the thread, or has no member, has no seat: it is owed nothing.
-pub(crate) fn seats_of(formation: &Formation, told: &BTreeMap<String, Told>, projected: &Value) -> (BTreeMap<String, Seat>, Vec<Seat>) {
+/// told and is no longer on the map (found by the member it was told as, unless that member now
+/// belongs to an agent on the map), the active members of closed sessions of agents on the map,
+/// and the active members of sessions that left the thread. `projected` is
+/// `thread_chat::project`'s answer. An agent whose session left the thread, or has no member, has
+/// no seat: it is owed nothing. A session that left the thread (it was moved to another one) is
+/// no row here and `project` ties no member to it, so its member is found only by the id the
+/// agent was told as: that member is to be retired, and nothing else is done for it.
+pub(crate) fn seats_of(formation: &Formation, told: &BTreeMap<String, Told>, projected: &Value) -> (BTreeMap<String, Seat>, Vec<Seat>, Vec<Seat>) {
     let empty = Vec::new();
     let members = projected["members"].as_array().unwrap_or(&empty);
     let rows = projected["sessions"].as_array().unwrap_or(&empty);
@@ -256,8 +260,17 @@ pub(crate) fn seats_of(formation: &Formation, told: &BTreeMap<String, Told>, pro
     let active_of = |session: &str| members.iter().find(|member| member["sessionId"] == session && member["active"] == true);
     let mut seats = BTreeMap::new();
     let mut closed = Vec::new();
+    let mut left = Vec::new();
     for agent in &formation.agents {
         let Some(session) = agent.session.as_deref() else { continue };
+        if row_of(session).is_none() {
+            // The session is not the thread's (any more): its member, told earlier, is found by id.
+            let was = told.get(&agent.id).and_then(|was| members.iter().find(|m| m["memberId"] == was.member.as_str()));
+            if let Some(member) = was.filter(|m| m["active"] == true && m["sessionId"].is_null()) {
+                left.extend(seat(member, &Value::Null));
+            }
+            continue;
+        }
         let (Some(row), Some(member)) = (row_of(session), active_of(session)) else { continue };
         let Some(found) = seat(member, row) else { continue };
         if row["state"] == "closed" {
@@ -271,7 +284,13 @@ pub(crate) fn seats_of(formation: &Formation, told: &BTreeMap<String, Told>, pro
             continue;
         }
         let Some(member) = members.iter().find(|member| member["memberId"] == was.member.as_str() && member["active"] == true) else { continue };
-        let Some(row) = member["sessionId"].as_str().and_then(row_of) else { continue };
+        // A session that is now an agent's on the map (dropped back as a new agent) is that
+        // agent's, not the removed one's.
+        let session = member["sessionId"].as_str();
+        if session.is_some_and(|session| formation.agents.iter().any(|a| a.session.as_deref() == Some(session))) {
+            continue;
+        }
+        let Some(row) = session.and_then(row_of) else { continue };
         if row["state"] == "closed" {
             continue;
         }
@@ -279,7 +298,20 @@ pub(crate) fn seats_of(formation: &Formation, told: &BTreeMap<String, Told>, pro
             seats.insert(agent.clone(), found);
         }
     }
-    (seats, closed)
+    (seats, closed, left)
+}
+
+/// The retires of the members of sessions that left the thread, before anything else is owed (so
+/// the notice of a change does not reach them), except those whose retire already failed in this
+/// run. Nothing else is done for them: their role and what they were told stay as they are.
+pub(crate) fn with_left_first(left: &[Seat], owed: Vec<Delivery>, failed: &BTreeSet<String>) -> Vec<Delivery> {
+    let mut all: Vec<Delivery> = left
+        .iter()
+        .filter(|seat| !failed.contains(&seat.member_id))
+        .map(|seat| Delivery::Retire { member_id: seat.member_id.clone() })
+        .collect();
+    all.extend(owed);
+    all
 }
 
 // ---- The service ----
@@ -419,6 +451,19 @@ fn forget_before(state: &WorkspaceServices, workset: &str, used: &Formation) {
     });
 }
 
+/// Drop what was told to agents that are off the map and need nothing more (`team::prune`), once
+/// nothing is owed.
+fn forget_told(state: &WorkspaceServices, workset: &str, used: &Formation, seats: &BTreeMap<String, Seat>, closed: &[Seat]) {
+    thread_team::exclusive(|| {
+        if let Ok(mut record) = thread_team::load(&state.store, workset)
+            && record.formation.as_ref().is_some_and(|stored| stored.revision == used.revision)
+            && team::prune(used, seats, closed, &mut record.told)
+        {
+            let _ = thread_team::save(&state.store, workset, &record);
+        }
+    });
+}
+
 fn check_thread(state: &WorkspaceServices, controller: &Controller, memo: &mut Memo, workset: &str, record: &Record, room: &str, revision: &str) {
     let Some(formation) = &record.formation else { return };
     let Ok(facts) = thread_chat::session_facts(state, workset, Some(room)) else { return };
@@ -434,11 +479,13 @@ fn check_thread(state: &WorkspaceServices, controller: &Controller, memo: &mut M
         }
     };
     let projected = thread_chat::project(room, &members, &[], &facts);
-    let (seats, mut closed) = seats_of(formation, &record.told, &projected);
+    let (seats, mut closed, left) = seats_of(formation, &record.told, &projected);
     closed.retain(|seat| !memo.retire_failed.contains(&seat.member_id));
     let owed = team::deliveries(record.before.as_ref(), formation, &record.told, &seats, &closed);
+    let owed = with_left_first(&left, owed, &memo.retire_failed);
     if owed.is_empty() {
         forget_before(state, workset, formation);
+        forget_told(state, workset, formation, &seats, &closed);
         set_refusals(workset, BTreeMap::new());
         memo.parked.insert(workset.to_owned(), key);
         return;
@@ -767,7 +814,7 @@ mod tests {
             ("a_cccccccccccc".to_owned(), Told { revision: 1, member: "m3".into(), digest: "d".into() }),
             (NOTICE_KEY.to_owned(), Told { revision: 1, member: String::new(), digest: String::new() }),
         ]);
-        let (seats, closed) = seats_of(&formation, &told, &projected);
+        let (seats, closed, _) = seats_of(&formation, &told, &projected);
         assert_eq!(seats.keys().map(String::as_str).collect::<Vec<_>>(), ["a_aaaaaaaaaaaa", "a_cccccccccccc"]);
         assert!(seats["a_aaaaaaaaaaaa"].in_room);
         assert_eq!(closed.iter().map(|seat| seat.member_name.as_str()).collect::<Vec<_>>(), ["codex-2"]);
@@ -776,6 +823,59 @@ mod tests {
         assert!(seats_of(&formation, &BTreeMap::new(), &left).0.is_empty());
     }
 
+
+    #[test]
+    fn a_member_that_belongs_to_a_new_agent_never_seats_a_removed_one() {
+        let member = |id: &str, name: &str, session: Option<&str>| json!({"memberId": id, "name": name, "role": "peer", "active": true, "sessionId": session});
+        let row = |session: &str| json!({"sessionId": session, "state": "running", "connection": "in_room"});
+        // The session of the removed agent a_old was dropped back on the map as the new agent a_new.
+        let formation = Formation { revision: 3, agents: vec![agent("a_nnnnnnnnnnnn", "t_xxxxxxxxxxxx")], links: Vec::new() };
+        let projected = json!({"members": [member("m1", "claude-1", Some("t_xxxxxxxxxxxx"))], "sessions": [row("t_xxxxxxxxxxxx")]});
+        let told = BTreeMap::from([("a_oooooooooooo".to_owned(), Told { revision: 2, member: "m1".into(), digest: "d".into() })]);
+        let (seats, closed, left) = seats_of(&formation, &told, &projected);
+        assert_eq!(seats.keys().map(String::as_str).collect::<Vec<_>>(), ["a_nnnnnnnnnnnn"], "only the agent on the map holds the member");
+        assert!(closed.is_empty() && left.is_empty());
+        // The same when that session is closed: its member is the new agent's, to be retired as its.
+        let closed_row = json!({"sessionId": "t_xxxxxxxxxxxx", "state": "closed", "connection": "in_room"});
+        let projected = json!({"members": [member("m1", "claude-1", Some("t_xxxxxxxxxxxx"))], "sessions": [closed_row]});
+        let (seats, closed, _) = seats_of(&formation, &told, &projected);
+        assert!(seats.is_empty(), "{seats:?}");
+        assert_eq!(closed.len(), 1);
+    }
+
+    #[test]
+    fn the_member_of_a_session_that_left_the_thread_is_found_to_be_retired() {
+        let member = |id: &str, name: &str, session: Option<&str>| json!({"memberId": id, "name": name, "role": "lead", "active": true, "sessionId": session});
+        let row = |session: &str| json!({"sessionId": session, "state": "running", "connection": "in_room"});
+        let (formation, _) = lead_and_worker();
+        // B's session moved to another thread: no row here, and the room's member is tied to no session.
+        let projected = json!({
+            "members": [
+                member("m1", "claude-1", Some("t_aaaaaaaaaaaa")),
+                member("m2", "codex-1", None),
+                member("m9", "stranger-1", None),
+            ],
+            "sessions": [row("t_aaaaaaaaaaaa")],
+        });
+        let told = BTreeMap::from([
+            ("a_aaaaaaaaaaaa".to_owned(), Told { revision: 2, member: "m1".into(), digest: "d".into() }),
+            ("a_bbbbbbbbbbbb".to_owned(), Told { revision: 2, member: "m2".into(), digest: "d".into() }),
+        ]);
+        let (seats, closed, left) = seats_of(&formation, &told, &projected);
+        assert_eq!(seats.keys().map(String::as_str).collect::<Vec<_>>(), ["a_aaaaaaaaaaaa"]);
+        assert!(closed.is_empty());
+        assert_eq!(left.iter().map(|seat| seat.member_id.as_str()).collect::<Vec<_>>(), ["m2"], "only the member that was told for that agent, not a stranger");
+        // An agent never told has no member to find; a member already gone is not listed.
+        let (_, _, none) = seats_of(&formation, &BTreeMap::new(), &projected);
+        assert!(none.is_empty());
+        let gone = json!({"members": [{"memberId": "m2", "name": "codex-1", "role": "peer", "active": false, "sessionId": null}], "sessions": []});
+        assert!(seats_of(&formation, &told, &gone).2.is_empty());
+        // Retiring is all that is owed: what the owed list holds for it is one retire, first.
+        let owed = with_left_first(&left, vec![Delivery::Notice { text: "n".into() }], &BTreeSet::new());
+        assert_eq!(owed.iter().map(label).collect::<Vec<_>>(), ["retire m2", "notice"]);
+        let skipped = with_left_first(&left, Vec::new(), &BTreeSet::from(["m2".to_owned()]));
+        assert!(skipped.is_empty(), "a retire that failed is not offered again in this run");
+    }
     #[test]
     fn an_outcome_is_read_from_the_error_text() {
         assert_eq!(outcome(&Ok(json!({}))), Outcome::Done);

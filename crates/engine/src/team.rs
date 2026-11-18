@@ -1249,6 +1249,27 @@ pub fn mark(now: &Formation, seats: &BTreeMap<String, Seat>, delivery: &Delivery
 }
 
 
+/// Forget what was told to agents that are no longer on the map and need nothing more: those
+/// told that they have no place whose member is gone (no seat), and those whose member now
+/// belongs to an agent on the map (a session dropped back as a new agent). `seats` and `closed`
+/// are as `deliveries` takes them. Whether anything was removed.
+pub fn prune(now: &Formation, seats: &BTreeMap<String, Seat>, closed: &[Seat], told: &mut BTreeMap<String, Told>) -> bool {
+    let on_map = |id: &str| now.agents.iter().any(|a| a.id == id);
+    let held: BTreeSet<&str> = seats
+        .iter()
+        .filter(|(id, _)| on_map(id))
+        .map(|(_, seat)| seat.member_id.as_str())
+        .chain(closed.iter().map(|seat| seat.member_id.as_str()))
+        .collect();
+    let before = told.len();
+    told.retain(|agent, was| {
+        agent == NOTICE_KEY
+            || on_map(agent)
+            || !(held.contains(was.member.as_str()) || (was.digest == REMOVED && !seats.contains_key(agent)))
+    });
+    told.len() != before
+}
+
 /// How many templates are kept (the store's own bound).
 pub const MAX_TEMPLATES: usize = shinatama_state::database::MAX_TEMPLATES;
 pub const MAX_TEMPLATE_NAME: usize = 60;
@@ -2154,6 +2175,34 @@ mod tests {
         let Some(Delivery::Notice { text }) = owed.iter().rev().find(|d| matches!(d, Delivery::Notice { .. })) else { panic!() };
         assert!(text.contains("m-gone") && text.contains("closed"), "{text}");
         assert!(owed.iter().any(|d| matches!(d, Delivery::Retire { member_id } if member_id == "id-m-gone")));
+    }
+
+    #[test]
+    fn what_was_told_to_a_removed_agent_is_forgotten_once_nothing_more_can_be_done_for_it() {
+        let before = team(&["a", "b", "c"], &[("a", "b", Work, Done)]);
+        let mut told = BTreeMap::new();
+        let seats = seated(&before);
+        run(None, &before, &mut told, &seats);
+        let mut now = team(&["a"], &[]);
+        now.revision = 2;
+        run(Some(&before), &now, &mut told, &seats);
+        assert!(told.contains_key("b") && told.contains_key("c"), "told that they have no place, still in the room");
+        // Their members are still there: kept, so that nothing is told twice.
+        assert!(!prune(&now, &seats, &[], &mut told));
+        assert!(told.contains_key("b"));
+        // Their members left: the entries go, and the other agent's and the notice's stay.
+        told.insert(NOTICE_KEY.into(), Told { revision: 2, member: String::new(), digest: String::new() });
+        let only_a = BTreeMap::from([("a".to_owned(), seats["a"].clone())]);
+        assert!(prune(&now, &only_a, &[], &mut told));
+        assert_eq!(told.keys().map(String::as_str).collect::<Vec<_>>(), ["a", NOTICE_KEY]);
+        assert!(!prune(&now, &only_a, &[], &mut told), "idempotent");
+        // A removed agent never told that it has no place keeps its entry while its member may return.
+        let mut told = BTreeMap::from([("x".to_owned(), Told { revision: 1, member: "id-m-x".into(), digest: "d".into() })]);
+        assert!(!prune(&now, &only_a, &[], &mut told));
+        // ...unless its member now belongs to an agent that is on the map (the session was dropped back as a new agent).
+        told.insert("y".into(), Told { revision: 1, member: seats["a"].member_id.clone(), digest: "d".into() });
+        assert!(prune(&now, &only_a, &[], &mut told));
+        assert_eq!(told.keys().map(String::as_str).collect::<Vec<_>>(), ["x"]);
     }
 
     const TEMPLATE: &str = "tm_aaaaaaaaaaaa";
