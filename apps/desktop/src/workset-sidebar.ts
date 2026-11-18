@@ -3,6 +3,7 @@
 import './thread-sidebar.css';
 import './workset-sidebar.css';
 import type { CurrentThreadProject, ThreadSidebarState } from './thread-sidebar.ts';
+import { sessionStateText, type ThreadSession } from './session-tabs.ts';
 
 export type WorksetLead = { threadId: string; title: string | null; harness: string | null };
 export type WorksetSummary = {
@@ -21,9 +22,11 @@ export type WorksetSidebarOptions = {
   remove?: (thread: Readonly<WorksetSummary>) => Promise<void>;
   /** Adds a session to this thread: opens it, then asks for the agent under `anchor`. */
   onAddSession?: (thread: Readonly<WorksetSummary>, anchor: HTMLElement) => void;
-  /** Turns the thread on: its sessions join the window. Starts, resumes and stops nothing. */
+  /** Turns the thread on: its sessions join the window. It starts and stops nothing itself; a session that
+   *  ran when Shinatama last closed resumes when its tab is shown. */
   onOpen: (thread: Readonly<WorksetSummary>) => Promise<boolean>;
-  /** Turns the thread off: its tabs leave the window, its sessions keep running. */
+  /** Turns the thread off, which closes it without deleting it: its tabs leave the window and its running
+   *  sessions stop, after asking; they stay in the thread, not running. */
   onClose?: (thread: Readonly<WorksetSummary>) => Promise<boolean>;
   /** The sidebar was shown, made compact or closed: `mode` is what it is now. */
   onModeChange?: (mode: SidebarMode) => void;
@@ -35,15 +38,24 @@ export type WorksetSidebarOptions = {
   tone?: (worksetId: string) => string | null;
   /** Sessions of this thread with a running terminal in this window. */
   running: (worksetId: string) => number;
-  /** Sessions of this thread that were closed: kept, not shown as tabs. */
+  /** Every session of this thread, oldest first, closed ones included, named as its tab is: the thread's
+   *  panel (⋯) lists them all. Whether one runs is asked again at each paint (`sessionRunning`). */
+  sessions?: (worksetId: string) => Promise<readonly ThreadSession[]>;
+  /** A terminal of this window runs the session now. */
+  sessionRunning?: (threadId: string) => boolean;
+  /** Brings the session's tab forward, turning its thread on first when it is off. */
+  onShowSession?: (threadId: string) => Promise<void>;
+  /** Gives the session a name of the user's; its tabs take it. */
+  onRenameSession?: (threadId: string, title: string) => Promise<void>;
+  /** Only the closed sessions, for a host without `sessions`: kept, not shown as tabs. */
   closed?: (worksetId: string) => Promise<readonly { id: string; name: string; updatedAt: number }[]>;
-  /** Projects left the sidebar (×, or untick in the Project menu): their threads are turned off, their sessions keep running. */
+  /** Projects left the sidebar (×, or untick in the Project menu): their threads are turned off, which stops their running sessions after asking. */
   onProjectsRemoved?: (projectIds: readonly string[]) => void;
   /** The label of an agent, as the rest of the window shows it. */
   harnessLabel?: (harness: string) => string;
   /** Puts a closed session back among the tabs; starts nothing. */
   onRestore?: (threadId: string) => Promise<void>;
-  /** Deletes one closed session for good, after a second click. */
+  /** Deletes one session for good: a closed one after a second click, one with nothing saved (Remove) at once. */
   onForgetSession?: (threadId: string) => Promise<void>;
   /** An agent of this thread is waiting for the user. */
   attention?: (worksetId: string) => boolean;
@@ -98,13 +110,15 @@ function stateValue(value: unknown): ThreadSidebarState | null {
   if (value.hidden !== undefined && typeof value.hidden !== 'boolean') return null;
   return { version: 1, width: value.width, collapsed: value.collapsed, activeProjects: [...listed], ...(value.hidden ? { hidden: true } : {}) };
 }
-function failureText(error: unknown, doing: string) {
+function failureText(error: unknown, doing: string, what: 'thread' | 'session' = 'thread') {
   const code = typeof error === 'string' ? error : record(error) ? error.code ?? error.issue : null;
   if (code === 'project_missing') return 'The project is unavailable. Choose it again.';
   if (code === 'busy') return 'Thread storage is busy. Try again.';
-  if (code === 'conflict') return 'This thread changed. Reload and try again.';
+  if (code === 'conflict') return `This ${what} changed. Reload and try again.`;
   if (code === 'owned_elsewhere') return 'A session of this thread is running. Stop it first.';
-  return `The thread could not be ${doing}. Nothing was changed.`;
+  // Nothing runs, but a session is still marked open by a Shinatama that closed badly, and its end could not be proven.
+  if (code === 'open_unverified') return 'A session of this thread is still marked open by a Shinatama that is no longer running, and that could not be verified. The thread was kept.';
+  return `The ${what} could not be ${doing}. Nothing was changed.`;
 }
 function agoText(timestamp: number) {
   const minutes = Math.floor((Date.now() - timestamp) / 60000);
@@ -130,7 +144,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   showArchivedLabel.append(showArchived, ' Show archived threads'); showArchivedLabel.hidden = !options.update;
   const status = node('p', 'thread-sidebar-status'); status.setAttribute('role', 'status');
   const list = node('ul', 'thread-sidebar-list'); list.setAttribute('aria-label', 'Threads, by project');
-  // The settings of one thread open in place, under its row (⋯): name, archive, forget, closed sessions.
+  // The settings of one thread open in place, under its row (⋯): name, every session (open, then closed), archive, forget.
   const details = node('li', 'thread-sidebar-details');
   const renameForm = node('form', 'thread-sidebar-rename');
   const renameLabel = node('label', '', 'Name'); renameLabel.htmlFor = 'thread-rename-title';
@@ -139,8 +153,17 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   renameForm.append(renameLabel, renameInput, renameSave);
   const actions = node('div', 'thread-sidebar-actions');
   const archive = node('button', ''); archive.type = 'button';
-  const removeLabel = 'Forget thread'; const remove = node('button', '', removeLabel); remove.type = 'button';
+  const removeLabel = 'Delete thread'; const remove = node('button', '', removeLabel); remove.type = 'button';
   actions.append(archive, remove);
+  // Every session of the thread that is not closed, with its state and what can be done with it; the closed ones follow.
+  // Classes of their own: the closed-session hooks (.thread-sidebar-closed*) keep meaning the closed ones only.
+  const sessionsHead = node('p', 'thread-sidebar-sessions-head'); sessionsHead.id = 'thread-sidebar-sessions-head';
+  const sessionsList = node('ul', 'thread-sidebar-sessions'); sessionsList.setAttribute('aria-labelledby', sessionsHead.id);
+  // One rename field, moved into the row of the session being renamed.
+  const sessionRename = node('form', 'thread-sidebar-session-rename');
+  const sessionRenameInput = node('input', ''); sessionRenameInput.type = 'text'; sessionRenameInput.maxLength = 256; sessionRenameInput.autocomplete = 'off';
+  const sessionRenameSave = node('button', '', 'Save'); sessionRenameSave.type = 'submit'; sessionRenameSave.dataset.key = 'rename-save';
+  sessionRename.append(sessionRenameInput, sessionRenameSave);
   const closedHead = node('p', 'thread-sidebar-closed-head'); const closedList = node('ul', 'thread-sidebar-closed');
   const warning = node('p', 'thread-sidebar-warning'); warning.hidden = true;
   // ADR-0057: the switch that lets the thread's sessions talk to each other.
@@ -150,7 +173,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   chatHint.id = 'thread-chat-switch-hint'; chatSwitch.setAttribute('aria-describedby', chatHint.id);
   chatLabel.hidden = chatHint.hidden = !options.chat;
   details.id = 'thread-sidebar-details';
-  details.append(renameForm, chatLabel, chatHint, closedHead, closedList, actions, warning);
+  details.append(renameForm, chatLabel, chatHint, sessionsHead, sessionsList, closedHead, closedList, actions, warning);
   body.append(status, list, showArchivedLabel);
   const separator = node('div', 'thread-sidebar-resize'); separator.tabIndex = 0; separator.setAttribute('role', 'separator');
   separator.setAttribute('aria-label', 'Thread sidebar width'); separator.setAttribute('aria-orientation', 'vertical');
@@ -168,10 +191,14 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   let loaded = !options.loadState; let saveWanted = false;
   let message = NO_PROJECTS; let failed = false;
   let editing = false; let removeArmed = 0; let forgetting: string | null = null; let saveTimer = 0; let changeTimer = 0;
-  /** The thread whose settings are open under its row, and its closed sessions as last read. */
   /** The mode last reported to `onModeChange`, also after the saved display is restored. */
   let shownMode: SidebarMode = 'open';
-  let expanded: string | null = null; let closedOf: { id: string; rows: readonly { id: string; name: string; updatedAt: number }[] } | null = null;
+  /** The thread whose settings are open under its row, and its sessions as last read. */
+  let expanded: string | null = null; let sessionsOf: { id: string; rows: readonly ThreadSession[] } | null = null;
+  /** The session whose name is being edited in the thread's panel. */
+  let renamingSession: string | null = null;
+  const readSessions = options.sessions ?? (options.closed
+    ? async (id: string): Promise<readonly ThreadSession[]> => (await options.closed!(id)).map(session => ({ ...session, state: 'closed' as const })) : undefined);
   let drag: { pointer: number; x: number; before: ThreadSidebarState } | null = null;
   const anchors = new Map<string, HTMLLIElement>();
   /** Names agents gave their conversations: they name a thread the user has not named. */
@@ -246,7 +273,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     nodes.forEach((item, position) => { if (list.children[position] !== item) list.insertBefore(item, list.children[position] ?? null); });
     if (typing && renameInput.isConnected && document.activeElement !== renameInput) { renameInput.focus({ preventScroll: true }); renameInput.setSelectionRange(typing[0], typing[1]); }
     const current = chosen();
-    if (!current) { expanded = null; closedOf = null; editing = false; }
+    if (!current) { expanded = null; sessionsOf = null; editing = false; }
     const detailTone = current ? options.tone?.(current.id) : null; if (detailTone) details.style.setProperty('--thread-tone', detailTone); else details.style.removeProperty('--thread-tone');
     // The field holds a real name only; an unnamed thread shows what its row says as a hint.
     if (current && !editing && document.activeElement !== renameInput) {
@@ -259,23 +286,86 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     archive.textContent = current?.archived ? 'Unarchive' : 'Archive';
     archive.title = current?.archived ? 'Put this thread back in the list.' : 'Move this thread out of the list. Nothing is deleted.';
     if (remove.hidden && removeArmed) disarm();
-    const closed = current && closedOf?.id === current.id ? closedOf.rows : [];
+    const loadedSessions = current && sessionsOf?.id === current.id ? sessionsOf.rows : null;
+    const all = loadedSessions ?? [];
+    const closed = all.filter(session => session.state === 'closed');
+    // A host that gives only the closed sessions (`closed`) says nothing of the others.
+    renderSessions(loadedSessions === null || !options.sessions ? null : all.filter(session => session.state !== 'closed'));
     closedHead.hidden = closedList.hidden = !closed.length; closedHead.textContent = `Closed sessions (${closed.length})`;
     if (!closed.some(session => session.id === forgetting)) forgetting = null;
     closedList.replaceChildren(...closed.map(session => {
       const item = document.createElement('li'); const name = node('span', 'thread-sidebar-closed-name', session.name); name.title = `${session.name} · ${agoText(session.updatedAt)}`;
       const restore = node('button', '', 'Reopen'); restore.type = 'button'; restore.disabled = busy; restore.dataset.restore = session.id;
-      restore.onclick = () => { void operate('reopened', async () => { await options.onRestore?.(session.id); await loadClosed(); }); };
-      const forget = node('button', forgetting === session.id ? 'danger' : '', forgetting === session.id ? 'Sure?' : 'Forget'); forget.type = 'button'; forget.disabled = busy;
+      restore.onclick = () => { void operate('reopened', async () => { await options.onRestore?.(session.id); await loadSessions(); }); };
+      const forget = node('button', forgetting === session.id ? 'danger' : '', forgetting === session.id ? 'Sure?' : 'Delete'); forget.type = 'button'; forget.disabled = busy;
       forget.title = 'Delete this session from Shinatama. The agent\'s own session files stay.';
       forget.onclick = () => {
         if (forgetting !== session.id) { forgetting = session.id; render(); return; }
-        forgetting = null; void operate('forgotten', async () => { await options.onForgetSession?.(session.id); await loadClosed(); });
+        forgetting = null; void operate('deleted', async () => { await options.onForgetSession?.(session.id); await loadSessions(); }, 'session');
       };
       item.append(name, restore, forget); return item;
     }));
     requestNames();
   }
+  /** The thread's sessions that are not closed (null: not read yet): name, state in words, and per state
+   *  Show, Rename, and Remove for one with nothing saved. Rebuilt only when what it says changes, so a
+   *  repaint never takes the focus from its buttons or its rename field. */
+  let sessionsShown = '';
+  function renderSessions(open: readonly ThreadSession[] | null) {
+    const listed = (open ?? []).map(session => ({ ...session, state: options.sessionRunning?.(session.id) ? 'running' as const : session.state }));
+    if (renamingSession && !listed.some(session => session.id === renamingSession)) renamingSession = null;
+    const shown = JSON.stringify([open === null, busy, renamingSession, listed.map(session => [session.id, session.name, session.state])]);
+    if (shown === sessionsShown) return;
+    sessionsShown = shown;
+    sessionsHead.hidden = open === null; sessionsList.hidden = !listed.length;
+    sessionsHead.textContent = !listed.length ? 'No open sessions in this thread.' : `Sessions (${listed.length})`;
+    const focused = document.activeElement instanceof HTMLElement && sessionsList.contains(document.activeElement) ? document.activeElement : null;
+    const focusKey = focused?.dataset.key; const typing = focused === sessionRenameInput ? [sessionRenameInput.selectionStart, sessionRenameInput.selectionEnd] as const : null;
+    sessionsList.replaceChildren(...listed.map(session => {
+      const item = node('li', 'thread-sidebar-session'); item.dataset.threadId = session.id;
+      const button = (label: string, key: string, title: string, act: () => void) => {
+        const made = node('button', '', label); made.type = 'button'; made.dataset.key = `${key}:${session.id}`; made.disabled = busy;
+        made.title = title; made.setAttribute('aria-label', `${label} ${session.name}`); made.onclick = act; return made;
+      };
+      if (renamingSession === session.id) {
+        sessionRenameInput.setAttribute('aria-label', `New name of ${session.name}`);
+        if (!typing) sessionRenameInput.placeholder = session.name;
+        sessionRenameSave.disabled = busy; item.append(sessionRename); return item;
+      }
+      const words = node('span', 'thread-sidebar-session-text');
+      words.append(node('span', 'thread-sidebar-session-name', session.name), node('span', 'thread-sidebar-session-state', sessionStateText(session.state)));
+      words.title = `${session.name} · ${sessionStateText(session.state)} · ${agoText(session.updatedAt)}`;
+      item.append(words);
+      if (options.onShowSession) item.append(button('Show', 'show', 'Show this session\'s tab, turning the thread on if it is off', () => {
+        void options.onShowSession!(session.id).catch(() => options.reportError('That session could not be shown.')).finally(() => render());
+      }));
+      if (options.onRenameSession) item.append(button('Rename', 'rename', 'Give this session a name of your own', () => {
+        renamingSession = session.id; sessionRenameInput.value = ''; render(); sessionRenameInput.focus();
+      }));
+      if (session.state === 'unbound' && options.onForgetSession) item.append(button('Remove', 'remove', 'Remove this session from the thread: nothing was saved in it. Nothing else is deleted.', () => {
+        void operate('removed', async () => { await options.onForgetSession!(session.id); await loadSessions(); }, 'session');
+      }));
+      return item;
+    }));
+    if (typing && sessionRenameInput.isConnected) { sessionRenameInput.focus({ preventScroll: true }); sessionRenameInput.setSelectionRange(typing[0], typing[1]); }
+    else if (focusKey) sessionsList.querySelector<HTMLElement>(`[data-key="${focusKey}"]`)?.focus({ preventScroll: true });
+  }
+  /** Leaves the session's rename field; the focus goes back to its Rename button. */
+  function endSessionRename(id: string) {
+    renamingSession = null; render();
+    sessionsList.querySelector<HTMLButtonElement>(`[data-key="rename:${id}"]`)?.focus();
+  }
+  sessionRename.onsubmit = event => {
+    event.preventDefault(); const id = renamingSession; const title = sessionRenameInput.value.trim();
+    if (!id || busy || !options.onRenameSession || !title || !text(title, 256)) return;
+    renamingSession = null;
+    void operate('renamed', async () => { await options.onRenameSession!(id, title); await loadSessions(); }, 'session')
+      .then(() => sessionsList.querySelector<HTMLButtonElement>(`[data-key="rename:${id}"]`)?.focus());
+  };
+  sessionRenameInput.onkeydown = event => {
+    if (event.key !== 'Escape' || !renamingSession) return;
+    event.preventDefault(); event.stopPropagation(); endSessionRename(renamingSession);
+  };
   /** Two letters for a square: the first of the first two words, or the first two of one word. */
   const initials = (name: string) => {
     const words = name.match(/[\p{L}\p{N}]+/gu) ?? [];
@@ -296,7 +386,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
         square.setAttribute('aria-current', String(options.openId() === row.id));
         if (tone) square.style.setProperty('--thread-tone', tone);
         const running = options.running(row.id);
-        square.title = `${name} · ${labelOf(project)}${running ? ` · ${running} running` : ''}\n${on ? 'Click to hide its tabs' : 'Click to show its tabs'}`;
+        square.title = `${name} · ${labelOf(project)}${running ? ` · ${running} running` : ''}\n${on ? 'Click to turn it off: its running sessions stop, after asking, and stay in it' : 'Click to show its tabs'}`;
         square.setAttribute('aria-label', `${name}, ${labelOf(project)}`);
         square.toggleAttribute('data-attention', options.attention?.(row.id) === true);
         square.onclick = () => { const actual = rows.find(candidate => candidate.id === row.id); if (actual) void openThread(actual); };
@@ -339,7 +429,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     const on = isOn(row.id);
     const name = shownTitle(row); const titleLine = anchor.querySelector<HTMLElement>('.thread-sidebar-title')!;
     if (titleLine.textContent !== name) titleLine.textContent = name;
-    anchor.title = on ? `${name} is shown. Click to hide its tabs; its sessions keep running.` : `Click to show the tabs of ${name}.`;
+    anchor.title = on ? `${name} is shown. Click to turn it off: its running sessions stop, after asking, and stay in the thread, not running.` : `Click to show the tabs of ${name}.`;
     const running = options.running(row.id); const waiting = options.attention?.(row.id) === true;
     const kind = row.archived ? 'archived' : waiting ? 'recover' : running ? 'open' : 'resumable';
     const count = Math.max(row.sessions, running);
@@ -397,7 +487,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
         else { groups.set(project, { rows: [], more: false, failed: true }); error ??= result.reason ?? 'failed'; }
       });
       rows = scope.flatMap(project => groups.get(project)?.rows ?? []);
-      if (expanded) void loadClosed();
+      if (expanded) void loadSessions();
       failed = error !== null;
       message = failed ? failureText(error, 'read') : [...groups.values()].some(group => group.more) ? 'Showing the 200 most recent threads of each project.' : '';
       if (failed) options.reportError(message);
@@ -409,11 +499,11 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     if (!destroyed && rereadWanted) { rereadWanted = false; void read(); }
   }
   /** One operation at a time; the list is read again after every change. */
-  async function operate(doing: string, work: () => Promise<void>) {
+  async function operate(doing: string, work: () => Promise<void>, what: 'thread' | 'session' = 'thread') {
     if (busy || destroyed) return;
     const at = generation; busy = true; failed = false; render();
     try { await work(); }
-    catch (error) { if (!destroyed && at === generation) { failed = true; message = failureText(error, doing); options.reportError(message); } }
+    catch (error) { if (!destroyed && at === generation) { failed = true; message = failureText(error, doing, what); options.reportError(message); } }
     finally { busy = false; if (!destroyed && at === generation) { rereadWanted = false; await read(); } else render(); }
   }
   /** A click turns a thread on, or off when it is on. */
@@ -437,16 +527,16 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   }
   /** Opens the settings of a thread under its row, or closes them; one thread at a time. */
   function toggleDetails(id: string) {
-    disarm(); editing = false; forgetting = null;
-    expanded = expanded === id ? null : id; closedOf = null; render();
-    if (expanded) void loadClosed();
+    disarm(); editing = false; forgetting = null; renamingSession = null;
+    expanded = expanded === id ? null : id; sessionsOf = null; render();
+    if (expanded) void loadSessions();
   }
-  /** Reads the closed sessions of the thread whose settings are open; only the latest reply is shown. */
-  let closedAsk = 0;
-  async function loadClosed() {
-    const id = expanded; if (!id || !options.closed) return;
-    const ask = ++closedAsk;
-    try { const found = await options.closed(id); if (expanded === id && ask === closedAsk) { closedOf = { id, rows: found }; render(); } } catch { /* the list stays as it was */ }
+  /** Reads the sessions of the thread whose settings are open; only the latest reply is shown. */
+  let sessionsAsk = 0;
+  async function loadSessions() {
+    const id = expanded; if (!id || !readSessions) return;
+    const ask = ++sessionsAsk;
+    try { const found = await readSessions(id); if (expanded === id && ask === sessionsAsk) { sessionsOf = { id, rows: found }; render(); } } catch { /* the list stays as it was */ }
   }
   renameInput.oninput = () => { editing = true; };
   renameForm.onsubmit = event => {
@@ -474,12 +564,12 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   remove.onclick = () => {
     const current = chosen(); if (!current || !options.remove || busy) return;
     if (!removeArmed) {
-      remove.textContent = 'Click again to forget'; remove.classList.add('danger'); removeArmed = window.setTimeout(disarm, 5000);
+      remove.textContent = 'Click again to delete'; remove.classList.add('danger'); removeArmed = window.setTimeout(disarm, 5000);
       warning.textContent = `Deletes this thread and its ${current.sessions} session${current.sessions === 1 ? '' : 's'} from Shinatama, closed ones included. The agents' own files stay.`;
       warning.hidden = false; return;
     }
     disarm();
-    void operate('forgotten', async () => { await options.remove!(Object.freeze({ ...current })); expanded = null; });
+    void operate('deleted', async () => { await options.remove!(Object.freeze({ ...current })); expanded = null; });
   };
   showArchived.onchange = () => { if (busy || !active.length) { showArchived.checked = archivedView; return; } archivedView = showArchived.checked; generation++; rows = []; groups.clear(); render(); void read(); };
 

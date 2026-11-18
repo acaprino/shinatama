@@ -8,6 +8,18 @@
 .thread-sidebar-closed li { display: flex; align-items: center; gap: 4px; }
 .thread-sidebar-closed-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-sidebar-closed button { min-height: 24px; padding: 0 6px; font-size: 11px; }
+/* Every open session of the thread: its name over its state, then what can be done with it. */
+.thread-sidebar-sessions { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; color: var(--text-2); font: 12px var(--mono); }
+.thread-sidebar-sessions[hidden], .thread-sidebar-sessions-head[hidden] { display: none; }
+.thread-sidebar-sessions-head { margin: 0; color: var(--muted); font: 11px var(--mono); }
+.thread-sidebar-session { display: flex; align-items: center; gap: 4px; }
+.thread-sidebar-session-text { display: grid; flex: 1; min-width: 0; }
+.thread-sidebar-session-name, .thread-sidebar-session-state { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-sidebar-session-name { color: var(--text); }
+.thread-sidebar-session-state { color: var(--muted); font-size: 11px; }
+.thread-sidebar-session button { flex: none; min-height: 24px; padding: 0 6px; font-size: 11px; }
+.thread-sidebar-session-rename { display: flex; flex: 1; min-width: 0; gap: 4px; }
+.thread-sidebar-session-rename input { flex: 1; min-width: 0; padding: 3px 6px; font: inherit; }
 
 /* Threads grouped by project: a header per listed project, its threads under it. */
 .thread-sidebar-group { display: flex; align-items: center; gap: 2px; min-height: 30px; }
