@@ -50,11 +50,18 @@ const MAX_METADATA_BYTES: u64 = 1024 * 1024;
 const MAX_RELEASES_BYTES: u64 = 8 * 1024 * 1024;
 /// One page of releases, newest first: Marionette's latest is always on it.
 const RELEASES_PER_PAGE: u32 = 100;
-const MAX_LOCK_BYTES: u64 = 4 * 1024 * 1024;
-const MAX_ASSET_BYTES: u64 = 128 * 1024 * 1024;
+// Bounds of one release. Marionette carries its sources whole since 2026-11-17
+// (taste-skill's kit and images in every adapter). Measured on that build: a
+// zip of 188 MiB, 12,061 files, a tree of 257 MiB, a lock of 2.6 MiB. The zip
+// was over the 128 MiB it was allowed, so the sync refused the release and kept
+// the copy before it; the files were at three quarters of their 16,384. All four
+// are four times what they were. The tree bound stays above what a zip at its
+// own bound extracts to: a release is not downloaded to be refused afterwards.
+const MAX_LOCK_BYTES: u64 = 16 * 1024 * 1024;
+const MAX_ASSET_BYTES: u64 = 512 * 1024 * 1024;
 const MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
-const MAX_TREE_BYTES: u64 = 512 * 1024 * 1024;
-const MAX_FILES: usize = 16 * 1024;
+const MAX_TREE_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+const MAX_FILES: usize = 64 * 1024;
 const MAX_DEPTH: usize = 24;
 
 /// The harnesses with a Marionette adapter Shinatama launches.
@@ -1082,11 +1089,33 @@ pub(crate) mod tests {
         let started = std::time::Instant::now();
         sync(&store, &LocalZip(zip, bytes)).unwrap();
         let current = Marionette::current(&store).unwrap();
-        for host in Host::ALL {
-            let adapter = current.verify(host).unwrap();
-            eprintln!("{:?}: {} files at {}", host, adapter.files().len(), adapter.dir_arg());
-        }
         eprintln!("version {} installed and verified in {:?}", current.version(), started.elapsed());
+        // How far the release is from each bound, and what a launch pays.
+        let release = store.join(RELEASES).join("marionette-v0.0.0");
+        let lock = fs::metadata(release.join(LOCK_FILE)).unwrap().len();
+        let longest = current.files.iter().map(|(path, _, _)| path.len()).max().unwrap_or(0);
+        let tree: u64 = current.files.iter().map(|(_, bytes, _)| bytes).sum();
+        eprintln!("lock.json {lock} of {MAX_LOCK_BYTES} bytes; {} of {MAX_FILES} files", current.files.len());
+        eprintln!("tree {tree} of {MAX_TREE_BYTES} bytes; longest path {longest} characters");
+        for host in Host::ALL {
+            let started = std::time::Instant::now();
+            let adapter = current.verify(host).unwrap();
+            eprintln!("{:?}: {} files verified in {:?}", host, adapter.files().len(), started.elapsed());
+        }
+        // What one Claude Code launch does, four times over: the first copy writes
+        // every file, the later ones find them unchanged.
+        for launch in 1..=4 {
+            let started = std::time::Instant::now();
+            let opened = Marionette::current(&store).unwrap();
+            let read = started.elapsed();
+            let claude = opened.verify(Host::ClaudeCode).unwrap();
+            let verified = started.elapsed();
+            claude.private_copy(&store.join("claude-copy")).unwrap();
+            eprintln!(
+                "Claude Code launch {launch}: lock read {read:?}, verified {verified:?}, copy ready {:?}",
+                started.elapsed()
+            );
+        }
         let _ = fs::remove_dir_all(&store);
     }
     /// Manual, needs the network: `cargo test -p shinatama-engine -- --ignored
@@ -1129,6 +1158,55 @@ pub(crate) mod tests {
             good_url.as_str().unwrap().replace("marionette-v0.1.0", "muro-v9.9.9").into();
         assert!(choose_asset(&release(&metadata)).is_err());
         assert!(!valid_tag("../x") && !valid_tag(".hidden") && valid_tag("marionette-v0.1.0"));
+    }
+    #[test]
+    fn a_release_that_carries_its_sources_whole_is_within_the_asset_bound() {
+        // Muro, 2026-11-17: a source travels with every file its method uses, so
+        // taste-skill is whole, images included, in every adapter. The zip of that
+        // build is 197,039,241 bytes. The bound was 128 MiB: the sync refused the
+        // release and kept the copy before it, with one line in the log.
+        let base = FakeFetch::new("marionette-v0.4.0", "0.4.0");
+        let list: serde_json::Value =
+            serde_json::from_slice(&base.releases(REPOSITORY).unwrap()).unwrap();
+        let mut metadata = list[1].clone();
+        let release = |value: &serde_json::Value| -> ReleaseMetadata {
+            serde_json::from_value(value.clone()).unwrap()
+        };
+        metadata["assets"][0]["size"] = 197_039_241u64.into();
+        assert_eq!(choose_asset(&release(&metadata)).unwrap().size, 197_039_241);
+        // A bound stays: an asset over it is refused before anything is downloaded.
+        metadata["assets"][0]["size"] = (MAX_ASSET_BYTES + 1).into();
+        assert!(choose_asset(&release(&metadata)).is_err());
+    }
+    #[test]
+    fn a_lock_twice_the_size_of_a_whole_source_release_opens() {
+        // Measured on Muro's build of 2026-11-18 through the real zip test below:
+        // 12,061 files and a lock of 2,732,682 bytes, against bounds of 16,384 files
+        // and 4 MiB. One more source with a kit would have been refused again.
+        let release = scratch("large-lock");
+        fs::create_dir_all(&release).unwrap();
+        let digest = "0".repeat(64);
+        let files: Vec<serde_json::Value> = (0..24_122)
+            .map(|n| {
+                serde_json::json!({
+                    "path": format!("marionette/adapters/claude-code/skills/marionette/scripts/kit/{n:0100}.svg"),
+                    "bytes": 1,
+                    "sha256": digest,
+                })
+            })
+            .collect();
+        let lock = serde_json::json!({
+            "formatVersion": 1,
+            "repository": REPOSITORY,
+            "tag": "marionette-v0.4.0",
+            "version": "0.4.0",
+            "asset": { "name": "marionette-0.4.0.zip", "bytes": 1, "sha256": digest },
+            "files": files,
+        });
+        fs::write(release.join(LOCK_FILE), serde_json::to_vec_pretty(&lock).unwrap()).unwrap();
+        let opened = Marionette::open(&release, "marionette-v0.4.0").unwrap();
+        assert_eq!(opened.files.len(), 24_122);
+        let _ = fs::remove_dir_all(&release);
     }
     #[test]
     fn only_the_highest_published_marionette_release_is_followed() {
