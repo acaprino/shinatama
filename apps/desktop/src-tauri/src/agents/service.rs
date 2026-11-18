@@ -868,50 +868,73 @@ impl<D: HarnessDriver> Service<D> {
                 }
                 SessionOperation::Resume(_) => requested_thread.clone(),
             };
-            let lifecycle = self.driver.bind_lifecycle(
-                &mut prepared,
-                BindingContext {
-                    database: Arc::clone(&state.store),
-                    thread: &thread,
-                    root: &root,
-                    operation: &operation,
-                    thread_observer: Arc::clone(&self.context.thread_observer),
-                },
-            )?;
-            let prepared: SealedSession = prepared.into();
-            if prepared.launch.identity_record().thread_id != thread.id {
-                return Err(DriverError::Failed(
-                    "The sealed launch does not match the saved thread.",
-                ));
-            }
-            crate::opening::report(descriptor.id, "start");
-            let session = host.start_prepared_with_lifecycle(prepared.launch, prepared.permit, rows, cols, lifecycle)
-                .map_err(|error| {
-                    // Say why, so the person is not left with a bare refusal. The cause is
-                    // control-free and bounded (240 characters), kept in the diagnostics
-                    // as before, and the one-off text is leaked because a failed start is
-                    // rare and user-initiated.
-                    let cause = format!("{error:#}")
-                        .chars()
-                        .filter(|ch| !ch.is_control())
-                        .take(240)
-                        .collect::<String>();
-                    self.native_failure(&cause);
-                    if DriverError::is_admission_refusal(&cause) {
-                        return DriverError::deferred(cause);
-                    }
-                    DriverError::Failed(Box::leak(
-                        format!(
-                            "The harness terminal did not confirm startup ({cause}). Its owned resources remain tracked; no shell fallback was used."
+            // From here a failure says whether the host could have started a process: only then
+            // may the thread a New just created be in use. `None` is "nothing started".
+            let mut instance = None;
+            let started: Result<_, (DriverError, bool)> = 'start: {
+                let lifecycle = match self.driver.bind_lifecycle(
+                    &mut prepared,
+                    BindingContext {
+                        database: Arc::clone(&state.store),
+                        thread: &thread,
+                        root: &root,
+                        operation: &operation,
+                        thread_observer: Arc::clone(&self.context.thread_observer),
+                    },
+                ) {
+                    Ok(lifecycle) => lifecycle,
+                    Err(error) => break 'start Err((error, false)),
+                };
+                let prepared: SealedSession = prepared.into();
+                if prepared.launch.identity_record().thread_id != thread.id {
+                    break 'start Err((
+                        DriverError::Failed("The sealed launch does not match the saved thread."),
+                        false,
+                    ));
+                }
+                instance = Some(prepared.launch.identity_record().instance_id.clone());
+                crate::opening::report(descriptor.id, "start");
+                host.start_prepared_with_lifecycle(prepared.launch, prepared.permit, rows, cols, lifecycle)
+                    .map_err(|error| {
+                        // Say why, so the person is not left with a bare refusal. The cause is
+                        // control-free and bounded (240 characters), kept in the diagnostics
+                        // as before, and the one-off text is leaked because a failed start is
+                        // rare and user-initiated.
+                        let cause = format!("{error:#}")
+                            .chars()
+                            .filter(|ch| !ch.is_control())
+                            .take(240)
+                            .collect::<String>();
+                        self.native_failure(&cause);
+                        // An admission refusal (the terminal count, the ledger, free memory) is
+                        // decided before the host creates any process or binds the session.
+                        if DriverError::is_admission_refusal(&cause) {
+                            return (DriverError::deferred(cause), false);
+                        }
+                        (
+                            DriverError::Failed(Box::leak(
+                                format!(
+                                    "The harness terminal did not confirm startup ({cause}). Its owned resources remain tracked; no shell fallback was used."
+                                )
+                                .into_boxed_str(),
+                            )),
+                            true,
                         )
-                        .into_boxed_str(),
-                    ))
-                })?;
-            return Ok(AgentStarted {
-                session,
-                thread_id: thread.id,
-                trial: false,
-            });
+                    })
+            };
+            return match started {
+                Ok(session) => Ok(AgentStarted {
+                    session,
+                    thread_id: thread.id,
+                    trial: false,
+                }),
+                Err((error, may_have_started)) => {
+                    if !may_have_started && matches!(operation, SessionOperation::New) {
+                        discard_unstarted(&state.store, &thread.id, instance.as_deref());
+                    }
+                    Err(error)
+                }
+            };
         }
         Err(DriverError::StaleQualification)
     }
@@ -1113,6 +1136,19 @@ impl<D: HarnessDriver> HarnessService for Service<D> {
         }
         result
     }
+}
+/// A New open refused before any process could start leaves no session behind (2026-11-18:
+/// ten such refusals each left a thread that said "Nothing was saved in this session"). The
+/// thread stays when the cleanup journal names this launch (the host bound it, so resources may
+/// be tracked against it) or when the store finds an activation; a failed discard leaves it, as
+/// before.
+pub(super) fn discard_unstarted(store: &Database, thread: &str, instance: Option<&str>) {
+    if let Some(instance) = instance
+        && !matches!(store.native_session_owner(instance), Ok(None))
+    {
+        return;
+    }
+    let _ = store.discard_unstarted_thread(thread);
 }
 fn now() -> Result<i64, ServiceError> {
     SystemTime::now()
