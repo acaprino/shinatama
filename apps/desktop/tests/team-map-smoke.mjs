@@ -1,6 +1,6 @@
 // Real WebView + Rust IPC, disposable data home. A synthetic project and an empty thread whose sessions talk (no terminal, no agent is started);
 // the team commands and the room's snapshot are stubbed in the page, so the map is checked on its own: see team-map-drive.mjs for what it drives.
-import { chromium, expect } from '@playwright/test';
+import { chromium, expect as plainExpect } from '@playwright/test';
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { createServer } from 'node:net';
@@ -9,6 +9,8 @@ import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { driveNotices, driveTeamMap, driveTemplateListed, driveTemplateSave, driveTemplateUse, installStub } from './team-map-drive.mjs';
 
+// A cold start (the first run after a fresh build: the program is scanned, the WebView profile made) takes longer than the 5 s an assertion waits by default.
+const expect = plainExpect.configure({ timeout: 15000 });
 if (process.platform !== 'win32') throw new Error('This proof requires Windows.');
 const fixture = await mkdtemp(resolve(process.env.SHINATAMA_SMOKE_TEMP || tmpdir(), 'shinatama-team-map-'));
 const data = resolve(fixture, 'data'); const projectPath = resolve(fixture, 'synthetic-project');
