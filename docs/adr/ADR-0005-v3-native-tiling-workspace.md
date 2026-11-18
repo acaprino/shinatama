@@ -2,7 +2,7 @@
 adr_id: ADR-0005
 version: 3
 title: Tauri desktop tiling workspace over a Rust engine; layout never starts, stops or alters sessions
-status: Accepted
+status: Superseded
 author: Alfio Caprino
 scope:
   paths:
@@ -28,7 +28,7 @@ last_verified_sha: null
 retired_on: null
 retired_reason: null
 supersedes:
-superseded_by: null
+superseded_by: ADR-0005 v4
 changes:
   - EX-009
 ---
@@ -36,7 +36,7 @@ changes:
 # ADR-0005: Tauri desktop tiling workspace over a Rust engine; layout never starts, stops or alters sessions
 
 <!-- adr-header:start -->
-Version 3 · Accepted 2026-11-02 at 65bee16 · proposed 2026-11-02 by Alfio Caprino
+Version 3 · Superseded by ADR-0005 v4 · proposed 2026-11-02 by Alfio Caprino
 <!-- adr-header:end -->
 
 ## Context and Problem Statement

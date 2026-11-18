@@ -2,7 +2,7 @@
 adr_id: ADR-0005
 version: 4
 title: Tauri desktop tiling workspace over a Rust engine; the layout and its sessions are restored together, and no layout operation starts, stops or alters a session
-status: Proposed
+status: Accepted
 author: Alfio Caprino
 scope:
   paths:
@@ -23,8 +23,8 @@ depends_on:
 created_from_task: user-decision-2026-11-18-layout-and-sessions-restored-together
 proposed_on: 2026-11-18
 proposed_at_sha: 9e058fa3ff8dc7677236fd164d5c47c460862b7a
-accepted_on: null
-accepted_at_sha: null
+accepted_on: 2026-11-18
+accepted_at_sha: 9eaea62730a6e071d64894301578141f5ff25b55
 last_verified_sha: null
 retired_on: null
 retired_reason: null
@@ -41,7 +41,7 @@ changes:
 # ADR-0005: Tauri desktop tiling workspace over a Rust engine; the layout and its sessions are restored together, and no layout operation starts, stops or alters a session
 
 <!-- adr-header:start -->
-Version 4 · Proposed 2026-11-18 at 9e058fa by Alfio Caprino
+Version 4 · Accepted 2026-11-18 at 9eaea62 · proposed 2026-11-18 by Alfio Caprino
 <!-- adr-header:end -->
 
 ## What changes from v3
