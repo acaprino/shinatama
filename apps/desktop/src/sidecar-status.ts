@@ -38,7 +38,7 @@ const DIFFERENCE_LIMIT = 16;
 const DIFFERENCE_TEXT_LIMIT = 80;
 const EXIT_DETAIL_LIMIT = 300;
 const FAULT_LIMIT = 300;
-const DISK_ROOT_LIMIT = 16;
+const DISK_ROOT_LIMIT = 64;
 const DISK_LEVELS = ['ok', 'low', 'full'];
 const isCount = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value >= 0;
 /** One line: the backend never sends a control character, so one here is not its reply. */
@@ -196,7 +196,9 @@ export function stallLine(status: ProxyStatus, clock: (unixMs: number) => string
   const silent = typeof status.observedAtUnixMs === 'number'
     ? `has not reported since ${clock(status.observedAtUnixMs)}${last}`
     : `has stopped reporting${last}`;
-  return `The proxy supervisor ${silent}. Restart Shinatama to start a new proxy.`;
+  // Its last message is history, not the present: it is framed here and not shown on its own.
+  const said = status.message ? ` It last said: ${status.message}` : '';
+  return `The proxy supervisor ${silent}.${said} Restart Shinatama to start a new proxy.`;
 }
 
 export function faultLine(status: ProxyStatus): string | null {
@@ -215,6 +217,7 @@ export function diskLine(status: ProxyStatus): string | null {
 
 /** The backend's message; without one, only what is known: a healthy proxy is responding. */
 export function messageLine(status: ProxyStatus | null): string | null {
+  if (status?.stalled) return null;
   return status?.message ?? (status?.healthy ? 'Local service is responding.' : null);
 }
 

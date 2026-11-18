@@ -760,10 +760,10 @@ function showExit(view: View, code: number | null) {
   banner.append(text, restart, close); view.element.append(banner);
 }
 /** Closes the workspace as the window's close does: preferences saved, the layout released with its running
- * sessions (the next start restores them), terminals ended, window closed. A relaunch first starts the new
- * Shinatama, which waits for this process to end; if that start is refused, nothing has been closed. */
+ * sessions (the next start restores them), terminals ended, window closed. A relaunch starts the new Shinatama
+ * at the point of no return, after any question; it waits for this process to end, and if that start is
+ * refused the terminals keep running and the window stays. */
 async function closeWorkspace(relaunch: boolean): Promise<void> {
-  if (relaunch) await invoke('app_relaunch');
   const appearanceSaved = await presentation.flush();
   const saved = persistence?.status().ownership === 'ours' ? await persistence.release() : undefined;
   // Asked only when something would be lost: a release refused while nothing is unsaved (storage
@@ -772,6 +772,8 @@ async function closeWorkspace(relaunch: boolean): Promise<void> {
     if (!await confirmStop('Close without saving the latest preferences?', 'Previously saved data is preserved. Recent layout or appearance changes could not be saved.')) return;
     await invoke('workspace_allow_close');
   }
+  // The point of no return: a restart starts its successor here, never before a question the user may decline.
+  if (relaunch) await invoke('app_relaunch');
   // From here the terminals end because the window closes: their tabs stay saved as running (the layout was
   // just released with them so), and the next start restores those sessions with the layout.
   closingWindow = true;

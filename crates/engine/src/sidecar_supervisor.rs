@@ -181,7 +181,7 @@ impl Snapshot {
 /// Longest panic text a snapshot carries.
 const FAULT_CHARS: usize = 300;
 /// A panic payload as one line: its text when it has one (control characters become spaces,
-/// runs of spaces collapse), at most [`FAULT_CHARS`] characters.
+/// runs of spaces collapse), at most [`FAULT_CHARS`] UTF-16 units: the panel's own bound.
 pub(crate) fn panic_text(payload: &(dyn std::any::Any + Send)) -> String {
     let text = payload
         .downcast_ref::<&str>()
@@ -194,12 +194,16 @@ pub(crate) fn panic_text(payload: &(dyn std::any::Any + Send)) -> String {
         .chars()
         .map(|character| if character.is_control() { ' ' } else { character })
         .collect();
+    let mut units = 0;
     spaced
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
         .chars()
-        .take(FAULT_CHARS)
+        .take_while(|character| {
+            units += character.len_utf16();
+            units <= FAULT_CHARS
+        })
         .collect()
 }
 /// The state a panic in the supervisor's loop leaves: Failed, unhealthy, and why. Start and
@@ -492,6 +496,17 @@ impl<P: WorkloadProvider> Worker<P> {
                 return true;
             }
             if self.faulted {
+                // A process may still run after the panic: keep reading its output so it never
+                // blocks on a full pipe, and keep the Failed state current for the panel.
+                if let Some(running) = self.running.as_mut() {
+                    let _ = drain(
+                        running,
+                        &mut self.snapshot.stdout_bytes,
+                        &mut self.snapshot.stderr_bytes,
+                        &mut self.stderr_tail,
+                    );
+                }
+                self.publish(Phase::Failed, Reason::SupervisorFault);
                 return true;
             }
             if self.requested_start && self.running.is_none() {

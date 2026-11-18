@@ -280,6 +280,12 @@ impl ServiceContext {
         if previous.phase == "draining" {
             return Err(DriverError::Failed(sidecar::STOPPING));
         }
+        // A supervisor that stopped reporting takes no command: waiting cannot help, a restart does.
+        if previous.stalled {
+            return Err(DriverError::Failed(Box::leak(
+                self.sidecar.refusal().into_boxed_str(),
+            )));
+        }
         crate::opening::report(harness, "proxy");
         let observed = previous
             .observation
@@ -294,6 +300,11 @@ impl ServiceContext {
         let mut changed = false;
         loop {
             let status = self.sidecar.status();
+            if status.stalled {
+                return Err(DriverError::Failed(Box::leak(
+                    self.sidecar.refusal().into_boxed_str(),
+                )));
+            }
             // Since the start, not only now: a proxy that had failed passes through
             // "preparing" and can fail again, which reads as the same "failed" as before.
             changed |= status.phase != previous.phase
@@ -358,7 +369,8 @@ impl ServiceContext {
                     if matches!(
                         self.sidecar.status().phase,
                         "stopped" | "failed" | "retired" | "draining"
-                    ) || Instant::now() >= deadline =>
+                    ) || self.sidecar.status().stalled
+                        || Instant::now() >= deadline =>
                 {
                     return Err(message.into());
                 }
@@ -1159,8 +1171,11 @@ pub(super) fn explain(
             DriverError::Failed(Box::leak(proxy_refusal().into_boxed_str()))
         }
         DriverError::Failed(message) => match disk_full {
-            Some(line) => DriverError::Failed(Box::leak(format!("{message} {line}").into_boxed_str())),
-            None => error,
+            // A refusal built from the proxy's state already names the disk.
+            Some(line) if !message.contains(line.as_str()) => {
+                DriverError::Failed(Box::leak(format!("{message} {line}").into_boxed_str()))
+            }
+            _ => error,
         },
         error => error,
     }

@@ -43,15 +43,25 @@ pub(crate) fn level(free_bytes: u64) -> DiskLevel {
 /// The disk a path is on, as the user names it: `D:` for `D:\...` (also `\\?\D:\...`), otherwise
 /// the path's first component.
 pub(crate) fn root_of(path: &Path) -> String {
-    match path.components().next() {
+    let root = match path.components().next() {
         Some(Component::Prefix(prefix)) => match prefix.kind() {
             Prefix::Disk(letter) | Prefix::VerbatimDisk(letter) => format!("{}:", letter as char),
             _ => prefix.as_os_str().to_string_lossy().into_owned(),
         },
         Some(component) => component.as_os_str().to_string_lossy().into_owned(),
         None => String::new(),
-    }
+    };
+    // The panel accepts at most ROOT_UNITS UTF-16 units; a longer root (a network share) is cut.
+    let mut units = 0;
+    root.chars()
+        .take_while(|character| {
+            units += character.len_utf16();
+            units <= ROOT_UNITS
+        })
+        .collect()
 }
+/// The longest disk root the status carries, in UTF-16 units, as the panel counts.
+const ROOT_UNITS: usize = 64;
 /// What a low or full disk means, in the words the panel and the open errors use.
 pub(crate) fn line(root: &str, free_bytes: u64) -> Option<String> {
     let megabytes = free_bytes / (1024 * 1024);

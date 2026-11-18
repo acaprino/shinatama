@@ -5,6 +5,9 @@
 use std::time::Duration;
 
 const ARG: &str = "--after-exit=";
+/// The successor started by the last Restart, while it may still be waiting.
+#[cfg(windows)]
+static WAITING: std::sync::Mutex<Option<std::process::Child>> = std::sync::Mutex::new(None);
 
 /// The process a relaunched Shinatama waits for, read from its arguments.
 pub(crate) fn after_exit_pid(args: impl IntoIterator<Item = String>) -> Option<u32> {
@@ -53,9 +56,17 @@ pub(crate) fn spawn_after_exit() -> std::io::Result<()> {
             .creation_flags(flags)
             .spawn()
     };
-    spawn(CREATE_BREAKAWAY_FROM_JOB)
-        .or_else(|_| spawn(0))
-        .map(|_| ())
+    let mut waiting = WAITING
+        .lock()
+        .map_err(|_| std::io::Error::other("the relaunch state is unavailable"))?;
+    // One successor at a time: a second Restart while the first one still waits starts nothing.
+    if let Some(successor) = waiting.as_mut()
+        && matches!(successor.try_wait(), Ok(None))
+    {
+        return Ok(());
+    }
+    *waiting = Some(spawn(CREATE_BREAKAWAY_FROM_JOB).or_else(|_| spawn(0))?);
+    Ok(())
 }
 
 /// The panel's Restart Shinatama: starts the next Shinatama, then the window closes as usual. A

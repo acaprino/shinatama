@@ -162,13 +162,19 @@ pub(crate) fn refusal_text(facts: &RefusalFacts) -> String {
         Some((since, last)) => format!(
             "Not started: the model proxy has not reported since {since} (last state: {last})."
         ),
+        // The gate refused, and by now the proxy answers: say so instead of "is ready".
+        None if facts.healthy && matches!(facts.phase, "ready" | "busy") => {
+            "Not started: the model proxy was not ready when this open was checked; it is ready now. Try Open again."
+                .to_owned()
+        }
         None => format!(
             "Not started: the model proxy is {}.",
             state_words(facts.phase, facts.healthy)
         ),
     };
     if let Some(message) = facts.message {
-        text.push(' ');
+        // A stalled supervisor's message is what it said last, not what is happening now.
+        text.push_str(if facts.stalled.is_some() { " It last said: " } else { " " });
         text.push_str(message);
     }
     if let Some((at, code, detail)) = &facts.exit {
@@ -183,7 +189,11 @@ pub(crate) fn refusal_text(facts: &RefusalFacts) -> String {
         text.push(' ');
         text.push_str(line);
     }
-    text.push_str(" Its state is in the Model proxy panel.");
+    text.push_str(if facts.stalled.is_some() {
+        " Restart Shinatama from the Model proxy panel."
+    } else {
+        " Its state is in the Model proxy panel."
+    });
     text
 }
 /// A Unix time as the wall clock the user reads (`20:52:40`).
@@ -811,10 +821,9 @@ impl Controller {
             if !self.preparing.load(Ordering::Acquire)
                 && self.supervisor.get().is_none_or(|owner| {
                     owner.status().is_some_and(|snapshot| {
-                        matches!(
-                            snapshot.phase,
-                            Phase::Stopped | Phase::Failed | Phase::Retired
-                        )
+                        // A Failed owner after a caught panic may still hold a live process.
+                        matches!(snapshot.phase, Phase::Stopped | Phase::Retired)
+                            || (snapshot.phase == Phase::Failed && snapshot.pid.is_none())
                     })
                 })
             {
@@ -1057,7 +1066,7 @@ mod tests {
         };
         assert_eq!(
             refusal_text(&incident),
-            "Not started: the model proxy has not reported since 20:52:40 (last state: recovering). Waiting to confirm cleanup before restarting the proxy. Its reservation remains held. Its process ended at 20:52:39 with code 1. Disk D: is full (5 MB free): saving fails for the proxy and for Shinatama. Its state is in the Model proxy panel."
+            "Not started: the model proxy has not reported since 20:52:40 (last state: recovering). It last said: Waiting to confirm cleanup before restarting the proxy. Its reservation remains held. Its process ended at 20:52:39 with code 1. Disk D: is full (5 MB free): saving fails for the proxy and for Shinatama. Restart Shinatama from the Model proxy panel."
         );
         let busy = RefusalFacts {
             phase: "busy",
