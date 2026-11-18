@@ -11,6 +11,7 @@ mod collaboration;
 mod attention;
 mod attention_signals;
 mod disk_space;
+mod relaunch;
 mod files;
 mod instances;
 #[cfg(windows)]
@@ -694,6 +695,16 @@ pub(crate) fn data_home(app: &tauri::AppHandle) -> tauri::Result<PathBuf> {
     }
 }
 fn main() {
+    // A panic in any thread is written to shinatama.log (once its folder is known).
+    app_log::install_panic_hook();
+    // Started by Restart Shinatama: wait for the previous process to end before taking any lock,
+    // and do not start at all while it still runs.
+    #[cfg(windows)]
+    if let Some(pid) = relaunch::after_exit_pid(std::env::args())
+        && !relaunch::wait_for_exit(pid, std::time::Duration::from_secs(60))
+    {
+        return;
+    }
     portable_environment();
     // This thread runs the event loop: the window comes before the work it starts.
     #[cfg(windows)]
@@ -882,6 +893,7 @@ fn main() {
         sidecar_start,
         sidecar_stop,
         sidecar_retry,
+        relaunch::app_relaunch,
         sidecar_capabilities,
         agent_check,
         agent_status,
@@ -1076,6 +1088,7 @@ fn main() {
         sidecar_start,
         sidecar_stop,
         sidecar_retry,
+        relaunch::app_relaunch,
         sidecar_capabilities,
         agent_check,
         agent_status,
