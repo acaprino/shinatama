@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { sidePanel } from './modal.ts';
-import { adoptStopReply, buttons, confirmStillNeeded, driftLine, indicatorTone, parseStatus, phaseLabel, showsTraffic, startLabel, stopConsequence, trafficLine, type ProxyStatus } from './sidecar-status.ts';
+import { adoptStopReply, buttons, confirmStillNeeded, driftLine, exitLine, indicatorTone, parseStatus, phaseLabel, showsTraffic, startLabel, stopConsequence, trafficLine, type ProxyStatus } from './sidecar-status.ts';
 
 const POLL_MS = 1500;
 
@@ -25,6 +25,7 @@ export function createSidecarControl(desktop: boolean, notify: (message: string)
   const traffic = el('p', { className: 'hint' });
   const message = el('p', { className: 'hint' });
   const drift = el('p', { className: 'hint' });
+  const interruption = el('p', { className: 'hint' });
   const confirm = el('div', { id: 'model-proxy-confirm', hidden: true }); confirm.setAttribute('role', 'group'); confirm.setAttribute('aria-label', 'Confirm stop');
   const consequence = el('p');
   const keep = el('button', { type: 'button', textContent: 'Keep running', className: 'primary' });
@@ -36,7 +37,7 @@ export function createSidecarControl(desktop: boolean, notify: (message: string)
   const stop = el('button', { type: 'button', textContent: 'Stop' });
   const retry = el('button', { type: 'button', textContent: 'Retry recovery' });
   actions.append(stop, retry, start);
-  panel.append(heading, description, state, traffic, message, drift, confirm, actions);
+  panel.append(heading, description, state, traffic, message, interruption, drift, confirm, actions);
   (document.querySelector('#app') ?? document.body).append(panel);
 
   let current: ProxyStatus | null = null; let outstanding = false; let destroyed = false; let confirming = false;
@@ -51,6 +52,8 @@ export function createSidecarControl(desktop: boolean, notify: (message: string)
     message.textContent = current?.message ?? (current?.healthy ? 'Local service is responding.' : 'Saved sessions are preserved.');
     const note = current ? driftLine(current) : null;
     drift.hidden = note === null; drift.textContent = note ?? '';
+    const ended = current ? exitLine(current) : null;
+    interruption.hidden = ended === null; interruption.textContent = ended ?? '';
     const enabled = buttons(current, outstanding);
     start.disabled = !enabled.start; stop.disabled = !enabled.stop; retry.disabled = !enabled.retry;
     start.textContent = startLabel(current);

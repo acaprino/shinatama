@@ -13,7 +13,7 @@ use crate::{
         NativeAdmissionProfile, NativeLaunchBinding, NativeLaunchError, NativeLaunchPins,
         NativeTrialReceipt, NativeTrialTracker, NativeTuiPermit,
     },
-    opencode_launch::{create_bytes, create_json, file_info, pin_directory, pin_file, same_path, set},
+    opencode_launch::{create_bytes, create_json, file_info, pin_directory, same_path, set},
     pi_probe::{
         PiProbeIssue, PiProbeOutcome, ProbeCleanup, pin_node, pin_script, resolve_installation,
     },
@@ -547,7 +547,8 @@ fn prepare(
     if !same_path(&ca, &expected_ca).map_err(|_| PiLaunchError::InvalidCa)? {
         return Err(PiLaunchError::InvalidCa);
     }
-    let ca_file = pin_file(&ca).map_err(|_| PiLaunchError::InvalidCa)?;
+    let ca_file =
+        crate::sidecar_runtime::pin_ca_bundle(&ca).map_err(|_| PiLaunchError::InvalidCa)?;
     let ca_info = file_info(&ca_file).map_err(|_| PiLaunchError::InvalidCa)?;
     let ca_bytes = (u64::from(ca_info.nFileSizeHigh) << 32) | u64::from(ca_info.nFileSizeLow);
     if ca_bytes == 0 || ca_bytes > 4 * MIB {

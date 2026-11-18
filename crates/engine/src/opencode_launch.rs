@@ -608,7 +608,8 @@ fn prepare(
     if !same_path(&ca, &expected_ca)? {
         return Err(OpenCodeLaunchError::InvalidCa);
     }
-    let ca_file = pin_file(&ca).map_err(|_| OpenCodeLaunchError::InvalidCa)?;
+    let ca_file =
+        crate::sidecar_runtime::pin_ca_bundle(&ca).map_err(|_| OpenCodeLaunchError::InvalidCa)?;
     let ca_info = file_info(&ca_file)?;
     let ca_bytes = (u64::from(ca_info.nFileSizeHigh) << 32) | u64::from(ca_info.nFileSizeLow);
     if ca_bytes == 0 || ca_bytes > 4 * MIB {

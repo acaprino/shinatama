@@ -72,6 +72,17 @@ enum AdmissionMode {
     // Helpers required by an explicit Open get lightweight startup admission,
     // while retaining their Windows memory limits.
     InteractiveSupport,
+    // The model proxy: the startup admission of a helper and the advisory limits of a
+    // session. Every session's model traffic goes through it, so a quota that Windows
+    // enforces on it ends all of them at once: Node reached the 768 MiB process quota
+    // within minutes with six sessions (2026-11-18, 765 MiB two seconds before it ended).
+    Proxy,
+}
+impl AdmissionMode {
+    /// Memory, process count and CPU are a share of the ledger, not a Windows quota.
+    fn advisory(self) -> bool {
+        matches!(self, Self::Interactive | Self::Proxy)
+    }
 }
 fn stamp() -> PolicyStamp {
     PolicyStamp {
@@ -332,6 +343,7 @@ impl Runtime {
         Ok(SidecarProvider {
             database,
             admission: self.admission.clone(),
+            exits: crate::sidecar::ExitLog::default(),
             _lock: lock,
             _location: location,
         })
@@ -635,7 +647,7 @@ impl Admission {
             .as_ref()
             .map_err(|e| anyhow!(e.clone()))?;
         let now = now_ms()?;
-        let prepare = if mode == AdmissionMode::Interactive {
+        let prepare = if mode.advisory() {
             AdmissionCoordinator::prepare_interactive
         } else {
             AdmissionCoordinator::prepare
@@ -776,6 +788,7 @@ impl WindowsTerminalAdmission for ProfileAdmission {
 pub struct SidecarProvider {
     database: Arc<Database>,
     admission: Arc<Admission>,
+    exits: crate::sidecar::ExitLog,
     _lock: File,
     _location: StorageLocation,
 }
@@ -802,9 +815,14 @@ impl shinatama_engine::sidecar_supervisor::WorkloadProvider for SidecarProvider 
                 },
                 768 * MIB,
                 lease,
-                AdmissionMode::InteractiveSupport,
+                AdmissionMode::Proxy,
             )
             .map_err(|_| shinatama_engine::sidecar_supervisor::AdmissionUnavailable)
+    }
+    fn exited(&mut self, exit: &shinatama_engine::sidecar_supervisor::ProxyExit) {
+        if let Some(line) = self.exits.line(exit) {
+            crate::app_log::write("proxy", &line);
+        }
     }
 }
 
@@ -1036,6 +1054,14 @@ mod memory_tests {
             )
             .is_ok()
         );
+    }
+
+    #[test]
+    fn the_proxy_and_the_sessions_carry_no_windows_quota_and_the_helpers_keep_theirs() {
+        assert!(AdmissionMode::Proxy.advisory());
+        assert!(AdmissionMode::Interactive.advisory());
+        assert!(!AdmissionMode::InteractiveSupport.advisory());
+        assert!(!AdmissionMode::Background.advisory());
     }
 
     #[test]

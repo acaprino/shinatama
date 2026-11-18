@@ -547,6 +547,42 @@ fn environment(
     Ok(result)
 }
 
+/// Holds the proxy's public CA bundle for the life of an agent session: the file a session
+/// was told to trust cannot be removed, renamed or replaced by another while it runs.
+///
+/// The proxy owns this file and rewrites it in place when it starts and the bundle is older
+/// than a day or lacks its root certificate. A session must therefore never deny that write:
+/// a pin that shared reading only made every later proxy start fail with `EBUSY` for as long
+/// as one session stayed open, so the proxy could not be recovered (2026-11-18).
+#[cfg(windows)]
+pub fn pin_ca_bundle(path: &Path) -> std::io::Result<File> {
+    use std::os::windows::{fs::OpenOptionsExt, io::AsRawHandle};
+    use windows_sys::Win32::Storage::FileSystem::{
+        BY_HANDLE_FILE_INFORMATION, FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT,
+        FILE_FLAG_OPEN_REPARSE_POINT, FILE_SHARE_READ, FILE_SHARE_WRITE,
+        GetFileInformationByHandle,
+    };
+    let file = OpenOptions::new()
+        .read(true)
+        // No FILE_SHARE_DELETE: writing in place is allowed, removal and replacement are not.
+        .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE)
+        .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+        .open(path)?;
+    let mut info = BY_HANDLE_FILE_INFORMATION::default();
+    if unsafe { GetFileInformationByHandle(file.as_raw_handle(), &mut info) } == 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    if info.dwFileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY) != 0
+        || info.nNumberOfLinks != 1
+    {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "the CA bundle is not one ordinary file",
+        ));
+    }
+    Ok(file)
+}
+
 fn valid_hash(hash: &str) -> bool {
     hash.len() == 64
         && hash
@@ -808,5 +844,30 @@ mod tests {
                 Err(PreparationError::InvalidPath)
             );
         }
+    }
+    /// Observed on 2026-11-18: with a session open, every proxy restart ended in
+    /// `EBUSY ... combined-ca.pem` and the window stayed on "Recovering" for good.
+    #[cfg(windows)]
+    #[test]
+    fn a_pinned_ca_bundle_can_be_rewritten_by_the_proxy_but_not_removed_or_replaced() {
+        let directory =
+            std::env::temp_dir().join(format!("shn-ca-bundle-pin-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&directory).unwrap();
+        let bundle = directory.join("combined-ca.pem");
+        fs::write(&bundle, "old bundle\n").unwrap();
+        let first = pin_ca_bundle(&bundle).unwrap();
+        // Two sessions hold it at once.
+        let second = pin_ca_bundle(&bundle).unwrap();
+        // The proxy rewrites it in place at a start, as Node's writeFileSync does.
+        fs::write(&bundle, "new bundle\n").unwrap();
+        assert_eq!(fs::read_to_string(&bundle).unwrap(), "new bundle\n");
+        // The trust file a session was given is still not removed or swapped for another.
+        assert!(fs::remove_file(&bundle).is_err());
+        assert!(fs::rename(&bundle, directory.join("moved.pem")).is_err());
+        fs::write(directory.join("other.pem"), "other\n").unwrap();
+        assert!(fs::rename(directory.join("other.pem"), &bundle).is_err());
+        assert!(pin_ca_bundle(&directory).is_err());
+        drop((first, second));
+        fs::remove_dir_all(&directory).unwrap();
     }
 }

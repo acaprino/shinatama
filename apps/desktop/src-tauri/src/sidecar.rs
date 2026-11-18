@@ -11,7 +11,9 @@ use shinatama_engine::{
     sidecar_runtime::{
         NodePin, RuntimeSummary, prepare_runtime, verify_bundled_node, verify_prepared_bundle,
     },
-    sidecar_supervisor::{Command, Phase, Reason, SidecarSupervisor, Snapshot, SupervisorConfig},
+    sidecar_supervisor::{
+        Command, Phase, ProxyExit, Reason, SidecarSupervisor, Snapshot, SupervisorConfig,
+    },
 };
 use shinatama_state::{
     database::DatabaseAccess,
@@ -59,6 +61,64 @@ pub struct Status {
     pub agent_sessions_known: bool,
     /// When a requested drain stops waiting for in-flight requests.
     pub drain_deadline_unix_ms: Option<i64>,
+    /// How the proxy's process last ended by itself; kept after it recovers.
+    pub last_exit: Option<LastExit>,
+}
+/// [`ProxyExit`] as the panel reads it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LastExit {
+    pub code: u32,
+    pub uptime_ms: u64,
+    pub at_unix_ms: Option<i64>,
+    pub detail: Option<String>,
+    pub count: u32,
+}
+impl From<&ProxyExit> for LastExit {
+    fn from(exit: &ProxyExit) -> Self {
+        Self {
+            code: exit.code,
+            uptime_ms: exit.uptime_ms,
+            at_unix_ms: exit.at_unix_ms,
+            detail: exit.detail.clone(),
+            count: exit.count,
+        }
+    }
+}
+/// One line of Shinatama's log for each exit of the proxy's process: its diagnostics are
+/// read nowhere else (ADR-0030). A proxy that keeps ending the same way is written five
+/// times, then once every twenty exits, so a loop cannot push the rest out of the log.
+#[derive(Default)]
+pub(crate) struct ExitLog {
+    last: Option<(u32, Option<String>)>,
+    streak: u32,
+}
+impl ExitLog {
+    pub(crate) fn line(&mut self, exit: &ProxyExit) -> Option<String> {
+        let key = (exit.code, exit.detail.clone());
+        if self.last.as_ref() == Some(&key) {
+            self.streak = self.streak.saturating_add(1);
+        } else {
+            self.last = Some(key);
+            self.streak = 1;
+        }
+        if self.streak > 5 && self.streak % 20 != 0 {
+            return None;
+        }
+        let said = match &exit.detail {
+            Some(detail) => format!("It said: {detail}"),
+            None => "It reported no error.".to_owned(),
+        };
+        let again = if self.streak > 1 {
+            format!(" The same exit {} times in a row.", self.streak)
+        } else {
+            String::new()
+        };
+        Some(format!(
+            "The process ended with code {} after {} ms (exit {} since launch). {said}{again}",
+            exit.code, exit.uptime_ms, exit.count
+        ))
+    }
 }
 /// One setting whose value in the running process is not the baseline.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -295,6 +355,10 @@ impl Controller {
                     .as_ref()
                     .is_some_and(|snapshot| snapshot.healthy),
             message,
+            last_exit: observation
+                .as_ref()
+                .and_then(|snapshot| snapshot.last_exit.as_ref())
+                .map(LastExit::from),
             observation,
             prepared_identity: self.identity.get().cloned(),
             config_drift: drift(resolved.as_ref()),
@@ -640,7 +704,6 @@ impl Controller {
                 cleanup_timeout: Duration::from_secs(3),
                 drain_timeout: Duration::from_secs(30),
                 reservation_lease: Duration::from_secs(300),
-                output_bytes_per_stream: 64 * 1024 * 1024,
             },
             provider,
         )
@@ -758,6 +821,43 @@ mod tests {
     use super::*;
     use shinatama_engine::sidecar_admin::{Lever, SessionCapabilities};
     use shinatama_engine::sidecar_config::intended_baseline;
+
+    /// 2026-11-18: the proxy ended at every start with an error nothing recorded.
+    #[test]
+    fn each_exit_of_the_proxy_is_logged_with_what_it_said_and_a_loop_is_thinned() {
+        let exit = |count: u32, code: u32, detail: Option<&str>| ProxyExit {
+            code,
+            uptime_ms: 412,
+            at_unix_ms: Some(1),
+            detail: detail.map(str::to_owned),
+            count,
+        };
+        let busy = Some("bili: failed to start: Error: EBUSY: resource busy or locked");
+        let mut log = ExitLog::default();
+        assert_eq!(
+            log.line(&exit(1, 1, busy)).as_deref(),
+            Some(
+                "The process ended with code 1 after 412 ms (exit 1 since launch). It said: bili: failed to start: Error: EBUSY: resource busy or locked"
+            )
+        );
+        assert_eq!(
+            log.line(&exit(2, 1, busy)).as_deref(),
+            Some(
+                "The process ended with code 1 after 412 ms (exit 2 since launch). It said: bili: failed to start: Error: EBUSY: resource busy or locked The same exit 2 times in a row."
+            )
+        );
+        let written: Vec<u32> = (3..=45)
+            .filter(|count| log.line(&exit(*count, 1, busy)).is_some())
+            .collect();
+        assert_eq!(written, [3, 4, 5, 20, 40]);
+        // Another cause is written at once and starts its own count.
+        assert_eq!(
+            log.line(&exit(46, 134, None)).as_deref(),
+            Some(
+                "The process ended with code 134 after 412 ms (exit 46 since launch). It reported no error."
+            )
+        );
+    }
 
     #[test]
     fn capabilities_reply_names_the_state_and_carries_the_report_only_when_observed() {

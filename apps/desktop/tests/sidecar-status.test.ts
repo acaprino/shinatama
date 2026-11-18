@@ -223,3 +223,35 @@ test('the traffic light follows the phase, and an unknown phase is dark', () => 
   for (const phase of ['failed', 'retired']) assert.equal(indicatorTone(phase), 'red');
   for (const phase of ['stopped', 'unavailable', 'nonsense', 'toString']) assert.equal(indicatorTone(phase), 'off');
 });
+
+// Why the proxy last went down: it used to be read nowhere, and the panel only said "Recovering…".
+import { exitLine } from '../src/sidecar-status.ts';
+const reply = (over: Record<string, unknown> = {}) => ({
+  phase: 'recovering', healthy: false, message: null, inFlight: null, agentSessions: 2,
+  drainDeadlineUnixMs: null, configDrift: null, ...over,
+});
+const clock = () => '12:41:47';
+test('the panel says why and when the proxy process last ended', () => {
+  const refused = parseStatus(reply({ lastExit: { code: 1, uptimeMs: 412, atUnixMs: 1795001224667, count: 14,
+    detail: "bili: failed to start: Error: EBUSY: resource busy or locked, open 'D:\data\ca\combined-ca.pem'" } }))!;
+  assert.equal(exitLine(refused, clock),
+    "Last interruption at 12:41:47: the proxy process ended with code 1 after less than a second. It said: bili: failed to start: Error: EBUSY: resource busy or locked, open 'D:\data\ca\combined-ca.pem' Interruptions since Shinatama started: 14.");
+  const silent = parseStatus(reply({ phase: 'ready', healthy: true, lastExit: { code: 134, uptimeMs: 881_000, atUnixMs: null, count: 1, detail: null } }))!;
+  assert.equal(exitLine(silent, clock), 'Last interruption: the proxy process ended with code 134 after 14 min. It reported no error.');
+  const lasted = (uptimeMs: number) => exitLine(parseStatus(reply({ lastExit: { code: 1, uptimeMs, atUnixMs: null, count: 1, detail: null } }))!, clock)!;
+  assert.match(lasted(999), /after less than a second\./);
+  assert.match(lasted(59_999), /after 59 s\./);
+  assert.match(lasted(3_599_999), /after 59 min\./);
+  assert.match(lasted(3 * 3_600_000 + 5 * 60_000), /after 3 h 5 min\./);
+});
+test('a reply without an exit, or from an older backend, shows no interruption line', () => {
+  assert.equal(exitLine(parseStatus(reply())!, clock), null);
+  assert.equal(exitLine(parseStatus(reply({ lastExit: null }))!, clock), null);
+});
+test('a malformed exit is not half-trusted', () => {
+  const exit = { code: 1, uptimeMs: 5, atUnixMs: null, count: 1, detail: null };
+  for (const bad of [{ code: -1 }, { code: 1.5 }, { uptimeMs: '5' }, { atUnixMs: 'now' }, { count: 0 }, { detail: 7 }, { detail: 'x'.repeat(301) }, { detail: 'two\nlines' }]) {
+    assert.equal(parseStatus(reply({ lastExit: { ...exit, ...bad } })), null, JSON.stringify(bad));
+  }
+  assert.equal(parseStatus(reply({ lastExit: 'exited' })), null);
+});

@@ -277,15 +277,9 @@ pub struct Running {
 }
 impl Running {
     pub fn start() -> ProofResult<Self> {
-        Self::start_with_output_limit(1024 * 1024)
-    }
-    /// `start` with the per-stream output cap the owner enforces on the sidecar's
-    /// stdout and stderr (the product's own is 64 MiB).
-    pub fn start_with_output_limit(output_bytes_per_stream: u64) -> ProofResult<Self> {
         let fixture = Fixture::new();
         // A failed start leaves its evidence on disk: the fixture is not marked released.
-        let (supervisor, port, node, db, closed, config) =
-            Self::start_in(&fixture, output_bytes_per_stream)?;
+        let (supervisor, port, node, db, closed, config) = Self::start_in(&fixture)?;
         Ok(Self {
             supervisor,
             port,
@@ -299,7 +293,6 @@ impl Running {
     #[allow(clippy::type_complexity)]
     pub fn start_in(
         fixture: &Fixture,
-        output_bytes_per_stream: u64,
     ) -> ProofResult<(
         SidecarSupervisor,
         u16,
@@ -388,7 +381,6 @@ impl Running {
                     cleanup_timeout: Duration::from_secs(5),
                     reservation_lease: Duration::from_secs(30),
                     drain_timeout: Duration::from_secs(30),
-                    output_bytes_per_stream,
                 },
                 provider,
             ),

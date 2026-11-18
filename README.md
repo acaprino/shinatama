@@ -5,6 +5,7 @@
 <p align="center"><strong>A desktop workspace for terminal coding agents.</strong></p>
 
 <p align="center">
+  <a href="#team-map">Team map</a> ·
   <a href="#quickstart">Quickstart</a> ·
   <a href="#supported-harnesses">Supported harnesses</a> ·
   <a href="#ecosystem">Ecosystem</a> ·
@@ -15,6 +16,10 @@ Run Claude Code and Codex side by side, keep a PowerShell pane for your own
 commands, and hand off the relevant conversation context when you switch agents.
 Shinatama hosts each harness in its native terminal interface and saves your
 workspace layout locally.
+
+<p align="center">
+  <img src="docs/assets/screenshots/shinatama-overview.png" alt="Shinatama: projects in the top bar, the threads of a project, tiled terminal panes with the output of four agents (Claude Code, Codex, OpenCode and Pi), the Projects panel, and the widget raising a notification" width="1000">
+</p>
 
 **Windows x64 · Early development.** The [verification register](docs/verification-register.md)
 tracks which launch, resume, and handoff paths have been exercised.
@@ -34,6 +39,13 @@ tracks which launch, resume, and handoff paths have been exercised.
   When system memory runs low, it shows the highest-usage terminal it measured
   and keeps existing sessions running. New terminals have a small startup
   memory check. [Memory policy](docs/notes/2026-11-12-interactive-memory.md)
+- **Give a thread a team.** In a thread whose sessions talk to each other, the
+  **Team** map shows the sessions as cards. Draw an arrow to say who *gives work
+  to* whom, or who only *observes*; Shinatama works out each agent's role (lead,
+  worker, observer), warns of loops and dead ends, and tells every session its place,
+  once, through the thread's [Mukade](https://github.com/acaprino/mukade) room.
+  Templates (Star, Chain, Peers or your own) and a model per agent let **Apply**
+  open the sessions for you. [How the team map works](#team-map)
 - **See what sessions leave behind.** With [Xiox](https://github.com/acaprino/xiox)
   beside Shinatama, the first agent session in a project starts `xiox observe` for it.
   The **Leftovers** side panel lists every worktree, copy of the repository, bench and
@@ -42,6 +54,40 @@ tracks which launch, resume, and handoff paths have been exercised.
   widget at once, so you can stop a session that keeps making copies. Shinatama never
   removes anything; Xiox's `xiox clean` command is there to copy.
   [How it works](docs/notes/2026-11-16-xiox-leftovers.md)
+
+## Team map
+
+<p align="center">
+  <img src="docs/assets/screenshots/team-map.png" alt="The Team map of a thread: four agents, arrows for who gives work to whom, and one observer" width="900">
+</p>
+
+Turn on **Sessions talk to each other** in a thread's settings, then press **Team** on
+its row. Drag the thread's sessions onto the map (or add an agent with no session yet), pull
+the arrow of one card onto another, and click the arrow to say what it is:
+
+| Relation | What the agents are told |
+| --- | --- |
+| **gives work to** | The giver hands out the work; the taker reports **when done**, **at every step**, or **only done / blocked**. Add your own words to the arrow. |
+| **observes** | The observer follows what the other does to explain it to you. Mukade does not let it write. |
+
+- **Roles are never typed.** Lead, worker, lead and worker, observer and peer follow from the
+  arrows. The map refuses loops of work and observers that give or take work, and warns of
+  two givers to one agent or of work for a stopped session.
+- **Apply tells each session once.** Shinatama joins the thread's room as a host member, so
+  each session reads its place as a message from you ("From the user, through shinatama").
+  A change wakes only the sessions it concerns; applying again with nothing changed sends nothing.
+- **Start from a template, or save yours.** *Arrange as* Star, Chain or Peers; the **Templates**
+  menu saves a team and its shape. An agent can carry its own model, and **Apply** opens
+  the sessions it still lacks (Claude Code, Codex, OpenCode or Pi).
+
+<p align="center">
+  <img src="docs/assets/screenshots/team-map-templates.png" alt="The Templates menu of the Team map, with saved teams drawn as small maps" width="900">
+</p>
+
+Needs the [Mukade](https://github.com/acaprino/mukade) program (v0.1.2 or later, pinned by Shinatama).
+Design: [ADR-0058](docs/adr/ADR-0058-the-thread-team-map-and-telling-the-sessions.md) and the
+[design spec](docs/superpowers/specs/2026-11-17-thread-team-design.md). Not yet exercised with real agents:
+[checklist](docs/verification/2026-11-18-team-map-real-agents.md).
 
 ## Quickstart
 
