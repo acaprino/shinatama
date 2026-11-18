@@ -51,6 +51,19 @@ entrano quando le riprendi o riapri; Hermes non partecipa. Serve il programma Mu
 pacchetto. Senza interruttore le sessioni possono comunque usare la stanza a mano, ma una
 sessione inattiva legge solo al turno successivo. [Dettagli](docs/notes/2026-11-13-mukade-skill-contract.md#thread-che-parlano-hook-mukade-e-interfaccia-adr-0057)
 
+**Il team del thread.** In un thread con l'interruttore acceso, il pulsante **Team** (accanto a
+**Chat**) apre la mappa del team: trascina le sessioni del thread sulla mappa (o premi **+ New agent**
+per un agente senza sessione), tira la freccia di una scheda su un'altra e clicca la freccia per dire che
+cos'è: **gives work to** (con **when done**, **at every step** oppure **only done / blocked**, e le tue parole)
+o **observes** (segue e spiega, non scrive mai). I ruoli (lead, worker, observer, peer) non si scrivono: li
+ricava Shinatama dalle frecce, e rifiuta cicli di lavoro e osservatori che danno o prendono lavoro. **Apply**
+dice a ogni sessione il suo posto con un messaggio nella stanza Mukade del thread («From the user, through
+shinatama»), una volta sola: un cambiamento sveglia solo le sessioni che riguarda. **Arrange as** (Star, Chain,
+Peers) e **Tidy up** ordinano le schede; **Templates** salva e riapplica un team; ogni agente può avere il suo
+modello, e **Apply** apre le sessioni che mancano (Claude Code, Codex, OpenCode, Pi). Serve il programma Mukade
+v0.1.2 o successivo. [ADR-0058](docs/adr/ADR-0058-the-thread-team-map-and-telling-the-sessions.md) · la prova con
+agenti reali è ancora da fare ([lista](docs/verification/2026-11-18-team-map-real-agents.md)).
+
 Se dopo un arresto dell'app un thread risulta ancora aperto senza terminale,
 **Recover session** tenta di recuperarlo. Quando riesce, premi **Resume**.
 Se la fine della sessione precedente non può essere verificata, il recupero
@@ -81,6 +94,9 @@ e hop restano distinti: non sono certificati dalla sola apertura della TUI.
 
 ## Novità (novembre 2026)
 
+- **Team del thread**: la mappa degli agenti di un thread, con frecce «dà lavoro a» e «osserva»,
+  ruoli ricavati, modelli e template; **Apply** dice a ogni sessione il suo posto e apre quelle che mancano.
+  Un agente può aprire sessioni OpenCode e Pi con `shinatama_session_open`.
 - **Projects** (barra in alto): progetti preferiti con la stella, branch e file modificati,
   ultimo thread con **Resume last**, **New session**, **New in worktree…** (crea un worktree
   Git solo dopo la tua conferma).
