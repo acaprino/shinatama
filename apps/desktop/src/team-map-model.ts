@@ -327,7 +327,7 @@ export function addAgent(f: Formation, name: string, at: Point): Formation {
   return { ...f, agents: [...f.agents, agent] };
 }
 
-/** The first agent that has no session: Apply waits for it (phase 3 opens one for it). */
+/** The first agent that has no session: Apply opens one for it. */
 export function emptyAgent(f: Formation): Agent | null { return f.agents.find((a) => !a.session) ?? null; }
 
 /** The session takes the place of an agent that has none: its name, notes, arrows and card stay. One session fills one agent. */
@@ -339,16 +339,20 @@ export function fillAgent(f: Formation, agent: string, session: string): Formati
 
 const overlap = (agents: readonly Agent[]) => agents.some((a, i) => agents.slice(i + 1).some((b) => Math.abs(a.x - b.x) < CARD.width && Math.abs(a.y - b.y) < CARD.height));
 
-/** The team a template makes: new ids, no session, revision 0. Its places keep their shape and are scaled down to fit `width`
- *  (a layout that would then overlap is tidied instead). */
-export function fromTemplate(t: Template, width: number, id: () => string): Formation {
+/** Whether the model menu holds this choice (the Models panel may have changed since the template was saved). */
+export const holdsModel = (models: readonly TeamModel[], m: ModelRef) => models.some((x) => x.program === m.program && x.connection === m.connection && x.model === m.model);
+
+/** The team a template makes: new ids, no session, revision 0. An agent keeps its model only if `models` (the menu) still holds
+ *  it, otherwise it has none. Its places keep their shape and are scaled down to fit `width` (a layout that would then overlap
+ *  is tidied instead). */
+export function fromTemplate(t: Template, width: number, id: () => string, models: readonly TeamModel[]): Formation {
   if (!t.agents.length) return { revision: 0, agents: [], links: [] };
   const ids = new Map(t.agents.map((a) => [a.id, id()] as const));
   const links = t.links.filter((l) => ids.has(l.from) && ids.has(l.to)).map((l) => ({ ...l, from: ids.get(l.from)!, to: ids.get(l.to)! }));
   const total = Math.max(width, MIN_WIDTH), room = total - NW - 22 - 8;
   const xs = t.agents.map((a) => a.x), minX = Math.min(...xs), minY = Math.min(...t.agents.map((a) => a.y)), span = Math.max(...xs) - minX;
   const scale = span > room ? room / span : 1, centre = scale === 1 ? Math.max(0, (room - span) / 2) : 0;
-  const agents = t.agents.map((a): Agent => ({ ...a, id: ids.get(a.id)!, session: null,
+  const agents = t.agents.map((a): Agent => ({ ...a, id: ids.get(a.id)!, session: null, model: a.model && holdsModel(models, a.model) ? a.model : null,
     x: Math.round(8 + centre + (a.x - minX) * scale), y: Math.round(a.y - minY + 26) }));
   const formation: Formation = { revision: 0, agents, links };
   if (!overlap(agents)) return formation;

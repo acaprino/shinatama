@@ -2,15 +2,15 @@
 // relations as arrows the user draws, and Apply, which has Shinatama tell each session its place. Roles, checks and the sentences
 // sent to the sessions are the engine's (`team_evaluate`); this view asks and draws, and computes none of them (ADR-0057: it never
 // reads, waits for or acknowledges a message, and holds no member handle or credential).
-// Phase 2: an agent may have no session yet (+ New agent, or a template), and a session dropped on it fills it. Until phase 3 opens a
-// session for such an agent, Apply waits for every agent to have one. Seams for phase 3 (a model per agent) are marked "phase 3".
+// An agent may have no session yet (+ New agent, or a template): it takes a model from the menu of the Models panel and Apply opens
+// a session for it, or a session dropped on it fills it.
 import './team-map.css';
 import { confirmsField } from './desktop-shell-model.ts';
 import { createEvaluator } from './team-map-evaluate.ts';
 import {
-  CARD, MAX_AGENTS, MAX_LINKS, MAX_NAME, addAgent, addSession, arrange, borderPoint, changed, connect, emptyAgent, fillAgent, fromTemplate, miniature,
+  CARD, MAX_AGENTS, MAX_LINKS, MAX_NAME, addAgent, addSession, arrange, borderPoint, changed, connect, fillAgent, fromTemplate, holdsModel, miniature,
   newAgentId, parseEvaluation, parseFormation, parseTeam, parseTemplates, pendingLinks, removeAgent, tidy,
-  type Agent, type Evaluation, type Formation, type Link, type Point, type Report, type Share, type TeamSession, type TeamSnapshot, type Template,
+  type Agent, type Evaluation, type Formation, type Link, type ModelRef, type Point, type Report, type Share, type TeamSession, type TeamSnapshot, type Template,
 } from './team-map-model.ts';
 
 export type TeamThread = { id: string; projectId?: string };
@@ -153,7 +153,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   const side = el('aside', 'team-side'); side.setAttribute('aria-label', 'Sessions of the thread');
   const sideList = el('ul', 'team-sessions'); const sideNote = el('p');
   const newAgent = el('button', 'team-new-agent', '+ New agent'); newAgent.type = 'button';
-  newAgent.title = 'An agent with no session yet: drop a session of the thread on it to fill it';
+  newAgent.title = 'An agent with no session yet: choose its model and Apply opens one, or drop a session of the thread on it';
   side.append(el('h2', undefined, 'Sessions'), sideList, sideNote, newAgent);
   const stage = el('div', 'team-stage');
   const scroll = el('div', 'team-scroll'); const canvas = el('div', 'team-canvas');
@@ -183,9 +183,15 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   const current = () => evaluation ?? snap?.evaluation ?? null;
   const fresh = () => current() !== null && evaluatedFor === structureOf(draft);
   const pending = () => changed(applied, draft);
-  /** What the engine found, once its answer fits the draft. `no_model` is left out for now (phase 3): an agent with no session is
-   *  waiting for one to be dropped on it, which `emptyAgent` says; the model menu of phase 3 makes the missing model a problem. */
-  const issues = () => fresh() ? current()!.issues.filter(i => i.code !== 'no_model') : [];
+  /** What the engine found, once its answer fits the draft: an agent with neither session nor model (`no_model`) and a model the
+   *  Models panel no longer holds (`model_gone`) are among it. */
+  const issues = () => fresh() ? current()!.issues : [];
+  /** The agents Apply opens a session for. */
+  const lacking = () => draft.agents.filter(a => !a.session).length;
+  /** Why the last Apply could not open the session of an agent (kept until the next Apply or Discard). */
+  const failures = new Map<string, string>();
+  const modelText = (m: ModelRef) => `${m.model ?? 'its own model'} · via ${deps.harnessLabel(m.program)}`;
+  const modelKey = (m: ModelRef) => JSON.stringify([m.program, m.connection, m.model]);
   const errors = () => issues().filter(i => i.level === 'error');
   const linkIndex = (from: string, to: string) => draft.links.findIndex(l => l.from === from && l.to === to);
   const selectedLink = () => selection && 'link' in selection ? linkIndex(selection.link.from, selection.link.to) : -1;
@@ -342,20 +348,26 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   }
 
   async function applyNow() {
-    if (applying || !pending() || errors().length || !fresh() || emptyAgent(draft)) return;
-    const sent = clone(draft); applying = true; setStatus(''); draw();
+    if (applying || !(pending() || lacking()) || errors().length || !fresh()) return;
+    const sent = clone(draft); applying = true; failures.clear(); setStatus(''); draw();
     try {
-      const result = await ask<{ formation?: unknown }>('team_apply', { formation: sent, expectedRevision: applied?.revision ?? 0 });
+      const result = await ask<{ formation?: unknown; failed?: { agent?: unknown; reason?: unknown } | null }>('team_apply', { formation: sent, expectedRevision: applied?.revision ?? 0 });
       const stored = parseFormation(result?.formation);
       if (!stored) throw 'The answer to Apply was not understood. The team may have been stored: Discard reads it again.';
       applied = stored; draft = clone(stored); selection = null; trialsFor = ''; evaluation = null; evaluatedFor = ''; if (snap) snap = { ...snap, evaluation: null };
-      setStatus(`Applied: revision ${stored.revision}. Each session is told its place when it is in the room.`);
+      const failed = result?.failed;
+      const who = typeof failed?.agent === 'string' ? stored.agents.find(a => a.id === failed.agent) : undefined;
+      if (who) {
+        const reason = typeof failed?.reason === 'string' && failed.reason ? failed.reason : 'It could not be opened.';
+        failures.set(who.id, reason);
+        setStatus(`${who.name} has no session: ${reason} What was opened is kept; Apply tries the rest again.`, 'error');
+      } else setStatus(`Applied: revision ${stored.revision}. Each session is told its place when it is in the room.`);
       applying = false; request(); draw();
       await refresh();
     } catch (error) { applying = false; setStatus(message(error), 'error'); draw(); }
   }
   async function discardNow() {
-    selection = null; trialsFor = ''; evaluator.cancel(); setStatus('');
+    selection = null; trialsFor = ''; evaluator.cancel(); setStatus(''); failures.clear();
     await refresh(true);
   }
 
@@ -395,7 +407,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     if (draft.agents.length && confirming !== `use:${t.id}`) { confirming = `use:${t.id}`; drawTemplates(); focusRow(t.id, 'use'); return; }
     confirming = null; selection = null; trialsFor = ''; setStatus('');
     closeTemplates();
-    edit(fromTemplate(t, canvasWidth(), newAgentId), { tidy: false });
+    edit(fromTemplate(t, canvasWidth(), newAgentId, snap?.models ?? []), { tidy: false });
   }
   async function saveTemplate() {
     const name = plain(templateName.value).trim();
@@ -461,7 +473,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   const signature = (f: Formation, a: Agent) => JSON.stringify([[a.session, a.name, a.notes, a.share, a.model],
     f.links.filter(l => l.from === a.id || l.to === a.id).map(l => [l.from, l.to, l.kind, l.kind === 'work' ? l.report : null, l.words]).sort()]);
   function toldState(a: Agent): [string, string] {
-    if (!a.session) return ['edited', 'drop a session here'];
+    if (!a.session) return ['edited', failures.get(a.id) ?? (a.model ? 'opens when applied' : 'choose a model or drop a session')];
     const before = applied?.agents.find(x => x.id === a.id);
     if (!applied || !before) return ['edited', 'new · not applied'];
     if (signature(draft, a) !== signature(applied, before)) return ['edited', 'changed · not applied'];
@@ -492,14 +504,15 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
       node.toggleAttribute('data-empty', !a.session);
       const [told, toldText] = toldState(a);
       node.toggleAttribute('data-pending', told === 'edited');
-      node.toggleAttribute('data-bad', bad.has(a.id));
+      node.toggleAttribute('data-bad', bad.has(a.id) || failures.has(a.id));
       const head = el('div', 'team-card-top'); const dot = el('span', 'team-dot'); dot.setAttribute('aria-hidden', 'true');
       head.append(dot, el('span', 'team-card-name', a.name || '(no name)'));
       if (bad.has(a.id)) { const mark = el('span', 'team-card-bad', '✕'); mark.title = 'A problem with this agent: see the list above the map'; head.append(mark); }
       const view = roles[a.id]; const roleName = view ? ROLE_NAME[view.role] ?? view.role : 'checking…';
       const role = el('div', 'team-card-role', view && workOut(a.id) > 1 ? `${roleName} · ${SHARE_SHORT[a.share]}` : roleName);
       if (view) role.title = `${roleName}: ${view.detail}. Inferred from its arrows.`;
-      const meta = el('div', 'team-card-meta', !a.session ? 'no session yet' : `${programOf(a)}${session?.title ? ` · ${session.title}` : ''}${session?.memberName ? ` · ${session.memberName}` : ''}`);
+      const meta = el('div', 'team-card-meta', !a.session ? (a.model ? modelText(a.model) : 'no session yet')
+        : `${programOf(a)}${a.model?.model ? ` · ${a.model.model}` : ''}${session?.title ? ` · ${session.title}` : ''}${session?.memberName ? ` · ${session.memberName}` : ''}`);
       const toldNode = el('span', 'team-told', toldText); toldNode.dataset.s = told;
       const left = session?.wakes != null && session.wakes >= 7 ? `${Math.max(0, 10 - session.wakes)} wakes left` : '';
       const wakes = el('span', 'team-wakes', left);
@@ -591,25 +604,27 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   }
 
   function drawBar() {
-    const bad = errors().length; const dirty = pending(); const empty = emptyAgent(draft);
-    const reason = empty ? `Drop a session on ${empty.name}, or take it off the map` : '';
+    const bad = errors().length; const dirty = pending(); const open = lacking();
     const members = applied?.agents.length ?? 0;
     const waiting = (applied?.agents ?? []).filter(a => !snap?.told[a.id]).length;
     let text: string; let tone: string;
     if (applying) { text = 'applying…'; tone = 'dirty'; }
-    else if (empty) { text = reason; tone = 'dirty'; }
     else if (bad) { text = `✕ ${bad} problem${bad > 1 ? 's' : ''} to fix before it can be applied`; tone = 'error'; }
-    else if (dirty) { text = 'not applied: nothing was sent yet'; tone = 'dirty'; }
+    else if (dirty) { text = open ? `not applied: ${open} session${open > 1 ? 's' : ''} to open, nothing was sent yet` : 'not applied: nothing was sent yet'; tone = 'dirty'; }
+    else if (open) { text = `${open} agent${open > 1 ? 's' : ''} still without a session: Apply opens ${open > 1 ? 'them' : 'it'}`; tone = 'dirty'; }
     else if (!members) { text = 'no team'; tone = ''; }
     else if (waiting) { text = `revision ${applied!.revision} · ${waiting} told when ${waiting > 1 ? 'they join' : 'it joins'}`; tone = 'dirty'; }
     else { text = `revision ${applied!.revision} · everyone was told`; tone = 'ok'; }
     state.textContent = text; state.dataset.tone = tone;
     const ready = !draft.agents.length || (fresh() && !evaluating);
-    apply.disabled = !snap?.enabled || !dirty || bad > 0 || applying || !ready || !!empty;
-    apply.title = empty ? reason : bad ? 'Fix the problems above first' : !dirty ? 'Nothing to apply' : !ready ? 'Checking the team…' : 'Tell each concerned session its place';
+    const todo = dirty || open > 0;
+    apply.textContent = open ? `Open ${open} session${open > 1 ? 's' : ''} and apply` : 'Apply';
+    apply.disabled = !snap?.enabled || !todo || bad > 0 || applying || !ready;
+    apply.title = bad ? 'Fix the problems above first' : !todo ? 'Nothing to apply' : !ready ? 'Checking the team…'
+      : open ? 'Open a session for each agent that has none, then tell each concerned session its place' : 'Tell each concerned session its place';
     discard.disabled = !dirty || applying;
     newAgent.disabled = applying || draft.agents.length >= MAX_AGENTS;
-    newAgent.title = draft.agents.length >= MAX_AGENTS ? `The map holds ${MAX_AGENTS} agents at most.` : 'An agent with no session yet: drop a session of the thread on it to fill it';
+    newAgent.title = draft.agents.length >= MAX_AGENTS ? `The map holds ${MAX_AGENTS} agents at most.` : 'An agent with no session yet: choose its model and Apply opens one, or drop a session of the thread on it';
     tidyButton.disabled = draft.agents.length < 1 || applying;
     for (const b of shapeButtons) b.disabled = draft.agents.length < 2 || applying;
   }
@@ -627,9 +642,15 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     name.oninput = () => { const clean = plain(name.value); if (clean !== name.value) name.value = clean; if (clean.trim()) updateAgent(a.id, { name: clean }); };
     name.onblur = () => { if (!name.value.trim()) name.value = agentOf(a.id)?.name ?? 'Agent'; };
     const nameLabel = el('label', undefined, 'Name'); nameLabel.append(name);
-    // Phase 3 puts a model menu here for an agent without a session; a running one keeps its own, as now.
+    // An agent without a session chooses the model its session is opened with, from what the Models panel holds; a running one
+    // keeps its own, fixed.
     const model = el('input'); model.disabled = true;
-    const modelLabel = el('label', undefined, 'Model'); modelLabel.append(model);
+    const modelMenu = el('select'); modelMenu.setAttribute('aria-label', 'Model');
+    modelMenu.onchange = () => {
+      const chosen = snap?.models.find(m => modelKey(m) === modelMenu.value);
+      updateAgent(a.id, { model: chosen ? { program: chosen.program, connection: chosen.connection, model: chosen.model } : null });
+    };
+    const modelLabel = el('label', undefined, 'Model'); modelLabel.append(model, modelMenu);
     const role = el('p', 'role-line'); const roleName = el('b'); const roleDetail = el('span'); role.append(roleName, roleDetail);
     const inferred = el('p', undefined, 'The role is inferred from its arrows: change an arrow and it changes.');
     const handOut = el('div'); const handLabel = el('p', 'lab'); const seg = el('div', 'team-seg'); seg.setAttribute('role', 'group'); handOut.append(handLabel, seg);
@@ -657,8 +678,19 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
       const view = current()?.roles[a.id];
       headText.textContent = live.session ? 'Agent · running session' : 'Agent · no session yet';
       element.setAttribute('aria-label', `Agent ${live.name}`);
-      model.value = live.session ? `${programOf(live)} · its own sign-in and model` : 'Chosen when a session is opened for it';
-      model.title = live.session ? 'A running session keeps its model' : 'A session dropped on this agent keeps its own model';
+      model.hidden = !live.session; modelMenu.hidden = !!live.session;
+      model.value = live.model ? modelText(live.model) : `${programOf(live)} · its own sign-in and model`;
+      model.title = 'A running session keeps its model';
+      const choices = snap?.models ?? [];
+      const lost = live.model && !holdsModel(choices, live.model) ? live.model : null;
+      const wantedMenu = JSON.stringify([choices.map(modelKey), lost && modelKey(lost)]);
+      if (modelMenu.dataset.options !== wantedMenu) {
+        modelMenu.replaceChildren(new Option('Choose a model…', ''), ...choices.map(m => new Option(m.label, modelKey(m))),
+          ...(lost ? [new Option(`${lost.model ?? lost.program} · no longer in the Models panel`, modelKey(lost))] : []));
+        modelMenu.dataset.options = wantedMenu;
+      }
+      modelMenu.value = live.model ? modelKey(live.model) : '';
+      modelMenu.title = 'What the session opened for this agent runs; a session dropped on it keeps its own model';
       show.hidden = !live.session;
       const free = (snap?.sessions ?? []).filter(x => x.connection !== 'unsupported' && !draft.agents.some(other => other.session === x.sessionId));
       pickLabel.hidden = !!live.session;

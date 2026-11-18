@@ -6,7 +6,8 @@ use crate::storage::{self, WorkspaceServices};
 use crate::thread_chat;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use shinatama_engine::team::{self, Formation, Level, Template, Told};
+use shinatama_engine::model_config;
+use shinatama_engine::team::{self, Formation, Level, ModelChoice, ModelKey, Template, Told};
 use shinatama_state::database::Database;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
@@ -47,9 +48,16 @@ pub(crate) struct Thread {
     pub enabled: bool,
     /// Its sessions, by id, with their state as the window names it (`running`, `stopped`, ...).
     pub sessions: BTreeMap<String, String>,
+    /// The model menu as the Models panel holds it now.
+    pub menu: Vec<ModelChoice>,
 }
 
 impl Thread {
+    /// What the checks look a model up by.
+    pub fn models(&self) -> BTreeSet<ModelKey> {
+        team::model_keys(&self.menu)
+    }
+
     /// The agents whose session exists but is not running.
     pub fn stopped(&self, f: &Formation) -> BTreeSet<String> {
         f.agents
@@ -107,7 +115,9 @@ pub(crate) fn apply(
         if stored != expected {
             return Err(format!("The team was changed elsewhere (revision {stored}). Reload it."));
         }
-        if let Some(error) = team::check(&formation, &thread.stopped(&formation)).into_iter().find(|issue| issue.level == Level::Error) {
+        if let Some(error) =
+            team::check(&formation, &thread.stopped(&formation), &thread.models()).into_iter().find(|issue| issue.level == Level::Error)
+        {
             return Err(error.text);
         }
         formation.revision = expected.checked_add(1).ok_or("The team's revision is exhausted.")?;
@@ -146,9 +156,10 @@ pub(crate) fn answer(record: &Record, thread: &Thread, sessions: Value, refused:
         .filter(|(id, _)| id.as_str() != team::NOTICE_KEY)
         .map(|(id, told)| (id, json!({"revision": told.revision, "member": told.member})))
         .collect();
-    let evaluation = record.formation.as_ref().map(|f| team::evaluate(f, &thread.stopped(f)));
+    let evaluation = record.formation.as_ref().map(|f| team::evaluate(f, &thread.stopped(f), &thread.models()));
     json!({
         "enabled": thread.enabled,
+        "models": thread.menu,
         "formation": record.formation,
         "told": told,
         "refused": refused,
@@ -166,7 +177,9 @@ fn thread_of(state: &WorkspaceServices, workset: &str) -> Result<Thread, String>
         .into_iter()
         .map(|session| (session.id, thread_chat::session_state(session.status).to_owned()))
         .collect();
-    Ok(Thread { enabled, sessions })
+    // A Models panel that cannot be read holds no model: an agent that names one then reads as lost.
+    let menu = team::model_menu(&model_config::current().map(|snapshot| snapshot.configuration).unwrap_or_default());
+    Ok(Thread { enabled, sessions, menu })
 }
 
 #[derive(Deserialize)]
@@ -218,7 +231,7 @@ pub async fn team_evaluate(
     thread_chat::blocking(services.inner(), move |state| {
         team::validate(&request.formation)?;
         let thread = thread_of(state, &request.workset_id)?;
-        Ok(team::evaluate(&request.formation, &thread.stopped(&request.formation)))
+        Ok(team::evaluate(&request.formation, &thread.stopped(&request.formation), &thread.models()))
     })
     .await
 }
@@ -358,6 +371,7 @@ pub async fn team_template_delete(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use shinatama_engine::model_config::Configuration;
     use shinatama_engine::team::{Agent, Kind, Link, Report, Share};
     use serde_json::json;
     use shinatama_state::location::{LocationRequest, StorageLocation};
@@ -385,6 +399,7 @@ mod tests {
                 ("t_aaaaaaaaaaaa".to_owned(), "running".to_owned()),
                 ("t_bbbbbbbbbbbb".to_owned(), "stopped".to_owned()),
             ]),
+            menu: team::model_menu(&Configuration::default()),
         }
     }
 
@@ -539,6 +554,14 @@ mod tests {
         // A thread without a team has no formation and no evaluation.
         let none = answer(&Record::default(), &thread(), json!([]), &BTreeMap::new());
         assert_eq!((none["formation"].is_null(), none["evaluation"].is_null()), (true, true));
+    }
+
+    #[test]
+    fn the_answer_lists_the_model_menu_with_the_own_sign_ins_first() {
+        let got = answer(&Record::default(), &thread(), json!([]), &BTreeMap::new());
+        let menu = got["models"].as_array().unwrap();
+        assert_eq!(menu.len(), 4);
+        assert_eq!(menu[0], json!({"program": "claude_code", "connection": null, "model": null, "label": "Claude Code \u{b7} its own sign-in and model"}));
     }
 
     fn linked() -> Formation {

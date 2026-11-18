@@ -344,8 +344,9 @@ fn loops(f: &Formation) -> Vec<(Vec<String>, Vec<usize>)> {
 }
 
 /// What cannot work, or may not, with the arrows as drawn. `stopped`: agents whose session
-/// exists but is not running.
-pub fn check(f: &Formation, stopped: &BTreeSet<String>) -> Vec<Issue> {
+/// exists but is not running. `models`: what the model menu holds now (`model_keys`), for the
+/// agents that have to be opened.
+pub fn check(f: &Formation, stopped: &BTreeSet<String>, models: &BTreeSet<ModelKey>) -> Vec<Issue> {
     let mut issues = Vec::new();
     for (agents, links) in loops(f) {
         issues.push(Issue {
@@ -429,14 +430,32 @@ pub fn check(f: &Formation, stopped: &BTreeSet<String>) -> Vec<Issue> {
         }
     }
     for agent in &f.agents {
-        if agent.session.is_none() && agent.model.is_none() {
-            issues.push(Issue {
+        // An agent that has a session is not opened again: its model is not looked at.
+        if agent.session.is_some() {
+            continue;
+        }
+        match &agent.model {
+            None => issues.push(Issue {
                 level: Level::Error,
                 code: "no_model",
                 text: format!("{} has no session and no model, so it cannot be opened.", agent.name),
                 agents: vec![agent.id.clone()],
                 links: Vec::new(),
-            });
+            }),
+            Some(model) if !models.contains(&(model.program.clone(), model.connection.clone(), model.model.clone())) => {
+                let held = model.model.clone().unwrap_or_else(|| program_label(&model.program).to_owned());
+                issues.push(Issue {
+                    level: Level::Error,
+                    code: "model_gone",
+                    text: format!(
+                        "{} uses {held}, which the Models panel no longer holds. Choose another model.",
+                        agent.name
+                    ),
+                    agents: vec![agent.id.clone()],
+                    links: Vec::new(),
+                });
+            }
+            Some(_) => {}
         }
     }
     for (k, link) in f.links.iter().enumerate() {
@@ -822,7 +841,7 @@ pub struct Evaluation {
 }
 
 /// Everything the window shows about a formation, computed once, here.
-pub fn evaluate(f: &Formation, stopped: &BTreeSet<String>) -> Evaluation {
+pub fn evaluate(f: &Formation, stopped: &BTreeSet<String>, models: &BTreeSet<ModelKey>) -> Evaluation {
     let roles = f
         .agents
         .iter()
@@ -842,11 +861,79 @@ pub fn evaluate(f: &Formation, stopped: &BTreeSet<String>) -> Evaluation {
         .collect();
     Evaluation {
         roles,
-        issues: check(f, stopped),
+        issues: check(f, stopped, models),
         sentences: (0..f.links.len()).map(|k| [told(f, k, true), told(f, k, false)]).collect(),
     }
 }
 
+
+// ---- The model menu ----
+
+/// One entry of the model menu: the program that runs it and what it runs. `connection` and
+/// `model` absent: the program's own sign-in and model.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelChoice {
+    pub program: String,
+    pub connection: Option<String>,
+    pub model: Option<String>,
+    pub label: String,
+}
+
+/// (program, label), in the order the menu lists the programs' own sign-ins.
+pub const PROGRAMS: [(&str, &str); 4] =
+    [("claude_code", "Claude Code"), ("codex", "Codex"), ("opencode", "OpenCode"), ("pi", "Pi")];
+
+/// A program's name for people; an unknown program is named as it is.
+pub fn program_label(program: &str) -> &str {
+    PROGRAMS.iter().find(|(id, _)| *id == program).map_or(program, |(_, label)| label)
+}
+
+/// (program, connection, model): what `check` looks a model up by.
+pub type ModelKey = (String, Option<String>, Option<String>);
+
+/// The model menu: the four programs' own sign-in and model first, then each model of each
+/// connection the Models panel holds, once for each of the two programs that can run it
+/// (OpenCode and Pi; Claude Code and Codex have no model setting in Shinatama).
+pub fn model_menu(configuration: &crate::model_config::Configuration) -> Vec<ModelChoice> {
+    let mut menu: Vec<ModelChoice> = PROGRAMS
+        .iter()
+        .map(|(program, label)| ModelChoice {
+            program: (*program).to_owned(),
+            connection: None,
+            model: None,
+            label: format!("{label} \u{b7} its own sign-in and model"),
+        })
+        .collect();
+    for connection in &configuration.connections {
+        for model in &connection.models {
+            for program in ["opencode", "pi"] {
+                menu.push(ModelChoice {
+                    program: program.to_owned(),
+                    connection: Some(connection.id.clone()),
+                    model: Some(model.id.clone()),
+                    label: format!("{} \u{b7} runs in {}", model.id, program_label(program)),
+                });
+            }
+        }
+    }
+    menu
+}
+
+/// What `check` is given of a menu.
+pub fn model_keys(menu: &[ModelChoice]) -> BTreeSet<ModelKey> {
+    menu.iter().map(|c| (c.program.clone(), c.connection.clone(), c.model.clone())).collect()
+}
+
+/// The first message of a session opened for an agent: who it is, where the room is, and where
+/// its role will come from. The role and relations are not in it: they arrive in the room.
+pub fn opening(agent_name: &str, room_name: &str) -> String {
+    format!(
+        "You are {agent_name} in this thread's team. The thread's Mukade room is {room_name}. \
+         Your role and relations arrive there from the user, through the member shinatama. \
+         Wait for them before acting."
+    )
+}
 
 // ---- What is owed to the room ----
 
@@ -1067,8 +1154,9 @@ pub fn template_id(random: &[u8; 12]) -> String {
 }
 
 /// The template a formation makes. Its sessions and its revision are left out. It is refused when
-/// the formation could not be valid, is empty, or has an error of the checks, except `no_model`:
-/// an agent with no session and no model is what a template's agents are until the team is used.
+/// the formation could not be valid, is empty, or has an error of the checks, except `no_model`
+/// and `model_gone`: a template's agents have no session, and the Models panel may change
+/// before the team is used, when the checks run against what it holds then.
 pub fn template_of(id: String, name: &str, f: &Formation) -> Result<Template, String> {
     if !valid_template_id(&id) {
         return Err("A template has an invalid id.".into());
@@ -1084,9 +1172,9 @@ pub fn template_of(id: String, name: &str, f: &Formation) -> Result<Template, St
     if f.agents.is_empty() {
         return Err("An empty team is not saved.".into());
     }
-    if let Some(error) = check(f, &BTreeSet::new())
+    if let Some(error) = check(f, &BTreeSet::new(), &BTreeSet::new())
         .into_iter()
-        .find(|issue| issue.level == Level::Error && issue.code != "no_model")
+        .find(|issue| issue.level == Level::Error && !matches!(issue.code, "no_model" | "model_gone"))
     {
         return Err(error.text);
     }
@@ -1164,8 +1252,13 @@ mod tests {
         BTreeSet::new()
     }
 
+    /// What the menu holds with no connection in the Models panel: the four own sign-ins.
+    fn own() -> BTreeSet<ModelKey> {
+        model_keys(&model_menu(&crate::model_config::Configuration::default()))
+    }
+
     fn codes(f: &Formation) -> Vec<(Level, &'static str)> {
-        check(f, &none()).iter().map(|i| (i.level, i.code)).collect()
+        check(f, &none(), &own()).iter().map(|i| (i.level, i.code)).collect()
     }
 
     /// A formation that passes `validate`: real ids, `n` agents named by letter, no arrows.
@@ -1212,7 +1305,7 @@ mod tests {
             &["a", "b", "c"],
             &[("a", "b", Work, Done), ("b", "c", Work, Done), ("c", "a", Work, Done)],
         );
-        let issue = &check(&f, &none())[0];
+        let issue = &check(&f, &none(), &own())[0];
         assert_eq!((issue.level, issue.code), (Level::Error, "loop"));
         assert_eq!(issue.links, vec![0, 1, 2]);
         assert_eq!(issue.agents, vec!["a", "b", "c"]);
@@ -1244,7 +1337,7 @@ mod tests {
         let f = team(&["a", "b", "c"], &[("a", "b", Observes, Done), ("a", "c", Work, Done)]);
         assert!(codes(&f).contains(&(Level::Error, "observer_writes")));
         let f = team(&["a", "b", "c"], &[("a", "b", Observes, Done), ("c", "b", Observes, Done)]);
-        assert!(check(&f, &none()).is_empty(), "two observers of one agent");
+        assert!(check(&f, &none(), &own()).is_empty(), "two observers of one agent");
         let f = team(&["a", "b", "c"], &[("a", "b", Observes, Done), ("b", "c", Work, Done)]);
         assert!(!codes(&f).contains(&(Level::Error, "observer_writes")), "being observed is allowed");
     }
@@ -1261,23 +1354,106 @@ mod tests {
     fn an_agent_with_neither_session_nor_model_cannot_be_opened() {
         let mut f = team(&["a", "b"], &[]);
         f.agents[0].session = None;
-        let issues = check(&f, &none());
+        let issues = check(&f, &none(), &own());
         assert_eq!((issues[0].level, issues[0].code), (Level::Error, "no_model"));
         assert_eq!(issues[0].agents, vec!["a"]);
         f.agents[0].model = Some(ModelRef { program: "pi".into(), connection: None, model: None });
-        assert!(check(&f, &none()).is_empty());
+        assert!(check(&f, &none(), &own()).is_empty());
+    }
+
+    #[test]
+    fn an_agent_without_a_session_needs_a_model() {
+        let mut f = team(&["a", "b"], &[]);
+        f.agents[0].session = None;
+        let codes = |f: &Formation| check(f, &none(), &own()).iter().map(|i| i.code).collect::<Vec<_>>();
+        assert_eq!(codes(&f), vec!["no_model"]);
+        f.agents[0].model = Some(ModelRef { program: "codex".into(), connection: None, model: None });
+        assert!(codes(&f).is_empty(), "its own sign-in and model is a model");
+        // The agent that has a session needs none.
+        assert!(codes(&team(&["a"], &[])).is_empty());
+    }
+
+    #[test]
+    fn a_model_no_longer_configured_is_an_error_naming_it() {
+        let mut f = team(&["a"], &[]);
+        f.agents[0].session = None;
+        f.agents[0].model =
+            Some(ModelRef { program: "pi".into(), connection: Some("home".into()), model: Some("qwen-9".into()) });
+        let issues = check(&f, &none(), &own());
+        assert_eq!((issues[0].level, issues[0].code), (Level::Error, "model_gone"));
+        assert!(issues[0].text.contains("qwen-9") && issues[0].text.contains("A uses"), "{}", issues[0].text);
+        assert_eq!(issues[0].agents, vec!["a"]);
+        // The panel holds it again: no issue. Another program running it is another entry.
+        let mut held = own();
+        held.insert(("pi".into(), Some("home".into()), Some("qwen-9".into())));
+        assert!(check(&f, &none(), &held).is_empty());
+        f.agents[0].model.as_mut().unwrap().program = "opencode".into();
+        assert_eq!(check(&f, &none(), &held)[0].code, "model_gone");
+        // An unknown program is named as it is.
+        f.agents[0].model = Some(ModelRef { program: "hermes".into(), connection: None, model: None });
+        assert!(check(&f, &none(), &own())[0].text.contains("hermes"));
+    }
+
+    #[test]
+    fn a_running_agent_s_model_is_not_checked() {
+        let mut f = team(&["a"], &[]);
+        f.agents[0].model =
+            Some(ModelRef { program: "pi".into(), connection: Some("gone".into()), model: Some("gone".into()) });
+        assert!(f.agents[0].session.is_some());
+        assert!(check(&f, &none(), &own()).is_empty());
+    }
+
+    #[test]
+    fn the_menu_lists_the_own_sign_ins_then_each_model_once_per_program() {
+        use crate::model_config::{Api, Configuration, Connection, Model};
+        let model = |id: &str| Model { id: id.into(), context_window: 1000, max_tokens: 100, reasoning: false, vision: false };
+        let configuration = Configuration {
+            connections: vec![Connection {
+                id: "home".into(),
+                name: "Home".into(),
+                api: Api::OpenaiCompletions,
+                base_url: "http://localhost:1234/v1".into(),
+                models: vec![model("qwen-9"), model("llama-3")],
+            }],
+            ..Configuration::default()
+        };
+        let menu = model_menu(&configuration);
+        let heads: Vec<_> = menu.iter().take(4).map(|c| (c.program.as_str(), c.connection.is_none(), c.model.is_none())).collect();
+        assert_eq!(
+            heads,
+            [("claude_code", true, true), ("codex", true, true), ("opencode", true, true), ("pi", true, true)]
+        );
+        assert_eq!(menu[0].label, "Claude Code \u{b7} its own sign-in and model");
+        assert_eq!(menu.len(), 4 + 2 * 2);
+        assert_eq!(menu[4].label, "qwen-9 \u{b7} runs in OpenCode");
+        assert_eq!(menu[5].label, "qwen-9 \u{b7} runs in Pi");
+        assert_eq!((menu[5].program.as_str(), menu[5].connection.as_deref(), menu[5].model.as_deref()), ("pi", Some("home"), Some("qwen-9")));
+        let keys = model_keys(&menu);
+        assert_eq!(keys.len(), menu.len(), "no entry twice");
+        assert!(keys.contains(&("opencode".into(), Some("home".into()), Some("llama-3".into()))));
+    }
+
+    #[test]
+    fn the_first_message_names_the_agent_and_the_room_and_says_to_wait() {
+        let text = opening("Planner", "shinatama-thread-aaaaaaaaaaaa");
+        assert_eq!(
+            text,
+            "You are Planner in this thread's team. The thread's Mukade room is shinatama-thread-aaaaaaaaaaaa. \
+             Your role and relations arrive there from the user, through the member shinatama. Wait for them before acting."
+        );
+        assert!(text.len() < 8192 && !text.contains('\0'));
     }
 
     #[test]
     fn work_for_a_stopped_session_is_a_warning() {
         let f = team(&["a", "b"], &[("a", "b", Work, Done)]);
         let stopped: BTreeSet<String> = ["b".to_string()].into();
-        let issues = check(&f, &stopped);
+        let issues = check(&f, &stopped, &own());
         assert_eq!(issues.len(), 1);
         assert_eq!((issues[0].level, issues[0].code), (Level::Warning, "stopped"));
         assert_eq!(issues[0].links, vec![0]);
         let stopped: BTreeSet<String> = ["a".to_string()].into();
-        assert!(check(&f, &stopped).is_empty(), "the giver being stopped is not the receiver's wait");
+        assert!(check(&f, &stopped, &own()).is_empty(), "the giver being stopped is not the receiver's wait");
     }
 
     #[test]
@@ -1412,7 +1588,7 @@ mod tests {
             team(&["a", "b", "c", "d"], &[("a", "b", Work, Done), ("a", "c", Work, Done), ("a", "d", Work, Done)]),
             &[("a", "Ada"), ("b", "Bo"), ("c", "Cy"), ("d", "Di")],
         );
-        let view = |f: &Formation| evaluate(f, &none()).roles["a"].clone();
+        let view = |f: &Formation| evaluate(f, &none(), &own()).roles["a"].clone();
         assert_eq!(
             view(&f).hand_out.as_deref(),
             Some("You give work to Bo, Cy and Di: split it among them, a different part to each, and put their results together.")
@@ -1429,7 +1605,7 @@ mod tests {
             Some("You give work to Bo, Cy and Di: give each task to whichever of them is free.")
         );
         let one = two(Work, Done);
-        assert_eq!(evaluate(&one, &none()).roles["a"].hand_out, None, "one receiver is not a hand-out");
+        assert_eq!(evaluate(&one, &none(), &own()).roles["a"].hand_out, None, "one receiver is not a hand-out");
     }
 
     #[test]
@@ -1582,7 +1758,7 @@ mod tests {
     #[test]
     fn evaluate_gives_every_agent_its_role_and_every_arrow_its_two_sentences() {
         let f = two(Work, Strict);
-        let e = evaluate(&f, &none());
+        let e = evaluate(&f, &none(), &own());
         assert_eq!(e.roles["a"].role, Role::Lead);
         assert_eq!(e.roles["a"].mukade, MukadeRole::Lead);
         assert_eq!(e.roles["b"].role, Role::Worker);

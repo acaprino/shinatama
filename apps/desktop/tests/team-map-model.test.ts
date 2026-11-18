@@ -298,7 +298,7 @@ const counter = () => { let n = 0; return () => `a_${String(n++).padStart(12, 'x
 
 test('a template gets new ids and fits the width', () => {
   const t = sample();
-  const f = fromTemplate(t, 900, counter());
+  const f = fromTemplate(t, 900, counter(), []);
   assert.equal(f.revision, 0);
   assert.equal(f.agents.length, 4);
   const old = new Set(t.agents.map((a) => a.id));
@@ -311,21 +311,35 @@ test('a template gets new ids and fits the width', () => {
   ]);
   // Every card is inside the width, on the grid of the template, and no two overlap.
   for (const width of [900, 640, MIN_WIDTH, 300]) {
-    const g = fromTemplate(t, width, counter()), total = Math.max(width, MIN_WIDTH);
+    const g = fromTemplate(t, width, counter(), []), total = Math.max(width, MIN_WIDTH);
     assert.ok(g.agents.every((a) => a.x >= 0 && a.y >= 0 && a.x + CARD.width <= total), `inside ${width}: ${JSON.stringify(g.agents.map((a) => [a.x, a.y]))}`);
     assert.deepEqual(closeCards(Object.fromEntries(g.agents.map((a) => [a.id, { x: a.x, y: a.y }]))), [], `no overlap at ${width}`);
   }
   // A template that already fits keeps its shape: the same distances between the cards.
-  const wide = fromTemplate(t, 1600, counter());
+  const wide = fromTemplate(t, 1600, counter(), []);
   assert.equal(wide.agents[2].x - wide.agents[1].x, 580);
   assert.equal(wide.agents[2].y - wide.agents[0].y, 170);
   // Two uses of one template share nothing.
-  assert.notDeepEqual(fromTemplate(t, 900, () => newAgentId()).agents.map((a) => a.id), f.agents.map((a) => a.id));
-  assert.equal(fromTemplate(sample({ agents: [], links: [] }), 900, counter()).agents.length, 0);
+  assert.notDeepEqual(fromTemplate(t, 900, () => newAgentId(), []).agents.map((a) => a.id), f.agents.map((a) => a.id));
+  assert.equal(fromTemplate(sample({ agents: [], links: [] }), 900, counter(), []).agents.length, 0);
+});
+
+test("a template's missing model leaves the agent without one", () => {
+  const own = { program: 'codex', connection: null, model: null };
+  const held = { program: 'pi', connection: 'home', model: 'qwen-9' };
+  const gone = { program: 'opencode', connection: 'home', model: 'llama-3' };
+  const t = sample({ agents: [agent('boss', { model: own }), agent('left', { model: held }), agent('right', { model: gone }), agent('watch')] });
+  const menu = [{ ...own, label: 'Codex · its own sign-in and model' }, { ...held, label: 'qwen-9 · runs in Pi' }];
+  const f = fromTemplate(t, 900, counter(), menu);
+  assert.deepEqual(f.agents.map((a) => a.model), [own, held, null, null], 'a held model stays; one the Models panel dropped does not');
+  // The same model run by the other program is another entry.
+  const other = fromTemplate(sample({ agents: [agent('boss', { model: { ...held, program: 'opencode' } })], links: [] }), 900, counter(), menu);
+  assert.equal(other.agents[0].model, null);
+  assert.equal(fromTemplate(t, 900, counter(), []).agents.every((a) => a.model === null), true, 'no menu, no model');
 });
 
 test('a session dropped on an agent takes its arrows', () => {
-  const f = fromTemplate(sample(), 900, counter());
+  const f = fromTemplate(sample(), 900, counter(), []);
   const target = f.agents[1];
   const filled = fillAgent(f, target.id, 's_aaaaaaaaaaaa');
   const after = filled.agents.find((a) => a.id === target.id)!;
