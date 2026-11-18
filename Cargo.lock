@@ -2014,8 +2014,8 @@ dependencies = [
 
 [[package]]
 name = "mukade"
-version = "0.1.1"
-source = "git+https://github.com/acaprino/mukade?rev=1d2950a0c4b0f7c982edc748dc18200b7ac58351#1d2950a0c4b0f7c982edc748dc18200b7ac58351"
+version = "0.1.2"
+source = "git+https://github.com/acaprino/mukade?rev=41f858222132d7e9af0cd637c8c25aaa7588cb7d#41f858222132d7e9af0cd637c8c25aaa7588cb7d"
 dependencies = [
  "anyhow",
  "axum",

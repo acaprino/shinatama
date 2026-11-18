@@ -3,8 +3,8 @@
 [CmdletBinding()]
 param([Parameter(Mandatory = $true)][string]$Repository)
 $ErrorActionPreference = 'Stop'
-$revision = '1d2950a0c4b0f7c982edc748dc18200b7ac58351'
-$expectedTree = 'f6ce0ae72bba70ed7d17934709d73a73a7a21694'
+$revision = '41f858222132d7e9af0cd637c8c25aaa7588cb7d'
+$expectedTree = 'cf6be099b5babac75c16b3d1a92a473130846415'
 $origin = 'https://github.com/acaprino/mukade'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $repositoryPath = (Resolve-Path -LiteralPath $Repository).ProviderPath
@@ -14,9 +14,9 @@ if (Test-Path -LiteralPath $evidence) {
     if ((Get-Item -LiteralPath $evidence -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'The evidence directory must not be redirected.' }
 } else { [void][IO.Directory]::CreateDirectory($evidence) }
 if (-not [string]::Equals((Resolve-Path -LiteralPath $evidence).ProviderPath, $evidence, [StringComparison]::OrdinalIgnoreCase)) { throw 'The evidence directory is outside the workspace.' }
-$target = Join-Path $evidence 'mukade-pin-1d2950a'
-$archive = Join-Path $evidence 'mukade-pin-1d2950a.tar'
-$manifestPath = Join-Path $evidence 'mukade-pin-1d2950a.manifest.json'
+$target = Join-Path $evidence 'mukade-pin-41f8582'
+$archive = Join-Path $evidence 'mukade-pin-41f8582.tar'
+$manifestPath = Join-Path $evidence 'mukade-pin-41f8582.manifest.json'
 foreach ($path in @($target, $archive, $manifestPath)) {
     if (-not [IO.Path]::GetFullPath($path).StartsWith($evidence + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Export target escaped the workspace.' }
     if (Test-Path -LiteralPath $path) { throw 'The pinned export already exists. Preserve or inspect it explicitly; this script does not overwrite it.' }
