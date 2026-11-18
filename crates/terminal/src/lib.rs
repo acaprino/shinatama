@@ -40,7 +40,21 @@ use std::{
     },
 };
 
-const MAX_SESSIONS: usize = 8;
+/// Terminals one Shinatama keeps at once: every harness session and every shell. It follows
+/// the shared ledger's 32 workloads, which also count the proxy and the short helpers, so the
+/// ledger and the measured free memory are what refuse a start, with a cause the user can
+/// act on. The prototype's 8 stayed here when the ledger went from 8 to 32, and refused a
+/// ninth session as a start that "did not confirm".
+const MAX_SESSIONS: usize = 32;
+/// The refusal at that count, worded as an admission refusal so every caller says it as
+/// "Not started: <cause>". A terminal whose cleanup is not confirmed still holds its place.
+fn capacity_refusal(held: usize) -> Option<String> {
+    (held >= MAX_SESSIONS).then(|| {
+        format!(
+            "{ADMISSION_REFUSED}: {held} terminals are open or still being cleaned up, the most Shinatama keeps at once; close a session or terminal you no longer use"
+        )
+    })
+}
 const CHUNK_BYTES: usize = 8192;
 const OUTPUT_CHUNKS: usize = 64;
 const INPUT_BYTES: usize = 65536;
@@ -243,8 +257,8 @@ impl TerminalHost {
             .sessions
             .lock()
             .map_err(|_| anyhow::anyhow!("Terminal registry unavailable"))?;
-        if sessions.len() >= MAX_SESSIONS {
-            bail!("This prototype supports at most 8 terminals; stop one before opening another");
+        if let Some(refusal) = capacity_refusal(sessions.len()) {
+            bail!(refusal);
         }
         let pair = native_pty_system()
             .openpty(size)
@@ -438,6 +452,16 @@ impl TerminalHost {
 #[cfg(test)]
 mod tests {
     use super::*;
+    /// 2026-11-18: with 8 sessions open every further Open was refused as a start that
+    /// "did not confirm", although the ledger admits 32 workloads.
+    #[test]
+    fn a_ninth_terminal_is_admitted_and_the_refusal_at_the_ceiling_says_what_to_do() {
+        assert_eq!(capacity_refusal(8), None);
+        assert_eq!(capacity_refusal(31), None);
+        let refusal = capacity_refusal(32).unwrap();
+        assert!(refusal.starts_with("Not started: 32 terminals are open"));
+        assert!(refusal.ends_with("close a session or terminal you no longer use"));
+    }
     #[test]
     fn rejects_zero_and_unbounded_sizes() {
         for (rows, cols) in [(0, 80), (24, 0), (501, 80), (24, 1001)] {

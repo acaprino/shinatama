@@ -698,8 +698,8 @@ impl WindowsTerminalHost {
                 old.announced.load(Ordering::Acquire)
                     || old.phase.load(Ordering::Acquire) != RELEASED
             });
-            if sessions.len() >= MAX_SESSIONS {
-                bail!("Terminal capacity is occupied, including any unconfirmed cleanup");
+            if let Some(refusal) = crate::capacity_refusal(sessions.len()) {
+                bail!(refusal);
             }
             if sessions.contains_key(&info.id) {
                 bail!("This launch instance is already registered; no replacement was started");
