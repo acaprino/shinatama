@@ -82,6 +82,7 @@ impl HarnessService for FakeService {
         _: bool,
         _: Option<&str>,
         _: Option<&str>,
+        _: Option<Option<&shinatama_engine::model_config::Selection>>,
     ) -> Result<AgentStarted, ServiceError> {
         panic!("request-isolation tests must not start a terminal")
     }

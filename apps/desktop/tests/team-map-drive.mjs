@@ -19,9 +19,17 @@ export async function installStub(page) {
       return gives.length && takes.length ? 'leadWorker' : gives.length ? 'lead' : takes.length ? 'worker' : 'peer';
     };
     const name = (f, id) => f.agents.find(a => a.id === id)?.name ?? id;
+    // What the Models panel holds, as team_get lists it: the four own sign-ins first, then each model once per program.
+    stub.models = [['claude_code', 'Claude Code'], ['codex', 'Codex'], ['opencode', 'OpenCode'], ['pi', 'Pi']]
+      .map(([program, label]) => ({ program, connection: null, model: null, label: `${label} \u00b7 its own sign-in and model` }))
+      .concat([['opencode', 'OpenCode'], ['pi', 'Pi']].map(([program, label]) => ({ program, connection: 'home', model: 'qwen-9', label: `qwen-9 \u00b7 runs in ${label}` })));
+    const held = m => stub.models.some(x => x.program === m.program && x.connection === m.connection && x.model === m.model);
+    stub.opened = []; stub.failFor = null;
     stub.evaluate = f => {
       const issues = [], roles = {};
       for (const a of f.agents) {
+        if (!a.session && !a.model) issues.push({ level: 'error', code: 'no_model', text: `${a.name} has no session and no model, so it cannot be opened.`, agents: [a.id], links: [] });
+        else if (!a.session && !held(a.model)) issues.push({ level: 'error', code: 'model_gone', text: `${a.name} uses ${a.model.model ?? a.model.program}, which the Models panel no longer holds. Choose another model.`, agents: [a.id], links: [] });
         const role = roleOf(f, a.id);
         roles[a.id] = { role, detail: `${role} by its arrows`, mukade: role === 'observer' ? 'observer' : role === 'worker' ? 'worker' : 'peer', handOut: null };
       }
@@ -51,16 +59,26 @@ export async function installStub(page) {
     stub.held = [];
     stub.release = () => { for (const [id, record] of stub.held) stub.told[id] = record; stub.held = []; };
     const handlers = {
-      team_get: () => ({ enabled: stub.enabled, formation: stub.stored, told: stub.told, sessions: stub.sessions, models: [], evaluation: stub.stored ? stub.evaluate(stub.stored) : null }),
+      team_get: () => ({ enabled: stub.enabled, formation: stub.stored, told: stub.told, sessions: stub.sessions, models: stub.models, evaluation: stub.stored ? stub.evaluate(stub.stored) : null }),
       team_evaluate: ({ formation }) => stub.evaluate(formation),
       team_apply: ({ formation, expectedRevision }) => {
         const revision = stub.stored?.revision ?? 0;
         if (stub.stale || revision !== expectedRevision) throw `The team was changed elsewhere (revision ${revision + 1}). Reload it.`;
         const problem = stub.evaluate(formation).issues.find(i => i.level === 'error'); if (problem) throw problem.text;
+        // Opens a session for each agent without one, one after another, and stops at the first that fails. (The tab of each arrives
+        // as the backend's `collaboration-session-opened` event; the window may not emit events, so that part is for the real run.)
+        let failed = null;
+        for (const a of formation.agents) {
+          if (a.session) continue;
+          if (stub.failFor === a.name) { failed = { agent: a.id, reason: `${a.model.program} did not start.` }; break; }
+          const id = `t_${String(stub.opened.length + 1).padStart(12, 'o')}`;
+          stub.opened.push(a.name); a.session = id;
+          stub.sessions = [...stub.sessions, { sessionId: id, harness: a.model.program, title: a.name, state: 'running', memberName: null, connection: 'launched', wakes: 0 }];
+        }
         stub.stored = { ...JSON.parse(JSON.stringify(formation)), revision: expectedRevision + 1 };
         stub.held = []; stub.told = {};
         stub.stored.agents.forEach((a, i) => { const record = [a.id, { revision: stub.stored.revision, member: `m_${i}` }]; if (i === 0) stub.told[a.id] = record[1]; else stub.held.push(record); });
-        return { formation: stub.stored };
+        return { formation: stub.stored, failed };
       },
       team_place: ({ places }) => {
         if (!stub.stored) throw 'The thread has no team.';
@@ -439,9 +457,10 @@ export async function driveTemplateListed(page, expect, log = console.log) {
   log('ok the template is listed after a restart of the window');
 }
 
-/** In another thread: Use, agents with no session, Apply waiting for them, a session dropped on an agent, + New agent. */
+/** In another thread: Use, agents with no session and no model, the model menu, Apply opening the sessions (one fails, then the retry). */
 export async function driveTemplateUse(page, expect, log = console.log) {
   const t = tools(page, expect); const { map, bar, menu, row, chip, byName, agentBox } = t;
+  const modelMenu = agentBox.locator('select[aria-label="Model"]');
   await expect(map.locator('.team-card')).toHaveCount(0);
   await bar('Templates ▾').click();
   await row('Review crew').getByRole('button', { name: 'Use Review crew' }).click();
@@ -451,12 +470,13 @@ export async function driveTemplateUse(page, expect, log = console.log) {
   for (const meta of await map.locator('.team-card-meta').all()) await expect(meta).toHaveText('no session yet');
   await expect(map.locator('.team-link')).toHaveCount(2);
   await expect(map.locator('.team-hint')).toBeHidden();
-  const reason = 'Drop a session on Lead dev, or take it off the map';
-  await expect(bar('Apply')).toBeDisabled();
-  await expect(bar('Apply')).toHaveAttribute('title', reason);
-  await expect(map.locator('.team-state')).toHaveText(reason);
+  // An agent with neither a session nor a model is a problem the engine reports, and Apply says so.
+  await expect(bar('Open 3 sessions and apply')).toBeDisabled();
+  await expect(bar('Open 3 sessions and apply')).toHaveAttribute('title', 'Fix the problems above first');
+  await expect(map.locator('.team-problems button[data-level="error"]')).toHaveCount(3);
+  await expect(map.locator('.team-problems')).toContainText('Lead dev has no session and no model');
   await expect(map.locator('.team-session')).toHaveCount(3);
-  log('ok Use puts the template on the map: agents with no session, hatched, Apply says what to do');
+  log('ok Use puts the template on the map: agents with no session and no model are a problem, hatched');
 
   // A session dropped on an agent takes its place, name and arrows.
   const lead = await t.idOf('Lead dev');
@@ -469,7 +489,7 @@ export async function driveTemplateUse(page, expect, log = console.log) {
   await expect(t.byId(lead).locator('.team-card-role')).toHaveText('Lead · same work to all');
   await expect(map.locator('.team-link')).toHaveCount(2);
   await expect(map.locator('.team-session')).toHaveCount(2);
-  await expect(bar('Apply')).toHaveAttribute('title', 'Drop a session on Builder, or take it off the map');
+  await expect(map.locator('.team-problems button[data-level="error"]')).toHaveCount(2);
   // The keyboard's way: the agent's box offers the sessions of the thread.
   await byName('Builder').locator('.team-card-name').click();
   await expect(agentBox).toBeVisible();
@@ -477,29 +497,58 @@ export async function driveTemplateUse(page, expect, log = console.log) {
   await agentBox.getByLabel('Use a session…').selectOption({ label: 'Builder' });
   await expect(map.locator('.team-card[data-empty]')).toHaveCount(1);
   await expect(agentBox.locator('h3')).toContainText('running session');
+  // A running agent's model is fixed: no menu.
+  await expect(modelMenu).toBeHidden();
   await agentBox.getByRole('button', { name: 'Close the agent box' }).click();
   log('ok a session dropped on an agent, or chosen in its box, fills it and keeps its name and arrows');
 
-  // + New agent adds one with no session: Apply waits until it is filled or taken off.
-  await chip('Local qwen').dragTo(byName('Local qwen'));
-  await expect(map.locator('.team-card[data-empty]')).toHaveCount(0);
-  await expect(bar('Apply')).toBeEnabled();
+  // The agent without a session chooses its model from the menu: the four own sign-ins first, then each model once per program.
+  await byName('Local qwen').locator('.team-card-name').click();
+  await expect(modelMenu).toBeVisible();
+  const labels = await modelMenu.locator('option').allTextContents();
+  expect(labels.slice(0, 5)).toEqual(['Choose a model…', 'Claude Code \u00b7 its own sign-in and model', 'Codex \u00b7 its own sign-in and model', 'OpenCode \u00b7 its own sign-in and model', 'Pi \u00b7 its own sign-in and model']);
+  expect(labels.slice(5)).toEqual(['qwen-9 \u00b7 runs in OpenCode', 'qwen-9 \u00b7 runs in Pi']);
+  await modelMenu.selectOption({ label: 'Codex \u00b7 its own sign-in and model' });
+  await expect(byName('Local qwen').locator('.team-card-meta')).toHaveText('its own model \u00b7 via Codex');
+  await expect(map.locator('.team-problems')).toBeHidden();
+  await expect(bar('Open 1 session and apply')).toBeEnabled();
+  await agentBox.getByRole('button', { name: 'Close the agent box' }).click();
+  log('ok the model menu, the card showing the model and its program, Apply reading "Open 1 session and apply"');
+
+  // + New agent has no model: a problem, until one is chosen.
   await map.getByRole('button', { name: '+ New agent' }).click();
   await expect(map.locator('.team-card')).toHaveCount(4);
-  await expect(map.locator('.team-card[data-empty]')).toHaveCount(1);
   await expect(byName('Agent').locator('.team-card-meta')).toHaveText('no session yet');
-  await expect(bar('Apply')).toBeDisabled();
-  await expect(bar('Apply')).toHaveAttribute('title', 'Drop a session on Agent, or take it off the map');
+  await expect(bar('Open 2 sessions and apply')).toBeDisabled();
   await byName('Agent').locator('.team-card-name').click();
-  await agentBox.getByRole('button', { name: 'Take off the map' }).click();
-  await expect(map.locator('.team-card')).toHaveCount(3);
-  await expect(bar('Apply')).toBeEnabled();
-  await bar('Apply').click();
-  await expect(map.locator('.team-state')).toContainText('revision 1');
+  await modelMenu.selectOption({ label: 'qwen-9 \u00b7 runs in OpenCode' });
+  await expect(byName('Agent').locator('.team-card-meta')).toHaveText('qwen-9 \u00b7 via OpenCode');
+  await agentBox.getByRole('button', { name: 'Close the agent box' }).click();
+  await expect(bar('Open 2 sessions and apply')).toBeEnabled();
+
+  // Apply opens the sessions one after another; the second cannot start: the first is kept, the card says why, nothing is lost.
+  await page.evaluate(() => { window.__teamStub.failFor = 'Agent'; });
+  await bar('Open 2 sessions and apply').click();
+  await expect(byName('Agent').locator('.team-told')).toHaveText('opencode did not start.');
+  await expect(map.locator('.team-status')).toContainText('Agent has no session: opencode did not start.');
+  await expect(map.locator('.team-card[data-empty]')).toHaveCount(1);
+  await expect(byName('Local qwen')).not.toHaveAttribute('data-empty', '');
+  await expect(bar('Open 1 session and apply')).toBeEnabled();
+  expect(await page.evaluate(() => window.__teamStub.opened)).toEqual(['Local qwen']);
+  expect(await page.evaluate(() => window.__teamStub.stored.revision)).toBe(1);
+  log('ok Apply opened the first session, kept it, and named the agent whose session could not be opened');
+
+  // The retry opens only the agent that has none.
+  await page.evaluate(() => { window.__teamStub.failFor = null; });
+  await bar('Open 1 session and apply').click();
+  await expect(map.locator('.team-state')).toContainText('revision 2');
+  await expect(map.locator('.team-card[data-empty]')).toHaveCount(0);
+  await expect(bar('Apply')).toBeDisabled();
+  expect(await page.evaluate(() => window.__teamStub.opened)).toEqual(['Local qwen', 'Agent']);
   const applied = await t.calls('team_apply');
-  expect(applied).toHaveLength(1);
-  expect(applied[0].request.formation.agents.map(a => a.session).sort()).toEqual(SESSIONS.map(s => s.sessionId));
-  log('ok + New agent, and Apply once every agent has a session');
+  expect(applied).toHaveLength(2);
+  expect(applied[1].request.formation.agents.filter(a => !a.session).map(a => a.name)).toEqual(['Agent']);
+  log('ok the retry opens only what is left');
 
   // Use over a team on the map asks first; Discard brings the applied team back.
   await bar('Templates ▾').click();
@@ -511,7 +560,7 @@ export async function driveTemplateUse(page, expect, log = console.log) {
   await expect(map.locator('.team-card[data-empty]')).toHaveCount(3);
   await bar('Discard').click();
   await expect(map.locator('.team-card[data-empty]')).toHaveCount(0);
-  await expect(map.locator('.team-card')).toHaveCount(3);
+  await expect(map.locator('.team-card')).toHaveCount(4);
   // And the template is deleted at last.
   await bar('Templates ▾').click();
   const del = row('Review crew').getByRole('button', { name: 'Delete Review crew' });

@@ -6,12 +6,13 @@ use crate::storage::{self, WorkspaceServices};
 use crate::thread_chat;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use shinatama_engine::model_config;
-use shinatama_engine::team::{self, Formation, Level, ModelChoice, ModelKey, Template, Told};
+use shinatama_engine::model_config::{self, Selection};
+use shinatama_engine::team::{self, Agent, Formation, Level, ModelChoice, ModelKey, Template, Told};
 use shinatama_state::database::Database;
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use tauri::{State, WebviewWindow};
+use tauri::{Emitter, Manager, State, WebviewWindow};
 
 /// A setting holds 64 KiB (`Database::set_setting_json`).
 const MAX_RECORD: usize = 64 * 1024;
@@ -92,6 +93,34 @@ pub(crate) fn save(store: &Database, workset: &str, record: &Record) -> Result<(
     store.set_thread_team(workset, Some(&value)).map_err(|e| e.to_string())
 }
 
+/// What an apply refuses before it opens or stores anything, whatever the stored revision: a
+/// thread that is off, what cannot be valid, a session that is not the thread's.
+fn admit(thread: &Thread, formation: &Formation) -> Result<(), String> {
+    if !thread.enabled {
+        return Err("This thread's sessions do not talk to each other. Turn it on first.".into());
+    }
+    team::validate(formation)?;
+    if formation.agents.iter().filter_map(|agent| agent.session.as_deref()).any(|session| !thread.sessions.contains_key(session)) {
+        return Err("An agent's session does not belong to this thread.".into());
+    }
+    Ok(())
+}
+
+/// What an apply refuses given the stored record: a revision other than `expected`, then an error
+/// of the checks (warnings do not stop it).
+fn admit_record(record: &Record, thread: &Thread, formation: &Formation, expected: u64) -> Result<(), String> {
+    let stored = record.formation.as_ref().map_or(0, |f| f.revision);
+    if stored != expected {
+        return Err(format!("The team was changed elsewhere (revision {stored}). Reload it."));
+    }
+    if let Some(error) =
+        team::check(formation, &thread.stopped(formation), &thread.models()).into_iter().find(|issue| issue.level == Level::Error)
+    {
+        return Err(error.text);
+    }
+    Ok(())
+}
+
 /// Store `formation` as the thread's team, one revision above `expected`. Refuses, in this
 /// order: a thread that is off; what cannot be valid; a session that is not the thread's; a
 /// stored revision other than `expected`; an error of the checks (warnings do not stop it).
@@ -102,30 +131,69 @@ pub(crate) fn apply(
     mut formation: Formation,
     expected: u64,
 ) -> Result<Formation, String> {
-    if !thread.enabled {
-        return Err("This thread's sessions do not talk to each other. Turn it on first.".into());
-    }
-    team::validate(&formation)?;
-    if formation.agents.iter().filter_map(|agent| agent.session.as_deref()).any(|session| !thread.sessions.contains_key(session)) {
-        return Err("An agent's session does not belong to this thread.".into());
-    }
+    admit(thread, &formation)?;
     exclusive(|| {
         let mut record = load(store, workset)?;
-        let stored = record.formation.as_ref().map_or(0, |f| f.revision);
-        if stored != expected {
-            return Err(format!("The team was changed elsewhere (revision {stored}). Reload it."));
-        }
-        if let Some(error) =
-            team::check(&formation, &thread.stopped(&formation), &thread.models()).into_iter().find(|issue| issue.level == Level::Error)
-        {
-            return Err(error.text);
-        }
+        admit_record(&record, thread, &formation, expected)?;
         formation.revision = expected.checked_add(1).ok_or("The team's revision is exhausted.")?;
         record.before = record.formation.take();
         record.formation = Some(formation.clone());
         save(store, workset, &record)?;
         Ok(formation)
     })
+}
+
+/// An agent whose session could not be opened, and why.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub(crate) struct Failure {
+    pub agent: String,
+    pub reason: String,
+}
+
+/// What `team_apply` answers: the stored formation, and the agent whose opening stopped it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Applied {
+    pub formation: Formation,
+    pub failed: Option<Failure>,
+}
+
+/// `apply`, after opening a session for each agent that has none, one after another, with
+/// `open` (which answers the new session's thread id). Nothing is opened for a team the apply
+/// would refuse, or while `reach` (the Mukade service, which the sessions join) fails; an agent
+/// that has a session is not opened again, so a retry after a failure opens only what is left.
+/// A launch that fails stops the opening: the formation is stored with the sessions opened so far
+/// and the agent is named. The formation is stored after its sessions exist, never before.
+pub(crate) fn apply_opening(
+    store: &Database,
+    workset: &str,
+    thread: &Thread,
+    mut formation: Formation,
+    expected: u64,
+    reach: impl FnOnce() -> Result<(), String>,
+    mut open: impl FnMut(&Agent) -> Result<String, String>,
+) -> Result<Applied, String> {
+    admit(thread, &formation)?;
+    admit_record(&load(store, workset)?, thread, &formation, expected)?;
+    let lacking: Vec<usize> = (0..formation.agents.len()).filter(|&at| formation.agents[at].session.is_none()).collect();
+    let mut thread = thread.clone();
+    let mut failed = None;
+    if !lacking.is_empty() {
+        reach()?;
+        for at in lacking {
+            match open(&formation.agents[at]) {
+                Ok(session) => {
+                    thread.sessions.insert(session.clone(), "running".to_owned());
+                    formation.agents[at].session = Some(session);
+                }
+                Err(reason) => {
+                    failed = Some(Failure { agent: formation.agents[at].id.clone(), reason });
+                    break;
+                }
+            }
+        }
+    }
+    let formation = apply(store, workset, &thread, formation, expected)?;
+    Ok(Applied { formation, failed })
 }
 
 /// Move cards: only `x` and `y` change, and no revision. An agent the team no longer has is
@@ -243,22 +311,111 @@ pub struct ApplyRequest {
     formation: Formation,
     expected_revision: u64,
 }
-/// Store the draft as the thread's team and wake the announcer, which tells the sessions.
+/// The folder of the thread's project, which the sessions opened for its agents run in.
+fn project_of(state: &crate::storage::WorkspaceServices, workset: &str) -> Result<PathBuf, String> {
+    let record = state
+        .store
+        .workset_record(workset)
+        .map_err(|e| e.to_string())?
+        .filter(|record| !record.archived)
+        .ok_or("The thread no longer exists.")?;
+    state
+        .store
+        .recent()
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .find(|project| project.id == record.project_id && project.available)
+        .map(|project| PathBuf::from(project.path))
+        .ok_or_else(|| "The thread's project folder is not available. Open the project first.".to_owned())
+}
+
+/// A session for one agent, in its thread, with its model and its first message; its tab opens
+/// as for any session another one opened (`collaboration-session-opened`). Answers the new
+/// session's thread id, or why it could not be opened.
+fn open_for(
+    app: &tauri::AppHandle,
+    state: &crate::storage::WorkspaceServices,
+    owner: &Arc<crate::agents::Controller>,
+    host: &crate::Host,
+    workset: &str,
+    project: &Path,
+    agent: &Agent,
+) -> Result<String, String> {
+    let model = agent.model.as_ref().ok_or("The agent has no model.")?;
+    let selection = match (&model.connection, &model.model) {
+        (Some(connection), Some(model)) => Some(Selection { connection_id: connection.clone(), model_id: model.clone() }),
+        (None, None) => None,
+        _ => return Err("The agent's model is incomplete.".into()),
+    };
+    let room = shinatama_engine::session_control::thread_room_name(workset).ok_or("The thread is invalid.")?;
+    let started = tauri::async_runtime::block_on(owner.open_agent(
+        &model.program,
+        host.clone(),
+        project.to_path_buf(),
+        selection.clone(),
+        selection.is_none(),
+        team::opening(&agent.name, &room),
+        workset.to_owned(),
+    ))
+    .map_err(str::to_owned)?;
+    // The host keeps the process even if the page is reloading; a failed notice opens nothing twice.
+    let _ = app.emit_to(
+        "main",
+        "collaboration-session-opened",
+        json!({
+            "requestId": format!("team-{}", agent.id),
+            "parentInstanceId": Value::Null,
+            "harness": model.program,
+            "mode": "team",
+            "joinedParentThread": true,
+            "started": started,
+        }),
+    );
+    if state.store.workset_of_thread(&started.thread_id).ok().flatten().as_deref() != Some(workset) {
+        return Err("The session opened outside this thread, so it was not tied to the agent.".into());
+    }
+    Ok(started.thread_id)
+}
+
+/// Store the draft as the thread's team, after opening a session for each agent that has none,
+/// and wake the announcer, which tells the sessions. Answers `{ formation, failed }`: `failed`
+/// names the agent whose session could not be opened, and what is stored holds the sessions
+/// opened before it.
 #[tauri::command]
 pub async fn team_apply(
     window: WebviewWindow,
     services: State<'_, Arc<storage::Services>>,
+    owner: State<'_, Arc<crate::agents::Controller>>,
+    host: State<'_, crate::Host>,
     request: ApplyRequest,
 ) -> Result<Value, String> {
     crate::local(&window)?;
     thread_chat::workset(&request.workset_id)?;
-    let stored = thread_chat::blocking(services.inner(), move |state| {
+    let (app, owner, host) = (window.app_handle().clone(), owner.inner().clone(), host.inner().clone());
+    let applied = thread_chat::blocking(services.inner(), move |state| {
         let thread = thread_of(state, &request.workset_id)?;
-        apply(&state.store, &request.workset_id, &thread, request.formation, request.expected_revision)
+        let workset = request.workset_id.as_str();
+        apply_opening(
+            &state.store,
+            workset,
+            &thread,
+            request.formation,
+            request.expected_revision,
+            || {
+                // The sessions join the thread's room: the service must run before the first launch.
+                thread_chat::room_of(state, workset)
+                    .map(|_| ())
+                    .map_err(|reason| format!("The Mukade chat service could not be reached or started, so no session was opened: {reason}"))
+            },
+            |agent| {
+                let project = project_of(state, workset)?;
+                open_for(&app, state, &owner, &host, workset, &project, agent)
+            },
+        )
     })
     .await?;
     crate::team_announcer::wake();
-    Ok(json!({"formation": stored}))
+    Ok(json!({"formation": applied.formation, "failed": applied.failed}))
 }
 
 #[derive(Deserialize)]
@@ -372,7 +529,7 @@ pub async fn team_template_delete(
 mod tests {
     use super::*;
     use shinatama_engine::model_config::Configuration;
-    use shinatama_engine::team::{Agent, Kind, Link, Report, Share};
+    use shinatama_engine::team::{Kind, Link, ModelRef, Report, Share};
     use serde_json::json;
     use shinatama_state::location::{LocationRequest, StorageLocation};
 
@@ -554,6 +711,141 @@ mod tests {
         // A thread without a team has no formation and no evaluation.
         let none = answer(&Record::default(), &thread(), json!([]), &BTreeMap::new());
         assert_eq!((none["formation"].is_null(), none["evaluation"].is_null()), (true, true));
+    }
+
+    fn waiting(id: &str, program: &str) -> Agent {
+        Agent { model: Some(ModelRef { program: program.into(), connection: None, model: None }), ..agent(id, None) }
+    }
+
+    /// One running agent and three that wait for a session.
+    fn crowd() -> Formation {
+        formation(vec![
+            agent("a_aaaaaaaaaaaa", Some("t_aaaaaaaaaaaa")),
+            waiting("a_bbbbbbbbbbbb", "opencode"),
+            waiting("a_cccccccccccc", "pi"),
+            waiting("a_dddddddddddd", "codex"),
+        ])
+    }
+
+    fn reachable() -> Result<(), String> {
+        Ok(())
+    }
+
+    #[test]
+    fn sessions_are_opened_before_the_formation_is_stored() {
+        let store = database();
+        let mut seen = Vec::new();
+        let applied = apply_opening(&store, WORKSET, &thread(), crowd(), 0, reachable, |agent| {
+            // Nothing is stored while the sessions are being opened.
+            assert_eq!(load(&store, WORKSET).unwrap(), Record::default());
+            seen.push(agent.id.clone());
+            Ok(format!("t_{}", agent.id.trim_start_matches("a_")))
+        })
+        .unwrap();
+        assert_eq!(seen, ["a_bbbbbbbbbbbb", "a_cccccccccccc", "a_dddddddddddd"], "in order, never the running one");
+        assert_eq!(applied.failed, None);
+        let stored = load(&store, WORKSET).unwrap().formation.unwrap();
+        assert_eq!(stored, applied.formation);
+        assert_eq!(stored.revision, 1);
+        let sessions: Vec<_> = stored.agents.iter().map(|a| a.session.as_deref().unwrap()).collect();
+        assert_eq!(sessions, ["t_aaaaaaaaaaaa", "t_bbbbbbbbbbbb", "t_cccccccccccc", "t_dddddddddddd"]);
+    }
+
+    #[test]
+    fn a_failed_opening_keeps_what_was_opened_and_names_the_agent() {
+        let store = database();
+        let mut calls = 0;
+        let applied = apply_opening(&store, WORKSET, &thread(), crowd(), 0, reachable, |agent| {
+            calls += 1;
+            if agent.id == "a_cccccccccccc" { Err("Pi did not start.".to_owned()) } else { Ok("t_eeeeeeeeeeee".to_owned()) }
+        })
+        .unwrap();
+        assert_eq!(calls, 2, "the opening stops at the failure: the last agent is not tried");
+        assert_eq!(applied.failed, Some(Failure { agent: "a_cccccccccccc".into(), reason: "Pi did not start.".into() }));
+        let stored = load(&store, WORKSET).unwrap().formation.unwrap();
+        assert_eq!(stored.revision, 1);
+        let sessions: Vec<_> = stored.agents.iter().map(|a| a.session.as_deref()).collect();
+        assert_eq!(sessions, [Some("t_aaaaaaaaaaaa"), Some("t_eeeeeeeeeeee"), None, None]);
+        assert_eq!(stored, applied.formation);
+    }
+
+    #[test]
+    fn an_agent_opened_once_is_not_opened_again_on_retry() {
+        let store = database();
+        let mut first = 0;
+        let failed = apply_opening(&store, WORKSET, &thread(), crowd(), 0, reachable, |agent| {
+            first += 1;
+            if agent.id == "a_dddddddddddd" { Err("Codex did not start.".to_owned()) } else { Ok(format!("t_{}", agent.id.trim_start_matches("a_"))) }
+        })
+        .unwrap();
+        assert_eq!((first, failed.failed.is_some()), (3, true));
+        // The window answers with the formation it was given back; the sessions are in it.
+        // The thread now holds the sessions that were opened.
+        let mut now = thread();
+        now.sessions.insert("t_bbbbbbbbbbbb".into(), "running".into());
+        now.sessions.insert("t_cccccccccccc".into(), "running".into());
+        let mut again = Vec::new();
+        let retried = apply_opening(&store, WORKSET, &now, failed.formation, 1, reachable, |agent| {
+            again.push(agent.id.clone());
+            Ok("t_ffffffffffff".to_owned())
+        })
+        .unwrap();
+        assert_eq!(again, ["a_dddddddddddd"], "only the agent that has none");
+        assert_eq!(retried.failed, None);
+        assert_eq!(retried.formation.revision, 2);
+        assert!(retried.formation.agents.iter().all(|a| a.session.is_some()));
+    }
+
+    #[test]
+    fn nothing_is_opened_while_the_service_is_unreachable() {
+        let store = database();
+        let refused = apply_opening(
+            &store,
+            WORKSET,
+            &thread(),
+            crowd(),
+            0,
+            || Err("The Mukade service is stopped.".to_owned()),
+            |_| panic!("a session was opened with the service unreachable"),
+        )
+        .unwrap_err();
+        assert_eq!(refused, "The Mukade service is stopped.");
+        assert_eq!(load(&store, WORKSET).unwrap(), Record::default());
+        // A team with a session for every agent opens nothing, so it never needs the service.
+        let applied = apply_opening(
+            &store,
+            WORKSET,
+            &thread(),
+            two(),
+            0,
+            || Err("The Mukade service is stopped.".to_owned()),
+            |_| panic!("nothing to open"),
+        )
+        .unwrap();
+        assert_eq!(applied.formation.revision, 1);
+    }
+
+    #[test]
+    fn nothing_is_opened_for_a_team_the_apply_would_refuse() {
+        let store = database();
+        let never = |_: &Agent| -> Result<String, String> { panic!("a session was opened for a refused team") };
+        // An agent with neither session nor model.
+        let mut bare = crowd();
+        bare.agents[1].model = None;
+        assert!(apply_opening(&store, WORKSET, &thread(), bare, 0, reachable, never).unwrap_err().contains("no session and no model"));
+        // A model the Models panel no longer holds, named.
+        let mut gone = crowd();
+        gone.agents[1].model = Some(ModelRef { program: "pi".into(), connection: Some("home".into()), model: Some("qwen-9".into()) });
+        assert!(apply_opening(&store, WORKSET, &thread(), gone, 0, reachable, never).unwrap_err().contains("qwen-9"));
+        // A thread that is off, and a stale revision.
+        let off = Thread { enabled: false, ..thread() };
+        assert!(apply_opening(&store, WORKSET, &off, crowd(), 0, reachable, never).unwrap_err().contains("Turn it on"));
+        assert!(apply_opening(&store, WORKSET, &thread(), crowd(), 5, reachable, never).unwrap_err().contains("revision 0"));
+        // A session that left the thread.
+        let mut moved = crowd();
+        moved.agents[0].session = Some("t_zzzzzzzzzzzz".into());
+        assert!(apply_opening(&store, WORKSET, &thread(), moved, 0, reachable, never).unwrap_err().contains("does not belong"));
+        assert_eq!(load(&store, WORKSET).unwrap(), Record::default());
     }
 
     #[test]

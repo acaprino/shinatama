@@ -1454,7 +1454,7 @@ async function initialize() {
         // for it (ADR-0055), so attachSession finds that thread from the saved record.
         void attachSession(started.session, started.threadId);
         void threadSidebar?.refresh();
-        const agent = payload.harness === 'codex' ? 'Codex' : 'Claude';
+        const agent = ({ codex: 'Codex', opencode: 'OpenCode', pi: 'Pi' } as Record<string, string>)[payload.harness] ?? 'Claude';
         notify(payload.joinedParentThread ? `${agent} session opened in the same thread.` : `${agent} session opened.`, 'info');
       });
     window.addEventListener('pagehide', () => { stopCollaborationUpdates(); }, { once: true });

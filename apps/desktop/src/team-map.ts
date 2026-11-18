@@ -650,7 +650,8 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
       const chosen = snap?.models.find(m => modelKey(m) === modelMenu.value);
       updateAgent(a.id, { model: chosen ? { program: chosen.program, connection: chosen.connection, model: chosen.model } : null });
     };
-    const modelLabel = el('label', undefined, 'Model'); modelLabel.append(model, modelMenu);
+    const modelLabel = el('label', undefined, 'Model'); modelLabel.append(model);
+    const menuLabel = el('label', undefined, 'Model'); menuLabel.append(modelMenu);
     const role = el('p', 'role-line'); const roleName = el('b'); const roleDetail = el('span'); role.append(roleName, roleDetail);
     const inferred = el('p', undefined, 'The role is inferred from its arrows: change an arrow and it changes.');
     const handOut = el('div'); const handLabel = el('p', 'lab'); const seg = el('div', 'team-seg'); seg.setAttribute('role', 'group'); handOut.append(handLabel, seg);
@@ -668,7 +669,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     const pick = el('select'); pick.setAttribute('aria-label', 'Use a session…'); pick.title = 'The session takes this agent\'s place: its name and arrows stay';
     const pickLabel = el('label', undefined, 'Use a session…'); pickLabel.append(pick);
     pick.onchange = () => { const id = pick.value; pick.value = ''; const s = snap?.sessions.find(x => x.sessionId === id); if (s) fillWith(s, a.id); };
-    const fields = el('div', 'team-fields'); fields.append(nameLabel, modelLabel, pickLabel, role, inferred, handOut, notesLabel, toLabel);
+    const fields = el('div', 'team-fields'); fields.append(nameLabel, modelLabel, menuLabel, pickLabel, role, inferred, handOut, notesLabel, toLabel);
     const show = quietButton('Show its tab', 'Show this session\'s tab in the window'); show.onclick = () => { const at = agentOf(a.id)?.session; if (at) deps.focusSession(at); };
     const out = quietButton('Take off the map', 'The session stays open; it only leaves the team map'); out.onclick = () => takeOff(a.id);
     const foot = el('div', 'foot'); foot.append(show, out);
@@ -678,7 +679,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
       const view = current()?.roles[a.id];
       headText.textContent = live.session ? 'Agent · running session' : 'Agent · no session yet';
       element.setAttribute('aria-label', `Agent ${live.name}`);
-      model.hidden = !live.session; modelMenu.hidden = !!live.session;
+      modelLabel.hidden = !live.session; menuLabel.hidden = !!live.session;
       model.value = live.model ? modelText(live.model) : `${programOf(live)} · its own sign-in and model`;
       model.title = 'A running session keeps its model';
       const choices = snap?.models ?? [];

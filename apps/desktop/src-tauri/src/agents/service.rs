@@ -165,6 +165,9 @@ pub(super) struct SessionContext<'a, P> {
     pub thread: &'a ThreadRecord,
     pub initial_prompt: Option<&'a str>,
     pub require_mukade: bool,
+    /// One agent's model, for the programs that take one: the outer `None` is the Models panel's
+    /// assignment as it is, `Some(None)` the program's own sign-in and model.
+    pub model: Option<Option<&'a shinatama_engine::model_config::Selection>>,
     /// The room of the session's thread when its sessions talk to each other (ADR-0057).
     pub chat: Option<shinatama_engine::mukade_chat::ChatHooks>,
 }
@@ -235,6 +238,7 @@ pub(super) trait HarnessService: Send + Sync {
         require_mukade: bool,
         control_header: Option<&str>,
         workset: Option<&str>,
+        model: Option<Option<&shinatama_engine::model_config::Selection>>,
     ) -> Result<AgentStarted, ServiceError>;
 }
 /// How long an open waits for the model proxy it asked to start. It stops waiting at once when
@@ -663,6 +667,7 @@ impl<D: HarnessDriver> Service<D> {
         require_mukade: bool,
         control_header: Option<&str>,
         workset: Option<&str>,
+        model: Option<Option<&shinatama_engine::model_config::Selection>>,
     ) -> Result<AgentStarted, ServiceError> {
         shinatama_terminal::validate_size(rows, cols)
             .map_err(|_| DriverError::Failed("The terminal size is invalid."))?;
@@ -828,6 +833,7 @@ impl<D: HarnessDriver> Service<D> {
                     thread: &requested_thread,
                     initial_prompt,
                     require_mukade,
+                    model,
                     chat: chat.clone(),
                 },
                 &receipt,
@@ -1094,13 +1100,14 @@ impl<D: HarnessDriver> HarnessService for Service<D> {
         require_mukade: bool,
         control_header: Option<&str>,
         workset: Option<&str>,
+        model: Option<Option<&shinatama_engine::model_config::Selection>>,
     ) -> Result<AgentStarted, ServiceError> {
         {
             let mut facts = self.facts()?;
             facts.last_error = None;
             facts.last_start_failure = None;
         }
-        let result = self.open_impl(host, project, rows, cols, operation, mode, initial_prompt, require_mukade, control_header, workset);
+        let result = self.open_impl(host, project, rows, cols, operation, mode, initial_prompt, require_mukade, control_header, workset, model);
         if let Err(error) = result {
             self.remember(error);
         }

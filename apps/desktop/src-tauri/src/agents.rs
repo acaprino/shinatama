@@ -15,6 +15,7 @@ use service::{HarnessService, OpenMode, Service, ServiceContext, SessionOperatio
 use shinatama_adapter::sets::{SET_SCHEMA_VERSION, SetManifest};
 use shinatama_engine::{
     check_scratch::{self, OwnedScratch},
+    model_config::Selection,
     native_launch::{NativeTrialReceipt, NativeTrialTracker},
 };
 use shinatama_state::{
@@ -379,6 +380,7 @@ impl Controller {
             false,
             None,
             None,
+            None,
         )
         .await
     }
@@ -404,6 +406,7 @@ impl Controller {
             false,
             None,
             workset,
+            None,
         )
         .await
     }
@@ -429,6 +432,7 @@ impl Controller {
             false,
             Some(control_header),
             None,
+            None,
         )
         .await
     }
@@ -444,6 +448,7 @@ impl Controller {
         require_mukade: bool,
         control_header: Option<String>,
         workset: Option<String>,
+        model: Option<Option<Selection>>,
     ) -> Result<AgentStarted, &'static str> {
         shinatama_terminal::validate_size(rows, cols)
             .map_err(|_| "The terminal size is invalid.")?;
@@ -466,6 +471,7 @@ impl Controller {
                                 require_mukade,
                                 control_header.as_deref(),
                                 workset.as_deref(),
+                                model.as_ref().map(Option::as_ref),
                             )
                             .map_err(|error| error.message())
                     },
@@ -500,7 +506,38 @@ impl Controller {
             return Err("The initial collaboration instruction is invalid.");
         }
         self.start_request(agent_id, host, project, 24, 80,
-            OpenMode::PrepareWhenNeeded, Some(initial_prompt), require_mukade, None, workset).await
+            OpenMode::PrepareWhenNeeded, Some(initial_prompt), require_mukade, None, workset, None).await
+    }
+
+    /// A session of `program` for an agent of a thread's team, created in `workset` with the
+    /// agent's model and a first message. `own_model`: the program's own sign-in and model, and
+    /// `model` is then ignored; otherwise `model` is the Models panel's entry the program runs
+    /// (only OpenCode and Pi take one). The thread's room is joined through the launch's hooks as
+    /// for any session of a talking thread; a failure of the chat never refuses the launch.
+    pub async fn open_agent(
+        self: &Arc<Self>,
+        program: &str,
+        host: Arc<TerminalHost>,
+        project: PathBuf,
+        model: Option<Selection>,
+        own_model: bool,
+        initial_prompt: String,
+        workset: String,
+    ) -> Result<AgentStarted, &'static str> {
+        if !matches!(program, "claude_code" | "codex" | "opencode" | "pi") {
+            return Err("This program cannot be opened for a team.");
+        }
+        if initial_prompt.trim().is_empty() || initial_prompt.len() > 8192 || initial_prompt.contains('\0') {
+            return Err("The agent's first message is invalid.");
+        }
+        let model = match (own_model, model) {
+            (true, _) => Some(None),
+            (false, Some(selection)) if matches!(program, "opencode" | "pi") => Some(Some(selection)),
+            (false, Some(_)) => return Err("This program has no model setting: use its own sign-in and model."),
+            (false, None) => return Err("The agent has no model."),
+        };
+        self.start_request(program, host, project, 24, 80,
+            OpenMode::PrepareWhenNeeded, Some(initial_prompt), false, None, Some(workset), model).await
     }
 }
 fn prepare_box(

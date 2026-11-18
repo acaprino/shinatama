@@ -152,8 +152,8 @@ impl HarnessDriver for OpenCodeDriver {
                 thread_id: &context.thread.id,
                 chat: context.chat.as_ref(),
                 native_id: &native_id,
-                model: None,
-                initial_prompt: None,
+                model: context.model,
+                initial_prompt: context.initial_prompt,
             },
             receipt,
         )
