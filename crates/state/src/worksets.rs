@@ -80,6 +80,24 @@ fn insert(connection: &Connection, record: &WorksetRecord) -> Result<()> {
     )?;
     Ok(())
 }
+/// The inverse of [`join`] for a thread being discarded, before its row is deleted: the
+/// workset `join` made for it alone (`w_<its suffix>`) goes with it once it holds no other
+/// session. A workset it joined is left as it is.
+pub(crate) fn leave(connection: &Connection, thread: &str) -> Result<()> {
+    let Some(workset) = of_thread(connection, thread)? else {
+        return Ok(());
+    };
+    let own = thread.get(2..).is_some_and(|suffix| workset.get(2..) == Some(suffix));
+    connection.execute("DELETE FROM workset_member WHERE thread_id=?1", [thread])?;
+    if own
+        && !connection.query_row("SELECT EXISTS(SELECT 1 FROM workset_member WHERE workset_id=?1)", [&workset], |row| row.get::<_, bool>(0))?
+    {
+        let record = load(connection, &workset)?;
+        connection.execute("DELETE FROM workspace WHERE project_id=?1 AND workspace_id=?2", params![record.project_id, workset])?;
+        connection.execute("DELETE FROM workset WHERE id=?1", [&workset])?;
+    }
+    Ok(())
+}
 /// Called inside the transaction that inserts `record`. A session that comes from another one
 /// (fork, companion) stays with it; otherwise it joins the named workset or gets its own.
 pub(crate) fn join(connection: &Connection, record: &ThreadRecord, workset: Option<&str>) -> Result<()> {

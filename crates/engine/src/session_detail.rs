@@ -312,6 +312,12 @@ pub(crate) fn open(
     let info = reader
         .overview(&request.native_id, &roots)
         .map_err(|error| lookup_issue(&error))?;
+    // A session Mukade knows only from other records (a Claude session that wrote no
+    // transcript, named by history.jsonl or a live registration) is listed as unreadable with
+    // that record as its path: there is no conversation to read.
+    if info.unreadable.is_some() {
+        return Err(DetailIssue::SessionNotFound);
+    }
     guard.verify_session_current(Path::new(&info.path))?;
     if info.id != request.native_id {
         return Err(DetailIssue::SessionNotFound);
@@ -837,6 +843,48 @@ mod tests {
         // Changes to the chosen transcript must still be refused.
         fs::OpenOptions::new().append(true).open(&selected).unwrap().write_all(b"\n").unwrap();
         assert!(matches!(opened.clipped(&snapshot, &request, 4096), Err(DetailIssue::SourceChanged)));
+    }
+    /// 2026-11-18: a Claude session in which only `/resume` was typed has no transcript, but
+    /// `history.jsonl` names it, so Mukade's overview lists it as unreadable with the history
+    /// file as its path. That path is outside the pinned `projects` tree, and the read used to
+    /// fail as an unsafe namespace ("unavailable") instead of "no such conversation".
+    #[test]
+    fn a_claude_session_known_only_from_its_history_is_not_found() {
+        let fixture = Fixture(fs::canonicalize(std::env::temp_dir()).unwrap()
+            .join(format!("shinatama-detail-{}", uuid::Uuid::new_v4())));
+        let location = StorageLocation::resolve(LocationRequest {
+            local_data_directory: std::env::temp_dir(),
+            home_override: Some(fixture.0.clone()),
+            project_roots: Vec::new(),
+            synchronized_roots: Vec::new(),
+        }).unwrap();
+        location.prepare_private_directory().unwrap();
+        let native_id = "e32608a8-01a0-4a63-a51f-25c500c8a2e2";
+        let said = "01a17e07-93f7-7a73-85c7-9f0205836601";
+        let transcript = location.directory().join(format!("projects/fixture-project/{said}.jsonl"));
+        fs::create_dir_all(transcript.parent().unwrap()).unwrap();
+        fs::write(&transcript, format!("{}\n", serde_json::json!({"type":"user","uuid":"entry-user","sessionId":said,
+            "cwd":"C:\\synthetic-project","timestamp":"2026-11-18T12:00:00Z","message":{"role":"user","content":"hello"}}))).unwrap();
+        fs::write(location.directory().join("history.jsonl"), format!("{}\n", serde_json::json!({"display":"/resume",
+            "pastedContents":{},"timestamp":1_794_999_806_382_i64,"project":"C:\\synthetic-project","sessionId":native_id}))).unwrap();
+        let record = StoreRootRecord {
+            id: "history-only-root".into(), harness: "claude_code".into(),
+            kind: RootKind::Box, scope: RootScope::Primary,
+            resolved_path: location.directory().to_string_lossy().trim_start_matches(r"\\?\").into(),
+            origin: RootOrigin::Configured, config_revision: 1,
+            access: RootAccess::ReadWrite, available: true,
+        };
+        let root = RootSelector { store_root_id: record.id.clone(), configuration_revision: 1 };
+        let snapshot = TrustedRootSnapshot::from_record(&record, &root).unwrap();
+        let request = DetailRequest { root, native_id: native_id.into(), cursor: None, limit: 1, overview_only: true };
+        let refused = open(&snapshot, &request).err();
+        assert_eq!(refused, Some(DetailIssue::SessionNotFound));
+        let reply = read_detail(&snapshot, &request);
+        assert!(reply.page.is_none());
+        assert!(matches!(reply.issue, Some(DetailIssue::SessionNotFound)));
+        // The session that has a transcript still opens.
+        let request = DetailRequest { native_id: said.into(), ..request };
+        assert!(open(&snapshot, &request).is_ok());
     }
     #[test]
     fn claude_selected_session_survives_an_unrelated_writer() {

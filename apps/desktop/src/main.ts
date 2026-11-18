@@ -50,6 +50,7 @@ import { layoutLoadFailureText, transientLayoutFailure } from './workspace-persi
 import { newSessionProject, type NewSessionScope } from './session-project.ts';
 import type { ThreadSidebarState, ThreadSummary } from './thread-sidebar.ts';
 import { createWorksetSidebar, type WorksetSummary } from './workset-sidebar.ts';
+import { attemptKey, forgetRefusal, nextToReopen, threadsOff, reopenCard, reopenStep, restoredRunning, rowsToRecover, sessionTabLabel, sessionTabName, threadSessions, withoutInstance } from './session-tabs.ts';
 import { createThreadChat, laterEvent } from './thread-chat.ts';
 import { createToneKeeper } from './thread-tone.ts';
 import './styles.css';
@@ -101,6 +102,9 @@ let threadSidebar: ReturnType<typeof createWorksetSidebar> | null = null;
 let openWorksets: WorksetScope[] = [];
 /** The threads to turn on at this start, read before anything can overwrite them: reattaching a running terminal runs `rememberSessions` while none is on yet. */
 const threadsToReopen = (() => { try { return localStorage.getItem('shinatama.threads') ?? `[${localStorage.getItem('shinatama.thread') ?? ''}]`; } catch { return null; } })();
+/** Set once the window close is confirmed: the terminals the shutdown ends must stay saved in the layout as
+ *  running, so the next start restores them with it (a terminal that ends by itself is saved as not running). */
+let closingWindow = false;
 /** The sessions of the threads that are on, as last read, and the thread each belongs to. */
 let worksetMembers: ThreadSummary[] = [];
 const memberOf = new Map<string, WorksetScope>();
@@ -281,27 +285,46 @@ const presentation = createPresentation({ desktop, notify, onChange() {
   }
 } });
 
-/** "Fix browser tabs · Claude Code": the thread, then the agent, numbered only when the same agent runs twice in one thread.
- *  The project is left out: the tab filter says it. A terminal of no thread is named by its folder. */
+/** The session's name among all the sessions of its thread (closed ones included, oldest first, as
+ *  `workset_threads` gives them), numbered when several share it: the same on its running tab, on its
+ *  "not running" tab and in the thread's panel, and the same after a restart. */
+function memberName(row: ThreadSummary): string {
+  const owner = memberOf.get(row.id)?.id;
+  const siblings = worksetMembers.filter(other => memberOf.get(other.id)?.id === owner).map(other => ({ id: other.id, name: sessionName(other) }));
+  return sessionTabName(siblings, row.id) ?? sessionName(row);
+}
+/** "Claude Code 2 · Fix browser tabs": the session first, then its thread (or its project's folder when the thread has no name).
+ *  A tab is cut at its end, so what tells two sessions of one thread apart comes first. A terminal of no thread, or one whose
+ *  session is not read yet, is named by its folder and its agent, numbered when the same agent runs twice there. */
 function tabLabel(id: string) {
   const view = views.get(id);
   if (!view) {
-    const saved = savedSession(id); const owner = saved ? memberOf.get(saved.id) : undefined;
-    const folder = saved ? recentThreadProjects.get(saved.projectId) : undefined;
-    const thread = (owner && threadTitle(owner)) || (folder ? folderName(folder) : null);
-    return saved ? `${thread ? `${thread} · ` : ''}${sessionName(saved)} · not running` : 'Saved terminal · unavailable';
+    const saved = savedSession(id); if (!saved) return 'Saved terminal · unavailable';
+    const owner = memberOf.get(saved.id); const folder = recentThreadProjects.get(saved.projectId);
+    return sessionTabLabel({ name: memberName(saved), where: (owner && threadTitle(owner)) || (folder ? folderName(folder) : null), state: 'saved' });
   }
+  const where = (view.workset && threadTitle(view.workset)) || folderName(view.info.cwd);
+  const row = view.threadId ? worksetMembers.find(member => member.id === view.threadId) : undefined;
+  if (row) return sessionTabLabel({ name: memberName(row), where, state: view.ended ? 'exited' : 'running', mark: chatMark(view) });
   const harness = sessionHarnesses.find(item => item.id === view.info.shell)?.label ?? view.info.shell;
   const twins = [...views.values()].filter(other => other.info.shell === view.info.shell && (view.workset
     ? other.workset?.id === view.workset.id : !other.workset && samePath(other.info.cwd, view.info.cwd)));
-  const where = (view.workset && threadTitle(view.workset)) || folderName(view.info.cwd);
   return `${where} · ${harness}${twins.length > 1 ? ` ${twins.indexOf(view) + 1}` : ''}${view.ended ? ' · exited' : chatMark(view)}`;
+}
+/** The project folder a terminal tab belongs to, whether it runs or not: a "not running" tab is its
+ *  saved session's project. Null for a tab whose session or project is not known. */
+function panelFolder(panelId: string): string | null {
+  const view = views.get(panelId); if (view) return view.info.cwd;
+  const saved = savedSession(panelId); return saved ? recentThreadProjects.get(saved.projectId) ?? null : null;
 }
 let tabFilter: ReturnType<typeof createTabFilter> | null = null;
 /** Shows one project's tabs; each pane switches to its first tab of that project, if it has one. */
 function filterTabs(project: string | null) {
   if (project) for (const group of tabGroups(workspaceLayout.root)) {
-    const shown = group.tabs.filter(id => { const view = views.get(id); return !!view && !view.hidden && samePath(view.info.cwd, project); });
+    const shown = group.tabs.filter(id => {
+      const panel = workspaceLayout.views.find(candidate => candidate.id === id); const folder = panelFolder(id);
+      return panel?.resource.kind === 'terminal' && !panel.hidden && !!folder && samePath(folder, project);
+    });
     if (shown.length && !shown.includes(group.activeTabId ?? '')) changeLayout({ type: 'activate', groupId: group.id, viewId: shown[0] });
   }
   render();
@@ -367,7 +390,7 @@ const renderer = createWorkspaceRenderer({
   tabFilter() {
     const project = tabFilter?.current();
     // Browser tabs belong to the thread, not to a project: the filter never hides them.
-    return project ? { label: folderName(project), shows: panel => { if (panel.resource.kind === 'browser' || panel.resource.kind === 'team') return true; const view = views.get(panel.id); return !!view && samePath(view.info.cwd, project); } } : null;
+    return project ? { label: folderName(project), shows: panel => { if (panel.resource.kind === 'browser' || panel.resource.kind === 'team') return true; const folder = panelFolder(panel.id); return !!folder && samePath(folder, project); } } : null;
   },
   isInputBlocked: modalOpen,
   onError: () => notify('That layout change is unavailable. The current workspace was preserved.'),
@@ -590,8 +613,10 @@ async function attachSession(info: SessionInfo, threadId: string) {
   attachTerminal(info, focusedGroup(), threadId, workset);
   if (isOn(workset?.id)) await refreshMembers(); else threadSidebar?.changed();
 }
-/** `workset`: the thread the session belongs to. A terminal of a thread that is off keeps running and is drawn when that thread is turned on. */
-function attachTerminal(info: SessionInfo, group: string, threadId: string | null = null, workset: WorksetScope | null = null) {
+/** `workset`: the thread the session belongs to. A terminal opened into a thread that is off (a collaboration, a hop) runs
+ *  without a tab and is drawn when that thread is turned on; turning a thread off stops its terminals (hideWorksets).
+ *  `background`: reopened by the start, it takes its tab's place without bringing it forward or taking the focus. */
+function attachTerminal(info: SessionInfo, group: string, threadId: string | null = null, workset: WorksetScope | null = null, background = false) {
   // Native collaboration events and reload recovery may see the same owned
   // process. Attach once; neither delivery path is permission to relaunch it.
   if (views.has(info.id)) return;
@@ -655,7 +680,8 @@ function attachTerminal(info: SessionInfo, group: string, threadId: string | nul
     accepts: () => !view.ended && !view.disposed && !view.historyView && !modalOpen(),
     focus: () => { setFocus(view.group); terminal.focus(); } };
   inputTargets.set(element, input); view.stopInput = attachTerminalPaste(input, notify);
-  tabFilter?.reveal(info.cwd);
+  // A session reopened by the start keeps its tab where it was: the user's project filter stays.
+  if (!background) tabFilter?.reveal(info.cwd);
   const restored = workspaceLayout.views.find(panel => panel.id === info.id);
   if (restored?.resource.kind === 'terminal') { const applied = presentation.applyProfile(terminal, restored.resource.profileId); view.profile = applied.id; element.style.background = applied.background; }
   const shownHere = isOn(workset?.id);
@@ -666,7 +692,9 @@ function attachTerminal(info: SessionInfo, group: string, threadId: string | nul
     const target = staleGroup?.id ?? (tabGroups(workspaceLayout.root).some(candidate => candidate.id === group) ? group : focusedGroup());
     changeLayout({ type: 'add-view', groupId: target, index: staleGroup ? staleGroup.tabs.indexOf(stale!.id) : undefined,
       view: { id: info.id, resource: { kind: 'terminal', instanceId: instanceRef(info.id), threadId, profileId: view.profile }, hidden: false } });
-    if (stale) { changeLayout({ type: 'remove-view', viewId: stale.id }); changeLayout({ type: 'activate', groupId: target, viewId: info.id }); }
+    // In the background the pane keeps showing what it showed: the new terminal is brought forward only where its tab was the one shown.
+    const wasShown = !!staleGroup && staleGroup.activeTabId === stale?.id;
+    if (stale) { changeLayout({ type: 'remove-view', viewId: stale.id }); if (!background || wasShown) changeLayout({ type: 'activate', groupId: target, viewId: info.id }); }
   }
   rememberSessions();
   terminal.onData(data => {
@@ -682,7 +710,7 @@ function attachTerminal(info: SessionInfo, group: string, threadId: string | nul
     if (event.type === 'keydown' && !event.altKey && ((event.ctrlKey && (event.key === 'v' || event.key === 'V')) || (event.shiftKey && event.key === 'Insert'))) return false;
     return !(event.ctrlKey && event.shiftKey && ['T', 't', 'F', 'f', 'ArrowLeft', 'ArrowRight'].includes(event.key));
   });
-  render(); if (shownHere) setFocus(view.group);
+  render(); if (shownHere && !background) setFocus(view.group);
   void drain(view);
 }
 async function drain(view: View) {
@@ -698,7 +726,7 @@ async function drain(view: View) {
         }
       }
       if (batch.error) notify(`Terminal output: ${batch.error}`);
-      if (batch.eof) { view.ended = true; showExit(view, batch.exit_code); render(); return; }
+      if (batch.eof) { view.ended = true; showExit(view, batch.exit_code); savedAsEnded(view); render(); return; }
       await new Promise(resolve => setTimeout(resolve, 25));
     }
   } catch (error) { if (!view.disposed && !await endedElsewhere(view)) notify(`Terminal connection interrupted: ${error}`); }
@@ -711,7 +739,14 @@ async function endedElsewhere(view: View): Promise<boolean> {
     const alive = await invoke<SessionInfo[]>('terminal_list');
     if (alive.some(info => info.id === view.info.id) || view.disposed || view.ended) return view.ended;
   } catch { return false; }
-  view.ended = true; showExit(view, null); render(); return true;
+  view.ended = true; showExit(view, null); savedAsEnded(view); render(); return true;
+}
+/** A terminal that ended by itself, or was stopped from elsewhere, is saved in the layout as not running:
+ *  the next start restores its tab without reopening it. Not the ends of a confirmed window close. */
+function savedAsEnded(view: View) {
+  if (closingWindow) return;
+  const next = withoutInstance(workspaceLayout, view.info.id);
+  if (next !== workspaceLayout) { workspaceLayout = next; persistence?.update(workspaceLayout); }
 }
 function showExit(view: View, code: number | null) {
   const banner = document.createElement('div'); banner.className = 'exit-banner'; banner.setAttribute('role', 'status');
@@ -740,7 +775,7 @@ async function confirmStop(title: string, message: string, group?: string, actio
 async function stopTerminal(view: View) {
   const kept = view.threadId !== null && view.workset !== null;
   if (!view.ended && !await confirmStop(kept ? 'Close session?' : 'Stop terminal?', kept
-    ? 'This stops the agent and the programs it started. The session stays in this thread under Closed sessions, where it can be reopened or forgotten. To keep it running without its tab, cancel and turn its thread off in the sidebar.'
+    ? 'This stops the agent and the programs it started. The session stays in this thread under Closed sessions, where it can be reopened or deleted.'
     : 'This stops the shell and the programs it started.', view.group, kept ? 'Close' : 'Stop')) return;
   try {
     await invoke('terminal_stop', { id: view.info.id });
@@ -780,9 +815,16 @@ async function restoreSession(threadId: string) {
   const group = panel && tabGroups(workspaceLayout.root).find(candidate => candidate.tabs.includes(panel.id));
   if (panel && group) { changeLayout({ type: 'activate', groupId: group.id, viewId: panel.id }); setFocus(group.id, false); }
 }
+/** Deletes one session from Shinatama: a closed one (the sidebar's Delete) or one with nothing saved (Remove). */
 async function forgetSession(threadId: string) {
   const row = (await sessionRow(threadId))?.row; if (!row) return;
   await invoke('thread_forget', { request: { projectId: row.projectId, threadId, expectedRevision: row.revision } });
+  await refreshMembers();
+}
+/** Renames one session of a thread; its tabs and its thread's panel take the new name. */
+async function renameSession(threadId: string, title: string) {
+  const row = (await sessionRow(threadId))?.row; if (!row) return;
+  await invoke('thread_rename', { request: { projectId: row.projectId, threadId, expectedRevision: row.revision, title } });
   await refreshMembers();
 }
 /** Removes a stopped terminal from the window; its saved session is not touched. */
@@ -810,13 +852,28 @@ function savedSession(panelId: string): ThreadSummary | null {
   const thread = panel?.resource.kind === 'terminal' ? panel.resource.threadId : null;
   return thread ? worksetMembers.find(row => row.id === thread) ?? null : null;
 }
-/** The pane of a session that is not running: what it is, why, and Resume when the agent can. */
+const canResume = (harness: string | null) => sessionHarnesses.some(item => item.id === harness && item.nativeResume);
+/** The pane of a session that is not running: what it is, why, and Resume when the agent can. While the
+ *  start reopens the sessions the saved layout restores as running (reopenRestored), the card of each
+ *  says whether its own reopens now or waits its turn, and a waiting one can be left closed. */
 function savedSessionCard(panelId: string): HTMLElement | null {
   const saved = savedSession(panelId); if (!saved) return null;
   const card = document.createElement('div'); card.className = 'wm-placeholder session-idle';
-  const name = document.createElement('strong'); name.textContent = sessionName(saved);
-  const resumable = saved.status === 'inactive' && saved.nativeAvailable === true && sessionHarnesses.some(harness => harness.id === saved.harness && harness.nativeResume);
+  const name = document.createElement('strong'); name.textContent = memberName(saved);
+  const resumable = saved.status === 'inactive' && saved.nativeAvailable === true && canResume(saved.harness);
   const said = document.createElement('span');
+  const plan = reopenCard(reopenStep(saved, ranAtClose(), canResume), saved.id, { attempted: reopenAttempts, current: reopening, active: reopenActive });
+  if (plan !== 'offer') {
+    said.textContent = plan === 'reopening' ? 'Reopening…' : 'Waiting to reopen: the sessions of the last close reopen one at a time.';
+    said.setAttribute('role', 'status'); card.append(name, said);
+    if (plan === 'queued') {
+      const skip = document.createElement('button'); skip.type = 'button'; skip.className = 'wm-empty-start'; skip.textContent = 'Don\'t reopen';
+      skip.title = 'Leave this session not running; Resume stays available.';
+      skip.onclick = () => { settleRestored(panelId); render(); };
+      card.append(skip);
+    }
+    return card;
+  }
   said.textContent = resumable ? 'Not running. Its conversation is saved.'
     : saved.status === 'recorded_open' ? 'Marked open by a session that is no longer here.'
     : saved.status === 'unbound' ? 'Nothing was saved in this session.'
@@ -827,27 +884,76 @@ function savedSessionCard(panelId: string): HTMLElement | null {
     act.disabled = starting;
     act.onclick = () => { act.disabled = true; void (resumable ? resumeSaved(saved) : recoverSaved(saved)); };
     card.append(act);
+  } else if (saved.status === 'unbound') {
+    // Nothing to reopen and nothing to lose: the session can only be removed from its thread.
+    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'wm-empty-start'; remove.textContent = 'Remove';
+    remove.title = 'Remove this session from its thread. Nothing else is deleted.';
+    remove.onclick = () => { remove.disabled = true; void forgetSession(saved.id).then(() => threadSidebar?.changed(), () => { remove.disabled = false; notify('The session could not be removed. Nothing was changed.'); }); };
+    card.append(remove);
   }
   return card;
 }
-async function resumeSaved(saved: ThreadSummary) {
+/** The reopen under way (its session), whether the start is still reopening, and the attempts made in this run. */
+let reopening: string | null = null; let reopenActive = false;
+const reopenAttempts = new Set<string>();
+/** The layout and its sessions are restored together (ADR-0005 v4): once the saved layout is back, the
+ *  sessions it holds as running are reopened one after the other, in the order of the panes and their
+ *  tabs, in the background (each keeps its tab where it was; the tab each pane shows and the focus stay).
+ *  A session still marked open by the Shinatama that is gone is recovered first (`thread_recover` verifies
+ *  that owner is gone and refuses otherwise), then resumed. Each step is tried once per run; a refusal
+ *  keeps its notice and leaves the tab not running with its button. Never beside another open. */
+async function reopenRestored() {
+  if (reopenActive) return;
+  reopenActive = true; render();
+  try {
+    for (;;) {
+      while (starting) await new Promise(resolve => setTimeout(resolve, 200));
+      const tabs = restoredRunning(workspaceLayout, panelId => views.has(panelId)); const wanted = new Set(tabs.map(tab => tab.threadId));
+      const rowOf = (tab: { panelId: string; threadId: string }) => { const row = savedSession(tab.panelId); return row?.id === tab.threadId ? row : undefined; };
+      // A session that cannot reopen by itself (a shell, an agent without native resume) is restored not running, and so saved.
+      if (harnessCatalogLoaded) for (const tab of tabs) { const row = rowOf(tab); if (row && !reopenStep(row, wanted, canResume)) settleRestored(tab.panelId); }
+      const next = nextToReopen(tabs, tab => { const row = rowOf(tab); return row ? reopenStep(row, wanted, canResume) : undefined; }, reopenAttempts);
+      if (!next) return;
+      const row = rowOf(next.tab)!;
+      reopening = row.id; reopenAttempts.add(attemptKey(row.id, next.step)); render();
+      const done = next.step === 'resume' ? await resumeSaved(row, true) : await recoverSaved(row);
+      reopening = null;
+      // Resumed (its terminal took the tab's place) or refused: the tab no longer says it ran. Recovered: it is resumed next.
+      if (!done || next.step === 'resume') settleRestored(next.tab.panelId);
+    }
+  } finally { reopening = null; reopenActive = false; render(); }
+}
+/** The sessions the restored layout says were running when Shinatama last closed or crashed, not reopened yet:
+ *  a tab saved with its terminal's instance that no terminal of this window holds (session-tabs.ts restoredRunning). */
+const ranAtClose = () => new Set(restoredRunning(workspaceLayout, panelId => views.has(panelId)).map(tab => tab.threadId));
+/** The tab no longer says its session ran: it is not reopened by itself again, in this run or at a later start. */
+function settleRestored(panelId: string) {
+  const next = withoutInstance(workspaceLayout, panelId);
+  if (next !== workspaceLayout) { workspaceLayout = next; persistence?.update(workspaceLayout); }
+}
+/** Opens a saved session; false when it was refused (said in a notice) or another open is in flight.
+ *  `background`: reopened by the start, it leaves the tab each pane shows and the focus as they are. */
+async function resumeSaved(saved: ThreadSummary, background = false): Promise<boolean> {
   const workset = memberOf.get(saved.id) ?? null;
-  if (starting || !workset) return;
+  if (starting || !workset) return false;
   starting = true; $<HTMLButtonElement>('#new-terminal').disabled = true;
   try {
     await namesInFlight;
     const started = await invoke<{ session: SessionInfo; threadId: string }>('thread_resume', {
       request: { threadId: saved.id, projectId: saved.projectId, expectedRevision: saved.revision, rows: 24, cols: 80 },
     });
-    attachTerminal(started.session, focusedGroup(), started.threadId, workset);
+    attachTerminal(started.session, focusedGroup(), started.threadId, workset, background);
+    return true;
   } catch (error) {
-    notify(resumeFailureText(error));
+    notify(resumeFailureText(error)); return false;
   } finally { endOpening(); starting = false; $<HTMLButtonElement>('#new-terminal').disabled = false; await refreshMembers(); render(); }
 }
-async function recoverSaved(saved: ThreadSummary) {
+/** Closes the record a Shinatama that is gone left open; false when that could not be verified (said in a notice). */
+async function recoverSaved(saved: ThreadSummary): Promise<boolean> {
+  let done = true;
   try { await invoke('thread_recover', { request: { threadId: saved.id, projectId: saved.projectId, expectedRevision: saved.revision } }); }
-  catch { notify('The previous session could not be verified. Its saved conversation is preserved.'); }
-  await refreshMembers(); render();
+  catch { done = false; notify('The previous session could not be verified. Its saved conversation is preserved.'); }
+  await refreshMembers(); render(); return done;
 }
 /** The tab's close: the session stops (after asking, if it runs) and moves to Closed sessions. It is never deleted here. */
 async function closePanel(id: string) {
@@ -855,7 +961,8 @@ async function closePanel(id: string) {
   if (view) { await stopTerminal(view); return; }
   const saved = savedSession(id);
   if (!saved) { changeLayout({ type: 'remove-view', viewId: id }); return; }
-  // Nothing runs here, so nothing is asked: the session moves to Closed sessions and can come back.
+  // Nothing runs here, so nothing is asked: the session moves to Closed sessions and can come back
+  // (as a new tab that does not say it ran, so it stays not running).
   await closeSession(saved.id); threadSidebar?.changed();
 }
 /** Makes a layout hold all and only the sessions of the threads that are on (ADR-0055 v2). Starts nothing. */
@@ -897,14 +1004,16 @@ async function refreshMembers() {
   } catch { /* the last read stays on screen */ }
   threadSidebar?.repaint();
 }
-/** Which thread each running terminal belongs to, kept for a frontend reload; and the threads to turn on at the next start. */
+/** Which thread each running terminal belongs to, kept for a frontend reload; and the threads to turn on at the next start.
+ *  Which sessions were running is the layout's to say (a tab saved with its instance), so the two are restored together. */
 function rememberSessions() {
   try {
     sessionStorage.setItem('shinatama.sessions', JSON.stringify(Object.fromEntries([...views.values()].map(view => [view.info.id, { threadId: view.threadId, workset: view.workset }]))));
     localStorage.setItem('shinatama.threads', JSON.stringify(openWorksets)); localStorage.removeItem('shinatama.thread');
   } catch { /* remembering is a convenience */ }
 }
-/** Turns a thread on: its sessions join the window's layout beside the others. Starts, resumes and stops nothing. */
+/** Turns a thread on: its sessions join the window's layout beside the others. It starts and stops
+ *  nothing itself; a tab the saved layout restores as running reopens its session when shown (savedSessionCard). */
 async function showWorkset(target: WorksetScope): Promise<boolean> {
   // Another thread is being turned on or off: this one waits its turn instead of failing.
   for (const deadline = Date.now() + 10000; switching && Date.now() < deadline;) await new Promise(resolve => setTimeout(resolve, 50));
@@ -920,20 +1029,48 @@ async function showWorkset(target: WorksetScope): Promise<boolean> {
     return true;
   } finally { switching = false; }
 }
-/** Turns threads off: their tabs leave the window, all at once. Their sessions keep running and come back when turned on. */
+/** Turns threads off, which closes them without deleting anything (2026-11-18, the owner; ADR-0055 v4):
+ *  their tabs leave the window, all at once, and their running sessions stop, after asking. The sessions
+ *  stay in the thread, not running, and come back as such (with Resume) when it is turned on again; at a
+ *  later start nothing of them reopens by itself. False when a stop failed; a cancel leaves the threads on
+ *  and returns true, as nothing went wrong (the caller reads `isOn` when it needs to know). */
 async function hideWorksets(ids: readonly string[]): Promise<boolean> {
   if (!openWorksets.some(workset => ids.includes(workset.id))) return true;
+  const off = threadsOff([...views.values()], ids);
+  if (off.ask) {
+    const count = off.stop.length; const several = ids.filter(id => isOn(id)).length > 1;
+    if (!await confirmStop(several ? 'Turn the threads off?' : 'Turn the thread off?',
+      `This closes ${several ? 'them' : 'it'}: ${count} running session${count === 1 ? '' : 's'} and the programs ${count === 1 ? 'it' : 'they'} started stop. `
+      + `The sessions stay in the thread, not running, and can be resumed when it is turned on again. Nothing is deleted.`, undefined, 'Turn off')) return true;
+  }
+  for (const view of off.stop) {
+    try { await invoke('terminal_stop', { id: view.info.id }); }
+    catch (error) { if (!await endedElsewhere(view)) { notify(error); return false; } }
+  }
+  for (const view of off.leave) discardView(view);
   openWorksets = openWorksets.filter(workset => !ids.includes(workset.id)); if (currentWorkset && ids.includes(currentWorkset)) currentWorkset = null;
   for (const id of ids) if (workspaceLayout.views.some(panel => panel.id === teamViewId(id))) closeTeamTab(teamViewId(id));
   await refreshMembers(); rememberSessions(); render(); threadSidebar?.repaint();
   return true;
 }
 const hideWorkset = (id: string) => hideWorksets([id]);
-/** Forgets every session of a thread, then the thread. Refused while one of its sessions runs. */
+/** Forgets every session of a thread, then the thread. Refused while one of its sessions runs. A session
+ *  still marked open by a Shinatama that is gone (a crash) is recovered first, which verifies that owner is
+ *  gone: the forget refuses an open one. Everything is checked before the thread is turned off, so a
+ *  refused forget leaves it as it was. */
 async function forgetWorkset(thread: Readonly<WorksetSummary>) {
   const mine = [...views.values()].filter(view => view.workset?.id === thread.id && !view.disposed);
   if (mine.some(view => !view.ended)) throw { code: 'owned_elsewhere' };
-  const rows = await invoke<ThreadSummary[]>('workset_threads', { request: { worksetId: thread.id } });
+  let rows = await worksetThreads(thread.id);
+  const live = new Set([...views.values()].filter(view => view.threadId && !view.ended && !view.disposed).map(view => view.threadId!));
+  if (rows.some(row => live.has(row.id))) throw { code: 'owned_elsewhere' };
+  const stale = rowsToRecover(rows, live);
+  for (const row of stale) {
+    try { await invoke('thread_recover', { request: { threadId: row.id, projectId: row.projectId, expectedRevision: row.revision } }); }
+    catch (error) { throw { code: forgetRefusal(error) }; }
+  }
+  // Recovery raises the revisions the forget checks.
+  if (stale.length) rows = await worksetThreads(thread.id);
   await hideWorkset(thread.id);
   for (const view of mine) discardView(view);
   for (const row of rows) await invoke('thread_forget', { request: { projectId: row.projectId, threadId: row.id, expectedRevision: row.revision } });
@@ -1065,10 +1202,17 @@ threadSidebar = createWorksetSidebar({
   create: desktop ? request => invoke('workset_create', {request}) : undefined,
   update: desktop ? request => invoke('workset_update', {request}) : undefined,
   remove: desktop ? forgetWorkset : undefined,
-  closed: desktop ? async worksetId => (await worksetThreads(worksetId)).filter(row => row.status === 'archived').map(row => ({ id: row.id, name: sessionName(row), updatedAt: row.updatedAt })) : undefined,
+  // Every session of the thread, named as its tab is; whether one runs is asked again at each paint.
+  sessions: desktop ? async worksetId => threadSessions(await worksetThreads(worksetId), sessionName, new Set()) : undefined,
+  sessionRunning: threadId => [...views.values()].some(view => view.threadId === threadId && !view.ended && !view.disposed),
+  onShowSession: focusThreadSession, onRenameSession: renameSession,
   onRestore: restoreSession, onForgetSession: forgetSession,
   // A project leaves the sidebar: its threads go off with it, so no tab is left without a row to bring it back.
-  onProjectsRemoved: projectIds => { void hideWorksets(openWorksets.filter(workset => projectIds.includes(workset.projectId)).map(workset => workset.id)); },
+  // Turning them off closes their running sessions, after asking: kept on (cancelled, or a stop failed), the project comes back to the sidebar.
+  onProjectsRemoved: projectIds => { void (async () => {
+    await hideWorksets(openWorksets.filter(workset => projectIds.includes(workset.projectId)).map(workset => workset.id));
+    for (const id of projectIds) if (openWorksets.some(workset => workset.projectId === id) && !threadSidebar?.activeIds().includes(id)) threadSidebar?.toggleActive(id);
+  })(); },
   harnessLabel,
   onOpen: thread => showWorkset({ id: thread.id, projectId: thread.projectId }),
   onClose: thread => hideWorkset(thread.id),
@@ -1118,7 +1262,8 @@ threadChat = createThreadChat({
   seen: (id, eventId, timestamp) => { markChatSeen(id, eventId, timestamp); threadSidebar?.repaint(); },
   restoreFocus: () => { setFocus(focusedGroup()); },
 });
-/** Shows a session of a thread: its thread comes on if it is off, then its tab is brought forward. Starts nothing. */
+/** Shows a session of a thread: its thread comes on if it is off, then its tab is brought forward. It starts
+ *  nothing itself; a "not running" tab shown this way reopens only if the saved layout restored it as running. */
 async function focusThreadSession(threadId: string) {
   const running = [...views.values()].find(view => view.threadId === threadId && !view.disposed);
   if (running) { focusAttentionSession(running.info.id); return; }
@@ -1126,7 +1271,14 @@ async function focusThreadSession(threadId: string) {
   if (workset && !isOn(workset.id) && !await showWorkset(workset)) return;
   const panel = workspaceLayout.views.find(candidate => candidate.resource.kind === 'terminal' && candidate.resource.threadId === threadId);
   const group = panel && tabGroups(workspaceLayout.root).find(candidate => candidate.tabs.includes(panel.id));
-  if (panel && group) { changeLayout({ type: 'activate', groupId: group.id, viewId: panel.id }); setFocus(group.id, false); }
+  if (panel && group) {
+    // A tab of another project than the filtered one must not stay hidden.
+    const folder = panelFolder(panel.id); if (folder) tabFilter?.reveal(folder);
+    if (panel.hidden) changeLayout({ type: 'hide', viewId: panel.id, hidden: false });
+    if (group.collapsed) changeLayout({ type: 'collapse', groupId: group.id, collapsed: false });
+    if (workspaceLayout.maximizedGroupId !== null && workspaceLayout.maximizedGroupId !== group.id) changeLayout({ type: 'maximize', groupId: null });
+    changeLayout({ type: 'activate', groupId: group.id, viewId: panel.id }); setFocus(group.id, false);
+  }
   else notify('That session has no tab in the window.', 'info');
 }
 // The thread sidebar can be closed altogether; this button brings it back as it was (full or compact).
@@ -1375,9 +1527,10 @@ async function chooseProject(path: string) {
   if (changed) await refreshThreadProject();
 }
 organizeToolbar();
-// Counts tabs, not running sessions: an exited tab still sits in the strip.
-// The tabs on screen: the sessions of the threads that are on.
-tabFilter = createTabFilter({ tabs: () => [...views.values()].filter(view => !view.disposed && isOn(view.workset?.id)).map(view => view.info.cwd), onChange: filterTabs });
+// Counts tabs, not running sessions: an exited tab, and a "not running" one (after a restart, all of
+// them), still sits in the strip under its project. The tabs on screen: the sessions of the threads that are on.
+tabFilter = createTabFilter({ tabs: () => workspaceLayout.views.filter(panel => panel.resource.kind === 'terminal')
+  .map(panel => panelFolder(panel.id)).filter((folder): folder is string => folder !== null), onChange: filterTabs });
 tabFilter.paint();
 createProjectMenu({
   button: $('#project'),
@@ -1497,7 +1650,10 @@ async function initialize() {
           if (!await confirmStop('Close without saving the latest preferences?', 'Previously saved data is preserved. Recent layout or appearance changes could not be saved.')) return;
           await invoke('workspace_allow_close');
         }
-        await invoke('terminal_shutdown');
+        // From here the terminals end because the window closes: their tabs stay saved as running (the layout was
+        // just released with them so), and the next start restores those sessions with the layout.
+        closingWindow = true;
+        try { await invoke('terminal_shutdown'); } catch (error) { closingWindow = false; throw error; }
         for (const view of views.values()) view.disposed = true;
         await getCurrentWindow().close();
       } catch (error) { notify(error); }
@@ -1546,6 +1702,8 @@ async function initialize() {
       }
     } catch { /* nothing to reopen */ }
     await connectWorkspace();
+    // The saved panes are back, and with them the sessions they held as running (reopenRestored).
+    void reopenRestored();
   } catch (error) { $('#runtime-status').textContent = 'Runtime unavailable'; notify(error); }
 }
 void initialize();

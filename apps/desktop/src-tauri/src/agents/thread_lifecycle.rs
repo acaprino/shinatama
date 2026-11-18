@@ -32,6 +32,8 @@ use std::{
 type Result<T> = std::result::Result<T, &'static str>;
 const TRACKING: &str = "Thread tracking is incomplete; its saved activation remains reserved.";
 const BINDING: &str = "The exact thread, native session or process binding changed.";
+/// The store refused a native session another thread holds; it wrote nothing.
+const HELD_ELSEWHERE: &str = "The native session belongs to another thread.";
 const WAIT: Duration = Duration::from_secs(2);
 const POLL: Duration = Duration::from_millis(10);
 
@@ -522,6 +524,7 @@ fn apply(core: &Core, state: &mut State, session: &str) -> Result<()> {
                 }
                 state.thread = fresh;
             }
+            Err(ThreadError::OwnedElsewhere) => return Err(HELD_ELSEWHERE),
             Err(_) => return Err(TRACKING),
         }
     }
@@ -549,7 +552,14 @@ fn observe_start(core: &Core, state: &mut State, event: &SessionEvent) -> Result
             return Err(BINDING);
         }
     }
-    apply(core, state, &event.session_id)?;
+    match apply(core, state, &event.session_id) {
+        // After the confirmed start, the harness switched to a conversation another thread
+        // holds (Claude's own /resume). The refusal wrote nothing: this thread keeps its exact
+        // interval, which its process's cleanup still ends. Following the switch is not done.
+        Err(HELD_ELSEWHERE) if state.observed_start => return Ok(()),
+        Err(error) => return Err(error),
+        Ok(()) => {}
+    }
     state.observed_start = true;
     Ok(())
 }

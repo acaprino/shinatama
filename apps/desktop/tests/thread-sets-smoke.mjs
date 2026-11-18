@@ -95,16 +95,23 @@ try {
   await expect(rowOf(threadB).locator('.thread-sidebar-state')).toHaveText('1 session · 1 running');
   await expect(rowOf(threadA).locator('.thread-sidebar-state')).toHaveText('2 sessions · 2 running');
 
-  // 5. Turning a thread off takes its tabs away and stops nothing; turning it on brings them back.
-  await rowOf(threadA).click();
-  await expect(tabs).toHaveCount(1, { timeout: 15000 });
-  expect(await terminals()).toBe(3);
-  await rowOf(threadA).click();
+  // 5. Turning a thread off closes it without deleting it (owner, 2026-11-18): after asking, its running
+  //    session stops and its tab leaves; turned on again, the session is back as a tab that is not running.
+  await rowOf(threadB).click();
+  await expect(page.locator('#confirm-title')).toHaveText('Turn the thread off?');
+  await page.locator('#confirm-dialog button[value="stop"]').click();
+  await expect(tabs).toHaveCount(2, { timeout: 15000 });
+  await expect(rowOf(threadB)).toHaveAttribute('aria-pressed', 'false');
+  expect(await terminals()).toBe(2);
+  await rowOf(threadB).click();
   await expect(tabs).toHaveCount(3, { timeout: 15000 });
+  await expect(page.locator('.wm-tab', { hasText: 'not running' })).toHaveCount(1);
+  expect(await terminals()).toBe(2);
+  // Nothing of it runs now: it goes off without asking.
   await rowOf(threadB).click();
   await expect(tabs).toHaveCount(2, { timeout: 15000 });
   await expect(rowOf(threadB)).toHaveAttribute('aria-pressed', 'false');
-  expect(await terminals()).toBe(3);
+  await expect(page.locator('#confirm-dialog')).not.toHaveAttribute('open', '');
   await shot('3-first-thread-only');
 
   // 6. Closing a session stops it and keeps it: no tab, listed under Closed sessions, never deleted.
@@ -112,7 +119,7 @@ try {
   await expect(page.locator('#confirm-title')).toHaveText('Close session?');
   await page.locator('#confirm-dialog button[value="stop"]').click();
   await expect(tabs).toHaveCount(1, { timeout: 15000 });
-  expect(await terminals()).toBe(2);
+  expect(await terminals()).toBe(1);
   const closed = page.locator('.thread-sidebar-details');
   await page.locator(`.thread-sidebar-anchor[data-workset-id="${threadA}"] ~ .thread-sidebar-more`).click();
   await expect(closed.locator('.thread-sidebar-closed-head')).toHaveText('Closed sessions (1)', { timeout: 15000 });
@@ -124,11 +131,11 @@ try {
   await expect(page.locator('.wm-tab', { hasText: 'not running' })).toHaveCount(1, { timeout: 15000 });
   await expect(tabs).toHaveCount(2);
   await expect(closed.locator('.thread-sidebar-closed')).toBeHidden();
-  expect(await terminals()).toBe(2);
+  expect(await terminals()).toBe(1);
   await expect(page.locator('.session-idle')).toBeVisible();
   await shot('5-reopened-session');
 
-  // 8. The x on a tab that is not running closes it again without asking; Forget deletes it after a second click.
+  // 8. The x on a tab that is not running closes it again without asking; Delete deletes it after a second click.
   await page.locator('.wm-tabwrap', { hasText: 'not running' }).locator('.wm-tab-close').click({ force: true });
   await expect(closed.locator('.thread-sidebar-closed-head')).toHaveText('Closed sessions (1)', { timeout: 15000 });
   await expect(tabs).toHaveCount(1);
@@ -154,12 +161,13 @@ try {
   await rowOf(threadB).click();
   await expect(tabs).toHaveCount(3, { timeout: 15000 });
   await expect(page.locator('.wm-pane')).toHaveCount(2);
-  expect(await terminals()).toBe(3);
+  // The second thread's session was closed with it at step 5: it comes back not running.
+  expect(await terminals()).toBe(2);
   await shot('7-second-thread-on-beside');
   await rowOf(threadB).click();
   await expect(tabs).toHaveCount(2, { timeout: 15000 });
   expect(await panes(), 'the first thread columns after the round trip').toEqual(columns);
-  expect(await terminals()).toBe(3);
+  expect(await terminals()).toBe(2);
   await shot('8-columns-kept');
   const identify = () => rows.evaluateAll(list => list.map(row => row.dataset.worksetId + ' ' + row.querySelector('.thread-sidebar-title').textContent));
   const listBefore = await identify();

@@ -616,3 +616,105 @@ export async function driveTemplateUse(page, expect, log = console.log) {
   await page.keyboard.press('Escape');
   log('ok Use over a team asks first, Discard brings it back, and the template is deleted');
 }
+
+// ------------------------------------------------------------------------------------------------------------ the boxes fit
+/** What an open box or menu of the map must be at any width: its content inside its own border (long lines wrap, nothing runs out
+ *  over the map), itself inside the map's viewport, and on top of every card, handle and arrow label. Measured in the page. */
+const fitOf = (page, selector) => page.evaluate(selector => {
+  const map = document.querySelector('.team-map[data-view-id]:not([hidden])'); const box = map?.querySelector(selector);
+  if (!box) return { faults: [`${selector} is not open`], under: 0 };
+  const faults = []; const r = box.getBoundingClientRect();
+  const name = n => `${n.tagName.toLowerCase()}${typeof n.className === 'string' && n.className ? `.${n.className.split(' ')[0]}` : ''} "${(n.textContent ?? '').trim().slice(0, 30)}"`;
+  if (box.scrollWidth > box.clientWidth) faults.push(`${selector}: scrollWidth ${box.scrollWidth} > clientWidth ${box.clientWidth}`);
+  const out = [...box.querySelectorAll('*')].filter(n => { const q = n.getBoundingClientRect(); return q.width > 0 && !n.closest('[hidden]') && (q.right > r.right + 0.5 || q.left < r.left - 0.5); });
+  if (out.length) faults.push(`${selector}: ${out.length} pieces run past its border, e.g. ${out.slice(0, 3).map(name).join(', ')}`);
+  // The map's viewport: the visible part of the scrolled map for a box on it, the whole map for the Templates menu (it opens under the bar).
+  const scroll = map.querySelector('.team-scroll'); const s = scroll.getBoundingClientRect();
+  const view = box.closest('.team-scroll') ? { left: s.left, top: s.top, right: s.left + scroll.clientWidth, bottom: s.top + scroll.clientHeight } : map.getBoundingClientRect();
+  if (r.left < view.left - 0.5 || r.right > view.right + 0.5 || r.top < view.top - 0.5 || r.bottom > view.bottom + 0.5)
+    faults.push(`${selector}: [${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.right)},${Math.round(r.bottom)}] is not inside the map [${Math.round(view.left)},${Math.round(view.top)} ${Math.round(view.right)},${Math.round(view.bottom)}]`);
+  // A grid over the box, and the corners, the middle and the → handle of every card that lies under it.
+  const inside = (x, y) => x > r.left + 1 && x < r.right - 1 && y > r.top + 1 && y < r.bottom - 1 && x < view.right && y < view.bottom;
+  const cards = [...map.querySelectorAll('.team-card')].filter(c => { const q = c.getBoundingClientRect(); return q.left < r.right && q.right > r.left && q.top < r.bottom && q.bottom > r.top; });
+  const points = [];
+  for (let i = 1; i < 10; i += 1) for (let j = 1; j < 10; j += 1) points.push([r.left + (r.width * i) / 10, r.top + (r.height * j) / 10]);
+  for (const c of cards) {
+    const q = c.getBoundingClientRect(); const p = c.querySelector('.team-port')?.getBoundingClientRect();
+    points.push([q.left + 2, q.top + 2], [q.right - 2, q.top + 2], [q.left + 2, q.bottom - 2], [q.right - 2, q.bottom - 2], [(q.left + q.right) / 2, (q.top + q.bottom) / 2]);
+    if (p) points.push([(p.left + p.right) / 2, (p.top + p.bottom) / 2]);
+  }
+  const covered = new Map(); let tried = 0;
+  for (const [x, y] of points) {
+    if (!inside(x, y)) continue;
+    tried += 1; const hit = document.elementFromPoint(x, y);
+    if (hit && !box.contains(hit)) { const key = name(hit.closest('.team-card, .team-link') ?? hit); covered.set(key, (covered.get(key) ?? 0) + 1); }
+  }
+  if (covered.size) faults.push(`${selector}: covered at ${[...covered.values()].reduce((a, b) => a + b, 0)} of ${tried} points by ${[...covered.keys()].join(', ')}`);
+  const under = cards.length;
+  return { faults, under, rect: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)] };
+}, selector);
+
+/** The owner's case (a narrow pane, three agents, an arrow whose box opens over the third card), at each width of the map given:
+ *  the arrow box, the card box and the Templates menu fit and are on top; Escape closes each and gives the focus back. The team on
+ *  show is replaced by one the stub stores (read again, or Discard), so this runs last on a map. */
+export async function driveBoxesFit(page, expect, log = console.log, { widths = [760, 460, 380], shot } = {}) {
+  const map = page.locator('.team-map[data-view-id]:visible').first();
+  await expect(map).toBeVisible();
+  const faults = [];
+  for (const width of widths) {
+    await map.evaluate((node, width) => { node.style.width = `${width}px`; }, width);
+    const room = await map.locator('.team-scroll').evaluate(node => node.clientWidth);
+    // The photo: a lead top left, an agent with no session to its right, a worker below whose card lies under the arrow's box.
+    const ids = await page.evaluate(room => {
+      const stub = window.__teamStub; const id = n => `a_fit${String(n).padStart(9, '0')}`;
+      const agents = [
+        { id: id(1), session: stub.sessions[0].sessionId, model: null, name: 'icon geenrator', notes: '', share: 'split', x: 16, y: 30 },
+        { id: id(2), session: null, model: { program: 'codex', connection: null, model: null }, name: 'Agent 2', notes: '', share: 'split', x: Math.max(220, room - 200), y: 30 },
+        { id: id(3), session: stub.sessions[1].sessionId, model: null, name: 'Claude Code', notes: '', share: 'split', x: Math.max(40, Math.min(200, room - 200)), y: 250 },
+      ];
+      stub.stored = { revision: (stub.stored?.revision ?? 0) + 1, agents, links: [{ from: id(1), to: id(3), kind: 'work', report: 'done', words: '' }] };
+      return agents.map(a => a.id);
+    }, room);
+    const discard = map.locator('.team-bar').getByRole('button', { name: 'Discard', exact: true });
+    if (await discard.isEnabled()) await discard.click(); else await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    const card = map.locator(`.team-card[data-agent="${ids[2]}"]`);
+    await expect(card).toBeVisible();
+    const link = map.locator(`.team-link[data-from="${ids[0]}"][data-to="${ids[2]}"]`);
+
+    // The arrow's box, opened the way the keyboard does, over the third card.
+    await link.focus(); await page.keyboard.press('Enter');
+    const linkBox = map.locator('.team-box-link');
+    await expect(linkBox.locator('.team-says')).toContainText('is told');
+    await shot?.(`${width}-arrow`);
+    const arrow = await fitOf(page, '.team-box-link');
+    if (!arrow.under) faults.push(`${width}: no card lies under the arrow box ${JSON.stringify(arrow.rect)}: the case is not reproduced`);
+    faults.push(...arrow.faults.map(f => `${width}: ${f}`));
+    await expect(linkBox.locator('[data-first]').first()).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(linkBox).toBeHidden();
+    await expect(link).toBeFocused();
+
+    // The card's box.
+    await card.focus(); await page.keyboard.press('Enter');
+    const agentBox = map.locator('.team-box-agent');
+    await expect(agentBox).toBeVisible();
+    await shot?.(`${width}-card`);
+    faults.push(...(await fitOf(page, '.team-box-agent')).faults.map(f => `${width}: ${f}`));
+    await page.keyboard.press('Escape');
+    await expect(agentBox).toBeHidden();
+    await expect(card).toBeFocused();
+
+    // The Templates menu.
+    const menuButton = map.locator('.team-bar').getByRole('button', { name: 'Templates ▾', exact: true });
+    await menuButton.click();
+    await expect(map.locator('.team-templates')).toBeVisible();
+    await shot?.(`${width}-templates`);
+    faults.push(...(await fitOf(page, '.team-templates')).faults.map(f => `${width}: ${f}`));
+    await page.keyboard.press('Escape');
+    await expect(map.locator('.team-templates')).toBeHidden();
+    await expect(menuButton).toBeFocused();
+  }
+  await map.evaluate(node => { node.style.width = ''; });
+  expect(faults).toEqual([]);
+  log(`ok the arrow box, the card box and the Templates menu fit inside the map and lie above its cards at ${widths.join(' and ')} px`);
+}

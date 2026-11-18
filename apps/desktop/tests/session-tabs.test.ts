@@ -1,0 +1,139 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { attemptKey, forgetRefusal, nextToReopen, threadsOff, reopenCard, reopenStep, restoredRunning, type ReopenStep, rowsToRecover, sessionState, sessionStateText, sessionTabLabel, sessionTabName, threadSessions, withoutInstance } from '../src/session-tabs.ts';
+import { emptyWorkspace, reduceWorkspaceLayout, type LayoutAction, type WorkspaceLayout } from '../src/workspace-model.ts';
+
+const named = (id: string, name: string) => ({ id, name });
+
+// 2026-11-18: nine sessions of one thread were nine tabs reading "Silente e il pensato…".
+test('sessions of one thread that share a name are numbered, oldest first, and keep their number', () => {
+  const thread = [named('t_a', 'Claude Code'), named('t_b', 'Codex'), named('t_c', 'Claude Code'), named('t_d', 'Claude Code')];
+  assert.equal(sessionTabName(thread, 't_a'), 'Claude Code 1');
+  assert.equal(sessionTabName(thread, 't_c'), 'Claude Code 2');
+  assert.equal(sessionTabName(thread, 't_d'), 'Claude Code 3');
+  // The only one of its name carries no number; a name the user gave is used as it is.
+  assert.equal(sessionTabName(thread, 't_b'), 'Codex');
+  assert.equal(sessionTabName([...thread, named('t_e', 'Fix the proxy')], 't_e'), 'Fix the proxy');
+  // Closing the second one (it stays among the thread's sessions) renumbers nothing.
+  assert.equal(sessionTabName(thread, 't_d'), 'Claude Code 3');
+  assert.equal(sessionTabName(thread, 't_missing'), null);
+});
+test('a tab names its session first, then the thread: what tells two tabs apart is not cut off', () => {
+  assert.equal(sessionTabLabel({ name: 'Claude Code 2', where: 'Silente e il pensatorio', state: 'running' }), 'Claude Code 2 · Silente e il pensatorio');
+  assert.equal(sessionTabLabel({ name: 'Claude Code 2', where: 'Silente e il pensatorio', state: 'saved' }), 'Claude Code 2 · Silente e il pensatorio · not running');
+  assert.equal(sessionTabLabel({ name: 'Codex', where: 'ethel', state: 'exited' }), 'Codex · ethel · exited');
+  assert.equal(sessionTabLabel({ name: 'PowerShell', where: null, state: 'running', mark: ' · chat' }), 'PowerShell · chat');
+});
+
+const row = (over: Record<string, unknown> = {}) => ({ id: 't_abcdefghijkl', status: 'inactive' as const, nativeAvailable: true as boolean | null, harness: 'claude_code' as string | null, ...over });
+const resumes = (harness: string | null) => harness === 'claude_code' || harness === 'codex';
+test('a restored tab reopens by itself only when its session was running at the last close', () => {
+  const wanted = new Set(['t_abcdefghijkl']);
+  assert.equal(reopenStep(row(), wanted, resumes), 'resume');
+  // A session the user had stopped, or one that ended by itself, stays "not running" until asked.
+  assert.equal(reopenStep(row(), new Set(), resumes), null);
+  // Marked open by a Shinatama that is gone: that is checked first, then it is resumed.
+  assert.equal(reopenStep(row({ status: 'recorded_open' }), wanted, resumes), 'recover');
+  // Nothing to reopen: nothing saved, a conversation that cannot be reached, an agent that cannot resume.
+  assert.equal(reopenStep(row({ status: 'unbound', harness: null }), wanted, resumes), null);
+  assert.equal(reopenStep(row({ nativeAvailable: false }), wanted, resumes), null);
+  assert.equal(reopenStep(row({ nativeAvailable: null }), wanted, resumes), null);
+  assert.equal(reopenStep(row({ harness: 'opencode' }), wanted, resumes), null);
+  assert.equal(reopenStep(row({ status: 'archived' }), wanted, resumes), null);
+});
+
+const terminal = (id: string, threadId: string | null = null) => ({ id, resource: { kind: 'terminal' as const, instanceId: null, threadId, profileId: null }, hidden: false });
+function layoutOf(...actions: LayoutAction[]): WorkspaceLayout {
+  let layout = emptyWorkspace('g1');
+  for (const action of actions) { const result = reduceWorkspaceLayout(layout, action); assert.equal(result.ok, true, JSON.stringify(action)); layout = result.layout; }
+  return layout;
+}
+test('restored sessions reopen at start one after the other, in the order of the panes and their tabs', () => {
+  const split = layoutOf({ type: 'add-view', groupId: 'g1', view: running('i_bbbbbbbbbbbb', 't_b') }, { type: 'add-view', groupId: 'g1', view: running('i_aaaaaaaaaaaa', 't_a') },
+    { type: 'split', groupId: 'g1', view: running('i_cccccccccccc', 't_c'), axis: 'columns', side: 'before', newGroupId: 'g0', newSplitId: 's1' });
+  const tabs = restoredRunning(split, () => false);
+  assert.deepEqual(tabs.map(tab => tab.threadId), ['t_c', 't_b', 't_a']);
+  const steps: Record<string, ReopenStep | undefined> = { t_c: 'resume', t_b: 'recover', t_a: 'resume' };
+  assert.deepEqual(nextToReopen(tabs, tab => steps[tab.threadId], new Set()), { tab: tabs[0], step: 'resume' });
+  // Tried once: refused or done, the next one comes; recovered, the same session is then resumed.
+  assert.equal(nextToReopen(tabs, tab => steps[tab.threadId], new Set([attemptKey('t_c', 'resume')]))?.tab.threadId, 't_b');
+  assert.deepEqual(nextToReopen(tabs, tab => tab.threadId === 't_b' ? 'resume' : null, new Set([attemptKey('t_b', 'recover')])), { tab: tabs[1], step: 'resume' });
+  // A session whose row is not read yet is passed over; nothing left to do: none.
+  assert.equal(nextToReopen(tabs, tab => tab.threadId === 't_a' ? 'resume' : undefined, new Set())?.tab.threadId, 't_a');
+  assert.equal(nextToReopen(tabs, () => null, new Set()), null);
+});
+test('while the start reopens its sessions, each card says whether its own reopens now or waits its turn', () => {
+  const none = { attempted: new Set<string>(), current: null, active: true };
+  assert.equal(reopenCard('resume', 't_a', { ...none, current: 't_a' }), 'reopening');
+  assert.equal(reopenCard('resume', 't_b', { ...none, current: 't_a' }), 'queued');
+  assert.equal(reopenCard('recover', 't_b', none), 'queued');
+  // Nothing to reopen, already tried (a refusal keeps its button), or no reopen under way: the card is as before.
+  assert.equal(reopenCard(null, 't_b', { ...none, current: 't_a' }), 'offer');
+  assert.equal(reopenCard('resume', 't_b', { ...none, attempted: new Set([attemptKey('t_b', 'resume')]) }), 'offer');
+  assert.equal(reopenCard('resume', 't_b', { ...none, active: false }), 'offer');
+});
+
+const summary = (id: string, over: Record<string, unknown> = {}) => ({ id, status: 'inactive' as 'unbound' | 'inactive' | 'recorded_open' | 'archived', nativeAvailable: true as boolean | null, updatedAt: 1, ...over });
+test('a session of a thread is said in words: running, saved, marked open, nothing saved, closed', () => {
+  assert.equal(sessionState(summary('t_a', { status: 'recorded_open' }), true), 'running');
+  assert.equal(sessionState(summary('t_a'), false), 'saved');
+  assert.equal(sessionState(summary('t_a', { nativeAvailable: false }), false), 'unreachable');
+  assert.equal(sessionState(summary('t_a', { status: 'recorded_open' }), false), 'open');
+  assert.equal(sessionState(summary('t_a', { status: 'unbound' }), false), 'unbound');
+  assert.equal(sessionState(summary('t_a', { status: 'archived' }), false), 'closed');
+  assert.equal(sessionStateText('running'), 'Running');
+  assert.equal(sessionStateText('saved'), 'Not running · conversation saved');
+  assert.equal(sessionStateText('open'), 'Not running · marked open by a session that is no longer here');
+  assert.equal(sessionStateText('unbound'), 'Not running · nothing saved');
+  assert.equal(sessionStateText('closed'), 'Closed');
+});
+test('the thread\'s panel lists every session, named as its tab is', () => {
+  const rows = [summary('t_a'), summary('t_b', { status: 'archived' }), summary('t_c', { status: 'unbound' })];
+  const listed = threadSessions(rows, () => 'Claude Code', new Set(['t_a']));
+  assert.deepEqual(listed.map(item => [item.id, item.name, item.state]), [['t_a', 'Claude Code 1', 'running'], ['t_b', 'Claude Code 2', 'closed'], ['t_c', 'Claude Code 3', 'unbound']]);
+});
+test('forgetting a thread first recovers the sessions left marked open by a Shinatama that is gone', () => {
+  const rows = [summary('t_a', { status: 'recorded_open' }), summary('t_b'), summary('t_c', { status: 'recorded_open' })];
+  // One that runs in this window is not "left open": the forget is refused for it before anything.
+  assert.deepEqual(rowsToRecover(rows, new Set(['t_c'])).map(row => row.id), ['t_a']);
+  // "Running, stop it first" only when the session or its owner is really alive.
+  assert.equal(forgetRefusal({ code: 'session_alive' }), 'owned_elsewhere');
+  assert.equal(forgetRefusal({ code: 'owner_alive' }), 'owned_elsewhere');
+  assert.equal(forgetRefusal({ code: 'cleanup_unproven' }), 'open_unverified');
+  assert.equal(forgetRefusal('unavailable'), 'open_unverified');
+  assert.equal(forgetRefusal(null), 'open_unverified');
+});
+
+// 2026-11-18, the owner: the layout and its sessions are restored together, never one without the other.
+const running = (id: string, threadId: string | null) => ({ id, resource: { kind: 'terminal' as const, instanceId: id, threadId, profileId: null }, hidden: false });
+test('the saved layout says which sessions were running: a tab saved with its instance and no terminal now', () => {
+  const layout = layoutOf({ type: 'add-view', groupId: 'g1', view: running('i_aaaaaaaaaaaa', 't_a') }, { type: 'add-view', groupId: 'g1', view: terminal('saved-t_b', 't_b') },
+    { type: 'add-view', groupId: 'g1', view: running('i_cccccccccccc', null) }, { type: 'add-view', groupId: 'g1', view: running('i_dddddddddddd', 't_d') });
+  // t_b was stopped (its tab has no instance), i_ccc… belongs to no thread, i_ddd… runs in this window.
+  assert.deepEqual(restoredRunning(layout, id => id === 'i_dddddddddddd'), [{ panelId: 'i_aaaaaaaaaaaa', threadId: 't_a' }]);
+});
+test('a tab that has reopened, was refused or ended by itself no longer says it was running', () => {
+  const layout = layoutOf({ type: 'add-view', groupId: 'g1', view: running('i_aaaaaaaaaaaa', 't_a') }, { type: 'add-view', groupId: 'g1', view: terminal('saved-t_b', 't_b') });
+  const settled = withoutInstance(layout, 'i_aaaaaaaaaaaa');
+  assert.deepEqual(restoredRunning(settled, () => false), []);
+  // The tab keeps its place, its session and its profile; only its instance is gone.
+  assert.deepEqual(settled.views.find(view => view.id === 'i_aaaaaaaaaaaa')?.resource, { kind: 'terminal', instanceId: null, threadId: 't_a', profileId: null });
+  assert.equal(settled.root, layout.root);
+  // Nothing to change: the same layout comes back.
+  assert.equal(withoutInstance(layout, 'saved-t_b'), layout);
+  assert.equal(withoutInstance(layout, 'i_missing'), layout);
+});
+
+// 2026-11-18, the owner: turning a thread off closes it ("se le ho chiuse restano chiuse"), it does not delete it.
+test('turning threads off stops their running sessions, after asking only when one still runs', () => {
+  const view = (workset: string | null, ended = false, disposed = false) => ({ workset: workset ? { id: workset } : null, ended, disposed });
+  const all = [view('w_a'), view('w_a', true), view('w_b'), view(null), view('w_a', false, true)];
+  const plan = threadsOff(all, ['w_a']);
+  // The running one stops; the exited one only leaves; the other thread, the loose terminal and a removed view are untouched.
+  assert.deepEqual(plan.stop, [all[0]]);
+  assert.deepEqual(plan.leave, [all[0], all[1]]);
+  assert.equal(plan.ask, true);
+  // Nothing runs any more: the thread goes off without asking.
+  assert.deepEqual(threadsOff([all[1]], ['w_a']), { stop: [], leave: [all[1]], ask: false });
+  assert.deepEqual(threadsOff(all, ['w_c']), { stop: [], leave: [], ask: false });
+});

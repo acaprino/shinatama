@@ -958,9 +958,13 @@ surfaces.
   a session or changes its thread. Closing a view is distinct from stopping a live
   instance; stopping requires confirmation, except the user-authorized emergency
   resource policy in FRD-0001/R61. Dirty documents offer save/discard/cancel.
-- Restore view/resource references, never stale process handles. Saved layout alone
-  must not start/resume agents, execute apps or reopen interactive browser sessions.
-  Show unavailable resources explicitly.
+- Restore view/resource references, never stale process handles. The layout and its
+  sessions are restored together (user, 2026-11-18; ADR-0005 v4, ADR-0055 v4): a tab
+  saved as running has its session resumed once the layout is back, one at a time in
+  the background, without moving the tab each pane shows; a waiting one can be left
+  not running, and a session the user stopped or that ended by itself stays not
+  running until asked. Restoring never executes apps or reopens interactive browser sessions. Show
+  unavailable resources explicitly.
 
 **Panel contents:**
 

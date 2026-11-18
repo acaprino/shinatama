@@ -651,8 +651,18 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   }
 
   // ------------------------------------------------------------------------------------------------------------- boxes
-  function place(element: HTMLElement, x: number, y: number, width: number) {
-    element.style.left = `${Math.max(8, Math.min(x, canvasWidth() - width - 8))}px`; element.style.top = `${Math.max(8, y)}px`;
+  /** Where a box opens on the map; `fitBox` keeps it in the part of the map on show. */
+  function place(element: HTMLElement, x: number, y: number) {
+    element.dataset.x = String(Math.round(x)); element.dataset.y = String(Math.round(y)); fitBox(element);
+  }
+  /** A box is no wider or taller than the part of the map on show (it scrolls within itself), and is moved in where it would cross its edges. */
+  function fitBox(element: HTMLElement) {
+    const width = scroll.clientWidth, height = scroll.clientHeight;
+    if (!element.isConnected || !width || !height) return;
+    element.style.maxWidth = `${width - 16}px`; element.style.maxHeight = `${height - 16}px`;
+    const x = Number(element.dataset.x ?? 0), y = Number(element.dataset.y ?? 0);
+    element.style.left = `${Math.max(scroll.scrollLeft + 8, Math.min(x, scroll.scrollLeft + width - element.offsetWidth - 8))}px`;
+    element.style.top = `${Math.max(scroll.scrollTop + 8, Math.min(y, scroll.scrollTop + height - element.offsetHeight - 8))}px`;
   }
   const closeButton = (what: string) => { const b = quietButton('×'); b.setAttribute('aria-label', `Close ${what}`); b.onclick = () => closeBox(true); return b; };
 
@@ -734,7 +744,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
       for (const option of Array.from(to.options)) if (option.value) option.textContent = nameOf(option.value);
       to.disabled = full || !others.length; to.title = full ? `The map holds ${MAX_LINKS} arrows at most.` : to.title;
     };
-    const live = agentOf(a.id); if (live) { place(element, live.x + CARD.width + 22 + 262 < canvasWidth() ? live.x + CARD.width + 22 : live.x - 274, live.y - 16, 262); }
+    const live = agentOf(a.id); if (live) { place(element, live.x + CARD.width + 22 + 262 < canvasWidth() ? live.x + CARD.width + 22 : live.x - 274, live.y - 16); }
     update(); return { key: `agent:${a.id}`, element, update };
   }
 
@@ -793,18 +803,18 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
       const pair = fresh() ? current()!.sentences[at] : undefined;
       says.textContent = pair ? `${A} is told: ${pair[0]}\n\n${B} is told: ${pair[1]}` : 'Checking what each is told…';
       flip.disabled = draft.links.some(x => x.from === to && x.to === from);
-      const ends = endsOf(now); if (ends && !element.dataset.placed) { place(element, (ends[0].x + ends[1].x) / 2 - 165, (ends[0].y + ends[1].y) / 2 + 14, 330); element.dataset.placed = '1'; }
+      const ends = endsOf(now); if (ends && !element.dataset.placed) { place(element, (ends[0].x + ends[1].x) / 2 - 165, (ends[0].y + ends[1].y) / 2 + 14); element.dataset.placed = '1'; }
     };
     update(); return { key: `link:${from}>${to}`, element, update };
   }
 
   function drawBoxes() {
     const wanted = selection && 'agent' in selection ? (selectedAgent() ? `agent:${selection.agent}` : '') : selection && selectedLink() >= 0 ? `link:${selection.link.from}>${selection.link.to}` : '';
-    if (box && box.key === wanted) { box.update(); return; }
+    if (box && box.key === wanted) { box.update(); fitBox(box.element); return; }
     box?.element.remove(); box = null;
     if (!wanted) return;
     box = selection && 'agent' in selection ? agentBox(selectedAgent()!) : linkBox(selectedLink());
-    canvas.append(box.element);
+    canvas.append(box.element); fitBox(box.element);
   }
   function focusBox() { const at = box?.element; (at?.querySelector<HTMLElement>('[data-first]:not(:disabled)') ?? at?.querySelector<HTMLElement>('input:not(:disabled)'))?.focus(); }
   function closeBox(refocus: boolean) {
@@ -924,7 +934,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   autoBox.onchange = () => { keepTidy = autoBox.checked; writeKeepTidy(keepTidy); if (keepTidy) tidyNow(); };
   apply.onclick = () => { void applyNow(); };
   discard.onclick = () => { void discardNow(); };
-  new ResizeObserver(() => { if (!disposed && snap) { drawCards(); drawWires(); box?.update(); } }).observe(scroll);
+  new ResizeObserver(() => { if (!disposed && snap) { drawCards(); drawWires(); if (box) { box.update(); fitBox(box.element); } } }).observe(scroll);
 
   timer = window.setInterval(() => { if (visible && !document.hidden) void refresh(); }, POLL_MS);
   const visibility = () => { if (visible && !document.hidden) void refresh(); };

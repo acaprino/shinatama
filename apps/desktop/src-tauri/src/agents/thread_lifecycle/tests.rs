@@ -438,6 +438,70 @@ fn claude_keeps_its_sealed_uuid_and_requires_the_same_durable_cleanup_barrier() 
     finish_with_receipt(&fixture, &lifecycle);
 }
 
+/// 2026-11-18: Claude's own `/resume` picked a conversation that another thread already holds.
+/// Its SessionStart names that conversation; the store refuses it (OwnedElsewhere) and changes
+/// nothing. The refusal used to mark tracking failed, so the exit that followed never ended this
+/// thread's activation: three sessions stayed "open" after a normal close of the app.
+#[test]
+fn claude_switching_to_a_conversation_another_thread_holds_still_ends_its_activation_on_exit() {
+    const HELD_ELSEWHERE: &str = "34dd3a11-45db-4f1e-89c8-40d5c6be1dd3";
+    let fixture = Fixture::new(HarnessKind::ClaudeCode);
+    let at = now().unwrap();
+    let other = ThreadRecord {
+        id: new_id(CanonicalIdKind::Thread),
+        ..fixture.thread.clone()
+    };
+    fixture.db().create_thread(&other).unwrap();
+    let held = fixture
+        .db()
+        .attach_thread_segment(
+            &SegmentRecord {
+                id: new_id(CanonicalIdKind::Segment),
+                thread_id: other.id.clone(),
+                ordinal: 1,
+                harness: fixture.root.harness.clone(),
+                native: NativeSessionKey {
+                    store_root_id: fixture.root.id.clone(),
+                    store_revision: fixture.root.config_revision,
+                    native_id: HELD_ELSEWHERE.into(),
+                },
+                archived: false,
+                revision: 1,
+                created_at: at.max(other.created_at),
+            },
+            other.revision,
+        )
+        .unwrap();
+    let (lifecycle, port) = fixture.lifecycle(HarnessKind::ClaudeCode, Some(CLAUDE_NATIVE));
+    let reserved = fixture.active().unwrap();
+    fixture.send(
+        HarnessKind::ClaudeCode,
+        port,
+        CLAUDE_NATIVE,
+        SessionEventKind::SessionStart,
+        None,
+    );
+    eventually(|| lifecycle.core.state.lock().unwrap().observed_start);
+    fixture.send(
+        HarnessKind::ClaudeCode,
+        port,
+        HELD_ELSEWHERE,
+        SessionEventKind::SessionStart,
+        None,
+    );
+    // The exit drains that event, then ends this thread's own interval; the other thread's
+    // conversation is never recorded here.
+    finish_with_receipt(&fixture, &lifecycle);
+    let ended = fixture.active().unwrap();
+    assert_eq!(ended.sequence, reserved.sequence);
+    assert_eq!(ended.native.native_id, CLAUDE_NATIVE);
+    assert_eq!(fixture.db().segment_record(&held.id).unwrap().unwrap(), held);
+    assert_eq!(
+        fixture.db().thread_resume_target(&other.id).unwrap().segment,
+        held
+    );
+}
+
 /// Second, resume-shaped owner over the same saved thread: fresh identity,
 /// fresh reservation and PendingThread::Resume from the persisted target.
 struct ResumeOwner {
@@ -744,4 +808,29 @@ fn a_session_without_events_is_recorded_under_the_id_its_launch_chose() {
         // Recording the same id twice is refused, never a second row.
         assert!(record_chosen_native_session(database, &fixture.thread, &root, &native).is_err());
     }
+}
+
+/// A refused New leaves no thread, unless the host already bound its launch: a Codex start that
+/// passed before_run has a cleanup-journal entry but no activation yet, and must keep its thread.
+#[test]
+fn a_refused_new_is_discarded_only_while_nothing_was_bound_to_it() {
+    let fixture = Fixture::new(HarnessKind::Codex);
+    let (lifecycle, _) = fixture.lifecycle(HarnessKind::Codex, None);
+    assert!(fixture.active().is_none());
+    crate::agents::service::discard_unstarted(fixture.db(), &fixture.thread.id, Some(fixture.identity.instance_id()));
+    assert!(fixture.db().thread_record(&fixture.thread.id).unwrap().is_some());
+    fixture.release();
+    lifecycle
+        .after_cleanup(fixture.identity.instance_id(), fixture.process)
+        .unwrap();
+    // A thread created for a New whose start was refused at admission: nothing names it.
+    let unstarted = ThreadRecord {
+        id: new_id(CanonicalIdKind::Thread),
+        ..fixture.thread.clone()
+    };
+    fixture.db().create_thread(&unstarted).unwrap();
+    let unbound = LaunchIdentity::generate(&unstarted.id).unwrap();
+    crate::agents::service::discard_unstarted(fixture.db(), &unstarted.id, Some(unbound.instance_id()));
+    assert!(fixture.db().thread_record(&unstarted.id).unwrap().is_none());
+    assert!(fixture.db().thread_record(&fixture.thread.id).unwrap().is_some());
 }

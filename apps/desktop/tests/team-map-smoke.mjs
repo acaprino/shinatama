@@ -7,7 +7,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { driveNotices, driveTeamMap, driveTemplateListed, driveTemplateSave, driveTemplateUse, installStub } from './team-map-drive.mjs';
+import { driveBoxesFit, driveNotices, driveTeamMap, driveTemplateListed, driveTemplateSave, driveTemplateUse, installStub } from './team-map-drive.mjs';
 
 // A cold start (the first run after a fresh build: the program is scanned, the WebView profile made) takes longer than the 5 s an assertion waits by default.
 const expect = plainExpect.configure({ timeout: 15000 });
@@ -79,6 +79,7 @@ try {
   await teamOf(otherId).click();
   await expect(page.locator('.team-map[data-view-id="team-' + otherId + '"]')).toBeVisible();
   await driveTemplateUse(page, expect, log);
+  await driveBoxesFit(page, expect, log);
   expect(errors).toEqual([]);
   console.log('PASS team map native smoke');
 } finally {

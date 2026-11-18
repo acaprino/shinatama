@@ -798,6 +798,32 @@ impl Database {
         tx.commit()?;
         Ok(scope)
     }
+    /// The undo of a New open that started nothing: the thread it created, the segment OpenCode
+    /// and Pi name before their start, its membership and the workset made for it alone.
+    /// Refused with `OwnedElsewhere` once any activation was recorded for the thread (a process
+    /// was bound to it, even one that has ended) or another thread descends from it; nothing
+    /// is changed then.
+    pub fn discard_unstarted_thread(&self, key: &str) -> Result<()> {
+        id(key, CanonicalIdKind::Thread)?;
+        self.require_writable()?;
+        let mut connection = self.lock()?;
+        let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        crate::schema::require_write_version(&tx)?;
+        load_thread(&tx, key)?;
+        let referenced: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM activation WHERE thread_id=?1) OR EXISTS(SELECT 1 FROM thread WHERE parent_thread_id=?1 OR companion_worker_thread_id=?1)",
+            [key],
+            |row| row.get(0),
+        )?;
+        if referenced {
+            return Err(ThreadError::OwnedElsewhere);
+        }
+        crate::worksets::leave(&tx, key)?;
+        tx.execute("DELETE FROM segment WHERE thread_id=?1", [key])?;
+        tx.execute("DELETE FROM thread WHERE id=?1", [key])?;
+        tx.commit()?;
+        Ok(())
+    }
     /// Attach ONLY a real adapter-provided native ID. No placeholder session is
     /// fabricated to make a launch appear resumable or available.
     pub fn attach_thread_segment(

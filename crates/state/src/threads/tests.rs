@@ -887,3 +887,102 @@ fn forget_removes_a_thread_with_its_companion_hops_index_and_summaries_only() {
     drop((journal, index, db));
     let _ = fs::remove_dir_all(fixture);
 }
+
+/// 2026-11-18: ten refused New opens each left a thread that never ran ("Nothing was saved in
+/// this session"). The undo removes exactly what the New created, and nothing that ran.
+#[test]
+fn discarding_an_unstarted_thread_removes_it_and_its_own_workset_only() {
+    let parent = fs::canonicalize(std::env::temp_dir()).unwrap();
+    let fixture = parent.join(format!("shinatama-discard-{}", uuid::Uuid::new_v4()));
+    let location = StorageLocation::resolve(LocationRequest {
+        local_data_directory: parent.clone(),
+        home_override: Some(fixture.clone()),
+        project_roots: vec![],
+        synchronized_roots: vec![],
+    })
+    .unwrap();
+    location.prepare_private_directory().unwrap();
+    let db = Database::open(&location, None).unwrap();
+    db.lock().unwrap().execute("INSERT INTO project VALUES('p_aaaaaaaaaaaa','C:\\synthetic-project','synthetic-project','Project',10,1)", []).unwrap();
+    let thread = |id: &str, parent: Option<&str>| ThreadRecord {
+        id: id.into(),
+        project_id: "p_aaaaaaaaaaaa".into(),
+        kind: ThreadKind::Work,
+        parent_thread_id: parent.map(Into::into),
+        companion_worker_thread_id: None,
+        title: Some("Claude Code".into()),
+        archived: false,
+        revision: 1,
+        created_at: 10,
+        updated_at: 10,
+    };
+    let archive = location.resolve_related_directory(&location.directory().join("native-fixture")).unwrap();
+    archive.prepare_private_directory().unwrap();
+    db.register_store_root(&PreparedStoreRoot::resolve(StoreRootRecord {
+        id: "fixture-root".into(),
+        harness: "opencode".into(),
+        kind: RootKind::Box,
+        scope: RootScope::Primary,
+        resolved_path: archive.directory().to_string_lossy().trim_start_matches(r"\?\").into(),
+        origin: RootOrigin::Configured,
+        config_revision: 1,
+        access: RootAccess::ReadWrite,
+        available: true,
+    })
+    .unwrap())
+    .unwrap();
+    let segment = |id: &str, thread: &str, native: &str| SegmentRecord {
+        id: id.into(),
+        thread_id: thread.into(),
+        ordinal: 1,
+        harness: "opencode".into(),
+        native: NativeSessionKey { store_root_id: "fixture-root".into(), store_revision: 1, native_id: native.into() },
+        archived: false,
+        revision: 1,
+        created_at: 22,
+    };
+    let workset_count = |db: &Database| -> i64 { db.lock().unwrap().query_row("SELECT count(*) FROM workset", [], |row| row.get(0)).unwrap() };
+
+    // A New without a chosen thread: its own workset goes with it.
+    let alone = "t_aaaaaaaaaaaa";
+    db.create_thread(&thread(alone, None)).unwrap();
+    assert_eq!(db.workset_of_thread(alone).unwrap().as_deref(), Some("w_aaaaaaaaaaaa"));
+    db.discard_unstarted_thread(alone).unwrap();
+    assert!(db.thread_record(alone).unwrap().is_none());
+    assert!(db.workset_record("w_aaaaaaaaaaaa").unwrap().is_none());
+    assert_eq!(workset_count(&db), 0);
+
+    // A New in the thread the user has open: that thread and its other session stay.
+    let shared = db.create_workset("p_aaaaaaaaaaaa", None, 10).unwrap();
+    let (kept, joined) = ("t_bbbbbbbbbbbb", "t_cccccccccccc");
+    db.create_thread_in(&thread(kept, None), Some(&shared.id)).unwrap();
+    db.create_thread_in(&thread(joined, None), Some(&shared.id)).unwrap();
+    // OpenCode and Pi name their session before the start: that segment goes too.
+    db.attach_thread_segment(&segment("s_cccccccccccc", joined, "native-c"), 1).unwrap();
+    db.discard_unstarted_thread(joined).unwrap();
+    assert!(db.thread_record(joined).unwrap().is_none());
+    assert!(db.segment_record("s_cccccccccccc").unwrap().is_none());
+    assert_eq!(db.workset_record(&shared.id).unwrap().unwrap(), shared);
+    assert_eq!(db.workset_of_thread(kept).unwrap().as_deref(), Some(shared.id.as_str()));
+
+    // A thread whose session ran, even once and ended, is never discarded.
+    let ran = "t_dddddddddddd";
+    db.create_thread(&thread(ran, None)).unwrap();
+    db.attach_thread_segment(&segment("s_dddddddddddd", ran, "native-d"), 1).unwrap();
+    let owner = ActivationOwner { instance_id: "i_aaaaaaaaaaaa".into(), pid: 10, created_at_100ns: 100 };
+    db.activate_thread_segment("s_dddddddddddd", 1, &owner, 30).unwrap();
+    assert!(matches!(db.discard_unstarted_thread(ran), Err(ThreadError::OwnedElsewhere)));
+    let open = db.thread_record(ran).unwrap().unwrap();
+    db.end_thread_activation(&owner, 1, 40).unwrap();
+    assert!(matches!(db.discard_unstarted_thread(ran), Err(ThreadError::OwnedElsewhere)));
+    assert!(db.thread_record(ran).unwrap().unwrap().revision > open.revision);
+    assert!(db.segment_record("s_dddddddddddd").unwrap().is_some());
+
+    // Nor one another thread descends from.
+    db.create_thread(&thread("t_eeeeeeeeeeee", Some(kept))).unwrap();
+    assert!(matches!(db.discard_unstarted_thread(kept), Err(ThreadError::OwnedElsewhere)));
+    assert!(db.thread_record(kept).unwrap().is_some());
+    assert!(matches!(db.discard_unstarted_thread(alone), Err(ThreadError::NotFound)));
+    drop(db);
+    let _ = fs::remove_dir_all(fixture);
+}
