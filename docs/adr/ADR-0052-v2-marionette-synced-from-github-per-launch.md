@@ -42,6 +42,7 @@ changes:
   - "2026-11-12: Ponytail and i-have-adhd are no longer shipped or wired natively; Marionette replaces them and is downloaded, not packaged."
   - "2026-11-12: The release source is Marionette's own repository, acaprino/marionette; Muro's releases are Muro itself (user: \"muro nn deve avere release di marionette\", \"marionette è un esempio di utilizzo di muro\", \"è muro ad avere release al più\")."
   - "2026-11-12: Muro's Release workflow publishes Marionette as `marionette-v<version>` releases of acaprino/muro beside `muro-v<version>`; the sync follows the highest of them (user, linking marionette-v0.2.0: \"deve seguire gli update automatici all'avvio di marionette last release\")."
+  - "2026-11-18: The bounds of one release are four times what they were (zip 512 MiB, tree 2 GiB, 65,536 files, lock 16 MiB). Marionette carries its sources whole since Muro's ADR-0026: its zip went from 16 MB to 188 MiB, over the 128 MiB allowed, so the sync refused it and kept the copy before it (user, choosing between this and a smaller release: \"1\"). Measured with that zip: install 191 to 203 s against 47 s, a Claude Code launch 2.9 s against 0.3 s, and 28 s against 6 s for the first launch that reads a copy written by the one before."
 ---
 
 # ADR-0052 v2: Marionette, synced from its latest GitHub release at every start, is the one plugin every launch gets
