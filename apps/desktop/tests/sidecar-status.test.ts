@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { adoptStopReply, buttons, capabilityLines, confirmStillNeeded, driftLine, indicatorTone, leverText, nextCapabilityLines, parseCapabilities, parseStatus, phaseLabel, showsTraffic, startLabel, stopConsequence, trafficLine, type CapabilityState, type Lever, type ProxyStatus } from '../src/sidecar-status.ts';
+import { adoptStopReply, buttons, capabilityLines, confirmStillNeeded, diskLine, driftLine, faultLine, indicator, indicatorTone, leverText, messageLine, nextCapabilityLines, parseCapabilities, parseStatus, phaseLabel, restartOffered, showsTraffic, stallLine, startLabel, stopConsequence, trafficLine, type CapabilityState, type Lever, type ProxyStatus } from '../src/sidecar-status.ts';
 
 const status = (over: Partial<ProxyStatus> = {}): ProxyStatus => ({
   phase: 'ready', healthy: true, message: null, inFlight: 0, agentSessions: 0,
@@ -254,4 +254,36 @@ test('a malformed exit is not half-trusted', () => {
     assert.equal(parseStatus(reply({ lastExit: { ...exit, ...bad } })), null, JSON.stringify(bad));
   }
   assert.equal(parseStatus(reply({ lastExit: 'exited' })), null);
+});
+
+test('a stalled supervisor offers Restart and says since when, a fresh failed one does not', () => {
+  const clock = () => '20:52:40';
+  const stalled = status({ phase: 'unavailable', healthy: false, stalled: true, observedAtUnixMs: 1, lastPhase: 'recovering' });
+  assert.equal(restartOffered(stalled, 0), true);
+  assert.equal(restartOffered(status({ phase: 'failed', healthy: false, stalled: false }), 0), false);
+  assert.equal(restartOffered(null, 2), false);
+  assert.equal(restartOffered(null, 3), true);
+  assert.equal(stallLine(stalled, clock), 'The proxy supervisor has not reported since 20:52:40 (last state: Recovering…). Restart Shinatama to start a new proxy.');
+  assert.equal(stallLine(status(), clock), null);
+  assert.deepEqual(indicator(stalled), { tone: 'red', label: 'Model proxy: Not reporting' });
+  assert.deepEqual(indicator(status()), { tone: 'green', label: 'Model proxy: Ready' });
+});
+test('fault, disk and the default message say only what is known', () => {
+  assert.equal(faultLine(status({ fault: 'boom' })), 'The proxy supervisor stopped on an internal error: boom');
+  assert.equal(faultLine(status()), null);
+  const MiB = 1024 * 1024;
+  assert.equal(diskLine(status({ disk: { root: 'D:', freeBytes: 5 * MiB, level: 'full' } })), 'Disk D: is full (5 MB free): saving fails for the proxy and for Shinatama.');
+  assert.equal(diskLine(status({ disk: { root: 'D:', freeBytes: 512 * MiB, level: 'low' } })), 'Disk D: has 512 MB free.');
+  assert.equal(diskLine(status({ disk: { root: 'D:', freeBytes: 9e9, level: 'ok' } })), null);
+  assert.equal(diskLine(status()), null);
+  assert.equal(messageLine(status({ healthy: false, message: null })), null);
+  assert.equal(messageLine(status({ healthy: true, message: null })), 'Local service is responding.');
+});
+test('the new fields are validated like the rest of the reply', () => {
+  const ok = { phase: 'ready', healthy: true, message: null, inFlight: 0, agentSessions: 0, drainDeadlineUnixMs: null, configDrift: false };
+  assert.ok(parseStatus({ ...ok, stalled: true, observedAtUnixMs: 5, lastPhase: 'recovering', fault: null, disk: { root: 'D:', freeBytes: 1, level: 'full' } }));
+  for (const bad of [{ stalled: 'yes' }, { lastPhase: 'nope' }, { fault: 'a\nb' }, { fault: 'x'.repeat(301) },
+    { disk: { root: 'D:', freeBytes: -1, level: 'low' } }, { disk: { root: 'D:', freeBytes: 1, level: 'huge' } }, { disk: { root: '', freeBytes: 1, level: 'low' } }, { observedAtUnixMs: 'now' }]) {
+    assert.equal(parseStatus({ ...ok, ...bad }), null, JSON.stringify(bad));
+  }
 });
