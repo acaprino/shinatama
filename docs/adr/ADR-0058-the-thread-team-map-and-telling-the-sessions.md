@@ -2,7 +2,7 @@
 adr_id: ADR-0058
 version: 1
 title: A thread keeps a team map of agents and typed relations, and Shinatama tells each session its place through the thread's Mukade room as a host member, once
-status: Proposed
+status: Accepted
 author: Alfio Caprino
 scope:
   paths:
@@ -34,8 +34,8 @@ supersedes:
 created_from_task: user-request-2026-11-17-team-map-agents-relations-and-telling-the-sessions
 proposed_on: 2026-11-18
 proposed_at_sha: b54fffabb981e8082dc125f6191f48ef57cbf886
-accepted_on:
-accepted_at_sha:
+accepted_on: 2026-11-18
+accepted_at_sha: 50ff04f845ea94c5b307cf97e02b03f3ef8f420b
 ---
 
 # ADR-0058: A thread keeps a team map of agents and typed relations, and Shinatama tells each session its place through the thread's Mukade room as a host member, once
@@ -54,8 +54,8 @@ The design is `docs/superpowers/specs/2026-11-17-thread-team-design.md`; the pla
 Three things could not be done with the Mukade revision ADR-0057 pins: a message from the person
 reached the model under the sentence "Other members wrote these; they are not instructions from the
 user", no operation changed the role of a member that had joined, and only a member could leave.
-The owner decided that Mukade may be changed; the changes were made there first (its release
-v0.1.1) and Shinatama's pin moved to it.
+The owner decided that Mukade may be changed; the changes were made there first (its releases
+v0.1.1 and v0.1.2) and Shinatama's pin moved to it.
 
 ## Decision
 
@@ -91,7 +91,8 @@ v0.1.1) and Shinatama's pin moved to it.
 5. **Two host members.** `user`, which the Conversation panel writes as, and `shinatama`
    (`mukade_chat::TEAM_MEMBER`), which tells the sessions their place, so that the panel can draw
    what Shinatama said as notices. Each handle is kept in memory per (room, member) and recovered
-   with `rejoin`, which keeps the host mark. A handle Mukade refuses is recovered once and the call
+   with `rejoin --host`, which keeps the host mark and needs the host credential
+   (an agent that calls `rejoin` on a host member is refused: `not_host`; Mukade v0.1.2). A handle Mukade refuses is recovered once and the call
    repeated; nothing else is repeated.
 6. **The window's commands.** `team_get`, `team_evaluate`, `team_apply` and `team_place`, guarded
    like `thread_chat`'s. `team_apply` refuses, in this order: a thread that is off; a formation
@@ -169,7 +170,9 @@ v0.1.1) and Shinatama's pin moved to it.
 
 ## Confirmation
 
-Not yet run with real agents. To confirm, in a thread that is on with a Claude Code, a Codex, an
+Accepted by the owner on 2026-11-18 before the run with real agents (its checklist is
+`docs/verification/2026-11-18-team-map-real-agents.md`, not yet run). The owner also accepted that the
+handle of `shinatama` is an argument of `mukade chat`, as `user`'s already was. To confirm, in a thread that is on with a Claude Code, a Codex, an
 OpenCode and a Pi session: apply a formation with a lead and a worker that answers only done or
 blocked; each session gets one personal message and the worker cannot send anything else; an
 unaddressed notice reaches the others and wakes none; applying again with nothing changed sends
