@@ -1,6 +1,6 @@
 ---
 adr_id: ADR-0055
-version: 3
+version: 4
 title: A thread is a named set of sessions; the window shows the sessions of the threads that are on, in one layout; the stored conversation record keeps its invariants and is called a session in the interface
 status: Accepted
 author: Alfio Caprino
@@ -13,6 +13,8 @@ scope:
     - apps/desktop/src-tauri/src/workspace.rs
     - apps/desktop/src/thread-sidebar.ts
     - apps/desktop/src/main.ts
+    - apps/desktop/src/session-tabs.ts
+    - apps/desktop/src/workset-sidebar.ts
     - apps/desktop/src/workspace-renderer.ts
     - docs/frd/FRD-0005-threads-and-hop.md
     - docs/frd/FRD-0001-workspace-and-agent-hosting.md
@@ -94,6 +96,69 @@ thread", "ne apro uno, ne spuntano tanti", "ne chiudo uno, spariscono tutti"). C
   over at start without a button. While a live second window holds it, this window keeps its
   own panes, says so once and asks again every 30 s, so it saves them once that window closes.
 
+## Amendment v4 (2026-11-18, user report and decision)
+
+The user reported six defects on 2026-11-18 and decided how each must behave. What changes from
+v3, everywhere below:
+
+- **Tab names.** Nine sessions of one thread were nine tabs cut to the same thread name, and a new
+  session looked like a duplicate. A tab now names its session first, then the thread (its title,
+  else the project folder), then the state: "Claude Code 2 · Billing refactor · not running". The
+  session's name is the one the user gave it, else its agent, numbered when other sessions of the
+  same thread share it. The number follows the order of all the thread's sessions, oldest first
+  and closed ones included, so it is the same on the running tab, on its "not running" tab and in
+  the thread's panel, and it survives a restart. This replaces "thread · agent" (v2) and
+  "project folder · agent" (v3). A terminal of no thread keeps "folder · agent".
+- **Project filter.** The project chips above the tabs count every tab, running or not; a tab that
+  is not running belongs to its saved session's project. After a restart the chips are there and
+  a chip shows that project's "not running" tabs.
+- **Reopening after a restart.** The layout and its sessions are restored together, never one
+  without the other (user, 2026-11-18: "non posso ripristinare una cosa senza l'altra"). Once
+  the saved layout is back, every session that was running when Shinatama last closed or crashed
+  is reopened by itself, one after the other in the order of the panes and their tabs, in the
+  background: each terminal takes its tab's place, and the tab each pane shows, the project
+  filter and the focus stay as they are. (A reopen only when a tab is shown was considered the same
+  day and rejected: it left the layout back without its sessions until each tab was looked at, and
+  made a click on a tab start an agent.) A session still marked open by the Shinatama that is gone
+  is recovered first (`thread_recover` verifies that owner is gone and refuses otherwise), then
+  resumed. One reopen runs at a time; each session and step is tried once per run, so a refusal
+  leaves the tab as before, with its button and its notice. While the reopen runs, the tab of each
+  session says whether it reopens now or waits its turn, and a waiting one offers "Don't reopen".
+  A session the user stopped, or that ended by itself, stays "not running" with Resume; so does a
+  shell, or an agent without native resume. The saved layout is what says a session was running: the tab of a running
+  terminal is saved with its instance reference, a tab whose session the user stopped, ended by
+  itself or was refused its reopen is saved without one, and the ends caused by a confirmed window
+  close change nothing. There is no second record. A session of a thread that was off at the close
+  has no tab in the layout and is not reopened, at start or when the thread is turned on again:
+  the user decided so the same day ("se le ho chiuse restano chiuse"), after keeping such tabs
+  parked in the layout was proposed (ADR-0005 v4, FRD-0001 R30).
+- **Turning a thread off closes it, without deleting it** (user, 2026-11-18: "spegnere un thread
+  significa chiuderlo, sì ma non cancellarlo"). This replaces v2's "a session keeps running
+  without its tab when its thread is turned off". Turning a thread off (its row, its square, or
+  removing its project from the sidebar) stops its running sessions, after asking when one still
+  runs ("Turn the thread off?"); cancelled, the thread stays on and a removed project comes back
+  to the sidebar. The sessions are neither archived nor forgotten: they stay in the thread, not
+  running, and come back as tabs that offer Resume when it is turned on again; nothing of them
+  reopens by itself. A thread whose sessions have all ended goes off without asking. A session
+  opened into a thread that is off (a collaboration, a hop) still runs without a tab until the
+  thread is turned on, and its row says "N running · tabs hidden".
+- **Forget is called Delete** in the interface ("Delete thread", "Delete" on a closed session),
+  so that the one action that deletes says so; it deletes from Shinatama only, and the agents'
+  own files stay. The user proposed "Destroy"; "Delete" was kept because nothing outside
+  Shinatama is destroyed. The commands (`thread_forget`) keep their names.
+- **Nothing saved.** The tab of a session in which nothing was saved offers Remove, which forgets
+  that one session.
+- **Forgetting a thread.** A session left marked open by a Shinatama that is gone no longer blocks
+  the forget with "a session is running": it is recovered first. "Running, stop it first" is said
+  only when a terminal of this window runs a session of the thread or recovery finds the session
+  or its owner alive; a session whose owner is gone but cannot be verified gets a sentence of its
+  own. These checks come before the thread is turned off, so a refused forget leaves it on.
+- **The thread's panel (⋯) lists every session**: name (as on its tab), state in words (running;
+  not running with its conversation saved, marked open by a session that is no longer here, or
+  nothing saved), and Show (turns the thread on if needed and brings the tab forward), Rename, and
+  Remove for a session with nothing saved. Closed sessions follow, with Reopen and Forget as
+  before.
+
 ## Decision
 
 ### 1. Vocabulary
@@ -137,17 +202,20 @@ two meanings of `thread`.
   running.
 - A click on a thread turns it on or off. The tabs of the window are the sessions of every thread
   that is on. Sessions of threads that are off keep running; their terminals are parked, not
-  stopped, and their output keeps draining.
+  stopped, and their output keeps draining. v4: turning a thread off stops its running sessions
+  after asking; only a session opened into a thread already off runs parked.
 - A session of a thread that is on and is not running is still shown, as a tab that says so and
-  offers Resume.
+  offers Resume. v4: one that was running when Shinatama last closed or crashed resumes by itself
+  at start, in turn, once the saved layout is back.
 - Two different actions, never merged (user, 2026-11-13; Hide removed in v2). **Close** (the tab's
   ×) stops the session, after asking if it runs, and keeps
   it: it leaves the tabs and is listed under "Closed sessions" of its thread, from where it is
   reopened as a tab (not started) or forgotten. **Forget** deletes: one closed session after a
   second click, or the whole thread with every session, closed ones included. Archiving a thread
   deletes nothing. A closed session is the stored record's `archived` mark.
-- The sidebar no longer lists sessions as rows of their own, and a click never "focuses a tab":
-  the only two levels are the thread list and the panes.
+- The sidebar no longer lists sessions as rows of their own, and a click on a thread never
+  "focuses a tab": the only two levels are the thread list and the panes. v4: the thread's panel
+  (⋯), opened under its row, lists its sessions, and its Show brings one session's tab forward.
 - Attention (an agent waiting in a thread that is off) is shown on that thread's row; the
   attention control turns the thread on and focuses the session.
 
@@ -178,7 +246,10 @@ two meanings of `thread`.
 - **INV-001**: every `thread` record has exactly one `workset_member` row, in the same project as
   its workset.
 - **INV-002**: the window draws no tab of a session that is not a member of a workset that is on.
-- **INV-003**: turning a thread on or off starts, resumes and stops no process.
+- **INV-003**: turning a thread on or off starts, resumes and stops no process. v4: turning a
+  thread off stops its running sessions, after asking, and deletes nothing. The one exception for
+  starting is the start: a tab the saved layout restores as running has its session resumed, one
+  at a time and once per run, never one the user stopped or that ended by itself.
 - **INV-004**: FRD-0005's invariants (one live activation per session, read-only native stores)
   are unchanged.
 - **INV-005**: a workset with a running session cannot be forgotten.
@@ -188,10 +259,20 @@ two meanings of `thread`.
 - **EX-001** (nominal, v2): threads "Billing refactor" (Claude Code, Codex) and "Docs" (Pi) are on;
   the window shows three tabs, arranged by dragging. Clicking "Docs" turns it off: its tab leaves,
   Pi keeps running; clicking it again brings the tab back. All three agents ran throughout.
+  v4: clicking "Docs" asks "Turn the thread off?"; confirmed, Pi stops and its tab leaves;
+  clicking it again brings the tab back not running, with Resume.
 - **EX-002** (nominal): in "Billing refactor" the user forks the Claude session to Codex; the new
   session appears as a tab of the same thread.
 - **EX-003** (nominal): after a restart, "Docs" is on again and shows the Pi tab as not running
-  with Resume; nothing started by itself.
+  with Resume; nothing started by itself. v4: that holds when the Pi session was not running at
+  the close; had it been running, and its agent resumes natively, it would be resumed at start,
+  in its tab, after the saved layout is back.
+- **EX-006** (nominal, v4): "Billing refactor" holds two Claude Code sessions and one Codex
+  session; its tabs read "Claude Code 1 · Billing refactor", "Codex · Billing refactor" and
+  "Claude Code 2 · Billing refactor", the same before and after a restart.
+- **EX-007** (error, v4): Forget thread on a thread whose session is still marked open by a
+  Shinatama that crashed recovers that session first, then forgets; if its former owner is alive,
+  the forget is refused and the thread stays on.
 - **EX-004** (migration): a database with 12 threads, two of them forks of a third, becomes 10
   worksets; the fork family is one workset of three sessions.
 - **EX-005** (error): a thread that no longer exists is not turned on at start; the others are.
@@ -209,4 +290,6 @@ two meanings of `thread`.
 
 - State tests: the migration (EX-004), INV-001 and INV-005.
 - Desktop smoke: EX-001 and EX-003 through the real app, with INV-003 checked on the process list.
+- v4: `apps/desktop/tests/session-tabs.test.ts` covers the tab names (EX-006), which sessions reopen
+  and when, and the recovery before a forget (EX-007); the real-app proof of the reopen is open.
 - Register rows are added with the plan.
