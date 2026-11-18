@@ -85,6 +85,9 @@ pub(crate) enum Outcome {
     Unavailable(String),
     /// The call did not finish in time: it may have been done.
     Uncertain,
+    /// It failed in a way that is not known to be Mukade's refusal: nothing is known to have
+    /// happened, so it is tried again at the next checks, a bounded number of times.
+    Failed(String),
 }
 
 pub(crate) fn outcome(result: &Result<Value, String>) -> Outcome {
@@ -98,8 +101,31 @@ pub(crate) fn outcome(result: &Result<Value, String>) -> Outcome {
         {
             Outcome::Unavailable(reason.clone())
         }
-        Err(reason) => Outcome::Refused(reason.clone()),
+        Err(reason) if is_refusal(reason) => Outcome::Refused(reason.clone()),
+        Err(reason) => Outcome::Failed(reason.clone()),
     }
+}
+
+/// Mukade's refusals read `<code>: <message>` (`secret_refused: …`, `room_closed: …`); anything
+/// else (the program failing, an answer that cannot be read) is not known to be a refusal.
+fn is_refusal(reason: &str) -> bool {
+    reason.split_once(": ").is_some_and(|(code, _)| {
+        code.starts_with(|c: char| c.is_ascii_lowercase()) && code.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+    })
+}
+
+/// How many checks in a row may end in an error that is not a refusal before the thread is parked
+/// with that reason (and tried again when something changes).
+const MAX_FAILURES: u32 = 3;
+
+/// The count of consecutive checks with such an error after this one (`failed`: this one had one),
+/// and whether the next check should try again. At the bound the count starts again.
+pub(crate) fn after_failures(previous: u32, failed: bool) -> (u32, bool) {
+    if !failed {
+        return (0, false);
+    }
+    let count = previous + 1;
+    if count >= MAX_FAILURES { (0, false) } else { (count, true) }
 }
 
 /// What an outcome means for what the agent was told.
@@ -109,6 +135,8 @@ pub(crate) enum Settled {
     NotTold(String),
     /// Not known to have happened and not known not to: left for the next check.
     Later,
+    /// An error that is not a known refusal (see `Outcome::Failed`).
+    Failed(String),
 }
 
 /// An uncertain send is looked up (`found`: the ledger holds the message) before anything else is
@@ -119,6 +147,7 @@ pub(crate) fn settle(outcome: Outcome, found: impl FnOnce() -> Result<bool, Stri
         Outcome::Done => Settled::Told,
         Outcome::Refused(reason) => Settled::NotTold(reason),
         Outcome::Unavailable(_) => Settled::Later,
+        Outcome::Failed(reason) => Settled::Failed(reason),
         Outcome::Uncertain => match found() {
             Ok(true) => Settled::Told,
             _ => Settled::Later,
@@ -174,6 +203,9 @@ pub(crate) struct Report {
     pub later: bool,
     /// Members whose retire was refused or not known to be done.
     pub failed_retires: Vec<String>,
+    /// Deliveries that ended in an error that is not a known refusal, by the same keys as
+    /// `reasons`: tried again at the next checks, a bounded number of times (`after_failures`).
+    pub failed: BTreeMap<String, String>,
 }
 
 /// Run `deliveries` in order. `marked` is told of each one that went through, at once, so a crash
@@ -204,7 +236,8 @@ pub(crate) fn execute(room: &impl Room, seats: &BTreeMap<String, Seat>, deliveri
             Delivery::Notice { .. } => NOTICE_KEY.to_owned(),
             Delivery::Retire { member_id } => member_id.clone(),
         };
-        match settle(ended, || room.found(delivery)) {
+        let settled = settle(ended, || room.found(delivery));
+        match settled.clone() {
             Settled::Told => {
                 report.done += 1;
                 marked(delivery);
@@ -219,8 +252,13 @@ pub(crate) fn execute(room: &impl Room, seats: &BTreeMap<String, Seat>, deliveri
                     _ => {}
                 }
             }
-            Settled::Later => {
-                report.later = true;
+            Settled::Later | Settled::Failed(_) => {
+                match &settled {
+                    Settled::Failed(reason) => {
+                        report.failed.insert(key, reason.clone());
+                    }
+                    _ => report.later = true,
+                }
                 match delivery {
                     Delivery::SetRole { member_id, .. } => {
                         blocked.insert(member_id);
@@ -417,6 +455,8 @@ struct Memo {
     /// Members whose retire did not go through: not offered again in this run, or the notice of
     /// their closed session would be sent at every check.
     retire_failed: BTreeSet<String>,
+    /// Per thread, how many checks in a row ended in an error that is not a known refusal.
+    failures: BTreeMap<String, u32>,
 }
 
 /// Everything a check reads without a service call, as one string: it differs when the formation,
@@ -502,14 +542,24 @@ fn check_thread(state: &WorkspaceServices, controller: &Controller, memo: &mut M
         });
     });
     memo.retire_failed.extend(report.failed_retires);
+    // An error that is not a known refusal is tried again at the next checks, a bounded number of
+    // times; its reason is shown meanwhile, and it stays shown once the thread is parked.
+    let (count, retry) = after_failures(memo.failures.get(workset).copied().unwrap_or(0), !report.failed.is_empty());
+    if count == 0 {
+        memo.failures.remove(workset);
+    } else {
+        memo.failures.insert(workset.to_owned(), count);
+    }
+    let mut reasons = report.reasons;
+    reasons.extend(report.failed);
     // Something went through: read again at the next check, which verifies that nothing is left.
     // Only refusals: the same refusals would come again, so wait until something changes.
-    if report.done == 0 && !report.later {
+    if report.done == 0 && !report.later && !retry {
         memo.parked.insert(workset.to_owned(), key);
     } else {
         memo.parked.remove(workset);
     }
-    set_refusals(workset, report.reasons);
+    set_refusals(workset, reasons);
 }
 
 fn check_all(state: &WorkspaceServices, controller: &Controller, memo: &mut Memo) {
@@ -875,6 +925,27 @@ mod tests {
         assert_eq!(owed.iter().map(label).collect::<Vec<_>>(), ["retire m2", "notice"]);
         let skipped = with_left_first(&left, Vec::new(), &BTreeSet::from(["m2".to_owned()]));
         assert!(skipped.is_empty(), "a retire that failed is not offered again in this run");
+    }
+
+    #[test]
+    fn an_error_that_is_not_a_refusal_is_retried_and_parks_after_three_checks() {
+        assert!(matches!(outcome(&Err("Mukade chat send failed.".into())), Outcome::Failed(_)));
+        assert!(matches!(outcome(&Err("Mukade chat send gave no readable answer.".into())), Outcome::Failed(_)));
+        assert!(matches!(outcome(&Err("The message could not be handed to Mukade.".into())), Outcome::Failed(_)));
+        assert!(matches!(outcome(&Err("room_closed: The room is closed".into())), Outcome::Refused(_)));
+        assert!(matches!(outcome(&Err("not_host: Only a host member may do this".into())), Outcome::Refused(_)));
+        assert_eq!(settle(Outcome::Failed("odd".into()), || Ok(true)), Settled::Failed("odd".into()));
+        let (_, seats, owed) = owed();
+        let room = Scripted::new(|_| Err("Mukade chat send failed.".into()), |_| Ok(false));
+        let report = execute(&room, &seats, &owed, |_| panic!("nothing was told"));
+        assert_eq!(report.done, 0);
+        assert!(report.reasons.is_empty(), "not a refusal: {:?}", report.reasons);
+        assert!(!report.failed.is_empty() && !report.later);
+        // Two checks are retried, the third parks.
+        assert_eq!(after_failures(0, true), (1, true));
+        assert_eq!(after_failures(1, true), (2, true));
+        assert_eq!(after_failures(2, true), (0, false), "parked, and the count starts again when something changes");
+        assert_eq!(after_failures(2, false), (0, false), "a check without a failure forgets the count");
     }
     #[test]
     fn an_outcome_is_read_from_the_error_text() {
