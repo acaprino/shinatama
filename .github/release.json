@@ -29,5 +29,7 @@
     "shinatama-token-economy",
     "shinatama-xiox"
   ],
-  "prepare": []
+  "prepare": [
+    "pwsh -NoProfile -File sidecar/fetch-runtime.ps1"
+  ]
 }
