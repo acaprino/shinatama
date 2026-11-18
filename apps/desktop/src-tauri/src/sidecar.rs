@@ -1,7 +1,11 @@
 //! Private proxy setup and one retained owner. UI commands supply no program,
 //! environment, port, configuration payload or resource budget.
 #![cfg(windows)]
-use crate::{storage::Services, terminal_runtime::Runtime};
+use crate::{
+    disk_space::{self, DiskLevel, DiskWatch},
+    storage::Services,
+    terminal_runtime::Runtime,
+};
 use serde::Serialize;
 use shinatama_engine::{
     sidecar_admin::{
@@ -63,6 +67,131 @@ pub struct Status {
     pub drain_deadline_unix_ms: Option<i64>,
     /// How the proxy's process last ended by itself; kept after it recovers.
     pub last_exit: Option<LastExit>,
+    /// When the supervisor last reported; None before it ever did.
+    pub observed_at_unix_ms: Option<i64>,
+    /// No report for more than 15 s while it should be working: only a restart helps then.
+    pub stalled: bool,
+    /// The phase it last reported, sent only while it is stalled.
+    pub last_phase: Option<&'static str>,
+    /// The internal error that stopped the supervisor's loop.
+    pub fault: Option<String>,
+    /// Free space of the data disk; None until the first sample.
+    pub disk: Option<DiskStatus>,
+}
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiskStatus {
+    pub root: String,
+    pub free_bytes: u64,
+    /// `ok`, `low` or `full`.
+    pub level: &'static str,
+}
+/// A supervisor silent this long while it should be working is stalled.
+pub(crate) const STALL_AFTER_MS: i64 = 15_000;
+/// What a driver says when the engine's launch gate found no proxy backing the launch; the agent
+/// service replaces it with [`Controller::refusal`], which says why.
+pub const NOT_BACKING: &str = "The model proxy stopped backing new sessions.";
+/// What [`Controller::qualified_owner`] says while the proxy cannot back a launch; replaced the same way.
+pub const NOT_READY: &str = "Start the Model proxy and wait until it is ready.";
+pub(crate) fn stalled(observed_at_unix_ms: Option<i64>, now_unix_ms: i64, phase: Phase) -> bool {
+    !matches!(phase, Phase::Stopped | Phase::Failed | Phase::Retired)
+        && observed_at_unix_ms
+            .and_then(|at| now_unix_ms.checked_sub(at))
+            .is_some_and(|age| age > STALL_AFTER_MS)
+}
+fn phase_name(phase: Phase) -> &'static str {
+    match phase {
+        Phase::Stopped => "stopped",
+        Phase::Starting => "starting",
+        Phase::Ready => "ready",
+        Phase::Busy => "busy",
+        Phase::Draining => "draining",
+        Phase::Degraded => "degraded",
+        Phase::Recovering => "recovering",
+        Phase::Failed => "failed",
+        Phase::Retired => "retired",
+    }
+}
+/// The panel's sentence for a supervisor reason. None claims that saved data is preserved: that
+/// is not something the supervisor can know (the proxy's own saves may be failing).
+fn reason_message(phase: Phase, reason: Reason) -> Option<&'static str> {
+    match reason {
+        Reason::AdmissionDeferred => Some("Waiting for resources. The proxy will retry automatically; existing sessions keep their limits."),
+        Reason::StartupRefused if phase == Phase::Recovering => Some("The proxy could not start. Recovery will retry automatically."),
+        Reason::StartupRefused => Some("The proxy launch configuration is unavailable; retry Start after correcting the installation."),
+        Reason::ProcessExited => Some("The proxy exited. Recovering automatically on the same address."),
+        Reason::CleanupUncertain if phase == Phase::Recovering => Some("Waiting to confirm cleanup before restarting the proxy. Its reservation remains held."),
+        Reason::CleanupUncertain => Some("Cleanup is not confirmed. Its reservation remains held; retry cleanup before another start."),
+        Reason::ResourceLimit => Some("The proxy reached its resource limit. Recovery will retry with fresh resource checks."),
+        Reason::SupervisorFault => Some("The proxy supervisor stopped on an internal error. Start or Retry recovery starts it again."),
+        _ => None,
+    }
+}
+fn state_words(phase: &str, healthy: bool) -> &'static str {
+    match phase {
+        "ready" | "busy" if !healthy => "not answering its health check",
+        "ready" => "ready",
+        "busy" => "busy",
+        "stopped" => "stopped",
+        "preparing" => "being prepared",
+        "starting" => "starting",
+        "draining" => "stopping",
+        "degraded" => "temporarily unavailable",
+        "recovering" => "recovering",
+        "failed" => "stopped after a failure",
+        "retired" => "waiting for recovery",
+        "unavailable" => "not reporting",
+        _ => "unavailable",
+    }
+}
+/// What a refused open says about the proxy, gathered when it is refused. Times are already
+/// written as the user reads them.
+pub(crate) struct RefusalFacts {
+    pub phase: &'static str,
+    pub healthy: bool,
+    /// Since when it has not reported, and the phase it last reported.
+    pub stalled: Option<(String, &'static str)>,
+    pub message: Option<&'static str>,
+    /// When the process last ended, its code, and what it said.
+    pub exit: Option<(String, u32, Option<String>)>,
+    pub disk_line: Option<String>,
+}
+/// One sentence for every harness: the proxy's state, since when, its last exit, a low disk.
+pub(crate) fn refusal_text(facts: &RefusalFacts) -> String {
+    let mut text = match &facts.stalled {
+        Some((since, last)) => format!(
+            "Not started: the model proxy has not reported since {since} (last state: {last})."
+        ),
+        None => format!(
+            "Not started: the model proxy is {}.",
+            state_words(facts.phase, facts.healthy)
+        ),
+    };
+    if let Some(message) = facts.message {
+        text.push(' ');
+        text.push_str(message);
+    }
+    if let Some((at, code, detail)) = &facts.exit {
+        match detail.as_deref().map(|said| said.trim_end_matches('.')) {
+            Some(said) if !said.is_empty() => {
+                text.push_str(&format!(" Its process ended at {at} with code {code}: {said}."))
+            }
+            _ => text.push_str(&format!(" Its process ended at {at} with code {code}.")),
+        }
+    }
+    if let Some(line) = &facts.disk_line {
+        text.push(' ');
+        text.push_str(line);
+    }
+    text.push_str(" Its state is in the Model proxy panel.");
+    text
+}
+/// A Unix time as the wall clock the user reads (`20:52:40`).
+fn clock(unix_ms: i64) -> String {
+    chrono::DateTime::from_timestamp_millis(unix_ms).map_or_else(
+        || "an unknown time".to_owned(),
+        |at| at.with_timezone(&chrono::Local).format("%H:%M:%S").to_string(),
+    )
 }
 /// [`ProxyExit`] as the panel reads it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -264,6 +393,9 @@ pub struct Controller {
     /// shown only while the supervisor still reports that pid.
     resolved: Mutex<Option<(u32, Option<ResolvedBaseline>)>>,
     watching: AtomicBool,
+    /// True while a stall has been logged and the supervisor has not reported again.
+    stall_logged: AtomicBool,
+    disk: OnceLock<Arc<DiskWatch>>,
 }
 impl Controller {
     pub fn new(services: Arc<Services>, runtime: Arc<Runtime>) -> Self {
@@ -278,6 +410,81 @@ impl Controller {
             failure: Mutex::new(None),
             resolved: Mutex::new(None),
             watching: AtomicBool::new(false),
+            stall_logged: AtomicBool::new(false),
+            disk: OnceLock::new(),
+        }
+    }
+    /// The data disk's free-space reading, shown in the status and in refusals.
+    pub fn watch_disk(&self, watch: Arc<DiskWatch>) {
+        let _ = self.disk.set(watch);
+    }
+    fn disk_status(&self) -> Option<DiskStatus> {
+        let watch = self.disk.get()?;
+        let free_bytes = watch.free_bytes()?;
+        Some(DiskStatus {
+            root: watch.root().to_owned(),
+            free_bytes,
+            level: disk_space::level(free_bytes).name(),
+        })
+    }
+    /// The data disk's line while it is low or full.
+    fn disk_line(&self) -> Option<String> {
+        let watch = self.disk.get()?;
+        disk_space::line(watch.root(), watch.free_bytes()?)
+    }
+    /// The data disk's line only while it is full: added to any refused open, since a full disk
+    /// is a cause whatever the step that failed.
+    pub fn disk_full_line(&self) -> Option<String> {
+        let watch = self.disk.get()?;
+        let free = watch.free_bytes()?;
+        (disk_space::level(free) == DiskLevel::Full)
+            .then(|| disk_space::line(watch.root(), free))
+            .flatten()
+    }
+    /// Why the proxy does not back an open, in one sentence the same for every harness.
+    pub fn refusal(&self) -> String {
+        let status = self.status();
+        refusal_text(&RefusalFacts {
+            phase: status.phase,
+            healthy: status.healthy,
+            stalled: status.stalled.then(|| {
+                (
+                    status.observed_at_unix_ms.map_or_else(|| "an unknown time".to_owned(), clock),
+                    status.last_phase.unwrap_or("unavailable"),
+                )
+            }),
+            message: status.message,
+            exit: status.last_exit.as_ref().map(|exit| {
+                (
+                    exit.at_unix_ms.map_or_else(|| "an unknown time".to_owned(), clock),
+                    exit.code,
+                    exit.detail.clone(),
+                )
+            }),
+            disk_line: self.disk_line(),
+        })
+    }
+    /// One log line when the supervisor stops reporting and one when it reports again, written
+    /// on a thread of its own: `status` does no I/O on its caller's thread.
+    fn note_stall(&self, stalled: bool, fresh: bool, snapshot: Option<&Snapshot>) {
+        let line = if stalled && !self.stall_logged.swap(true, Ordering::AcqRel) {
+            snapshot.map(|snapshot| {
+                format!(
+                    "The supervisor has not reported for 15 s (last report at {}: {}, {:?}).",
+                    snapshot.observed_at_unix_ms.map_or_else(|| "an unknown time".to_owned(), clock),
+                    phase_name(snapshot.phase),
+                    snapshot.reason
+                )
+            })
+        } else if !stalled && fresh && self.stall_logged.swap(false, Ordering::AcqRel) {
+            snapshot.map(|snapshot| format!("The supervisor reports again ({}).", phase_name(snapshot.phase)))
+        } else {
+            None
+        };
+        if let Some(line) = line {
+            let _ = std::thread::Builder::new()
+                .name("proxy-stall-log".into())
+                .spawn(move || crate::app_log::write("proxy", &line));
         }
     }
     pub fn status(&self) -> Status {
@@ -299,17 +506,7 @@ impl Controller {
             {
                 "unavailable"
             } else {
-                match snapshot.phase {
-                    Phase::Stopped => "stopped",
-                    Phase::Starting => "starting",
-                    Phase::Ready => "ready",
-                    Phase::Busy => "busy",
-                    Phase::Draining => "draining",
-                    Phase::Degraded => "degraded",
-                    Phase::Recovering => "recovering",
-                    Phase::Failed => "failed",
-                    Phase::Retired => "retired",
-                }
+                phase_name(snapshot.phase)
             }
         } else if self
             .failure
@@ -321,16 +518,17 @@ impl Controller {
         } else {
             "stopped"
         };
-        let message = self.failure.try_lock().ok().and_then(|value| *value).or_else(|| observation.as_ref().and_then(|snapshot| match snapshot.reason {
-            Reason::AdmissionDeferred => Some("Waiting for resources. The proxy will retry automatically; existing sessions keep their limits."),
-            Reason::StartupRefused if snapshot.phase == Phase::Recovering => Some("The proxy could not start. Recovery will retry automatically; saved files are preserved."),
-            Reason::StartupRefused => Some("The proxy launch configuration is unavailable. Saved files are preserved; retry Start after correcting the installation."),
-            Reason::ProcessExited => Some("The proxy exited. Recovering automatically on the same address; saved sessions are preserved."),
-            Reason::CleanupUncertain if snapshot.phase == Phase::Recovering => Some("Waiting to confirm cleanup before restarting the proxy. Its reservation remains held."),
-            Reason::CleanupUncertain => Some("Cleanup is not confirmed. Its reservation remains held; retry cleanup before another start."),
-            Reason::ResourceLimit => Some("The proxy reached its resource limit. Recovery will retry with fresh resource checks; saved sessions are preserved."),
-            _ => None,
-        }));
+        let message = self.failure.try_lock().ok().and_then(|value| *value).or_else(|| {
+            observation
+                .as_ref()
+                .and_then(|snapshot| reason_message(snapshot.phase, snapshot.reason))
+        });
+        // Silent for 15 s while it should be working: its buttons no longer act, only a restart.
+        let is_stalled = !self.preparing.load(Ordering::Acquire)
+            && observation.as_ref().zip(now_ms()).is_some_and(|(snapshot, now)| {
+                stalled(snapshot.observed_at_unix_ms, now, snapshot.phase)
+            });
+        self.note_stall(is_stalled, fresh, observation.as_ref());
         let resolved = observation
             .as_ref()
             .and_then(|snapshot| snapshot.pid)
@@ -359,6 +557,16 @@ impl Controller {
                 .as_ref()
                 .and_then(|snapshot| snapshot.last_exit.as_ref())
                 .map(LastExit::from),
+            observed_at_unix_ms: observation
+                .as_ref()
+                .and_then(|snapshot| snapshot.observed_at_unix_ms),
+            stalled: is_stalled,
+            last_phase: observation
+                .as_ref()
+                .filter(|_| is_stalled)
+                .map(|snapshot| phase_name(snapshot.phase)),
+            fault: observation.as_ref().and_then(|snapshot| snapshot.fault.clone()),
+            disk: self.disk_status(),
             observation,
             prepared_identity: self.identity.get().cloned(),
             config_drift: drift(resolved.as_ref()),
@@ -397,7 +605,7 @@ impl Controller {
             let failure = match result {
                 Ok(Ok(())) => None,
                 Ok(Err(message)) => Some(message),
-                Err(_) => Some("Proxy preparation failed. Saved data was preserved."),
+                Err(_) => Some("Proxy preparation failed. Start retries it."),
             };
             let prepared = failure.is_none();
             if let Ok(mut value) = owner.failure.lock() {
@@ -570,7 +778,7 @@ impl Controller {
             return Err(STOPPING);
         }
         if !launch_allowed(status.phase, status.healthy) {
-            return Err("Start the Model proxy and wait until it is ready.");
+            return Err(NOT_READY);
         }
         let (port, root) = self
             .connection
@@ -821,6 +1029,81 @@ mod tests {
     use super::*;
     use shinatama_engine::sidecar_admin::{Lever, SessionCapabilities};
     use shinatama_engine::sidecar_config::intended_baseline;
+
+    #[test]
+    fn a_supervisor_silent_for_more_than_fifteen_seconds_is_stalled() {
+        let now = 1_000_000;
+        assert!(stalled(Some(now - 15_001), now, Phase::Recovering));
+        assert!(!stalled(Some(now - 15_000), now, Phase::Recovering));
+        assert!(!stalled(Some(now - 60_000), now, Phase::Failed));
+        assert!(!stalled(Some(now - 60_000), now, Phase::Stopped));
+        assert!(!stalled(Some(now - 60_000), now, Phase::Retired));
+        assert!(!stalled(None, now, Phase::Recovering));
+        assert!(!stalled(Some(now + 5_000), now, Phase::Ready));
+    }
+    #[test]
+    fn the_refusal_names_the_state_its_age_the_exit_and_the_disk() {
+        let incident = RefusalFacts {
+            phase: "unavailable",
+            healthy: false,
+            stalled: Some(("20:52:40".into(), "recovering")),
+            message: Some(
+                "Waiting to confirm cleanup before restarting the proxy. Its reservation remains held.",
+            ),
+            exit: Some(("20:52:39".into(), 1, None)),
+            disk_line: Some(
+                "Disk D: is full (5 MB free): saving fails for the proxy and for Shinatama.".into(),
+            ),
+        };
+        assert_eq!(
+            refusal_text(&incident),
+            "Not started: the model proxy has not reported since 20:52:40 (last state: recovering). Waiting to confirm cleanup before restarting the proxy. Its reservation remains held. Its process ended at 20:52:39 with code 1. Disk D: is full (5 MB free): saving fails for the proxy and for Shinatama. Its state is in the Model proxy panel."
+        );
+        let busy = RefusalFacts {
+            phase: "busy",
+            healthy: false,
+            stalled: None,
+            message: None,
+            exit: None,
+            disk_line: None,
+        };
+        assert_eq!(
+            refusal_text(&busy),
+            "Not started: the model proxy is not answering its health check. Its state is in the Model proxy panel."
+        );
+        let exited = RefusalFacts {
+            exit: Some((
+                "20:52:39".into(),
+                1,
+                Some("Error: ENOSPC: no space left on device.".into()),
+            )),
+            ..busy
+        };
+        assert!(refusal_text(&exited).contains(
+            "Its process ended at 20:52:39 with code 1: Error: ENOSPC: no space left on device. Its state"
+        ));
+    }
+    #[test]
+    fn no_status_message_claims_saved_data_is_preserved() {
+        for reason in [
+            Reason::AdmissionDeferred,
+            Reason::StartupRefused,
+            Reason::ProcessExited,
+            Reason::CleanupUncertain,
+            Reason::ResourceLimit,
+            Reason::SupervisorFault,
+        ] {
+            for phase in [Phase::Recovering, Phase::Failed, Phase::Retired] {
+                if let Some(text) = reason_message(phase, reason) {
+                    assert!(!text.to_lowercase().contains("preserved"), "{text}");
+                }
+            }
+        }
+        assert_eq!(
+            reason_message(Phase::Failed, Reason::SupervisorFault),
+            Some("The proxy supervisor stopped on an internal error. Start or Retry recovery starts it again.")
+        );
+    }
 
     /// 2026-11-18: the proxy ended at every start with an error nothing recorded.
     #[test]

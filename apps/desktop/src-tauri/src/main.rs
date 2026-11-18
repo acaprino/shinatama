@@ -724,6 +724,13 @@ fn main() {
             if let Ok(home) = &directory {
                 marionette::start(home);
             }
+            // The data disk's free space, for the Model proxy panel and refused opens: a full disk
+            // stops the proxy and Shinatama from saving, and said nothing until now.
+            #[cfg(windows)]
+            let disk = directory
+                .as_ref()
+                .ok()
+                .map(|home| disk_space::DiskWatch::start(home.clone()));
             // The saved launch policy must be in force before any agent can start.
             app.manage(launch_settings::Controller::start(
                 directory.as_ref().map(Clone::clone).map_err(|e| e.to_string()),
@@ -755,6 +762,9 @@ fn main() {
                     governor,
                 ));
                 let sidecar = Arc::new(sidecar::Controller::new(services.clone(), runtime.clone()));
+                if let Some(disk) = &disk {
+                    sidecar.watch_disk(Arc::clone(disk));
+                }
                 app.manage(Arc::new(sessions::Controller::new(services.clone(), runtime.clone())));
                 let thread_window = app.handle().clone();
                 app.manage(Arc::new(agents::Controller::new(

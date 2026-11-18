@@ -21,6 +21,16 @@ pub(crate) enum DiskLevel {
     /// Under the database's save floor: typed writes are refused, and the proxy fails too.
     Full,
 }
+impl DiskLevel {
+    /// The level as the status reply carries it.
+    pub(crate) fn name(self) -> &'static str {
+        match self {
+            Self::Ok => "ok",
+            Self::Low => "low",
+            Self::Full => "full",
+        }
+    }
+}
 pub(crate) fn level(free_bytes: u64) -> DiskLevel {
     if free_bytes < shinatama_state::maintenance::SAVE_FLOOR_BYTES {
         DiskLevel::Full
