@@ -218,3 +218,14 @@ $adapters = (Resolve-Path "./marionette/releases/$tag/marionette/adapters").Path
   `codex plugin add marionette@shinatama`.
 - Pi: `pi -e "$adapters/pi/extensions/policy.js" --skill "$adapters/pi/skills"`.
 - OpenCode e gli altri host: segui `INSTALL.md` nella cartella dell'adapter.
+
+## Plugin degli agenti con Muro
+
+Gli agenti che Shinatama apre hanno una casa privata nella cartella dati di Shinatama, quindi i
+plugin che installi con il tuo Muro non arrivano lì. Shinatama ha una sua lista Muro, separata
+dalla tua: in **Impostazioni → Plugins** **Apri Muro** mostra Muro su quella lista, dove scegli i
+plugin per gli agenti di Shinatama, e **Sincronizza ora** li porta subito nelle loro case. A ogni
+avvio Shinatama registra le case dei suoi agenti in quella lista e avvia il suo Muro in background,
+che le tiene allineate da solo. Il tuo Muro e le case abituali degli agenti non vengono mai toccati.
+Mentre Shinatama è aperto vedi una seconda icona di Muro nell'area di notifica. Per disattivare
+tutto imposta `SHINATAMA_MURO=off` prima di aprire Shinatama.

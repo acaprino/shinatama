@@ -10,7 +10,10 @@
 # `bytes`, with its size where the pin gives one); a release
 # whose file differs is refused, never shipped. A file is an asset of the release or, when the pin
 # names an `archive` (the portable zip the releases hand out, with its own SHA-256), a file of that
-# zip: at its root or in its one top folder. Downloads go through gh, so a private repository
+# zip: at its root or in its one top folder. A pin with `"unpack": true` and an `archive` takes
+# the whole zip instead, its one top folder left out (Muro's portable package, scripts\muro-pin.json
+# once a Muro release has what Shinatama needs), checked against the archive's SHA-256 and size.
+# Downloads go through gh, so a private repository
 # works with gh's own sign-in. A verified copy is kept in target\releases and reused.
 param(
     [Parameter(Mandatory)][string] $Pin,
@@ -19,11 +22,14 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $release = (Get-Content -Raw -LiteralPath $Pin | ConvertFrom-Json).release
-if (-not $release.repository -or -not $release.tag -or -not $release.assets) {
+if (-not $release.repository -or -not $release.tag -or (-not $release.assets -and -not $release.unpack)) {
     throw "$Pin names no release (repository, tag, assets)."
 }
 if ($release.archive -and (-not $release.archive.name -or -not $release.archive.sha256)) {
     throw "$Pin names an archive without its name and SHA-256."
+}
+if ($release.unpack -and -not $release.archive) {
+    throw "$Pin unpacks no archive."
 }
 $cache = Join-Path (Split-Path -Parent $PSScriptRoot) ('target\releases\' + ($release.repository -replace '/', '-') + '-' + $release.tag)
 New-Item -ItemType Directory -Force -Path $cache, $Destination | Out-Null
@@ -64,7 +70,38 @@ function Get-FromArchive([string] $Name, [string] $Path) {
     [IO.Compression.ZipFileExtensions]::ExtractToFile($entries[0], $Path, $true)
 }
 
+# The whole archive into the folder: every file of it, its one top folder left out, none outside.
+function Expand-Checked {
+    $name = $release.archive.name
+    $expected = ([string] $release.archive.sha256).ToLowerInvariant()
+    $archive = Save-Checked $name $expected { Get-Asset $name }
+    $bytes = if ($release.bytes) { $release.bytes.$name } else { $null }
+    $length = (Get-Item -LiteralPath $archive).Length
+    if ($null -ne $bytes -and $length -ne [long] $bytes) {
+        throw "$name of $($release.repository) $($release.tag) has $length bytes; $Pin expects $bytes."
+    }
+    $root = [IO.Path]::GetFullPath($Destination).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+    $script:zip = [IO.Compression.ZipFile]::OpenRead($archive)
+    $tops = @($script:zip.Entries | ForEach-Object { ($_.FullName -split '/')[0] } | Sort-Object -Unique)
+    $loose = @($script:zip.Entries | Where-Object { $_.FullName -notmatch '/' }).Count
+    $strip = if ($tops.Count -eq 1 -and $loose -eq 0) { $tops[0] + '/' } else { '' }
+    $count = 0
+    foreach ($entry in $script:zip.Entries) {
+        $relative = $entry.FullName.Substring($strip.Length)
+        if (-not $relative -or $relative.EndsWith('/')) { continue }
+        $target = [IO.Path]::GetFullPath((Join-Path $root $relative))
+        if (-not $target.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "$($entry.FullName) of $name would land outside $Destination."
+        }
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $target) | Out-Null
+        [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $target, $true)
+        $count++
+    }
+    Write-Output "$name  $($release.repository) $($release.tag)  sha256 $expected  unpacked ($count files)"
+}
+
 try {
+    if ($release.unpack) { Expand-Checked; return }
     foreach ($asset in $release.assets.PSObject.Properties) {
         $name = $asset.Name
         $expected = ([string] $asset.Value).ToLowerInvariant()

@@ -1524,7 +1524,7 @@ const settingsPanel = createSettingsPanel({
 });
 {
   const button = document.createElement('button'); button.type = 'button'; button.id = 'open-settings'; button.textContent = 'Settings';
-  button.title = 'Appearance, agents, memory, alerts, GitHub, environment variables and sessions';
+  button.title = 'Appearance, agents, memory, alerts, GitHub, environment variables, sessions and plugins';
   button.onclick = () => { settingsPanel.show(); };
   document.querySelector('#open-projects')?.before(button);
 }

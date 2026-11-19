@@ -23,7 +23,8 @@
 #settings-dialog .settings-actions { position: static; flex: none; flex-wrap: wrap; align-items: center; margin: 0; padding: 12px 24px; }
 #settings-dialog .settings-actions .settings-status { flex: 1 1 220px; margin: 0 auto 0 0; -webkit-user-select: text; user-select: text; }
 #settings-dialog p[role="status"]:empty { display: none; }
-#settings-dialog #settings-sessions-status[data-tone="error"] { color: var(--error); }
+#settings-dialog :is(#settings-sessions-status, #settings-plugins-status)[data-tone="error"] { color: var(--error); }
+#settings-dialog #settings-plugins-status { -webkit-user-select: text; user-select: text; overflow-wrap: anywhere; }
 #settings-dialog .settings-check { display: flex; gap: 8px; align-items: center; margin: 6px 0 8px; font: 13px var(--mono); letter-spacing: 0; text-transform: none; color: var(--text); cursor: default; }
 #settings-dialog .settings-check input { width: auto; height: auto; padding: 0; }
 #settings-dialog input[type="checkbox"] { accent-color: var(--accent); }

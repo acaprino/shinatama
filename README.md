@@ -131,7 +131,13 @@ plugin built as an example of [Muro](https://github.com/acaprino/muro). The pack
 pinned release, installed at the first start even offline; at each start Shinatama then follows
 the latest `marionette-v<version>` release of [its own repository](https://github.com/acaprino/marionette/releases) and checks its SHA-256. Set
 `SHINATAMA_MARIONETTE=off` to disable it. The local build also has an optional
-display mod for supported Claude Code versions. [Marionette](AVVIO.md#marionette) ·
+display mod for supported Claude Code versions.
+
+The plugins of the agents Shinatama launches are kept in sync by
+[Muro](https://github.com/acaprino/muro), started by Shinatama in the background on a plugin list
+of Shinatama's own: **Settings → Plugins** has Open Muro and Sync now. Your own Muro is never
+touched. Set `SHINATAMA_MURO=off` to disable it.
+[Marionette](AVVIO.md#marionette) ·
 [Claude display mod](resources/claude-mods/README.md) ·
 [Logo credits](docs/assets/harnesses/NOTICE.md)
 
