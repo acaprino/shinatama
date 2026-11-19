@@ -1,0 +1,703 @@
+{
+  "format": "dtcg",
+  "formatVersion": "2025.10",
+  "mode": "smooth-light",
+  "mapping": [
+    {
+      "source": "colors.primary",
+      "target": "colors.primary"
+    },
+    {
+      "source": "colors.primary-soft",
+      "target": "colors.primary-soft"
+    },
+    {
+      "source": "colors.on-primary",
+      "target": "colors.on-primary"
+    },
+    {
+      "source": "colors.primary-text",
+      "target": "colors.primary-text"
+    },
+    {
+      "source": "colors.background",
+      "target": "colors.background"
+    },
+    {
+      "source": "colors.surface-container-low",
+      "target": "colors.surface-container-low"
+    },
+    {
+      "source": "colors.surface-container",
+      "target": "colors.surface-container"
+    },
+    {
+      "source": "colors.surface",
+      "target": "colors.surface"
+    },
+    {
+      "source": "colors.surface-container-high",
+      "target": "colors.surface-container-high"
+    },
+    {
+      "source": "colors.terminal",
+      "target": "colors.terminal"
+    },
+    {
+      "source": "colors.on-surface",
+      "target": "colors.on-surface"
+    },
+    {
+      "source": "colors.on-surface-variant",
+      "target": "colors.on-surface-variant"
+    },
+    {
+      "source": "colors.muted",
+      "target": "colors.muted"
+    },
+    {
+      "source": "colors.outline-variant",
+      "target": "colors.outline-variant"
+    },
+    {
+      "source": "colors.outline",
+      "target": "colors.outline"
+    },
+    {
+      "source": "colors.tertiary",
+      "target": "colors.tertiary"
+    },
+    {
+      "source": "colors.live",
+      "target": "colors.live"
+    },
+    {
+      "source": "colors.warning",
+      "target": "colors.warning"
+    },
+    {
+      "source": "colors.error",
+      "target": "colors.error"
+    },
+    {
+      "source": "colors.danger",
+      "target": "colors.danger"
+    },
+    {
+      "source": "colors.danger-line",
+      "target": "colors.danger-line"
+    },
+    {
+      "source": "colors.on-danger",
+      "target": "colors.on-danger"
+    },
+    {
+      "source": "colors.primary-container",
+      "target": "colors.primary-container"
+    },
+    {
+      "source": "colors.clear",
+      "target": "colors.clear"
+    },
+    {
+      "source": "colors.wash",
+      "target": "colors.wash"
+    },
+    {
+      "source": "colors.wash-hover",
+      "target": "colors.wash-hover"
+    },
+    {
+      "source": "colors.glass-ground",
+      "target": "colors.glass-ground"
+    },
+    {
+      "source": "colors.glass-edge",
+      "target": "colors.glass-edge"
+    },
+    {
+      "source": "colors.glass-sheet",
+      "target": "colors.glass-sheet"
+    },
+    {
+      "source": "colors.terminal-glass",
+      "target": "colors.terminal-glass"
+    },
+    {
+      "source": "colors.scrim",
+      "target": "colors.scrim"
+    },
+    {
+      "source": "spacing.xs",
+      "target": "spacing.xs"
+    },
+    {
+      "source": "spacing.sm",
+      "target": "spacing.sm"
+    },
+    {
+      "source": "spacing.md",
+      "target": "spacing.md"
+    },
+    {
+      "source": "spacing.lg",
+      "target": "spacing.lg"
+    },
+    {
+      "source": "spacing.xl",
+      "target": "spacing.xl"
+    },
+    {
+      "source": "spacing.control-height",
+      "target": "spacing.control-height"
+    },
+    {
+      "source": "spacing.field-height",
+      "target": "spacing.field-height"
+    },
+    {
+      "source": "spacing.titlebar-height",
+      "target": "spacing.titlebar-height"
+    },
+    {
+      "source": "spacing.toolbar-height",
+      "target": "spacing.toolbar-height"
+    },
+    {
+      "source": "spacing.statusbar-height",
+      "target": "spacing.statusbar-height"
+    },
+    {
+      "source": "spacing.pane-header-height",
+      "target": "spacing.pane-header-height"
+    },
+    {
+      "source": "rounded.none",
+      "target": "rounded.none"
+    },
+    {
+      "source": "rounded.sm",
+      "target": "rounded.sm"
+    },
+    {
+      "source": "rounded.md",
+      "target": "rounded.md"
+    },
+    {
+      "source": "rounded.lg",
+      "target": "rounded.lg"
+    },
+    {
+      "source": "rounded.full",
+      "target": "rounded.full"
+    },
+    {
+      "source": "typography.headline-md",
+      "target": "typography.headline-md"
+    },
+    {
+      "source": "typography.title-sm",
+      "target": "typography.title-sm"
+    },
+    {
+      "source": "typography.body-md",
+      "target": "typography.body-md"
+    },
+    {
+      "source": "typography.label-md",
+      "target": "typography.label-md"
+    },
+    {
+      "source": "typography.code-md",
+      "target": "typography.code-md"
+    },
+    {
+      "source": "components.button-primary.backgroundColor",
+      "target": "components.button-primary.backgroundColor"
+    },
+    {
+      "source": "components.button-primary.textColor",
+      "target": "components.button-primary.textColor"
+    },
+    {
+      "source": "components.button-primary.typography",
+      "target": "components.button-primary.typography"
+    },
+    {
+      "source": "components.button-primary.rounded",
+      "target": "components.button-primary.rounded"
+    },
+    {
+      "source": "components.button-primary.padding",
+      "target": "components.button-primary.padding"
+    },
+    {
+      "source": "components.button-primary.height",
+      "target": "components.button-primary.height"
+    },
+    {
+      "source": "components.button-primary-hover.backgroundColor",
+      "target": "components.button-primary-hover.backgroundColor"
+    },
+    {
+      "source": "components.button-primary-hover.textColor",
+      "target": "components.button-primary-hover.textColor"
+    },
+    {
+      "source": "components.button-primary-hover.typography",
+      "target": "components.button-primary-hover.typography"
+    },
+    {
+      "source": "components.button-primary-hover.rounded",
+      "target": "components.button-primary-hover.rounded"
+    },
+    {
+      "source": "components.button-primary-hover.padding",
+      "target": "components.button-primary-hover.padding"
+    },
+    {
+      "source": "components.button-primary-hover.height",
+      "target": "components.button-primary-hover.height"
+    },
+    {
+      "source": "components.button-secondary.backgroundColor",
+      "target": "components.button-secondary.backgroundColor"
+    },
+    {
+      "source": "components.button-secondary.typography",
+      "target": "components.button-secondary.typography"
+    },
+    {
+      "source": "components.button-secondary.rounded",
+      "target": "components.button-secondary.rounded"
+    },
+    {
+      "source": "components.button-secondary.padding",
+      "target": "components.button-secondary.padding"
+    },
+    {
+      "source": "components.button-secondary.height",
+      "target": "components.button-secondary.height"
+    },
+    {
+      "source": "components.button-secondary-hover.backgroundColor",
+      "target": "components.button-secondary-hover.backgroundColor"
+    },
+    {
+      "source": "components.button-secondary-hover.typography",
+      "target": "components.button-secondary-hover.typography"
+    },
+    {
+      "source": "components.button-secondary-hover.rounded",
+      "target": "components.button-secondary-hover.rounded"
+    },
+    {
+      "source": "components.button-secondary-hover.padding",
+      "target": "components.button-secondary-hover.padding"
+    },
+    {
+      "source": "components.button-secondary-hover.height",
+      "target": "components.button-secondary-hover.height"
+    },
+    {
+      "source": "components.button-danger.backgroundColor",
+      "target": "components.button-danger.backgroundColor"
+    },
+    {
+      "source": "components.button-danger.textColor",
+      "target": "components.button-danger.textColor"
+    },
+    {
+      "source": "components.button-danger.typography",
+      "target": "components.button-danger.typography"
+    },
+    {
+      "source": "components.button-danger.rounded",
+      "target": "components.button-danger.rounded"
+    },
+    {
+      "source": "components.button-danger.padding",
+      "target": "components.button-danger.padding"
+    },
+    {
+      "source": "components.button-danger.height",
+      "target": "components.button-danger.height"
+    },
+    {
+      "source": "components.button-danger-hover.backgroundColor",
+      "target": "components.button-danger-hover.backgroundColor"
+    },
+    {
+      "source": "components.button-danger-hover.textColor",
+      "target": "components.button-danger-hover.textColor"
+    },
+    {
+      "source": "components.button-danger-hover.typography",
+      "target": "components.button-danger-hover.typography"
+    },
+    {
+      "source": "components.button-danger-hover.rounded",
+      "target": "components.button-danger-hover.rounded"
+    },
+    {
+      "source": "components.button-danger-hover.padding",
+      "target": "components.button-danger-hover.padding"
+    },
+    {
+      "source": "components.button-danger-hover.height",
+      "target": "components.button-danger-hover.height"
+    },
+    {
+      "source": "components.input.backgroundColor",
+      "target": "components.input.backgroundColor"
+    },
+    {
+      "source": "components.input.textColor",
+      "target": "components.input.textColor"
+    },
+    {
+      "source": "components.input.typography",
+      "target": "components.input.typography"
+    },
+    {
+      "source": "components.input.rounded",
+      "target": "components.input.rounded"
+    },
+    {
+      "source": "components.input.padding",
+      "target": "components.input.padding"
+    },
+    {
+      "source": "components.input.height",
+      "target": "components.input.height"
+    },
+    {
+      "source": "components.caption.backgroundColor",
+      "target": "components.caption.backgroundColor"
+    },
+    {
+      "source": "components.caption.textColor",
+      "target": "components.caption.textColor"
+    },
+    {
+      "source": "components.caption.typography",
+      "target": "components.caption.typography"
+    },
+    {
+      "source": "components.caption.rounded",
+      "target": "components.caption.rounded"
+    },
+    {
+      "source": "components.caption.height",
+      "target": "components.caption.height"
+    },
+    {
+      "source": "components.caption-hover.backgroundColor",
+      "target": "components.caption-hover.backgroundColor"
+    },
+    {
+      "source": "components.caption-hover.textColor",
+      "target": "components.caption-hover.textColor"
+    },
+    {
+      "source": "components.caption-hover.typography",
+      "target": "components.caption-hover.typography"
+    },
+    {
+      "source": "components.caption-hover.rounded",
+      "target": "components.caption-hover.rounded"
+    },
+    {
+      "source": "components.caption-hover.height",
+      "target": "components.caption-hover.height"
+    },
+    {
+      "source": "components.caption-close-hover.backgroundColor",
+      "target": "components.caption-close-hover.backgroundColor"
+    },
+    {
+      "source": "components.caption-close-hover.textColor",
+      "target": "components.caption-close-hover.textColor"
+    },
+    {
+      "source": "components.caption-close-hover.typography",
+      "target": "components.caption-close-hover.typography"
+    },
+    {
+      "source": "components.caption-close-hover.rounded",
+      "target": "components.caption-close-hover.rounded"
+    },
+    {
+      "source": "components.caption-close-hover.height",
+      "target": "components.caption-close-hover.height"
+    },
+    {
+      "source": "components.frame.backgroundColor",
+      "target": "components.frame.backgroundColor"
+    },
+    {
+      "source": "components.frame.textColor",
+      "target": "components.frame.textColor"
+    },
+    {
+      "source": "components.frame.typography",
+      "target": "components.frame.typography"
+    },
+    {
+      "source": "components.frame.rounded",
+      "target": "components.frame.rounded"
+    },
+    {
+      "source": "components.frame-edge.backgroundColor",
+      "target": "components.frame-edge.backgroundColor"
+    },
+    {
+      "source": "components.brand-mark.textColor",
+      "target": "components.brand-mark.textColor"
+    },
+    {
+      "source": "components.menu.backgroundColor",
+      "target": "components.menu.backgroundColor"
+    },
+    {
+      "source": "components.menu.textColor",
+      "target": "components.menu.textColor"
+    },
+    {
+      "source": "components.menu.typography",
+      "target": "components.menu.typography"
+    },
+    {
+      "source": "components.menu.rounded",
+      "target": "components.menu.rounded"
+    },
+    {
+      "source": "components.menu.padding",
+      "target": "components.menu.padding"
+    },
+    {
+      "source": "components.dialog.backgroundColor",
+      "target": "components.dialog.backgroundColor"
+    },
+    {
+      "source": "components.dialog.textColor",
+      "target": "components.dialog.textColor"
+    },
+    {
+      "source": "components.dialog.typography",
+      "target": "components.dialog.typography"
+    },
+    {
+      "source": "components.dialog.rounded",
+      "target": "components.dialog.rounded"
+    },
+    {
+      "source": "components.dialog.padding",
+      "target": "components.dialog.padding"
+    },
+    {
+      "source": "components.dialog-scrim.backgroundColor",
+      "target": "components.dialog-scrim.backgroundColor"
+    },
+    {
+      "source": "components.pane.backgroundColor",
+      "target": "components.pane.backgroundColor"
+    },
+    {
+      "source": "components.pane.textColor",
+      "target": "components.pane.textColor"
+    },
+    {
+      "source": "components.pane.typography",
+      "target": "components.pane.typography"
+    },
+    {
+      "source": "components.pane.rounded",
+      "target": "components.pane.rounded"
+    },
+    {
+      "source": "components.pane-tab-active.backgroundColor",
+      "target": "components.pane-tab-active.backgroundColor"
+    },
+    {
+      "source": "components.pane-tab-active.textColor",
+      "target": "components.pane-tab-active.textColor"
+    },
+    {
+      "source": "components.pane-tab-active.typography",
+      "target": "components.pane-tab-active.typography"
+    },
+    {
+      "source": "components.pane-tab-active.height",
+      "target": "components.pane-tab-active.height"
+    },
+    {
+      "source": "components.notice.backgroundColor",
+      "target": "components.notice.backgroundColor"
+    },
+    {
+      "source": "components.notice.textColor",
+      "target": "components.notice.textColor"
+    },
+    {
+      "source": "components.notice.typography",
+      "target": "components.notice.typography"
+    },
+    {
+      "source": "components.notice.rounded",
+      "target": "components.notice.rounded"
+    },
+    {
+      "source": "components.notice.padding",
+      "target": "components.notice.padding"
+    },
+    {
+      "source": "components.status-live.backgroundColor",
+      "target": "components.status-live.backgroundColor"
+    },
+    {
+      "source": "components.status-live.textColor",
+      "target": "components.status-live.textColor"
+    },
+    {
+      "source": "components.status-live.typography",
+      "target": "components.status-live.typography"
+    },
+    {
+      "source": "components.status-warning.backgroundColor",
+      "target": "components.status-warning.backgroundColor"
+    },
+    {
+      "source": "components.status-warning.textColor",
+      "target": "components.status-warning.textColor"
+    },
+    {
+      "source": "components.status-warning.typography",
+      "target": "components.status-warning.typography"
+    },
+    {
+      "source": "x-zsd.layout.viewport-min",
+      "target": "x-zsd.layout.viewport-min"
+    },
+    {
+      "source": "x-zsd.layout.drawer-width-min",
+      "target": "x-zsd.layout.drawer-width-min"
+    },
+    {
+      "source": "x-zsd.layout.drawer-width-max",
+      "target": "x-zsd.layout.drawer-width-max"
+    },
+    {
+      "source": "x-zsd.layout.menu-width-max",
+      "target": "x-zsd.layout.menu-width-max"
+    },
+    {
+      "source": "x-zsd.breakpoints.narrow",
+      "target": "x-zsd.breakpoints.narrow"
+    },
+    {
+      "source": "x-zsd.breakpoints.compact",
+      "target": "x-zsd.breakpoints.compact"
+    },
+    {
+      "source": "x-zsd.breakpoints.drawer",
+      "target": "x-zsd.breakpoints.drawer"
+    },
+    {
+      "source": "x-zsd.border.width-default",
+      "target": "x-zsd.border.width-default"
+    },
+    {
+      "source": "x-zsd.border.color-default",
+      "target": "x-zsd.border.color-default"
+    },
+    {
+      "source": "x-zsd.elevation.glass-blur-radius",
+      "target": "x-zsd.elevation.glass-blur-radius"
+    },
+    {
+      "source": "x-zsd.elevation.glass-saturate",
+      "target": "x-zsd.elevation.glass-saturate"
+    },
+    {
+      "source": "x-zsd.elevation.shadow-menu-y",
+      "target": "x-zsd.elevation.shadow-menu-y"
+    },
+    {
+      "source": "x-zsd.elevation.shadow-menu-blur",
+      "target": "x-zsd.elevation.shadow-menu-blur"
+    },
+    {
+      "source": "x-zsd.elevation.shadow-dialog-y",
+      "target": "x-zsd.elevation.shadow-dialog-y"
+    },
+    {
+      "source": "x-zsd.elevation.shadow-dialog-blur",
+      "target": "x-zsd.elevation.shadow-dialog-blur"
+    },
+    {
+      "source": "x-zsd.elevation.shadow-color-smooth-dark",
+      "target": "x-zsd.elevation.shadow-color-smooth-dark"
+    },
+    {
+      "source": "x-zsd.elevation.shadow-color-smooth-light",
+      "target": "x-zsd.elevation.shadow-color-smooth-light"
+    },
+    {
+      "source": "x-zsd.elevation.shadow-color-oni",
+      "target": "x-zsd.elevation.shadow-color-oni"
+    },
+    {
+      "source": "x-zsd.motion.duration-fast",
+      "target": "x-zsd.motion.duration-fast"
+    },
+    {
+      "source": "x-zsd.motion.duration-base",
+      "target": "x-zsd.motion.duration-base"
+    },
+    {
+      "source": "x-zsd.motion.duration-slow",
+      "target": "x-zsd.motion.duration-slow"
+    },
+    {
+      "source": "x-zsd.motion.easing-out",
+      "target": "x-zsd.motion.easing-out"
+    },
+    {
+      "source": "x-zsd.motion.easing-out-oni",
+      "target": "x-zsd.motion.easing-out-oni"
+    },
+    {
+      "source": "x-zsd.motion.easing-in",
+      "target": "x-zsd.motion.easing-in"
+    },
+    {
+      "source": "x-zsd.accessibility.target-min",
+      "target": "x-zsd.accessibility.target-min"
+    },
+    {
+      "source": "x-zsd.accessibility.focus-width",
+      "target": "x-zsd.accessibility.focus-width"
+    },
+    {
+      "source": "x-zsd.accessibility.focus-offset",
+      "target": "x-zsd.accessibility.focus-offset"
+    },
+    {
+      "source": "x-zsd.accessibility.focus-color",
+      "target": "x-zsd.accessibility.focus-color"
+    }
+  ],
+  "ignoredMetadata": [
+    "x-zsd.profile",
+    "x-zsd.kind",
+    "x-zsd.source",
+    "x-zsd.review",
+    "x-zsd.intent",
+    "x-zsd.preferences",
+    "x-zsd.implementation",
+    "x-zsd.unresolved",
+    "x-zsd.modes"
+  ],
+  "unsupported": []
+}
