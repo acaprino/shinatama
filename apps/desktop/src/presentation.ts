@@ -23,14 +23,14 @@ export type Look = 'smooth' | 'oni';
 export const LOOK_KEY = 'shinatama.look';
 /** The look a stored value stands for: ONI MODE only when it was chosen, anything else (nothing stored, a stale value) is Smooth. */
 export const storedLook = (raw: string | null): Look => (raw === 'oni' ? 'oni' : 'smooth');
-/** Smooth: the slate of Qamille's dark look (a ground, and a sheet one step lighter), her pink hair the one accent. */
+/** Smooth: a slate dark look (a ground, and a sheet one step lighter), her pink hair the one accent. */
 export const SMOOTH: Tokens = { ...base, stage: '#12161e', chrome: '#12161e', 'chrome-2': '#161b25', surface: '#1a202c', 'surface-2': '#222a38', terminal: '#0e1118', line: '#2a3240', 'line-strong': '#6b7488', ice: '#c9d4e6', text: '#e8ecf3', 'text-2': '#c0c8d6', muted: '#9aa5b8', selection: '#4a2c40', scrim: '#0a0d12cc', shadow: '#00000066', grid: '#2a324040' };
 /** Smooth's theme: the one of Windows, or light or dark whatever Windows says. ONI MODE has none: it is always dark. */
 export type Theme = 'system' | 'light' | 'dark';
 export const THEME_KEY = 'shinatama.theme';
 /** The theme a stored value stands for: anything that is not light or dark follows Windows. */
 export const storedTheme = (raw: string | null): Theme => (raw === 'light' || raw === 'dark' ? raw : 'system');
-/** Smooth in the light: Qamille's grey ground and white sheets. The pink is hers, unchanged, for fills and marks; as text
+/** Smooth in the light: a grey ground and white sheets. The pink is hers, unchanged, for fills and marks; as text
  * and as the focus ring it is ACCENT_TEXT_LIGHT (the --accent-text the stylesheets read), deep enough to read on white. */
 export const ACCENT_TEXT_LIGHT = '#b0286a';
 export const SMOOTH_LIGHT: Tokens = { ...base, stage: '#f6f7f9', chrome: '#f6f7f9', 'chrome-2': '#f0f2f5', surface: '#ffffff', 'surface-2': '#eceef2', terminal: '#ffffff', line: '#e3e6ea', 'line-strong': '#7b8494', ice: '#2b4a80', text: '#111827', 'text-2': '#3d4656', muted: '#566070', live: '#0f7566', warning: '#8a5a00', error: '#b3261e', danger: '#b3261e', 'danger-line': '#8f1d17', selection: '#f9d7e6', scrim: '#0f183055', shadow: '#15274a26', grid: '#e3e6ea80' };

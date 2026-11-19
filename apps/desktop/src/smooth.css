@@ -1,9 +1,9 @@
-/* The Smooth look, the default: clean and modern in the manner of SmoothUI and of Qamille's dark look
-   (D:\Projects\qamille\desktop\src\ds), with Shinatama's pink where Qamille has its indigo. It is a layer over the
+/* The Smooth look, the default: clean and modern in the manner of SmoothUI, with
+   Shinatama's pink as its one accent. It is a layer over the
    other stylesheets, which stay what they were and are ONI MODE: every rule here is scoped to the root's
    data-look="smooth" (presentation.ts sets it, and Smooth's colours, which are its SMOOTH tokens).
 
-   As in Qamille: two depths (the ground of the bars and the sidebar, and sheets a step lighter), hairline borders,
+   Two depths (the ground of the bars and the sidebar, and sheets a step lighter), hairline borders,
    corners of 6, 8 and 12px, outlined secondary buttons and one filled primary, underlined tabs, sentence case. No cut
    corners, no drawn gradient edges. Shinatama's own: the pink, her display face (Bahnschrift) on titles and buttons,
    and the glass, which stays as ONI has it, in Smooth's colours. Pane geometry is ONI's, so a terminal keeps its rows
@@ -11,7 +11,7 @@
 
 /* Element defaults, at the specificity of the ONI ones they replace. */
 :where(:root[data-look="smooth"]) {
-  /* Qamille's .secondary: outlined, a step lighter than what it sits on (a wash, so it holds on glass too). */
+  /* Secondary buttons: outlined, a step lighter than what it sits on (a wash, so it holds on glass too). */
   & button { border-color: var(--line); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--text) 4%, transparent); font-weight: 600; }
   & button:hover { border-color: var(--line); background: color-mix(in srgb, var(--text) 9%, transparent); }
   & button:active { background: var(--line); }
