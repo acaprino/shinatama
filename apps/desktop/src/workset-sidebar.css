@@ -29,10 +29,10 @@
 .thread-sidebar-group-toggle[aria-expanded=false]::before { transform: rotate(-45deg); }
 .thread-sidebar-group-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-sidebar-group-count { flex: none; color: var(--muted); font: 11px var(--mono); }
-.thread-sidebar-group[data-current] .thread-sidebar-group-name { color: var(--accent-soft); }
+.thread-sidebar-group[data-current] .thread-sidebar-group-name { color: var(--accent-text, var(--accent-soft)); }
 .thread-sidebar-group-add, .thread-sidebar-group-remove, .thread-sidebar-add-session { flex: none; width: 26px; min-height: 26px; padding: 0; border-color: transparent; background: transparent; color: var(--text-2); font-size: 15px; line-height: 1; }
 .thread-sidebar-group-remove { color: var(--muted); font-size: 13px; }
-.thread-sidebar-group-add:hover, .thread-sidebar-add-session:hover { color: var(--accent); }
+.thread-sidebar-group-add:hover, .thread-sidebar-add-session:hover { color: var(--accent-text, var(--accent)); }
 .thread-sidebar-group-remove:hover { color: var(--error); }
 .thread-sidebar-group-note { padding: 2px 0 4px 18px; color: var(--muted); font: 12px var(--mono); }
 .thread-sidebar-row { display: flex; align-items: stretch; gap: 2px; }
@@ -52,7 +52,7 @@
 .thread-sidebar-anchor[aria-pressed=false] .thread-sidebar-title { color: var(--text-2); }
 .thread-sidebar-state::before { content: none; }
 .thread-sidebar-more { flex: none; width: 26px; min-height: 26px; padding: 0; border-color: transparent; background: transparent; color: var(--muted); font-size: 15px; line-height: 1; }
-.thread-sidebar-more:hover, .thread-sidebar-more[aria-expanded=true] { color: var(--accent); }
+.thread-sidebar-more:hover, .thread-sidebar-more[aria-expanded=true] { color: var(--accent-text, var(--accent)); }
 /* A thread's settings, opened in place under its row. */
 .thread-sidebar-details { display: grid; gap: 8px; margin: 2px 0 8px 12px; padding: 8px 10px; border-left: 2px solid var(--thread-tone, var(--line-strong)); background: color-mix(in srgb, var(--surface-2) 70%, transparent); }
 .thread-sidebar-details .thread-sidebar-rename { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px; }

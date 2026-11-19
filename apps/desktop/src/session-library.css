@@ -4,7 +4,7 @@
 #session-library-root { flex: 1; min-width: 170px; max-width: 100%; }
 .session-library-source { overflow-wrap: anywhere; }
 .session-library-views { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.session-library-views button[aria-pressed=true] { border-color: var(--accent); color: var(--accent); }
+.session-library-views button[aria-pressed=true] { border-color: var(--accent); color: var(--accent-text, var(--accent)); }
 .session-library-view-scope { margin: 8px 0 0; }
 #session-library-status { min-height: 2em; color: var(--text-2); }
 #session-library-status[data-state=error] { color: var(--error); }
@@ -22,7 +22,7 @@
 .session-library-table td .session-library-choose { display: grid; justify-content: stretch; gap: 2px; width: 100%; min-height: 0; padding: 8px 10px; border: 0; background: transparent; }
 .session-library-title { overflow: hidden; color: var(--text); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .session-library-id { font: 11px var(--mono); color: var(--muted); }
-.session-library-table td button[aria-pressed=true] .session-library-title { color: var(--accent-soft); }
+.session-library-table td button[aria-pressed=true] .session-library-title { color: var(--accent-text, var(--accent-soft)); }
 .session-library-table td.session-library-folder { overflow: hidden; padding-top: 9px; font: 11.5px var(--mono); color: var(--text-2); text-overflow: ellipsis; white-space: nowrap; }
 .session-library-table td.session-library-updated { padding-top: 9px; font: 11.5px var(--mono); color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .session-project-group { border-bottom: 1px solid var(--line); }
@@ -31,7 +31,7 @@
 .session-project-group ul { display: grid; gap: 8px; margin: 0; padding: 0 12px 12px 26px; list-style: none; }
 .session-project-group li { display: grid; gap: 5px; min-width: 0; }
 .session-project-session { width: 100%; text-align: left; overflow-wrap: anywhere; white-space: normal; }
-.session-project-session[aria-pressed=true] { border-color: var(--accent); color: var(--accent); }
+.session-project-session[aria-pressed=true] { border-color: var(--accent); color: var(--accent-text, var(--accent)); }
 .session-project-fields { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; color: var(--text-2); font-size: 12px; overflow-wrap: anywhere; }
 .session-project-fields span { min-width: 0; }
 .session-library-pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0; }

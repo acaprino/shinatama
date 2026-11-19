@@ -33,7 +33,7 @@
 .tab-filter-chip { min-height: 26px; padding: 0 9px; gap: 6px; border-color: transparent; color: var(--muted); font: 12px var(--mono); letter-spacing: 0; text-transform: none; }
 .tab-filter-chip small { color: var(--muted); font-size: 11px; }
 .tab-filter-chip[aria-pressed=true] { color: var(--text); background: var(--surface); box-shadow: inset 0 -2px var(--accent); }
-.tab-filter-chip[aria-pressed=true] small { color: var(--accent-soft); }
+.tab-filter-chip[aria-pressed=true] small { color: var(--accent-text, var(--accent-soft)); }
 /* Filter row: the search field, then the "only running" toggle. */
 .project-menu-top { display: flex; align-items: stretch; }
 .project-menu-top #project-menu-filter { flex: 1; min-width: 0; }
@@ -47,7 +47,7 @@
 .toolbar-menu-project span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
 .toolbar-menu-project:hover { border-color: transparent; background: transparent; }
 .toolbar-menu-project[aria-selected=true] { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
-.toolbar-menu-project[data-current] strong { color: var(--accent); }
+.toolbar-menu-project[data-current] strong { color: var(--accent-text, var(--accent)); }
 .toolbar-menu-actions { display: flex; gap: 2px; padding: 4px; }
 .toolbar-menu-actions .toolbar-menu-action { flex: 1; width: auto; justify-content: center; }
 

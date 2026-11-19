@@ -16,6 +16,25 @@ export const SKINS: Readonly<Record<string, { readonly name: string; readonly to
   tctf: { name: 'TCTF', tokens: { ...base, stage: '#090b0e', chrome: '#10151b', 'chrome-2': '#171e26', surface: '#1b2631', 'surface-2': '#24313e', terminal: '#0a1016', line: '#455567', 'line-strong': '#b59b78', ice: '#f6d9b3', text: '#f5ece0', 'text-2': '#d8cab8', muted: '#c7baa7', accent: '#ffc072', 'accent-soft': '#ffdfad', 'accent-ink': '#241405', selection: '#635035', grid: '#45556740' } },
   sumi: { name: 'Sumi', tokens: { ...base, stage: '#080707', chrome: '#100c0c', 'chrome-2': '#171111', surface: '#211919', 'surface-2': '#2b2020', terminal: '#0a0808', line: '#573a37', 'line-strong': '#c88b81', ice: '#f3d5cd', text: '#f7e9e3', 'text-2': '#dcc7c0', muted: '#cbb5ae', accent: '#f49c8b', 'accent-soft': '#ffd2c5', 'accent-ink': '#2a0c08', selection: '#653c35', grid: '#573a3740' } },
 };
+/** The look of the window: Smooth (the default) or ONI MODE (the look Shinatama was born with). The choice is an attribute on
+ * the root (`data-look`): smooth.css is scoped to it, the other stylesheets are what is left without it. Kept in the
+ * webview's own storage like the zoom. Smooth has one palette, below; the skins above are ONI MODE's themes. */
+export type Look = 'smooth' | 'oni';
+export const LOOK_KEY = 'shinatama.look';
+/** The look a stored value stands for: ONI MODE only when it was chosen, anything else (nothing stored, a stale value) is Smooth. */
+export const storedLook = (raw: string | null): Look => (raw === 'oni' ? 'oni' : 'smooth');
+/** Smooth: the slate of Qamille's dark look (a ground, and a sheet one step lighter), her pink hair the one accent. */
+export const SMOOTH: Tokens = { ...base, stage: '#12161e', chrome: '#12161e', 'chrome-2': '#161b25', surface: '#1a202c', 'surface-2': '#222a38', terminal: '#0e1118', line: '#2a3240', 'line-strong': '#6b7488', ice: '#c9d4e6', text: '#e8ecf3', 'text-2': '#c0c8d6', muted: '#9aa5b8', selection: '#4a2c40', scrim: '#0a0d12cc', shadow: '#00000066', grid: '#2a324040' };
+/** Smooth's theme: the one of Windows, or light or dark whatever Windows says. ONI MODE has none: it is always dark. */
+export type Theme = 'system' | 'light' | 'dark';
+export const THEME_KEY = 'shinatama.theme';
+/** The theme a stored value stands for: anything that is not light or dark follows Windows. */
+export const storedTheme = (raw: string | null): Theme => (raw === 'light' || raw === 'dark' ? raw : 'system');
+/** Smooth in the light: Qamille's grey ground and white sheets. The pink is hers, unchanged, for fills and marks; as text
+ * and as the focus ring it is ACCENT_TEXT_LIGHT (the --accent-text the stylesheets read), deep enough to read on white. */
+export const ACCENT_TEXT_LIGHT = '#b0286a';
+export const SMOOTH_LIGHT: Tokens = { ...base, stage: '#f6f7f9', chrome: '#f6f7f9', 'chrome-2': '#f0f2f5', surface: '#ffffff', 'surface-2': '#eceef2', terminal: '#ffffff', line: '#e3e6ea', 'line-strong': '#7b8494', ice: '#2b4a80', text: '#111827', 'text-2': '#3d4656', muted: '#566070', live: '#0f7566', warning: '#8a5a00', error: '#b3261e', danger: '#b3261e', 'danger-line': '#8f1d17', selection: '#f9d7e6', scrim: '#0f183055', shadow: '#15274a26', grid: '#e3e6ea80' };
+const tokensFor = (look: Look, skin: string, light = false): Tokens => look === 'smooth' ? light ? SMOOTH_LIGHT : SMOOTH : SKINS[skin]?.tokens ?? base;
 const ansi = {
   black: '#172538', red: '#ff8495', green: '#75d9a7', yellow: '#e8bb72', blue: '#8bb8ff', magenta: '#d5a4ff', cyan: '#58d6c2', white: '#d9e5f2',
   brightBlack: '#91a7ba', brightRed: '#ffb4bf', brightGreen: '#a8f0ca', brightYellow: '#f5d8a5', brightBlue: '#b7d5ff', brightMagenta: '#e8ccff', brightCyan: '#a2f3e5', brightWhite: '#ffffff',
@@ -64,8 +83,8 @@ export function resolveProfile(id: string | null | undefined): { id: string; pro
 let terminalGlass = false;
 export function setTerminalGlass(enabled: boolean) { terminalGlass = enabled; }
 const glassBackground = (color: string) => terminalGlass && /^#[0-9a-f]{6}$/i.test(color) ? `${color}94` : color;
-export function optionsForProfile(id: string | null | undefined, settings: PresentationSettings): ITerminalOptions {
-  const selected = resolveProfile(id).profile; const skin = SKINS[settings.skin]?.tokens ?? base;
+export function optionsForProfile(id: string | null | undefined, settings: PresentationSettings, look: Look = 'oni', light = false): ITerminalOptions {
+  const selected = resolveProfile(id).profile; const skin = tokensFor(look, settings.skin, light);
   const palette: ITheme = settings.followSkin ? {
     ...ansi, black: skin.terminal, brightBlack: skin.muted, white: skin['text-2'], brightWhite: skin.text,
     red: skin.error, green: skin.live, yellow: skin.warning, blue: skin['line-strong'], magenta: skin.accent, cyan: skin.ice,
@@ -78,8 +97,8 @@ export function optionsForProfile(id: string | null | undefined, settings: Prese
     : `"${settings.fontFamily}", ${fallback}`;
   return { theme: palette, fontFamily, fontSize: settings.fontSize, lineHeight: settings.lineHeight / 100, letterSpacing: selected.letterSpacing, cursorStyle: selected.cursorStyle, cursorBlink: false };
 }
-export function applyTerminalProfile(terminal: Terminal, id: string | null | undefined, settings: PresentationSettings) {
-  const resolved = resolveProfile(id); const next = optionsForProfile(id, settings);
+export function applyTerminalProfile(terminal: Terminal, id: string | null | undefined, settings: PresentationSettings, look: Look = 'oni', light = false) {
+  const resolved = resolveProfile(id); const next = optionsForProfile(id, settings, look, light);
   const metricsChanged = terminal.options.fontFamily !== next.fontFamily || terminal.options.fontSize !== next.fontSize
     || terminal.options.lineHeight !== next.lineHeight || terminal.options.letterSpacing !== next.letterSpacing;
   if (JSON.stringify(terminal.options.theme) !== JSON.stringify(next.theme)) terminal.options.theme = next.theme;
@@ -94,7 +113,13 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
   let flight: Promise<void> | null = null; let pending: PresentationSettings | null = null; let timer = 0; let edits = 0;
   const warnedProfiles = new Set<string>();
   const theme = document.createElement('div'); theme.className = 'presentation-theme';
-  theme.innerHTML = '<label for="presentation-skin">Theme</label><select id="presentation-skin"></select>';
+  theme.innerHTML = '<button id="presentation-look" class="look-switch" type="button" role="switch" aria-checked="false">ONI mode</button><p class="hint">ONI mode is the look Shinatama was born with. Off, the window wears the Smooth look.</p><label for="presentation-theme">Smooth theme</label><select id="presentation-theme"><option value="system">Windows</option><option value="light">Light</option><option value="dark">Dark</option></select><label for="presentation-skin">ONI mode theme</label><select id="presentation-skin"></select>';
+  let look: Look = (() => { try { return storedLook(localStorage.getItem(LOOK_KEY)); } catch { return storedLook(null); } })();
+  const lookSwitch = theme.querySelector<HTMLButtonElement>('#presentation-look')!;
+  let smoothTheme: Theme = (() => { try { return storedTheme(localStorage.getItem(THEME_KEY)); } catch { return storedTheme(null); } })();
+  const themeSelector = theme.querySelector<HTMLSelectElement>('#presentation-theme')!;
+  const systemLight = window.matchMedia('(prefers-color-scheme: light)');
+  const light = () => look === 'smooth' && (smoothTheme === 'light' || (smoothTheme === 'system' && systemLight.matches));
   const selector = theme.querySelector<HTMLSelectElement>('#presentation-skin')!;
   for (const [id, skin] of Object.entries(SKINS)) { const option = document.createElement('option'); option.value = id; option.textContent = skin.name; selector.append(option); }
   const form = document.createElement('form'); form.className = 'presentation-terminal';
@@ -104,8 +129,8 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
   const size = form.querySelector<HTMLInputElement>('#presentation-size')!; const height = form.querySelector<HTMLInputElement>('#presentation-height')!;
   const follow = form.querySelector<HTMLInputElement>('#presentation-follow')!; const status = form.querySelector<HTMLElement>('#presentation-status')!;
   const equal = (a: PresentationSettings, b: PresentationSettings) => JSON.stringify(a) === JSON.stringify(b);
-  function render() { selector.value = current.skin; font.value = current.fontFamily; size.value = String(current.fontSize); height.value = String(current.lineHeight); follow.checked = current.followSkin; }
-  function apply() { for (const [name, value] of Object.entries(SKINS[current.skin].tokens)) document.documentElement.style.setProperty(`--${name}`, value); render(); }
+  function render() { lookSwitch.setAttribute('aria-checked', String(look === 'oni')); selector.disabled = look !== 'oni'; themeSelector.disabled = look === 'oni'; themeSelector.value = smoothTheme; selector.value = current.skin; font.value = current.fontFamily; size.value = String(current.fontSize); height.value = String(current.lineHeight); follow.checked = current.followSkin; }
+  function apply() { document.documentElement.dataset.look = look; document.documentElement.style.colorScheme = light() ? 'light' : 'dark'; if (light()) document.documentElement.style.setProperty('--accent-text', ACCENT_TEXT_LIGHT); else document.documentElement.style.removeProperty('--accent-text'); for (const [name, value] of Object.entries(tokensFor(look, current.skin, light()))) document.documentElement.style.setProperty(`--${name}`, value); render(); }
   function reportFailure() { blocked = true; status.textContent = 'Changes remain visible in this window. Saving is unavailable; press Reload in Settings before trying again.'; options.notify(status.textContent); }
   function schedule() { clearTimeout(timer); if (!blocked && loaded && pending) timer = window.setTimeout(() => { void save(); }, 0); }
   async function save() {
@@ -154,6 +179,17 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
     if (!settings || equal(settings, current)) return;
     edit(settings); status.textContent = options.desktop ? blocked ? 'Applied locally. Press Reload in Settings to restore saving.' : 'Applied; saving…' : 'Applied in browser preview.';
   }
+  lookSwitch.onclick = () => {
+    look = look === 'oni' ? 'smooth' : 'oni';
+    try { localStorage.setItem(LOOK_KEY, look); } catch { /* no storage: the look lasts until the window closes */ }
+    apply(); options.onChange();
+  };
+  themeSelector.onchange = () => {
+    smoothTheme = storedTheme(themeSelector.value);
+    try { localStorage.setItem(THEME_KEY, smoothTheme); } catch { /* no storage: the theme lasts until the window closes */ }
+    apply(); options.onChange();
+  };
+  systemLight.addEventListener('change', () => { apply(); options.onChange(); });
   selector.onchange = () => { if (Object.hasOwn(SKINS, selector.value)) edit({ ...current, skin: selector.value }); };
   for (const field of [font, size, height, follow]) field.addEventListener('change', applyFields);
   for (const field of [size, height]) field.addEventListener('keydown', event => { if (confirmsField(event)) { event.preventDefault(); applyFields(); } });
@@ -167,9 +203,9 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
     reset: render,
     /** Reads the saved preferences again; after a failed save this is what restores saving. */
     reload() { if (!flight) { edits++; void initialize(); } },
-    optionsForProfile: (id: string | null | undefined) => optionsForProfile(id, current),
+    optionsForProfile: (id: string | null | undefined) => optionsForProfile(id, current, look, light()),
     applyProfile: (terminal: Terminal, id: string | null | undefined) => {
-      const result = applyTerminalProfile(terminal, id, current);
+      const result = applyTerminalProfile(terminal, id, current, look, light());
       if (result.fallback) {
         status.textContent = 'That terminal profile is unavailable. The built-in Neutral profile is used without restarting the terminal.';
         if (warnedProfiles.size < 16 && !warnedProfiles.has(String(id))) { warnedProfiles.add(String(id)); options.notify(status.textContent, 'info'); }

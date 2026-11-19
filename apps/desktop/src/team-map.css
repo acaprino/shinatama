@@ -76,7 +76,7 @@
 .team-card[data-in] .team-dot { border-color: var(--live); background: var(--live); }
 .team-card-name { flex: 1; min-width: 0; font: 600 14px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .team-card-bad { font: 700 12px var(--mono); color: var(--error); }
-.team-card-role { margin-top: 1px; height: 1.35em; font: 500 13px var(--display); letter-spacing: .05em; color: var(--accent-soft); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.team-card-role { margin-top: 1px; height: 1.35em; font: 500 13px var(--display); letter-spacing: .05em; color: var(--accent-text, var(--accent-soft)); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .team-card-meta { font: 11px var(--mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .team-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 5px; padding-top: 4px; border-top: 1px solid color-mix(in srgb, var(--line) 80%, transparent); font-size: 11px; color: var(--muted); white-space: nowrap; }
 .team-told[data-s="told"] { color: var(--live); }
@@ -89,7 +89,7 @@
 .team-hint { position: absolute; left: 50%; top: 90px; transform: translateX(-50%); z-index: 3; width: min(460px, 84%); margin: 0; padding: 14px 16px; text-align: center; font-size: 13px; line-height: 1.6; color: var(--text-2); border: 1px dashed var(--line-strong); background: color-mix(in srgb, var(--chrome) 80%, transparent); pointer-events: none; }
 .team-hint b { color: var(--text); }
 .team-tray { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; min-height: 44px; padding: 7px 12px; background: color-mix(in srgb, var(--chrome) 90%, transparent); border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); transition: background var(--fast); }
-.team-tray[data-drop] { background: color-mix(in srgb, var(--accent) 18%, var(--chrome)); color: var(--accent-soft); }
+.team-tray[data-drop] { background: color-mix(in srgb, var(--accent) 18%, var(--chrome)); color: var(--accent-text, var(--accent-soft)); }
 .team-key { display: flex; align-items: center; gap: 6px; font: 11px var(--mono); color: var(--text-2); }
 .team-key i { display: inline-block; width: 22px; border-top: 2px solid var(--line-strong); }
 .team-key i[data-kind="observes"] { border-top: 2px dotted var(--ice); }
@@ -108,7 +108,7 @@
 .team-box .team-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .team-box .foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 8px; }
 .team-box .role-line { padding: 6px 8px; border-left: 2px solid var(--accent); background: color-mix(in srgb, var(--terminal) 60%, transparent); font-size: 12px; color: var(--text-2); }
-.team-box .role-line b { color: var(--accent-soft); font: 500 13px var(--display); letter-spacing: .05em; }
+.team-box .role-line b { color: var(--accent-text, var(--accent-soft)); font: 500 13px var(--display); letter-spacing: .05em; }
 .team-box-agent { width: 262px; }
 .team-box-link { width: 330px; }
 .team-box .lab { margin: 6px 0 2px; font: 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); }
@@ -124,7 +124,7 @@
 .team-kinds button:disabled span { color: var(--error); }
 .team-seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .team-seg button { min-height: 28px; padding: 3px 4px; font-size: 11.5px; line-height: 1.25; white-space: normal; border-color: var(--line); }
-.team-seg button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent-soft); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.team-seg button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent-text, var(--accent-soft)); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .team-seg button:disabled { opacity: .7; text-decoration: line-through; cursor: not-allowed; }
 .team-reason { margin: 4px 0 0; font: 11px var(--mono); color: var(--error); }
 .team-says { margin: 8px 0 0; padding: 6px 8px; border-left: 2px solid var(--live); background: color-mix(in srgb, var(--terminal) 60%, transparent); font: 11.5px/1.5 var(--mono); color: var(--text-2); white-space: pre-wrap; }

@@ -54,6 +54,7 @@ import { attemptKey, forgetRefusal, nextToReopen, threadsOff, reopenCard, reopen
 import { createThreadChat, laterEvent } from './thread-chat.ts';
 import { createToneKeeper } from './thread-tone.ts';
 import './styles.css';
+import './smooth.css';
 
 type SessionInfo = { id: string; cwd: string; shell: string };
 type HarnessCapabilities = { id: string; label: string; nativeResume: boolean };

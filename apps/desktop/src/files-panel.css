@@ -83,7 +83,7 @@
 .files-preview table { border-collapse: collapse; margin: 12px 0; font-size: 13px; }
 .files-preview th, .files-preview td { padding: 6px 12px 6px 0; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
 .files-preview th { color: var(--text-2); font-weight: 600; }
-.files-preview a[data-path] { color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.files-preview a[data-path] { color: var(--accent-text, var(--accent)); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .files-preview .md-link, .files-preview .md-image { color: var(--text-2); }
 .files-empty { display: grid; place-items: center; padding: 24px; color: var(--muted); font-size: 13px; }
 #files-dialog .files-status { flex: none; min-height: 1.6em; margin: 0; padding: 6px 24px 0 14px; font: 12px var(--mono); color: var(--text-2); }
