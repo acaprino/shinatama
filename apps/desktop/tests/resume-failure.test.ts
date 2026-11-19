@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resumeFailureCode, resumeFailureText } from '../src/resume-failure.ts';
+import { resumeFailureCode, resumeFailureText, resumeRetryable } from '../src/resume-failure.ts';
 
 test('the code is read from the backend error object or a bare string', () => {
   assert.equal(resumeFailureCode({ code: 'resources' }), 'resources');
@@ -39,6 +39,15 @@ test('a start that failed after the checks says the harness reason, never a bare
   assert.doesNotMatch(text, /Try again\.$/);
   assert.equal(resumeFailureText({ code: 'unavailable', message: '  ' }), resumeFailureText({ code: 'unavailable' }));
   assert.ok(resumeFailureText({ code: 'unavailable', message: 'x'.repeat(5000) }).length < 600);
+});
+
+// shinatama.log 2026-11-18: reopens refused while the model proxy was starting were never tried again.
+test('a refusal that can pass a moment later is told from one that says what is wrong for good', () => {
+  for (const code of ['busy', 'resources', 'slow_read', 'unavailable', 'source_changed', 'conflict', 'owned_elsewhere']) assert.equal(resumeRetryable({ code }), true, code);
+  assert.equal(resumeRetryable({ code: 'unavailable', message: 'The Shinatama network sidecar is not ready. Try Open again in a moment.' }), true);
+  for (const code of ['unbound', 'native_missing', 'native_unreachable', 'project_unavailable', 'unsupported_harness', 'invalid_request', 'reader_blocked']) assert.equal(resumeRetryable({ code }), false, code);
+  assert.equal(resumeRetryable(new Error('x')), false);
+  assert.equal(resumeRetryable(undefined), false);
 });
 
 test('an unknown failure keeps the conversation and offers a retry', () => {

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { attemptKey, forgetRefusal, nextToReopen, threadsOff, reopenCard, reopenStep, restoredRunning, type ReopenStep, rowsToRecover, sessionState, sessionStateText, sessionTabLabel, sessionTabName, threadSessions, withoutInstance } from '../src/session-tabs.ts';
+import { forgetRefusal, openStep, threadsOff, restoredRunning, rowsToRecover, sessionState, sessionStateText, sessionTabLabel, sessionTabName, threadSessions, withoutInstance } from '../src/session-tabs.ts';
 import { emptyWorkspace, reduceWorkspaceLayout, type LayoutAction, type WorkspaceLayout } from '../src/workspace-model.ts';
 
 const named = (id: string, name: string) => ({ id, name });
@@ -23,23 +23,24 @@ test('a tab names its session first, then the thread: what tells two tabs apart 
   assert.equal(sessionTabLabel({ name: 'Claude Code 2', where: 'Silente e il pensatorio', state: 'saved' }), 'Claude Code 2 · Silente e il pensatorio · not running');
   assert.equal(sessionTabLabel({ name: 'Codex', where: 'ethel', state: 'exited' }), 'Codex · ethel · exited');
   assert.equal(sessionTabLabel({ name: 'PowerShell', where: null, state: 'running', mark: ' · chat' }), 'PowerShell · chat');
+  // 2026-11-19: a tab said "not running" while its session was opening or waiting for its turn.
+  assert.equal(sessionTabLabel({ name: 'Codex', where: 'ethel', state: 'opening' }), 'Codex · ethel · opening');
+  assert.equal(sessionTabLabel({ name: 'Codex', where: 'ethel', state: 'waiting' }), 'Codex · ethel · waiting to open');
 });
 
-const row = (over: Record<string, unknown> = {}) => ({ id: 't_abcdefghijkl', status: 'inactive' as const, nativeAvailable: true as boolean | null, harness: 'claude_code' as string | null, ...over });
+const row = (over: Record<string, unknown> = {}) => ({ status: 'inactive' as 'unbound' | 'inactive' | 'recorded_open' | 'archived', nativeAvailable: true as boolean | null, harness: 'claude_code' as string | null, ...over });
 const resumes = (harness: string | null) => harness === 'claude_code' || harness === 'codex';
-test('a restored tab reopens by itself only when its session was running at the last close', () => {
-  const wanted = new Set(['t_abcdefghijkl']);
-  assert.equal(reopenStep(row(), wanted, resumes), 'resume');
-  // A session the user had stopped, or one that ended by itself, stays "not running" until asked.
-  assert.equal(reopenStep(row(), new Set(), resumes), null);
-  // Marked open by a Shinatama that is gone: that is checked first, then it is resumed.
-  assert.equal(reopenStep(row({ status: 'recorded_open' }), wanted, resumes), 'recover');
-  // Nothing to reopen: nothing saved, a conversation that cannot be reached, an agent that cannot resume.
-  assert.equal(reopenStep(row({ status: 'unbound', harness: null }), wanted, resumes), null);
-  assert.equal(reopenStep(row({ nativeAvailable: false }), wanted, resumes), null);
-  assert.equal(reopenStep(row({ nativeAvailable: null }), wanted, resumes), null);
-  assert.equal(reopenStep(row({ harness: 'opencode' }), wanted, resumes), null);
-  assert.equal(reopenStep(row({ status: 'archived' }), wanted, resumes), null);
+test('opening a saved session resumes it, recovers it first when it was left marked open, or has nothing to open', () => {
+  assert.equal(openStep(row(), resumes), 'resume');
+  // Marked open by a Shinatama that is gone: that is checked first, then its record is read again.
+  assert.equal(openStep(row({ status: 'recorded_open' }), resumes), 'recover');
+  assert.equal(openStep(row({ status: 'recorded_open', harness: 'opencode' }), resumes), 'recover');
+  // Nothing to open, with the code of why: closed, nothing saved, a conversation out of reach, an agent that cannot resume.
+  assert.deepEqual(openStep(row({ status: 'archived' }), resumes), { nothing: 'closed' });
+  assert.deepEqual(openStep(row({ status: 'unbound', harness: null }), resumes), { nothing: 'unbound' });
+  assert.deepEqual(openStep(row({ nativeAvailable: false }), resumes), { nothing: 'native_unreachable' });
+  assert.deepEqual(openStep(row({ nativeAvailable: null }), resumes), { nothing: 'native_unreachable' });
+  assert.deepEqual(openStep(row({ harness: 'opencode' }), resumes), { nothing: 'unsupported_harness' });
 });
 
 const terminal = (id: string, threadId: string | null = null) => ({ id, resource: { kind: 'terminal' as const, instanceId: null, threadId, profileId: null }, hidden: false });
@@ -48,29 +49,10 @@ function layoutOf(...actions: LayoutAction[]): WorkspaceLayout {
   for (const action of actions) { const result = reduceWorkspaceLayout(layout, action); assert.equal(result.ok, true, JSON.stringify(action)); layout = result.layout; }
   return layout;
 }
-test('restored sessions reopen at start one after the other, in the order of the panes and their tabs', () => {
+test('the sessions the saved layout holds as running come in the order of the panes and their tabs', () => {
   const split = layoutOf({ type: 'add-view', groupId: 'g1', view: running('i_bbbbbbbbbbbb', 't_b') }, { type: 'add-view', groupId: 'g1', view: running('i_aaaaaaaaaaaa', 't_a') },
     { type: 'split', groupId: 'g1', view: running('i_cccccccccccc', 't_c'), axis: 'columns', side: 'before', newGroupId: 'g0', newSplitId: 's1' });
-  const tabs = restoredRunning(split, () => false);
-  assert.deepEqual(tabs.map(tab => tab.threadId), ['t_c', 't_b', 't_a']);
-  const steps: Record<string, ReopenStep | undefined> = { t_c: 'resume', t_b: 'recover', t_a: 'resume' };
-  assert.deepEqual(nextToReopen(tabs, tab => steps[tab.threadId], new Set()), { tab: tabs[0], step: 'resume' });
-  // Tried once: refused or done, the next one comes; recovered, the same session is then resumed.
-  assert.equal(nextToReopen(tabs, tab => steps[tab.threadId], new Set([attemptKey('t_c', 'resume')]))?.tab.threadId, 't_b');
-  assert.deepEqual(nextToReopen(tabs, tab => tab.threadId === 't_b' ? 'resume' : null, new Set([attemptKey('t_b', 'recover')])), { tab: tabs[1], step: 'resume' });
-  // A session whose row is not read yet is passed over; nothing left to do: none.
-  assert.equal(nextToReopen(tabs, tab => tab.threadId === 't_a' ? 'resume' : undefined, new Set())?.tab.threadId, 't_a');
-  assert.equal(nextToReopen(tabs, () => null, new Set()), null);
-});
-test('while the start reopens its sessions, each card says whether its own reopens now or waits its turn', () => {
-  const none = { attempted: new Set<string>(), current: null, active: true };
-  assert.equal(reopenCard('resume', 't_a', { ...none, current: 't_a' }), 'reopening');
-  assert.equal(reopenCard('resume', 't_b', { ...none, current: 't_a' }), 'queued');
-  assert.equal(reopenCard('recover', 't_b', none), 'queued');
-  // Nothing to reopen, already tried (a refusal keeps its button), or no reopen under way: the card is as before.
-  assert.equal(reopenCard(null, 't_b', { ...none, current: 't_a' }), 'offer');
-  assert.equal(reopenCard('resume', 't_b', { ...none, attempted: new Set([attemptKey('t_b', 'resume')]) }), 'offer');
-  assert.equal(reopenCard('resume', 't_b', { ...none, active: false }), 'offer');
+  assert.deepEqual(restoredRunning(split, () => false).map(tab => tab.threadId), ['t_c', 't_b', 't_a']);
 });
 
 const summary = (id: string, over: Record<string, unknown> = {}) => ({ id, status: 'inactive' as 'unbound' | 'inactive' | 'recorded_open' | 'archived', nativeAvailable: true as boolean | null, updatedAt: 1, ...over });

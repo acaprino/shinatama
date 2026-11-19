@@ -45,12 +45,13 @@ import { createSessionSearch } from './session-search.ts';
 import { createProjectMenu, createTabFilter, folderName, organizeToolbar, samePath } from './toolbar-simple.ts';
 import { createSessionRaw } from './session-raw.ts';
 import { createSessionFind } from './session-find.ts';
-import { resumeFailureText } from './resume-failure.ts';
+import { resumeFailureCode, resumeFailureText, resumeRetryable } from './resume-failure.ts';
+import { createOpenQueue, createWants, openCard, type OpenOutcome } from './session-opens.ts';
 import { layoutLoadFailureText, transientLayoutFailure } from './workspace-persistence.ts';
 import { newSessionProject, type NewSessionScope } from './session-project.ts';
 import type { ThreadSidebarState, ThreadSummary } from './thread-sidebar.ts';
 import { createWorksetSidebar, type WorksetSummary } from './workset-sidebar.ts';
-import { attemptKey, forgetRefusal, nextToReopen, threadsOff, reopenCard, reopenStep, restoredRunning, rowsToRecover, sessionTabLabel, sessionTabName, threadSessions, withoutInstance } from './session-tabs.ts';
+import { forgetRefusal, openStep, threadsOff, restoredRunning, rowsToRecover, sessionTabLabel, sessionTabName, threadSessions, withoutInstance } from './session-tabs.ts';
 import { createThreadChat, laterEvent } from './thread-chat.ts';
 import { createToneKeeper } from './thread-tone.ts';
 import './styles.css';
@@ -210,7 +211,28 @@ function tabTone(panelId: string): string | null {
 /** The sidebar's last read of agent-given names; a launch waits for it so the two never share the worker. */
 let namesInFlight: Promise<unknown> = Promise.resolve();
 let sidebarRevision = 0;
-let starting = false;
+/** Every open of this window (a new session, a shell, a resume) takes its turn here, one at a time
+ *  (session-opens.ts). Nothing is refused or disabled because another open is under way. */
+const opens = createOpenQueue(() => {
+  const button = document.querySelector('#new-terminal');
+  if (opens.busy()) button?.setAttribute('aria-busy', 'true'); else button?.removeAttribute('aria-busy');
+  render();
+});
+let openSequence = 0;
+/** The saved sessions asked to run, by the user (Resume) or by the start (the ones the saved layout holds as
+ *  running): each stays until it runs, is given up or is cancelled, and a refusal that can pass is tried again
+ *  by itself (session-opens.ts createWants). This window supplies the try itself (openSaved). */
+const wants = createWants(opens, {
+  attempt: (sessionId, restored) => openSaved(sessionId, restored),
+  restoredOrder: () => restoredRunning(workspaceLayout, panelId => views.has(panelId)).map(tab => tab.threadId),
+  // Given up: the reason stays on the card and is said once. In every case the tab no longer says its session ran.
+  settled(sessionId, refused) { if (refused) { openIssues.set(sessionId, refused); notify(refused); } settleRestored(sessionId); },
+  changed: () => render(),
+});
+/** What the last open of a session that was given up said; on its card until it is asked again. */
+const openIssues = new Map<string, string>();
+/** A new or queued open says it waits, so a click is never met with silence. */
+function sayQueued() { if (opens.busy()) notify('Another session is opening. This one opens right after.', 'info'); }
 /** An Open terminal waiting for a project choice; a dismissed picker forgets it. */
 let pendingStart: { group: string; projectChosen: boolean } | null = null;
 let pendingAttentionFocus: string | null = null;
@@ -236,13 +258,16 @@ const openingSteps: Record<string, (agent: string) => string> = {
   check: agent => `checking ${agent}`, reading: () => 'reading the saved conversation',
   prepare: () => 'preparing the session', start: agent => `starting ${agent}`,
 };
+/** The step the open under way waits for, also said on the card of the session that is opening. */
+let openingStep: string | null = null;
 function showOpening(harness: string, step: string) {
   const text = openingSteps[step]; if (!text) return;
   const agent = sessionHarnesses.find(item => item.id === harness)?.label ?? harness;
-  notify(`Opening ${agent}: ${text(agent)}…`, 'info'); clearTimeout(noticeTimer); openingShown = true;
+  openingStep = text(agent);
+  notify(`Opening ${agent}: ${openingStep}…`, 'info'); clearTimeout(noticeTimer); openingShown = true; render();
 }
 /** Ends the progress line of an open; a result notice shown since stays. */
-function endOpening() { if (openingShown) $('#notice').hidden = true; openingShown = false; }
+function endOpening() { if (openingShown) $('#notice').hidden = true; openingShown = false; openingStep = null; }
 /** Writes one line in shinatama.log (data folder); a log that cannot be written changes nothing. */
 function appLog(source: 'layout' | 'page', message: string) { if (desktop) void invoke('app_log', { source, message }).catch(() => {}); }
 $('#notice button').onclick = () => { $('#notice').hidden = true; };
@@ -303,7 +328,9 @@ function tabLabel(id: string) {
   if (!view) {
     const saved = savedSession(id); if (!saved) return 'Saved terminal · unavailable';
     const owner = memberOf.get(saved.id); const folder = recentThreadProjects.get(saved.projectId);
-    return sessionTabLabel({ name: memberName(saved), where: (owner && threadTitle(owner)) || (folder ? folderName(folder) : null), state: 'saved' });
+    const plan = openCard(saved.id, { current: opens.current(), wants: wants.all(), now: Date.now() });
+    return sessionTabLabel({ name: memberName(saved), where: (owner && threadTitle(owner)) || (folder ? folderName(folder) : null),
+      state: plan === 'offer' ? 'saved' : plan === 'opening' ? 'opening' : 'waiting' });
   }
   const where = (view.workset && threadTitle(view.workset)) || folderName(view.info.cwd);
   const row = view.threadId ? worksetMembers.find(member => member.id === view.threadId) : undefined;
@@ -584,17 +611,16 @@ async function connectWorkspace(adoptSaved = true, recovered = false) {
 }
 async function startTerminal(group: string, cwd?: string): Promise<boolean> {
   if (!desktop) { notify('This is the browser preview. Run npm run desktop to open real terminals.', 'info'); return false; }
-  if (starting) return false;
   if (cwd === undefined && (!projectPath || !projectPicker.canStart())) { pendingStart = { group, projectChosen: false }; openProjectDialog(); return false; }
-  starting = true;
-  $<HTMLButtonElement>('#new-terminal').disabled = true;
-  try {
-    await namesInFlight;
-    const info = await invoke<SessionInfo>('terminal_start', { cwd: cwd ?? projectPath, rows: 24, cols: 80 });
-    attachTerminal(info, group, null, activeWorkset());
-    return true;
-  } catch (error) { notify(error); return false; }
-  finally { starting = false; $<HTMLButtonElement>('#new-terminal').disabled = false; }
+  sayQueued();
+  return opens.run(`new:${++openSequence}`, async () => {
+    try {
+      await namesInFlight;
+      const info = await invoke<SessionInfo>('terminal_start', { cwd: cwd ?? projectPath, rows: 24, cols: 80 });
+      attachTerminal(info, group, null, activeWorkset());
+      return true;
+    } catch (error) { notify(error); return false; }
+  });
 }
 const instanceRef = (id: string) => /^i_[a-z2-7]{12}$/.test(id) ? id : `prototype-${id}`;
 /** The thread a session belongs to. The store queues requests (ADR-0055 v3), so a refusal is final;
@@ -849,14 +875,8 @@ async function restoreSession(threadId: string) {
   else if (!await showWorkset(workset)) { notify('The session is back in its thread. Turn the thread on to see its tab.', 'info'); return; }
   // Shown as Show shows a session: its project selected above the tabs, never another project's (2026-11-18).
   await focusThreadSession(threadId);
-  const resumable = (member: ThreadSummary | undefined): member is ThreadSummary =>
-    member?.status === 'inactive' && member.nativeAvailable === true && canResume(member.harness);
-  if (!resumable(worksetMembers.find(member => member.id === threadId))) return;
-  // One open at a time: resumeSaved returns without opening while another session opens, so this waits for it.
-  for (const deadline = Date.now() + 120_000; starting && Date.now() < deadline;) await new Promise(resolve => setTimeout(resolve, 200));
-  if (starting) { notify('Another session is still opening. Press Resume on the tab of this one when it is done.', 'info'); return; }
-  const latest = worksetMembers.find(member => member.id === threadId);
-  if (resumable(latest) && ![...views.values()].some(view => view.threadId === threadId && !view.disposed)) await resumeSaved(latest);
+  const back = worksetMembers.find(member => member.id === threadId);
+  if (back && openStep(back, canResume) === 'resume') wantOpen(threadId);
 }
 /** Deletes one session from Shinatama: a closed one (the sidebar's Delete) or one with nothing saved (Remove). */
 async function forgetSession(threadId: string) {
@@ -896,107 +916,107 @@ function savedSession(panelId: string): ThreadSummary | null {
   return thread ? worksetMembers.find(row => row.id === thread) ?? null : null;
 }
 const canResume = (harness: string | null) => sessionHarnesses.some(item => item.id === harness && item.nativeResume);
-/** The pane of a session that is not running: what it is, why, and Resume when the agent can. While the
- *  start reopens the sessions the saved layout restores as running (reopenRestored), the card of each
- *  says whether its own reopens now or waits its turn, and a waiting one can be left closed. */
+/** The pane of a session that is not running: what it is, where its open stands (session-opens.ts openCard)
+ *  and its button. No button is disabled because another session is opening: asking queues this one. */
 function savedSessionCard(panelId: string): HTMLElement | null {
   const saved = savedSession(panelId); if (!saved) return null;
   const card = document.createElement('div'); card.className = 'wm-placeholder session-idle';
   const name = document.createElement('strong'); name.textContent = memberName(saved);
-  const resumable = saved.status === 'inactive' && saved.nativeAvailable === true && canResume(saved.harness);
   const said = document.createElement('span');
-  const plan = reopenCard(reopenStep(saved, ranAtClose(), canResume), saved.id, { attempted: reopenAttempts, current: reopening, active: reopenActive });
+  const button = (label: string, title: string, act: () => void) => {
+    const made = document.createElement('button'); made.type = 'button'; made.className = 'wm-empty-start'; made.textContent = label; made.title = title;
+    made.onclick = act; card.append(made); return made;
+  };
+  const plan = openCard(saved.id, { current: opens.current(), wants: wants.all(), now: Date.now() });
   if (plan !== 'offer') {
-    said.textContent = plan === 'reopening' ? 'Reopening…' : 'Waiting to reopen: the sessions of the last close reopen one at a time.';
+    said.textContent = plan === 'opening' ? `Opening${openingStep ? `: ${openingStep}` : ''}…`
+      : plan === 'queued' ? 'Waiting its turn: sessions open one at a time.'
+      : `Not opened yet. ${wants.all().get(saved.id)?.reason ?? ''} Shinatama tries again by itself.`;
     said.setAttribute('role', 'status'); card.append(name, said);
-    if (plan === 'queued') {
-      const skip = document.createElement('button'); skip.type = 'button'; skip.className = 'wm-empty-start'; skip.textContent = 'Don\'t reopen';
-      skip.title = 'Leave this session not running; Resume stays available.';
-      skip.onclick = () => { settleRestored(panelId); render(); };
-      card.append(skip);
-    }
+    if (plan === 'retrying') button('Try now', 'Try to open this session now instead of waiting.', () => wantOpen(saved.id));
+    if (plan !== 'opening') button('Don\'t open', 'Leave this session not running; Resume stays available.', () => { wants.cancel(saved.id); });
     return card;
   }
-  said.textContent = resumable ? 'Not running. Its conversation is saved.'
-    : saved.status === 'recorded_open' ? 'Marked open by a session that is no longer here.'
+  const step = openStep(saved, canResume);
+  said.textContent = step === 'resume' ? 'Not running. Its conversation is saved.'
+    : step === 'recover' ? 'Marked open by a session that is no longer here.'
     : saved.status === 'unbound' ? 'Nothing was saved in this session.'
     : saved.nativeAvailable !== true ? 'Its saved conversation cannot be reached now.' : `${harnessLabel(saved.harness)} cannot reopen its sessions.`;
   card.append(name, said);
-  if (resumable || saved.status === 'recorded_open') {
-    const act = document.createElement('button'); act.type = 'button'; act.className = 'wm-empty-start'; act.textContent = resumable ? 'Resume' : 'Recover session';
-    act.disabled = starting;
-    act.onclick = () => { act.disabled = true; void (resumable ? resumeSaved(saved) : recoverSaved(saved)); };
-    card.append(act);
+  const issue = openIssues.get(saved.id);
+  if (issue) { const last = document.createElement('span'); last.setAttribute('role', 'status'); last.textContent = `Last try: ${issue}`; card.append(last); }
+  if (step === 'resume') button('Resume', 'Opens this session again with its saved conversation.', () => wantOpen(saved.id));
+  else if (step === 'recover') {
+    // Asked by hand, the recovery starts nothing (ADR-0051): the card then offers Resume.
+    const recover = button('Recover session', 'Checks that the session left open is gone. Nothing is started.', () => { recover.disabled = true; void recoverSaved(saved); });
   } else if (saved.status === 'unbound') {
     // Nothing to reopen and nothing to lose: the session can only be removed from its thread.
-    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'wm-empty-start'; remove.textContent = 'Remove';
-    remove.title = 'Remove this session from its thread. Nothing else is deleted.';
-    remove.onclick = () => { remove.disabled = true; void forgetSession(saved.id).then(() => threadSidebar?.changed(), () => { remove.disabled = false; notify('The session could not be removed. Nothing was changed.'); }); };
-    card.append(remove);
+    const remove = button('Remove', 'Remove this session from its thread. Nothing else is deleted.',
+      () => { remove.disabled = true; void forgetSession(saved.id).then(() => threadSidebar?.changed(), () => { remove.disabled = false; notify('The session could not be removed. Nothing was changed.'); }); });
   }
   return card;
 }
-/** The reopen under way (its session), whether the start is still reopening, and the attempts made in this run. */
-let reopening: string | null = null; let reopenActive = false;
-const reopenAttempts = new Set<string>();
-/** The layout and its sessions are restored together (ADR-0005 v4): once the saved layout is back, the
- *  sessions it holds as running are reopened one after the other, in the order of the panes and their
- *  tabs, in the background (each keeps its tab where it was; the tab each pane shows and the focus stay).
- *  A session still marked open by the Shinatama that is gone is recovered first (`thread_recover` verifies
- *  that owner is gone and refuses otherwise), then resumed. Each step is tried once per run; a refusal
- *  keeps its notice and leaves the tab not running with its button. Never beside another open. */
-async function reopenRestored() {
-  if (reopenActive) return;
-  reopenActive = true; render();
+/** Asks for a saved session to run: it opens at its turn, and a refusal that can pass is tried again by itself.
+ *  `restored`: asked by the start. What its last try said leaves its card. */
+function wantOpen(sessionId: string, restored = false) { openIssues.delete(sessionId); wants.ask(sessionId, restored); }
+/** One try to make a saved session run, inside its turn of the open queue. One still marked open by a Shinatama
+ *  that is gone is recovered first (`thread_recover` verifies that owner is gone and refuses otherwise), then the
+ *  session is resumed through its agent's native resume. `background`: asked by the start, it leaves the tab each
+ *  pane shows and the focus as they are. */
+async function openSaved(sessionId: string, background: boolean): Promise<OpenOutcome> {
+  if ([...views.values()].some(view => view.threadId === sessionId && !view.disposed && !view.ended)) return { opened: true };
+  if (!harnessCatalogLoaded && !await loadHarnessCatalog()) return { refused: 'The agents of this Shinatama are not read yet.', retry: true };
   try {
-    for (;;) {
-      while (starting) await new Promise(resolve => setTimeout(resolve, 200));
-      const tabs = restoredRunning(workspaceLayout, panelId => views.has(panelId)); const wanted = new Set(tabs.map(tab => tab.threadId));
-      const rowOf = (tab: { panelId: string; threadId: string }) => { const row = savedSession(tab.panelId); return row?.id === tab.threadId ? row : undefined; };
-      // A session that cannot reopen by itself (a shell, an agent without native resume) is restored not running, and so saved.
-      if (harnessCatalogLoaded) for (const tab of tabs) { const row = rowOf(tab); if (row && !reopenStep(row, wanted, canResume)) settleRestored(tab.panelId); }
-      const next = nextToReopen(tabs, tab => { const row = rowOf(tab); return row ? reopenStep(row, wanted, canResume) : undefined; }, reopenAttempts);
-      if (!next) return;
-      const row = rowOf(next.tab)!;
-      reopening = row.id; reopenAttempts.add(attemptKey(row.id, next.step)); render();
-      const done = next.step === 'resume' ? await resumeSaved(row, true) : await recoverSaved(row);
-      reopening = null;
-      // Resumed (its terminal took the tab's place) or refused: the tab no longer says it ran. Recovered: it is resumed next.
-      if (!done || next.step === 'resume') settleRestored(next.tab.panelId);
+    for (let recovered = false; ;) {
+      const row = worksetMembers.find(member => member.id === sessionId); const workset = memberOf.get(sessionId);
+      // Its thread was turned off, or the session was closed or deleted meanwhile.
+      if (!row || !workset) return { nothing: true };
+      const step = openStep(row, canResume);
+      if (typeof step === 'object') return { nothing: true };
+      if (step === 'recover') {
+        if (recovered) return { refused: 'This session is still marked open after its recovery.', retry: true };
+        const refused = await recoverRecord(row); if (refused) return refused;
+        recovered = true; await refreshMembers(); continue;
+      }
+      await namesInFlight;
+      try {
+        const started = await invoke<{ session: SessionInfo; threadId: string }>('thread_resume', {
+          request: { threadId: row.id, projectId: row.projectId, expectedRevision: row.revision, rows: 24, cols: 80 },
+        });
+        attachTerminal(started.session, focusedGroup(), started.threadId, workset, background);
+        return { opened: true };
+      } catch (error) { return { refused: resumeFailureText(error), retry: resumeRetryable(error) }; }
     }
-  } finally { reopening = null; reopenActive = false; render(); }
+  } finally { endOpening(); await refreshMembers(); }
 }
-/** The sessions the restored layout says were running when Shinatama last closed or crashed, not reopened yet:
- *  a tab saved with its terminal's instance that no terminal of this window holds (session-tabs.ts restoredRunning). */
-const ranAtClose = () => new Set(restoredRunning(workspaceLayout, panelId => views.has(panelId)).map(tab => tab.threadId));
-/** The tab no longer says its session ran: it is not reopened by itself again, in this run or at a later start. */
-function settleRestored(panelId: string) {
-  const next = withoutInstance(workspaceLayout, panelId);
-  if (next !== workspaceLayout) { workspaceLayout = next; persistence?.update(workspaceLayout); }
+/** Closes the record a Shinatama that is gone left open (`thread_recover` verifies that owner is gone and refuses
+ *  otherwise; it starts nothing). Null when done; else what to say, and whether a later try can pass: not while
+ *  the session or the Shinatama that opened it is really alive. */
+async function recoverRecord(row: ThreadSummary): Promise<{ refused: string; retry: boolean } | null> {
+  try { await invoke('thread_recover', { request: { threadId: row.id, projectId: row.projectId, expectedRevision: row.revision } }); return null; }
+  catch (error) {
+    const alive = ['session_alive', 'owner_alive'].includes(resumeFailureCode(error) ?? '');
+    return { refused: `The previous run of this session could not be verified as ended${alive ? ': it is still running, here or in another Shinatama window' : ''}. Its saved conversation is kept.`, retry: !alive };
+  }
 }
-/** Opens a saved session; false when it was refused (said in a notice) or another open is in flight.
- *  `background`: reopened by the start, it leaves the tab each pane shows and the focus as they are. */
-async function resumeSaved(saved: ThreadSummary, background = false): Promise<boolean> {
-  const workset = memberOf.get(saved.id) ?? null;
-  if (starting || !workset) return false;
-  starting = true; $<HTMLButtonElement>('#new-terminal').disabled = true;
-  try {
-    await namesInFlight;
-    const started = await invoke<{ session: SessionInfo; threadId: string }>('thread_resume', {
-      request: { threadId: saved.id, projectId: saved.projectId, expectedRevision: saved.revision, rows: 24, cols: 80 },
-    });
-    attachTerminal(started.session, focusedGroup(), started.threadId, workset, background);
-    return true;
-  } catch (error) {
-    notify(resumeFailureText(error)); return false;
-  } finally { endOpening(); starting = false; $<HTMLButtonElement>('#new-terminal').disabled = false; await refreshMembers(); render(); }
+/** The card's Recover session: the record left open is closed and nothing is started; a refusal is said in a notice. */
+async function recoverSaved(saved: ThreadSummary) {
+  const refused = await recoverRecord(saved);
+  if (refused) notify(refused.refused);
+  await refreshMembers(); render();
 }
-/** Closes the record a Shinatama that is gone left open; false when that could not be verified (said in a notice). */
-async function recoverSaved(saved: ThreadSummary): Promise<boolean> {
-  let done = true;
-  try { await invoke('thread_recover', { request: { threadId: saved.id, projectId: saved.projectId, expectedRevision: saved.revision } }); }
-  catch { done = false; notify('The previous session could not be verified. Its saved conversation is preserved.'); }
-  await refreshMembers(); render(); return done;
+/** The layout and its sessions are restored together (ADR-0005 v4): once the saved layout is back, the sessions it
+ *  holds as running are asked to open, in the background (each keeps its tab where it was; the tab each pane shows
+ *  and the focus stay). Unlike v4's "once per run", a refusal that can pass a moment later is tried again by itself:
+ *  at a start the model proxy is not ready for up to a minute, and one try left sessions "not running" at random. */
+function reopenRestored() { for (const tab of restoredRunning(workspaceLayout, panelId => views.has(panelId))) wantOpen(tab.threadId, true); }
+/** The tab of this session no longer says it ran: it is not reopened by itself again, in this run or at a later start. */
+function settleRestored(sessionId: string) {
+  for (const tab of restoredRunning(workspaceLayout, panelId => views.has(panelId))) {
+    if (tab.threadId !== sessionId) continue;
+    const next = withoutInstance(workspaceLayout, tab.panelId);
+    if (next !== workspaceLayout) { workspaceLayout = next; persistence?.update(workspaceLayout); }
+  }
 }
 /** The tab's close: the session stops (after asking, if it runs) and moves to Closed sessions. It is never deleted here. */
 async function closePanel(id: string) {
@@ -1006,6 +1026,7 @@ async function closePanel(id: string) {
   if (!saved) { changeLayout({ type: 'remove-view', viewId: id }); return; }
   // Nothing runs here, so nothing is asked: the session moves to Closed sessions and can come back
   // (as a new tab that does not say it ran, so it stays not running). The notice says so.
+  wants.cancel(saved.id);
   await closeSession(saved.id); threadSidebar?.changed(); sayClosed(saved.id);
 }
 /** Makes a layout hold all and only the sessions of the threads that are on (ADR-0055 v2). Starts nothing. */
@@ -1134,9 +1155,8 @@ const recentThreadProjects = new Map<string,string>();
 /** Starts one session in a project. Shared by the harness menu and the folder dialog. */
 async function startSession(selection: { projectPath: string; harnessId: string; rows: number; cols: number; workset?: WorksetScope | null }) {
   if (!desktop) throw new Error('Open the desktop app to start a session.');
-  if (starting) throw new Error('A session is already opening.');
-  const button = $<HTMLButtonElement>('#new-terminal');
-  starting = true; button.disabled = true; button.setAttribute('aria-busy', 'true');
+  sayQueued();
+  await opens.run(`new:${++openSequence}`, async () => {
   try {
     await namesInFlight;
     const selected = await invoke<{id:string;path:string}>('project_select', {path:selection.projectPath});
@@ -1176,7 +1196,8 @@ async function startSession(selection: { projectPath: string; harnessId: string;
     await refreshMembers();
     await refreshThreadProject();
     void threadSidebar?.refresh();
-  } finally { endOpening(); starting = false; button.disabled = false; button.removeAttribute('aria-busy'); }
+  } finally { endOpening(); }
+  });
 }
 const newSession = createNewSession({
   projects: () => desktop ? invoke('project_recent') : Promise.resolve([]),
@@ -1211,7 +1232,7 @@ async function launchSession(path: string, harnessId: string, group: string, wor
  * projects (`project`) starts in the project shown there. With both the folder and the harness already
  * known (a restart) it starts at once. */
 async function openNewSession(group: string = focusedGroup(), path?: string, harness?: string, scope: NewSessionScope = 'project', workset: WorksetScope | null = null) {
-  if (starting || openingSessionDialog) return;
+  if (openingSessionDialog) return;
   const pressed = document.activeElement instanceof HTMLElement && document.activeElement.matches('#new-terminal,[data-new-terminal],.wm-add,.wm-empty-start,.thread-sidebar-create,.thread-sidebar-add-session')
     ? document.activeElement : null;
   const selectedProject = threadSidebar?.currentProjectId();
@@ -1280,7 +1301,7 @@ threadSidebar = createWorksetSidebar({
   running: id => [...views.values()].filter(view => view.workset?.id === id && !view.ended && !view.disposed).length,
   // Never while a session starts: a name read and a launch share the same worker capacity.
   names: desktop ? threadIds => {
-    if (starting) return Promise.reject(new Error('busy'));
+    if (opens.busy()) return Promise.reject(new Error('busy'));
     const call = invoke('thread_names', { threadIds }); namesInFlight = call.catch(() => undefined); return call;
   } : undefined,
   loadState: desktop ? async () => {
@@ -1468,15 +1489,16 @@ const projectsOverview = createProjectsOverview({
   invoke: (command, args) => desktop ? invoke(command, args) : Promise.reject('Open the desktop app to manage projects.'),
   newSession: path => { void openNewSession(focusedGroup(), path); },
   resume: async (row, thread) => {
-    if (starting) throw 'A session is already opening.';
-    starting = true;
-    try {
-      await namesInFlight;
-      const started = await invoke<{ session: SessionInfo; threadId: string }>('thread_resume', {
-        request: { threadId: thread.id, projectId: row.id, expectedRevision: thread.revision, rows: 24, cols: 80 },
-      }).catch(error => { throw new Error(resumeFailureText(error)); });
-      await attachSession(started.session, started.threadId);
-    } finally { endOpening(); starting = false; }
+    sayQueued();
+    await opens.run(`overview:${thread.id}`, async () => {
+      try {
+        await namesInFlight;
+        const started = await invoke<{ session: SessionInfo; threadId: string }>('thread_resume', {
+          request: { threadId: thread.id, projectId: row.id, expectedRevision: thread.revision, rows: 24, cols: 80 },
+        }).catch(error => { throw new Error(resumeFailureText(error)); });
+        await attachSession(started.session, started.threadId);
+      } finally { endOpening(); }
+    });
   },
   decide: (title, message, accept) => decide(title, message, accept),
   reportError: notify,
@@ -1657,7 +1679,7 @@ async function initialize() {
       });
     window.addEventListener('pagehide', () => { stopCollaborationUpdates(); }, { once: true });
     const stopOpeningSteps = await listen<{ harness: string; step: string }>('agent-opening', ({ payload }) => {
-      if (starting && typeof payload?.harness === 'string' && typeof payload.step === 'string') showOpening(payload.harness, payload.step);
+      if (opens.busy() && typeof payload?.harness === 'string' && typeof payload.step === 'string') showOpening(payload.harness, payload.step);
     }).catch(() => null);
     window.addEventListener('pagehide', () => { stopOpeningSteps?.(); }, { once: true });
     const stopThreadUpdates = await listen<unknown>('thread-changed', ({ payload }) => {
@@ -1733,7 +1755,7 @@ async function initialize() {
     } catch { /* nothing to reopen */ }
     await connectWorkspace();
     // The saved panes are back, and with them the sessions they held as running (reopenRestored).
-    void reopenRestored();
+    reopenRestored();
   } catch (error) { $('#runtime-status').textContent = 'Runtime unavailable'; notify(error); }
 }
 void initialize();
