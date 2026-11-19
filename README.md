@@ -166,5 +166,5 @@ relevant, and the steps to reproduce the issue. [GitHub Issues](https://github.c
 
 ## License
 
-The Shinatama workspace is currently marked `UNLICENSED`.
+[Apache-2.0](LICENSE).
 See the [third-party notices](THIRD_PARTY_NOTICES.md) for dependency licenses.
