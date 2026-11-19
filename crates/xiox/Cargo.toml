@@ -1,0 +1,13 @@
+[package]
+name = "shinatama-xiox"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+# Watches what agent sessions leave behind in a project (worktrees, copies, bench and backup
+# folders, builds) through the `xiox observe` program of Xiox (github.com/acaprino/xiox).
+# Read-only: it starts the observer, reads its JSON lines and never runs `xiox clean`.
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true

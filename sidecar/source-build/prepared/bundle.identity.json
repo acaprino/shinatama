@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "packageName": "billion-context",
+  "version": "0.1.207",
+  "upstreamCommit": "7e69b49ff4facb00b5ba6541b48d0f7fbe63d63d",
+  "sourceTreeSha256": "195d09c3d22008088e8b2496344e850608811e1f3f7e7d789c178f652581d89e",
+  "artifactTreeSha256": "aa3a85749e025655674ddec16b1b57994a8bc823ca48d4c347ddbb364a3c1815",
+  "runtimeDependencyTreeSha256": "89868025df4771c6daf2e5eb745549331af47bd6fbbae90681aacc19edceaea8",
+  "musashiSourceFingerprint": "0e9d1582bd90104d2fb56bd9cd92734ea5ac3bb4b683fc493d25a2258d744e3e",
+  "entry": "dist/index.js",
+  "entrySha256": "5dea8a6b2bff85b80593a3fc92bbf4e8f249a62f06403b426da2c5d216d1e070",
+  "sourceFiles": 398,
+  "artifactFiles": 15,
+  "staticBytes": 99916705,
+  "nodeExecuted": false,
+  "requiredNodeEngine": ">=20",
+  "nodeVersion": null,
+  "nativeAddonAbi": null,
+  "cleanBuildPerformed": false,
+  "runtimeQualified": false,
+  "SC16": "open"
+}

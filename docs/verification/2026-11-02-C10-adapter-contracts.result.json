@@ -1,0 +1,69 @@
+{
+  "check": "C10-headless-adapter-contracts",
+  "status": "passed-local-Windows",
+  "platform": "Windows 11 x64 build 26200",
+  "rustTests": {
+    "adapter": 17,
+    "engine": 7,
+    "cliUnit": 2,
+    "realCliIntegration": 1,
+    "total": 27
+  },
+  "clippy": "passed-warnings-denied",
+  "workspaceAllTargetsCheck": "passed",
+  "format": "passed",
+  "nativeAgentProcessesLaunched": 0,
+  "nativeCliVersionsQualified": 0,
+  "doctor": {
+    "schema": 1,
+    "readOnly": true,
+    "expectedExitCode": 2,
+    "provider": "bounded_path_v1",
+    "agents": [
+      {
+        "id": "claude_code",
+        "status": "degraded",
+        "installations": 1
+      },
+      {
+        "id": "codex",
+        "status": "missing",
+        "installations": 0
+      },
+      {
+        "id": "opencode",
+        "status": "missing",
+        "installations": 0
+      },
+      {
+        "id": "pi",
+        "status": "missing",
+        "installations": 0
+      },
+      {
+        "id": "hermes_agent",
+        "status": "missing",
+        "installations": 0
+      },
+      {
+        "id": "deepseek_harness",
+        "status": "missing",
+        "installations": 0
+      }
+    ],
+    "discoveryIssues": [
+      "path_directory_limit",
+      "reparse_point_skipped",
+      "inspection_failed"
+    ],
+    "artifactSha256": "d0ebd5c8245ca3379a5d15c092a550c9c6c478ed452614be296246fda4653149"
+  },
+  "cliBinarySha256": "c7f6a6869c4903f57c5d8e218965e4b62363132b79df1f40a0068c1e36d4c5c7",
+  "rustLogSha256": "c38b4735af2efbde9a2ae925989c9d6f0f66fab83197eb63bc56e2ba7c7da524",
+  "limits": [
+    "Native help/version probes require the qualified C11/C09R path and per-agent QSET; PE metadata never certifies CLI support.",
+    "No concrete native adapter is enabled; launch/login/update and post-V1 mutation remain refused.",
+    "Fixed drive and reparse admission is not a hard deadline on native filesystem IO.",
+    "Mukade archive reading remains at the injected boundary until C14; Daodan remains deferred."
+  ]
+}

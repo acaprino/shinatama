@@ -1,0 +1,14 @@
+#session-export-dialog { width: min(640px, calc(100vw - 32px)); }
+#session-export-dialog fieldset { border: 1px solid var(--line); margin: 12px 0; padding: 10px 12px; }
+#session-export-dialog legend { padding: 0 6px; color: var(--text-2); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+.session-export-choice { display: flex; align-items: flex-start; gap: 10px; margin: 8px 0; font-size: 13px; color: var(--text); }
+.session-export-choice input { flex: none; margin-top: 3px; }
+.session-export-choice span { display: flex; flex-direction: column; gap: 2px; }
+.session-export-choice small { color: var(--text-2); line-height: 1.5; }
+.session-export-source { overflow-wrap: anywhere; }
+.session-export-actions { display: flex; gap: 8px; margin-top: 12px; }
+.session-export-status { min-height: 2em; color: var(--text-2); font-size: 13px; }
+.session-export-status[data-state=error] { color: var(--error); }
+.session-export-report { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: 13px; margin: 0; }
+.session-export-report dt { color: var(--text-2); }
+.session-export-report dd { margin: 0; overflow-wrap: anywhere; user-select: text; }

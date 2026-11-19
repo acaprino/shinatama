@@ -1,0 +1,13 @@
+[package]
+name = "shinatama-roundtable"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+# Headless roundtable coordinator (FRD-0007 R26-R37): moderated rounds over fresh headless
+# sessions only, hard caps, user stop and interjection, partial results.
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+shinatama-export.workspace = true

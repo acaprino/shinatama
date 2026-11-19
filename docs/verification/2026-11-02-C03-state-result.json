@@ -1,0 +1,13 @@
+{
+  "check": "C02-embedded-state",
+  "expectedSchema": 2,
+  "checks": {
+    "legacyImportedOnceWithStableIdentityAndOriginalBytesPreserved": true,
+    "uiSelectionPersistsOnlyInWalSqlite": true,
+    "restartUsesVerifiedSqliteDespiteCorruptLegacyJson": true,
+    "newerSchemaShowsReadOnlyAndRejectsApiAndUiWrites": true,
+    "readOnlyClosePreservesDatabaseBytesAndAllRows": true,
+    "projectFoldersUntouchedAndNoAutomaticTerminals": true
+  },
+  "status": "passed"
+}

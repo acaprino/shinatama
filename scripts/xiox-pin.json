@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "release": {
+    "repository": "acaprino/xiox",
+    "tag": "v0.1.0",
+    "commit": "4345f21e3228a509c56d341ffdbe44c23381f152",
+    "assets": {
+      "xiox.exe": "cec81e7554524a10d3301e94e5bd5c59200afb71d8a0448fa09bea607be5a983"
+    }
+  }
+}

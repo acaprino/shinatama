@@ -1,0 +1,71 @@
+/* Workspace chrome follows the active skin. Terminal pixels remain xterm's. */
+.wm-host { position: relative; min-width: 0; min-height: 0; overflow: auto; background: var(--stage); }
+#workspace.wm-host { display: block; padding: 0; }
+.wm-pane.pane { min-width: 0; min-height: 0; }
+.wm-canvas { position: relative; min-width: 100%; min-height: 100%; isolation: isolate; }
+.wm-pane { position: absolute; display: flex; flex-direction: column; min-width: 0; min-height: 0; border: 1px solid var(--line); background: var(--terminal); }
+.wm-pane.wm-focused { border-color: var(--ice); }
+.wm-header { display: flex; flex: 0 0 30px; min-width: 0; align-items: stretch; background: var(--chrome); border-bottom: 1px solid var(--line); }
+.wm-control { min-height: 28px; padding: 0 7px; font-size: 12px; letter-spacing: .04em; flex: none; }
+.wm-pane-focus { color: var(--muted); padding: 0 7px; border: 0; font: 12px var(--mono); }
+.wm-tabs { display: flex; align-items: stretch; min-width: 0; flex: 1; overflow: auto; scrollbar-width: thin; }
+.wm-tab { display: block; min-width: 0; max-width: 190px; text-align: left; border-top: 0; border-bottom: 0; text-overflow: ellipsis; overflow: hidden; text-transform: none; font: 12px var(--mono); }
+.wm-tab[aria-selected="true"] { color: var(--ice); background: var(--surface); box-shadow: inset 0 -2px var(--accent); }
+.wm-body { flex: 1; position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+.wm-body > .terminal-view { position: absolute; inset: 0; }
+.wm-placeholder { display: grid; align-content: center; justify-items: center; min-height: 100%; padding: 10px; color: var(--muted); font: 12px var(--mono); text-align: center; overflow-wrap: anywhere; }
+.wm-collapsed .wm-tabs, .wm-collapsed .wm-pane-focus, .wm-collapsed .wm-header > :last-child { display: none; }
+.wm-collapsed .wm-header { flex: 1; justify-content: center; border: 0; }
+.wm-splitter { position: absolute; z-index: 3; touch-action: none; background: transparent; }
+.wm-splitter[data-axis="columns"] { cursor: col-resize; }
+.wm-splitter[data-axis="rows"] { cursor: row-resize; }
+.wm-splitter:hover, .wm-splitter:focus-visible { background: var(--line-strong); }
+.wm-drop-preview { position: absolute; z-index: 5; pointer-events: none; border: 2px solid var(--accent); background: var(--scrim); }
+.wm-changing { user-select: none; }
+.wm-status { position: absolute; left: 8px; bottom: 8px; max-width: calc(100% - 16px); color: var(--warning); background: var(--chrome); pointer-events: none; font: 12px var(--mono); }
+.wm-footer { flex: 0 0 28px; }
+.wm-footer select { max-width: 100px; font: 12px var(--mono); }
+.wm-status:empty { display: none; }
+
+/* Simple tab strip: tabs with ×, "+" for a new session; tabs are dragged to arrange the panes. */
+.wm-tabwrap { display: inline-flex; align-items: stretch; flex: none; max-width: 230px; border-right: 1px solid var(--line); }
+.wm-tabwrap .wm-tab { border-right: 0; }
+.wm-tab-close { padding: 0 7px; font-size: 15px; line-height: 1; color: var(--muted); border: 0; background: transparent; }
+.wm-tab-close:hover { color: var(--error); background: var(--chrome-2); }
+.wm-tabwrap-active { background: var(--surface); box-shadow: inset 0 -2px var(--accent); }
+.wm-tabwrap-active .wm-tab { box-shadow: none; }
+/* The square of the tab's thread: the same colour as its row in the thread sidebar. */
+.wm-tab-toned .wm-tab::before { content: ''; display: inline-block; width: 7px; height: 7px; margin: 0 7px 1px 0; vertical-align: middle; background: var(--tab-tone); }
+.wm-tab-toned.wm-tabwrap-active { box-shadow: inset 0 -2px var(--tab-tone); }
+.wm-add { padding: 0 11px; font-size: 17px; line-height: 1; color: var(--text-2); border-top: 0; border-bottom: 0; }
+.wm-add:hover { color: var(--accent-text, var(--accent)); }
+.wm-empty-start { margin-top: 14px; padding: 10px 18px; font: 600 13px var(--mono); border-color: var(--accent); color: var(--accent-text, var(--accent)); }
+/* "+" sits right after the last tab, like a browser; collapse and maximize stay at the far edge. */
+.wm-tabs { flex: 0 1 auto; }
+.wm-pane-tools { margin-left: auto; }
+
+/* Glass: panes float over the ambient field; an empty pane lets it through. */
+.wm-host { background: transparent; }
+.wm-pane { transition: border-color var(--base) var(--ease-out); }
+.wm-header { background: var(--glass-bar); }
+.wm-tab, .wm-tab-close, .wm-add { transition: color var(--fast) var(--ease-out), background-color var(--fast) var(--ease-out); }
+.wm-pane:has(> .wm-body > .wm-placeholder) { background: color-mix(in srgb, var(--terminal) 46%, transparent); }
+.wm-placeholder { position: relative; isolation: isolate; gap: 2px; font-size: 13px; color: var(--text-2); }
+.wm-empty-start { margin-top: 16px; min-height: 40px; padding: 0 22px; border-color: var(--accent); background: var(--accent); color: var(--accent-ink); font: 600 13px var(--display); letter-spacing: .08em; clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px)); transition: background-color var(--fast) var(--ease-out), scale var(--fast) var(--ease-out); }
+.wm-empty-start:hover { border-color: var(--accent-soft); background: var(--accent-soft); }
+.wm-empty-start:active { scale: .96; }
+.wm-empty-start:focus-visible { outline-color: var(--accent-ink); outline-offset: -4px; }
+.wm-drop-preview { backdrop-filter: blur(3px); }
+
+/* Tab quick filter: a pane with no tab of the chosen project says so and steps back. */
+.wm-tabs-filtered { align-self: center; padding: 0 10px; color: var(--muted); font: 12px var(--mono); white-space: nowrap; }
+.wm-filtered-out > .wm-body { opacity: .35; transition: opacity var(--base) var(--ease-out); }
+
+/* Tab drag: the tab follows the pointer, the target lights up with what the drop will do. */
+.wm-dragging, .wm-dragging * { cursor: grabbing !important; }
+.wm-tab-dragging { opacity: .45; }
+.wm-drag-ghost { position: fixed; left: 0; top: 0; z-index: 50; max-width: 240px; padding: 5px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; border: 1px solid var(--accent); background: var(--glass-strong); color: var(--text); font: 12px var(--mono); box-shadow: 0 8px 22px var(--shadow); }
+.wm-drop-preview { display: grid; place-items: center; transition: left var(--fast) var(--ease-out), top var(--fast) var(--ease-out), width var(--fast) var(--ease-out), height var(--fast) var(--ease-out); background: color-mix(in srgb, var(--accent) 14%, var(--scrim)); }
+.wm-drop-label { padding: 4px 10px; background: var(--chrome); border: 1px solid var(--accent); color: var(--accent-text, var(--accent-soft)); font: 12px var(--mono); }
+.wm-drop-marker { position: absolute; z-index: 6; width: 2px; pointer-events: none; background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+@media (prefers-reduced-motion: reduce) { .wm-drop-preview { transition: none; } }

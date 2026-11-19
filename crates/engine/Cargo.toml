@@ -1,0 +1,34 @@
+[package]
+name = "shinatama-engine"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[features]
+session-reader = ["dep:mukade", "dep:anyhow"]
+
+[[bin]]
+name = "shinatama-session-helper"
+path = "src/bin/shinatama-session-helper.rs"
+required-features = ["session-reader"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+shinatama-adapter.workspace = true
+shinatama-state.workspace = true
+shinatama-export.workspace = true
+shinatama-token-economy.workspace = true
+getrandom.workspace = true
+sha2.workspace = true
+subtle.workspace = true
+uuid.workspace = true
+mukade = { workspace = true, optional = true }
+anyhow = { workspace = true, optional = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys.workspace = true
+
+[dev-dependencies]
+shinatama-hop.workspace = true

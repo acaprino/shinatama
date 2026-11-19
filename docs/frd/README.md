@@ -1,0 +1,112 @@
+# Functional requirements documents
+
+Date of this set: 2026-11-01, written at commit `620bcf9` from every design document in the
+repository (`functional-design.md`, `technical-design.md`, `browser-integration.md`,
+`mukade-handover.md`, `daodan-native-support.md`, `harness-tools.md`, `specs/companion-explainer.md`,
+`specs/token-savings.md`, the two notes of 2026-11-01 and the verification register). Status of
+every record: **Accepted** by the user on 2026-11-01.
+
+**Method decision, user, 2026-11-04:** the JSON evidence records of Daodan's `frd-method`
+(`frd_tool.py`) are retired and deleted from this directory; the Markdown records are the only
+requirements records (ADR-0050 v2). The JSON set (14 files beside FRD-0001 to FRD-0014,
+extracted 2026-11-01, last refreshed at `c84d28e`) remains in the Git history; its spans had
+been stale since the coherence fixes of 2026-11-01 and the tool is not in this repository.
+
+The user-requested 2026-11-02 storage amendment is explicit in FRD-0009/R24 and its linked
+evidence note; the 2026-11-02 shell decision amends FRD-0001/R22 and R51; the 2026-11-02
+host-resilience and adaptive-resource decision adds FRD-0001/R59-R63 and the emergency-stop
+exception in R29 ([amendment](../implementation/2026-11-02-host-resilience.md)). The hop
+decision of 2026-11-03 (Accepted 2026-11-04) amends FRD-0005 and FRD-0006 as stated in their
+headers. The size decision of 2026-11-13 (Accepted 2026-11-13) adds FRD-0006/R49: no session is too large
+(ADR-0053).
+
+**Platform decision, user, 2026-11-02:** Windows is the only officially supported platform for now
+(ADR-0047). FRD-0001 and FRD-0017 are amended; any other clause that names macOS or Linux is
+deferred with those platforms and binds nothing in the active cycle.
+
+## 1. One representation per area
+
+Each area has one file, `FRD-NNNN-<slug>.md`: the readable requirements document. This is what
+a person reviews, approves and builds from. It groups the requirements by behaviour, says who
+decided each one, in which delivery slice it lands, which register row or acceptance test
+proves it, and which decision records govern it.
+
+When a record and a design document disagree, the disagreement is a defect to fix in one of
+them, not a precedence rule. The records consolidate the 866 sentences extracted by the retired
+JSON method into fewer, complete statements and add four areas (FRD-0014 to FRD-0017) that the
+extraction had left inside other records or had not reached.
+
+## 2. Conventions used in every record
+
+**Requirement id.** `Rnn` inside a document; outside it, `FRD-0005/R12`. Ids are stable: a
+withdrawn requirement keeps its number and is marked withdrawn, never reused.
+
+**Statement.** Present tense, Shinatama as the subject, one behaviour per row. "Never" and
+"only" are deliberate: they are the words a test can falsify.
+
+**Origin**, who decided it:
+
+| Code | Meaning |
+|---|---|
+| **U** | Decided by the user, with the date when the documents give one. |
+| **A** | The author's call to fill a gap; the user has not confirmed it. |
+| **P** | Proposed in a specification that is not yet approved as a whole (browser, Daodan native support, companion, token savings). |
+| **S** | Stated in a design document without an origin mark. |
+
+**Slice**, when it is delivered (functional-design 5.12, ADR-0040):
+
+| Code | Meaning |
+|---|---|
+| **M0** | Terminal-first UI milestone: project selector, terminal tiles, tab groups, terminal profiles. |
+| **S1** | First usable slice: read-only session browsing and search, same-agent native resume. |
+| **S2** | Live seed hop with preview, consent, journal and recovery. |
+| **V1** | In v1, after its own gates, not blocking S1 or S2. |
+| **P1** | Post-v1, gated per agent and version. |
+| **EV** | An evaluation, not a delivery. |
+| **X** | Cross-cutting: holds from the first line of code. |
+
+**Proof.** The register rows (`docs/verification-register.md`) or acceptance tests that prove
+the requirement: `P1`, `H7`, `B4` are register rows; `AT-n` is acceptance test n of
+technical-design 11; `CS-n` is row n of the companion specification's 10.2; `TE-n`, `MR-n`
+are the checks of the two notes of 2026-11-01. A requirement with no proof row is marked `—`
+and is a gap the register has to close.
+
+**ADR.** The decision records that govern the requirement (`docs/adr/`).
+
+Open questions are not requirements. Each record lists them at the end, with the register's
+`O` ids where they exist.
+
+## 3. Index of the records
+
+| FRD | Title | Requirements | Slices | Governing ADRs |
+|---|---|---|---|---|
+| [FRD-0001](FRD-0001-workspace-and-agent-hosting.md) | Workspace and agent hosting | 58 | M0, V1 | 0004, 0005, 0006, 0007, 0039, 0040 |
+| [FRD-0002](FRD-0002-agent-placement.md) | Agent placement, homes and per-instance sets | 41 | X, V1 | 0012 v2, 0013, 0014 |
+| [FRD-0003](FRD-0003-accounts-and-login.md) | Accounts and login | 20 | X, V1 | 0031 |
+| [FRD-0004](FRD-0004-project-manager.md) | Project manager | 25 | M0, V1 | 0046 |
+| [FRD-0005](FRD-0005-threads-and-hop.md) | Threads and hop | 62 | S2, P1 | 0015 to 0019, 0022, 0034 |
+| [FRD-0006](FRD-0006-search-sessions-and-resume.md) | Search, sessions, resume and the command line | 48 | S1, S2, P1 | 0011, 0020, 0021, 0023, 0049 |
+| [FRD-0007](FRD-0007-roundtable-and-messaging.md) | Roundtable and messages between instances | 42 | V1 | 0024, 0025, 0026 |
+| [FRD-0008](FRD-0008-daodan.md) | Daodan preinstalled and native task support | 42 | X, V1 | 0032, 0033, 0034 |
+| [FRD-0009](FRD-0009-billioncontext-sidecar.md) | BillionContext sidecar | 30 | X | 0029, 0030 |
+| [FRD-0010](FRD-0010-overview-state-and-widget.md) | Overview, instance state and desktop widget | 44 | V1 | 0027, 0028 |
+| [FRD-0011](FRD-0011-browser.md) | Browser integration (v2: embedded Moli browser tabs) | 60 | V1 | 0035, 0036, 0056 |
+| [FRD-0012](FRD-0012-companion-pane.md) | Companion pane, Aided Decision cards and web grounding | 96 | V1 (R1 to R5) | 0002 v3, 0003 v2, 0041, 0042, 0043 |
+| [FRD-0013](FRD-0013-token-savings.md) | Token savings | 40 | V1, EV | 0025, 0037, 0038 |
+| [FRD-0014](FRD-0014-shared-state-and-privacy.md) | Shared state, privacy and data retention | 32 | X | 0008, 0009 |
+| [FRD-0015](FRD-0015-model-routing-and-tool-chooser.md) | Model routing and the tool chooser | 26 | V1 | 0044, 0031 v2, 0037 v2 |
+| [FRD-0016](FRD-0016-tokeneconomizer-module.md) | TokenEconomizer as an optional module | 24 | V1 | 0045 v3 |
+| [FRD-0017](FRD-0017-install-distribution-and-release.md) | Installation, distribution, updates and release | 22 | X, V1 | 0047, 0048 |
+
+Cross-cutting rules that every record relies on are stated once and referenced: evidence before
+claims (ADR-0010; functional-design 8a), the process model (ADR-0008), the adapter contract
+(ADR-0011) and the seven engine invariants I1 to I7 (technical-design 1).
+
+## 4. Relation to the design documents and the register
+
+The design documents keep the full design and stay the place where details change. A record
+holds the requirements, not the reasoning: when a statement here needs its "why", the row names
+the section that has it. The verification register remains the only place that says whether a
+requirement is proved; a record never claims a pass.
+
+The Markdown records are refreshed by hand in the same commit as the change they follow.

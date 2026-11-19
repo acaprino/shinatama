@@ -1,0 +1,18 @@
+[package]
+name = "shinatama-messaging"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+# Bounded, scoped messages between hosted instances (FRD-0007 R01-R17, R23-R24). Four typed
+# operations only: instances, send, inbox, ack. No scheduler, no persistent mailbox, and no
+# operation that hops, starts instances or changes settings.
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+sha2.workspace = true
+subtle.workspace = true
+shinatama-export.workspace = true
+shinatama-state.workspace = true

@@ -1,0 +1,2085 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Shinatama — tiled workspace mockup</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --stage: #03060b;
+    --shell: #070d18;
+    --titlebar: #080f1c;
+    --panel: #0b1423;
+    --panel-2: #0e192a;
+    --panel-3: #111f33;
+    --terminal: #080f1b;
+    --line: #1b2c43;
+    --line-strong: #2a4565;
+    --text: #e8f0fa;
+    --text-2: #b8c8d9;
+    --muted: #879bb0;
+    --dim: #798ea4;
+    --accent: #f05e97;
+    --accent-ink: #190813;
+    --accent-soft: #ff91b7;
+    --ice: #9fc7f5;
+    --blue: #4b83e8;
+    --cyan: #62d5c6;
+    --red: #ff7285;
+    --amber: #e8bb72;
+    --codex: #86b7ff;
+    --claude: #f05e97;
+    --tool: #9fc7f5;
+    --selection: rgba(240, 94, 151, .16);
+    --line-soft: #172639;
+    --accent-border: #6b3550;
+    --accent-wash: rgba(240, 94, 151, .12);
+    --cyan-border: #22514d;
+    --cyan-wash: rgba(98, 213, 198, .08);
+    --red-wash: rgba(255, 114, 133, .08);
+    --radius: 4px;
+    --font-ui: "Bahnschrift", "Aptos", "Segoe UI Variable Text", "Segoe UI", sans-serif;
+    --font-mono: "Cascadia Code", "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  }
+
+  [data-theme="section9"] {
+    --stage: #02090a;
+    --shell: #061011;
+    --titlebar: #071415;
+    --panel: #0a1718;
+    --panel-2: #0d1d1f;
+    --panel-3: #112529;
+    --terminal: #071314;
+    --line: #183337;
+    --line-strong: #265159;
+    --text: #e7f6f4;
+    --text-2: #b4cdca;
+    --muted: #83a3a0;
+    --dim: #799794;
+    --accent: #56e0d4;
+    --accent-ink: #031312;
+    --accent-soft: #91f4ea;
+    --ice: #9addf0;
+    --blue: #5c9fc2;
+    --cyan: #56e0d4;
+    --codex: #8fc6d1;
+    --claude: #56e0d4;
+    --tool: #9addf0;
+    --selection: rgba(86, 224, 212, .13);
+    --line-soft: #142c30;
+    --accent-border: #2e6d6a;
+    --accent-wash: rgba(86, 224, 212, .1);
+    --cyan-border: #22514d;
+    --cyan-wash: rgba(86, 224, 212, .08);
+    --red-wash: rgba(255, 114, 133, .08);
+  }
+
+  [data-theme="tctf"] {
+    --stage: #090a0b;
+    --shell: #121518;
+    --titlebar: #161a1e;
+    --panel: #1a1f24;
+    --panel-2: #20262c;
+    --panel-3: #293139;
+    --terminal: #121619;
+    --line: #303941;
+    --line-strong: #4d5a64;
+    --text: #f1f3f4;
+    --text-2: #c7cdd2;
+    --muted: #9ba5ad;
+    --dim: #8d99a2;
+    --accent: #f29a4b;
+    --accent-ink: #1b0e03;
+    --accent-soft: #ffb875;
+    --ice: #b8d5e4;
+    --blue: #7ba9c6;
+    --cyan: #96c9c0;
+    --codex: #a8c9e0;
+    --claude: #f29a4b;
+    --tool: #b8d5e4;
+    --selection: rgba(242, 154, 75, .15);
+    --line-soft: #2a3239;
+    --accent-border: #7b5532;
+    --accent-wash: rgba(242, 154, 75, .12);
+    --cyan-border: #3c5955;
+    --cyan-wash: rgba(150, 201, 192, .08);
+    --red-wash: rgba(255, 114, 133, .08);
+  }
+
+  [data-theme="sumi"] {
+    --stage: #080605;
+    --shell: #100c0a;
+    --titlebar: #130f0d;
+    --panel: #191310;
+    --panel-2: #201814;
+    --panel-3: #281f1a;
+    --terminal: #100c0a;
+    --line: #382a23;
+    --line-strong: #5e4337;
+    --text: #f2e9e2;
+    --text-2: #cdbdb2;
+    --muted: #9f8c80;
+    --dim: #99857a;
+    --accent: #e3543e;
+    --accent-ink: #1b0704;
+    --accent-soft: #ff8b70;
+    --ice: #d8c7b9;
+    --blue: #9d9fae;
+    --cyan: #b5b9a8;
+    --codex: #c0b4d8;
+    --claude: #e3543e;
+    --tool: #d8c7b9;
+    --selection: rgba(227, 84, 62, .15);
+    --line-soft: #2c211c;
+    --accent-border: #753c30;
+    --accent-wash: rgba(227, 84, 62, .12);
+    --cyan-border: #4f4e45;
+    --cyan-wash: rgba(181, 185, 168, .08);
+    --red-wash: rgba(227, 84, 62, .1);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    min-width: 900px;
+    background: var(--stage);
+    color: var(--text);
+    font: 13px/1.45 var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow: hidden;
+  }
+
+  button, input { font: inherit; }
+  button { color: inherit; }
+  button, [role="button"] { -webkit-tap-highlight-color: transparent; }
+  svg { display: block; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent-soft);
+    outline-offset: 2px;
+  }
+  ::selection { background: var(--selection); color: var(--text); }
+  ::-webkit-scrollbar { width: 7px; height: 7px; }
+  ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  .app {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 640px;
+    display: grid;
+    grid-template-rows: 34px 52px minmax(0, 1fr) 30px;
+    background: rgba(7, 13, 24, .94);
+    overflow: hidden;
+  }
+
+  /* Window chrome */
+  .titlebar {
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) auto minmax(260px, 1fr);
+    align-items: center;
+    padding: 0 8px 0 14px;
+    background: var(--titlebar);
+    border-bottom: 1px solid var(--line);
+    user-select: none;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 9px; min-width: 0;
+  }
+  .brand-mark {
+    position: relative; width: 16px; height: 16px; flex: 0 0 auto;
+    border: 1px solid var(--accent);
+  }
+  .brand-mark::before, .brand-mark::after {
+    content: ""; position: absolute; background: var(--accent); left: 4px; right: 4px; height: 1px;
+  }
+  .brand-mark::before { top: 5px; }
+  .brand-mark::after { top: 9px; }
+  .brand-word {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .19em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .brand-build {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .12em;
+    color: var(--dim);
+    border-left: 1px solid var(--line);
+    padding-left: 9px;
+    white-space: nowrap;
+  }
+  .window-title {
+    color: var(--muted);
+    font-size: 10px;
+    font-family: var(--font-mono);
+    letter-spacing: .06em;
+    white-space: nowrap;
+  }
+  .window-title strong { color: var(--text-2); font-weight: 500; }
+  .window-tools {
+    display: flex; align-items: center; justify-content: flex-end; gap: 2px;
+  }
+  .traffic {
+    width: 30px; height: 24px; display: grid; place-items: center;
+    border: 0; background: transparent; color: var(--muted); cursor: pointer;
+  }
+  .traffic:hover { background: var(--panel-2); color: var(--text); }
+  .traffic.close:hover { background: #b4384b; color: white; }
+  .traffic svg { width: 10px; height: 10px; }
+
+  /* Command bar */
+  .commandbar {
+    display: flex; align-items: center; min-width: 0; gap: 8px;
+    padding: 0 12px 0 14px;
+    background: var(--shell);
+    border-bottom: 1px solid var(--line);
+  }
+  .project-switch {
+    height: 32px; display: flex; align-items: center; gap: 8px;
+    padding: 0 10px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    cursor: pointer;
+  }
+  .project-switch:hover { border-color: var(--line-strong); background: var(--panel-3); }
+  .project-switch .glyph { color: var(--accent); }
+  .project-switch .path {
+    display: flex; align-items: baseline; gap: 5px;
+    font-family: var(--font-mono); font-size: 11px; white-space: nowrap;
+  }
+  .project-switch .path .parent { color: var(--muted); }
+  .project-switch .path .current { color: var(--text); font-weight: 600; }
+  .project-switch svg { width: 12px; height: 12px; color: var(--dim); }
+
+  .context-chips { display: flex; align-items: center; gap: 4px; min-width: 0; }
+  .chip {
+    height: 26px; display: inline-flex; align-items: center; gap: 6px;
+    padding: 0 8px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    white-space: nowrap;
+    cursor: default;
+  }
+  .chip svg { width: 12px; height: 12px; }
+  .chip b { color: var(--text-2); font-weight: 500; }
+  .chip.button { cursor: pointer; }
+  .chip.button:hover { background: var(--panel-2); border-color: var(--line); color: var(--text); }
+  .chip.dirty b { color: var(--amber); }
+  .chip .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--cyan); }
+
+  .commandbar .spring { flex: 1; }
+  .search-trigger {
+    width: clamp(150px, 16vw, 230px);
+    height: 30px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 9px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    color: var(--dim);
+    cursor: pointer;
+  }
+  .search-trigger:hover { border-color: var(--line-strong); color: var(--muted); }
+  .search-trigger span { flex: 1; text-align: left; font-size: 11px; }
+  .kbd {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 18px; height: 18px; padding: 0 4px;
+    border: 1px solid var(--line-strong);
+    border-radius: 2px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    line-height: 1;
+    background: var(--panel-2);
+  }
+  .primary-action {
+    height: 30px;
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 0 11px;
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: 11px; font-weight: 700; letter-spacing: .015em;
+    cursor: pointer;
+  }
+  .primary-action:hover { background: var(--accent-soft); border-color: var(--accent-soft); }
+  .primary-action svg { width: 13px; height: 13px; }
+  .icon-button {
+    width: 30px; height: 30px;
+    display: grid; place-items: center;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .icon-button:hover { border-color: var(--line); background: var(--panel-2); color: var(--text); }
+  .icon-button svg { width: 15px; height: 15px; }
+
+  .theme-wrap { position: relative; }
+  .theme-button { padding: 0 8px; width: auto; display: flex; gap: 7px; }
+  .theme-swatch {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+    border: 1px solid var(--accent-border);
+  }
+  .theme-label { font-size: 10px; color: var(--muted); }
+  .theme-menu {
+    position: absolute; z-index: 40; top: 35px; right: 0; width: 190px;
+    padding: 5px;
+    background: var(--panel-2);
+    border: 1px solid var(--line-strong);
+    display: none;
+  }
+  .theme-menu.open { display: block; }
+  .theme-menu button {
+    width: 100%; display: flex; align-items: center; gap: 9px;
+    border: 0; background: transparent; padding: 8px 9px;
+    color: var(--text-2); text-align: left; cursor: pointer;
+  }
+  .theme-menu button:hover { background: var(--panel-3); color: var(--text); }
+  .theme-menu .menu-swatch { width: 10px; height: 10px; border-radius: 50%; }
+  .theme-menu .check { margin-left: auto; color: var(--accent); font-size: 11px; }
+
+  /* Workspace grid */
+  .workspace {
+    --nav-w: 228px;
+    --thread-w: 276px;
+    --gap-l: 5px;
+    --gap-r: 5px;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: var(--nav-w) var(--gap-l) minmax(0, 1fr) var(--gap-r) var(--thread-w);
+    background: var(--shell);
+    overflow: hidden;
+  }
+  .workspace.left-collapsed { --nav-w: 30px; --gap-l: 0px; }
+  .workspace.right-collapsed { --thread-w: 30px; --gap-r: 0px; }
+  .workspace.left-collapsed .left-panel { display: none; }
+  .workspace.left-collapsed .rail.left { display: flex; }
+  .workspace.right-collapsed .right-panel { display: none; }
+  .workspace.right-collapsed .rail.right { display: flex; }
+  .workspace.left-collapsed .side-splitter.left,
+  .workspace.right-collapsed .side-splitter.right { display: none; }
+
+  .left-panel, .rail.left { grid-column: 1; grid-row: 1; }
+  .side-splitter.left { grid-column: 2; grid-row: 1; }
+  .main { grid-column: 3; grid-row: 1; }
+  .side-splitter.right { grid-column: 4; grid-row: 1; }
+  .right-panel, .rail.right { grid-column: 5; grid-row: 1; }
+
+  .left-panel {
+    min-width: 0; min-height: 0;
+    display: flex; flex-direction: column;
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+    overflow: hidden;
+  }
+  .right-panel {
+    min-width: 0; min-height: 0;
+    display: flex; flex-direction: column;
+    background: var(--panel);
+    border-left: 1px solid var(--line);
+    overflow: hidden;
+  }
+  .side-splitter {
+    position: relative; z-index: 8;
+    min-width: 0; height: 100%;
+    display: grid; place-items: center;
+    border: 0; padding: 0; background: transparent;
+    cursor: col-resize; touch-action: none;
+  }
+  .side-splitter::before {
+    content: ""; width: 1px; height: 100%;
+    background: var(--line);
+    transition: background .12s, width .12s;
+  }
+  .side-splitter:hover::before,
+  .side-splitter.dragging::before,
+  .side-splitter:focus-visible::before { width: 2px; background: var(--accent); }
+  .side-splitter .grip {
+    position: absolute; width: 5px; height: 28px;
+    border-top: 1px solid var(--line-strong);
+    border-bottom: 1px solid var(--line-strong);
+    background: var(--panel);
+    opacity: 0; transition: opacity .12s;
+  }
+  .side-splitter:hover .grip,
+  .side-splitter.dragging .grip,
+  .side-splitter:focus-visible .grip { opacity: 1; }
+  .side-heading {
+    height: 38px; flex: 0 0 auto;
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--line);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+  }
+  .side-heading .count { color: var(--dim); font-weight: 400; }
+  .side-heading .spring { flex: 1; }
+  .side-heading .icon-button { width: 24px; height: 24px; }
+  .side-heading .icon-button svg { width: 13px; height: 13px; }
+
+  /* Project navigation */
+  .project-filter {
+    margin: 10px 10px 7px;
+    height: 29px;
+    display: flex; align-items: center; gap: 7px;
+    padding: 0 8px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    background: var(--panel-2);
+    color: var(--dim);
+    cursor: pointer;
+    font-size: 11px;
+  }
+  .project-filter:hover { color: var(--muted); border-color: var(--line-strong); }
+  .project-filter span { flex: 1; text-align: left; }
+  .project-filter svg { width: 12px; height: 12px; }
+  .project-list { padding: 2px 7px 7px; }
+  .section-label {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 6px 5px;
+    color: var(--dim);
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+  }
+  .section-label .spring { flex: 1; }
+  .section-label button {
+    border: 0; background: transparent; padding: 1px; color: var(--dim); cursor: pointer;
+  }
+  .section-label button:hover { color: var(--text); }
+  .section-label svg { width: 11px; height: 11px; }
+  .project-item {
+    position: relative;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+    gap: 8px; align-items: center;
+    padding: 7px 7px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    text-align: left;
+  }
+  .project-item:hover { background: var(--panel-2); }
+  .project-item.active { background: var(--selection); border-color: var(--accent-border); }
+  .project-item.active::before {
+    content: ""; position: absolute; left: -1px; top: 7px; bottom: 7px; width: 2px;
+    background: var(--accent);
+  }
+  .project-icon {
+    width: 20px; height: 20px; display: grid; place-items: center;
+    border: 1px solid var(--line-strong); border-radius: 2px;
+    color: var(--muted); background: var(--panel-2);
+  }
+  .project-icon svg { width: 11px; height: 11px; }
+  .project-item.active .project-icon { color: var(--accent); border-color: var(--accent-border); }
+  .project-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; font-weight: 500; }
+  .project-meta { margin-top: 1px; display: flex; align-items: center; gap: 5px; color: var(--dim); font-family: var(--font-mono); font-size: 8.5px; }
+  .project-meta .agent-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--cyan); }
+  .project-side { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+  .project-badge {
+    min-width: 16px; height: 14px; display: grid; place-items: center;
+    padding: 0 4px; border-radius: 2px;
+    background: var(--panel-3); color: var(--muted);
+    font-family: var(--font-mono); font-size: 8px;
+  }
+  .project-item.active .project-badge { background: var(--accent-wash); color: var(--accent-soft); }
+  .agent-stack { display: flex; align-items: center; }
+  .agent-mini {
+    width: 12px; height: 12px; display: grid; place-items: center;
+    margin-left: -3px; border: 1px solid var(--panel); border-radius: 50%;
+    font-family: var(--font-mono); font-size: 6.5px; font-weight: 700;
+    background: var(--panel-3); color: var(--text-2);
+  }
+  .agent-mini:first-child { margin-left: 0; }
+  .agent-mini.c { color: var(--claude); }
+  .agent-mini.x { color: var(--codex); }
+  .agent-mini.o { color: var(--cyan); }
+
+  .thread-list { margin-top: 1px; padding: 2px 7px; }
+  .thread-item {
+    width: 100%;
+    display: grid; grid-template-columns: 13px minmax(0,1fr) auto; gap: 7px;
+    align-items: start;
+    padding: 7px 6px 7px 8px;
+    border: 1px solid transparent; border-left: 2px solid transparent;
+    border-radius: 0 3px 3px 0;
+    background: transparent;
+    color: var(--muted); cursor: pointer; text-align: left;
+  }
+  .thread-item:hover { background: var(--panel-2); color: var(--text-2); }
+  .thread-item.active { background: var(--panel-2); border-left-color: var(--accent); color: var(--text); }
+  .thread-item svg { width: 12px; height: 12px; margin-top: 2px; color: var(--dim); }
+  .thread-title {
+    display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 10.5px; line-height: 1.35; font-weight: 500;
+  }
+  .thread-sub { margin-top: 2px; display: flex; align-items: center; gap: 5px; color: var(--dim); font-family: var(--font-mono); font-size: 8px; }
+  .thread-time { color: var(--dim); font-family: var(--font-mono); font-size: 8px; padding-top: 1px; }
+  .left-spacer { flex: 1; min-height: 8px; }
+  .side-status {
+    flex: 0 0 auto;
+    display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center;
+    margin: 8px 10px 10px; padding: 8px 9px;
+    border: 1px solid var(--line); border-radius: 3px;
+    background: var(--panel-2);
+    font-family: var(--font-mono); font-size: 8.5px; color: var(--muted);
+  }
+  .side-status .status-line { display: flex; align-items: center; gap: 6px; }
+  .pulse { width: 5px; height: 5px; border-radius: 50%; background: var(--cyan); }
+  .side-status b { color: var(--text-2); font-weight: 500; }
+  .side-status .latency { color: var(--dim); }
+
+  /* Main workspace */
+  .main {
+    min-width: 0; min-height: 0;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    background: var(--terminal);
+  }
+
+  .panes {
+    min-height: 0; min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(320px, 1.05fr) 5px minmax(300px, .95fr);
+    padding: 7px;
+    gap: 0;
+    background: var(--terminal);
+  }
+  .pane {
+    position: relative;
+    min-width: 0; min-height: 0;
+    display: grid;
+    grid-template-rows: 30px minmax(0, 1fr);
+    border: 1px solid var(--line);
+    background: var(--terminal);
+    overflow: hidden;
+  }
+  .pane:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+  .pane:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+  .pane.is-focused { border-color: var(--line-strong); }
+  .pane.is-focused::before {
+    content: ""; position: absolute; z-index: 6; inset: -1px -1px auto;
+    height: 2px;
+    background: var(--accent);
+  }
+
+  .leaf-tabbar {
+    min-width: 0;
+    display: flex; align-items: stretch;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-2);
+    user-select: none;
+  }
+  .leaf-tabs {
+    display: flex; align-items: stretch; min-width: 0;
+    flex: 1;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .leaf-tabs::-webkit-scrollbar { display: none; }
+  .panel-tab {
+    position: relative;
+    min-width: 0; max-width: 156px;
+    display: flex; align-items: center; gap: 5px;
+    padding: 0 9px;
+    border: 0; border-right: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+    font-size: 9.5px; white-space: nowrap;
+    cursor: grab;
+  }
+  .panel-tab:hover { background: var(--panel-3); color: var(--text-2); }
+  .panel-tab[aria-selected="true"] {
+    background: var(--terminal); color: var(--text);
+  }
+  .panel-tab[aria-selected="true"]::before {
+    content: ""; position: absolute; inset: auto 0 0; height: 1px; background: var(--accent);
+  }
+  .panel-tab.dragging { opacity: .38; cursor: grabbing; }
+  .panel-tab .tab-agent-mark {
+    width: 13px; height: 13px; flex: 0 0 auto;
+    display: grid; place-items: center;
+    border: 1px solid currentColor; border-radius: 1px;
+    font-family: var(--font-mono); font-size: 6.5px; font-weight: 700;
+  }
+  .panel-tab .tab-agent-mark.claude { color: var(--claude); }
+  .panel-tab .tab-agent-mark.codex { color: var(--codex); }
+  .panel-tab .tab-agent-mark.file { color: var(--ice); border: 0; }
+  .panel-tab .tab-agent-mark.file svg { width: 12px; height: 12px; }
+  .panel-tab .tab-label { overflow: hidden; text-overflow: ellipsis; }
+  .panel-tab .tab-count {
+    min-width: 14px; height: 13px;
+    display: grid; place-items: center; padding: 0 3px;
+    border-radius: 2px; background: var(--panel-3);
+    color: var(--dim); font-family: var(--font-mono); font-size: 7px;
+  }
+  .leaf-tabbar.drop-target { background: var(--accent-wash); border-bottom-color: var(--accent); }
+  .leaf-tools {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 1px;
+    padding: 0 3px; border-left: 1px solid var(--line);
+  }
+  .leaf-tools .icon-button { width: 23px; height: 27px; }
+  .leaf-tools .icon-button svg { width: 12px; height: 12px; }
+  .leaf-tools .icon-button[aria-pressed="true"] { color: var(--accent); background: var(--selection); }
+  .leaf-letter {
+    padding: 0 4px 0 2px;
+    color: var(--dim); font-family: var(--font-mono); font-size: 7px;
+  }
+
+  .leaf-stack { position: relative; min-height: 0; min-width: 0; }
+  .leaf-view {
+    position: absolute; inset: 0;
+    min-width: 0; min-height: 0;
+    display: grid;
+    grid-template-rows: 36px minmax(0, 1fr) 25px;
+    background: var(--terminal);
+  }
+  .leaf-view[hidden] { display: none; }
+
+  .pane.is-maximized { border-radius: var(--radius); }
+  .panes.has-maximized { grid-template-columns: minmax(0, 1fr) !important; }
+  .panes.has-maximized > .pane:not(.is-maximized),
+  .panes.has-maximized > .splitter { display: none; }
+  .panes.has-maximized > .pane.is-maximized { grid-column: 1; }
+
+  .pane-header {
+    min-width: 0;
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 9px 0 10px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+    user-select: none;
+  }
+  .agent-mark {
+    width: 19px; height: 19px; flex: 0 0 auto;
+    display: grid; place-items: center;
+    border: 1px solid currentColor; border-radius: 2px;
+    font-family: var(--font-mono); font-size: 8px; font-weight: 700;
+  }
+  .agent-mark.claude { color: var(--claude); }
+  .agent-mark.codex { color: var(--codex); }
+  .pane-title { min-width: 0; display: flex; align-items: baseline; gap: 6px; }
+  .pane-title strong {
+    color: var(--text); font-size: 11px; font-weight: 600; white-space: nowrap;
+  }
+  .pane-title .instance { color: var(--dim); font-family: var(--font-mono); font-size: 8.5px; white-space: nowrap; }
+  .pane-meta { display: flex; align-items: center; gap: 3px; margin-left: auto; min-width: 0; }
+  .meta-pill {
+    height: 21px; display: inline-flex; align-items: center; gap: 5px;
+    padding: 0 6px;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    background: var(--panel-2);
+    color: var(--muted);
+    font-family: var(--font-mono); font-size: 8.5px; white-space: nowrap;
+  }
+  .meta-pill svg { width: 10px; height: 10px; }
+  .meta-pill b { color: var(--text-2); font-weight: 500; }
+  .meta-pill.state-working { color: var(--cyan); border-color: var(--cyan-border); }
+  .meta-pill.state-waiting { color: var(--accent-soft); border-color: var(--accent-border); background: var(--accent-wash); }
+  .meta-pill .state-dot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+  .pane-header .icon-button { width: 23px; height: 23px; }
+  .pane-header .icon-button svg { width: 12px; height: 12px; }
+  .pane-badge {
+    display: inline-flex; align-items: center; height: 16px; padding: 0 5px;
+    border: 1px solid var(--accent-border);
+    color: var(--accent-soft); background: var(--accent-wash);
+    font-family: var(--font-mono); font-size: 8px; letter-spacing: .08em;
+  }
+
+  .splitter {
+    position: relative; z-index: 7; cursor: col-resize; background: transparent;
+    display: grid; place-items: center; touch-action: none;
+  }
+  .splitter::before { content: ""; width: 1px; height: 100%; background: transparent; transition: background .12s; }
+  .splitter:hover::before, .splitter.dragging::before { background: var(--accent); }
+  .splitter .grip {
+    position: absolute; width: 5px; height: 28px;
+    border-top: 1px solid var(--line-strong); border-bottom: 1px solid var(--line-strong);
+    opacity: 0;
+  }
+  .splitter:hover .grip { opacity: 1; }
+  body.is-resizing { cursor: col-resize; user-select: none; }
+
+  .terminal {
+    min-width: 0; min-height: 0;
+    overflow: auto;
+    padding: 13px 14px 16px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    line-height: 1.58;
+    color: #c3d1df;
+    background: var(--terminal);
+    outline: none;
+    scrollbar-gutter: stable;
+    tab-size: 2;
+  }
+  .terminal:focus-visible { outline: 1px solid var(--accent-soft); outline-offset: -2px; }
+  .terminal::-webkit-scrollbar { width: 6px; }
+  .terminal p { margin: 0 0 7px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .terminal p:last-child { margin-bottom: 0; }
+  .t-user { color: var(--dim); display: flex; align-items: flex-start; gap: 7px; }
+  .t-user .caret { flex: 0 0 auto; color: var(--accent); font-weight: 700; }
+  .t-user .text { color: var(--text); }
+  .t-assistant { display: flex; align-items: flex-start; gap: 7px; }
+  .t-assistant .spark { flex: 0 0 auto; color: var(--claude); }
+  .t-assistant .body { min-width: 0; }
+  .t-assistant strong { color: var(--text); font-weight: 600; }
+  .t-tool { color: var(--muted); display: flex; align-items: flex-start; gap: 7px; }
+  .t-tool .tool-mark { flex: 0 0 auto; color: var(--tool); }
+  .t-tool .tool-name { color: var(--text-2); }
+  .t-tool .tool-arg { color: var(--dim); overflow-wrap: anywhere; }
+  .t-result { padding-left: 18px; color: var(--dim); display: flex; gap: 7px; }
+  .t-result .result-mark { color: var(--line-strong); }
+  .t-add { color: var(--cyan); }
+  .t-del { color: var(--red); }
+  .t-dim { color: var(--dim); }
+  .t-faint { color: #50647a; }
+  .t-pink { color: var(--accent-soft); }
+  .t-cyan { color: var(--cyan); }
+  .t-blue { color: var(--ice); }
+  .t-warn { color: var(--amber); }
+  .t-code {
+    display: block; margin: 6px 0 8px 18px; padding: 7px 9px;
+    border-left: 2px solid var(--line-strong); background: var(--panel);
+    color: var(--text-2); white-space: pre-wrap;
+  }
+  .t-rule { height: 1px; background: var(--line); margin: 9px 0; }
+  .cursor {
+    display: inline-block; width: 6px; height: 12px; margin-left: 3px;
+    background: var(--accent); vertical-align: -2px;
+    animation: caret 1.1s steps(1) infinite;
+  }
+  @keyframes caret { 0%, 44% { opacity: 1; } 45%, 100% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .cursor { animation: none; } }
+
+  /* Codex approval block */
+  .approval {
+    margin: 10px 0 8px 18px;
+    border: 1px solid var(--accent-border);
+    background: var(--accent-wash);
+  }
+  .approval-head {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 9px;
+    border-bottom: 1px solid var(--accent-border);
+    color: var(--accent-soft); font-size: 9.5px; font-weight: 600;
+    letter-spacing: .05em; text-transform: uppercase;
+  }
+  .approval-head svg { width: 12px; height: 12px; }
+  .approval-body { padding: 8px 9px; color: var(--text-2); }
+  .approval-code {
+    margin-top: 6px; padding: 6px 7px;
+    background: var(--terminal); border: 1px solid var(--line);
+    color: var(--ice); white-space: pre-wrap;
+    font-family: var(--font-mono); font-size: 9.5px;
+  }
+  .approval-actions { display: flex; gap: 5px; padding: 0 9px 9px; }
+  .mini-button {
+    height: 23px; padding: 0 8px;
+    border: 1px solid var(--line-strong); border-radius: 2px;
+    background: var(--panel-2); color: var(--text-2);
+    font-family: var(--font-ui); font-size: 9.5px; cursor: pointer;
+  }
+  .mini-button:hover { border-color: var(--accent); color: var(--text); }
+  .mini-button.allow { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 650; }
+  .mini-button.allow:hover { color: var(--accent-ink); background: var(--accent-soft); border-color: var(--accent-soft); }
+  .mini-button .key { opacity: .6; font-family: var(--font-mono); font-size: 8px; margin-left: 4px; }
+
+  .pane-footer {
+    min-width: 0;
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 9px;
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--dim);
+    font-family: var(--font-mono); font-size: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .pane-footer .footer-item { display: flex; align-items: center; gap: 5px; min-width: 0; }
+  .pane-footer svg { width: 10px; height: 10px; flex: 0 0 auto; }
+  .pane-footer b { color: var(--muted); font-weight: 500; }
+  .pane-footer .spring { flex: 1; }
+  .context-meter { width: 58px; height: 3px; background: var(--line); overflow: hidden; }
+  .context-meter span { display: block; height: 100%; background: var(--cyan); }
+  .context-meter.waiting span { background: var(--accent); }
+
+  /* File navigator inside a leaf */
+  .file-browser {
+    min-width: 0; min-height: 0; overflow: auto;
+    padding: 8px 7px 12px;
+    background: var(--terminal);
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+  }
+  .file-root {
+    display: flex; align-items: center; gap: 7px;
+    height: 28px; padding: 0 7px 0 8px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--text-2);
+  }
+  .file-root svg { width: 12px; height: 12px; color: var(--accent); }
+  .file-root b { font-weight: 600; }
+  .file-root .root-path { color: var(--dim); font-size: 8px; }
+  .file-root .file-count { margin-left: auto; color: var(--muted); font-size: 8px; }
+  .file-list { padding-top: 3px; }
+  .file-row {
+    height: 27px;
+    display: grid; grid-template-columns: 16px minmax(0,1fr) auto;
+    gap: 5px; align-items: center;
+    padding: 0 8px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--line-soft);
+    white-space: nowrap;
+  }
+  .file-row:hover { background: var(--panel); color: var(--text-2); }
+  .file-row svg { width: 11px; height: 11px; color: var(--dim); }
+  .file-row.dir { color: var(--text-2); }
+  .file-row.dir svg { color: var(--muted); }
+  .file-row.indent { padding-left: 24px; }
+  .file-row.indent-2 { padding-left: 40px; }
+  .file-row .file-name { overflow: hidden; text-overflow: ellipsis; }
+  .file-row .file-status { color: var(--dim); font-size: 8px; }
+  .file-row .file-status.modified { color: var(--amber); }
+  .file-row .file-status.added { color: var(--cyan); }
+  .file-row.selected { background: var(--selection); color: var(--text); border-left: 2px solid var(--accent); padding-left: 6px; }
+
+  /* Right thread panel */
+  .thread-head {
+    padding: 12px 12px 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .eyebrow {
+    display: flex; align-items: center; gap: 6px;
+    color: var(--dim); font-family: var(--font-mono); font-size: 8px;
+    font-weight: 600; letter-spacing: .13em; text-transform: uppercase;
+  }
+  .eyebrow .status { margin-left: auto; color: var(--cyan); }
+  .eyebrow .status::before { content: ""; display: inline-block; width: 4px; height: 4px; margin-right: 4px; border-radius: 50%; background: currentColor; vertical-align: 1px; }
+  .thread-name { margin-top: 7px; font-size: 14px; line-height: 1.3; font-weight: 600; letter-spacing: -.01em; }
+  .thread-id { margin-top: 4px; color: var(--dim); font-family: var(--font-mono); font-size: 8.5px; }
+  .task-link {
+    width: 100%; margin-top: 11px;
+    display: grid; grid-template-columns: 16px minmax(0,1fr) auto; gap: 8px; align-items: center;
+    padding: 8px;
+    border: 1px solid var(--line); border-radius: 3px;
+    background: var(--panel-2); color: var(--text-2);
+    text-align: left; cursor: pointer;
+  }
+  .task-link:hover { border-color: var(--line-strong); }
+  .task-link .task-icon { color: var(--accent); }
+  .task-link .task-copy { min-width: 0; }
+  .task-link .task-copy span { display: block; color: var(--dim); font-family: var(--font-mono); font-size: 7.5px; letter-spacing: .08em; text-transform: uppercase; }
+  .task-link .task-copy strong { display: block; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; font-weight: 500; }
+  .task-link .chevron { color: var(--dim); }
+  .task-link svg { width: 12px; height: 12px; }
+
+  .thread-section { padding: 11px 12px; border-bottom: 1px solid var(--line); }
+  .section-title {
+    display: flex; align-items: center;
+    margin-bottom: 8px;
+    color: var(--muted); font-family: var(--font-mono); font-size: 8px;
+    font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+  }
+  .section-title .spring { flex: 1; }
+  .section-title .hint { color: var(--dim); font-size: 7.5px; letter-spacing: 0; text-transform: none; }
+  .readiness { display: grid; gap: 6px; }
+  .readiness-head { display: flex; align-items: baseline; gap: 7px; }
+  .readiness-value { color: var(--text); font-family: var(--font-mono); font-size: 16px; font-weight: 600; }
+  .readiness-label { color: var(--text-2); font-size: 10px; font-weight: 600; }
+  .readiness-bar { height: 4px; background: var(--line); overflow: hidden; }
+  .readiness-bar span { display: block; width: 82%; height: 100%; background: var(--accent); }
+  .readiness-copy { color: var(--dim); font-size: 9.5px; line-height: 1.4; }
+  .carry-list { display: grid; gap: 5px; }
+  .carry-row {
+    display: grid; grid-template-columns: 12px minmax(0,1fr) auto; gap: 6px; align-items: center;
+    color: var(--muted); font-size: 9.5px;
+  }
+  .carry-row svg { width: 11px; height: 11px; color: var(--cyan); }
+  .carry-row.excluded svg { color: var(--dim); }
+  .carry-row.excluded { color: var(--dim); }
+  .carry-row .value { color: var(--dim); font-family: var(--font-mono); font-size: 8px; }
+  .context-block { display: grid; gap: 6px; }
+  .context-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 9.5px; }
+  .context-line b { color: var(--text-2); font-family: var(--font-mono); font-size: 8.5px; font-weight: 500; }
+  .context-bar { height: 4px; background: var(--line); overflow: hidden; }
+  .context-bar span { display: block; height: 100%; width: 38%; background: var(--accent); }
+  .context-scale { display: flex; justify-content: space-between; color: var(--dim); font-family: var(--font-mono); font-size: 7.5px; }
+  .timeline { display: grid; gap: 7px; }
+  .event {
+    position: relative;
+    display: grid; grid-template-columns: 11px minmax(0,1fr) auto; gap: 6px;
+    align-items: start; color: var(--muted); font-size: 9.5px;
+  }
+  .event::before {
+    content: ""; position: absolute; left: 4px; top: 11px; bottom: -8px;
+    width: 1px; background: var(--line);
+  }
+  .event:last-child::before { display: none; }
+  .event-dot { width: 5px; height: 5px; margin: 4px 0 0 2px; border-radius: 50%; background: var(--line-strong); z-index: 1; }
+  .event.accent .event-dot { background: var(--accent); }
+  .event.success .event-dot { background: var(--cyan); }
+  .event-time { color: var(--dim); font-family: var(--font-mono); font-size: 7.5px; white-space: nowrap; padding-top: 1px; }
+  .right-spacer { flex: 1; min-height: 2px; }
+  .thread-actions {
+    display: grid; grid-template-columns: 1fr auto; gap: 5px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .thread-actions .primary-action { justify-content: center; height: 30px; font-size: 10px; }
+  .thread-actions .icon-button { width: 30px; height: 30px; border-color: var(--line); background: var(--panel-2); }
+
+  /* Bottom bar */
+  .bottombar {
+    display: flex; align-items: center; gap: 4px;
+    padding: 0 9px;
+    border-top: 1px solid var(--line);
+    background: var(--titlebar);
+    color: var(--dim);
+    font-family: var(--font-mono); font-size: 8px;
+    user-select: none;
+  }
+  .keyhint { display: flex; align-items: center; gap: 4px; padding: 0 4px; white-space: nowrap; }
+  .keyhint .kbd { height: 15px; min-width: 16px; font-size: 7.5px; background: transparent; }
+  .bottombar .spring { flex: 1; }
+  .bottombar .mock-label { color: var(--dim); letter-spacing: .08em; }
+  .connection { display: flex; align-items: center; gap: 5px; color: var(--muted); white-space: nowrap; }
+  .connection .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--cyan); }
+
+  /* Collapsed rails */
+  .rail {
+    display: none;
+    width: 30px; min-width: 30px; border-right: 1px solid var(--line);
+    background: var(--panel); align-items: center; flex-direction: column; gap: 12px; padding-top: 8px;
+  }
+  .rail.right { border-right: 0; border-left: 1px solid var(--line); }
+  .rail button { width: 22px; height: 22px; display: grid; place-items: center; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+  .rail button:hover { color: var(--text); }
+  .rail span { display: none; }
+  .workspace.left-collapsed .left-panel { display: none; }
+  .workspace.left-collapsed .rail.left { display: flex; }
+  .workspace.right-collapsed .right-panel { display: none; }
+  .workspace.right-collapsed .rail.right { display: flex; }
+
+  /* Modal / hop dialog */
+  .backdrop {
+    position: fixed; inset: 0; z-index: 100;
+    display: none; place-items: center;
+    padding: 24px;
+    background: rgba(1, 4, 8, .82);
+  }
+  .backdrop.open { display: grid; }
+  .dialog {
+    width: min(720px, 100%);
+    max-height: min(680px, calc(100vh - 48px));
+    overflow: auto;
+    border: 1px solid var(--line-strong);
+    background: var(--panel);
+  }
+  .dialog-head {
+    display: flex; align-items: center; gap: 9px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-2);
+  }
+  .dialog-head .dialog-icon {
+    width: 26px; height: 26px; display: grid; place-items: center;
+    border: 1px solid var(--accent-border);
+    background: var(--accent-wash); color: var(--accent);
+  }
+  .dialog-head .dialog-icon svg { width: 15px; height: 15px; }
+  .dialog-title { min-width: 0; }
+  .dialog-title strong { display: block; font-size: 12.5px; font-weight: 600; }
+  .dialog-title span { display: block; margin-top: 1px; color: var(--dim); font-size: 9px; }
+  .dialog-head .icon-button { margin-left: auto; }
+  .dialog-body { padding: 15px; }
+  .hop-route {
+    display: grid; grid-template-columns: minmax(0,1fr) 54px minmax(0,1fr); gap: 8px; align-items: center;
+    margin-bottom: 13px;
+  }
+  .route-card {
+    min-width: 0;
+    display: flex; align-items: center; gap: 9px;
+    padding: 10px;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+  }
+  .route-card .agent-mark { width: 24px; height: 24px; font-size: 9px; }
+  .route-card .route-copy { min-width: 0; }
+  .route-card .route-copy span { display: block; color: var(--dim); font-family: var(--font-mono); font-size: 7.5px; letter-spacing: .08em; text-transform: uppercase; }
+  .route-card .route-copy strong { display: block; margin-top: 2px; color: var(--text); font-size: 11px; font-weight: 600; }
+  .route-card .route-copy small { display: block; margin-top: 2px; color: var(--muted); font-size: 9px; }
+  .route-arrow { display: flex; align-items: center; justify-content: center; color: var(--accent); }
+  .route-arrow svg { width: 24px; height: 16px; }
+  .hop-note {
+    display: flex; gap: 8px; align-items: flex-start;
+    padding: 8px 9px; margin-bottom: 13px;
+    border-left: 2px solid var(--accent);
+    background: var(--accent-wash);
+    color: var(--text-2); font-size: 9.5px; line-height: 1.45;
+  }
+  .hop-note svg { width: 13px; height: 13px; margin-top: 1px; color: var(--accent); flex: 0 0 auto; }
+  .hop-note.success { border-left-color: var(--cyan); background: var(--cyan-wash); }
+  .hop-note.success svg { color: var(--cyan); }
+  .dialog-section-label {
+    margin-bottom: 7px; color: var(--muted); font-family: var(--font-mono);
+    font-size: 8px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+  }
+  .carry-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .carry-card { padding: 9px 10px; border: 1px solid var(--line); background: var(--panel-2); }
+  .carry-card h4 { margin: 0 0 6px; display: flex; align-items: center; gap: 5px; font-size: 9.5px; font-weight: 600; }
+  .carry-card h4 svg { width: 11px; height: 11px; }
+  .carry-card.yes h4 { color: var(--cyan); }
+  .carry-card.no h4 { color: var(--dim); }
+  .carry-card ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; color: var(--muted); font-size: 9px; }
+  .carry-card li { display: flex; gap: 6px; }
+  .carry-card li::before { content: "+"; color: var(--cyan); font-family: var(--font-mono); }
+  .carry-card.no li::before { content: "−"; color: var(--dim); }
+  .mode-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .mode-card {
+    position: relative; display: flex; gap: 8px; align-items: flex-start;
+    padding: 10px; border: 1px solid var(--line); background: var(--panel-2);
+    color: var(--muted); text-align: left; cursor: pointer;
+  }
+  .mode-card:hover { border-color: var(--line-strong); }
+  .mode-card.selected { border-color: var(--accent); background: var(--selection); color: var(--text-2); }
+  .radio {
+    width: 12px; height: 12px; flex: 0 0 auto; margin-top: 1px;
+    border: 1px solid var(--line-strong); border-radius: 50%;
+  }
+  .mode-card.selected .radio { border: 4px solid var(--accent); background: var(--panel-2); }
+  .mode-card strong { display: block; color: var(--text-2); font-size: 10px; font-weight: 600; }
+  .mode-card span { display: block; margin-top: 2px; font-size: 8.5px; line-height: 1.35; }
+  .dialog-foot {
+    display: flex; align-items: center; gap: 8px;
+    padding: 11px 14px;
+    border-top: 1px solid var(--line);
+    background: var(--panel-2);
+  }
+  .dialog-foot .foot-note { color: var(--dim); font-family: var(--font-mono); font-size: 8px; }
+  .dialog-foot .spring { flex: 1; }
+  .secondary-button {
+    height: 30px; padding: 0 11px;
+    border: 1px solid var(--line-strong); border-radius: 3px;
+    background: transparent; color: var(--text-2); font-size: 10px; cursor: pointer;
+  }
+  .secondary-button:hover { border-color: var(--accent); color: var(--text); }
+
+  .toast {
+    position: fixed; z-index: 120; left: 50%; bottom: 45px;
+    transform: translate(-50%, 8px);
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 11px;
+    border: 1px solid var(--line-strong);
+    background: var(--panel-2);
+    color: var(--text-2);
+    font-size: 10px;
+    opacity: 0; pointer-events: none;
+    transition: opacity .16s, transform .16s;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast svg { width: 13px; height: 13px; color: var(--cyan); }
+  @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+
+  /* Narrow desktop */
+  @media (max-width: 1180px) {
+    .workspace { --nav-w: 204px; --thread-w: 248px; }
+    .meta-pill.secondary { display: none; }
+    .commandbar .search-trigger { width: 160px; }
+  }
+  @media (max-width: 1040px) {
+    .workspace { --nav-w: 184px; --thread-w: 220px; }
+    .pane-meta .meta-pill.model, .pane-meta .meta-pill.secondary { display: none; }
+    .context-chips .chip.branch-detail, .context-chips .chip.dirty { display: none; }
+    .pane-title .instance { display: none; }
+    .left-panel .side-heading .count { display: none; }
+    .search-trigger { width: 34px; justify-content: center; }
+    .search-trigger span { display: none; }
+    .theme-label { display: none; }
+    .thread-head, .thread-section { padding-left: 10px; padding-right: 10px; }
+    .thread-actions { padding-left: 10px; padding-right: 10px; }
+    .thread-actions .primary-action { padding: 0 7px; }
+    .bottombar .keyhint:nth-child(n+4) { display: none; }
+    .panes { padding: 6px; grid-template-columns: minmax(0, 1.05fr) 5px minmax(0, .95fr); }
+    .panel-tab { max-width: 116px; padding: 0 7px; }
+    .terminal { padding: 10px 10px 13px; font-size: 9.5px; }
+    .pane-footer { gap: 7px; }
+    .pane-footer .footer-item:nth-last-child(2) { display: none; }
+  }
+  @media (max-width: 900px) {
+    .brand-build, .window-title, .context-chips .chip { display: none; }
+    .commandbar { gap: 5px; }
+    .project-switch .path .parent { display: none; }
+    .pane-meta .meta-pill.state-working, .pane-meta .meta-pill.state-waiting { font-size: 8px; padding: 0 4px; }
+    .side-splitter { display: none; }
+  }
+</style>
+<link rel="stylesheet" href="workspace-features.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-grid" viewBox="0 0 16 16"><path d="M2.5 2.5h4v4h-4zm7 0h4v4h-4zm-7 7h4v4h-4zm7 0h4v4h-4z" fill="none" stroke="currentColor" stroke-width="1.2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.3" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="m10.2 10.2 3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 16 16"><path d="m5.5 3.5 5 4.5-5 4.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-chevron-down" viewBox="0 0 16 16"><path d="m3.5 5.5 4.5 5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-branch" viewBox="0 0 16 16"><circle cx="4" cy="4" r="1.6" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="4" cy="12" r="1.6" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="12" cy="5" r="1.6" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 5.6v4.8M5.6 5.1c2.7.1 4.8.1 4.8 0" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 16 16"><path d="M2 4.3h4l1.4 1.5H14v7.2H2z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M2 6.2h12" stroke="currentColor" stroke-width="1.1" opacity=".55"/></symbol>
+  <symbol id="i-folder-plus" viewBox="0 0 16 16"><path d="M2 4.3h4l1.4 1.5H14v7.2H2z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 7.1v4M6 9.1h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-thread" viewBox="0 0 16 16"><path d="M3 3.5h10v7H7l-2.6 2v-2H3z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M5 6h6M5 8h4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></symbol>
+  <symbol id="i-command" viewBox="0 0 16 16"><path d="M5.5 3.5A1.8 1.8 0 1 0 3.7 5.3h8.6a1.8 1.8 0 1 0-1.8-1.8v8.6a1.8 1.8 0 1 0 1.8-1.8H3.7a1.8 1.8 0 1 0 1.8 1.8z" fill="none" stroke="currentColor" stroke-width="1.2"/></symbol>
+  <symbol id="i-hop" viewBox="0 0 16 16"><path d="M2.5 8h9M8.5 4.5 12 8l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 4.2v7.6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity=".5"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 16 16"><path d="M3 4.5h10M3 11.5h10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="6" cy="4.5" r="1.4" fill="var(--panel)" stroke="currentColor" stroke-width="1.2"/><circle cx="10" cy="11.5" r="1.4" fill="var(--panel)" stroke="currentColor" stroke-width="1.2"/></symbol>
+  <symbol id="i-panel-left" viewBox="0 0 16 16"><rect x="2" y="2.5" width="12" height="11" rx=".6" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M6 3v10" stroke="currentColor" stroke-width="1.2"/></symbol>
+  <symbol id="i-panel-right" viewBox="0 0 16 16"><rect x="2" y="2.5" width="12" height="11" rx=".6" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M10 3v10" stroke="currentColor" stroke-width="1.2"/></symbol>
+  <symbol id="i-maximize" viewBox="0 0 16 16"><path d="M5.5 3.5h-2v2M10.5 3.5h2v2M5.5 12.5h-2v-2M10.5 12.5h2v-2" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 16 16"><path d="M3.5 8h9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-x" viewBox="0 0 16 16"><path d="m4 4 8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 16 16"><rect x="2.3" y="2.8" width="11.4" height="10.4" rx=".7" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="m4.8 6 2 2-2 2M8.5 10h2.5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 16 16"><path d="m8 1.8 1.1 4.1 4.1 1.1-4.1 1.1L8 12.2 6.9 8.1 2.8 7l4.1-1.1z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/><path d="m12.5 11 .5 1.6 1.6.5-1.6.5-.5 1.6-.5-1.6-1.6-.5 1.6-.5z" fill="currentColor" opacity=".55"/></symbol>
+  <symbol id="i-check" viewBox="0 0 16 16"><path d="m3 8.2 3.2 3.2L13 4.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-check-circle" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.6" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="m5.3 8.1 1.7 1.7 3.7-3.7" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 16 16"><path d="M8 2.8 14 13H2z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 6v3.1M8 11.3v.2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M8 4.8V8l2.2 1.3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 16 16"><path d="M9.2 1.8 3.8 9h3.4l-.4 5.2L12.2 7H8.8z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" rx=".7" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M6.2 1.8v2.1M9.8 1.8v2.1M6.2 12.1v2.1M9.8 12.1v2.1M1.8 6.2h2.1M1.8 9.8h2.1M12.1 6.2h2.1M12.1 9.8h2.1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></symbol>
+  <symbol id="i-code" viewBox="0 0 16 16"><path d="m5.4 4.3-3 3.7 3 3.7M10.6 4.3l3 3.7-3 3.7" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-file" viewBox="0 0 16 16"><path d="M3.2 2.3h6.2l3.4 3.4v8H3.2z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M9.2 2.6v3.3h3.3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-keyboard" viewBox="0 0 16 16"><rect x="1.8" y="4" width="12.4" height="8" rx=".8" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 6.5h.01M6.5 6.5h.01M9 6.5h.01M11.5 6.5h.01M4 9h.01M11.5 9h.01M6 9.3h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 16 16"><path d="M3.8 11.2h8.4l-1-1.6V7a3.2 3.2 0 0 0-6.4 0v2.6z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M6.5 12.6a1.5 1.5 0 0 0 3 0" fill="none" stroke="currentColor" stroke-width="1.2"/></symbol>
+  <symbol id="i-more" viewBox="0 0 16 16"><circle cx="3" cy="8" r="1" fill="currentColor"/><circle cx="8" cy="8" r="1" fill="currentColor"/><circle cx="13" cy="8" r="1" fill="currentColor"/></symbol>
+  <symbol id="i-user" viewBox="0 0 16 16"><circle cx="8" cy="5.2" r="2.4" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M3.7 13.1c.4-2.3 1.9-3.5 4.3-3.5s3.9 1.2 4.3 3.5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 16 16"><path d="m8 2.3 5.5 2.8L8 7.9 2.5 5.1zM2.5 8.1 8 10.9l5.5-2.8M2.5 11 8 13.8 13.5 11" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></symbol>
+  <symbol id="i-arrow-right" viewBox="0 0 24 16"><path d="M2 8h18M15 2.8 20.2 8 15 13.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<div class="app" id="app">
+  <header class="titlebar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-word">Shinatama</span>
+      <span class="brand-build">RUNTIME / 0.1</span>
+    </div>
+    <div class="window-title"><strong>workspace</strong> · shinatama / main</div>
+    <div class="window-tools">
+      <button class="traffic" aria-label="Minimize window"><svg><use href="#i-minus"/></svg></button>
+      <button class="traffic" aria-label="Maximize window"><svg><use href="#i-maximize"/></svg></button>
+      <button class="traffic close" aria-label="Close window"><svg><use href="#i-x"/></svg></button>
+    </div>
+  </header>
+
+  <div class="commandbar">
+    <button class="project-switch" aria-label="Switch project">
+      <svg class="glyph"><use href="#i-folder"/></svg>
+      <span class="path"><span class="parent">~/Projects/</span><span class="current">shinatama</span></span>
+      <svg><use href="#i-chevron-down"/></svg>
+    </button>
+
+    <div class="context-chips">
+      <span class="chip"><svg><use href="#i-branch"/></svg><b>main</b></span>
+      <span class="chip dirty"><svg><use href="#i-file"/></svg><b>+3</b> modified</span>
+      <span class="chip button branch-detail"><svg><use href="#i-thread"/></svg>T·8F3A</span>
+    </div>
+
+    <div class="spring"></div>
+
+    <button class="search-trigger" aria-label="Search all sessions">
+      <svg width="13" height="13"><use href="#i-search"/></svg>
+      <span>Search sessions</span>
+      <span class="kbd">^F</span>
+    </button>
+
+    <button class="primary-action" id="open-hop-top">
+      <svg><use href="#i-hop"/></svg>
+      Hop thread
+      <span style="opacity:.55; font-family:var(--font-mono); font-size:9px;">^H</span>
+    </button>
+
+    <div class="theme-wrap">
+      <button class="icon-button theme-button" id="theme-trigger" aria-haspopup="menu" aria-expanded="false" aria-label="Choose skin">
+        <span class="theme-swatch"></span>
+        <span class="theme-label" id="theme-label">Shinatama</span>
+        <svg width="10" height="10"><use href="#i-chevron-down"/></svg>
+      </button>
+      <div class="theme-menu" id="theme-menu" role="menu" aria-label="Skin">
+        <button role="menuitemradio" aria-checked="true" data-theme-choice="shinatama"><span class="menu-swatch" style="background:#f05e97"></span>Shinatama<span class="check">✓</span></button>
+        <button role="menuitemradio" aria-checked="false" data-theme-choice="section9"><span class="menu-swatch" style="background:#56e0d4"></span>Section 9<span class="check"></span></button>
+        <button role="menuitemradio" aria-checked="false" data-theme-choice="tctf"><span class="menu-swatch" style="background:#f29a4b"></span>TCTF<span class="check"></span></button>
+        <button role="menuitemradio" aria-checked="false" data-theme-choice="sumi"><span class="menu-swatch" style="background:#e3543e"></span>Sumi<span class="check"></span></button>
+      </div>
+    </div>
+    <button class="icon-button" id="reset-layout" aria-label="Reset workspace layout" title="Reset layout"><svg><use href="#i-sliders"/></svg></button>
+  </div>
+
+  <div class="workspace" id="workspace">
+    <aside class="left-panel" aria-label="Projects and threads">
+      <div class="side-heading">
+        <span>Navigator</span><span class="count">04</span>
+        <span class="spring"></span>
+        <button class="icon-button" id="collapse-left" aria-label="Collapse navigator"><svg><use href="#i-panel-left"/></svg></button>
+      </div>
+      <button class="project-filter">
+        <svg><use href="#i-search"/></svg>
+        <span>Filter projects</span>
+        <span class="kbd">/</span>
+      </button>
+      <div class="project-list">
+        <div class="section-label">Projects <span class="spring"></span><button aria-label="New project"><svg><use href="#i-plus"/></svg></button></div>
+
+        <button class="project-item active" data-project="shinatama" aria-current="true">
+          <span class="project-icon"><svg><use href="#i-code"/></svg></span>
+          <span><span class="project-name">shinatama</span><span class="project-meta"><span class="agent-dot"></span>2 agents · 1 modified</span></span>
+          <span class="project-side"><span class="project-badge">12</span><span class="agent-stack"><span class="agent-mini c">C</span><span class="agent-mini x">X</span></span></span>
+        </button>
+
+        <button class="project-item" data-project="mukade">
+          <span class="project-icon"><svg><use href="#i-layers"/></svg></span>
+          <span><span class="project-name">mukade</span><span class="project-meta">Rust · clean</span></span>
+          <span class="project-side"><span class="project-badge">7</span><span class="agent-stack"><span class="agent-mini c">C</span></span></span>
+        </button>
+
+        <button class="project-item" data-project="billion-context">
+          <span class="project-icon"><svg><use href="#i-cpu"/></svg></span>
+          <span><span class="project-name">billion-context</span><span class="project-meta">sidecar · clean</span></span>
+          <span class="project-side"><span class="project-badge">3</span><span class="agent-stack"><span class="agent-mini x">X</span></span></span>
+        </button>
+
+        <button class="project-item" data-project="daodan">
+          <span class="project-icon"><svg><use href="#i-layers"/></svg></span>
+          <span><span class="project-name">daodan</span><span class="project-meta">plugins · 2 branches</span></span>
+          <span class="project-side"><span class="project-badge">24</span><span class="agent-stack"><span class="agent-mini o">O</span></span></span>
+        </button>
+
+        <div class="section-label" style="margin-top:6px">Threads <span class="spring"></span><span style="letter-spacing:0;text-transform:none;color:var(--dim)">last 24h</span></div>
+        <div class="thread-list">
+          <button class="thread-item active" data-thread="thread">
+            <svg><use href="#i-thread"/></svg>
+            <span><span class="thread-title">Resumable hop boundary</span><span class="thread-sub"><span style="color:var(--claude)">C</span> → <span style="color:var(--codex)">X</span> · 4 segments</span></span>
+            <span class="thread-time">now</span>
+          </button>
+          <button class="thread-item">
+            <svg><use href="#i-thread"/></svg>
+            <span><span class="thread-title">PTY resize under nested splits</span><span class="thread-sub"><span style="color:var(--codex)">X</span> · 2 segments</span></span>
+            <span class="thread-time">18m</span>
+          </button>
+          <button class="thread-item">
+            <svg><use href="#i-thread"/></svg>
+            <span><span class="thread-title">Daodan task mirror contract</span><span class="thread-sub"><span style="color:var(--claude)">C</span> · 1 segment</span></span>
+            <span class="thread-time">1h</span>
+          </button>
+          <button class="thread-item">
+            <svg><use href="#i-thread"/></svg>
+            <span><span class="thread-title">Sidecar proxy recovery</span><span class="thread-sub"><span style="color:var(--codex)">X</span> · 3 segments</span></span>
+            <span class="thread-time">3h</span>
+          </button>
+        </div>
+      </div>
+      <div class="left-spacer"></div>
+      <div class="side-status">
+        <div class="status-line"><span class="pulse"></span><b>sidecar</b> online</div>
+        <span class="latency">42 ms</span>
+        <div class="status-line" style="grid-column:1/-1; color:var(--dim)">proxy · box/claude-04</div>
+      </div>
+    </aside>
+    <div class="rail left" aria-label="Navigator collapsed">
+      <button id="expand-left" aria-label="Expand navigator"><svg width="15" height="15"><use href="#i-panel-left"/></svg></button>
+      <span>Navigator</span>
+    </div>
+
+    <button class="side-splitter left" id="nav-splitter" role="separator" aria-orientation="vertical" aria-label="Resize project navigator" aria-valuemin="176" aria-valuemax="360" aria-valuenow="228" tabindex="0">
+      <span class="grip"></span>
+    </button>
+
+    <main class="main">
+      <div class="panes" id="panes">
+        <section class="pane is-focused" data-pane="claude" aria-label="Claude Code leaf">
+          <div class="leaf-tabbar" data-leaf="A">
+            <div class="leaf-tabs" role="tablist" aria-label="Claude Code leaf tabs" data-tablist>
+              <button class="panel-tab" id="tab-claude-terminal" role="tab" aria-selected="true" aria-controls="panel-claude-terminal" data-panel-id="claude-terminal" tabindex="0" draggable="true">
+                <span class="tab-agent-mark claude" aria-hidden="true">C</span>
+                <span class="tab-label">Claude Code</span>
+              </button>
+              <button class="panel-tab" id="tab-claude-files" role="tab" aria-selected="false" aria-controls="panel-claude-files" data-panel-id="claude-files" tabindex="-1" draggable="true">
+                <span class="tab-agent-mark file" aria-hidden="true"><svg><use href="#i-file"/></svg></span>
+                <span class="tab-label">Files</span>
+                <span class="tab-count">12</span>
+              </button>
+            </div>
+            <div class="leaf-tools">
+              <span class="leaf-letter" aria-hidden="true">A</span>
+              <button class="icon-button" data-maximize aria-label="Maximize Claude Code leaf" aria-pressed="false"><svg><use href="#i-maximize"/></svg></button>
+            </div>
+          </div>
+          <div class="leaf-stack">
+            <div class="leaf-view" id="panel-claude-terminal" data-panel-view="claude-terminal" role="tabpanel" aria-labelledby="tab-claude-terminal">
+              <header class="pane-header">
+                <span class="agent-mark claude" aria-hidden="true">C</span>
+                <span class="pane-title"><strong>Claude Code</strong><span class="instance">claude·04</span></span>
+                <div class="pane-meta">
+                  <span class="meta-pill model"><svg><use href="#i-cpu"/></svg><b>Sonnet 4.5</b></span>
+                  <span class="meta-pill state-working"><span class="state-dot"></span>working</span>
+                </div>
+              </header>
+
+              <div class="terminal" tabindex="0" aria-label="Claude Code output">
+                <p class="t-user"><span class="caret">❯</span><span class="text">Implement the resumable hop boundary. Keep the source thread available until the destination confirms the seed, and make the failure path visible.</span></p>
+                <p class="t-assistant"><span class="spark">✳</span><span class="body">I’ll trace the current state machine and the thread store before touching the boundary.</span></p>
+                <p class="t-tool"><span class="tool-mark">●</span><span><span class="tool-name">Read</span> <span class="tool-arg">crates/runtime/src/hop/state.rs</span></span></p>
+                <p class="t-tool"><span class="tool-mark">●</span><span><span class="tool-name">Read</span> <span class="tool-arg">crates/runtime/src/threads/store.rs</span></span></p>
+                <p class="t-tool"><span class="tool-mark">●</span><span><span class="tool-name">Grep</span> <span class="tool-arg">"HopPhase::Preparing"</span></span></p>
+                <p class="t-result"><span class="result-mark">⎿</span><span>7 matches in 4 files</span></p>
+                <p class="t-assistant"><span class="spark">✳</span><span class="body">The invariant is already expressed in the store, but the transition to <span class="t-pink">Archivable</span> can run before the destination finishes its seed. I’ll make the hand-off transactional and expose <span class="t-blue">awaiting_destination</span>.</span></p>
+                <pre class="t-code"><span class="t-dim">// hop/state.rs</span>
+<span class="t-pink">Preparing</span> ──<span class="t-dim">seed accepted</span>──▶ <span class="t-cyan">DestinationReady</span>
+     │                              │
+     │ <span class="t-dim">error</span>                       │ <span class="t-dim">source archived</span>
+     ▼                              ▼
+   <span class="t-warn">Failed</span>                        <span class="t-blue">Archivable</span></pre>
+                <p class="t-tool"><span class="tool-mark">●</span><span><span class="tool-name">Edit</span> <span class="tool-arg">crates/runtime/src/hop/state.rs</span> <span class="t-add">+42</span> <span class="t-del">−9</span></span></p>
+                <p class="t-tool"><span class="tool-mark">●</span><span><span class="tool-name">Edit</span> <span class="tool-arg">crates/runtime/src/threads/store.rs</span> <span class="t-add">+18</span></span></p>
+                <p class="t-assistant"><span class="spark">✳</span><span class="body">Running the hop test lane now. I’m keeping the source segment writable until the destination has acknowledged the seed.</span></p>
+                <p class="t-tool"><span class="tool-mark">●</span><span><span class="tool-name">Bash</span> <span class="tool-arg">cargo test -p shinatama-runtime hop:: --quiet</span></span></p>
+                <p class="t-result"><span class="result-mark">⎿</span><span>running 18 tests… <span class="t-cyan">14 passed</span> · 4 running</span></p>
+                <p class="t-assistant"><span class="spark">✳</span><span class="body">While that runs, I’m checking the preview payload against the seed budget so the dialog can show exactly what crosses.<span class="cursor" aria-hidden="true"></span></span></p>
+              </div>
+
+              <footer class="pane-footer">
+                <span class="footer-item"><svg><use href="#i-branch"/></svg><b>main</b></span>
+                <span class="footer-item"><svg><use href="#i-file"/></svg><b>3</b> modified</span>
+                <span class="spring"></span>
+                <span class="footer-item">ctx <span class="context-meter"><span></span></span><b>38%</b></span>
+                <span class="footer-item"><svg><use href="#i-clock"/></svg>2m 18s</span>
+              </footer>
+            </div>
+
+            <div class="leaf-view" id="panel-claude-files" data-panel-view="claude-files" role="tabpanel" aria-labelledby="tab-claude-files" hidden>
+              <header class="pane-header">
+                <span class="agent-mark" aria-hidden="true" style="color:var(--ice)">F</span>
+                <span class="pane-title"><strong>Files</strong><span class="instance">project root</span></span>
+                <div class="pane-meta">
+                  <span class="meta-pill"><svg><use href="#i-file"/></svg><b>12</b> changed</span>
+                  <button class="icon-button" aria-label="Search files"><svg><use href="#i-search"/></svg></button>
+                </div>
+              </header>
+              <div class="file-browser" tabindex="0" aria-label="Project file navigator">
+                <div class="file-root"><svg><use href="#i-folder"/></svg><b>shinatama</b><span class="root-path">~/Projects/shinatama</span><span class="file-count">12 changed</span></div>
+                <div class="file-list">
+                  <div class="file-row dir"><svg><use href="#i-folder"/></svg><span class="file-name">crates</span><span class="file-status">4 changed</span></div>
+                  <div class="file-row dir indent"><svg><use href="#i-folder"/></svg><span class="file-name">runtime</span><span class="file-status">3 changed</span></div>
+                  <div class="file-row dir indent-2"><svg><use href="#i-folder"/></svg><span class="file-name">src</span><span class="file-status">3 changed</span></div>
+                  <div class="file-row indent-2" style="padding-left:56px"><svg><use href="#i-folder"/></svg><span class="file-name">hop</span><span class="file-status modified">2 modified</span></div>
+                  <div class="file-row selected" style="padding-left:72px; border-left:2px solid var(--accent)"><svg><use href="#i-file"/></svg><span class="file-name">state.rs</span><span class="file-status modified">M +42 −9</span></div>
+                  <div class="file-row indent-2" style="padding-left:56px"><svg><use href="#i-folder"/></svg><span class="file-name">threads</span><span class="file-status modified">1 modified</span></div>
+                  <div class="file-row" style="padding-left:72px"><svg><use href="#i-file"/></svg><span class="file-name">store.rs</span><span class="file-status modified">M +18</span></div>
+                  <div class="file-row dir"><svg><use href="#i-folder"/></svg><span class="file-name">docs</span><span class="file-status">1 changed</span></div>
+                  <div class="file-row" style="padding-left:40px"><svg><use href="#i-file"/></svg><span class="file-name">functional-design.md</span><span class="file-status added">A +7</span></div>
+                  <div class="file-row dir"><svg><use href="#i-folder"/></svg><span class="file-name">tests</span><span class="file-status">4 changed</span></div>
+                  <div class="file-row" style="padding-left:40px"><svg><use href="#i-file"/></svg><span class="file-name">hop_contract.rs</span><span class="file-status modified">M +31 −4</span></div>
+                  <div class="file-row" style="padding-left:40px"><svg><use href="#i-file"/></svg><span class="file-name">fixtures.rs</span><span class="file-status added">A +12</span></div>
+                </div>
+              </div>
+              <footer class="pane-footer">
+                <span class="footer-item"><svg><use href="#i-branch"/></svg><b>main</b></span>
+                <span class="footer-item"><svg><use href="#i-file"/></svg><b>3</b> modified · <b>2</b> untracked</span>
+                <span class="spring"></span>
+                <span class="footer-item">open in split <span class="kbd">^⏎</span></span>
+              </footer>
+            </div>
+          </div>
+        </section>
+
+        <div class="splitter" id="splitter" role="separator" aria-orientation="vertical" aria-label="Resize agent panes" aria-valuemin="30" aria-valuemax="70" aria-valuenow="52" tabindex="0">
+          <span class="grip"></span>
+        </div>
+
+        <section class="pane" data-pane="codex" aria-label="Codex leaf">
+          <div class="leaf-tabbar" data-leaf="B">
+            <div class="leaf-tabs" role="tablist" aria-label="Codex leaf tabs" data-tablist>
+              <button class="panel-tab" id="tab-codex-terminal" role="tab" aria-selected="true" aria-controls="panel-codex-terminal" data-panel-id="codex-terminal" tabindex="0" draggable="true">
+                <span class="tab-agent-mark codex" aria-hidden="true">X</span>
+                <span class="tab-label">Codex</span>
+              </button>
+            </div>
+            <div class="leaf-tools">
+              <span class="leaf-letter" aria-hidden="true">B</span>
+              <button class="icon-button" data-maximize aria-label="Maximize Codex leaf" aria-pressed="false"><svg><use href="#i-maximize"/></svg></button>
+            </div>
+          </div>
+          <div class="leaf-stack">
+            <div class="leaf-view" id="panel-codex-terminal" data-panel-view="codex-terminal" role="tabpanel" aria-labelledby="tab-codex-terminal">
+              <header class="pane-header">
+                <span class="agent-mark codex" aria-hidden="true">X</span>
+                <span class="pane-title"><strong>Codex</strong><span class="instance">codex·07</span></span>
+                <div class="pane-meta">
+                  <span class="meta-pill model"><svg><use href="#i-cpu"/></svg><b>GPT-5.1</b></span>
+                  <span class="meta-pill state-waiting"><span class="state-dot"></span>needs input</span>
+                </div>
+              </header>
+
+              <div class="terminal" tabindex="0" aria-label="Codex output">
+                <p class="t-user"><span class="caret">❯</span><span class="text">HOP-142 · verify the destination seed budget and report what is excluded.</span></p>
+                <p class="t-assistant"><span class="spark" style="color:var(--codex)">◇</span><span class="body"><strong>Workspace context loaded.</strong> Source thread T·8F3A has 4 segments, 12 changed files and one pending tool result. I’ll validate the budget against the destination window before proposing the hop.</span></p>
+                <p class="t-tool"><span class="tool-mark">●</span><span><span class="tool-name">Read</span> <span class="tool-arg">hop/seed-budget.toml</span></span></p>
+                <p class="t-tool"><span class="tool-mark">●</span><span><span class="tool-name">Exec</span> <span class="tool-arg">cargo test -p shinatama-runtime hop::seed -- --list</span></span></p>
+                <p class="t-result"><span class="result-mark">⎿</span><span>9 tests · 0 skipped</span></p>
+                <p class="t-assistant"><span class="spark" style="color:var(--codex)">◇</span><span class="body">The destination window can hold the prepared seed plus 12 file references. I want to run the seed probe; it starts a scratch PTY and does not touch T·8F3A.</span></p>
+                <div class="approval">
+                  <div class="approval-head"><svg><use href="#i-alert"/></svg>Approval required</div>
+                  <div class="approval-body">
+                    <p style="margin:0">Run the seed probe against the destination Codex instance?</p>
+                    <div class="approval-code">cargo test -p shinatama-runtime hop::seed -- --nocapture</div>
+                  </div>
+                  <div class="approval-actions">
+                    <button class="mini-button allow" data-toast="Seed probe approved for this run">Allow once <span class="key">↵</span></button>
+                    <button class="mini-button">Allow for session</button>
+                    <button class="mini-button" data-toast="Seed probe denied">Deny</button>
+                  </div>
+                </div>
+                <p class="t-dim">Waiting for your decision. The source session remains untouched.</p>
+                <p><span class="t-faint">────────────────────────────────────────</span></p>
+                <p class="t-dim">task  <span class="t-blue">HOP-142</span>   ·   thread <span class="t-blue">T·8F3A</span>   ·   worktree <span class="t-cyan">main</span></p>
+                <p class="t-dim">agent <span style="color:var(--codex)">codex·07</span>   ·   home <span class="t-cyan">box</span>   ·   plugins <span class="t-cyan">daodan/all</span></p>
+              </div>
+
+              <footer class="pane-footer">
+                <span class="footer-item"><svg><use href="#i-branch"/></svg><b>main</b></span>
+                <span class="footer-item"><svg><use href="#i-clock"/></svg>waiting 00:42</span>
+                <span class="spring"></span>
+                <span class="footer-item">ctx <span class="context-meter waiting"><span style="width:17%"></span></span><b>17%</b></span>
+                <span class="footer-item"><span class="pane-badge">HOP-142</span></span>
+              </footer>
+            </div>
+
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <button class="side-splitter right" id="thread-splitter" role="separator" aria-orientation="vertical" aria-label="Resize thread inspector" aria-valuemin="200" aria-valuemax="380" aria-valuenow="276" tabindex="0">
+      <span class="grip"></span>
+    </button>
+
+    <aside class="right-panel" aria-label="Thread inspector">
+      <div class="side-heading">
+        <span>Thread</span><span class="count">T·8F3A</span>
+        <span class="spring"></span>
+        <button class="icon-button" id="collapse-right" aria-label="Collapse thread inspector"><svg><use href="#i-panel-right"/></svg></button>
+      </div>
+
+      <div class="thread-head">
+        <div class="eyebrow">active thread <span class="status">live</span></div>
+        <div class="thread-name">Resumable hop boundary</div>
+        <div class="thread-id">T·8F3A · parent T·71B2</div>
+        <button class="task-link">
+          <span class="task-icon"><svg><use href="#i-layers"/></svg></span>
+          <span class="task-copy"><span>Daodan task</span><strong>HOP-142 · transaction boundary</strong></span>
+          <span class="chevron"><svg><use href="#i-chevron"/></svg></span>
+        </button>
+      </div>
+
+      <section class="thread-section">
+        <div class="section-title">Hop readiness <span class="spring"></span><span class="hint">preview</span></div>
+        <div class="readiness">
+          <div class="readiness-head"><span class="readiness-value">82%</span><span class="readiness-label">Destination prepared</span></div>
+          <div class="readiness-bar" role="img" aria-label="Hop readiness 82 percent"><span></span></div>
+          <div class="readiness-copy">Codex seed fits the 1M window · 4.8k tokens excluded</div>
+        </div>
+      </section>
+
+      <section class="thread-section">
+        <div class="section-title">Carry-over <span class="spring"></span><span class="hint">honest scope</span></div>
+        <div class="carry-list">
+          <div class="carry-row"><svg><use href="#i-check-circle"/></svg>Conversation<span class="value">seed-only v1</span></div>
+          <div class="carry-row"><svg><use href="#i-check-circle"/></svg>Tool calls<span class="value">summarized</span></div>
+          <div class="carry-row"><svg><use href="#i-check-circle"/></svg>Files<span class="value">12 paths</span></div>
+          <div class="carry-row excluded"><svg><use href="#i-minus"/></svg>Permissions<span class="value">excluded</span></div>
+          <div class="carry-row excluded"><svg><use href="#i-minus"/></svg>Model state<span class="value">excluded</span></div>
+        </div>
+      </section>
+
+      <section class="thread-section">
+        <div class="section-title">Context <span class="spring"></span><span class="hint">both agents</span></div>
+        <div class="context-block">
+          <div class="context-line"><span>Claude Code · claude·04</span><b>38%</b></div>
+          <div class="context-bar"><span></span></div>
+          <div class="context-scale"><span>0</span><span>200k</span><span>512k</span></div>
+          <div class="context-line" style="margin-top:4px"><span>Codex · codex·07</span><b>17%</b></div>
+          <div class="context-bar"><span style="width:17%; background:var(--codex)"></span></div>
+        </div>
+      </section>
+
+      <div class="right-spacer"></div>
+      <div class="thread-actions">
+        <button class="primary-action" id="open-hop-side"><svg><use href="#i-hop"/></svg>Review hop preview</button>
+        <button class="icon-button" aria-label="Thread actions"><svg><use href="#i-more"/></svg></button>
+      </div>
+    </aside>
+    <div class="rail right" aria-label="Thread inspector collapsed">
+      <button id="expand-right" aria-label="Expand thread inspector"><svg width="15" height="15"><use href="#i-panel-right"/></svg></button>
+      <span>Thread</span>
+    </div>
+  </div>
+
+  <footer class="bottombar">
+    <span class="keyhint"><span class="kbd">^H</span> hop</span>
+    <span class="keyhint"><span class="kbd">^K</span> daodan</span>
+    <span class="keyhint"><span class="kbd">^F</span> find</span>
+    <span class="keyhint"><span class="kbd">^T</span> new tab</span>
+    <span class="keyhint"><span class="kbd">^⇧M</span> max pane</span>
+    <span class="keyhint"><span class="kbd">?</span> keys</span>
+    <span class="spring"></span>
+    <span class="mock-label">DESIGN PREVIEW · LATER SLICES · SAMPLE DATA</span>
+    <span class="connection"><span class="dot"></span>sidecar protected</span>
+  </footer>
+</div>
+
+<div class="backdrop" id="hop-backdrop" aria-hidden="true">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="hop-title">
+    <header class="dialog-head">
+      <span class="dialog-icon"><svg><use href="#i-hop"/></svg></span>
+      <div class="dialog-title"><strong id="hop-title">Hop thread to Codex</strong><span>Preview before sending · source remains untouched until confirmation</span></div>
+      <button class="icon-button" id="close-hop" aria-label="Close hop dialog"><svg><use href="#i-x"/></svg></button>
+    </header>
+    <div class="dialog-body">
+      <div class="hop-route">
+        <div class="route-card">
+          <span class="agent-mark claude">C</span>
+          <div class="route-copy"><span>Source</span><strong>Claude Code</strong><small>claude·04 · working</small></div>
+        </div>
+        <div class="route-arrow"><svg><use href="#i-arrow-right"/></svg></div>
+        <div class="route-card">
+          <span class="agent-mark codex">X</span>
+          <div class="route-copy"><span>Destination</span><strong>Codex</strong><small>codex·07 · prepared</small></div>
+        </div>
+      </div>
+      <div class="hop-note">
+        <svg><use href="#i-alert"/></svg>
+        <span>V1 hops are seed-only. A fresh native Codex session receives a handover document, not the source session's complete transcript or native state.</span>
+      </div>
+      <div class="dialog-section-label">What carries over</div>
+      <div class="carry-grid">
+        <div class="carry-card yes">
+          <h4><svg><use href="#i-check"/></svg>Carries</h4>
+          <ul><li>Seed document · goal and decisions</li><li>Tool findings · summarized</li><li>12 file references · same folder</li><li>Daodan task link · HOP-142</li><li>Project instructions · linked</li></ul>
+        </div>
+        <div class="carry-card no">
+          <h4><svg><use href="#i-minus"/></svg>Does not carry</h4>
+          <ul><li>Permissions · destination asks again</li><li>Model state</li><li>Pending tool result · 4.8k tokens</li><li>Session credentials</li></ul>
+        </div>
+      </div>
+      <div class="dialog-section-label">Source handling</div>
+      <div class="mode-row" role="radiogroup" aria-label="Source handling">
+        <button class="mode-card selected" role="radio" aria-checked="true" data-mode="close">
+          <span class="radio"></span>
+          <span><strong>Close source</strong><span>Archive after the destination confirms the seed. One live thread continues.</span></span>
+        </button>
+        <button class="mode-card" role="radio" aria-checked="false" data-mode="fork">
+          <span class="radio"></span>
+          <span><strong>Fork source</strong><span>Keep the source live. The destination continues in a new child thread.</span></span>
+        </button>
+      </div>
+      <div class="hop-note success">
+        <svg><use href="#i-check-circle"/></svg>
+        <span>Sample check: Codex is signed in and the seed budget fits. Estimated preparation: <strong style="color:var(--text)">1.4 s</strong>. Credentials are not part of the handover.</span>
+      </div>
+    </div>
+    <footer class="dialog-foot">
+      <span class="foot-note">^H close · ↵ start hop</span>
+      <span class="spring"></span>
+      <button class="secondary-button" id="cancel-hop">Cancel</button>
+      <button class="primary-action" id="start-hop"><svg><use href="#i-hop"/></svg>Start hop</button>
+    </footer>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"><svg><use href="#i-check-circle"/></svg><span id="toast-text"></span></div>
+
+<script>
+  (() => {
+    const app = document.getElementById('app');
+    const workspace = document.getElementById('workspace');
+    const root = document.documentElement;
+    const toast = document.getElementById('toast');
+    const toastText = document.getElementById('toast-text');
+    let toastTimer = 0;
+
+    function showToast(message) {
+      toastText.textContent = message;
+      toast.classList.add('show');
+      window.clearTimeout(toastTimer);
+      toastTimer = window.setTimeout(() => toast.classList.remove('show'), 2400);
+    }
+
+    // Skin selector
+    const themeTrigger = document.getElementById('theme-trigger');
+    const themeMenu = document.getElementById('theme-menu');
+    const themeLabel = document.getElementById('theme-label');
+    const themeNames = { shinatama: 'Shinatama', section9: 'Section 9', tctf: 'TCTF', sumi: 'Sumi' };
+
+    function closeThemeMenu() {
+      themeMenu.classList.remove('open');
+      themeTrigger.setAttribute('aria-expanded', 'false');
+    }
+    themeTrigger.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const isOpen = themeMenu.classList.toggle('open');
+      themeTrigger.setAttribute('aria-expanded', String(isOpen));
+    });
+    themeMenu.addEventListener('click', (event) => {
+      const choice = event.target.closest('[data-theme-choice]');
+      if (!choice) return;
+      const theme = choice.dataset.themeChoice;
+      root.dataset.theme = theme;
+      themeLabel.textContent = themeNames[theme];
+      themeMenu.querySelectorAll('[data-theme-choice]').forEach((item) => {
+        const selected = item === choice;
+        item.setAttribute('aria-checked', String(selected));
+        item.querySelector('.check').textContent = selected ? '✓' : '';
+      });
+      closeThemeMenu();
+      showToast(`${themeNames[theme]} skin applied`);
+    });
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('.theme-wrap')) closeThemeMenu();
+    });
+
+    // Pane focus
+    const panes = document.getElementById('panes');
+    function focusPane(pane) {
+      document.querySelectorAll('.pane').forEach((other) => other.classList.remove('is-focused'));
+      pane.classList.add('is-focused');
+    }
+    document.querySelectorAll('.pane').forEach((pane) => {
+      pane.addEventListener('pointerdown', () => focusPane(pane));
+      pane.addEventListener('focusin', () => focusPane(pane));
+    });
+
+    // Leaf tab groups: selection, keyboard navigation and move between groups
+    let draggedTab = null;
+
+    function activatePanel(tab, moveFocus = false) {
+      const pane = tab.closest('.pane');
+      const tabs = [...pane.querySelectorAll('.leaf-tabs .panel-tab')];
+      if (!tabs.includes(tab)) return;
+      tabs.forEach((item) => {
+        const selected = item === tab;
+        item.setAttribute('aria-selected', String(selected));
+        item.tabIndex = selected ? 0 : -1;
+      });
+      pane.querySelectorAll('.leaf-view').forEach((view) => {
+        view.hidden = view.dataset.panelView !== tab.dataset.panelId;
+      });
+      focusPane(pane);
+      if (moveFocus) tab.focus();
+    }
+
+    function ensureActiveTab(pane) {
+      const active = pane.querySelector('.leaf-tabs .panel-tab[aria-selected="true"]');
+      if (!active) {
+        const first = pane.querySelector('.leaf-tabs .panel-tab');
+        if (first) activatePanel(first);
+      }
+    }
+
+    function cleanDropTargets() {
+      document.querySelectorAll('.leaf-tabbar.drop-target').forEach((bar) => bar.classList.remove('drop-target'));
+      document.querySelectorAll('.panel-tab.dragging').forEach((tab) => tab.classList.remove('dragging'));
+    }
+
+    document.querySelectorAll('.leaf-tabs .panel-tab').forEach((tab) => {
+      tab.addEventListener('click', () => activatePanel(tab));
+      tab.addEventListener('dragstart', (event) => {
+        draggedTab = tab;
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', tab.dataset.panelId);
+        requestAnimationFrame(() => tab.classList.add('dragging'));
+      });
+      tab.addEventListener('dragend', () => {
+        draggedTab = null;
+        cleanDropTargets();
+      });
+    });
+
+    document.querySelectorAll('.leaf-tabbar').forEach((bar) => {
+      bar.addEventListener('dragover', (event) => {
+        if (!draggedTab) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        bar.classList.add('drop-target');
+      });
+      bar.addEventListener('dragleave', (event) => {
+        if (!bar.contains(event.relatedTarget)) bar.classList.remove('drop-target');
+      });
+      bar.addEventListener('drop', (event) => {
+        if (!draggedTab) return;
+        event.preventDefault();
+        const sourcePane = draggedTab.closest('.pane');
+        const targetPane = bar.closest('.pane');
+        const targetTabs = bar.querySelector('.leaf-tabs');
+        const targetTab = event.target.closest('.panel-tab');
+
+        if (sourcePane !== targetPane && sourcePane.querySelectorAll('.leaf-tabs .panel-tab').length <= 1) {
+          cleanDropTargets();
+          showToast('A leaf must keep at least one tab');
+          return;
+        }
+
+        if (targetTab && targetTab !== draggedTab) targetTabs.insertBefore(draggedTab, targetTab);
+        else if (targetTabs !== draggedTab.parentElement) targetTabs.appendChild(draggedTab);
+
+        const movedView = document.querySelector(`[data-panel-view="${draggedTab.dataset.panelId}"]`);
+        if (sourcePane !== targetPane && movedView) targetPane.querySelector('.leaf-stack').appendChild(movedView);
+
+        activatePanel(draggedTab, true);
+        ensureActiveTab(sourcePane);
+        cleanDropTargets();
+        showToast(`Moved “${draggedTab.querySelector('.tab-label').textContent}” to leaf ${targetPane.querySelector('.leaf-letter').textContent}`);
+      });
+    });
+
+    document.querySelectorAll('.leaf-tabs').forEach((list) => {
+      list.addEventListener('keydown', (event) => {
+        const tabs = [...list.querySelectorAll('.panel-tab')];
+        const currentIndex = tabs.indexOf(document.activeElement);
+        if (currentIndex < 0) return;
+        const moveKey = event.ctrlKey && event.shiftKey && (event.key === 'ArrowLeft' || event.key === 'ArrowRight');
+        if (moveKey) {
+          event.preventDefault();
+          const direction = event.key === 'ArrowRight' ? 1 : -1;
+          const destination = currentIndex + direction;
+          if (destination < 0 || destination >= tabs.length) return;
+          const current = tabs[currentIndex];
+          if (direction > 0) list.insertBefore(tabs[destination], current);
+          else list.insertBefore(current, tabs[destination]);
+          current.focus();
+          showToast('Tab order updated');
+          return;
+        }
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        let next = currentIndex;
+        if (event.key === 'ArrowLeft') next = (currentIndex - 1 + tabs.length) % tabs.length;
+        if (event.key === 'ArrowRight') next = (currentIndex + 1) % tabs.length;
+        if (event.key === 'Home') next = 0;
+        if (event.key === 'End') next = tabs.length - 1;
+        activatePanel(tabs[next], true);
+      });
+    });
+
+    // Sidebar collapse
+    document.getElementById('collapse-left').addEventListener('click', () => workspace.classList.add('left-collapsed'));
+    document.getElementById('expand-left').addEventListener('click', () => workspace.classList.remove('left-collapsed'));
+    document.getElementById('collapse-right').addEventListener('click', () => workspace.classList.add('right-collapsed'));
+    document.getElementById('expand-right').addEventListener('click', () => workspace.classList.remove('right-collapsed'));
+
+    // Project/thread selection (visual selection only)
+    document.querySelectorAll('.project-item').forEach((item) => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.project-item').forEach((other) => {
+          other.classList.remove('active');
+          other.removeAttribute('aria-current');
+        });
+        item.classList.add('active');
+        item.setAttribute('aria-current', 'true');
+      });
+    });
+    document.querySelectorAll('.thread-item').forEach((item) => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.thread-item').forEach((other) => other.classList.remove('active'));
+        item.classList.add('active');
+      });
+    });
+
+    // Pane maximize / restore
+    let maximizedPane = null;
+
+    function syncMaximizeButtons() {
+      document.querySelectorAll('[data-maximize]').forEach((button) => {
+        const pane = button.closest('.pane');
+        const active = pane === maximizedPane;
+        const name = pane.dataset.pane === 'claude' ? 'Claude Code' : 'Codex';
+        button.setAttribute('aria-pressed', String(active));
+        button.setAttribute('aria-label', active ? `Restore ${name} leaf` : `Maximize ${name} leaf`);
+      });
+    }
+
+    function restoreMaximizedPane() {
+      if (!maximizedPane) return;
+      maximizedPane.classList.remove('is-maximized');
+      panes.classList.remove('has-maximized');
+      maximizedPane = null;
+      syncMaximizeButtons();
+    }
+
+    function maximizePane(pane) {
+      if (maximizedPane === pane) {
+        restoreMaximizedPane();
+        showToast('Pane restored');
+        return;
+      }
+      if (maximizedPane) maximizedPane.classList.remove('is-maximized');
+      maximizedPane = pane;
+      pane.classList.add('is-maximized');
+      panes.classList.add('has-maximized');
+      syncMaximizeButtons();
+      showToast(`${pane.dataset.pane === 'claude' ? 'Claude Code' : 'Codex'} leaf maximized · Esc to restore`);
+    }
+
+    document.querySelectorAll('[data-maximize]').forEach((button) => {
+      button.addEventListener('click', () => maximizePane(button.closest('.pane')));
+    });
+
+    // Resizable agent split
+    const splitter = document.getElementById('splitter');
+    let dragRatio = null;
+
+    function applySplit(clientX) {
+      const bounds = panes.getBoundingClientRect();
+      const usable = bounds.width - 5;
+      const minimum = Math.min(260, usable * .35);
+      const ratio = Math.min(.7, Math.max(.3, (clientX - bounds.left) / usable));
+      const left = Math.max(minimum, Math.round(usable * ratio));
+      const right = Math.max(minimum, usable - left);
+      dragRatio = left / usable;
+      panes.style.gridTemplateColumns = `${left}px 5px ${right}px`;
+      splitter.setAttribute('aria-valuenow', String(Math.round(dragRatio * 100)));
+    }
+    splitter.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      splitter.setPointerCapture(event.pointerId);
+      splitter.classList.add('dragging');
+      document.body.classList.add('is-resizing');
+    });
+    splitter.addEventListener('pointermove', (event) => {
+      if (!splitter.classList.contains('dragging')) return;
+      applySplit(event.clientX);
+    });
+    splitter.addEventListener('pointerup', (event) => {
+      if (!splitter.classList.contains('dragging')) return;
+      splitter.classList.remove('dragging');
+      document.body.classList.remove('is-resizing');
+      try { splitter.releasePointerCapture(event.pointerId); } catch (_) {}
+    });
+    splitter.addEventListener('keydown', (event) => {
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+      event.preventDefault();
+      const current = dragRatio || .52;
+      dragRatio = Math.min(.7, Math.max(.3, current + (event.key === 'ArrowLeft' ? -.035 : .035)));
+      const bounds = panes.getBoundingClientRect();
+      applySplit(bounds.left + (bounds.width - 5) * dragRatio);
+    });
+
+    // Resizable side panes
+    function setupSideSplitter(handle, side) {
+      const isNavigator = side === 'left';
+      const variable = isNavigator ? '--nav-w' : '--thread-w';
+      const panel = isNavigator ? document.querySelector('.left-panel') : document.querySelector('.right-panel');
+      let startX = 0;
+      let startWidth = 0;
+
+      function clampWidth(value) {
+        const absoluteMin = isNavigator ? 176 : 200;
+        const absoluteMax = isNavigator ? 360 : 380;
+        const otherPanel = document.querySelector(isNavigator ? '.right-panel' : '.left-panel');
+        const otherWidth = otherPanel.getBoundingClientRect().width;
+        const viewportMax = Math.max(absoluteMin, window.innerWidth - otherWidth - 470);
+        return Math.min(absoluteMax, viewportMax, Math.max(absoluteMin, value));
+      }
+
+      function applyWidth(width) {
+        const next = Math.round(clampWidth(width));
+        workspace.style.setProperty(variable, `${next}px`);
+        handle.setAttribute('aria-valuenow', String(next));
+      }
+
+      handle.addEventListener('pointerdown', (event) => {
+        if (workspace.classList.contains(isNavigator ? 'left-collapsed' : 'right-collapsed')) return;
+        event.preventDefault();
+        startX = event.clientX;
+        startWidth = panel.getBoundingClientRect().width;
+        handle.setPointerCapture(event.pointerId);
+        handle.classList.add('dragging');
+        document.body.classList.add('is-resizing');
+      });
+      handle.addEventListener('pointermove', (event) => {
+        if (!handle.classList.contains('dragging')) return;
+        const delta = event.clientX - startX;
+        applyWidth(startWidth + (isNavigator ? delta : -delta));
+      });
+      handle.addEventListener('pointerup', (event) => {
+        if (!handle.classList.contains('dragging')) return;
+        handle.classList.remove('dragging');
+        document.body.classList.remove('is-resizing');
+        try { handle.releasePointerCapture(event.pointerId); } catch (_) {}
+      });
+      handle.addEventListener('dblclick', () => {
+        workspace.style.removeProperty(variable);
+        handle.setAttribute('aria-valuenow', String(Math.round(panel.getBoundingClientRect().width)));
+      });
+      handle.addEventListener('keydown', (event) => {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        event.preventDefault();
+        const direction = event.key === 'ArrowRight' ? 1 : -1;
+        const current = panel.getBoundingClientRect().width;
+        applyWidth(current + (isNavigator ? direction : -direction) * 16);
+      });
+    }
+    setupSideSplitter(document.getElementById('nav-splitter'), 'left');
+    setupSideSplitter(document.getElementById('thread-splitter'), 'right');
+
+    function resetLayout() {
+      restoreMaximizedPane();
+      panes.style.removeProperty('grid-template-columns');
+      workspace.style.removeProperty('--nav-w');
+      workspace.style.removeProperty('--thread-w');
+      dragRatio = null;
+      requestAnimationFrame(() => {
+        document.getElementById('nav-splitter').setAttribute('aria-valuenow', String(Math.round(document.querySelector('.left-panel').getBoundingClientRect().width)));
+        document.getElementById('thread-splitter').setAttribute('aria-valuenow', String(Math.round(document.querySelector('.right-panel').getBoundingClientRect().width)));
+      });
+      showToast('Workspace layout reset');
+    }
+    document.getElementById('reset-layout').addEventListener('click', resetLayout);
+
+    // Hop dialog
+    const backdrop = document.getElementById('hop-backdrop');
+    const dialog = backdrop.querySelector('.dialog');
+    const openButtons = [document.getElementById('open-hop-top'), document.getElementById('open-hop-side')];
+    let originFocus = null;
+
+    function openHop(trigger) {
+      originFocus = trigger;
+      backdrop.classList.add('open');
+      backdrop.setAttribute('aria-hidden', 'false');
+      document.getElementById('close-hop').focus();
+    }
+    function closeHop() {
+      backdrop.classList.remove('open');
+      backdrop.setAttribute('aria-hidden', 'true');
+      if (originFocus) originFocus.focus();
+    }
+    openButtons.forEach((button) => button.addEventListener('click', () => openHop(button)));
+    document.getElementById('close-hop').addEventListener('click', closeHop);
+    document.getElementById('cancel-hop').addEventListener('click', closeHop);
+    backdrop.addEventListener('click', (event) => { if (event.target === backdrop) closeHop(); });
+    backdrop.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') { event.preventDefault(); closeHop(); return; }
+      if (event.key !== 'Tab') return;
+      const focusable = [...dialog.querySelectorAll('button, [href], input, [tabindex]:not([tabindex="-1"])')]
+        .filter((element) => !element.disabled && element.offsetParent !== null);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    });
+
+    document.querySelectorAll('.mode-card').forEach((card) => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.mode-card').forEach((other) => {
+          other.classList.remove('selected');
+          other.setAttribute('aria-checked', 'false');
+        });
+        card.classList.add('selected');
+        card.setAttribute('aria-checked', 'true');
+      });
+    });
+    document.getElementById('start-hop').addEventListener('click', () => {
+      const mode = document.querySelector('.mode-card.selected').dataset.mode;
+      closeHop();
+      showToast(mode === 'fork' ? 'Fork prepared · Codex starting in a child thread' : 'Hop prepared · Codex confirming the seed');
+    });
+
+    // Approval demo
+    document.querySelectorAll('[data-toast]').forEach((button) => {
+      button.addEventListener('click', () => showToast(button.dataset.toast));
+    });
+
+    // Keyboard shortcuts used by the mockup
+    window.addEventListener('keydown', (event) => {
+      if (backdrop.classList.contains('open')) return;
+      if (event.key === 'Escape') {
+        if (maximizedPane) {
+          restoreMaximizedPane();
+          showToast('Pane restored');
+          return;
+        }
+        closeThemeMenu();
+        return;
+      }
+      if (!(event.ctrlKey || event.metaKey)) return;
+      const key = event.key.toLowerCase();
+      if (key === 'h') { event.preventDefault(); openHop(document.activeElement); }
+      if (key === 'b') { event.preventDefault(); workspace.classList.toggle('left-collapsed'); }
+      if (key === 'j') { event.preventDefault(); workspace.classList.toggle('right-collapsed'); }
+      if (key === 'm' && event.shiftKey) {
+        event.preventDefault();
+        const target = document.querySelector('.pane.is-focused') || document.querySelector('.pane');
+        if (target) maximizePane(target);
+      }
+    });
+
+    // Keep side widths usable and separator values honest after window changes.
+    function clampSideWidthsToViewport() {
+      const leftPanel = document.querySelector('.left-panel');
+      const rightPanel = document.querySelector('.right-panel');
+      if (workspace.classList.contains('left-collapsed') || workspace.classList.contains('right-collapsed')) return;
+      let nav = leftPanel.getBoundingClientRect().width;
+      let thread = rightPanel.getBoundingClientRect().width;
+      const maxSum = Math.max(376, window.innerWidth - 470);
+      if (nav + thread <= maxSum) return;
+      let excess = nav + thread - maxSum;
+      const threadReduction = Math.min(excess, thread - 200);
+      thread -= threadReduction;
+      excess -= threadReduction;
+      nav = Math.max(176, nav - excess);
+      workspace.style.setProperty('--nav-w', `${Math.round(nav)}px`);
+      workspace.style.setProperty('--thread-w', `${Math.round(thread)}px`);
+    }
+
+    window.addEventListener('resize', () => {
+      clampSideWidthsToViewport();
+      if (!document.querySelector('#nav-splitter').classList.contains('dragging')) {
+        document.getElementById('nav-splitter').setAttribute('aria-valuenow', String(Math.round(document.querySelector('.left-panel').getBoundingClientRect().width)));
+      }
+      if (!document.querySelector('#thread-splitter').classList.contains('dragging')) {
+        document.getElementById('thread-splitter').setAttribute('aria-valuenow', String(Math.round(document.querySelector('.right-panel').getBoundingClientRect().width)));
+      }
+    });
+  })();
+</script>
+<script src="workspace-features.js"></script>
+</body>
+</html>

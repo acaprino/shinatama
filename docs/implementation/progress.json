@@ -1,0 +1,2992 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-11-09",
+  "base_head": "46435ab",
+  "git_state": "Shared harness services and one-Open startup remain committed; Claude, Codex, OpenCode and PowerShell startup have prior native evidence. c003838 adds durable native-owner joins and atomic cleanup receipts with explicit thread recovery; 516325a proves Recover session through real UI/IPC using synthetic private metadata. Four state recovery tests, two terminal lifecycle tests and full desktop/helper/hook build pass. No schema migration or personal data change was required. Verified portable 28dab120-3c4f-4d0b-9adf-4c7004055ddc contains functional code through c003838, 621 files/227576007 bytes; actual recovery UI passes on that package. 12221f2/3c6e342 identify the guarded Claude bootstrap failure as first-party connectivity preflights; a synthetic bearer gateway fixture preserves the guard, but its run was deferred by renewed host resource pressure and full UI Resume remains open. Headless authenticated Claude hooks, exact same-UUID resume and TLS have prior PASS evidence; this is distinct from UI/provider/login qualification. 755618b adds exact typed Codex Resume selection and blocks reuse of StartNew qualification; three targeted tests and desktop check pass, capability remains disabled. C12 is still the sole active parent. Effective sidecar controls, pre-cleanup crash recovery, remaining harness capabilities and floating windows remain open. Daodan remains deferred; no whole-product completion is claimed. 14b07ba qualifies the tracked Codex recipe end to end: the native StartNew proof exposed and fixed three product defects (stale 16-argument contained-launch bounds unified as shared MAX_LAUNCH_ARGUMENTS=32 across host/wire/PTY against the 21-argument tracked recipe; missing startup_scope entry for the tracked Codex profile; Codex -c parser tore the dotted hooks.state key so hook trust now ships as a single-segment hooks table override verified trusted by real hooks/list), plus a pre-existing failing opaque-binding Debug test. codex-native-smoke.mjs passes twice on guarded synthetic credentials with no completed model turn; Claude resume smoke re-passes as the shared-path regression. Desktop rebuilds require --features custom-protocol and the terminal helper must be rebuilt with the host. bf6bf2f adds the duplicate-resume race smoke; it passes on the main and on an isolated worktree build (one winner, bounded busy/owned_elsewhere/source_changed refusals, three exact owners closed, prior context retained), and the Codex native smoke re-passes on the same isolated binaries. Concurrent agent activity on the shared target directory invalidated mid-flight runs; definitive proofs ran from .jcode/local/worktrees/race-proof at the exact proof commit. 97e904a exposes the Codex Resume path end to end: exact-UUID sealed launch recipe (23 argv, ResumeNative capability separated from StartNew), lifecycle confirmation via SessionStart(source=resume), catalog native_resume=true, two new lifecycle tests and codex-resume-smoke.mjs PASS twice on an isolated worktree build with the StartNew smoke re-passing on the same binaries. 2026-11-06: forced-crash smoke committed with per-run evidence (agent-kill live-host PASS, pre-receipt block PASS, dialog/preset and ceiling fixes); remaining single-run phases environmentally blocked; Ledger(Capacity) product limit documented. 2026-11-06b: forced-crash smoke simplified to one crash + one restart + one refusal (redundant phases removed); status note rewritten accordingly. 2026-11-06c: one-page simplified plan added (docs/implementation/PLAN-SEMPLIFICATO.md): verification backlog (C13, C25 minimal, C46, F02), capability backlog (C14, C15.4, C16, C17, C22/C23, C24, C12.5, ADR-0051), deferred platforms untouched; one proof per behaviour, no automatic run loops. 2026-11-06d: ADR-0051 accepted and implemented (engine probe, state certificate, desktop recover branch, UI smoke PASS); ledger capacity restored on pre-receipt recovery. 2026-11-07: portable package 3de12dc4-9bb3-45c0-8b55-fb1e1fdd30e8 regenerated on 85544c3 (621 files, 229492935 bytes, status verified, desktop exe 2026-11-06 12:06 with ADR-0051, helpers rebuilt 2026-11-07 09:37); supersedes 837f4345. No native test executed for it. 2026-11-07b: C12.5 decided (unconsumed adaptivePressure fields removed from the product baseline), six superseded unreferenced portable packages deleted, C13/C25/C46 attempted once and parked for host memory, F02 evidence collected and ready for owner acceptance. 2026-11-07c: C13/C25/C46 smokes fixed (obsolete UI selectors, hidden project field, stale refusal assertion, IPC read retry); a real forced crash was recovered by the ADR-0051 certificate (database evidence); green runs await 8 GiB of free commit at launch.",
+  "steps": {
+    "B00": {
+      "status": "committed",
+      "commit_sha": "266fb1e043f834f0cf4a2e71976028d5f54c2186",
+      "platforms": [
+        "Windows"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-tauri-terminal-prototype.md"
+      ],
+      "checks": [
+        "npm run build",
+        "cargo test -p shinatama-terminal",
+        "npm run test:desktop"
+      ],
+      "limits": [
+        "Full TL/P gates remain open"
+      ]
+    },
+    "B01": {
+      "status": "committed",
+      "commit_sha": "266fb1e043f834f0cf4a2e71976028d5f54c2186",
+      "platforms": [
+        "Windows"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-B01-implementation-plan.md"
+      ],
+      "checks": [
+        "python scripts/implementation.py validate",
+        "python -m unittest discover -s scripts -p test_implementation.py",
+        "python scripts/implementation.py render"
+      ],
+      "next_action": "Proceed to F32CI using the validated dependency graph."
+    },
+    "B02": {
+      "status": "committed",
+      "commit_sha": "266fb1e043f834f0cf4a2e71976028d5f54c2186",
+      "platforms": [
+        "Windows"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-B02-project-history.md"
+      ],
+      "checks": [
+        "cargo test -p shinatama-projects",
+        "cargo clippy --workspace --all-targets --features custom-protocol -- -D warnings",
+        "npm run build",
+        "npm run test:projects",
+        "npm run test:desktop"
+      ],
+      "limits": [
+        "Full roots/F3/default-root creation and cross-platform gates are planned in later steps."
+      ],
+      "next_action": "Checkpoint current bootstrap paths, then F32CI."
+    },
+    "D01": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su richiesta esplicita dell utente del 2026-11-02: ignorare per adesso l integrazione con Daodan. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere Daodan."
+    },
+    "C34": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su richiesta esplicita dell utente del 2026-11-02: ignorare per adesso l integrazione con Daodan. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere Daodan."
+    },
+    "C35": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su richiesta esplicita dell utente del 2026-11-02: ignorare per adesso l integrazione con Daodan. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere Daodan."
+    },
+    "D02": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su richiesta esplicita dell utente del 2026-11-02: ignorare per adesso l integrazione con Daodan. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere Daodan."
+    },
+    "D03": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su richiesta esplicita dell utente del 2026-11-02: ignorare per adesso l integrazione con Daodan. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere Daodan."
+    },
+    "D04": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su richiesta esplicita dell utente del 2026-11-02: ignorare per adesso l integrazione con Daodan. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere Daodan."
+    },
+    "QA-claude-macos": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "QA-claude-linux": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "F11-macos": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "F11-linux": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "QA-codex-macos": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "QA-codex-linux": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "QA-opencode-macos": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "QA-opencode-linux": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "QA-pi-macos": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "QA-pi-linux": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "QA-hermes-macos": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "QA-hermes-linux": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "QA-deepseek-macos": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "QA-deepseek-linux": {
+      "status": "deferred",
+      "commit_sha": null,
+      "reason": "Rinviato su decisione esplicita dell utente del 2026-11-02: solo Windows e supportato ufficialmente e non ci sono macchine macOS o Linux. Riprendere solo su nuova indicazione.",
+      "next_action": "Attendere nuova indicazione esplicita per riprendere macOS o Linux."
+    },
+    "F32CI": {
+      "status": "committed",
+      "commit_sha": "cca3b040e7ba7ac0ae9794e1f48586afe43cee38",
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-F32CI-windows-verification.md"
+      ],
+      "checks": [
+        "pwsh -NoProfile -File scripts/verify.ps1",
+        "python scripts/dependencies.py check --offline"
+      ],
+      "limits": [
+        "GitHub workflow statically verified; remote execution has not run.",
+        "Release X3/X4/X5, TL1, P14, RES and sidecar gates remain open."
+      ],
+      "next_action": "Resume TL1-proof, the next ready step selected by the updated implementation plan."
+    },
+    "TL1-proof": {
+      "status": "committed",
+      "commit_sha": "8e777be24ad5ba29497d305467d11f09755e5849",
+      "units": {
+        "TL1.1": {
+          "status": "committed",
+          "commit_sha": "f1830cfe642087b52383f1eb4b5c391e25001a67",
+          "evidence": [
+            "docs/verification/2026-11-02-TL1-windows.md",
+            "docs/verification/2026-11-02-TL1-result.json"
+          ],
+          "checks": [
+            "npm run build:tl1",
+            "npm run desktop:tl1",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/tl1/proof.mjs",
+            "cargo test -p shinatama-desktop --features tl1-proof,custom-protocol tl1::tests -- --test-threads=1"
+          ],
+          "platforms": [
+            "Windows 11 x64 build 26200; WebView2 156.0.4314.58; Claude Code 2.1.316"
+          ]
+        },
+        "TL1.2": {
+          "status": "committed",
+          "commit_sha": "8e777be24ad5ba29497d305467d11f09755e5849",
+          "evidence": [
+            "docs/verification/2026-11-02-TL1-windows.md"
+          ],
+          "checks": [
+            "python adr_tool.py validate --project ."
+          ],
+          "limits": [
+            "ADR-0002 v4 and ADR-0040 v2 remain Proposed pending explicit approval of their texts."
+          ]
+        }
+      },
+      "next_action": "Continue C02 shared SQLite, migration and typed state services; no checkpoint approval is needed.",
+      "evidence": [
+        "docs/verification/2026-11-02-TL1-windows.md",
+        "docs/verification/2026-11-02-TL1-result.json"
+      ],
+      "checks": [
+        "npm run build:tl1",
+        "npm run desktop:tl1",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/tl1/proof.mjs",
+        "cargo test -p shinatama-desktop --features tl1-proof,custom-protocol tl1::tests -- --test-threads=1",
+        "python adr_tool.py validate --project ."
+      ]
+    },
+    "C01": {
+      "status": "committed",
+      "commit_sha": "f1830cfe642087b52383f1eb4b5c391e25001a67",
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-C01-private-storage.md"
+      ],
+      "checks": [
+        "cargo test -p shinatama-state --lib --test location -- --test-threads=1",
+        "cargo test -p shinatama-projects",
+        "cargo clippy -p shinatama-state --lib --test location --example check_location -- -D warnings",
+        "cargo clippy -p shinatama-desktop -p shinatama-projects --features custom-protocol -- -D warnings",
+        "npm run build",
+        "npm run test:storage",
+        "npm run test:projects",
+        "npm run test:desktop",
+        "python scripts/dependencies.py check --offline"
+      ],
+      "limits": [
+        "Full S2/S9/S11/D15/E4 gates stay open; Google Drive custom NTFS mirrored directories without provider metadata require qualification.",
+        "C01 prepares the private location; SQLite follows in C02."
+      ],
+      "commit_boundary": "Atomic current-file commit with TL1.1: automatic approval rejected substituting source files or staging derived partial contents. Separate evidence/status retained; C02/C03 source excluded.",
+      "next_action": "Continue C02 bundled SQLite and atomic legacy-history import after this checkpoint."
+    },
+    "C02": {
+      "status": "committed",
+      "commit_sha": "85bd724b3fba830c007cf77e96d6f5a332eb97fd",
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-C02-sqlite.md",
+        "docs/verification/2026-11-02-C02-state-result.json"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-state --lib --test database --test location --example check_location -j1 -- --test-threads=1",
+        "cargo clippy --offline -p shinatama-state --lib --test database --test location --example check_location -j1 -- -D warnings",
+        "cargo clippy -p shinatama-desktop --features custom-protocol -- -D warnings",
+        "npm run build",
+        "npm run test:state",
+        "npm run test:projects",
+        "npm run test:desktop",
+        "npm run test:storage",
+        "python scripts/dependencies.py check --offline"
+      ],
+      "limits": [
+        "C02 minimal schema version 1; versioned backups follow in C03.",
+        "Complete S1/S4/S5 and release X3 remain open; initialization failures require native app restart after correction."
+      ],
+      "next_action": "Wire and qualify C03 backups/migrations, then implement the newly requested bounded DB maintenance."
+    },
+    "C03": {
+      "status": "committed",
+      "commit_sha": "15e40eca19d1173064a7c4a13154f8a7d639b44b",
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-C03-migrations.md",
+        "docs/verification/2026-11-02-C03-state-result.json"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-state --lib --test database --test location --test migrations --example check_location -j1 -- --test-threads=1",
+        "cargo clippy --offline -p shinatama-state --lib --test database --test location --test migrations --example check_location -j1 -- -D warnings",
+        "cargo test -p shinatama-state --test database --offline -j1 claimed_current_version_requires_the_embedded_schema_before_any_wal_change",
+        "cargo fmt -p shinatama-state -p shinatama-desktop -- --check",
+        "cargo build -p shinatama-desktop --features custom-protocol",
+        "npm run test:state",
+        "npm run test:desktop",
+        "python scripts/dependencies.py check --offline"
+      ],
+      "limits": [
+        "Copy-loop deadline is cooperative; OS I/O, integrity/schema checks and flush have no hard timeout.",
+        "Backup budget is fixed; existing copies are not deleted automatically. C03M cleanup/idle jobs and full S/RES gates remain unqualified."
+      ],
+      "next_action": "Implement C03M maintenance units and advance C04 project roots independently; preserve the mandatory C09R gate before terminal/sidecar hardening."
+    },
+    "C03M": {
+      "status": "committed",
+      "commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb",
+      "units": {
+        "C03M.1": {
+          "status": "committed",
+          "commit_sha": "c63f7e976f568965af2d213e2b0d1e7648779637",
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-02-C03M-core.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-state --lib --test database --test location --test migrations --test maintenance --example check_location -j1 -- --test-threads=1",
+            "cargo clippy --offline -p shinatama-state --lib --test database --test location --test migrations --test maintenance --example check_location -j1 -- -D warnings"
+          ],
+          "limits": [
+            "Library core qualified; idle desktop scheduling and healthy-terminal integration follow in C03M.2/.3.",
+            "Filesystem/native I/O is not hard-preemptible; 100 ms is the SQL cooperative slice after measured admission."
+          ]
+        },
+        "C03M.2": {
+          "status": "committed",
+          "commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb",
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-02-C03M-desktop.md",
+            "docs/verification/2026-11-02-C03M-desktop.result.json"
+          ],
+          "checks": [
+            "cargo test --offline --workspace --all-targets --features custom-protocol -j1 -- --test-threads=1",
+            "cargo clippy --offline --workspace --all-targets --features custom-protocol -j1 -- -D warnings",
+            "cargo fmt --all --check",
+            "npm run build",
+            "npm test",
+            "python scripts/dependencies.py check --offline",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/maintenance-smoke.mjs"
+          ],
+          "limits": [
+            "Fixed helper admission and C09R integration hook are qualified; adaptive C09R governor and production P14 remain open.",
+            "Native filesystem/checkpoint IO has no hard preemption guarantee.",
+            "UI IPC and rendered output metrics do not measure full keystroke-to-shell latency.",
+            "Capacity/pressure faults use reduced policy limits and cancellation; no host disk or memory exhaustion is induced."
+          ]
+        },
+        "C03M.3": {
+          "status": "committed",
+          "commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb",
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-02-C03M-desktop.md",
+            "docs/verification/2026-11-02-C03M-desktop.result.json"
+          ],
+          "checks": [
+            "cargo test --offline --workspace --all-targets --features custom-protocol -j1 -- --test-threads=1",
+            "cargo clippy --offline --workspace --all-targets --features custom-protocol -j1 -- -D warnings",
+            "cargo fmt --all --check",
+            "npm run build",
+            "npm test",
+            "python scripts/dependencies.py check --offline",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/maintenance-smoke.mjs"
+          ],
+          "limits": [
+            "Fixed helper admission and C09R integration hook are qualified; adaptive C09R governor and production P14 remain open.",
+            "Native filesystem/checkpoint IO has no hard preemption guarantee.",
+            "UI IPC and rendered output metrics do not measure full keystroke-to-shell latency.",
+            "Capacity/pressure faults use reduced policy limits and cancellation; no host disk or memory exhaustion is induced."
+          ]
+        }
+      },
+      "next_action": "Connect the qualified optional-work revocation hook to C09R when its calibrated governor is implemented.",
+      "evidence": [
+        "docs/verification/2026-11-02-C03M-desktop.md",
+        "docs/verification/2026-11-02-C03M-desktop.result.json"
+      ],
+      "checks": [
+        "cargo test --offline --workspace --all-targets --features custom-protocol -j1 -- --test-threads=1",
+        "cargo clippy --offline --workspace --all-targets --features custom-protocol -j1 -- -D warnings",
+        "cargo fmt --all --check",
+        "npm run build",
+        "npm test",
+        "python scripts/dependencies.py check --offline",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/maintenance-smoke.mjs"
+      ],
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "limits": [
+        "Fixed helper admission and C09R integration hook are qualified; adaptive C09R governor and production P14 remain open.",
+        "Native filesystem/checkpoint IO has no hard preemption guarantee.",
+        "UI IPC and rendered output metrics do not measure full keystroke-to-shell latency.",
+        "Capacity/pressure faults use reduced policy limits and cancellation; no host disk or memory exhaustion is induced."
+      ]
+    },
+    "C04": {
+      "status": "committed",
+      "commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb",
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-C04-project-catalog.md",
+        "docs/verification/2026-11-02-C04-project-catalog.result.json"
+      ],
+      "checks": [
+        "cargo test --offline --workspace --all-targets --features custom-protocol -j1 -- --test-threads=1",
+        "cargo clippy --offline --workspace --all-targets --features custom-protocol -j1 -- -D warnings",
+        "cargo fmt --all --check",
+        "npm run build",
+        "npm test",
+        "python scripts/dependencies.py check --offline",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/catalog-smoke.mjs",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/native-picker-smoke.mjs"
+      ],
+      "limits": [
+        "Local Windows synthetic and native-folder qualification passed; actual UNC/DriveFS latency and global U3 matrix remain open.",
+        "Manual B02 explicit folder opens count like F3 in the bounded outside-root history; passive scans/configuration do not.",
+        "C03M/C04 shared setup and UI integration is one verified runnable commit from actual current files; C05/C10 source preparation is excluded."
+      ],
+      "units": {
+        "C04.1": {
+          "status": "committed",
+          "commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb",
+          "evidence": [
+            "docs/verification/2026-11-02-C04-project-catalog.md",
+            "docs/verification/2026-11-02-C04-project-catalog.result.json"
+          ],
+          "checks": [
+            "cargo test --offline --workspace --all-targets --features custom-protocol -j1 -- --test-threads=1",
+            "cargo clippy --offline --workspace --all-targets --features custom-protocol -j1 -- -D warnings",
+            "cargo fmt --all --check",
+            "npm run build",
+            "npm test",
+            "python scripts/dependencies.py check --offline",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/catalog-smoke.mjs",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/native-picker-smoke.mjs"
+          ]
+        },
+        "C04.2": {
+          "status": "committed",
+          "commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb",
+          "evidence": [
+            "docs/verification/2026-11-02-C04-project-catalog.md",
+            "docs/verification/2026-11-02-C04-project-catalog.result.json"
+          ],
+          "checks": [
+            "cargo test --offline --workspace --all-targets --features custom-protocol -j1 -- --test-threads=1",
+            "cargo clippy --offline --workspace --all-targets --features custom-protocol -j1 -- -D warnings",
+            "cargo fmt --all --check",
+            "npm run build",
+            "npm test",
+            "python scripts/dependencies.py check --offline",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/catalog-smoke.mjs",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/native-picker-smoke.mjs"
+          ]
+        },
+        "C04.3": {
+          "status": "committed",
+          "commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb",
+          "evidence": [
+            "docs/verification/2026-11-02-C04-project-catalog.md",
+            "docs/verification/2026-11-02-C04-project-catalog.result.json"
+          ],
+          "checks": [
+            "cargo test --offline --workspace --all-targets --features custom-protocol -j1 -- --test-threads=1",
+            "cargo clippy --offline --workspace --all-targets --features custom-protocol -j1 -- -D warnings",
+            "cargo fmt --all --check",
+            "npm run build",
+            "npm test",
+            "python scripts/dependencies.py check --offline",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/catalog-smoke.mjs",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/native-picker-smoke.mjs"
+          ]
+        }
+      },
+      "next_action": "Implement C05 explicit project creation using the persisted roots and atomic cancellation boundary."
+    },
+    "C05": {
+      "status": "committed",
+      "commit_sha": "1a557c96edaa4b5e3b8c1fc9a53481ff706b1655",
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-C05-project-creation.md",
+        "docs/verification/2026-11-02-C05-project-creation.result.json"
+      ],
+      "checks": [
+        "cargo test --offline --workspace --all-targets --features custom-protocol -j1 -- --test-threads=1",
+        "cargo clippy --offline --workspace --all-targets --features custom-protocol -j1 -- -D warnings",
+        "cargo fmt --all --check",
+        "npm run build",
+        "npm test",
+        "python -m unittest discover -s scripts -p test_*.py",
+        "python scripts/dependencies.py check --offline",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/new-project-smoke.mjs --with-git"
+      ],
+      "limits": [
+        "Local Windows creation and real native Git initialization passed; actual UNC/DriveFS creation remains unqualified.",
+        "UNC/local Data identity overlap has deterministic simulated-identity and local NTFS fixtures; no real share was created.",
+        "Fixed Git helper budgets and containment are qualified; adaptive C09R and full production P14 remain open.",
+        "Nonempty recovery work is preserved, never automatically pruned; admission stops at eight retained stages per root."
+      ],
+      "next_action": "Use the committed creation checkpoint and proceed to C10 adapter/engine contracts; preserve the C09R gate before terminal/sidecar hardening."
+    },
+    "C10": {
+      "status": "committed",
+      "commit_sha": "417330b5001b865a2b7f86cea126eb8cfda463c0",
+      "units": {
+        "C10.1": {
+          "status": "committed",
+          "commit_sha": "417330b5001b865a2b7f86cea126eb8cfda463c0",
+          "evidence": [
+            "docs/verification/2026-11-02-C10-adapter-contracts.md",
+            "docs/verification/2026-11-02-C10-adapter-contracts.result.json"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-adapter -p shinatama-engine -p shinatama-cli -j1 -- --test-threads=1",
+            "cargo clippy --offline -p shinatama-adapter -p shinatama-engine -p shinatama-cli --all-targets -j1 -- -D warnings",
+            "cargo check --offline --workspace --all-targets --features custom-protocol -j1",
+            "cargo build --offline -p shinatama-cli -j1",
+            "target/debug/shinatama.exe --help",
+            "target/debug/shinatama.exe doctor --json (expected refusal exit 2)",
+            "python scripts/dependencies.py check --offline",
+            "cargo fmt --all --check"
+          ]
+        },
+        "C10.2": {
+          "status": "committed",
+          "commit_sha": "417330b5001b865a2b7f86cea126eb8cfda463c0",
+          "evidence": [
+            "docs/verification/2026-11-02-C10-adapter-contracts.md",
+            "docs/verification/2026-11-02-C10-adapter-contracts.result.json"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-adapter -p shinatama-engine -p shinatama-cli -j1 -- --test-threads=1",
+            "cargo clippy --offline -p shinatama-adapter -p shinatama-engine -p shinatama-cli --all-targets -j1 -- -D warnings",
+            "cargo check --offline --workspace --all-targets --features custom-protocol -j1",
+            "cargo build --offline -p shinatama-cli -j1",
+            "target/debug/shinatama.exe --help",
+            "target/debug/shinatama.exe doctor --json (expected refusal exit 2)",
+            "python scripts/dependencies.py check --offline",
+            "cargo fmt --all --check"
+          ]
+        }
+      },
+      "next_action": "Implement C11 environment/private-home/launch plans before FS03 and the mandatory C09R admission gate.",
+      "evidence": [
+        "docs/verification/2026-11-02-C10-adapter-contracts.md",
+        "docs/verification/2026-11-02-C10-adapter-contracts.result.json"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-adapter -p shinatama-engine -p shinatama-cli -j1 -- --test-threads=1",
+        "cargo clippy --offline -p shinatama-adapter -p shinatama-engine -p shinatama-cli --all-targets -j1 -- -D warnings",
+        "cargo check --offline --workspace --all-targets --features custom-protocol -j1",
+        "cargo build --offline -p shinatama-cli -j1",
+        "target/debug/shinatama.exe --help",
+        "target/debug/shinatama.exe doctor --json (expected refusal exit 2)",
+        "python scripts/dependencies.py check --offline",
+        "cargo fmt --all --check"
+      ],
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "limits": [
+        "Native help/version probes require the qualified C11/C09R path and per-agent QSET; PE metadata never certifies CLI support.",
+        "No concrete native adapter is enabled; launch/login/update and post-V1 mutation remain refused.",
+        "Fixed drive and reparse admission is not a hard deadline on native filesystem IO.",
+        "Mukade archive reading remains at the injected boundary until C14; Daodan remains deferred."
+      ]
+    },
+    "C11": {
+      "status": "committed",
+      "commit_sha": "9b86397e29775cb440393278d45ba3299734dac8",
+      "units": {
+        "C11.1": {
+          "status": "committed",
+          "commit_sha": "b1dcdaa8b2d35cf49b051d3f89944ae8e03653b8",
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-02-C11-environment.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-adapter -p shinatama-engine -p shinatama-cli -j1 -- --test-threads=1",
+            "cargo clippy --offline -p shinatama-adapter -p shinatama-engine -p shinatama-cli --all-targets -j1 -- -D warnings",
+            "cargo fmt --all --check",
+            "npm run build"
+          ],
+          "limits": [
+            "Pure environment composition and six synthetic Windows child processes qualified; native nested agent/version starts and full P20 remain open.",
+            "Hermes/DeepSeek marker lists and Pi prepended PATH handling remain explicit gaps; no guessed native recipe is enabled."
+          ]
+        },
+        "C11.2": {
+          "status": "committed",
+          "commit_sha": "463dcc8eea46afc0e5e1a1bf1a1b9424f1b869b9",
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-02-C11-placement.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-adapter -p shinatama-state -j1 --lib -- --test-threads=1",
+            "cargo clippy --offline -p shinatama-state -p shinatama-adapter --all-targets -j1 -- -D warnings",
+            "cargo fmt --all --check",
+            "npm run build"
+          ],
+          "limits": [
+            "Directory grants are pending FS03 registration; no store-root IDs/revisions or native database are created.",
+            "No concrete native recipe/login/isolation capability is certified by synthetic placement/ACL tests."
+          ]
+        },
+        "C11.3": {
+          "status": "committed",
+          "commit_sha": "15c8eb582a81e7f0ee8965135e9fb4997c4da955",
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-02-C11-identity-argv.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-adapter -p shinatama-engine -j1 -- --test-threads=1",
+            "cargo clippy --offline -p shinatama-adapter -p shinatama-engine -p shinatama-cli --all-targets -j1 -- -D warnings",
+            "cargo fmt --all --check",
+            "python scripts/dependencies.py check --offline",
+            "npm run build"
+          ],
+          "limits": [
+            "Hash-only identity records are prepared, not persisted; registry integration follows FS03.",
+            "No native recipe or launch is qualified; C11.4 composition and C09R execution admission remain required."
+          ]
+        },
+        "C11.4": {
+          "status": "committed",
+          "commit_sha": "9b86397e29775cb440393278d45ba3299734dac8",
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-02-C11-preflight.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-adapter -p shinatama-engine -p shinatama-cli -j1 -- --test-threads=1",
+            "cargo clippy --offline -p shinatama-desktop -p shinatama-adapter -p shinatama-engine -p shinatama-cli --all-targets --features custom-protocol -j1 -- -D warnings",
+            "cargo build --offline -p shinatama-desktop -p shinatama-cli --features custom-protocol -j1",
+            "npm run build",
+            "python scripts/dependencies.py check --offline",
+            "cargo fmt --all --check",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/launch-preflight-smoke.mjs"
+          ],
+          "limits": [
+            "Native execution remains unavailable until C09R, store registration, qualified program binding and sidecar requirements pass.",
+            "No native adapter/version or full P20 gate is certified by synthetic construction tests."
+          ]
+        }
+      },
+      "next_action": "Proceed to FS03 authoritative root/workspace records, then mandatory C09R resilience before dependent native execution.",
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-C11-environment.md",
+        "docs/verification/2026-11-02-C11-placement.md",
+        "docs/verification/2026-11-02-C11-identity-argv.md",
+        "docs/verification/2026-11-02-C11-preflight.md"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-adapter -p shinatama-engine -p shinatama-cli -j1 -- --test-threads=1",
+        "cargo clippy --offline -p shinatama-desktop -p shinatama-adapter -p shinatama-engine -p shinatama-cli --all-targets --features custom-protocol -j1 -- -D warnings",
+        "cargo build --offline -p shinatama-desktop -p shinatama-cli --features custom-protocol -j1",
+        "npm run build",
+        "python scripts/dependencies.py check --offline",
+        "cargo fmt --all --check",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/launch-preflight-smoke.mjs"
+      ],
+      "limits": [
+        "Pure construction, synthetic nested children/private ACL grants and real UI/CLI review qualified; native per-agent/version isolation/login and P20 remain open.",
+        "No native agent execution or full host resilience is claimed. Native qualification follows registered stores, C09R and sidecar integration.",
+        "Daodan remains deferred and is not an admission dependency."
+      ]
+    },
+    "FS03": {
+      "status": "committed",
+      "commit_sha": "23b28a9e65a3bdd2b260f88245518fa1c8013e7b",
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-FS03-records.md"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-state -j1 -- --test-threads=1",
+        "cargo clippy --offline -p shinatama-state --all-targets -j1 -- -D warnings",
+        "cargo fmt --all --check",
+        "python scripts/dependencies.py check --offline",
+        "npm run build",
+        "cargo build --offline -p shinatama-desktop -p shinatama-cli --features custom-protocol -j1",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/state-smoke.mjs",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/launch-preflight-smoke.mjs"
+      ],
+      "limits": [
+        "Current authoritative root/workspace records and data-only restore qualified; full layout tree, UI ownership recovery and TL3 belong to C06.",
+        "Future authoritative/operational feature tables and their scoped rebuild/retention are not pre-created or enabled; no generic cleanup API exists.",
+        "Full S9/native SS5 and non-Windows qualification remain open."
+      ],
+      "next_action": "Proceed immediately to mandatory C09R resource sampling, aggregate admission and native fault containment before dependent native execution."
+    },
+    "C09R": {
+      "status": "committed",
+      "commit_sha": "4e2c1b29038bfe15d20b03e07e94122d511b3629",
+      "units": {
+        "C09R.1": {
+          "status": "committed",
+          "commit_sha": "390c1c9b20a59bc448cfd739b323f82251edb340",
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-02-C09R-observer.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine -j1 -- --test-threads=1",
+            "cargo clippy --offline -p shinatama-desktop -p shinatama-engine --all-targets --features custom-protocol -j1 -- -D warnings",
+            "npm run build",
+            "cargo build --offline -p shinatama-desktop -p shinatama-cli --features custom-protocol -j1",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/resources-smoke.mjs",
+            "python scripts/dependencies.py check --offline",
+            "cargo fmt --all --check"
+          ],
+          "limits": [
+            "Observer measurements do not qualify native workload limits, adaptive admission/intervention, crash recovery or complete RES1-RES4.",
+            "Workload/terminal queue counters are explicitly unavailable until their owning components connect them; owned descendants are not a host/renderer baseline.",
+            "12-second Windows observer proof only; fault injection and prolonged qualification remain required."
+          ]
+        },
+        "C09R.2": {
+          "status": "committed",
+          "commit_sha": "14f44bac6d87da30e3c6bc5271eded2c9b3284ff",
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-02-C09R-admission.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine -p shinatama-state -j1 --lib -- --test-threads=1",
+            "cargo test --offline -p shinatama-engine -j1 --test job_containment -- --test-threads=1",
+            "cargo test --offline -p shinatama-state -j1 --test resource_reservations -- --test-threads=1",
+            "cargo build --offline -p shinatama-desktop -p shinatama-cli --features custom-protocol -j1",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/resources-smoke.mjs"
+          ],
+          "limits": [
+            "Native starts remain gated until remaining C09R and dependent requirements pass.",
+            "Complete lifetime process coverage is required for release: missed descendants or owner-crash uncertainty remain Retired, never guessed empty. Automatic recovery of that uncertainty is unqualified.",
+            "This checkpoint also records the user requested essential-only verification policy and morning delivery priority without reducing V1 requirements."
+          ]
+        },
+        "C09R.3": {
+          "status": "committed",
+          "commit_sha": "f3068d18d62bc91849bca7ba68365894ca6cac5d",
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-02-C09R-policy.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine -j1 --lib resources::policy::tests -- --test-threads=1",
+            "cargo test --offline -p shinatama-desktop -j1 --features custom-protocol resource_governor::tests -- --test-threads=1",
+            "npm run build",
+            "cargo build --offline -p shinatama-desktop --features custom-protocol -j1",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/resources-smoke.mjs"
+          ],
+          "limits": [
+            "Generic bounded policy and optional-maintenance intervention only. Desktop snapshot explicitly advice-only with zero native profiles/jobs; native launches remain disabled.",
+            "Integrated terminal and sidecar fault containment and measured production profiles require C09/C13 and per-agent qualification."
+          ]
+        },
+        "C09R.4": {
+          "status": "committed",
+          "commit_sha": "4e2c1b29038bfe15d20b03e07e94122d511b3629",
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-02-C09R-faults.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine --test resource_faults -j1 -- --test-threads=1 --nocapture"
+          ],
+          "limits": [
+            "Eight synthetic native fault rounds only; actual terminal/renderer protection belongs to C09 and sidecar supervision to C13.",
+            "Per-agent production calibration, extended soak and complete product RES gates remain open."
+          ]
+        }
+      },
+      "next_action": "Proceed with C06/C07 workspace integration and C12 private sidecar preparation; integrate actual terminal containment in C09 and sidecar supervision in C13 before opening native agent gates.",
+      "evidence": [
+        "docs/verification/2026-11-02-C09R-observer.md",
+        "docs/verification/2026-11-02-C09R-admission.md",
+        "docs/verification/2026-11-02-C09R-policy.md",
+        "docs/verification/2026-11-02-C09R-faults.md"
+      ],
+      "limits": [
+        "Generic resource infrastructure and bounded synthetic qualification only. Dependent C09/C13 must apply and qualify it in actual terminals/sidecars; no full product resilience or native agent readiness is claimed.",
+        "C15.3 calibrates desktop pressure entry/recovery to90%/87.5% with an actual-default regression;95% emergency, fixed native quotas, memory reserves and culprit-only intervention remain unchanged."
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-engine --test resource_faults -j1 -- --test-threads=1 --nocapture",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/resources-smoke.mjs"
+      ]
+    },
+    "C06": {
+      "status": "committed",
+      "commit_sha": "4ca08d45171d40d2ec2e4e3cb3001a6ca0424ef7",
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-02-C06-workspace.md"
+      ],
+      "checks": [
+        "node --experimental-strip-types --test apps/desktop/tests/workspace-model.test.ts apps/desktop/tests/workspace-persistence.test.ts",
+        "cargo check --offline -p shinatama-desktop --features custom-protocol -j1"
+      ],
+      "limits": [
+        "Visual integration is C07; layout restoration never starts resources. Explicit dead-owner recovery is verified with exact native proof and CAS."
+      ],
+      "next_action": "Integrate C07 renderer and layout persistence into the desktop shell, preserving existing terminal DOM and process identity.",
+      "units": {
+        "C06.1": {
+          "status": "verified",
+          "commit_sha": null,
+          "evidence": [
+            "docs/verification/2026-11-02-C06-workspace.md"
+          ],
+          "checks": [
+            "node --experimental-strip-types --test apps/desktop/tests/workspace-model.test.ts apps/desktop/tests/workspace-persistence.test.ts",
+            "cargo check --offline -p shinatama-desktop --features custom-protocol -j1"
+          ]
+        },
+        "C06.2": {
+          "status": "verified",
+          "commit_sha": null,
+          "evidence": [
+            "docs/verification/2026-11-02-C06-workspace.md"
+          ],
+          "checks": [
+            "node --experimental-strip-types --test apps/desktop/tests/workspace-model.test.ts apps/desktop/tests/workspace-persistence.test.ts",
+            "cargo check --offline -p shinatama-desktop --features custom-protocol -j1"
+          ]
+        }
+      }
+    },
+    "C07": {
+      "status": "committed",
+      "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-03-C07-C08-workspace.md"
+      ],
+      "checks": [
+        "npm run build",
+        "node apps/desktop/tests/ui-flow-smoke.mjs",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
+        "node --experimental-strip-types --test apps/desktop/tests/workspace-model.test.ts apps/desktop/tests/workspace-persistence.test.ts"
+      ],
+      "units": {
+        "C07.1": {
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "evidence": [
+            "docs/verification/2026-11-03-C07-C08-workspace.md"
+          ],
+          "checks": [
+            "npm run build",
+            "node apps/desktop/tests/ui-flow-smoke.mjs",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
+            "node --experimental-strip-types --test apps/desktop/tests/workspace-model.test.ts apps/desktop/tests/workspace-persistence.test.ts"
+          ]
+        },
+        "C07.2": {
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "evidence": [
+            "docs/verification/2026-11-03-C07-C08-workspace.md"
+          ],
+          "checks": [
+            "npm run build",
+            "node apps/desktop/tests/ui-flow-smoke.mjs",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
+            "node --experimental-strip-types --test apps/desktop/tests/workspace-model.test.ts apps/desktop/tests/workspace-persistence.test.ts"
+          ]
+        },
+        "C07.3": {
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "evidence": [
+            "docs/verification/2026-11-03-C07-C08-workspace.md"
+          ],
+          "checks": [
+            "npm run build",
+            "node apps/desktop/tests/ui-flow-smoke.mjs",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
+            "node --experimental-strip-types --test apps/desktop/tests/workspace-model.test.ts apps/desktop/tests/workspace-persistence.test.ts"
+          ]
+        },
+        "C07.4": {
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "evidence": [
+            "docs/verification/2026-11-03-C07-C08-workspace.md"
+          ],
+          "checks": [
+            "npm run build",
+            "node apps/desktop/tests/ui-flow-smoke.mjs",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
+            "node --experimental-strip-types --test apps/desktop/tests/workspace-model.test.ts apps/desktop/tests/workspace-persistence.test.ts"
+          ]
+        }
+      },
+      "limits": [
+        "No layout, theme or find action starts/restarts a process. Full native-agent and release gates remain separate."
+      ],
+      "next_action": "Continue C09 native fault qualification and visible applied resource limits, then finish sidecar/checkup integration."
+    },
+    "C12": {
+      "status": "committed",
+      "commit_sha": "548670982b841e778c7698d213a97c8c6aebd052",
+      "units": {
+        "C12.1": {
+          "status": "committed",
+          "commit_sha": "cf53d9e270286cf790c3d21e91450b5af15a3944",
+          "evidence": [
+            "docs/verification/2026-11-03-C12-preparation.md"
+          ],
+          "checks": [
+            "pwsh -NoProfile -File sidecar/prepare.ps1 -Mode Verify",
+            "pwsh -NoProfile -File sidecar/prepare.ps1 -Mode Prepare",
+            "pwsh -NoProfile -File sidecar/prepare-runtime.ps1 -Mode Prepare",
+            "cargo test --offline -p shinatama-engine -j1 --lib sidecar_ -- --test-threads=1"
+          ]
+        },
+        "C12.2": {
+          "status": "committed",
+          "commit_sha": "cf53d9e270286cf790c3d21e91450b5af15a3944",
+          "evidence": [
+            "docs/verification/2026-11-03-C12-preparation.md"
+          ],
+          "checks": [
+            "pwsh -NoProfile -File sidecar/prepare.ps1 -Mode Verify",
+            "pwsh -NoProfile -File sidecar/prepare.ps1 -Mode Prepare",
+            "pwsh -NoProfile -File sidecar/prepare-runtime.ps1 -Mode Prepare",
+            "cargo test --offline -p shinatama-engine -j1 --lib sidecar_ -- --test-threads=1"
+          ]
+        },
+        "C12.3": {
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "platforms": [
+            "Windows 11 x64 build 26200; pinned Node 24.14.1"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-03-C12-runtime-tls.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine --test sidecar_runtime -j1 -- --ignored --test-threads=1 --nocapture"
+          ],
+          "limits": [
+            "Only the pinned Node runtime is TLS-qualified here. Actual native agent runtime trust and full SC16 remain separate."
+          ]
+        },
+        "C12.4": {
+          "status": "committed",
+          "commit_sha": "548670982b841e778c7698d213a97c8c6aebd052",
+          "platforms": [
+            "Windows 11 x64 build 26200.9711; pinned Node 24.14.1; actual Claude 2.1.318 (b9aa5b08…1082)"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-03-sidecar-effective-config.md",
+            "docs/notes/2026-11-03-claude-proxy-tls.md",
+            "docs/verification/2026-11-04-C12.4-effective-config-live.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine --test effective_sidecar -j1 -- --ignored --test-threads=1 --nocapture",
+            "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls -- --ignored --test-threads=1: PASS 1/1, 9.27s; actual Claude 2.1.317 rejected missing CA, received synthetic marker through canonical sidecar with private child CA; all owners Released and ledger empty",
+            "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls --test claude_native_resume -- --ignored --test-threads=1: PASS native resume 1/1 in 9.78s and TLS 1/1 in 9.18s; two genuine SessionStart hooks, same saved UUID and prior assistant turn received by synthetic provider, all owners Released",
+            "cargo test --offline --locked -p shinatama-engine -j1 --test claude_effective_config -- --ignored --test-threads=1 --nocapture: PASS 1/1, 5.76s (2026-11-04); actual Claude 2.1.318 through canonical sidecar v0.1.207: [output-steering] applied (steering:L2) in sidecar log, sentinel observed on the live upstream body, exactly 1 main request, 1 guarded tunnel, guardDenied=1, osTrustChanged=false, all owners Released and ledger empty",
+            "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls --test claude_native_resume -- --ignored --test-threads=1: re-run 2026-11-04 on re-pinned Claude 2.1.318 after user-install auto-update from 2.1.317: PASS native resume 1/1 in 9.85s and TLS 1/1 in 9.33s",
+            "npm run build: exit 0 (2026-11-04)"
+          ],
+          "limits": [
+            "Selected canonical-source controls and actual Claude/Bun TLS pass with synthetic local traffic and Released cleanup. Running-CLI effective configuration is observed as live upstream steering effects (percorso B), weaker than the literal acceptance 2: no in-process opts introspection (percorso A stays pending a canonical horness-launcher change plus deliberate re-pin). Real provider authentication/tools remain unverified; targetRatio/growthWindow are parsed but not consumed as requested. The separate headless profile does not qualify the tracked ConPTY profile.",
+            "effortRouting-off with unchanged high effort is proven at source-runtime level only; the observed live Claude body carries no effort field to clamp. The catalog check 'seed bypass' has no dedicated executed fixture and stays open. The CLI pin follows the user installation's auto-update: every version drift requires re-running the native proofs (2.1.317→2.1.318 event documented 2026-11-04)."
+          ],
+          "checkpoint_commits": [
+            "885db6da4abf6c643ab6aa02f8c7d655317214b6",
+            "2f72e7c4ce7badd65c173cf04f3bb16666951a5e"
+          ]
+        }
+      },
+      "limits": [
+        "Actual pinned Node/CLI, schema9/six indexes, canonical source incremental storage and local child-only TLS pass. Full SC16 and per-agent provider traffic remain open.",
+        "Selected canonical-source tiers/adaptive/rewrite/output/effort-off controls pass; running-CLI effective configuration is qualified as live upstream steering effects (percorso B, weaker than literal acceptance 2); percorso A in-process introspection and targetRatio/growthWindow consumption remain open.",
+        "Complete publisher Node license bundle is now pinned and verified against the exact official Windows package; product release/legal X3 and remaining runtime/provider gates stay open."
+      ],
+      "next_action": "C12 closed with recorded limits. Proceed with C13 sidecar supervision (occupancy vs recovery, single recovery, diagnostics separation) and, in the user-authorized alternation, the independent C22 archive-root thread; percorso A stays pending a canonical horness-launcher decision.",
+      "checkpoint_commits": [
+        "885db6da4abf6c643ab6aa02f8c7d655317214b6",
+        "2f72e7c4ce7badd65c173cf04f3bb16666951a5e"
+      ],
+      "evidence": [
+        "docs/notes/2026-11-03-claude-proxy-tls.md",
+        "docs/verification/2026-11-04-C12.4-effective-config-live.md"
+      ],
+      "checks": [
+        "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls -- --ignored --test-threads=1: PASS 1/1, 9.27s; actual Claude 2.1.317 rejected missing CA, received synthetic marker through canonical sidecar with private child CA; all owners Released and ledger empty",
+        "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls --test claude_native_resume -- --ignored --test-threads=1: PASS native resume 1/1 in 9.78s and TLS 1/1 in 9.18s; two genuine SessionStart hooks, same saved UUID and prior assistant turn received by synthetic provider, all owners Released",
+        "cargo test --offline --locked -p shinatama-engine -j1 --test claude_effective_config -- --ignored --test-threads=1 --nocapture: PASS 1/1, 5.76s (2026-11-04, Claude 2.1.318); live upstream steering L2 sentinel observed; native resume 9.85s and TLS 9.33s re-passed on the re-pin; npm run build exit 0",
+        "C12.5 decision 2026-11-07: targetRatio and growthWindow removed from the product baseline config (crates/engine/src/sidecar_config.rs); the canonical parser defaults (0.75, 20) equal the previous values so behavior is unchanged; unit test baseline_uses_canonical_storage_and_compression_keys_with_effort_locked_off asserts their absence (2/2 sidecar_config tests PASS); see docs/notes/2026-11-03-sidecar-effective-config.md."
+      ]
+    },
+    "C08": {
+      "status": "committed",
+      "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ],
+      "evidence": [
+        "docs/verification/2026-11-03-C07-C08-workspace.md"
+      ],
+      "checks": [
+        "npm run build",
+        "node apps/desktop/tests/ui-flow-smoke.mjs",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
+        "node --experimental-strip-types --test apps/desktop/tests/presentation.test.ts",
+        "cargo test --offline -p shinatama-state --test presentation -j1 -- --test-threads=1"
+      ],
+      "units": {
+        "C08.1": {
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "evidence": [
+            "docs/verification/2026-11-03-C07-C08-workspace.md"
+          ],
+          "checks": [
+            "npm run build",
+            "node apps/desktop/tests/ui-flow-smoke.mjs",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
+            "node --experimental-strip-types --test apps/desktop/tests/presentation.test.ts",
+            "cargo test --offline -p shinatama-state --test presentation -j1 -- --test-threads=1"
+          ]
+        },
+        "C08.2": {
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "evidence": [
+            "docs/verification/2026-11-03-C07-C08-workspace.md"
+          ],
+          "checks": [
+            "npm run build",
+            "node apps/desktop/tests/ui-flow-smoke.mjs",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
+            "node --experimental-strip-types --test apps/desktop/tests/presentation.test.ts",
+            "cargo test --offline -p shinatama-state --test presentation -j1 -- --test-threads=1"
+          ]
+        },
+        "C08.3": {
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "evidence": [
+            "docs/verification/2026-11-03-C07-C08-workspace.md"
+          ],
+          "checks": [
+            "npm run build",
+            "node apps/desktop/tests/ui-flow-smoke.mjs",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
+            "node --experimental-strip-types --test apps/desktop/tests/presentation.test.ts",
+            "cargo test --offline -p shinatama-state --test presentation -j1 -- --test-threads=1"
+          ]
+        }
+      },
+      "limits": [
+        "No layout, theme or find action starts/restarts a process. Full native-agent and release gates remain separate.",
+        "Direttiva utente 2026-11-03: per il workspace normale lo storage globale ui.workspace.main.v1 sostituisce l’accoppiamento layout/progetto. Il filtro dei progetti non cambia la disposizione; viste di thread da progetti diversi possono coesistere. API e record dei layout per progetto già salvati sono conservati. Riallineamento e prova tracciati in C15.3; nessuna nuova unità pending aggiunta a C08 già committato."
+      ],
+      "next_action": "Applicare la disposizione globale in C15.3 conservando i record legacy; temi e profili già verificati restano al checkpoint C08."
+    },
+    "C09": {
+      "status": "committed",
+      "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+      "evidence": [
+        "docs/verification/2026-11-03-C09-contained-terminals.md"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-terminal --lib -j1 -- --test-threads=1",
+        "cargo test --offline -p shinatama-terminal --test contained_terminal -j1 -- --test-threads=1 --nocapture",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs"
+      ],
+      "next_action": "Checkpoint the working Windows terminal/UI and first Claude startup slice, then finish C12.4 and S1 session metadata integration.",
+      "limits": [
+        "Contained Windows shells and the exact safe-mode empty-set Claude startup slice are proved; provider traffic, other-agent calibration and release soak stay separate."
+      ],
+      "platforms": [
+        "Windows 11 x64 build 26200"
+      ]
+    },
+    "C13": {
+      "status": "pending",
+      "commit_sha": null,
+      "units": {
+        "C13.1": {
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-03-C13-sidecar-supervision.md",
+            "docs/verification/2026-11-03-C12-runtime-tls.md",
+            "docs/verification/2026-11-03-C15-first-tui.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine --test sidecar_supervisor -j1 -- --ignored --test-threads=1 --nocapture",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs"
+          ]
+        },
+        "C13.2": {
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-03-C13-sidecar-supervision.md",
+            "docs/verification/2026-11-03-C12-runtime-tls.md",
+            "docs/verification/2026-11-03-C15-first-tui.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine --test sidecar_supervisor -j1 -- --ignored --test-threads=1 --nocapture",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs"
+          ]
+        },
+        "C13.3": {
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-03-C13-sidecar-supervision.md",
+            "docs/verification/2026-11-03-C12-runtime-tls.md",
+            "docs/verification/2026-11-03-C15-first-tui.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine --test sidecar_supervisor -j1 -- --ignored --test-threads=1 --nocapture",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs"
+          ]
+        },
+        "C13.4": {
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-03-C13-sidecar-supervision.md",
+            "docs/verification/2026-11-03-C12-runtime-tls.md",
+            "docs/verification/2026-11-03-C15-first-tui.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine --test sidecar_supervisor -j1 -- --ignored --test-threads=1 --nocapture",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs"
+          ]
+        },
+        "C13.5": {
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-03-C13-sidecar-supervision.md",
+            "docs/verification/2026-11-03-C12-runtime-tls.md",
+            "docs/verification/2026-11-03-C15-first-tui.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine --test sidecar_supervisor -j1 -- --ignored --test-threads=1 --nocapture",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs"
+          ]
+        }
+      },
+      "limits": [
+        "The local owner/Busy/recovery/storage/UI slices pass. Full SC16 soak and effective compression/provider coverage remain open; the former C12.4 dependency is closed (5486709, with its own recorded limits).",
+        "2026-11-04 re-check at b9465e4: supervisor native proof re-passed (1/1, 4.66s); desktop-smoke was stale against the dffb269 global workspace scope and is now aligned (ownership probe green), but a full green smoke run is blocked by real system commit headroom (~1-2GiB free of ~44GiB; the C09R governor correctly reports reduced activity). The parent checkpoint stays open until one full green desktop-smoke run is recorded. The process-wrap refusal decision (C13.1 gate) is recorded in Cargo.toml [workspace.dependencies]."
+      ],
+      "evidence": [
+        "docs/verification/2026-11-04-C13-supervisor-recheck.md",
+        "2026-11-08 p14 wrap-run desktop-smoke.mjs: reached Claude open (line 260), refused by resource governor (Windows is low on resources); parked, not retried. Test fixed to drive the main window, not the widget overlay"
+      ],
+      "checks": [
+        "cargo test --offline --locked -p shinatama-engine -j1 --test sidecar_supervisor -- --ignored --test-threads=1 --nocapture: PASS 1/1, 4.66s re-run 2026-11-04 on HEAD b9465e4; busy kept exact owner, one restart on same address, repeated_exit failed phase, ledger released; first attempt AdmissionDeferred under ~1.8GiB system commit headroom (fail-closed admission working as specified)",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs: attempted ONCE on 2026-11-07, FAILED for host memory (commit free 2.26 GiB at launch, down from 9.2 GiB minutes earlier; app stuck at Connecting or waits timed out); no product defect observed; parked per the simplified-plan rule, not retried",
+        "desktop-smoke.mjs REALIGNED 2026-11-07: the \"Session index\" and \"Agents\" panels are no longer mounted (dffb269), so the first-agent section now uses New session -> Claude Code -> Open, starts the sidecar by command and keeps the scratch-baseline assertion; two attempts failed before reaching it: the product resource governor (hysteresis: enter pressure below 4.13 GiB free commit, exit above 5.17 GiB) kept the app in reduced activity; each proof run itself consumes about 2 GiB of commit, so a start near 6 GiB is not enough. Not yet green."
+      ],
+      "next_action": "Parked: Claude open refused by the resource governor at ~9.8 GiB free commit. Run once more only on a quiet machine; do not loop."
+    },
+    "C14": {
+      "status": "pending",
+      "commit_sha": null,
+      "evidence": [
+        "docs/verification/2026-11-03-C15-first-tui.md"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-adapter --lib sets::tests -j1 -- --test-threads=1",
+        "cargo test --offline -p shinatama-engine --lib checkup::tests -j1 -- --test-threads=1"
+      ],
+      "limits": [
+        "Bounded set manifests, shared preflight service and the default empty Claude set exist. Nonempty-set activation/selection and the remaining generic checkup scope stay open."
+      ],
+      "next_action": "Connect generic set selection and qualified capability states without opening unproved native operations."
+    },
+    "C15": {
+      "status": "pending",
+      "commit_sha": null,
+      "units": {
+        "C15.1": {
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "platforms": [
+            "Windows 11 x64 build 26200; Claude2.1.316"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-03-C15-first-tui.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine --test claude_probe -j1 -- --ignored --test-threads=1 --nocapture",
+            "cargo test --offline -p shinatama-engine --test sealed_rundown -j1 -- --ignored --test-threads=1 --nocapture",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs"
+          ],
+          "limits": [
+            "Startup qualification only; provider traffic and authentication remain Unknown."
+          ]
+        },
+        "C15.2": {
+          "status": "committed",
+          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "platforms": [
+            "Windows 11 x64 build 26200; Claude2.1.316"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-03-C15-first-tui.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine --test claude_probe -j1 -- --ignored --test-threads=1 --nocapture",
+            "cargo test --offline -p shinatama-engine --test sealed_rundown -j1 -- --ignored --test-threads=1 --nocapture",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs"
+          ],
+          "limits": [
+            "Startup qualification only; provider traffic and authentication remain Unknown."
+          ]
+        },
+        "C15.3": {
+          "status": "committed",
+          "commit_sha": "dffb2695239776fbfbb6d552e725c3c010bd9b0c",
+          "evidence": [
+            "docs/notes/2026-11-03-project-thread-workspace.md",
+            "docs/notes/2026-11-03-session-open-fix.md"
+          ],
+          "checks": [
+            "npm run build",
+            "cargo test --offline --locked -p shinatama-state -j1 --lib global_workspace::tests -- --test-threads=1",
+            "cargo test --offline --locked -p shinatama-desktop --features custom-protocol -j1 --bin shinatama-desktop resource_governor::tests::desktop_defaults_allow_measured_headroom_and_recover_after_acute_pressure -- --test-threads=1",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/new-session-smoke.mjs (claude_code and powershell)"
+          ],
+          "limits": [
+            "Claude Code 2.1.316 original TUI in the qualified safe profile and PowerShell; no login response, real provider request or other harness qualification.",
+            "Global workspace and saved project threads pass the actual two-project UI flow; native resume and floating windows remain open."
+          ],
+          "next_action": "Registrare l’esito reale della prova Open corretta e dell’indipendenza del layout dal filtro progetto; promuovere soltanto il perimetro dimostrato, poi creare il checkpoint funzionale.",
+          "platforms": [
+            "Windows 11 x64"
+          ]
+        }
+      },
+      "limits": [
+        "Historical Claude 2.1.316 safe-mode startup remains recorded separately. Shared-service Claude Code 2.1.317 startup/cleanup now passed, including sealed conversation live ownership and finalization after native cleanup.",
+        "Actual native headless hooks, same-UUID resume, Claude/Bun TLS and the guarded actual UI resume (New session -> Stop -> same-thread Resume with prior context) pass against local synthetic providers. Real provider authentication/tools, fork and full QA remain open; parent C15 remains pending."
+      ],
+      "next_action": "Deliver the runnable local copy for manual sign-in, then C15.4 provider/auth qualification and further harness implementations.",
+      "evidence": [
+        "docs/notes/2026-11-03-harness-services.md",
+        "docs/notes/2026-11-03-claude-proxy-tls.md",
+        "docs/notes/2026-11-03-claude-native-resume.md",
+        "docs/notes/2026-11-03-claude-resume-ui.md"
+      ],
+      "checks": [
+        "native-new-session-user-path: Claude Code 2.1.317 PASS including sealed conversation ownership and finalization after native cleanup; .prototype-evidence/new-session-claude_code.json",
+        "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls -- --ignored --test-threads=1: PASS 1/1, 9.27s; actual Claude 2.1.317 rejected missing CA, received synthetic marker through canonical sidecar with private child CA; all owners Released and ledger empty",
+        "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls --test claude_native_resume -- --ignored --test-threads=1: PASS native resume 1/1 in 9.78s and TLS 1/1 in 9.18s; two genuine SessionStart hooks, same saved UUID and prior assistant turn received by synthetic provider, all owners Released",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/claude-resume-smoke.mjs --guard-only: PASS local absolute/CONNECT refusal and owner-only private configuration, no app executed",
+        "guarded claude-resume-smoke.mjs on portable e4fba2a6-64ee-43a3-9db8-206c90425131: INCOMPLETE, Claude exit 1 before onboarding; phase Released/reason process_ended, sidecar healthy, zero forwarded connections and zero synthetic messages; no parent/unit promotion",
+        "Guarded Claude TUI run after memory freed: native startup connection failure before onboarding identified; sidecar healthy, fixed budgets not exceeded. Pinned CLI code identifies first-party onboarding preflights independent of custom API base. Synthetic bearer fixture added; following run deferred before native start by resource pressure, so bearer and new cleanup SQL assertions remain unexercised.",
+        "node apps/desktop/tests/claude-resume-smoke.mjs (guarded, synthetic bearer, 6.8 GiB host commit headroom): PASS all 8 checks; actual UI New session -> Stop -> same-thread Resume, no onboarding repeat, prior assistant turn in provider context, one request per turn, guard allowed 2 and denied only the negative controls, cleanup journal joins consumed after Stop, one thread with two closed native owners, owned frame exit 0; the same build carried the Codex shared-transport increment, so this run is also its Claude regression"
+      ],
+      "checkpoint_commits": [
+        "7bc716f78332b1c0af41bdb89e3181251fe6b0bc",
+        "454f75a4292343b77395fd8e720ede9ffa44869e",
+        "885db6da4abf6c643ab6aa02f8c7d655317214b6",
+        "2f72e7c4ce7badd65c173cf04f3bb16666951a5e",
+        "5e24fb26d1acf1d667c1899a73e7511a478e2911",
+        "12221f2323e6e5350cb7728756dfbcd6382649c6",
+        "3c6e3427dafab5a2d686d4baed867d322b330008",
+        "f8df5af3f764636bc98886f63e49754c45267529"
+      ]
+    },
+    "C22": {
+      "status": "pending",
+      "commit_sha": null,
+      "units": {
+        "C22.1": {
+          "status": "committed",
+          "commit_sha": "d84ac08152f71a750d6c73df23723eb86483a3e0",
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-03-session-reader.md"
+          ],
+          "checks": [
+            "cargo test --offline --locked -p shinatama-engine --features session-reader -j1 --lib session_roots::tests -- --test-threads=1",
+            "cargo test --offline --locked -p shinatama-engine --features session-reader --test session_reader -j1 -- --ignored --test-threads=1 --nocapture",
+            "npm run build"
+          ],
+          "limits": [
+            "Metadata reader/root binding only; no native resume, provider, OpenCode export or full C22 completion is certified."
+          ]
+        },
+        "C22.2": {
+          "status": "committed",
+          "commit_sha": "d84ac08152f71a750d6c73df23723eb86483a3e0",
+          "platforms": [
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-03-session-reader.md"
+          ],
+          "checks": [
+            "cargo test --offline --locked -p shinatama-engine --features session-reader -j1 --lib session_roots::tests -- --test-threads=1",
+            "cargo test --offline --locked -p shinatama-engine --features session-reader --test session_reader -j1 -- --ignored --test-threads=1 --nocapture",
+            "npm run build"
+          ],
+          "limits": [
+            "Metadata reader/root binding only; no native resume, provider, OpenCode export or full C22 completion is certified."
+          ]
+        },
+        "C22.3": {
+          "status": "committed",
+          "commit_sha": "d84ac08152f71a750d6c73df23723eb86483a3e0",
+          "limits": [
+            "Bounded metadata slice and synthetic Claude UI pass; complete C22 harness conformance and hostile-writer namespace isolation remain open."
+          ],
+          "evidence": [
+            "docs/notes/2026-11-03-session-reader.md"
+          ],
+          "checks": [
+            "npm run build",
+            "cargo build --offline --locked -p shinatama-desktop --features custom-protocol -j1",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/sessions-smoke.mjs"
+          ]
+        }
+      },
+      "evidence": [
+        "docs/notes/2026-11-03-session-reader.md"
+      ],
+      "limits": [
+        "Pinned reader materializes metadata in one contained worker. Host replies are bounded; hostile concurrent additions still need a handle-based reader or private snapshot for complete namespace isolation.",
+        "OpenCode file-root contract, Hermes/DeepSeek readers, complete pin conformance and parent acceptance remain open."
+      ],
+      "next_action": "Checkpoint the working explicit archive metadata flow; connect contained C23 detail while preserving pending full parent acceptance."
+    },
+    "C23": {
+      "status": "pending",
+      "commit_sha": null,
+      "units": {
+        "C23.1": {
+          "status": "committed",
+          "commit_sha": "b41390a54a79df8a4ef0e347061050344a2e9e3d",
+          "evidence": [
+            "docs/notes/2026-11-03-session-detail.md"
+          ],
+          "checks": [
+            "cargo test --offline --locked -p shinatama-engine --features session-reader -j1 --lib session_detail::tests -- --test-threads=1",
+            "npm run build",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/sessions-smoke.mjs"
+          ],
+          "limits": [
+            "Bounded detail only; no full C23, raw payload/copy, native resume, export or provider qualification."
+          ]
+        },
+        "C23.3": {
+          "status": "committed",
+          "commit_sha": "3fc7661687ca917bf2317587bb020301948edb07",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-03-session-find.md"
+          ],
+          "checks": [
+            "npm run build",
+            "cargo test --offline --locked -p shinatama-engine --features session-reader -j1 --lib session_ -- --test-threads=1",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/sessions-smoke.mjs"
+          ],
+          "limits": [
+            "Explicit selected archive only; no session is refused for its size (Mukade reads it clipped or streamed, ADR-0053 v2) and the archive is bounded to 4096 files; no global search.",
+            "Project grouping uses current page only; native parent metadata unavailable is shown as unknown.",
+            "Clipboard contract mocked without system clipboard access; no native resume/provider or full C23 qualification."
+          ]
+        },
+        "C23.2": {
+          "status": "committed",
+          "commit_sha": "3fc7661687ca917bf2317587bb020301948edb07",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-03-session-find.md"
+          ],
+          "checks": [
+            "npm run build",
+            "cargo test --offline --locked -p shinatama-engine --features session-reader -j1 --lib session_ -- --test-threads=1",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/sessions-smoke.mjs"
+          ],
+          "limits": [
+            "Explicit selected archive only; no session is refused for its size (Mukade reads it clipped or streamed, ADR-0053 v2) and the archive is bounded to 4096 files; no global search.",
+            "Project grouping uses current page only; native parent metadata unavailable is shown as unknown.",
+            "Clipboard contract mocked without system clipboard access; no native resume/provider or full C23 qualification."
+          ]
+        },
+        "C23.4": {
+          "status": "committed",
+          "commit_sha": "3fc7661687ca917bf2317587bb020301948edb07",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-03-session-find.md"
+          ],
+          "checks": [
+            "npm run build",
+            "cargo test --offline --locked -p shinatama-engine --features session-reader -j1 --lib session_ -- --test-threads=1",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/sessions-smoke.mjs"
+          ],
+          "limits": [
+            "Explicit selected archive only; no session is refused for its size (Mukade reads it clipped or streamed, ADR-0053 v2) and the archive is bounded to 4096 files; no global search.",
+            "Project grouping uses current page only; native parent metadata unavailable is shown as unknown.",
+            "Clipboard contract mocked without system clipboard access; no native resume/provider or full C23 qualification."
+          ]
+        }
+      },
+      "evidence": [
+        "docs/notes/2026-11-03-session-detail.md"
+      ],
+      "limits": [
+        "No session is refused for its size: Mukade reads it clipped (view, RAW) or streamed (search, export); only an archive of more than 4096 files is refused, and the archive total is not bounded.",
+        "Only synthetic Claude detail is observed; full lineage, raw/privacy actions and all-harness parent acceptance remain open."
+      ],
+      "next_action": "Conversation search/raw/navigation are checkpointed; global persistent search is C24 and native thread binding/resume is C25. Preserve missing native parent metadata as unknown."
+    },
+    "C25": {
+      "status": "committed",
+      "commit_sha": "5d174492b9fb0b0e6562aa7bc6e32cece9870a41",
+      "units": {
+        "C25.1": {
+          "status": "committed",
+          "commit_sha": "7e5a2030a3adbddfa85f8171b421b5766999d847",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-03-thread-storage.md"
+          ],
+          "checks": [
+            "cargo test --offline --locked -p shinatama-state -j1 --lib threads::tests -- --test-threads=1",
+            "cargo test --offline --locked -p shinatama-state -j1 --lib migrations::fault_tests::fs03_ddl_failure_rolls_back_to_v2_and_retry_keeps_the_verified_backup -- --test-threads=1",
+            "npm run build",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/threads-smoke.mjs"
+          ],
+          "limits": [
+            "Manual thread persistence/sidebar pass; activation exclusivity is metadata tested with two SQLite connections, not a qualified native resume path.",
+            "Separate actual-Claude integration attempt was deferred by unchanged global resource pressure before any native start; its new persistence hook remains unqualified in a real start."
+          ]
+        },
+        "C25.2": {
+          "status": "committed",
+          "commit_sha": "97e904a5a7a138d8ae4e09d754b8092a533444d8",
+          "checkpoint_commits": [
+            "2d7735fc375b20ad8f1fb35bb9f0db79acc1a7b0",
+            "86e0054cbcf843c75fc4359c831d485740231429",
+            "f7eba14eff6147efb9a8cb4c9f5876ce3e5f8caa",
+            "2f72e7c4ce7badd65c173cf04f3bb16666951a5e",
+            "5e24fb26d1acf1d667c1899a73e7511a478e2911",
+            "c003838fe600d71ae5c7da4216347d0afffdbcb2",
+            "516325a672277a598ffeca7407663188ba9e8704",
+            "12221f2323e6e5350cb7728756dfbcd6382649c6",
+            "3c6e3427dafab5a2d686d4baed867d322b330008",
+            "755618b3a9d85f27287dae2dd0359af24b4fae83",
+            "f8df5af3f764636bc98886f63e49754c45267529",
+            "14b07ba25e6312e416974e985f1876c18f07a084",
+            "bf6bf2f8d7324a8ddf612319e229ac5aa8ad704d",
+            "97e904a5a7a138d8ae4e09d754b8092a533444d8"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-03-thread-resume-target.md",
+            "docs/notes/2026-11-03-native-thread-lifecycle.md",
+            "docs/notes/2026-11-03-native-activation-history.md",
+            "docs/notes/2026-11-03-claude-native-resume.md",
+            "docs/notes/2026-11-03-claude-resume-ui.md",
+            "docs/notes/2026-11-03-native-cleanup-recovery.md",
+            "docs/notes/2026-11-03-codex-resume-recipe.md",
+            "docs/notes/2026-11-03-codex-thread-tracking.md",
+            "docs/notes/2026-11-03-claude-resume-race.md",
+            "docs/notes/2026-11-03-codex-native-resume.md"
+          ],
+          "checks": [
+            "cargo test --offline --locked -p shinatama-state -j1 --lib threads::tests -- --test-threads=1",
+            "cargo test --offline --locked -p shinatama-terminal -j1 --lib lifecycle_ -- --test-threads=1",
+            "cargo test --offline --locked -p shinatama-state -j1 --lib migrations::fault_tests::v5_activation_history_migration_is_lossless_and_rolls_back_after_sql_failure -- --test-threads=1",
+            "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls --test claude_native_resume -- --ignored --test-threads=1: PASS native resume 1/1 in 9.78s and TLS 1/1 in 9.18s; two genuine SessionStart hooks, same saved UUID and prior assistant turn received by synthetic provider, all owners Released",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/claude-resume-smoke.mjs --guard-only: PASS local absolute/CONNECT refusal and owner-only private configuration, no app executed",
+            "guarded claude-resume-smoke.mjs on portable e4fba2a6-64ee-43a3-9db8-206c90425131: INCOMPLETE, Claude exit 1 before onboarding; phase Released/reason process_ended, sidecar healthy, zero forwarded connections and zero synthetic messages; no parent/unit promotion",
+            "cargo test --offline --locked -p shinatama-state -j1 native_session_cleanup::tests: PASS 4/4, 0.56s; durable receipt/reopen, live owner and missing receipt refusal, exact concurrent recovery, rollback and bounded retention",
+            "cargo test --offline --locked -p shinatama-terminal -j1 lifecycle_: PASS 2/2; exact reservation at suspended-shell barrier and finalization only after native release",
+            "npm run build and offline locked desktop/terminal-helper/session-helper/hook build: PASS; complete native build 1m48s",
+            "P14 thread-recovery-smoke.mjs on portable 28dab120-3c4f-4d0b-9adf-4c7004055ddc: PASS 3.17s; actual UI/IPC with synthetic metadata, live/no-receipt/scope refusals, exact close and receipt consumption, Resume visible, zero harness starts",
+            "Guarded Claude TUI run after memory freed: native startup connection failure before onboarding identified; sidecar healthy, fixed budgets not exceeded. Pinned CLI code identifies first-party onboarding preflights independent of custom API base. Synthetic bearer fixture added; following run deferred before native start by resource pressure, so bearer and new cleanup SQL assertions remain unexercised.",
+            "cargo test --offline --locked -p shinatama-engine -j1 codex_launch::tests --lib: PASS 3/3; exact typed operation, unchanged New argv, ambiguous IDs and StartNew qualification reuse refused",
+            "cargo check --offline --locked -p shinatama-desktop --features custom-protocol -j1: PASS 45.64s after Codex typed selection",
+            "Codex shared-transport increment (f8df5af) re-verified on the exact pre-commit tree: cargo check engine lib PASS; shared transport 1/1, Codex recipes 6/6, Claude hardlink pin 1/1, hook binary receivers 4/4, desktop agents::thread_lifecycle 3/3 (15 targeted tests); npm run build PASS",
+            "P14 thread-recovery-smoke.mjs with notification-refresh stage: PASS; the registered frontend thread-changed callback refreshes the sidebar title from a committed DB mutation, selection preserved, zero harness launches; fixture seam corrected for Tauri 2.12.5 non-enumerable listener entries; backend emission remains not covered by this synthetic fixture",
+            "node apps/desktop/tests/claude-resume-smoke.mjs (guarded, synthetic bearer): PASS all 8 checks on the build containing f8df5af; doubles as the Claude tracked-path regression for the shared transport/hook/observer increment",
+            "node apps/desktop/tests/codex-native-smoke.mjs (guarded, synthetic OpenAI key, P14 wrap-run): PASS twice including the final build; all 11 checks - tracked open with unbound thread and no manufactured UUID, real onboarding (API-key entry prefilled from the synthetic env key), first SessionStart(source=startup) delivered the Codex-chosen UUID with exact segment/activation/cleanup-owner commits, applied limits exactly the tracked profile (1GiB job/768MiB proc/8 proc/1000bp CPU/4MiB+512 queues) with no resource_limit and zero queue refusals, hook chain inside the job (totalProcesses 13->17), Codex own rollout named the same UUID with matching session_meta, stop consumed the receipt, second session repeated onboarding-free with a distinct UUID and no cross-binding, both receipts consumed, frame exit 0; guard: 103 denied, 0 allowed, provider 0 hits",
+            "codex app-server hooks/list probe with the exact product SessionFlags arguments: key C:\\\\<session-flags>\\\\config.toml:session_start:0:0, currentHash identical to the engine digest, trustStatus=trusted, enabled=true, no ignored-setting warning (after replacing the torn dotted hooks.state -c key with the single-segment hooks table override ordered before the SessionStart definition)",
+            "cargo test --offline --locked -p shinatama-terminal --lib -j1: PASS 14/14 including the shared MAX_LAUNCH_ARGUMENTS=32 bound across config validate, wire encode/decode roundtrip of the real 21-argument tracked recipe and the PTY command-line builder",
+            "cargo test --offline --locked -p shinatama-engine --lib -j1: PASS 103/103 including the tracked codex startup_scope entry, the exact 21-argument recipe count and the repaired opaque-binding Debug test (was failing at HEAD: version now formats via SemVer Display)",
+            "cargo test -p shinatama-desktop --features custom-protocol --bins: PASS 28/28 (agents::thread_lifecycle 3/3); shinatama-hook bin 4/4; claude-resume-smoke.mjs rerun on the final build: PASS (tracked Claude regression for the shared argument-bound change)",
+            "node apps/desktop/tests/claude-resume-race-smoke.mjs (guarded, synthetic bearer, P14 wrap-run): PASS on the main build and on the definitive isolated worktree build (bf6bf2f, dedicated target) - two same-tick thread_resume attempts bound exactly one owner (winner 6.85s, loser refused busy at 7ms with verified overlap), foreign projectId and stale revision refused source_changed with nothing started, duplicate after commit refused owned_elsewhere (winner binding bumped revision 3->4), winner stopped cleanly with receipt consumed and thread resumable, functional UI Resume kept thread/native UUID/prior context (third exact owner), all three receipts consumed, guard 2 forwards 0 overflow, provider 1 start + 1 resume with prior context",
+            "codex-native-smoke.mjs repeated on the same isolated worktree build: PASS 11/11 including the sidecar readiness prewarm now shared by both smokes",
+            "concurrent-session interference identified and isolated: runs executed while another agent session rebuilt shared target/debug binaries mid-flight were invalidated (product correctly refused with its stale-qualification message); the definitive proofs ran from .jcode/local/worktrees/race-proof with binaries built from the exact proof commit",
+            "node apps/desktop/tests/codex-resume-smoke.mjs (guarded, synthetic OpenAI key, P14 wrap-run): PASS twice on the isolated worktree build of 97e904a - UI Resume sealed the exact saved UUID as activation #2 before any hook (same single segment, distinct owner, active cleanup receipt), Codex itself rendered the prior conversation (PROMPT_A visible before typing) and appended its own rollout under the same UUID (118439 -> 130999 bytes, session_meta match, both prompts), source=resume confirmation enforced through the clean stop (a mismatch retains owner and receipt; unit-proven), limits exactly the tracked profile, guard 0 allowed / 98 denied, provider 0 hits, no repeated onboarding, frame exit 0",
+            "codex-native-smoke.mjs StartNew regression on the same build: PASS (third run); engine lib 103/103 with the reworked resume qualification test (exact argv, StartNew/ResumeNative capability separation, 23 tracked argv, invalid IDs refused); desktop bins 30/30 including two new lifecycle tests: codex_resume_seals_the_saved_uuid_and_confirms_with_source_resume and codex_resume_rejects_wrong_source_or_uuid_and_retains_the_sealed_owner"
+          ],
+          "limits": [
+            "Trusted resolution, atomic native-switch history, lifecycle callbacks, headless native resume, the full UI/ConPTY resume proof and the duplicate-resume race (in-app concurrent IPC requests; cross-process double binding is excluded by the data-owner lock and the activation uniqueness indexes with unit evidence) pass. The in-app race exercises the request-slot refusal first; the SQL indexes remain the proven backstop, not the observed first refusal. Forced-crash recovery remains open.",
+            "Recovery covers cleanup already proven before interrupted activation finalization. Records without a durable linked receipt remain blocked. UI proof seeds synthetic private metadata; it is not a real forced-crash/job-cleanup proof.",
+            "Codex SessionStart identity capture AND native resume are proven on real 0.166.0: StartNew (trust recognition, UUID delivery, limits, receipts, no cross-binding) and Resume (sealed exact UUID, prior transcript rendered by Codex, rollout appended under the same UUID, source=resume confirmation, receipts consumed). No completed model turn is proven for Codex (0.166.0 honors no loopback base-URL override; the guard refuses every external route) and the hook confirmation has no positive DB delta (negative enforcement only). Catalog native_resume is now true for Codex."
+          ],
+          "next_action": "None for this unit; forced-crash recovery remains tracked by the recovery gap note with its own qualified protocol."
+        },
+        "C25.3": {
+          "status": "committed",
+          "commit_sha": "454f75a4292343b77395fd8e720ede9ffa44869e",
+          "checkpoint_commits": [
+            "454f75a4292343b77395fd8e720ede9ffa44869e",
+            "265ac39ce3bc56b89cc3cbb9d1ac98a4cb52cbc6",
+            "5e24fb26d1acf1d667c1899a73e7511a478e2911",
+            "c003838fe600d71ae5c7da4216347d0afffdbcb2",
+            "516325a672277a598ffeca7407663188ba9e8704",
+            "12221f2323e6e5350cb7728756dfbcd6382649c6",
+            "3c6e3427dafab5a2d686d4baed867d322b330008",
+            "f8df5af3f764636bc98886f63e49754c45267529"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-03-harness-services.md",
+            "docs/notes/2026-11-03-thread-rename.md",
+            "docs/notes/2026-11-03-claude-resume-ui.md",
+            "docs/notes/2026-11-03-native-cleanup-recovery.md"
+          ],
+          "checks": [
+            "npm run build",
+            "cargo build --offline --locked -p shinatama-desktop --features custom-protocol -j1",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/thread-rename-smoke.mjs: PASS title persistence, concurrent revision conflict, same responsive shell and layout, automatic project thread load, owned cleanup",
+            "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/claude-resume-smoke.mjs --guard-only: PASS local absolute/CONNECT refusal and owner-only private configuration, no app executed",
+            "cargo test --offline --locked -p shinatama-state -j1 native_session_cleanup::tests: PASS 4/4, 0.56s; durable receipt/reopen, live owner and missing receipt refusal, exact concurrent recovery, rollback and bounded retention",
+            "cargo test --offline --locked -p shinatama-terminal -j1 lifecycle_: PASS 2/2; exact reservation at suspended-shell barrier and finalization only after native release",
+            "npm run build and offline locked desktop/terminal-helper/session-helper/hook build: PASS; complete native build 1m48s",
+            "P14 thread-recovery-smoke.mjs on portable 28dab120-3c4f-4d0b-9adf-4c7004055ddc: PASS 3.17s; actual UI/IPC with synthetic metadata, live/no-receipt/scope refusals, exact close and receipt consumption, Resume visible, zero harness starts",
+            "node apps/desktop/tests/claude-resume-smoke.mjs (guarded, synthetic bearer, 6.8 GiB host commit headroom): PASS all 8 checks; actual New session -> Stop -> same-thread Resume, no onboarding repeat on resume, prior assistant turn in provider context, exactly one provider request per turn, guard allowed 2 / denied the 2 negative controls / overflow 0, cleanup journal owner joins present while active and consumed after Stop, one thread with two closed native owners, owned frame exit 0; build also contains the Codex shared-transport increment, so the run doubles as its Claude regression"
+          ],
+          "limits": [
+            "UI resume proof is qualified against a synthetic loopback provider through a proxy-forwarding-only guard: no OAuth login, real account, first-party Anthropic key, model quality or OS-level network isolation. Two-process concurrent resume race and forced-crash recovery remain open under C25.2.",
+            "Recovery covers cleanup already proven before interrupted activation finalization. Records without a durable linked receipt remain blocked. UI proof seeds synthetic private metadata; it is not a real forced-crash/job-cleanup proof."
+          ],
+          "next_action": "None for this unit; remaining resume scope (race proof, Codex native identity capture, forced-crash recovery) is tracked under C25.2 and the recovery gap note."
+        }
+      },
+      "next_action": "Accepted by owner 2026-11-08.",
+      "limits": [
+        "Parent C25 remains open only for a quiet-host real-crash run of the minimal forced-crash smoke (now expected to RECOVER the pre-receipt thread through the certificate, not to refuse it). The qualified protocol exists and is unit/UI-proven; Ledger(Capacity) is resolved by the atomic ticket release in the certificate transaction.",
+        "Recovery covers cleanup already proven before interrupted activation finalization. Records without a durable linked receipt remain blocked. UI proof seeds synthetic private metadata; it is not a real forced-crash/job-cleanup proof."
+      ],
+      "evidence": [
+        "docs/notes/2026-11-03-native-owner-recovery-gap.md",
+        "docs/notes/2026-11-03-native-cleanup-recovery.md",
+        "docs/notes/2026-11-03-claude-resume-ui.md",
+        "docs/notes/2026-11-03-codex-thread-tracking.md",
+        "docs/notes/2026-11-03-claude-resume-race.md",
+        "docs/notes/2026-11-03-codex-native-resume.md",
+        "docs/verification/2026-11-06-forced-crash-recovery-status.md",
+        "docs/verification/2026-11-06-adr-0051-termination-certificate.md",
+        "docs/adr/ADR-0051-pre-receipt-crash-recovery-termination-certificate.md",
+        "2026-11-08 p14 wrap-run forced-crash-recovery-smoke.mjs on HEAD a8cc72d: PASS; real crash before receipt left activation open and ticket reserved; restart recovered via ADR-0051 certificate, closed once, released ticket, Resume offered"
+      ],
+      "checkpoint_commits": [
+        "c003838fe600d71ae5c7da4216347d0afffdbcb2",
+        "516325a672277a598ffeca7407663188ba9e8704",
+        "f8df5af3f764636bc98886f63e49754c45267529",
+        "14b07ba25e6312e416974e985f1876c18f07a084",
+        "bf6bf2f8d7324a8ddf612319e229ac5aa8ad704d",
+        "97e904a5a7a138d8ae4e09d754b8092a533444d8"
+      ],
+      "checks": [
+        "cargo test --offline --locked -p shinatama-state -j1 native_session_cleanup::tests: PASS 4/4, 0.56s; durable receipt/reopen, live owner and missing receipt refusal, exact concurrent recovery, rollback and bounded retention",
+        "cargo test --offline --locked -p shinatama-terminal -j1 lifecycle_: PASS 2/2; exact reservation at suspended-shell barrier and finalization only after native release",
+        "npm run build and offline locked desktop/terminal-helper/session-helper/hook build: PASS; complete native build 1m48s",
+        "P14 thread-recovery-smoke.mjs on portable 28dab120-3c4f-4d0b-9adf-4c7004055ddc: PASS 3.17s; actual UI/IPC with synthetic metadata, live/no-receipt/scope refusals, exact close and receipt consumption, Resume visible, zero harness starts",
+        "node apps/desktop/tests/claude-resume-smoke.mjs (guarded, synthetic bearer): PASS all 8 checks; actual UI New session -> Stop -> same-thread Resume with prior context, exact cleanup journal joins consumed after Stop",
+        "P14 thread-recovery-smoke.mjs with notification-refresh stage on the f8df5af build: PASS; registered frontend thread-changed callback refreshes sidebar from committed DB mutation, selection preserved, zero harness starts",
+        "apps/desktop/tests/forced-crash-recovery-smoke.mjs (real TerminateProcess crashes, 3 app instances, UI recoveries): per-behavior PASS recorded across runs #12-#23 - agent force-kill with live host finalized exactly with consumed receipt (check agentForcedTerminationClosedExactlyWithReceiptOnLiveHost, run #21); pre-receipt app crash blocked Recover with exact activation+ticket preserved (check crashBeforeReceiptBlockedAndActivationAndBudgetPreserved, runs #12/#16/#18/#20/#21/#23); product resource refusals and 7s canary timeouts retried with re-gated bounded attempts; preset-project dialog handled without hidden-field fill. NOT yet completed in one single run: receipt-window crash, real Recover on restarted app, Resume-after-recovery.",
+        "C25 finding: with a blocked pre-receipt ticket held (1 GiB), a new open needs blocked ticket 1 + sidecar 1 + canary trial about 2 = 4 GiB = MAX_TOTAL hard cap (terminal_runtime.rs:35); the ceiling is derived at APP STARTUP from min(physical/2, commit/2, MAX_TOTAL) so a startup below 8 GiB commit yields 3.75 GiB and every new session is refused with Ledger(Capacity) - measured from the fixture ledger slots. The smoke re-launches the app inside the window to restore the ceiling (ceilingRetries).",
+        "apps/desktop/tests/forced-crash-recovery-smoke.mjs SIMPLIFIED to the minimal claim: one real crash before any receipt, one restart, one refused Recover, data intact (4 checks, no memory gates, no retries, no multi-app orchestration). Redundant phases removed because thread-recovery-smoke.mjs, the state unit tests and the resume/race smokes already cover the receipt-backed recovery, single closing and native resume.",
+        "ADR-0051 ACCEPTED and implemented: engine probe_job_recovery (JobNameAbsent/TerminatedByRecovery, name-survival block), state certify_native_session_termination (single transaction: ticket release + receipt + activation close + association consumption), desktop thread_recover pre-receipt branch (exact identity probes, Windows session, job probe, certificate). Tests: state 6/6 with certificate and refusal matrix, engine job 12/12, desktop thread-recovery-smoke PASS (pre-receipt case recovers with JobNameAbsent and releases the ledger ticket; live owner still refused; receipt path unchanged). Full suites state 66/66, engine lib 105/105, desktop bins 30/30, rustfmt clean.",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/forced-crash-recovery-smoke.mjs: attempted ONCE on 2026-11-07, FAILED for host memory (commit free 2.26 GiB at launch, down from 9.2 GiB minutes earlier; app stuck at Connecting or waits timed out); no product defect observed; parked per the simplified-plan rule, not retried",
+        "REAL forced crash observed 2026-11-07 (forced-crash-recovery-smoke, first attempt past restart): after TerminateProcess of the app before any receipt and a restart, the real Recover session UI recovered the thread through the ADR-0051 certificate; the fixture database showed the activation closed (ended_at set, revision 2), the cleanup journal empty (association consumed) and the thread revision advanced. The smoke still asserted the old refusal and reported refusal-status-missing; it now asserts recovery (status Session recovered, activation closed exactly once, association consumed, dead host ticket released, Resume offered) and retries transient read-only IPC busy/unavailable. Two later attempts failed at session open with governor refusals (the product resource governor (hysteresis: enter pressure below 4.13 GiB free commit, exit above 5.17 GiB) kept the app in reduced activity; each proof run itself consumes about 2 GiB of commit, so a start near 6 GiB is not enough). The green run with the new assertions is still to be recorded."
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ]
+    },
+    "C46": {
+      "status": "committed",
+      "commit_sha": "5d174492b9fb0b0e6562aa7bc6e32cece9870a41",
+      "evidence": [
+        "docs/implementation/2026-11-03-widget-preview.md",
+        "docs/verification/2026-11-03-C46-widget-preview.md",
+        "2026-11-08 p14 wrap-run attention-smoke.mjs on HEAD a8cc72d: PASS native overlay and real PTY OSC/BEL/exit integration"
+      ],
+      "checks": [
+        "npm run build",
+        "cargo build --locked -p shinatama-desktop --features custom-protocol -j1",
+        "cargo test --locked -p shinatama-desktop --bin shinatama-desktop attention",
+        "node apps/desktop/tests/attention-smoke.mjs --surface-only",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/attention-smoke.mjs: attempted ONCE on 2026-11-07, FAILED for host memory (commit free 2.26 GiB at launch, down from 9.2 GiB minutes earlier; app stuck at Connecting or waits timed out); no product defect observed; parked per the simplified-plan rule, not retried",
+        "attention-smoke.mjs FIXED 2026-11-07: fill on the hidden project field when a project is preselected; second attempt reached the terminal open and was refused by the governor with \"New terminals are waiting for healthy resource measurements\" (the product resource governor (hysteresis: enter pressure below 4.13 GiB free commit, exit above 5.17 GiB) kept the app in reduced activity; each proof run itself consumes about 2 GiB of commit, so a start near 6 GiB is not enough). Not yet green."
+      ],
+      "limits": [
+        "Preview Windows autorizzata il 2026-11-03: finestra nel processo Tauri e avvisi transitori; F30/F31 e i gate finali restano aperti.",
+        "Superficie nativa e otto test Rust passano. Percorso PTY/clic/EOF collegato ma prova live rifiutata dal controllo risorse normale; nessun harness/provider qualificato. C12 rimane il solo checkpoint in_progress."
+      ],
+      "next_action": "Accepted by owner 2026-11-08.",
+      "platforms": [
+        "Windows 11 x64"
+      ]
+    },
+    "C16": {
+      "status": "pending",
+      "commit_sha": null,
+      "evidence": [
+        "docs/notes/2026-11-03-codex-open.md",
+        "docs/notes/2026-11-03-harness-services.md"
+      ],
+      "checks": [
+        "npm run build",
+        "cargo test --offline --locked -p shinatama-engine --features session-reader -j1 --lib codex_ -- --test-threads=1",
+        "cargo test --offline --locked -p shinatama-adapter -j1 --lib codex_requires_a_specific_verified_home_budget_and_excludes_elevated_sandbox -- --test-threads=1",
+        "SHINATAMA_SMOKE_SESSION_HARNESS=codex verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/new-session-smoke.mjs",
+        "native-new-session-user-path: Codex 0.166.0 PASS; .prototype-evidence/new-session-codex.json"
+      ],
+      "limits": [
+        "Actual installed Codex 0.166.0 TUI startup and cleanup passed; authentication stays unknown/manual in original TUI.",
+        "Provider traffic/TLS, effective tools, native binding/resume and managed installation remain unqualified; no C16 parent completion."
+      ],
+      "next_action": "Preserve working Codex Open; connect exact native-session binding and provider/tool qualification after the next installed harness.",
+      "units": {
+        "C16.1": {
+          "status": "committed",
+          "commit_sha": "3242ee86bf2a5344aab1d5d4ff1f55e1fda91e36",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-03-codex-open.md"
+          ],
+          "checks": [
+            "npm run build",
+            "cargo test --offline --locked -p shinatama-engine --features session-reader -j1 --lib codex_ -- --test-threads=1",
+            "cargo test --offline --locked -p shinatama-adapter -j1 --lib codex_requires_a_specific_verified_home_budget_and_excludes_elevated_sandbox -- --test-threads=1",
+            "SHINATAMA_SMOKE_SESSION_HARNESS=codex verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/new-session-smoke.mjs"
+          ],
+          "limits": [
+            "Actual installed Codex 0.166.0 TUI startup and cleanup passed; authentication stays unknown/manual in original TUI.",
+            "Provider traffic/TLS, effective tools, native binding/resume and managed installation remain unqualified; no C16 parent completion."
+          ]
+        },
+        "C16.2": {
+          "status": "committed",
+          "commit_sha": "3242ee86bf2a5344aab1d5d4ff1f55e1fda91e36",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-03-codex-open.md"
+          ],
+          "checks": [
+            "npm run build",
+            "cargo test --offline --locked -p shinatama-engine --features session-reader -j1 --lib codex_ -- --test-threads=1",
+            "cargo test --offline --locked -p shinatama-adapter -j1 --lib codex_requires_a_specific_verified_home_budget_and_excludes_elevated_sandbox -- --test-threads=1",
+            "SHINATAMA_SMOKE_SESSION_HARNESS=codex verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/new-session-smoke.mjs"
+          ],
+          "limits": [
+            "Actual installed Codex 0.166.0 TUI startup and cleanup passed; authentication stays unknown/manual in original TUI.",
+            "Provider traffic/TLS, effective tools, native binding/resume and managed installation remain unqualified; no C16 parent completion."
+          ]
+        }
+      },
+      "checkpoint_commits": [
+        "7bc716f78332b1c0af41bdb89e3181251fe6b0bc",
+        "454f75a4292343b77395fd8e720ede9ffa44869e"
+      ]
+    },
+    "F02": {
+      "status": "pending",
+      "commit_sha": null,
+      "checkpoint_commits": [
+        "ac4b62f7d0d443df061023af5f8fb82319ac9950",
+        "f7eba14eff6147efb9a8cb4c9f5876ce3e5f8caa",
+        "7bc716f78332b1c0af41bdb89e3181251fe6b0bc",
+        "454f75a4292343b77395fd8e720ede9ffa44869e",
+        "2f72e7c4ce7badd65c173cf04f3bb16666951a5e",
+        "5e24fb26d1acf1d667c1899a73e7511a478e2911",
+        "c003838fe600d71ae5c7da4216347d0afffdbcb2",
+        "516325a672277a598ffeca7407663188ba9e8704",
+        "12221f2323e6e5350cb7728756dfbcd6382649c6",
+        "3c6e3427dafab5a2d686d4baed867d322b330008"
+      ],
+      "evidence": [
+        "docs/notes/2026-11-03-claude-session-events.md",
+        "docs/notes/2026-11-03-native-activation-history.md",
+        "docs/notes/2026-11-03-claude-native-resume.md",
+        "docs/notes/2026-11-03-claude-resume-ui.md",
+        "docs/notes/2026-11-03-native-owner-recovery-gap.md",
+        "docs/notes/2026-11-03-native-cleanup-recovery.md",
+        "docs/notes/2026-11-03-claude-resume-ui.md",
+        "docs/notes/2026-11-03-claude-resume-race.md",
+        "docs/verification/2026-11-06-adr-0051-termination-certificate.md"
+      ],
+      "checks": [
+        "cargo test --offline --locked -p shinatama-engine -j1 --bin shinatama-hook",
+        "cargo test --offline --locked -p shinatama-engine -j1 --lib claude_session_events::tests::loopback_authentication_bounds_and_stop_preserve_only_session_metadata -- --test-threads=1",
+        "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls --test claude_native_resume -- --ignored --test-threads=1: PASS native resume 1/1 in 9.78s and TLS 1/1 in 9.18s; two genuine SessionStart hooks, same saved UUID and prior assistant turn received by synthetic provider, all owners Released",
+        "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/claude-resume-smoke.mjs --guard-only: PASS local absolute/CONNECT refusal and owner-only private configuration, no app executed",
+        "guarded claude-resume-smoke.mjs on portable e4fba2a6-64ee-43a3-9db8-206c90425131: INCOMPLETE, Claude exit 1 before onboarding; phase Released/reason process_ended, sidecar healthy, zero forwarded connections and zero synthetic messages; no parent/unit promotion",
+        "cargo test --offline --locked -p shinatama-state -j1 native_session_cleanup::tests: PASS 4/4, 0.56s; durable receipt/reopen, live owner and missing receipt refusal, exact concurrent recovery, rollback and bounded retention",
+        "cargo test --offline --locked -p shinatama-terminal -j1 lifecycle_: PASS 2/2; exact reservation at suspended-shell barrier and finalization only after native release",
+        "npm run build and offline locked desktop/terminal-helper/session-helper/hook build: PASS; complete native build 1m48s",
+        "P14 thread-recovery-smoke.mjs on portable 28dab120-3c4f-4d0b-9adf-4c7004055ddc: PASS 3.17s; actual UI/IPC with synthetic metadata, live/no-receipt/scope refusals, exact close and receipt consumption, Resume visible, zero harness starts",
+        "Guarded Claude TUI run after memory freed: native startup connection failure before onboarding identified; sidecar healthy, fixed budgets not exceeded. Pinned CLI code identifies first-party onboarding preflights independent of custom API base. Synthetic bearer fixture added; following run deferred before native start by resource pressure, so bearer and new cleanup SQL assertions remain unexercised.",
+        "F02 closing evidence collected 2026-11-07 without new runs: guarded Claude UI resume PASS (claude-resume-smoke, 2026-11-03), duplicate-resume race PASS twice (claude-resume-race-smoke, isolated build bf6bf2f), Codex native resume PASS twice (97e904a), pre-receipt crash recovery implemented (ADR-0051, 85544c3) and UI-proven with a synthetic certificate; real forced-crash run is tracked by C25."
+      ],
+      "limits": [
+        "Tracked normal Claude profile and lifecycle consumer are connected. Actual headless Claude SessionStart hooks and exact native resume pass with synthetic local data. Durable event feed, real UI resume qualification and identity-safe crash recovery remain open; no PID-only or TTL ownership unlock.",
+        "Recovery covers cleanup already proven before interrupted activation finalization. Records without a durable linked receipt remain blocked. UI proof seeds synthetic private metadata; it is not a real forced-crash/job-cleanup proof."
+      ],
+      "next_action": "Ready for the owner to accept the F02 parent: the UI proof and recovery protocol are covered by the evidence above; the single real forced-crash run is tracked by C25. Do not re-run the Claude UI proof without a relevant change."
+    },
+    "C11S": {
+      "status": "committed",
+      "commit_sha": "454f75a4292343b77395fd8e720ede9ffa44869e",
+      "evidence": [
+        "docs/notes/2026-11-03-harness-services.md",
+        "docs/notes/2026-11-03-opencode-open.md",
+        "docs/notes/2026-11-03-retained-canary-cleanup.md",
+        "docs/notes/2026-11-03-codex-resume-recipe.md"
+      ],
+      "checks": [
+        "Frontend build: PASS (coordinator-run on integrated harness service)",
+        "Backend all-binaries build: PASS (coordinator-run on integrated harness service)",
+        "agents::tests: 2 passed (coordinator-run)",
+        "claude_session_events::tests: 1 event-drain test passed (coordinator-run)",
+        "Claude helper program-pin filesystem regression: 1 passed (coordinator-run)",
+        "native-new-session-user-path: Codex 0.166.0 PASS; .prototype-evidence/new-session-codex.json",
+        "native-new-session-user-path: OpenCode 2.2.5 PASS; .prototype-evidence/new-session-opencode.json",
+        "native-new-session-user-path: Claude Code 2.1.317 PASS including sealed conversation ownership and finalization after native cleanup; .prototype-evidence/new-session-claude_code.json",
+        "native-new-session-user-path: PowerShell PASS; selected project reused from header/sidebar, two-project threads preserve layout, healthy shell responds; .prototype-evidence/new-session-powershell.json",
+        "cargo build --offline --locked -p shinatama-desktop --features custom-protocol -j1: PASS 24.06s after common retained cleanup fix",
+        "rustfmt --edition 2024 apps/desktop/src-tauri/src/agents.rs",
+        "cargo test --offline --locked -p shinatama-engine -j1 codex_launch::tests --lib: PASS 3/3; exact typed operation, unchanged New argv, ambiguous IDs and StartNew qualification reuse refused",
+        "cargo check --offline --locked -p shinatama-desktop --features custom-protocol -j1: PASS 45.64s after Codex typed selection"
+      ],
+      "requirements_note": "docs/notes/2026-11-03-harness-services.md",
+      "limits": [
+        "Shared-service startup, persisted project/thread/view and owned cleanup passed for Codex 0.166.0, OpenCode 2.2.5 and Claude Code 2.1.317 using fresh private app state and synthetic projects.",
+        "Claude sealed conversation live ownership and finalization after native cleanup passed; actual harness-emitted hook events, authentication, provider traffic/tools and native Resume are not qualified.",
+        "Codex/OpenCode native resume remains unsupported; archive/provider and complete resilience gates remain separate.",
+        "Delayed release now consumes an available authentic receipt before dropping owner; its dedicated delayed-release native regression remains open. No failed-trial receipt is fabricated.",
+        "Codex Resume selection is internal groundwork only: no public preparation entry point, no native identity capture yet, catalog native_resume remains false."
+      ],
+      "next_action": "Shared service and registered drivers are committed. Continue harness-specific native events, Resume and provider/tool qualification without duplicating the lifecycle or repeating unchanged passing startup proofs.",
+      "units": {
+        "C11S.1": {
+          "status": "committed",
+          "commit_sha": "454f75a4292343b77395fd8e720ede9ffa44869e",
+          "evidence": [
+            "docs/notes/2026-11-03-harness-services.md"
+          ],
+          "checks": [
+            "Frontend build: PASS (coordinator-run on integrated harness service)",
+            "Backend all-binaries build: PASS (coordinator-run on integrated harness service)",
+            "agents::tests: 2 passed (coordinator-run)",
+            "claude_session_events::tests: 1 event-drain test passed (coordinator-run)",
+            "Claude helper program-pin filesystem regression: 1 passed (coordinator-run)"
+          ],
+          "next_action": "Shared service and registered drivers are committed. Continue harness-specific native events, Resume and provider/tool qualification without duplicating the lifecycle or repeating unchanged passing startup proofs.",
+          "platforms": [
+            "Windows 11 x64"
+          ]
+        },
+        "C11S.2": {
+          "status": "committed",
+          "commit_sha": "454f75a4292343b77395fd8e720ede9ffa44869e",
+          "evidence": [
+            "docs/notes/2026-11-03-harness-services.md",
+            "docs/notes/2026-11-03-opencode-open.md"
+          ],
+          "checks": [
+            "native-new-session-user-path: Codex 0.166.0 PASS; .prototype-evidence/new-session-codex.json",
+            "native-new-session-user-path: OpenCode 2.2.5 PASS; .prototype-evidence/new-session-opencode.json",
+            "native-new-session-user-path: Claude Code 2.1.317 PASS including sealed conversation ownership and finalization after native cleanup; .prototype-evidence/new-session-claude_code.json",
+            "native-new-session-user-path: PowerShell PASS; selected project reused from header/sidebar, two-project threads preserve layout, healthy shell responds; .prototype-evidence/new-session-powershell.json"
+          ],
+          "next_action": "Shared service and registered drivers are committed. Continue harness-specific native events, Resume and provider/tool qualification without duplicating the lifecycle or repeating unchanged passing startup proofs.",
+          "platforms": [
+            "Windows 11 x64"
+          ]
+        }
+      },
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checkpoint_commits": [
+        "7bc716f78332b1c0af41bdb89e3181251fe6b0bc",
+        "454f75a4292343b77395fd8e720ede9ffa44869e",
+        "2b3d32be2c1afa617fc83f7175e946c33b12a6f1",
+        "904ce8afa6490b4f0c7e2402e4880297ad522a61",
+        "755618b3a9d85f27287dae2dd0359af24b4fae83"
+      ]
+    },
+    "C17": {
+      "status": "pending",
+      "commit_sha": null,
+      "evidence": [
+        "docs/notes/2026-11-03-opencode-open.md",
+        "docs/notes/2026-11-03-harness-services.md"
+      ],
+      "checks": [
+        "native-new-session-user-path: OpenCode 2.2.5 PASS; .prototype-evidence/new-session-opencode.json"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "limits": [
+        "Actual OpenCode 2.2.5 TUI startup and owned cleanup passed through the shared service with fresh private app state; one Open saved project, thread and view.",
+        "No login responses or provider prompts were sent. Authentication, effective tools/provider TLS, archive/export, native binding/Resume and full C17 qualification remain open."
+      ],
+      "next_action": "Preserve the verified OpenCode startup path; qualify remaining C17 capabilities separately and record the actual commit SHA.",
+      "checkpoint_commits": [
+        "7bc716f78332b1c0af41bdb89e3181251fe6b0bc",
+        "454f75a4292343b77395fd8e720ede9ffa44869e"
+      ]
+    },
+    "C26": {
+      "status": "committed",
+      "commit_sha": "1e5e080378ac8dc3d06ecea8886173ca17af2235",
+      "units": {
+        "C26.1": {
+          "status": "committed",
+          "commit_sha": "8abfa5f1dcd9b98b12f8a733a3cccacf448e4fdb",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-session-export.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-export"
+          ],
+          "limits": [
+            "Pure formats crate; no reader."
+          ]
+        },
+        "C26.2": {
+          "status": "committed",
+          "commit_sha": "c2a65a40aab224449c6ce9753704d814a2b479d6",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-session-export.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-engine --features session-reader --lib session_",
+            "cargo test --offline -p shinatama-engine --features session-reader --test session_export -- --ignored",
+            "cargo build -p shinatama-desktop",
+            "npm run build"
+          ],
+          "limits": [
+            "Native export offered nowhere until proven.",
+            "No app-level smoke of the Export dialog; the native Save dialog is not automated.",
+            "OpenCode export refused with the detail path."
+          ]
+        },
+        "C26.3": {
+          "status": "committed",
+          "commit_sha": "1e5e080378ac8dc3d06ecea8886173ca17af2235",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-session-export.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-cli",
+            "cargo test --offline -p shinatama-cli --test sessions -- --ignored"
+          ],
+          "limits": [
+            "resume and hop are desktop-only and refused by the CLI.",
+            "CLI worker admission uses the shared ledger without the desktop headroom sampler."
+          ]
+        }
+      },
+      "next_action": "Owner acceptance of the C26 parent after trying Export in the app; R34 round-trip law stays open (no import path in any version).",
+      "evidence": [
+        "docs/notes/2026-11-09-session-export.md"
+      ],
+      "checks": [
+        "cargo build -p shinatama-desktop",
+        "cargo test --offline -p shinatama-cli",
+        "cargo test --offline -p shinatama-cli --test sessions -- --ignored",
+        "cargo test --offline -p shinatama-engine --features session-reader --lib session_",
+        "cargo test --offline -p shinatama-engine --features session-reader --test session_export -- --ignored",
+        "cargo test --offline -p shinatama-export",
+        "npm run build"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ]
+    },
+    "C27": {
+      "status": "committed",
+      "commit_sha": "0985476ea455d69c5dcbc188d15c3554e6f40cbe",
+      "units": {
+        "C27.1": {
+          "status": "committed",
+          "commit_sha": "e14871ec3b23e2416753497118bac385d4899aa0",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-seed-preview.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-hop",
+            "cargo test --offline -p shinatama-export"
+          ],
+          "limits": []
+        },
+        "C27.2": {
+          "status": "committed",
+          "commit_sha": "e14871ec3b23e2416753497118bac385d4899aa0",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-seed-preview.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-hop"
+          ],
+          "limits": []
+        },
+        "C27.3": {
+          "status": "committed",
+          "commit_sha": "e14871ec3b23e2416753497118bac385d4899aa0",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-seed-preview.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-hop"
+          ],
+          "limits": []
+        },
+        "C27.4": {
+          "status": "committed",
+          "commit_sha": "0985476ea455d69c5dcbc188d15c3554e6f40cbe",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-seed-preview.md"
+          ],
+          "checks": [
+            "npm run build",
+            "node apps/desktop/tests/hop-preview-smoke.mjs"
+          ],
+          "limits": [
+            "Unknown-window cap always applies: no qualified provider catalog.",
+            "Sidecar bypass marker (R33/SC9) not implemented."
+          ]
+        }
+      },
+      "evidence": [
+        "docs/notes/2026-11-09-hop-seed-preview.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-export",
+        "cargo test --offline -p shinatama-hop",
+        "node apps/desktop/tests/hop-preview-smoke.mjs",
+        "npm run build"
+      ],
+      "next_action": "C28 sends the frozen preview through the hop coordinator; owner acceptance of C27 after trying Hop in the app."
+    },
+    "C28": {
+      "status": "committed",
+      "commit_sha": "619dceeccb67fa4739b7c083e554a0fdfb7761cc",
+      "units": {
+        "C28.1": {
+          "status": "committed",
+          "commit_sha": "d7962a57c332d63ad679b633303400c8a6387ec4",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-coordinator.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-state --lib hops"
+          ],
+          "limits": []
+        },
+        "C28.2": {
+          "status": "committed",
+          "commit_sha": "e5beb1f863de1fc447eef2c13992e94e399ce70c",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-coordinator.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-hop"
+          ],
+          "limits": []
+        },
+        "C28.3": {
+          "status": "committed",
+          "commit_sha": "619dceeccb67fa4739b7c083e554a0fdfb7761cc",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-coordinator.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-hop",
+            "npm run build",
+            "node apps/desktop/tests/hop-preview-smoke.mjs"
+          ],
+          "limits": [
+            "Close mode proven on fake adapters only; app hops start from history."
+          ]
+        },
+        "C28.4": {
+          "status": "committed",
+          "commit_sha": "619dceeccb67fa4739b7c083e554a0fdfb7761cc",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-coordinator.md"
+          ],
+          "checks": [
+            "node apps/desktop/tests/hop-preview-smoke.mjs"
+          ],
+          "limits": [
+            "Paste channel; first-entry hash not verified.",
+            "No real signed-in agent hop was run automatically."
+          ]
+        }
+      },
+      "evidence": [
+        "docs/notes/2026-11-09-hop-coordinator.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-hop",
+        "cargo test --offline -p shinatama-state --lib hops",
+        "node apps/desktop/tests/hop-preview-smoke.mjs",
+        "npm run build"
+      ],
+      "next_action": "Owner tries one real hop (session detail -> Hop -> Codex). Then C29: recovery UI, catch-up, UNDO, standby."
+    },
+    "C29": {
+      "status": "committed",
+      "commit_sha": "39db26c5c0575a5f570b0b02e4a6a801bd8d11cf",
+      "units": {
+        "C29.1": {
+          "status": "committed",
+          "commit_sha": "a1434c68cba1f5ce818e7ba19d72d09a9bbd7887",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-recovery-catchup.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-hop",
+            "cargo test --offline -p shinatama-state --lib hops"
+          ],
+          "limits": [
+            "In-process kill matrix; no OS kill during a real hop."
+          ]
+        },
+        "C29.2": {
+          "status": "committed",
+          "commit_sha": "0aec6e7641f4cee27ec449c9d1e77bd3991ea3a5",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-recovery-catchup.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-hop"
+          ],
+          "limits": [
+            "Fake adapters; app hops have no live source."
+          ]
+        },
+        "C29.3": {
+          "status": "committed",
+          "commit_sha": "d1cc05fa556a74d320a99414d7225026f9a7e95a",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-recovery-catchup.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-hop"
+          ],
+          "limits": [
+            "No desktop UNDO button yet."
+          ]
+        },
+        "C29.4": {
+          "status": "committed",
+          "commit_sha": "39db26c5c0575a5f570b0b02e4a6a801bd8d11cf",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-recovery-catchup.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-hop"
+          ],
+          "limits": [
+            "No warm/cold latency measured on real agents; standby not wired to hidden panes."
+          ]
+        }
+      },
+      "evidence": [
+        "docs/notes/2026-11-09-hop-recovery-catchup.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-hop",
+        "cargo test --offline -p shinatama-state --lib hops"
+      ],
+      "next_action": "C30 ordered-pair matrix; desktop wiring of catch-up/UNDO/standby needs live hop sources."
+    },
+    "C30": {
+      "status": "pending",
+      "commit_sha": null,
+      "units": {
+        "C30.1": {
+          "status": "committed",
+          "commit_sha": "2e6a0d015db1e9a711d07a9fb6b5ba8052c9ad9f",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-hop-recovery-catchup.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-hop",
+            "node apps/desktop/tests/hop-preview-smoke.mjs"
+          ],
+          "limits": [
+            "Pairs derived from qualified readers/launchers in this build; live canaries (C30.2) need an authorized synthetic budget and installed Pi/Hermes/DeepSeek."
+          ]
+        }
+      },
+      "next_action": "C30.2 live canaries need owner-authorized accounts/budget; C30.3 after C18-C20."
+    },
+    "C41": {
+      "status": "committed",
+      "commit_sha": "d016dc2786278f6dd6f897f08226d070db8e9eec",
+      "units": {
+        "C41.1": {
+          "status": "committed",
+          "commit_sha": "2361934f35b8df7530ff20671104b534940f8c06",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-project-files.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-files"
+          ],
+          "limits": []
+        },
+        "C41.2": {
+          "status": "committed",
+          "commit_sha": "d016dc2786278f6dd6f897f08226d070db8e9eec",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-project-files.md"
+          ],
+          "checks": [
+            "node apps/desktop/tests/files-smoke.mjs",
+            "npm run build"
+          ],
+          "limits": [
+            "Panel dialog, not workspace tabs."
+          ]
+        }
+      },
+      "evidence": [
+        "docs/notes/2026-11-09-project-files.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-files",
+        "node apps/desktop/tests/files-smoke.mjs"
+      ],
+      "next_action": "Owner acceptance."
+    },
+    "C42": {
+      "status": "committed",
+      "commit_sha": "d016dc2786278f6dd6f897f08226d070db8e9eec",
+      "units": {
+        "C42.1": {
+          "status": "committed",
+          "commit_sha": "2361934f35b8df7530ff20671104b534940f8c06",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-project-files.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-files"
+          ],
+          "limits": [
+            "Panel uses textarea undo; Rust Buffers tested only."
+          ]
+        },
+        "C42.2": {
+          "status": "committed",
+          "commit_sha": "d016dc2786278f6dd6f897f08226d070db8e9eec",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-project-files.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-files",
+            "node apps/desktop/tests/files-smoke.mjs"
+          ],
+          "limits": [
+            "No Mermaid renderer."
+          ]
+        },
+        "C42.3": {
+          "status": "committed",
+          "commit_sha": "d016dc2786278f6dd6f897f08226d070db8e9eec",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-project-files.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-files",
+            "node apps/desktop/tests/files-smoke.mjs"
+          ],
+          "limits": []
+        }
+      },
+      "evidence": [
+        "docs/notes/2026-11-09-project-files.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-files",
+        "node apps/desktop/tests/files-smoke.mjs"
+      ],
+      "next_action": "Owner acceptance; C43 visual editing needs a fidelity corpus."
+    },
+    "C44": {
+      "status": "pending",
+      "commit_sha": null,
+      "units": {
+        "C44.1": {
+          "status": "committed",
+          "commit_sha": "c49fbfe1c401f0464fa99467d27c65f962b38656",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-project-files.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-files",
+            "node apps/desktop/tests/files-smoke.mjs"
+          ],
+          "limits": [
+            "Images only; SVG shown as source text."
+          ]
+        }
+      },
+      "next_action": "C44.2 needs a DOCX reader choice with a fidelity corpus; until then DOCX stays unavailable (reported, never approximated)."
+    },
+    "C36": {
+      "status": "committed",
+      "commit_sha": "16cfb02fd2521e40d9956dc57718c582d89c3b88",
+      "units": {
+        "C36.1": {
+          "status": "committed",
+          "commit_sha": "16cfb02fd2521e40d9956dc57718c582d89c3b88",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-project-overview.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-projects --lib git::tests",
+            "cargo test --offline -p shinatama-state --test projects pinned",
+            "node apps/desktop/tests/projects-overview-smoke.mjs"
+          ],
+          "limits": []
+        },
+        "C36.2": {
+          "status": "committed",
+          "commit_sha": "16cfb02fd2521e40d9956dc57718c582d89c3b88",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-project-overview.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-projects --lib git::tests",
+            "cargo test --offline -p shinatama-state --test projects pinned",
+            "node apps/desktop/tests/projects-overview-smoke.mjs"
+          ],
+          "limits": []
+        },
+        "C36.3": {
+          "status": "committed",
+          "commit_sha": "16cfb02fd2521e40d9956dc57718c582d89c3b88",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-project-overview.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-projects --lib git::tests",
+            "cargo test --offline -p shinatama-state --test projects pinned",
+            "node apps/desktop/tests/projects-overview-smoke.mjs"
+          ],
+          "limits": []
+        }
+      },
+      "evidence": [
+        "docs/notes/2026-11-10-project-overview.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-projects --lib git::tests",
+        "cargo test --offline -p shinatama-state --test projects pinned",
+        "node apps/desktop/tests/projects-overview-smoke.mjs"
+      ],
+      "next_action": "Owner acceptance."
+    },
+    "F09": {
+      "status": "committed",
+      "commit_sha": "682cecf79a3f04bf8cb3fc53eb80aed3a2ae2f0f",
+      "evidence": [
+        "docs/notes/2026-11-10-companion-cards.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-companion"
+      ],
+      "limits": [
+        "Compatibility fold instead of full NFKC.",
+        "Library only until the F10 pane."
+      ],
+      "next_action": "F10 companion pane (needs C15/C13/F04)."
+    },
+    "F20": {
+      "status": "pending",
+      "commit_sha": null,
+      "units": {},
+      "evidence": [
+        "docs/notes/2026-11-10-token-ledger.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-token-economy",
+        "node apps/desktop/tests/hop-preview-smoke.mjs"
+      ],
+      "limits": [
+        "Ledger implemented at 23dd200668f1e2df1db9c7f0e93191f28b408c40; ten real sessions per harness not measured, so the step stays open."
+      ],
+      "next_action": "Owner runs ten real sessions per harness; then aggregate baseline and close F20."
+    },
+    "C31": {
+      "status": "committed",
+      "commit_sha": "6d4514b8586a8940e235fea01e431b7612b4668b",
+      "units": {
+        "C31.1": {
+          "status": "committed",
+          "commit_sha": "6d4514b8586a8940e235fea01e431b7612b4668b",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-messaging.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-messaging"
+          ],
+          "limits": []
+        },
+        "C31.2": {
+          "status": "committed",
+          "commit_sha": "6d4514b8586a8940e235fea01e431b7612b4668b",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-messaging.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-messaging"
+          ],
+          "limits": []
+        },
+        "C31.3": {
+          "status": "committed",
+          "commit_sha": "6d4514b8586a8940e235fea01e431b7612b4668b",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-messaging.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-messaging"
+          ],
+          "limits": []
+        }
+      },
+      "evidence": [
+        "docs/notes/2026-11-10-messaging.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-messaging"
+      ],
+      "limits": [
+        "Library only until C32 MCP tools and a live instance directory.",
+        "M4/M6 per-agent measurements not run."
+      ],
+      "next_action": "C32 MCP tools over this API."
+    },
+    "C32": {
+      "status": "pending",
+      "commit_sha": null,
+      "units": {
+        "C32.1": {
+          "status": "committed",
+          "commit_sha": "6b7844f0c58cf4d3279e10942b9676f99b3d781d",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-mcp-tools.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-cli",
+            "cargo test --offline -p shinatama-cli --test mcp"
+          ],
+          "limits": []
+        },
+        "C32.2": {
+          "status": "committed",
+          "commit_sha": "6b7844f0c58cf4d3279e10942b9676f99b3d781d",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-mcp-tools.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-cli",
+            "cargo test --offline -p shinatama-cli --test mcp",
+            "cargo test --offline -p shinatama-messaging"
+          ],
+          "limits": [
+            "Desktop registration/heartbeat and per-agent pre-approval not wired."
+          ]
+        }
+      },
+      "next_action": "C32.3: register instances at launch, inject MCP + token per agent, hooks; qualify per agent version."
+    },
+    "C33": {
+      "status": "pending",
+      "commit_sha": null,
+      "units": {
+        "C33.2": {
+          "status": "committed",
+          "commit_sha": "bdec7b9d5ca239fa42c525948e65e0ee880b2664",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-roundtable.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-roundtable"
+          ],
+          "limits": [
+            "Fake headless participants only."
+          ]
+        },
+        "C33.3": {
+          "status": "committed",
+          "commit_sha": "bdec7b9d5ca239fa42c525948e65e0ee880b2664",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-roundtable.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-roundtable"
+          ],
+          "limits": [
+            "Caps not calibrated on real topics."
+          ]
+        }
+      },
+      "next_action": "C33.1 real ask_headless per agent with canaries (needs owner-authorized budget); C33.4 UI, roundtable thread and search."
+    },
+    "C43": {
+      "status": "committed",
+      "commit_sha": "8ce48013fea854daf7103d4fd6b08f6c1f08fb46",
+      "units": {
+        "C43.1": {
+          "status": "committed",
+          "commit_sha": "8ce48013fea854daf7103d4fd6b08f6c1f08fb46",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-project-files.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-files visual",
+            "node apps/desktop/tests/files-smoke.mjs"
+          ],
+          "limits": []
+        },
+        "C43.2": {
+          "status": "committed",
+          "commit_sha": "8ce48013fea854daf7103d4fd6b08f6c1f08fb46",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-project-files.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-files visual",
+            "node apps/desktop/tests/files-smoke.mjs"
+          ],
+          "limits": []
+        },
+        "C43.3": {
+          "status": "committed",
+          "commit_sha": "8ce48013fea854daf7103d4fd6b08f6c1f08fb46",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-09-project-files.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-files visual",
+            "node apps/desktop/tests/files-smoke.mjs"
+          ],
+          "limits": []
+        }
+      },
+      "evidence": [
+        "docs/notes/2026-11-09-project-files.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-files visual",
+        "node apps/desktop/tests/files-smoke.mjs"
+      ],
+      "limits": [
+        "Visual subset: headings, paragraphs, code bodies; inline markup stays literal text inside paragraphs."
+      ],
+      "next_action": "Owner acceptance."
+    },
+    "C24": {
+      "status": "committed",
+      "commit_sha": "ad04532cc5e59b995da641cbc98665f69cb7a1b4",
+      "units": {
+        "C24.1": {
+          "status": "committed",
+          "commit_sha": "ad04532cc5e59b995da641cbc98665f69cb7a1b4",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-session-search-recheck.md"
+          ],
+          "checks": [
+            "node apps/desktop/tests/session-search-smoke.mjs"
+          ],
+          "limits": []
+        },
+        "C24.2": {
+          "status": "committed",
+          "commit_sha": "ad04532cc5e59b995da641cbc98665f69cb7a1b4",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-session-search-recheck.md"
+          ],
+          "checks": [
+            "node apps/desktop/tests/session-search-smoke.mjs"
+          ],
+          "limits": []
+        },
+        "C24.3": {
+          "status": "committed",
+          "commit_sha": "ad04532cc5e59b995da641cbc98665f69cb7a1b4",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-session-search-recheck.md"
+          ],
+          "checks": [
+            "node apps/desktop/tests/session-search-smoke.mjs"
+          ],
+          "limits": []
+        }
+      },
+      "evidence": [
+        "docs/notes/2026-11-10-session-search-recheck.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "node apps/desktop/tests/session-search-smoke.mjs"
+      ],
+      "next_action": "Owner acceptance (marked done 2026-11-08 in the simplified plan)."
+    },
+    "F03P": {
+      "status": "pending",
+      "commit_sha": null,
+      "evidence": [
+        "docs/notes/2026-11-10-check-state.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-state --lib privacy",
+        "cargo test --offline -p shinatama-cli --lib check_state",
+        "target/debug/shinatama.exe check-state"
+      ],
+      "limits": [
+        "check-state implemented at 0481eab9f7db4f985f8ab94e9a0660d20f6bfdae; companion forget, SEC second review and traffic capture checks open."
+      ],
+      "next_action": "SEC second-reader review of redaction and wrappers; X4/X5 capture checks."
+    },
+    "F04": {
+      "status": "pending",
+      "commit_sha": null,
+      "evidence": [
+        "docs/notes/2026-11-10-instances-overview.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-desktop instances",
+        "node apps/desktop/tests/instances-smoke.mjs"
+      ],
+      "limits": [
+        "Overview implemented at c171aa59cc4a8f083577b347d9895b8ec549ee03 from terminal observations only; native hooks per agent not connected."
+      ],
+      "next_action": "Connect native state hooks per agent (Claude first) as the trusted state_source."
+    },
+    "F06": {
+      "status": "committed",
+      "commit_sha": "88f509949638cc548b16b3b3898cc307763bb595",
+      "evidence": [
+        "docs/notes/2026-11-10-instances-overview.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-engine --features session-reader --lib ledger_tests",
+        "node apps/desktop/tests/instances-smoke.mjs"
+      ],
+      "limits": [
+        "Verbatim backend only; model backends are F07/F08.",
+        "No real agent thread title smoke."
+      ],
+      "next_action": "Owner acceptance."
+    },
+    "F03H": {
+      "status": "committed",
+      "commit_sha": "dbb0e3a8db3f7e7fbfa40d59b024a71008164a34",
+      "evidence": [
+        "docs/notes/2026-11-10-hop-transactions.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-hop --test cross_process",
+        "cargo test --offline -p shinatama-state --lib hops",
+        "cargo test --offline -p shinatama-hop"
+      ],
+      "limits": [
+        "No OS kill of the desktop during a real hop."
+      ],
+      "next_action": "Owner acceptance."
+    },
+    "F05": {
+      "status": "pending",
+      "commit_sha": null,
+      "evidence": [
+        "docs/notes/2026-11-10-instances-overview.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-projects --lib collisions",
+        "cargo test --offline -p shinatama-projects --lib git::tests",
+        "node apps/desktop/tests/instances-smoke.mjs"
+      ],
+      "limits": [
+        "Wired at 7dca2d73d6c6025c5b543293835f3ef53410d356: collisions from evidence and tokens per row in Instances; attribution needs each instance's thread to be readable (agents with native session binding).",
+        "Usage not compared with provider reports; large-repository status cost not measured."
+      ],
+      "next_action": "Compare ledger usage with provider reports; measure git status cost on a large repository."
+    },
+    "F21": {
+      "status": "pending",
+      "commit_sha": null,
+      "evidence": [
+        "docs/notes/2026-11-10-token-ledger.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-token-economy"
+      ],
+      "limits": [
+        "Planner at abac2823cc25d895e6ba211a6c9949596c1caef1; not connected to Claude: the local rule endpoint, interception of native compaction (one owner) and the 60 % trigger need the sidecar seam (C13) and are unproven."
+      ],
+      "next_action": "Serve the planner behind the local endpoint the compaction plugin calls; prove native compaction stands down (T11, T13, T14)."
+    },
+    "F17": {
+      "status": "pending",
+      "commit_sha": null,
+      "evidence": [
+        "docs/notes/2026-11-10-browser-contract.md"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "checks": [
+        "cargo test --offline -p shinatama-browser"
+      ],
+      "limits": [
+        "Contract and routing at 0fd3e9d0a29d5c952f2c510f2204d274c1799a5f; no engine integration (F18 Moli, F19 Patchright), no session view (R14)."
+      ],
+      "next_action": "F18 Moli one-shot fetch behind this contract."
+    },
+    "C18": {
+      "status": "pending",
+      "commit_sha": null,
+      "units": {
+        "C18.1": {
+          "status": "committed",
+          "commit_sha": "5f1045264f703561c4fd339104ad9c1cb2ef829e",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-pi-adapter.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-adapter pi",
+            "cargo test --offline -p shinatama-engine --features session-reader --lib pi_",
+            "cargo test --offline -p shinatama-engine --lib pi_probe -- --include-ignored: installed Pi 1.4.0 / Node 24.14.1 version probe PASS (contained, released)"
+          ],
+          "limits": []
+        },
+        "C18.2": {
+          "status": "committed",
+          "commit_sha": "81ca416625b87e04d8c63172af133c09aab0114c",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-pi-adapter.md"
+          ],
+          "checks": [
+            "SHINATAMA_SMOKE_SESSION_HARNESS=pi node apps/desktop/tests/new-session-smoke.mjs"
+          ],
+          "limits": [
+            "Only the empty skill/extension set is launched; MCP refused."
+          ]
+        },
+        "C18.3": {
+          "status": "committed",
+          "commit_sha": "3fd1bd459a013ec7d3c515509022f6c074cab102",
+          "platforms": [
+            "Windows 11 x64"
+          ],
+          "evidence": [
+            "docs/notes/2026-11-10-pi-adapter.md"
+          ],
+          "checks": [
+            "cargo test --offline -p shinatama-adapter pi:: (15 passed: rpc, capabilities, discovery, auth, run, sets)",
+            "cargo test --offline -p shinatama-engine --features session-reader --lib -- pi_ --include-ignored: installed_pi_rpc_reads_state_and_refuses_an_unsupported_command PASS on Pi 1.4.0 (get_state idle/0 messages, get_commands 0, unknown command refused, no event, released)",
+            "verify/PI/run.ps1"
+          ],
+          "limits": [
+            "RPC is a read-only contained control check; no user flow drives Pi over RPC and no prompt is encodable.",
+            "No model call: run events, ui_prompt, queued messages, headless answers, auth status in the UI and provider traffic remain unqualified."
+          ]
+        }
+      },
+      "next_action": "C18 units are committed. Remaining Pi work needs a signed-in provider (events, auth status, Mukade session read) or a per-instance set writer; C15 must be verified before the parent can close.",
+      "evidence": [
+        "docs/notes/2026-11-10-pi-adapter.md"
+      ],
+      "checks": [
+        "native-new-session-user-path: Pi 1.4.0 / Node 24.14.1 PASS; .prototype-evidence/new-session-pi.json (4 checks)"
+      ],
+      "platforms": [
+        "Windows 11 x64"
+      ],
+      "limits": [
+        "Pi opens its original TUI contained through the shared service and closes with owned cleanup; only the empty skill/extension set is launched, MCP per launch refused (PI7).",
+        "No sign-in, prompt or model call was made: authentication, provider traffic/TLS, tools, run events, native resume/thread binding and a real Pi session read by Mukade are not proven.",
+        "Parent stays pending: dependency C15 is not verified and the deferred Daodan checkup (FRD-0001/R08) is outside this cycle."
+      ]
+    }
+  },
+  "blockers": [],
+  "cross_platform_gates": "Windows evidence only for current product slices; Linux/macOS full gates remain open.",
+  "allow_non_v1": [],
+  "scope_overrides": [
+    {
+      "feature": "daodan",
+      "status": "deferred",
+      "requested_on": "2026-11-02",
+      "steps": [
+        "D01",
+        "C34",
+        "C35",
+        "D02",
+        "D03",
+        "D04"
+      ],
+      "reason": "Rinviato su richiesta esplicita dell utente del 2026-11-02: ignorare per adesso l integrazione con Daodan. Riprendere solo su nuova indicazione."
+    }
+  ],
+  "plan_view": "docs/implementation/PLAN-SEMPLIFICATO.md"
+}

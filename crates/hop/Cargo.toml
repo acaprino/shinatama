@@ -1,0 +1,17 @@
+[package]
+name = "shinatama-hop"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+# Seed hand-off (FRD-0005 R19-R33, ADR-0019): normalized history, budgeted seed, private
+# hand-off files, safe delivery channels and the immutable preview. It never writes a
+# native store and never starts an agent.
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+uuid.workspace = true
+shinatama-export.workspace = true
+shinatama-state.workspace = true

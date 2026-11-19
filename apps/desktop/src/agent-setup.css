@@ -1,0 +1,10 @@
+#agent-setup-dialog { width: min(560px, calc(100vw - 32px)); }
+#agent-provider { width: 100%; }
+.agent-checkup { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(130px, 2fr); gap: 10px 16px; margin: 20px 0; font-size: 13px; }
+.agent-checkup dt { color: var(--muted); }
+.agent-checkup dd { margin: 0; color: var(--text-2); overflow-wrap: anywhere; }
+.agent-checkup [data-state=ready], .agent-checkup [data-state=authenticated] { color: var(--live); }
+.agent-checkup [data-state=missing], .agent-checkup [data-state=unavailable], .agent-checkup [data-state=unsupported] { color: var(--warning); }
+.agent-issues { padding-left: 18px; color: var(--warning); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+#agent-setup-status { min-height: 2em; }
+#agent-setup-dialog .dialog-actions { flex-wrap: wrap; }

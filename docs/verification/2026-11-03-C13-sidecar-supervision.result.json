@@ -1,0 +1,78 @@
+{
+  "formatVersion": 1,
+  "verification": "C13 bounded Windows sidecar owner/recovery",
+  "date": "2026-11-03",
+  "passed": true,
+  "command": "cargo test --offline -p shinatama-engine --test sidecar_supervisor -j1 -- --ignored --test-threads=1 --nocapture",
+  "testsPassed": 1,
+  "testsFailed": 0,
+  "compileSeconds": 2.09,
+  "runtimeSeconds": 8.33,
+  "log": ".verification/c13-supervisor-native.log",
+  "logSha256": "4bdda386036c4a889ceb1946414ed0c52ea05b45c41839634eda89c13c2be08c",
+  "observation": {
+    "actualPinnedCli": true,
+    "busyKeptExactOwner": true,
+    "busyProbeDelayMs": 1000,
+    "busyHeartbeatAdvanced": true,
+    "healthyRecoveryResetDelayMs": 200,
+    "automaticRestarts": 1,
+    "sameAddressAfterRestart": true,
+    "secondExitPhase": "failed",
+    "secondExitReason": "repeated_exit",
+    "prepareCalls": 2,
+    "savedMarkerPreserved": true,
+    "agentCommandsReplayed": false,
+    "allNativeJobsClosedAndLedgerReleased": true,
+    "ownerWorkerClosed": true
+  },
+  "nativeLimits": {
+    "jobCommitBytes": 1073741824,
+    "perProcessCommitBytes": 805306368,
+    "processes": 8,
+    "cpuBasisPoints": 2000,
+    "queueBytes": 262144,
+    "queueItems": 4,
+    "wallBudgetSeconds": 30
+  },
+  "pinnedRuntime": {
+    "nodeSha256": "58e74bf02fc5bbacc41dcb8bef089961cd5bddd37830b87784e4fc624d145d1f",
+    "cliEntrySha256": "0c0e71df9811dbc20050fc1e9887d6da8afcefc73ff78348f1a51bcd5e9cca3e",
+    "sourceTreeSha256": "68d08d963cc1e081f6605677db824db62d3eddc1c3ec7126e444fdc9cd885579"
+  },
+  "sources": [
+    {
+      "path": "crates/engine/src/sidecar_supervisor.rs",
+      "sha256": "232fdfff60115d4b746559e86a0865cdca17a3c0e725284154a565283284fd50"
+    },
+    {
+      "path": "crates/engine/src/resources/process.rs",
+      "sha256": "9a26e51e48d61bf7676347970520ed7eca096ad446bebd450e4c918da87f1964"
+    },
+    {
+      "path": "crates/engine/src/resources/admission.rs",
+      "sha256": "49b7e821bc1000cfb5216559ceec701f6cd6214f386d5963ddb4dae6c93945da"
+    },
+    {
+      "path": "crates/engine/src/resources/job.rs",
+      "sha256": "841ad6c802aa5d93cc0677bb856b3d0db0eeaadfa4c56e9195981e8984111813"
+    },
+    {
+      "path": "crates/engine/tests/sidecar_supervisor.rs",
+      "sha256": "7d04cda0063d2159cbfd4900060fa7292e995c637537699f4e85a49628e3483f"
+    }
+  ],
+  "targetedShutdownRegression": {
+    "command": "cargo test --offline -p shinatama-engine --lib sidecar_supervisor::tests::graceful_shutdown_uses_same_identity_verified_connection -j1 -- --exact --test-threads=1 --nocapture",
+    "testsPassed": 1,
+    "runtimeSeconds": 0.01
+  },
+  "limitations": [
+    "One bounded Windows pinned-CLI case; not extended soak, five instances or the full runtime/OS matrix.",
+    "No desktop UI, provider traffic or agent command replay exercised.",
+    "Offline startup not qualified; the private upstream log reports loading the public models.dev registry."
+  ],
+  "fullSc5Sc6Sc14Sc15Qualified": false,
+  "nativeAgentStartEnabledByThisProof": false,
+  "separateDesktopEvidence": "docs/verification/2026-11-03-C15-first-tui.md"
+}

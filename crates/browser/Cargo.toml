@@ -1,0 +1,22 @@
+[package]
+name = "shinatama-browser"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+# Browser request contract and routing (FRD-0011 R01-R14), and the per-window Moli host:
+# its job, pipe, CDP client and pages (ADR-0056).
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+futures-util.workspace = true
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "sync", "time"] }
+tokio-tungstenite.workspace = true
+getrandom.workspace = true
+base64.workspace = true
+windows-sys.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

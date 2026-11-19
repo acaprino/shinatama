@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pane drag fixture</title>
+<style>html, body { margin: 0; height: 100%; } #host { position: absolute; inset: 0; }</style>
+</head>
+<body>
+<!-- Only the pane layout: three views in one pane, the real renderer and model, no app around them. -->
+<div id="host"></div>
+<script type="module">
+import '/src/styles.css';
+import '/src/workspace-renderer.css';
+import { createWorkspaceRenderer } from '/src/workspace-renderer.ts';
+import { emptyWorkspace, reduceWorkspaceLayout, tabGroups } from '/src/workspace-model.ts';
+const bindings = new Map();
+let layout = emptyWorkspace();
+for (const id of ['a', 'b', 'c']) {
+  const node = document.createElement('div'); node.className = 'terminal-view'; node.textContent = `view ${id}`; bindings.set(id, node);
+  layout = reduceWorkspaceLayout(layout, { type: 'add-view', groupId: tabGroups(layout.root)[0].id,
+    view: { id, resource: { kind: 'terminal', instanceId: null, threadId: null, profileId: null }, hidden: false } }).layout;
+}
+const renderer = createWorkspaceRenderer({
+  host: document.getElementById('host'), bindings,
+  labelForView: view => `Tab ${view.id}`,
+  dispatch(action, expected) {
+    if (expected !== layout) return;
+    const result = reduceWorkspaceLayout(layout, action); if (!result.ok) return;
+    layout = result.layout; window.__actions.push(action.type); renderer.render(layout);
+  },
+});
+window.__actions = [];
+window.__panes = () => tabGroups(layout.root).map(group => group.tabs);
+window.__split = () => layout.root.kind === 'split' ? layout.root.axis : null;
+renderer.render(layout);
+</script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+.thread-sidebar {
+  position: relative;
+  display: flex;
+  flex: 0 0 var(--thread-sidebar-width, 264px);
+  flex-direction: column;
+  width: var(--thread-sidebar-width, 264px);
+  min-width: 180px;
+  max-width: 480px;
+  min-height: 0;
+  border-right: 1px solid var(--line);
+  background: var(--chrome);
+  color: var(--text);
+}
+.thread-sidebar-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 38px; padding: 5px 12px; border-bottom: 1px solid var(--line); background: var(--chrome-2); }
+.thread-sidebar-heading h2 { margin: 0; font: 500 12px var(--display); letter-spacing: .07em; text-transform: uppercase; }
+.thread-sidebar-toggle { width: 28px; padding: 0; font-size: 20px; }
+.thread-sidebar-body { display: flex; flex: 1; flex-direction: column; min-height: 0; padding: 10px 12px; gap: 8px; }
+.thread-sidebar-body > label { margin: 0; color: var(--muted); font-size: 12px; }
+.thread-sidebar-body > select { width: 100%; min-height: 30px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--text); padding: 4px; }
+.thread-sidebar-status { min-height: 2.8em; margin: 0; color: var(--text-2); font-size: 12px; }
+.thread-sidebar-status[data-state=error] { color: var(--error); }
+.thread-sidebar-list { flex: 1 1 120px; min-height: 80px; margin: 0; padding: 0; overflow: auto; list-style: none; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.thread-sidebar-list > li + li { margin-top: 5px; }
+.thread-sidebar-anchor { display: grid; justify-content: stretch; gap: 3px; width: 100%; min-height: 88px; padding: 8px; text-align: left; white-space: normal; letter-spacing: 0; text-transform: none; border-color: var(--line); background: var(--surface); }
+.thread-sidebar-anchor[aria-pressed=true] { border-color: var(--accent); background: var(--surface-2); }
+.thread-sidebar-anchor[aria-current=true], .thread-sidebar-rail-item[aria-current=true] { box-shadow: inset 3px 0 var(--thread-tone, var(--accent)); }
+.thread-sidebar-anchor > span { min-width: 0; overflow-wrap: anywhere; }
+.thread-sidebar-title { color: var(--text); font: 500 13px var(--display); }
+.thread-sidebar-id { color: var(--ice); font: 11px var(--mono); }
+.thread-sidebar-agent, .thread-sidebar-updated, .thread-sidebar-source { color: var(--muted); font: 11px/1.35 var(--mono); }
+.thread-sidebar-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 5px; }
+.thread-sidebar-pagination button { padding: 0 6px; font-size: 11px; }
+.thread-sidebar-pagination span { color: var(--muted); font-size: 11px; }
+.thread-sidebar-detail { display: grid; grid-template-columns: minmax(65px, 1fr) minmax(0, 2fr); gap: 5px 8px; max-height: 160px; overflow: auto; margin: 0; font-size: 11px; }
+.thread-sidebar-detail dt { color: var(--muted); }
+.thread-sidebar-detail dd { margin: 0; overflow-wrap: anywhere; color: var(--text-2); }
+.thread-sidebar-limitation { margin: 0; color: var(--muted); font-size: 11px; }
+.thread-sidebar-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+.thread-sidebar-actions button { padding: 0 6px; font-size: 11px; }
+.thread-sidebar-rename { display: grid; gap: 6px; }
+.thread-sidebar-rename[hidden] { display: none; }
+.thread-sidebar-rename label { color: var(--muted); font-size: 12px; }
+.thread-sidebar-rename input { min-width: 0; width: 100%; box-sizing: border-box; padding: 7px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--text); font: 13px var(--display); }
+.thread-sidebar-rename input:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
+.thread-sidebar-rename > div { display: flex; gap: 6px; }
+.thread-sidebar-rename p { margin: 0; color: var(--error); font-size: 12px; }
+.thread-sidebar-resize { position: absolute; top: 0; bottom: 0; right: -3px; z-index: 2; width: 6px; cursor: col-resize; touch-action: none; }
+.thread-sidebar-resize:hover, .thread-sidebar-resize:focus-visible { background: var(--line-strong); }
+.thread-sidebar.is-collapsed { width: 40px; min-width: 40px; max-width: 40px; flex-basis: 40px; }
+.thread-sidebar.is-collapsed .thread-sidebar-heading { justify-content: center; padding: 5px; }
+.thread-sidebar.is-collapsed .thread-sidebar-heading h2 { display: none; }
+
+/* Glass: the sidebar is a translucent bar like the rest of the chrome. */
+.thread-sidebar { background: var(--glass-bar); }
+.thread-sidebar-heading { background: transparent; }
+.thread-sidebar-anchor { transition: border-color var(--fast) var(--ease-out), background-color var(--fast) var(--ease-out); }
+.thread-sidebar-anchor { min-height: 0; padding: 8px 10px; border-color: transparent; border-left: 2px solid var(--line); background: transparent; }
+.thread-sidebar-anchor:hover { border-color: transparent; border-left-color: var(--line-strong); background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+.thread-sidebar-anchor[aria-pressed=true] { border-color: transparent; border-left-color: var(--accent); }
+.thread-sidebar-list > li + li { margin-top: 2px; }
+
+/* Every row says what a click does: go to its tab, resume it, or why neither. */
+.thread-sidebar-state { display: flex; align-items: center; gap: 6px; color: var(--text-2); font: 11px/1.35 var(--mono); }
+.thread-sidebar-state::before { content: ''; flex: 0 0 7px; width: 7px; height: 7px; box-sizing: border-box; border: 1px solid currentColor; }
+.thread-sidebar-state[data-state=open] { color: var(--live); }
+.thread-sidebar-state[data-state=open]::before { background: currentColor; }
+.thread-sidebar-state[data-state=resumable] { color: var(--text-2); }
+.thread-sidebar-state[data-state=recover] { color: var(--warning); }
+.thread-sidebar-state[data-state=blocked], .thread-sidebar-state[data-state=archived] { color: var(--muted); }
+.thread-sidebar-anchor:hover .thread-sidebar-state[data-state=resumable] { color: var(--text); }
+/* A name the agent gave its conversation reads as a suggestion until the user renames the thread. */
+.thread-sidebar-title.is-agent-name { color: var(--text-2); font-style: italic; }

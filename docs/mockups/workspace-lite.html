@@ -1,0 +1,1264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Shinatama — multi-harness terminal</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --stage: #060a12;
+    --chrome: #09111d;
+    --chrome-2: #0d1725;
+    --surface: #101c2c;
+    --surface-2: #142235;
+    --terminal: #070d17;
+    --line: #203249;
+    --line-strong: #314c6c;
+    --text: #e8f0f8;
+    --text-2: #b7c8d9;
+    --muted: #91a7ba;
+    --dim: #7f95a9;
+    --accent: #f05e97;
+    --accent-soft: #ff9abd;
+    --accent-ink: #1c0811;
+    --accent-wash: rgba(240, 94, 151, .12);
+    --accent-border: #6b3550;
+    --claude: #f072a2;
+    --codex: #8bb8ff;
+    --opencode: #58d6c2;
+    --pi: #b7a4ff;
+    --hermes: #edbd78;
+    --deepseek: #8bafff;
+    --cyan: #58d6c2;
+    --red: #ff8495;
+    --amber: #e8bb72;
+    --tool: #9fc7f5;
+    --font-ui: "Segoe UI Variable Text", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --font-mono: "Cascadia Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+    --radius: 4px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    min-width: 760px;
+    background: var(--stage);
+    color: var(--text);
+    font: 13px/1.45 var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow: hidden;
+  }
+  button { font: inherit; color: inherit; }
+  svg { display: block; }
+  :focus-visible { outline: 2px solid var(--accent-soft); outline-offset: 2px; }
+  ::selection { background: var(--accent-wash); color: var(--text); }
+  ::-webkit-scrollbar { width: 7px; height: 7px; }
+  ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
+
+  .app {
+    height: 100%;
+    min-height: 540px;
+    display: grid;
+    grid-template-rows: 34px 46px minmax(0, 1fr) 27px;
+    background: var(--chrome);
+    overflow: hidden;
+  }
+
+  /* Window title */
+  .titlebar {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) auto minmax(220px, 1fr);
+    align-items: center;
+    padding: 0 7px 0 13px;
+    border-bottom: 1px solid var(--line);
+    background: var(--chrome);
+    user-select: none;
+  }
+  .brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .brand-mark { position: relative; width: 15px; height: 15px; border: 1px solid var(--accent); flex: 0 0 auto; }
+  .brand-mark::before, .brand-mark::after {
+    content: ""; position: absolute; left: 4px; right: 4px; height: 1px; background: var(--accent);
+  }
+  .brand-mark::before { top: 5px; }
+  .brand-mark::after { top: 9px; }
+  .brand-word {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+    letter-spacing: .18em; text-transform: uppercase; white-space: nowrap;
+  }
+  .brand-version { color: var(--dim); font-family: var(--font-mono); font-size: 8px; border-left: 1px solid var(--line); padding-left: 8px; }
+  .window-caption { color: var(--muted); font-family: var(--font-mono); font-size: 9px; white-space: nowrap; }
+  .window-caption strong { color: var(--text-2); font-weight: 500; }
+  .window-controls { display: flex; justify-content: flex-end; }
+  .window-button {
+    width: 30px; height: 23px; display: grid; place-items: center;
+    border: 0; background: transparent; color: var(--muted); cursor: pointer;
+  }
+  .window-button:hover { background: var(--surface); color: var(--text); }
+  .window-button.close:hover { background: #a93c4c; color: #fff; }
+  .window-button svg { width: 10px; height: 10px; }
+
+  /* Utility bar */
+  .toolbar {
+    position: relative; z-index: 20;
+    min-width: 0;
+    display: flex; align-items: center; gap: 7px;
+    padding: 0 10px;
+    border-bottom: 1px solid var(--line);
+    background: var(--chrome-2);
+  }
+  .project-picker {
+    height: 30px;
+    min-width: 0;
+    display: flex; align-items: center; gap: 7px;
+    padding: 0 9px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    background: var(--surface);
+    cursor: pointer;
+  }
+  .project-picker:hover { border-color: var(--line-strong); background: var(--surface-2); }
+  .project-picker > svg { width: 13px; height: 13px; color: var(--accent); flex: 0 0 auto; }
+  .project-picker .project-name { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; font-weight: 600; }
+  .project-picker .project-caret { color: var(--dim); }
+  .project-picker .project-caret svg { width: 11px; height: 11px; }
+  .toolbar-separator { width: 1px; height: 20px; background: var(--line); margin: 0 2px; }
+  .workspace-title {
+    min-width: 0; color: var(--text-2); font-size: 11px; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .workspace-title span { margin-left: 6px; color: var(--dim); font-family: var(--font-mono); font-size: 9px; }
+  .toolbar .spring { flex: 1; }
+  .toolbar-button {
+    height: 30px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 0 9px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--text-2);
+    font-size: 10.5px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .toolbar-button:hover { border-color: var(--line-strong); background: var(--surface); color: var(--text); }
+  .toolbar-button svg { width: 13px; height: 13px; }
+  .toolbar-button.primary {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 650;
+  }
+  .toolbar-button.primary:hover { border-color: var(--accent-soft); background: var(--accent-soft); color: var(--accent-ink); }
+  .toolbar-button.icon-only { width: 30px; padding: 0; }
+
+  /* Menus */
+  .menu {
+    position: absolute; z-index: 50; top: 38px;
+    display: none;
+    min-width: 260px;
+    padding: 5px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+  }
+  .menu.open { display: block; }
+  .project-menu { left: 10px; width: 300px; }
+  .terminal-menu { right: 48px; width: 248px; }
+  .workspace-menu { right: 0; width: 246px; }
+  .workspace-menu button { width: 100%; padding: 8px; border: 0; background: transparent; color: var(--text-2); text-align: left; cursor: pointer; }
+  .workspace-menu button:hover { background: var(--surface-2); color: var(--text); }
+  .menu-label {
+    padding: 7px 8px 5px;
+    color: var(--dim); font-family: var(--font-mono); font-size: 8px;
+    font-weight: 600; letter-spacing: .13em; text-transform: uppercase;
+  }
+  .project-option {
+    width: 100%;
+    display: grid; grid-template-columns: 24px minmax(0,1fr) auto; gap: 8px; align-items: center;
+    padding: 7px 8px;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    background: transparent;
+    text-align: left; cursor: pointer;
+  }
+  .project-option:hover { background: var(--surface-2); }
+  .project-option[aria-checked="true"] { border-color: var(--accent-border); background: var(--accent-wash); }
+  .project-option .project-icon {
+    width: 22px; height: 22px; display: grid; place-items: center;
+    border: 1px solid var(--line-strong); color: var(--muted); background: var(--chrome-2);
+  }
+  .project-option[aria-checked="true"] .project-icon { color: var(--accent); border-color: var(--accent-border); }
+  .project-option .project-icon svg { width: 12px; height: 12px; }
+  .project-option strong { display: block; color: var(--text-2); font-size: 11px; font-weight: 600; }
+  .project-option small { display: block; margin-top: 1px; color: var(--dim); font-family: var(--font-mono); font-size: 8px; }
+  .project-option .live {
+    display: inline-flex; align-items: center; gap: 4px;
+    color: var(--dim); font-family: var(--font-mono); font-size: 8px;
+  }
+  .project-option .live::before { content: ""; width: 4px; height: 4px; border-radius: 50%; background: var(--line-strong); }
+  .project-option .live.running { color: var(--cyan); }
+  .project-option .live.running::before { background: var(--cyan); }
+
+  .harness-option {
+    width: 100%;
+    display: flex; align-items: center; gap: 9px;
+    padding: 8px;
+    border: 1px solid transparent;
+    background: transparent; text-align: left; cursor: pointer;
+  }
+  .harness-option:hover { border-color: var(--line); background: var(--surface-2); }
+  .harness-mark {
+    width: 21px; height: 21px; flex: 0 0 auto;
+    display: grid; place-items: center;
+    border: 1px solid currentColor;
+    font-family: var(--font-mono); font-size: 8px; font-weight: 700;
+  }
+  .harness-mark.claude { color: var(--claude); }
+  .harness-mark.codex { color: var(--codex); }
+  .harness-mark.opencode { color: var(--opencode); }
+  .harness-mark.pi { color: var(--pi); }
+  .harness-mark.hermes { color: var(--hermes); }
+  .harness-mark.deepseek { color: var(--deepseek); }
+  .harness-option strong { display: block; color: var(--text-2); font-size: 11px; font-weight: 600; }
+  .harness-option small { display: block; margin-top: 1px; color: var(--dim); font-size: 8.5px; }
+  .menu-note { padding: 7px 8px 4px; border-top: 1px solid var(--line); color: var(--dim); font-size: 8.5px; }
+
+  /* Terminal board */
+  .board {
+    min-width: 0; min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(300px, 1fr) 5px minmax(300px, 1fr);
+    padding: 7px;
+    background: var(--terminal);
+    overflow: hidden;
+  }
+  .tile {
+    position: relative;
+    min-width: 0; min-height: 0;
+    display: grid;
+    grid-template-rows: 31px minmax(0, 1fr);
+    border: 1px solid var(--line);
+    background: var(--terminal);
+    overflow: hidden;
+  }
+  .tile:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+  .tile:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+  .tile.is-focused { border-color: var(--line-strong); }
+  .tile.is-focused::before {
+    content: ""; position: absolute; z-index: 3; top: -1px; left: -1px; right: -1px;
+    height: 2px; background: var(--accent);
+  }
+  .tile-tabbar {
+    min-width: 0;
+    display: flex; align-items: stretch;
+    border-bottom: 1px solid var(--line);
+    background: var(--chrome-2);
+    user-select: none;
+  }
+  .tile-tabs {
+    min-width: 0; flex: 1;
+    display: flex; align-items: stretch;
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .tile-tabs::-webkit-scrollbar { display: none; }
+  .harness-tab {
+    --agent: var(--muted);
+    position: relative;
+    min-width: 0; max-width: 170px;
+    display: flex; align-items: center; gap: 6px;
+    padding: 0 10px;
+    border: 0; border-right: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+    font-size: 10.5px; white-space: nowrap;
+    cursor: grab;
+  }
+  .harness-tab[data-harness="claude"] { --agent: var(--claude); }
+  .harness-tab[data-harness="codex"] { --agent: var(--codex); }
+  .harness-tab[data-harness="opencode"] { --agent: var(--opencode); }
+  .harness-tab[data-harness="pi"] { --agent: var(--pi); }
+  .harness-tab[data-harness="hermes"] { --agent: var(--hermes); }
+  .harness-tab[data-harness="deepseek"] { --agent: var(--deepseek); }
+  .harness-tab:hover { background: var(--surface); color: var(--text-2); }
+  .harness-tab[aria-selected="true"] {
+    background: var(--terminal); color: var(--text);
+  }
+  .harness-tab[aria-selected="true"]::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--agent);
+  }
+  .tab-mark {
+    width: 13px; height: 13px; flex: 0 0 auto;
+    display: grid; place-items: center;
+    border: 1px solid currentColor;
+    color: var(--agent);
+    font-family: var(--font-mono); font-size: 6.5px; font-weight: 700;
+  }
+  .tab-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .tab-live { width: 4px; height: 4px; flex: 0 0 auto; border-radius: 50%; background: var(--agent); opacity: .9; }
+  .harness-tab.dragging { opacity: .4; cursor: grabbing; }
+  .tile-tabbar.drop-target { background: var(--accent-wash); border-bottom-color: var(--accent); }
+  .tile-tools {
+    flex: 0 0 auto;
+    display: flex; align-items: center;
+    border-left: 1px solid var(--line);
+    padding: 0 3px;
+  }
+  .tile-tools .tile-letter {
+    padding: 0 4px;
+    color: var(--dim); font-family: var(--font-mono); font-size: 7.5px;
+  }
+  .icon-button {
+    width: 25px; height: 27px;
+    display: grid; place-items: center;
+    border: 0; background: transparent; color: var(--muted); cursor: pointer;
+  }
+  .icon-button:hover { background: var(--surface); color: var(--text); }
+  .icon-button svg { width: 12px; height: 12px; }
+  .icon-button[aria-pressed="true"] { color: var(--accent); background: var(--accent-wash); }
+
+  .tile-stack { position: relative; min-width: 0; min-height: 0; }
+  .tile-view {
+    position: absolute; inset: 0;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) 24px;
+    min-width: 0; min-height: 0;
+    background: var(--terminal);
+  }
+  .tile-view[hidden] { display: none; }
+
+  .terminal {
+    --term-bg: var(--terminal);
+    --term-fg: #c8d6e4;
+    --term-dim: var(--dim);
+    --term-accent: var(--accent);
+    --term-tool: var(--tool);
+    --term-name: var(--text-2);
+    --term-border: var(--line);
+    --term-warn: var(--amber);
+    --term-add: var(--cyan);
+    --term-del: var(--red);
+    --term-faint: #5f7387;
+    --term-font: var(--font-mono);
+    --term-size: 11px;
+    --term-tracking: 0;
+    min-width: 0; min-height: 0;
+    overflow: auto;
+    padding: 13px 14px 16px;
+    outline: none;
+    background: var(--term-bg);
+    color: var(--term-fg);
+    font-family: var(--term-font);
+    font-size: var(--term-size);
+    letter-spacing: var(--term-tracking);
+    line-height: 1.6;
+    scrollbar-gutter: stable;
+  }
+  .terminal:focus-visible { outline: 1px solid var(--term-accent); outline-offset: -2px; }
+  .terminal p { margin: 0 0 7px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .terminal p:last-child { margin-bottom: 0; }
+  .t-user { display: flex; align-items: flex-start; gap: 7px; color: var(--term-dim); }
+  .t-user .prompt { color: var(--term-accent); font-weight: 700; flex: 0 0 auto; }
+  .t-user .text { color: var(--term-fg); }
+  .t-agent { display: flex; align-items: flex-start; gap: 7px; }
+  .t-agent .spark { flex: 0 0 auto; color: var(--term-accent); }
+  .t-agent .body { min-width: 0; }
+  .t-agent strong { color: var(--term-fg); font-weight: 600; }
+  .t-tool { display: flex; align-items: flex-start; gap: 7px; color: var(--term-dim); }
+  .t-tool .mark { flex: 0 0 auto; color: var(--term-tool); }
+  .t-tool .name { color: var(--term-name); }
+  .t-tool .arg { color: var(--term-dim); }
+  .t-result { display: flex; gap: 7px; padding-left: 18px; color: var(--term-dim); }
+  .t-result .branch { color: var(--term-border); flex: 0 0 auto; }
+  .t-add { color: var(--term-add); }
+  .t-del { color: var(--term-del); }
+  .t-dim { color: var(--term-dim); }
+  .t-faint { color: var(--term-faint); }
+  .t-cyan { color: var(--term-accent); }
+  .t-blue { color: var(--term-tool); }
+  .t-pink { color: var(--term-accent); }
+  .cursor {
+    display: inline-block; width: 6px; height: 12px; margin-left: 2px;
+    background: var(--term-accent); vertical-align: -2px;
+    animation: caret 1.1s steps(1) infinite;
+  }
+  @keyframes caret { 0%, 44% { opacity: 1; } 45%, 100% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .cursor { animation: none; } }
+
+  /* Each harness carries its own terminal presentation profile. */
+  .claude-terminal {
+    --agent: var(--claude);
+    --term-bg: #0c0a09;
+    --term-fg: #e7ded6;
+    --term-dim: #ab998c;
+    --term-accent: #e08a66;
+    --term-tool: #e4b98b;
+    --term-name: #f0e6de;
+    --term-border: #3b2c24;
+    --term-warn: #e8bb72;
+    --term-font: "Consolas", "Cascadia Mono", monospace;
+    --term-size: 11.3px;
+  }
+  .codex-terminal {
+    --agent: var(--codex);
+    --term-bg: #071019;
+    --term-fg: #dbe8f3;
+    --term-dim: #8ea7bb;
+    --term-accent: #7fa9ff;
+    --term-tool: #87d4ef;
+    --term-name: #c7d9e8;
+    --term-border: #22384b;
+    --term-font: "Cascadia Mono", Consolas, monospace;
+    --term-size: 10.7px;
+    --term-tracking: .01em;
+  }
+  .opencode-terminal {
+    --agent: var(--opencode);
+    --term-bg: #07110e;
+    --term-fg: #d5e8e3;
+    --term-dim: #84a69f;
+    --term-accent: #63d8c5;
+    --term-tool: #b1e2d5;
+    --term-name: #cbe6df;
+    --term-border: #233b36;
+    --term-font: "Lucida Console", "Cascadia Mono", monospace;
+    --term-size: 11px;
+  }
+  .pi-terminal {
+    --agent: var(--pi);
+    --term-bg: #0d0b14;
+    --term-fg: #e4def0;
+    --term-dim: #a29cb4;
+    --term-accent: #b7a4ff;
+    --term-tool: #d3c8ff;
+    --term-name: #dcd4ec;
+    --term-border: #332d45;
+    --term-font: "Cascadia Code", "Cascadia Mono", Consolas, monospace;
+    --term-size: 10.9px;
+  }
+
+  .tui-approval {
+    margin: 8px 0 9px 18px;
+    padding: 7px 0;
+    border-top: 1px solid var(--term-border);
+    border-bottom: 1px solid var(--term-border);
+    color: var(--term-fg);
+    white-space: pre-wrap;
+  }
+  .tui-approval .tui-title { color: var(--term-warn); }
+  .tui-approval .tui-command { color: var(--term-tool); }
+
+  .terminal-status {
+    min-width: 0;
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 8px;
+    border-top: 1px solid var(--line);
+    background: var(--chrome-2);
+    color: var(--dim);
+    font-family: var(--font-mono); font-size: 8.5px;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .terminal-status .status-agent { display: flex; align-items: center; gap: 5px; color: var(--muted); min-width: 0; }
+  .terminal-status .status-agent .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--agent, var(--accent)); flex: 0 0 auto; }
+  .terminal-status .status-agent b { color: var(--text-2); font-weight: 500; }
+  .terminal-status .spring { flex: 1; }
+  .terminal-status .state { color: var(--agent, var(--muted)); }
+  .terminal-status .profile-name { color: var(--dim); }
+  .terminal-status .path { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .terminal-status .size { color: var(--dim); }
+
+  .board-splitter {
+    position: relative; z-index: 5;
+    min-width: 0;
+    display: grid; place-items: center;
+    border: 0; padding: 0;
+    background: transparent;
+    cursor: col-resize;
+    touch-action: none;
+  }
+  .board-splitter::before { content: ""; width: 1px; height: 100%; background: transparent; transition: background .12s; }
+  .board-splitter:hover::before, .board-splitter.dragging::before { background: var(--accent); }
+  .board-splitter .grip {
+    position: absolute; width: 5px; height: 26px;
+    border-top: 1px solid var(--line-strong); border-bottom: 1px solid var(--line-strong);
+    background: var(--terminal); opacity: 0;
+  }
+  .board-splitter:hover .grip, .board-splitter.dragging .grip { opacity: 1; }
+  body.is-resizing { cursor: col-resize; user-select: none; }
+
+  .board.has-maximized { grid-template-columns: minmax(0,1fr) !important; }
+  .board.has-maximized > .tile:not(.is-maximized),
+  .board.has-maximized > .board-splitter { display: none; }
+  .board.has-maximized > .tile.is-maximized { grid-column: 1; border-radius: var(--radius); }
+
+  /* Status */
+  .statusbar {
+    min-width: 0;
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 10px;
+    border-top: 1px solid var(--line);
+    background: var(--chrome);
+    color: var(--dim);
+    font-family: var(--font-mono); font-size: 8.5px;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .engine-status { display: flex; align-items: center; gap: 5px; color: var(--muted); }
+  .engine-status .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--cyan); }
+  .statusbar .spring { flex: 1; }
+  .key-hint { display: inline-flex; align-items: center; gap: 5px; }
+  .kbd {
+    min-width: 17px; height: 16px; padding: 0 4px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--line); border-radius: 2px;
+    color: var(--muted); background: var(--chrome-2);
+    font-family: var(--font-mono); font-size: 7.5px;
+  }
+  .mock-label { color: var(--dim); }
+
+  .toast {
+    position: fixed; z-index: 100; left: 50%; bottom: 42px;
+    display: flex; align-items: center; gap: 7px;
+    padding: 8px 10px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    color: var(--text-2);
+    font-size: 10px;
+    opacity: 0; pointer-events: none;
+    transform: translate(-50%, 6px);
+    transition: opacity .15s, transform .15s;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast svg { width: 12px; height: 12px; color: var(--cyan); }
+  @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+
+  .acp-chat { min-height: 0; display: flex; flex-direction: column; padding: 18px; gap: 14px; overflow: auto; }
+  .acp-chat h2 { margin: 0; font-size: 16px; color: var(--deepseek); }
+  .acp-chat p { margin: 0; color: var(--text-2); }
+  .acp-chat .acp-badge { align-self: flex-start; padding: 3px 6px; border: 1px solid var(--line-strong); color: var(--muted); font-size: 10px; }
+  .acp-messages { display: grid; gap: 10px; }
+  .acp-message { padding: 10px 12px; background: var(--surface); border-left: 2px solid var(--deepseek); }
+  .acp-composer { margin-top: auto; display: flex; gap: 7px; }
+  .acp-composer input { width: 100%; min-width: 0; padding: 8px; border: 1px solid var(--line); background: var(--chrome); color: var(--text); font: inherit; }
+  .acp-composer button { padding: 7px 10px; border: 1px solid var(--line-strong); background: var(--surface-2); cursor: pointer; }
+
+  @media (max-width: 1040px) {
+    .workspace-title span { display: none; }
+    .toolbar-button span.optional { display: none; }
+    .terminal-status .size { display: none; }
+    .terminal { font-size: 10.5px; }
+  }
+  @media (max-width: 900px) {
+    .window-caption, .brand-version { display: none; }
+    .workspace-title { display: none; }
+    .toolbar-separator { display: none; }
+    .toolbar-button.primary { width: 30px; padding: 0; }
+    .toolbar-button.primary .button-label { display: none; }
+    .material { display: none; }
+    .harness-tab { max-width: 128px; padding: 0 8px; }
+    .terminal-status .path, .terminal-status .profile-name { display: none; }
+    .board { grid-template-columns: minmax(0, 1fr) 5px minmax(0, 1fr); padding: 6px; }
+  }
+</style>
+<link rel="stylesheet" href="workspace-features.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-folder" viewBox="0 0 16 16"><path d="M2 4.3h4l1.4 1.5H14v7.2H2z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M2 6.2h12" stroke="currentColor" stroke-width="1.1" opacity=".55"/></symbol>
+  <symbol id="i-chevron-down" viewBox="0 0 16 16"><path d="m3.5 5.5 4.5 5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-panel-right" viewBox="0 0 16 16"><rect x="2" y="2.5" width="12" height="11" rx=".6" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M10 3v10" stroke="currentColor" stroke-width="1.2"/></symbol>
+  <symbol id="i-maximize" viewBox="0 0 16 16"><path d="M5.5 3.5h-2v2M10.5 3.5h2v2M5.5 12.5h-2v-2M10.5 12.5h2v-2" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 16 16"><path d="M3 4.5h10M3 11.5h10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="6" cy="4.5" r="1.4" fill="var(--chrome-2)" stroke="currentColor" stroke-width="1.2"/><circle cx="10" cy="11.5" r="1.4" fill="var(--chrome-2)" stroke="currentColor" stroke-width="1.2"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 16 16"><path d="M3.5 8h9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-x" viewBox="0 0 16 16"><path d="m4 4 8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 16 16"><rect x="2.3" y="2.8" width="11.4" height="10.4" rx=".7" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="m4.8 6 2 2-2 2M8.5 10h2.5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 16 16"><path d="M8 2.8 14 13H2z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 6v3.1M8 11.3v.2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></symbol>
+  <symbol id="i-check-circle" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.6" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="m5.3 8.1 1.7 1.7 3.7-3.7" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-code" viewBox="0 0 16 16"><path d="m5.4 4.3-3 3.7 3 3.7M10.6 4.3l3 3.7-3 3.7" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 16 16"><path d="m8 2.3 5.5 2.8L8 7.9 2.5 5.1zM2.5 8.1 8 10.9l5.5-2.8M2.5 11 8 13.8 13.5 11" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" rx=".7" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M6.2 1.8v2.1M9.8 1.8v2.1M6.2 12.1v2.1M9.8 12.1v2.1M1.8 6.2h2.1M1.8 9.8h2.1M12.1 6.2h2.1M12.1 9.8h2.1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></symbol>
+</svg>
+
+<div class="app" id="app">
+  <header class="titlebar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-word">Shinatama</span>
+      <span class="brand-version">0.1</span>
+    </div>
+    <div class="window-caption"><strong>multi-harness terminal</strong></div>
+    <div class="window-controls">
+      <button class="window-button" aria-label="Minimize window"><svg><use href="#i-minus"/></svg></button>
+      <button class="window-button" aria-label="Maximize window"><svg><use href="#i-maximize"/></svg></button>
+      <button class="window-button close" aria-label="Close window"><svg><use href="#i-x"/></svg></button>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <button class="project-picker" id="project-trigger" aria-haspopup="menu" aria-expanded="false">
+      <svg><use href="#i-folder"/></svg>
+      <span class="project-name" id="project-name">shinatama</span>
+      <span class="project-caret"><svg><use href="#i-chevron-down"/></svg></span>
+    </button>
+    <div class="project-menu menu" id="project-menu" role="menu" aria-label="Projects">
+      <div class="menu-label">Projects</div>
+      <button class="project-option" role="menuitemradio" aria-checked="true" data-project="shinatama" data-path="~/Projects/shinatama">
+        <span class="project-icon"><svg><use href="#i-code"/></svg></span>
+        <span><strong>shinatama</strong><small>~/Projects/shinatama</small></span>
+        <span class="live running">2 running</span>
+      </button>
+      <button class="project-option" role="menuitemradio" aria-checked="false" data-project="mukade" data-path="~/Projects/mukade">
+        <span class="project-icon"><svg><use href="#i-layers"/></svg></span>
+        <span><strong>mukade</strong><small>~/Projects/mukade</small></span>
+        <span class="live running">1 running</span>
+      </button>
+      <button class="project-option" role="menuitemradio" aria-checked="false" data-project="billion-context" data-path="~/Projects/billion-context">
+        <span class="project-icon"><svg><use href="#i-cpu"/></svg></span>
+        <span><strong>billion-context</strong><small>~/Projects/billion-context</small></span>
+        <span class="live">idle</span>
+      </button>
+      <button class="project-option" role="menuitemradio" aria-checked="false" data-project="daodan" data-path="~/Projects/daodan">
+        <span class="project-icon"><svg><use href="#i-layers"/></svg></span>
+        <span><strong>daodan</strong><small>~/Projects/daodan</small></span>
+        <span class="live">idle</span>
+      </button>
+    </div>
+
+    <div class="toolbar-separator" aria-hidden="true"></div>
+    <div class="workspace-title">Scratch workspace <span>2 tiles</span></div>
+    <div class="spring"></div>
+
+    <button class="toolbar-button" data-feature-open="learning" aria-label="Open Learning companion">
+      <svg><use href="#i-layers"/></svg>Learning
+    </button>
+    <div style="position:relative">
+      <button class="toolbar-button" id="workspace-trigger" aria-haspopup="menu" aria-expanded="false">Workspace <svg><use href="#i-chevron-down"/></svg></button>
+      <div class="workspace-menu menu" id="workspace-menu" role="menu" aria-label="Workspace features">
+        <div class="menu-label">Workspace</div>
+        <button role="menuitem" data-feature-open="overview">Overview &amp; desktop widget</button>
+        <button role="menuitem" data-feature-open="sessions">Sessions &amp; search</button>
+        <button role="menuitem" data-feature-open="projects">Projects</button>
+        <button role="menuitem" data-feature-open="roundtable">Roundtable &amp; messages</button>
+        <button role="menuitem" data-feature-open="tasks">Daodan tasks</button>
+        <button role="menuitem" data-feature-open="browser">Browser</button>
+        <button role="menuitem" data-feature-open="agents">Agents, accounts &amp; sets</button>
+        <button role="menuitem" data-feature-open="settings">Models, tokens &amp; settings</button>
+      </div>
+    </div>
+    <div style="position:relative">
+      <button class="toolbar-button primary" id="new-terminal" aria-haspopup="menu" aria-expanded="false">
+        <svg><use href="#i-plus"/></svg>
+        <span class="button-label">New session</span>
+      </button>
+      <div class="terminal-menu menu" id="terminal-menu" role="menu" aria-label="New session">
+        <div class="menu-label">New session in focused tile</div>
+        <button class="harness-option" role="menuitem" data-harness="claude">
+          <span class="harness-mark claude">C</span>
+          <span><strong>Claude Code</strong><small>claude·04 · Sonnet 4.5</small></span>
+        </button>
+        <button class="harness-option" role="menuitem" data-harness="codex">
+          <span class="harness-mark codex">X</span>
+          <span><strong>Codex</strong><small>codex·07 · GPT-5.1</small></span>
+        </button>
+        <button class="harness-option" role="menuitem" data-harness="opencode">
+          <span class="harness-mark opencode">O</span>
+          <span><strong>OpenCode</strong><small>opencode·02 · local</small></span>
+        </button>
+        <button class="harness-option" role="menuitem" data-harness="pi">
+          <span class="harness-mark pi">P</span>
+          <span><strong>Pi</strong><small>pi·01 · local</small></span>
+        </button>
+        <button class="harness-option" role="menuitem" data-harness="hermes">
+          <span class="harness-mark hermes">H</span>
+          <span><strong>Hermes Agent</strong><small>Terminal · capability preview</small></span>
+        </button>
+        <button class="harness-option" role="menuitem" data-harness="deepseek">
+          <span class="harness-mark deepseek">D</span>
+          <span><strong>DeepSeek Harness</strong><small>Native chat · ACP · capability preview</small></span>
+        </button>
+        <div class="menu-note">Mock sessions only. One tab per session; DeepSeek uses a native ACP chat pane.</div>
+      </div>
+    </div>
+    <button class="toolbar-button icon-only" id="reset-layout" aria-label="Reset layout" title="Reset layout"><svg><use href="#i-sliders"/></svg></button>
+  </div>
+
+  <main class="board" id="board">
+    <section class="tile is-focused" data-tile="A" aria-label="Terminal tile A">
+      <div class="tile-tabbar">
+        <div class="tile-tabs" role="tablist" aria-label="Tile A terminals">
+          <button class="harness-tab" id="tab-claude-1" role="tab" aria-selected="true" aria-controls="view-claude-1" data-view-id="claude-1" data-harness="claude" tabindex="0" draggable="true">
+            <span class="tab-mark" aria-hidden="true">C</span><span class="tab-label">Claude Code</span><span class="tab-live" aria-hidden="true"></span>
+          </button>
+          <button class="harness-tab" id="tab-opencode-1" role="tab" aria-selected="false" aria-controls="view-opencode-1" data-view-id="opencode-1" data-harness="opencode" tabindex="-1" draggable="true">
+            <span class="tab-mark" aria-hidden="true">O</span><span class="tab-label">OpenCode</span><span class="tab-live" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="tile-tools">
+          <span class="tile-letter" aria-hidden="true">A</span>
+          <button class="icon-button" data-maximize aria-label="Maximize tile A" aria-pressed="false"><svg><use href="#i-maximize"/></svg></button>
+        </div>
+      </div>
+      <div class="tile-stack">
+        <div class="tile-view" id="view-claude-1" data-view-id="claude-1" role="tabpanel" aria-labelledby="tab-claude-1">
+          <div class="terminal claude-terminal" tabindex="0" aria-label="Claude Code terminal">
+            <p class="t-user"><span class="prompt">❯</span><span class="text">verify the layout restore path after moving a terminal tab</span></p>
+            <p class="t-agent"><span class="spark">✳</span><span class="body">I’ll check the split tree and confirm the session survives a tab move.</span></p>
+            <p class="t-tool"><span class="mark">●</span><span><span class="name">Read</span> <span class="arg">crates/runtime/ui/layout.rs</span></span></p>
+            <p class="t-result"><span class="branch">⎿</span><span>124 lines · LayoutNode, TabGroup, restore_workspace</span></p>
+            <p class="t-tool"><span class="mark">●</span><span><span class="name">Grep</span> <span class="arg">"reparent"</span></span></p>
+            <p class="t-result"><span class="branch">⎿</span><span>4 matches in 2 files</span></p>
+            <p class="t-agent"><span class="spark">✳</span><span class="body">The terminal view can move between tab groups without touching the PTY. I’ll keep the instance id stable and update only the owning group.</span></p>
+            <p class="t-tool"><span class="mark">●</span><span><span class="name">Edit</span> <span class="arg">crates/runtime/ui/layout.rs</span> <span class="t-add">+18</span> <span class="t-del">−4</span></span></p>
+            <p class="t-tool"><span class="mark">●</span><span><span class="name">Bash</span> <span class="arg">cargo test -p shinatama-ui layout:: --quiet</span></span></p>
+            <p class="t-result"><span class="branch">⎿</span><span>running 11 tests… <span class="t-cyan">11 passed</span></span></p>
+            <p class="t-agent"><span class="spark">✳</span><span class="body">Restore keeps the terminal alive and the tab move is isolated from the process.<span class="cursor" aria-hidden="true"></span></span></p>
+          </div>
+          <div class="terminal-status" style="--agent:var(--claude)">
+            <span class="status-agent"><span class="dot"></span><b>Claude Code</b> · claude·04</span>
+            <span>Sonnet 4.5</span>
+            <span class="profile-name">profile claude</span>
+            <span class="state">working</span>
+            <span class="spring"></span>
+            <span class="path current-path">~/Projects/shinatama</span>
+            <span class="size">118×33</span>
+          </div>
+        </div>
+
+        <div class="tile-view" id="view-opencode-1" data-view-id="opencode-1" role="tabpanel" aria-labelledby="tab-opencode-1" hidden>
+          <div class="terminal opencode-terminal" tabindex="0" aria-label="OpenCode terminal">
+            <p class="t-user"><span class="prompt">❯</span><span class="text">summarize the open layout changes</span></p>
+            <p class="t-agent"><span class="spark">◆</span><span class="body"><strong>OpenCode</strong> · local workspace context loaded.</span></p>
+            <p class="t-dim">2 files changed in the working tree.</p>
+            <p class="t-dim">routing.rs  <span class="t-add">+11</span> <span class="t-del">−2</span></p>
+            <p class="t-dim">layout.rs   <span class="t-add">+18</span> <span class="t-del">−4</span></p>
+            <p class="t-agent"><span class="spark">◆</span><span class="body">The changes keep terminal ownership separate from tab placement. No new provider process is started during a move.</span></p>
+            <p class="t-dim">Ready.<span class="cursor" aria-hidden="true"></span></p>
+          </div>
+          <div class="terminal-status" style="--agent:var(--opencode)">
+            <span class="status-agent"><span class="dot"></span><b>OpenCode</b> · opencode·02</span>
+            <span>local</span>
+            <span class="profile-name">profile opencode</span>
+            <span class="state">idle</span>
+            <span class="spring"></span>
+            <span class="path current-path">~/Projects/shinatama</span>
+            <span class="size">118×33</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <button class="board-splitter" id="board-splitter" role="separator" aria-orientation="vertical" aria-label="Resize terminal tiles" aria-valuemin="35" aria-valuemax="65" aria-valuenow="50" tabindex="0">
+      <span class="grip"></span>
+    </button>
+
+    <section class="tile" data-tile="B" aria-label="Terminal tile B">
+      <div class="tile-tabbar">
+        <div class="tile-tabs" role="tablist" aria-label="Tile B terminals">
+          <button class="harness-tab" id="tab-codex-1" role="tab" aria-selected="true" aria-controls="view-codex-1" data-view-id="codex-1" data-harness="codex" tabindex="0" draggable="true">
+            <span class="tab-mark" aria-hidden="true">X</span><span class="tab-label">Codex</span><span class="tab-live" aria-hidden="true"></span>
+          </button>
+          <button class="harness-tab" id="tab-pi-1" role="tab" aria-selected="false" aria-controls="view-pi-1" data-view-id="pi-1" data-harness="pi" tabindex="-1" draggable="true">
+            <span class="tab-mark" aria-hidden="true">P</span><span class="tab-label">Pi</span><span class="tab-live" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="tile-tools">
+          <span class="tile-letter" aria-hidden="true">B</span>
+          <button class="icon-button" data-maximize aria-label="Maximize tile B" aria-pressed="false"><svg><use href="#i-maximize"/></svg></button>
+        </div>
+      </div>
+      <div class="tile-stack">
+        <div class="tile-view" id="view-codex-1" data-view-id="codex-1" role="tabpanel" aria-labelledby="tab-codex-1">
+          <div class="terminal codex-terminal" tabindex="0" aria-label="Codex terminal">
+            <p class="t-user"><span class="prompt">❯</span><span class="text">run the PTY resize test for the new split layout</span></p>
+            <p class="t-agent"><span class="spark">◇</span><span class="body"><strong>Codex</strong> · I’ll verify the final dimensions sent to the live terminal.</span></p>
+            <p class="t-tool"><span class="mark">●</span><span><span class="name">Read</span> <span class="arg">crates/runtime/pty/size.rs</span></span></p>
+            <p class="t-tool"><span class="mark">●</span><span><span class="name">Exec</span> <span class="arg">cargo test -p shinatama-pty resize -- --list</span></span></p>
+            <p class="t-result"><span class="branch">⎿</span><span>7 tests · 0 skipped</span></p>
+            <p class="t-agent"><span class="spark">◇</span><span class="body">The suite starts a real PTY and checks coalesced resize events. It does not modify the focused session.</span></p>
+            <div class="tui-approval">
+              <div class="tui-title">⚠ Approval required</div>
+              <div class="tui-command">cargo test -p shinatama-pty resize -- --nocapture</div>
+              <div class="t-dim">1. Allow once    2. Allow for session    3. Deny</div>
+            </div>
+            <p class="t-dim">Press 1–3 in the terminal. The harness owns this prompt.</p>
+          </div>
+          <div class="terminal-status" style="--agent:var(--codex)">
+            <span class="status-agent"><span class="dot"></span><b>Codex</b> · codex·07</span>
+            <span>GPT-5.1</span>
+            <span class="profile-name">profile codex</span>
+            <span class="state">needs input</span>
+            <span class="spring"></span>
+            <span class="path current-path">~/Projects/shinatama</span>
+            <span class="size">118×33</span>
+          </div>
+        </div>
+
+        <div class="tile-view" id="view-pi-1" data-view-id="pi-1" role="tabpanel" aria-labelledby="tab-pi-1" hidden>
+          <div class="terminal pi-terminal" tabindex="0" aria-label="Pi terminal">
+            <p class="t-user"><span class="prompt">❯</span><span class="text">check the session handoff notes</span></p>
+            <p class="t-agent"><span class="spark">π</span><span class="body"><strong>Pi</strong> · reading the current workspace.</span></p>
+            <p class="t-dim">layout.rs · tab ownership remains stable after a move</p>
+            <p class="t-dim">routing.rs · destination receives the same workspace reference</p>
+            <p class="t-agent"><span class="spark">π</span><span class="body">No session start is needed for this inspection.<span class="cursor" aria-hidden="true"></span></span></p>
+          </div>
+          <div class="terminal-status" style="--agent:var(--pi)">
+            <span class="status-agent"><span class="dot"></span><b>Pi</b> · pi·01</span>
+            <span>local</span>
+            <span class="profile-name">profile pi</span>
+            <span class="state">idle</span>
+            <span class="spring"></span>
+            <span class="path current-path">~/Projects/shinatama</span>
+            <span class="size">118×33</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="statusbar">
+    <span class="engine-status"><span class="dot"></span>sidecar online</span>
+    <span>local mode</span>
+    <span class="spring"></span>
+    <span class="key-hint"><span class="kbd">^⇧N</span> terminal</span>
+    <span class="key-hint"><span class="kbd">^⇧P</span> project</span>
+    <span class="mock-label">DESIGN PREVIEW · LATER SLICES · SAMPLE DATA</span>
+  </footer>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"><svg><use href="#i-check-circle"/></svg><span id="toast-text"></span></div>
+
+<script>
+  (() => {
+    const board = document.getElementById('board');
+    const projectTrigger = document.getElementById('project-trigger');
+    const projectMenu = document.getElementById('project-menu');
+    const projectName = document.getElementById('project-name');
+    const terminalTrigger = document.getElementById('new-terminal');
+    const terminalMenu = document.getElementById('terminal-menu');
+    const workspaceTrigger = document.getElementById('workspace-trigger');
+    const workspaceMenu = document.getElementById('workspace-menu');
+    const toast = document.getElementById('toast');
+    const toastText = document.getElementById('toast-text');
+    let toastTimer = 0;
+    let activeProjectPath = '~/Projects/shinatama';
+
+    function showToast(message) {
+      toastText.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+
+    function closeMenus(except = null) {
+      if (except !== workspaceMenu) {
+        workspaceMenu.classList.remove('open');
+        workspaceTrigger.setAttribute('aria-expanded', 'false');
+      }
+      if (except !== projectMenu) {
+        projectMenu.classList.remove('open');
+        projectTrigger.setAttribute('aria-expanded', 'false');
+      }
+      if (except !== terminalMenu) {
+        terminalMenu.classList.remove('open');
+        terminalTrigger.setAttribute('aria-expanded', 'false');
+      }
+    }
+
+    projectTrigger.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const open = !projectMenu.classList.contains('open');
+      closeMenus(projectMenu);
+      projectMenu.classList.toggle('open', open);
+      projectTrigger.setAttribute('aria-expanded', String(open));
+    });
+    terminalTrigger.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const open = !terminalMenu.classList.contains('open');
+      closeMenus(terminalMenu);
+      terminalMenu.classList.toggle('open', open);
+      terminalTrigger.setAttribute('aria-expanded', String(open));
+    });
+    workspaceTrigger.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const open = !workspaceMenu.classList.contains('open');
+      closeMenus(workspaceMenu);
+      workspaceMenu.classList.toggle('open', open);
+      workspaceTrigger.setAttribute('aria-expanded', String(open));
+    });
+    workspaceMenu.addEventListener('click', () => closeMenus());
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('.menu') && !event.target.closest('#project-trigger') && !event.target.closest('#new-terminal') && !event.target.closest('#workspace-trigger')) closeMenus();
+    });
+
+    function setupMenuKeyboard(menu, trigger) {
+      menu.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          event.stopPropagation();
+          closeMenus();
+          trigger.focus();
+          return;
+        }
+        if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        const items = [...menu.querySelectorAll('button')].filter((item) => item.offsetParent !== null);
+        if (!items.length) return;
+        const current = items.indexOf(document.activeElement);
+        let next = current;
+        if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = items.length - 1;
+        else if (event.key === 'ArrowUp') next = (current - 1 + items.length) % items.length;
+        else next = (current + 1) % items.length;
+        items[next].focus();
+      });
+    }
+    setupMenuKeyboard(projectMenu, projectTrigger);
+    setupMenuKeyboard(terminalMenu, terminalTrigger);
+    setupMenuKeyboard(workspaceMenu, workspaceTrigger);
+
+    // Project selector
+    document.querySelectorAll('.project-option').forEach((option) => {
+      option.addEventListener('click', () => {
+        document.querySelectorAll('.project-option').forEach((item) => item.setAttribute('aria-checked', 'false'));
+        option.setAttribute('aria-checked', 'true');
+        projectName.textContent = option.dataset.project;
+        activeProjectPath = option.dataset.path;
+        document.querySelectorAll('.current-path').forEach((path) => { path.textContent = activeProjectPath; });
+        closeMenus();
+        showToast(`Opened project ${option.dataset.project}`);
+        projectTrigger.focus();
+      });
+    });
+
+    // Focused tile
+    function focusTile(tile) {
+      document.querySelectorAll('.tile').forEach((item) => item.classList.remove('is-focused'));
+      if (tile) tile.classList.add('is-focused');
+    }
+    document.querySelectorAll('.tile').forEach((tile) => {
+      tile.addEventListener('pointerdown', () => focusTile(tile));
+      tile.addEventListener('focusin', () => focusTile(tile));
+    });
+
+    // Tabs: activate, keyboard navigation and move between tiles
+    let draggedTab = null;
+
+    function activateTab(tab, moveFocus = false) {
+      const tile = tab.closest('.tile');
+      const tabs = [...tile.querySelectorAll('.harness-tab')];
+      if (!tabs.includes(tab)) return;
+      tabs.forEach((item) => {
+        const selected = item === tab;
+        item.setAttribute('aria-selected', String(selected));
+        item.tabIndex = selected ? 0 : -1;
+      });
+      tile.querySelectorAll('.tile-view').forEach((view) => {
+        view.hidden = view.dataset.viewId !== tab.dataset.viewId;
+      });
+      focusTile(tile);
+      if (moveFocus) tab.focus();
+    }
+
+    function ensureActiveTab(tile) {
+      if (!tile.querySelector('.harness-tab[aria-selected="true"]')) {
+        const first = tile.querySelector('.harness-tab');
+        if (first) activateTab(first);
+      }
+    }
+
+    function cleanDrop() {
+      document.querySelectorAll('.tile-tabbar.drop-target').forEach((bar) => bar.classList.remove('drop-target'));
+      document.querySelectorAll('.harness-tab.dragging').forEach((tab) => tab.classList.remove('dragging'));
+    }
+
+    board.addEventListener('click', (event) => {
+      const tab = event.target.closest('.harness-tab');
+      if (tab) activateTab(tab);
+    });
+
+    board.addEventListener('dragstart', (event) => {
+      const tab = event.target.closest('.harness-tab');
+      if (!tab) return;
+      draggedTab = tab;
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', tab.dataset.viewId);
+      requestAnimationFrame(() => tab.classList.add('dragging'));
+    });
+
+    board.addEventListener('dragend', () => {
+      draggedTab = null;
+      cleanDrop();
+    });
+
+    board.addEventListener('dragover', (event) => {
+      const bar = event.target.closest('.tile-tabbar');
+      if (!bar || !draggedTab) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      bar.classList.add('drop-target');
+    });
+
+    board.addEventListener('dragleave', (event) => {
+      const bar = event.target.closest('.tile-tabbar');
+      if (bar && !bar.contains(event.relatedTarget)) bar.classList.remove('drop-target');
+    });
+
+    board.addEventListener('drop', (event) => {
+      const bar = event.target.closest('.tile-tabbar');
+      if (!bar || !draggedTab) return;
+      event.preventDefault();
+      const sourceTile = draggedTab.closest('.tile');
+      const targetTile = bar.closest('.tile');
+      if (sourceTile !== targetTile && sourceTile.querySelectorAll('.harness-tab').length <= 1) {
+        cleanDrop();
+        showToast('A tile must keep at least one terminal');
+        return;
+      }
+      const targetTabs = bar.querySelector('.tile-tabs');
+      const targetTab = event.target.closest('.harness-tab');
+      if (targetTab && targetTab !== draggedTab) targetTabs.insertBefore(draggedTab, targetTab);
+      else if (targetTabs !== draggedTab.parentElement) targetTabs.appendChild(draggedTab);
+
+      const view = document.querySelector(`[data-view-id="${draggedTab.dataset.viewId}"][role="tabpanel"]`);
+      if (sourceTile !== targetTile && view) targetTile.querySelector('.tile-stack').appendChild(view);
+      activateTab(draggedTab, true);
+      ensureActiveTab(sourceTile);
+      cleanDrop();
+      showToast(`Moved ${draggedTab.querySelector('.tab-label').textContent} to tile ${targetTile.dataset.tile}`);
+    });
+
+    board.addEventListener('keydown', (event) => {
+      const tab = event.target.closest('.harness-tab');
+      if (!tab) return;
+      const list = tab.closest('.tile-tabs');
+      const tabs = [...list.querySelectorAll('.harness-tab')];
+      const currentIndex = tabs.indexOf(tab);
+      if (event.ctrlKey && event.shiftKey && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+        event.preventDefault();
+        const direction = event.key === 'ArrowRight' ? 1 : -1;
+        const destination = currentIndex + direction;
+        if (destination < 0 || destination >= tabs.length) return;
+        if (direction > 0) list.insertBefore(tabs[destination], tab);
+        else list.insertBefore(tab, tabs[destination]);
+        tab.focus();
+        showToast('Tab order updated');
+        return;
+      }
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      let next = currentIndex;
+      if (event.key === 'Home') next = 0;
+      else if (event.key === 'End') next = tabs.length - 1;
+      else if (event.key === 'ArrowLeft') next = (currentIndex - 1 + tabs.length) % tabs.length;
+      else next = (currentIndex + 1) % tabs.length;
+      activateTab(tabs[next], true);
+    });
+
+    // Maximize tile
+    let maximizedTile = null;
+    function syncMaximizeButtons() {
+      document.querySelectorAll('[data-maximize]').forEach((button) => {
+        const tile = button.closest('.tile');
+        const active = tile === maximizedTile;
+        button.setAttribute('aria-pressed', String(active));
+        button.setAttribute('aria-label', active ? `Restore tile ${tile.dataset.tile}` : `Maximize tile ${tile.dataset.tile}`);
+      });
+    }
+    function restoreMaximizedTile() {
+      if (!maximizedTile) return false;
+      maximizedTile.classList.remove('is-maximized');
+      board.classList.remove('has-maximized');
+      maximizedTile = null;
+      syncMaximizeButtons();
+      return true;
+    }
+    function maximizeTile(tile) {
+      if (maximizedTile === tile) {
+        restoreMaximizedTile();
+        showToast('Layout restored');
+        return;
+      }
+      if (maximizedTile) maximizedTile.classList.remove('is-maximized');
+      maximizedTile = tile;
+      tile.classList.add('is-maximized');
+      board.classList.add('has-maximized');
+      syncMaximizeButtons();
+      showToast(`Tile ${tile.dataset.tile} maximized · Esc to restore`);
+    }
+    document.querySelectorAll('[data-maximize]').forEach((button) => {
+      button.addEventListener('click', () => maximizeTile(button.closest('.tile')));
+    });
+
+    // Resizable tiling
+    const splitter = document.getElementById('board-splitter');
+    let dragRatio = null;
+    function applySplit(clientX) {
+      const rect = board.getBoundingClientRect();
+      const usable = rect.width - 5;
+      const ratio = Math.max(.35, Math.min(.65, (clientX - rect.left) / usable));
+      const left = Math.max(260, Math.round(usable * ratio));
+      const right = Math.max(260, usable - left);
+      dragRatio = left / usable;
+      board.style.gridTemplateColumns = `${left}px 5px ${right}px`;
+      splitter.setAttribute('aria-valuenow', String(Math.round(dragRatio * 100)));
+    }
+    splitter.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      splitter.setPointerCapture(event.pointerId);
+      splitter.classList.add('dragging');
+      document.body.classList.add('is-resizing');
+    });
+    splitter.addEventListener('pointermove', (event) => {
+      if (!splitter.classList.contains('dragging')) return;
+      applySplit(event.clientX);
+    });
+    function stopSplitDrag(event) {
+      splitter.classList.remove('dragging');
+      document.body.classList.remove('is-resizing');
+      try { splitter.releasePointerCapture(event.pointerId); } catch (_) {}
+    }
+    splitter.addEventListener('pointerup', stopSplitDrag);
+    splitter.addEventListener('pointercancel', stopSplitDrag);
+    splitter.addEventListener('keydown', (event) => {
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+      event.preventDefault();
+      const current = dragRatio || .5;
+      dragRatio = Math.max(.35, Math.min(.65, current + (event.key === 'ArrowLeft' ? -.04 : .04)));
+      const rect = board.getBoundingClientRect();
+      applySplit(rect.left + (rect.width - 5) * dragRatio);
+    });
+
+    // Add a terminal to the focused tile
+    const harnesses = {
+      claude: { name: 'Claude Code', mark: 'C', model: 'Sonnet 4.5', state: 'ready' },
+      codex: { name: 'Codex', mark: 'X', model: 'GPT-5.1', state: 'ready' },
+      opencode: { name: 'OpenCode', mark: 'O', model: 'local', state: 'ready' },
+      pi: { name: 'Pi', mark: 'P', model: 'local', state: 'ready' },
+      hermes: { name: 'Hermes Agent', mark: 'H', model: 'configured model', state: 'ready' },
+      deepseek: { name: 'DeepSeek Harness', mark: 'D', model: 'configured model', state: 'ready', acp: true }
+    };
+    let nextSession = 2;
+
+    function addSession(harness) {
+      const config = harnesses[harness];
+      const tile = document.querySelector('.tile.is-focused') || document.querySelector('.tile');
+      const tabs = tile.querySelector('.tile-tabs');
+      const stack = tile.querySelector('.tile-stack');
+      const id = `${harness}-new-${nextSession++}`;
+      const tab = document.createElement('button');
+      tab.className = 'harness-tab';
+      tab.id = `tab-${id}`;
+      tab.dataset.viewId = id;
+      tab.dataset.harness = harness;
+      tab.draggable = true;
+      tab.tabIndex = -1;
+      tab.setAttribute('role', 'tab');
+      tab.setAttribute('aria-selected', 'false');
+      tab.setAttribute('aria-controls', `view-${id}`);
+      tab.innerHTML = `<span class="tab-mark" aria-hidden="true">${config.mark}</span><span class="tab-label">${config.name}</span><span class="tab-live" aria-hidden="true"></span>`;
+
+      const view = document.createElement('div');
+      view.className = 'tile-view';
+      view.id = `view-${id}`;
+      view.dataset.viewId = id;
+      view.setAttribute('role', 'tabpanel');
+      view.setAttribute('aria-labelledby', `tab-${id}`);
+      view.hidden = true;
+      view.innerHTML = `
+        <div class="terminal ${harness}-terminal" tabindex="0" aria-label="${config.name} terminal">
+          <p class="t-user"><span class="prompt">❯</span><span class="text">New ${config.name} session in ${projectName.textContent}</span></p>
+          <p class="t-agent"><span class="spark">${config.mark}</span><span class="body">Illustrative session using ${config.model}. No agent process was started.<span class="cursor" aria-hidden="true"></span></span></p>
+        </div>
+        <div class="terminal-status" style="--agent:var(--${harness})">
+          <span class="status-agent"><span class="dot"></span><b>${config.name}</b> · ${harness}·new</span>
+          <span>${config.model}</span>
+          <span class="profile-name">profile ${harness}</span>
+          <span class="state">ready</span>
+          <span class="spring"></span>
+          <span class="path current-path">${activeProjectPath}</span>
+          <span class="size">118×33</span>
+        </div>`;
+      if (config.acp) {
+        const terminal = view.querySelector('.terminal');
+        terminal.className = 'acp-chat';
+        terminal.setAttribute('aria-label', 'DeepSeek Harness native ACP chat preview');
+        terminal.innerHTML = `<h2>DeepSeek Harness</h2>
+          <span class="acp-badge">Native chat · ACP · mock session</span>
+          <div class="acp-messages" aria-live="polite"><p class="acp-message">The ACP pane renders messages, tool calls and permission requests. The harness keeps its own models and tools.</p></div>
+          <p class="t-dim">No agent is connected. Messages below stay in this mockup.</p>
+          <form class="acp-composer"><input aria-label="Demo message for DeepSeek Harness" placeholder="Type a demo message…" maxlength="500" required><button type="submit">Send demo</button></form>`;
+        terminal.querySelector('form').addEventListener('submit', (event) => {
+          event.preventDefault();
+          const input = terminal.querySelector('input');
+          const message = document.createElement('p');
+          message.className = 'acp-message';
+          message.textContent = input.value;
+          terminal.querySelector('.acp-messages').appendChild(message);
+          input.value = '';
+          showToast('Demo message added locally · no model called');
+        });
+      }
+      tabs.appendChild(tab);
+      stack.appendChild(view);
+      activateTab(tab, true);
+      closeMenus();
+      showToast(`Mock ${config.name} session added to tile ${tile.dataset.tile}`);
+    }
+
+    document.querySelectorAll('.harness-option').forEach((option) => {
+      option.addEventListener('click', () => addSession(option.dataset.harness));
+    });
+
+    // Reset layout
+    document.getElementById('reset-layout').addEventListener('click', () => {
+      restoreMaximizedTile();
+      board.style.removeProperty('grid-template-columns');
+      dragRatio = null;
+      splitter.setAttribute('aria-valuenow', '50');
+      showToast('Layout reset');
+    });
+
+    // Global keys
+    window.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeMenus();
+        if (restoreMaximizedTile()) showToast('Layout restored');
+        return;
+      }
+      if (!(event.ctrlKey || event.metaKey) || !event.shiftKey) return;
+      const key = event.key.toLowerCase();
+      if (key === 'n') {
+        event.preventDefault();
+        const open = !terminalMenu.classList.contains('open');
+        closeMenus(terminalMenu);
+        terminalMenu.classList.toggle('open', open);
+        terminalTrigger.setAttribute('aria-expanded', String(open));
+        if (open) terminalMenu.querySelector('.harness-option').focus();
+      }
+      if (key === 'p') {
+        event.preventDefault();
+        const open = !projectMenu.classList.contains('open');
+        closeMenus(projectMenu);
+        projectMenu.classList.toggle('open', open);
+        projectTrigger.setAttribute('aria-expanded', String(open));
+        if (open) projectMenu.querySelector('.project-option').focus();
+      }
+      if (key === 'm') {
+        event.preventDefault();
+        const tile = document.querySelector('.tile.is-focused') || document.querySelector('.tile');
+        if (tile) maximizeTile(tile);
+      }
+    });
+  })();
+</script>
+<script src="workspace-features.js"></script>
+</body>
+</html>

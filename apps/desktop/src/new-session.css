@@ -1,0 +1,28 @@
+/* Docked to the top of the pane the session opens in (modal.ts sheets): compact, one
+   screen, no scrolling for the common case. */
+#new-session-dialog { width: var(--sheet-width, min(560px, calc(100vw - 32px))); padding: 12px 16px 0; scroll-padding-bottom: 60px; }
+#new-session-dialog form { display: grid; gap: 8px; }
+#new-session-dialog .dialog-heading { padding-bottom: 0; border: 0; }
+#new-session-dialog h1 { font-size: 13px; color: var(--text-2); }
+#new-session-dialog label { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; white-space: nowrap; }
+#new-session-agents { display: flex; flex-wrap: wrap; gap: 6px; }
+.new-session-agent { flex: 1 1 100px; min-height: 40px; padding: 0 8px; background: color-mix(in srgb, var(--surface) 55%, transparent); }
+.new-session-agent[aria-checked=true] { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.new-session-agent[aria-checked=true]:hover { border-color: var(--accent-soft); background: var(--accent-soft); }
+.new-session-folder { display: flex; align-items: stretch; gap: 8px; min-width: 0; }
+#new-session-project { flex: 1; min-width: 0; height: 34px; }
+.new-session-folder button { min-height: 34px; }
+#new-session-projects { display: grid; gap: 2px; max-height: 172px; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.new-session-project-row { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); align-items: baseline; column-gap: 12px; width: 100%; min-height: 30px; padding: 5px 9px; border-color: transparent; border-left: 2px solid transparent; text-align: left; text-transform: none; letter-spacing: 0; }
+.new-session-project-row strong { overflow: hidden; text-overflow: ellipsis; font: 600 13px var(--mono); }
+.new-session-project-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; color: var(--muted); font: 11px var(--mono); }
+.new-session-project-row:hover { border-color: transparent; border-left-color: var(--line-strong); }
+.new-session-project-row[aria-selected=true] { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.new-session-project-row[aria-selected=true] strong { color: var(--accent-text, var(--accent)); }
+.new-session-empty { margin: 6px; }
+#new-session-status { margin: 0; color: var(--text-2); }
+#new-session-status:empty { display: none; }
+#new-session-error { margin: 0; color: var(--error); overflow-wrap: anywhere; }
+#new-session-dialog .dialog-actions { bottom: 0; align-items: center; margin: 4px -16px 0; padding: 10px 16px; }
+.new-session-keys { margin-right: auto; color: var(--muted); font: 11px var(--mono); }

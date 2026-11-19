@@ -1,0 +1,20 @@
+# tool state and the retired marketplace checkout
+.jcode/
+.daodan/
+effectiveness-metrics.json
+# build outputs
+target/
+node_modules/
+dist/
+apps/desktop/src-tauri/gen/
+.prototype-evidence/
+.verification/
+__pycache__/
+# the bench regenerates its evidence: sources, captures, resumes, matrices
+verify/*/out/
+# indexer tooling scratch artifact
+effectiveness-metrics.json.tmp
+
+
+# assembled by build-release.bat
+release/

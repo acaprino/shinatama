@@ -1,0 +1,23 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Shinatama Prototype",
+  "version": "0.1.6",
+  "identifier": "dev.shinatama.prototype",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      { "label": "main", "create": false, "theme": "Dark", "title": "Shinatama — terminal workspace", "width": 1440, "height": 920, "minWidth": 500, "minHeight": 500, "decorations": false, "transparent": true, "backgroundColor": "#00000000", "windowEffects": { "effects": ["acrylic"], "color": [7, 14, 34, 84] } },
+      { "label": "attention", "create": false, "url": "widget.html", "title": "Shinatama — avvisi", "width": 440, "height": 190, "decorations": false, "transparent": true, "backgroundColor": "#00000000", "shadow": false, "alwaysOnTop": true, "skipTaskbar": true, "resizable": false, "focus": false, "focusable": false, "visible": false }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost; img-src 'self' data:; font-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'",
+      "capabilities": ["main", "attention"]
+    }
+  },
+  "bundle": { "active": false }
+}

@@ -1,0 +1,21 @@
+#session-detail-dialog { width: min(1000px, calc(100vw - 32px)); }
+.session-detail-source { overflow-wrap: anywhere; }
+#session-detail-status { min-height: 2em; color: var(--text-2); }
+#session-detail-status[data-state=error] { color: var(--error); }
+.session-detail-tools, .session-detail-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.session-detail-pagination { justify-content: space-between; margin: 12px 0; }
+.session-detail-pagination span { font: 12px var(--mono); color: var(--muted); }
+.session-detail-events { max-height: min(50vh, 480px); overflow: auto; margin-top: 12px; }
+.session-detail-events article { border: 1px solid var(--line); background: var(--chrome); padding: 12px; margin-bottom: 10px; }
+.session-detail-events h2 { margin: 0 0 5px; color: var(--text-2); font: 500 13px var(--display); }
+.session-detail-events small { color: var(--muted); overflow-wrap: anywhere; }
+.session-detail-events pre { margin: 10px 0 0; color: var(--text); font: 12px/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.session-detail-overview { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(130px, 4fr); gap: 9px 14px; font-size: 13px; }
+.session-detail-overview dt { color: var(--muted); }
+.session-detail-overview dd { margin: 0; color: var(--text-2); overflow-wrap: anywhere; }
+.session-detail-notices { padding-left: 18px; font-size: 12px; line-height: 1.5; color: var(--muted); }
+.session-lineage { max-height: min(50vh,480px); overflow: auto; }
+.session-lineage h2 { font: 500 13px var(--display); color: var(--text-2); }
+.session-lineage ul { list-style: none; padding: 0; }
+.session-lineage li { margin: 6px 0; overflow-wrap: anywhere; }
+.session-detail-proxy-line { display: block; }

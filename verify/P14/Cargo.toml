@@ -1,0 +1,19 @@
+# P14 probe: Windows process containment (register P14, plan step C09). Not part of the product.
+[package]
+name = "p14-probe"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+portable-pty = "0.9"
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_Console",
+    "Win32_System_JobObjects",
+    "Win32_System_Pipes",
+    "Win32_System_Threading",
+] }

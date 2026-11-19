@@ -1,0 +1,15 @@
+[package]
+name = "h27-driver"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# Exactly the dependency line of technical design 5.4.1.
+[dependencies]
+txcript = { git = "https://github.com/acaprino/txcript",
+            rev = "3e2126f6539bc333fbf4a6b2b1aea6b7b3bc7c8c",
+            default-features = false, features = ["opencode"] }
+serde_json = "1"
+anyhow = "1"
+
+[workspace]

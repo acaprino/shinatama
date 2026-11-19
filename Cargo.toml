@@ -1,0 +1,83 @@
+# Shinatama workspace. verify/H27/driver and verify/H27/shim are separate probes with their own [workspace].
+# The session-interchange library no longer lives here: it is published on its own as the `mukade`
+# crate (https://github.com/acaprino/mukade). The terminal prototype does not read agent sessions.
+[workspace]
+resolver = "3"
+# The terminal engine remains independent of the Tauri shell (ADR-0005).
+members = ["crates/terminal", "crates/projects", "crates/state", "crates/adapter", "crates/engine", "crates/export", "crates/hop", "crates/files", "crates/companion", "crates/token-economy", "crates/messaging", "crates/roundtable", "crates/browser", "crates/xiox", "crates/cli", "crates/mukade", "apps/desktop/src-tauri"]
+default-members = ["crates/terminal"]
+
+[workspace.package]
+edition = "2024"
+version = "0.1.6"
+publish = false
+license = "UNLICENSED"
+
+# The only dependencies the workspace crates may use; adding one is a decision, not a side effect.
+# C13.1 process-wrap evaluation (2026-11-04, card requires a recorded decision here): REFUSED.
+# Sources consulted 2026-11-04: lib.rs/crates/process-wrap, docs.rs/process-wrap — v10.0.1
+# (2026-09-23), Apache-2.0 OR MIT (licence compatible), actively maintained (watchexec org, CI).
+# Refusal reasons: (1) the capability already exists in-tree and is natively proven on Windows —
+# sealed-job spawn with CREATE_SUSPENDED, job-membership identity checks and the C09R admission/
+# lease ledger (crates/engine/src/resources/process.rs, crates/terminal/src/windows_pty.rs;
+# C09R/C12/C13 receipts); (2) its JobObject wrapper does not compose with the C09R ledger, raw
+# process census or queue credits, so a custom wrapper would remain necessary either way;
+# (3) dependency cost against ADR-0047: pulls `windows` 0.62 (tree standard: windows-sys 0.61),
+# indexmap and tracing by default; (4) it supports only the latest stable rustc and bumps MSRV
+# without major versions, against the pinned 1.99.1 toolchain. watchexec-supervisor and expectrl
+# are not used, per the C13 card.
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+anyhow = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std", "serde"] }
+uuid = { version = "1", features = ["v4", "v7"] }
+getrandom = "=0.4.3"
+sha2 = "=0.10.9"
+subtle = "=2.6.1"
+rusqlite = { version = "0.40.2", features = ["bundled", "backup", "hooks"] }
+# Dependency inventory: THIRD_PARTY_NOTICES.md; full release audit remains register X3.
+portable-pty = "0.9"
+tauri = "2.9"
+tauri-build = "2.5"
+tauri-plugin-dialog = "=2.8.4"
+# 2026-11-14: COM interface cast for WebView2's memory target (desktop responsiveness.rs). The
+# version webview2-com already links, so no second binding; MIT OR Apache-2.0.
+windows-core = "0.62"
+# The desktop's async sleep in terminal_read; MIT. Already locked, now declared here (ADR-0047).
+tokio = { version = "1", features = ["time"] }
+# 2026-11-14: the CDP client of the Moli browser host (ADR-0056): WebSocket framing over the private
+# pipe, no TLS, no connector. MIT OR Apache-2.0 (futures-util), MIT (tokio-tungstenite).
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+tokio-tungstenite = { version = "0.28", default-features = false, features = ["handshake"] }
+# Decodes the browser's base64 frames; already locked through Tauri. MIT OR Apache-2.0.
+base64 = "0.22"
+# Parses the URLs the agents' browser tools are given (ADR-0056); already locked through Tauri.
+# MIT OR Apache-2.0. Declared here so the desktop inherits it like every other dependency.
+url = "2.5"
+# WebView2 process-failure and memory-target bindings; the version Tauri itself links. MIT.
+webview2-com = "0.39"
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_System_ProcessStatus", "Win32_System_Diagnostics_ToolHelp", "Win32_System_RemoteDesktop", "Win32_System_Console", "Win32_Security", "Win32_Storage_FileSystem", "Win32_Security_Authorization", "Win32_Security_Cryptography", "Win32_System_Registry", "Win32_System_Memory", "Win32_System_Environment", "Win32_System_SystemInformation", "Win32_System_Pipes", "Win32_System_IO", "Win32_System_DataExchange", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_HiDpi", "Win32_Graphics_Gdi", "Win32_System_LibraryLoader", "Wdk_Foundation", "Wdk_Storage_FileSystem"] }
+libc = "0.2"
+shinatama-terminal = { path = "crates/terminal" }
+shinatama-projects = { path = "crates/projects" }
+shinatama-state = { path = "crates/state" }
+shinatama-adapter = { path = "crates/adapter" }
+shinatama-engine = { path = "crates/engine" }
+shinatama-export = { path = "crates/export" }
+shinatama-hop = { path = "crates/hop" }
+shinatama-files = { path = "crates/files" }
+shinatama-companion = { path = "crates/companion" }
+shinatama-token-economy = { path = "crates/token-economy" }
+shinatama-messaging = { path = "crates/messaging" }
+shinatama-roundtable = { path = "crates/roundtable" }
+shinatama-browser = { path = "crates/browser" }
+shinatama-xiox = { path = "crates/xiox" }
+# Mukade release v0.1.0 (tag v0.1.0 = this commit). Git dependencies are pinned by full revision.
+mukade = { git = "https://github.com/acaprino/mukade", rev = "41f858222132d7e9af0cd637c8c25aaa7588cb7d", default-features = false }
+
+# Local debug builds verify large native executables inside a fixed deadline.
+# Optimize the digest implementation while keeping application debug symbols.
+[profile.dev.package.sha2]
+opt-level = 3
+

@@ -1,0 +1,55 @@
+{
+  "formatVersion": 1,
+  "mods": {
+    "shn-render": {
+      "version": "0.1.0",
+      "files": [
+        {
+          "path": ".claude-plugin/plugin.json",
+          "bytes": 211,
+          "sha256": "0d9233b1ff6d0ed83298e5b962a68acb03afcd4b92a91c92f9013bc3bc1400be"
+        },
+        {
+          "path": "THIRD-PARTY-NOTICES.md",
+          "bytes": 4386,
+          "sha256": "e8ebfbe97f50a7162fc13870e04baa2ffd70010ff01f8d7235424625a15db767"
+        },
+        {
+          "path": "hooks/hooks.json",
+          "bytes": 33,
+          "sha256": "c835c92d8e1159d20a40ca78ad654da7433942c3694ffeda0b376b0c4dfd52cf"
+        },
+        {
+          "path": "hooks/lib/markdown.d.ts",
+          "bytes": 53,
+          "sha256": "822f390adef8e958dcb51ecd7060f2ab89138da2b6e77fb0c9a7b88a0eea7bf0"
+        },
+        {
+          "path": "hooks/lib/markdown.js",
+          "bytes": 54014,
+          "sha256": "4b3bc232ed0245d95cbad632fc21fff2f77c636d08c3a57926c76a2dccf0fb95"
+        },
+        {
+          "path": "hooks/lib/math.ts",
+          "bytes": 12698,
+          "sha256": "90864e964646b54195c1dda4fb1b91ec1d9c49a4b6ef01778d38f89f1a213a23"
+        },
+        {
+          "path": "hooks/lib/mermaid.d.ts",
+          "bytes": 326,
+          "sha256": "23016e1f9ef6a1e5526284dcd8e1cb1f1efb3696319aaae186cce3765fdff047"
+        },
+        {
+          "path": "hooks/lib/mermaid.js",
+          "bytes": 204116,
+          "sha256": "4d81f795d025948051631e5fa14357c1e3508850060768c30e7d7a1b199eec1d"
+        },
+        {
+          "path": "hooks/register.ts",
+          "bytes": 19396,
+          "sha256": "9496b8993b8273f30b7658bfc73a2b9c60ed1375d2f195bb0130ea0a362e039b"
+        }
+      ]
+    }
+  }
+}

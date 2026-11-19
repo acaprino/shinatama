@@ -1,0 +1,13 @@
+#session-find-dialog { width: min(920px, calc(100vw - 32px)); }
+.session-find-source { overflow-wrap: anywhere; }
+.session-find-form { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 8px; }
+.session-find-form label { grid-column: 1 / -1; color: var(--text-2); font-size: 13px; }
+.session-find-form input { min-width: 0; }
+.session-find-status { min-height: 2em; color: var(--text-2); font-size: 13px; }
+.session-find-status[data-state=error] { color: var(--error); }
+.session-find-results { display: grid; gap: 8px; max-height: min(46vh, 480px); overflow: auto; margin: 12px 0; padding: 0; list-style: none; }
+.session-find-match { display: grid; gap: 6px; width: 100%; text-align: left; padding: 12px; }
+.session-find-locator { color: var(--text-2); font-size: 12px; }
+.session-find-snippet { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); font: 12px/1.55 var(--mono); }
+.session-find-pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--text-2); }
+@media (max-width: 600px) { .session-find-form { grid-template-columns: 1fr; } }

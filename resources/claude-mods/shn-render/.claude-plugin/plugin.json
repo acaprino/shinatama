@@ -1,0 +1,5 @@
+{
+  "name": "shn-render",
+  "version": "0.1.0",
+  "description": "Shinatama: draws LaTeX math and simple Mermaid flowcharts in Claude's answers as Unicode text. Display only: the stored answer never changes."
+}
