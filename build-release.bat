@@ -270,7 +270,7 @@ rem Shinatama's mukade\mukade.exe (XIOX_MUKADE_EXE), so no second Mukade goes be
 pwsh -NoProfile -File "scripts\fetch-release.ps1" -Pin "scripts\xiox-pin.json" -Destination "%RELEASE%\xiox" || goto :sub_fail
 
 echo     marionette\ ^(the pinned Marionette release, there from the first start, offline too^)
-rem The zip of the marionette-v<version> release of acaprino/muro that scripts\marionette-pin.json names,
+rem The zip of the marionette-v<version> release of acaprino/marionette that scripts\marionette-pin.json names,
 rem checked against its SHA-256 and size, with that pin beside it. At start, before the sync, the app
 rem installs it into the data folder when that holds no intact copy at least as new (ADR-0052 v2).
 pwsh -NoProfile -File "scripts\fetch-release.ps1" -Pin "scripts\marionette-pin.json" -Destination "%RELEASE%\marionette" || goto :sub_fail

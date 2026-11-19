@@ -1,7 +1,7 @@
 //! Marionette, the one plugin every real session of Claude Code, Codex, Pi and
 //! OpenCode gets. Muro (github.com/acaprino/muro) builds it as one of its
 //! examples and publishes each build as a `marionette-v<version>` release of
-//! the Muro repository, beside Muro's own `muro-v<version>` releases; it carries
+//! its own repository, github.com/acaprino/marionette; it carries
 //! what Ponytail and i-have-adhd used to bring natively. At every app start
 //! [`sync`] lists the repository's releases, takes the highest published
 //! `marionette-v<version>` and, when the tag is new, downloads its `marionette*.zip`,
@@ -25,7 +25,7 @@ use std::{
 };
 
 /// `owner/name` of the repository whose Marionette releases are followed.
-pub const REPOSITORY: &str = "acaprino/muro";
+pub const REPOSITORY: &str = "acaprino/marionette";
 /// Tag prefix of Marionette's releases; the rest of the tag is its version.
 pub const TAG_PREFIX: &str = "marionette-v";
 pub const SET_ID: &str = "marionette";
@@ -568,7 +568,7 @@ fn make_current(
 }
 
 /// The highest `marionette-v<version>` release that is published (no draft, no
-/// prerelease); Muro's own releases and any other tag are ignored.
+/// prerelease); any other tag is ignored.
 fn choose_release(releases: Vec<ReleaseMetadata>) -> Result<ReleaseMetadata, MarionetteError> {
     releases
         .into_iter()
@@ -1259,7 +1259,7 @@ pub(crate) mod tests {
         let _ = fs::remove_dir_all(&store);
     }
     /// Manual, needs the network: `cargo test -p shinatama-engine -- --ignored
-    /// real_github_sync` follows Muro's highest `marionette-v*` release through
+    /// real_github_sync` follows the highest `marionette-v*` release of [`REPOSITORY`] through
     /// `SystemFetch`.
     #[test]
     #[ignore]
@@ -1478,7 +1478,7 @@ pub(crate) mod tests {
         let _ = fs::remove_dir_all(&root);
     }
     #[test]
-    fn a_pin_for_anything_but_one_marionette_zip_of_muro_is_refused_before_the_store() {
+    fn a_pin_for_anything_but_one_marionette_zip_of_its_repository_is_refused_before_the_store() {
         let root = scratch("seed-pin");
         let store = root.join("store");
         let zip = b"zip marionette-v0.1.0".to_vec();
@@ -1488,7 +1488,7 @@ pub(crate) mod tests {
             serde_json::from_slice(&fs::read(shipped.join(BUNDLE_PIN)).unwrap()).unwrap();
         let two = serde_json::json!({ "marionette-0.1.0.zip": hex(&zip), "marionette-extra.zip": hex(&zip) });
         for (key, value) in [
-            ("repository", serde_json::json!("acaprino/marionette")),
+            ("repository", serde_json::json!("acaprino/muro")),
             ("tag", serde_json::json!("muro-v0.1.0")),
             ("assets", two),
             ("bytes", serde_json::json!({})),

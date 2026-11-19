@@ -47,6 +47,7 @@ changes:
   - "2026-11-12: Muro's Release workflow publishes Marionette as `marionette-v<version>` releases of acaprino/muro beside `muro-v<version>`; the sync follows the highest of them (user, linking marionette-v0.2.0: \"deve seguire gli update automatici all'avvio di marionette last release\")."
   - "2026-11-18: The bounds of one release are four times what they were (zip 512 MiB, tree 2 GiB, 65,536 files, lock 16 MiB). Marionette carries its sources whole since Muro's ADR-0026: its zip went from 16 MB to 188 MiB, over the 128 MiB allowed, so the sync refused it and kept the copy before it (user, choosing between this and a smaller release: \"1\"). Measured with that zip: install 191 to 203 s against 47 s, a Claude Code launch 2.9 s against 0.3 s, and 28 s against 6 s for the first launch that reads a copy written by the one before."
   - "2026-11-19: The package ships the pinned Marionette release (scripts/marionette-pin.json) and the app installs it before the sync when the store has no intact copy at least as new (user: \"deve arrivare con marionette già bundled\")."
+  - "2026-11-19: The release source is Marionette's own repository again, acaprino/marionette: Muro's Release Marionette workflow opens a pull request there and its merge publishes `marionette-v<version>`; acaprino/muro keeps `marionette-v0.2.0` to `v0.4.0`. The shipped pin moves to `marionette-v0.4.1` (user: \"dobbiamo portare marionette in una repository pubblica a sé\", \"fai shinatama\")."
 ---
 
 # ADR-0052 v3: Marionette, shipped in the package and synced from its latest GitHub release at every start, is the one plugin every launch gets
@@ -98,10 +99,10 @@ configuration (ADR-0013)?
    Xiox and Mukade pins. The Claude Code mods in `resources/claude-mods` stay packaged and keep
    their own lock.
 2. **Synced at every start.** When the app starts, a background thread lists
-   `api.github.com/repos/acaprino/muro/releases?per_page=100` and takes the highest
-   `marionette-v<version>` release in numeric version order; drafts, prereleases, Muro's own
-   `muro-v*` releases and any other tag are ignored. The release must carry exactly one
-   `marionette*.zip` asset under `github.com/acaprino/muro/releases/download/<tag>/` with a
+   `api.github.com/repos/acaprino/marionette/releases?per_page=100` and takes the highest
+   `marionette-v<version>` release in numeric version order; drafts, prereleases and any
+   other tag are ignored. The release must carry exactly one
+   `marionette*.zip` asset under `github.com/acaprino/marionette/releases/download/<tag>/` with a
    GitHub `sha256:` digest. When the tag
    differs from the current copy, or the current copy fails its check, the zip is downloaded,
    its size and SHA-256 are checked against the release, it is extracted into a staging
@@ -137,8 +138,8 @@ configuration (ADR-0013)?
 8. **Out of scope.** Hermes and Gemini have no launch adapter. Codex hook trust for the
    adapter's `SessionStart`/`SubagentStart` hooks is Codex's own review. The adapters' helpers
    use the user's `python` and `node` on `PATH`. Building Marionette and publishing it as a
-   `marionette-v<version>` release of `acaprino/muro` is Muro's Release workflow, outside
-   Shinatama.
+   `marionette-v<version>` release of `acaprino/marionette` is Muro's Release Marionette
+   workflow and that repository's own, outside Shinatama.
 
 ## Consequences
 
@@ -164,3 +165,9 @@ tests. Manual, 2026-11-12: `real_github_sync` (ignored by default) followed
 `marionette-v0.2.0` from `acaprino/muro` through `SystemFetch`, four adapters verified. Manual: a Muro build zipped with `tar.exe` and
 installed through `SystemFetch::extract` (`real_zip_installs_through_system_tar`, ignored by
 default). A session per harness from the desktop against a published release is open.
+
+Manual, 2026-11-19, with the release source at `acaprino/marionette`: `real_github_sync`
+followed `marionette-v0.4.1` there through `SystemFetch` (`Updated`, 266 s; the first build's
+`v0.1.0` tag was ignored). `scripts/fetch-release.ps1` fetched the pinned `marionette-0.4.1.zip`
+and checked its size and SHA-256, and `real_bundle_seeds_through_system_tar` seeded a store from
+that zip and its pin (`Installed`, installed and verified in 251 s). The two ran at once.
