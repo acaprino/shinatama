@@ -42,7 +42,6 @@
   & .icon { stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.4; }
   & button.primary, & .wm-empty-start { clip-path: none; border-radius: var(--radius-sm); }
   & button.primary:focus-visible { outline-color: var(--accent-text, var(--accent-soft)); outline-offset: 2px; }
-  & .look-switch::before { border-radius: 8px; }
 
   /* ---------- title bar, toolbar, status bar ---------- */
   & .titlebar { border-bottom-color: transparent; }

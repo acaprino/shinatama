@@ -5,8 +5,4 @@
 #settings-dialog .presentation-follow { display: flex; align-items: center; gap: 8px; margin: 16px 0 8px; font: 13px var(--mono); line-height: 1.5; letter-spacing: 0; text-transform: none; color: var(--text); }
 #settings-dialog #presentation-follow { width: auto; height: auto; padding: 0; }
 #presentation-status { min-height: 2em; color: var(--text-2); font-size: 12px; }
-/* The ONI MODE switch (presentation.ts): a track and a knob, lit in the accent when on. */
-.look-switch { gap: 10px; }
-.look-switch::before { content: ''; flex: none; width: 30px; height: 16px; border: 1px solid var(--line-strong); background: radial-gradient(circle at 8px 50%, var(--muted) 0 4px, transparent 4.5px); }
-.look-switch[aria-checked="true"]::before { border-color: var(--accent); background: radial-gradient(circle at calc(100% - 8px) 50%, var(--accent) 0 4px, transparent 4.5px); }
-#settings-dialog :is(#presentation-skin, #presentation-theme):disabled { opacity: .5; }
+#settings-dialog #presentation-skin:disabled { opacity: .5; }

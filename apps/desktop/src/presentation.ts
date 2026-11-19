@@ -113,9 +113,8 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
   let flight: Promise<void> | null = null; let pending: PresentationSettings | null = null; let timer = 0; let edits = 0;
   const warnedProfiles = new Set<string>();
   const theme = document.createElement('div'); theme.className = 'presentation-theme';
-  theme.innerHTML = '<button id="presentation-look" class="look-switch" type="button" role="switch" aria-checked="false">ONI mode</button><p class="hint">ONI mode is the look Shinatama was born with. Off, the window wears the Smooth look.</p><label for="presentation-theme">Smooth theme</label><select id="presentation-theme"><option value="system">Windows</option><option value="light">Light</option><option value="dark">Dark</option></select><label for="presentation-skin">ONI mode theme</label><select id="presentation-skin"></select>';
+  theme.innerHTML = '<label for="presentation-theme">Theme</label><select id="presentation-theme"><option value="system">Windows</option><option value="light">Light</option><option value="dark">Dark</option><option value="oni">Classic</option></select><label for="presentation-skin">Classic theme</label><select id="presentation-skin"></select>';
   let look: Look = (() => { try { return storedLook(localStorage.getItem(LOOK_KEY)); } catch { return storedLook(null); } })();
-  const lookSwitch = theme.querySelector<HTMLButtonElement>('#presentation-look')!;
   let smoothTheme: Theme = (() => { try { return storedTheme(localStorage.getItem(THEME_KEY)); } catch { return storedTheme(null); } })();
   const themeSelector = theme.querySelector<HTMLSelectElement>('#presentation-theme')!;
   const systemLight = window.matchMedia('(prefers-color-scheme: light)');
@@ -129,7 +128,7 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
   const size = form.querySelector<HTMLInputElement>('#presentation-size')!; const height = form.querySelector<HTMLInputElement>('#presentation-height')!;
   const follow = form.querySelector<HTMLInputElement>('#presentation-follow')!; const status = form.querySelector<HTMLElement>('#presentation-status')!;
   const equal = (a: PresentationSettings, b: PresentationSettings) => JSON.stringify(a) === JSON.stringify(b);
-  function render() { lookSwitch.setAttribute('aria-checked', String(look === 'oni')); selector.disabled = look !== 'oni'; themeSelector.disabled = look === 'oni'; themeSelector.value = smoothTheme; selector.value = current.skin; font.value = current.fontFamily; size.value = String(current.fontSize); height.value = String(current.lineHeight); follow.checked = current.followSkin; }
+  function render() { selector.disabled = look !== 'oni'; themeSelector.value = look === 'oni' ? 'oni' : smoothTheme; selector.value = current.skin; font.value = current.fontFamily; size.value = String(current.fontSize); height.value = String(current.lineHeight); follow.checked = current.followSkin; }
   function apply() { document.documentElement.dataset.look = look; document.documentElement.style.colorScheme = light() ? 'light' : 'dark'; if (light()) document.documentElement.style.setProperty('--accent-text', ACCENT_TEXT_LIGHT); else document.documentElement.style.removeProperty('--accent-text'); for (const [name, value] of Object.entries(tokensFor(look, current.skin, light()))) document.documentElement.style.setProperty(`--${name}`, value); render(); }
   function reportFailure() { blocked = true; status.textContent = 'Changes remain visible in this window. Saving is unavailable; press Reload in Settings before trying again.'; options.notify(status.textContent); }
   function schedule() { clearTimeout(timer); if (!blocked && loaded && pending) timer = window.setTimeout(() => { void save(); }, 0); }
@@ -179,14 +178,11 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
     if (!settings || equal(settings, current)) return;
     edit(settings); status.textContent = options.desktop ? blocked ? 'Applied locally. Press Reload in Settings to restore saving.' : 'Applied; saving…' : 'Applied in browser preview.';
   }
-  lookSwitch.onclick = () => {
-    look = look === 'oni' ? 'smooth' : 'oni';
-    try { localStorage.setItem(LOOK_KEY, look); } catch { /* no storage: the look lasts until the window closes */ }
-    apply(); options.onChange();
-  };
+  // One list: Smooth's three themes, and Classic, which is the ONI MODE look with the theme chosen below it.
   themeSelector.onchange = () => {
-    smoothTheme = storedTheme(themeSelector.value);
-    try { localStorage.setItem(THEME_KEY, smoothTheme); } catch { /* no storage: the theme lasts until the window closes */ }
+    look = themeSelector.value === 'oni' ? 'oni' : 'smooth';
+    if (look === 'smooth') smoothTheme = storedTheme(themeSelector.value);
+    try { localStorage.setItem(LOOK_KEY, look); localStorage.setItem(THEME_KEY, smoothTheme); } catch { /* no storage: the choice lasts until the window closes */ }
     apply(); options.onChange();
   };
   systemLight.addEventListener('change', () => { apply(); options.onChange(); });
