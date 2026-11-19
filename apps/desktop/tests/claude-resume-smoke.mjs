@@ -82,7 +82,7 @@ const knownServiceErrors = new Set([
   'Proxy resource admission is unavailable.', 'Resources are not yet ready for the local service. Wait and retry Start; no process was created.',
   'Proxy preparation was cancelled; saved files were preserved.', 'A proxy owner is already retained or could not start; no duplicate was created.',
   'A proxy owner is already retained.', 'The proxy owner is unavailable.', 'Proxy start could not be delivered.',
-  'Proxy preparation failed. Saved data was preserved.',
+  'Proxy preparation failed. Start retries it.',
   'Resources or a free process slot are unavailable. Wait or close unused terminals, then retry Start. Existing sessions keep their limits.',
   'The local service could not confirm startup. Existing files were preserved; retry explicitly.',
   'The local service exited twice. Automatic recovery has stopped; saved sessions were preserved.',

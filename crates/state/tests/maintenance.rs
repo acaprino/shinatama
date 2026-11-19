@@ -866,3 +866,9 @@ fn policy_overrides_cannot_raise_safety_ceilings() {
         Err(DatabaseError::UnsupportedConfiguration)
     ));
 }
+
+#[test]
+fn the_save_floor_is_the_minimum_plus_one_write() {
+    assert_eq!(maintenance::SAVE_FLOOR_BYTES, 65 * 1024 * 1024);
+    assert!(maintenance::free_bytes(&std::env::temp_dir()).unwrap() > 0);
+}

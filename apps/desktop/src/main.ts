@@ -247,7 +247,8 @@ function endOpening() { if (openingShown) $('#notice').hidden = true; openingSho
 function appLog(source: 'layout' | 'page', message: string) { if (desktop) void invoke('app_log', { source, message }).catch(() => {}); }
 $('#notice button').onclick = () => { $('#notice').hidden = true; };
 const attentionControl = createAttentionControl(desktop, notify);
-createSidecarControl(desktop, notify);
+// Restart is the panel's exit when the proxy supervisor stops answering; it closes like the window does.
+createSidecarControl(desktop, notify, () => closeWorkspace(true));
 // Only a real modal takes the page. Drawers and sheets (modal.ts) leave the terminals live.
 function modalOpen() { return !!document.querySelector('dialog[open][aria-modal="true"]'); }
 function focusAttentionSession(id: string) {
@@ -758,6 +759,28 @@ function showExit(view: View, code: number | null) {
   const close = document.createElement('button'); close.type = 'button'; close.textContent = 'Close terminal';
   close.onclick = () => void stopTerminal(view);
   banner.append(text, restart, close); view.element.append(banner);
+}
+/** Closes the workspace as the window's close does: preferences saved, the layout released with its running
+ * sessions (the next start restores them), terminals ended, window closed. A relaunch starts the new Shinatama
+ * at the point of no return, after any question; it waits for this process to end, and if that start is
+ * refused the terminals keep running and the window stays. */
+async function closeWorkspace(relaunch: boolean): Promise<void> {
+  const appearanceSaved = await presentation.flush();
+  const saved = persistence?.status().ownership === 'ours' ? await persistence.release() : undefined;
+  // Asked only when something would be lost: a release refused while nothing is unsaved (storage
+  // read-only, newer schema) loses nothing, and the next start takes the layout over.
+  if (!appearanceSaved || (saved && (saved.ok ? saved.dirty : persistence?.status().dirty))) {
+    if (!await confirmStop('Close without saving the latest preferences?', 'Previously saved data is preserved. Recent layout or appearance changes could not be saved.')) return;
+    await invoke('workspace_allow_close');
+  }
+  // The point of no return: a restart starts its successor here, never before a question the user may decline.
+  if (relaunch) await invoke('app_relaunch');
+  // From here the terminals end because the window closes: their tabs stay saved as running (the layout was
+  // just released with them so), and the next start restores those sessions with the layout.
+  closingWindow = true;
+  try { await invoke('terminal_shutdown'); } catch (error) { closingWindow = false; throw error; }
+  for (const view of views.values()) view.disposed = true;
+  await getCurrentWindow().close();
 }
 async function confirmStop(title: string, message: string, group?: string, action = 'Stop'): Promise<boolean> {
   // A window close request can arrive over another dialog; the confirmation stacks above it.
@@ -1663,22 +1686,7 @@ async function initialize() {
     if (existing.length) notify('Reconnected to running terminals. Earlier screen contents are not retained across a frontend reload.', 'info');
     await listen('confirm-close', async () => {
       if ((views.size || pendingStart || modalOpen()) && !await confirmStop('Close workspace?', 'All running terminals and their child programs will stop.')) return;
-      try {
-        const appearanceSaved = await presentation.flush();
-        const saved = persistence?.status().ownership === 'ours' ? await persistence.release() : undefined;
-        // Asked only when something would be lost: a release refused while nothing is unsaved (storage
-        // read-only, newer schema) loses nothing, and the next start takes the layout over.
-        if (!appearanceSaved || (saved && (saved.ok ? saved.dirty : persistence?.status().dirty))) {
-          if (!await confirmStop('Close without saving the latest preferences?', 'Previously saved data is preserved. Recent layout or appearance changes could not be saved.')) return;
-          await invoke('workspace_allow_close');
-        }
-        // From here the terminals end because the window closes: their tabs stay saved as running (the layout was
-        // just released with them so), and the next start restores those sessions with the layout.
-        closingWindow = true;
-        try { await invoke('terminal_shutdown'); } catch (error) { closingWindow = false; throw error; }
-        for (const view of views.values()) view.disposed = true;
-        await getCurrentWindow().close();
-      } catch (error) { notify(error); }
+      try { await closeWorkspace(false); } catch (error) { notify(error); }
     });
     await initializeWindowControls(notify);
     await initializeDesktopShell({ notify, beforeReload: () => Promise.all([presentation.flush(), persistence?.flush(1500)]) });

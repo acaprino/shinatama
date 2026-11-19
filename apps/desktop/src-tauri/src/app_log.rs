@@ -40,6 +40,43 @@ pub(crate) fn write(source: &str, message: &str) {
     append(directory, &text);
 }
 
+/// `thread 'name' panicked at file:line: text`, as one line of the log.
+pub(crate) fn panic_line(thread: &str, location: Option<(&str, u32)>, payload: &str) -> String {
+    let at = location.map_or_else(
+        || "an unknown location".to_owned(),
+        |(file, line)| format!("{file}:{line}"),
+    );
+    format!("thread '{thread}' panicked at {at}: {payload}")
+}
+
+/// Every panic, in any thread, leaves one line in the log before the default report, which a
+/// window app shows nowhere: a thread that died used to leave no trace at all. The hook never
+/// waits for the log: a panic while a line is being written skips its own line.
+pub(crate) fn install_panic_hook() {
+    let previous = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let payload = info
+            .payload()
+            .downcast_ref::<&str>()
+            .copied()
+            .or_else(|| info.payload().downcast_ref::<String>().map(String::as_str))
+            .unwrap_or("unknown panic payload");
+        let thread = std::thread::current();
+        let text = panic_line(
+            thread.name().unwrap_or("unnamed"),
+            info.location().map(|at| (at.file(), at.line())),
+            payload,
+        );
+        if let Some(directory) = DIRECTORY.get()
+            && let Ok(_writing) = WRITING.try_lock()
+        {
+            let at = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string();
+            append(directory, &line(&at, "panic", &text));
+        }
+        previous(info);
+    }));
+}
+
 fn append(directory: &Path, text: &str) {
     let path = directory.join(FILE);
     if fs::metadata(&path).is_ok_and(|metadata| metadata.len() >= MAX_BYTES) {

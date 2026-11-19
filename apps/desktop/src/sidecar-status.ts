@@ -10,7 +10,18 @@ export type ProxyStatus = {
   configDifferences?: ConfigDifference[];
   /** How the proxy process last ended by itself; kept after it recovers. */
   lastExit?: ProxyExit;
+  /** When the supervisor last reported anything; null when it never did. */
+  observedAtUnixMs?: number | null;
+  /** The supervisor has not reported for more than 15 s while it should be working. */
+  stalled?: boolean;
+  /** The phase it last reported, sent only while it is stalled. */
+  lastPhase?: string | null;
+  /** The internal error that stopped the supervisor, in its own words. */
+  fault?: string | null;
+  /** Free space of the disk that holds Shinatama's data; absent until the first sample. */
+  disk?: DiskStatus | null;
 };
+export type DiskStatus = { root: string; freeBytes: number; level: 'ok' | 'low' | 'full' };
 /** `detail` is what the runtime last said outside the proxy's own log, when it said anything. */
 export type ProxyExit = { code: number; uptimeMs: number; atUnixMs: number | null; detail: string | null; count: number };
 export type ConfigDifference = { setting: string; read: string; baseline: string };
@@ -26,7 +37,22 @@ const MESSAGE_LIMIT = 400;
 const DIFFERENCE_LIMIT = 16;
 const DIFFERENCE_TEXT_LIMIT = 80;
 const EXIT_DETAIL_LIMIT = 300;
+const FAULT_LIMIT = 300;
+const DISK_ROOT_LIMIT = 64;
+const DISK_LEVELS = ['ok', 'low', 'full'];
 const isCount = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value >= 0;
+/** One line: the backend never sends a control character, so one here is not its reply. */
+const isLine = (value: unknown, limit: number): value is string => typeof value === 'string' && value.length <= limit && !/[\u0000-\u001f\u007f]/.test(value);
+
+/** `undefined` for no reading (absent or null), `null` for a malformed one. */
+function parseDisk(value: unknown): DiskStatus | undefined | null {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'object' || Array.isArray(value)) return null;
+  const { root, freeBytes, level } = value as Record<string, unknown>;
+  if (typeof root !== 'string' || root.length === 0 || !isLine(root, DISK_ROOT_LIMIT)) return null;
+  if (!isCount(freeBytes) || typeof level !== 'string' || !DISK_LEVELS.includes(level)) return null;
+  return { root, freeBytes, level: level as DiskStatus['level'] };
+}
 
 function parseDifferences(value: unknown): ConfigDifference[] | null {
   if (!Array.isArray(value) || value.length > DIFFERENCE_LIMIT) return null;
@@ -68,6 +94,12 @@ export function parseStatus(value: unknown): ProxyStatus | null {
   if (differences === null) return null;
   const lastExit = parseExit(raw.lastExit);
   if (lastExit === null) return null;
+  if (!(raw.observedAtUnixMs === undefined || raw.observedAtUnixMs === null || (typeof raw.observedAtUnixMs === 'number' && Number.isFinite(raw.observedAtUnixMs)))) return null;
+  if (raw.stalled !== undefined && typeof raw.stalled !== 'boolean') return null;
+  if (!(raw.lastPhase === undefined || raw.lastPhase === null || (typeof raw.lastPhase === 'string' && Object.hasOwn(LABELS, raw.lastPhase)))) return null;
+  if (!(raw.fault === undefined || raw.fault === null || isLine(raw.fault, FAULT_LIMIT))) return null;
+  const disk = parseDisk(raw.disk);
+  if (disk === null) return null;
   const status: ProxyStatus = {
     phase: raw.phase, healthy: raw.healthy, message: raw.message, inFlight: raw.inFlight, agentSessions: raw.agentSessions,
     drainDeadlineUnixMs: raw.drainDeadlineUnixMs, configDrift: raw.configDrift,
@@ -76,6 +108,11 @@ export function parseStatus(value: unknown): ProxyStatus | null {
   if (raw.agentSessionsKnown !== undefined) status.agentSessionsKnown = raw.agentSessionsKnown;
   if (differences !== undefined) status.configDifferences = differences;
   if (lastExit !== undefined) status.lastExit = lastExit;
+  if (raw.observedAtUnixMs !== undefined) status.observedAtUnixMs = raw.observedAtUnixMs as number | null;
+  if (raw.stalled !== undefined) status.stalled = raw.stalled;
+  if (raw.lastPhase !== undefined) status.lastPhase = raw.lastPhase as string | null;
+  if (raw.fault !== undefined) status.fault = raw.fault === '' ? null : raw.fault as string | null;
+  if (disk !== undefined) status.disk = disk;
   return status;
 }
 
@@ -144,6 +181,51 @@ export function exitLine(status: ProxyStatus, clock: (unixMs: number) => string 
   const said = exit.detail === null ? 'It reported no error.' : `It said: ${exit.detail}`;
   const repeated = exit.count > 1 ? ` Interruptions since Shinatama started: ${exit.count}.` : '';
   return `Last interruption${when}: the proxy process ended with code ${exit.code} after ${lasted(exit.uptimeMs)}. ${said}${repeated}`;
+}
+
+/** Restart Shinatama is the one exit that works when the supervisor no longer answers: offered while
+ * its status is stalled, or after three status reads in a row failed. Never for a fresh Failed. */
+export function restartOffered(status: ProxyStatus | null, failedPolls: number): boolean {
+  return status?.stalled === true || failedPolls >= 3;
+}
+
+/** Since when a stalled supervisor has been silent and what it said last. */
+export function stallLine(status: ProxyStatus, clock: (unixMs: number) => string = wallClock): string | null {
+  if (status.stalled !== true) return null;
+  const last = status.lastPhase ? ` (last state: ${phaseLabel(status.lastPhase)})` : '';
+  const silent = typeof status.observedAtUnixMs === 'number'
+    ? `has not reported since ${clock(status.observedAtUnixMs)}${last}`
+    : `has stopped reporting${last}`;
+  // Its last message is history, not the present: it is framed here and not shown on its own.
+  const said = status.message ? ` It last said: ${status.message}` : '';
+  return `The proxy supervisor ${silent}.${said} Restart Shinatama to start a new proxy.`;
+}
+
+export function faultLine(status: ProxyStatus): string | null {
+  return status.fault ? `The proxy supervisor stopped on an internal error: ${status.fault}` : null;
+}
+
+/** A disk that is low or full, named; nothing while the disk is fine or not yet measured. */
+export function diskLine(status: ProxyStatus): string | null {
+  const disk = status.disk;
+  if (!disk || disk.level === 'ok') return null;
+  const megabytes = Math.floor(disk.freeBytes / 2 ** 20);
+  return disk.level === 'full'
+    ? `Disk ${disk.root} is full (${megabytes} MB free): saving fails for the proxy and for Shinatama.`
+    : `Disk ${disk.root} has ${megabytes} MB free.`;
+}
+
+/** The backend's message; without one, only what is known: a healthy proxy is responding. */
+export function messageLine(status: ProxyStatus | null): string | null {
+  if (status?.stalled) return null;
+  return status?.message ?? (status?.healthy ? 'Local service is responding.' : null);
+}
+
+/** The toolbar light: a stalled supervisor is red, whatever phase it last reported. */
+export function indicator(status: ProxyStatus | null): { tone: IndicatorTone; label: string } {
+  if (status?.stalled) return { tone: 'red', label: 'Model proxy: Not reporting' };
+  const phase = status?.phase ?? 'unavailable';
+  return { tone: indicatorTone(phase), label: `Model proxy: ${phaseLabel(phase)}` };
 }
 
 const DRIFT_SHOWN = 4;
