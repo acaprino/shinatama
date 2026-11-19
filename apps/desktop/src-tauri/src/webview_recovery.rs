@@ -41,6 +41,14 @@ pub fn recovering() -> bool {
 
 /// Builds one configured window and watches its webview.
 pub fn build(app: &AppHandle, config: &tauri::utils::config::WindowConfig) -> tauri::Result<WebviewWindow> {
+    // The main window opens on the backdrop of the look its page chose last (presentation.rs).
+    let mut config = config.clone();
+    if config.label == "main"
+        && let Some(theme) = crate::presentation::saved_window_theme(app)
+    {
+        config.theme = theme;
+    }
+    let config = &config;
     let window = tauri::WebviewWindowBuilder::from_config(app, config)?
         .on_navigation(crate::native_frame::navigation_policy(app))
         .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny)

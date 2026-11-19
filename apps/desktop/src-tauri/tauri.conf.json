@@ -11,7 +11,7 @@
   },
   "app": {
     "windows": [
-      { "label": "main", "create": false, "theme": "Dark", "title": "Shinatama — terminal workspace", "width": 1440, "height": 920, "minWidth": 500, "minHeight": 500, "decorations": false, "transparent": true, "backgroundColor": "#00000000", "windowEffects": { "effects": ["acrylic"], "color": [7, 14, 34, 84] } },
+      { "label": "main", "create": false, "title": "Shinatama — terminal workspace", "width": 1440, "height": 920, "minWidth": 500, "minHeight": 500, "decorations": false, "transparent": true, "backgroundColor": "#00000000", "windowEffects": { "effects": ["acrylic"], "color": [7, 14, 34, 84] } },
       { "label": "attention", "create": false, "url": "widget.html", "title": "Shinatama — avvisi", "width": 440, "height": 190, "decorations": false, "transparent": true, "backgroundColor": "#00000000", "shadow": false, "alwaysOnTop": true, "skipTaskbar": true, "resizable": false, "focus": false, "focusable": false, "visible": false }
     ],
     "security": {

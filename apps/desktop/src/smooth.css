@@ -6,7 +6,7 @@
    Two depths (the ground of the bars and the sidebar, and sheets a step lighter), hairline borders,
    corners of 6, 8 and 12px, outlined secondary buttons and one filled primary, underlined tabs, sentence case. No cut
    corners, no drawn gradient edges. Shinatama's own: the pink, her display face (Bahnschrift) on titles and buttons,
-   and the glass, which stays as ONI has it, in Smooth's colours. Pane geometry is ONI's, so a terminal keeps its rows
+   and the glass, Smooth's own (the last block). Pane geometry is ONI's, so a terminal keeps its rows
    when the look changes. Loaded after styles.css: the first block has no specificity of its own. */
 
 /* Element defaults, at the specificity of the ONI ones they replace. */
@@ -93,4 +93,25 @@
   & #project-menu-running[aria-pressed=true] { box-shadow: none; }
   & .toolbar-menu-project, & .session-menu-harness { border-left: 0; }
   & .toolbar-menu-tick::before { border-radius: 4px; }
+
+  /* ---------- glass (the desktop app: main.ts marks the root native-glass) ----------
+     The window is acrylic in the look's own theme (presentation.rs). The frame (title bar, toolbar, sidebar
+     and status bar) is one sheet of it: Smooth's ground at --glass-ground over the backdrop and nothing painted
+     on top, so the header reads as glass, not as a window frame. Its edges are lit hairlines, the text colour
+     faint. Panes, menus and dialogs stay the denser sheets they were. Light glass is the denser one: a light
+     acrylic over a dark window is a mid grey (143 on 255, docs/verification/2026-11-11-U9-glass-on-screen.md),
+     and the light theme must not read grey. */
+  /* --glass-tint is a Smooth token (presentation.ts): a deep cool slate in the dark, darker and bluer than
+     the stage, so the acrylic's neutral grey never turns the frame into Windows' own grey title bar; white in
+     the light, where Smooth's grey ground over a grey backdrop was the grey this replaces. */
+  &.native-glass {
+    --glass-ground: 80%;
+    --glass-edge: color-mix(in srgb, var(--text) 16%, transparent);
+    &[data-theme="light"] { --glass-ground: 88%; --glass-edge: color-mix(in srgb, var(--text) 11%, transparent); }
+  }
+  /* On body, as ONI's seams are: the root carries the tokens inline. */
+  &.native-glass body { --line: var(--glass-edge); }
+  &.native-glass #app { background: color-mix(in srgb, var(--glass-tint) var(--glass-ground), transparent); outline-color: var(--glass-edge); }
+  &.native-glass :is(.titlebar, .toolbar, .statusbar, .thread-sidebar) { background: none; }
+  &.native-glass .window-controls button:hover { background: color-mix(in srgb, var(--text) 9%, transparent); }
 }

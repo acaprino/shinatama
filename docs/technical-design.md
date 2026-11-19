@@ -293,12 +293,18 @@ feature, passed gate or measured performance budget is claimed here.
 
 **Glass and in-place surfaces (implemented 2026-11-11; ADR-0039 v2, FRD-0001 R64-R68).**
 The main window is declared in `apps/desktop/src-tauri/tauri.conf.json` with
-`transparent`, a clear `backgroundColor`, `windowEffects: acrylic` and `theme: Dark`.
-On Windows 11 the acrylic effect is the system backdrop (`DWMSBT_TRANSIENTWINDOW`,
+`transparent`, a clear `backgroundColor` and `windowEffects: acrylic`, and no theme of
+its own. On Windows 11 the acrylic effect is the system backdrop (`DWMSBT_TRANSIENTWINDOW`,
 set by the `window-vibrancy` crate that Tauri uses): it follows the window theme and
-ignores the configured tint colour, which reaches only Windows 10. Without
-`theme: Dark` a machine in the light theme gets a light grey backdrop under dark
-surfaces. The executable embeds `apps/desktop/dist`, so a change to the window
+ignores the configured tint colour, which reaches only Windows 10. A dark backdrop under
+light surfaces turns them grey and a light one washes dark surfaces out, so the window
+theme is the look's (ADR-0039 v3, INV-012): `presentation.ts` sends it through the
+`presentation_window_theme` command (`presentation.rs`, `WebviewWindow::set_theme`)
+whenever the look or Smooth's theme changes, and the command keeps it in
+`<data home>/window-theme`; `webview_recovery::build` reads that file before it builds the
+main window, so the first frame already has the look's backdrop. The values, the layers
+and the on-screen measurements are in `docs/design-system/` (`DESIGN.md`,
+`desktop-shell.md`). The executable embeds `apps/desktop/dist`, so a change to the window
 declaration or to the interface needs `npm run build` and then
 `cargo build -p shinatama-desktop --features custom-protocol`.
 

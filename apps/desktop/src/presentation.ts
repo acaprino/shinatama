@@ -7,6 +7,8 @@ const base = {
   line: '#1c3563', 'line-strong': '#4a78e6', ice: '#a9c8ff', text: '#e6f0ff', 'text-2': '#b4c8e8', muted: '#8fa6c9',
   accent: '#f48fb8', 'accent-soft': '#ffb3d0', 'accent-ink': '#1c0811', live: '#6fe3d2', warning: '#e8bb72', error: '#ff8495',
   danger: '#a0294e', 'danger-line': '#e35f87', 'on-danger': '#ffffff', selection: '#2a4a8f', scrim: '#02050bcc', shadow: '#000000aa', grid: '#1c356340',
+  // The tint of the desktop glass over the window's acrylic. ONI MODE paints its stage there (styles.css); Smooth reads this one.
+  'glass-tint': '#04070f',
 } as const;
 type Tokens = { readonly [K in keyof typeof base]: string };
 export const SKINS: Readonly<Record<string, { readonly name: string; readonly tokens: Tokens }>> = {
@@ -24,16 +26,19 @@ export const LOOK_KEY = 'shinatama.look';
 /** The look a stored value stands for: ONI MODE only when it was chosen, anything else (nothing stored, a stale value) is Smooth. */
 export const storedLook = (raw: string | null): Look => (raw === 'oni' ? 'oni' : 'smooth');
 /** Smooth: a slate dark look (a ground, and a sheet one step lighter), her pink hair the one accent. */
-export const SMOOTH: Tokens = { ...base, stage: '#12161e', chrome: '#12161e', 'chrome-2': '#161b25', surface: '#1a202c', 'surface-2': '#222a38', terminal: '#0e1118', line: '#2a3240', 'line-strong': '#6b7488', ice: '#c9d4e6', text: '#e8ecf3', 'text-2': '#c0c8d6', muted: '#9aa5b8', selection: '#4a2c40', scrim: '#0a0d12cc', shadow: '#00000066', grid: '#2a324040' };
+export const SMOOTH: Tokens = { ...base, stage: '#12161e', chrome: '#12161e', 'chrome-2': '#161b25', surface: '#1a202c', 'surface-2': '#222a38', terminal: '#0e1118', line: '#2a3240', 'line-strong': '#6b7488', ice: '#c9d4e6', text: '#e8ecf3', 'text-2': '#c0c8d6', muted: '#9aa5b8', selection: '#4a2c40', scrim: '#0a0d12cc', shadow: '#00000066', grid: '#2a324040', 'glass-tint': '#0c111d' };
 /** Smooth's theme: the one of Windows, or light or dark whatever Windows says. ONI MODE has none: it is always dark. */
 export type Theme = 'system' | 'light' | 'dark';
 export const THEME_KEY = 'shinatama.theme';
 /** The theme a stored value stands for: anything that is not light or dark follows Windows. */
 export const storedTheme = (raw: string | null): Theme => (raw === 'light' || raw === 'dark' ? raw : 'system');
+/** The theme of the native window, which on Windows 11 is the theme of the acrylic behind the glass and of the page's
+ * `prefers-color-scheme`: the look's own (ONI MODE is always dark), so light glass never sits on a dark backdrop. */
+export const windowThemeFor = (look: Look, theme: Theme): Theme => (look === 'oni' ? 'dark' : theme);
 /** Smooth in the light: a grey ground and white sheets. The pink is hers, unchanged, for fills and marks; as text
  * and as the focus ring it is ACCENT_TEXT_LIGHT (the --accent-text the stylesheets read), deep enough to read on white. */
 export const ACCENT_TEXT_LIGHT = '#b0286a';
-export const SMOOTH_LIGHT: Tokens = { ...base, stage: '#f6f7f9', chrome: '#f6f7f9', 'chrome-2': '#f0f2f5', surface: '#ffffff', 'surface-2': '#eceef2', terminal: '#ffffff', line: '#e3e6ea', 'line-strong': '#7b8494', ice: '#2b4a80', text: '#111827', 'text-2': '#3d4656', muted: '#566070', live: '#0f7566', warning: '#8a5a00', error: '#b3261e', danger: '#b3261e', 'danger-line': '#8f1d17', selection: '#f9d7e6', scrim: '#0f183055', shadow: '#15274a26', grid: '#e3e6ea80' };
+export const SMOOTH_LIGHT: Tokens = { ...base, stage: '#f6f7f9', chrome: '#f6f7f9', 'chrome-2': '#f0f2f5', surface: '#ffffff', 'surface-2': '#eceef2', terminal: '#ffffff', line: '#e3e6ea', 'line-strong': '#7b8494', ice: '#2b4a80', text: '#111827', 'text-2': '#3d4656', muted: '#566070', live: '#0f7566', warning: '#8a5a00', error: '#b3261e', danger: '#b3261e', 'danger-line': '#8f1d17', selection: '#f9d7e6', scrim: '#0f183055', shadow: '#15274a26', grid: '#e3e6ea80', 'glass-tint': '#ffffff' };
 const tokensFor = (look: Look, skin: string, light = false): Tokens => look === 'smooth' ? light ? SMOOTH_LIGHT : SMOOTH : SKINS[skin]?.tokens ?? base;
 const ansi = {
   black: '#172538', red: '#ff8495', green: '#75d9a7', yellow: '#e8bb72', blue: '#8bb8ff', magenta: '#d5a4ff', cyan: '#58d6c2', white: '#d9e5f2',
@@ -129,7 +134,15 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
   const follow = form.querySelector<HTMLInputElement>('#presentation-follow')!; const status = form.querySelector<HTMLElement>('#presentation-status')!;
   const equal = (a: PresentationSettings, b: PresentationSettings) => JSON.stringify(a) === JSON.stringify(b);
   function render() { selector.disabled = look !== 'oni'; themeSelector.value = look === 'oni' ? 'oni' : smoothTheme; selector.value = current.skin; font.value = current.fontFamily; size.value = String(current.fontSize); height.value = String(current.lineHeight); follow.checked = current.followSkin; }
-  function apply() { document.documentElement.dataset.look = look; document.documentElement.style.colorScheme = light() ? 'light' : 'dark'; if (light()) document.documentElement.style.setProperty('--accent-text', ACCENT_TEXT_LIGHT); else document.documentElement.style.removeProperty('--accent-text'); for (const [name, value] of Object.entries(tokensFor(look, current.skin, light()))) document.documentElement.style.setProperty(`--${name}`, value); render(); }
+  // The window's theme, sent only when it changes; presentation.rs keeps it for the next start.
+  let windowTheme = '';
+  function applyWindowTheme() {
+    const wanted = windowThemeFor(look, smoothTheme);
+    if (!options.desktop || wanted === windowTheme) return;
+    windowTheme = wanted;
+    void invoke('presentation_window_theme', { theme: wanted }).catch(() => { windowTheme = ''; });
+  }
+  function apply() { applyWindowTheme(); document.documentElement.dataset.look = look; document.documentElement.dataset.theme = light() ? 'light' : 'dark'; document.documentElement.style.colorScheme = light() ? 'light' : 'dark'; if (light()) document.documentElement.style.setProperty('--accent-text', ACCENT_TEXT_LIGHT); else document.documentElement.style.removeProperty('--accent-text'); for (const [name, value] of Object.entries(tokensFor(look, current.skin, light()))) document.documentElement.style.setProperty(`--${name}`, value); render(); }
   function reportFailure() { blocked = true; status.textContent = 'Changes remain visible in this window. Saving is unavailable; press Reload in Settings before trying again.'; options.notify(status.textContent); }
   function schedule() { clearTimeout(timer); if (!blocked && loaded && pending) timer = window.setTimeout(() => { void save(); }, 0); }
   async function save() {
