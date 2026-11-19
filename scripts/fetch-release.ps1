@@ -4,8 +4,10 @@
 #   pwsh -NoProfile -File scripts\fetch-release.ps1 -Pin scripts\xiox-pin.json -Destination release\xiox
 #
 # A program Shinatama ships without changing it comes from its release, not from a build of its
-# source: Xiox (scripts\xiox-pin.json) and the Mukade terminal browser (scripts\mukade-pin.json).
-# The pin's `release` names the repository, the tag and each file with its SHA-256; a release
+# source: Xiox (scripts\xiox-pin.json) and the Mukade terminal browser (scripts\mukade-pin.json);
+# so does the Marionette zip the app installs at its first start (scripts\marionette-pin.json).
+# The pin's `release` names the repository, the tag and each file with its SHA-256 (and, in
+# `bytes`, with its size where the pin gives one); a release
 # whose file differs is refused, never shipped. A file is an asset of the release or, when the pin
 # names an `archive` (the portable zip the releases hand out, with its own SHA-256), a file of that
 # zip: at its root or in its one top folder. Downloads go through gh, so a private repository
@@ -68,6 +70,12 @@ try {
         $expected = ([string] $asset.Value).ToLowerInvariant()
         $fetch = if ($release.archive) { { param($p) Get-FromArchive $name $p } } else { { Get-Asset $name } }
         $cached = Save-Checked $name $expected $fetch
+        # The app checks a shipped file against the pin's size too: a wrong size is refused here.
+        $bytes = if ($release.bytes) { $release.bytes.$name } else { $null }
+        $length = (Get-Item -LiteralPath $cached).Length
+        if ($null -ne $bytes -and $length -ne [long] $bytes) {
+            throw "$name of $($release.repository) $($release.tag) has $length bytes; $Pin expects $bytes."
+        }
         Copy-Item -LiteralPath $cached -Destination (Join-Path $Destination $name) -Force
         Write-Output "$name  $($release.repository) $($release.tag)  sha256 $expected"
     }

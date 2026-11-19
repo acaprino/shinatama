@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "release": {
+    "repository": "acaprino/muro",
+    "tag": "marionette-v0.4.0",
+    "commit": "7ded288d0cadc3a8ae633ac6fe7ef5b7111346e8",
+    "assets": {
+      "marionette-0.4.0.zip": "69b5b347ee2250718b61ba53b72023191df45e1ef2f1f43ea9d4ad445c0c7d05"
+    },
+    "bytes": {
+      "marionette-0.4.0.zip": 197024353
+    }
+  }
+}

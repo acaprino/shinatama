@@ -127,8 +127,9 @@ listed above. Resume depends on an eligible saved thread. Hermes Agent and
 DeepSeek Harness are planned integrations.
 
 Every session of the four supported harnesses starts with **Marionette**, the
-plugin built as an example of [Muro](https://github.com/acaprino/muro). Shinatama downloads
-the latest `marionette-v<version>` release of [Muro](https://github.com/acaprino/muro/releases) at each start and checks its SHA-256. Set
+plugin built as an example of [Muro](https://github.com/acaprino/muro). The package ships a
+pinned release, installed at the first start even offline; at each start Shinatama then follows
+the latest `marionette-v<version>` release of [Muro](https://github.com/acaprino/muro/releases) and checks its SHA-256. Set
 `SHINATAMA_MARIONETTE=off` to disable it. The local build also has an optional
 display mod for supported Claude Code versions. [Marionette](AVVIO.md#marionette) ·
 [Claude display mod](resources/claude-mods/README.md) ·

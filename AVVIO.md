@@ -169,8 +169,10 @@ A ogni avvio Shinatama controlla l'ultima release di Marionette pubblicata su
 [Muro](https://github.com/acaprino/muro/releases) (tag `marionette-v<versione>`; le release
 `muro-v*` di Muro sono ignorate) e, se è nuova, la scarica in `marionette\` dentro la
 cartella dati, ne verifica lo
-SHA-256 e la usa per le sessioni aperte da quel momento. Senza rete resta in uso l'ultima
-copia scaricata; al primo avvio senza rete le sessioni partono senza Marionette.
+SHA-256 e la usa per le sessioni aperte da quel momento. Il pacchetto contiene già una release
+di Marionette (`marionette\` accanto a `Shinatama.exe`): al primo avvio, anche senza rete,
+Shinatama la verifica e la installa nella cartella dati, poi la sincronizzazione la aggiorna.
+Senza rete resta in uso l'ultima copia verificata.
 Prima di ogni sessione Shinatama verifica i file dell'adapter di quell'agente:
 se uno è stato modificato, quella sessione parte senza Marionette e il
 controllo successivo ripara la copia. Claude Code, OpenCode e Pi caricano una copia privata

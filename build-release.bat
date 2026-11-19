@@ -1,7 +1,7 @@
 @echo off
 rem Shinatama: build Shinatama (+ its Mukade program), assemble the verified package in .\release with
-rem the Mukade terminal browser and Xiox downloaded from their pinned GitHub releases, install into
-rem D:\Software\Shinatama, clean what the build staged.
+rem the Mukade terminal browser, Xiox and Marionette downloaded from their pinned GitHub releases,
+rem install into D:\Software\Shinatama, clean what the build staged.
 rem
 rem   build-release.bat                   build, .\release, install, clean
 rem   build-release.bat --no-install      stop at .\release
@@ -37,7 +37,7 @@ set "APP=Shinatama"
 rem The program that must be in .\release once it is assembled.
 set "APP_EXE=Shinatama.exe"
 rem Tools beyond cargo, node, npm and git: PowerShell 7.4+ for the package scripts, gh (GitHub
-rem CLI, signed in) for the Mukade and Xiox releases.
+rem CLI, signed in) for the Mukade, Xiox and Marionette releases.
 set "TOOLS=pwsh gh"
 rem Parallel Rust jobs when neither CARGO_BUILD_JOBS nor --jobs is given (empty: cargo decides).
 set "DEFAULT_JOBS="
@@ -269,10 +269,18 @@ rem The pinned release's xiox.exe (scripts\xiox-pin.json); no Xiox source is bui
 rem Shinatama's mukade\mukade.exe (XIOX_MUKADE_EXE), so no second Mukade goes beside it.
 pwsh -NoProfile -File "scripts\fetch-release.ps1" -Pin "scripts\xiox-pin.json" -Destination "%RELEASE%\xiox" || goto :sub_fail
 
+echo     marionette\ ^(the pinned Marionette release, there from the first start, offline too^)
+rem The zip of the marionette-v<version> release of acaprino/muro that scripts\marionette-pin.json names,
+rem checked against its SHA-256 and size, with that pin beside it. At start, before the sync, the app
+rem installs it into the data folder when that holds no intact copy at least as new (ADR-0052 v2).
+pwsh -NoProfile -File "scripts\fetch-release.ps1" -Pin "scripts\marionette-pin.json" -Destination "%RELEASE%\marionette" || goto :sub_fail
+copy /y "scripts\marionette-pin.json" "%RELEASE%\marionette\marionette-pin.json" >nul || (echo [ERROR] could not copy the Marionette pin. & goto :sub_fail)
+
 echo     %RELEASE%\Shinatama.exe
 echo     %RELEASE%\cli\shinatama.exe ^(sessions, find, export, forget, check-state, mcp^)
 echo     %RELEASE%\mukade\mukade.exe and mukade-tui.exe
 echo     %RELEASE%\xiox\xiox.exe
+echo     %RELEASE%\marionette\ ^(marionette-pin.json and the zip it names^)
 exit /b 0
 
 :clean_project
