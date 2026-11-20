@@ -84,11 +84,11 @@ enum AdmissionMode {
 impl AdmissionMode {
     /// Memory, process count and CPU are a share of the ledger, not a Windows quota.
     fn advisory(self) -> bool {
-        matches!(self, Self::Interactive | Self::Proxy)
+        matches!(self, Self::Interactive | Self::Proxy | Self::ProxyMaintenance)
     }
     /// Admitted after `request_shutdown`: only the cleanup the close itself runs.
     fn allowed_while_closing(self) -> bool {
-        todo!("RED: allowed_while_closing")
+        matches!(self, Self::ProxyMaintenance)
     }
 }
 fn stamp() -> PolicyStamp {
@@ -346,6 +346,7 @@ impl Runtime {
         lock: File,
         location: StorageLocation,
         archive: crate::sidecar::ArchiveRecord,
+        activity: crate::sidecar::SessionActivity,
     ) -> Result<SidecarProvider, String> {
         let database = self.admission.services.load()?.store.clone();
         Ok(SidecarProvider {
@@ -353,6 +354,7 @@ impl Runtime {
             admission: self.admission.clone(),
             exits: crate::sidecar::ExitLog::default(),
             archive,
+            activity,
             _lock: lock,
             _location: location,
         })
@@ -533,6 +535,10 @@ impl Admission {
         if self.closing.load(Ordering::Acquire) {
             bail!("This application is closing; new starts are disabled.");
         }
+        self.headroom(interactive)
+    }
+    /// [`Self::current_headroom`] without the closing gate.
+    fn headroom(&self, interactive: bool) -> Result<(u64, u64)> {
         if !crate::memory_settings::current().enabled {
             // Memory safety is off in Settings: no start waits for, or is refused on,
             // memory measurements. The workload count in the ledger still applies.
@@ -615,7 +621,12 @@ impl Admission {
         {
             bail!("Native workload profile exceeds the shared safety policy.");
         }
-        let (physical, commit) = self.current_headroom(mode != AdmissionMode::Background)?;
+        let interactive = mode != AdmissionMode::Background;
+        let (physical, commit) = if mode.allowed_while_closing() {
+            self.headroom(interactive)?
+        } else {
+            self.current_headroom(interactive)?
+        };
         let state = self.services.load().map_err(|e| anyhow!(e))?;
         let database = &state.store;
         let ledger = match database.resource_reservations()? {
@@ -799,17 +810,17 @@ pub struct SidecarProvider {
     admission: Arc<Admission>,
     exits: crate::sidecar::ExitLog,
     archive: crate::sidecar::ArchiveRecord,
+    activity: crate::sidecar::SessionActivity,
     _lock: File,
     _location: StorageLocation,
 }
-impl shinatama_engine::sidecar_supervisor::WorkloadProvider for SidecarProvider {
-    fn database(&self) -> &Database {
-        &self.database
-    }
-    fn prepare(
-        &mut self,
+impl SidecarProvider {
+    /// The proxy's budget, for the proxy or for one of its maintenance commands.
+    fn admit(
+        &self,
         now: i64,
         lease_until: i64,
+        mode: AdmissionMode,
     ) -> Result<PreparedWorkload, shinatama_engine::sidecar_supervisor::AdmissionUnavailable> {
         let lease = lease_until
             .checked_sub(now)
@@ -825,9 +836,32 @@ impl shinatama_engine::sidecar_supervisor::WorkloadProvider for SidecarProvider 
                 },
                 768 * MIB,
                 lease,
-                AdmissionMode::Proxy,
+                mode,
             )
             .map_err(|_| shinatama_engine::sidecar_supervisor::AdmissionUnavailable)
+    }
+}
+impl shinatama_engine::sidecar_supervisor::WorkloadProvider for SidecarProvider {
+    fn database(&self) -> &Database {
+        &self.database
+    }
+    fn prepare(
+        &mut self,
+        now: i64,
+        lease_until: i64,
+    ) -> Result<PreparedWorkload, shinatama_engine::sidecar_supervisor::AdmissionUnavailable> {
+        self.admit(now, lease_until, AdmissionMode::Proxy)
+    }
+    fn prepare_maintenance(
+        &mut self,
+        now: i64,
+        lease_until: i64,
+    ) -> Result<PreparedWorkload, shinatama_engine::sidecar_supervisor::AdmissionUnavailable> {
+        self.admit(now, lease_until, AdmissionMode::ProxyMaintenance)
+    }
+    fn sessions_active(&self) -> Option<Arc<dyn Fn() -> bool + Send + Sync>> {
+        let activity = self.activity.clone();
+        Some(Arc::new(move || activity.active()))
     }
     fn exited(&mut self, exit: &shinatama_engine::sidecar_supervisor::ProxyExit) {
         if let Some(line) = self.exits.line(exit) {
@@ -839,7 +873,10 @@ impl shinatama_engine::sidecar_supervisor::WorkloadProvider for SidecarProvider 
         if report.removed + report.failed > 0 || report.stop != Stop::Done {
             crate::app_log::write("proxy-archive", &crate::sidecar::report_line(report));
         }
-        if let Ok(mut archive) = self.archive.lock() {
+        // A run that read no archive (none yet, or unreadable) leaves the panel's record alone.
+        if report.file_bytes_after.is_some()
+            && let Ok(mut archive) = self.archive.lock()
+        {
             *archive = Some(crate::sidecar::archive_status(report));
         }
     }

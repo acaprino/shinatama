@@ -46,6 +46,21 @@ pub trait WorkloadProvider: Send + 'static {
     fn exited(&mut self, _exit: &ProxyExit) {}
     /// A run of the archive cleanup ended (docs/superpowers/specs/2026-11-20-proxy-archive-cleanup-design.md).
     fn maintained(&mut self, _report: &crate::sidecar_archive::Report) {}
+    /// Admission for one of the proxy's maintenance commands: the proxy's own unless the owner
+    /// says otherwise (the close cleanup must be admitted while the application closes).
+    fn prepare_maintenance(
+        &mut self,
+        now_ms: i64,
+        lease_until_ms: i64,
+    ) -> Result<PreparedWorkload, AdmissionUnavailable> {
+        self.prepare(now_ms, lease_until_ms)
+    }
+    /// True while an agent session is open or opening: an idle proxy is stopped for a cleanup
+    /// only when it is false, and a run that stopped one ends when it turns true. None: the
+    /// owner cannot tell, and nothing is checked.
+    fn sessions_active(&self) -> Option<Arc<dyn Fn() -> bool + Send + Sync>> {
+        None
+    }
 }
 #[derive(Debug)]
 pub struct AdmissionUnavailable;
@@ -284,7 +299,7 @@ pub(crate) fn run_cancelled(
     halted: bool,
     sessions_active: bool,
 ) -> bool {
-    todo!("RED: run_cancelled with sessions")
+    start_wanted || stop || shutdown || halted || sessions_active
 }
 /// Whether the proxy starts after a run: one that ran before it and is to be restarted, or one
 /// a Start asked for meanwhile. A proxy the user stopped stays stopped, and nothing starts while
@@ -295,7 +310,7 @@ pub(crate) fn start_after_run(
     start_wanted: bool,
     stopping: bool,
 ) -> bool {
-    todo!("RED: start_after_run while stopping")
+    !stopping && ((restart && was_running) || start_wanted)
 }
 /// A run is one long turn of the owner: it says it is alive, or the panel and the opens take
 /// the owner for stalled (no report for 15 s) and refuse what would end the run.
@@ -612,11 +627,16 @@ impl<P: WorkloadProvider> Worker<P> {
                     }
                     if self.retained.is_none() && !self.maintained_at_start {
                         self.maintained_at_start = true;
-                        let _ = self.maintain(Some(self.config.maintenance_at_start));
+                        let _ = self.maintain(Some(self.config.maintenance_at_start), None);
                     }
                     if self.retained.is_none() {
-                        self.requested_start = false;
-                        self.launch();
+                        // A Stop or the shutdown that ended that run is taken at the next turn.
+                        if !self.stop_requested.load(Ordering::Acquire)
+                            && !self.shutdown.load(Ordering::Acquire)
+                        {
+                            self.requested_start = false;
+                            self.launch();
+                        }
                     } else {
                         self.recover(Reason::CleanupUncertain);
                     }
@@ -638,8 +658,16 @@ impl<P: WorkloadProvider> Worker<P> {
             return;
         }
         let was_running = self.running.is_some();
+        let activity = if was_running {
+            self.provider.sessions_active()
+        } else {
+            None
+        };
         if was_running {
-            if self.snapshot.in_flight != Some(0) {
+            // An agent opening has no request in flight yet: it is asked for separately.
+            if self.snapshot.in_flight != Some(0)
+                || activity.as_ref().is_some_and(|active| active())
+            {
                 return;
             }
             // Read-only while the proxy runs: it is stopped only for something to remove.
@@ -658,8 +686,10 @@ impl<P: WorkloadProvider> Worker<P> {
                 return;
             }
         }
-        let wanted = self.maintain(budget);
-        if self.retained.is_none() && start_after_run(restart, was_running, wanted, false) {
+        let wanted = self.maintain(budget, activity);
+        let stopping =
+            self.stop_requested.load(Ordering::Acquire) || self.shutdown.load(Ordering::Acquire);
+        if self.retained.is_none() && start_after_run(restart, was_running, wanted, stopping) {
             self.recovery = RecoveryBackoff::default();
             self.requested_start = true;
         }
@@ -667,7 +697,11 @@ impl<P: WorkloadProvider> Worker<P> {
     /// One run of the archive cleanup (`sidecar_archive`) while this owner runs no proxy
     /// process: two processes writing the archive corrupt it. A zero budget skips it. True when
     /// a Start was asked for meanwhile (the run consumed that request).
-    fn maintain(&mut self, budget: Option<Duration>) -> bool {
+    fn maintain(
+        &mut self,
+        budget: Option<Duration>,
+        activity: Option<Arc<dyn Fn() -> bool + Send + Sync>>,
+    ) -> bool {
         if self.running.is_some() || self.retained.is_some() || budget == Some(Duration::ZERO) {
             return false;
         }
@@ -690,7 +724,7 @@ impl<P: WorkloadProvider> Worker<P> {
                     stop.load(Ordering::Acquire),
                     shutdown.load(Ordering::Acquire),
                     halted.get(),
-                    false,
+                    activity.as_ref().is_some_and(|active| active()),
                 )
             };
             let snapshot = &mut self.snapshot;
@@ -1148,7 +1182,9 @@ fn run_maintenance_command<P: WorkloadProvider>(
     beat();
     let lease = |at: i64| at.saturating_add(config.reservation_lease.as_millis() as i64);
     let at = now().ok_or(())?;
-    let workload = provider.prepare(at, lease(at)).map_err(|_| ())?;
+    let workload = provider
+        .prepare_maintenance(at, lease(at))
+        .map_err(|_| ())?;
     let at = now().unwrap_or(-1);
     let mut spawned = match spawn_contained(command, workload, provider.database(), at, lease(at)) {
         Ok(spawned) => spawned,

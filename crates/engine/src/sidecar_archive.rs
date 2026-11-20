@@ -14,6 +14,10 @@ use std::time::{Duration, Instant};
 
 /// The most of a command's standard output a run reads.
 pub const STDOUT_LIMIT: usize = 64 * 1024;
+/// What a run without a budget runs first: a load of every session makes the proxy import the
+/// ones it keeps only as JSON files (older ones, `storageMode: legacy`; `persist.ts` `loadAll`),
+/// which have no row in `sessions` until then.
+const IMPORT: [&str; 3] = ["sessions", "ls", "--json"];
 /// The compaction after removals; an age of 100 years archives nothing by age.
 const COMPACT: [&str; 7] = [
     "storage", "gc", "--days", "36500", "--vacuum", "full", "--json",
@@ -219,18 +223,28 @@ fn run_on(
         elapsed: Duration::ZERO,
         stop: Stop::Done,
     };
-    let selected = match (index, natives) {
-        (Some(index), Ok(natives)) => archive_sessions(index)
-            .ok()
-            .map(|sessions| (index, removable(&sessions, &natives))),
-        _ => None,
-    };
-    let Some((index, ids)) = selected else {
+    let (Some(index), Ok(natives)) = (index, natives) else {
         report.stop = Stop::Unreadable;
         report.elapsed = began.elapsed();
         return report;
     };
-    report.file_bytes_before = std::fs::metadata(index).ok().map(|meta| meta.len());
+    // No archive yet (the proxy has not written one): nothing to remove, which is not a failure.
+    if !index.is_file() {
+        report.elapsed = began.elapsed();
+        return report;
+    }
+    // Only a run without a budget pays for a load of every session; its reply is not read, the
+    // rows it adds are.
+    if deadline.is_none() && !cancelled() {
+        let _ = execute(&IMPORT);
+    }
+    let Ok(sessions) = archive_sessions(index) else {
+        report.stop = Stop::Unreadable;
+        report.elapsed = began.elapsed();
+        return report;
+    };
+    let ids = removable(&sessions, &natives);
+    report.file_bytes_before = archive_bytes(index);
     for (tried, id) in ids.iter().enumerate() {
         let stop = if cancelled() {
             Some(Stop::Cancelled)
@@ -255,13 +269,33 @@ fn run_on(
             None => report.failed += 1,
         }
     }
-    // Only a run that tried everything compacts: the rewrite is outside any budget.
-    if report.removed > 0 && report.stop == Stop::Done && !cancelled() {
+    // Only a run without a budget that tried everything compacts: the rewrite is bounded by no
+    // budget, and an open waits for it.
+    if report.removed > 0 && report.stop == Stop::Done && deadline.is_none() && !cancelled() {
         report.compacted = execute(&COMPACT).is_ok_and(|output| output.code == Some(0));
     }
-    report.file_bytes_after = std::fs::metadata(index).ok().map(|meta| meta.len());
+    report.file_bytes_after = archive_bytes(index);
     report.elapsed = began.elapsed();
     report
+}
+
+/// The archive's whole size: `index.db` and everything beside it in its folder (the JSON files of
+/// the sessions, their companions, the journal).
+fn archive_bytes(index: &Path) -> Option<u64> {
+    fn walk(directory: &Path) -> std::io::Result<u64> {
+        let mut total = 0;
+        for entry in std::fs::read_dir(directory)? {
+            let entry = entry?;
+            let kind = entry.file_type()?;
+            if kind.is_dir() {
+                total += walk(&entry.path())?;
+            } else if kind.is_file() {
+                total += entry.metadata()?.len();
+            }
+        }
+        Ok(total)
+    }
+    walk(index.parent()?).ok()
 }
 
 /// The bytes a `sessions rm <id> --json` released, or None when it removed nothing: a removal

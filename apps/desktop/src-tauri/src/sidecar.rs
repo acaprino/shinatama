@@ -369,10 +369,10 @@ impl SessionActivity {
         let _ = self.live.set(live);
     }
     pub(crate) fn busy(&self) -> Option<usize> {
-        todo!("RED: SessionActivity::busy")
+        busy_sessions(self.live.get().and_then(|live| live()), self.opening.count())
     }
     pub(crate) fn active(&self) -> bool {
-        todo!("RED: SessionActivity::active")
+        self.busy() != Some(0)
     }
 }
 /// Whether the idle cleanup is asked for (again): an owner that skipped a run (requests in
@@ -382,7 +382,8 @@ pub(crate) fn send_due(
     now: std::time::Instant,
     due_now: bool,
 ) -> bool {
-    todo!("RED: send_due")
+    due_now
+        || last_sent.is_none_or(|sent| now.saturating_duration_since(sent) >= IDLE_BEFORE_CLEANUP)
 }
 /// The agent sessions the idle rule counts: the live ones and the opens in progress.
 pub(crate) fn busy_sessions(live_agent_sessions: Option<usize>, opening: usize) -> Option<usize> {
@@ -439,15 +440,17 @@ pub(crate) fn archive_status(report: &shinatama_engine::sidecar_archive::Report)
 /// idle period; an agent session that opens starts a new one.
 pub(crate) fn watch_idle(
     controller: &Arc<Controller>,
-    live_agent_sessions: impl Fn() -> Option<usize> + Send + 'static,
+    live_agent_sessions: impl Fn() -> Option<usize> + Send + Sync + 'static,
 ) {
     let owner = Arc::clone(controller);
+    // The owner asks the same count before it stops the proxy, and between the run's commands.
+    owner.activity.set_live(Box::new(live_agent_sessions));
     let _ = std::thread::Builder::new()
         .name("proxy-archive-idle".into())
         .spawn(move || {
             loop {
                 std::thread::sleep(Duration::from_secs(30));
-                let live = busy_sessions(live_agent_sessions(), owner.opening.count());
+                let live = owner.activity.busy();
                 let now = std::time::Instant::now();
                 let due = {
                     let Ok(mut idle) = owner.idle.lock() else {
@@ -458,7 +461,8 @@ pub(crate) fn watch_idle(
                         false
                     } else {
                         let since = *idle.since.get_or_insert(now);
-                        !idle.sent && idle_run_due(live, Some(since), now, idle.due_now)
+                        idle_run_due(live, Some(since), now, idle.due_now)
+                            && send_due(idle.last_sent, now, idle.due_now)
                     }
                 };
                 if !due {
@@ -471,7 +475,7 @@ pub(crate) fn watch_idle(
                 if owner.maintain(None, true).is_ok()
                     && let Ok(mut idle) = owner.idle.lock()
                 {
-                    idle.sent = true;
+                    idle.last_sent = Some(now);
                     idle.due_now = false;
                 }
             }
@@ -482,7 +486,8 @@ pub(crate) fn watch_idle(
 struct IdleState {
     since: Option<std::time::Instant>,
     due_now: bool,
-    sent: bool,
+    /// When the owner was last asked; it may have skipped the run (requests in flight, a drain).
+    last_sent: Option<std::time::Instant>,
 }
 pub(crate) fn launch_allowed(phase: &str, healthy: bool) -> bool {
     matches!(phase, "ready" | "busy") && healthy
@@ -575,7 +580,7 @@ pub struct Controller {
     /// The last run of the archive cleanup.
     archive: ArchiveRecord,
     idle: Mutex<IdleState>,
-    opening: Opening,
+    activity: SessionActivity,
 }
 impl Controller {
     pub fn new(services: Arc<Services>, runtime: Arc<Runtime>) -> Self {
@@ -594,12 +599,12 @@ impl Controller {
             disk: OnceLock::new(),
             archive: ArchiveRecord::default(),
             idle: Mutex::new(IdleState::default()),
-            opening: Opening::default(),
+            activity: SessionActivity::default(),
         }
     }
     /// Held by an open from its start to its end: the idle cleanup counts it as a live session.
     pub(crate) fn opening(&self) -> OpeningGuard {
-        self.opening.enter()
+        self.activity.opening.enter()
     }
     /// Asks the owner to clean the proxy's archive (`Command::Maintain`).
     pub fn maintain(&self, budget: Option<Duration>, restart: bool) -> Result<(), &'static str> {
@@ -613,7 +618,6 @@ impl Controller {
     pub fn maintain_soon(&self) {
         if let Ok(mut idle) = self.idle.lock() {
             idle.due_now = true;
-            idle.sent = false;
         }
     }
     /// The close worker's run, once the proxy has stopped: returns when the owner has run it
@@ -1123,7 +1127,12 @@ impl Controller {
         let identity = recipe.summary();
         let provider = self
             .runtime
-            .sidecar_provider(lock, state.location.clone(), self.archive.clone())
+            .sidecar_provider(
+                lock,
+                state.location.clone(),
+                self.archive.clone(),
+                self.activity.clone(),
+            )
             .map_err(|_| "Proxy resource admission is unavailable.")?;
         self.runtime.wait_for_interactive_admission().map_err(|_| "Resources are not yet ready for the local service. Wait and retry Start; no process was created.")?;
         // A competing bind is handled by exact child/health identity checks and
