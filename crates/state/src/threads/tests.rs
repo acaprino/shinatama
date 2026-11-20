@@ -827,6 +827,8 @@ fn forget_removes_a_thread_with_its_companion_hops_index_and_summaries_only() {
     db.end_thread_activation(&owner, 1, 40).unwrap();
     let shown = db.thread_record(work).unwrap().unwrap();
     let archived = db.update_thread_metadata(work, shown.revision, None, true, 37).unwrap();
+    let natives = db.segment_native_ids().unwrap();
+    assert!(natives.contains("native-w") && natives.contains("native-u"), "an archived thread still has its sessions");
     assert!(matches!(forget_thread(&location, &db, work, Some(shown.revision), 38), Err(ForgetError::Changed)), "a stale window cannot forget");
 
     let journal = HopJournal::open(&location).unwrap();
@@ -868,6 +870,8 @@ fn forget_removes_a_thread_with_its_companion_hops_index_and_summaries_only() {
     journal.transition(&planned.plan.id, HopState::Planned, planned.revision, HopState::Aborted, None, 43).unwrap();
 
     let report = forget_thread(&location, &db, work, Some(archived.revision), 50).unwrap();
+    let natives = db.segment_native_ids().unwrap();
+    assert!(!natives.contains("native-w") && natives.contains("native-u"), "a forgotten thread has no session left");
     assert_eq!(report.thread_ids, [work, companion]);
     assert_eq!((report.hops, report.handoff_files, report.index_rows), (1, 2, 1));
     assert!(db.thread_record(work).unwrap().is_none() && db.thread_record(companion).unwrap().is_none());

@@ -873,6 +873,11 @@ impl Database {
         tx.commit()?;
         Ok(record.clone())
     }
+    /// The native id of every segment of every thread that exists, archived ones included: the
+    /// sessions the model proxy's archive keeps (docs/superpowers/specs/2026-11-20-proxy-archive-cleanup-design.md).
+    pub fn segment_native_ids(&self) -> Result<std::collections::HashSet<String>> {
+        todo!("RED: segment_native_ids")
+    }
     pub fn segment_record(&self, key: &str) -> Result<Option<SegmentRecord>> {
         id(key, CanonicalIdKind::Segment)?;
         let connection = self.lock()?;

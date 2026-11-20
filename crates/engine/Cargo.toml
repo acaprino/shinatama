@@ -24,6 +24,7 @@ getrandom.workspace = true
 sha2.workspace = true
 subtle.workspace = true
 uuid.workspace = true
+rusqlite.workspace = true
 mukade = { workspace = true, optional = true }
 anyhow = { workspace = true, optional = true }
 

@@ -61,6 +61,8 @@ pub mod sidecar_config;
 pub mod sidecar_admin;
 pub mod sidecar_runtime;
 #[cfg(windows)]
+pub mod sidecar_archive;
+#[cfg(windows)]
 pub mod sidecar_supervisor;
 
 #[derive(Default)]
