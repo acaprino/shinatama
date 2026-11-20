@@ -159,6 +159,18 @@ budgeted slices.
 - The Model proxy panel: the archive's size and the last cleanup, and the first-run offer above.
 - A removal that fails leaves that session and is logged with the proxy's error; the run goes on.
 
+## Sessions kept only as legacy files (found 2026-11-20, on the owner's archive)
+
+The proxy also keeps sessions as JSON files (`sessions/anthropic/`, `sessions/responses/`; older
+ones with `storageMode: legacy`), and a session that exists only as such a file has no row in
+`sessions` until a proxy load imports it (`persist.ts` `boot()`/`loadAll()`, `buildForLoadAll`).
+The rule reads only the table, so such a session is not seen by a run before the proxy's first
+start; after it, it is. `sessions rm` removes both the row and the file (`findSessionFiles`), and a
+later load does not bring it back: proven on a copy (one legacy session: imported by a load,
+`filesRemoved: 1`, absent after another load). On the owner's archive, 57 such sessions (52 Claude
+subagents, 5 of no thread, files of 2026-11-18) came back after the hand-run cleanup's final
+`sessions ls`; the next run after a proxy start removes them.
+
 ## Builder check (2026-11-20), answered
 
 - *Is every `|sub:` a finished subagent?* No: see "What is removed"; only Claude subagents are.
