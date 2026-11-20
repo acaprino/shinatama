@@ -1,5 +1,10 @@
 # Design system
 
+> **The design system now lives in the Imago package** at `D:/Projects/imago` (repository
+> `acaprino/imago`). The files in this folder stay until Shinatama migrates to it. New work reads
+> Imago's documents: `docs/design-file.md` (the design file), `docs/desktop-shell.md` and
+> `docs/using-imago.md`.
+
 Shinatama's interface as a reusable design system, for Shinatama and for the other apps of the
 package (Muro, Mukade, Xiox, Ethel).
 
