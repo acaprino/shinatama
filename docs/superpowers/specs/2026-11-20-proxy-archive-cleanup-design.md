@@ -139,7 +139,7 @@ with the mechanism in the engine beside `sidecar_runtime.rs`:
 | Moment | Budget | Notes |
 |---|---|---|
 | App start, before the proxy is launched | 10 s | Then the proxy starts whatever is left. |
-| App close, after the proxy has exited | 10 s | The window is already gone; the process ends at the budget. A Shinatama started meanwhile retries the proxy owner lock for up to 15 s before it reports that another window owns the proxy. |
+| App close, after the proxy has stopped | 10 s | Inside the existing close worker (`terminal_shutdown`), which already stops the proxy while the window is still shown; the same process holds the owner lock until it exits, so a Shinatama started meanwhile cannot start the proxy on the archive. |
 | Idle: no agent session open for 10 minutes and something to remove | until a session is asked for | The proxy is stopped for the run and started again right after it, so the next open does not pay a start. |
 | Forget of a thread, or close and forget of a session | none of its own | It changes what the rule selects. When no agent session is open, the idle run starts at once instead of after 10 minutes. |
 
@@ -169,7 +169,9 @@ budgeted slices.
   loses only its proxy compression state at a cleanup (the proxy replays the history raw, the
   conversation in Pi's own store is untouched).
 - *After an idle run, does the proxy stay stopped?* No, it is started again (table above).
-- *A Shinatama reopened during a close run?* It waits for the owner lock (table above).
+- *A Shinatama reopened during a close run?* The close run happens in the closing process, before
+  it exits and while it still holds the owner lock (table above); the new one reports that another
+  window owns the proxy, as it does today during any close.
 - *First run?* By hand (section above).
 - *The age sweep:* `storage gc --days 36500` (proven on the copy) archives nothing by age.
 - *The owner lock* belongs to the supervisor's provider for the process lifetime
