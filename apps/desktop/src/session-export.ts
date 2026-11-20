@@ -26,7 +26,7 @@ const ISSUES: Record<string, string> = {
   format_unavailable: 'This format is not available for this agent.', output_limit: 'The export exceeded its fixed size limit.',
   invalid_request: 'This export request is invalid.', source_changed: 'The session changed. Reload its detail and export again.',
   root_changed: 'The archive revision changed. Reload its catalog.', root_unavailable: 'The archive is unavailable. No other archive was used.',
-  input_too_large: 'This archive holds more than 4,096 files.', session_not_found: 'The exact session is no longer listed.',
+  input_too_large: 'This archive holds more than 65,536 files.', session_not_found: 'The exact session is no longer listed.',
   unsupported_harness: 'This agent has no qualified session reader.', unsupported_export_context: 'This agent needs a separately qualified exporter.',
   cleanup_unconfirmed: 'Reader cleanup remains unconfirmed; its resources stay reserved.', read_unavailable: 'Export is unavailable. Retry explicitly.',
 };

@@ -96,6 +96,9 @@ fn read_error(error: SessionReadIssue) -> Error {
         SessionReadIssue::UnsafeRoot | SessionReadIssue::UnsupportedRootShape => {
             return because("The agent's home folder did not pass its safety checks.");
         }
+        SessionReadIssue::MetadataTooLarge => {
+            return because("The agent's home holds more saved files than the reader accepts.");
+        }
         _ => return because("The saved conversation could not be read."),
     })
 }
@@ -111,7 +114,10 @@ fn detail_error(error: DetailIssue) -> Error {
         DetailIssue::UnsafeNamespace => {
             return because("The folder of the saved conversation did not pass its safety checks.");
         }
-        DetailIssue::InputTooLarge | DetailIssue::OutputLimit => {
+        DetailIssue::InputTooLarge => {
+            return because("The agent's home holds more saved files than the reader accepts.");
+        }
+        DetailIssue::OutputLimit => {
             return because("The saved conversation is larger than the reader's limits.");
         }
         DetailIssue::ReadUnavailable => {
