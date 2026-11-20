@@ -15,8 +15,9 @@ export function sessionTabName(siblings: readonly { id: string; name: string }[]
 
 /** The session first, then its thread: a tab is cut at its end, and nine tabs that all began with
  *  the thread's name read as one tab nine times. The thread is also the tab's colour. */
-export function sessionTabLabel(tab: { name: string; where: string | null; state: 'running' | 'saved' | 'exited'; mark?: string }): string {
-  const state = tab.state === 'saved' ? ' · not running' : tab.state === 'exited' ? ' · exited' : tab.mark ?? '';
+export function sessionTabLabel(tab: { name: string; where: string | null; state: 'running' | 'saved' | 'opening' | 'waiting' | 'exited'; mark?: string }): string {
+  const state = tab.state === 'saved' ? ' · not running' : tab.state === 'opening' ? ' · opening' : tab.state === 'waiting' ? ' · waiting to open'
+    : tab.state === 'exited' ? ' · exited' : tab.mark ?? '';
   return `${tab.name}${tab.where ? ` · ${tab.where}` : ''}${state}`;
 }
 
@@ -34,8 +35,8 @@ export function restoredRunning(layout: Pick<WorkspaceLayout, 'root' | 'views'>,
     .sort((a, b) => rank(a.id) - rank(b.id))
     .map(panel => ({ panelId: panel.id, threadId: (panel.resource as { threadId: string }).threadId }));
 }
-/** The layout with this tab no longer saying its session runs: it reopened, its reopen was refused,
- *  or its terminal ended by itself. The same layout when there is nothing to change. */
+/** The layout with this tab no longer saying its session runs: it reopened, its reopen was given up
+ *  or cancelled, or its terminal ended by itself. The same layout when there is nothing to change. */
 export function withoutInstance<T extends Pick<WorkspaceLayout, 'views'>>(layout: T, panelId: string): T {
   const panel = layout.views.find(view => view.id === panelId);
   if (panel?.resource.kind !== 'terminal' || panel.resource.instanceId === null) return layout;
@@ -43,36 +44,16 @@ export function withoutInstance<T extends Pick<WorkspaceLayout, 'views'>>(layout
   return { ...layout, views: layout.views.map(view => view === panel ? { ...view, resource } : view) };
 }
 
-export type ReopenStep = 'resume' | 'recover' | null;
-/** What a restored tab does by itself. Only a session that was running when Shinatama last closed
- *  (`wanted`: restoredRunning) is reopened: one the user stopped stays "not running" until asked.
- *  A session still marked open by the Shinatama that is gone is checked first (`recover`). */
-export function reopenStep(
-  session: Pick<ThreadSummary, 'id' | 'status' | 'nativeAvailable' | 'harness'>,
-  wanted: ReadonlySet<string>, canResume: (harness: string | null) => boolean,
-): ReopenStep {
-  if (!wanted.has(session.id)) return null;
+/** What opening a saved session does first, read from its record: `recover` one still marked open by a
+ *  Shinatama that is gone (then it is read again), `resume` one whose agent can, or `nothing`, with the
+ *  code of why (the codes of a refused resume, resume-failure.ts). */
+export type OpenStep = 'recover' | 'resume' | { nothing: 'closed' | 'unbound' | 'native_unreachable' | 'unsupported_harness' };
+export function openStep(session: Pick<ThreadSummary, 'status' | 'nativeAvailable' | 'harness'>, canResume: (harness: string | null) => boolean): OpenStep {
+  if (session.status === 'archived') return { nothing: 'closed' };
   if (session.status === 'recorded_open') return 'recover';
-  return session.status === 'inactive' && session.nativeAvailable === true && canResume(session.harness) ? 'resume' : null;
-}
-
-export const attemptKey = (sessionId: string, step: Exclude<ReopenStep, null>) => `${sessionId}:${step}`;
-/** The restored tab to reopen next: the first, in the order of the panes and tabs, whose session has
- *  a step not tried yet in this run. `stepOf` is undefined while the session's row is not read: that
- *  tab is passed over, not given up. Each (session, step) is tried once, so a refusal never loops. */
-export function nextToReopen(tabs: readonly RestoredTab[], stepOf: (tab: RestoredTab) => ReopenStep | undefined, attempted: ReadonlySet<string>):
-  { tab: RestoredTab; step: Exclude<ReopenStep, null> } | null {
-  for (const tab of tabs) {
-    const step = stepOf(tab);
-    if (step && !attempted.has(attemptKey(tab.threadId, step))) return { tab, step };
-  }
-  return null;
-}
-/** What the card of a restored tab says: its session is `reopening` now, is `queued` behind the one
- *  that is (it then offers "Don't reopen"), or the card `offer`s its button as before. */
-export function reopenCard(step: ReopenStep, sessionId: string, state: { attempted: ReadonlySet<string>; current: string | null; active: boolean }): 'reopening' | 'queued' | 'offer' {
-  if (state.current === sessionId) return 'reopening';
-  return state.active && step && !state.attempted.has(attemptKey(sessionId, step)) ? 'queued' : 'offer';
+  if (session.status === 'unbound') return { nothing: 'unbound' };
+  if (session.nativeAvailable !== true) return { nothing: 'native_unreachable' };
+  return canResume(session.harness) ? 'resume' : { nothing: 'unsupported_harness' };
 }
 
 export type SessionState = 'running' | 'saved' | 'unreachable' | 'open' | 'unbound' | 'closed';
