@@ -153,9 +153,9 @@ export function buttons(status: ProxyStatus | null, outstanding: boolean): { sta
   const { phase } = status;
   return {
     // While draining, Start is "Cancel stop".
-    start: ['stopped', 'failed', 'draining'].includes(phase),
-    // A cleanup run ends on Start (an open asks for one); a Stop would wait for the whole run.
-    stop: !['stopped', 'unavailable', 'draining', 'maintaining'].includes(phase),
+    // While it cleans its archive, Start or Stop ends the run after the command in progress.
+    start: ['stopped', 'failed', 'draining', 'maintaining'].includes(phase),
+    stop: !['stopped', 'unavailable', 'draining'].includes(phase),
     retry: ['failed', 'retired'].includes(phase),
   };
 }

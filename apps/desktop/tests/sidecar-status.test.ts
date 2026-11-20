@@ -301,11 +301,11 @@ test('the panel names the archive size and the last cleanup', () => {
   assert.equal(archive({ fileBytes: -1 }), null, 'a malformed archive is not half-trusted');
   assert.equal(archive({ lastRemoved: 'many' }), null);
 });
-test('cleaning its archive is a phase the panel knows, with no Start or Stop', () => {
+test('cleaning its archive is a phase the panel knows, and Start or Stop ends it', () => {
   const cleaning = parseStatus({ ...status(), phase: 'maintaining', healthy: false });
   assert.ok(cleaning, 'the phase is accepted');
   assert.equal(phaseLabel('maintaining'), 'Cleaning its archive…');
-  assert.deepEqual(buttons(cleaning, false), { start: false, stop: false, retry: false });
+  assert.deepEqual(buttons(cleaning, false), { start: true, stop: true, retry: false }, 'either ends the run after the command in progress');
   assert.equal(indicatorTone('maintaining'), 'amber');
   assert.equal(showsTraffic('maintaining'), false);
 });
