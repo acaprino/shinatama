@@ -70,17 +70,66 @@ pub struct Report {
 /// Any other `|sub:` session stays with its root: the proxy also forks a live conversation onto
 /// `<id>|sub:<16 hex of its instructions>` (`persona-anchor.ts`), which is not a finished subagent.
 pub fn removable(sessions: &[ArchiveSession], natives: &HashSet<String>) -> Vec<String> {
-    todo!("RED: removable")
+    sessions
+        .iter()
+        .filter(|session| {
+            claude_subagent(session)
+                || !natives.contains(session.id.split('|').next().unwrap_or_default())
+        })
+        .map(|session| session.id.clone())
+        .collect()
+}
+
+/// `<id>|sub:a<16 lowercase hex>` on the Anthropic protocol: the agent id Claude Code gives a
+/// subagent, which the proxy keys its state by.
+fn claude_subagent(session: &ArchiveSession) -> bool {
+    session.protocol == "anthropic"
+        && session.id.rsplit_once("|sub:").is_some_and(|(_, agent)| {
+            agent.len() == 17
+                && agent.starts_with('a')
+                && agent[1..]
+                    .bytes()
+                    .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+        })
 }
 
 /// The archive of the proxy that `recipe` starts: its `BILI_SESSIONS_DIR` and `index.db`.
 pub fn index_path(recipe: &SidecarRuntimeRecipe) -> Option<PathBuf> {
-    todo!("RED: index_path")
+    recipe
+        .child_environment()
+        .find(|(name, _)| *name == std::ffi::OsStr::new("BILI_SESSIONS_DIR"))
+        .map(|(_, directory)| Path::new(directory).join("index.db"))
 }
 
 /// The archive's sessions, read read-only.
 pub fn archive_sessions(index: &Path) -> Result<Vec<ArchiveSession>, ArchiveError> {
-    todo!("RED: archive_sessions")
+    use rusqlite::{Connection, OpenFlags};
+    // Opening a path that is not there would not create it read-only, but would fail later
+    // with a less clear error: an archive that does not exist yet has nothing to remove.
+    if !index.is_file() {
+        return Err(ArchiveError::Unreadable);
+    }
+    let connection = Connection::open_with_flags(
+        index,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(|_| ArchiveError::Unreadable)?;
+    connection
+        .busy_timeout(Duration::from_secs(2))
+        .map_err(|_| ArchiveError::Unreadable)?;
+    let mut statement = connection
+        .prepare("SELECT session_id, protocol FROM sessions")
+        .map_err(|_| ArchiveError::Unreadable)?;
+    let rows = statement
+        .query_map([], |row| {
+            Ok(ArchiveSession {
+                id: row.get(0)?,
+                protocol: row.get::<_, Option<String>>(1)?.unwrap_or_default(),
+            })
+        })
+        .map_err(|_| ArchiveError::Unreadable)?;
+    rows.collect::<Result<_, _>>()
+        .map_err(|_| ArchiveError::Unreadable)
 }
 
 /// `node <entry> <arguments>` with the proxy's own environment, without its start-up check (the
@@ -89,7 +138,25 @@ pub fn maintenance_command(
     recipe: &SidecarRuntimeRecipe,
     arguments: &[&str],
 ) -> Result<NativeCommand, ArchiveError> {
-    todo!("RED: maintenance_command")
+    let entry = recipe
+        .arguments()
+        .first()
+        .ok_or(ArchiveError::InvalidCommand)?;
+    let argv = std::iter::once(entry.clone())
+        .chain(arguments.iter().map(OsString::from))
+        .collect();
+    let mut environment: BTreeMap<OsString, OsString> = recipe
+        .child_environment()
+        .map(|(name, value)| (name.to_owned(), value.to_owned()))
+        .collect();
+    environment.insert("BILI_STORAGE_QUICK_CHECK".into(), "0".into());
+    NativeCommand::new(
+        recipe.executable().to_owned(),
+        argv,
+        recipe.working_directory().to_owned(),
+        environment,
+    )
+    .map_err(|_| ArchiveError::InvalidCommand)
 }
 
 /// Removes what [`removable`] selects, one `sessions rm` each, then compacts the file once when
@@ -119,7 +186,78 @@ fn run_on(
     cancelled: &dyn Fn() -> bool,
     execute: &mut dyn FnMut(&[&str]) -> Result<CommandOutput, ()>,
 ) -> Report {
-    todo!("RED: run_on")
+    let began = Instant::now();
+    let mut report = Report {
+        removed: 0,
+        failed: 0,
+        left: 0,
+        released_bytes: 0,
+        compacted: false,
+        file_bytes_before: None,
+        file_bytes_after: None,
+        elapsed: Duration::ZERO,
+        stop: Stop::Done,
+    };
+    let selected = match (index, natives) {
+        (Some(index), Ok(natives)) => archive_sessions(index)
+            .ok()
+            .map(|sessions| (index, removable(&sessions, &natives))),
+        _ => None,
+    };
+    let Some((index, ids)) = selected else {
+        report.stop = Stop::Unreadable;
+        report.elapsed = began.elapsed();
+        return report;
+    };
+    report.file_bytes_before = std::fs::metadata(index).ok().map(|meta| meta.len());
+    for (tried, id) in ids.iter().enumerate() {
+        let stop = if cancelled() {
+            Some(Stop::Cancelled)
+        } else if deadline.is_some_and(|deadline| Instant::now() >= deadline) {
+            Some(Stop::Budget)
+        } else {
+            None
+        };
+        if let Some(stop) = stop {
+            report.stop = stop;
+            report.left = ids.len() - tried;
+            break;
+        }
+        match execute(&["sessions", "rm", id, "--no-vacuum", "--json"])
+            .ok()
+            .and_then(|output| released(&output, id))
+        {
+            Some(bytes) => {
+                report.removed += 1;
+                report.released_bytes += bytes;
+            }
+            None => report.failed += 1,
+        }
+    }
+    if report.removed > 0 && report.stop != Stop::Cancelled && !cancelled() {
+        report.compacted = execute(&COMPACT).is_ok_and(|output| output.code == Some(0));
+    }
+    report.file_bytes_after = std::fs::metadata(index).ok().map(|meta| meta.len());
+    report.elapsed = began.elapsed();
+    report
+}
+
+/// The bytes a `sessions rm <id> --json` released, or None when it removed nothing: a removal
+/// exits 0 and echoes the id; a session already gone says `"found": false` (nothing left to
+/// remove); a usage error prints `{}` with exit 1 (`storage-maintenance.ts`, `fail`).
+fn released(output: &CommandOutput, id: &str) -> Option<u64> {
+    let reply: serde_json::Value = serde_json::from_slice(&output.stdout).ok()?;
+    if reply.get("found") == Some(&serde_json::Value::Bool(false)) {
+        return Some(0);
+    }
+    (output.code == Some(0) && reply.get("id").and_then(|value| value.as_str()) == Some(id)).then(
+        || {
+            reply
+                .get("dbBytesReleased")
+                .and_then(|value| value.as_u64())
+                .unwrap_or(0)
+        },
+    )
 }
 
 #[cfg(test)]

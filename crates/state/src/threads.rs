@@ -876,7 +876,12 @@ impl Database {
     /// The native id of every segment of every thread that exists, archived ones included: the
     /// sessions the model proxy's archive keeps (docs/superpowers/specs/2026-11-20-proxy-archive-cleanup-design.md).
     pub fn segment_native_ids(&self) -> Result<std::collections::HashSet<String>> {
-        todo!("RED: segment_native_ids")
+        let connection = self.lock()?;
+        let mut statement = connection.prepare("SELECT native_id FROM segment")?;
+        let ids = statement
+            .query_map([], |row| row.get::<_, String>(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        Ok(ids)
     }
     pub fn segment_record(&self, key: &str) -> Result<Option<SegmentRecord>> {
         id(key, CanonicalIdKind::Segment)?;
