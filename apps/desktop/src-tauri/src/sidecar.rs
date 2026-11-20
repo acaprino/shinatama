@@ -345,10 +345,11 @@ pub(crate) struct Opening(Arc<std::sync::atomic::AtomicUsize>);
 pub(crate) struct OpeningGuard(Arc<std::sync::atomic::AtomicUsize>);
 impl Opening {
     pub(crate) fn enter(&self) -> OpeningGuard {
-        todo!("RED: Opening::enter")
+        self.0.fetch_add(1, Ordering::AcqRel);
+        OpeningGuard(Arc::clone(&self.0))
     }
     pub(crate) fn count(&self) -> usize {
-        todo!("RED: Opening::count")
+        self.0.load(Ordering::Acquire)
     }
 }
 impl Drop for OpeningGuard {
@@ -358,7 +359,7 @@ impl Drop for OpeningGuard {
 }
 /// The agent sessions the idle rule counts: the live ones and the opens in progress.
 pub(crate) fn busy_sessions(live_agent_sessions: Option<usize>, opening: usize) -> Option<usize> {
-    todo!("RED: busy_sessions")
+    live_agent_sessions.map(|live| live + opening)
 }
 /// The line `shinatama.log` gets for a run of the archive cleanup.
 pub(crate) fn report_line(report: &shinatama_engine::sidecar_archive::Report) -> String {
@@ -419,7 +420,7 @@ pub(crate) fn watch_idle(
         .spawn(move || {
             loop {
                 std::thread::sleep(Duration::from_secs(30));
-                let live = live_agent_sessions();
+                let live = busy_sessions(live_agent_sessions(), owner.opening.count());
                 let now = std::time::Instant::now();
                 let due = {
                     let Ok(mut idle) = owner.idle.lock() else {
@@ -547,6 +548,7 @@ pub struct Controller {
     /// The last run of the archive cleanup.
     archive: ArchiveRecord,
     idle: Mutex<IdleState>,
+    opening: Opening,
 }
 impl Controller {
     pub fn new(services: Arc<Services>, runtime: Arc<Runtime>) -> Self {
@@ -565,7 +567,12 @@ impl Controller {
             disk: OnceLock::new(),
             archive: ArchiveRecord::default(),
             idle: Mutex::new(IdleState::default()),
+            opening: Opening::default(),
         }
+    }
+    /// Held by an open from its start to its end: the idle cleanup counts it as a live session.
+    pub(crate) fn opening(&self) -> OpeningGuard {
+        self.opening.enter()
     }
     /// Asks the owner to clean the proxy's archive (`Command::Maintain`).
     pub fn maintain(&self, budget: Option<Duration>, restart: bool) -> Result<(), &'static str> {

@@ -271,23 +271,26 @@ impl StartWanted {
     }
     /// Whether it was set, clearing it: a run consumes the request it ended for.
     pub(crate) fn take(&self) -> bool {
-        todo!("RED: StartWanted::take")
+        self.0.swap(false, Ordering::AcqRel)
     }
 }
 /// What ends a cleanup run after the command in progress: a Start or Retry, a Stop, the owner's
 /// shutdown, or a cleanup that could not be confirmed.
 pub(crate) fn run_cancelled(start_wanted: bool, stop: bool, shutdown: bool, halted: bool) -> bool {
-    todo!("RED: run_cancelled")
+    start_wanted || stop || shutdown || halted
 }
 /// Whether the proxy starts after a run: one that ran before it and is to be restarted, or one
 /// a Start asked for meanwhile. A proxy the user stopped stays stopped.
 pub(crate) fn start_after_run(restart: bool, was_running: bool, start_wanted: bool) -> bool {
-    todo!("RED: start_after_run")
+    (restart && was_running) || start_wanted
 }
 /// A run is one long turn of the owner: it says it is alive, or the panel and the opens take
 /// the owner for stalled (no report for 15 s) and refuse what would end the run.
 fn heartbeat(snapshot: &mut Snapshot, status: &Mutex<Snapshot>) {
-    todo!("RED: heartbeat")
+    snapshot.observed_at_unix_ms = now();
+    if let Ok(mut shown) = status.try_lock() {
+        *shown = snapshot.clone();
+    }
 }
 impl SupervisorConfig {
     fn valid(&self, recipe: &SidecarRuntimeRecipe) -> bool {
@@ -596,7 +599,7 @@ impl<P: WorkloadProvider> Worker<P> {
                     }
                     if self.retained.is_none() && !self.maintained_at_start {
                         self.maintained_at_start = true;
-                        self.maintain(Some(self.config.maintenance_at_start));
+                        let _ = self.maintain(Some(self.config.maintenance_at_start));
                     }
                     if self.retained.is_none() {
                         self.requested_start = false;
@@ -621,8 +624,20 @@ impl<P: WorkloadProvider> Worker<P> {
         if self.retained.is_some() || self.drain.active() {
             return;
         }
-        if self.running.is_some() {
+        let was_running = self.running.is_some();
+        if was_running {
             if self.snapshot.in_flight != Some(0) {
+                return;
+            }
+            // Read-only while the proxy runs: it is stopped only for something to remove.
+            let natives = self
+                .provider
+                .database()
+                .segment_native_ids()
+                .map_err(|_| ());
+            if !crate::sidecar_archive::pending(&self.recipe, natives)
+                .is_some_and(|count| count > 0)
+            {
                 return;
             }
             self.stop(true);
@@ -630,17 +645,18 @@ impl<P: WorkloadProvider> Worker<P> {
                 return;
             }
         }
-        self.maintain(budget);
-        if self.retained.is_none() && (restart || self.start_wanted.is_set()) {
+        let wanted = self.maintain(budget);
+        if self.retained.is_none() && start_after_run(restart, was_running, wanted) {
             self.recovery = RecoveryBackoff::default();
             self.requested_start = true;
         }
     }
     /// One run of the archive cleanup (`sidecar_archive`) while this owner runs no proxy
-    /// process: two processes writing the archive corrupt it. A zero budget skips it.
-    fn maintain(&mut self, budget: Option<Duration>) {
+    /// process: two processes writing the archive corrupt it. A zero budget skips it. True when
+    /// a Start was asked for meanwhile (the run consumed that request).
+    fn maintain(&mut self, budget: Option<Duration>) -> bool {
         if self.running.is_some() || self.retained.is_some() || budget == Some(Duration::ZERO) {
-            return;
+            return false;
         }
         self.publish(Phase::Maintaining, Reason::None);
         let deadline = budget.map(|budget| Instant::now() + budget);
@@ -653,11 +669,24 @@ impl<P: WorkloadProvider> Worker<P> {
         let mut retained = None;
         let report = {
             let wanted = &self.start_wanted;
-            let cancelled = || wanted.is_set() || halted.get();
+            let stop = &self.stop_requested;
+            let shutdown = &self.shutdown;
+            let cancelled = || {
+                run_cancelled(
+                    wanted.is_set(),
+                    stop.load(Ordering::Acquire),
+                    shutdown.load(Ordering::Acquire),
+                    halted.get(),
+                )
+            };
+            let snapshot = &mut self.snapshot;
+            let status = &self.status;
+            let mut beat = || heartbeat(snapshot, status);
             let provider = &mut self.provider;
             let config = &self.config;
             let mut execute = |command: NativeCommand| {
-                let output = run_maintenance_command(provider, config, command, &mut retained);
+                let output =
+                    run_maintenance_command(provider, config, command, &mut retained, &mut beat);
                 if retained.is_some() {
                     halted.set(true);
                 }
@@ -673,6 +702,7 @@ impl<P: WorkloadProvider> Worker<P> {
         } else {
             self.publish(Phase::Stopped, Reason::None);
         }
+        self.start_wanted.take()
     }
     fn drain_requested(&mut self) {
         let began = Instant::now();
@@ -1099,7 +1129,9 @@ fn run_maintenance_command<P: WorkloadProvider>(
     config: &SupervisorConfig,
     command: NativeCommand,
     retained: &mut Option<Retained>,
+    beat: &mut dyn FnMut(),
 ) -> Result<crate::sidecar_archive::CommandOutput, ()> {
+    beat();
     let lease = |at: i64| at.saturating_add(config.reservation_lease.as_millis() as i64);
     let at = now().ok_or(())?;
     let workload = provider.prepare(at, lease(at)).map_err(|_| ())?;
@@ -1119,10 +1151,15 @@ fn run_maintenance_command<P: WorkloadProvider>(
         }
     };
     let began = Instant::now();
+    let mut last_beat = began;
     let mut stdout = Vec::new();
     let mut stderr = 0;
     let mut tail = OutputTail::default();
     let code = loop {
+        if last_beat.elapsed() >= Duration::from_millis(500) {
+            beat();
+            last_beat = Instant::now();
+        }
         let exit = spawned.process.try_wait();
         let read = spawned
             .process

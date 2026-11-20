@@ -191,7 +191,12 @@ pub fn pending(
 }
 
 fn pending_on(index: Option<&Path>, natives: Result<HashSet<String>, ()>) -> Option<usize> {
-    todo!("RED: pending_on")
+    let (Some(index), Ok(natives)) = (index, natives) else {
+        return None;
+    };
+    archive_sessions(index)
+        .ok()
+        .map(|sessions| removable(&sessions, &natives).len())
 }
 
 #[allow(clippy::type_complexity)]
@@ -250,7 +255,8 @@ fn run_on(
             None => report.failed += 1,
         }
     }
-    if report.removed > 0 && report.stop != Stop::Cancelled && !cancelled() {
+    // Only a run that tried everything compacts: the rewrite is outside any budget.
+    if report.removed > 0 && report.stop == Stop::Done && !cancelled() {
         report.compacted = execute(&COMPACT).is_ok_and(|output| output.code == Some(0));
     }
     report.file_bytes_after = std::fs::metadata(index).ok().map(|meta| meta.len());

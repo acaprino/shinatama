@@ -683,6 +683,8 @@ impl<D: HarnessDriver> Service<D> {
         workset: Option<&str>,
         model: Option<Option<&shinatama_engine::model_config::Selection>>,
     ) -> Result<AgentStarted, ServiceError> {
+        // Until it ends, by any path, the idle cleanup of the proxy's archive waits for it.
+        let _opening = self.context.sidecar.opening();
         shinatama_terminal::validate_size(rows, cols)
             .map_err(|_| DriverError::Failed("The terminal size is invalid."))?;
         let descriptor = self.driver.descriptor();
