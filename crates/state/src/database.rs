@@ -19,6 +19,9 @@ const IMPORT_MARKER: &str = "migration.projects_json.v1";
 const APPEARANCE_KEY: &str = "ui.appearance.v1";
 /// The key of the list of template ids; each template is the setting `<key>.<id>`.
 const TEMPLATES_INDEX: &str = "team.templates.v1";
+/// The readable templates by id, and the ids of those the index lists that are not readable as
+/// templates.
+type Templates = (Vec<(String, serde_json::Value)>, Vec<String>);
 /// How many team templates are kept.
 pub const MAX_TEMPLATES: usize = 64;
 
@@ -673,7 +676,7 @@ impl Database {
     /// The readable templates by id, and the ids of those the index lists whose setting exists but
     /// is not a template carrying its own id (a format this build does not know): an edit leaves
     /// those alone.
-    fn read_templates(connection: &rusqlite::Connection) -> Result<(Vec<(String, serde_json::Value)>, Vec<String>)> {
+    fn read_templates(connection: &rusqlite::Connection) -> Result<Templates> {
         let read = |key: &str| -> Result<Option<String>> {
             Ok(connection
                 .query_row("SELECT value FROM setting WHERE key=?1 AND octet_length(value)<=65536", [key], |row| row.get(0))
