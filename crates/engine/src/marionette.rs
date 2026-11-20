@@ -138,9 +138,10 @@ pub fn marionette_set() -> SetManifest {
 pub fn is_marionette_set(set: &SetManifest) -> bool {
     set.id() == SET_ID
         && set.entries().len() == 1
-        && set.entries().iter().all(|e| {
-            e.kind() == SetKind::Plugin && e.id() == PLUGIN && e.revision() == 1
-        })
+        && set
+            .entries()
+            .iter()
+            .all(|e| e.kind() == SetKind::Plugin && e.id() == PLUGIN && e.revision() == 1)
 }
 
 /// `SHINATAMA_MARIONETTE=off` in the app's environment.
@@ -192,8 +193,7 @@ impl Marionette {
     pub fn current(store: &Path) -> Result<Self, MarionetteError> {
         let store = ordinary_directory(store)?;
         let bytes = read_bounded(&store.join(CURRENT_FILE), MAX_METADATA_BYTES)?;
-        let current: Current =
-            serde_json::from_slice(&bytes).map_err(|_| MarionetteError::Lock)?;
+        let current: Current = serde_json::from_slice(&bytes).map_err(|_| MarionetteError::Lock)?;
         if current.format_version != 1 || !valid_tag(&current.tag) {
             return Err(MarionetteError::Lock);
         }
@@ -220,7 +220,12 @@ impl Marionette {
             }
             files.push((file.path, file.bytes, file.sha256));
         }
-        Ok(Self { release, tag: lock.tag, version: lock.version, files })
+        Ok(Self {
+            release,
+            tag: lock.tag,
+            version: lock.version,
+            files,
+        })
     }
     pub fn tag(&self) -> &str {
         &self.tag
@@ -309,7 +314,10 @@ impl Adapter {
     /// returned adapter points at the copy.
     pub fn private_copy(&self, destination: &Path) -> Result<Adapter, MarionetteError> {
         self.mirror(destination)?;
-        Ok(Adapter { dir: destination.to_path_buf(), ..self.clone() })
+        Ok(Adapter {
+            dir: destination.to_path_buf(),
+            ..self.clone()
+        })
     }
     /// Codex reads an installed plugin from
     /// `<CODEX_HOME>/plugins/cache/<marketplace>/<plugin>/<version>`. Mirror the
@@ -351,7 +359,10 @@ impl Adapter {
         if target.is_dir() {
             let mut present = BTreeSet::new();
             if collect(target, "", 0, &mut present).is_ok() {
-                for stale in present.iter().filter(|path| !wanted.contains(path.as_str())) {
+                for stale in present
+                    .iter()
+                    .filter(|path| !wanted.contains(path.as_str()))
+                {
                     if let Ok(path) = join_relative(target, stale) {
                         let _ = fs::remove_file(path);
                     }
@@ -468,7 +479,11 @@ struct BundleRelease {
 /// through a download's own checks: size and SHA-256 against the pin, the tree,
 /// the lock and every adapter verified before `current.json` switches. A
 /// refused zip switches nothing.
-pub fn seed(store: &Path, bundle: &Path, fetch: &dyn Fetch) -> Result<SeedOutcome, MarionetteError> {
+pub fn seed(
+    store: &Path,
+    bundle: &Path,
+    fetch: &dyn Fetch,
+) -> Result<SeedOutcome, MarionetteError> {
     let pin = read_bounded(&bundle.join(BUNDLE_PIN), MAX_METADATA_BYTES)?;
     let pin: BundlePin = serde_json::from_slice(&pin).map_err(|_| MarionetteError::Release)?;
     let release = &pin.release;
@@ -501,9 +516,20 @@ pub fn seed(store: &Path, bundle: &Path, fetch: &dyn Fetch) -> Result<SeedOutcom
     {
         return Ok(SeedOutcome::Kept(current.tag.clone()));
     }
-    let url = format!("https://github.com/{REPOSITORY}/releases/download/{}/{name}", release.tag);
-    let asset = ChosenAsset { name, size, url: &url, sha256: sha256.clone() };
-    let shipped = Bundled { zip: bundle.join(name), fetch };
+    let url = format!(
+        "https://github.com/{REPOSITORY}/releases/download/{}/{name}",
+        release.tag
+    );
+    let asset = ChosenAsset {
+        name,
+        size,
+        url: &url,
+        sha256: sha256.clone(),
+    };
+    let shipped = Bundled {
+        zip: bundle.join(name),
+        fetch,
+    };
     make_current(&store, &release.tag, asset, &shipped, previous.as_ref())?;
     Ok(SeedOutcome::Installed(release.tag.clone()))
 }
@@ -525,7 +551,9 @@ impl Fetch for Bundled<'_> {
         if meta.len() > limit {
             return Err(MarionetteError::Mismatch);
         }
-        fs::copy(&self.zip, destination).map(drop).map_err(|_| MarionetteError::Missing)
+        fs::copy(&self.zip, destination)
+            .map(drop)
+            .map_err(|_| MarionetteError::Missing)
     }
     fn extract(&self, archive: &Path, destination: &Path) -> Result<(), MarionetteError> {
         self.fetch.extract(archive, destination)
@@ -558,7 +586,9 @@ fn make_current(
     previous: Option<&Marionette>,
 ) -> Result<(), MarionetteError> {
     let target = store.join(RELEASES).join(tag);
-    let reusable = Marionette::open(&target, tag).and_then(|copy| copy.verify_all()).is_ok();
+    let reusable = Marionette::open(&target, tag)
+        .and_then(|copy| copy.verify_all())
+        .is_ok();
     if !reusable {
         install(store, &target, tag, asset, fetch)?;
     }
@@ -584,7 +614,8 @@ fn tag_version(tag: &str) -> Option<Vec<u64>> {
         .strip_prefix(TAG_PREFIX)?
         .split('.')
         .map(|part| {
-            let digits = !part.is_empty() && part.len() <= 9 && part.bytes().all(|b| b.is_ascii_digit());
+            let digits =
+                !part.is_empty() && part.len() <= 9 && part.bytes().all(|b| b.is_ascii_digit());
             digits.then(|| part.parse::<u64>().ok()).flatten()
         })
         .collect::<Option<Vec<_>>>()?;
@@ -606,7 +637,10 @@ fn choose_asset(release: &ReleaseMetadata) -> Result<ChosenAsset<'_>, Marionette
     if chosen.next().is_some() {
         return Err(MarionetteError::Release);
     }
-    let prefix = format!("https://github.com/{REPOSITORY}/releases/download/{}/", release.tag_name);
+    let prefix = format!(
+        "https://github.com/{REPOSITORY}/releases/download/{}/",
+        release.tag_name
+    );
     let sha256 = asset
         .digest
         .as_deref()
@@ -663,10 +697,17 @@ fn install(
             if bytes > MAX_FILE_BYTES || total > MAX_TREE_BYTES {
                 return Err(MarionetteError::Limit);
             }
-            files.push(LockedFile { path, bytes, sha256 });
+            files.push(LockedFile {
+                path,
+                bytes,
+                sha256,
+            });
         }
         for host in Host::ALL {
-            if !files.iter().any(|file| file.path.starts_with(&host.prefix())) {
+            if !files
+                .iter()
+                .any(|file| file.path.starts_with(&host.prefix()))
+            {
                 return Err(MarionetteError::Archive);
             }
         }
@@ -699,7 +740,9 @@ fn install(
 
 /// The Codex adapter's manifest version names the Codex cache folder.
 fn adapter_version(staging: &Path) -> Result<String, MarionetteError> {
-    let path = staging.join(TREE).join("adapters/codex/.codex-plugin/plugin.json");
+    let path = staging
+        .join(TREE)
+        .join("adapters/codex/.codex-plugin/plugin.json");
     let bytes = read_bounded(&path, MAX_METADATA_BYTES).map_err(|_| MarionetteError::Archive)?;
     let manifest: serde_json::Value =
         serde_json::from_slice(&bytes).map_err(|_| MarionetteError::Archive)?;
@@ -732,7 +775,10 @@ fn write_marketplace(staging: &Path) -> Result<(), MarionetteError> {
     fs::write(path, text).map_err(|_| MarionetteError::Missing)
 }
 fn write_current(store: &Path, tag: &str) -> Result<(), MarionetteError> {
-    let current = Current { format_version: 1, tag: tag.into() };
+    let current = Current {
+        format_version: 1,
+        tag: tag.into(),
+    };
     let text = serde_json::to_vec_pretty(&current).map_err(|_| MarionetteError::Lock)?;
     let temporary = store.join("current.json.part");
     fs::write(&temporary, text).map_err(|_| MarionetteError::Missing)?;
@@ -742,7 +788,9 @@ fn write_current(store: &Path, tag: &str) -> Result<(), MarionetteError> {
 /// Keeps the new copy and the one before it (a running session may still read
 /// it); older copies are removed.
 fn prune(store: &Path, current: &str, previous: Option<&str>) {
-    let Ok(entries) = fs::read_dir(store.join(RELEASES)) else { return };
+    let Ok(entries) = fs::read_dir(store.join(RELEASES)) else {
+        return;
+    };
     for entry in entries.flatten() {
         let name = entry.file_name();
         let name = name.to_string_lossy();
@@ -759,7 +807,11 @@ impl SystemFetch {
     fn tool(name: &str) -> Result<PathBuf, MarionetteError> {
         let root = std::env::var_os("SystemRoot").ok_or(MarionetteError::Network)?;
         let path = PathBuf::from(root).join("System32").join(name);
-        if path.is_file() { Ok(path) } else { Err(MarionetteError::Network) }
+        if path.is_file() {
+            Ok(path)
+        } else {
+            Err(MarionetteError::Network)
+        }
     }
     fn run(program: &Path, args: &[&std::ffi::OsStr]) -> Result<Vec<u8>, ()> {
         let mut command = std::process::Command::new(program);
@@ -774,7 +826,11 @@ impl SystemFetch {
             command.creation_flags(CREATE_NO_WINDOW);
         }
         let output = command.output().map_err(|_| ())?;
-        if output.status.success() { Ok(output.stdout) } else { Err(()) }
+        if output.status.success() {
+            Ok(output.stdout)
+        } else {
+            Err(())
+        }
     }
     fn curl_base(max_time: &str, limit: u64) -> Vec<std::ffi::OsString> {
         [
@@ -800,13 +856,18 @@ impl Fetch for SystemFetch {
     fn releases(&self, repository: &str) -> Result<Vec<u8>, MarionetteError> {
         let curl = Self::tool("curl.exe")?;
         let mut args = Self::curl_base("30", MAX_RELEASES_BYTES);
-        for header in ["Accept: application/vnd.github+json", "X-GitHub-Api-Version: 2022-11-28"] {
+        for header in [
+            "Accept: application/vnd.github+json",
+            "X-GitHub-Api-Version: 2022-11-28",
+        ] {
             args.push("--header".into());
             args.push(header.into());
         }
         args.push(
-            format!("https://api.github.com/repos/{repository}/releases?per_page={RELEASES_PER_PAGE}")
-                .into(),
+            format!(
+                "https://api.github.com/repos/{repository}/releases?per_page={RELEASES_PER_PAGE}"
+            )
+            .into(),
         );
         let refs: Vec<&std::ffi::OsStr> = args.iter().map(|a| a.as_os_str()).collect();
         Self::run(&curl, &refs).map_err(|_| MarionetteError::Network)
@@ -818,7 +879,9 @@ impl Fetch for SystemFetch {
         args.push(destination.as_os_str().to_owned());
         args.push(url.into());
         let refs: Vec<&std::ffi::OsStr> = args.iter().map(|a| a.as_os_str()).collect();
-        Self::run(&curl, &refs).map(drop).map_err(|_| MarionetteError::Network)
+        Self::run(&curl, &refs)
+            .map(drop)
+            .map_err(|_| MarionetteError::Network)
     }
     fn extract(&self, archive: &Path, destination: &Path) -> Result<(), MarionetteError> {
         // bsdtar refuses absolute and `..` member paths by default; links are
@@ -831,7 +894,9 @@ impl Fetch for SystemFetch {
             "-C".as_ref(),
             destination.as_os_str(),
         ];
-        Self::run(&tar, &args).map(drop).map_err(|_| MarionetteError::Archive)
+        Self::run(&tar, &args)
+            .map(drop)
+            .map_err(|_| MarionetteError::Archive)
     }
 }
 
@@ -852,14 +917,20 @@ fn valid_version(version: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'+'))
 }
 fn valid_digest(digest: &str) -> bool {
-    digest.len() == 64 && digest.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+    digest.len() == 64
+        && digest
+            .bytes()
+            .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 fn plain(path: &Path) -> String {
     let text = path.to_string_lossy();
     text.strip_prefix(r"\\?\").unwrap_or(&text).to_owned()
 }
 fn hex(bytes: &[u8]) -> String {
-    Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect()
+    Sha256::digest(bytes)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
 }
 fn digest_file(path: &Path) -> Result<(u64, String), MarionetteError> {
     let meta = fs::symlink_metadata(path).map_err(|_| MarionetteError::Missing)?;
@@ -871,7 +942,9 @@ fn digest_file(path: &Path) -> Result<(u64, String), MarionetteError> {
     let mut buffer = vec![0u8; 64 * 1024];
     let mut total = 0u64;
     loop {
-        let read = file.read(&mut buffer).map_err(|_| MarionetteError::Missing)?;
+        let read = file
+            .read(&mut buffer)
+            .map_err(|_| MarionetteError::Missing)?;
         if read == 0 {
             break;
         }
@@ -881,7 +954,14 @@ fn digest_file(path: &Path) -> Result<(u64, String), MarionetteError> {
         }
         hasher.update(&buffer[..read]);
     }
-    Ok((total, hasher.finalize().iter().map(|b| format!("{b:02x}")).collect()))
+    Ok((
+        total,
+        hasher
+            .finalize()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect(),
+    ))
 }
 fn ordinary_directory(path: &Path) -> Result<PathBuf, MarionetteError> {
     let meta = fs::symlink_metadata(path).map_err(|_| MarionetteError::Missing)?;
@@ -938,12 +1018,19 @@ fn collect(
     }
     for entry in fs::read_dir(dir).map_err(|_| MarionetteError::Missing)? {
         let entry = entry.map_err(|_| MarionetteError::Missing)?;
-        let name = entry.file_name().into_string().map_err(|_| MarionetteError::UnsafePath)?;
+        let name = entry
+            .file_name()
+            .into_string()
+            .map_err(|_| MarionetteError::UnsafePath)?;
         let meta = fs::symlink_metadata(entry.path()).map_err(|_| MarionetteError::Missing)?;
         if meta.file_type().is_symlink() {
             return Err(MarionetteError::UnsafePath);
         }
-        let relative = if prefix.is_empty() { name } else { format!("{prefix}/{name}") };
+        let relative = if prefix.is_empty() {
+            name
+        } else {
+            format!("{prefix}/{name}")
+        };
         if meta.is_dir() {
             collect(&entry.path(), &relative, depth + 1, out)?;
         } else if meta.is_file() {
@@ -964,10 +1051,8 @@ pub(crate) mod tests {
     use std::cell::Cell;
 
     pub(crate) fn scratch(tag: &str) -> PathBuf {
-        let path = std::env::temp_dir().join(format!(
-            "shinatama-marionette-{tag}-{}",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("shinatama-marionette-{tag}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&path);
         path
     }
@@ -975,12 +1060,24 @@ pub(crate) mod tests {
     pub(crate) fn fixture_tree(root: &Path, version: &str) {
         let adapters = root.join(TREE).join("adapters");
         let files: [(&str, String); 8] = [
-            ("claude-code/.claude-plugin/plugin.json", format!("{{\"name\":\"marionette\",\"version\":\"{version}\"}}")),
-            ("claude-code/skills/marionette/SKILL.md", "claude skill".into()),
-            ("codex/.codex-plugin/plugin.json", format!("{{\"name\":\"marionette\",\"version\":\"{version}\"}}")),
+            (
+                "claude-code/.claude-plugin/plugin.json",
+                format!("{{\"name\":\"marionette\",\"version\":\"{version}\"}}"),
+            ),
+            (
+                "claude-code/skills/marionette/SKILL.md",
+                "claude skill".into(),
+            ),
+            (
+                "codex/.codex-plugin/plugin.json",
+                format!("{{\"name\":\"marionette\",\"version\":\"{version}\"}}"),
+            ),
             ("codex/skills/marionette/SKILL.md", "codex skill".into()),
             ("opencode/index.js", "export default {};".into()),
-            ("opencode/skills/marionette/SKILL.md", "opencode skill".into()),
+            (
+                "opencode/skills/marionette/SKILL.md",
+                "opencode skill".into(),
+            ),
             ("pi/extensions/policy.js", "export default () => {};".into()),
             ("pi/skills/marionette/SKILL.md", "pi skill".into()),
         ];
@@ -1063,21 +1160,36 @@ pub(crate) mod tests {
     fn sync_installs_then_stays_up_to_date_then_follows_a_new_release() {
         let store = scratch("follow");
         let first = FakeFetch::new("marionette-v0.1.0", "0.1.0");
-        assert_eq!(sync(&store, &first).unwrap(), SyncOutcome::Updated("marionette-v0.1.0".into()));
-        assert_eq!(sync(&store, &first).unwrap(), SyncOutcome::UpToDate("marionette-v0.1.0".into()));
+        assert_eq!(
+            sync(&store, &first).unwrap(),
+            SyncOutcome::Updated("marionette-v0.1.0".into())
+        );
+        assert_eq!(
+            sync(&store, &first).unwrap(),
+            SyncOutcome::UpToDate("marionette-v0.1.0".into())
+        );
         assert_eq!(first.downloads.get(), 1);
         let current = Marionette::current(&store).unwrap();
-        assert_eq!((current.tag(), current.version()), ("marionette-v0.1.0", "0.1.0"));
+        assert_eq!(
+            (current.tag(), current.version()),
+            ("marionette-v0.1.0", "0.1.0")
+        );
         for host in Host::ALL {
             let adapter = current.verify(host).unwrap();
             assert!(adapter.dir().ends_with(host.adapter()));
             assert!(!adapter.dir_arg().starts_with(r"\\?\"));
         }
         let second = FakeFetch::new("marionette-v0.2.0", "0.2.0");
-        assert_eq!(sync(&store, &second).unwrap(), SyncOutcome::Updated("marionette-v0.2.0".into()));
+        assert_eq!(
+            sync(&store, &second).unwrap(),
+            SyncOutcome::Updated("marionette-v0.2.0".into())
+        );
         let third = FakeFetch::new("marionette-v0.3.0", "0.3.0");
         sync(&store, &third).unwrap();
-        assert_eq!(Marionette::current(&store).unwrap().tag(), "marionette-v0.3.0");
+        assert_eq!(
+            Marionette::current(&store).unwrap().tag(),
+            "marionette-v0.3.0"
+        );
         // The new copy and the one before it stay; older copies go.
         assert!(!store.join(RELEASES).join("marionette-v0.1.0").exists());
         assert!(store.join(RELEASES).join("marionette-v0.2.0").exists());
@@ -1089,8 +1201,14 @@ pub(crate) mod tests {
         sync(&store, &FakeFetch::new("marionette-v0.1.0", "0.1.0")).unwrap();
         let mut offline = FakeFetch::new("marionette-v0.2.0", "0.2.0");
         offline.offline = true;
-        assert_eq!(sync(&store, &offline).unwrap_err(), MarionetteError::Network);
-        assert_eq!(Marionette::current(&store).unwrap().tag(), "marionette-v0.1.0");
+        assert_eq!(
+            sync(&store, &offline).unwrap_err(),
+            MarionetteError::Network
+        );
+        assert_eq!(
+            Marionette::current(&store).unwrap().tag(),
+            "marionette-v0.1.0"
+        );
         let _ = fs::remove_dir_all(&store);
     }
     #[test]
@@ -1111,7 +1229,10 @@ pub(crate) mod tests {
             }
         }
         let corrupt = Corrupt(FakeFetch::new("marionette-v0.1.0", "0.1.0"));
-        assert_eq!(sync(&store, &corrupt).unwrap_err(), MarionetteError::Mismatch);
+        assert_eq!(
+            sync(&store, &corrupt).unwrap_err(),
+            MarionetteError::Mismatch
+        );
         assert!(Marionette::current(&store).is_err());
         assert!(!store.join("staging").exists());
         let _ = fs::remove_dir_all(&store);
@@ -1123,14 +1244,23 @@ pub(crate) mod tests {
         let current = Marionette::current(&store).unwrap();
         let pi = current.verify(Host::Pi).unwrap();
         fs::write(pi.dir().join("extensions/policy.js"), "changed").unwrap();
-        assert_eq!(current.verify(Host::Pi).unwrap_err(), MarionetteError::Mismatch);
+        assert_eq!(
+            current.verify(Host::Pi).unwrap_err(),
+            MarionetteError::Mismatch
+        );
         let opencode = current.verify(Host::OpenCode).unwrap();
         fs::write(opencode.dir().join("extra.js"), "x").unwrap();
-        assert_eq!(current.verify(Host::OpenCode).unwrap_err(), MarionetteError::Unexpected);
+        assert_eq!(
+            current.verify(Host::OpenCode).unwrap_err(),
+            MarionetteError::Unexpected
+        );
         // The other hosts are unaffected, and the next sync repairs the copy.
         current.verify(Host::Codex).unwrap();
         sync(&store, &FakeFetch::new("marionette-v0.1.0", "0.1.0")).unwrap();
-        Marionette::current(&store).unwrap().verify(Host::Pi).unwrap();
+        Marionette::current(&store)
+            .unwrap()
+            .verify(Host::Pi)
+            .unwrap();
         let _ = fs::remove_dir_all(&store);
     }
     #[test]
@@ -1140,8 +1270,15 @@ pub(crate) mod tests {
         let current = Marionette::current(&store).unwrap();
         let claude = current.verify(Host::ClaudeCode).unwrap();
         let release = store.join(RELEASES).join("marionette-v0.1.0");
-        for target in [store.clone(), release.clone(), release.join("marionette/copy")] {
-            assert_eq!(claude.private_copy(&target).unwrap_err(), MarionetteError::UnsafePath);
+        for target in [
+            store.clone(),
+            release.clone(),
+            release.join("marionette/copy"),
+        ] {
+            assert_eq!(
+                claude.private_copy(&target).unwrap_err(),
+                MarionetteError::UnsafePath
+            );
         }
         // Nothing was removed: the release is still current and intact.
         Marionette::current(&store).unwrap().verify_all().unwrap();
@@ -1170,14 +1307,28 @@ pub(crate) mod tests {
         assert_eq!(found.len(), codex.files().len());
         let overrides = codex.codex_overrides();
         assert_eq!(overrides.len(), 4);
-        assert!(overrides[1].starts_with("marketplaces.shinatama={source_type=\"local\",source=\""));
+        assert!(
+            overrides[1].starts_with("marketplaces.shinatama={source_type=\"local\",source=\"")
+        );
         assert!(!overrides[1].contains('\\'));
-        assert_eq!(overrides[3], "plugins={\"marionette@shinatama\"={enabled=true}}");
+        assert_eq!(
+            overrides[3],
+            "plugins={\"marionette@shinatama\"={enabled=true}}"
+        );
         let marketplace: serde_json::Value = serde_json::from_slice(
-            &fs::read(store.join(RELEASES).join("marionette-v0.1.0").join(MARKETPLACE_FILE)).unwrap(),
+            &fs::read(
+                store
+                    .join(RELEASES)
+                    .join("marionette-v0.1.0")
+                    .join(MARKETPLACE_FILE),
+            )
+            .unwrap(),
         )
         .unwrap();
-        assert_eq!(marketplace["plugins"][0]["source"]["path"], "./marionette/adapters/codex");
+        assert_eq!(
+            marketplace["plugins"][0]["source"]["path"],
+            "./marionette/adapters/codex"
+        );
         let _ = fs::remove_dir_all(&store);
     }
     /// Manual: `SHN_MARIONETTE_BUNDLE=<folder with marionette-pin.json and its zip> cargo test
@@ -1187,14 +1338,23 @@ pub(crate) mod tests {
     #[ignore]
     fn real_bundle_seeds_through_system_tar() {
         // SHN_MARIONETTE_BUNDLE: a folder laid out as build-release.bat makes release\marionette.
-        let bundle = PathBuf::from(std::env::var_os("SHN_MARIONETTE_BUNDLE").expect("SHN_MARIONETTE_BUNDLE"));
+        let bundle = PathBuf::from(
+            std::env::var_os("SHN_MARIONETTE_BUNDLE").expect("SHN_MARIONETTE_BUNDLE"),
+        );
         let store = scratch("real-bundle");
         let started = std::time::Instant::now();
         let outcome = seed(&store, &bundle, &SystemFetch).unwrap();
         let current = Marionette::current(&store).unwrap();
         current.verify_all().unwrap();
-        eprintln!("{outcome:?}: version {} installed and verified in {:?}", current.version(), started.elapsed());
-        assert_eq!(seed(&store, &bundle, &SystemFetch).unwrap(), SeedOutcome::Kept(current.tag().to_owned()));
+        eprintln!(
+            "{outcome:?}: version {} installed and verified in {:?}",
+            current.version(),
+            started.elapsed()
+        );
+        assert_eq!(
+            seed(&store, &bundle, &SystemFetch).unwrap(),
+            SeedOutcome::Kept(current.tag().to_owned())
+        );
     }
 
     /// Manual: `SHN_MARIONETTE_ZIP=<marionette.zip> cargo test -p shinatama-engine
@@ -1217,30 +1377,50 @@ pub(crate) mod tests {
                 .unwrap())
             }
             fn download(&self, _: &str, destination: &Path, _: u64) -> Result<(), MarionetteError> {
-                fs::copy(&self.0, destination).map(drop).map_err(|_| MarionetteError::Network)
+                fs::copy(&self.0, destination)
+                    .map(drop)
+                    .map_err(|_| MarionetteError::Network)
             }
             fn extract(&self, archive: &Path, destination: &Path) -> Result<(), MarionetteError> {
                 SystemFetch.extract(archive, destination)
             }
         }
-        let zip = PathBuf::from(std::env::var_os("SHN_MARIONETTE_ZIP").expect("SHN_MARIONETTE_ZIP"));
+        let zip =
+            PathBuf::from(std::env::var_os("SHN_MARIONETTE_ZIP").expect("SHN_MARIONETTE_ZIP"));
         let bytes = fs::read(&zip).unwrap();
         let store = scratch("real-zip");
         let started = std::time::Instant::now();
         sync(&store, &LocalZip(zip, bytes)).unwrap();
         let current = Marionette::current(&store).unwrap();
-        eprintln!("version {} installed and verified in {:?}", current.version(), started.elapsed());
+        eprintln!(
+            "version {} installed and verified in {:?}",
+            current.version(),
+            started.elapsed()
+        );
         // How far the release is from each bound, and what a launch pays.
         let release = store.join(RELEASES).join("marionette-v0.0.0");
         let lock = fs::metadata(release.join(LOCK_FILE)).unwrap().len();
-        let longest = current.files.iter().map(|(path, _, _)| path.len()).max().unwrap_or(0);
+        let longest = current
+            .files
+            .iter()
+            .map(|(path, _, _)| path.len())
+            .max()
+            .unwrap_or(0);
         let tree: u64 = current.files.iter().map(|(_, bytes, _)| bytes).sum();
-        eprintln!("lock.json {lock} of {MAX_LOCK_BYTES} bytes; {} of {MAX_FILES} files", current.files.len());
+        eprintln!(
+            "lock.json {lock} of {MAX_LOCK_BYTES} bytes; {} of {MAX_FILES} files",
+            current.files.len()
+        );
         eprintln!("tree {tree} of {MAX_TREE_BYTES} bytes; longest path {longest} characters");
         for host in Host::ALL {
             let started = std::time::Instant::now();
             let adapter = current.verify(host).unwrap();
-            eprintln!("{:?}: {} files verified in {:?}", host, adapter.files().len(), started.elapsed());
+            eprintln!(
+                "{:?}: {} files verified in {:?}",
+                host,
+                adapter.files().len(),
+                started.elapsed()
+            );
         }
         // What one Claude Code launch does, four times over: the first copy writes
         // every file, the later ones find them unchanged.
@@ -1268,13 +1448,20 @@ pub(crate) mod tests {
         let started = std::time::Instant::now();
         let outcome = sync(&store, &SystemFetch).unwrap();
         assert!(matches!(&outcome, SyncOutcome::Updated(tag) if tag.starts_with(TAG_PREFIX)));
-        assert!(matches!(sync(&store, &SystemFetch).unwrap(), SyncOutcome::UpToDate(_)));
+        assert!(matches!(
+            sync(&store, &SystemFetch).unwrap(),
+            SyncOutcome::UpToDate(_)
+        ));
         let current = Marionette::current(&store).unwrap();
         for host in Host::ALL {
             let adapter = current.verify(host).unwrap();
             eprintln!("{:?}: {} files", host, adapter.files().len());
         }
-        eprintln!("{outcome:?} version {} in {:?}", current.version(), started.elapsed());
+        eprintln!(
+            "{outcome:?} version {} in {:?}",
+            current.version(),
+            started.elapsed()
+        );
         let _ = fs::remove_dir_all(&store);
     }
     #[test]
@@ -1294,8 +1481,11 @@ pub(crate) mod tests {
         metadata["assets"][0]["browser_download_url"] = "https://example.com/marionette.zip".into();
         assert!(choose_asset(&release(&metadata)).is_err());
         // An asset of another release of the repository is refused too.
-        metadata["assets"][0]["browser_download_url"] =
-            good_url.as_str().unwrap().replace("marionette-v0.1.0", "muro-v9.9.9").into();
+        metadata["assets"][0]["browser_download_url"] = good_url
+            .as_str()
+            .unwrap()
+            .replace("marionette-v0.1.0", "muro-v9.9.9")
+            .into();
         assert!(choose_asset(&release(&metadata)).is_err());
         assert!(!valid_tag("../x") && !valid_tag(".hidden") && valid_tag("marionette-v0.1.0"));
     }
@@ -1343,16 +1533,18 @@ pub(crate) mod tests {
             "asset": { "name": "marionette-0.4.0.zip", "bytes": 1, "sha256": digest },
             "files": files,
         });
-        fs::write(release.join(LOCK_FILE), serde_json::to_vec_pretty(&lock).unwrap()).unwrap();
+        fs::write(
+            release.join(LOCK_FILE),
+            serde_json::to_vec_pretty(&lock).unwrap(),
+        )
+        .unwrap();
         let opened = Marionette::open(&release, "marionette-v0.4.0").unwrap();
         assert_eq!(opened.files.len(), 24_122);
         let _ = fs::remove_dir_all(&release);
     }
     #[test]
     fn only_the_highest_published_marionette_release_is_followed() {
-        let entry = |tag: &str, draft: bool, prerelease: bool| {
-            serde_json::json!({ "tag_name": tag, "draft": draft, "prerelease": prerelease })
-        };
+        let entry = |tag: &str, draft: bool, prerelease: bool| serde_json::json!({ "tag_name": tag, "draft": draft, "prerelease": prerelease });
         let pick = |list: serde_json::Value| {
             choose_release(serde_json::from_value(list).unwrap()).map(|release| release.tag_name)
         };
@@ -1390,7 +1582,11 @@ pub(crate) mod tests {
                 "bytes": { name.clone(): zip.len() },
             }
         });
-        fs::write(bundle.join(BUNDLE_PIN), serde_json::to_vec_pretty(&pin).unwrap()).unwrap();
+        fs::write(
+            bundle.join(BUNDLE_PIN),
+            serde_json::to_vec_pretty(&pin).unwrap(),
+        )
+        .unwrap();
         bundle
     }
     #[test]
@@ -1406,19 +1602,32 @@ pub(crate) mod tests {
             SeedOutcome::Installed("marionette-v0.1.0".into())
         );
         assert_eq!(offline.downloads.get(), 0);
-        assert_eq!(sync(&store, &offline).unwrap_err(), MarionetteError::Network);
+        assert_eq!(
+            sync(&store, &offline).unwrap_err(),
+            MarionetteError::Network
+        );
         let current = Marionette::current(&store).unwrap();
-        assert_eq!((current.tag(), current.version()), ("marionette-v0.1.0", "0.1.0"));
+        assert_eq!(
+            (current.tag(), current.version()),
+            ("marionette-v0.1.0", "0.1.0")
+        );
         current.verify_all().unwrap();
         let release = store.join(RELEASES).join("marionette-v0.1.0");
-        let lock: Lock = serde_json::from_slice(&fs::read(release.join(LOCK_FILE)).unwrap()).unwrap();
-        assert_eq!((lock.asset.name.as_str(), lock.asset.bytes), ("marionette-0.1.0.zip", zip.len() as u64));
+        let lock: Lock =
+            serde_json::from_slice(&fs::read(release.join(LOCK_FILE)).unwrap()).unwrap();
+        assert_eq!(
+            (lock.asset.name.as_str(), lock.asset.bytes),
+            ("marionette-0.1.0.zip", zip.len() as u64)
+        );
         assert_eq!(lock.asset.sha256, hex(&zip));
         // The package keeps its zip; the store keeps no copy of it and no staging.
         assert!(shipped.join("marionette-0.1.0.zip").is_file());
         assert!(!store.join("download.zip.part").exists() && !store.join("staging").exists());
         // The next start finds the intact copy and installs nothing.
-        assert_eq!(seed(&store, &shipped, &offline).unwrap(), SeedOutcome::Kept("marionette-v0.1.0".into()));
+        assert_eq!(
+            seed(&store, &shipped, &offline).unwrap(),
+            SeedOutcome::Kept("marionette-v0.1.0".into())
+        );
         let _ = fs::remove_dir_all(&root);
     }
     #[test]
@@ -1429,14 +1638,26 @@ pub(crate) mod tests {
         let zip = b"zip marionette-v0.1.0".to_vec();
         let older = bundle(&root.join("old"), "marionette-v0.1.0", &zip, &hex(&zip));
         let fetch = FakeFetch::new("marionette-v0.1.0", "0.1.0");
-        assert_eq!(seed(&store, &older, &fetch).unwrap(), SeedOutcome::Kept("marionette-v0.2.0".into()));
-        assert_eq!(Marionette::current(&store).unwrap().tag(), "marionette-v0.2.0");
+        assert_eq!(
+            seed(&store, &older, &fetch).unwrap(),
+            SeedOutcome::Kept("marionette-v0.2.0".into())
+        );
+        assert_eq!(
+            Marionette::current(&store).unwrap().tag(),
+            "marionette-v0.2.0"
+        );
         assert!(!store.join(RELEASES).join("marionette-v0.1.0").exists());
         // A damaged current copy, even a newer one, gives way to the intact shipped
         // one; the next online sync goes back to the latest release.
-        let pi = Marionette::current(&store).unwrap().verify(Host::Pi).unwrap();
+        let pi = Marionette::current(&store)
+            .unwrap()
+            .verify(Host::Pi)
+            .unwrap();
         fs::write(pi.dir().join("extensions/policy.js"), "changed").unwrap();
-        assert_eq!(seed(&store, &older, &fetch).unwrap(), SeedOutcome::Installed("marionette-v0.1.0".into()));
+        assert_eq!(
+            seed(&store, &older, &fetch).unwrap(),
+            SeedOutcome::Installed("marionette-v0.1.0".into())
+        );
         Marionette::current(&store).unwrap().verify_all().unwrap();
         assert_eq!(
             sync(&store, &FakeFetch::new("marionette-v0.2.0", "0.2.0")).unwrap(),
@@ -1446,7 +1667,12 @@ pub(crate) mod tests {
         let zip = b"zip marionette-v0.10.0".to_vec();
         let newer = bundle(&root.join("new"), "marionette-v0.10.0", &zip, &hex(&zip));
         assert_eq!(
-            seed(&store, &newer, &FakeFetch::new("marionette-v0.10.0", "0.10.0")).unwrap(),
+            seed(
+                &store,
+                &newer,
+                &FakeFetch::new("marionette-v0.10.0", "0.10.0")
+            )
+            .unwrap(),
             SeedOutcome::Installed("marionette-v0.10.0".into())
         );
         assert_eq!(Marionette::current(&store).unwrap().version(), "0.10.0");
@@ -1463,17 +1689,33 @@ pub(crate) mod tests {
         other[0] ^= 1;
         let shipped = bundle(&root, "marionette-v0.2.0", &zip, &hex(&other));
         let fetch = FakeFetch::new("marionette-v0.2.0", "0.2.0");
-        assert_eq!(seed(&store, &shipped, &fetch).unwrap_err(), MarionetteError::Mismatch);
-        assert_eq!(Marionette::current(&store).unwrap().tag(), "marionette-v0.1.0");
+        assert_eq!(
+            seed(&store, &shipped, &fetch).unwrap_err(),
+            MarionetteError::Mismatch
+        );
+        assert_eq!(
+            Marionette::current(&store).unwrap().tag(),
+            "marionette-v0.1.0"
+        );
         Marionette::current(&store).unwrap().verify_all().unwrap();
         assert!(!store.join(RELEASES).join("marionette-v0.2.0").exists());
         assert!(!store.join("staging").exists() && !store.join("download.zip.part").exists());
         // A zip longer than its pin says is refused the same way.
-        fs::write(shipped.join("marionette-0.2.0.zip"), [zip.as_slice(), b"x".as_slice()].concat()).unwrap();
-        assert_eq!(seed(&store, &shipped, &fetch).unwrap_err(), MarionetteError::Mismatch);
+        fs::write(
+            shipped.join("marionette-0.2.0.zip"),
+            [zip.as_slice(), b"x".as_slice()].concat(),
+        )
+        .unwrap();
+        assert_eq!(
+            seed(&store, &shipped, &fetch).unwrap_err(),
+            MarionetteError::Mismatch
+        );
         // A fresh store stays without a copy rather than taking a refused one.
         let fresh = root.join("fresh");
-        assert_eq!(seed(&fresh, &shipped, &fetch).unwrap_err(), MarionetteError::Mismatch);
+        assert_eq!(
+            seed(&fresh, &shipped, &fetch).unwrap_err(),
+            MarionetteError::Mismatch
+        );
         assert!(Marionette::current(&fresh).is_err());
         let _ = fs::remove_dir_all(&root);
     }
@@ -1495,12 +1737,23 @@ pub(crate) mod tests {
         ] {
             let mut changed = pin.clone();
             changed["release"][key] = value;
-            fs::write(shipped.join(BUNDLE_PIN), serde_json::to_vec(&changed).unwrap()).unwrap();
-            assert_eq!(seed(&store, &shipped, &fetch).unwrap_err(), MarionetteError::Release, "{key}");
+            fs::write(
+                shipped.join(BUNDLE_PIN),
+                serde_json::to_vec(&changed).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(
+                seed(&store, &shipped, &fetch).unwrap_err(),
+                MarionetteError::Release,
+                "{key}"
+            );
         }
         assert!(!store.exists());
         // No package folder at all, as in a development build.
-        assert_eq!(seed(&store, &root.join("none"), &fetch).unwrap_err(), MarionetteError::Missing);
+        assert_eq!(
+            seed(&store, &root.join("none"), &fetch).unwrap_err(),
+            MarionetteError::Missing
+        );
         let _ = fs::remove_dir_all(&root);
     }
 }

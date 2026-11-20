@@ -66,7 +66,9 @@ pub(crate) enum Located {
 /// names the folder), otherwise `muro\` in `program_dir`, the folder of Shinatama's program.
 pub(crate) fn locate(switch: Option<&OsStr>, program_dir: Option<&Path>) -> Located {
     let folder = match switch.filter(|value| !value.is_empty()) {
-        Some(value) if value.to_string_lossy().trim().eq_ignore_ascii_case("off") => return Located::Off,
+        Some(value) if value.to_string_lossy().trim().eq_ignore_ascii_case("off") => {
+            return Located::Off;
+        }
         Some(value) => PathBuf::from(value),
         None => match program_dir {
             Some(directory) => directory.join(FOLDER),
@@ -79,7 +81,10 @@ pub(crate) fn locate(switch: Option<&OsStr>, program_dir: Option<&Path>) -> Loca
         muroctl: tools.join("muroctl.exe"),
         mukade: tools.join("mukade.exe"),
     };
-    if [&install.muro, &install.muroctl, &install.mukade].iter().all(|path| path.is_file()) {
+    if [&install.muro, &install.muroctl, &install.mukade]
+        .iter()
+        .all(|path| path.is_file())
+    {
         Located::Found(install)
     } else {
         Located::Missing(folder)
@@ -122,7 +127,11 @@ pub(crate) struct Status {
 
 impl Status {
     fn new(state: &'static str, message: Option<String>) -> Self {
-        Self { state, message, sync: None }
+        Self {
+            state,
+            message,
+            sync: None,
+        }
     }
 }
 
@@ -156,12 +165,21 @@ pub(crate) struct Run {
 
 /// Reads Muro's recorded state out of a `snapshot` answer.
 pub(crate) fn sync_state(snapshot: &Value) -> SyncState {
-    let epoch = |value: &Value| value.as_u64().or_else(|| value.as_str().and_then(|text| text.parse().ok()));
+    let epoch = |value: &Value| {
+        value
+            .as_u64()
+            .or_else(|| value.as_str().and_then(|text| text.parse().ok()))
+    };
     let sync = &snapshot["sync"];
     let registry = &snapshot["registry"];
     let last_run = snapshot["activity"]
         .as_array()
-        .and_then(|events| events.iter().rev().find(|event| event["id"] == "automation"))
+        .and_then(|events| {
+            events
+                .iter()
+                .rev()
+                .find(|event| event["id"] == "automation")
+        })
         .map(|event| Run {
             time: epoch(&event["time"]),
             failed: event["status"] == "failed",
@@ -176,7 +194,11 @@ pub(crate) fn sync_state(snapshot: &Value) -> SyncState {
         targets: registry["targets"].as_array().map_or(0, |targets| {
             targets
                 .iter()
-                .filter(|target| target["id"].as_str().is_some_and(|id| id.starts_with("shinatama-")))
+                .filter(|target| {
+                    target["id"]
+                        .as_str()
+                        .is_some_and(|id| id.starts_with("shinatama-"))
+                })
                 .count()
         }),
         plugins: registry["plugins"].as_array().map_or(0, Vec::len),
@@ -225,7 +247,15 @@ fn box_root(data: &Path, folder: &str, harness: &str) -> Option<PathBuf> {
 }
 
 /// The fields of a target that Shinatama sets; the others are left as Muro keeps them.
-const TARGET_FIELDS: [&str; 7] = ["id", "name", "harness", "executable", "root", "exclusive", "enabled"];
+const TARGET_FIELDS: [&str; 7] = [
+    "id",
+    "name",
+    "harness",
+    "executable",
+    "root",
+    "exclusive",
+    "enabled",
+];
 
 /// Makes each agent box that exists a target of the registry: created when missing, saved again
 /// only when it differs, always with the revision just read. A new target is enabled; one that
@@ -247,7 +277,9 @@ fn ensure_targets(runner: &dyn Runner, data: &Path) -> Result<Vec<String>, Strin
                 .as_array()
                 .and_then(|targets| targets.iter().find(|target| target["id"] == id.as_str()))
                 .cloned();
-            let known = existing.as_ref().and_then(|target| target["executable"].as_str());
+            let known = existing
+                .as_ref()
+                .and_then(|target| target["executable"].as_str());
             // Muro's resolver only for a new target or a program that is gone: one process less
             // per agent at every start.
             let executable = match known.filter(|program| Path::new(program).is_file()) {
@@ -266,7 +298,10 @@ fn ensure_targets(runner: &dyn Runner, data: &Path) -> Result<Vec<String>, Strin
                 "exclusive": false,
                 "enabled": existing.as_ref().and_then(|target| target["enabled"].as_bool()).unwrap_or(true),
             });
-            if existing.as_ref().is_some_and(|target| TARGET_FIELDS.iter().all(|key| target[key] == wanted[key])) {
+            if existing
+                .as_ref()
+                .is_some_and(|target| TARGET_FIELDS.iter().all(|key| target[key] == wanted[key]))
+            {
                 break;
             }
             let mut target = existing.unwrap_or_else(|| json!({}));
@@ -276,19 +311,28 @@ fn ensure_targets(runner: &dyn Runner, data: &Path) -> Result<Vec<String>, Strin
             let payload = json!({"revision": registry["revision"], "target": target});
             match request(runner, "save_target", &payload) {
                 Ok(_) => {
-                    crate::app_log::write("muro", &format!("{name}: target {id} saved ({}).", plain(&root)));
+                    crate::app_log::write(
+                        "muro",
+                        &format!("{name}: target {id} saved ({}).", plain(&root)),
+                    );
                     break;
                 }
                 Err(error) if error.contains(STALE) && attempt < 3 => {}
                 Err(error) => {
-                    crate::app_log::write("muro", &format!("{name}: target {id} not saved: {error}"));
+                    crate::app_log::write(
+                        "muro",
+                        &format!("{name}: target {id} not saved: {error}"),
+                    );
                     problems.push(format!("{name} could not be added to Muro: {error}"));
                     break;
                 }
             }
         }
         if let Some(Err(error)) = resolved {
-            crate::app_log::write("muro", &format!("{name}: Muro's resolver found no program ({error})."));
+            crate::app_log::write(
+                "muro",
+                &format!("{name}: Muro's resolver found no program ({error})."),
+            );
         }
     }
     Ok(problems)
@@ -308,7 +352,11 @@ fn ensure_auto_sync(runner: &dyn Runner) -> Result<(), String> {
             return Ok(());
         }
         settings["auto_sync"] = json!(true);
-        match request(runner, "settings", &json!({"revision": registry["revision"], "settings": settings})) {
+        match request(
+            runner,
+            "settings",
+            &json!({"revision": registry["revision"], "settings": settings}),
+        ) {
             Ok(_) => {
                 crate::app_log::write("muro", "Automatic sync switched on.");
                 return Ok(());
@@ -338,7 +386,14 @@ impl Muro {
     /// `data` is Shinatama's data home; `runner` is `None` when `status` already says why there
     /// is no Muro to run.
     pub(crate) fn new(runner: Option<Arc<dyn Runner>>, data: PathBuf, status: Status) -> Self {
-        Self { runner, data, status: Mutex::new(status), work: Mutex::new(()), launched: Mutex::new(false), problems: Mutex::new(None) }
+        Self {
+            runner,
+            data,
+            status: Mutex::new(status),
+            work: Mutex::new(()),
+            launched: Mutex::new(false),
+            problems: Mutex::new(None),
+        }
     }
 
     /// The Muro the app uses: found beside the program or through `SHINATAMA_MURO`.
@@ -346,7 +401,10 @@ impl Muro {
         let data = match data {
             Ok(data) => data,
             Err(error) => {
-                let status = Status::new("failed", Some(format!("Shinatama's data folder is unavailable: {error}")));
+                let status = Status::new(
+                    "failed",
+                    Some(format!("Shinatama's data folder is unavailable: {error}")),
+                );
                 return Self::new(None, PathBuf::new(), status);
             }
         };
@@ -354,10 +412,16 @@ impl Muro {
         let switch = std::env::var_os(SWITCH);
         match locate(switch.as_deref(), program.as_deref().and_then(Path::parent)) {
             Located::Off => Self::new(None, data, Status::new("off", None)),
-            Located::Missing(folder) => Self::new(None, data, Status::new("missing", Some(plain(&folder)))),
+            Located::Missing(folder) => {
+                Self::new(None, data, Status::new("missing", Some(plain(&folder))))
+            }
             Located::Found(install) => {
                 let registry = data.join(REGISTRY);
-                let runner: Arc<dyn Runner> = Arc::new(System { install, registry, running: Mutex::new(None) });
+                let runner: Arc<dyn Runner> = Arc::new(System {
+                    install,
+                    registry,
+                    running: Mutex::new(None),
+                });
                 Self::new(Some(runner), data, Status::new("starting", None))
             }
         }
@@ -368,7 +432,10 @@ impl Muro {
     }
 
     fn current(&self) -> Status {
-        self.status.lock().unwrap_or_else(PoisonError::into_inner).clone()
+        self.status
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
     }
 
     /// The start sequence: the registry folder, the targets, automatic sync on, then Muro in the
@@ -376,26 +443,41 @@ impl Muro {
     pub(crate) fn start(&self) {
         let Some(runner) = self.runner.as_deref() else {
             let status = self.current();
-            crate::app_log::write("muro", &match status.state {
-                "off" => "Switched off (SHINATAMA_MURO=off).".to_owned(),
-                "missing" => format!("Not in this build: no Muro in {}.", status.message.unwrap_or_default()),
-                _ => format!("Not started: {}", status.message.unwrap_or_default()),
-            });
+            crate::app_log::write(
+                "muro",
+                &match status.state {
+                    "off" => "Switched off (SHINATAMA_MURO=off).".to_owned(),
+                    "missing" => format!(
+                        "Not in this build: no Muro in {}.",
+                        status.message.unwrap_or_default()
+                    ),
+                    _ => format!("Not started: {}", status.message.unwrap_or_default()),
+                },
+            );
             return;
         };
         let _work = self.work.lock().unwrap_or_else(PoisonError::into_inner);
         self.set(Status::new("starting", None));
         let registry = self.data.join(REGISTRY);
         let outcome = std::fs::create_dir_all(&registry)
-            .map_err(|error| format!("The registry folder {} could not be created: {error}", plain(&registry)))
+            .map_err(|error| {
+                format!(
+                    "The registry folder {} could not be created: {error}",
+                    plain(&registry)
+                )
+            })
             .and_then(|()| ensure_targets(runner, &self.data))
             .and_then(|problems| ensure_auto_sync(runner).map(|()| problems))
             .and_then(|problems| runner.launch(true).map(|()| problems));
         match outcome {
             Ok(problems) => {
                 *self.launched.lock().unwrap_or_else(PoisonError::into_inner) = true;
-                crate::app_log::write("muro", &format!("Started in the background on {}.", plain(&registry)));
-                *self.problems.lock().unwrap_or_else(PoisonError::into_inner) = (!problems.is_empty()).then(|| problems.join(" "));
+                crate::app_log::write(
+                    "muro",
+                    &format!("Started in the background on {}.", plain(&registry)),
+                );
+                *self.problems.lock().unwrap_or_else(PoisonError::into_inner) =
+                    (!problems.is_empty()).then(|| problems.join(" "));
                 self.refresh(runner, Status::new("running", None));
             }
             Err(error) => {
@@ -412,7 +494,10 @@ impl Muro {
             Ok(snapshot) => {
                 let state = sync_state(&snapshot);
                 if let Some(run) = state.last_run.as_ref().filter(|run| run.failed) {
-                    crate::app_log::write("muro", &format!("Muro recorded a failed sync: {}", run.message));
+                    crate::app_log::write(
+                        "muro",
+                        &format!("Muro recorded a failed sync: {}", run.message),
+                    );
                 }
                 Ok(Some(state))
             }
@@ -438,7 +523,11 @@ impl Muro {
     /// Reads the state again. The message becomes the start's problems, plus the read error
     /// when there is one: a failure said once does not stay.
     fn refresh(&self, runner: &dyn Runner, mut status: Status) -> Status {
-        let problems = self.problems.lock().unwrap_or_else(PoisonError::into_inner).clone();
+        let problems = self
+            .problems
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone();
         match self.read_state(runner) {
             Ok(Some(state)) => {
                 status.sync = Some(state);
@@ -454,7 +543,10 @@ impl Muro {
     /// Asks Muro to check and apply now. A Sync now pressed while one runs waits for it and
     /// answers with its result. A start that failed is tried again first.
     pub(crate) fn sync_now(&self) -> Result<Status, String> {
-        let runner = self.runner.as_deref().ok_or_else(|| unavailable(&self.current()))?;
+        let runner = self
+            .runner
+            .as_deref()
+            .ok_or_else(|| unavailable(&self.current()))?;
         if self.current().state == "failed" {
             self.start();
         }
@@ -480,7 +572,11 @@ impl Muro {
             Err(error) => {
                 crate::app_log::write("muro", &format!("Sync now failed: {error}"));
                 status = self.refresh(runner, status);
-                let problems = self.problems.lock().unwrap_or_else(PoisonError::into_inner).clone();
+                let problems = self
+                    .problems
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .clone();
                 status.message = Some(joined(problems, format!("Sync now failed: {error}")));
                 self.set(status.clone());
             }
@@ -490,8 +586,13 @@ impl Muro {
 
     /// Shows the window of Shinatama's Muro.
     pub(crate) fn open(&self) -> Result<(), String> {
-        let runner = self.runner.as_deref().ok_or_else(|| unavailable(&self.current()))?;
-        runner.launch(false).inspect_err(|error| crate::app_log::write("muro", &format!("Open Muro failed: {error}")))
+        let runner = self
+            .runner
+            .as_deref()
+            .ok_or_else(|| unavailable(&self.current()))?;
+        runner.launch(false).inspect_err(|error| {
+            crate::app_log::write("muro", &format!("Open Muro failed: {error}"))
+        })
     }
 
     /// Shinatama is ending, and its Muro ends with it once no operation of Muro runs: Muro
@@ -505,9 +606,14 @@ impl Muro {
             match self.work.try_lock() {
                 Ok(work) => break Some(work),
                 Err(TryLockError::Poisoned(work)) => break Some(work.into_inner()),
-                Err(TryLockError::WouldBlock) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(200)),
+                Err(TryLockError::WouldBlock) if Instant::now() < deadline => {
+                    std::thread::sleep(Duration::from_millis(200))
+                }
                 Err(TryLockError::WouldBlock) => {
-                    crate::app_log::write("muro", "Shinatama ended while its Muro was still starting: that Muro may keep running.");
+                    crate::app_log::write(
+                        "muro",
+                        "Shinatama ended while its Muro was still starting: that Muro may keep running.",
+                    );
                     break None;
                 }
             }
@@ -541,7 +647,10 @@ fn unavailable(status: &Status) -> String {
         "off" => "Muro is switched off (SHINATAMA_MURO=off).".into(),
         "missing" => "Muro is not in this build.".into(),
         "starting" => "Muro is still starting.".into(),
-        _ => status.message.clone().unwrap_or_else(|| "Muro did not start.".into()),
+        _ => status
+            .message
+            .clone()
+            .unwrap_or_else(|| "Muro did not start.".into()),
     }
 }
 
@@ -560,7 +669,11 @@ impl System {
     fn command(&self, program: &Path) -> std::process::Command {
         let mut command = std::process::Command::new(program);
         for (name, _) in std::env::vars_os() {
-            if name.to_string_lossy().to_ascii_uppercase().starts_with("WEBVIEW2_") {
+            if name
+                .to_string_lossy()
+                .to_ascii_uppercase()
+                .starts_with("WEBVIEW2_")
+            {
                 command.env_remove(name);
             }
         }
@@ -582,12 +695,21 @@ impl System {
             use std::os::windows::process::CommandExt;
             command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
         }
-        let output = command.output().map_err(|error| format!("{} could not start: {error}", command.get_program().to_string_lossy()))?;
+        let output = command.output().map_err(|error| {
+            format!(
+                "{} could not start: {error}",
+                command.get_program().to_string_lossy()
+            )
+        })?;
         if output.status.success() {
             Ok(output.stdout)
         } else {
             let error = String::from_utf8_lossy(&output.stderr).trim().to_owned();
-            Err(if error.is_empty() { format!("ended with {}", output.status) } else { error })
+            Err(if error.is_empty() {
+                format!("ended with {}", output.status)
+            } else {
+                error
+            })
         }
     }
 }
@@ -596,20 +718,34 @@ impl Runner for System {
     fn request(&self, action: &str, payload: &Value) -> Result<Value, String> {
         static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let number = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let input = std::env::temp_dir().join(format!("shinatama-muro-{}-{number}.json", std::process::id()));
-        std::fs::write(&input, payload.to_string()).map_err(|error| format!("The request could not be written: {error}"))?;
+        let input = std::env::temp_dir().join(format!(
+            "shinatama-muro-{}-{number}.json",
+            std::process::id()
+        ));
+        std::fs::write(&input, payload.to_string())
+            .map_err(|error| format!("The request could not be written: {error}"))?;
         let mut command = self.command(&self.install.muroctl);
-        command.arg("--data").arg(plain(&self.registry)).args(["request", action, "--input"]).arg(&input);
+        command
+            .arg("--data")
+            .arg(plain(&self.registry))
+            .args(["request", action, "--input"])
+            .arg(&input);
         let output = self.helper(command);
         let _ = std::fs::remove_file(&input);
-        serde_json::from_slice(&output?).map_err(|error| format!("Muro's answer to {action} is not JSON: {error}"))
+        serde_json::from_slice(&output?)
+            .map_err(|error| format!("Muro's answer to {action} is not JSON: {error}"))
     }
 
     fn resolve(&self, harness: &str) -> Result<String, String> {
         let mut command = self.command(&self.install.mukade);
         command.args(["muro-resolve", harness]);
-        let answer: Value = serde_json::from_slice(&self.helper(command)?).map_err(|error| error.to_string())?;
-        answer["executable"].as_str().filter(|path| !path.is_empty()).map(str::to_owned).ok_or_else(|| format!("no {harness} program found"))
+        let answer: Value =
+            serde_json::from_slice(&self.helper(command)?).map_err(|error| error.to_string())?;
+        answer["executable"]
+            .as_str()
+            .filter(|path| !path.is_empty())
+            .map(str::to_owned)
+            .ok_or_else(|| format!("no {harness} program found"))
     }
 
     fn launch(&self, background: bool) -> Result<(), String> {
@@ -636,7 +772,9 @@ impl System {
         if background {
             command.arg("--background");
         }
-        command.stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+        command
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null());
         let mut child = {
             #[cfg(windows)]
             {
@@ -700,10 +838,13 @@ impl System {
         }
         // Muro and its own helpers (its request server): the whole tree, by the number the open
         // handle keeps reserved.
-        let system = std::env::var_os("SystemRoot").map(PathBuf::from).unwrap_or_else(|| PathBuf::from(r"C:\Windows"));
+        let system = std::env::var_os("SystemRoot")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(r"C:\Windows"));
         let mut command = std::process::Command::new(system.join("System32").join("taskkill.exe"));
         command.args(["/PID", &child.id().to_string(), "/T", "/F"]);
-        self.helper(command).map_err(|error| format!("it could not be ended: {error}"))?;
+        self.helper(command)
+            .map_err(|error| format!("it could not be ended: {error}"))?;
         let _ = child.wait();
         *running = None;
         Ok(true)
@@ -712,30 +853,45 @@ impl System {
 
 /// Starts Shinatama's Muro on a thread of its own, never holding up the window.
 pub(crate) fn start(muro: Arc<Muro>) {
-    let _ = std::thread::Builder::new().name("muro-start".into()).spawn(move || muro.start());
+    let _ = std::thread::Builder::new()
+        .name("muro-start".into())
+        .spawn(move || muro.start());
 }
 
 /// Runs `work` off the event loop: Muro's programs take a moment to answer.
-async fn blocking<T: Send + 'static>(work: impl FnOnce() -> T + Send + 'static) -> Result<T, String> {
-    tauri::async_runtime::spawn_blocking(work).await.map_err(|_| "Muro's worker stopped.".to_owned())
+async fn blocking<T: Send + 'static>(
+    work: impl FnOnce() -> T + Send + 'static,
+) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(work)
+        .await
+        .map_err(|_| "Muro's worker stopped.".to_owned())
 }
 
 #[tauri::command]
-pub(crate) async fn muro_status(window: tauri::WebviewWindow, muro: tauri::State<'_, Arc<Muro>>) -> Result<Status, String> {
+pub(crate) async fn muro_status(
+    window: tauri::WebviewWindow,
+    muro: tauri::State<'_, Arc<Muro>>,
+) -> Result<Status, String> {
     crate::local(&window)?;
     let muro = muro.inner().clone();
     blocking(move || muro.status()).await
 }
 
 #[tauri::command]
-pub(crate) async fn muro_sync_now(window: tauri::WebviewWindow, muro: tauri::State<'_, Arc<Muro>>) -> Result<Status, String> {
+pub(crate) async fn muro_sync_now(
+    window: tauri::WebviewWindow,
+    muro: tauri::State<'_, Arc<Muro>>,
+) -> Result<Status, String> {
     crate::local(&window)?;
     let muro = muro.inner().clone();
     blocking(move || muro.sync_now()).await?
 }
 
 #[tauri::command]
-pub(crate) async fn muro_open(window: tauri::WebviewWindow, muro: tauri::State<'_, Arc<Muro>>) -> Result<(), String> {
+pub(crate) async fn muro_open(
+    window: tauri::WebviewWindow,
+    muro: tauri::State<'_, Arc<Muro>>,
+) -> Result<(), String> {
     crate::local(&window)?;
     let muro = muro.inner().clone();
     blocking(move || muro.open()).await?
@@ -771,16 +927,28 @@ mod tests {
             Arc::new(fake)
         }
         fn calls(&self, action: &str) -> Vec<Value> {
-            self.calls.lock().unwrap().iter().filter(|(name, _)| name == action).map(|(_, payload)| payload.clone()).collect()
+            self.calls
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|(name, _)| name == action)
+                .map(|(_, payload)| payload.clone())
+                .collect()
         }
         fn fail(&self, error: &str, times: usize) {
-            self.failures.lock().unwrap().extend(std::iter::repeat_n(error.to_owned(), times));
+            self.failures
+                .lock()
+                .unwrap()
+                .extend(std::iter::repeat_n(error.to_owned(), times));
         }
     }
 
     impl Runner for Fake {
         fn request(&self, action: &str, payload: &Value) -> Result<Value, String> {
-            self.calls.lock().unwrap().push((action.to_owned(), payload.clone()));
+            self.calls
+                .lock()
+                .unwrap()
+                .push((action.to_owned(), payload.clone()));
             if let Some(error) = self.failures.lock().unwrap().pop_front() {
                 return Err(error);
             }
@@ -812,7 +980,11 @@ mod tests {
         }
         fn launch(&self, background: bool) -> Result<(), String> {
             self.launches.lock().unwrap().push(background);
-            self.launch_error.lock().unwrap().clone().map_or(Ok(()), Err)
+            self.launch_error
+                .lock()
+                .unwrap()
+                .clone()
+                .map_or(Ok(()), Err)
         }
         fn pause(&self, _wait: Duration) {
             *self.pauses.lock().unwrap() += 1;
@@ -825,7 +997,8 @@ mod tests {
 
     /// A data home with the boxes of `agents` (box folder names).
     fn home(agents: &[&str]) -> PathBuf {
-        let data = std::env::temp_dir().join(format!("shinatama-muro-test-{}", uuid::Uuid::new_v4()));
+        let data =
+            std::env::temp_dir().join(format!("shinatama-muro-test-{}", uuid::Uuid::new_v4()));
         for agent in agents {
             std::fs::create_dir_all(data.join("agents").join(agent).join("home")).unwrap();
         }
@@ -833,7 +1006,11 @@ mod tests {
     }
 
     fn muro(fake: &Arc<Fake>, data: &Path) -> Muro {
-        Muro::new(Some(fake.clone() as Arc<dyn Runner>), data.to_path_buf(), Status::new("starting", None))
+        Muro::new(
+            Some(fake.clone() as Arc<dyn Runner>),
+            data.to_path_buf(),
+            Status::new("starting", None),
+        )
     }
 
     #[test]
@@ -851,8 +1028,17 @@ mod tests {
             json!({"id":"shinatama-claude-code","name":"Shinatama · Claude Code","harness":"claude-code",
                    "executable":"C:\\bin\\agent.exe","root":plain(&data.join("agents").join("claude_code").join("home")),"exclusive":false,"enabled":true})
         );
-        let opencode = data.join("agents").join("opencode").join("home").join("xdg").join("config").join("opencode");
-        assert!(opencode.is_dir(), "the OpenCode config folder is made inside its box");
+        let opencode = data
+            .join("agents")
+            .join("opencode")
+            .join("home")
+            .join("xdg")
+            .join("config")
+            .join("opencode");
+        assert!(
+            opencode.is_dir(),
+            "the OpenCode config folder is made inside its box"
+        );
         assert_eq!(saved[1]["target"]["root"], plain(&opencode));
         assert_eq!(saved[1]["target"]["harness"], "opencode");
         let _ = std::fs::remove_dir_all(data);
@@ -865,22 +1051,36 @@ mod tests {
         ensure_targets(fake.as_ref(), &data).unwrap();
         assert_eq!(fake.calls("save_target").len(), 2);
         ensure_targets(fake.as_ref(), &data).unwrap();
-        assert_eq!(fake.calls("save_target").len(), 2, "nothing differs: nothing saved");
+        assert_eq!(
+            fake.calls("save_target").len(),
+            2,
+            "nothing differs: nothing saved"
+        );
         // The user disables Pi in Muro's window, and Pi's program moves.
         {
             let mut registry = fake.registry.lock().unwrap();
             let targets = registry["targets"].as_array_mut().unwrap();
-            let pi = targets.iter_mut().find(|target| target["id"] == "shinatama-pi").unwrap();
+            let pi = targets
+                .iter_mut()
+                .find(|target| target["id"] == "shinatama-pi")
+                .unwrap();
             pi["enabled"] = json!(false);
             pi["note"] = json!("kept");
         }
         *fake.resolved.lock().unwrap() = Some(Ok("D:\\pi.cmd".into()));
         ensure_targets(fake.as_ref(), &data).unwrap();
         let saved = fake.calls("save_target");
-        let pi = saved.iter().rev().find(|payload| payload["target"]["id"] == "shinatama-pi").unwrap();
+        let pi = saved
+            .iter()
+            .rev()
+            .find(|payload| payload["target"]["id"] == "shinatama-pi")
+            .unwrap();
         assert_eq!(pi["target"]["executable"], "D:\\pi.cmd");
         assert_eq!(pi["target"]["enabled"], false);
-        assert_eq!(pi["target"]["note"], "kept", "a field Shinatama does not set is left as it was");
+        assert_eq!(
+            pi["target"]["note"], "kept",
+            "a field Shinatama does not set is left as it was"
+        );
         let _ = std::fs::remove_dir_all(data);
     }
 
@@ -890,7 +1090,10 @@ mod tests {
         let fake = Fake::new();
         *fake.resolved.lock().unwrap() = Some(Err("no codex program found".into()));
         ensure_targets(fake.as_ref(), &data).unwrap();
-        assert_eq!(fake.calls("save_target")[0]["target"]["executable"], "codex");
+        assert_eq!(
+            fake.calls("save_target")[0]["target"]["executable"],
+            "codex"
+        );
         let _ = std::fs::remove_dir_all(data);
     }
 
@@ -901,7 +1104,9 @@ mod tests {
         // The registry read answers; the save is refused.
         let problems = ensure_targets(&Refusing(fake.clone()), &data).unwrap();
         assert_eq!(problems.len(), 1);
-        assert!(problems[0].starts_with("Claude Code could not be added to Muro: Target configuration directories overlap"));
+        assert!(problems[0].starts_with(
+            "Claude Code could not be added to Muro: Target configuration directories overlap"
+        ));
         let _ = std::fs::remove_dir_all(data);
     }
 
@@ -909,11 +1114,21 @@ mod tests {
     struct Refusing(Arc<Fake>);
     impl Runner for Refusing {
         fn request(&self, action: &str, payload: &Value) -> Result<Value, String> {
-            if action == "save_target" { Err("Target configuration directories overlap".into()) } else { self.0.request(action, payload) }
+            if action == "save_target" {
+                Err("Target configuration directories overlap".into())
+            } else {
+                self.0.request(action, payload)
+            }
         }
-        fn resolve(&self, harness: &str) -> Result<String, String> { self.0.resolve(harness) }
-        fn launch(&self, background: bool) -> Result<(), String> { self.0.launch(background) }
-        fn pause(&self, wait: Duration) { self.0.pause(wait) }
+        fn resolve(&self, harness: &str) -> Result<String, String> {
+            self.0.resolve(harness)
+        }
+        fn launch(&self, background: bool) -> Result<(), String> {
+            self.0.launch(background)
+        }
+        fn pause(&self, wait: Duration) {
+            self.0.pause(wait)
+        }
     }
 
     #[test]
@@ -934,15 +1149,32 @@ mod tests {
     #[test]
     fn a_busy_registry_is_tried_again_and_then_given_up() {
         let fake = Fake::new();
-        fake.fail("Registry is busy; wait for the running operation: os error 33", 3);
-        assert_eq!(request(fake.as_ref(), "registry", &json!({})).unwrap()["revision"], 4);
+        fake.fail(
+            "Registry is busy; wait for the running operation: os error 33",
+            3,
+        );
+        assert_eq!(
+            request(fake.as_ref(), "registry", &json!({})).unwrap()["revision"],
+            4
+        );
         assert_eq!(*fake.pauses.lock().unwrap(), 3);
-        fake.fail("Registry is busy; wait for the running operation", BUSY_TRIES as usize);
-        assert!(request(fake.as_ref(), "registry", &json!({})).unwrap_err().contains(BUSY));
+        fake.fail(
+            "Registry is busy; wait for the running operation",
+            BUSY_TRIES as usize,
+        );
+        assert!(
+            request(fake.as_ref(), "registry", &json!({}))
+                .unwrap_err()
+                .contains(BUSY)
+        );
         fake.fail("Unsupported or corrupt registry schema", 1);
         let before = *fake.pauses.lock().unwrap();
         assert!(request(fake.as_ref(), "registry", &json!({})).is_err());
-        assert_eq!(*fake.pauses.lock().unwrap(), before, "another error is not tried again");
+        assert_eq!(
+            *fake.pauses.lock().unwrap(),
+            before,
+            "another error is not tried again"
+        );
     }
 
     #[test]
@@ -963,15 +1195,30 @@ mod tests {
                 current: true,
                 targets: 2,
                 plugins: 1,
-                last_run: Some(Run { time: Some(1_763_560_001), failed: true, message: "Codex: cannot read".into() }),
+                last_run: Some(Run {
+                    time: Some(1_763_560_001),
+                    failed: true,
+                    message: "Codex: cannot read".into()
+                }),
             }
         );
         let fresh = json!({"registry":{"revision":0,"targets":[],"plugins":[]},
             "sync":{"last_check":null,"last_sync":null,"revision":null,"pending":null,"blockers":null,"targets":{}},"activity":[]});
         let state = sync_state(&fresh);
-        assert_eq!((state.last_check, state.pending, state.current, state.last_run), (None, None, false, None));
+        assert_eq!(
+            (
+                state.last_check,
+                state.pending,
+                state.current,
+                state.last_run
+            ),
+            (None, None, false, None)
+        );
         let stale = json!({"registry":{"revision":3},"sync":{"revision":2}});
-        assert!(!sync_state(&stale).current, "a check of an older registry is not current");
+        assert!(
+            !sync_state(&stale).current,
+            "a check of an older registry is not current"
+        );
     }
 
     #[test]
@@ -983,7 +1230,14 @@ mod tests {
         let muro = muro(&fake, &data);
         muro.start();
         assert!(data.join(REGISTRY).is_dir());
-        let order: Vec<String> = fake.calls.lock().unwrap().iter().map(|(action, _)| action.clone()).filter(|action| action != "registry").collect();
+        let order: Vec<String> = fake
+            .calls
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|(action, _)| action.clone())
+            .filter(|action| action != "registry")
+            .collect();
         assert_eq!(order, ["save_target", "settings", "snapshot"]);
         assert_eq!(*fake.launches.lock().unwrap(), [true]);
         let status = muro.current();
@@ -996,12 +1250,16 @@ mod tests {
     fn a_launch_that_fails_is_the_status() {
         let data = home(&[]);
         let fake = Fake::new();
-        *fake.launch_error.lock().unwrap() = Some("Muro ended as it started (exit code: 101).".into());
+        *fake.launch_error.lock().unwrap() =
+            Some("Muro ended as it started (exit code: 101).".into());
         let muro = muro(&fake, &data);
         muro.start();
         let status = muro.current();
         assert_eq!(status.state, "failed");
-        assert_eq!(status.message.as_deref(), Some("Muro ended as it started (exit code: 101)."));
+        assert_eq!(
+            status.message.as_deref(),
+            Some("Muro ended as it started (exit code: 101).")
+        );
         // Sync now tries the start again first.
         *fake.launch_error.lock().unwrap() = None;
         let status = muro.sync_now().unwrap();
@@ -1020,10 +1278,21 @@ mod tests {
             "activity":[{"id":"automation","time":"77","status":"complete","message":"1 change applied"}]});
         let status = muro.sync_now().unwrap();
         assert_eq!(status.sync.as_ref().unwrap().last_sync, Some(77));
-        assert_eq!(status.sync.unwrap().last_run.unwrap().message, "1 change applied");
-        fake.fail("Registry is busy; wait for the running operation", BUSY_TRIES as usize);
+        assert_eq!(
+            status.sync.unwrap().last_run.unwrap().message,
+            "1 change applied"
+        );
+        fake.fail(
+            "Registry is busy; wait for the running operation",
+            BUSY_TRIES as usize,
+        );
         let status = muro.sync_now().unwrap();
-        assert!(status.message.unwrap().starts_with("Sync now failed: Registry is busy"));
+        assert!(
+            status
+                .message
+                .unwrap()
+                .starts_with("Sync now failed: Registry is busy")
+        );
         // A failure said once does not stay: the next read clears it.
         assert_eq!(muro.status().message, None);
         let _ = std::fs::remove_dir_all(data);
@@ -1035,7 +1304,11 @@ mod tests {
         let fake = Fake::new();
         let muro = muro(&fake, &data);
         muro.at_exit();
-        assert_eq!(*fake.quits.lock().unwrap(), 0, "nothing started, nothing to end");
+        assert_eq!(
+            *fake.quits.lock().unwrap(),
+            0,
+            "nothing started, nothing to end"
+        );
         muro.start();
         muro.at_exit();
         assert_eq!(*fake.quits.lock().unwrap(), 1);
@@ -1056,25 +1329,45 @@ mod tests {
         std::thread::sleep(Duration::from_millis(100));
         drop(held);
         assert_eq!(waiting.join().unwrap().unwrap().state, "running");
-        assert!(fake.calls("sync_now").is_empty(), "it took the running sync's result");
+        assert!(
+            fake.calls("sync_now").is_empty(),
+            "it took the running sync's result"
+        );
         let _ = std::fs::remove_dir_all(data);
     }
 
     #[test]
     fn muro_switched_off_or_missing_does_nothing_and_says_why() {
-        let program = std::env::temp_dir().join(format!("shinatama-muro-program-{}", uuid::Uuid::new_v4()));
-        assert_eq!(locate(Some(OsStr::new("OFF")), Some(&program)), Located::Off);
-        assert_eq!(locate(Some(OsStr::new(" off ")), Some(&program)), Located::Off);
-        assert_eq!(locate(None, Some(&program)), Located::Missing(program.join("muro")));
+        let program =
+            std::env::temp_dir().join(format!("shinatama-muro-program-{}", uuid::Uuid::new_v4()));
+        assert_eq!(
+            locate(Some(OsStr::new("OFF")), Some(&program)),
+            Located::Off
+        );
+        assert_eq!(
+            locate(Some(OsStr::new(" off ")), Some(&program)),
+            Located::Off
+        );
+        assert_eq!(
+            locate(None, Some(&program)),
+            Located::Missing(program.join("muro"))
+        );
         let named = program.join("elsewhere");
-        assert_eq!(locate(Some(named.as_os_str()), Some(&program)), Located::Missing(named.clone()));
+        assert_eq!(
+            locate(Some(named.as_os_str()), Some(&program)),
+            Located::Missing(named.clone())
+        );
         std::fs::create_dir_all(named.join("tools")).unwrap();
         for file in ["Muro.exe", "tools/muroctl.exe", "tools/mukade.exe"] {
             std::fs::write(named.join(file), b"").unwrap();
         }
         assert_eq!(
             locate(Some(named.as_os_str()), Some(&program)),
-            Located::Found(Install { muro: named.join("Muro.exe"), muroctl: named.join("tools/muroctl.exe"), mukade: named.join("tools/mukade.exe") })
+            Located::Found(Install {
+                muro: named.join("Muro.exe"),
+                muroctl: named.join("tools/muroctl.exe"),
+                mukade: named.join("tools/mukade.exe")
+            })
         );
         for (state, message) in [("off", None), ("missing", Some("C:\\x\\muro".to_owned()))] {
             let muro = Muro::new(None, program.clone(), Status::new(state, message));
@@ -1083,15 +1376,24 @@ mod tests {
             assert!(muro.sync_now().is_err());
             assert!(muro.open().is_err());
         }
-        assert_eq!(unavailable(&Status::new("off", None)), "Muro is switched off (SHINATAMA_MURO=off).");
-        assert_eq!(unavailable(&Status::new("missing", None)), "Muro is not in this build.");
+        assert_eq!(
+            unavailable(&Status::new("off", None)),
+            "Muro is switched off (SHINATAMA_MURO=off)."
+        );
+        assert_eq!(
+            unavailable(&Status::new("missing", None)),
+            "Muro is not in this build."
+        );
         let _ = std::fs::remove_dir_all(program);
     }
 
     #[test]
     fn a_long_path_is_recorded_in_its_plain_spelling() {
         assert_eq!(plain(Path::new(r"\\?\D:\Data\agents")), r"D:\Data\agents");
-        assert_eq!(plain(Path::new(r"\\?\UNC\server\share")), r"\\?\UNC\server\share");
+        assert_eq!(
+            plain(Path::new(r"\\?\UNC\server\share")),
+            r"\\?\UNC\server\share"
+        );
         assert_eq!(plain(Path::new(r"C:\x")), r"C:\x");
     }
 }

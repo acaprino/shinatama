@@ -40,7 +40,10 @@ pub fn recovering() -> bool {
 }
 
 /// Builds one configured window and watches its webview.
-pub fn build(app: &AppHandle, config: &tauri::utils::config::WindowConfig) -> tauri::Result<WebviewWindow> {
+pub fn build(
+    app: &AppHandle,
+    config: &tauri::utils::config::WindowConfig,
+) -> tauri::Result<WebviewWindow> {
     // The main window opens on the backdrop of the look its page chose last (presentation.rs).
     let mut config = config.clone();
     if config.label == "main"
@@ -73,7 +76,9 @@ fn watch(window: &WebviewWindow) {
     let _ = window.with_webview(move |webview| {
         // SAFETY: called on the thread that owns the webview, on live COM objects.
         unsafe {
-            let Ok(core) = webview.controller().CoreWebView2() else { return };
+            let Ok(core) = webview.controller().CoreWebView2() else {
+                return;
+            };
             // WebView2's default is TRUE. From the next navigation a failed load shows a blank
             // page, and NavigationCompleted below takes over.
             if let Ok(settings) = core.Settings() {
@@ -107,7 +112,10 @@ fn watch(window: &WebviewWindow) {
                 let mut status = COREWEBVIEW2_WEB_ERROR_STATUS::default();
                 args.WebErrorStatus(&mut status)?;
                 // Cancelled is not failed: a navigation the policy refused, or one a newer replaced.
-                if !success.as_bool() && status != COREWEBVIEW2_WEB_ERROR_STATUS_OPERATION_CANCELED && !recovering() {
+                if !success.as_bool()
+                    && status != COREWEBVIEW2_WEB_ERROR_STATUS_OPERATION_CANCELED
+                    && !recovering()
+                {
                     reload_or_ask(&loaded, Failure::NotLoaded(status.0));
                 }
                 Ok(())
@@ -131,9 +139,15 @@ impl Failure {
     fn message(self) -> String {
         let alive = "Your terminals and agents are still running.";
         match self {
-            Failure::Stopped => format!("The Shinatama interface stopped three times in a minute. {alive}\n\nReload the interface?"),
-            Failure::NotLoaded(status) => format!("The Shinatama interface could not be loaded (WebView2 error {status}). {alive}\n\nTry loading it again?"),
-            Failure::Unresponsive => format!("The Shinatama interface is not responding. {alive}\n\nReload the interface now?"),
+            Failure::Stopped => format!(
+                "The Shinatama interface stopped three times in a minute. {alive}\n\nReload the interface?"
+            ),
+            Failure::NotLoaded(status) => format!(
+                "The Shinatama interface could not be loaded (WebView2 error {status}). {alive}\n\nTry loading it again?"
+            ),
+            Failure::Unresponsive => format!(
+                "The Shinatama interface is not responding. {alive}\n\nReload the interface now?"
+            ),
         }
     }
 }
@@ -186,7 +200,10 @@ fn ask(window: &WebviewWindow, failure: Failure) {
             .message(failure.message())
             .title("Shinatama")
             .kind(MessageDialogKind::Warning)
-            .buttons(MessageDialogButtons::OkCancelCustom("Reload".into(), "Not now".into()))
+            .buttons(MessageDialogButtons::OkCancelCustom(
+                "Reload".into(),
+                "Not now".into(),
+            ))
             .parent(&window)
             .show(move |reload| {
                 if reload {
@@ -214,7 +231,11 @@ fn rebuild(app: &AppHandle) {
         if main.is_minimized().ok()? {
             return None;
         }
-        Some(Placement { position: main.outer_position().ok()?, size: main.inner_size().ok()?, maximized })
+        Some(Placement {
+            position: main.outer_position().ok()?,
+            size: main.inner_size().ok()?,
+            maximized,
+        })
     });
     for config in &configs {
         if let Some(window) = app.get_webview_window(&config.label) {
@@ -223,11 +244,17 @@ fn rebuild(app: &AppHandle) {
     }
     // A label is free only once its window is gone.
     let deadline = Instant::now() + Duration::from_secs(5);
-    while configs.iter().any(|config| app.get_webview_window(&config.label).is_some()) && Instant::now() < deadline {
+    while configs
+        .iter()
+        .any(|config| app.get_webview_window(&config.label).is_some())
+        && Instant::now() < deadline
+    {
         std::thread::sleep(Duration::from_millis(20));
     }
     for config in &configs {
-        let Ok(window) = build(app, config) else { continue };
+        let Ok(window) = build(app, config) else {
+            continue;
+        };
         if config.label != "main" {
             continue;
         }

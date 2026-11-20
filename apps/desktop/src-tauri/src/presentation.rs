@@ -245,7 +245,11 @@ fn window_theme(value: &str) -> Option<Option<tauri::Theme>> {
 /// behind the glass is already the look's own before the page draws.
 pub(crate) fn saved_window_theme(app: &tauri::AppHandle) -> Option<Option<tauri::Theme>> {
     let home = crate::data_home(app).ok()?;
-    window_theme(std::fs::read_to_string(home.join(WINDOW_THEME_FILE)).ok()?.trim())
+    window_theme(
+        std::fs::read_to_string(home.join(WINDOW_THEME_FILE))
+            .ok()?
+            .trim(),
+    )
 }
 
 /// The window takes the theme of the look the page shows (ONI MODE is always dark). On Windows 11
@@ -255,7 +259,8 @@ pub(crate) fn saved_window_theme(app: &tauri::AppHandle) -> Option<Option<tauri:
 pub async fn presentation_window_theme(window: WebviewWindow, theme: String) -> Result<(), Error> {
     crate::local(&window)
         .map_err(|_| Error::new("unavailable", "This window cannot change its theme."))?;
-    let wanted = window_theme(&theme).ok_or_else(|| Error::new("invalid", "Unknown window theme."))?;
+    let wanted =
+        window_theme(&theme).ok_or_else(|| Error::new("invalid", "Unknown window theme."))?;
     window
         .set_theme(wanted)
         .map_err(|_| Error::new("unavailable", "The window theme could not be changed."))?;

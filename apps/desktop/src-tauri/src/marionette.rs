@@ -26,13 +26,20 @@ pub(crate) fn start(home: &Path) {
         .spawn(move || {
             if let Some(bundle) = bundle() {
                 match marionette::seed(&store, &bundle, &SystemFetch) {
-                    Ok(outcome) => crate::app_log::write("marionette", &format!("Bundled copy: {outcome:?}")),
-                    Err(error) => crate::app_log::write("marionette", &format!("Bundled copy not installed: {error}.")),
+                    Ok(outcome) => {
+                        crate::app_log::write("marionette", &format!("Bundled copy: {outcome:?}"))
+                    }
+                    Err(error) => crate::app_log::write(
+                        "marionette",
+                        &format!("Bundled copy not installed: {error}."),
+                    ),
                 }
             }
             match marionette::sync(&store, &SystemFetch) {
                 Ok(outcome) => crate::app_log::write("marionette", &format!("{outcome:?}")),
-                Err(error) => crate::app_log::write("marionette", &format!("Sync skipped: {error}.")),
+                Err(error) => {
+                    crate::app_log::write("marionette", &format!("Sync skipped: {error}."))
+                }
             }
         });
 }
@@ -40,7 +47,10 @@ pub(crate) fn start(home: &Path) {
 /// `marionette\` beside the executable, where a package carries its pinned
 /// release (`build-release.bat`); a development build has none.
 fn bundle() -> Option<PathBuf> {
-    let folder = std::env::current_exe().ok()?.parent()?.join(marionette::BUNDLE);
+    let folder = std::env::current_exe()
+        .ok()?
+        .parent()?
+        .join(marionette::BUNDLE);
     folder.is_dir().then_some(folder)
 }
 
