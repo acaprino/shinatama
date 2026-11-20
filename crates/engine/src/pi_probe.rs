@@ -958,6 +958,7 @@ impl PreparedPiProbe {
         })
     }
 }
+#[allow(clippy::result_large_err)]
 fn release_workload(
     database: &Database,
     mut workload: PreparedWorkload,

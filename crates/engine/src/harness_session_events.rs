@@ -284,6 +284,7 @@ impl Drop for SessionEventReceiver {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run(
     listener: TcpListener,
     address: SocketAddr,
@@ -378,6 +379,7 @@ impl From<u16> for Response {
         }
     }
 }
+#[allow(clippy::too_many_arguments)]
 fn handle(
     stream: &mut TcpStream,
     address: SocketAddr,
@@ -648,10 +650,10 @@ fn parse_header(
             "transfer-encoding" | "origin" | "expect" | "upgrade" => return Err(400),
             _ => None,
         };
-        if let Some(target) = target {
-            if target.replace(value).is_some() {
-                return Err(400);
-            }
+        if let Some(target) = target
+            && target.replace(value).is_some()
+        {
+            return Err(400);
         }
     }
     if host != Some(address.to_string().as_str()) {

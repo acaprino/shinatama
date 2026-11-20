@@ -329,6 +329,7 @@ fn name_of<'a>(f: &'a Formation, id: &'a str) -> &'a str {
 }
 
 /// The groups of agents that give each other work in a circle, each with the arrows inside it.
+#[allow(clippy::needless_range_loop)]
 fn loops(f: &Formation) -> Vec<(Vec<String>, Vec<usize>)> {
     let index = |id: &str| f.agents.iter().position(|a| a.id == id);
     let n = f.agents.len();

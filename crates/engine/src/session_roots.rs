@@ -1532,8 +1532,7 @@ mod execution {
             let mut progress = |_: Progress| {};
             let never = || false;
             let hooks = Framed { body: sink, progress: &mut progress, cancel: &never };
-            let read = self.run_contained_with(database, helper_executable, private_working_directory, workload, Some(hooks));
-            read
+            self.run_contained_with(database, helper_executable, private_working_directory, workload, Some(hooks))
         }
         /// A search or an export with its progress and its cancel: `hooks.progress` gets every
         /// progress frame (at most four a second), and `hooks.cancel` is asked on every turn of
@@ -1549,6 +1548,7 @@ mod execution {
         ) -> SessionListRead {
             self.run_contained_with(database, helper_executable, private_working_directory, workload, Some(hooks))
         }
+        #[allow(clippy::type_complexity)]
         fn run_contained_with(
             &self,
             database: &Database,

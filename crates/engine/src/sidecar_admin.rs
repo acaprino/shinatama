@@ -160,6 +160,7 @@ pub struct SessionCapabilities {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[allow(clippy::large_enum_variant)]
 pub enum CapabilityRead {
     Observed(SessionCapabilities),
     NotObserved,

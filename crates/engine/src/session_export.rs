@@ -430,6 +430,7 @@ struct Done {
 }
 
 /// After the last entry: the header that goes in front of the body, and the report.
+#[allow(clippy::too_many_arguments)]
 fn finalize(
     meta: &Meta,
     request: &ExportRequest,

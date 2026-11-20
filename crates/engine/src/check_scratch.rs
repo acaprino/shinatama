@@ -432,7 +432,7 @@ fn collect(nodes: &mut Vec<Node>, total: &mut u64, at: Instant) -> Result<(), Is
                     unsafe { std::ptr::read_unaligned(pointer.cast::<FILE_ID_BOTH_DIR_INFO>()) };
                 let bytes = entry.FileNameLength as usize;
                 if bytes == 0
-                    || bytes % 2 != 0
+                    || !bytes.is_multiple_of(2)
                     || bytes > 1024
                     || offset + header + bytes > size_of_val(&page)
                 {
@@ -472,7 +472,7 @@ fn collect(nodes: &mut Vec<Node>, total: &mut u64, at: Instant) -> Result<(), Is
                     break;
                 }
                 let next = entry.NextEntryOffset as usize;
-                if next < header + bytes || offset + next >= size_of_val(&page) || next % 8 != 0 {
+                if next < header + bytes || offset + next >= size_of_val(&page) || !next.is_multiple_of(8) {
                     return Err(Issue::UnsafeEntry);
                 }
                 offset += next;
