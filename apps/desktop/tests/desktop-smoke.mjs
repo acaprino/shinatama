@@ -2,7 +2,7 @@
 // Run only after the coordinated desktop/helper build.
 import { chromium, expect } from '@playwright/test';
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdir, mkdtemp, opendir, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, opendir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -28,6 +28,8 @@ const app = spawn(process.env.SHINATAMA_EXE ?? resolve(root, 'target/debug/shina
 });
 let diagnostics = '';
 app.stderr.on('data', chunk => { diagnostics = (diagnostics + chunk).slice(-32768); });
+let started = '';
+app.stdout.on('data', chunk => { started = (started + chunk).slice(-32768); });
 let browser, nativeHandle, page, scope;
 function nativeWindowState(restore = false) {
   return JSON.parse(execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-File',
@@ -316,6 +318,18 @@ try {
   expect(errors).toEqual([]);
   console.log('PASS: native borderless controls; real contained terminals and visible limits; nested layout/themes/find/reload; sidecar ready; isolated Claude check and original TUI startup/stop; canonical instance/thread references; confirmed save/close.');
 } catch (error) {
+  if (!browser) {
+    // The app ran but its WebView never answered: what the app logged in this run's synthetic home,
+    // and which of its processes exist, say where the start stopped.
+    try {
+      const log = await readFile(resolve(fixture, 'data', 'shinatama.log'), 'utf8').catch(reason => 'no shinatama.log: ' + reason.message);
+      console.error('Start diagnostic, app log:\n' + log.slice(-8192));
+      console.error('Start diagnostic, app exit code: ' + app.exitCode + ', stdout: ' + started.slice(-4096));
+      console.error('Start diagnostic, processes:\n' + execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+        "Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'shinatama|msedgewebview2' } | ForEach-Object { '{0} {1} parent={2}' -f $_.ProcessId, $_.Name, $_.ParentProcessId }"],
+      { encoding: 'utf8', windowsHide: true, timeout: 20000 }));
+    } catch (diagnosticError) { console.error('Start diagnostic failed:', diagnosticError.message); }
+  }
   if (page && !page.isClosed()) {
     try {
       const snapshot = await Promise.race([
