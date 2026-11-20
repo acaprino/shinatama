@@ -275,14 +275,27 @@ impl StartWanted {
     }
 }
 /// What ends a cleanup run after the command in progress: a Start or Retry, a Stop, the owner's
-/// shutdown, or a cleanup that could not be confirmed.
-pub(crate) fn run_cancelled(start_wanted: bool, stop: bool, shutdown: bool, halted: bool) -> bool {
-    start_wanted || stop || shutdown || halted
+/// shutdown, a cleanup that could not be confirmed, or, in a run that stopped an idle proxy, an
+/// agent session that opened meanwhile.
+pub(crate) fn run_cancelled(
+    start_wanted: bool,
+    stop: bool,
+    shutdown: bool,
+    halted: bool,
+    sessions_active: bool,
+) -> bool {
+    todo!("RED: run_cancelled with sessions")
 }
 /// Whether the proxy starts after a run: one that ran before it and is to be restarted, or one
-/// a Start asked for meanwhile. A proxy the user stopped stays stopped.
-pub(crate) fn start_after_run(restart: bool, was_running: bool, start_wanted: bool) -> bool {
-    (restart && was_running) || start_wanted
+/// a Start asked for meanwhile. A proxy the user stopped stays stopped, and nothing starts while
+/// a Stop or the owner's shutdown is pending.
+pub(crate) fn start_after_run(
+    restart: bool,
+    was_running: bool,
+    start_wanted: bool,
+    stopping: bool,
+) -> bool {
+    todo!("RED: start_after_run while stopping")
 }
 /// A run is one long turn of the owner: it says it is alive, or the panel and the opens take
 /// the owner for stalled (no report for 15 s) and refuse what would end the run.
@@ -646,7 +659,7 @@ impl<P: WorkloadProvider> Worker<P> {
             }
         }
         let wanted = self.maintain(budget);
-        if self.retained.is_none() && start_after_run(restart, was_running, wanted) {
+        if self.retained.is_none() && start_after_run(restart, was_running, wanted, false) {
             self.recovery = RecoveryBackoff::default();
             self.requested_start = true;
         }
@@ -677,6 +690,7 @@ impl<P: WorkloadProvider> Worker<P> {
                     stop.load(Ordering::Acquire),
                     shutdown.load(Ordering::Acquire),
                     halted.get(),
+                    false,
                 )
             };
             let snapshot = &mut self.snapshot;
@@ -2031,34 +2045,45 @@ mod tests {
 
     #[test]
     fn a_stop_or_a_shutdown_ends_a_run_too() {
-        assert!(!run_cancelled(false, false, false, false));
-        assert!(run_cancelled(true, false, false, false), "a start");
-        assert!(run_cancelled(false, true, false, false), "a stop");
+        assert!(!run_cancelled(false, false, false, false, false));
+        assert!(run_cancelled(true, false, false, false, false), "a start");
+        assert!(run_cancelled(false, true, false, false, false), "a stop");
         assert!(
-            run_cancelled(false, false, true, false),
+            run_cancelled(false, false, true, false, false),
             "the owner's shutdown"
         );
         assert!(
-            run_cancelled(false, false, false, true),
+            run_cancelled(false, false, false, true, false),
             "an unconfirmed cleanup"
+        );
+        assert!(
+            run_cancelled(false, false, false, false, true),
+            "an agent session that opened"
         );
     }
 
     #[test]
     fn a_run_restarts_only_a_proxy_that_was_running_or_asked_for() {
         assert!(
-            start_after_run(true, true, false),
+            start_after_run(true, true, false, false),
             "the idle run restarts what it stopped"
         );
         assert!(
-            !start_after_run(true, false, false),
+            !start_after_run(true, false, false, false),
             "a proxy stopped meanwhile stays stopped"
         );
         assert!(
-            !start_after_run(false, true, false),
+            !start_after_run(false, true, false, false),
             "the close run never restarts"
         );
-        assert!(start_after_run(false, false, true), "an open asked for it");
+        assert!(
+            start_after_run(false, false, true, false),
+            "an open asked for it"
+        );
+        assert!(
+            !start_after_run(true, true, true, true),
+            "a pending Stop or shutdown starts nothing"
+        );
     }
 
     #[test]

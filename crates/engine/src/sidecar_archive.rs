@@ -395,6 +395,7 @@ mod tests {
         assert_eq!(
             calls.into_inner(),
             [
+                "sessions ls --json",
                 "sessions rm gone-1 --no-vacuum --json",
                 "sessions rm gone-2 --no-vacuum --json",
                 "sessions rm kept|sub:a0123456789abcdef --no-vacuum --json",
@@ -430,6 +431,88 @@ mod tests {
         assert_eq!(pending_on(None, Ok(natives(&[]))), None);
     }
 
+    /// A run with a budget: it neither imports the legacy files nor compacts.
+    fn budget() -> Option<Instant> {
+        Some(Instant::now() + Duration::from_secs(3600))
+    }
+
+    #[test]
+    fn an_unbudgeted_run_first_has_the_proxy_import_its_legacy_files() {
+        let archive = Archive::with(&THREE);
+        let path = archive.0.clone();
+        let calls = RefCell::new(Vec::<String>::new());
+        let report = run_on(
+            Some(&archive.0),
+            Ok(natives(&["kept"])),
+            None,
+            &|| false,
+            &mut |arguments| {
+                calls.borrow_mut().push(arguments.join(" "));
+                if arguments == ["sessions", "ls", "--json"] {
+                    // A session the proxy kept only as a JSON file gets its row when it loads.
+                    rusqlite::Connection::open(&path)
+                        .unwrap()
+                        .execute(
+                            "INSERT INTO sessions(session_id, protocol) VALUES('legacy-gone', 'responses')",
+                            [],
+                        )
+                        .unwrap();
+                }
+                proxy(arguments)
+            },
+        );
+        let calls = calls.into_inner();
+        assert_eq!(calls[0], "sessions ls --json", "{calls:?}");
+        assert!(
+            calls.contains(&"sessions rm legacy-gone --no-vacuum --json".to_owned()),
+            "{calls:?}"
+        );
+        assert_eq!((report.removed, report.stop), (4, Stop::Done));
+    }
+
+    #[test]
+    fn a_budgeted_run_neither_imports_nor_compacts() {
+        let archive = Archive::with(&THREE);
+        let calls = RefCell::new(Vec::<String>::new());
+        let report = run_on(
+            Some(&archive.0),
+            Ok(natives(&["kept"])),
+            budget(),
+            &|| false,
+            &mut |arguments| {
+                calls.borrow_mut().push(arguments.join(" "));
+                proxy(arguments)
+            },
+        );
+        let calls = calls.into_inner();
+        assert!(
+            calls.iter().all(|call| call.starts_with("sessions rm ")),
+            "{calls:?}"
+        );
+        assert_eq!(
+            (report.removed, report.stop, report.compacted),
+            (3, Stop::Done, false)
+        );
+    }
+
+    #[test]
+    fn the_archive_size_counts_its_json_files() {
+        let archive = Archive::with(&[("kept", "anthropic")]);
+        let folder = archive.0.parent().unwrap().join("responses");
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(folder.join("chatgpt.com_0123.json"), vec![b'x'; 1000]).unwrap();
+        let index = std::fs::metadata(&archive.0).unwrap().len();
+        let report = run_on(
+            Some(&archive.0),
+            Ok(natives(&["kept"])),
+            budget(),
+            &|| false,
+            &mut proxy,
+        );
+        assert_eq!(report.file_bytes_before, Some(index + 1000));
+        assert_eq!(report.file_bytes_after, Some(index + 1000));
+    }
+
     #[test]
     fn nothing_to_remove_runs_nothing() {
         let archive = Archive::with(&[("kept", "anthropic")]);
@@ -437,7 +520,7 @@ mod tests {
         let report = run_on(
             Some(&archive.0),
             Ok(natives(&["kept"])),
-            None,
+            budget(),
             &|| false,
             &mut |arguments| {
                 calls.set(calls.get() + 1);
@@ -459,7 +542,7 @@ mod tests {
         let report = run_on(
             Some(&archive.0),
             Ok(natives(&["kept"])),
-            None,
+            budget(),
             &|| asked.get(),
             &mut |arguments| {
                 calls.set(calls.get() + 1);
@@ -513,7 +596,11 @@ mod tests {
             },
         );
         assert_eq!(calls.get(), 0);
-        assert_eq!(report.stop, Stop::Unreadable);
+        assert_eq!(
+            report.stop,
+            Stop::Done,
+            "no archive yet is nothing to remove, not a failure"
+        );
         assert!(!missing.exists(), "a read never creates the archive");
         let report = run_on(None, Ok(natives(&[])), None, &|| false, &mut proxy);
         assert_eq!(report.stop, Stop::Unreadable);

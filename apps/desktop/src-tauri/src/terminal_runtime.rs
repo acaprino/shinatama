@@ -77,11 +77,18 @@ enum AdmissionMode {
     // enforces on it ends all of them at once: Node reached the 768 MiB process quota
     // within minutes with six sessions (2026-11-18, 765 MiB two seconds before it ended).
     Proxy,
+    // One of the proxy's own commands that clean its archive, with the proxy's limits. The one
+    // admission that passes while the application closes: the close cleanup runs then.
+    ProxyMaintenance,
 }
 impl AdmissionMode {
     /// Memory, process count and CPU are a share of the ledger, not a Windows quota.
     fn advisory(self) -> bool {
         matches!(self, Self::Interactive | Self::Proxy)
+    }
+    /// Admitted after `request_shutdown`: only the cleanup the close itself runs.
+    fn allowed_while_closing(self) -> bool {
+        todo!("RED: allowed_while_closing")
     }
 }
 fn stamp() -> PolicyStamp {
@@ -1074,6 +1081,19 @@ mod memory_tests {
         assert!(AdmissionMode::Interactive.advisory());
         assert!(!AdmissionMode::InteractiveSupport.advisory());
         assert!(!AdmissionMode::Background.advisory());
+    }
+
+    #[test]
+    fn only_the_proxy_archive_cleanup_is_admitted_while_closing() {
+        assert!(AdmissionMode::ProxyMaintenance.allowed_while_closing());
+        for mode in [
+            AdmissionMode::Proxy,
+            AdmissionMode::Interactive,
+            AdmissionMode::InteractiveSupport,
+            AdmissionMode::Background,
+        ] {
+            assert!(!mode.allowed_while_closing());
+        }
     }
 
     #[test]

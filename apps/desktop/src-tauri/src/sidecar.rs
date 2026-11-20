@@ -357,6 +357,33 @@ impl Drop for OpeningGuard {
         self.0.fetch_sub(1, Ordering::AcqRel);
     }
 }
+/// What the proxy owner asks before it stops an idle proxy for a cleanup, and between the run's
+/// commands: the live agent sessions and the opens in progress. An unknown count is activity.
+#[derive(Clone, Default)]
+pub(crate) struct SessionActivity {
+    opening: Opening,
+    live: Arc<OnceLock<Box<dyn Fn() -> Option<usize> + Send + Sync>>>,
+}
+impl SessionActivity {
+    pub(crate) fn set_live(&self, live: Box<dyn Fn() -> Option<usize> + Send + Sync>) {
+        let _ = self.live.set(live);
+    }
+    pub(crate) fn busy(&self) -> Option<usize> {
+        todo!("RED: SessionActivity::busy")
+    }
+    pub(crate) fn active(&self) -> bool {
+        todo!("RED: SessionActivity::active")
+    }
+}
+/// Whether the idle cleanup is asked for (again): an owner that skipped a run (requests in
+/// flight, a drain) is asked once more after another idle period, a forget asks at once.
+pub(crate) fn send_due(
+    last_sent: Option<std::time::Instant>,
+    now: std::time::Instant,
+    due_now: bool,
+) -> bool {
+    todo!("RED: send_due")
+}
 /// The agent sessions the idle rule counts: the live ones and the opens in progress.
 pub(crate) fn busy_sessions(live_agent_sessions: Option<usize>, opening: usize) -> Option<usize> {
     live_agent_sessions.map(|live| live + opening)
@@ -1248,6 +1275,29 @@ mod tests {
         assert!(idle_run_due(Some(0), ago(1), now, true), "a forget makes it due now");
         assert!(!idle_run_due(Some(0), None, now, false));
         assert!(!idle_run_due(Some(2), ago(1), now, true), "not even a forget with an agent open");
+    }
+
+    #[test]
+    fn a_session_that_opens_or_is_live_is_activity() {
+        let activity = SessionActivity::default();
+        assert_eq!(activity.busy(), None, "no count yet");
+        assert!(activity.active(), "an unknown count is activity");
+        activity.set_live(Box::new(|| Some(0)));
+        assert!(!activity.active());
+        let guard = activity.opening.enter();
+        assert_eq!(activity.busy(), Some(1));
+        assert!(activity.active(), "an open in progress");
+        drop(guard);
+        assert!(!activity.active());
+    }
+
+    #[test]
+    fn a_skipped_idle_run_is_asked_again_after_another_idle_period() {
+        let now = std::time::Instant::now() + Duration::from_secs(2000);
+        assert!(send_due(None, now, false));
+        assert!(!send_due(Some(now - Duration::from_secs(599)), now, false));
+        assert!(send_due(Some(now - Duration::from_secs(600)), now, false));
+        assert!(send_due(Some(now - Duration::from_secs(1)), now, true), "a forget asks at once");
     }
 
     #[test]
