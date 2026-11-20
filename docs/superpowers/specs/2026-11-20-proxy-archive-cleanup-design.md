@@ -59,6 +59,7 @@ Shinatama gives the proxy:
   are the harness's data. Their weight on the session reader is a separate fix.
 - Why the proxy exits with 3221226505.
 - Switching the start-up check off.
+- Keeping the proxy state of Pi threads across a cleanup (see the builder check on Pi's id).
 
 ## Anti-goals
 
@@ -164,10 +165,15 @@ budgeted slices.
 - *Is the proxy id the native id for every harness?* Claude Code sends its session id
   (`x-claude-code-session-id`, `session-id.ts`) and OpenCode 2.x its own
   (`x-opencode-session-id`); on the owner's install 5 of 5 Codex segments and 38 Claude segments
-  have a proxy session of the same id. Pi is not verified and the owner has no Pi thread. The plan
-  verifies Pi with the real proxy; until then a Pi thread whose proxy id is not its native id
-  loses only its proxy compression state at a cleanup (the proxy replays the history raw, the
-  conversation in Pi's own store is untouched).
+  have a proxy session of the same id. Pi (1.4.0, the installed build) sends its session id to
+  the proxy only when the model's `compat.sendSessionAffinityHeaders` is on
+  (`x-session-affinity`, or `x-session-id` in the OpenRouter format; `pi-ai`
+  `anthropic-messages.js`), and the provider extension Shinatama writes for Pi
+  (`crates/engine/src/model_config.rs`) does not turn it on. So a Pi thread's proxy session is
+  keyed by the proxy's own id, and each cleanup removes it as a session of no thread: the proxy
+  then replays that thread's history raw at its next request (the conversation in Pi's own store
+  is untouched). The owner has no Pi thread today. Turning the compat flag on in that extension,
+  so that Pi sends the native id Shinatama gives it with `--session-id`, is a separate change.
 - *After an idle run, does the proxy stay stopped?* No, it is started again (table above).
 - *A Shinatama reopened during a close run?* The close run happens in the closing process, before
   it exits and while it still holds the owner lock (table above); the new one reports that another
