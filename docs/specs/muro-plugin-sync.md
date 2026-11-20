@@ -96,7 +96,7 @@ Muro registry or the harnesses' usual homes.
 ### What Shinatama needs from a Muro release
 
 Checked against Muro's `develop` on 2026-11-19 evening, released on 2026-11-20 as `muro-v0.4.0`
-(ADR-0028 plan 1), the release Shinatama pins:
+(ADR-0028 plan 1); Shinatama pins `muro-v0.5.0`, which keeps them:
 
 | Need | Muro `develop` |
 |---|---|
@@ -114,5 +114,5 @@ request, Shinatama takes the registry's operation lock (which waits for an apply
 keeps the next one from starting), then ends the Muro it started; past a bounded wait it leaves it
 running. Muro's Start-with-Windows name accepts letters, digits, `-` and `_` only:
 Shinatama's is `Muro-Shinatama`. Shinatama ships
-`muro-v0.4.0` (scripts/muro-pin.json), unpacked beside its program; `SHINATAMA_MURO` names
+`muro-v0.5.0` (scripts/muro-pin.json), unpacked beside its program; `SHINATAMA_MURO` names
 another Muro folder.
