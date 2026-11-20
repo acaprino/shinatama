@@ -162,6 +162,7 @@ pub fn maintenance_command(
 /// Removes what [`removable`] selects, one `sessions rm` each, then compacts the file once when
 /// something was removed and no start was asked for. `deadline: None` runs until `cancelled`.
 /// `natives` is Err when Shinatama's threads could not be read: then nothing is removed.
+#[allow(clippy::type_complexity)]
 pub fn run(
     recipe: &SidecarRuntimeRecipe,
     natives: Result<HashSet<String>, ()>,
@@ -179,6 +180,7 @@ pub fn run(
     )
 }
 
+#[allow(clippy::type_complexity)]
 fn run_on(
     index: Option<&Path>,
     natives: Result<HashSet<String>, ()>,
@@ -223,7 +225,7 @@ fn run_on(
             report.left = ids.len() - tried;
             break;
         }
-        match execute(&["sessions", "rm", id, "--no-vacuum", "--json"])
+        match execute(&["sessions", "rm", id.as_str(), "--no-vacuum", "--json"])
             .ok()
             .and_then(|output| released(&output, id))
         {

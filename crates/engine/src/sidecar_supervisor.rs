@@ -204,7 +204,13 @@ pub(crate) fn panic_text(payload: &(dyn std::any::Any + Send)) -> String {
     };
     let spaced: String = text
         .chars()
-        .map(|character| if character.is_control() { ' ' } else { character })
+        .map(|character| {
+            if character.is_control() {
+                ' '
+            } else {
+                character
+            }
+        })
         .collect();
     let mut units = 0;
     spaced
@@ -244,7 +250,8 @@ pub struct SupervisorConfig {
 }
 /// The bounds of the archive cleanup's settings.
 pub(crate) fn maintenance_valid(at_start: Duration, command_timeout: Duration) -> bool {
-    todo!("RED: maintenance_valid")
+    at_start <= Duration::from_secs(60)
+        && (Duration::from_secs(10)..=Duration::from_secs(300)).contains(&command_timeout)
 }
 /// Whether a Start (or Retry) was asked for since the owner last took one: what ends a run of
 /// the archive cleanup. Set by the caller's thread, read by the owner's.
@@ -252,7 +259,9 @@ pub(crate) fn maintenance_valid(at_start: Duration, command_timeout: Duration) -
 pub(crate) struct StartWanted(Arc<AtomicBool>);
 impl StartWanted {
     pub(crate) fn note(&self, command: &Command) {
-        todo!("RED: StartWanted::note")
+        if matches!(command, Command::Start | Command::Retry) {
+            self.0.store(true, Ordering::Release);
+        }
     }
     pub(crate) fn is_set(&self) -> bool {
         self.0.load(Ordering::Acquire)
@@ -291,6 +300,7 @@ pub struct SidecarSupervisor {
     status: Arc<Mutex<Snapshot>>,
     shutdown: Arc<AtomicBool>,
     stop_requested: Arc<AtomicBool>,
+    start_wanted: StartWanted,
 }
 impl SidecarSupervisor {
     pub fn start<P: WorkloadProvider>(
@@ -329,6 +339,7 @@ impl SidecarSupervisor {
         let status = Arc::new(Mutex::new(snapshot.clone()));
         let shutdown = Arc::new(AtomicBool::new(false));
         let stop_requested = Arc::new(AtomicBool::new(false));
+        let start_wanted = StartWanted::default();
         let (commands, receiver) = mpsc::sync_channel(4);
         let worker = Worker {
             recipe,
@@ -354,6 +365,8 @@ impl SidecarSupervisor {
             stderr_tail: OutputTail::default(),
             exits: 0,
             faulted: false,
+            start_wanted: start_wanted.clone(),
+            maintained_at_start: false,
         };
         if thread::Builder::new()
             .name("shinatama-sidecar-owner".into())
@@ -368,9 +381,12 @@ impl SidecarSupervisor {
             status,
             shutdown,
             stop_requested,
+            start_wanted,
         })
     }
     pub fn request(&self, command: Command) -> Result<(), RequestError> {
+        // Before the send: a run of the archive cleanup sees it while the command waits.
+        self.start_wanted.note(&command);
         if matches!(command, Command::Stop) {
             self.stop_requested.store(true, Ordering::Release);
             return Ok(());
@@ -419,6 +435,10 @@ struct Worker<P> {
     exits: u32,
     /// A panic stopped a turn: no recovery or health work until a command arrives.
     faulted: bool,
+    /// Set by `request(Start | Retry)`; cleared when the owner takes one. Ends a cleanup run.
+    start_wanted: StartWanted,
+    /// The cleanup before the first start of the proxy has run.
+    maintained_at_start: bool,
 }
 impl<P: WorkloadProvider> Worker<P> {
     fn publish(&mut self, phase: Phase, reason: Reason) {
@@ -490,6 +510,7 @@ impl<P: WorkloadProvider> Worker<P> {
                 }
                 Ok(Command::Drain) => self.drain_requested(),
                 Ok(Command::Start) => {
+                    self.start_wanted.clear();
                     let effect = self.drain.command(
                         self.snapshot.phase,
                         Command::Start,
@@ -504,6 +525,7 @@ impl<P: WorkloadProvider> Worker<P> {
                     }
                 }
                 Ok(Command::Retry) => {
+                    self.start_wanted.clear();
                     self.snapshot.fault = None;
                     if self.retained.is_some()
                         || (self.running.is_none() && self.snapshot.phase == Phase::Failed)
@@ -516,6 +538,9 @@ impl<P: WorkloadProvider> Worker<P> {
                     }
                 }
                 Ok(Command::Activity(activity)) => self.snapshot.activity = activity,
+                Ok(Command::Maintain { budget, restart }) => {
+                    self.maintain_requested(budget, restart)
+                }
                 Err(mpsc::RecvTimeoutError::Disconnected) => {
                     self.shutdown.store(true, Ordering::Release)
                 }
@@ -550,6 +575,10 @@ impl<P: WorkloadProvider> Worker<P> {
                     if self.retained.is_some() {
                         self.retry_cleanup();
                     }
+                    if self.retained.is_none() && !self.maintained_at_start {
+                        self.maintained_at_start = true;
+                        self.maintain(Some(self.config.maintenance_at_start));
+                    }
                     if self.retained.is_none() {
                         self.requested_start = false;
                         self.launch();
@@ -565,6 +594,66 @@ impl<P: WorkloadProvider> Worker<P> {
             self.drain_step();
         }
         true
+    }
+    /// `Command::Maintain`: an idle proxy is stopped for the run, one with requests in flight
+    /// (or not read) is left alone, and nothing runs while a cleanup is unconfirmed or a drain
+    /// is in progress.
+    fn maintain_requested(&mut self, budget: Option<Duration>, restart: bool) {
+        if self.retained.is_some() || self.drain.active() {
+            return;
+        }
+        if self.running.is_some() {
+            if self.snapshot.in_flight != Some(0) {
+                return;
+            }
+            self.stop(true);
+            if self.running.is_some() || self.retained.is_some() {
+                return;
+            }
+        }
+        self.maintain(budget);
+        if self.retained.is_none() && (restart || self.start_wanted.is_set()) {
+            self.recovery = RecoveryBackoff::default();
+            self.requested_start = true;
+        }
+    }
+    /// One run of the archive cleanup (`sidecar_archive`) while this owner runs no proxy
+    /// process: two processes writing the archive corrupt it. A zero budget skips it.
+    fn maintain(&mut self, budget: Option<Duration>) {
+        if self.running.is_some() || self.retained.is_some() || budget == Some(Duration::ZERO) {
+            return;
+        }
+        self.publish(Phase::Maintaining, Reason::None);
+        let deadline = budget.map(|budget| Instant::now() + budget);
+        let natives = self
+            .provider
+            .database()
+            .segment_native_ids()
+            .map_err(|_| ());
+        let halted = std::cell::Cell::new(false);
+        let mut retained = None;
+        let report = {
+            let wanted = &self.start_wanted;
+            let cancelled = || wanted.is_set() || halted.get();
+            let provider = &mut self.provider;
+            let config = &self.config;
+            let mut execute = |command: NativeCommand| {
+                let output = run_maintenance_command(provider, config, command, &mut retained);
+                if retained.is_some() {
+                    halted.set(true);
+                }
+                output
+            };
+            crate::sidecar_archive::run(&self.recipe, natives, deadline, &cancelled, &mut execute)
+        };
+        self.provider.maintained(&report);
+        self.snapshot.process_alive = Some(false);
+        if let Some(retained) = retained {
+            self.retained = Some(retained);
+            self.publish(Phase::Retired, Reason::CleanupUncertain);
+        } else {
+            self.publish(Phase::Stopped, Reason::None);
+        }
     }
     fn drain_requested(&mut self) {
         let began = Instant::now();
@@ -659,7 +748,11 @@ impl<P: WorkloadProvider> Worker<P> {
             workload.ticket().budget.queue_items,
         );
         match spawn_contained(
-            command.high_priority(), workload, self.provider.database(), at, until,
+            command.high_priority(),
+            workload,
+            self.provider.database(),
+            at,
+            until,
         ) {
             Ok(running) => {
                 self.running = Some(running);
@@ -671,7 +764,10 @@ impl<P: WorkloadProvider> Worker<P> {
                 self.snapshot.stderr_bytes = 0;
                 self.stderr_tail.clear();
                 self.snapshot.process_alive = Some(true);
-                self.snapshot.pid = self.running.as_ref().map(|running| running.process.key().pid);
+                self.snapshot.pid = self
+                    .running
+                    .as_ref()
+                    .map(|running| running.process.key().pid);
             }
             Err(mut failure) => {
                 if !matches!(
@@ -976,6 +1072,106 @@ impl<P: WorkloadProvider> Worker<P> {
         }
     }
 }
+/// One of the proxy's maintenance commands, admitted and contained as the proxy is (`launch`)
+/// at the usual background priority: its exit code (None when it did not end in time) and the
+/// start of its stdout. A cleanup that is not confirmed is kept in `retained`, as the proxy's.
+fn run_maintenance_command<P: WorkloadProvider>(
+    provider: &mut P,
+    config: &SupervisorConfig,
+    command: NativeCommand,
+    retained: &mut Option<Retained>,
+) -> Result<crate::sidecar_archive::CommandOutput, ()> {
+    let lease = |at: i64| at.saturating_add(config.reservation_lease.as_millis() as i64);
+    let at = now().ok_or(())?;
+    let workload = provider.prepare(at, lease(at)).map_err(|_| ())?;
+    let at = now().unwrap_or(-1);
+    let mut spawned = match spawn_contained(command, workload, provider.database(), at, lease(at)) {
+        Ok(spawned) => spawned,
+        Err(mut failure) => {
+            if !matches!(
+                failure
+                    .workload
+                    .finish_cleanup(provider.database(), config.cleanup_timeout),
+                Ok(CleanupStatus::Released { .. })
+            ) {
+                *retained = Some(Retained::Reservation(failure.workload));
+            }
+            return Err(());
+        }
+    };
+    let began = Instant::now();
+    let mut stdout = Vec::new();
+    let mut stderr = 0;
+    let mut tail = OutputTail::default();
+    let code = loop {
+        let exit = spawned.process.try_wait();
+        let read = spawned
+            .process
+            .queue_credits()
+            .acquire(8192, 2)
+            .is_ok_and(|_credit| {
+                read_pipe(
+                    &mut spawned.stdout,
+                    &mut stdout,
+                    crate::sidecar_archive::STDOUT_LIMIT,
+                ) && drain_pipe(&mut spawned.stderr, &mut stderr, Some(&mut tail))
+            });
+        match exit {
+            // Read once more after the exit: what it wrote last is in the pipe.
+            Ok(Some(code)) if read => break Some(code),
+            Ok(None) if read && began.elapsed() < config.maintenance_command_timeout => {
+                thread::sleep(Duration::from_millis(20))
+            }
+            _ => break None,
+        }
+    };
+    let SpawnedProcess {
+        mut process,
+        stdin,
+        stdout: out,
+        stderr: err,
+    } = spawned;
+    drop((stdin, out, err));
+    if !matches!(
+        process.finish_cleanup(provider.database(), config.cleanup_timeout),
+        Ok(CleanupStatus::Released { .. })
+    ) {
+        *retained = Some(Retained::Process(process));
+    }
+    Ok(crate::sidecar_archive::CommandOutput { code, stdout })
+}
+/// Reads what is waiting in `pipe` into `into`, keeping at most `limit` bytes; the rest is
+/// read and dropped. False only when the pipe itself fails (as `drain_pipe`).
+fn read_pipe(pipe: &mut File, into: &mut Vec<u8>, limit: usize) -> bool {
+    let mut buffer = [0; 16 * 1024];
+    for _ in 0..16 {
+        let mut available = 0;
+        if unsafe {
+            PeekNamedPipe(
+                pipe.as_raw_handle(),
+                null_mut(),
+                0,
+                null_mut(),
+                &mut available,
+                null_mut(),
+            )
+        } == 0
+        {
+            return std::io::Error::last_os_error().raw_os_error()
+                == Some(ERROR_BROKEN_PIPE as i32);
+        }
+        if available == 0 {
+            return true;
+        }
+        let count = (available as usize).min(buffer.len());
+        let Ok(read) = pipe.read(&mut buffer[..count]) else {
+            return false;
+        };
+        let room = limit.saturating_sub(into.len());
+        into.extend_from_slice(&buffer[..read.min(room)]);
+    }
+    true
+}
 /// Repeated failures keep recovering; the delay rises to a maximum of 30 seconds.
 /// A full minute of observed health restores the initial one-second retry.
 #[derive(Default)]
@@ -1211,20 +1407,21 @@ fn resource_limit(
     } else {
         None
     };
-    quota.or_else(|| {
-        exceeded(
-            ResourceLimitKind::QueueBytes,
-            queues.current_bytes,
-            queue_limits.0,
-        )
-    })
-    .or_else(|| {
-        exceeded(
-            ResourceLimitKind::QueueItems,
-            u64::from(queues.current_items),
-            u64::from(queue_limits.1),
-        )
-    })
+    quota
+        .or_else(|| {
+            exceeded(
+                ResourceLimitKind::QueueBytes,
+                queues.current_bytes,
+                queue_limits.0,
+            )
+        })
+        .or_else(|| {
+            exceeded(
+                ResourceLimitKind::QueueItems,
+                u64::from(queues.current_items),
+                u64::from(queue_limits.1),
+            )
+        })
 }
 fn now() -> Option<i64> {
     SystemTime::now()
@@ -1731,14 +1928,20 @@ mod tests {
     #[test]
     fn maintaining_never_backs_a_launch() {
         assert!(!Phase::Maintaining.backs_launch());
-        assert_eq!(serde_json::to_string(&Phase::Maintaining).unwrap(), "\"maintaining\"");
+        assert_eq!(
+            serde_json::to_string(&Phase::Maintaining).unwrap(),
+            "\"maintaining\""
+        );
     }
 
     #[test]
     fn a_start_request_marks_a_running_maintenance_for_cancel() {
         let wanted = StartWanted::default();
         wanted.note(&Command::Activity(Activity::Idle));
-        wanted.note(&Command::Maintain { budget: None, restart: true });
+        wanted.note(&Command::Maintain {
+            budget: None,
+            restart: true,
+        });
         wanted.note(&Command::Drain);
         assert!(!wanted.is_set());
         wanted.note(&Command::Start);
@@ -1746,7 +1949,10 @@ mod tests {
         wanted.clear();
         assert!(!wanted.is_set());
         wanted.note(&Command::Retry);
-        assert!(wanted.clone().is_set(), "the owner's copy sees what the caller's set");
+        assert!(
+            wanted.clone().is_set(),
+            "the owner's copy sees what the caller's set"
+        );
     }
 
     #[test]
@@ -2095,7 +2301,10 @@ mod tests {
             said("Node.js v24.14.1\r\nabnormal\x1b[31m end\n").as_deref(),
             Some("abnormal[31m end")
         );
-        assert_eq!(said(&"x".repeat(4000)).map(|text| text.chars().count()), Some(300));
+        assert_eq!(
+            said(&"x".repeat(4000)).map(|text| text.chars().count()),
+            Some(300)
+        );
         // Only the end of a long output is kept, and a cut line is not mistaken for a whole one.
         let mut tail = OutputTail::default();
         tail.push("Error: early\n".as_bytes());
