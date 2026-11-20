@@ -83,6 +83,7 @@ jobs:
             target/debug/shinatama-desktop.exe
             target/debug/shinatama.exe
             target/debug/shinatama-session-helper.exe
+            target/release/shinatama-session-helper.exe
             THIRD_PARTY_NOTICES.md
             .verification/THIRD_PARTY_LICENSES.txt
           include-hidden-files: true

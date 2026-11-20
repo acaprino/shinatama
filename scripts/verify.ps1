@@ -120,6 +120,9 @@ try {
     # The desktop embeds the frontend that `frontend-build` writes.
     # The engine's program is the contained session reader (shinatama-session-helper), which reads the saved sessions.
     Invoke-Verification 'desktop-build' 'cargo' @('build', '--locked', '-p', 'shinatama-desktop', '-p', 'shinatama-cli', '-p', 'shinatama-terminal', '-p', 'shinatama-engine', '--bins', '--features', 'custom-protocol') -Needs @('frontend-build') -TimeoutSeconds 3600
+    # The contained session reader as it is released (build-release.bat): its reads have a time limit and a tenth
+    # of the processor, which an unoptimised reader does not meet on a real home. Uploaded, to be tried on one.
+    Invoke-Verification 'session-helper-release' 'cargo' @('build', '--release', '--locked', '-p', 'shinatama-engine', '--features', 'session-reader', '--bin', 'shinatama-session-helper') -TimeoutSeconds 3600
     $probe = Join-Path $workspaceRoot 'verify/P14/target/debug/p14-probe.exe'
     # The real desktop check below covers ConPTY through its admitted helper.
     # A default unconfigured Windows host deliberately cannot spawn a process.
