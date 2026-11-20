@@ -269,6 +269,25 @@ impl StartWanted {
     pub(crate) fn clear(&self) {
         self.0.store(false, Ordering::Release);
     }
+    /// Whether it was set, clearing it: a run consumes the request it ended for.
+    pub(crate) fn take(&self) -> bool {
+        todo!("RED: StartWanted::take")
+    }
+}
+/// What ends a cleanup run after the command in progress: a Start or Retry, a Stop, the owner's
+/// shutdown, or a cleanup that could not be confirmed.
+pub(crate) fn run_cancelled(start_wanted: bool, stop: bool, shutdown: bool, halted: bool) -> bool {
+    todo!("RED: run_cancelled")
+}
+/// Whether the proxy starts after a run: one that ran before it and is to be restarted, or one
+/// a Start asked for meanwhile. A proxy the user stopped stays stopped.
+pub(crate) fn start_after_run(restart: bool, was_running: bool, start_wanted: bool) -> bool {
+    todo!("RED: start_after_run")
+}
+/// A run is one long turn of the owner: it says it is alive, or the panel and the opens take
+/// the owner for stalled (no report for 15 s) and refuse what would end the run.
+fn heartbeat(snapshot: &mut Snapshot, status: &Mutex<Snapshot>) {
+    todo!("RED: heartbeat")
 }
 impl SupervisorConfig {
     fn valid(&self, recipe: &SidecarRuntimeRecipe) -> bool {
@@ -1953,6 +1972,69 @@ mod tests {
             wanted.clone().is_set(),
             "the owner's copy sees what the caller's set"
         );
+    }
+
+    #[test]
+    fn a_heartbeat_keeps_a_maintaining_owner_fresh() {
+        let at = now().unwrap();
+        let mut snapshot = launch_snapshot(Phase::Maintaining, false, at - 60_000);
+        let status = Mutex::new(snapshot.clone());
+        heartbeat(&mut snapshot, &status);
+        let shown = status.lock().unwrap().clone();
+        assert_eq!(shown.phase, Phase::Maintaining);
+        assert!(
+            shown
+                .observed_at_unix_ms
+                .is_some_and(|seen| (at - 1_000..=at + 5_000).contains(&seen)),
+            "{:?}",
+            shown.observed_at_unix_ms
+        );
+        assert_eq!(snapshot.observed_at_unix_ms, shown.observed_at_unix_ms);
+    }
+
+    #[test]
+    fn a_stop_or_a_shutdown_ends_a_run_too() {
+        assert!(!run_cancelled(false, false, false, false));
+        assert!(run_cancelled(true, false, false, false), "a start");
+        assert!(run_cancelled(false, true, false, false), "a stop");
+        assert!(
+            run_cancelled(false, false, true, false),
+            "the owner's shutdown"
+        );
+        assert!(
+            run_cancelled(false, false, false, true),
+            "an unconfirmed cleanup"
+        );
+    }
+
+    #[test]
+    fn a_run_restarts_only_a_proxy_that_was_running_or_asked_for() {
+        assert!(
+            start_after_run(true, true, false),
+            "the idle run restarts what it stopped"
+        );
+        assert!(
+            !start_after_run(true, false, false),
+            "a proxy stopped meanwhile stays stopped"
+        );
+        assert!(
+            !start_after_run(false, true, false),
+            "the close run never restarts"
+        );
+        assert!(start_after_run(false, false, true), "an open asked for it");
+    }
+
+    #[test]
+    fn taking_the_start_flag_clears_it() {
+        let wanted = StartWanted::default();
+        assert!(!wanted.take());
+        wanted.note(&Command::Start);
+        assert!(wanted.take());
+        assert!(
+            !wanted.is_set(),
+            "a request dropped from the queue cannot cancel every later run"
+        );
+        assert!(!wanted.take());
     }
 
     #[test]

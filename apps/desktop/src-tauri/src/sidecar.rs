@@ -338,6 +338,28 @@ pub(crate) fn idle_run_due(
             || idle_since
                 .is_some_and(|since| now.saturating_duration_since(since) >= IDLE_BEFORE_CLEANUP))
 }
+/// Opens in progress: an open that passed the proxy check has no live terminal yet, and the
+/// idle cleanup must not stop the proxy under it.
+#[derive(Clone, Default)]
+pub(crate) struct Opening(Arc<std::sync::atomic::AtomicUsize>);
+pub(crate) struct OpeningGuard(Arc<std::sync::atomic::AtomicUsize>);
+impl Opening {
+    pub(crate) fn enter(&self) -> OpeningGuard {
+        todo!("RED: Opening::enter")
+    }
+    pub(crate) fn count(&self) -> usize {
+        todo!("RED: Opening::count")
+    }
+}
+impl Drop for OpeningGuard {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
+    }
+}
+/// The agent sessions the idle rule counts: the live ones and the opens in progress.
+pub(crate) fn busy_sessions(live_agent_sessions: Option<usize>, opening: usize) -> Option<usize> {
+    todo!("RED: busy_sessions")
+}
 /// The line `shinatama.log` gets for a run of the archive cleanup.
 pub(crate) fn report_line(report: &shinatama_engine::sidecar_archive::Report) -> String {
     use shinatama_engine::sidecar_archive::Stop;
@@ -1219,6 +1241,22 @@ mod tests {
         assert!(idle_run_due(Some(0), ago(1), now, true), "a forget makes it due now");
         assert!(!idle_run_due(Some(0), None, now, false));
         assert!(!idle_run_due(Some(2), ago(1), now, true), "not even a forget with an agent open");
+    }
+
+    #[test]
+    fn an_open_in_progress_is_not_idle() {
+        let opening = Opening::default();
+        let now = std::time::Instant::now() + Duration::from_secs(1000);
+        let idle = Some(now - Duration::from_secs(900));
+        {
+            let _first = opening.enter();
+            let _second = opening.enter();
+            assert_eq!(opening.count(), 2);
+            assert!(!idle_run_due(busy_sessions(Some(0), opening.count()), idle, now, true));
+        }
+        assert_eq!(opening.count(), 0, "an open that ends, by any path, no longer counts");
+        assert!(idle_run_due(busy_sessions(Some(0), opening.count()), idle, now, false));
+        assert_eq!(busy_sessions(None, 1), None, "an unknown count stays unknown");
     }
 
     #[test]

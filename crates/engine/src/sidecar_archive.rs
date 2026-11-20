@@ -180,6 +180,20 @@ pub fn run(
     )
 }
 
+/// How many sessions a run would remove now, read read-only while the proxy may run (SQLite
+/// readers do not block its writer): the idle run stops the proxy only when there is one.
+/// None when the archive or the threads cannot be read.
+pub fn pending(
+    recipe: &SidecarRuntimeRecipe,
+    natives: Result<HashSet<String>, ()>,
+) -> Option<usize> {
+    pending_on(index_path(recipe).as_deref(), natives)
+}
+
+fn pending_on(index: Option<&Path>, natives: Result<HashSet<String>, ()>) -> Option<usize> {
+    todo!("RED: pending_on")
+}
+
 #[allow(clippy::type_complexity)]
 fn run_on(
     index: Option<&Path>,
@@ -396,6 +410,21 @@ mod tests {
     }
 
     #[test]
+    fn pending_counts_what_a_run_would_remove() {
+        let archive = Archive::with(&THREE);
+        assert_eq!(
+            pending_on(Some(&archive.0), Ok(natives(&["kept"]))),
+            Some(3)
+        );
+        assert_eq!(
+            pending_on(Some(&archive.0), Ok(natives(&["kept", "gone-1", "gone-2"]))),
+            Some(1)
+        );
+        assert_eq!(pending_on(Some(&archive.0), Err(())), None);
+        assert_eq!(pending_on(None, Ok(natives(&[]))), None);
+    }
+
+    #[test]
     fn nothing_to_remove_runs_nothing() {
         let archive = Archive::with(&[("kept", "anthropic")]);
         let calls = Cell::new(0);
@@ -567,8 +596,8 @@ mod tests {
         assert_eq!(report.stop, Stop::Budget);
         assert_eq!(report.left, 10 - removals.get());
         assert!(
-            report.compacted,
-            "a compaction after the budget is one command on a small file"
+            !report.compacted,
+            "a run the budget stopped leaves the compaction to a run that ends"
         );
     }
 }
