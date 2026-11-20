@@ -7,8 +7,8 @@
 //! plans or applies, never removes a target or edits a plugin, and never touches the user's own
 //! Muro. Every call names the registry: `--data` for `muroctl`, `MURO_DATA_DIR` for `Muro.exe`.
 //!
-//! Muro is found, not shipped yet: `muro\` beside Shinatama's program, or the folder named by
-//! `SHINATAMA_MURO`; `SHINATAMA_MURO=off` switches all of it off.
+//! Muro ships in the package (`muro\` beside Shinatama's program, the release that
+//! scripts/muro-pin.json pins); `SHINATAMA_MURO` names another folder, `off` switches it all off.
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::{

@@ -277,9 +277,8 @@ pwsh -NoProfile -File "scripts\fetch-release.ps1" -Pin "scripts\marionette-pin.j
 copy /y "scripts\marionette-pin.json" "%RELEASE%\marionette\marionette-pin.json" >nul || (echo [ERROR] could not copy the Marionette pin. & goto :sub_fail)
 
 rem Muro, which keeps the plugins of Shinatama's agents in sync (docs\specs\muro-plugin-sync.md): the
-rem portable zip of the release scripts\muro-pin.json names, checked and unpacked whole into muro\. No
-rem Muro release has what Shinatama needs yet, so there is no pin and no muro\ until one does; the app
-rem then says Muro is not in this build.
+rem portable zip of the release scripts\muro-pin.json names, checked and unpacked whole into muro\. A
+rem build without the pin has no muro\, and the app then says Muro is not in this build.
 if not exist "scripts\muro-pin.json" goto :no_muro
 echo     muro\ ^(the pinned Muro release, unpacked: Muro.exe, tools\muroctl.exe, tools\mukade.exe^)
 pwsh -NoProfile -File "scripts\fetch-release.ps1" -Pin "scripts\muro-pin.json" -Destination "%RELEASE%\muro" || goto :sub_fail

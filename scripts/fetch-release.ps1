@@ -11,8 +11,7 @@
 # whose file differs is refused, never shipped. A file is an asset of the release or, when the pin
 # names an `archive` (the portable zip the releases hand out, with its own SHA-256), a file of that
 # zip: at its root or in its one top folder. A pin with `"unpack": true` and an `archive` takes
-# the whole zip instead, its one top folder left out (Muro's portable package, scripts\muro-pin.json
-# once a Muro release has what Shinatama needs), checked against the archive's SHA-256 and size.
+# the whole zip instead, its one top folder left out (Muro's portable package, scripts\muro-pin.json), checked against the archive's SHA-256 and size.
 # Downloads go through gh, so a private repository
 # works with gh's own sign-in. A verified copy is kept in target\releases and reused.
 param(
