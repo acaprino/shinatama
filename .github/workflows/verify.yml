@@ -51,7 +51,8 @@ jobs:
       - name: Run the shared local and CI verification entrypoint
         run: ./scripts/verify.ps1 -TimeoutMinutes 140
 
-      # Deliberate allowlist: never upload WebView profiles, app settings or logs.
+      # Deliberate allowlist: never upload WebView profiles, app settings or the application's logs.
+      # .verification/logs holds the whole output of each check (the run's log shows only the end of a failed one).
       - name: Upload verification reports and synthetic screenshots
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -60,6 +61,7 @@ jobs:
           path: |
             .verification/verification.json
             .verification/dependencies.json
+            .verification/logs/*.log
             .prototype-evidence/desktop-terminals.png
             .prototype-evidence/projects-picker.png
             .prototype-evidence/project-catalog.json
@@ -80,6 +82,7 @@ jobs:
           path: |
             target/debug/shinatama-desktop.exe
             target/debug/shinatama.exe
+            target/debug/shinatama-session-helper.exe
             THIRD_PARTY_NOTICES.md
             .verification/THIRD_PARTY_LICENSES.txt
           include-hidden-files: true

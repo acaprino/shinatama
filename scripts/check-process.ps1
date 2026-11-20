@@ -87,3 +87,42 @@ function Invoke-Check {
         }
     }
 }
+
+# A Windows Server runner signs in an administrator, and what an administrator creates there belongs to the
+# Administrators group. Shinatama refuses a data folder that does not belong to the user, so 15 test targets
+# failed on that alone in every CI run up to 2026-11-20. What this process and its children create belongs to
+# the user from here on, as on a desktop; nothing is changed where it already does.
+function Set-NewFileOwnerToUser {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    if ($identity.Owner.Equals($identity.User)) { return }
+    $native = Add-Type -Namespace ShinatamaVerify -Name ProcessToken -PassThru -MemberDefinition @'
+[DllImport("kernel32.dll")] public static extern IntPtr GetCurrentProcess();
+[DllImport("kernel32.dll")] public static extern bool CloseHandle(IntPtr handle);
+[DllImport("advapi32.dll", SetLastError = true)] public static extern bool OpenProcessToken(IntPtr process, uint access, out IntPtr token);
+[DllImport("advapi32.dll", SetLastError = true)] public static extern bool SetTokenInformation(IntPtr token, int kind, IntPtr information, int length);
+'@
+    $token = [IntPtr]::Zero
+    # TOKEN_ADJUST_DEFAULT
+    if (-not $native::OpenProcessToken($native::GetCurrentProcess(), 0x0080, [ref]$token)) {
+        throw "The process token could not be opened: error $([Runtime.InteropServices.Marshal]::GetLastWin32Error())"
+    }
+    $sid = [byte[]]::new($identity.User.BinaryLength)
+    $identity.User.GetBinaryForm($sid, 0)
+    # TOKEN_OWNER: one pointer to the SID, which follows it here.
+    $memory = [Runtime.InteropServices.Marshal]::AllocHGlobal([IntPtr]::Size + $sid.Length)
+    try {
+        $sidAddress = [IntPtr]::Add($memory, [IntPtr]::Size)
+        [Runtime.InteropServices.Marshal]::Copy($sid, 0, $sidAddress, $sid.Length)
+        [Runtime.InteropServices.Marshal]::WriteIntPtr($memory, $sidAddress)
+        # 4 = TokenOwner
+        if (-not $native::SetTokenInformation($token, 4, $memory, [IntPtr]::Size)) {
+            throw "The owner of new files could not be set to the user: error $([Runtime.InteropServices.Marshal]::GetLastWin32Error())"
+        }
+    } finally {
+        [Runtime.InteropServices.Marshal]::FreeHGlobal($memory)
+        [void]$native::CloseHandle($token)
+    }
+    $after = [Security.Principal.WindowsIdentity]::GetCurrent()
+    if (-not $after.Owner.Equals($after.User)) { throw 'New files still do not belong to the user' }
+    Write-Host "New files belong to the user ($($identity.Owner.Value) before)."
+}

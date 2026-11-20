@@ -33,6 +33,7 @@ $report = [ordered]@{
 }
 
 . (Join-Path $PSScriptRoot 'check-process.ps1')
+Set-NewFileOwnerToUser
 
 # Every check after the dependency install runs even when an earlier one failed, and the run fails at the
 # end with all of them: a failing documentation check stopped every run in its first minute, so no run said
@@ -112,12 +113,13 @@ try {
     Invoke-Verification 'rust-format' 'cargo' @('fmt', '--all', '--check')
     # A whole-workspace compile from nothing takes longer than the 15 minutes of the other checks.
     Invoke-Verification 'rust-clippy' 'cargo' @('clippy', '--locked', '--workspace', '--all-targets', '--features', 'custom-protocol', '--', '-D', 'warnings') -TimeoutSeconds 3600
-    # Every test binary runs: on the first CI run the CLI's MCP test failed on the runner's temporary folder (owned
-    # by another account) and cargo stopped there, so no test of the engine, the state or the desktop ran.
+    # Every test binary runs, so one failing target does not hide the others. The whole output of each check is
+    # in .verification/logs, which the workflow uploads: the run's log shows only the end of a failed one.
     Invoke-Verification 'rust-tests' 'cargo' @('test', '--locked', '--workspace', '--all-targets', '--features', 'custom-protocol', '--no-fail-fast') -TimeoutSeconds 3600
     Invoke-Verification 'test-job-build' 'cargo' @('build', '--locked', '--manifest-path', 'verify/P14/Cargo.toml')
     # The desktop embeds the frontend that `frontend-build` writes.
-    Invoke-Verification 'desktop-build' 'cargo' @('build', '--locked', '-p', 'shinatama-desktop', '-p', 'shinatama-cli', '-p', 'shinatama-terminal', '--bins', '--features', 'custom-protocol') -Needs @('frontend-build') -TimeoutSeconds 3600
+    # The engine's program is the contained session reader (shinatama-session-helper), which reads the saved sessions.
+    Invoke-Verification 'desktop-build' 'cargo' @('build', '--locked', '-p', 'shinatama-desktop', '-p', 'shinatama-cli', '-p', 'shinatama-terminal', '-p', 'shinatama-engine', '--bins', '--features', 'custom-protocol') -Needs @('frontend-build') -TimeoutSeconds 3600
     $probe = Join-Path $workspaceRoot 'verify/P14/target/debug/p14-probe.exe'
     # The real desktop check below covers ConPTY through its admitted helper.
     # A default unconfigured Windows host deliberately cannot spawn a process.
