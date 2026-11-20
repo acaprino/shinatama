@@ -6,6 +6,7 @@
 //! confirmed request. No native export, auth read, alternate parser or command.
 use crate::session_roots::{
     MUKADE_REVISION, RootSelector, SessionNamespaceGuard, SessionReadIssue, pin_reader_namespace,
+    pin_session_namespace,
 };
 use mukade::{
     Entry, HarnessId, Kind, Session,
@@ -18,7 +19,9 @@ use sha2::{Digest, Sha256};
 use shinatama_state::records::StoreRootRecord;
 use std::path::{Path, PathBuf};
 
-pub const MAX_INPUT_FILES: usize = 4096;
+/// The files one pin may hold (the pin's own entry bound, `session_roots`). It was 4,096, which
+/// one Claude Code workflow run exceeds by itself.
+pub const MAX_INPUT_FILES: usize = 65_536;
 pub const MAX_DETAIL_EVENTS: usize = 50;
 pub const MAX_TEXT_BYTES: usize = 4096;
 /// The length Mukade clips every string to for the view. The view cuts a text at
@@ -54,6 +57,9 @@ impl From<SessionReadIssue> for DetailIssue {
             SessionReadIssue::UnsafeRoot | SessionReadIssue::UnsupportedRootShape => {
                 Self::UnsafeNamespace
             }
+            // The archive holds more entries than a pin accepts: said as that, never as a
+            // read that failed for no stated reason.
+            SessionReadIssue::MetadataTooLarge => Self::InputTooLarge,
             _ => Self::ReadUnavailable,
         }
     }
@@ -291,6 +297,23 @@ pub(crate) fn open(
     snapshot: &TrustedRootSnapshot,
     request: &DetailRequest,
 ) -> Result<Opened, DetailIssue> {
+    open_under(snapshot, request, false)
+}
+/// [`open`] for a read of the session's own file and nothing else (its overview): the pin
+/// leaves out what session folders hold, so neither their size nor a subagent writing into
+/// them refuses the read. A session whose file that pin does not hold is opened under the whole
+/// pin instead.
+fn open_session_file(
+    snapshot: &TrustedRootSnapshot,
+    request: &DetailRequest,
+) -> Result<Opened, DetailIssue> {
+    open_under(snapshot, request, true)
+}
+fn open_under(
+    snapshot: &TrustedRootSnapshot,
+    request: &DetailRequest,
+    session_files_only: bool,
+) -> Result<Opened, DetailIssue> {
     if request.root != snapshot.root
         || !native_id(&request.native_id)
         || !(1..=MAX_DETAIL_EVENTS).contains(&request.limit)
@@ -301,7 +324,11 @@ pub(crate) fn open(
     {
         return Err(DetailIssue::InvalidRequest);
     }
-    let guard = pin_reader_namespace(&snapshot.record)?;
+    let guard = if session_files_only {
+        pin_session_namespace(&snapshot.record)?
+    } else {
+        pin_reader_namespace(&snapshot.record)?
+    };
     // The archive's size does not bound a read; only the number of files the pin holds.
     if guard.file_count() > MAX_INPUT_FILES {
         return Err(DetailIssue::InputTooLarge);
@@ -317,6 +344,10 @@ pub(crate) fn open(
     // that record as its path: there is no conversation to read.
     if info.unreadable.is_some() {
         return Err(DetailIssue::SessionNotFound);
+    }
+    if session_files_only && !guard.holds(Path::new(&info.path)) {
+        // Mukade found the session in a file this pin left out: nothing read so far is kept.
+        return open_under(snapshot, request, false);
     }
     guard.verify_session_current(Path::new(&info.path))?;
     if info.id != request.native_id {
@@ -431,7 +462,7 @@ fn read_overview(
     snapshot: &TrustedRootSnapshot,
     request: &DetailRequest,
 ) -> Result<DetailPage, DetailIssue> {
-    let opened = open(snapshot, request)?;
+    let opened = open_session_file(snapshot, request)?;
     let info = &opened.info;
     let lineage = crate::session_lineage::derive_lineage(
         std::slice::from_ref(info), &request.native_id, crate::session_lineage::ParentMetadata::Unavailable,
@@ -843,6 +874,51 @@ mod tests {
         // Changes to the chosen transcript must still be refused.
         fs::OpenOptions::new().append(true).open(&selected).unwrap().write_all(b"\n").unwrap();
         assert!(matches!(opened.clipped(&snapshot, &request, 4096), Err(DetailIssue::SourceChanged)));
+    }
+    /// 2026-11-19: the overview of a session, which is all Resume reads, is of its own file.
+    /// The files of its folder (one workflow run wrote 5,249 subagent files there) are not
+    /// pinned for it, and a subagent writing one meanwhile does not refuse it.
+    #[test]
+    fn an_overview_is_not_refused_by_what_its_session_folder_holds() {
+        let fixture = Fixture(fs::canonicalize(std::env::temp_dir()).unwrap()
+            .join(format!("shinatama-detail-{}", uuid::Uuid::new_v4())));
+        let location = StorageLocation::resolve(LocationRequest {
+            local_data_directory: std::env::temp_dir(),
+            home_override: Some(fixture.0.clone()),
+            project_roots: Vec::new(),
+            synchronized_roots: Vec::new(),
+        }).unwrap();
+        location.prepare_private_directory().unwrap();
+        let native_id = "01a17e07-93f7-7a73-85c7-9f0205836600";
+        let transcript = location.directory().join(format!("projects/fixture-project/{native_id}.jsonl"));
+        let subagents = location.directory().join(format!("projects/fixture-project/{native_id}/subagents"));
+        fs::create_dir_all(&subagents).unwrap();
+        fs::write(&transcript, format!("{}\n", serde_json::json!({"type":"user","uuid":"entry-user","sessionId":native_id,
+            "cwd":"C:\\synthetic-project","timestamp":"2026-11-19T12:00:00Z","message":{"role":"user","content":"hello"}}))).unwrap();
+        let child = format!("{}\n", serde_json::json!({"type":"user","uuid":"entry-child","sessionId":native_id,"isSidechain":true,
+            "cwd":"C:\\synthetic-project","timestamp":"2026-11-19T12:00:01Z","message":{"role":"user","content":"task"}}));
+        fs::write(subagents.join("agent-a1.jsonl"), &child).unwrap();
+        let record = StoreRootRecord {
+            id: "session-folder-root".into(), harness: "claude_code".into(),
+            kind: RootKind::Box, scope: RootScope::Primary,
+            resolved_path: location.directory().to_string_lossy().trim_start_matches(r"\\?\").into(),
+            origin: RootOrigin::Configured, config_revision: 1,
+            access: RootAccess::ReadWrite, available: true,
+        };
+        let root = RootSelector { store_root_id: record.id.clone(), configuration_revision: 1 };
+        let snapshot = TrustedRootSnapshot::from_record(&record, &root).unwrap();
+        let request = DetailRequest { root, native_id: native_id.into(), cursor: None, limit: 1, overview_only: true };
+        let opened = open_session_file(&snapshot, &request).unwrap();
+        assert_eq!(opened.guard.file_count(), 1, "only the session file is pinned for an overview");
+        // A subagent of a running session writes a new transcript during the read.
+        fs::write(subagents.join("agent-b2.jsonl"), &child).unwrap();
+        opened.guard.verify_session_current(Path::new(&opened.info.path)).unwrap();
+        drop(opened);
+        let reply = read_detail(&snapshot, &request);
+        assert!(reply.issue.is_none());
+        assert_eq!(reply.page.unwrap().overview.working_directory.as_deref(), Some("C:\\synthetic-project"));
+        // A read that follows the session into its folder still pins all of it.
+        assert_eq!(open(&snapshot, &request).unwrap().guard.file_count(), 3);
     }
     /// 2026-11-18: a Claude session in which only `/resume` was typed has no transcript, but
     /// `history.jsonl` names it, so Mukade's overview lists it as unreadable with the history

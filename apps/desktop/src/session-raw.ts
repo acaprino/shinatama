@@ -26,7 +26,7 @@ const ERRORS: Record<string, string> = {
   entry_not_found: 'This exact entry is unavailable. Reload the session detail.', raw_unavailable: 'The native reader has no RAW record for this canonical entry.',
   output_limit: 'The RAW entry exceeds 64 KiB and was refused.', source_changed: 'The source changed. Close RAW and reload the detail.',
   root_changed: 'The archive revision changed. Close RAW and reload the catalog.', root_unavailable: 'The selected archive is unavailable.',
-  input_too_large: 'This archive holds more than 4,096 files. It was refused before reading.',
+  input_too_large: 'This archive holds more than 65,536 files. It was refused before reading.',
   unsafe_namespace: 'The source failed read-only path verification.', unsupported_export_context: 'This native export context is not qualified.',
   unsupported_harness: 'This agent has no qualified RAW reader.', ambiguous_session: 'This exact session cannot be distinguished safely.',
   session_not_found: 'The exact native session is unavailable in this archive.', read_unavailable: 'RAW could not be read. Retry explicitly.',

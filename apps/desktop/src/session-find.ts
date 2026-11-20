@@ -30,7 +30,7 @@ const ERRORS: Record<string, string> = {
   output_limit: 'The search response exceeded its fixed limit.', invalid_request: 'This search selector is invalid.',
   source_changed: 'The session changed. Close search and reload its detail.', root_changed: 'The archive revision changed. Reload its catalog.',
   root_unavailable: 'The selected archive is unavailable. No other archive was searched.', unsafe_namespace: 'The archive failed read-only path verification.',
-  input_too_large: 'This archive holds more than 4,096 files. It was refused before reading.',
+  input_too_large: 'This archive holds more than 65,536 files. It was refused before reading.',
   unsupported_harness: 'This agent has no qualified session reader.', unsupported_export_context: 'This native export context is not qualified.',
   session_not_found: 'The exact native session is unavailable.', ambiguous_session: 'This exact session cannot be distinguished safely.',
   read_unavailable: 'Session search is unavailable. Retry explicitly.', cleanup_unconfirmed: 'Reader cleanup remains unconfirmed; its resources stay reserved.',

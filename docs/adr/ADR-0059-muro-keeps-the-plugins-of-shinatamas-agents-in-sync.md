@@ -78,8 +78,8 @@ Sources, kept apart:
    resolves, plans, applies and records the state. Sync now sends Muro's `sync_now`; Open Muro
    shows the window of Shinatama's Muro. Its Start-with-Windows name is its own and stays off.
 4. **Shipped from a pinned release.** The package carries Muro unpacked in `muro\` beside the
-   program, from the `muro-v<version>` release `scripts/muro-pin.json` names (`muro-v0.4.0`, the
-   first with the background mode), checked against its SHA-256 and size like Mukade and Xiox.
+   program, from the `muro-v<version>` release `scripts/muro-pin.json` names (`muro-v0.5.0`; `muro-v0.4.0`
+   was the first with the background mode), checked against its SHA-256 and size like Mukade and Xiox.
    `SHINATAMA_MURO` names another Muro folder.
 5. **Opt-out.** `SHINATAMA_MURO=off` turns the integration off.
 

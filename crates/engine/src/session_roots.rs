@@ -791,7 +791,7 @@ fn session_file_bytes(root: &StoreRootRecord, native_id: &str) -> u64 {
     largest
 }
 #[cfg(windows)]
-pub use namespace::{SessionNamespaceGuard, pin_reader_namespace};
+pub use namespace::{SessionNamespaceGuard, pin_reader_namespace, pin_session_namespace};
 #[cfg(not(windows))]
 pub struct SessionNamespaceGuard;
 #[cfg(not(windows))]
@@ -799,7 +799,14 @@ pub fn pin_reader_namespace(_: &StoreRootRecord) -> Result<SessionNamespaceGuard
     Err(SessionReadIssue::ReadUnavailable)
 }
 #[cfg(not(windows))]
+pub fn pin_session_namespace(_: &StoreRootRecord) -> Result<SessionNamespaceGuard> {
+    Err(SessionReadIssue::ReadUnavailable)
+}
+#[cfg(not(windows))]
 impl SessionNamespaceGuard {
+    pub fn holds(&self, _: &Path) -> bool {
+        false
+    }
     pub fn verify_current(&self) -> Result<()> {
         Err(SessionReadIssue::ReadUnavailable)
     }
@@ -830,9 +837,25 @@ mod namespace {
         FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_READ_ATTRIBUTES,
         FILE_SHARE_READ, FILE_SHARE_WRITE, GetFileInformationByHandle,
     };
-    const MAX_ENTRIES: usize = 4096;
-    const MAX_DIRECTORIES: usize = 1024;
+    /// What one pin may hold. One Claude Code workflow run writes thousands of files into its
+    /// session's folder: on 2026-11-19 one session's 5,249 took a box past the 4,096 this was,
+    /// and every resume, list, search and export in that box was refused from then on.
+    const MAX_ENTRIES: usize = 65_536;
+    const MAX_DIRECTORIES: usize = 16_384;
     const MAX_DEPTH: usize = 64;
+    /// How much of the session subtrees a pin holds.
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    enum Scope {
+        /// Every entry: what a read that follows a session into its folder needs.
+        Whole,
+        /// The session files alone. Claude Code keeps them as `projects/<project>/<id>.jsonl`
+        /// and puts what a session spawns (subagent transcripts, tool results) in the folder
+        /// `<id>` beside its file: that folder is pinned, its contents are not. A read of the
+        /// session files never opens them, so their number neither refuses nor slows it, and a
+        /// subagent writing a new file does not invalidate it. The other harnesses keep nothing
+        /// beside their session files: for them this is `Whole`.
+        SessionFiles,
+    }
     #[derive(Clone, Copy, PartialEq, Eq)]
     struct Stamp {
         volume: u32,
@@ -853,6 +876,7 @@ mod namespace {
     pub struct SessionNamespaceGuard {
         root: StoreRootRecord,
         pins: BTreeMap<PathBuf, Pin>,
+        scope: Scope,
     }
     fn inspect(file: &File) -> Result<Stamp> {
         let mut info = BY_HANDLE_FILE_INFORMATION::default();
@@ -921,10 +945,16 @@ mod namespace {
         Ok(directory)
     }
     pub fn pin_reader_namespace(root: &StoreRootRecord) -> Result<SessionNamespaceGuard> {
-        SessionNamespaceGuard::capture(root)
+        SessionNamespaceGuard::capture(root, Scope::Whole)
+    }
+    /// The pin for a read of session files only (a session's overview, the list of root
+    /// sessions): see [`Scope::SessionFiles`]. A file this pin does not hold must be read under
+    /// [`pin_reader_namespace`].
+    pub fn pin_session_namespace(root: &StoreRootRecord) -> Result<SessionNamespaceGuard> {
+        SessionNamespaceGuard::capture(root, Scope::SessionFiles)
     }
     impl SessionNamespaceGuard {
-        fn capture(root: &StoreRootRecord) -> Result<Self> {
+        fn capture(root: &StoreRootRecord, scope: Scope) -> Result<Self> {
             let harness = harness(&root.harness)?;
             if harness == HarnessId::OpenCode {
                 return Err(SessionReadIssue::UnsupportedRootShape);
@@ -950,6 +980,9 @@ mod namespace {
                     return Err(SessionReadIssue::UnsupportedHarness);
                 }
             };
+            // The deepest directory whose entries are pinned: `projects` is 0, a project 1.
+            let deepest = (scope == Scope::SessionFiles && harness == HarnessId::ClaudeCode)
+                .then_some(1);
             let mut pending = Vec::new();
             for subtree in subtrees {
                 let child = path.join(subtree);
@@ -975,7 +1008,9 @@ mod namespace {
                     fs::read_dir(directory).map_err(|_| SessionReadIssue::ReadUnavailable)?
                 {
                     let child = child.map_err(|_| SessionReadIssue::ReadUnavailable)?.path();
-                    if insert(&mut pins, &child, &mut directories)? {
+                    if insert(&mut pins, &child, &mut directories)?
+                        && deepest.is_none_or(|deepest| depth < deepest)
+                    {
                         pending.push((child, depth + 1));
                     }
                 }
@@ -983,7 +1018,14 @@ mod namespace {
             Ok(Self {
                 root: root.clone(),
                 pins,
+                scope,
             })
+        }
+        /// Whether `path` is a file this pin holds: one a read under this pin may open.
+        pub fn holds(&self, path: &Path) -> bool {
+            self.pins
+                .get(path)
+                .is_some_and(|pin| pin.stamp.attributes & FILE_ATTRIBUTE_DIRECTORY == 0)
         }
         /// Compare identities, file sizes/mtimes and the bounded namespace again.
         /// Concurrent ordinary mutations refuse the result; no fallback/root repair.
@@ -1012,7 +1054,8 @@ mod namespace {
                     return Err(SessionReadIssue::SourceChanged);
                 }
             }
-            let current = Self::capture(&self.root).map_err(|_| SessionReadIssue::SourceChanged)?;
+            let current = Self::capture(&self.root, self.scope)
+                .map_err(|_| SessionReadIssue::SourceChanged)?;
             if current.pins.len() != self.pins.len()
                 || self.pins.iter().any(|(path, pin)| {
                     current
@@ -1091,7 +1134,12 @@ fn list_in_worker(request: WorkerRequest) -> Result<SessionListPage> {
     }
     let harness = harness(&request.root.harness)?;
     verify_root(&request.root, harness)?;
-    let namespace = pin_reader_namespace(&request.root)?;
+    // The children are read from the folders of their sessions: only that list needs them pinned.
+    let namespace = if request.include_children {
+        pin_reader_namespace(&request.root)?
+    } else {
+        pin_session_namespace(&request.root)?
+    };
     namespace.verify_current()?;
     let explicit_roots = roots(&request.root, harness);
     let reader =
@@ -1872,6 +1920,78 @@ mod tests {
         // Claude adds the second name while a session runs: the bytes did not change.
         fs::hard_link(&later, tasks.join("b2.output")).unwrap();
         guard.verify_current().unwrap();
+    }
+    /// 2026-11-19: one Claude Code workflow run wrote 5,249 files into its session's folder, the
+    /// box passed the 4,096 entries a pin accepted, and every resume, list, search and export in
+    /// it was refused from then on. What a session's folder holds must never refuse a read of
+    /// the session files, and the whole pin must hold what one workflow run writes.
+    #[test]
+    fn what_a_session_folder_holds_never_refuses_a_read_of_the_session_files() {
+        let fixture = Fixture {
+            path: fs::canonicalize(std::env::temp_dir())
+                .unwrap()
+                .join(format!("shinatama-session-roots-{}", uuid::Uuid::new_v4())),
+        };
+        let location = StorageLocation::resolve(LocationRequest {
+            local_data_directory: std::env::temp_dir(),
+            home_override: Some(fixture.path.clone()),
+            project_roots: Vec::new(),
+            synchronized_roots: Vec::new(),
+        })
+        .unwrap();
+        location.prepare_private_directory().unwrap();
+        let project = location.directory().join("projects/project");
+        let workflow = project.join("session/subagents/workflows/wf");
+        fs::create_dir_all(&workflow).unwrap();
+        fs::write(project.join("session.jsonl"), b"{\"sessionId\":\"session\"}\n").unwrap();
+        for index in 0..4_200 {
+            fs::write(workflow.join(format!("agent-a{index}.jsonl")), b"{}\n").unwrap();
+        }
+        let root = StoreRootRecord {
+            id: "workflow-fixture".into(),
+            harness: "claude_code".into(),
+            kind: RootKind::Box,
+            scope: RootScope::Primary,
+            resolved_path: location
+                .directory()
+                .to_string_lossy()
+                .trim_start_matches(r"\\?\")
+                .into(),
+            origin: RootOrigin::Configured,
+            config_revision: 1,
+            access: RootAccess::ReadWrite,
+            available: true,
+        };
+        let session = PathBuf::from(&root.resolved_path).join("projects/project/session.jsonl");
+        let inside = PathBuf::from(&root.resolved_path)
+            .join("projects/project/session/subagents/workflows/wf/agent-a0.jsonl");
+        let whole = pin_reader_namespace(&root).unwrap();
+        assert_eq!(whole.file_count(), 4_201);
+        assert!(whole.holds(&session) && whole.holds(&inside));
+        drop(whole);
+        let pin = pin_session_namespace(&root).unwrap();
+        assert_eq!(pin.file_count(), 1);
+        assert!(pin.holds(&session));
+        assert!(!pin.holds(&inside));
+        assert!(pin.file_size(&inside).is_err());
+        // A subagent writes a new transcript while the session file is read: not in this pin.
+        fs::write(workflow.join("agent-later.jsonl"), b"{}\n").unwrap();
+        pin.verify_session_current(&session).unwrap();
+        pin.verify_current().unwrap();
+        // The whole pin still sees such a file.
+        let whole = pin_reader_namespace(&root).unwrap();
+        fs::write(workflow.join("agent-last.jsonl"), b"{}\n").unwrap();
+        assert!(matches!(
+            whole.verify_session_current(&session),
+            Err(SessionReadIssue::SourceChanged)
+        ));
+        drop(whole);
+        // A new session file is in the session pin, as before.
+        fs::write(project.join("other.jsonl"), b"{}\n").unwrap();
+        assert!(matches!(
+            pin.verify_session_current(&session),
+            Err(SessionReadIssue::SourceChanged)
+        ));
     }
     #[test]
     fn namespace_pins_allow_appends_but_reject_reparse_and_changed_membership() {
