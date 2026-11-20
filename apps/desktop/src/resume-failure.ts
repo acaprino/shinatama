@@ -16,6 +16,14 @@ export function resumeFailureReason(error: unknown): string | null {
   return reason || null;
 }
 
+/** Whether a refused resume can pass a moment later, so it is tried again by itself: the reader or the
+ *  agent busy, memory short, the proxy or the storage not ready (`unavailable`), the record read a
+ *  moment too early (`source_changed`, `conflict`) or still marked open (`owned_elsewhere`: it is
+ *  recovered at the next try). The others say what is wrong for good. */
+export function resumeRetryable(error: unknown): boolean {
+  return ['busy', 'resources', 'slow_read', 'unavailable', 'source_changed', 'conflict', 'owned_elsewhere'].includes(resumeFailureCode(error) ?? '');
+}
+
 export function resumeFailureText(error: unknown): string {
   switch (resumeFailureCode(error)) {
     case 'resources': return 'Not enough free memory to open the saved conversation right now; nothing was started. Close some programs or sessions, then resume again.';

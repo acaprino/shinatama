@@ -62,8 +62,10 @@ fn record(thread: &str, began: Instant, result: &Result<AgentStarted>) {
         ),
     });
 }
-fn unavailable<T>(_: T) -> Error {
-    issue("unavailable")
+/// `unavailable` with the check that refused. A bare "unavailable" told nothing: on 2026-11-19 eight
+/// Resumes were refused in 400 ms each and the log could not say by which check.
+fn because(reason: &'static str) -> Error {
+    Error { code: "unavailable", message: Some(reason) }
 }
 fn snapshot_error(error: ThreadResumeError) -> Error {
     issue(match error {
@@ -71,7 +73,7 @@ fn snapshot_error(error: ThreadResumeError) -> Error {
         ThreadResumeError::NotFound
         | ThreadResumeError::RootChanged
         | ThreadResumeError::Invalid => "source_changed",
-        _ => "unavailable",
+        _ => return because("The saved session could not be read from Shinatama's storage."),
     })
 }
 fn read_error(error: SessionReadIssue) -> Error {
@@ -85,7 +87,16 @@ fn read_error(error: SessionReadIssue) -> Error {
         // The saved conversation was not read within its wall: the machine was busy or the
         // file is very large. Nothing was started; a later try can pass.
         SessionReadIssue::TimedOut => "slow_read",
-        _ => "unavailable",
+        SessionReadIssue::ReadUnavailable => {
+            return because("The reader of saved conversations stayed busy with another read.");
+        }
+        SessionReadIssue::RootUnavailable => {
+            return because("The agent's home folder is not available.");
+        }
+        SessionReadIssue::UnsafeRoot | SessionReadIssue::UnsupportedRootShape => {
+            return because("The agent's home folder did not pass its safety checks.");
+        }
+        _ => return because("The saved conversation could not be read."),
     })
 }
 fn detail_error(error: DetailIssue) -> Error {
@@ -94,7 +105,19 @@ fn detail_error(error: DetailIssue) -> Error {
         DetailIssue::RootChanged | DetailIssue::SourceChanged | DetailIssue::AmbiguousSession => {
             "source_changed"
         }
-        _ => "unavailable",
+        DetailIssue::RootUnavailable => {
+            return because("The agent's home folder is not available.");
+        }
+        DetailIssue::UnsafeNamespace => {
+            return because("The folder of the saved conversation did not pass its safety checks.");
+        }
+        DetailIssue::InputTooLarge | DetailIssue::OutputLimit => {
+            return because("The saved conversation is larger than the reader's limits.");
+        }
+        DetailIssue::ReadUnavailable => {
+            return because("The saved conversation could not be read by the contained reader.");
+        }
+        _ => return because("The saved conversation was refused by its reader."),
     })
 }
 fn target(database: &Database, request: &Request) -> Result<ThreadResumeTarget> {
@@ -113,7 +136,7 @@ fn target(database: &Database, request: &Request) -> Result<ThreadResumeTarget> 
         return Err(issue("unsupported_harness"));
     }
     if saved.root.kind != RootKind::Box || saved.root.scope != RootScope::Primary {
-        return Err(issue("unavailable"));
+        return Err(because("This conversation is not in the agent's own home, so it cannot be resumed there."));
     }
     Ok(saved)
 }
@@ -199,7 +222,10 @@ impl Controller {
         let owner = Arc::clone(self);
         let (thread, began) = (request.thread_id.clone(), Instant::now());
         let result = tauri::async_runtime::spawn_blocking(move || {
-            let state = owner.services.load().map_err(unavailable)?;
+            let state = owner
+                .services
+                .load()
+                .map_err(|_| because("Shinatama's storage could not be opened."))?;
             let saved = target(&state.store, &request)?;
             let entry = owner
                 .registered(&saved.segment.harness)
@@ -208,10 +234,10 @@ impl Controller {
                 return Err(issue("unsupported_harness"));
             }
             let slot = entry.reserve().map_err(|_| issue("busy"))?;
-            slot.run(issue("unavailable"), |service| {
+            slot.run(because("The agent's service stopped unexpectedly. Restart Shinatama."), |service| {
                 let project = canonical_project(&state.location, &saved.project_path)?;
                 if latest_box(&state.store, &saved.segment.harness)
-                    .map_err(unavailable)?
+                    .map_err(|_| because("The agent's home could not be read from Shinatama's storage."))?
                     .as_ref()
                     != Some(&saved.root)
                 {
@@ -240,7 +266,7 @@ impl Controller {
             })
         })
         .await
-        .unwrap_or(Err(issue("unavailable")));
+        .unwrap_or(Err(because("The resume stopped unexpectedly before it finished.")));
         record(&thread, began, &result);
         result
     }

@@ -24,6 +24,7 @@ mod launch_settings;
 mod leftovers;
 mod model_settings;
 mod memory_settings;
+mod muro;
 mod secret_store;
 pub mod maintenance;
 mod new_project;
@@ -735,6 +736,11 @@ fn main() {
             if let Ok(home) = &directory {
                 marionette::start(home);
             }
+            // Shinatama's own Muro keeps the plugins of its agent boxes in sync: it is set up and
+            // started on a thread of its own, beside Marionette's, which writes only its own store.
+            let plugins = Arc::new(muro::Muro::for_app(directory.as_ref().map(Clone::clone).map_err(|e| e.to_string())));
+            muro::start(Arc::clone(&plugins));
+            app.manage(plugins);
             // The data disk's free space, for the Model proxy panel and refused opens: a full disk
             // stops the proxy and Shinatama from saving, and said nothing until now.
             #[cfg(windows)]
@@ -844,6 +850,10 @@ fn main() {
         workspace::workspace_allow_close,
         presentation::presentation_load,
         presentation::presentation_save,
+        presentation::presentation_window_theme,
+        muro::muro_status,
+        muro::muro_sync_now,
+        muro::muro_open,
         launch_settings::launch_settings_load,
         launch_settings::launch_settings_save,
         model_settings::model_settings_load,
@@ -1039,6 +1049,10 @@ fn main() {
         workspace::workspace_allow_close,
         presentation::presentation_load,
         presentation::presentation_save,
+        presentation::presentation_window_theme,
+        muro::muro_status,
+        muro::muro_sync_now,
+        muro::muro_open,
         launch_settings::launch_settings_load,
         launch_settings::launch_settings_save,
         model_settings::model_settings_load,
@@ -1237,6 +1251,9 @@ fn main() {
             }
             if matches!(_event, tauri::RunEvent::Exit) {
                 _app.state::<leftovers::Leftovers>().stop_all();
+                if let Some(muro) = _app.try_state::<Arc<muro::Muro>>() {
+                    muro.at_exit();
+                }
             }
         });
 }

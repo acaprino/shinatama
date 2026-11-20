@@ -165,12 +165,14 @@ con **Marionette**, un esempio costruito con [Muro](https://github.com/acaprino/
 include anche le regole di lavoro e di comunicazione di Ponytail e i-have-adhd.
 Non c'è nulla da installare e la configurazione dei tuoi agenti non cambia.
 
-A ogni avvio Shinatama controlla l'ultima release di Marionette pubblicata su
-[Muro](https://github.com/acaprino/muro/releases) (tag `marionette-v<versione>`; le release
-`muro-v*` di Muro sono ignorate) e, se è nuova, la scarica in `marionette\` dentro la
+A ogni avvio Shinatama controlla l'ultima release di Marionette pubblicata nel suo
+repository, [acaprino/marionette](https://github.com/acaprino/marionette/releases) (tag
+`marionette-v<versione>`; gli altri tag sono ignorati) e, se è nuova, la scarica in `marionette\` dentro la
 cartella dati, ne verifica lo
-SHA-256 e la usa per le sessioni aperte da quel momento. Senza rete resta in uso l'ultima
-copia scaricata; al primo avvio senza rete le sessioni partono senza Marionette.
+SHA-256 e la usa per le sessioni aperte da quel momento. Il pacchetto contiene già una release
+di Marionette (`marionette\` accanto a `Shinatama.exe`): al primo avvio, anche senza rete,
+Shinatama la verifica e la installa nella cartella dati, poi la sincronizzazione la aggiorna.
+Senza rete resta in uso l'ultima copia verificata.
 Prima di ogni sessione Shinatama verifica i file dell'adapter di quell'agente:
 se uno è stato modificato, quella sessione parte senza Marionette e il
 controllo successivo ripara la copia. Claude Code, OpenCode e Pi caricano una copia privata
@@ -216,3 +218,14 @@ $adapters = (Resolve-Path "./marionette/releases/$tag/marionette/adapters").Path
   `codex plugin add marionette@shinatama`.
 - Pi: `pi -e "$adapters/pi/extensions/policy.js" --skill "$adapters/pi/skills"`.
 - OpenCode e gli altri host: segui `INSTALL.md` nella cartella dell'adapter.
+
+## Plugin degli agenti con Muro
+
+Gli agenti che Shinatama apre hanno una casa privata nella cartella dati di Shinatama, quindi i
+plugin che installi con il tuo Muro non arrivano lì. Shinatama ha una sua lista Muro, separata
+dalla tua: in **Impostazioni → Plugins** **Apri Muro** mostra Muro su quella lista, dove scegli i
+plugin per gli agenti di Shinatama, e **Sincronizza ora** li porta subito nelle loro case. A ogni
+avvio Shinatama registra le case dei suoi agenti in quella lista e avvia il suo Muro in background,
+che le tiene allineate da solo. Il tuo Muro e le case abituali degli agenti non vengono mai toccati.
+Mentre Shinatama è aperto vedi una seconda icona di Muro nell'area di notifica. Per disattivare
+tutto imposta `SHINATAMA_MURO=off` prima di aprire Shinatama.

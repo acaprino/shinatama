@@ -15,6 +15,9 @@ launch of Claude Code, Codex, Pi and OpenCode (ADR-0052).
 (`marionette-v<version>` on acaprino/muro) at every start, replaces Ponytail and i-have-adhd as the one plugin every launch gets; nothing
 is shipped in the package (ADR-0052 v2).
 
+**2026-11-19 decision:** Marionette's releases come from its own repository, acaprino/marionette,
+from `marionette-v0.4.1`; acaprino/muro keeps 0.2.0 to 0.4.0, and the package's pin follows (ADR-0052 v3).
+
 **2026-11-11 decision:** the desktop chrome is frosted glass in the active skin's colours, and
 panels and choices open in place instead of as centred dialogs (ADR-0039 v2).
 

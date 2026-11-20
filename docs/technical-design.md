@@ -293,12 +293,18 @@ feature, passed gate or measured performance budget is claimed here.
 
 **Glass and in-place surfaces (implemented 2026-11-11; ADR-0039 v2, FRD-0001 R64-R68).**
 The main window is declared in `apps/desktop/src-tauri/tauri.conf.json` with
-`transparent`, a clear `backgroundColor`, `windowEffects: acrylic` and `theme: Dark`.
-On Windows 11 the acrylic effect is the system backdrop (`DWMSBT_TRANSIENTWINDOW`,
+`transparent`, a clear `backgroundColor` and `windowEffects: acrylic`, and no theme of
+its own. On Windows 11 the acrylic effect is the system backdrop (`DWMSBT_TRANSIENTWINDOW`,
 set by the `window-vibrancy` crate that Tauri uses): it follows the window theme and
-ignores the configured tint colour, which reaches only Windows 10. Without
-`theme: Dark` a machine in the light theme gets a light grey backdrop under dark
-surfaces. The executable embeds `apps/desktop/dist`, so a change to the window
+ignores the configured tint colour, which reaches only Windows 10. A dark backdrop under
+light surfaces turns them grey and a light one washes dark surfaces out, so the window
+theme is the look's (ADR-0039 v3, INV-012): `presentation.ts` sends it through the
+`presentation_window_theme` command (`presentation.rs`, `WebviewWindow::set_theme`)
+whenever the look or Smooth's theme changes, and the command keeps it in
+`<data home>/window-theme`; `webview_recovery::build` reads that file before it builds the
+main window, so the first frame already has the look's backdrop. The values, the layers
+and the on-screen measurements are in `docs/design-system/` (`DESIGN.md`,
+`desktop-shell.md`). The executable embeds `apps/desktop/dist`, so a change to the window
 declaration or to the interface needs `npm run build` and then
 `cargo build -p shinatama-desktop --features custom-protocol`.
 
@@ -852,7 +858,7 @@ How adapters are packaged (one crate each, a plug-in directory) is the builder's
 requirement is that the engine compiles and its tests pass with **no adapter at all** and
 with a fake in-memory adapter (used to test the hop state machine without real agents).
 
-**Marionette (ADR-0052 v2).** `shinatama_engine::marionette::sync` runs on a thread at app start: it lists `api.github.com/repos/acaprino/muro/releases?per_page=100`, keeps the highest published `marionette-v<version>` release (numeric order; drafts, prereleases and Muro's `muro-v*` releases ignored), takes its one `marionette*.zip` asset under `releases/download/<tag>/` with a GitHub `sha256:` digest, downloads it with System32 `curl.exe`, checks size and digest, extracts it with System32 `tar.exe` into `<SHINATAMA_HOME>/marionette/staging`, checks the tree (ordinary files, bounds, four adapters), writes `lock.json` and a Codex marketplace, renames it to `releases/<tag>` and switches `current.json`. `Marionette::current(store).verify(host)` checks one host's adapter against the lock at each launch and yields the switches: Claude `--plugin-dir` of a private copy of `adapters/claude-code`; Codex the adapter mirrored into `<CODEX_HOME>/plugins/cache/shinatama/marionette/<version>` plus `-c marketplaces...` and `-c plugins=...`; Pi `-e extensions/policy.js` and `--skill skills` (`pi::sets::plan_marionette`); OpenCode one shim importing `adapters/opencode/index.js`. The desktop (`agents.rs session_set`) selects the set only for drivers that report `bundled_plugins()` and when a current copy exists, and the launcher falls back to refusing only that adapter. The trial profile and safe mode stay empty.
+**Marionette (ADR-0052 v2).** `shinatama_engine::marionette::sync` runs on a thread at app start: it lists `api.github.com/repos/acaprino/marionette/releases?per_page=100`, keeps the highest published `marionette-v<version>` release (numeric order; drafts, prereleases and other tags ignored), takes its one `marionette*.zip` asset under `releases/download/<tag>/` with a GitHub `sha256:` digest, downloads it with System32 `curl.exe`, checks size and digest, extracts it with System32 `tar.exe` into `<SHINATAMA_HOME>/marionette/staging`, checks the tree (ordinary files, bounds, four adapters), writes `lock.json` and a Codex marketplace, renames it to `releases/<tag>` and switches `current.json`. `Marionette::current(store).verify(host)` checks one host's adapter against the lock at each launch and yields the switches: Claude `--plugin-dir` of a private copy of `adapters/claude-code`; Codex the adapter mirrored into `<CODEX_HOME>/plugins/cache/shinatama/marionette/<version>` plus `-c marketplaces...` and `-c plugins=...`; Pi `-e extensions/policy.js` and `--skill skills` (`pi::sets::plan_marionette`); OpenCode one shim importing `adapters/opencode/index.js`. The desktop (`agents.rs session_set`) selects the set only for drivers that report `bundled_plugins()` and when a current copy exists, and the launcher falls back to refusing only that adapter. The trial profile and safe mode stay empty.
 
 ### 5.6 Seed delivery channels
 

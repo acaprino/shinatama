@@ -7,7 +7,7 @@ use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
-use tauri::{State, WebviewWindow};
+use tauri::{Manager, State, WebviewWindow};
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -228,6 +228,47 @@ pub async fn presentation_load(
     .await
     .map_err(|_| Error::new("unavailable", "Presentation worker did not return."))?
 }
+/// The main window's theme, kept in the data folder for the next start.
+const WINDOW_THEME_FILE: &str = "window-theme";
+
+/// `light`, `dark` or `system` (no theme of its own: the window follows Windows).
+fn window_theme(value: &str) -> Option<Option<tauri::Theme>> {
+    match value {
+        "light" => Some(Some(tauri::Theme::Light)),
+        "dark" => Some(Some(tauri::Theme::Dark)),
+        "system" => Some(None),
+        _ => None,
+    }
+}
+
+/// The theme the main window opens with: the one its page chose last time, so the acrylic
+/// behind the glass is already the look's own before the page draws.
+pub(crate) fn saved_window_theme(app: &tauri::AppHandle) -> Option<Option<tauri::Theme>> {
+    let home = crate::data_home(app).ok()?;
+    window_theme(
+        std::fs::read_to_string(home.join(WINDOW_THEME_FILE))
+            .ok()?
+            .trim(),
+    )
+}
+
+/// The window takes the theme of the look the page shows (ONI MODE is always dark). On Windows 11
+/// the acrylic backdrop and the page's `prefers-color-scheme` follow the window's theme, never a
+/// tint: a dark backdrop under Smooth's light surfaces turns them grey.
+#[tauri::command]
+pub async fn presentation_window_theme(window: WebviewWindow, theme: String) -> Result<(), Error> {
+    crate::local(&window)
+        .map_err(|_| Error::new("unavailable", "This window cannot change its theme."))?;
+    let wanted =
+        window_theme(&theme).ok_or_else(|| Error::new("invalid", "Unknown window theme."))?;
+    window
+        .set_theme(wanted)
+        .map_err(|_| Error::new("unavailable", "The window theme could not be changed."))?;
+    if let Ok(home) = crate::data_home(window.app_handle()) {
+        let _ = std::fs::write(home.join(WINDOW_THEME_FILE), &theme);
+    }
+    Ok(())
+}
 #[tauri::command]
 pub async fn presentation_save(
     window: WebviewWindow,
@@ -248,4 +289,18 @@ pub async fn presentation_save(
     })
     .await
     .map_err(|_| Error::new("unavailable", "Presentation worker did not return."))?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::window_theme;
+
+    #[test]
+    fn window_theme_reads_only_its_three_words() {
+        assert_eq!(window_theme("light"), Some(Some(tauri::Theme::Light)));
+        assert_eq!(window_theme("dark"), Some(Some(tauri::Theme::Dark)));
+        assert_eq!(window_theme("system"), Some(None));
+        assert_eq!(window_theme("Dark"), None);
+        assert_eq!(window_theme(""), None);
+    }
 }

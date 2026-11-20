@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "release": {
+    "repository": "acaprino/muro",
+    "tag": "muro-v0.4.0",
+    "commit": "dbe1e1b08024e0e78940daf39c839730f2978d11",
+    "unpack": true,
+    "archive": {
+      "name": "Muro-0.4.0-windows-x64.zip",
+      "sha256": "465ce09310c529dfd311051030066a9f0cb438abf5eef02d094ac4161393972b"
+    },
+    "bytes": {
+      "Muro-0.4.0-windows-x64.zip": 72163383
+    }
+  }
+}

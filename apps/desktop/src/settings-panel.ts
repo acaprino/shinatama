@@ -1,4 +1,5 @@
 import { openModal } from './modal.ts';
+import { parseMuroStatus, pluginsButtons, pluginsLine, type MuroStatus } from './muro-status.ts';
 import { createModelSettingsPanel } from './model-settings-panel.ts';
 import type { Save as ModelSave } from './model-settings-model.ts';
 import {
@@ -11,6 +12,7 @@ import './settings-panel.css';
 export const SETTINGS_SECTIONS = [
   ['appearance', 'Appearance', 'Appearance'], ['agents', 'Agents', 'Agents'], ['models', 'Models', 'Models & API keys'], ['memory', 'Memory', 'Memory'], ['alerts', 'Alerts', 'Alerts'],
   ['github', 'GitHub', 'GitHub'], ['variables', 'Variables', 'Environment variables'], ['sessions', 'Sessions', 'Sessions'],
+  ['plugins', 'Plugins', 'Plugins'],
 ] as const;
 export type SettingsSection = typeof SETTINGS_SECTIONS[number][0];
 
@@ -115,6 +117,18 @@ export function createSettingsPanel(options: Options) {
   const indexingHint = el('p', 'hint', 'Lets Search index read your session archives. Off stops indexing; text already indexed stays searchable until you forget it there.');
   const sessionsStatus = el('p', 'hint'); sessionsStatus.id = 'settings-sessions-status'; sessionsStatus.setAttribute('role', 'status');
   part('sessions').append(titlesLabel, titlesHint, indexingLabel, indexingHint, sessionsStatus);
+
+  // Plugins: Shinatama's own Muro keeps the plugins of its agents in sync (muro.rs).
+  const pluginsStatus = el('p', 'hint'); pluginsStatus.id = 'settings-plugins-status'; pluginsStatus.setAttribute('role', 'status');
+  const pluginsRow = el('div', 'settings-row');
+  const syncNow = el('button', undefined, 'Sync now'); syncNow.type = 'button'; syncNow.id = 'settings-plugins-sync';
+  const openMuro = el('button', undefined, 'Open Muro'); openMuro.type = 'button'; openMuro.id = 'settings-plugins-open';
+  pluginsRow.append(syncNow, openMuro);
+  const pluginsHint = el('p', 'hint', 'Muro installs and updates the plugins you choose for the agents Shinatama launches, in their homes inside Shinatama only: '
+    + "your own Muro and your agents' usual homes are left alone. Open Muro to choose them; a session already open gets a new plugin at its next start.");
+  pluginsHint.id = 'settings-plugins-hint';
+  syncNow.setAttribute('aria-describedby', `${pluginsStatus.id} ${pluginsHint.id}`); openMuro.setAttribute('aria-describedby', `${pluginsStatus.id} ${pluginsHint.id}`);
+  part('plugins').append(pluginsStatus, pluginsRow, pluginsHint);
 
   const actions = el('div', 'dialog-actions settings-actions');
   const status = el('p', 'settings-status'); status.setAttribute('role', 'status'); status.id = 'settings-status';
@@ -274,6 +288,46 @@ export function createSettingsPanel(options: Options) {
         .finally(() => { input.disabled = false; });
     };
   }
+  // Plugins: the status line and the two buttons, disabled with the reason when they cannot run.
+  let pluginsBusy = 0; let pluginsTimer: ReturnType<typeof setTimeout> | undefined;
+  const clock = (seconds: number) => {
+    const at = new Date(seconds * 1000);
+    const today = at.toDateString() === new Date().toDateString();
+    return at.toLocaleString([], today ? { hour: '2-digit', minute: '2-digit' } : { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  };
+  const sayPlugins = (text: string, error = false) => { pluginsStatus.textContent = text; pluginsStatus.dataset.tone = error ? 'error' : 'info'; };
+  function paintPlugins(status: MuroStatus | null, problem?: string) {
+    const why = pluginsButtons(status, options.desktop);
+    syncNow.disabled = why.sync !== null; syncNow.title = why.sync ?? 'Ask Muro to check and apply the plugins now';
+    openMuro.disabled = why.open !== null; openMuro.title = why.open ?? "Show Muro's window on the list of Shinatama's agents";
+    if (problem) sayPlugins(problem, true);
+    else if (!options.desktop) sayPlugins('Open the desktop app to use Muro.');
+    else if (!status) sayPlugins("Muro's state could not be read. Reload to try again.", true);
+    else { const line = pluginsLine(status, clock); sayPlugins(line.text, line.tone === 'error'); }
+    // A Muro that is still starting is asked again while Settings is open.
+    clearTimeout(pluginsTimer);
+    if (status?.state === 'starting' && dialog.open) pluginsTimer = setTimeout(() => { void loadPlugins(); }, 2000);
+  }
+  async function loadPlugins() {
+    if (!options.desktop) { paintPlugins(null); return; }
+    const mine = ++pluginsBusy;
+    try { const status = parseMuroStatus(await options.invoke<unknown>('muro_status')); if (mine === pluginsBusy) paintPlugins(status); }
+    catch (error) { if (mine === pluginsBusy) paintPlugins(null, message(error)); }
+  }
+  let syncing = false;
+  syncNow.onclick = () => {
+    const mine = ++pluginsBusy; syncing = true; syncNow.disabled = openMuro.disabled = true; sayPlugins('Syncing…');
+    options.invoke<unknown>('muro_sync_now').finally(() => { syncing = false; }).then(
+      value => { if (mine === pluginsBusy) paintPlugins(parseMuroStatus(value)); },
+      (error: unknown) => { if (mine === pluginsBusy) void loadPlugins().then(() => sayPlugins(message(error), true)); });
+  };
+  // The buttons come back from the status, never re-enabled blind: a Sync now may still run.
+  openMuro.onclick = () => {
+    openMuro.disabled = true;
+    options.invoke('muro_open').then(() => undefined, (error: unknown) => sayPlugins(message(error), true))
+      .finally(() => { if (!syncing) void loadPlugins(); });
+  };
+
   sessionSwitch(titles, 'titles_set_enabled', 'Activity titles on.', 'Activity titles off.');
   sessionSwitch(indexing, 'session_index_enable', 'Indexing allowed.', 'Indexing off.');
 
@@ -290,9 +344,9 @@ export function createSettingsPanel(options: Options) {
     list.querySelector<HTMLInputElement>('.settings-var:last-child input')?.focus();
   };
   save.onclick = () => { void submit(); };
-  reload.onclick = () => { options.appearance.reload(); void loadSessions(); if (!busy) void load(); };
+  reload.onclick = () => { options.appearance.reload(); void loadSessions(); void loadPlugins(); if (!busy) void load(); };
   closeButton.onclick = close.onclick = () => dialog.close();
-  dialog.addEventListener('close', () => { token.value = ''; form.tokenInput = ''; models.clearSecrets(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
+  dialog.addEventListener('close', () => { clearTimeout(pluginsTimer); token.value = ''; form.tokenInput = ''; models.clearSecrets(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
   dialog.addEventListener('submit', event => event.preventDefault());
 
   return {
@@ -303,6 +357,7 @@ export function createSettingsPanel(options: Options) {
       options.appearance.reset(); options.alerts.reset(); paintZoom();
       if (!loaded || !busy) void load();
       void loadSessions();
+      void loadPlugins();
       if (section) go(section);
       else if (opening) index.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
     },

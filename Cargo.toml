@@ -11,7 +11,7 @@ default-members = ["crates/terminal"]
 edition = "2024"
 version = "0.1.7"
 publish = false
-license = "UNLICENSED"
+license = "Apache-2.0"
 
 # The only dependencies the workspace crates may use; adding one is a decision, not a side effect.
 # C13.1 process-wrap evaluation (2026-11-04, card requires a recorded decision here): REFUSED.

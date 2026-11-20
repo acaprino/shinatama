@@ -6,7 +6,7 @@ import type { Terminal } from '@xterm/xterm';
 // to register the browser listener while importing under Node, then restore it.
 const previousDocument = Reflect.get(globalThis, 'document');
 Reflect.set(globalThis, 'document', { addEventListener() {} });
-const { DEFAULT_PRESENTATION, PROFILES, ACCENT_TEXT_LIGHT, SKINS, SMOOTH, SMOOTH_LIGHT, applyTerminalProfile, optionsForProfile, storedLook, storedTheme } = await import('../src/presentation.ts');
+const { DEFAULT_PRESENTATION, PROFILES, ACCENT_TEXT_LIGHT, SKINS, SMOOTH, SMOOTH_LIGHT, applyTerminalProfile, optionsForProfile, storedLook, storedTheme, windowThemeFor } = await import('../src/presentation.ts');
 if (previousDocument === undefined) Reflect.deleteProperty(globalThis, 'document');
 else Reflect.set(globalThis, 'document', previousDocument);
 
@@ -19,7 +19,7 @@ function contrast(a: string, b: string) { const values = [luminance(a), luminanc
 test('every selectable frame skin preserves text and primary-action contrast', () => {
   // Smooth's light theme: the pink of the fills carries its dark ink; as text it is ACCENT_TEXT_LIGHT.
   const lightText = { ...SMOOTH_LIGHT, accent: ACCENT_TEXT_LIGHT };
-  for (const surface of ['stage', 'chrome', 'chrome-2', 'surface', 'surface-2', 'terminal'] as const) {
+  for (const surface of ['stage', 'chrome', 'chrome-2', 'surface', 'surface-2', 'terminal', 'glass-tint'] as const) {
     for (const text of ['text', 'text-2', 'muted', 'ice', 'accent', 'live', 'warning', 'error'] as const) assert.ok(contrast(lightText[text], SMOOTH_LIGHT[surface]) >= 4.5, `smoothLight: ${text}/${surface}`);
   }
   assert.ok(contrast(SMOOTH_LIGHT['accent-ink'], SMOOTH_LIGHT.accent) >= 4.5);
@@ -27,7 +27,7 @@ test('every selectable frame skin preserves text and primary-action contrast', (
   assert.ok(contrast(SMOOTH_LIGHT['on-danger'], SMOOTH_LIGHT.danger) >= 4.5);
   assert.ok(contrast(SMOOTH_LIGHT['line-strong'], SMOOTH_LIGHT.chrome) >= 3);
   for (const [id, skin] of Object.entries({ ...SKINS, smooth: { tokens: SMOOTH } })) {
-    for (const surface of ['stage', 'chrome', 'chrome-2', 'surface', 'surface-2', 'terminal'] as const) {
+    for (const surface of ['stage', 'chrome', 'chrome-2', 'surface', 'surface-2', 'terminal', 'glass-tint'] as const) {
       for (const text of ['text', 'text-2', 'muted', 'ice', 'accent', 'live', 'warning', 'error'] as const) {
         assert.ok(contrast(skin.tokens[text], skin.tokens[surface]) >= 4.5, `${id}: ${text}/${surface}`);
       }
@@ -85,4 +85,9 @@ test('Smooth follows Windows unless light or dark was chosen, and its light them
   const followed = { ...DEFAULT_PRESENTATION, followSkin: true };
   assert.equal(optionsForProfile('codex', followed, 'smooth', true).theme?.background, SMOOTH_LIGHT.terminal);
   assert.equal(optionsForProfile('codex', followed, 'oni', true).theme?.background, SKINS.shinatama.tokens.terminal, 'ONI MODE is always dark');
+});
+test('the window takes the theme of the look, so light glass never sits on a dark acrylic', () => {
+  assert.equal(windowThemeFor('oni', 'light'), 'dark', 'ONI MODE is always dark');
+  assert.equal(windowThemeFor('oni', 'system'), 'dark');
+  for (const theme of ['light', 'dark', 'system'] as const) assert.equal(windowThemeFor('smooth', theme), theme);
 });

@@ -1,0 +1,1071 @@
+{
+  "format": "css",
+  "formatVersion": "CSS custom properties",
+  "mode": "oni",
+  "mapping": [
+    {
+      "source": "colors.primary",
+      "target": "--zsd-colors-primary"
+    },
+    {
+      "source": "colors.primary-soft",
+      "target": "--zsd-colors-primary-soft"
+    },
+    {
+      "source": "colors.on-primary",
+      "target": "--zsd-colors-on-primary"
+    },
+    {
+      "source": "colors.primary-text",
+      "target": "--zsd-colors-primary-text"
+    },
+    {
+      "source": "colors.background",
+      "target": "--zsd-colors-background"
+    },
+    {
+      "source": "colors.surface-container-low",
+      "target": "--zsd-colors-surface-container-low"
+    },
+    {
+      "source": "colors.surface-container",
+      "target": "--zsd-colors-surface-container"
+    },
+    {
+      "source": "colors.surface",
+      "target": "--zsd-colors-surface"
+    },
+    {
+      "source": "colors.surface-container-high",
+      "target": "--zsd-colors-surface-container-high"
+    },
+    {
+      "source": "colors.terminal",
+      "target": "--zsd-colors-terminal"
+    },
+    {
+      "source": "colors.on-surface",
+      "target": "--zsd-colors-on-surface"
+    },
+    {
+      "source": "colors.on-surface-variant",
+      "target": "--zsd-colors-on-surface-variant"
+    },
+    {
+      "source": "colors.muted",
+      "target": "--zsd-colors-muted"
+    },
+    {
+      "source": "colors.outline-variant",
+      "target": "--zsd-colors-outline-variant"
+    },
+    {
+      "source": "colors.outline",
+      "target": "--zsd-colors-outline"
+    },
+    {
+      "source": "colors.tertiary",
+      "target": "--zsd-colors-tertiary"
+    },
+    {
+      "source": "colors.live",
+      "target": "--zsd-colors-live"
+    },
+    {
+      "source": "colors.warning",
+      "target": "--zsd-colors-warning"
+    },
+    {
+      "source": "colors.error",
+      "target": "--zsd-colors-error"
+    },
+    {
+      "source": "colors.danger",
+      "target": "--zsd-colors-danger"
+    },
+    {
+      "source": "colors.danger-line",
+      "target": "--zsd-colors-danger-line"
+    },
+    {
+      "source": "colors.on-danger",
+      "target": "--zsd-colors-on-danger"
+    },
+    {
+      "source": "colors.primary-container",
+      "target": "--zsd-colors-primary-container"
+    },
+    {
+      "source": "colors.clear",
+      "target": "--zsd-colors-clear"
+    },
+    {
+      "source": "colors.wash",
+      "target": "--zsd-colors-wash"
+    },
+    {
+      "source": "colors.wash-hover",
+      "target": "--zsd-colors-wash-hover"
+    },
+    {
+      "source": "colors.glass-ground",
+      "target": "--zsd-colors-glass-ground"
+    },
+    {
+      "source": "colors.glass-edge",
+      "target": "--zsd-colors-glass-edge"
+    },
+    {
+      "source": "colors.glass-sheet",
+      "target": "--zsd-colors-glass-sheet"
+    },
+    {
+      "source": "colors.terminal-glass",
+      "target": "--zsd-colors-terminal-glass"
+    },
+    {
+      "source": "colors.scrim",
+      "target": "--zsd-colors-scrim"
+    },
+    {
+      "source": "spacing.xs",
+      "target": "--zsd-spacing-xs"
+    },
+    {
+      "source": "spacing.sm",
+      "target": "--zsd-spacing-sm"
+    },
+    {
+      "source": "spacing.md",
+      "target": "--zsd-spacing-md"
+    },
+    {
+      "source": "spacing.lg",
+      "target": "--zsd-spacing-lg"
+    },
+    {
+      "source": "spacing.xl",
+      "target": "--zsd-spacing-xl"
+    },
+    {
+      "source": "spacing.control-height",
+      "target": "--zsd-spacing-control-height"
+    },
+    {
+      "source": "spacing.field-height",
+      "target": "--zsd-spacing-field-height"
+    },
+    {
+      "source": "spacing.titlebar-height",
+      "target": "--zsd-spacing-titlebar-height"
+    },
+    {
+      "source": "spacing.toolbar-height",
+      "target": "--zsd-spacing-toolbar-height"
+    },
+    {
+      "source": "spacing.statusbar-height",
+      "target": "--zsd-spacing-statusbar-height"
+    },
+    {
+      "source": "spacing.pane-header-height",
+      "target": "--zsd-spacing-pane-header-height"
+    },
+    {
+      "source": "rounded.none",
+      "target": "--zsd-rounded-none"
+    },
+    {
+      "source": "rounded.sm",
+      "target": "--zsd-rounded-sm"
+    },
+    {
+      "source": "rounded.md",
+      "target": "--zsd-rounded-md"
+    },
+    {
+      "source": "rounded.lg",
+      "target": "--zsd-rounded-lg"
+    },
+    {
+      "source": "rounded.full",
+      "target": "--zsd-rounded-full"
+    },
+    {
+      "source": "typography.headline-md.fontFamily",
+      "target": "--zsd-typography-headline-md-font-family"
+    },
+    {
+      "source": "typography.headline-md.fontSize",
+      "target": "--zsd-typography-headline-md-font-size"
+    },
+    {
+      "source": "typography.headline-md.fontWeight",
+      "target": "--zsd-typography-headline-md-font-weight"
+    },
+    {
+      "source": "typography.headline-md.lineHeight",
+      "target": "--zsd-typography-headline-md-line-height"
+    },
+    {
+      "source": "typography.headline-md.letterSpacing",
+      "target": "--zsd-typography-headline-md-letter-spacing"
+    },
+    {
+      "source": "typography.title-sm.fontFamily",
+      "target": "--zsd-typography-title-sm-font-family"
+    },
+    {
+      "source": "typography.title-sm.fontSize",
+      "target": "--zsd-typography-title-sm-font-size"
+    },
+    {
+      "source": "typography.title-sm.fontWeight",
+      "target": "--zsd-typography-title-sm-font-weight"
+    },
+    {
+      "source": "typography.title-sm.lineHeight",
+      "target": "--zsd-typography-title-sm-line-height"
+    },
+    {
+      "source": "typography.title-sm.letterSpacing",
+      "target": "--zsd-typography-title-sm-letter-spacing"
+    },
+    {
+      "source": "typography.body-md.fontFamily",
+      "target": "--zsd-typography-body-md-font-family"
+    },
+    {
+      "source": "typography.body-md.fontSize",
+      "target": "--zsd-typography-body-md-font-size"
+    },
+    {
+      "source": "typography.body-md.fontWeight",
+      "target": "--zsd-typography-body-md-font-weight"
+    },
+    {
+      "source": "typography.body-md.lineHeight",
+      "target": "--zsd-typography-body-md-line-height"
+    },
+    {
+      "source": "typography.body-md.letterSpacing",
+      "target": "--zsd-typography-body-md-letter-spacing"
+    },
+    {
+      "source": "typography.label-md.fontFamily",
+      "target": "--zsd-typography-label-md-font-family"
+    },
+    {
+      "source": "typography.label-md.fontSize",
+      "target": "--zsd-typography-label-md-font-size"
+    },
+    {
+      "source": "typography.label-md.fontWeight",
+      "target": "--zsd-typography-label-md-font-weight"
+    },
+    {
+      "source": "typography.label-md.lineHeight",
+      "target": "--zsd-typography-label-md-line-height"
+    },
+    {
+      "source": "typography.label-md.letterSpacing",
+      "target": "--zsd-typography-label-md-letter-spacing"
+    },
+    {
+      "source": "typography.code-md.fontFamily",
+      "target": "--zsd-typography-code-md-font-family"
+    },
+    {
+      "source": "typography.code-md.fontSize",
+      "target": "--zsd-typography-code-md-font-size"
+    },
+    {
+      "source": "typography.code-md.fontWeight",
+      "target": "--zsd-typography-code-md-font-weight"
+    },
+    {
+      "source": "typography.code-md.lineHeight",
+      "target": "--zsd-typography-code-md-line-height"
+    },
+    {
+      "source": "typography.code-md.letterSpacing",
+      "target": "--zsd-typography-code-md-letter-spacing"
+    },
+    {
+      "source": "components.button-primary.backgroundColor",
+      "target": "--zsd-components-button-primary-background-color"
+    },
+    {
+      "source": "components.button-primary.textColor",
+      "target": "--zsd-components-button-primary-text-color"
+    },
+    {
+      "source": "components.button-primary.typography.fontFamily",
+      "target": "--zsd-components-button-primary-typography-font-family"
+    },
+    {
+      "source": "components.button-primary.typography.fontSize",
+      "target": "--zsd-components-button-primary-typography-font-size"
+    },
+    {
+      "source": "components.button-primary.typography.fontWeight",
+      "target": "--zsd-components-button-primary-typography-font-weight"
+    },
+    {
+      "source": "components.button-primary.typography.lineHeight",
+      "target": "--zsd-components-button-primary-typography-line-height"
+    },
+    {
+      "source": "components.button-primary.typography.letterSpacing",
+      "target": "--zsd-components-button-primary-typography-letter-spacing"
+    },
+    {
+      "source": "components.button-primary.rounded",
+      "target": "--zsd-components-button-primary-rounded"
+    },
+    {
+      "source": "components.button-primary.padding",
+      "target": "--zsd-components-button-primary-padding"
+    },
+    {
+      "source": "components.button-primary.height",
+      "target": "--zsd-components-button-primary-height"
+    },
+    {
+      "source": "components.button-primary-hover.backgroundColor",
+      "target": "--zsd-components-button-primary-hover-background-color"
+    },
+    {
+      "source": "components.button-primary-hover.textColor",
+      "target": "--zsd-components-button-primary-hover-text-color"
+    },
+    {
+      "source": "components.button-primary-hover.typography.fontFamily",
+      "target": "--zsd-components-button-primary-hover-typography-font-family"
+    },
+    {
+      "source": "components.button-primary-hover.typography.fontSize",
+      "target": "--zsd-components-button-primary-hover-typography-font-size"
+    },
+    {
+      "source": "components.button-primary-hover.typography.fontWeight",
+      "target": "--zsd-components-button-primary-hover-typography-font-weight"
+    },
+    {
+      "source": "components.button-primary-hover.typography.lineHeight",
+      "target": "--zsd-components-button-primary-hover-typography-line-height"
+    },
+    {
+      "source": "components.button-primary-hover.typography.letterSpacing",
+      "target": "--zsd-components-button-primary-hover-typography-letter-spacing"
+    },
+    {
+      "source": "components.button-primary-hover.rounded",
+      "target": "--zsd-components-button-primary-hover-rounded"
+    },
+    {
+      "source": "components.button-primary-hover.padding",
+      "target": "--zsd-components-button-primary-hover-padding"
+    },
+    {
+      "source": "components.button-primary-hover.height",
+      "target": "--zsd-components-button-primary-hover-height"
+    },
+    {
+      "source": "components.button-secondary.backgroundColor",
+      "target": "--zsd-components-button-secondary-background-color"
+    },
+    {
+      "source": "components.button-secondary.typography.fontFamily",
+      "target": "--zsd-components-button-secondary-typography-font-family"
+    },
+    {
+      "source": "components.button-secondary.typography.fontSize",
+      "target": "--zsd-components-button-secondary-typography-font-size"
+    },
+    {
+      "source": "components.button-secondary.typography.fontWeight",
+      "target": "--zsd-components-button-secondary-typography-font-weight"
+    },
+    {
+      "source": "components.button-secondary.typography.lineHeight",
+      "target": "--zsd-components-button-secondary-typography-line-height"
+    },
+    {
+      "source": "components.button-secondary.typography.letterSpacing",
+      "target": "--zsd-components-button-secondary-typography-letter-spacing"
+    },
+    {
+      "source": "components.button-secondary.rounded",
+      "target": "--zsd-components-button-secondary-rounded"
+    },
+    {
+      "source": "components.button-secondary.padding",
+      "target": "--zsd-components-button-secondary-padding"
+    },
+    {
+      "source": "components.button-secondary.height",
+      "target": "--zsd-components-button-secondary-height"
+    },
+    {
+      "source": "components.button-secondary-hover.backgroundColor",
+      "target": "--zsd-components-button-secondary-hover-background-color"
+    },
+    {
+      "source": "components.button-secondary-hover.typography.fontFamily",
+      "target": "--zsd-components-button-secondary-hover-typography-font-family"
+    },
+    {
+      "source": "components.button-secondary-hover.typography.fontSize",
+      "target": "--zsd-components-button-secondary-hover-typography-font-size"
+    },
+    {
+      "source": "components.button-secondary-hover.typography.fontWeight",
+      "target": "--zsd-components-button-secondary-hover-typography-font-weight"
+    },
+    {
+      "source": "components.button-secondary-hover.typography.lineHeight",
+      "target": "--zsd-components-button-secondary-hover-typography-line-height"
+    },
+    {
+      "source": "components.button-secondary-hover.typography.letterSpacing",
+      "target": "--zsd-components-button-secondary-hover-typography-letter-spacing"
+    },
+    {
+      "source": "components.button-secondary-hover.rounded",
+      "target": "--zsd-components-button-secondary-hover-rounded"
+    },
+    {
+      "source": "components.button-secondary-hover.padding",
+      "target": "--zsd-components-button-secondary-hover-padding"
+    },
+    {
+      "source": "components.button-secondary-hover.height",
+      "target": "--zsd-components-button-secondary-hover-height"
+    },
+    {
+      "source": "components.button-danger.backgroundColor",
+      "target": "--zsd-components-button-danger-background-color"
+    },
+    {
+      "source": "components.button-danger.textColor",
+      "target": "--zsd-components-button-danger-text-color"
+    },
+    {
+      "source": "components.button-danger.typography.fontFamily",
+      "target": "--zsd-components-button-danger-typography-font-family"
+    },
+    {
+      "source": "components.button-danger.typography.fontSize",
+      "target": "--zsd-components-button-danger-typography-font-size"
+    },
+    {
+      "source": "components.button-danger.typography.fontWeight",
+      "target": "--zsd-components-button-danger-typography-font-weight"
+    },
+    {
+      "source": "components.button-danger.typography.lineHeight",
+      "target": "--zsd-components-button-danger-typography-line-height"
+    },
+    {
+      "source": "components.button-danger.typography.letterSpacing",
+      "target": "--zsd-components-button-danger-typography-letter-spacing"
+    },
+    {
+      "source": "components.button-danger.rounded",
+      "target": "--zsd-components-button-danger-rounded"
+    },
+    {
+      "source": "components.button-danger.padding",
+      "target": "--zsd-components-button-danger-padding"
+    },
+    {
+      "source": "components.button-danger.height",
+      "target": "--zsd-components-button-danger-height"
+    },
+    {
+      "source": "components.button-danger-hover.backgroundColor",
+      "target": "--zsd-components-button-danger-hover-background-color"
+    },
+    {
+      "source": "components.button-danger-hover.textColor",
+      "target": "--zsd-components-button-danger-hover-text-color"
+    },
+    {
+      "source": "components.button-danger-hover.typography.fontFamily",
+      "target": "--zsd-components-button-danger-hover-typography-font-family"
+    },
+    {
+      "source": "components.button-danger-hover.typography.fontSize",
+      "target": "--zsd-components-button-danger-hover-typography-font-size"
+    },
+    {
+      "source": "components.button-danger-hover.typography.fontWeight",
+      "target": "--zsd-components-button-danger-hover-typography-font-weight"
+    },
+    {
+      "source": "components.button-danger-hover.typography.lineHeight",
+      "target": "--zsd-components-button-danger-hover-typography-line-height"
+    },
+    {
+      "source": "components.button-danger-hover.typography.letterSpacing",
+      "target": "--zsd-components-button-danger-hover-typography-letter-spacing"
+    },
+    {
+      "source": "components.button-danger-hover.rounded",
+      "target": "--zsd-components-button-danger-hover-rounded"
+    },
+    {
+      "source": "components.button-danger-hover.padding",
+      "target": "--zsd-components-button-danger-hover-padding"
+    },
+    {
+      "source": "components.button-danger-hover.height",
+      "target": "--zsd-components-button-danger-hover-height"
+    },
+    {
+      "source": "components.input.backgroundColor",
+      "target": "--zsd-components-input-background-color"
+    },
+    {
+      "source": "components.input.textColor",
+      "target": "--zsd-components-input-text-color"
+    },
+    {
+      "source": "components.input.typography.fontFamily",
+      "target": "--zsd-components-input-typography-font-family"
+    },
+    {
+      "source": "components.input.typography.fontSize",
+      "target": "--zsd-components-input-typography-font-size"
+    },
+    {
+      "source": "components.input.typography.fontWeight",
+      "target": "--zsd-components-input-typography-font-weight"
+    },
+    {
+      "source": "components.input.typography.lineHeight",
+      "target": "--zsd-components-input-typography-line-height"
+    },
+    {
+      "source": "components.input.typography.letterSpacing",
+      "target": "--zsd-components-input-typography-letter-spacing"
+    },
+    {
+      "source": "components.input.rounded",
+      "target": "--zsd-components-input-rounded"
+    },
+    {
+      "source": "components.input.padding",
+      "target": "--zsd-components-input-padding"
+    },
+    {
+      "source": "components.input.height",
+      "target": "--zsd-components-input-height"
+    },
+    {
+      "source": "components.caption.backgroundColor",
+      "target": "--zsd-components-caption-background-color"
+    },
+    {
+      "source": "components.caption.textColor",
+      "target": "--zsd-components-caption-text-color"
+    },
+    {
+      "source": "components.caption.typography.fontFamily",
+      "target": "--zsd-components-caption-typography-font-family"
+    },
+    {
+      "source": "components.caption.typography.fontSize",
+      "target": "--zsd-components-caption-typography-font-size"
+    },
+    {
+      "source": "components.caption.typography.fontWeight",
+      "target": "--zsd-components-caption-typography-font-weight"
+    },
+    {
+      "source": "components.caption.typography.lineHeight",
+      "target": "--zsd-components-caption-typography-line-height"
+    },
+    {
+      "source": "components.caption.typography.letterSpacing",
+      "target": "--zsd-components-caption-typography-letter-spacing"
+    },
+    {
+      "source": "components.caption.rounded",
+      "target": "--zsd-components-caption-rounded"
+    },
+    {
+      "source": "components.caption.height",
+      "target": "--zsd-components-caption-height"
+    },
+    {
+      "source": "components.caption-hover.backgroundColor",
+      "target": "--zsd-components-caption-hover-background-color"
+    },
+    {
+      "source": "components.caption-hover.textColor",
+      "target": "--zsd-components-caption-hover-text-color"
+    },
+    {
+      "source": "components.caption-hover.typography.fontFamily",
+      "target": "--zsd-components-caption-hover-typography-font-family"
+    },
+    {
+      "source": "components.caption-hover.typography.fontSize",
+      "target": "--zsd-components-caption-hover-typography-font-size"
+    },
+    {
+      "source": "components.caption-hover.typography.fontWeight",
+      "target": "--zsd-components-caption-hover-typography-font-weight"
+    },
+    {
+      "source": "components.caption-hover.typography.lineHeight",
+      "target": "--zsd-components-caption-hover-typography-line-height"
+    },
+    {
+      "source": "components.caption-hover.typography.letterSpacing",
+      "target": "--zsd-components-caption-hover-typography-letter-spacing"
+    },
+    {
+      "source": "components.caption-hover.rounded",
+      "target": "--zsd-components-caption-hover-rounded"
+    },
+    {
+      "source": "components.caption-hover.height",
+      "target": "--zsd-components-caption-hover-height"
+    },
+    {
+      "source": "components.caption-close-hover.backgroundColor",
+      "target": "--zsd-components-caption-close-hover-background-color"
+    },
+    {
+      "source": "components.caption-close-hover.textColor",
+      "target": "--zsd-components-caption-close-hover-text-color"
+    },
+    {
+      "source": "components.caption-close-hover.typography.fontFamily",
+      "target": "--zsd-components-caption-close-hover-typography-font-family"
+    },
+    {
+      "source": "components.caption-close-hover.typography.fontSize",
+      "target": "--zsd-components-caption-close-hover-typography-font-size"
+    },
+    {
+      "source": "components.caption-close-hover.typography.fontWeight",
+      "target": "--zsd-components-caption-close-hover-typography-font-weight"
+    },
+    {
+      "source": "components.caption-close-hover.typography.lineHeight",
+      "target": "--zsd-components-caption-close-hover-typography-line-height"
+    },
+    {
+      "source": "components.caption-close-hover.typography.letterSpacing",
+      "target": "--zsd-components-caption-close-hover-typography-letter-spacing"
+    },
+    {
+      "source": "components.caption-close-hover.rounded",
+      "target": "--zsd-components-caption-close-hover-rounded"
+    },
+    {
+      "source": "components.caption-close-hover.height",
+      "target": "--zsd-components-caption-close-hover-height"
+    },
+    {
+      "source": "components.frame.backgroundColor",
+      "target": "--zsd-components-frame-background-color"
+    },
+    {
+      "source": "components.frame.textColor",
+      "target": "--zsd-components-frame-text-color"
+    },
+    {
+      "source": "components.frame.typography.fontFamily",
+      "target": "--zsd-components-frame-typography-font-family"
+    },
+    {
+      "source": "components.frame.typography.fontSize",
+      "target": "--zsd-components-frame-typography-font-size"
+    },
+    {
+      "source": "components.frame.typography.fontWeight",
+      "target": "--zsd-components-frame-typography-font-weight"
+    },
+    {
+      "source": "components.frame.typography.lineHeight",
+      "target": "--zsd-components-frame-typography-line-height"
+    },
+    {
+      "source": "components.frame.typography.letterSpacing",
+      "target": "--zsd-components-frame-typography-letter-spacing"
+    },
+    {
+      "source": "components.frame.rounded",
+      "target": "--zsd-components-frame-rounded"
+    },
+    {
+      "source": "components.frame-edge.backgroundColor",
+      "target": "--zsd-components-frame-edge-background-color"
+    },
+    {
+      "source": "components.brand-mark.textColor",
+      "target": "--zsd-components-brand-mark-text-color"
+    },
+    {
+      "source": "components.menu.backgroundColor",
+      "target": "--zsd-components-menu-background-color"
+    },
+    {
+      "source": "components.menu.textColor",
+      "target": "--zsd-components-menu-text-color"
+    },
+    {
+      "source": "components.menu.typography.fontFamily",
+      "target": "--zsd-components-menu-typography-font-family"
+    },
+    {
+      "source": "components.menu.typography.fontSize",
+      "target": "--zsd-components-menu-typography-font-size"
+    },
+    {
+      "source": "components.menu.typography.fontWeight",
+      "target": "--zsd-components-menu-typography-font-weight"
+    },
+    {
+      "source": "components.menu.typography.lineHeight",
+      "target": "--zsd-components-menu-typography-line-height"
+    },
+    {
+      "source": "components.menu.typography.letterSpacing",
+      "target": "--zsd-components-menu-typography-letter-spacing"
+    },
+    {
+      "source": "components.menu.rounded",
+      "target": "--zsd-components-menu-rounded"
+    },
+    {
+      "source": "components.menu.padding",
+      "target": "--zsd-components-menu-padding"
+    },
+    {
+      "source": "components.dialog.backgroundColor",
+      "target": "--zsd-components-dialog-background-color"
+    },
+    {
+      "source": "components.dialog.textColor",
+      "target": "--zsd-components-dialog-text-color"
+    },
+    {
+      "source": "components.dialog.typography.fontFamily",
+      "target": "--zsd-components-dialog-typography-font-family"
+    },
+    {
+      "source": "components.dialog.typography.fontSize",
+      "target": "--zsd-components-dialog-typography-font-size"
+    },
+    {
+      "source": "components.dialog.typography.fontWeight",
+      "target": "--zsd-components-dialog-typography-font-weight"
+    },
+    {
+      "source": "components.dialog.typography.lineHeight",
+      "target": "--zsd-components-dialog-typography-line-height"
+    },
+    {
+      "source": "components.dialog.typography.letterSpacing",
+      "target": "--zsd-components-dialog-typography-letter-spacing"
+    },
+    {
+      "source": "components.dialog.rounded",
+      "target": "--zsd-components-dialog-rounded"
+    },
+    {
+      "source": "components.dialog.padding",
+      "target": "--zsd-components-dialog-padding"
+    },
+    {
+      "source": "components.dialog-scrim.backgroundColor",
+      "target": "--zsd-components-dialog-scrim-background-color"
+    },
+    {
+      "source": "components.pane.backgroundColor",
+      "target": "--zsd-components-pane-background-color"
+    },
+    {
+      "source": "components.pane.textColor",
+      "target": "--zsd-components-pane-text-color"
+    },
+    {
+      "source": "components.pane.typography.fontFamily",
+      "target": "--zsd-components-pane-typography-font-family"
+    },
+    {
+      "source": "components.pane.typography.fontSize",
+      "target": "--zsd-components-pane-typography-font-size"
+    },
+    {
+      "source": "components.pane.typography.fontWeight",
+      "target": "--zsd-components-pane-typography-font-weight"
+    },
+    {
+      "source": "components.pane.typography.lineHeight",
+      "target": "--zsd-components-pane-typography-line-height"
+    },
+    {
+      "source": "components.pane.typography.letterSpacing",
+      "target": "--zsd-components-pane-typography-letter-spacing"
+    },
+    {
+      "source": "components.pane.rounded",
+      "target": "--zsd-components-pane-rounded"
+    },
+    {
+      "source": "components.pane-tab-active.backgroundColor",
+      "target": "--zsd-components-pane-tab-active-background-color"
+    },
+    {
+      "source": "components.pane-tab-active.textColor",
+      "target": "--zsd-components-pane-tab-active-text-color"
+    },
+    {
+      "source": "components.pane-tab-active.typography.fontFamily",
+      "target": "--zsd-components-pane-tab-active-typography-font-family"
+    },
+    {
+      "source": "components.pane-tab-active.typography.fontSize",
+      "target": "--zsd-components-pane-tab-active-typography-font-size"
+    },
+    {
+      "source": "components.pane-tab-active.typography.fontWeight",
+      "target": "--zsd-components-pane-tab-active-typography-font-weight"
+    },
+    {
+      "source": "components.pane-tab-active.typography.lineHeight",
+      "target": "--zsd-components-pane-tab-active-typography-line-height"
+    },
+    {
+      "source": "components.pane-tab-active.typography.letterSpacing",
+      "target": "--zsd-components-pane-tab-active-typography-letter-spacing"
+    },
+    {
+      "source": "components.pane-tab-active.height",
+      "target": "--zsd-components-pane-tab-active-height"
+    },
+    {
+      "source": "components.notice.backgroundColor",
+      "target": "--zsd-components-notice-background-color"
+    },
+    {
+      "source": "components.notice.textColor",
+      "target": "--zsd-components-notice-text-color"
+    },
+    {
+      "source": "components.notice.typography.fontFamily",
+      "target": "--zsd-components-notice-typography-font-family"
+    },
+    {
+      "source": "components.notice.typography.fontSize",
+      "target": "--zsd-components-notice-typography-font-size"
+    },
+    {
+      "source": "components.notice.typography.fontWeight",
+      "target": "--zsd-components-notice-typography-font-weight"
+    },
+    {
+      "source": "components.notice.typography.lineHeight",
+      "target": "--zsd-components-notice-typography-line-height"
+    },
+    {
+      "source": "components.notice.typography.letterSpacing",
+      "target": "--zsd-components-notice-typography-letter-spacing"
+    },
+    {
+      "source": "components.notice.rounded",
+      "target": "--zsd-components-notice-rounded"
+    },
+    {
+      "source": "components.notice.padding",
+      "target": "--zsd-components-notice-padding"
+    },
+    {
+      "source": "components.status-live.backgroundColor",
+      "target": "--zsd-components-status-live-background-color"
+    },
+    {
+      "source": "components.status-live.textColor",
+      "target": "--zsd-components-status-live-text-color"
+    },
+    {
+      "source": "components.status-live.typography.fontFamily",
+      "target": "--zsd-components-status-live-typography-font-family"
+    },
+    {
+      "source": "components.status-live.typography.fontSize",
+      "target": "--zsd-components-status-live-typography-font-size"
+    },
+    {
+      "source": "components.status-live.typography.fontWeight",
+      "target": "--zsd-components-status-live-typography-font-weight"
+    },
+    {
+      "source": "components.status-live.typography.lineHeight",
+      "target": "--zsd-components-status-live-typography-line-height"
+    },
+    {
+      "source": "components.status-live.typography.letterSpacing",
+      "target": "--zsd-components-status-live-typography-letter-spacing"
+    },
+    {
+      "source": "components.status-warning.backgroundColor",
+      "target": "--zsd-components-status-warning-background-color"
+    },
+    {
+      "source": "components.status-warning.textColor",
+      "target": "--zsd-components-status-warning-text-color"
+    },
+    {
+      "source": "components.status-warning.typography.fontFamily",
+      "target": "--zsd-components-status-warning-typography-font-family"
+    },
+    {
+      "source": "components.status-warning.typography.fontSize",
+      "target": "--zsd-components-status-warning-typography-font-size"
+    },
+    {
+      "source": "components.status-warning.typography.fontWeight",
+      "target": "--zsd-components-status-warning-typography-font-weight"
+    },
+    {
+      "source": "components.status-warning.typography.lineHeight",
+      "target": "--zsd-components-status-warning-typography-line-height"
+    },
+    {
+      "source": "components.status-warning.typography.letterSpacing",
+      "target": "--zsd-components-status-warning-typography-letter-spacing"
+    },
+    {
+      "source": "x-zsd.layout.viewport-min",
+      "target": "--zsd-x-zsd-layout-viewport-min"
+    },
+    {
+      "source": "x-zsd.layout.drawer-width-min",
+      "target": "--zsd-x-zsd-layout-drawer-width-min"
+    },
+    {
+      "source": "x-zsd.layout.drawer-width-max",
+      "target": "--zsd-x-zsd-layout-drawer-width-max"
+    },
+    {
+      "source": "x-zsd.layout.menu-width-max",
+      "target": "--zsd-x-zsd-layout-menu-width-max"
+    },
+    {
+      "source": "x-zsd.breakpoints.narrow",
+      "target": "--zsd-x-zsd-breakpoints-narrow"
+    },
+    {
+      "source": "x-zsd.breakpoints.compact",
+      "target": "--zsd-x-zsd-breakpoints-compact"
+    },
+    {
+      "source": "x-zsd.breakpoints.drawer",
+      "target": "--zsd-x-zsd-breakpoints-drawer"
+    },
+    {
+      "source": "x-zsd.border.width-default",
+      "target": "--zsd-x-zsd-border-width-default"
+    },
+    {
+      "source": "x-zsd.border.color-default",
+      "target": "--zsd-x-zsd-border-color-default"
+    },
+    {
+      "source": "x-zsd.elevation.glass-blur-radius",
+      "target": "--zsd-x-zsd-elevation-glass-blur-radius"
+    },
+    {
+      "source": "x-zsd.elevation.glass-saturate",
+      "target": "--zsd-x-zsd-elevation-glass-saturate"
+    },
+    {
+      "source": "x-zsd.elevation.shadow-menu-y",
+      "target": "--zsd-x-zsd-elevation-shadow-menu-y"
+    },
+    {
+      "source": "x-zsd.elevation.shadow-menu-blur",
+      "target": "--zsd-x-zsd-elevation-shadow-menu-blur"
+    },
+    {
+      "source": "x-zsd.elevation.shadow-dialog-y",
+      "target": "--zsd-x-zsd-elevation-shadow-dialog-y"
+    },
+    {
+      "source": "x-zsd.elevation.shadow-dialog-blur",
+      "target": "--zsd-x-zsd-elevation-shadow-dialog-blur"
+    },
+    {
+      "source": "x-zsd.elevation.shadow-color-smooth-dark",
+      "target": "--zsd-x-zsd-elevation-shadow-color-smooth-dark"
+    },
+    {
+      "source": "x-zsd.elevation.shadow-color-smooth-light",
+      "target": "--zsd-x-zsd-elevation-shadow-color-smooth-light"
+    },
+    {
+      "source": "x-zsd.elevation.shadow-color-oni",
+      "target": "--zsd-x-zsd-elevation-shadow-color-oni"
+    },
+    {
+      "source": "x-zsd.motion.duration-fast",
+      "target": "--zsd-x-zsd-motion-duration-fast"
+    },
+    {
+      "source": "x-zsd.motion.duration-base",
+      "target": "--zsd-x-zsd-motion-duration-base"
+    },
+    {
+      "source": "x-zsd.motion.duration-slow",
+      "target": "--zsd-x-zsd-motion-duration-slow"
+    },
+    {
+      "source": "x-zsd.motion.easing-out",
+      "target": "--zsd-x-zsd-motion-easing-out"
+    },
+    {
+      "source": "x-zsd.motion.easing-out-oni",
+      "target": "--zsd-x-zsd-motion-easing-out-oni"
+    },
+    {
+      "source": "x-zsd.motion.easing-in",
+      "target": "--zsd-x-zsd-motion-easing-in"
+    },
+    {
+      "source": "x-zsd.accessibility.target-min",
+      "target": "--zsd-x-zsd-accessibility-target-min"
+    },
+    {
+      "source": "x-zsd.accessibility.focus-width",
+      "target": "--zsd-x-zsd-accessibility-focus-width"
+    },
+    {
+      "source": "x-zsd.accessibility.focus-offset",
+      "target": "--zsd-x-zsd-accessibility-focus-offset"
+    },
+    {
+      "source": "x-zsd.accessibility.focus-color",
+      "target": "--zsd-x-zsd-accessibility-focus-color"
+    }
+  ],
+  "ignoredMetadata": [
+    "x-zsd.profile",
+    "x-zsd.kind",
+    "x-zsd.source",
+    "x-zsd.review",
+    "x-zsd.intent",
+    "x-zsd.preferences",
+    "x-zsd.implementation",
+    "x-zsd.unresolved",
+    "x-zsd.modes"
+  ],
+  "unsupported": []
+}
