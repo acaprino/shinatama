@@ -59,7 +59,6 @@ Shinatama gives the proxy:
   are the harness's data. Their weight on the session reader is a separate fix.
 - Why the proxy exits with 3221226505.
 - Switching the start-up check off.
-- Keeping the proxy state of Pi threads across a cleanup (see the builder check on Pi's id).
 
 ## Anti-goals
 
@@ -131,8 +130,13 @@ with the mechanism in the engine beside `sidecar_runtime.rs`:
 2. For each id to remove: `node dist/index.js sessions rm <id> --no-vacuum --json`, with the
    proxy's prepared environment plus `BILI_STORAGE_QUICK_CHECK=0` (the proxy's own start still
    checks). The JSON reply gives rows and bytes released.
-3. When at least one session was removed and the run was not interrupted:
-   `storage gc --vacuum full --json` with an age far in the future, so nothing is archived by age.
+3. In a run without a budget only, when at least one session was removed and the run tried all
+   of them: `storage gc --days 36500 --vacuum full --json` (nothing is archived by age). A run with
+   a budget never compacts: the rewrite is bounded by no budget.
+   The archive's size, logged and shown, is `index.db` with the JSON files beside it.
+   The commands are admitted as the proxy is, and the close cleanup's also while the application
+   closes. An idle proxy is stopped only when no agent session is open or opening and something is
+   removable; a session that opens during that run ends it, as does a Start or a Stop.
 4. Each run has a time budget; what is left is done by the next run.
 
 ### When it runs
@@ -164,8 +168,9 @@ budgeted slices.
 The proxy also keeps sessions as JSON files (`sessions/anthropic/`, `sessions/responses/`; older
 ones with `storageMode: legacy`), and a session that exists only as such a file has no row in
 `sessions` until a proxy load imports it (`persist.ts` `boot()`/`loadAll()`, `buildForLoadAll`).
-The rule reads only the table, so such a session is not seen by a run before the proxy's first
-start; after it, it is. `sessions rm` removes both the row and the file (`findSessionFiles`), and a
+A run without a budget (the idle one) therefore first runs the proxy's own `sessions ls --json`,
+whose load imports them, and then reads the table; a run with a budget (start, close) reads the
+table only, and such a session is removed by the next run without a budget. `sessions rm` removes both the row and the file (`findSessionFiles`), and a
 later load does not bring it back: proven on a copy (one legacy session: imported by a load,
 `filesRemoved: 1`, absent after another load). On the owner's archive, 57 such sessions (52 Claude
 subagents, 5 of no thread, files of 2026-11-18) came back after the hand-run cleanup's final
@@ -181,11 +186,14 @@ subagents, 5 of no thread, files of 2026-11-18) came back after the hand-run cle
   the proxy only when the model's `compat.sendSessionAffinityHeaders` is on
   (`x-session-affinity`, or `x-session-id` in the OpenRouter format; `pi-ai`
   `anthropic-messages.js`), and the provider extension Shinatama writes for Pi
-  (`crates/engine/src/model_config.rs`) does not turn it on. So a Pi thread's proxy session is
-  keyed by the proxy's own id, and each cleanup removes it as a session of no thread: the proxy
-  then replays that thread's history raw at its next request (the conversation in Pi's own store
-  is untouched). The owner has no Pi thread today. Turning the compat flag on in that extension,
-  so that Pi sends the native id Shinatama gives it with `--session-id`, is a separate change.
+  (`crates/engine/src/model_config.rs`) does not turn it on. On the OpenAI Responses API Pi
+  always sends its session id (`x-client-request-id`, and `prompt_cache_key` in the body), which
+  the proxy keys by (`session-id.ts`). The proxy never makes up an id: a request with no client
+  identity is refused with 400. So a Pi session in the archive is keyed by Pi's own session id,
+  which is the native id Shinatama gives it with `--session-id`, and the rule keeps it while its
+  thread exists; a Pi session on the Anthropic API without the compat flag does not reach the
+  proxy at all. (Corrected 2026-11-20: an earlier note here said Pi's sessions were keyed by an id
+  of the proxy's own and removed at each cleanup.)
 - *After an idle run, does the proxy stay stopped?* No, it is started again (table above).
 - *A Shinatama reopened during a close run?* The close run happens in the closing process, before
   it exits and while it still holds the owner lock (table above); the new one reports that another
