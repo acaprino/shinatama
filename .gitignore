@@ -18,3 +18,6 @@ effectiveness-metrics.json.tmp
 
 # assembled by build-release.bat
 release/
+
+# Playwright MCP snapshots and screenshots (tool output, never project files)
+.playwright-mcp/
