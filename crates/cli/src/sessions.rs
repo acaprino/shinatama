@@ -242,6 +242,7 @@ mod windows {
     }
 
     /// [`contained`] for an export: `sink` receives every body frame as the worker writes it.
+    #[allow(clippy::type_complexity)]
     fn contained_with(
         store: &Store,
         prepared: &PreparedSessionList,
