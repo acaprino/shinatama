@@ -713,6 +713,8 @@ fn qualify(fixture: &Fixture) -> ProofResult<Value> {
                 cleanup_timeout: Duration::from_secs(2),
                 reservation_lease: Duration::from_secs(15),
                 drain_timeout: Duration::from_secs(30),
+                maintenance_at_start: Duration::ZERO,
+                maintenance_command_timeout: Duration::from_secs(120),
             },
             provider,
         ),

@@ -381,6 +381,8 @@ impl Running {
                     cleanup_timeout: Duration::from_secs(5),
                     reservation_lease: Duration::from_secs(30),
                     drain_timeout: Duration::from_secs(30),
+                    maintenance_at_start: Duration::ZERO,
+                    maintenance_command_timeout: Duration::from_secs(120),
                 },
                 provider,
             ),

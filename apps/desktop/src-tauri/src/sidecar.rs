@@ -106,6 +106,7 @@ fn phase_name(phase: Phase) -> &'static str {
         Phase::Ready => "ready",
         Phase::Busy => "busy",
         Phase::Draining => "draining",
+        Phase::Maintaining => "maintaining",
         Phase::Degraded => "degraded",
         Phase::Recovering => "recovering",
         Phase::Failed => "failed",
@@ -136,6 +137,7 @@ fn state_words(phase: &str, healthy: bool) -> &'static str {
         "preparing" => "being prepared",
         "starting" => "starting",
         "draining" => "stopping",
+        "maintaining" => "cleaning its archive",
         "degraded" => "temporarily unavailable",
         "recovering" => "recovering",
         "failed" => "stopped after a failure",
@@ -317,6 +319,23 @@ pub(crate) fn start_at_launch(controller: &Arc<Controller>) {
                 std::thread::sleep(Duration::from_millis(250));
             }
         });
+}
+/// How long no agent session is open before the proxy's archive is cleaned
+/// (docs/superpowers/specs/2026-11-20-proxy-archive-cleanup-design.md).
+pub(crate) const IDLE_BEFORE_CLEANUP: Duration = Duration::from_secs(600);
+/// Whether an idle cleanup is due: no agent session is open (known, not guessed), and either a
+/// forget asked for it or none has been open for [`IDLE_BEFORE_CLEANUP`].
+pub(crate) fn idle_run_due(
+    live_agent_sessions: Option<usize>,
+    idle_since: Option<std::time::Instant>,
+    now: std::time::Instant,
+    due_now: bool,
+) -> bool {
+    todo!("RED: idle_run_due")
+}
+/// The line `shinatama.log` gets for a run of the archive cleanup.
+pub(crate) fn report_line(report: &shinatama_engine::sidecar_archive::Report) -> String {
+    todo!("RED: report_line")
 }
 pub(crate) fn launch_allowed(phase: &str, healthy: bool) -> bool {
     matches!(phase, "ready" | "busy") && healthy
@@ -921,6 +940,8 @@ impl Controller {
                 cleanup_timeout: Duration::from_secs(3),
                 drain_timeout: Duration::from_secs(30),
                 reservation_lease: Duration::from_secs(300),
+                maintenance_at_start: Duration::from_secs(10),
+                maintenance_command_timeout: Duration::from_secs(120),
             },
             provider,
         )
@@ -1038,6 +1059,50 @@ mod tests {
     use super::*;
     use shinatama_engine::sidecar_admin::{Lever, SessionCapabilities};
     use shinatama_engine::sidecar_config::intended_baseline;
+
+    #[test]
+    fn idle_runs_after_ten_minutes_without_live_sessions() {
+        let now = std::time::Instant::now() + Duration::from_secs(1000);
+        let ago = |seconds| Some(now - Duration::from_secs(seconds));
+        assert!(!idle_run_due(Some(0), ago(599), now, false));
+        assert!(idle_run_due(Some(0), ago(600), now, false));
+        assert!(!idle_run_due(Some(1), ago(900), now, false));
+        assert!(!idle_run_due(None, ago(900), now, false), "an unknown count is not idle");
+        assert!(idle_run_due(Some(0), ago(1), now, true), "a forget makes it due now");
+        assert!(!idle_run_due(Some(0), None, now, false));
+        assert!(!idle_run_due(Some(2), ago(1), now, true), "not even a forget with an agent open");
+    }
+
+    #[test]
+    fn the_log_line_says_what_a_run_did() {
+        use shinatama_engine::sidecar_archive::{Report, Stop};
+        let done = Report {
+            removed: 487,
+            failed: 0,
+            left: 0,
+            released_bytes: 1_642_000_000,
+            compacted: true,
+            file_bytes_before: Some(2_451_185_664),
+            file_bytes_after: Some(18_731_008),
+            elapsed: Duration::from_secs(1396),
+            stop: Stop::Done,
+        };
+        assert_eq!(
+            report_line(&done),
+            "removed 487 sessions (1642 MB) in 1396 s; 0 left; archive now 18.7 MB."
+        );
+        let stopped = Report { removed: 3, left: 484, stop: Stop::Cancelled, ..done.clone() };
+        assert!(report_line(&stopped).ends_with("; stopped for an open."), "{}", report_line(&stopped));
+        let budget = Report { left: 10, stop: Stop::Budget, ..done.clone() };
+        assert!(report_line(&budget).ends_with("; 10 left; archive now 18.7 MB; the rest goes in the next run."), "{}", report_line(&budget));
+        let failed = Report { failed: 2, ..done.clone() };
+        assert!(report_line(&failed).contains("; 2 could not be removed"), "{}", report_line(&failed));
+        let unreadable = Report { removed: 0, stop: Stop::Unreadable, ..done };
+        assert_eq!(
+            report_line(&unreadable),
+            "nothing removed: the archive or Shinatama's threads could not be read."
+        );
+    }
 
     #[test]
     fn a_supervisor_silent_for_more_than_fifteen_seconds_is_stalled() {

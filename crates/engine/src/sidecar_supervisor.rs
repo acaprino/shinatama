@@ -44,6 +44,8 @@ pub trait WorkloadProvider: Send + 'static {
     /// The proxy's process ended by itself. Told once per exit, so the owner can record why
     /// in Shinatama's log (ADR-0030): what the child wrote is read nowhere else.
     fn exited(&mut self, _exit: &ProxyExit) {}
+    /// A run of the archive cleanup ended (docs/superpowers/specs/2026-11-20-proxy-archive-cleanup-design.md).
+    fn maintained(&mut self, _report: &crate::sidecar_archive::Report) {}
 }
 #[derive(Debug)]
 pub struct AdmissionUnavailable;
@@ -57,6 +59,9 @@ pub enum Phase {
     /// A requested stop is waiting for in-flight requests to finish. Still the
     /// same live process, still the same pid.
     Draining,
+    /// No proxy process runs: the owner is running the proxy's own commands that clean its
+    /// archive. An open waits; its Start ends the run after the command in progress.
+    Maintaining,
     Degraded,
     Recovering,
     Failed,
@@ -112,6 +117,13 @@ pub enum Command {
     Drain,
     Retry,
     Activity(Activity),
+    /// Clean the proxy's archive while no proxy process runs: an idle proxy is stopped for it,
+    /// one with requests in flight is left alone. `budget: None` runs until a Start is asked
+    /// for; `restart` starts the proxy again after the run.
+    Maintain {
+        budget: Option<Duration>,
+        restart: bool,
+    },
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RequestError {
@@ -225,6 +237,29 @@ pub struct SupervisorConfig {
     /// Longest a requested drain waits for in-flight requests before it stops anyway.
     pub drain_timeout: Duration,
     pub reservation_lease: Duration,
+    /// The archive cleanup's budget before the first start of the proxy; zero skips it.
+    pub maintenance_at_start: Duration,
+    /// Longest one of the proxy's maintenance commands may run.
+    pub maintenance_command_timeout: Duration,
+}
+/// The bounds of the archive cleanup's settings.
+pub(crate) fn maintenance_valid(at_start: Duration, command_timeout: Duration) -> bool {
+    todo!("RED: maintenance_valid")
+}
+/// Whether a Start (or Retry) was asked for since the owner last took one: what ends a run of
+/// the archive cleanup. Set by the caller's thread, read by the owner's.
+#[derive(Clone, Default)]
+pub(crate) struct StartWanted(Arc<AtomicBool>);
+impl StartWanted {
+    pub(crate) fn note(&self, command: &Command) {
+        todo!("RED: StartWanted::note")
+    }
+    pub(crate) fn is_set(&self) -> bool {
+        self.0.load(Ordering::Acquire)
+    }
+    pub(crate) fn clear(&self) {
+        self.0.store(false, Ordering::Release);
+    }
 }
 impl SupervisorConfig {
     fn valid(&self, recipe: &SidecarRuntimeRecipe) -> bool {
@@ -236,6 +271,7 @@ impl SupervisorConfig {
             && self.cleanup_timeout <= Duration::from_secs(10)
             && (Duration::from_secs(1)..=Duration::from_secs(120)).contains(&self.drain_timeout)
             && self.reservation_lease >= self.startup_timeout
+            && maintenance_valid(self.maintenance_at_start, self.maintenance_command_timeout)
             && self.reservation_lease <= Duration::from_secs(300)
             && recipe.arguments().get(4).is_some_and(|a| a == "--port")
             && recipe
@@ -1691,6 +1727,38 @@ mod tests {
     use super::test_support::{StatusServer, server};
     use super::*;
     use std::net::TcpListener;
+
+    #[test]
+    fn maintaining_never_backs_a_launch() {
+        assert!(!Phase::Maintaining.backs_launch());
+        assert_eq!(serde_json::to_string(&Phase::Maintaining).unwrap(), "\"maintaining\"");
+    }
+
+    #[test]
+    fn a_start_request_marks_a_running_maintenance_for_cancel() {
+        let wanted = StartWanted::default();
+        wanted.note(&Command::Activity(Activity::Idle));
+        wanted.note(&Command::Maintain { budget: None, restart: true });
+        wanted.note(&Command::Drain);
+        assert!(!wanted.is_set());
+        wanted.note(&Command::Start);
+        assert!(wanted.is_set());
+        wanted.clear();
+        assert!(!wanted.is_set());
+        wanted.note(&Command::Retry);
+        assert!(wanted.clone().is_set(), "the owner's copy sees what the caller's set");
+    }
+
+    #[test]
+    fn maintenance_limits_are_bounded() {
+        let seconds = Duration::from_secs;
+        assert!(maintenance_valid(seconds(10), seconds(120)));
+        assert!(maintenance_valid(Duration::ZERO, seconds(10)));
+        assert!(maintenance_valid(seconds(60), seconds(300)));
+        assert!(!maintenance_valid(seconds(61), seconds(120)));
+        assert!(!maintenance_valid(seconds(10), seconds(5)));
+        assert!(!maintenance_valid(seconds(10), seconds(301)));
+    }
 
     #[test]
     fn recovery_keeps_retrying_with_a_bounded_delay_and_resets_only_after_stable_health() {
