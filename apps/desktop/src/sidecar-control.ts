@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { sidePanel } from './modal.ts';
-import { adoptStopReply, buttons, confirmStillNeeded, diskLine, driftLine, exitLine, faultLine, indicator, messageLine, parseStatus, phaseLabel, restartOffered, showsTraffic, stallLine, startLabel, stopConsequence, trafficLine, type ProxyStatus } from './sidecar-status.ts';
+import { adoptStopReply, archiveLine, buttons, confirmStillNeeded, diskLine, driftLine, exitLine, faultLine, indicator, messageLine, parseStatus, phaseLabel, restartOffered, showsTraffic, stallLine, startLabel, stopConsequence, trafficLine, type ProxyStatus } from './sidecar-status.ts';
 
 const POLL_MS = 1500;
 
@@ -28,6 +28,7 @@ export function createSidecarControl(desktop: boolean, notify: (message: string)
   const stall = el('p', { className: 'hint' });
   const fault = el('p', { className: 'hint' });
   const disk = el('p', { className: 'hint' });
+  const archive = el('p', { className: 'hint' });
   const drift = el('p', { className: 'hint' });
   const interruption = el('p', { className: 'hint' });
   const confirm = el('div', { id: 'model-proxy-confirm', hidden: true }); confirm.setAttribute('role', 'group'); confirm.setAttribute('aria-label', 'Confirm stop');
@@ -48,7 +49,7 @@ export function createSidecarControl(desktop: boolean, notify: (message: string)
   const retry = el('button', { type: 'button', textContent: 'Retry recovery' });
   const restartOffer = el('button', { type: 'button', textContent: 'Restart Shinatama', className: 'danger', hidden: true });
   actions.append(stop, retry, restartOffer, start);
-  panel.append(heading, description, state, traffic, message, stall, fault, disk, interruption, drift, confirm, restartConfirm, actions);
+  panel.append(heading, description, state, traffic, message, stall, fault, disk, archive, interruption, drift, confirm, restartConfirm, actions);
   (document.querySelector('#app') ?? document.body).append(panel);
 
   let current: ProxyStatus | null = null; let outstanding = false; let destroyed = false; let confirming = false;
@@ -64,7 +65,7 @@ export function createSidecarControl(desktop: boolean, notify: (message: string)
     traffic.hidden = !running; traffic.textContent = running ? trafficLine(current!) : '';
     const said = messageLine(current);
     message.hidden = said === null; message.textContent = said ?? '';
-    for (const [line, text] of [[stall, current && stallLine(current)], [fault, current && faultLine(current)], [disk, current && diskLine(current)]] as const) {
+    for (const [line, text] of [[stall, current && stallLine(current)], [fault, current && faultLine(current)], [disk, current && diskLine(current)], [archive, current && archiveLine(current)]] as const) {
       line.hidden = !text; line.textContent = text || '';
     }
     const offered = restartOffered(current, failedPolls);

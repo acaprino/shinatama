@@ -20,7 +20,10 @@ export type ProxyStatus = {
   fault?: string | null;
   /** Free space of the disk that holds Shinatama's data; absent until the first sample. */
   disk?: DiskStatus | null;
+  /** The proxy's archive after the last cleanup run; absent before one ran. */
+  archive?: ArchiveStatus | null;
 };
+export type ArchiveStatus = { fileBytes: number | null; lastRunUnixMs: number | null; lastRemoved: number; lastLeft: number };
 export type DiskStatus = { root: string; freeBytes: number; level: 'ok' | 'low' | 'full' };
 /** `detail` is what the runtime last said outside the proxy's own log, when it said anything. */
 export type ProxyExit = { code: number; uptimeMs: number; atUnixMs: number | null; detail: string | null; count: number };
@@ -28,7 +31,7 @@ export type ConfigDifference = { setting: string; read: string; baseline: string
 
 const LABELS: Record<string, string> = {
   stopped: 'Stopped', preparing: 'Preparing…', starting: 'Starting…', ready: 'Ready',
-  busy: 'Busy', draining: 'Stopping after current requests…', degraded: 'Temporarily unavailable', recovering: 'Recovering…',
+  busy: 'Busy', draining: 'Stopping after current requests…', maintaining: 'Cleaning its archive…', degraded: 'Temporarily unavailable', recovering: 'Recovering…',
   failed: 'Stopped after a failure', retired: 'Recovery needs attention', unavailable: 'Status unavailable',
 };
 const RUNNING = ['starting', 'ready', 'busy', 'draining', 'degraded', 'recovering'];
@@ -43,6 +46,16 @@ const DISK_LEVELS = ['ok', 'low', 'full'];
 const isCount = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value >= 0;
 /** One line: the backend never sends a control character, so one here is not its reply. */
 const isLine = (value: unknown, limit: number): value is string => typeof value === 'string' && value.length <= limit && !/[\u0000-\u001f\u007f]/.test(value);
+
+/** `undefined` for no run yet (absent or null), `null` for a malformed one. */
+function parseArchive(value: unknown): ArchiveStatus | undefined | null {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'object' || Array.isArray(value)) return null;
+  const { fileBytes, lastRunUnixMs, lastRemoved, lastLeft } = value as Record<string, unknown>;
+  if (!(fileBytes === null || isCount(fileBytes)) || !isCount(lastRemoved) || !isCount(lastLeft)) return null;
+  if (!(lastRunUnixMs === null || (typeof lastRunUnixMs === 'number' && Number.isFinite(lastRunUnixMs)))) return null;
+  return { fileBytes, lastRunUnixMs, lastRemoved, lastLeft };
+}
 
 /** `undefined` for no reading (absent or null), `null` for a malformed one. */
 function parseDisk(value: unknown): DiskStatus | undefined | null {
@@ -100,6 +113,8 @@ export function parseStatus(value: unknown): ProxyStatus | null {
   if (!(raw.fault === undefined || raw.fault === null || isLine(raw.fault, FAULT_LIMIT))) return null;
   const disk = parseDisk(raw.disk);
   if (disk === null) return null;
+  const archive = parseArchive(raw.archive);
+  if (archive === null) return null;
   const status: ProxyStatus = {
     phase: raw.phase, healthy: raw.healthy, message: raw.message, inFlight: raw.inFlight, agentSessions: raw.agentSessions,
     drainDeadlineUnixMs: raw.drainDeadlineUnixMs, configDrift: raw.configDrift,
@@ -113,6 +128,7 @@ export function parseStatus(value: unknown): ProxyStatus | null {
   if (raw.lastPhase !== undefined) status.lastPhase = raw.lastPhase as string | null;
   if (raw.fault !== undefined) status.fault = raw.fault === '' ? null : raw.fault as string | null;
   if (disk !== undefined) status.disk = disk;
+  if (archive !== undefined) status.archive = archive;
   return status;
 }
 
@@ -123,7 +139,7 @@ export function phaseLabel(phase: string): string {
 /** The traffic light for a phase: green serving, amber in transit or degraded, red failed, off when down. */
 export type IndicatorTone = 'green' | 'amber' | 'red' | 'off';
 const TONES: Record<string, IndicatorTone> = {
-  ready: 'green', busy: 'green', preparing: 'amber', starting: 'amber', recovering: 'amber', draining: 'amber', degraded: 'amber',
+  ready: 'green', busy: 'green', preparing: 'amber', starting: 'amber', recovering: 'amber', draining: 'amber', maintaining: 'amber', degraded: 'amber',
   failed: 'red', retired: 'red', stopped: 'off', unavailable: 'off',
 };
 export function indicatorTone(phase: string): IndicatorTone {
@@ -138,7 +154,8 @@ export function buttons(status: ProxyStatus | null, outstanding: boolean): { sta
   return {
     // While draining, Start is "Cancel stop".
     start: ['stopped', 'failed', 'draining'].includes(phase),
-    stop: !['stopped', 'unavailable', 'draining'].includes(phase),
+    // A cleanup run ends on Start (an open asks for one); a Stop would wait for the whole run.
+    stop: !['stopped', 'unavailable', 'draining', 'maintaining'].includes(phase),
     retry: ['failed', 'retired'].includes(phase),
   };
 }
@@ -205,6 +222,17 @@ export function faultLine(status: ProxyStatus): string | null {
   return status.fault ? `The proxy supervisor stopped on an internal error: ${status.fault}` : null;
 }
 
+/** The proxy archive's size and what its last cleanup did; nothing before a cleanup ran. */
+export function archiveLine(status: ProxyStatus, clock: (unixMs: number) => string = wallClock): string | null {
+  const archive = status.archive;
+  if (!archive) return null;
+  const size = archive.fileBytes === null ? 'Archive size unknown' : `Archive ${(archive.fileBytes / 1e6).toFixed(1)} MB`;
+  const when = archive.lastRunUnixMs === null ? 'last cleanup' : `last cleanup at ${clock(archive.lastRunUnixMs)}`;
+  const removed = archive.lastRemoved === 0 ? 'removed nothing'
+    : `removed ${archive.lastRemoved} session${archive.lastRemoved === 1 ? '' : 's'}`;
+  const left = archive.lastLeft > 0 ? `; ${archive.lastLeft} left for the next one` : '';
+  return `${size} · ${when} ${removed}${left}`;
+}
 /** A disk that is low or full, named; nothing while the disk is fine or not yet measured. */
 export function diskLine(status: ProxyStatus): string | null {
   const disk = status.disk;

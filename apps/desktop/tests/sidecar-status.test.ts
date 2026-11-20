@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { adoptStopReply, buttons, capabilityLines, confirmStillNeeded, diskLine, driftLine, faultLine, indicator, indicatorTone, leverText, messageLine, nextCapabilityLines, parseCapabilities, parseStatus, phaseLabel, restartOffered, showsTraffic, stallLine, startLabel, stopConsequence, trafficLine, type CapabilityState, type Lever, type ProxyStatus } from '../src/sidecar-status.ts';
+import { adoptStopReply, archiveLine, buttons, capabilityLines, confirmStillNeeded, diskLine, driftLine, faultLine, indicator, indicatorTone, leverText, messageLine, nextCapabilityLines, parseCapabilities, parseStatus, phaseLabel, restartOffered, showsTraffic, stallLine, startLabel, stopConsequence, trafficLine, type CapabilityState, type Lever, type ProxyStatus } from '../src/sidecar-status.ts';
 
 const status = (over: Partial<ProxyStatus> = {}): ProxyStatus => ({
   phase: 'ready', healthy: true, message: null, inFlight: 0, agentSessions: 0,
@@ -286,4 +286,26 @@ test('the new fields are validated like the rest of the reply', () => {
     { disk: { root: 'D:', freeBytes: -1, level: 'low' } }, { disk: { root: 'D:', freeBytes: 1, level: 'huge' } }, { disk: { root: '', freeBytes: 1, level: 'low' } }, { observedAtUnixMs: 'now' }]) {
     assert.equal(parseStatus({ ...ok, ...bad }), null, JSON.stringify(bad));
   }
+});
+
+test('the panel names the archive size and the last cleanup', () => {
+  const at = Date.UTC(2026, 10, 20, 21, 30, 0);
+  const clock = (unixMs: number) => `T${unixMs}`;
+  const archive = (over: Record<string, unknown> = {}) => parseStatus({ ...status(), archive: { fileBytes: 18731008, lastRunUnixMs: at, lastRemoved: 487, lastLeft: 0, ...over } });
+  assert.equal(archiveLine(archive()!, clock), `Archive 18.7 MB · last cleanup at T${at} removed 487 sessions`);
+  assert.equal(archiveLine(archive({ lastRemoved: 1 })!, clock), `Archive 18.7 MB · last cleanup at T${at} removed 1 session`);
+  assert.equal(archiveLine(archive({ lastRemoved: 0, lastLeft: 12 })!, clock), `Archive 18.7 MB · last cleanup at T${at} removed nothing; 12 left for the next one`);
+  assert.equal(archiveLine(archive({ fileBytes: null })!, clock), `Archive size unknown · last cleanup at T${at} removed 487 sessions`);
+  assert.equal(archiveLine(parseStatus({ ...status(), archive: null })!, clock), null);
+  assert.equal(archiveLine(status(), clock), null);
+  assert.equal(archive({ fileBytes: -1 }), null, 'a malformed archive is not half-trusted');
+  assert.equal(archive({ lastRemoved: 'many' }), null);
+});
+test('cleaning its archive is a phase the panel knows, with no Start or Stop', () => {
+  const cleaning = parseStatus({ ...status(), phase: 'maintaining', healthy: false });
+  assert.ok(cleaning, 'the phase is accepted');
+  assert.equal(phaseLabel('maintaining'), 'Cleaning its archive…');
+  assert.deepEqual(buttons(cleaning, false), { start: false, stop: false, retry: false });
+  assert.equal(indicatorTone('maintaining'), 'amber');
+  assert.equal(showsTraffic('maintaining'), false);
 });
