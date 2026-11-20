@@ -77,6 +77,8 @@ pub struct Status {
     pub fault: Option<String>,
     /// Free space of the data disk; None until the first sample.
     pub disk: Option<DiskStatus>,
+    /// The proxy archive after the last cleanup run; None before one ran.
+    pub archive: Option<ArchiveStatus>,
 }
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -331,11 +333,106 @@ pub(crate) fn idle_run_due(
     now: std::time::Instant,
     due_now: bool,
 ) -> bool {
-    todo!("RED: idle_run_due")
+    live_agent_sessions == Some(0)
+        && (due_now
+            || idle_since
+                .is_some_and(|since| now.saturating_duration_since(since) >= IDLE_BEFORE_CLEANUP))
 }
 /// The line `shinatama.log` gets for a run of the archive cleanup.
 pub(crate) fn report_line(report: &shinatama_engine::sidecar_archive::Report) -> String {
-    todo!("RED: report_line")
+    use shinatama_engine::sidecar_archive::Stop;
+    if report.stop == Stop::Unreadable {
+        return "nothing removed: the archive or Shinatama's threads could not be read.".into();
+    }
+    let mut line = format!(
+        "removed {} sessions ({} MB) in {} s",
+        report.removed,
+        report.released_bytes / 1_000_000,
+        report.elapsed.as_secs()
+    );
+    if report.failed > 0 {
+        line.push_str(&format!("; {} could not be removed", report.failed));
+    }
+    line.push_str(&format!("; {} left; ", report.left));
+    match report.file_bytes_after {
+        Some(bytes) => line.push_str(&format!("archive now {:.1} MB", bytes as f64 / 1e6)),
+        None => line.push_str("archive size unknown"),
+    }
+    line.push_str(match report.stop {
+        Stop::Budget => "; the rest goes in the next run.",
+        Stop::Cancelled => "; stopped for an open.",
+        Stop::Done | Stop::Unreadable => ".",
+    });
+    line
+}
+/// What the panel shows of the proxy's archive: its size after the last cleanup run.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArchiveStatus {
+    pub file_bytes: Option<u64>,
+    pub last_run_unix_ms: Option<i64>,
+    pub last_removed: usize,
+    pub last_left: usize,
+}
+/// The last run, written by the owner's provider and read by `Controller::status`.
+pub(crate) type ArchiveRecord = Arc<Mutex<Option<ArchiveStatus>>>;
+pub(crate) fn archive_status(report: &shinatama_engine::sidecar_archive::Report) -> ArchiveStatus {
+    ArchiveStatus {
+        file_bytes: report.file_bytes_after,
+        last_run_unix_ms: now_ms(),
+        last_removed: report.removed,
+        last_left: report.left,
+    }
+}
+/// Every 30 s: when no agent session has been open for ten minutes, or a forget asked for it,
+/// and the proxy is ready, its owner cleans the archive and starts the proxy again. Once per
+/// idle period; an agent session that opens starts a new one.
+pub(crate) fn watch_idle(
+    controller: &Arc<Controller>,
+    live_agent_sessions: impl Fn() -> Option<usize> + Send + 'static,
+) {
+    let owner = Arc::clone(controller);
+    let _ = std::thread::Builder::new()
+        .name("proxy-archive-idle".into())
+        .spawn(move || {
+            loop {
+                std::thread::sleep(Duration::from_secs(30));
+                let live = live_agent_sessions();
+                let now = std::time::Instant::now();
+                let due = {
+                    let Ok(mut idle) = owner.idle.lock() else {
+                        return;
+                    };
+                    if live != Some(0) {
+                        *idle = IdleState::default();
+                        false
+                    } else {
+                        let since = *idle.since.get_or_insert(now);
+                        !idle.sent && idle_run_due(live, Some(since), now, idle.due_now)
+                    }
+                };
+                if !due {
+                    continue;
+                }
+                let status = owner.status();
+                if status.phase != "ready" || !status.healthy {
+                    continue;
+                }
+                if owner.maintain(None, true).is_ok()
+                    && let Ok(mut idle) = owner.idle.lock()
+                {
+                    idle.sent = true;
+                    idle.due_now = false;
+                }
+            }
+        });
+}
+/// When the idle cleanup is due: see [`watch_idle`].
+#[derive(Default)]
+struct IdleState {
+    since: Option<std::time::Instant>,
+    due_now: bool,
+    sent: bool,
 }
 pub(crate) fn launch_allowed(phase: &str, healthy: bool) -> bool {
     matches!(phase, "ready" | "busy") && healthy
@@ -425,6 +522,9 @@ pub struct Controller {
     /// True while a stall has been logged and the supervisor has not reported again.
     stall_logged: AtomicBool,
     disk: OnceLock<Arc<DiskWatch>>,
+    /// The last run of the archive cleanup.
+    archive: ArchiveRecord,
+    idle: Mutex<IdleState>,
 }
 impl Controller {
     pub fn new(services: Arc<Services>, runtime: Arc<Runtime>) -> Self {
@@ -441,6 +541,53 @@ impl Controller {
             watching: AtomicBool::new(false),
             stall_logged: AtomicBool::new(false),
             disk: OnceLock::new(),
+            archive: ArchiveRecord::default(),
+            idle: Mutex::new(IdleState::default()),
+        }
+    }
+    /// Asks the owner to clean the proxy's archive (`Command::Maintain`).
+    pub fn maintain(&self, budget: Option<Duration>, restart: bool) -> Result<(), &'static str> {
+        self.supervisor
+            .get()
+            .ok_or("The Model proxy owner is unavailable.")?
+            .request(Command::Maintain { budget, restart })
+            .map_err(|_| "The proxy owner is busy; its archive is cleaned at the next run.")
+    }
+    /// After a forget: the idle check cleans the archive at once when no agent session is open.
+    pub fn maintain_soon(&self) {
+        if let Ok(mut idle) = self.idle.lock() {
+            idle.due_now = true;
+            idle.sent = false;
+        }
+    }
+    /// The close worker's run, once the proxy has stopped: returns when the owner has run it
+    /// and reports a stopped state again, or after `budget` and 5 s more.
+    pub fn maintain_and_wait(&self, budget: Duration) {
+        if self.maintain(Some(budget), false).is_err() {
+            return;
+        }
+        let began = std::time::Instant::now();
+        let deadline = began + budget + Duration::from_secs(5);
+        let mut seen = false;
+        while std::time::Instant::now() < deadline {
+            match self
+                .supervisor
+                .get()
+                .and_then(SidecarSupervisor::status)
+                .map(|snapshot| snapshot.phase)
+            {
+                Some(Phase::Maintaining) => seen = true,
+                Some(Phase::Stopped | Phase::Retired | Phase::Failed)
+                    if seen || began.elapsed() > Duration::from_secs(1) =>
+                {
+                    // Seen running, or never seen in a second: a run with nothing to read
+                    // passes between two polls.
+                    return;
+                }
+                None => return,
+                _ => {}
+            }
+            std::thread::sleep(Duration::from_millis(50));
         }
     }
     /// The data disk's free-space reading, shown in the status and in refusals.
@@ -596,6 +743,7 @@ impl Controller {
                 .map(|snapshot| phase_name(snapshot.phase)),
             fault: observation.as_ref().and_then(|snapshot| snapshot.fault.clone()),
             disk: self.disk_status(),
+            archive: self.archive.lock().ok().and_then(|value| value.clone()),
             observation,
             prepared_identity: self.identity.get().cloned(),
             config_drift: drift(resolved.as_ref()),
@@ -919,7 +1067,7 @@ impl Controller {
         let identity = recipe.summary();
         let provider = self
             .runtime
-            .sidecar_provider(lock, state.location.clone())
+            .sidecar_provider(lock, state.location.clone(), self.archive.clone())
             .map_err(|_| "Proxy resource admission is unavailable.")?;
         self.runtime.wait_for_interactive_admission().map_err(|_| "Resources are not yet ready for the local service. Wait and retry Start; no process was created.")?;
         // A competing bind is handled by exact child/health identity checks and

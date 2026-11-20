@@ -527,6 +527,11 @@ pub async fn thread_forget(
     for id in &report.thread_ids {
         crate::titles::forget_cached(id);
     }
+    // The forgotten thread's proxy state goes at the next cleanup: now, when no agent is open.
+    #[cfg(windows)]
+    if let Some(sidecar) = window.try_state::<Arc<crate::sidecar::Controller>>() {
+        sidecar.maintain_soon();
+    }
     Ok(report)
 }
 

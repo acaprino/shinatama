@@ -338,12 +338,14 @@ impl Runtime {
         &self,
         lock: File,
         location: StorageLocation,
+        archive: crate::sidecar::ArchiveRecord,
     ) -> Result<SidecarProvider, String> {
         let database = self.admission.services.load()?.store.clone();
         Ok(SidecarProvider {
             database,
             admission: self.admission.clone(),
             exits: crate::sidecar::ExitLog::default(),
+            archive,
             _lock: lock,
             _location: location,
         })
@@ -789,6 +791,7 @@ pub struct SidecarProvider {
     database: Arc<Database>,
     admission: Arc<Admission>,
     exits: crate::sidecar::ExitLog,
+    archive: crate::sidecar::ArchiveRecord,
     _lock: File,
     _location: StorageLocation,
 }
@@ -822,6 +825,15 @@ impl shinatama_engine::sidecar_supervisor::WorkloadProvider for SidecarProvider 
     fn exited(&mut self, exit: &shinatama_engine::sidecar_supervisor::ProxyExit) {
         if let Some(line) = self.exits.line(exit) {
             crate::app_log::write("proxy", &line);
+        }
+    }
+    fn maintained(&mut self, report: &shinatama_engine::sidecar_archive::Report) {
+        use shinatama_engine::sidecar_archive::Stop;
+        if report.removed + report.failed > 0 || report.stop != Stop::Done {
+            crate::app_log::write("proxy-archive", &crate::sidecar::report_line(report));
+        }
+        if let Ok(mut archive) = self.archive.lock() {
+            *archive = Some(crate::sidecar::archive_status(report));
         }
     }
 }

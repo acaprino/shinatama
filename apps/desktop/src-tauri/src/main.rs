@@ -395,6 +395,8 @@ async fn terminal_shutdown(
         #[cfg(windows)]
         if let Some(sidecar) = &sidecar {
             sidecar.stop_and_wait(std::time::Duration::from_secs(6));
+            // With the proxy stopped and this process still owning it: the archive cleanup.
+            sidecar.maintain_and_wait(std::time::Duration::from_secs(10));
         }
     })
     .await
@@ -784,7 +786,7 @@ fn main() {
                 }
                 app.manage(Arc::new(sessions::Controller::new(services.clone(), runtime.clone())));
                 let thread_window = app.handle().clone();
-                app.manage(Arc::new(agents::Controller::new(
+                let agents_controller = Arc::new(agents::Controller::new(
                     services.clone(),
                     app.state::<Host>().inner().clone(),
                     runtime.clone(),
@@ -797,7 +799,8 @@ fn main() {
                             "projectId": project_id, "threadId": thread_id,
                         }));
                     }),
-                )));
+                ));
+                app.manage(agents_controller.clone());
                 // The steps an open the user waits on passes (proxy, check, prepare): the window
                 // says which one it is waiting for.
                 let progress_window = app.handle().clone();
@@ -810,6 +813,8 @@ fn main() {
                 // of the first click after each start. It starts now, in the background, with the
                 // same admission as an Open; a user's Stop still stops it.
                 sidecar::start_at_launch(&sidecar);
+                // No agent session for ten minutes, or a forget: the proxy's archive is cleaned.
+                sidecar::watch_idle(&sidecar, move || agents_controller.live_agent_sessions());
                 app.manage(sidecar);
                 app.manage(runtime);
             }
