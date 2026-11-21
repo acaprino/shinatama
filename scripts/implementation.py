@@ -29,6 +29,10 @@ def requirements():
     return found
 
 
+def _reason(value):
+    return isinstance(value, str) and bool(value.strip())
+
+
 def validate(plan, progress):
     steps = plan["steps"]
     by_id = {step["id"]: step for step in steps}
@@ -103,9 +107,17 @@ def validate(plan, progress):
             for path in state.get("evidence", []):
                 if not (ROOT / path).is_file():
                     errors.append(f"{step_id}: evidence file missing: {path}")
+        # Work recorded before a dependency was verified is kept as it happened: each such
+        # dependency is named with the reason, never silently treated as verified.
+        exceptions = state.get("accepted_before_dependencies") or {}
+        for dependency, reason in exceptions.items():
+            if dependency not in by_id.get(step_id, {}).get("depends_on", []):
+                errors.append(f"{step_id}: exception for {dependency}, which is not a dependency")
+            if not _reason(reason):
+                errors.append(f"{step_id}: exception for {dependency} needs its reason")
         if state["status"] in DONE | {"in_progress"}:
             for dependency in by_id.get(step_id, {}).get("depends_on", []):
-                if progress["steps"].get(dependency, {}).get("status") not in DONE:
+                if progress["steps"].get(dependency, {}).get("status") not in DONE and not _reason(exceptions.get(dependency)):
                     errors.append(f"{step_id}: dependency {dependency} is not verified")
         if state["status"] == "committed" and not re.fullmatch(r"[0-9a-f]{40}", state.get("commit_sha") or ""):
             errors.append(f"{step_id}: committed needs the real full SHA")
@@ -129,7 +141,8 @@ def validate(plan, progress):
                 if state['status'] != 'in_progress' or not previous_done:
                     errors.append(f"{unit['id']}: active unit requires active parent and completed previous units")
             if status in DONE:
-                if not previous_done or not unit_state.get('checks') or not unit_state.get('evidence'):
+                in_order = previous_done or _reason(unit_state.get('accepted_before_previous_units'))
+                if not in_order or not unit_state.get('checks') or not unit_state.get('evidence'):
                     errors.append(f"{unit['id']}: completion needs prior units, executed checks and evidence")
                 for path in unit_state.get('evidence', []):
                     if not (ROOT / path).is_file():

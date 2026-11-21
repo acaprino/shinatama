@@ -6,7 +6,7 @@
   "steps": {
     "B00": {
       "status": "committed",
-      "commit_sha": "266fb1e043f834f0cf4a2e71976028d5f54c2186",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "platforms": [
         "Windows"
       ],
@@ -20,11 +20,12 @@
       ],
       "limits": [
         "Full TL/P gates remain open"
-      ]
+      ],
+      "pre_restart_commit_sha": "266fb1e043f834f0cf4a2e71976028d5f54c2186"
     },
     "B01": {
       "status": "committed",
-      "commit_sha": "266fb1e043f834f0cf4a2e71976028d5f54c2186",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "platforms": [
         "Windows"
       ],
@@ -36,11 +37,12 @@
         "python -m unittest discover -s scripts -p test_implementation.py",
         "python scripts/implementation.py render"
       ],
-      "next_action": "Proceed to F32CI using the validated dependency graph."
+      "next_action": "Proceed to F32CI using the validated dependency graph.",
+      "pre_restart_commit_sha": "266fb1e043f834f0cf4a2e71976028d5f54c2186"
     },
     "B02": {
       "status": "committed",
-      "commit_sha": "266fb1e043f834f0cf4a2e71976028d5f54c2186",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "platforms": [
         "Windows"
       ],
@@ -57,7 +59,8 @@
       "limits": [
         "Full roots/F3/default-root creation and cross-platform gates are planned in later steps."
       ],
-      "next_action": "Checkpoint current bootstrap paths, then F32CI."
+      "next_action": "Checkpoint current bootstrap paths, then F32CI.",
+      "pre_restart_commit_sha": "266fb1e043f834f0cf4a2e71976028d5f54c2186"
     },
     "D01": {
       "status": "deferred",
@@ -181,7 +184,7 @@
     },
     "F32CI": {
       "status": "committed",
-      "commit_sha": "cca3b040e7ba7ac0ae9794e1f48586afe43cee38",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "platforms": [
         "Windows 11 x64 build 26200"
       ],
@@ -196,15 +199,16 @@
         "GitHub workflow statically verified; remote execution has not run.",
         "Release X3/X4/X5, TL1, P14, RES and sidecar gates remain open."
       ],
-      "next_action": "Resume TL1-proof, the next ready step selected by the updated implementation plan."
+      "next_action": "Resume TL1-proof, the next ready step selected by the updated implementation plan.",
+      "pre_restart_commit_sha": "cca3b040e7ba7ac0ae9794e1f48586afe43cee38"
     },
     "TL1-proof": {
       "status": "committed",
-      "commit_sha": "8e777be24ad5ba29497d305467d11f09755e5849",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "units": {
         "TL1.1": {
           "status": "committed",
-          "commit_sha": "f1830cfe642087b52383f1eb4b5c391e25001a67",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "evidence": [
             "docs/verification/2026-11-02-TL1-windows.md",
             "docs/verification/2026-11-02-TL1-result.json"
@@ -217,11 +221,12 @@
           ],
           "platforms": [
             "Windows 11 x64 build 26200; WebView2 156.0.4314.58; Claude Code 2.1.316"
-          ]
+          ],
+          "pre_restart_commit_sha": "f1830cfe642087b52383f1eb4b5c391e25001a67"
         },
         "TL1.2": {
           "status": "committed",
-          "commit_sha": "8e777be24ad5ba29497d305467d11f09755e5849",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "evidence": [
             "docs/verification/2026-11-02-TL1-windows.md"
           ],
@@ -230,7 +235,8 @@
           ],
           "limits": [
             "ADR-0002 v4 and ADR-0040 v2 remain Proposed pending explicit approval of their texts."
-          ]
+          ],
+          "pre_restart_commit_sha": "8e777be24ad5ba29497d305467d11f09755e5849"
         }
       },
       "next_action": "Continue C02 shared SQLite, migration and typed state services; no checkpoint approval is needed.",
@@ -244,11 +250,12 @@
         "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/tl1/proof.mjs",
         "cargo test -p shinatama-desktop --features tl1-proof,custom-protocol tl1::tests -- --test-threads=1",
         "python adr_tool.py validate --project ."
-      ]
+      ],
+      "pre_restart_commit_sha": "8e777be24ad5ba29497d305467d11f09755e5849"
     },
     "C01": {
       "status": "committed",
-      "commit_sha": "f1830cfe642087b52383f1eb4b5c391e25001a67",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "platforms": [
         "Windows 11 x64 build 26200"
       ],
@@ -271,11 +278,12 @@
         "C01 prepares the private location; SQLite follows in C02."
       ],
       "commit_boundary": "Atomic current-file commit with TL1.1: automatic approval rejected substituting source files or staging derived partial contents. Separate evidence/status retained; C02/C03 source excluded.",
-      "next_action": "Continue C02 bundled SQLite and atomic legacy-history import after this checkpoint."
+      "next_action": "Continue C02 bundled SQLite and atomic legacy-history import after this checkpoint.",
+      "pre_restart_commit_sha": "f1830cfe642087b52383f1eb4b5c391e25001a67"
     },
     "C02": {
       "status": "committed",
-      "commit_sha": "85bd724b3fba830c007cf77e96d6f5a332eb97fd",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "platforms": [
         "Windows 11 x64 build 26200"
       ],
@@ -298,11 +306,12 @@
         "C02 minimal schema version 1; versioned backups follow in C03.",
         "Complete S1/S4/S5 and release X3 remain open; initialization failures require native app restart after correction."
       ],
-      "next_action": "Wire and qualify C03 backups/migrations, then implement the newly requested bounded DB maintenance."
+      "next_action": "Wire and qualify C03 backups/migrations, then implement the newly requested bounded DB maintenance.",
+      "pre_restart_commit_sha": "85bd724b3fba830c007cf77e96d6f5a332eb97fd"
     },
     "C03": {
       "status": "committed",
-      "commit_sha": "15e40eca19d1173064a7c4a13154f8a7d639b44b",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "platforms": [
         "Windows 11 x64 build 26200"
       ],
@@ -324,15 +333,16 @@
         "Copy-loop deadline is cooperative; OS I/O, integrity/schema checks and flush have no hard timeout.",
         "Backup budget is fixed; existing copies are not deleted automatically. C03M cleanup/idle jobs and full S/RES gates remain unqualified."
       ],
-      "next_action": "Implement C03M maintenance units and advance C04 project roots independently; preserve the mandatory C09R gate before terminal/sidecar hardening."
+      "next_action": "Implement C03M maintenance units and advance C04 project roots independently; preserve the mandatory C09R gate before terminal/sidecar hardening.",
+      "pre_restart_commit_sha": "15e40eca19d1173064a7c4a13154f8a7d639b44b"
     },
     "C03M": {
       "status": "committed",
-      "commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "units": {
         "C03M.1": {
           "status": "committed",
-          "commit_sha": "c63f7e976f568965af2d213e2b0d1e7648779637",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -346,11 +356,12 @@
           "limits": [
             "Library core qualified; idle desktop scheduling and healthy-terminal integration follow in C03M.2/.3.",
             "Filesystem/native I/O is not hard-preemptible; 100 ms is the SQL cooperative slice after measured admission."
-          ]
+          ],
+          "pre_restart_commit_sha": "c63f7e976f568965af2d213e2b0d1e7648779637"
         },
         "C03M.2": {
           "status": "committed",
-          "commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -372,11 +383,12 @@
             "Native filesystem/checkpoint IO has no hard preemption guarantee.",
             "UI IPC and rendered output metrics do not measure full keystroke-to-shell latency.",
             "Capacity/pressure faults use reduced policy limits and cancellation; no host disk or memory exhaustion is induced."
-          ]
+          ],
+          "pre_restart_commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb"
         },
         "C03M.3": {
           "status": "committed",
-          "commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -398,7 +410,8 @@
             "Native filesystem/checkpoint IO has no hard preemption guarantee.",
             "UI IPC and rendered output metrics do not measure full keystroke-to-shell latency.",
             "Capacity/pressure faults use reduced policy limits and cancellation; no host disk or memory exhaustion is induced."
-          ]
+          ],
+          "pre_restart_commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb"
         }
       },
       "next_action": "Connect the qualified optional-work revocation hook to C09R when its calibrated governor is implemented.",
@@ -423,11 +436,12 @@
         "Native filesystem/checkpoint IO has no hard preemption guarantee.",
         "UI IPC and rendered output metrics do not measure full keystroke-to-shell latency.",
         "Capacity/pressure faults use reduced policy limits and cancellation; no host disk or memory exhaustion is induced."
-      ]
+      ],
+      "pre_restart_commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb"
     },
     "C04": {
       "status": "committed",
-      "commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "platforms": [
         "Windows 11 x64 build 26200"
       ],
@@ -453,7 +467,7 @@
       "units": {
         "C04.1": {
           "status": "committed",
-          "commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "evidence": [
             "docs/verification/2026-11-02-C04-project-catalog.md",
             "docs/verification/2026-11-02-C04-project-catalog.result.json"
@@ -467,11 +481,12 @@
             "python scripts/dependencies.py check --offline",
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/catalog-smoke.mjs",
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/native-picker-smoke.mjs"
-          ]
+          ],
+          "pre_restart_commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb"
         },
         "C04.2": {
           "status": "committed",
-          "commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "evidence": [
             "docs/verification/2026-11-02-C04-project-catalog.md",
             "docs/verification/2026-11-02-C04-project-catalog.result.json"
@@ -485,11 +500,12 @@
             "python scripts/dependencies.py check --offline",
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/catalog-smoke.mjs",
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/native-picker-smoke.mjs"
-          ]
+          ],
+          "pre_restart_commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb"
         },
         "C04.3": {
           "status": "committed",
-          "commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "evidence": [
             "docs/verification/2026-11-02-C04-project-catalog.md",
             "docs/verification/2026-11-02-C04-project-catalog.result.json"
@@ -503,14 +519,16 @@
             "python scripts/dependencies.py check --offline",
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/catalog-smoke.mjs",
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/native-picker-smoke.mjs"
-          ]
+          ],
+          "pre_restart_commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb"
         }
       },
-      "next_action": "Implement C05 explicit project creation using the persisted roots and atomic cancellation boundary."
+      "next_action": "Implement C05 explicit project creation using the persisted roots and atomic cancellation boundary.",
+      "pre_restart_commit_sha": "eef1a567ff019cbe6fc9169fbd76ab611ea1f8fb"
     },
     "C05": {
       "status": "committed",
-      "commit_sha": "1a557c96edaa4b5e3b8c1fc9a53481ff706b1655",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "platforms": [
         "Windows 11 x64 build 26200"
       ],
@@ -534,15 +552,16 @@
         "Fixed Git helper budgets and containment are qualified; adaptive C09R and full production P14 remain open.",
         "Nonempty recovery work is preserved, never automatically pruned; admission stops at eight retained stages per root."
       ],
-      "next_action": "Use the committed creation checkpoint and proceed to C10 adapter/engine contracts; preserve the C09R gate before terminal/sidecar hardening."
+      "next_action": "Use the committed creation checkpoint and proceed to C10 adapter/engine contracts; preserve the C09R gate before terminal/sidecar hardening.",
+      "pre_restart_commit_sha": "1a557c96edaa4b5e3b8c1fc9a53481ff706b1655"
     },
     "C10": {
       "status": "committed",
-      "commit_sha": "417330b5001b865a2b7f86cea126eb8cfda463c0",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "units": {
         "C10.1": {
           "status": "committed",
-          "commit_sha": "417330b5001b865a2b7f86cea126eb8cfda463c0",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "evidence": [
             "docs/verification/2026-11-02-C10-adapter-contracts.md",
             "docs/verification/2026-11-02-C10-adapter-contracts.result.json"
@@ -556,11 +575,12 @@
             "target/debug/shinatama.exe doctor --json (expected refusal exit 2)",
             "python scripts/dependencies.py check --offline",
             "cargo fmt --all --check"
-          ]
+          ],
+          "pre_restart_commit_sha": "417330b5001b865a2b7f86cea126eb8cfda463c0"
         },
         "C10.2": {
           "status": "committed",
-          "commit_sha": "417330b5001b865a2b7f86cea126eb8cfda463c0",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "evidence": [
             "docs/verification/2026-11-02-C10-adapter-contracts.md",
             "docs/verification/2026-11-02-C10-adapter-contracts.result.json"
@@ -574,7 +594,8 @@
             "target/debug/shinatama.exe doctor --json (expected refusal exit 2)",
             "python scripts/dependencies.py check --offline",
             "cargo fmt --all --check"
-          ]
+          ],
+          "pre_restart_commit_sha": "417330b5001b865a2b7f86cea126eb8cfda463c0"
         }
       },
       "next_action": "Implement C11 environment/private-home/launch plans before FS03 and the mandatory C09R admission gate.",
@@ -600,15 +621,16 @@
         "No concrete native adapter is enabled; launch/login/update and post-V1 mutation remain refused.",
         "Fixed drive and reparse admission is not a hard deadline on native filesystem IO.",
         "Mukade archive reading remains at the injected boundary until C14; Daodan remains deferred."
-      ]
+      ],
+      "pre_restart_commit_sha": "417330b5001b865a2b7f86cea126eb8cfda463c0"
     },
     "C11": {
       "status": "committed",
-      "commit_sha": "9b86397e29775cb440393278d45ba3299734dac8",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "units": {
         "C11.1": {
           "status": "committed",
-          "commit_sha": "b1dcdaa8b2d35cf49b051d3f89944ae8e03653b8",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -624,11 +646,12 @@
           "limits": [
             "Pure environment composition and six synthetic Windows child processes qualified; native nested agent/version starts and full P20 remain open.",
             "Hermes/DeepSeek marker lists and Pi prepended PATH handling remain explicit gaps; no guessed native recipe is enabled."
-          ]
+          ],
+          "pre_restart_commit_sha": "b1dcdaa8b2d35cf49b051d3f89944ae8e03653b8"
         },
         "C11.2": {
           "status": "committed",
-          "commit_sha": "463dcc8eea46afc0e5e1a1bf1a1b9424f1b869b9",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -644,11 +667,12 @@
           "limits": [
             "Directory grants are pending FS03 registration; no store-root IDs/revisions or native database are created.",
             "No concrete native recipe/login/isolation capability is certified by synthetic placement/ACL tests."
-          ]
+          ],
+          "pre_restart_commit_sha": "463dcc8eea46afc0e5e1a1bf1a1b9424f1b869b9"
         },
         "C11.3": {
           "status": "committed",
-          "commit_sha": "15c8eb582a81e7f0ee8965135e9fb4997c4da955",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -665,11 +689,12 @@
           "limits": [
             "Hash-only identity records are prepared, not persisted; registry integration follows FS03.",
             "No native recipe or launch is qualified; C11.4 composition and C09R execution admission remain required."
-          ]
+          ],
+          "pre_restart_commit_sha": "15c8eb582a81e7f0ee8965135e9fb4997c4da955"
         },
         "C11.4": {
           "status": "committed",
-          "commit_sha": "9b86397e29775cb440393278d45ba3299734dac8",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -688,7 +713,8 @@
           "limits": [
             "Native execution remains unavailable until C09R, store registration, qualified program binding and sidecar requirements pass.",
             "No native adapter/version or full P20 gate is certified by synthetic construction tests."
-          ]
+          ],
+          "pre_restart_commit_sha": "9b86397e29775cb440393278d45ba3299734dac8"
         }
       },
       "next_action": "Proceed to FS03 authoritative root/workspace records, then mandatory C09R resilience before dependent native execution.",
@@ -714,11 +740,12 @@
         "Pure construction, synthetic nested children/private ACL grants and real UI/CLI review qualified; native per-agent/version isolation/login and P20 remain open.",
         "No native agent execution or full host resilience is claimed. Native qualification follows registered stores, C09R and sidecar integration.",
         "Daodan remains deferred and is not an admission dependency."
-      ]
+      ],
+      "pre_restart_commit_sha": "9b86397e29775cb440393278d45ba3299734dac8"
     },
     "FS03": {
       "status": "committed",
-      "commit_sha": "23b28a9e65a3bdd2b260f88245518fa1c8013e7b",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "platforms": [
         "Windows 11 x64 build 26200"
       ],
@@ -740,15 +767,16 @@
         "Future authoritative/operational feature tables and their scoped rebuild/retention are not pre-created or enabled; no generic cleanup API exists.",
         "Full S9/native SS5 and non-Windows qualification remain open."
       ],
-      "next_action": "Proceed immediately to mandatory C09R resource sampling, aggregate admission and native fault containment before dependent native execution."
+      "next_action": "Proceed immediately to mandatory C09R resource sampling, aggregate admission and native fault containment before dependent native execution.",
+      "pre_restart_commit_sha": "23b28a9e65a3bdd2b260f88245518fa1c8013e7b"
     },
     "C09R": {
       "status": "committed",
-      "commit_sha": "4e2c1b29038bfe15d20b03e07e94122d511b3629",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "units": {
         "C09R.1": {
           "status": "committed",
-          "commit_sha": "390c1c9b20a59bc448cfd739b323f82251edb340",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -768,11 +796,12 @@
             "Observer measurements do not qualify native workload limits, adaptive admission/intervention, crash recovery or complete RES1-RES4.",
             "Workload/terminal queue counters are explicitly unavailable until their owning components connect them; owned descendants are not a host/renderer baseline.",
             "12-second Windows observer proof only; fault injection and prolonged qualification remain required."
-          ]
+          ],
+          "pre_restart_commit_sha": "390c1c9b20a59bc448cfd739b323f82251edb340"
         },
         "C09R.2": {
           "status": "committed",
-          "commit_sha": "14f44bac6d87da30e3c6bc5271eded2c9b3284ff",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -790,11 +819,12 @@
             "Native starts remain gated until remaining C09R and dependent requirements pass.",
             "Complete lifetime process coverage is required for release: missed descendants or owner-crash uncertainty remain Retired, never guessed empty. Automatic recovery of that uncertainty is unqualified.",
             "This checkpoint also records the user requested essential-only verification policy and morning delivery priority without reducing V1 requirements."
-          ]
+          ],
+          "pre_restart_commit_sha": "14f44bac6d87da30e3c6bc5271eded2c9b3284ff"
         },
         "C09R.3": {
           "status": "committed",
-          "commit_sha": "f3068d18d62bc91849bca7ba68365894ca6cac5d",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -811,11 +841,12 @@
           "limits": [
             "Generic bounded policy and optional-maintenance intervention only. Desktop snapshot explicitly advice-only with zero native profiles/jobs; native launches remain disabled.",
             "Integrated terminal and sidecar fault containment and measured production profiles require C09/C13 and per-agent qualification."
-          ]
+          ],
+          "pre_restart_commit_sha": "f3068d18d62bc91849bca7ba68365894ca6cac5d"
         },
         "C09R.4": {
           "status": "committed",
-          "commit_sha": "4e2c1b29038bfe15d20b03e07e94122d511b3629",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -828,7 +859,8 @@
           "limits": [
             "Eight synthetic native fault rounds only; actual terminal/renderer protection belongs to C09 and sidecar supervision to C13.",
             "Per-agent production calibration, extended soak and complete product RES gates remain open."
-          ]
+          ],
+          "pre_restart_commit_sha": "4e2c1b29038bfe15d20b03e07e94122d511b3629"
         }
       },
       "next_action": "Proceed with C06/C07 workspace integration and C12 private sidecar preparation; integrate actual terminal containment in C09 and sidecar supervision in C13 before opening native agent gates.",
@@ -845,11 +877,12 @@
       "checks": [
         "cargo test --offline -p shinatama-engine --test resource_faults -j1 -- --test-threads=1 --nocapture",
         "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/resources-smoke.mjs"
-      ]
+      ],
+      "pre_restart_commit_sha": "4e2c1b29038bfe15d20b03e07e94122d511b3629"
     },
     "C06": {
       "status": "committed",
-      "commit_sha": "4ca08d45171d40d2ec2e4e3cb3001a6ca0424ef7",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "platforms": [
         "Windows 11 x64 build 26200"
       ],
@@ -887,11 +920,12 @@
             "cargo check --offline -p shinatama-desktop --features custom-protocol -j1"
           ]
         }
-      }
+      },
+      "pre_restart_commit_sha": "4ca08d45171d40d2ec2e4e3cb3001a6ca0424ef7"
     },
     "C07": {
       "status": "committed",
-      "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "platforms": [
         "Windows 11 x64 build 26200"
       ],
@@ -907,7 +941,7 @@
       "units": {
         "C07.1": {
           "status": "committed",
-          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "evidence": [
             "docs/verification/2026-11-03-C07-C08-workspace.md"
           ],
@@ -916,11 +950,12 @@
             "node apps/desktop/tests/ui-flow-smoke.mjs",
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
             "node --experimental-strip-types --test apps/desktop/tests/workspace-model.test.ts apps/desktop/tests/workspace-persistence.test.ts"
-          ]
+          ],
+          "pre_restart_commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3"
         },
         "C07.2": {
           "status": "committed",
-          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "evidence": [
             "docs/verification/2026-11-03-C07-C08-workspace.md"
           ],
@@ -929,11 +964,12 @@
             "node apps/desktop/tests/ui-flow-smoke.mjs",
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
             "node --experimental-strip-types --test apps/desktop/tests/workspace-model.test.ts apps/desktop/tests/workspace-persistence.test.ts"
-          ]
+          ],
+          "pre_restart_commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3"
         },
         "C07.3": {
           "status": "committed",
-          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "evidence": [
             "docs/verification/2026-11-03-C07-C08-workspace.md"
           ],
@@ -942,11 +978,12 @@
             "node apps/desktop/tests/ui-flow-smoke.mjs",
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
             "node --experimental-strip-types --test apps/desktop/tests/workspace-model.test.ts apps/desktop/tests/workspace-persistence.test.ts"
-          ]
+          ],
+          "pre_restart_commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3"
         },
         "C07.4": {
           "status": "committed",
-          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "evidence": [
             "docs/verification/2026-11-03-C07-C08-workspace.md"
           ],
@@ -955,21 +992,23 @@
             "node apps/desktop/tests/ui-flow-smoke.mjs",
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
             "node --experimental-strip-types --test apps/desktop/tests/workspace-model.test.ts apps/desktop/tests/workspace-persistence.test.ts"
-          ]
+          ],
+          "pre_restart_commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3"
         }
       },
       "limits": [
         "No layout, theme or find action starts/restarts a process. Full native-agent and release gates remain separate."
       ],
-      "next_action": "Continue C09 native fault qualification and visible applied resource limits, then finish sidecar/checkup integration."
+      "next_action": "Continue C09 native fault qualification and visible applied resource limits, then finish sidecar/checkup integration.",
+      "pre_restart_commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3"
     },
     "C12": {
       "status": "committed",
-      "commit_sha": "548670982b841e778c7698d213a97c8c6aebd052",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "units": {
         "C12.1": {
           "status": "committed",
-          "commit_sha": "cf53d9e270286cf790c3d21e91450b5af15a3944",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "evidence": [
             "docs/verification/2026-11-03-C12-preparation.md"
           ],
@@ -978,11 +1017,12 @@
             "pwsh -NoProfile -File sidecar/prepare.ps1 -Mode Prepare",
             "pwsh -NoProfile -File sidecar/prepare-runtime.ps1 -Mode Prepare",
             "cargo test --offline -p shinatama-engine -j1 --lib sidecar_ -- --test-threads=1"
-          ]
+          ],
+          "pre_restart_commit_sha": "cf53d9e270286cf790c3d21e91450b5af15a3944"
         },
         "C12.2": {
           "status": "committed",
-          "commit_sha": "cf53d9e270286cf790c3d21e91450b5af15a3944",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "evidence": [
             "docs/verification/2026-11-03-C12-preparation.md"
           ],
@@ -991,11 +1031,12 @@
             "pwsh -NoProfile -File sidecar/prepare.ps1 -Mode Prepare",
             "pwsh -NoProfile -File sidecar/prepare-runtime.ps1 -Mode Prepare",
             "cargo test --offline -p shinatama-engine -j1 --lib sidecar_ -- --test-threads=1"
-          ]
+          ],
+          "pre_restart_commit_sha": "cf53d9e270286cf790c3d21e91450b5af15a3944"
         },
         "C12.3": {
           "status": "committed",
-          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64 build 26200; pinned Node 24.14.1"
           ],
@@ -1007,11 +1048,12 @@
           ],
           "limits": [
             "Only the pinned Node runtime is TLS-qualified here. Actual native agent runtime trust and full SC16 remain separate."
-          ]
+          ],
+          "pre_restart_commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3"
         },
         "C12.4": {
           "status": "committed",
-          "commit_sha": "548670982b841e778c7698d213a97c8c6aebd052",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64 build 26200.9711; pinned Node 24.14.1; actual Claude 2.1.318 (b9aa5b08…1082)"
           ],
@@ -1035,7 +1077,8 @@
           "checkpoint_commits": [
             "885db6da4abf6c643ab6aa02f8c7d655317214b6",
             "2f72e7c4ce7badd65c173cf04f3bb16666951a5e"
-          ]
+          ],
+          "pre_restart_commit_sha": "548670982b841e778c7698d213a97c8c6aebd052"
         }
       },
       "limits": [
@@ -1057,11 +1100,12 @@
         "cargo test --offline --locked -p shinatama-engine -j1 --test claude_proxy_tls --test claude_native_resume -- --ignored --test-threads=1: PASS native resume 1/1 in 9.78s and TLS 1/1 in 9.18s; two genuine SessionStart hooks, same saved UUID and prior assistant turn received by synthetic provider, all owners Released",
         "cargo test --offline --locked -p shinatama-engine -j1 --test claude_effective_config -- --ignored --test-threads=1 --nocapture: PASS 1/1, 5.76s (2026-11-04, Claude 2.1.318); live upstream steering L2 sentinel observed; native resume 9.85s and TLS 9.33s re-passed on the re-pin; npm run build exit 0",
         "C12.5 decision 2026-11-07: targetRatio and growthWindow removed from the product baseline config (crates/engine/src/sidecar_config.rs); the canonical parser defaults (0.75, 20) equal the previous values so behavior is unchanged; unit test baseline_uses_canonical_storage_and_compression_keys_with_effort_locked_off asserts their absence (2/2 sidecar_config tests PASS); see docs/notes/2026-11-03-sidecar-effective-config.md."
-      ]
+      ],
+      "pre_restart_commit_sha": "548670982b841e778c7698d213a97c8c6aebd052"
     },
     "C08": {
       "status": "committed",
-      "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "platforms": [
         "Windows 11 x64 build 26200"
       ],
@@ -1078,7 +1122,7 @@
       "units": {
         "C08.1": {
           "status": "committed",
-          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "evidence": [
             "docs/verification/2026-11-03-C07-C08-workspace.md"
           ],
@@ -1088,11 +1132,12 @@
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
             "node --experimental-strip-types --test apps/desktop/tests/presentation.test.ts",
             "cargo test --offline -p shinatama-state --test presentation -j1 -- --test-threads=1"
-          ]
+          ],
+          "pre_restart_commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3"
         },
         "C08.2": {
           "status": "committed",
-          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "evidence": [
             "docs/verification/2026-11-03-C07-C08-workspace.md"
           ],
@@ -1102,11 +1147,12 @@
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
             "node --experimental-strip-types --test apps/desktop/tests/presentation.test.ts",
             "cargo test --offline -p shinatama-state --test presentation -j1 -- --test-threads=1"
-          ]
+          ],
+          "pre_restart_commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3"
         },
         "C08.3": {
           "status": "committed",
-          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "evidence": [
             "docs/verification/2026-11-03-C07-C08-workspace.md"
           ],
@@ -1116,18 +1162,20 @@
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs",
             "node --experimental-strip-types --test apps/desktop/tests/presentation.test.ts",
             "cargo test --offline -p shinatama-state --test presentation -j1 -- --test-threads=1"
-          ]
+          ],
+          "pre_restart_commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3"
         }
       },
       "limits": [
         "No layout, theme or find action starts/restarts a process. Full native-agent and release gates remain separate.",
         "Direttiva utente 2026-11-03: per il workspace normale lo storage globale ui.workspace.main.v1 sostituisce l’accoppiamento layout/progetto. Il filtro dei progetti non cambia la disposizione; viste di thread da progetti diversi possono coesistere. API e record dei layout per progetto già salvati sono conservati. Riallineamento e prova tracciati in C15.3; nessuna nuova unità pending aggiunta a C08 già committato."
       ],
-      "next_action": "Applicare la disposizione globale in C15.3 conservando i record legacy; temi e profili già verificati restano al checkpoint C08."
+      "next_action": "Applicare la disposizione globale in C15.3 conservando i record legacy; temi e profili già verificati restano al checkpoint C08.",
+      "pre_restart_commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3"
     },
     "C09": {
       "status": "committed",
-      "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "evidence": [
         "docs/verification/2026-11-03-C09-contained-terminals.md"
       ],
@@ -1142,7 +1190,8 @@
       ],
       "platforms": [
         "Windows 11 x64 build 26200"
-      ]
+      ],
+      "pre_restart_commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3"
     },
     "C13": {
       "status": "pending",
@@ -1150,7 +1199,7 @@
       "units": {
         "C13.1": {
           "status": "committed",
-          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -1162,11 +1211,12 @@
           "checks": [
             "cargo test --offline -p shinatama-engine --test sidecar_supervisor -j1 -- --ignored --test-threads=1 --nocapture",
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs"
-          ]
+          ],
+          "pre_restart_commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3"
         },
         "C13.2": {
           "status": "committed",
-          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -1178,11 +1228,12 @@
           "checks": [
             "cargo test --offline -p shinatama-engine --test sidecar_supervisor -j1 -- --ignored --test-threads=1 --nocapture",
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs"
-          ]
+          ],
+          "pre_restart_commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3"
         },
         "C13.3": {
           "status": "committed",
-          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -1194,11 +1245,12 @@
           "checks": [
             "cargo test --offline -p shinatama-engine --test sidecar_supervisor -j1 -- --ignored --test-threads=1 --nocapture",
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs"
-          ]
+          ],
+          "pre_restart_commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3"
         },
         "C13.4": {
           "status": "committed",
-          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -1210,11 +1262,12 @@
           "checks": [
             "cargo test --offline -p shinatama-engine --test sidecar_supervisor -j1 -- --ignored --test-threads=1 --nocapture",
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs"
-          ]
+          ],
+          "pre_restart_commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3"
         },
         "C13.5": {
           "status": "committed",
-          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -1226,7 +1279,8 @@
           "checks": [
             "cargo test --offline -p shinatama-engine --test sidecar_supervisor -j1 -- --ignored --test-threads=1 --nocapture",
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs"
-          ]
+          ],
+          "pre_restart_commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3"
         }
       },
       "limits": [
@@ -1234,13 +1288,13 @@
         "2026-11-04 re-check at b9465e4: supervisor native proof re-passed (1/1, 4.66s); desktop-smoke was stale against the dffb269 global workspace scope and is now aligned (ownership probe green), but a full green smoke run is blocked by real system commit headroom (~1-2GiB free of ~44GiB; the C09R governor correctly reports reduced activity). The parent checkpoint stays open until one full green desktop-smoke run is recorded. The process-wrap refusal decision (C13.1 gate) is recorded in Cargo.toml [workspace.dependencies]."
       ],
       "evidence": [
-        "docs/verification/2026-11-04-C13-supervisor-recheck.md",
-        "2026-11-08 p14 wrap-run desktop-smoke.mjs: reached Claude open (line 260), refused by resource governor (Windows is low on resources); parked, not retried. Test fixed to drive the main window, not the widget overlay"
+        "docs/verification/2026-11-04-C13-supervisor-recheck.md"
       ],
       "checks": [
         "cargo test --offline --locked -p shinatama-engine -j1 --test sidecar_supervisor -- --ignored --test-threads=1 --nocapture: PASS 1/1, 4.66s re-run 2026-11-04 on HEAD b9465e4; busy kept exact owner, one restart on same address, repeated_exit failed phase, ledger released; first attempt AdmissionDeferred under ~1.8GiB system commit headroom (fail-closed admission working as specified)",
         "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/desktop-smoke.mjs: attempted ONCE on 2026-11-07, FAILED for host memory (commit free 2.26 GiB at launch, down from 9.2 GiB minutes earlier; app stuck at Connecting or waits timed out); no product defect observed; parked per the simplified-plan rule, not retried",
-        "desktop-smoke.mjs REALIGNED 2026-11-07: the \"Session index\" and \"Agents\" panels are no longer mounted (dffb269), so the first-agent section now uses New session -> Claude Code -> Open, starts the sidecar by command and keeps the scratch-baseline assertion; two attempts failed before reaching it: the product resource governor (hysteresis: enter pressure below 4.13 GiB free commit, exit above 5.17 GiB) kept the app in reduced activity; each proof run itself consumes about 2 GiB of commit, so a start near 6 GiB is not enough. Not yet green."
+        "desktop-smoke.mjs REALIGNED 2026-11-07: the \"Session index\" and \"Agents\" panels are no longer mounted (dffb269), so the first-agent section now uses New session -> Claude Code -> Open, starts the sidecar by command and keeps the scratch-baseline assertion; two attempts failed before reaching it: the product resource governor (hysteresis: enter pressure below 4.13 GiB free commit, exit above 5.17 GiB) kept the app in reduced activity; each proof run itself consumes about 2 GiB of commit, so a start near 6 GiB is not enough. Not yet green.",
+        "2026-11-08 p14 wrap-run desktop-smoke.mjs: reached Claude open (line 260), refused by resource governor (Windows is low on resources); parked, not retried. Test fixed to drive the main window, not the widget overlay"
       ],
       "next_action": "Parked: Claude open refused by the resource governor at ~9.8 GiB free commit. Run once more only on a quiet machine; do not loop."
     },
@@ -1265,7 +1319,7 @@
       "units": {
         "C15.1": {
           "status": "committed",
-          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64 build 26200; Claude2.1.316"
           ],
@@ -1279,11 +1333,12 @@
           ],
           "limits": [
             "Startup qualification only; provider traffic and authentication remain Unknown."
-          ]
+          ],
+          "pre_restart_commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3"
         },
         "C15.2": {
           "status": "committed",
-          "commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64 build 26200; Claude2.1.316"
           ],
@@ -1297,11 +1352,12 @@
           ],
           "limits": [
             "Startup qualification only; provider traffic and authentication remain Unknown."
-          ]
+          ],
+          "pre_restart_commit_sha": "c0f535e0e783f2ec5297536280dbc34029af62b3"
         },
         "C15.3": {
           "status": "committed",
-          "commit_sha": "dffb2695239776fbfbb6d552e725c3c010bd9b0c",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "evidence": [
             "docs/notes/2026-11-03-project-thread-workspace.md",
             "docs/notes/2026-11-03-session-open-fix.md"
@@ -1319,7 +1375,8 @@
           "next_action": "Registrare l’esito reale della prova Open corretta e dell’indipendenza del layout dal filtro progetto; promuovere soltanto il perimetro dimostrato, poi creare il checkpoint funzionale.",
           "platforms": [
             "Windows 11 x64"
-          ]
+          ],
+          "pre_restart_commit_sha": "dffb2695239776fbfbb6d552e725c3c010bd9b0c"
         }
       },
       "limits": [
@@ -1359,7 +1416,7 @@
       "units": {
         "C22.1": {
           "status": "committed",
-          "commit_sha": "d84ac08152f71a750d6c73df23723eb86483a3e0",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -1373,11 +1430,12 @@
           ],
           "limits": [
             "Metadata reader/root binding only; no native resume, provider, OpenCode export or full C22 completion is certified."
-          ]
+          ],
+          "pre_restart_commit_sha": "d84ac08152f71a750d6c73df23723eb86483a3e0"
         },
         "C22.2": {
           "status": "committed",
-          "commit_sha": "d84ac08152f71a750d6c73df23723eb86483a3e0",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64 build 26200"
           ],
@@ -1391,11 +1449,12 @@
           ],
           "limits": [
             "Metadata reader/root binding only; no native resume, provider, OpenCode export or full C22 completion is certified."
-          ]
+          ],
+          "pre_restart_commit_sha": "d84ac08152f71a750d6c73df23723eb86483a3e0"
         },
         "C22.3": {
           "status": "committed",
-          "commit_sha": "d84ac08152f71a750d6c73df23723eb86483a3e0",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "limits": [
             "Bounded metadata slice and synthetic Claude UI pass; complete C22 harness conformance and hostile-writer namespace isolation remain open."
           ],
@@ -1406,7 +1465,8 @@
             "npm run build",
             "cargo build --offline --locked -p shinatama-desktop --features custom-protocol -j1",
             "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/sessions-smoke.mjs"
-          ]
+          ],
+          "pre_restart_commit_sha": "d84ac08152f71a750d6c73df23723eb86483a3e0"
         }
       },
       "evidence": [
@@ -1424,7 +1484,7 @@
       "units": {
         "C23.1": {
           "status": "committed",
-          "commit_sha": "b41390a54a79df8a4ef0e347061050344a2e9e3d",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "evidence": [
             "docs/notes/2026-11-03-session-detail.md"
           ],
@@ -1435,11 +1495,12 @@
           ],
           "limits": [
             "Bounded detail only; no full C23, raw payload/copy, native resume, export or provider qualification."
-          ]
+          ],
+          "pre_restart_commit_sha": "b41390a54a79df8a4ef0e347061050344a2e9e3d"
         },
         "C23.3": {
           "status": "committed",
-          "commit_sha": "3fc7661687ca917bf2317587bb020301948edb07",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -1455,11 +1516,12 @@
             "Explicit selected archive only; no session is refused for its size (Mukade reads it clipped or streamed, ADR-0053 v2) and the archive is bounded to 4096 files; no global search.",
             "Project grouping uses current page only; native parent metadata unavailable is shown as unknown.",
             "Clipboard contract mocked without system clipboard access; no native resume/provider or full C23 qualification."
-          ]
+          ],
+          "pre_restart_commit_sha": "3fc7661687ca917bf2317587bb020301948edb07"
         },
         "C23.2": {
           "status": "committed",
-          "commit_sha": "3fc7661687ca917bf2317587bb020301948edb07",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -1475,11 +1537,12 @@
             "Explicit selected archive only; no session is refused for its size (Mukade reads it clipped or streamed, ADR-0053 v2) and the archive is bounded to 4096 files; no global search.",
             "Project grouping uses current page only; native parent metadata unavailable is shown as unknown.",
             "Clipboard contract mocked without system clipboard access; no native resume/provider or full C23 qualification."
-          ]
+          ],
+          "pre_restart_commit_sha": "3fc7661687ca917bf2317587bb020301948edb07"
         },
         "C23.4": {
           "status": "committed",
-          "commit_sha": "3fc7661687ca917bf2317587bb020301948edb07",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -1495,7 +1558,8 @@
             "Explicit selected archive only; no session is refused for its size (Mukade reads it clipped or streamed, ADR-0053 v2) and the archive is bounded to 4096 files; no global search.",
             "Project grouping uses current page only; native parent metadata unavailable is shown as unknown.",
             "Clipboard contract mocked without system clipboard access; no native resume/provider or full C23 qualification."
-          ]
+          ],
+          "pre_restart_commit_sha": "3fc7661687ca917bf2317587bb020301948edb07"
         }
       },
       "evidence": [
@@ -1509,11 +1573,11 @@
     },
     "C25": {
       "status": "committed",
-      "commit_sha": "5d174492b9fb0b0e6562aa7bc6e32cece9870a41",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "units": {
         "C25.1": {
           "status": "committed",
-          "commit_sha": "7e5a2030a3adbddfa85f8171b421b5766999d847",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -1529,11 +1593,12 @@
           "limits": [
             "Manual thread persistence/sidebar pass; activation exclusivity is metadata tested with two SQLite connections, not a qualified native resume path.",
             "Separate actual-Claude integration attempt was deferred by unchanged global resource pressure before any native start; its new persistence hook remains unqualified in a real start."
-          ]
+          ],
+          "pre_restart_commit_sha": "7e5a2030a3adbddfa85f8171b421b5766999d847"
         },
         "C25.2": {
           "status": "committed",
-          "commit_sha": "97e904a5a7a138d8ae4e09d754b8092a533444d8",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "checkpoint_commits": [
             "2d7735fc375b20ad8f1fb35bb9f0db79acc1a7b0",
             "86e0054cbcf843c75fc4359c831d485740231429",
@@ -1595,11 +1660,12 @@
             "Recovery covers cleanup already proven before interrupted activation finalization. Records without a durable linked receipt remain blocked. UI proof seeds synthetic private metadata; it is not a real forced-crash/job-cleanup proof.",
             "Codex SessionStart identity capture AND native resume are proven on real 0.166.0: StartNew (trust recognition, UUID delivery, limits, receipts, no cross-binding) and Resume (sealed exact UUID, prior transcript rendered by Codex, rollout appended under the same UUID, source=resume confirmation, receipts consumed). No completed model turn is proven for Codex (0.166.0 honors no loopback base-URL override; the guard refuses every external route) and the hook confirmation has no positive DB delta (negative enforcement only). Catalog native_resume is now true for Codex."
           ],
-          "next_action": "None for this unit; forced-crash recovery remains tracked by the recovery gap note with its own qualified protocol."
+          "next_action": "None for this unit; forced-crash recovery remains tracked by the recovery gap note with its own qualified protocol.",
+          "pre_restart_commit_sha": "97e904a5a7a138d8ae4e09d754b8092a533444d8"
         },
         "C25.3": {
           "status": "committed",
-          "commit_sha": "454f75a4292343b77395fd8e720ede9ffa44869e",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "checkpoint_commits": [
             "454f75a4292343b77395fd8e720ede9ffa44869e",
             "265ac39ce3bc56b89cc3cbb9d1ac98a4cb52cbc6",
@@ -1631,7 +1697,8 @@
             "UI resume proof is qualified against a synthetic loopback provider through a proxy-forwarding-only guard: no OAuth login, real account, first-party Anthropic key, model quality or OS-level network isolation. Two-process concurrent resume race and forced-crash recovery remain open under C25.2.",
             "Recovery covers cleanup already proven before interrupted activation finalization. Records without a durable linked receipt remain blocked. UI proof seeds synthetic private metadata; it is not a real forced-crash/job-cleanup proof."
           ],
-          "next_action": "None for this unit; remaining resume scope (race proof, Codex native identity capture, forced-crash recovery) is tracked under C25.2 and the recovery gap note."
+          "next_action": "None for this unit; remaining resume scope (race proof, Codex native identity capture, forced-crash recovery) is tracked under C25.2 and the recovery gap note.",
+          "pre_restart_commit_sha": "454f75a4292343b77395fd8e720ede9ffa44869e"
         }
       },
       "next_action": "Accepted by owner 2026-11-08.",
@@ -1648,8 +1715,7 @@
         "docs/notes/2026-11-03-codex-native-resume.md",
         "docs/verification/2026-11-06-forced-crash-recovery-status.md",
         "docs/verification/2026-11-06-adr-0051-termination-certificate.md",
-        "docs/adr/ADR-0051-pre-receipt-crash-recovery-termination-certificate.md",
-        "2026-11-08 p14 wrap-run forced-crash-recovery-smoke.mjs on HEAD a8cc72d: PASS; real crash before receipt left activation open and ticket reserved; restart recovered via ADR-0051 certificate, closed once, released ticket, Resume offered"
+        "docs/adr/ADR-0051-pre-receipt-crash-recovery-termination-certificate.md"
       ],
       "checkpoint_commits": [
         "c003838fe600d71ae5c7da4216347d0afffdbcb2",
@@ -1671,19 +1737,24 @@
         "apps/desktop/tests/forced-crash-recovery-smoke.mjs SIMPLIFIED to the minimal claim: one real crash before any receipt, one restart, one refused Recover, data intact (4 checks, no memory gates, no retries, no multi-app orchestration). Redundant phases removed because thread-recovery-smoke.mjs, the state unit tests and the resume/race smokes already cover the receipt-backed recovery, single closing and native resume.",
         "ADR-0051 ACCEPTED and implemented: engine probe_job_recovery (JobNameAbsent/TerminatedByRecovery, name-survival block), state certify_native_session_termination (single transaction: ticket release + receipt + activation close + association consumption), desktop thread_recover pre-receipt branch (exact identity probes, Windows session, job probe, certificate). Tests: state 6/6 with certificate and refusal matrix, engine job 12/12, desktop thread-recovery-smoke PASS (pre-receipt case recovers with JobNameAbsent and releases the ledger ticket; live owner still refused; receipt path unchanged). Full suites state 66/66, engine lib 105/105, desktop bins 30/30, rustfmt clean.",
         "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/forced-crash-recovery-smoke.mjs: attempted ONCE on 2026-11-07, FAILED for host memory (commit free 2.26 GiB at launch, down from 9.2 GiB minutes earlier; app stuck at Connecting or waits timed out); no product defect observed; parked per the simplified-plan rule, not retried",
-        "REAL forced crash observed 2026-11-07 (forced-crash-recovery-smoke, first attempt past restart): after TerminateProcess of the app before any receipt and a restart, the real Recover session UI recovered the thread through the ADR-0051 certificate; the fixture database showed the activation closed (ended_at set, revision 2), the cleanup journal empty (association consumed) and the thread revision advanced. The smoke still asserted the old refusal and reported refusal-status-missing; it now asserts recovery (status Session recovered, activation closed exactly once, association consumed, dead host ticket released, Resume offered) and retries transient read-only IPC busy/unavailable. Two later attempts failed at session open with governor refusals (the product resource governor (hysteresis: enter pressure below 4.13 GiB free commit, exit above 5.17 GiB) kept the app in reduced activity; each proof run itself consumes about 2 GiB of commit, so a start near 6 GiB is not enough). The green run with the new assertions is still to be recorded."
+        "REAL forced crash observed 2026-11-07 (forced-crash-recovery-smoke, first attempt past restart): after TerminateProcess of the app before any receipt and a restart, the real Recover session UI recovered the thread through the ADR-0051 certificate; the fixture database showed the activation closed (ended_at set, revision 2), the cleanup journal empty (association consumed) and the thread revision advanced. The smoke still asserted the old refusal and reported refusal-status-missing; it now asserts recovery (status Session recovered, activation closed exactly once, association consumed, dead host ticket released, Resume offered) and retries transient read-only IPC busy/unavailable. Two later attempts failed at session open with governor refusals (the product resource governor (hysteresis: enter pressure below 4.13 GiB free commit, exit above 5.17 GiB) kept the app in reduced activity; each proof run itself consumes about 2 GiB of commit, so a start near 6 GiB is not enough). The green run with the new assertions is still to be recorded.",
+        "2026-11-08 p14 wrap-run forced-crash-recovery-smoke.mjs on HEAD a8cc72d: PASS; real crash before receipt left activation open and ticket reserved; restart recovered via ADR-0051 certificate, closed once, released ticket, Resume offered"
       ],
       "platforms": [
         "Windows 11 x64"
-      ]
+      ],
+      "pre_restart_commit_sha": "5d174492b9fb0b0e6562aa7bc6e32cece9870a41",
+      "accepted_before_dependencies": {
+        "C22": "Recorded as committed while C22 was still pending; C22 is not claimed as verified and its own acceptance stays open (see its next_action). Made explicit on 2026-11-21, when the plan check first ran in CI.",
+        "F02": "Recorded as committed while F02 was still pending; F02 is not claimed as verified and its own acceptance stays open (see its next_action). Made explicit on 2026-11-21, when the plan check first ran in CI."
+      }
     },
     "C46": {
       "status": "committed",
-      "commit_sha": "5d174492b9fb0b0e6562aa7bc6e32cece9870a41",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "evidence": [
         "docs/implementation/2026-11-03-widget-preview.md",
-        "docs/verification/2026-11-03-C46-widget-preview.md",
-        "2026-11-08 p14 wrap-run attention-smoke.mjs on HEAD a8cc72d: PASS native overlay and real PTY OSC/BEL/exit integration"
+        "docs/verification/2026-11-03-C46-widget-preview.md"
       ],
       "checks": [
         "npm run build",
@@ -1691,7 +1762,8 @@
         "cargo test --locked -p shinatama-desktop --bin shinatama-desktop attention",
         "node apps/desktop/tests/attention-smoke.mjs --surface-only",
         "verify/P14/target/debug/p14-probe.exe wrap-run node apps/desktop/tests/attention-smoke.mjs: attempted ONCE on 2026-11-07, FAILED for host memory (commit free 2.26 GiB at launch, down from 9.2 GiB minutes earlier; app stuck at Connecting or waits timed out); no product defect observed; parked per the simplified-plan rule, not retried",
-        "attention-smoke.mjs FIXED 2026-11-07: fill on the hidden project field when a project is preselected; second attempt reached the terminal open and was refused by the governor with \"New terminals are waiting for healthy resource measurements\" (the product resource governor (hysteresis: enter pressure below 4.13 GiB free commit, exit above 5.17 GiB) kept the app in reduced activity; each proof run itself consumes about 2 GiB of commit, so a start near 6 GiB is not enough). Not yet green."
+        "attention-smoke.mjs FIXED 2026-11-07: fill on the hidden project field when a project is preselected; second attempt reached the terminal open and was refused by the governor with \"New terminals are waiting for healthy resource measurements\" (the product resource governor (hysteresis: enter pressure below 4.13 GiB free commit, exit above 5.17 GiB) kept the app in reduced activity; each proof run itself consumes about 2 GiB of commit, so a start near 6 GiB is not enough). Not yet green.",
+        "2026-11-08 p14 wrap-run attention-smoke.mjs on HEAD a8cc72d: PASS native overlay and real PTY OSC/BEL/exit integration"
       ],
       "limits": [
         "Preview Windows autorizzata il 2026-11-03: finestra nel processo Tauri e avvisi transitori; F30/F31 e i gate finali restano aperti.",
@@ -1700,7 +1772,8 @@
       "next_action": "Accepted by owner 2026-11-08.",
       "platforms": [
         "Windows 11 x64"
-      ]
+      ],
+      "pre_restart_commit_sha": "5d174492b9fb0b0e6562aa7bc6e32cece9870a41"
     },
     "C16": {
       "status": "pending",
@@ -1724,7 +1797,7 @@
       "units": {
         "C16.1": {
           "status": "committed",
-          "commit_sha": "3242ee86bf2a5344aab1d5d4ff1f55e1fda91e36",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -1740,11 +1813,12 @@
           "limits": [
             "Actual installed Codex 0.166.0 TUI startup and cleanup passed; authentication stays unknown/manual in original TUI.",
             "Provider traffic/TLS, effective tools, native binding/resume and managed installation remain unqualified; no C16 parent completion."
-          ]
+          ],
+          "pre_restart_commit_sha": "3242ee86bf2a5344aab1d5d4ff1f55e1fda91e36"
         },
         "C16.2": {
           "status": "committed",
-          "commit_sha": "3242ee86bf2a5344aab1d5d4ff1f55e1fda91e36",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -1760,7 +1834,8 @@
           "limits": [
             "Actual installed Codex 0.166.0 TUI startup and cleanup passed; authentication stays unknown/manual in original TUI.",
             "Provider traffic/TLS, effective tools, native binding/resume and managed installation remain unqualified; no C16 parent completion."
-          ]
+          ],
+          "pre_restart_commit_sha": "3242ee86bf2a5344aab1d5d4ff1f55e1fda91e36"
         }
       },
       "checkpoint_commits": [
@@ -1815,7 +1890,7 @@
     },
     "C11S": {
       "status": "committed",
-      "commit_sha": "454f75a4292343b77395fd8e720ede9ffa44869e",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "evidence": [
         "docs/notes/2026-11-03-harness-services.md",
         "docs/notes/2026-11-03-opencode-open.md",
@@ -1849,7 +1924,7 @@
       "units": {
         "C11S.1": {
           "status": "committed",
-          "commit_sha": "454f75a4292343b77395fd8e720ede9ffa44869e",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "evidence": [
             "docs/notes/2026-11-03-harness-services.md"
           ],
@@ -1863,11 +1938,12 @@
           "next_action": "Shared service and registered drivers are committed. Continue harness-specific native events, Resume and provider/tool qualification without duplicating the lifecycle or repeating unchanged passing startup proofs.",
           "platforms": [
             "Windows 11 x64"
-          ]
+          ],
+          "pre_restart_commit_sha": "454f75a4292343b77395fd8e720ede9ffa44869e"
         },
         "C11S.2": {
           "status": "committed",
-          "commit_sha": "454f75a4292343b77395fd8e720ede9ffa44869e",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "evidence": [
             "docs/notes/2026-11-03-harness-services.md",
             "docs/notes/2026-11-03-opencode-open.md"
@@ -1881,7 +1957,8 @@
           "next_action": "Shared service and registered drivers are committed. Continue harness-specific native events, Resume and provider/tool qualification without duplicating the lifecycle or repeating unchanged passing startup proofs.",
           "platforms": [
             "Windows 11 x64"
-          ]
+          ],
+          "pre_restart_commit_sha": "454f75a4292343b77395fd8e720ede9ffa44869e"
         }
       },
       "platforms": [
@@ -1893,7 +1970,8 @@
         "2b3d32be2c1afa617fc83f7175e946c33b12a6f1",
         "904ce8afa6490b4f0c7e2402e4880297ad522a61",
         "755618b3a9d85f27287dae2dd0359af24b4fae83"
-      ]
+      ],
+      "pre_restart_commit_sha": "454f75a4292343b77395fd8e720ede9ffa44869e"
     },
     "C17": {
       "status": "pending",
@@ -1920,11 +1998,11 @@
     },
     "C26": {
       "status": "committed",
-      "commit_sha": "1e5e080378ac8dc3d06ecea8886173ca17af2235",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "units": {
         "C26.1": {
           "status": "committed",
-          "commit_sha": "8abfa5f1dcd9b98b12f8a733a3cccacf448e4fdb",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -1936,11 +2014,12 @@
           ],
           "limits": [
             "Pure formats crate; no reader."
-          ]
+          ],
+          "pre_restart_commit_sha": "8abfa5f1dcd9b98b12f8a733a3cccacf448e4fdb"
         },
         "C26.2": {
           "status": "committed",
-          "commit_sha": "c2a65a40aab224449c6ce9753704d814a2b479d6",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -1957,11 +2036,12 @@
             "Native export offered nowhere until proven.",
             "No app-level smoke of the Export dialog; the native Save dialog is not automated.",
             "OpenCode export refused with the detail path."
-          ]
+          ],
+          "pre_restart_commit_sha": "c2a65a40aab224449c6ce9753704d814a2b479d6"
         },
         "C26.3": {
           "status": "committed",
-          "commit_sha": "1e5e080378ac8dc3d06ecea8886173ca17af2235",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -1975,7 +2055,8 @@
           "limits": [
             "resume and hop are desktop-only and refused by the CLI.",
             "CLI worker admission uses the shared ledger without the desktop headroom sampler."
-          ]
+          ],
+          "pre_restart_commit_sha": "1e5e080378ac8dc3d06ecea8886173ca17af2235"
         }
       },
       "next_action": "Owner acceptance of the C26 parent after trying Export in the app; R34 round-trip law stays open (no import path in any version).",
@@ -1993,15 +2074,19 @@
       ],
       "platforms": [
         "Windows 11 x64"
-      ]
+      ],
+      "pre_restart_commit_sha": "1e5e080378ac8dc3d06ecea8886173ca17af2235",
+      "accepted_before_dependencies": {
+        "C23": "Recorded as committed while C23 was still pending; C23 is not claimed as verified and its own acceptance stays open (see its next_action). Made explicit on 2026-11-21, when the plan check first ran in CI."
+      }
     },
     "C27": {
       "status": "committed",
-      "commit_sha": "0985476ea455d69c5dcbc188d15c3554e6f40cbe",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "units": {
         "C27.1": {
           "status": "committed",
-          "commit_sha": "e14871ec3b23e2416753497118bac385d4899aa0",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2012,11 +2097,12 @@
             "cargo test --offline -p shinatama-hop",
             "cargo test --offline -p shinatama-export"
           ],
-          "limits": []
+          "limits": [],
+          "pre_restart_commit_sha": "e14871ec3b23e2416753497118bac385d4899aa0"
         },
         "C27.2": {
           "status": "committed",
-          "commit_sha": "e14871ec3b23e2416753497118bac385d4899aa0",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2026,11 +2112,12 @@
           "checks": [
             "cargo test --offline -p shinatama-hop"
           ],
-          "limits": []
+          "limits": [],
+          "pre_restart_commit_sha": "e14871ec3b23e2416753497118bac385d4899aa0"
         },
         "C27.3": {
           "status": "committed",
-          "commit_sha": "e14871ec3b23e2416753497118bac385d4899aa0",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2040,11 +2127,12 @@
           "checks": [
             "cargo test --offline -p shinatama-hop"
           ],
-          "limits": []
+          "limits": [],
+          "pre_restart_commit_sha": "e14871ec3b23e2416753497118bac385d4899aa0"
         },
         "C27.4": {
           "status": "committed",
-          "commit_sha": "0985476ea455d69c5dcbc188d15c3554e6f40cbe",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2058,7 +2146,8 @@
           "limits": [
             "Unknown-window cap always applies: no qualified provider catalog.",
             "Sidecar bypass marker (R33/SC9) not implemented."
-          ]
+          ],
+          "pre_restart_commit_sha": "0985476ea455d69c5dcbc188d15c3554e6f40cbe"
         }
       },
       "evidence": [
@@ -2073,15 +2162,20 @@
         "node apps/desktop/tests/hop-preview-smoke.mjs",
         "npm run build"
       ],
-      "next_action": "C28 sends the frozen preview through the hop coordinator; owner acceptance of C27 after trying Hop in the app."
+      "next_action": "C28 sends the frozen preview through the hop coordinator; owner acceptance of C27 after trying Hop in the app.",
+      "pre_restart_commit_sha": "0985476ea455d69c5dcbc188d15c3554e6f40cbe",
+      "accepted_before_dependencies": {
+        "C23": "Recorded as committed while C23 was still pending; C23 is not claimed as verified and its own acceptance stays open (see its next_action). Made explicit on 2026-11-21, when the plan check first ran in CI.",
+        "C13": "Recorded as committed while C13 was still pending; C13 is not claimed as verified and its own acceptance stays open (see its next_action). Made explicit on 2026-11-21, when the plan check first ran in CI."
+      }
     },
     "C28": {
       "status": "committed",
-      "commit_sha": "619dceeccb67fa4739b7c083e554a0fdfb7761cc",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "units": {
         "C28.1": {
           "status": "committed",
-          "commit_sha": "d7962a57c332d63ad679b633303400c8a6387ec4",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2091,11 +2185,12 @@
           "checks": [
             "cargo test --offline -p shinatama-state --lib hops"
           ],
-          "limits": []
+          "limits": [],
+          "pre_restart_commit_sha": "d7962a57c332d63ad679b633303400c8a6387ec4"
         },
         "C28.2": {
           "status": "committed",
-          "commit_sha": "e5beb1f863de1fc447eef2c13992e94e399ce70c",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2105,11 +2200,12 @@
           "checks": [
             "cargo test --offline -p shinatama-hop"
           ],
-          "limits": []
+          "limits": [],
+          "pre_restart_commit_sha": "e5beb1f863de1fc447eef2c13992e94e399ce70c"
         },
         "C28.3": {
           "status": "committed",
-          "commit_sha": "619dceeccb67fa4739b7c083e554a0fdfb7761cc",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2123,11 +2219,12 @@
           ],
           "limits": [
             "Close mode proven on fake adapters only; app hops start from history."
-          ]
+          ],
+          "pre_restart_commit_sha": "619dceeccb67fa4739b7c083e554a0fdfb7761cc"
         },
         "C28.4": {
           "status": "committed",
-          "commit_sha": "619dceeccb67fa4739b7c083e554a0fdfb7761cc",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2140,7 +2237,8 @@
           "limits": [
             "Paste channel; first-entry hash not verified.",
             "No real signed-in agent hop was run automatically."
-          ]
+          ],
+          "pre_restart_commit_sha": "619dceeccb67fa4739b7c083e554a0fdfb7761cc"
         }
       },
       "evidence": [
@@ -2155,15 +2253,16 @@
         "node apps/desktop/tests/hop-preview-smoke.mjs",
         "npm run build"
       ],
-      "next_action": "Owner tries one real hop (session detail -> Hop -> Codex). Then C29: recovery UI, catch-up, UNDO, standby."
+      "next_action": "Owner tries one real hop (session detail -> Hop -> Codex). Then C29: recovery UI, catch-up, UNDO, standby.",
+      "pre_restart_commit_sha": "619dceeccb67fa4739b7c083e554a0fdfb7761cc"
     },
     "C29": {
       "status": "committed",
-      "commit_sha": "39db26c5c0575a5f570b0b02e4a6a801bd8d11cf",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "units": {
         "C29.1": {
           "status": "committed",
-          "commit_sha": "a1434c68cba1f5ce818e7ba19d72d09a9bbd7887",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2176,11 +2275,12 @@
           ],
           "limits": [
             "In-process kill matrix; no OS kill during a real hop."
-          ]
+          ],
+          "pre_restart_commit_sha": "a1434c68cba1f5ce818e7ba19d72d09a9bbd7887"
         },
         "C29.2": {
           "status": "committed",
-          "commit_sha": "0aec6e7641f4cee27ec449c9d1e77bd3991ea3a5",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2192,11 +2292,12 @@
           ],
           "limits": [
             "Fake adapters; app hops have no live source."
-          ]
+          ],
+          "pre_restart_commit_sha": "0aec6e7641f4cee27ec449c9d1e77bd3991ea3a5"
         },
         "C29.3": {
           "status": "committed",
-          "commit_sha": "d1cc05fa556a74d320a99414d7225026f9a7e95a",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2208,11 +2309,12 @@
           ],
           "limits": [
             "No desktop UNDO button yet."
-          ]
+          ],
+          "pre_restart_commit_sha": "d1cc05fa556a74d320a99414d7225026f9a7e95a"
         },
         "C29.4": {
           "status": "committed",
-          "commit_sha": "39db26c5c0575a5f570b0b02e4a6a801bd8d11cf",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2224,7 +2326,8 @@
           ],
           "limits": [
             "No warm/cold latency measured on real agents; standby not wired to hidden panes."
-          ]
+          ],
+          "pre_restart_commit_sha": "39db26c5c0575a5f570b0b02e4a6a801bd8d11cf"
         }
       },
       "evidence": [
@@ -2237,7 +2340,8 @@
         "cargo test --offline -p shinatama-hop",
         "cargo test --offline -p shinatama-state --lib hops"
       ],
-      "next_action": "C30 ordered-pair matrix; desktop wiring of catch-up/UNDO/standby needs live hop sources."
+      "next_action": "C30 ordered-pair matrix; desktop wiring of catch-up/UNDO/standby needs live hop sources.",
+      "pre_restart_commit_sha": "39db26c5c0575a5f570b0b02e4a6a801bd8d11cf"
     },
     "C30": {
       "status": "pending",
@@ -2245,7 +2349,7 @@
       "units": {
         "C30.1": {
           "status": "committed",
-          "commit_sha": "2e6a0d015db1e9a711d07a9fb6b5ba8052c9ad9f",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2258,18 +2362,19 @@
           ],
           "limits": [
             "Pairs derived from qualified readers/launchers in this build; live canaries (C30.2) need an authorized synthetic budget and installed Pi/Hermes/DeepSeek."
-          ]
+          ],
+          "pre_restart_commit_sha": "2e6a0d015db1e9a711d07a9fb6b5ba8052c9ad9f"
         }
       },
       "next_action": "C30.2 live canaries need owner-authorized accounts/budget; C30.3 after C18-C20."
     },
     "C41": {
       "status": "committed",
-      "commit_sha": "d016dc2786278f6dd6f897f08226d070db8e9eec",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "units": {
         "C41.1": {
           "status": "committed",
-          "commit_sha": "2361934f35b8df7530ff20671104b534940f8c06",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2279,11 +2384,12 @@
           "checks": [
             "cargo test --offline -p shinatama-files"
           ],
-          "limits": []
+          "limits": [],
+          "pre_restart_commit_sha": "2361934f35b8df7530ff20671104b534940f8c06"
         },
         "C41.2": {
           "status": "committed",
-          "commit_sha": "d016dc2786278f6dd6f897f08226d070db8e9eec",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2296,7 +2402,8 @@
           ],
           "limits": [
             "Panel dialog, not workspace tabs."
-          ]
+          ],
+          "pre_restart_commit_sha": "d016dc2786278f6dd6f897f08226d070db8e9eec"
         }
       },
       "evidence": [
@@ -2309,15 +2416,16 @@
         "cargo test --offline -p shinatama-files",
         "node apps/desktop/tests/files-smoke.mjs"
       ],
-      "next_action": "Owner acceptance."
+      "next_action": "Owner acceptance.",
+      "pre_restart_commit_sha": "d016dc2786278f6dd6f897f08226d070db8e9eec"
     },
     "C42": {
       "status": "committed",
-      "commit_sha": "d016dc2786278f6dd6f897f08226d070db8e9eec",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "units": {
         "C42.1": {
           "status": "committed",
-          "commit_sha": "2361934f35b8df7530ff20671104b534940f8c06",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2329,11 +2437,12 @@
           ],
           "limits": [
             "Panel uses textarea undo; Rust Buffers tested only."
-          ]
+          ],
+          "pre_restart_commit_sha": "2361934f35b8df7530ff20671104b534940f8c06"
         },
         "C42.2": {
           "status": "committed",
-          "commit_sha": "d016dc2786278f6dd6f897f08226d070db8e9eec",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2346,11 +2455,12 @@
           ],
           "limits": [
             "No Mermaid renderer."
-          ]
+          ],
+          "pre_restart_commit_sha": "d016dc2786278f6dd6f897f08226d070db8e9eec"
         },
         "C42.3": {
           "status": "committed",
-          "commit_sha": "d016dc2786278f6dd6f897f08226d070db8e9eec",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2361,7 +2471,8 @@
             "cargo test --offline -p shinatama-files",
             "node apps/desktop/tests/files-smoke.mjs"
           ],
-          "limits": []
+          "limits": [],
+          "pre_restart_commit_sha": "d016dc2786278f6dd6f897f08226d070db8e9eec"
         }
       },
       "evidence": [
@@ -2374,7 +2485,8 @@
         "cargo test --offline -p shinatama-files",
         "node apps/desktop/tests/files-smoke.mjs"
       ],
-      "next_action": "Owner acceptance; C43 visual editing needs a fidelity corpus."
+      "next_action": "Owner acceptance; C43 visual editing needs a fidelity corpus.",
+      "pre_restart_commit_sha": "d016dc2786278f6dd6f897f08226d070db8e9eec"
     },
     "C44": {
       "status": "pending",
@@ -2382,7 +2494,7 @@
       "units": {
         "C44.1": {
           "status": "committed",
-          "commit_sha": "c49fbfe1c401f0464fa99467d27c65f962b38656",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2395,18 +2507,19 @@
           ],
           "limits": [
             "Images only; SVG shown as source text."
-          ]
+          ],
+          "pre_restart_commit_sha": "c49fbfe1c401f0464fa99467d27c65f962b38656"
         }
       },
       "next_action": "C44.2 needs a DOCX reader choice with a fidelity corpus; until then DOCX stays unavailable (reported, never approximated)."
     },
     "C36": {
       "status": "committed",
-      "commit_sha": "16cfb02fd2521e40d9956dc57718c582d89c3b88",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "units": {
         "C36.1": {
           "status": "committed",
-          "commit_sha": "16cfb02fd2521e40d9956dc57718c582d89c3b88",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2418,11 +2531,12 @@
             "cargo test --offline -p shinatama-state --test projects pinned",
             "node apps/desktop/tests/projects-overview-smoke.mjs"
           ],
-          "limits": []
+          "limits": [],
+          "pre_restart_commit_sha": "16cfb02fd2521e40d9956dc57718c582d89c3b88"
         },
         "C36.2": {
           "status": "committed",
-          "commit_sha": "16cfb02fd2521e40d9956dc57718c582d89c3b88",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2434,11 +2548,12 @@
             "cargo test --offline -p shinatama-state --test projects pinned",
             "node apps/desktop/tests/projects-overview-smoke.mjs"
           ],
-          "limits": []
+          "limits": [],
+          "pre_restart_commit_sha": "16cfb02fd2521e40d9956dc57718c582d89c3b88"
         },
         "C36.3": {
           "status": "committed",
-          "commit_sha": "16cfb02fd2521e40d9956dc57718c582d89c3b88",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2450,7 +2565,8 @@
             "cargo test --offline -p shinatama-state --test projects pinned",
             "node apps/desktop/tests/projects-overview-smoke.mjs"
           ],
-          "limits": []
+          "limits": [],
+          "pre_restart_commit_sha": "16cfb02fd2521e40d9956dc57718c582d89c3b88"
         }
       },
       "evidence": [
@@ -2464,11 +2580,12 @@
         "cargo test --offline -p shinatama-state --test projects pinned",
         "node apps/desktop/tests/projects-overview-smoke.mjs"
       ],
-      "next_action": "Owner acceptance."
+      "next_action": "Owner acceptance.",
+      "pre_restart_commit_sha": "16cfb02fd2521e40d9956dc57718c582d89c3b88"
     },
     "F09": {
       "status": "committed",
-      "commit_sha": "682cecf79a3f04bf8cb3fc53eb80aed3a2ae2f0f",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "evidence": [
         "docs/notes/2026-11-10-companion-cards.md"
       ],
@@ -2482,7 +2599,8 @@
         "Compatibility fold instead of full NFKC.",
         "Library only until the F10 pane."
       ],
-      "next_action": "F10 companion pane (needs C15/C13/F04)."
+      "next_action": "F10 companion pane (needs C15/C13/F04).",
+      "pre_restart_commit_sha": "682cecf79a3f04bf8cb3fc53eb80aed3a2ae2f0f"
     },
     "F20": {
       "status": "pending",
@@ -2505,11 +2623,11 @@
     },
     "C31": {
       "status": "committed",
-      "commit_sha": "6d4514b8586a8940e235fea01e431b7612b4668b",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "units": {
         "C31.1": {
           "status": "committed",
-          "commit_sha": "6d4514b8586a8940e235fea01e431b7612b4668b",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2519,11 +2637,12 @@
           "checks": [
             "cargo test --offline -p shinatama-messaging"
           ],
-          "limits": []
+          "limits": [],
+          "pre_restart_commit_sha": "6d4514b8586a8940e235fea01e431b7612b4668b"
         },
         "C31.2": {
           "status": "committed",
-          "commit_sha": "6d4514b8586a8940e235fea01e431b7612b4668b",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2533,11 +2652,12 @@
           "checks": [
             "cargo test --offline -p shinatama-messaging"
           ],
-          "limits": []
+          "limits": [],
+          "pre_restart_commit_sha": "6d4514b8586a8940e235fea01e431b7612b4668b"
         },
         "C31.3": {
           "status": "committed",
-          "commit_sha": "6d4514b8586a8940e235fea01e431b7612b4668b",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2547,7 +2667,8 @@
           "checks": [
             "cargo test --offline -p shinatama-messaging"
           ],
-          "limits": []
+          "limits": [],
+          "pre_restart_commit_sha": "6d4514b8586a8940e235fea01e431b7612b4668b"
         }
       },
       "evidence": [
@@ -2563,7 +2684,11 @@
         "Library only until C32 MCP tools and a live instance directory.",
         "M4/M6 per-agent measurements not run."
       ],
-      "next_action": "C32 MCP tools over this API."
+      "next_action": "C32 MCP tools over this API.",
+      "pre_restart_commit_sha": "6d4514b8586a8940e235fea01e431b7612b4668b",
+      "accepted_before_dependencies": {
+        "F02": "Recorded as committed while F02 was still pending; F02 is not claimed as verified and its own acceptance stays open (see its next_action). Made explicit on 2026-11-21, when the plan check first ran in CI."
+      }
     },
     "C32": {
       "status": "pending",
@@ -2571,7 +2696,7 @@
       "units": {
         "C32.1": {
           "status": "committed",
-          "commit_sha": "6b7844f0c58cf4d3279e10942b9676f99b3d781d",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2582,11 +2707,12 @@
             "cargo test --offline -p shinatama-cli",
             "cargo test --offline -p shinatama-cli --test mcp"
           ],
-          "limits": []
+          "limits": [],
+          "pre_restart_commit_sha": "6b7844f0c58cf4d3279e10942b9676f99b3d781d"
         },
         "C32.2": {
           "status": "committed",
-          "commit_sha": "6b7844f0c58cf4d3279e10942b9676f99b3d781d",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2600,7 +2726,8 @@
           ],
           "limits": [
             "Desktop registration/heartbeat and per-agent pre-approval not wired."
-          ]
+          ],
+          "pre_restart_commit_sha": "6b7844f0c58cf4d3279e10942b9676f99b3d781d"
         }
       },
       "next_action": "C32.3: register instances at launch, inject MCP + token per agent, hooks; qualify per agent version."
@@ -2611,7 +2738,7 @@
       "units": {
         "C33.2": {
           "status": "committed",
-          "commit_sha": "bdec7b9d5ca239fa42c525948e65e0ee880b2664",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2623,11 +2750,13 @@
           ],
           "limits": [
             "Fake headless participants only."
-          ]
+          ],
+          "pre_restart_commit_sha": "bdec7b9d5ca239fa42c525948e65e0ee880b2664",
+          "accepted_before_previous_units": "Recorded as committed while an earlier unit of C33 was still open; that unit is not claimed as done. Made explicit on 2026-11-21, when the plan check first ran in CI."
         },
         "C33.3": {
           "status": "committed",
-          "commit_sha": "bdec7b9d5ca239fa42c525948e65e0ee880b2664",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2639,18 +2768,20 @@
           ],
           "limits": [
             "Caps not calibrated on real topics."
-          ]
+          ],
+          "pre_restart_commit_sha": "bdec7b9d5ca239fa42c525948e65e0ee880b2664",
+          "accepted_before_previous_units": "Recorded as committed while an earlier unit of C33 was still open; that unit is not claimed as done. Made explicit on 2026-11-21, when the plan check first ran in CI."
         }
       },
       "next_action": "C33.1 real ask_headless per agent with canaries (needs owner-authorized budget); C33.4 UI, roundtable thread and search."
     },
     "C43": {
       "status": "committed",
-      "commit_sha": "8ce48013fea854daf7103d4fd6b08f6c1f08fb46",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "units": {
         "C43.1": {
           "status": "committed",
-          "commit_sha": "8ce48013fea854daf7103d4fd6b08f6c1f08fb46",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2661,11 +2792,12 @@
             "cargo test --offline -p shinatama-files visual",
             "node apps/desktop/tests/files-smoke.mjs"
           ],
-          "limits": []
+          "limits": [],
+          "pre_restart_commit_sha": "8ce48013fea854daf7103d4fd6b08f6c1f08fb46"
         },
         "C43.2": {
           "status": "committed",
-          "commit_sha": "8ce48013fea854daf7103d4fd6b08f6c1f08fb46",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2676,11 +2808,12 @@
             "cargo test --offline -p shinatama-files visual",
             "node apps/desktop/tests/files-smoke.mjs"
           ],
-          "limits": []
+          "limits": [],
+          "pre_restart_commit_sha": "8ce48013fea854daf7103d4fd6b08f6c1f08fb46"
         },
         "C43.3": {
           "status": "committed",
-          "commit_sha": "8ce48013fea854daf7103d4fd6b08f6c1f08fb46",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2691,7 +2824,8 @@
             "cargo test --offline -p shinatama-files visual",
             "node apps/desktop/tests/files-smoke.mjs"
           ],
-          "limits": []
+          "limits": [],
+          "pre_restart_commit_sha": "8ce48013fea854daf7103d4fd6b08f6c1f08fb46"
         }
       },
       "evidence": [
@@ -2707,15 +2841,16 @@
       "limits": [
         "Visual subset: headings, paragraphs, code bodies; inline markup stays literal text inside paragraphs."
       ],
-      "next_action": "Owner acceptance."
+      "next_action": "Owner acceptance.",
+      "pre_restart_commit_sha": "8ce48013fea854daf7103d4fd6b08f6c1f08fb46"
     },
     "C24": {
       "status": "committed",
-      "commit_sha": "ad04532cc5e59b995da641cbc98665f69cb7a1b4",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "units": {
         "C24.1": {
           "status": "committed",
-          "commit_sha": "ad04532cc5e59b995da641cbc98665f69cb7a1b4",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2725,11 +2860,12 @@
           "checks": [
             "node apps/desktop/tests/session-search-smoke.mjs"
           ],
-          "limits": []
+          "limits": [],
+          "pre_restart_commit_sha": "ad04532cc5e59b995da641cbc98665f69cb7a1b4"
         },
         "C24.2": {
           "status": "committed",
-          "commit_sha": "ad04532cc5e59b995da641cbc98665f69cb7a1b4",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2739,11 +2875,12 @@
           "checks": [
             "node apps/desktop/tests/session-search-smoke.mjs"
           ],
-          "limits": []
+          "limits": [],
+          "pre_restart_commit_sha": "ad04532cc5e59b995da641cbc98665f69cb7a1b4"
         },
         "C24.3": {
           "status": "committed",
-          "commit_sha": "ad04532cc5e59b995da641cbc98665f69cb7a1b4",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2753,7 +2890,8 @@
           "checks": [
             "node apps/desktop/tests/session-search-smoke.mjs"
           ],
-          "limits": []
+          "limits": [],
+          "pre_restart_commit_sha": "ad04532cc5e59b995da641cbc98665f69cb7a1b4"
         }
       },
       "evidence": [
@@ -2765,7 +2903,11 @@
       "checks": [
         "node apps/desktop/tests/session-search-smoke.mjs"
       ],
-      "next_action": "Owner acceptance (marked done 2026-11-08 in the simplified plan)."
+      "next_action": "Owner acceptance (marked done 2026-11-08 in the simplified plan).",
+      "pre_restart_commit_sha": "ad04532cc5e59b995da641cbc98665f69cb7a1b4",
+      "accepted_before_dependencies": {
+        "C23": "Recorded as committed while C23 was still pending; C23 is not claimed as verified and its own acceptance stays open (see its next_action). Made explicit on 2026-11-21, when the plan check first ran in CI."
+      }
     },
     "F03P": {
       "status": "pending",
@@ -2806,7 +2948,7 @@
     },
     "F06": {
       "status": "committed",
-      "commit_sha": "88f509949638cc548b16b3b3898cc307763bb595",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "evidence": [
         "docs/notes/2026-11-10-instances-overview.md"
       ],
@@ -2821,11 +2963,16 @@
         "Verbatim backend only; model backends are F07/F08.",
         "No real agent thread title smoke."
       ],
-      "next_action": "Owner acceptance."
+      "next_action": "Owner acceptance.",
+      "pre_restart_commit_sha": "88f509949638cc548b16b3b3898cc307763bb595",
+      "accepted_before_dependencies": {
+        "F03P": "Recorded as committed while F03P was still pending; F03P is not claimed as verified and its own acceptance stays open (see its next_action). Made explicit on 2026-11-21, when the plan check first ran in CI.",
+        "F04": "Recorded as committed while F04 was still pending; F04 is not claimed as verified and its own acceptance stays open (see its next_action). Made explicit on 2026-11-21, when the plan check first ran in CI."
+      }
     },
     "F03H": {
       "status": "committed",
-      "commit_sha": "dbb0e3a8db3f7e7fbfa40d59b024a71008164a34",
+      "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
       "evidence": [
         "docs/notes/2026-11-10-hop-transactions.md"
       ],
@@ -2840,7 +2987,11 @@
       "limits": [
         "No OS kill of the desktop during a real hop."
       ],
-      "next_action": "Owner acceptance."
+      "next_action": "Owner acceptance.",
+      "pre_restart_commit_sha": "dbb0e3a8db3f7e7fbfa40d59b024a71008164a34",
+      "accepted_before_dependencies": {
+        "F03P": "Recorded as committed while F03P was still pending; F03P is not claimed as verified and its own acceptance stays open (see its next_action). Made explicit on 2026-11-21, when the plan check first ran in CI."
+      }
     },
     "F05": {
       "status": "pending",
@@ -2902,7 +3053,7 @@
       "units": {
         "C18.1": {
           "status": "committed",
-          "commit_sha": "5f1045264f703561c4fd339104ad9c1cb2ef829e",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2914,11 +3065,12 @@
             "cargo test --offline -p shinatama-engine --features session-reader --lib pi_",
             "cargo test --offline -p shinatama-engine --lib pi_probe -- --include-ignored: installed Pi 1.4.0 / Node 24.14.1 version probe PASS (contained, released)"
           ],
-          "limits": []
+          "limits": [],
+          "pre_restart_commit_sha": "5f1045264f703561c4fd339104ad9c1cb2ef829e"
         },
         "C18.2": {
           "status": "committed",
-          "commit_sha": "81ca416625b87e04d8c63172af133c09aab0114c",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2930,11 +3082,12 @@
           ],
           "limits": [
             "Only the empty skill/extension set is launched; MCP refused."
-          ]
+          ],
+          "pre_restart_commit_sha": "81ca416625b87e04d8c63172af133c09aab0114c"
         },
         "C18.3": {
           "status": "committed",
-          "commit_sha": "3fd1bd459a013ec7d3c515509022f6c074cab102",
+          "commit_sha": "fc503ee4efad0d930b68a38c36581bfd9c144682",
           "platforms": [
             "Windows 11 x64"
           ],
@@ -2949,7 +3102,8 @@
           "limits": [
             "RPC is a read-only contained control check; no user flow drives Pi over RPC and no prompt is encodable.",
             "No model call: run events, ui_prompt, queued messages, headless answers, auth status in the UI and provider traffic remain unqualified."
-          ]
+          ],
+          "pre_restart_commit_sha": "3fd1bd459a013ec7d3c515509022f6c074cab102"
         }
       },
       "next_action": "C18 units are committed. Remaining Pi work needs a signed-in provider (events, auth status, Mukade session read) or a per-instance set writer; C15 must be verified before the parent can close.",
@@ -2988,5 +3142,10 @@
       "reason": "Rinviato su richiesta esplicita dell utente del 2026-11-02: ignorare per adesso l integrazione con Daodan. Riprendere solo su nuova indicazione."
     }
   ],
-  "plan_view": "docs/implementation/PLAN-SEMPLIFICATO.md"
+  "plan_view": "docs/implementation/PLAN-SEMPLIFICATO.md",
+  "history_restart": {
+    "root": "fc503ee4efad0d930b68a38c36581bfd9c144682",
+    "date": "2026-11-19",
+    "note": "History restarts at this commit (release v0.1.6), which contains all earlier work. A commit_sha equal to it marks work committed before the restart; pre_restart_commit_sha keeps the SHA it had then, which no longer exists on GitHub."
+  }
 }
