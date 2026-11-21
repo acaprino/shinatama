@@ -141,7 +141,8 @@ impl Capture {
         self.awaiting = expected;
         loop {
             self.poll(child)?;
-            while let Some(end) = self.output[self.cursor..]
+            // One event per call: the first complete line is either the expected phase or an error.
+            if let Some(end) = self.output[self.cursor..]
                 .iter()
                 .position(|byte| *byte == b'\n')
             {
