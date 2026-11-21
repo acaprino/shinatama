@@ -7,7 +7,9 @@ use crate::thread_chat;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use shinatama_engine::model_config::{self, Selection};
-use shinatama_engine::team::{self, Agent, Formation, Level, ModelChoice, ModelKey, Template, Told};
+use shinatama_engine::team::{
+    self, Agent, Formation, Level, ModelChoice, ModelKey, Template, Told,
+};
 use shinatama_state::database::Database;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -38,7 +40,9 @@ pub(crate) struct Record {
 /// they take turns, or a mark made for revision N could overwrite a formation of revision N+1.
 static RECORDS: Mutex<()> = Mutex::new(());
 pub(crate) fn exclusive<T>(work: impl FnOnce() -> T) -> T {
-    let _turn = RECORDS.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _turn = RECORDS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     work()
 }
 
@@ -78,19 +82,26 @@ impl Thread {
 pub(crate) fn load(store: &Database, workset: &str) -> Result<Record, String> {
     match store.thread_team(workset).map_err(|e| e.to_string())? {
         None => Ok(Record::default()),
-        Some(value) => serde_json::from_value(value).map_err(|_| "The thread's team could not be read.".to_owned()),
+        Some(value) => serde_json::from_value(value)
+            .map_err(|_| "The thread's team could not be read.".to_owned()),
     }
 }
 
 /// The previous formation gives way when the record would not fit a setting: the notice for the
 /// other members is then not made, the team itself is kept.
 pub(crate) fn save(store: &Database, workset: &str, record: &Record) -> Result<(), String> {
-    let mut value = serde_json::to_value(record).map_err(|_| "The team could not be stored.".to_owned())?;
+    let mut value =
+        serde_json::to_value(record).map_err(|_| "The team could not be stored.".to_owned())?;
     if value.to_string().len() > MAX_RECORD {
-        value = serde_json::to_value(Record { before: None, ..record.clone() })
-            .map_err(|_| "The team could not be stored.".to_owned())?;
+        value = serde_json::to_value(Record {
+            before: None,
+            ..record.clone()
+        })
+        .map_err(|_| "The team could not be stored.".to_owned())?;
     }
-    store.set_thread_team(workset, Some(&value)).map_err(|e| e.to_string())
+    store
+        .set_thread_team(workset, Some(&value))
+        .map_err(|e| e.to_string())
 }
 
 /// What an apply refuses before it opens or stores anything, whatever the stored revision: a
@@ -100,7 +111,12 @@ fn admit(thread: &Thread, formation: &Formation) -> Result<(), String> {
         return Err("This thread's sessions do not talk to each other. Turn it on first.".into());
     }
     team::validate(formation)?;
-    if formation.agents.iter().filter_map(|agent| agent.session.as_deref()).any(|session| !thread.sessions.contains_key(session)) {
+    if formation
+        .agents
+        .iter()
+        .filter_map(|agent| agent.session.as_deref())
+        .any(|session| !thread.sessions.contains_key(session))
+    {
         return Err("An agent's session does not belong to this thread.".into());
     }
     Ok(())
@@ -108,13 +124,21 @@ fn admit(thread: &Thread, formation: &Formation) -> Result<(), String> {
 
 /// What an apply refuses given the stored record: a revision other than `expected`, then an error
 /// of the checks (warnings do not stop it).
-fn admit_record(record: &Record, thread: &Thread, formation: &Formation, expected: u64) -> Result<(), String> {
+fn admit_record(
+    record: &Record,
+    thread: &Thread,
+    formation: &Formation,
+    expected: u64,
+) -> Result<(), String> {
     let stored = record.formation.as_ref().map_or(0, |f| f.revision);
     if stored != expected {
-        return Err(format!("The team was changed elsewhere (revision {stored}). Reload it."));
+        return Err(format!(
+            "The team was changed elsewhere (revision {stored}). Reload it."
+        ));
     }
-    if let Some(error) =
-        team::check(formation, &thread.stopped(formation), &thread.models()).into_iter().find(|issue| issue.level == Level::Error)
+    if let Some(error) = team::check(formation, &thread.stopped(formation), &thread.models())
+        .into_iter()
+        .find(|issue| issue.level == Level::Error)
     {
         return Err(error.text);
     }
@@ -135,7 +159,9 @@ pub(crate) fn apply(
     exclusive(|| {
         let mut record = load(store, workset)?;
         admit_record(&record, thread, &formation, expected)?;
-        formation.revision = expected.checked_add(1).ok_or("The team's revision is exhausted.")?;
+        formation.revision = expected
+            .checked_add(1)
+            .ok_or("The team's revision is exhausted.")?;
         // The formation the notice is made from is the oldest one whose changes were not yet
         // noticed (the worker lets it go once nothing is owed): a second apply before a check
         // must not lose the first one's lines.
@@ -177,7 +203,9 @@ pub(crate) fn apply_opening(
 ) -> Result<Applied, String> {
     admit(thread, &formation)?;
     admit_record(&load(store, workset)?, thread, &formation, expected)?;
-    let lacking: Vec<usize> = (0..formation.agents.len()).filter(|&at| formation.agents[at].session.is_none()).collect();
+    let lacking: Vec<usize> = (0..formation.agents.len())
+        .filter(|&at| formation.agents[at].session.is_none())
+        .collect();
     let mut thread = thread.clone();
     let mut failed = None;
     if !lacking.is_empty() {
@@ -185,11 +213,16 @@ pub(crate) fn apply_opening(
         for at in lacking {
             match open(&formation.agents[at]) {
                 Ok(session) => {
-                    thread.sessions.insert(session.clone(), "running".to_owned());
+                    thread
+                        .sessions
+                        .insert(session.clone(), "running".to_owned());
                     formation.agents[at].session = Some(session);
                 }
                 Err(reason) => {
-                    failed = Some(Failure { agent: formation.agents[at].id.clone(), reason });
+                    failed = Some(Failure {
+                        agent: formation.agents[at].id.clone(),
+                        reason,
+                    });
                     break;
                 }
             }
@@ -201,13 +234,24 @@ pub(crate) fn apply_opening(
 
 /// Move cards: only `x` and `y` change, and no revision. An agent the team no longer has is
 /// skipped (another window removed it while this one dragged).
-pub(crate) fn place(store: &Database, workset: &str, places: &BTreeMap<String, [i32; 2]>) -> Result<(), String> {
-    if places.values().flatten().any(|at| !(-MAX_PLACE..=MAX_PLACE).contains(at)) {
+pub(crate) fn place(
+    store: &Database,
+    workset: &str,
+    places: &BTreeMap<String, [i32; 2]>,
+) -> Result<(), String> {
+    if places
+        .values()
+        .flatten()
+        .any(|at| !(-MAX_PLACE..=MAX_PLACE).contains(at))
+    {
         return Err("A card is placed out of the map.".into());
     }
     exclusive(|| {
         let mut record = load(store, workset)?;
-        let formation = record.formation.as_mut().ok_or("This thread has no team.")?;
+        let formation = record
+            .formation
+            .as_mut()
+            .ok_or("This thread has no team.")?;
         for agent in &mut formation.agents {
             if let Some([x, y]) = places.get(&agent.id) {
                 (agent.x, agent.y) = (*x, *y);
@@ -220,14 +264,27 @@ pub(crate) fn place(store: &Database, workset: &str, places: &BTreeMap<String, [
 /// What `team_get` answers. `told` leaves out the digests and the notice's mark: the window
 /// needs to know who was told which revision and by which member, nothing else. `refused`: the
 /// reason a message to an agent was refused, as the announcer last found it.
-pub(crate) fn answer(record: &Record, thread: &Thread, sessions: Value, refused: &BTreeMap<String, String>) -> Value {
+pub(crate) fn answer(
+    record: &Record,
+    thread: &Thread,
+    sessions: Value,
+    refused: &BTreeMap<String, String>,
+) -> Value {
     let told: BTreeMap<&String, Value> = record
         .told
         .iter()
         .filter(|(id, _)| id.as_str() != team::NOTICE_KEY)
-        .map(|(id, told)| (id, json!({"revision": told.revision, "member": told.member})))
+        .map(|(id, told)| {
+            (
+                id,
+                json!({"revision": told.revision, "member": told.member}),
+            )
+        })
         .collect();
-    let evaluation = record.formation.as_ref().map(|f| team::evaluate(f, &thread.stopped(f), &thread.models()));
+    let evaluation = record
+        .formation
+        .as_ref()
+        .map(|f| team::evaluate(f, &thread.stopped(f), &thread.models()));
     json!({
         "enabled": thread.enabled,
         "models": thread.menu,
@@ -240,17 +297,33 @@ pub(crate) fn answer(record: &Record, thread: &Thread, sessions: Value, refused:
 }
 
 fn thread_of(state: &WorkspaceServices, workset: &str) -> Result<Thread, String> {
-    let enabled = state.store.thread_chat_enabled(workset).map_err(|e| e.to_string())?;
+    let enabled = state
+        .store
+        .thread_chat_enabled(workset)
+        .map_err(|e| e.to_string())?;
     let sessions = state
         .store
         .workset_threads(workset)
         .map_err(|_| "The thread no longer exists.".to_owned())?
         .into_iter()
-        .map(|session| (session.id, thread_chat::session_state(session.status).to_owned()))
+        .map(|session| {
+            (
+                session.id,
+                thread_chat::session_state(session.status).to_owned(),
+            )
+        })
         .collect();
     // A Models panel that cannot be read holds no model: an agent that names one then reads as lost.
-    let menu = team::model_menu(&model_config::current().map(|snapshot| snapshot.configuration).unwrap_or_default());
-    Ok(Thread { enabled, sessions, menu })
+    let menu = team::model_menu(
+        &model_config::current()
+            .map(|snapshot| snapshot.configuration)
+            .unwrap_or_default(),
+    );
+    Ok(Thread {
+        enabled,
+        sessions,
+        menu,
+    })
 }
 
 #[derive(Deserialize)]
@@ -271,15 +344,30 @@ pub async fn team_get(
     thread_chat::blocking(services.inner(), move |state| {
         let thread = thread_of(state, &request.workset_id)?;
         let record = load(&state.store, &request.workset_id)?;
-        let room = if thread.enabled { thread_chat::find_room(state, &request.workset_id) } else { None };
+        let room = if thread.enabled {
+            thread_chat::find_room(state, &request.workset_id)
+        } else {
+            None
+        };
         let members = room
             .as_deref()
             .and_then(|room| thread_chat::listing(state, "members", &[("room-id", room)]).ok())
             .map(|(members, _)| members)
             .unwrap_or_default();
         let facts = thread_chat::session_facts(state, &request.workset_id, room.as_deref())?;
-        let sessions = thread_chat::project(room.as_deref().unwrap_or_default(), &members, &[], &facts)["sessions"].clone();
-        Ok(answer(&record, &thread, sessions, &crate::team_announcer::refusals(&request.workset_id)))
+        let sessions = thread_chat::project(
+            room.as_deref().unwrap_or_default(),
+            &members,
+            &[],
+            &facts,
+        )["sessions"]
+            .clone();
+        Ok(answer(
+            &record,
+            &thread,
+            sessions,
+            &crate::team_announcer::refusals(&request.workset_id),
+        ))
     })
     .await
 }
@@ -302,7 +390,11 @@ pub async fn team_evaluate(
     thread_chat::blocking(services.inner(), move |state| {
         team::validate(&request.formation)?;
         let thread = thread_of(state, &request.workset_id)?;
-        Ok(team::evaluate(&request.formation, &thread.stopped(&request.formation), &thread.models()))
+        Ok(team::evaluate(
+            &request.formation,
+            &thread.stopped(&request.formation),
+            &thread.models(),
+        ))
     })
     .await
 }
@@ -329,7 +421,9 @@ fn project_of(state: &crate::storage::WorkspaceServices, workset: &str) -> Resul
         .into_iter()
         .find(|project| project.id == record.project_id && project.available)
         .map(|project| PathBuf::from(project.path))
-        .ok_or_else(|| "The thread's project folder is not available. Open the project first.".to_owned())
+        .ok_or_else(|| {
+            "The thread's project folder is not available. Open the project first.".to_owned()
+        })
 }
 
 /// A session for one agent, in its thread, with its model and its first message; its tab opens
@@ -346,11 +440,15 @@ fn open_for(
 ) -> Result<String, String> {
     let model = agent.model.as_ref().ok_or("The agent has no model.")?;
     let selection = match (&model.connection, &model.model) {
-        (Some(connection), Some(model)) => Some(Selection { connection_id: connection.clone(), model_id: model.clone() }),
+        (Some(connection), Some(model)) => Some(Selection {
+            connection_id: connection.clone(),
+            model_id: model.clone(),
+        }),
         (None, None) => None,
         _ => return Err("The agent's model is incomplete.".into()),
     };
-    let room = shinatama_engine::session_control::thread_room_name(workset).ok_or("The thread is invalid.")?;
+    let room = shinatama_engine::session_control::thread_room_name(workset)
+        .ok_or("The thread is invalid.")?;
     let started = tauri::async_runtime::block_on(owner.open_agent(
         &model.program,
         host.clone(),
@@ -374,8 +472,17 @@ fn open_for(
             "started": started,
         }),
     );
-    if state.store.workset_of_thread(&started.thread_id).ok().flatten().as_deref() != Some(workset) {
-        return Err("The session opened outside this thread, so it was not tied to the agent.".into());
+    if state
+        .store
+        .workset_of_thread(&started.thread_id)
+        .ok()
+        .flatten()
+        .as_deref()
+        != Some(workset)
+    {
+        return Err(
+            "The session opened outside this thread, so it was not tied to the agent.".into(),
+        );
     }
     Ok(started.thread_id)
 }
@@ -394,7 +501,11 @@ pub async fn team_apply(
 ) -> Result<Value, String> {
     crate::local(&window)?;
     thread_chat::workset(&request.workset_id)?;
-    let (app, owner, host) = (window.app_handle().clone(), owner.inner().clone(), host.inner().clone());
+    let (app, owner, host) = (
+        window.app_handle().clone(),
+        owner.inner().clone(),
+        host.inner().clone(),
+    );
     let applied = thread_chat::blocking(services.inner(), move |state| {
         let thread = thread_of(state, &request.workset_id)?;
         let workset = request.workset_id.as_str();
@@ -436,7 +547,10 @@ pub async fn team_place(
 ) -> Result<Value, String> {
     crate::local(&window)?;
     thread_chat::workset(&request.workset_id)?;
-    thread_chat::blocking(services.inner(), move |state| place(&state.store, &request.workset_id, &request.places)).await?;
+    thread_chat::blocking(services.inner(), move |state| {
+        place(&state.store, &request.workset_id, &request.places)
+    })
+    .await?;
     Ok(json!({}))
 }
 
@@ -444,7 +558,10 @@ pub async fn team_place(
 /// writes the list (`Database::edit_team_templates`), so the 64 limit and the name's uniqueness
 /// hold when two windows save at once. A stored template that cannot be read is left out of the
 /// list and kept in the store.
-fn edit_templates(store: &Database, change: impl FnOnce(&mut Vec<Template>) -> Result<(), String>) -> Result<Vec<Template>, String> {
+fn edit_templates(
+    store: &Database,
+    change: impl FnOnce(&mut Vec<Template>) -> Result<(), String>,
+) -> Result<Vec<Template>, String> {
     let stored = store
         .edit_team_templates(|values| {
             let mut list: Vec<Template> = Vec::new();
@@ -457,7 +574,8 @@ fn edit_templates(store: &Database, change: impl FnOnce(&mut Vec<Template>) -> R
             }
             change(&mut list)?;
             for template in &list {
-                let value = serde_json::to_value(template).map_err(|_| "The template could not be stored.".to_owned())?;
+                let value = serde_json::to_value(template)
+                    .map_err(|_| "The template could not be stored.".to_owned())?;
                 if value.to_string().len() > MAX_RECORD {
                     return Err("This team is too large to be kept as a template.".to_owned());
                 }
@@ -470,16 +588,27 @@ fn edit_templates(store: &Database, change: impl FnOnce(&mut Vec<Template>) -> R
             Ok(())
         })
         .map_err(|e| e.to_string())??;
-    Ok(stored.into_iter().filter_map(|value| serde_json::from_value(value).ok()).collect())
+    Ok(stored
+        .into_iter()
+        .filter_map(|value| serde_json::from_value(value).ok())
+        .collect())
 }
 
 pub(crate) fn templates(store: &Database) -> Result<Vec<Template>, String> {
     let stored = store.team_templates().map_err(|e| e.to_string())?;
-    Ok(stored.into_iter().filter_map(|value| serde_json::from_value(value).ok()).collect())
+    Ok(stored
+        .into_iter()
+        .filter_map(|value| serde_json::from_value(value).ok())
+        .collect())
 }
 
 /// Keep the formation's team as a template of that name, at the end of the list.
-pub(crate) fn save_template(store: &Database, name: &str, formation: &Formation, id: String) -> Result<Vec<Template>, String> {
+pub(crate) fn save_template(
+    store: &Database,
+    name: &str,
+    formation: &Formation,
+    id: String,
+) -> Result<Vec<Template>, String> {
     let template = team::template_of(id, name, formation)?;
     edit_templates(store, |list| team::add_template(list, template))
 }
@@ -494,12 +623,18 @@ pub(crate) fn delete_template(store: &Database, id: &str) -> Result<Vec<Template
 fn new_template_id() -> String {
     let random = uuid::Uuid::new_v4();
     let bytes = random.as_bytes();
-    team::template_id(&[bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13]])
+    team::template_id(&[
+        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[8], bytes[9], bytes[10],
+        bytes[11], bytes[12], bytes[13],
+    ])
 }
 
 /// The saved templates, every project's and every thread's.
 #[tauri::command]
-pub async fn team_templates(window: WebviewWindow, services: State<'_, Arc<storage::Services>>) -> Result<Vec<Template>, String> {
+pub async fn team_templates(
+    window: WebviewWindow,
+    services: State<'_, Arc<storage::Services>>,
+) -> Result<Vec<Template>, String> {
     crate::local(&window)?;
     thread_chat::blocking(services.inner(), move |state| templates(&state.store)).await
 }
@@ -519,7 +654,12 @@ pub async fn team_template_save(
 ) -> Result<Vec<Template>, String> {
     crate::local(&window)?;
     thread_chat::blocking(services.inner(), move |state| {
-        save_template(&state.store, &request.name, &request.formation, new_template_id())
+        save_template(
+            &state.store,
+            &request.name,
+            &request.formation,
+            new_template_id(),
+        )
     })
     .await
 }
@@ -537,15 +677,18 @@ pub async fn team_template_delete(
     request: DeleteTemplateRequest,
 ) -> Result<Vec<Template>, String> {
     crate::local(&window)?;
-    thread_chat::blocking(services.inner(), move |state| delete_template(&state.store, &request.id)).await
+    thread_chat::blocking(services.inner(), move |state| {
+        delete_template(&state.store, &request.id)
+    })
+    .await
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
     use shinatama_engine::model_config::Configuration;
     use shinatama_engine::team::{Kind, Link, ModelRef, Report, Share};
-    use serde_json::json;
     use shinatama_state::location::{LocationRequest, StorageLocation};
 
     const WORKSET: &str = "w_aaaaaaaaaaaa";
@@ -589,11 +732,18 @@ mod tests {
     }
 
     fn formation(agents: Vec<Agent>) -> Formation {
-        Formation { revision: 0, agents, links: Vec::new() }
+        Formation {
+            revision: 0,
+            agents,
+            links: Vec::new(),
+        }
     }
 
     fn two() -> Formation {
-        formation(vec![agent("a_aaaaaaaaaaaa", Some("t_aaaaaaaaaaaa")), agent("a_bbbbbbbbbbbb", Some("t_bbbbbbbbbbbb"))])
+        formation(vec![
+            agent("a_aaaaaaaaaaaa", Some("t_aaaaaaaaaaaa")),
+            agent("a_bbbbbbbbbbbb", Some("t_bbbbbbbbbbbb")),
+        ])
     }
 
     #[test]
@@ -605,10 +755,19 @@ mod tests {
         assert_eq!(second.revision, 2);
         // A second window still holds revision 1.
         let refused = apply(&store, WORKSET, &thread(), two(), 1).unwrap_err();
-        assert_eq!(refused, "The team was changed elsewhere (revision 2). Reload it.");
-        assert_eq!(load(&store, WORKSET).unwrap().formation.unwrap().revision, 2);
+        assert_eq!(
+            refused,
+            "The team was changed elsewhere (revision 2). Reload it."
+        );
+        assert_eq!(
+            load(&store, WORKSET).unwrap().formation.unwrap().revision,
+            2
+        );
         // A team that was never applied is revision 0.
-        assert_eq!(apply(&database(), WORKSET, &thread(), two(), 3).unwrap_err(), "The team was changed elsewhere (revision 0). Reload it.");
+        assert_eq!(
+            apply(&database(), WORKSET, &thread(), two(), 3).unwrap_err(),
+            "The team was changed elsewhere (revision 0). Reload it."
+        );
     }
 
     #[test]
@@ -622,14 +781,31 @@ mod tests {
         // What cannot be valid is refused before it is checked.
         let mut at = formation(vec![agent("a_aaaaaaaaaaaa", Some("t_aaaaaaaaaaaa"))]);
         at.agents[0].name = "all @all".into();
-        assert!(apply(&store, WORKSET, &thread(), at, 0).unwrap_err().contains('@'));
+        assert!(
+            apply(&store, WORKSET, &thread(), at, 0)
+                .unwrap_err()
+                .contains('@')
+        );
         // A thread that is off keeps nothing.
-        let off = Thread { enabled: false, ..thread() };
-        assert!(apply(&store, WORKSET, &off, two(), 0).unwrap_err().contains("Turn it on"));
+        let off = Thread {
+            enabled: false,
+            ..thread()
+        };
+        assert!(
+            apply(&store, WORKSET, &off, two(), 0)
+                .unwrap_err()
+                .contains("Turn it on")
+        );
         assert_eq!(load(&store, WORKSET).unwrap(), Record::default());
         // A warning does not stop it: work given to a stopped session waits.
         let mut warned = two();
-        warned.links.push(Link { from: "a_aaaaaaaaaaaa".into(), to: "a_bbbbbbbbbbbb".into(), kind: Kind::Work, report: Report::Done, words: String::new() });
+        warned.links.push(Link {
+            from: "a_aaaaaaaaaaaa".into(),
+            to: "a_bbbbbbbbbbbb".into(),
+            kind: Kind::Work,
+            report: Report::Done,
+            words: String::new(),
+        });
         assert!(apply(&store, WORKSET, &thread(), warned, 0).is_ok());
     }
 
@@ -638,7 +814,10 @@ mod tests {
         let store = database();
         let foreign = formation(vec![agent("a_aaaaaaaaaaaa", Some("t_cccccccccccc"))]);
         let refused = apply(&store, WORKSET, &thread(), foreign, 0).unwrap_err();
-        assert_eq!(refused, "An agent's session does not belong to this thread.");
+        assert_eq!(
+            refused,
+            "An agent's session does not belong to this thread."
+        );
         assert_eq!(load(&store, WORKSET).unwrap(), Record::default());
         // Another thread's record is not touched by either.
         apply(&store, OTHER, &thread(), two(), 0).unwrap();
@@ -649,17 +828,28 @@ mod tests {
     fn placing_changes_no_revision() {
         let store = database();
         apply(&store, WORKSET, &thread(), two(), 0).unwrap();
-        place(&store, WORKSET, &BTreeMap::from([
-            ("a_aaaaaaaaaaaa".to_owned(), [120, -40]),
-            ("a_zzzzzzzzzzzz".to_owned(), [1, 1]),
-        ]))
+        place(
+            &store,
+            WORKSET,
+            &BTreeMap::from([
+                ("a_aaaaaaaaaaaa".to_owned(), [120, -40]),
+                ("a_zzzzzzzzzzzz".to_owned(), [1, 1]),
+            ]),
+        )
         .unwrap();
         let kept = load(&store, WORKSET).unwrap().formation.unwrap();
         assert_eq!(kept.revision, 1);
         assert_eq!((kept.agents[0].x, kept.agents[0].y), (120, -40));
         assert_eq!((kept.agents[1].x, kept.agents[1].y), (0, 0));
         assert_eq!(kept.agents.len(), 2);
-        assert!(place(&store, WORKSET, &BTreeMap::from([("a_aaaaaaaaaaaa".to_owned(), [i32::MAX, 0])])).is_err());
+        assert!(
+            place(
+                &store,
+                WORKSET,
+                &BTreeMap::from([("a_aaaaaaaaaaaa".to_owned(), [i32::MAX, 0])])
+            )
+            .is_err()
+        );
         assert!(place(&database(), WORKSET, &BTreeMap::new()).is_err());
     }
 
@@ -668,7 +858,14 @@ mod tests {
         let store = database();
         apply(&store, WORKSET, &thread(), two(), 0).unwrap();
         let mut record = load(&store, WORKSET).unwrap();
-        record.told.insert("a_aaaaaaaaaaaa".into(), Told { revision: 1, member: "m1".into(), digest: "d".into() });
+        record.told.insert(
+            "a_aaaaaaaaaaaa".into(),
+            Told {
+                revision: 1,
+                member: "m1".into(),
+                digest: "d".into(),
+            },
+        );
         save(&store, WORKSET, &record).unwrap();
         apply(&store, WORKSET, &thread(), two(), 1).unwrap();
         let kept = load(&store, WORKSET).unwrap();
@@ -694,10 +891,17 @@ mod tests {
         let kept = load(&store, WORKSET).unwrap();
         assert_eq!(kept.formation.as_ref().unwrap().revision, 3);
         let oldest = kept.before.expect("the notice is still owed");
-        assert_eq!(oldest.revision, 1, "not the formation of revision 2: its change would lose its notice");
-        let changes = shinatama_engine::team::changes(Some(&oldest), kept.formation.as_ref().unwrap());
+        assert_eq!(
+            oldest.revision, 1,
+            "not the formation of revision 2: its change would lose its notice"
+        );
+        let changes =
+            shinatama_engine::team::changes(Some(&oldest), kept.formation.as_ref().unwrap());
         let lines = changes.lines.join("\n");
-        assert!(lines.contains("Ada") && lines.contains("Bo"), "both changes are in the one notice: {lines}");
+        assert!(
+            lines.contains("Ada") && lines.contains("Bo"),
+            "both changes are in the one notice: {lines}"
+        );
     }
 
     #[test]
@@ -711,12 +915,21 @@ mod tests {
     fn a_record_too_big_with_its_previous_formation_is_kept_without_it() {
         let store = database();
         let big = |revision: u64| {
-            let mut f = formation((0..team::MAX_AGENTS).map(|k| {
-                let letter = "abcdefghijklmnopqrstuvwx".chars().nth(k).unwrap().to_string().repeat(12);
-                let mut a = agent(&format!("a_{letter}"), Some(&format!("t_{letter}")));
-                a.notes = "n".repeat(team::MAX_NOTES);
-                a
-            }).collect());
+            let mut f = formation(
+                (0..team::MAX_AGENTS)
+                    .map(|k| {
+                        let letter = "abcdefghijklmnopqrstuvwx"
+                            .chars()
+                            .nth(k)
+                            .unwrap()
+                            .to_string()
+                            .repeat(12);
+                        let mut a = agent(&format!("a_{letter}"), Some(&format!("t_{letter}")));
+                        a.notes = "n".repeat(team::MAX_NOTES);
+                        a
+                    })
+                    .collect(),
+            );
             f.revision = revision;
             let ids: Vec<String> = f.agents.iter().map(|a| a.id.clone()).collect();
             'pairs: for (i, from) in ids.iter().enumerate() {
@@ -724,14 +937,25 @@ mod tests {
                     if f.links.len() == team::MAX_LINKS {
                         break 'pairs;
                     }
-                    f.links.push(Link { from: from.clone(), to: to.clone(), kind: Kind::Observes, report: Report::Done, words: "w".repeat(team::MAX_WORDS) });
+                    f.links.push(Link {
+                        from: from.clone(),
+                        to: to.clone(),
+                        kind: Kind::Observes,
+                        report: Report::Done,
+                        words: "w".repeat(team::MAX_WORDS),
+                    });
                 }
             }
             f
         };
         let first = big(0);
         let mut crowded = thread();
-        crowded.sessions = big(0).agents.iter().filter_map(|a| a.session.clone()).map(|s| (s, "running".to_owned())).collect();
+        crowded.sessions = big(0)
+            .agents
+            .iter()
+            .filter_map(|a| a.session.clone())
+            .map(|s| (s, "running".to_owned()))
+            .collect();
         apply(&store, WORKSET, &crowded, first, 0).unwrap();
         apply(&store, WORKSET, &crowded, big(0), 1).unwrap();
         let kept = load(&store, WORKSET).unwrap();
@@ -744,25 +968,63 @@ mod tests {
         let store = database();
         let applied = apply(&store, WORKSET, &thread(), two(), 0).unwrap();
         let mut record = load(&store, WORKSET).unwrap();
-        record.told.insert("a_aaaaaaaaaaaa".into(), Told { revision: 1, member: "m1".into(), digest: "secret-digest".into() });
-        record.told.insert(team::NOTICE_KEY.into(), Told { revision: 1, member: String::new(), digest: String::new() });
+        record.told.insert(
+            "a_aaaaaaaaaaaa".into(),
+            Told {
+                revision: 1,
+                member: "m1".into(),
+                digest: "secret-digest".into(),
+            },
+        );
+        record.told.insert(
+            team::NOTICE_KEY.into(),
+            Told {
+                revision: 1,
+                member: String::new(),
+                digest: String::new(),
+            },
+        );
         let rows = json!([{"sessionId": "t_aaaaaaaaaaaa", "connection": "in_room"}]);
-        let got = answer(&record, &thread(), rows.clone(), &BTreeMap::from([("a_bbbbbbbbbbbb".to_owned(), "The message was refused.".to_owned())]));
+        let got = answer(
+            &record,
+            &thread(),
+            rows.clone(),
+            &BTreeMap::from([(
+                "a_bbbbbbbbbbbb".to_owned(),
+                "The message was refused.".to_owned(),
+            )]),
+        );
         assert_eq!(got["enabled"], true);
         assert_eq!(got["formation"]["revision"], applied.revision);
-        assert_eq!(got["told"], json!({"a_aaaaaaaaaaaa": {"revision": 1, "member": "m1"}}));
-        assert_eq!(got["refused"], json!({"a_bbbbbbbbbbbb": "The message was refused."}));
+        assert_eq!(
+            got["told"],
+            json!({"a_aaaaaaaaaaaa": {"revision": 1, "member": "m1"}})
+        );
+        assert_eq!(
+            got["refused"],
+            json!({"a_bbbbbbbbbbbb": "The message was refused."})
+        );
         assert_eq!(got["sessions"], rows);
         // The stopped session of the second agent is on the evaluation's side of the answer.
         assert!(got["evaluation"]["roles"]["a_bbbbbbbbbbbb"].is_object());
         assert!(!got.to_string().contains("secret-digest"));
         // A thread without a team has no formation and no evaluation.
         let none = answer(&Record::default(), &thread(), json!([]), &BTreeMap::new());
-        assert_eq!((none["formation"].is_null(), none["evaluation"].is_null()), (true, true));
+        assert_eq!(
+            (none["formation"].is_null(), none["evaluation"].is_null()),
+            (true, true)
+        );
     }
 
     fn waiting(id: &str, program: &str) -> Agent {
-        Agent { model: Some(ModelRef { program: program.into(), connection: None, model: None }), ..agent(id, None) }
+        Agent {
+            model: Some(ModelRef {
+                program: program.into(),
+                connection: None,
+                model: None,
+            }),
+            ..agent(id, None)
+        }
     }
 
     /// One running agent and three that wait for a session.
@@ -790,13 +1052,29 @@ mod tests {
             Ok(format!("t_{}", agent.id.trim_start_matches("a_")))
         })
         .unwrap();
-        assert_eq!(seen, ["a_bbbbbbbbbbbb", "a_cccccccccccc", "a_dddddddddddd"], "in order, never the running one");
+        assert_eq!(
+            seen,
+            ["a_bbbbbbbbbbbb", "a_cccccccccccc", "a_dddddddddddd"],
+            "in order, never the running one"
+        );
         assert_eq!(applied.failed, None);
         let stored = load(&store, WORKSET).unwrap().formation.unwrap();
         assert_eq!(stored, applied.formation);
         assert_eq!(stored.revision, 1);
-        let sessions: Vec<_> = stored.agents.iter().map(|a| a.session.as_deref().unwrap()).collect();
-        assert_eq!(sessions, ["t_aaaaaaaaaaaa", "t_bbbbbbbbbbbb", "t_cccccccccccc", "t_dddddddddddd"]);
+        let sessions: Vec<_> = stored
+            .agents
+            .iter()
+            .map(|a| a.session.as_deref().unwrap())
+            .collect();
+        assert_eq!(
+            sessions,
+            [
+                "t_aaaaaaaaaaaa",
+                "t_bbbbbbbbbbbb",
+                "t_cccccccccccc",
+                "t_dddddddddddd"
+            ]
+        );
     }
 
     #[test]
@@ -805,15 +1083,31 @@ mod tests {
         let mut calls = 0;
         let applied = apply_opening(&store, WORKSET, &thread(), crowd(), 0, reachable, |agent| {
             calls += 1;
-            if agent.id == "a_cccccccccccc" { Err("Pi did not start.".to_owned()) } else { Ok("t_eeeeeeeeeeee".to_owned()) }
+            if agent.id == "a_cccccccccccc" {
+                Err("Pi did not start.".to_owned())
+            } else {
+                Ok("t_eeeeeeeeeeee".to_owned())
+            }
         })
         .unwrap();
-        assert_eq!(calls, 2, "the opening stops at the failure: the last agent is not tried");
-        assert_eq!(applied.failed, Some(Failure { agent: "a_cccccccccccc".into(), reason: "Pi did not start.".into() }));
+        assert_eq!(
+            calls, 2,
+            "the opening stops at the failure: the last agent is not tried"
+        );
+        assert_eq!(
+            applied.failed,
+            Some(Failure {
+                agent: "a_cccccccccccc".into(),
+                reason: "Pi did not start.".into()
+            })
+        );
         let stored = load(&store, WORKSET).unwrap().formation.unwrap();
         assert_eq!(stored.revision, 1);
         let sessions: Vec<_> = stored.agents.iter().map(|a| a.session.as_deref()).collect();
-        assert_eq!(sessions, [Some("t_aaaaaaaaaaaa"), Some("t_eeeeeeeeeeee"), None, None]);
+        assert_eq!(
+            sessions,
+            [Some("t_aaaaaaaaaaaa"), Some("t_eeeeeeeeeeee"), None, None]
+        );
         assert_eq!(stored, applied.formation);
     }
 
@@ -823,20 +1117,34 @@ mod tests {
         let mut first = 0;
         let failed = apply_opening(&store, WORKSET, &thread(), crowd(), 0, reachable, |agent| {
             first += 1;
-            if agent.id == "a_dddddddddddd" { Err("Codex did not start.".to_owned()) } else { Ok(format!("t_{}", agent.id.trim_start_matches("a_"))) }
+            if agent.id == "a_dddddddddddd" {
+                Err("Codex did not start.".to_owned())
+            } else {
+                Ok(format!("t_{}", agent.id.trim_start_matches("a_")))
+            }
         })
         .unwrap();
         assert_eq!((first, failed.failed.is_some()), (3, true));
         // The window answers with the formation it was given back; the sessions are in it.
         // The thread now holds the sessions that were opened.
         let mut now = thread();
-        now.sessions.insert("t_bbbbbbbbbbbb".into(), "running".into());
-        now.sessions.insert("t_cccccccccccc".into(), "running".into());
+        now.sessions
+            .insert("t_bbbbbbbbbbbb".into(), "running".into());
+        now.sessions
+            .insert("t_cccccccccccc".into(), "running".into());
         let mut again = Vec::new();
-        let retried = apply_opening(&store, WORKSET, &now, failed.formation, 1, reachable, |agent| {
-            again.push(agent.id.clone());
-            Ok("t_ffffffffffff".to_owned())
-        })
+        let retried = apply_opening(
+            &store,
+            WORKSET,
+            &now,
+            failed.formation,
+            1,
+            reachable,
+            |agent| {
+                again.push(agent.id.clone());
+                Ok("t_ffffffffffff".to_owned())
+            },
+        )
         .unwrap();
         assert_eq!(again, ["a_dddddddddddd"], "only the agent that has none");
         assert_eq!(retried.failed, None);
@@ -876,23 +1184,52 @@ mod tests {
     #[test]
     fn nothing_is_opened_for_a_team_the_apply_would_refuse() {
         let store = database();
-        let never = |_: &Agent| -> Result<String, String> { panic!("a session was opened for a refused team") };
+        let never = |_: &Agent| -> Result<String, String> {
+            panic!("a session was opened for a refused team")
+        };
         // An agent with neither session nor model.
         let mut bare = crowd();
         bare.agents[1].model = None;
-        assert!(apply_opening(&store, WORKSET, &thread(), bare, 0, reachable, never).unwrap_err().contains("no session and no model"));
+        assert!(
+            apply_opening(&store, WORKSET, &thread(), bare, 0, reachable, never)
+                .unwrap_err()
+                .contains("no session and no model")
+        );
         // A model the Models panel no longer holds, named.
         let mut gone = crowd();
-        gone.agents[1].model = Some(ModelRef { program: "pi".into(), connection: Some("home".into()), model: Some("qwen-9".into()) });
-        assert!(apply_opening(&store, WORKSET, &thread(), gone, 0, reachable, never).unwrap_err().contains("qwen-9"));
+        gone.agents[1].model = Some(ModelRef {
+            program: "pi".into(),
+            connection: Some("home".into()),
+            model: Some("qwen-9".into()),
+        });
+        assert!(
+            apply_opening(&store, WORKSET, &thread(), gone, 0, reachable, never)
+                .unwrap_err()
+                .contains("qwen-9")
+        );
         // A thread that is off, and a stale revision.
-        let off = Thread { enabled: false, ..thread() };
-        assert!(apply_opening(&store, WORKSET, &off, crowd(), 0, reachable, never).unwrap_err().contains("Turn it on"));
-        assert!(apply_opening(&store, WORKSET, &thread(), crowd(), 5, reachable, never).unwrap_err().contains("revision 0"));
+        let off = Thread {
+            enabled: false,
+            ..thread()
+        };
+        assert!(
+            apply_opening(&store, WORKSET, &off, crowd(), 0, reachable, never)
+                .unwrap_err()
+                .contains("Turn it on")
+        );
+        assert!(
+            apply_opening(&store, WORKSET, &thread(), crowd(), 5, reachable, never)
+                .unwrap_err()
+                .contains("revision 0")
+        );
         // A session that left the thread.
         let mut moved = crowd();
         moved.agents[0].session = Some("t_zzzzzzzzzzzz".into());
-        assert!(apply_opening(&store, WORKSET, &thread(), moved, 0, reachable, never).unwrap_err().contains("does not belong"));
+        assert!(
+            apply_opening(&store, WORKSET, &thread(), moved, 0, reachable, never)
+                .unwrap_err()
+                .contains("does not belong")
+        );
         assert_eq!(load(&store, WORKSET).unwrap(), Record::default());
     }
 
@@ -901,14 +1238,23 @@ mod tests {
         let got = answer(&Record::default(), &thread(), json!([]), &BTreeMap::new());
         let menu = got["models"].as_array().unwrap();
         assert_eq!(menu.len(), 4);
-        assert_eq!(menu[0], json!({"program": "claude_code", "connection": null, "model": null, "label": "Claude Code \u{b7} its own sign-in and model"}));
+        assert_eq!(
+            menu[0],
+            json!({"program": "claude_code", "connection": null, "model": null, "label": "Claude Code \u{b7} its own sign-in and model"})
+        );
     }
 
     fn linked() -> Formation {
         let mut f = two();
         f.revision = 4;
         f.agents[0].notes = "plans".into();
-        f.links.push(Link { from: "a_aaaaaaaaaaaa".into(), to: "a_bbbbbbbbbbbb".into(), kind: Kind::Work, report: Report::Steps, words: "go".into() });
+        f.links.push(Link {
+            from: "a_aaaaaaaaaaaa".into(),
+            to: "a_bbbbbbbbbbbb".into(),
+            kind: Kind::Work,
+            report: Report::Steps,
+            words: "go".into(),
+        });
         f
     }
 
@@ -926,11 +1272,21 @@ mod tests {
         let mut raw = store.team_templates().unwrap();
         raw.push(odd.clone());
         store.set_team_templates(&raw).unwrap();
-        assert_eq!(templates(&store).unwrap().len(), 1, "not listed: this build cannot read it");
+        assert_eq!(
+            templates(&store).unwrap().len(),
+            1,
+            "not listed: this build cannot read it"
+        );
         save_template(&store, "Ship", &linked(), id(1)).unwrap();
-        assert!(store.team_templates().unwrap().contains(&odd), "kept by a save");
+        assert!(
+            store.team_templates().unwrap().contains(&odd),
+            "kept by a save"
+        );
         delete_template(&store, &list[0].id).unwrap();
-        assert!(store.team_templates().unwrap().contains(&odd), "kept by a delete");
+        assert!(
+            store.team_templates().unwrap().contains(&odd),
+            "kept by a delete"
+        );
         assert_eq!(templates(&store).unwrap().len(), 1);
     }
 
@@ -941,7 +1297,10 @@ mod tests {
         let list = save_template(&store, "Review", &linked(), id(0)).unwrap();
         assert_eq!(list.len(), 1);
         assert!(list[0].agents.iter().all(|a| a.session.is_none()));
-        assert_eq!((list[0].agents[0].notes.as_str(), list[0].links.len()), ("plans", 1));
+        assert_eq!(
+            (list[0].agents[0].notes.as_str(), list[0].links.len()),
+            ("plans", 1)
+        );
         // A thread's team does not touch it, and removing the team leaves it.
         apply(&store, WORKSET, &thread(), two(), 0).unwrap();
         store.set_thread_team(WORKSET, None).unwrap();
@@ -961,16 +1320,36 @@ mod tests {
             "A template named Review already exists."
         );
         let mut circle = linked();
-        circle.links.push(Link { from: "a_bbbbbbbbbbbb".into(), to: "a_aaaaaaaaaaaa".into(), kind: Kind::Work, report: Report::Done, words: String::new() });
+        circle.links.push(Link {
+            from: "a_bbbbbbbbbbbb".into(),
+            to: "a_aaaaaaaaaaaa".into(),
+            kind: Kind::Work,
+            report: Report::Done,
+            words: String::new(),
+        });
         assert!(save_template(&store, "Circle", &circle, id(2)).is_err());
         assert!(save_template(&store, "Nothing", &formation(Vec::new()), id(2)).is_err());
         assert_eq!(templates(&store).unwrap().len(), 1);
         // 64 are kept; the next is refused.
         for i in 1..64 {
-            let tail: String = [(b'a' + (i / 26) as u8) as char, (b'a' + (i % 26) as u8) as char].iter().collect();
-            save_template(&store, &format!("Team {i}"), &linked(), format!("tm_{}{tail}", "b".repeat(10))).unwrap();
+            let tail: String = [
+                (b'a' + (i / 26) as u8) as char,
+                (b'a' + (i % 26) as u8) as char,
+            ]
+            .iter()
+            .collect();
+            save_template(
+                &store,
+                &format!("Team {i}"),
+                &linked(),
+                format!("tm_{}{tail}", "b".repeat(10)),
+            )
+            .unwrap();
         }
-        assert_eq!(save_template(&store, "One more", &linked(), id(3)).unwrap_err(), "A team keeps at most 64 templates. Delete one first.");
+        assert_eq!(
+            save_template(&store, "One more", &linked(), id(3)).unwrap_err(),
+            "A team keeps at most 64 templates. Delete one first."
+        );
         assert_eq!(templates(&store).unwrap().len(), 64);
     }
 
@@ -981,10 +1360,18 @@ mod tests {
             save_template(&store, name, &linked(), id(n)).unwrap();
         }
         let left = delete_template(&store, &id(1)).unwrap();
-        assert_eq!(left.iter().map(|t| t.name.as_str()).collect::<Vec<_>>(), ["One", "Three"]);
+        assert_eq!(
+            left.iter().map(|t| t.name.as_str()).collect::<Vec<_>>(),
+            ["One", "Three"]
+        );
         assert_eq!(delete_template(&store, "tm_zzzzzzzzzzzz").unwrap().len(), 2);
         // The freed name can be used again.
-        assert_eq!(save_template(&store, "Two", &linked(), id(1)).unwrap().len(), 3);
+        assert_eq!(
+            save_template(&store, "Two", &linked(), id(1))
+                .unwrap()
+                .len(),
+            3
+        );
     }
 
     #[test]

@@ -109,18 +109,24 @@ pub struct Root {
 }
 
 const DEVICE_NAMES: [&str; 22] = [
-    "con", "prn", "aux", "nul", "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8", "com9", "lpt1", "lpt2", "lpt3",
-    "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9",
+    "con", "prn", "aux", "nul", "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8",
+    "com9", "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9",
 ];
 
 fn valid_component(part: &str) -> bool {
-    let stem = part.split('.').next().unwrap_or_default().to_ascii_lowercase();
+    let stem = part
+        .split('.')
+        .next()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
     !part.is_empty()
         && part != "."
         && part != ".."
         && part.len() <= 255
         && !part.ends_with([' ', '.'])
-        && !part.chars().any(|c| c.is_control() || matches!(c, '<' | '>' | ':' | '"' | '|' | '?' | '*'))
+        && !part
+            .chars()
+            .any(|c| c.is_control() || matches!(c, '<' | '>' | ':' | '"' | '|' | '?' | '*'))
         && !DEVICE_NAMES.contains(&stem.as_str())
 }
 
@@ -145,7 +151,10 @@ fn strip_verbatim(path: &Path) -> String {
 impl Root {
     pub fn open(path: &Path) -> Result<Self> {
         let canonical = fs::canonicalize(path).map_err(|_| NavError::NotFound)?;
-        if !fs::metadata(&canonical).map_err(|_| NavError::Unreadable)?.is_dir() {
+        if !fs::metadata(&canonical)
+            .map_err(|_| NavError::Unreadable)?
+            .is_dir()
+        {
             return Err(NavError::NotADirectory);
         }
         Ok(Self { canonical })
@@ -162,7 +171,11 @@ impl Root {
         if relative.len() > 4096 {
             return Err(NavError::InvalidPath);
         }
-        let parts: Vec<String> = relative.split(['/', '\\']).filter(|p| !p.is_empty()).map(str::to_owned).collect();
+        let parts: Vec<String> = relative
+            .split(['/', '\\'])
+            .filter(|p| !p.is_empty())
+            .map(str::to_owned)
+            .collect();
         if parts.len() > MAX_DEPTH {
             return Err(NavError::TooDeep);
         }
@@ -188,21 +201,36 @@ impl Root {
 
     fn relative_of(&self, path: &Path) -> String {
         path.strip_prefix(&self.canonical)
-            .map(|p| p.components().filter_map(|c| match c {
-                Component::Normal(name) => Some(name.to_string_lossy().into_owned()),
-                _ => None,
-            }).collect::<Vec<_>>().join("/"))
+            .map(|p| {
+                p.components()
+                    .filter_map(|c| match c {
+                        Component::Normal(name) => Some(name.to_string_lossy().into_owned()),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+                    .join("/")
+            })
             .unwrap_or_default()
     }
 
     fn entry(&self, path: &Path, meta: &fs::Metadata) -> Entry {
         let link = is_link(meta);
         Entry {
-            name: path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
+            name: path
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default(),
             path: self.relative_of(path),
-            kind: if link { EntryKind::Link } else if meta.is_dir() { EntryKind::Directory } else { EntryKind::File },
+            kind: if link {
+                EntryKind::Link
+            } else if meta.is_dir() {
+                EntryKind::Directory
+            } else {
+                EntryKind::File
+            },
             size: (!link && meta.is_file()).then_some(meta.len()),
-            link_inside: link.then(|| fs::canonicalize(path).is_ok_and(|t| t.starts_with(&self.canonical))),
+            link_inside: link
+                .then(|| fs::canonicalize(path).is_ok_and(|t| t.starts_with(&self.canonical))),
         }
     }
 
@@ -225,11 +253,21 @@ impl Root {
                 break;
             }
             let path = item.path();
-            let Ok(meta) = fs::symlink_metadata(&path) else { continue };
+            let Ok(meta) = fs::symlink_metadata(&path) else {
+                continue;
+            };
             entries.push(self.entry(&path, &meta));
         }
-        entries.sort_by(|a, b| (a.kind != EntryKind::Directory).cmp(&(b.kind != EntryKind::Directory)).then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase())));
-        Ok(Listing { path: self.relative_of(&directory), entries, truncated })
+        entries.sort_by(|a, b| {
+            (a.kind != EntryKind::Directory)
+                .cmp(&(b.kind != EntryKind::Directory))
+                .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+        });
+        Ok(Listing {
+            path: self.relative_of(&directory),
+            entries,
+            truncated,
+        })
     }
 
     /// Case-insensitive name search, breadth first, never through links or [`SEARCH_SKIP`].
@@ -239,11 +277,19 @@ impl Root {
             return Err(NavError::InvalidPath);
         }
         let started = Instant::now();
-        let mut result = SearchResult { query: query.trim().to_owned(), hits: Vec::new(), truncated: false, cancelled: false, timed_out: false };
+        let mut result = SearchResult {
+            query: query.trim().to_owned(),
+            hits: Vec::new(),
+            truncated: false,
+            cancelled: false,
+            timed_out: false,
+        };
         let mut queue = std::collections::VecDeque::from([(self.canonical.clone(), 0usize)]);
         let mut visits = 0usize;
         'scan: while let Some((directory, depth)) = queue.pop_front() {
-            let Ok(items) = fs::read_dir(&directory) else { continue };
+            let Ok(items) = fs::read_dir(&directory) else {
+                continue;
+            };
             for item in items {
                 if cancel.load(Ordering::Relaxed) {
                     result.cancelled = true;
@@ -260,7 +306,9 @@ impl Root {
                 }
                 let Ok(item) = item else { continue };
                 let path = item.path();
-                let Ok(meta) = fs::symlink_metadata(&path) else { continue };
+                let Ok(meta) = fs::symlink_metadata(&path) else {
+                    continue;
+                };
                 let name = item.file_name().to_string_lossy().into_owned();
                 if name.to_lowercase().contains(&needle) {
                     if result.hits.len() >= MAX_SEARCH_HITS {
@@ -269,7 +317,11 @@ impl Root {
                     }
                     result.hits.push(self.entry(&path, &meta));
                 }
-                if meta.is_dir() && !is_link(&meta) && depth + 1 < MAX_DEPTH && !SEARCH_SKIP.contains(&name.as_str()) {
+                if meta.is_dir()
+                    && !is_link(&meta)
+                    && depth + 1 < MAX_DEPTH
+                    && !SEARCH_SKIP.contains(&name.as_str())
+                {
                     queue.push_back((path, depth + 1));
                 }
             }
@@ -286,15 +338,32 @@ impl Root {
         }
         let mut file = fs::File::open(&path).map_err(|_| NavError::Unreadable)?;
         let mut bytes = Vec::with_capacity((meta.len() as usize).min(MAX_READ_BYTES));
-        file.by_ref().take(MAX_READ_BYTES as u64).read_to_end(&mut bytes).map_err(|_| NavError::Unreadable)?;
+        file.by_ref()
+            .take(MAX_READ_BYTES as u64)
+            .read_to_end(&mut bytes)
+            .map_err(|_| NavError::Unreadable)?;
         let truncated = meta.len() > MAX_READ_BYTES as u64;
-        let sha256 = Sha256::digest(&bytes).iter().map(|b| format!("{b:02x}")).collect();
+        let sha256 = Sha256::digest(&bytes)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
         let text = std::str::from_utf8(&bytes)
             .ok()
-            .or_else(|| truncated.then(|| std::str::from_utf8(&bytes[..utf8_prefix(&bytes)]).ok()).flatten())
+            .or_else(|| {
+                truncated
+                    .then(|| std::str::from_utf8(&bytes[..utf8_prefix(&bytes)]).ok())
+                    .flatten()
+            })
             .filter(|t| !t.contains('\0'))
             .map(str::to_owned);
-        Ok(TextFile { path: self.relative_of(&path), binary: text.is_none(), text, truncated, bytes: meta.len(), sha256 })
+        Ok(TextFile {
+            path: self.relative_of(&path),
+            binary: text.is_none(),
+            text,
+            truncated,
+            bytes: meta.len(),
+            sha256,
+        })
     }
 }
 
@@ -317,7 +386,8 @@ mod tests {
         }
     }
     fn tree() -> Tree {
-        let base = std::env::temp_dir().join(format!("shinatama-files-{}", uuid::Uuid::new_v4().simple()));
+        let base =
+            std::env::temp_dir().join(format!("shinatama-files-{}", uuid::Uuid::new_v4().simple()));
         fs::create_dir_all(base.join("project/src/deep")).unwrap();
         fs::create_dir_all(base.join("project/node_modules/pkg")).unwrap();
         fs::create_dir_all(base.join("outside")).unwrap();
@@ -325,7 +395,11 @@ mod tests {
         fs::write(base.join("project/src/main.rs"), "fn main() {}\n").unwrap();
         fs::write(base.join("project/src/deep/needle.txt"), "x").unwrap();
         fs::write(base.join("project/node_modules/pkg/needle.js"), "x").unwrap();
-        fs::write(base.join("project/run.bat"), "@echo pwned > %TEMP%\\pwned.txt\n").unwrap();
+        fs::write(
+            base.join("project/run.bat"),
+            "@echo pwned > %TEMP%\\pwned.txt\n",
+        )
+        .unwrap();
         fs::write(base.join("project/blob.bin"), [0u8, 159, 146, 150]).unwrap();
         fs::write(base.join("outside/secret.txt"), "secret").unwrap();
         Tree(base)
@@ -335,8 +409,22 @@ mod tests {
     fn traversal_device_and_stream_paths_are_refused() {
         let t = tree();
         let root = Root::open(&t.0.join("project")).unwrap();
-        for bad in ["../outside/secret.txt", "src/../../outside", "C:/Windows", "/etc", "\\\\server\\share", "README.md:stream", "src/con", "nul.txt", "src/ trailing ", "a/./b"] {
-            assert!(matches!(root.read(bad), Err(NavError::InvalidPath)), "{bad}");
+        for bad in [
+            "../outside/secret.txt",
+            "src/../../outside",
+            "C:/Windows",
+            "/etc",
+            "\\\\server\\share",
+            "README.md:stream",
+            "src/con",
+            "nul.txt",
+            "src/ trailing ",
+            "a/./b",
+        ] {
+            assert!(
+                matches!(root.read(bad), Err(NavError::InvalidPath)),
+                "{bad}"
+            );
         }
         assert_eq!(root.read(&"a/".repeat(40)), Err(NavError::TooDeep));
     }
@@ -348,13 +436,25 @@ mod tests {
         let cancel = AtomicBool::new(false);
         let listing = root.list("", &cancel).unwrap();
         let names: Vec<_> = listing.entries.iter().map(|e| e.name.as_str()).collect();
-        assert_eq!(names, ["node_modules", "src", "blob.bin", "README.md", "run.bat"]);
+        assert_eq!(
+            names,
+            ["node_modules", "src", "blob.bin", "README.md", "run.bat"]
+        );
         let script = root.read("run.bat").unwrap();
-        assert_eq!(script.text.as_deref(), Some("@echo pwned > %TEMP%\\pwned.txt\n"));
-        assert!(!std::env::temp_dir().join("pwned.txt").exists(), "opening never executes");
+        assert_eq!(
+            script.text.as_deref(),
+            Some("@echo pwned > %TEMP%\\pwned.txt\n")
+        );
+        assert!(
+            !std::env::temp_dir().join("pwned.txt").exists(),
+            "opening never executes"
+        );
         assert!(root.read("blob.bin").unwrap().binary);
         assert_eq!(root.read("src"), Err(NavError::NotAFile));
-        assert_eq!(root.list("README.md", &cancel), Err(NavError::NotADirectory));
+        assert_eq!(
+            root.list("README.md", &cancel),
+            Err(NavError::NotADirectory)
+        );
         cancel.store(true, Ordering::Relaxed);
         assert_eq!(root.list("", &cancel), Err(NavError::Cancelled));
     }
@@ -364,7 +464,14 @@ mod tests {
         let t = tree();
         let root = Root::open(&t.0.join("project")).unwrap();
         let result = root.search("NEEDLE", &AtomicBool::new(false)).unwrap();
-        assert_eq!(result.hits.iter().map(|h| h.path.as_str()).collect::<Vec<_>>(), ["src/deep/needle.txt"]);
+        assert_eq!(
+            result
+                .hits
+                .iter()
+                .map(|h| h.path.as_str())
+                .collect::<Vec<_>>(),
+            ["src/deep/needle.txt"]
+        );
         let cancelled = root.search("needle", &AtomicBool::new(true)).unwrap();
         assert!(cancelled.cancelled && cancelled.hits.is_empty());
         assert!(root.search("  ", &AtomicBool::new(false)).is_err());
@@ -376,19 +483,39 @@ mod tests {
         let t = tree();
         let link = t.0.join("project/escape");
         let made = std::process::Command::new("powershell")
-            .args(["-NoProfile", "-Command", "New-Item -ItemType Junction -Path $env:LINK -Target $env:TARGET | Out-Null"])
+            .args([
+                "-NoProfile",
+                "-Command",
+                "New-Item -ItemType Junction -Path $env:LINK -Target $env:TARGET | Out-Null",
+            ])
             .env("LINK", &link)
             .env("TARGET", t.0.join("outside"))
             .output()
             .unwrap();
-        assert!(made.status.success(), "{}", String::from_utf8_lossy(&made.stderr));
+        assert!(
+            made.status.success(),
+            "{}",
+            String::from_utf8_lossy(&made.stderr)
+        );
         let root = Root::open(&t.0.join("project")).unwrap();
         let listing = root.list("", &AtomicBool::new(false)).unwrap();
         let escape = listing.entries.iter().find(|e| e.name == "escape").unwrap();
-        assert_eq!((escape.kind, escape.link_inside), (EntryKind::Link, Some(false)));
+        assert_eq!(
+            (escape.kind, escape.link_inside),
+            (EntryKind::Link, Some(false))
+        );
         assert_eq!(root.read("escape/secret.txt"), Err(NavError::OutsideRoot));
-        assert_eq!(root.list("escape", &AtomicBool::new(false)), Err(NavError::OutsideRoot));
-        assert!(root.search("secret", &AtomicBool::new(false)).unwrap().hits.is_empty(), "search never descends a junction");
+        assert_eq!(
+            root.list("escape", &AtomicBool::new(false)),
+            Err(NavError::OutsideRoot)
+        );
+        assert!(
+            root.search("secret", &AtomicBool::new(false))
+                .unwrap()
+                .hits
+                .is_empty(),
+            "search never descends a junction"
+        );
         let _ = fs::remove_dir(&link);
     }
 }

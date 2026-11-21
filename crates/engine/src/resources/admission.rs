@@ -764,12 +764,7 @@ mod tests {
             let mut interactive = coordinator
                 .prepare_interactive(&database, &policy.stamp, revision, request)
                 .unwrap();
-            assert!(
-                !interactive
-                    .applied_budget()
-                    .unwrap()
-                    .limits_enforced()
-            );
+            assert!(!interactive.applied_budget().unwrap().limits_enforced());
             assert_eq!(interactive.ticket().budget, request.budget);
             assert_eq!(
                 interactive.applied_budget().unwrap().job_commit_bytes(),

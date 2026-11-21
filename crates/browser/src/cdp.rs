@@ -71,7 +71,9 @@ where
     let handshake = |e: std::io::Error| CdpError::Handshake(e.to_string());
     stream.write_all(token).await.map_err(handshake)?;
     stream
-        .write_all(b"GET /json/version HTTP/1.1\r\nHost: 127.0.0.1:9222\r\nConnection: close\r\n\r\n")
+        .write_all(
+            b"GET /json/version HTTP/1.1\r\nHost: 127.0.0.1:9222\r\nConnection: close\r\n\r\n",
+        )
         .await
         .map_err(handshake)?;
     let mut response = Vec::new();
@@ -80,7 +82,10 @@ where
         .map_err(|_| CdpError::Timeout)?
         .map_err(handshake)?;
     let text = String::from_utf8_lossy(&response);
-    let body = text.split_once("\r\n\r\n").map(|(_, body)| body).unwrap_or_default();
+    let body = text
+        .split_once("\r\n\r\n")
+        .map(|(_, body)| body)
+        .unwrap_or_default();
     let url = serde_json::from_str::<Value>(body)
         .ok()
         .and_then(|v| v.get("webSocketDebuggerUrl")?.as_str().map(str::to_owned))
@@ -133,8 +138,12 @@ impl Cdp {
         let reader_closed = Arc::clone(&closed);
         tokio::spawn(async move {
             while let Some(Ok(message)) = source.next().await {
-                let Message::Text(text) = message else { continue };
-                let Ok(value) = serde_json::from_str::<Value>(&text) else { continue };
+                let Message::Text(text) = message else {
+                    continue;
+                };
+                let Ok(value) = serde_json::from_str::<Value>(&text) else {
+                    continue;
+                };
                 dispatch(value, &reader_pending, &reader_events);
             }
             // Closed before draining: a call that sees `closed` false and inserts its
@@ -143,13 +152,28 @@ impl Cdp {
             for (_, waiter) in reader_pending.lock().unwrap().drain() {
                 let _ = waiter.send(Err(CdpError::Closed));
             }
-            let _ = reader_events.send(CdpEvent { session: None, method: CLOSED_EVENT.into(), params: Value::Null });
+            let _ = reader_events.send(CdpEvent {
+                session: None,
+                method: CLOSED_EVENT.into(),
+                params: Value::Null,
+            });
         });
 
-        Ok(Self { out, pending, next_id: AtomicU64::new(1), events, closed })
+        Ok(Self {
+            out,
+            pending,
+            next_id: AtomicU64::new(1),
+            events,
+            closed,
+        })
     }
 
-    pub async fn call(&self, session: Option<&str>, method: &str, params: Value) -> Result<Value, CdpError> {
+    pub async fn call(
+        &self,
+        session: Option<&str>,
+        method: &str,
+        params: Value,
+    ) -> Result<Value, CdpError> {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let (reply, answer) = oneshot::channel();
         {
@@ -189,18 +213,27 @@ impl Cdp {
 
 fn dispatch(value: Value, pending: &Pending, events: &broadcast::Sender<CdpEvent>) {
     if let Some(id) = value.get("id").and_then(Value::as_u64) {
-        let Some(waiter) = pending.lock().unwrap().remove(&id) else { return };
+        let Some(waiter) = pending.lock().unwrap().remove(&id) else {
+            return;
+        };
         let result = match value.get("error") {
             Some(error) => Err(CdpError::Protocol {
                 code: error.get("code").and_then(Value::as_i64).unwrap_or(0),
-                message: error.get("message").and_then(Value::as_str).unwrap_or_default().to_owned(),
+                message: error
+                    .get("message")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_owned(),
             }),
             None => Ok(value.get("result").cloned().unwrap_or(Value::Null)),
         };
         let _ = waiter.send(result);
     } else if let Some(method) = value.get("method").and_then(Value::as_str) {
         let _ = events.send(CdpEvent {
-            session: value.get("sessionId").and_then(Value::as_str).map(str::to_owned),
+            session: value
+                .get("sessionId")
+                .and_then(Value::as_str)
+                .map(str::to_owned),
             method: method.to_owned(),
             params: value.get("params").cloned().unwrap_or(Value::Null),
         });
@@ -223,7 +256,9 @@ mod tests {
             assert_eq!(token, TOKEN);
             tokio_tungstenite::accept_async(server).await.unwrap()
         });
-        let cdp = Cdp::connect(client, &TOKEN, "/devtools/browser/x").await.unwrap();
+        let cdp = Cdp::connect(client, &TOKEN, "/devtools/browser/x")
+            .await
+            .unwrap();
         (cdp, accept.await.unwrap())
     }
 
@@ -244,8 +279,18 @@ mod tests {
         let r1 = next_request(&mut server).await;
         let second = tokio::spawn(async move { b.call(None, "B.two", json!({})).await });
         let r2 = next_request(&mut server).await;
-        server.send(Message::text(json!({"id": r2["id"], "result": {"n": 2}}).to_string())).await.unwrap();
-        server.send(Message::text(json!({"id": r1["id"], "result": {"n": 1}}).to_string())).await.unwrap();
+        server
+            .send(Message::text(
+                json!({"id": r2["id"], "result": {"n": 2}}).to_string(),
+            ))
+            .await
+            .unwrap();
+        server
+            .send(Message::text(
+                json!({"id": r1["id"], "result": {"n": 1}}).to_string(),
+            ))
+            .await
+            .unwrap();
         assert_eq!(first.await.unwrap().unwrap(), json!({"n": 1}));
         assert_eq!(second.await.unwrap().unwrap(), json!({"n": 2}));
     }
@@ -258,12 +303,21 @@ mod tests {
             let request = next_request(&mut server).await;
             assert_eq!(request["sessionId"], "s1");
             server
-                .send(Message::text(json!({"id": request["id"], "error": {"code": -32601, "message": "x"}}).to_string()))
+                .send(Message::text(
+                    json!({"id": request["id"], "error": {"code": -32601, "message": "x"}})
+                        .to_string(),
+                ))
                 .await
                 .unwrap();
         };
         let (result, ()) = tokio::join!(call, serve);
-        assert_eq!(result, Err(CdpError::Protocol { code: -32601, message: "x".into() }));
+        assert_eq!(
+            result,
+            Err(CdpError::Protocol {
+                code: -32601,
+                message: "x".into()
+            })
+        );
     }
 
     #[tokio::test]
@@ -271,11 +325,21 @@ mod tests {
         let (cdp, mut server) = pair().await;
         let mut events = cdp.events();
         server
-            .send(Message::text(json!({"method": "Page.loadEventFired", "sessionId": "s9", "params": {"t": 1}}).to_string()))
+            .send(Message::text(
+                json!({"method": "Page.loadEventFired", "sessionId": "s9", "params": {"t": 1}})
+                    .to_string(),
+            ))
             .await
             .unwrap();
         let event = events.recv().await.unwrap();
-        assert_eq!(event, CdpEvent { session: Some("s9".into()), method: "Page.loadEventFired".into(), params: json!({"t": 1}) });
+        assert_eq!(
+            event,
+            CdpEvent {
+                session: Some("s9".into()),
+                method: "Page.loadEventFired".into(),
+                params: json!({"t": 1})
+            }
+        );
     }
 
     #[tokio::test]
@@ -283,11 +347,17 @@ mod tests {
         let (cdp, server) = pair().await;
         let mut events = cdp.events();
         drop(server);
-        let closed = tokio::time::timeout(Duration::from_secs(2), events.recv()).await.unwrap().unwrap();
+        let closed = tokio::time::timeout(Duration::from_secs(2), events.recv())
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(closed.method, CLOSED_EVENT);
         assert!(cdp.is_closed());
         let started = std::time::Instant::now();
-        assert_eq!(cdp.call(None, "A.b", json!({})).await, Err(CdpError::Closed));
+        assert_eq!(
+            cdp.call(None, "A.b", json!({})).await,
+            Err(CdpError::Closed)
+        );
         assert!(started.elapsed() < Duration::from_secs(1));
     }
 
@@ -302,7 +372,10 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn call_times_out_after_10s() {
         let (cdp, _server) = pair().await;
-        assert_eq!(cdp.call(None, "A.b", json!({})).await, Err(CdpError::Timeout));
+        assert_eq!(
+            cdp.call(None, "A.b", json!({})).await,
+            Err(CdpError::Timeout)
+        );
     }
 
     #[tokio::test]
@@ -314,9 +387,15 @@ mod tests {
             let mut request = [0u8; 256];
             let _ = server.read(&mut request).await.unwrap();
             let body = r#"{"Browser":"Moli","webSocketDebuggerUrl":"ws://127.0.0.1:9222/devtools/browser/abc"}"#;
-            let response = format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{body}", body.len());
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{body}",
+                body.len()
+            );
             server.write_all(response.as_bytes()).await.unwrap();
         });
-        assert_eq!(discover(client, &TOKEN).await.unwrap(), "/devtools/browser/abc");
+        assert_eq!(
+            discover(client, &TOKEN).await.unwrap(),
+            "/devtools/browser/abc"
+        );
     }
 }

@@ -119,9 +119,7 @@ fn valid_github_username(name: &str) -> bool {
             && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'))
 }
 fn valid_text(value: &str, limit: usize) -> bool {
-    !value.is_empty()
-        && value.len() <= limit
-        && !value.chars().any(|c| c.is_control())
+    !value.is_empty() && value.len() <= limit && !value.chars().any(|c| c.is_control())
 }
 
 /// The environment a real session gets. GitHub becomes `GH_TOKEN`/`GITHUB_TOKEN`
@@ -192,11 +190,17 @@ fn merge(existing: &Stored, save: Save) -> Result<Stored, String> {
             .find(|old| old.name.eq_ignore_ascii_case(&item.name));
         let value = match item.value {
             SecretEdit::Clear => {
-                return Err(format!("{} has no value; remove the row instead.", item.name));
+                return Err(format!(
+                    "{} has no value; remove the row instead.",
+                    item.name
+                ));
             }
             SecretEdit::Set(value) => {
                 if !valid_text(&value, MAX_VALUE_BYTES) {
-                    return Err(format!("{} needs a value without control characters.", item.name));
+                    return Err(format!(
+                        "{} needs a value without control characters.",
+                        item.name
+                    ));
                 }
                 if item.secret {
                     secret_store::protect(&value).map_err(str::to_owned)?
@@ -206,7 +210,9 @@ fn merge(existing: &Stored, save: Save) -> Result<Stored, String> {
             }
             SecretEdit::Keep => match previous {
                 Some(old) if old.secret == item.secret => old.value.clone(),
-                Some(old) if !old.secret => secret_store::protect(&old.value).map_err(str::to_owned)?,
+                Some(old) if !old.secret => {
+                    secret_store::protect(&old.value).map_err(str::to_owned)?
+                }
                 Some(_) => {
                     return Err(format!(
                         "{} was secret: type its value again to make it visible.",
@@ -294,7 +300,9 @@ impl Controller {
     /// Makes the saved settings the engine's policy; the protected default when
     /// they cannot be read or a secret cannot be opened.
     fn reload(&self) -> Result<Stored, String> {
-        let result = self.read().and_then(|stored| policy(&stored).map(|p| (stored, p)));
+        let result = self
+            .read()
+            .and_then(|stored| policy(&stored).map(|p| (stored, p)));
         match result {
             Ok((stored, policy)) => {
                 launch_policy::set_current(policy);
@@ -358,7 +366,10 @@ mod tests {
         LOCK.lock().unwrap_or_else(|p| p.into_inner())
     }
     fn directory(name: &str) -> PathBuf {
-        let path = std::env::temp_dir().join(format!("shinatama-launch-settings-{name}-{}", uuid::Uuid::new_v4()));
+        let path = std::env::temp_dir().join(format!(
+            "shinatama-launch-settings-{name}-{}",
+            uuid::Uuid::new_v4()
+        ));
         fs::create_dir_all(&path).unwrap();
         path
     }
@@ -392,7 +403,9 @@ mod tests {
         environment: &'a std::collections::BTreeMap<OsString, OsString>,
         name: &str,
     ) -> &'a OsString {
-        environment.get(&OsString::from(name)).unwrap_or_else(|| panic!("{name}"))
+        environment
+            .get(&OsString::from(name))
+            .unwrap_or_else(|| panic!("{name}"))
     }
 
     #[test]
@@ -439,18 +452,30 @@ mod tests {
         let dir = directory("github");
         let controller = controller(&dir);
         controller
-            .save(save(true, SecretEdit::Set("ghp_realtoken123".into()), vec![]))
+            .save(save(
+                true,
+                SecretEdit::Set("ghp_realtoken123".into()),
+                vec![],
+            ))
             .unwrap();
         let environment = environment(&launch_policy::current());
         assert_eq!(get(&environment, "GH_TOKEN"), "ghp_realtoken123");
         assert_eq!(get(&environment, "GITHUB_TOKEN"), "ghp_realtoken123");
         assert_eq!(get(&environment, "GIT_TERMINAL_PROMPT"), "0");
         assert_eq!(get(&environment, "GIT_CONFIG_COUNT"), "2");
-        assert_eq!(get(&environment, "GIT_CONFIG_KEY_0"), "credential.https://github.com.helper");
+        assert_eq!(
+            get(&environment, "GIT_CONFIG_KEY_0"),
+            "credential.https://github.com.helper"
+        );
         assert_eq!(get(&environment, "GIT_CONFIG_VALUE_0"), "");
-        let helper = get(&environment, "GIT_CONFIG_VALUE_1").to_string_lossy().into_owned();
+        let helper = get(&environment, "GIT_CONFIG_VALUE_1")
+            .to_string_lossy()
+            .into_owned();
         assert!(helper.contains("username=octocat") && helper.contains("password=$GH_TOKEN"));
-        assert!(!helper.contains("ghp_realtoken123"), "the helper reads the token from the environment");
+        assert!(
+            !helper.contains("ghp_realtoken123"),
+            "the helper reads the token from the environment"
+        );
         launch_policy::set_current(LaunchPolicy::default());
     }
 
@@ -463,7 +488,11 @@ mod tests {
             .save(save(
                 false,
                 SecretEdit::Set("ghp_realtoken123".into()),
-                vec![variable("API_KEY", true, SecretEdit::Set("s3cret-value".into()))],
+                vec![variable(
+                    "API_KEY",
+                    true,
+                    SecretEdit::Set("s3cret-value".into()),
+                )],
             ))
             .unwrap();
         let view = controller
@@ -497,11 +526,19 @@ mod tests {
             .save(save(
                 true,
                 SecretEdit::Keep,
-                vec![variable("API_KEY", true, SecretEdit::Set("s3cret-value".into()))],
+                vec![variable(
+                    "API_KEY",
+                    true,
+                    SecretEdit::Set("s3cret-value".into()),
+                )],
             ))
             .unwrap();
         let error = controller
-            .save(save(true, SecretEdit::Keep, vec![variable("API_KEY", false, SecretEdit::Keep)]))
+            .save(save(
+                true,
+                SecretEdit::Keep,
+                vec![variable("API_KEY", false, SecretEdit::Keep)],
+            ))
             .unwrap_err();
         assert!(error.contains("type its value again"));
         launch_policy::set_current(LaunchPolicy::default());
@@ -512,14 +549,36 @@ mod tests {
         let _serial = serial();
         let dir = directory("invalid");
         let controller = controller(&dir);
-        controller.save(save(true, SecretEdit::Keep, vec![])).unwrap();
+        controller
+            .save(save(true, SecretEdit::Keep, vec![]))
+            .unwrap();
         let before = fs::read(dir.join(FILE)).unwrap();
         for bad in [
-            save(true, SecretEdit::Keep, vec![variable("PATH", false, SecretEdit::Set("x".into()))]),
-            save(true, SecretEdit::Keep, vec![variable("1BAD", false, SecretEdit::Set("x".into()))]),
-            save(true, SecretEdit::Keep, vec![variable("A", false, SecretEdit::Set("".into()))]),
-            save(true, SecretEdit::Keep, vec![variable("A", false, SecretEdit::Set("a\nb".into()))]),
-            save(true, SecretEdit::Keep, vec![variable("A", false, SecretEdit::Keep)]),
+            save(
+                true,
+                SecretEdit::Keep,
+                vec![variable("PATH", false, SecretEdit::Set("x".into()))],
+            ),
+            save(
+                true,
+                SecretEdit::Keep,
+                vec![variable("1BAD", false, SecretEdit::Set("x".into()))],
+            ),
+            save(
+                true,
+                SecretEdit::Keep,
+                vec![variable("A", false, SecretEdit::Set("".into()))],
+            ),
+            save(
+                true,
+                SecretEdit::Keep,
+                vec![variable("A", false, SecretEdit::Set("a\nb".into()))],
+            ),
+            save(
+                true,
+                SecretEdit::Keep,
+                vec![variable("A", false, SecretEdit::Keep)],
+            ),
             save(true, SecretEdit::Set("has space".into()), vec![]),
             save(true, SecretEdit::Set("".into()), vec![]),
             Save {
@@ -541,9 +600,18 @@ mod tests {
         launch_policy::set_current(LaunchPolicy::new(true, vec![]).unwrap());
         let controller = controller(&dir);
         assert!(controller.load().unwrap_err().contains("damaged"));
-        assert!(!launch_policy::current().full_access(), "unreadable settings must not leave full access on");
-        assert_eq!(fs::read(dir.join(FILE)).unwrap(), b"{ not json", "the damaged file is kept until a save");
-        controller.save(save(true, SecretEdit::Keep, vec![])).unwrap();
+        assert!(
+            !launch_policy::current().full_access(),
+            "unreadable settings must not leave full access on"
+        );
+        assert_eq!(
+            fs::read(dir.join(FILE)).unwrap(),
+            b"{ not json",
+            "the damaged file is kept until a save"
+        );
+        controller
+            .save(save(true, SecretEdit::Keep, vec![]))
+            .unwrap();
         assert!(controller.load().unwrap().full_access);
         launch_policy::set_current(LaunchPolicy::default());
     }

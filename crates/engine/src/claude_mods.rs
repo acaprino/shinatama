@@ -286,9 +286,7 @@ mod tests {
         let mods = ClaudeMods::for_claude_launch(&repo_root(), tried, &destination).unwrap();
         assert!(mods.mod_dir("shn-render").starts_with(&destination));
         assert!(destination.join("shn-render/hooks/register.ts").is_file());
-        assert!(
-            ClaudeMods::for_claude_launch(&repo_root(), "2.1.321", &scratch("old")).is_none()
-        );
+        assert!(ClaudeMods::for_claude_launch(&repo_root(), "2.1.321", &scratch("old")).is_none());
         assert!(!scratch("old").exists());
         // What Claude writes into the copy stays there; the pinned tree stays clean.
         fs::write(destination.join("shn-render/tsconfig.json"), b"{}").unwrap();

@@ -695,10 +695,12 @@ mod tests {
         assert_eq!(stale.ccr.configured, Some(true));
         assert_eq!(stale.image_rescale.reason, "encoder_missing");
         // No stamp field at all, but requests were served: not observed.
-        let mut body: serde_json::Value = serde_json::from_str(&payload(serde_json::json!({}))).unwrap();
+        let mut body: serde_json::Value =
+            serde_json::from_str(&payload(serde_json::json!({}))).unwrap();
         body.as_object_mut().unwrap().remove("stampedAtRequest");
         let (port, worker) = server_with(4242, vec![body.to_string()]);
-        let CapabilityRead::Observed(absent) = session_capabilities(&target(port, 4242), "native-1")
+        let CapabilityRead::Observed(absent) =
+            session_capabilities(&target(port, 4242), "native-1")
         else {
             panic!("expected an observed report");
         };
@@ -736,7 +738,11 @@ mod tests {
             CapabilityRead::Unavailable
         );
         // target() allows 500 ms; the read is bounded by it, not by the silent peer.
-        assert!(began.elapsed() < Duration::from_millis(1400), "{:?}", began.elapsed());
+        assert!(
+            began.elapsed() < Duration::from_millis(1400),
+            "{:?}",
+            began.elapsed()
+        );
         holder.join().unwrap();
     }
 

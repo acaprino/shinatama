@@ -336,7 +336,9 @@ impl PrivateStorePlan {
                 verify_namespace(base, path.parent().ok_or_else(namespace_error)?)?;
                 match std::fs::symlink_metadata(&path) {
                     Ok(found) if !found.file_type().is_file() => return Err(namespace_error()),
-                    Err(error) if error.kind() != io::ErrorKind::NotFound => return Err(namespace_error()),
+                    Err(error) if error.kind() != io::ErrorKind::NotFound => {
+                        return Err(namespace_error());
+                    }
                     _ => {}
                 }
             } else {
@@ -949,25 +951,40 @@ mod tests {
         assert!(!fixture.location().database_path().exists());
 
         // OpenCode creates its database at the first start; the next resolution still succeeds.
-        let database = prepared.paths().path(StorePathRole::OpenCodeDatabase).unwrap().to_path_buf();
+        let database = prepared
+            .paths()
+            .path(StorePathRole::OpenCodeDatabase)
+            .unwrap()
+            .to_path_buf();
         drop(prepared);
         fs::write(&database, b"synthetic database").unwrap();
         let again = PrivateStorePlan::resolve(
             fixture.location(),
             AgentStoreKey::new("opencode").unwrap(),
-            PrivateStoreRequest { extra_roles: vec![StorePathRole::OpenCodeDatabase], home_path_limit: None },
+            PrivateStoreRequest {
+                extra_roles: vec![StorePathRole::OpenCodeDatabase],
+                home_path_limit: None,
+            },
         )
         .unwrap();
-        assert_eq!(again.paths().path(StorePathRole::OpenCodeDatabase).unwrap(), database.as_path());
+        assert_eq!(
+            again.paths().path(StorePathRole::OpenCodeDatabase).unwrap(),
+            database.as_path()
+        );
         // A folder in its place is refused.
         fs::remove_file(&database).unwrap();
         fs::create_dir(&database).unwrap();
-        assert!(PrivateStorePlan::resolve(
-            fixture.location(),
-            AgentStoreKey::new("opencode").unwrap(),
-            PrivateStoreRequest { extra_roles: vec![StorePathRole::OpenCodeDatabase], home_path_limit: None },
-        )
-        .is_err());
+        assert!(
+            PrivateStorePlan::resolve(
+                fixture.location(),
+                AgentStoreKey::new("opencode").unwrap(),
+                PrivateStoreRequest {
+                    extra_roles: vec![StorePathRole::OpenCodeDatabase],
+                    home_path_limit: None
+                },
+            )
+            .is_err()
+        );
     }
 
     #[test]

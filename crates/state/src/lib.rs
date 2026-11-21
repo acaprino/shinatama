@@ -14,8 +14,8 @@ pub mod privacy;
 pub mod projects;
 pub mod records;
 pub mod resource_reservations;
-pub mod search_index;
 mod schema;
+pub mod search_index;
 pub mod store_roots;
 #[doc(hidden)]
 pub mod test_scratch;

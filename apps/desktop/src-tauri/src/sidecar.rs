@@ -119,14 +119,30 @@ fn phase_name(phase: Phase) -> &'static str {
 /// is not something the supervisor can know (the proxy's own saves may be failing).
 fn reason_message(phase: Phase, reason: Reason) -> Option<&'static str> {
     match reason {
-        Reason::AdmissionDeferred => Some("Waiting for resources. The proxy will retry automatically; existing sessions keep their limits."),
-        Reason::StartupRefused if phase == Phase::Recovering => Some("The proxy could not start. Recovery will retry automatically."),
-        Reason::StartupRefused => Some("The proxy launch configuration is unavailable; retry Start after correcting the installation."),
-        Reason::ProcessExited => Some("The proxy exited. Recovering automatically on the same address."),
-        Reason::CleanupUncertain if phase == Phase::Recovering => Some("Waiting to confirm cleanup before restarting the proxy. Its reservation remains held."),
-        Reason::CleanupUncertain => Some("Cleanup is not confirmed. Its reservation remains held; retry cleanup before another start."),
-        Reason::ResourceLimit => Some("The proxy reached its resource limit. Recovery will retry with fresh resource checks."),
-        Reason::SupervisorFault => Some("The proxy supervisor stopped on an internal error. Start or Retry recovery starts it again."),
+        Reason::AdmissionDeferred => Some(
+            "Waiting for resources. The proxy will retry automatically; existing sessions keep their limits.",
+        ),
+        Reason::StartupRefused if phase == Phase::Recovering => {
+            Some("The proxy could not start. Recovery will retry automatically.")
+        }
+        Reason::StartupRefused => Some(
+            "The proxy launch configuration is unavailable; retry Start after correcting the installation.",
+        ),
+        Reason::ProcessExited => {
+            Some("The proxy exited. Recovering automatically on the same address.")
+        }
+        Reason::CleanupUncertain if phase == Phase::Recovering => Some(
+            "Waiting to confirm cleanup before restarting the proxy. Its reservation remains held.",
+        ),
+        Reason::CleanupUncertain => Some(
+            "Cleanup is not confirmed. Its reservation remains held; retry cleanup before another start.",
+        ),
+        Reason::ResourceLimit => Some(
+            "The proxy reached its resource limit. Recovery will retry with fresh resource checks.",
+        ),
+        Reason::SupervisorFault => Some(
+            "The proxy supervisor stopped on an internal error. Start or Retry recovery starts it again.",
+        ),
         _ => None,
     }
 }
@@ -178,14 +194,18 @@ pub(crate) fn refusal_text(facts: &RefusalFacts) -> String {
     };
     if let Some(message) = facts.message {
         // A stalled supervisor's message is what it said last, not what is happening now.
-        text.push_str(if facts.stalled.is_some() { " It last said: " } else { " " });
+        text.push_str(if facts.stalled.is_some() {
+            " It last said: "
+        } else {
+            " "
+        });
         text.push_str(message);
     }
     if let Some((at, code, detail)) = &facts.exit {
         match detail.as_deref().map(|said| said.trim_end_matches('.')) {
-            Some(said) if !said.is_empty() => {
-                text.push_str(&format!(" Its process ended at {at} with code {code}: {said}."))
-            }
+            Some(said) if !said.is_empty() => text.push_str(&format!(
+                " Its process ended at {at} with code {code}: {said}."
+            )),
             _ => text.push_str(&format!(" Its process ended at {at} with code {code}.")),
         }
     }
@@ -204,7 +224,11 @@ pub(crate) fn refusal_text(facts: &RefusalFacts) -> String {
 fn clock(unix_ms: i64) -> String {
     chrono::DateTime::from_timestamp_millis(unix_ms).map_or_else(
         || "an unknown time".to_owned(),
-        |at| at.with_timezone(&chrono::Local).format("%H:%M:%S").to_string(),
+        |at| {
+            at.with_timezone(&chrono::Local)
+                .format("%H:%M:%S")
+                .to_string()
+        },
     )
 }
 /// [`ProxyExit`] as the panel reads it.
@@ -309,13 +333,24 @@ pub(crate) fn start_at_launch(controller: &Arc<Controller>) {
                     crate::app_log::write("proxy", &format!("Ready {elapsed} ms after launch."));
                     return;
                 }
-                if matches!(status.phase, "failed" | "retired" | "stopped" | "draining") && elapsed > 10_000 {
-                    crate::app_log::write("proxy", &format!("Not ready {elapsed} ms after launch: {} ({}).",
-                        status.phase, status.message.unwrap_or("no message")));
+                if matches!(status.phase, "failed" | "retired" | "stopped" | "draining")
+                    && elapsed > 10_000
+                {
+                    crate::app_log::write(
+                        "proxy",
+                        &format!(
+                            "Not ready {elapsed} ms after launch: {} ({}).",
+                            status.phase,
+                            status.message.unwrap_or("no message")
+                        ),
+                    );
                     return;
                 }
                 if std::time::Instant::now() >= deadline {
-                    crate::app_log::write("proxy", &format!("Still {} 3 minutes after launch.", status.phase));
+                    crate::app_log::write(
+                        "proxy",
+                        &format!("Still {} 3 minutes after launch.", status.phase),
+                    );
                     return;
                 }
                 std::thread::sleep(Duration::from_millis(250));
@@ -369,7 +404,10 @@ impl SessionActivity {
         let _ = self.live.set(live);
     }
     pub(crate) fn busy(&self) -> Option<usize> {
-        busy_sessions(self.live.get().and_then(|live| live()), self.opening.count())
+        busy_sessions(
+            self.live.get().and_then(|live| live()),
+            self.opening.count(),
+        )
     }
     pub(crate) fn active(&self) -> bool {
         self.busy() != Some(0)
@@ -536,9 +574,10 @@ fn config_differences(resolved: Option<&ResolvedBaseline>) -> Vec<ConfigDifferen
     ) {
         if read != baseline {
             let show = |value: &Option<T>| {
-                value
-                    .as_ref()
-                    .map_or_else(|| "not reported".to_owned(), |value| bounded_value(value.to_string()))
+                value.as_ref().map_or_else(
+                    || "not reported".to_owned(),
+                    |value| bounded_value(value.to_string()),
+                )
             };
             out.push(ConfigDifference {
                 setting,
@@ -547,18 +586,73 @@ fn config_differences(resolved: Option<&ResolvedBaseline>) -> Vec<ConfigDifferen
             });
         }
     }
-    check(&mut out, "Prompt rewrite", &resolved.prompt_rewrite_mode, &baseline.prompt_rewrite_mode);
-    check(&mut out, "Proxy messages in the conversation", &resolved.visibility_markers, &baseline.visibility_markers);
+    check(
+        &mut out,
+        "Prompt rewrite",
+        &resolved.prompt_rewrite_mode,
+        &baseline.prompt_rewrite_mode,
+    );
+    check(
+        &mut out,
+        "Proxy messages in the conversation",
+        &resolved.visibility_markers,
+        &baseline.visibility_markers,
+    );
     check(&mut out, "Tiers", &resolved.tiers, &baseline.tiers);
-    check(&mut out, "Absorb", &resolved.absorb_enabled, &baseline.absorb_enabled);
-    check(&mut out, "Absorb minimum tool tokens", &resolved.absorb_min_tool_tokens, &baseline.absorb_min_tool_tokens);
-    check(&mut out, "Large-result storage", &resolved.ccr_enabled, &baseline.ccr_enabled);
-    check(&mut out, "Large-result storage minimum tool tokens", &resolved.ccr_min_tool_tokens, &baseline.ccr_min_tool_tokens);
-    check(&mut out, "Adaptive pressure", &resolved.adaptive_enabled, &baseline.adaptive_enabled);
-    check(&mut out, "Adaptive pressure maximum tokens", &resolved.adaptive_max_tokens, &baseline.adaptive_max_tokens);
-    check(&mut out, "Output steering", &resolved.steering_enabled, &baseline.steering_enabled);
-    check(&mut out, "Verbosity level", &resolved.verbosity_level, &baseline.verbosity_level);
-    check(&mut out, "Effort routing", &resolved.effort_routing, &baseline.effort_routing);
+    check(
+        &mut out,
+        "Absorb",
+        &resolved.absorb_enabled,
+        &baseline.absorb_enabled,
+    );
+    check(
+        &mut out,
+        "Absorb minimum tool tokens",
+        &resolved.absorb_min_tool_tokens,
+        &baseline.absorb_min_tool_tokens,
+    );
+    check(
+        &mut out,
+        "Large-result storage",
+        &resolved.ccr_enabled,
+        &baseline.ccr_enabled,
+    );
+    check(
+        &mut out,
+        "Large-result storage minimum tool tokens",
+        &resolved.ccr_min_tool_tokens,
+        &baseline.ccr_min_tool_tokens,
+    );
+    check(
+        &mut out,
+        "Adaptive pressure",
+        &resolved.adaptive_enabled,
+        &baseline.adaptive_enabled,
+    );
+    check(
+        &mut out,
+        "Adaptive pressure maximum tokens",
+        &resolved.adaptive_max_tokens,
+        &baseline.adaptive_max_tokens,
+    );
+    check(
+        &mut out,
+        "Output steering",
+        &resolved.steering_enabled,
+        &baseline.steering_enabled,
+    );
+    check(
+        &mut out,
+        "Verbosity level",
+        &resolved.verbosity_level,
+        &baseline.verbosity_level,
+    );
+    check(
+        &mut out,
+        "Effort routing",
+        &resolved.effort_routing,
+        &baseline.effort_routing,
+    );
     out
 }
 pub struct Controller {
@@ -685,14 +779,17 @@ impl Controller {
             healthy: status.healthy,
             stalled: status.stalled.then(|| {
                 (
-                    status.observed_at_unix_ms.map_or_else(|| "an unknown time".to_owned(), clock),
+                    status
+                        .observed_at_unix_ms
+                        .map_or_else(|| "an unknown time".to_owned(), clock),
                     status.last_phase.unwrap_or("unavailable"),
                 )
             }),
             message: status.message,
             exit: status.last_exit.as_ref().map(|exit| {
                 (
-                    exit.at_unix_ms.map_or_else(|| "an unknown time".to_owned(), clock),
+                    exit.at_unix_ms
+                        .map_or_else(|| "an unknown time".to_owned(), clock),
                     exit.code,
                     exit.detail.clone(),
                 )
@@ -707,13 +804,20 @@ impl Controller {
             snapshot.map(|snapshot| {
                 format!(
                     "The supervisor has not reported for 15 s (last report at {}: {}, {:?}).",
-                    snapshot.observed_at_unix_ms.map_or_else(|| "an unknown time".to_owned(), clock),
+                    snapshot
+                        .observed_at_unix_ms
+                        .map_or_else(|| "an unknown time".to_owned(), clock),
                     phase_name(snapshot.phase),
                     snapshot.reason
                 )
             })
         } else if !stalled && fresh && self.stall_logged.swap(false, Ordering::AcqRel) {
-            snapshot.map(|snapshot| format!("The supervisor reports again ({}).", phase_name(snapshot.phase)))
+            snapshot.map(|snapshot| {
+                format!(
+                    "The supervisor reports again ({}).",
+                    phase_name(snapshot.phase)
+                )
+            })
         } else {
             None
         };
@@ -754,16 +858,24 @@ impl Controller {
         } else {
             "stopped"
         };
-        let message = self.failure.try_lock().ok().and_then(|value| *value).or_else(|| {
-            observation
-                .as_ref()
-                .and_then(|snapshot| reason_message(snapshot.phase, snapshot.reason))
-        });
+        let message = self
+            .failure
+            .try_lock()
+            .ok()
+            .and_then(|value| *value)
+            .or_else(|| {
+                observation
+                    .as_ref()
+                    .and_then(|snapshot| reason_message(snapshot.phase, snapshot.reason))
+            });
         // Silent for 15 s while it should be working: its buttons no longer act, only a restart.
         let is_stalled = !self.preparing.load(Ordering::Acquire)
-            && observation.as_ref().zip(now_ms()).is_some_and(|(snapshot, now)| {
-                stalled(snapshot.observed_at_unix_ms, now, snapshot.phase)
-            });
+            && observation
+                .as_ref()
+                .zip(now_ms())
+                .is_some_and(|(snapshot, now)| {
+                    stalled(snapshot.observed_at_unix_ms, now, snapshot.phase)
+                });
         self.note_stall(is_stalled, fresh, observation.as_ref());
         let resolved = observation
             .as_ref()
@@ -801,7 +913,9 @@ impl Controller {
                 .as_ref()
                 .filter(|_| is_stalled)
                 .map(|snapshot| phase_name(snapshot.phase)),
-            fault: observation.as_ref().and_then(|snapshot| snapshot.fault.clone()),
+            fault: observation
+                .as_ref()
+                .and_then(|snapshot| snapshot.fault.clone()),
             disk: self.disk_status(),
             archive: self.archive.lock().ok().and_then(|value| value.clone()),
             observation,
@@ -948,10 +1062,11 @@ impl Controller {
                 _ => 0,
             };
             if attempts >= RESOLVED_READ_ATTEMPTS
-                || self
-                    .resolved
-                    .lock()
-                    .is_ok_and(|value| value.as_ref().is_some_and(|(read_for, r)| *read_for == pid && r.is_some()))
+                || self.resolved.lock().is_ok_and(|value| {
+                    value
+                        .as_ref()
+                        .is_some_and(|(read_for, r)| *read_for == pid && r.is_some())
+                })
             {
                 current = Some((pid, RESOLVED_READ_ATTEMPTS));
                 continue;
@@ -1280,10 +1395,19 @@ mod tests {
         assert!(!idle_run_due(Some(0), ago(599), now, false));
         assert!(idle_run_due(Some(0), ago(600), now, false));
         assert!(!idle_run_due(Some(1), ago(900), now, false));
-        assert!(!idle_run_due(None, ago(900), now, false), "an unknown count is not idle");
-        assert!(idle_run_due(Some(0), ago(1), now, true), "a forget makes it due now");
+        assert!(
+            !idle_run_due(None, ago(900), now, false),
+            "an unknown count is not idle"
+        );
+        assert!(
+            idle_run_due(Some(0), ago(1), now, true),
+            "a forget makes it due now"
+        );
         assert!(!idle_run_due(Some(0), None, now, false));
-        assert!(!idle_run_due(Some(2), ago(1), now, true), "not even a forget with an agent open");
+        assert!(
+            !idle_run_due(Some(2), ago(1), now, true),
+            "not even a forget with an agent open"
+        );
     }
 
     #[test]
@@ -1306,7 +1430,10 @@ mod tests {
         assert!(send_due(None, now, false));
         assert!(!send_due(Some(now - Duration::from_secs(599)), now, false));
         assert!(send_due(Some(now - Duration::from_secs(600)), now, false));
-        assert!(send_due(Some(now - Duration::from_secs(1)), now, true), "a forget asks at once");
+        assert!(
+            send_due(Some(now - Duration::from_secs(1)), now, true),
+            "a forget asks at once"
+        );
     }
 
     #[test]
@@ -1318,11 +1445,29 @@ mod tests {
             let _first = opening.enter();
             let _second = opening.enter();
             assert_eq!(opening.count(), 2);
-            assert!(!idle_run_due(busy_sessions(Some(0), opening.count()), idle, now, true));
+            assert!(!idle_run_due(
+                busy_sessions(Some(0), opening.count()),
+                idle,
+                now,
+                true
+            ));
         }
-        assert_eq!(opening.count(), 0, "an open that ends, by any path, no longer counts");
-        assert!(idle_run_due(busy_sessions(Some(0), opening.count()), idle, now, false));
-        assert_eq!(busy_sessions(None, 1), None, "an unknown count stays unknown");
+        assert_eq!(
+            opening.count(),
+            0,
+            "an open that ends, by any path, no longer counts"
+        );
+        assert!(idle_run_due(
+            busy_sessions(Some(0), opening.count()),
+            idle,
+            now,
+            false
+        ));
+        assert_eq!(
+            busy_sessions(None, 1),
+            None,
+            "an unknown count stays unknown"
+        );
     }
 
     #[test]
@@ -1343,13 +1488,42 @@ mod tests {
             report_line(&done),
             "removed 487 sessions (1642 MB) in 1396 s; 0 left; archive now 18.7 MB."
         );
-        let stopped = Report { removed: 3, left: 484, stop: Stop::Cancelled, ..done.clone() };
-        assert!(report_line(&stopped).ends_with("; stopped for an open."), "{}", report_line(&stopped));
-        let budget = Report { left: 10, stop: Stop::Budget, ..done.clone() };
-        assert!(report_line(&budget).ends_with("; 10 left; archive now 18.7 MB; the rest goes in the next run."), "{}", report_line(&budget));
-        let failed = Report { failed: 2, ..done.clone() };
-        assert!(report_line(&failed).contains("; 2 could not be removed"), "{}", report_line(&failed));
-        let unreadable = Report { removed: 0, stop: Stop::Unreadable, ..done };
+        let stopped = Report {
+            removed: 3,
+            left: 484,
+            stop: Stop::Cancelled,
+            ..done.clone()
+        };
+        assert!(
+            report_line(&stopped).ends_with("; stopped for an open."),
+            "{}",
+            report_line(&stopped)
+        );
+        let budget = Report {
+            left: 10,
+            stop: Stop::Budget,
+            ..done.clone()
+        };
+        assert!(
+            report_line(&budget)
+                .ends_with("; 10 left; archive now 18.7 MB; the rest goes in the next run."),
+            "{}",
+            report_line(&budget)
+        );
+        let failed = Report {
+            failed: 2,
+            ..done.clone()
+        };
+        assert!(
+            report_line(&failed).contains("; 2 could not be removed"),
+            "{}",
+            report_line(&failed)
+        );
+        let unreadable = Report {
+            removed: 0,
+            stop: Stop::Unreadable,
+            ..done
+        };
         assert_eq!(
             report_line(&unreadable),
             "nothing removed: the archive or Shinatama's threads could not be read."
@@ -1427,7 +1601,9 @@ mod tests {
         }
         assert_eq!(
             reason_message(Phase::Failed, Reason::SupervisorFault),
-            Some("The proxy supervisor stopped on an internal error. Start or Retry recovery starts it again.")
+            Some(
+                "The proxy supervisor stopped on an internal error. Start or Retry recovery starts it again."
+            )
         );
     }
 
@@ -1525,14 +1701,23 @@ mod tests {
         resolved.visibility_markers = None;
         let found = config_differences(Some(&resolved));
         let line = |setting: &str| {
-            let item = found.iter().find(|item| item.setting == setting).expect(setting);
+            let item = found
+                .iter()
+                .find(|item| item.setting == setting)
+                .expect(setting);
             (item.read.as_str(), item.baseline.as_str())
         };
         assert_eq!(found.len(), 4);
         assert_eq!(line("Verbosity level"), ("3", "2"));
         assert_eq!(line("Effort routing"), ("true", "false"));
-        assert_eq!(line("Large-result storage minimum tool tokens"), ("not reported", "4000"));
-        assert_eq!(line("Proxy messages in the conversation"), ("not reported", "false"));
+        assert_eq!(
+            line("Large-result storage minimum tool tokens"),
+            ("not reported", "4000")
+        );
+        assert_eq!(
+            line("Proxy messages in the conversation"),
+            ("not reported", "false")
+        );
     }
 
     #[test]
@@ -1549,7 +1734,10 @@ mod tests {
         assert!(found[0].read.ends_with('\u{2026}'));
         assert!(found[0].read.starts_with("\u{e9}\u{e9}"));
         resolved.prompt_rewrite_mode = Some("x".repeat(DIFFERENCE_TEXT_LIMIT));
-        assert_eq!(config_differences(Some(&resolved))[0].read.len(), DIFFERENCE_TEXT_LIMIT);
+        assert_eq!(
+            config_differences(Some(&resolved))[0].read.len(),
+            DIFFERENCE_TEXT_LIMIT
+        );
     }
 
     #[test]

@@ -172,10 +172,16 @@ impl HarnessDriver for ClaudeDriver {
         };
         let hook = hook_executable().map_err(DriverError::from)?;
         let selection = match context.initial_prompt {
-            Some(prompt) => selection.with_initial_prompt(prompt).map_err(launch_error)?,
+            Some(prompt) => selection
+                .with_initial_prompt(prompt)
+                .map_err(launch_error)?,
             None => selection,
         };
-        let selection = if context.require_mukade { selection.with_mukade_required() } else { selection };
+        let selection = if context.require_mukade {
+            selection.with_mukade_required()
+        } else {
+            selection
+        };
         let selection = match context.chat.clone() {
             Some(chat) => selection.with_chat_hooks(chat),
             None => selection,
@@ -301,9 +307,9 @@ fn launch_error(error: ClaudeLaunchError) -> DriverError {
             DriverError::Failed("The saved Claude conversation identifier is invalid.")
         }
         // One message per cause: a shared catch-all hid which check refused the start.
-        ClaudeLaunchError::Expired => DriverError::Failed(
-            "Claude startup preparation took too long. Try Open again.",
-        ),
+        ClaudeLaunchError::Expired => {
+            DriverError::Failed("Claude startup preparation took too long. Try Open again.")
+        }
         ClaudeLaunchError::PrivateHome => {
             DriverError::Failed("Claude's private home could not be prepared. Try Open again.")
         }

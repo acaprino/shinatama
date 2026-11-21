@@ -51,7 +51,10 @@ pub enum CursorError {
 }
 
 /// Items the source gained after `cursor`.
-pub fn items_since<'a>(cursor: &NativeCursor, items: &'a [ExportItem]) -> Result<&'a [ExportItem], CursorError> {
+pub fn items_since<'a>(
+    cursor: &NativeCursor,
+    items: &'a [ExportItem],
+) -> Result<&'a [ExportItem], CursorError> {
     if items.len() < cursor.items || digest(&items[..cursor.items]) != cursor.sha256 {
         return Err(CursorError::HistoryChanged);
     }
@@ -68,7 +71,12 @@ pub struct Catchup {
 
 /// "While you were away (N turns, via <agent>): ..." limited to the missed turns and the
 /// destination's seed budget, newest kept first. `None` when nothing new was said.
-pub fn render(new_items: &[ExportItem], source_agent: &str, nonce: &str, window_tokens: Option<u64>) -> Option<Catchup> {
+pub fn render(
+    new_items: &[ExportItem],
+    source_agent: &str,
+    nonce: &str,
+    window_tokens: Option<u64>,
+) -> Option<Catchup> {
     let history = normalize(new_items);
     if history.is_empty() {
         return None;
@@ -98,7 +106,12 @@ pub fn render(new_items: &[ExportItem], source_agent: &str, nonce: &str, window_
     for part in kept.iter().rev() {
         text.push_str(part);
     }
-    Some(Catchup { text, nonce: nonce.to_owned(), turns: count, omitted_turns })
+    Some(Catchup {
+        text,
+        nonce: nonce.to_owned(),
+        turns: count,
+        omitted_turns,
+    })
 }
 
 pub fn round_nonce(nonce: &str, round: u32) -> String {
@@ -114,7 +127,14 @@ mod tests {
     fn items(n: usize) -> Vec<ExportItem> {
         (0..n)
             .map(|i| {
-                let mut value = item(if i % 2 == 0 { ItemKind::UserText } else { ItemKind::AssistantText }, &format!("message {i}"));
+                let mut value = item(
+                    if i % 2 == 0 {
+                        ItemKind::UserText
+                    } else {
+                        ItemKind::AssistantText
+                    },
+                    &format!("message {i}"),
+                );
                 value.provenance.entry_ordinal = i;
                 value.provenance.entry_id = Some(format!("e{i}"));
                 value
@@ -131,16 +151,27 @@ mod tests {
         assert!(items_since(&cursor, &all[..4]).unwrap().is_empty());
         let mut rewritten = all.clone();
         rewritten[1].text = "edited".into();
-        assert_eq!(items_since(&cursor, &rewritten), Err(CursorError::HistoryChanged));
-        assert_eq!(items_since(&cursor, &all[..3]), Err(CursorError::HistoryChanged));
+        assert_eq!(
+            items_since(&cursor, &rewritten),
+            Err(CursorError::HistoryChanged)
+        );
+        assert_eq!(
+            items_since(&cursor, &all[..3]),
+            Err(CursorError::HistoryChanged)
+        );
     }
 
     #[test]
     fn catchup_names_the_turns_and_uses_its_own_nonce() {
         let all = items(6);
         let catchup = render(&all[4..], "claude_code", &round_nonce("abc", 1), None).unwrap();
-        assert!(catchup.text.starts_with("[shinatama handoff v1] nonce=abcc1\nWhile you were away (1 turn, via claude_code)"));
-        assert!(catchup.text.contains("[user] message 4") && catchup.text.contains("[assistant] message 5"));
+        assert!(catchup.text.starts_with(
+            "[shinatama handoff v1] nonce=abcc1\nWhile you were away (1 turn, via claude_code)"
+        ));
+        assert!(
+            catchup.text.contains("[user] message 4")
+                && catchup.text.contains("[assistant] message 5")
+        );
         assert!(catchup.text.contains("`ready abcc1`"));
         assert!(render(&[], "claude_code", "x", None).is_none());
     }
@@ -149,13 +180,20 @@ mod tests {
     fn long_catchups_keep_the_newest_turns_within_budget() {
         let mut many = Vec::new();
         for i in 0..400 {
-            many.push(item(ItemKind::UserText, &format!("request {i} {}", "x".repeat(400))));
+            many.push(item(
+                ItemKind::UserText,
+                &format!("request {i} {}", "x".repeat(400)),
+            ));
             many.push(item(ItemKind::AssistantText, &format!("answer {i}")));
         }
         let catchup = render(&many, "codex", "n", Some(20_000)).unwrap();
         assert!(catchup.text.len() <= seed::budget(Some(20_000)).seed_bytes as usize);
         assert!(catchup.omitted_turns > 0);
         assert!(catchup.text.contains("request 399 ") && !catchup.text.contains("request 0 "));
-        assert!(catchup.text.contains(&format!("[{} turns omitted]", catchup.omitted_turns)));
+        assert!(
+            catchup
+                .text
+                .contains(&format!("[{} turns omitted]", catchup.omitted_turns))
+        );
     }
 }

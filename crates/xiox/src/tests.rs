@@ -343,7 +343,11 @@ fn the_observer_is_given_shinatamas_mukade() {
     use std::os::unix::fs::PermissionsExt;
     let dir = scratch("mukade");
     let program = dir.join("echoing-xiox");
-    std::fs::write(&program, "#!/bin/sh\necho \"mukade: $XIOX_MUKADE_EXE\" >&2\nexit 1\n").unwrap();
+    std::fs::write(
+        &program,
+        "#!/bin/sh\necho \"mukade: $XIOX_MUKADE_EXE\" >&2\nexit 1\n",
+    )
+    .unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
     let seen = Seen::default();
     let options = Options {

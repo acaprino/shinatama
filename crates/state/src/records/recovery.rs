@@ -54,7 +54,9 @@ pub struct DeadOwnerIdentityProof {
     _process: Option<std::os::windows::io::OwnedHandle>,
 }
 impl DeadOwnerIdentityProof {
-    pub(crate) fn matches(&self, owner: &WorkspaceOwner) -> bool { self.owner == *owner }
+    pub(crate) fn matches(&self, owner: &WorkspaceOwner) -> bool {
+        self.owner == *owner
+    }
 }
 pub struct OwnerIdentityProbe {
     pub observation: OwnerObservation,
@@ -99,8 +101,11 @@ pub fn probe_workspace_owner(record: &WorkspaceRecord) -> Result<OwnerProbe> {
     Ok(OwnerProbe {
         observation: probe.observation,
         proof: probe.proof.map(|death| DeadWorkspaceOwnerProof {
-            project_id: record.project_id.clone(), workspace_id: record.workspace_id.clone(), revision: record.revision,
-            owner: death.owner, observation: death.observation,
+            project_id: record.project_id.clone(),
+            workspace_id: record.workspace_id.clone(),
+            revision: record.revision,
+            owner: death.owner,
+            observation: death.observation,
             #[cfg(windows)]
             _process: death._process,
         }),
@@ -162,10 +167,7 @@ mod native {
             other => OwnerObservation::Unknown(UnknownReason::OsError(other)),
         }
     }
-    pub(super) fn probe(
-        owner: &WorkspaceOwner,
-        expected: u64,
-    ) -> OwnerIdentityProbe {
+    pub(super) fn probe(owner: &WorkspaceOwner, expected: u64) -> OwnerIdentityProbe {
         let raw = unsafe {
             OpenProcess(
                 PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SYNCHRONIZE,

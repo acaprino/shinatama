@@ -1297,10 +1297,7 @@ fn owner_worker(
         Ok(workload) => workload,
         Err(error) => {
             session.resource_reason(TerminalResourceReason::AdmissionRefused);
-            let _ = started.try_send(Err(format!(
-                "{}: {error}",
-                crate::ADMISSION_REFUSED
-            )));
+            let _ = started.try_send(Err(format!("{}: {error}", crate::ADMISSION_REFUSED)));
             session.finish(true);
             return;
         }

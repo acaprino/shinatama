@@ -192,14 +192,13 @@ impl Controller {
                 root: root.clone(),
                 native_id: native_id.to_owned(),
                 cursor: cursor.clone(),
-                limit: 50, overview_only: false,
+                limit: 50,
+                overview_only: false,
             };
             let reply = self.call(run, |controller| {
                 tauri::async_runtime::block_on(controller.detail(request.clone()))
             })?;
-            let page = reply
-                .page
-                .ok_or(SessionReadIssue::ReadUnavailable)?;
+            let page = reply.page.ok_or(SessionReadIssue::ReadUnavailable)?;
             for event in &page.events {
                 if matches!(
                     event.kind,
@@ -342,7 +341,10 @@ impl Controller {
 
     pub fn index_start(self: &Arc<Self>) -> Result<IndexProgress> {
         let index = self.search_index()?;
-        if !index.enabled().map_err(|_| SessionReadIssue::ReadUnavailable)? {
+        if !index
+            .enabled()
+            .map_err(|_| SessionReadIssue::ReadUnavailable)?
+        {
             return Err(SessionReadIssue::InvalidRequest);
         }
         let run = self.run.clone();
@@ -376,7 +378,9 @@ impl Controller {
                 }
                 Ok(Err(SessionReadIssue::WorkerUnavailable)) => {
                     p.phase = "stopped";
-                    p.message = Some("Windows is low on resources. Try again later; progress so far is kept.");
+                    p.message = Some(
+                        "Windows is low on resources. Try again later; progress so far is kept.",
+                    );
                 }
                 _ => {
                     p.phase = "failed";

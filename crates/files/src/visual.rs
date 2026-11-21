@@ -58,10 +58,21 @@ pub enum EditError {
 impl std::fmt::Display for EditError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            EditError::NotEditable { index } => write!(f, "Block {index} is kept as source and cannot be edited visually."),
-            EditError::NoSuchBlock { index } => write!(f, "Block {index} does not exist; reload the document."),
-            EditError::WouldChangeKind { index } => write!(f, "This edit would turn block {index} into different Markdown; edit it in Source mode."),
-            EditError::NotExact => write!(f, "This document does not round-trip exactly; use Source mode."),
+            EditError::NotEditable { index } => write!(
+                f,
+                "Block {index} is kept as source and cannot be edited visually."
+            ),
+            EditError::NoSuchBlock { index } => {
+                write!(f, "Block {index} does not exist; reload the document.")
+            }
+            EditError::WouldChangeKind { index } => write!(
+                f,
+                "This edit would turn block {index} into different Markdown; edit it in Source mode."
+            ),
+            EditError::NotExact => write!(
+                f,
+                "This document does not round-trip exactly; use Source mode."
+            ),
         }
     }
 }
@@ -78,8 +89,11 @@ fn ending(line: &str) -> (&str, &str) {
 fn atx(body: &str) -> Option<(u8, usize)> {
     let hashes = body.chars().take_while(|c| *c == '#').count();
     let rest = &body[hashes..];
-    ((1..=6).contains(&hashes) && rest.starts_with(' ') && !rest.trim_end().ends_with('#') && !rest.trim().is_empty())
-        .then_some((hashes as u8, hashes + 1))
+    ((1..=6).contains(&hashes)
+        && rest.starts_with(' ')
+        && !rest.trim_end().ends_with('#')
+        && !rest.trim().is_empty())
+    .then_some((hashes as u8, hashes + 1))
 }
 
 fn starts_block(body: &str) -> bool {
@@ -114,38 +128,80 @@ pub fn parse(source: &str) -> VisualDocument {
     if lines.first().is_some_and(|l| ending(l).0 == "---")
         && let Some(end) = lines.iter().skip(1).position(|l| ending(l).0 == "---")
     {
-        blocks.push(Block { kind: BlockKind::Preserved, prefix: lines[..end + 2].concat(), text: String::new(), suffix: String::new(), level: 0, editable: false });
+        blocks.push(Block {
+            kind: BlockKind::Preserved,
+            prefix: lines[..end + 2].concat(),
+            text: String::new(),
+            suffix: String::new(),
+            level: 0,
+            editable: false,
+        });
         i = end + 2;
     }
     while i < lines.len() {
         let (body, end) = ending(lines[i]);
         let trimmed = body.trim_start();
         if body.trim().is_empty() {
-            blocks.push(Block { kind: BlockKind::Blank, prefix: lines[i].to_owned(), text: String::new(), suffix: String::new(), level: 0, editable: false });
+            blocks.push(Block {
+                kind: BlockKind::Blank,
+                prefix: lines[i].to_owned(),
+                text: String::new(),
+                suffix: String::new(),
+                level: 0,
+                editable: false,
+            });
             i += 1;
             continue;
         }
         if body.len() == trimmed.len()
             && let Some((level, start)) = atx(body)
         {
-            blocks.push(Block { kind: BlockKind::Heading, prefix: body[..start].to_owned(), text: body[start..].to_owned(), suffix: end.to_owned(), level, editable: true });
+            blocks.push(Block {
+                kind: BlockKind::Heading,
+                prefix: body[..start].to_owned(),
+                text: body[start..].to_owned(),
+                suffix: end.to_owned(),
+                level,
+                editable: true,
+            });
             i += 1;
             continue;
         }
-        if body.len() == trimmed.len() && (trimmed.starts_with("```") || trimmed.starts_with("~~~")) {
-            let fence: String = trimmed.chars().take_while(|c| *c == '`' || *c == '~').collect();
+        if body.len() == trimmed.len() && (trimmed.starts_with("```") || trimmed.starts_with("~~~"))
+        {
+            let fence: String = trimmed
+                .chars()
+                .take_while(|c| *c == '`' || *c == '~')
+                .collect();
             let close = lines.iter().enumerate().skip(i + 1).find(|(_, l)| {
                 let b = ending(l).0;
-                b.starts_with(&fence) && b.trim_end().chars().all(|c| c == fence.chars().next().unwrap_or('`'))
+                b.starts_with(&fence)
+                    && b.trim_end()
+                        .chars()
+                        .all(|c| c == fence.chars().next().unwrap_or('`'))
             });
             match close {
                 Some((j, _)) => {
                     let inner = lines[i + 1..j].concat();
-                    blocks.push(Block { kind: BlockKind::Code, prefix: lines[i].to_owned(), text: inner, suffix: lines[j].to_owned(), level: 0, editable: !fence.is_empty() });
+                    blocks.push(Block {
+                        kind: BlockKind::Code,
+                        prefix: lines[i].to_owned(),
+                        text: inner,
+                        suffix: lines[j].to_owned(),
+                        level: 0,
+                        editable: !fence.is_empty(),
+                    });
                     i = j + 1;
                 }
                 None => {
-                    blocks.push(Block { kind: BlockKind::Preserved, prefix: lines[i..].concat(), text: String::new(), suffix: String::new(), level: 0, editable: false });
+                    blocks.push(Block {
+                        kind: BlockKind::Preserved,
+                        prefix: lines[i..].concat(),
+                        text: String::new(),
+                        suffix: String::new(),
+                        level: 0,
+                        editable: false,
+                    });
                     i = lines.len();
                 }
             }
@@ -171,13 +227,29 @@ pub fn parse(source: &str) -> VisualDocument {
                 let body = run.trim_end_matches(['\n', '\r']);
                 (body.to_owned(), run[body.len()..].to_owned())
             };
-            let hard_break = text_part.lines().any(|l| l.ends_with("  ") || l.ends_with('\\'));
+            let hard_break = text_part
+                .lines()
+                .any(|l| l.ends_with("  ") || l.ends_with('\\'));
             if setext || hard_break {
                 let until = if setext { j + 1 } else { j };
-                blocks.push(Block { kind: BlockKind::Preserved, prefix: lines[i..until].concat(), text: String::new(), suffix: String::new(), level: 0, editable: false });
+                blocks.push(Block {
+                    kind: BlockKind::Preserved,
+                    prefix: lines[i..until].concat(),
+                    text: String::new(),
+                    suffix: String::new(),
+                    level: 0,
+                    editable: false,
+                });
                 i = until;
             } else {
-                blocks.push(Block { kind: BlockKind::Paragraph, prefix: String::new(), text: text_part, suffix: tail, level: 0, editable: true });
+                blocks.push(Block {
+                    kind: BlockKind::Paragraph,
+                    prefix: String::new(),
+                    text: text_part,
+                    suffix: tail,
+                    level: 0,
+                    editable: true,
+                });
                 i = j;
             }
             continue;
@@ -187,13 +259,23 @@ pub fn parse(source: &str) -> VisualDocument {
         while j < lines.len() && !ending(lines[j]).0.trim().is_empty() {
             j += 1;
         }
-        blocks.push(Block { kind: BlockKind::Preserved, prefix: lines[i..j].concat(), text: String::new(), suffix: String::new(), level: 0, editable: false });
+        blocks.push(Block {
+            kind: BlockKind::Preserved,
+            prefix: lines[i..j].concat(),
+            text: String::new(),
+            suffix: String::new(),
+            level: 0,
+            editable: false,
+        });
         i = j;
     }
     let exact = serialize(&blocks) == source;
     VisualDocument {
         editable_blocks: blocks.iter().filter(|b| b.editable).count(),
-        preserved_blocks: blocks.iter().filter(|b| b.kind == BlockKind::Preserved).count(),
+        preserved_blocks: blocks
+            .iter()
+            .filter(|b| b.kind == BlockKind::Preserved)
+            .count(),
         exact,
         blocks,
     }
@@ -216,14 +298,24 @@ pub fn apply(source: &str, edits: &[(usize, String)]) -> Result<String, EditErro
         return Err(EditError::NotExact);
     }
     for (index, text) in edits {
-        let block = doc.blocks.get(*index).ok_or(EditError::NoSuchBlock { index: *index })?;
+        let block = doc
+            .blocks
+            .get(*index)
+            .ok_or(EditError::NoSuchBlock { index: *index })?;
         if !block.editable {
             return Err(EditError::NotEditable { index: *index });
         }
-        let line_ending = if source.contains("\r\n") { "\r\n" } else { "\n" };
+        let line_ending = if source.contains("\r\n") {
+            "\r\n"
+        } else {
+            "\n"
+        };
         let candidate = match block.kind {
             BlockKind::Heading => {
-                if text.contains(['\n', '\r']) || text.trim().is_empty() || text.trim_end().ends_with('#') {
+                if text.contains(['\n', '\r'])
+                    || text.trim().is_empty()
+                    || text.trim_end().ends_with('#')
+                {
                     return Err(EditError::WouldChangeKind { index: *index });
                 }
                 text.clone()
@@ -231,13 +323,20 @@ pub fn apply(source: &str, edits: &[(usize, String)]) -> Result<String, EditErro
             BlockKind::Paragraph => {
                 let normalized = text.replace("\r\n", "\n");
                 let lines: Vec<&str> = normalized.split('\n').collect();
-                if lines.iter().any(|l| l.trim().is_empty() || starts_block(l) || l.ends_with("  ") || l.ends_with('\\')) {
+                if lines.iter().any(|l| {
+                    l.trim().is_empty() || starts_block(l) || l.ends_with("  ") || l.ends_with('\\')
+                }) {
                     return Err(EditError::WouldChangeKind { index: *index });
                 }
                 lines.join(line_ending)
             }
             BlockKind::Code => {
-                let fence: String = block.prefix.trim_start().chars().take_while(|c| *c == '`' || *c == '~').collect();
+                let fence: String = block
+                    .prefix
+                    .trim_start()
+                    .chars()
+                    .take_while(|c| *c == '`' || *c == '~')
+                    .collect();
                 let mut body = text.replace("\r\n", "\n");
                 if !body.is_empty() && !body.ends_with('\n') {
                     body.push('\n');
@@ -254,10 +353,23 @@ pub fn apply(source: &str, edits: &[(usize, String)]) -> Result<String, EditErro
     let result = serialize(&doc.blocks);
     // The result must itself round-trip and keep every preserved block byte for byte.
     let check = parse(&result);
-    let preserved_before: Vec<String> = doc.blocks.iter().filter(|b| b.kind == BlockKind::Preserved).map(Block::raw).collect();
-    let preserved_after: Vec<String> = check.blocks.iter().filter(|b| b.kind == BlockKind::Preserved).map(Block::raw).collect();
-    if !check.exact || preserved_before != preserved_after || check.blocks.len() != doc.blocks.len() {
-        return Err(EditError::WouldChangeKind { index: edits.first().map_or(0, |e| e.0) });
+    let preserved_before: Vec<String> = doc
+        .blocks
+        .iter()
+        .filter(|b| b.kind == BlockKind::Preserved)
+        .map(Block::raw)
+        .collect();
+    let preserved_after: Vec<String> = check
+        .blocks
+        .iter()
+        .filter(|b| b.kind == BlockKind::Preserved)
+        .map(Block::raw)
+        .collect();
+    if !check.exact || preserved_before != preserved_after || check.blocks.len() != doc.blocks.len()
+    {
+        return Err(EditError::WouldChangeKind {
+            index: edits.first().map_or(0, |e| e.0),
+        });
     }
     Ok(result)
 }
@@ -293,7 +405,11 @@ mod tests {
     fn every_corpus_case_round_trips_byte_for_byte() {
         for source in CORPUS {
             let doc = parse(source);
-            assert!(doc.exact, "not exact: {source:?} -> {:?}", serialize(&doc.blocks));
+            assert!(
+                doc.exact,
+                "not exact: {source:?} -> {:?}",
+                serialize(&doc.blocks)
+            );
         }
     }
 
@@ -309,10 +425,17 @@ mod tests {
             ("---\ntitle: x\n---\n# H\n", 1),
         ] {
             let doc = parse(source);
-            assert_eq!(doc.preserved_blocks, preserved, "{source:?}: {:?}", doc.blocks);
+            assert_eq!(
+                doc.preserved_blocks, preserved,
+                "{source:?}: {:?}",
+                doc.blocks
+            );
             for (index, block) in doc.blocks.iter().enumerate() {
                 if block.kind == BlockKind::Preserved {
-                    assert_eq!(apply(source, &[(index, "x".into())]), Err(EditError::NotEditable { index }));
+                    assert_eq!(
+                        apply(source, &[(index, "x".into())]),
+                        Err(EditError::NotEditable { index })
+                    );
                 }
             }
         }
@@ -320,24 +443,69 @@ mod tests {
 
     #[test]
     fn edits_change_only_their_block_and_keep_everything_else() {
-        let source = "# Title\n\nOld text.\n\n- keep this list\n- exactly\n\n```js\nlet a = 1;\n```\n";
+        let source =
+            "# Title\n\nOld text.\n\n- keep this list\n- exactly\n\n```js\nlet a = 1;\n```\n";
         let doc = parse(source);
-        let heading = doc.blocks.iter().position(|b| b.kind == BlockKind::Heading).unwrap();
-        let paragraph = doc.blocks.iter().position(|b| b.kind == BlockKind::Paragraph).unwrap();
-        let code = doc.blocks.iter().position(|b| b.kind == BlockKind::Code).unwrap();
-        let edited = apply(source, &[(heading, "New title".into()), (paragraph, "New text\non two lines.".into()), (code, "let a = 2;".into())]).unwrap();
-        assert_eq!(edited, "# New title\n\nNew text\non two lines.\n\n- keep this list\n- exactly\n\n```js\nlet a = 2;\n```\n");
+        let heading = doc
+            .blocks
+            .iter()
+            .position(|b| b.kind == BlockKind::Heading)
+            .unwrap();
+        let paragraph = doc
+            .blocks
+            .iter()
+            .position(|b| b.kind == BlockKind::Paragraph)
+            .unwrap();
+        let code = doc
+            .blocks
+            .iter()
+            .position(|b| b.kind == BlockKind::Code)
+            .unwrap();
+        let edited = apply(
+            source,
+            &[
+                (heading, "New title".into()),
+                (paragraph, "New text\non two lines.".into()),
+                (code, "let a = 2;".into()),
+            ],
+        )
+        .unwrap();
+        assert_eq!(
+            edited,
+            "# New title\n\nNew text\non two lines.\n\n- keep this list\n- exactly\n\n```js\nlet a = 2;\n```\n"
+        );
         let crlf = "Hello\r\nworld\r\n";
-        assert_eq!(apply(crlf, &[(0, "Hi\nthere".into())]).unwrap(), "Hi\r\nthere\r\n");
+        assert_eq!(
+            apply(crlf, &[(0, "Hi\nthere".into())]).unwrap(),
+            "Hi\r\nthere\r\n"
+        );
     }
 
     #[test]
     fn edits_that_would_change_the_kind_are_refused() {
         let source = "# Title\n\nText.\n\n```\ncode\n```\n";
-        for (index, text) in [(0, "two\nlines"), (0, "ends with #"), (0, " "), (2, "- now a list"), (2, "para\n\nsplit"), (2, "# heading"), (2, "hard break  "), (4, "```\nbreak out")] {
-            assert!(matches!(apply(source, &[(index, text.into())]), Err(EditError::WouldChangeKind { .. })), "{index} {text:?}");
+        for (index, text) in [
+            (0, "two\nlines"),
+            (0, "ends with #"),
+            (0, " "),
+            (2, "- now a list"),
+            (2, "para\n\nsplit"),
+            (2, "# heading"),
+            (2, "hard break  "),
+            (4, "```\nbreak out"),
+        ] {
+            assert!(
+                matches!(
+                    apply(source, &[(index, text.into())]),
+                    Err(EditError::WouldChangeKind { .. })
+                ),
+                "{index} {text:?}"
+            );
         }
-        assert_eq!(apply(source, &[(99, "x".into())]), Err(EditError::NoSuchBlock { index: 99 }));
+        assert_eq!(
+            apply(source, &[(99, "x".into())]),
+            Err(EditError::NoSuchBlock { index: 99 })
+        );
     }
 
     #[test]

@@ -12,11 +12,11 @@ mod sidecar_harness;
 use sidecar_harness::*;
 
 use serde_json::{Value, json};
-use shinatama_hop::channel::{ControlKind, control_header, control_header_value};
 use shinatama_engine::sidecar_admin::{
     AdminTarget, CapabilityRead, SessionCapabilities, session_capabilities,
 };
 use shinatama_engine::sidecar_supervisor::{Command, Phase, Reason};
+use shinatama_hop::channel::{ControlKind, control_header, control_header_value};
 use std::{
     collections::BTreeMap,
     fs,
@@ -212,13 +212,18 @@ fn mismatched_hash_gets_ordinary_treatment() {
     )
     .expect("forward with a mismatched hash");
     let (_, message) = human_message(&wrong).expect("human message");
-    let received = message_text(message).join("
+    let received = message_text(message).join(
+        "
 <<next block>>
-");
+",
+    );
     assert_ne!(received, text, "a mismatched hash must not bypass");
     assert!(
-        received.starts_with("<acp tokens=\"") && received.ends_with(&format!("</acp>
-{text}")),
+        received.starts_with("<acp tokens=\"")
+            && received.ends_with(&format!(
+                "</acp>
+{text}"
+            )),
         "the tag is prepended as for any message: {received}"
     );
     let malformed = forward_with_header(
@@ -962,8 +967,8 @@ fn capabilities_match_what_the_origin_received() {
     let anthropic = new_session();
     open_session(sidecar.port, &origin, &anthropic, "A", "MARKER_A").expect("open the session");
     let calls = model_calls_by_session(&origin, &[&anthropic]).expect("attribute");
-    let sent = String::from_utf8_lossy(&calls[&anthropic].last().expect("a model call").body)
-        .into_owned();
+    let sent =
+        String::from_utf8_lossy(&calls[&anthropic].last().expect("a model call").body).into_owned();
     assert!(
         sent.contains("[acp-stored"),
         "the origin did not receive a placeholder"
@@ -992,7 +997,11 @@ fn capabilities_match_what_the_origin_received() {
     let received: Value = serde_json::from_str(&sent).expect("the origin body is JSON");
     let output = received["input"]
         .as_array()
-        .and_then(|items| items.iter().find(|item| item["type"] == "function_call_output"))
+        .and_then(|items| {
+            items
+                .iter()
+                .find(|item| item["type"] == "function_call_output")
+        })
         .and_then(|item| item["output"].as_str())
         .expect("a function_call_output reached the origin");
     assert_eq!(
@@ -1205,5 +1214,8 @@ fn large_png_reports_the_encoder_state_it_actually_used() {
         );
     }
     // No crash either way: the same process still answers.
-    assert_eq!(sidecar.health().expect("health")["pid"].as_u64(), pid_before);
+    assert_eq!(
+        sidecar.health().expect("health")["pid"].as_u64(),
+        pid_before
+    );
 }

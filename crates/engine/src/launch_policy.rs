@@ -78,10 +78,7 @@ pub struct LaunchPolicy {
     environment: Vec<(String, String)>,
 }
 impl LaunchPolicy {
-    pub fn new(
-        full_access: bool,
-        environment: Vec<(String, String)>,
-    ) -> Result<Self, PolicyError> {
+    pub fn new(full_access: bool, environment: Vec<(String, String)>) -> Result<Self, PolicyError> {
         if environment.len() > MAX_ENTRIES {
             return Err(PolicyError::TooMany);
         }
@@ -157,7 +154,9 @@ fn cell() -> &'static RwLock<LaunchPolicy> {
 }
 /// Replaces the policy for launches that start after this call.
 pub fn set_current(policy: LaunchPolicy) {
-    *cell().write().unwrap_or_else(|poisoned| poisoned.into_inner()) = policy;
+    *cell()
+        .write()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) = policy;
 }
 pub fn current() -> LaunchPolicy {
     cell()

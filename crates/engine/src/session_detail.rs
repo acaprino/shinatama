@@ -354,7 +354,13 @@ fn open_under(
         return Err(DetailIssue::SessionNotFound);
     }
     let bytes = guard.file_size(Path::new(&info.path))?;
-    Ok(Opened { guard, roots, reader, info, bytes })
+    Ok(Opened {
+        guard,
+        roots,
+        reader,
+        info,
+        bytes,
+    })
 }
 impl Opened {
     /// The session with every string cut to `max_string_bytes`: the entries, ids, kinds and
@@ -419,7 +425,8 @@ impl Opened {
         request: &DetailRequest,
         meta: &Meta,
     ) -> Result<String, DetailIssue> {
-        self.guard.verify_session_current(Path::new(&self.info.path))?;
+        self.guard
+            .verify_session_current(Path::new(&self.info.path))?;
         if meta.id != request.native_id || meta.harness != snapshot.harness {
             return Err(DetailIssue::SourceChanged);
         }
@@ -449,9 +456,11 @@ fn read(
     // The pinned Claude/Codex/Pi list readers do not supply session-parent
     // metadata. A complete list must never turn this into "zero children".
     let lineage = crate::session_lineage::derive_lineage(
-        &catalog, &request.native_id, crate::session_lineage::ParentMetadata::Unavailable,
+        &catalog,
+        &request.native_id,
+        crate::session_lineage::ParentMetadata::Unavailable,
     )
-        .map_err(|_| DetailIssue::InvalidRequest)?;
+    .map_err(|_| DetailIssue::InvalidRequest)?;
     project(snapshot, request, &session, fingerprint, lineage)
 }
 /// Mukade's overview of the session: what the list reads from the file's two ends. Constant
@@ -465,9 +474,11 @@ fn read_overview(
     let opened = open_session_file(snapshot, request)?;
     let info = &opened.info;
     let lineage = crate::session_lineage::derive_lineage(
-        std::slice::from_ref(info), &request.native_id, crate::session_lineage::ParentMetadata::Unavailable,
+        std::slice::from_ref(info),
+        &request.native_id,
+        crate::session_lineage::ParentMetadata::Unavailable,
     )
-        .map_err(|_| DetailIssue::InvalidRequest)?;
+    .map_err(|_| DetailIssue::InvalidRequest)?;
     // A change detector over what was read, never a cursor: an overview has no pages. The
     // file's size comes from the pinned namespace, since the overview carries none.
     let mut hash = Sha256::new();
@@ -587,16 +598,33 @@ fn project(
 }
 /// Targets of edit/write tool calls, deduplicated, newest last, bounded to 200 paths / 16 KiB.
 pub fn touched_paths(session: &Session) -> Vec<String> {
-    const WRITERS: [&str; 9] = ["edit", "write", "multiedit", "apply_patch", "str_replace", "create", "notebookedit", "write_file", "edit_file"];
+    const WRITERS: [&str; 9] = [
+        "edit",
+        "write",
+        "multiedit",
+        "apply_patch",
+        "str_replace",
+        "create",
+        "notebookedit",
+        "write_file",
+        "edit_file",
+    ];
     let mut out: Vec<String> = Vec::new();
     let mut bytes = 0;
     for entry in &session.entries {
-        let Kind::Step { calls, .. } = &entry.kind else { continue };
+        let Kind::Step { calls, .. } = &entry.kind else {
+            continue;
+        };
         for call in calls {
             if !WRITERS.contains(&call.source_name.to_ascii_lowercase().as_str()) {
                 continue;
             }
-            let Some(path) = ["file_path", "path", "notebook_path"].iter().find_map(|k| call.input.get(*k).and_then(|v| v.as_str())) else { continue };
+            let Some(path) = ["file_path", "path", "notebook_path"]
+                .iter()
+                .find_map(|k| call.input.get(*k).and_then(|v| v.as_str()))
+            else {
+                continue;
+            };
             if path.is_empty() || path.len() > 512 || path.chars().any(char::is_control) {
                 continue;
             }
@@ -618,23 +646,52 @@ pub fn touched_paths(session: &Session) -> Vec<String> {
 /// non-empty line of the last assistant text, redacted, at most 12 words.
 pub fn activity_title(session: &Session) -> Option<String> {
     let target = |input: &serde_json::Value| {
-        ["file_path", "path", "command", "cmd", "pattern", "query", "url", "description"]
-            .iter()
-            .find_map(|k| input.get(*k))
-            .map(|v| match v {
-                serde_json::Value::String(s) => s.clone(),
-                serde_json::Value::Array(a) => a.iter().filter_map(|x| x.as_str()).collect::<Vec<_>>().join(" "),
-                other => other.to_string(),
-            })
-            .unwrap_or_default()
+        [
+            "file_path",
+            "path",
+            "command",
+            "cmd",
+            "pattern",
+            "query",
+            "url",
+            "description",
+        ]
+        .iter()
+        .find_map(|k| input.get(*k))
+        .map(|v| match v {
+            serde_json::Value::String(s) => s.clone(),
+            serde_json::Value::Array(a) => a
+                .iter()
+                .filter_map(|x| x.as_str())
+                .collect::<Vec<_>>()
+                .join(" "),
+            other => other.to_string(),
+        })
+        .unwrap_or_default()
     };
-    let raw = session.entries.iter().rev().find_map(|entry| match &entry.kind {
-        Kind::Step { calls, text, .. } => calls
-            .last()
-            .map(|call| format!("{} {}", call.source_name, target(&call.input).lines().next().unwrap_or_default()))
-            .or_else(|| text.iter().rev().flat_map(|t| t.lines().rev()).find(|l| !l.trim().is_empty()).map(str::to_owned)),
-        _ => None,
-    })?;
+    let raw = session
+        .entries
+        .iter()
+        .rev()
+        .find_map(|entry| match &entry.kind {
+            Kind::Step { calls, text, .. } => calls
+                .last()
+                .map(|call| {
+                    format!(
+                        "{} {}",
+                        call.source_name,
+                        target(&call.input).lines().next().unwrap_or_default()
+                    )
+                })
+                .or_else(|| {
+                    text.iter()
+                        .rev()
+                        .flat_map(|t| t.lines().rev())
+                        .find(|l| !l.trim().is_empty())
+                        .map(str::to_owned)
+                }),
+            _ => None,
+        })?;
     let redacted = shinatama_export::Redactor::for_seed().redact(raw.trim());
     let words: Vec<&str> = redacted.split_whitespace().take(12).collect();
     (!words.is_empty()).then(|| words.join(" ").chars().take(160).collect())
@@ -647,13 +704,20 @@ pub(crate) fn session_ledger(session: &Session) -> shinatama_token_economy::Sess
         match &entry.kind {
             Kind::User { .. } => events.push(LedgerEvent::UserTurn),
             Kind::Step { calls, .. } => {
-                events.push(LedgerEvent::Step { records: &entry.raw });
+                events.push(LedgerEvent::Step {
+                    records: &entry.raw,
+                });
                 for call in calls {
-                    events.push(LedgerEvent::ToolCall { name: &call.source_name, input: &call.input });
+                    events.push(LedgerEvent::ToolCall {
+                        name: &call.source_name,
+                        input: &call.input,
+                    });
                 }
             }
             Kind::Compaction { .. } => events.push(LedgerEvent::Compaction),
-            Kind::Results { .. } | Kind::Meta { .. } => events.push(LedgerEvent::Other { records: &entry.raw }),
+            Kind::Results { .. } | Kind::Meta { .. } => events.push(LedgerEvent::Other {
+                records: &entry.raw,
+            }),
         }
     }
     shinatama_token_economy::build(events)
@@ -662,65 +726,80 @@ pub(crate) fn session_ledger(session: &Session) -> shinatama_token_economy::Sess
 // A count-only projection never evaluates text callbacks or allocates event data.
 pub(crate) fn visible_event_count(entry: &Entry) -> usize {
     let mut projection = Projection {
-        offset: usize::MAX, limit: 0, events: Vec::new(), total: 0, bytes: 0, full: false,
+        offset: usize::MAX,
+        limit: 0,
+        events: Vec::new(),
+        total: 0,
+        bytes: 0,
+        full: false,
     };
     project_entry(&mut projection, 0, entry);
     projection.total
 }
 fn project_entry(projection: &mut Projection, index: usize, entry: &Entry) {
-        match &entry.kind {
-            Kind::User { text, attachments } => {
-                projection.push(index, entry, DetailEventKind::UserText, false, || {
-                    clip([text.as_str()])
-                });
-                if !attachments.is_empty() {
-                    projection.push(index, entry, DetailEventKind::AttachmentOmitted, true, || clip(["Attachment references present; files and raw payloads are not opened."]));
-                }
-            }
-            Kind::Step {
-                text,
-                calls,
-                reasoning,
-                ..
-            } => {
-                projection.push(index, entry, DetailEventKind::AssistantText, false, || {
-                    clip(text.iter().map(String::as_str))
-                });
-                for call in calls {
-                    projection.push(index, entry, DetailEventKind::ToolCall, true, || {
+    match &entry.kind {
+        Kind::User { text, attachments } => {
+            projection.push(index, entry, DetailEventKind::UserText, false, || {
+                clip([text.as_str()])
+            });
+            if !attachments.is_empty() {
+                projection.push(
+                    index,
+                    entry,
+                    DetailEventKind::AttachmentOmitted,
+                    true,
+                    || {
                         clip([
-                            call.source_name.as_str(),
-                            "Tool arguments are not included in this preview.",
+                            "Attachment references present; files and raw payloads are not opened.",
                         ])
-                    });
-                }
-                if !reasoning.is_empty() {
-                    projection.push(
-                        index,
-                        entry,
-                        DetailEventKind::ReasoningOmitted,
-                        true,
-                        || clip(["Reasoning and signed/encrypted payloads are not displayed."]),
-                    );
-                }
+                    },
+                );
             }
-            Kind::Results { results } => {
-                for result in results {
-                    match &result.content {
+        }
+        Kind::Step {
+            text,
+            calls,
+            reasoning,
+            ..
+        } => {
+            projection.push(index, entry, DetailEventKind::AssistantText, false, || {
+                clip(text.iter().map(String::as_str))
+            });
+            for call in calls {
+                projection.push(index, entry, DetailEventKind::ToolCall, true, || {
+                    clip([
+                        call.source_name.as_str(),
+                        "Tool arguments are not included in this preview.",
+                    ])
+                });
+            }
+            if !reasoning.is_empty() {
+                projection.push(
+                    index,
+                    entry,
+                    DetailEventKind::ReasoningOmitted,
+                    true,
+                    || clip(["Reasoning and signed/encrypted payloads are not displayed."]),
+                );
+            }
+        }
+        Kind::Results { results } => {
+            for result in results {
+                match &result.content {
                     ResultContent::Text(text) => projection.push(index, entry, DetailEventKind::ToolResult, false, || clip([text.as_str()])),
                     ResultContent::Blocks(_) => projection.push(index, entry, DetailEventKind::ToolResult, true, || clip(["Structured tool result omitted; no raw or attachment content was requested."])),
                 }
-                }
             }
-            Kind::Compaction { summary, .. } => {
-                projection.push(index, entry, DetailEventKind::Compaction, false, || {
-                    clip([summary.as_str()])
-                })
-            }
-            Kind::Meta { .. } => projection.push(index, entry, DetailEventKind::Meta, true, || {
-                clip(["Native metadata record; raw content is not displayed."])
-            }),
         }
+        Kind::Compaction { summary, .. } => {
+            projection.push(index, entry, DetailEventKind::Compaction, false, || {
+                clip([summary.as_str()])
+            })
+        }
+        Kind::Meta { .. } => projection.push(index, entry, DetailEventKind::Meta, true, || {
+            clip(["Native metadata record; raw content is not displayed."])
+        }),
+    }
 }
 struct Projection {
     offset: usize,
@@ -821,102 +900,194 @@ mod tests {
     fn unrelated_writer(harness: &str) {
         use std::io::Write;
 
-        let fixture = Fixture(fs::canonicalize(std::env::temp_dir()).unwrap()
-            .join(format!("shinatama-detail-{}", uuid::Uuid::new_v4())));
+        let fixture = Fixture(
+            fs::canonicalize(std::env::temp_dir())
+                .unwrap()
+                .join(format!("shinatama-detail-{}", uuid::Uuid::new_v4())),
+        );
         let location = StorageLocation::resolve(LocationRequest {
             local_data_directory: std::env::temp_dir(),
             home_override: Some(fixture.0.clone()),
             project_roots: Vec::new(),
             synchronized_roots: Vec::new(),
-        }).unwrap();
+        })
+        .unwrap();
         location.prepare_private_directory().unwrap();
         let native_id = "01a17e07-93f7-7a73-85c7-9f0205836600";
         let (relative, body) = if harness == "codex" {
-            (format!("sessions/2026/11/16/rollout-2026-11-16T12-00-00-{native_id}.jsonl"),
-                format!("{}\n{}\n",
+            (
+                format!("sessions/2026/11/16/rollout-2026-11-16T12-00-00-{native_id}.jsonl"),
+                format!(
+                    "{}\n{}\n",
                     serde_json::json!({"type":"session_meta","payload":{"id":native_id,"cwd":"C:\\synthetic-project","timestamp":"2026-11-16T12:00:00Z","cli_version":"synthetic"}}),
-                    serde_json::json!({"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"hello"}]}})))
+                    serde_json::json!({"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"hello"}]}})
+                ),
+            )
         } else {
-            (format!("projects/fixture-project/{native_id}.jsonl"),
-                format!("{}\n", serde_json::json!({"type":"user","uuid":"entry-user","sessionId":native_id,
-                    "cwd":"C:\\synthetic-project","timestamp":"2026-11-16T12:00:00Z","message":{"role":"user","content":"hello"}})))
+            (
+                format!("projects/fixture-project/{native_id}.jsonl"),
+                format!(
+                    "{}\n",
+                    serde_json::json!({"type":"user","uuid":"entry-user","sessionId":native_id,
+                    "cwd":"C:\\synthetic-project","timestamp":"2026-11-16T12:00:00Z","message":{"role":"user","content":"hello"}})
+                ),
+            )
         };
         let selected = location.directory().join(&relative);
         fs::create_dir_all(selected.parent().unwrap()).unwrap();
         fs::write(&selected, &body).unwrap();
-        let other = location.directory().join(relative.replace(native_id, "01a17e07-93f7-7a73-85c7-9f0205836601"));
-        fs::write(&other, body.replace(native_id, "01a17e07-93f7-7a73-85c7-9f0205836601")).unwrap();
+        let other = location
+            .directory()
+            .join(relative.replace(native_id, "01a17e07-93f7-7a73-85c7-9f0205836601"));
+        fs::write(
+            &other,
+            body.replace(native_id, "01a17e07-93f7-7a73-85c7-9f0205836601"),
+        )
+        .unwrap();
         let index = location.directory().join("session_index.jsonl");
         if harness == "codex" {
             fs::write(&index, "").unwrap();
         }
         let record = StoreRootRecord {
-            id: "concurrent-detail-root".into(), harness: harness.into(),
-            kind: RootKind::Box, scope: RootScope::Primary,
-            resolved_path: location.directory().to_string_lossy().trim_start_matches(r"\\?\").into(),
-            origin: RootOrigin::Configured, config_revision: 1,
-            access: RootAccess::ReadWrite, available: true,
+            id: "concurrent-detail-root".into(),
+            harness: harness.into(),
+            kind: RootKind::Box,
+            scope: RootScope::Primary,
+            resolved_path: location
+                .directory()
+                .to_string_lossy()
+                .trim_start_matches(r"\\?\")
+                .into(),
+            origin: RootOrigin::Configured,
+            config_revision: 1,
+            access: RootAccess::ReadWrite,
+            available: true,
         };
-        let root = RootSelector { store_root_id: record.id.clone(), configuration_revision: 1 };
+        let root = RootSelector {
+            store_root_id: record.id.clone(),
+            configuration_revision: 1,
+        };
         let snapshot = TrustedRootSnapshot::from_record(&record, &root).unwrap();
-        let request = DetailRequest { root, native_id: native_id.into(), cursor: None, limit: 1, overview_only: true };
+        let request = DetailRequest {
+            root,
+            native_id: native_id.into(),
+            cursor: None,
+            limit: 1,
+            overview_only: true,
+        };
         let opened = open(&snapshot, &request).unwrap();
         // A different running agent writes while the chosen session is being read.
-        fs::OpenOptions::new().append(true).open(&other).unwrap().write_all(b"\n").unwrap();
+        fs::OpenOptions::new()
+            .append(true)
+            .open(&other)
+            .unwrap()
+            .write_all(b"\n")
+            .unwrap();
         if harness == "codex" {
             fs::OpenOptions::new().append(true).open(&index).unwrap().write_all(
                 b"{\"id\":\"01a17e07-93f7-7a73-85c7-9f0205836601\",\"thread_name\":\"Other thread\"}\n").unwrap();
         }
-        assert!(opened.clipped(&snapshot, &request, 4096).is_ok(),
-            "{harness}: an unrelated writer must not invalidate the chosen session");
+        assert!(
+            opened.clipped(&snapshot, &request, 4096).is_ok(),
+            "{harness}: an unrelated writer must not invalidate the chosen session"
+        );
         // Archive-wide listings still require all their inputs to remain stable.
-        assert!(matches!(opened.guard.verify_current(), Err(SessionReadIssue::SourceChanged)));
+        assert!(matches!(
+            opened.guard.verify_current(),
+            Err(SessionReadIssue::SourceChanged)
+        ));
         // Changes to the chosen transcript must still be refused.
-        fs::OpenOptions::new().append(true).open(&selected).unwrap().write_all(b"\n").unwrap();
-        assert!(matches!(opened.clipped(&snapshot, &request, 4096), Err(DetailIssue::SourceChanged)));
+        fs::OpenOptions::new()
+            .append(true)
+            .open(&selected)
+            .unwrap()
+            .write_all(b"\n")
+            .unwrap();
+        assert!(matches!(
+            opened.clipped(&snapshot, &request, 4096),
+            Err(DetailIssue::SourceChanged)
+        ));
     }
     /// 2026-11-19: the overview of a session, which is all Resume reads, is of its own file.
     /// The files of its folder (one workflow run wrote 5,249 subagent files there) are not
     /// pinned for it, and a subagent writing one meanwhile does not refuse it.
     #[test]
     fn an_overview_is_not_refused_by_what_its_session_folder_holds() {
-        let fixture = Fixture(fs::canonicalize(std::env::temp_dir()).unwrap()
-            .join(format!("shinatama-detail-{}", uuid::Uuid::new_v4())));
+        let fixture = Fixture(
+            fs::canonicalize(std::env::temp_dir())
+                .unwrap()
+                .join(format!("shinatama-detail-{}", uuid::Uuid::new_v4())),
+        );
         let location = StorageLocation::resolve(LocationRequest {
             local_data_directory: std::env::temp_dir(),
             home_override: Some(fixture.0.clone()),
             project_roots: Vec::new(),
             synchronized_roots: Vec::new(),
-        }).unwrap();
+        })
+        .unwrap();
         location.prepare_private_directory().unwrap();
         let native_id = "01a17e07-93f7-7a73-85c7-9f0205836600";
-        let transcript = location.directory().join(format!("projects/fixture-project/{native_id}.jsonl"));
-        let subagents = location.directory().join(format!("projects/fixture-project/{native_id}/subagents"));
+        let transcript = location
+            .directory()
+            .join(format!("projects/fixture-project/{native_id}.jsonl"));
+        let subagents = location
+            .directory()
+            .join(format!("projects/fixture-project/{native_id}/subagents"));
         fs::create_dir_all(&subagents).unwrap();
         fs::write(&transcript, format!("{}\n", serde_json::json!({"type":"user","uuid":"entry-user","sessionId":native_id,
             "cwd":"C:\\synthetic-project","timestamp":"2026-11-19T12:00:00Z","message":{"role":"user","content":"hello"}}))).unwrap();
-        let child = format!("{}\n", serde_json::json!({"type":"user","uuid":"entry-child","sessionId":native_id,"isSidechain":true,
-            "cwd":"C:\\synthetic-project","timestamp":"2026-11-19T12:00:01Z","message":{"role":"user","content":"task"}}));
+        let child = format!(
+            "{}\n",
+            serde_json::json!({"type":"user","uuid":"entry-child","sessionId":native_id,"isSidechain":true,
+            "cwd":"C:\\synthetic-project","timestamp":"2026-11-19T12:00:01Z","message":{"role":"user","content":"task"}})
+        );
         fs::write(subagents.join("agent-a1.jsonl"), &child).unwrap();
         let record = StoreRootRecord {
-            id: "session-folder-root".into(), harness: "claude_code".into(),
-            kind: RootKind::Box, scope: RootScope::Primary,
-            resolved_path: location.directory().to_string_lossy().trim_start_matches(r"\\?\").into(),
-            origin: RootOrigin::Configured, config_revision: 1,
-            access: RootAccess::ReadWrite, available: true,
+            id: "session-folder-root".into(),
+            harness: "claude_code".into(),
+            kind: RootKind::Box,
+            scope: RootScope::Primary,
+            resolved_path: location
+                .directory()
+                .to_string_lossy()
+                .trim_start_matches(r"\\?\")
+                .into(),
+            origin: RootOrigin::Configured,
+            config_revision: 1,
+            access: RootAccess::ReadWrite,
+            available: true,
         };
-        let root = RootSelector { store_root_id: record.id.clone(), configuration_revision: 1 };
+        let root = RootSelector {
+            store_root_id: record.id.clone(),
+            configuration_revision: 1,
+        };
         let snapshot = TrustedRootSnapshot::from_record(&record, &root).unwrap();
-        let request = DetailRequest { root, native_id: native_id.into(), cursor: None, limit: 1, overview_only: true };
+        let request = DetailRequest {
+            root,
+            native_id: native_id.into(),
+            cursor: None,
+            limit: 1,
+            overview_only: true,
+        };
         let opened = open_session_file(&snapshot, &request).unwrap();
-        assert_eq!(opened.guard.file_count(), 1, "only the session file is pinned for an overview");
+        assert_eq!(
+            opened.guard.file_count(),
+            1,
+            "only the session file is pinned for an overview"
+        );
         // A subagent of a running session writes a new transcript during the read.
         fs::write(subagents.join("agent-b2.jsonl"), &child).unwrap();
-        opened.guard.verify_session_current(Path::new(&opened.info.path)).unwrap();
+        opened
+            .guard
+            .verify_session_current(Path::new(&opened.info.path))
+            .unwrap();
         drop(opened);
         let reply = read_detail(&snapshot, &request);
         assert!(reply.issue.is_none());
-        assert_eq!(reply.page.unwrap().overview.working_directory.as_deref(), Some("C:\\synthetic-project"));
+        assert_eq!(
+            reply.page.unwrap().overview.working_directory.as_deref(),
+            Some("C:\\synthetic-project")
+        );
         // A read that follows the session into its folder still pins all of it.
         assert_eq!(open(&snapshot, &request).unwrap().guard.file_count(), 3);
     }
@@ -926,40 +1097,66 @@ mod tests {
     /// fail as an unsafe namespace ("unavailable") instead of "no such conversation".
     #[test]
     fn a_claude_session_known_only_from_its_history_is_not_found() {
-        let fixture = Fixture(fs::canonicalize(std::env::temp_dir()).unwrap()
-            .join(format!("shinatama-detail-{}", uuid::Uuid::new_v4())));
+        let fixture = Fixture(
+            fs::canonicalize(std::env::temp_dir())
+                .unwrap()
+                .join(format!("shinatama-detail-{}", uuid::Uuid::new_v4())),
+        );
         let location = StorageLocation::resolve(LocationRequest {
             local_data_directory: std::env::temp_dir(),
             home_override: Some(fixture.0.clone()),
             project_roots: Vec::new(),
             synchronized_roots: Vec::new(),
-        }).unwrap();
+        })
+        .unwrap();
         location.prepare_private_directory().unwrap();
         let native_id = "e32608a8-01a0-4a63-a51f-25c500c8a2e2";
         let said = "01a17e07-93f7-7a73-85c7-9f0205836601";
-        let transcript = location.directory().join(format!("projects/fixture-project/{said}.jsonl"));
+        let transcript = location
+            .directory()
+            .join(format!("projects/fixture-project/{said}.jsonl"));
         fs::create_dir_all(transcript.parent().unwrap()).unwrap();
         fs::write(&transcript, format!("{}\n", serde_json::json!({"type":"user","uuid":"entry-user","sessionId":said,
             "cwd":"C:\\synthetic-project","timestamp":"2026-11-18T12:00:00Z","message":{"role":"user","content":"hello"}}))).unwrap();
         fs::write(location.directory().join("history.jsonl"), format!("{}\n", serde_json::json!({"display":"/resume",
             "pastedContents":{},"timestamp":1_794_999_806_382_i64,"project":"C:\\synthetic-project","sessionId":native_id}))).unwrap();
         let record = StoreRootRecord {
-            id: "history-only-root".into(), harness: "claude_code".into(),
-            kind: RootKind::Box, scope: RootScope::Primary,
-            resolved_path: location.directory().to_string_lossy().trim_start_matches(r"\\?\").into(),
-            origin: RootOrigin::Configured, config_revision: 1,
-            access: RootAccess::ReadWrite, available: true,
+            id: "history-only-root".into(),
+            harness: "claude_code".into(),
+            kind: RootKind::Box,
+            scope: RootScope::Primary,
+            resolved_path: location
+                .directory()
+                .to_string_lossy()
+                .trim_start_matches(r"\\?\")
+                .into(),
+            origin: RootOrigin::Configured,
+            config_revision: 1,
+            access: RootAccess::ReadWrite,
+            available: true,
         };
-        let root = RootSelector { store_root_id: record.id.clone(), configuration_revision: 1 };
+        let root = RootSelector {
+            store_root_id: record.id.clone(),
+            configuration_revision: 1,
+        };
         let snapshot = TrustedRootSnapshot::from_record(&record, &root).unwrap();
-        let request = DetailRequest { root, native_id: native_id.into(), cursor: None, limit: 1, overview_only: true };
+        let request = DetailRequest {
+            root,
+            native_id: native_id.into(),
+            cursor: None,
+            limit: 1,
+            overview_only: true,
+        };
         let refused = open(&snapshot, &request).err();
         assert_eq!(refused, Some(DetailIssue::SessionNotFound));
         let reply = read_detail(&snapshot, &request);
         assert!(reply.page.is_none());
         assert!(matches!(reply.issue, Some(DetailIssue::SessionNotFound)));
         // The session that has a transcript still opens.
-        let request = DetailRequest { native_id: said.into(), ..request };
+        let request = DetailRequest {
+            native_id: said.into(),
+            ..request
+        };
         assert!(open(&snapshot, &request).is_ok());
     }
     #[test]
@@ -1100,11 +1297,19 @@ mod tests {
             .unwrap();
         assert_eq!(result.text, "é".repeat(2048));
         assert!(result.truncated);
-        assert!(large_page.notices.iter().all(|notice| !notice.contains("16 MiB")));
+        assert!(
+            large_page
+                .notices
+                .iter()
+                .all(|notice| !notice.contains("16 MiB"))
+        );
         assert_eq!(large_page.fingerprint.len(), 64);
         assert_ne!(large_page.fingerprint, first_page_fingerprint);
         assert_eq!(fs::read(&path).unwrap(), grown.as_bytes());
-        request.cursor = Some(DetailCursor { offset: 0, fingerprint: large_page.fingerprint.clone() });
+        request.cursor = Some(DetailCursor {
+            offset: 0,
+            fingerprint: large_page.fingerprint.clone(),
+        });
         assert!(read_detail(&snapshot, &request).issue.is_none());
         request.cursor = None;
         // An overview is Mukade's: the file's two ends, so no session is too large for it either.
@@ -1112,10 +1317,16 @@ mod tests {
         let overview = read_detail(&snapshot, &request);
         assert!(overview.issue.is_none(), "{:?}", overview.issue);
         let page = overview.page.unwrap();
-        assert_eq!(page.overview.working_directory.as_deref(), Some("C:\\synthetic-project"));
+        assert_eq!(
+            page.overview.working_directory.as_deref(),
+            Some("C:\\synthetic-project")
+        );
         assert!(page.events.is_empty() && page.next.is_none() && page.total_events == 0);
         assert_eq!(page.fingerprint.len(), 64);
-        request.cursor = Some(DetailCursor { offset: 0, fingerprint: page.fingerprint });
+        request.cursor = Some(DetailCursor {
+            offset: 0,
+            fingerprint: page.fingerprint,
+        });
         assert_eq!(
             read_detail(&snapshot, &request).issue,
             Some(DetailIssue::InvalidRequest)
@@ -1162,7 +1373,12 @@ pub(crate) mod large_fixture {
     impl Drop for LargeSession {
         fn drop(&mut self) {
             if self.dir.parent() == Some(fs::canonicalize(std::env::temp_dir()).unwrap().as_path())
-                && self.dir.file_name().unwrap().to_string_lossy().starts_with("shinatama-large-")
+                && self
+                    .dir
+                    .file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .starts_with("shinatama-large-")
             {
                 let _ = fs::remove_dir_all(&self.dir);
             }
@@ -1199,16 +1415,25 @@ pub(crate) mod large_fixture {
         let project = location.directory().join("projects/large-project");
         fs::create_dir_all(&project).unwrap();
         let path = project.join(format!("{SESSION}.jsonl"));
-        let mut rows = vec![serde_json::json!({"type":"user","uuid":"u1","parentUuid":null,"sessionId":SESSION,
-            "cwd":"C:\\synthetic-project","timestamp":"2026-11-13T00:00:00Z","message":{"role":"user","content":"read the big file"}})];
+        let mut rows = vec![
+            serde_json::json!({"type":"user","uuid":"u1","parentUuid":null,"sessionId":SESSION,
+            "cwd":"C:\\synthetic-project","timestamp":"2026-11-13T00:00:00Z","message":{"role":"user","content":"read the big file"}}),
+        ];
         let mut parent = "u1".to_owned();
         for index in 0..results {
             let big = if index == 0 {
                 let head = result_bytes * 12 / 17;
-                format!("{}{DEEP_MARKER}{}", "a".repeat(head), "b".repeat(result_bytes - head - DEEP_MARKER.len()))
+                format!(
+                    "{}{DEEP_MARKER}{}",
+                    "a".repeat(head),
+                    "b".repeat(result_bytes - head - DEEP_MARKER.len())
+                )
             } else {
-                format!("result {index}
-{}", "c".repeat(result_bytes))
+                format!(
+                    "result {index}
+{}",
+                    "c".repeat(result_bytes)
+                )
             };
             rows.push(serde_json::json!({"type":"assistant","uuid":format!("a{index}"),"parentUuid":parent,"sessionId":SESSION,
                 "message":{"id":format!("m{index}"),"role":"assistant","model":"fixture-model","stop_reason":"tool_use",
@@ -1231,17 +1456,31 @@ pub(crate) mod large_fixture {
             harness: "claude_code".into(),
             kind: RootKind::Box,
             scope: RootScope::Primary,
-            resolved_path: location.directory().to_string_lossy().trim_start_matches(r"\\?\").into(),
+            resolved_path: location
+                .directory()
+                .to_string_lossy()
+                .trim_start_matches(r"\\?\")
+                .into(),
             origin: RootOrigin::Configured,
             config_revision: 1,
             access: RootAccess::ReadWrite,
             available: true,
         };
-        let root = RootSelector { store_root_id: record.id.clone(), configuration_revision: 1 };
+        let root = RootSelector {
+            store_root_id: record.id.clone(),
+            configuration_revision: 1,
+        };
         let snapshot = TrustedRootSnapshot::from_record(&record, &root).unwrap();
         let bytes = text.len() as u64;
         assert!(bytes >= (results * result_bytes) as u64, "{bytes}");
-        LargeSession { dir, snapshot, root, path, bytes, root_path: PathBuf::from(&record.resolved_path) }
+        LargeSession {
+            dir,
+            snapshot,
+            root,
+            path,
+            bytes,
+            root_path: PathBuf::from(&record.resolved_path),
+        }
     }
 }
 
@@ -1264,8 +1503,15 @@ mod ledger_tests {
         ]))
         .unwrap();
         let ledger = super::session_ledger(&session);
-        assert_eq!(super::activity_title(&session).as_deref(), Some("Read a"), "the last tool call wins");
-        assert!(super::touched_paths(&session).is_empty(), "reads are not writes");
+        assert_eq!(
+            super::activity_title(&session).as_deref(),
+            Some("Read a"),
+            "the last tool call wins"
+        );
+        assert!(
+            super::touched_paths(&session).is_empty(),
+            "reads are not writes"
+        );
         assert_eq!(ledger.turns, 2);
         assert_eq!(ledger.requests, 2);
         assert_eq!(ledger.total.cache_read, 96);

@@ -46,7 +46,10 @@ pub struct StandbyPool {
 
 impl StandbyPool {
     pub fn new(settings: StandbySettings) -> Self {
-        Self { settings, entries: Vec::new() }
+        Self {
+            settings,
+            entries: Vec::new(),
+        }
     }
     pub fn entries(&self) -> &[Standby] {
         &self.entries
@@ -56,7 +59,11 @@ impl StandbyPool {
     }
     /// The runtime should start a hidden instance for this project and agent.
     pub fn wanted(&self, project: &str, agent: &str) -> bool {
-        self.allowed(agent) && !self.entries.iter().any(|e| e.project == project && e.agent == agent)
+        self.allowed(agent)
+            && !self
+                .entries
+                .iter()
+                .any(|e| e.project == project && e.agent == agent)
     }
     pub fn add(&mut self, standby: Standby) -> Result<(), &'static str> {
         if !self.wanted(&standby.project, &standby.agent) {
@@ -79,7 +86,13 @@ impl StandbyPool {
         }
     }
     /// A fresh, input-free standby for the hop, removed from the pool.
-    pub fn take(&mut self, project: &str, agent: &str, version: &str, now_ms: i64) -> Option<Standby> {
+    pub fn take(
+        &mut self,
+        project: &str,
+        agent: &str,
+        version: &str,
+        now_ms: i64,
+    ) -> Option<Standby> {
         let index = self.entries.iter().position(|e| {
             e.project == project
                 && e.agent == agent
@@ -90,7 +103,11 @@ impl StandbyPool {
         self.allowed(agent).then(|| self.entries.remove(index))
     }
     /// Entries the runtime must stop, with the reason.
-    pub fn expire(&mut self, now_ms: i64, installed_version: &dyn Fn(&str) -> Option<String>) -> Vec<(Standby, Discard)> {
+    pub fn expire(
+        &mut self,
+        now_ms: i64,
+        installed_version: &dyn Fn(&str) -> Option<String>,
+    ) -> Vec<(Standby, Discard)> {
         let mut gone = Vec::new();
         let mut kept = Vec::new();
         for entry in self.entries.drain(..) {
@@ -98,7 +115,9 @@ impl StandbyPool {
                 Some(Discard::Disabled)
             } else if entry.input_bytes != 0 {
                 Some(Discard::InputSeen)
-            } else if installed_version(&entry.agent).as_deref() != Some(entry.agent_version.as_str()) {
+            } else if installed_version(&entry.agent).as_deref()
+                != Some(entry.agent_version.as_str())
+            {
                 Some(Discard::VersionChanged)
             } else if now_ms - entry.project_used_at_ms > IDLE_EXPIRY_MS {
                 Some(Discard::Idle)
@@ -144,7 +163,13 @@ fn median(mut values: Vec<u64>) -> Option<u64> {
 
 /// Medians against the R06 targets; no sample means no claim.
 pub fn summarize(samples: &[LatencySample]) -> LatencySummary {
-    let pick = |warm: bool| samples.iter().filter(|s| s.warm == warm).map(|s| s.ready_ms).collect::<Vec<_>>();
+    let pick = |warm: bool| {
+        samples
+            .iter()
+            .filter(|s| s.warm == warm)
+            .map(|s| s.ready_ms)
+            .collect::<Vec<_>>()
+    };
     let (warm, cold) = (pick(true), pick(false));
     let warm_median_ms = median(warm.clone());
     let cold_median_ms = median(cold.clone());
@@ -163,10 +188,21 @@ mod tests {
     use super::*;
 
     fn standby(instance: &str, version: &str, at: i64) -> Standby {
-        Standby { instance: instance.into(), project: "p".into(), agent: "codex".into(), agent_version: version.into(), created_at_ms: at, project_used_at_ms: at, input_bytes: 0 }
+        Standby {
+            instance: instance.into(),
+            project: "p".into(),
+            agent: "codex".into(),
+            agent_version: version.into(),
+            created_at_ms: at,
+            project_used_at_ms: at,
+            input_bytes: 0,
+        }
     }
     fn on() -> StandbySettings {
-        StandbySettings { enabled: true, agents: ["codex".to_owned()].into() }
+        StandbySettings {
+            enabled: true,
+            agents: ["codex".to_owned()].into(),
+        }
     }
 
     #[test]
@@ -196,13 +232,25 @@ mod tests {
         let mut pool = StandbyPool::new(on());
         pool.add(standby("i1", "1.0", 0)).unwrap();
         pool.project_used("p", 1_000);
-        assert!(pool.expire(1_000 + IDLE_EXPIRY_MS, &|_| Some("1.0".into())).is_empty());
-        assert_eq!(pool.expire(1_001 + IDLE_EXPIRY_MS, &|_| Some("1.0".into()))[0].1, Discard::Idle);
+        assert!(
+            pool.expire(1_000 + IDLE_EXPIRY_MS, &|_| Some("1.0".into()))
+                .is_empty()
+        );
+        assert_eq!(
+            pool.expire(1_001 + IDLE_EXPIRY_MS, &|_| Some("1.0".into()))[0].1,
+            Discard::Idle
+        );
         pool.add(standby("i2", "1.0", 0)).unwrap();
-        assert_eq!(pool.expire(5, &|_| Some("1.1".into()))[0].1, Discard::VersionChanged);
+        assert_eq!(
+            pool.expire(5, &|_| Some("1.1".into()))[0].1,
+            Discard::VersionChanged
+        );
         pool.add(standby("i3", "1.0", 0)).unwrap();
         pool.settings.enabled = false;
-        assert_eq!(pool.expire(5, &|_| Some("1.0".into()))[0].1, Discard::Disabled);
+        assert_eq!(
+            pool.expire(5, &|_| Some("1.0".into()))[0].1,
+            Discard::Disabled
+        );
         assert!(pool.entries().is_empty());
     }
 
@@ -220,11 +268,26 @@ mod tests {
     fn summary_reports_medians_against_targets_and_claims_nothing_without_samples() {
         assert_eq!(summarize(&[]), LatencySummary::default());
         let summary = summarize(&[
-            LatencySample { warm: true, ready_ms: 5_000 },
-            LatencySample { warm: true, ready_ms: 9_000 },
-            LatencySample { warm: false, ready_ms: 20_000 },
+            LatencySample {
+                warm: true,
+                ready_ms: 5_000,
+            },
+            LatencySample {
+                warm: true,
+                ready_ms: 9_000,
+            },
+            LatencySample {
+                warm: false,
+                ready_ms: 20_000,
+            },
         ]);
-        assert_eq!((summary.warm_median_ms, summary.warm_within_target), (Some(7_000), Some(true)));
-        assert_eq!((summary.cold_median_ms, summary.cold_within_target), (Some(20_000), Some(true)));
+        assert_eq!(
+            (summary.warm_median_ms, summary.warm_within_target),
+            (Some(7_000), Some(true))
+        );
+        assert_eq!(
+            (summary.cold_median_ms, summary.cold_within_target),
+            (Some(20_000), Some(true))
+        );
     }
 }

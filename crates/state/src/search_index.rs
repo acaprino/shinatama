@@ -18,7 +18,11 @@ pub const MAX_RESULTS: usize = 50;
 type Result<T> = std::result::Result<T, String>;
 fn forgotten(connection: &Connection, root_id: &str, native_id: &str) -> Result<bool> {
     connection
-        .query_row("SELECT EXISTS(SELECT 1 FROM forgotten WHERE root_id=?1 AND native_id=?2)", [root_id, native_id], |row| row.get(0))
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM forgotten WHERE root_id=?1 AND native_id=?2)",
+            [root_id, native_id],
+            |row| row.get(0),
+        )
         .map_err(sql)
 }
 fn sql(error: rusqlite::Error) -> String {
@@ -85,7 +89,12 @@ fn truncate(value: &str, cap: usize) -> &str {
 
 fn query_tokens(raw: &str) -> Vec<String> {
     raw.split_whitespace()
-        .map(|token| token.chars().filter(|c| !c.is_control()).collect::<String>())
+        .map(|token| {
+            token
+                .chars()
+                .filter(|c| !c.is_control())
+                .collect::<String>()
+        })
         .filter(|token| !token.is_empty())
         .take(MAX_QUERY_TOKENS)
         .collect()
@@ -479,7 +488,9 @@ impl SearchIndex {
                     .map_err(sql)?
             }
             None => {
-                transaction.execute("DELETE FROM doc_fts", []).map_err(sql)?;
+                transaction
+                    .execute("DELETE FROM doc_fts", [])
+                    .map_err(sql)?;
                 transaction.execute("DELETE FROM doc", []).map_err(sql)?
             }
         };
@@ -496,7 +507,8 @@ impl SearchIndex {
         let rows = statement
             .query_map([native_id], |row| row.get::<_, String>(0))
             .map_err(sql)?;
-        rows.collect::<std::result::Result<Vec<_>, _>>().map_err(sql)
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(sql)
     }
 
     /// Removes one session's indexed copy and keeps it out of later passes (forget of a thread,
@@ -507,9 +519,17 @@ impl SearchIndex {
         transaction
             .execute("DELETE FROM doc_fts WHERE rowid IN (SELECT id FROM doc WHERE root_id=?1 AND native_id=?2)", [root_id, native_id])
             .map_err(sql)?;
-        let removed = transaction.execute("DELETE FROM doc WHERE root_id=?1 AND native_id=?2", [root_id, native_id]).map_err(sql)?;
+        let removed = transaction
+            .execute(
+                "DELETE FROM doc WHERE root_id=?1 AND native_id=?2",
+                [root_id, native_id],
+            )
+            .map_err(sql)?;
         transaction
-            .execute("INSERT OR IGNORE INTO forgotten(root_id,native_id) VALUES(?1,?2)", [root_id, native_id])
+            .execute(
+                "INSERT OR IGNORE INTO forgotten(root_id,native_id) VALUES(?1,?2)",
+                [root_id, native_id],
+            )
             .map_err(sql)?;
         transaction.commit().map_err(sql)?;
         Ok(removed as u64)
@@ -526,7 +546,10 @@ impl SearchIndex {
             )
             .map_err(sql)?;
         let removed = transaction
-            .execute("DELETE FROM doc WHERE harness=?1 AND native_id=?2", [harness, native_id])
+            .execute(
+                "DELETE FROM doc WHERE harness=?1 AND native_id=?2",
+                [harness, native_id],
+            )
             .map_err(sql)?;
         transaction.commit().map_err(sql)?;
         Ok(removed as u64)
@@ -579,13 +602,37 @@ mod tests {
     fn corpus() -> SearchIndex {
         let index = SearchIndex::open_in_memory().unwrap();
         index
-            .upsert(&doc("r1", "a", "claude_code", "D:\\work\\alpha", "2026-11-01T10:00:00Z", "s1", "fix the parser crash in tokenizer"))
+            .upsert(&doc(
+                "r1",
+                "a",
+                "claude_code",
+                "D:\\work\\alpha",
+                "2026-11-01T10:00:00Z",
+                "s1",
+                "fix the parser crash in tokenizer",
+            ))
             .unwrap();
         index
-            .upsert(&doc("r1", "b", "codex", "D:\\work\\beta", "2026-11-03T10:00:00Z", "s1", "refactor the tokenizer and add tests"))
+            .upsert(&doc(
+                "r1",
+                "b",
+                "codex",
+                "D:\\work\\beta",
+                "2026-11-03T10:00:00Z",
+                "s1",
+                "refactor the tokenizer and add tests",
+            ))
             .unwrap();
         index
-            .upsert(&doc("r2", "c", "claude_code", "D:\\work\\alpha_2", "2026-10-01T10:00:00Z", "s1", "unrelated gardening notes"))
+            .upsert(&doc(
+                "r2",
+                "c",
+                "claude_code",
+                "D:\\work\\alpha_2",
+                "2026-10-01T10:00:00Z",
+                "s1",
+                "unrelated gardening notes",
+            ))
             .unwrap();
         index
     }
@@ -593,24 +640,66 @@ mod tests {
     #[test]
     fn matches_filters_by_agent_project_and_date() {
         let index = corpus();
-        let all = index.search("tokenizer", &SearchFilters::default(), 50).unwrap();
+        let all = index
+            .search("tokenizer", &SearchFilters::default(), 50)
+            .unwrap();
         assert_eq!(all.len(), 2);
         assert!(all[0].snippet.contains('«'));
         let by_agent = index
-            .search("tokenizer", &SearchFilters { harness: Some("codex".into()), ..Default::default() }, 50)
+            .search(
+                "tokenizer",
+                &SearchFilters {
+                    harness: Some("codex".into()),
+                    ..Default::default()
+                },
+                50,
+            )
             .unwrap();
-        assert_eq!(by_agent.iter().map(|h| h.native_id.as_str()).collect::<Vec<_>>(), ["b"]);
+        assert_eq!(
+            by_agent
+                .iter()
+                .map(|h| h.native_id.as_str())
+                .collect::<Vec<_>>(),
+            ["b"]
+        );
         let by_project = index
-            .search("tokenizer", &SearchFilters { project: Some("D:\\work\\alpha".into()), ..Default::default() }, 50)
+            .search(
+                "tokenizer",
+                &SearchFilters {
+                    project: Some("D:\\work\\alpha".into()),
+                    ..Default::default()
+                },
+                50,
+            )
             .unwrap();
         assert_eq!(by_project.len(), 1);
         assert_eq!(by_project[0].native_id, "a");
         let by_date = index
-            .search("tokenizer", &SearchFilters { from: Some("2026-11-02".into()), ..Default::default() }, 50)
+            .search(
+                "tokenizer",
+                &SearchFilters {
+                    from: Some("2026-11-02".into()),
+                    ..Default::default()
+                },
+                50,
+            )
             .unwrap();
-        assert_eq!(by_date.iter().map(|h| h.native_id.as_str()).collect::<Vec<_>>(), ["b"]);
+        assert_eq!(
+            by_date
+                .iter()
+                .map(|h| h.native_id.as_str())
+                .collect::<Vec<_>>(),
+            ["b"]
+        );
         let none = index
-            .search("tokenizer", &SearchFilters { to: Some("2026-10-15".into()), ..Default::default() }, 50)
+            .search(
+                "tokenizer",
+                &SearchFilters {
+                    to: Some("2026-10-15".into()),
+                    ..Default::default()
+                },
+                50,
+            )
             .unwrap();
         assert!(none.is_empty());
     }
@@ -618,28 +707,68 @@ mod tests {
     #[test]
     fn prefix_works_on_the_last_word_and_wildcards_in_paths_are_literal() {
         let index = corpus();
-        assert_eq!(index.search("tokeniz", &SearchFilters::default(), 50).unwrap().len(), 2);
+        assert_eq!(
+            index
+                .search("tokeniz", &SearchFilters::default(), 50)
+                .unwrap()
+                .len(),
+            2
+        );
         let literal = index
-            .search("tokenizer", &SearchFilters { project: Some("D:\\work\\%".into()), ..Default::default() }, 50)
+            .search(
+                "tokenizer",
+                &SearchFilters {
+                    project: Some("D:\\work\\%".into()),
+                    ..Default::default()
+                },
+                50,
+            )
             .unwrap();
-        assert!(literal.is_empty(), "% in a project filter must not act as a wildcard");
+        assert!(
+            literal.is_empty(),
+            "% in a project filter must not act as a wildcard"
+        );
     }
 
     #[test]
     fn hostile_queries_never_reach_fts_operators() {
         let index = corpus();
         for query in [
-            "\"", "tokenizer OR gardening", "NEAR(a b)", "title:tokenizer", "tokenizer*", "a\"b\"c", "-tokenizer",
-            "(", "'; DROP TABLE doc; --", "\u{0}\u{1}",
+            "\"",
+            "tokenizer OR gardening",
+            "NEAR(a b)",
+            "title:tokenizer",
+            "tokenizer*",
+            "a\"b\"c",
+            "-tokenizer",
+            "(",
+            "'; DROP TABLE doc; --",
+            "\u{0}\u{1}",
         ] {
             // Must not error from FTS syntax; literal tokens simply match or not.
             let result = index.search(query, &SearchFilters::default(), 50);
-            assert!(result.is_ok() || query.chars().all(char::is_control), "{query:?}");
+            assert!(
+                result.is_ok() || query.chars().all(char::is_control),
+                "{query:?}"
+            );
         }
-        assert!(index.search("tokenizer OR gardening", &SearchFilters::default(), 50).unwrap().is_empty());
+        assert!(
+            index
+                .search("tokenizer OR gardening", &SearchFilters::default(), 50)
+                .unwrap()
+                .is_empty()
+        );
         assert_eq!(index.status().unwrap().documents, 3);
         assert!(index.search("   ", &SearchFilters::default(), 50).is_err());
-        assert!(index.search(&"x".repeat(MAX_QUERY_BYTES + 1), &SearchFilters::default(), 50).is_err());
+        assert!(
+            index
+                .search(
+                    &"x".repeat(MAX_QUERY_BYTES + 1),
+                    &SearchFilters::default(),
+                    50
+                )
+                .is_err()
+        );
     }
 
     #[test]
@@ -648,19 +777,35 @@ mod tests {
         let huge = "word ".repeat(MAX_BODY_BYTES);
         for n in 0..(MAX_RESULTS + 10) {
             index
-                .upsert(&doc("r", &format!("s{n}"), "codex", "D:\\w", "2026-11-01", "x", &huge))
+                .upsert(&doc(
+                    "r",
+                    &format!("s{n}"),
+                    "codex",
+                    "D:\\w",
+                    "2026-11-01",
+                    "x",
+                    &huge,
+                ))
                 .unwrap();
         }
-        let hits = index.search("word", &SearchFilters::default(), 10_000).unwrap();
+        let hits = index
+            .search("word", &SearchFilters::default(), 10_000)
+            .unwrap();
         assert_eq!(hits.len(), MAX_RESULTS);
         assert!(hits.iter().all(|hit| hit.snippet.len() < 400));
-        assert!(index.status().unwrap().body_bytes <= (MAX_RESULTS as u64 + 10) * MAX_BODY_BYTES as u64);
+        assert!(
+            index.status().unwrap().body_bytes <= (MAX_RESULTS as u64 + 10) * MAX_BODY_BYTES as u64
+        );
     }
 
     #[test]
     fn excerpts_are_linear_bounded_and_utf8_safe() {
         let tokens = vec!["parser".to_owned()];
-        let text = format!("{}Parser crash here{}", "é".repeat(500), " tail".repeat(500));
+        let text = format!(
+            "{}Parser crash here{}",
+            "é".repeat(500),
+            " tail".repeat(500)
+        );
         let out = excerpt(&text, &tokens);
         assert!(out.contains("«Parser»"), "{out}");
         assert!(out.starts_with('…') && out.ends_with('…'));
@@ -682,10 +827,29 @@ mod tests {
         assert!(index.needs_index("r1", "a", "s2").unwrap());
         assert!(index.needs_index("r1", "new", "s1").unwrap());
         index
-            .upsert(&doc("r1", "a", "claude_code", "D:\\work\\alpha", "2026-11-05T10:00:00Z", "s2", "now about databases"))
+            .upsert(&doc(
+                "r1",
+                "a",
+                "claude_code",
+                "D:\\work\\alpha",
+                "2026-11-05T10:00:00Z",
+                "s2",
+                "now about databases",
+            ))
             .unwrap();
-        assert!(index.search("parser", &SearchFilters::default(), 50).unwrap().is_empty());
-        assert_eq!(index.search("databases", &SearchFilters::default(), 50).unwrap().len(), 1);
+        assert!(
+            index
+                .search("parser", &SearchFilters::default(), 50)
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            index
+                .search("databases", &SearchFilters::default(), 50)
+                .unwrap()
+                .len(),
+            1
+        );
         assert_eq!(index.status().unwrap().documents, 3);
     }
 
@@ -694,29 +858,71 @@ mod tests {
         let index = corpus();
         let present: HashSet<String> = ["a".to_owned()].into_iter().collect();
         assert_eq!(index.mark_missing("r1", &present).unwrap(), 1);
-        let hits = index.search("tokenizer", &SearchFilters::default(), 50).unwrap();
+        let hits = index
+            .search("tokenizer", &SearchFilters::default(), 50)
+            .unwrap();
         let b = hits.iter().find(|hit| hit.native_id == "b").unwrap();
         assert!(b.source_deleted);
-        assert!(!hits.iter().find(|hit| hit.native_id == "a").unwrap().source_deleted);
+        assert!(
+            !hits
+                .iter()
+                .find(|hit| hit.native_id == "a")
+                .unwrap()
+                .source_deleted
+        );
         // Another root is untouched.
-        assert!(!index.search("gardening", &SearchFilters::default(), 50).unwrap()[0].source_deleted);
+        assert!(
+            !index
+                .search("gardening", &SearchFilters::default(), 50)
+                .unwrap()[0]
+                .source_deleted
+        );
         assert_eq!(index.status().unwrap().source_deleted, 1);
         // A reappearing source is re-read once, then unflagged.
         assert!(index.needs_index("r1", "b", "s1").unwrap());
         index
-            .upsert(&doc("r1", "b", "codex", "D:\\work\\beta", "2026-11-03T10:00:00Z", "s1", "refactor the tokenizer and add tests"))
+            .upsert(&doc(
+                "r1",
+                "b",
+                "codex",
+                "D:\\work\\beta",
+                "2026-11-03T10:00:00Z",
+                "s1",
+                "refactor the tokenizer and add tests",
+            ))
             .unwrap();
-        assert!(!index.search("tokenizer", &SearchFilters::default(), 50).unwrap().iter().any(|hit| hit.source_deleted));
+        assert!(
+            !index
+                .search("tokenizer", &SearchFilters::default(), 50)
+                .unwrap()
+                .iter()
+                .any(|hit| hit.source_deleted)
+        );
     }
 
     #[test]
     fn forget_one_archive_or_all_and_disabling_stops_indexing() {
         let index = corpus();
         assert_eq!(index.forget(Some("r1")).unwrap(), 2);
-        assert!(index.search("tokenizer", &SearchFilters::default(), 50).unwrap().is_empty());
-        assert_eq!(index.search("gardening", &SearchFilters::default(), 50).unwrap().len(), 1);
+        assert!(
+            index
+                .search("tokenizer", &SearchFilters::default(), 50)
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            index
+                .search("gardening", &SearchFilters::default(), 50)
+                .unwrap()
+                .len(),
+            1
+        );
         index.set_enabled(false).unwrap();
-        assert!(index.upsert(&doc("r1", "z", "codex", "D:\\w", "2026-11-01", "x", "text")).is_err());
+        assert!(
+            index
+                .upsert(&doc("r1", "z", "codex", "D:\\w", "2026-11-01", "x", "text"))
+                .is_err()
+        );
         assert!(!index.status().unwrap().enabled);
         index.set_enabled(true).unwrap();
         assert_eq!(index.forget(None).unwrap(), 1);
@@ -740,8 +946,21 @@ mod tests {
         .unwrap();
         let database = Database::open(&location, None).unwrap();
         let index = SearchIndex::open(&location).unwrap();
-        index.upsert(&doc("r", "a", "codex", "D:\\w", "2026-11-01", "s", "hello world")).unwrap();
-        assert_ne!(location.database_path(), location.directory().join(FILE_NAME));
+        index
+            .upsert(&doc(
+                "r",
+                "a",
+                "codex",
+                "D:\\w",
+                "2026-11-01",
+                "s",
+                "hello world",
+            ))
+            .unwrap();
+        assert_ne!(
+            location.database_path(),
+            location.directory().join(FILE_NAME)
+        );
         assert!(location.directory().join(FILE_NAME).exists());
         let before = database.diagnostics().unwrap().schema_version;
         index.forget(None).unwrap();

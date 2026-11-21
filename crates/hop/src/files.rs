@@ -23,12 +23,20 @@ pub struct HandoffPaths {
 
 /// Where this hop's files go. `project` is the conversation's folder when it still exists.
 pub fn handoff_paths(project: Option<&Path>, data_dir: &Path, hop_id: &str) -> HandoffPaths {
-    let (root, in_repository) = match project.filter(|p| p.is_dir()).and_then(crate::git::common_dir) {
+    let (root, in_repository) = match project
+        .filter(|p| p.is_dir())
+        .and_then(crate::git::common_dir)
+    {
         Some(common) => (common.join("shinatama").join("handoffs"), true),
         None => (data_dir.join("handoffs"), false),
     };
     let dir = root.join(hop_id);
-    HandoffPaths { seed: dir.join(SEED_FILE), full: dir.join(FULL_FILE), dir, in_repository }
+    HandoffPaths {
+        seed: dir.join(SEED_FILE),
+        full: dir.join(FULL_FILE),
+        dir,
+        in_repository,
+    }
 }
 
 fn invalid(message: &str) -> io::Error {
@@ -40,8 +48,10 @@ fn write_private(path: &Path, bytes: &[u8]) -> io::Result<()> {
     file.write_all(bytes)?;
     file.sync_all()?;
     drop(file);
-    external::secure_private_file(path).map_err(|e| io::Error::new(io::ErrorKind::PermissionDenied, e.to_string()))?;
-    external::verify_private_file(path).map_err(|e| io::Error::new(io::ErrorKind::PermissionDenied, e.to_string()))
+    external::secure_private_file(path)
+        .map_err(|e| io::Error::new(io::ErrorKind::PermissionDenied, e.to_string()))?;
+    external::verify_private_file(path)
+        .map_err(|e| io::Error::new(io::ErrorKind::PermissionDenied, e.to_string()))
 }
 
 /// Creates the hop folder owner-only and writes both files once (never overwrites).
@@ -49,16 +59,24 @@ pub fn write_handoff(paths: &HandoffPaths, seed: &str, full: &str) -> io::Result
     if full.len() > MAX_FULL_BYTES {
         return Err(invalid("The full transcript exceeds 64 MiB."));
     }
-    let name = paths.dir.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+    let name = paths
+        .dir
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_default();
     if name.len() != 32 || !name.bytes().all(|c| c.is_ascii_hexdigit()) {
         return Err(invalid("The hop id is not a simple UUID."));
     }
     let fresh = !paths.dir.exists();
-    let _guards = external::prepare_private_directory(&paths.dir).map_err(|e| io::Error::new(io::ErrorKind::PermissionDenied, e.to_string()))?;
+    let _guards = external::prepare_private_directory(&paths.dir)
+        .map_err(|e| io::Error::new(io::ErrorKind::PermissionDenied, e.to_string()))?;
     // Remove only what this call created; an existing hand-off is never touched.
     let mut created = Vec::new();
     let mut result = Ok(());
-    for (path, bytes) in [(&paths.full, full.as_bytes()), (&paths.seed, seed.as_bytes())] {
+    for (path, bytes) in [
+        (&paths.full, full.as_bytes()),
+        (&paths.seed, seed.as_bytes()),
+    ] {
         match write_private(path, bytes) {
             Ok(()) => created.push(path.clone()),
             Err(error) => {
@@ -87,20 +105,40 @@ mod tests {
 
     #[test]
     fn git_projects_use_the_common_dir_and_others_the_data_folder() {
-        let base = std::env::temp_dir().join(format!("shinatama-handoff-{}", uuid::Uuid::new_v4().simple()));
+        let base = std::env::temp_dir().join(format!(
+            "shinatama-handoff-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
         let project = base.join("proj");
         std::fs::create_dir_all(project.join(".git")).unwrap();
         std::fs::create_dir_all(base.join("data")).unwrap();
         let id = uuid::Uuid::new_v4().simple().to_string();
         let paths = handoff_paths(Some(&project), &base.join("data"), &id);
         assert!(paths.in_repository);
-        assert_eq!(paths.dir, project.join(".git").join("shinatama").join("handoffs").join(&id));
+        assert_eq!(
+            paths.dir,
+            project
+                .join(".git")
+                .join("shinatama")
+                .join("handoffs")
+                .join(&id)
+        );
         write_handoff(&paths, "seed", "full").unwrap();
         assert_eq!(std::fs::read_to_string(&paths.seed).unwrap(), "seed");
-        assert!(write_handoff(&paths, "again", "again").is_err(), "files are written once");
+        assert!(
+            write_handoff(&paths, "again", "again").is_err(),
+            "files are written once"
+        );
         assert_eq!(std::fs::read_to_string(&paths.full).unwrap(), "full");
-        let entries: Vec<_> = std::fs::read_dir(&project).unwrap().map(|e| e.unwrap().file_name()).collect();
-        assert_eq!(entries, [std::ffi::OsString::from(".git")], "nothing lands in the working tree");
+        let entries: Vec<_> = std::fs::read_dir(&project)
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert_eq!(
+            entries,
+            [std::ffi::OsString::from(".git")],
+            "nothing lands in the working tree"
+        );
         let plain = handoff_paths(Some(&base.join("data")), &base.join("data"), &id);
         assert!(!plain.in_repository);
         assert_eq!(plain.dir, base.join("data").join("handoffs").join(&id));

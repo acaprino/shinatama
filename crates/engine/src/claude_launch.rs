@@ -3,12 +3,12 @@
 //! No provider request, login, user credential read, shell or marketplace install.
 #![cfg(windows)]
 use crate::{
-    marionette::{self, Adapter, Host, Marionette, is_marionette_set},
     claude_mods::{self, ClaudeMods},
     claude_probe::{ClaudeProbeOutcome, ProbeCleanup},
     claude_session_events::ClaudeSessionEventReceiver,
     launch::{LaunchInputs, PreparedLaunch, compose_launch, identity::LaunchIdentity},
     launch_policy::LaunchPolicy,
+    marionette::{self, Adapter, Host, Marionette, is_marionette_set},
     native_launch::{
         NativeAdmissionProfile, NativeLaunchBinding, NativeLaunchError, NativeLaunchPins,
         NativeTrialReceipt, NativeTrialTracker, NativeTuiPermit,
@@ -274,7 +274,11 @@ fn profile(tracked: bool) -> Result<NativeAdmissionProfile, ClaudeLaunchError> {
         1,
         Budget {
             memory_bytes: 1024 * MIB,
-            processes: if tracked { TRACKED_PROCESSES } else { SAFE_PROCESSES },
+            processes: if tracked {
+                TRACKED_PROCESSES
+            } else {
+                SAFE_PROCESSES
+            },
             cpu_basis_points: 1000,
             queue_bytes: 4 * MIB,
             queue_items: 512,
@@ -681,7 +685,9 @@ fn prepare(
     // Hooks that cannot be written leave the session an ordinary one, never a failed launch.
     let chat = session
         .and_then(|session| session.chat.as_ref())
-        .filter(|chat| mukade.is_some() && session_events.is_some() && chat.claude_hooks().is_some());
+        .filter(|chat| {
+            mukade.is_some() && session_events.is_some() && chat.claude_hooks().is_some()
+        });
     if let Some(chat) = chat {
         merge_chat_hooks(&mut settings, chat)?;
         crate::mukade_chat::note_launch(context.thread_id, chat.room_id());
@@ -1044,9 +1050,8 @@ fn apply_terminal_palette(
 /// Control unavailable while it is present, and the switches above already
 /// cover what this launcher needs quiet.
 fn configure_child_switches(environment: &mut BTreeMap<OsString, OsString>) {
-    environment.retain(|name, _| {
-        !name.eq_ignore_ascii_case("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC")
-    });
+    environment
+        .retain(|name, _| !name.eq_ignore_ascii_case("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"));
     for name in [
         "DISABLE_AUTOUPDATER",
         "DISABLE_UPDATES",
@@ -1066,7 +1071,10 @@ const CUSTOM_HEADERS: &str = "ANTHROPIC_CUSTOM_HEADERS";
 /// The value of `ANTHROPIC_CUSTOM_HEADERS` (one `Name: value` per line) with the control header
 /// added. A value the user already has is kept, except an earlier control header, which is
 /// replaced. `line` must be exactly `x-shinatama-control: <kind>;<64 lowercase hex>`.
-fn merge_control_header(existing: Option<&OsStr>, line: &str) -> Result<OsString, ClaudeLaunchError> {
+fn merge_control_header(
+    existing: Option<&OsStr>,
+    line: &str,
+) -> Result<OsString, ClaudeLaunchError> {
     let value = line
         .strip_prefix(CONTROL_HEADER_NAME)
         .and_then(|rest| rest.strip_prefix(": "))
@@ -1074,7 +1082,9 @@ fn merge_control_header(existing: Option<&OsStr>, line: &str) -> Result<OsString
     let well_formed = value.split_once(';').is_some_and(|(kind, hash)| {
         matches!(kind, "seed" | "bootstrap" | "receipt")
             && hash.len() == 64
-            && hash.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            && hash
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
     });
     if !well_formed {
         return Err(ClaudeLaunchError::Composition);
@@ -1147,8 +1157,13 @@ fn merge_session_hooks(settings: &mut Value, command: &str) -> Result<(), Claude
     Ok(())
 }
 /// Mukade's three hooks, appended to whatever the settings already hold.
-fn merge_chat_hooks(settings: &mut Value, chat: &crate::mukade_chat::ChatHooks) -> Result<(), ClaudeLaunchError> {
-    let entries = chat.claude_hooks().ok_or(ClaudeLaunchError::Configuration)?;
+fn merge_chat_hooks(
+    settings: &mut Value,
+    chat: &crate::mukade_chat::ChatHooks,
+) -> Result<(), ClaudeLaunchError> {
+    let entries = chat
+        .claude_hooks()
+        .ok_or(ClaudeLaunchError::Configuration)?;
     let hooks = settings
         .as_object_mut()
         .ok_or(ClaudeLaunchError::Configuration)?
@@ -1309,12 +1324,17 @@ mod tests {
     #[test]
     fn required_mukade_refuses_absence_and_discovery_failure_after_preflight() {
         for missing in [Ok(None), Err("service disappeared after preflight")] {
-            assert_eq!(resolve_optional_mukade::<u8, _>(missing, true),
-                Err(ClaudeLaunchError::MukadeUnavailable));
+            assert_eq!(
+                resolve_optional_mukade::<u8, _>(missing, true),
+                Err(ClaudeLaunchError::MukadeUnavailable)
+            );
             assert_eq!(resolve_optional_mukade::<u8, _>(missing, false), Ok(None));
         }
         for required in [false, true] {
-            assert_eq!(resolve_optional_mukade::<u8, ()>(Ok(Some(7)), required), Ok(Some(7)));
+            assert_eq!(
+                resolve_optional_mukade::<u8, ()>(Ok(Some(7)), required),
+                Ok(Some(7))
+            );
         }
         let id = "12cc3a11-45db-4f1e-89c8-40d5c6be1dd3";
         let new = ClaudeSessionOperation::start_new(id).unwrap();
@@ -1408,7 +1428,10 @@ mod tests {
         use crate::marionette::tests::{FakeFetch, scratch};
         let store = scratch("claude-args");
         marionette::sync(&store, &FakeFetch::new("marionette-v0.1.0", "0.1.0")).unwrap();
-        let adapter = Marionette::current(&store).unwrap().verify(Host::ClaudeCode).unwrap();
+        let adapter = Marionette::current(&store)
+            .unwrap()
+            .verify(Host::ClaudeCode)
+            .unwrap();
         let args = plugin_arguments(&adapter);
         assert_eq!(args.len(), 2);
         assert_eq!(args[0], "--plugin-dir");
@@ -1424,7 +1447,10 @@ mod tests {
         let home = scratch("claude-copy-home");
         let store = home.join(marionette::STORE);
         marionette::sync(&store, &FakeFetch::new("marionette-v0.1.0", "0.1.0")).unwrap();
-        let adapter = Marionette::current(&store).unwrap().verify(Host::ClaudeCode).unwrap();
+        let adapter = Marionette::current(&store)
+            .unwrap()
+            .verify(Host::ClaudeCode)
+            .unwrap();
         for _launch in 0..2 {
             let copy = adapter.private_copy(&claude_plugin_copy(&home)).unwrap();
             assert!(copy.dir().join(".claude-plugin/plugin.json").is_file());
@@ -1609,9 +1635,11 @@ mod tests {
             (OsString::from("PATH"), OsString::from("keep")),
         ]);
         configure_child_switches(&mut environment);
-        assert!(!environment.keys().any(|name| {
-            name.eq_ignore_ascii_case("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC")
-        }));
+        assert!(
+            !environment.keys().any(|name| {
+                name.eq_ignore_ascii_case("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC")
+            })
+        );
         assert_eq!(environment.get(&OsString::from("PATH")).unwrap(), "keep");
         for name in [
             "DISABLE_AUTOUPDATER",
@@ -1621,7 +1649,11 @@ mod tests {
             "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL",
             "CLAUDE_CODE_SKIP_MCP_DEBUG_LOG_FILES",
         ] {
-            assert_eq!(environment.get(&OsString::from(name)).unwrap(), "1", "{name}");
+            assert_eq!(
+                environment.get(&OsString::from(name)).unwrap(),
+                "1",
+                "{name}"
+            );
         }
     }
     #[test]
@@ -1632,10 +1664,23 @@ mod tests {
         assert_eq!(tracked.id(), TRACKED_RECIPE);
         assert_ne!(baseline.id(), tracked.id());
         let (narrow, wide) = (baseline.budget(), tracked.budget());
-        assert_eq!(wide.processes, 16, "only the process ceiling differs: the plugin hooks need it");
         assert_eq!(
-            (narrow.memory_bytes, narrow.cpu_basis_points, narrow.queue_bytes, narrow.queue_items),
-            (wide.memory_bytes, wide.cpu_basis_points, wide.queue_bytes, wide.queue_items)
+            wide.processes, 16,
+            "only the process ceiling differs: the plugin hooks need it"
+        );
+        assert_eq!(
+            (
+                narrow.memory_bytes,
+                narrow.cpu_basis_points,
+                narrow.queue_bytes,
+                narrow.queue_items
+            ),
+            (
+                wide.memory_bytes,
+                wide.cpu_basis_points,
+                wide.queue_bytes,
+                wide.queue_items
+            )
         );
         assert_eq!(
             baseline.process_commit_bytes(),
@@ -1679,7 +1724,10 @@ mod tests {
     fn control_header_joins_the_users_custom_headers() {
         let hash = "ab".repeat(32);
         let line = format!("x-shinatama-control: bootstrap;{hash}");
-        assert_eq!(merge_control_header(None, &line).unwrap(), OsString::from(&line));
+        assert_eq!(
+            merge_control_header(None, &line).unwrap(),
+            OsString::from(&line)
+        );
         let user = OsString::from("X-Team: a\r\nX-Shinatama-Control: seed;old\n\nX-Other: b");
         assert_eq!(
             merge_control_header(Some(&user), &line).unwrap(),
@@ -1742,7 +1790,11 @@ mod tests {
         assert_eq!(first.budget(), second.budget());
         assert_eq!(first.budget().processes, 8);
         let tracked = profile(true).unwrap();
-        assert_eq!(tracked.budget().processes, 16, "tracked sessions carry the plugin hooks");
+        assert_eq!(
+            tracked.budget().processes,
+            16,
+            "tracked sessions carry the plugin hooks"
+        );
         assert_eq!(tracked.budget(), profile(true).unwrap().budget());
         assert_eq!(first.process_commit_bytes(), 768 * MIB);
         assert_eq!(first.budget().memory_bytes, 1024 * MIB);

@@ -11,7 +11,10 @@ use crate::session_detail::{
     DetailIssue, DetailRequest, StreamError, StreamStop, TrustedRootSnapshot, open,
 };
 use crate::session_roots::{MUKADE_REVISION, RootSelector};
-use mukade::{Entry, Kind, Session, model::{Meta, ResultContent}};
+use mukade::{
+    Entry, Kind, Session,
+    model::{Meta, ResultContent},
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -141,15 +144,25 @@ impl ExportReply {
 
 pub fn validate_request(request: &ExportRequest) -> Result<(), ExportIssue> {
     let thread_ok = request.thread.as_ref().is_none_or(|thread| {
-        !thread.is_empty() && thread.len() <= 128 && thread.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-')
+        !thread.is_empty()
+            && thread.len() <= 128
+            && thread
+                .bytes()
+                .all(|c| c.is_ascii_alphanumeric() || c == b'-')
     });
     let home_ok = request.home.as_ref().is_none_or(|home| {
-        home.len() <= 1024 && !home.chars().any(char::is_control) && std::path::Path::new(home).is_absolute()
+        home.len() <= 1024
+            && !home.chars().any(char::is_control)
+            && std::path::Path::new(home).is_absolute()
     });
     if !thread_ok
         || !home_ok
         || request.detail.limit != 1
-        || request.detail.cursor.as_ref().is_some_and(|cursor| cursor.offset != 0)
+        || request
+            .detail
+            .cursor
+            .as_ref()
+            .is_some_and(|cursor| cursor.offset != 0)
     {
         return Err(ExportIssue::InvalidRequest);
     }
@@ -189,7 +202,11 @@ pub fn stream_export<W: Write>(
             Err(Stop::Io(error)) => return Err(error),
         },
     };
-    let last = ExportFinal { protocol: 1, revision: MUKADE_REVISION.into(), export };
+    let last = ExportFinal {
+        protocol: 1,
+        revision: MUKADE_REVISION.into(),
+        export,
+    };
     frames.finish(&serde_json::to_vec(&last).map_err(io::Error::other)?)
 }
 
@@ -198,8 +215,8 @@ fn run<W: Write>(
     request: &ExportRequest,
     frames: &mut FrameWriter<W>,
 ) -> Result<ExportPayload, Stop> {
-    let opened = open(snapshot, &request.detail)
-        .map_err(|issue| Stop::Issue(ExportIssue::Detail(issue)))?;
+    let opened =
+        open(snapshot, &request.detail).map_err(|issue| Stop::Issue(ExportIssue::Detail(issue)))?;
     let copy = request.with_attachments && request.format != Format::Mukade;
     let whole = request.format == Format::Mukade;
     let mut projector = Projector::new(
@@ -334,7 +351,12 @@ impl MukadeDocument {
     }
 
     /// Closes the document. The session's final meta must be the one it opened with.
-    fn finish(&mut self, opened_with: &Meta, last: &Meta, redactor: &mut Redactor) -> anyhow::Result<()> {
+    fn finish(
+        &mut self,
+        opened_with: &Meta,
+        last: &Meta,
+        redactor: &mut Redactor,
+    ) -> anyhow::Result<()> {
         anyhow::ensure!(
             serde_json::to_value(opened_with)? == serde_json::to_value(last)?,
             "the session's meta changed after the document opened with it"
@@ -491,7 +513,11 @@ fn finalize(
         omitted,
         attachments_referenced,
         attachments_copied: parts.blobs.len() as u64,
-        attachments_not_copied: if copy { parts.not_copied } else { attachments_referenced },
+        attachments_not_copied: if copy {
+            parts.not_copied
+        } else {
+            attachments_referenced
+        },
         content_bytes,
     };
     let stem = safe_file_stem(meta.title.as_deref().unwrap_or(&meta.id));
@@ -503,7 +529,10 @@ fn finalize(
             attachments: parts
                 .blobs
                 .into_iter()
-                .map(|(name, data)| AttachmentBlob { name, data_base64: shinatama_export::base64::encode(&data) })
+                .map(|(name, data)| AttachmentBlob {
+                    name,
+                    data_base64: shinatama_export::base64::encode(&data),
+                })
                 .collect(),
         },
     })
@@ -527,9 +556,14 @@ pub fn commit_export(
     for blob in &payload.attachments {
         let data = shinatama_export::base64::decode(&blob.data_base64, MAX_ATTACHMENT_BYTES)
             .ok_or(CommitError::Attachment)?;
-        files.push(output::AttachmentFile { name: blob.name.clone(), data });
+        files.push(output::AttachmentFile {
+            name: blob.name.clone(),
+            data,
+        });
     }
-    staged.commit(payload.prefix.as_bytes(), &files).map_err(CommitError::Output)
+    staged
+        .commit(payload.prefix.as_bytes(), &files)
+        .map_err(CommitError::Output)
 }
 
 /// Inline attachment content found in a record, decoded and bounded.
@@ -552,7 +586,10 @@ fn find_inline(raw: &Value) -> Option<Inline> {
             && data.len() >= 16
             && let Some(bytes) = shinatama_export::base64::decode(data, MAX_ATTACHMENT_BYTES)
         {
-            return Some(Inline { data: bytes, media_type: media });
+            return Some(Inline {
+                data: bytes,
+                media_type: media,
+            });
         }
         object.values().find_map(|child| walk(child, depth + 1))
     }
@@ -584,7 +621,9 @@ fn timestamp(entry: &mukade::Entry) -> Option<String> {
 
 fn bounded(value: Option<&str>, cap: usize) -> Option<String> {
     value
-        .filter(|v| !v.is_empty() && v.len() <= cap && !v.chars().any(|c| c.is_control() && c != '\t'))
+        .filter(|v| {
+            !v.is_empty() && v.len() <= cap && !v.chars().any(|c| c.is_control() && c != '\t')
+        })
         .map(str::to_owned)
 }
 
@@ -643,20 +682,38 @@ impl Projector {
             timestamp: timestamp(entry),
         };
         let copy = self.copy;
-        let add = |items: &mut Vec<ExportItem>, held: &mut usize, kind, text: String, tool: Option<ToolInfo>| {
+        let add = |items: &mut Vec<ExportItem>,
+                   held: &mut usize,
+                   kind,
+                   text: String,
+                   tool: Option<ToolInfo>| {
             *held += text.len();
-            items.push(ExportItem { kind, text, tool, attachment: None, provenance: provenance.clone() });
+            items.push(ExportItem {
+                kind,
+                text,
+                tool,
+                attachment: None,
+                provenance: provenance.clone(),
+            });
         };
         match &entry.kind {
             Kind::User { text, attachments } => {
                 if !text.is_empty() {
-                    add(&mut self.items, &mut self.text_bytes, ItemKind::UserText, text.clone(), None);
+                    add(
+                        &mut self.items,
+                        &mut self.text_bytes,
+                        ItemKind::UserText,
+                        text.clone(),
+                        None,
+                    );
                 }
                 for attachment in attachments {
                     let inline = find_inline(&attachment.raw);
                     let sha256 = match &inline {
                         Some(found) => stx::hex(&Sha256::digest(&found.data)),
-                        None => stx::hex(&Sha256::digest(serde_json::to_vec(&attachment.raw).unwrap_or_default())),
+                        None => stx::hex(&Sha256::digest(
+                            serde_json::to_vec(&attachment.raw).unwrap_or_default(),
+                        )),
                     };
                     let name = attachment
                         .path
@@ -664,13 +721,23 @@ impl Projector {
                         .and_then(|p| std::path::Path::new(p).file_name())
                         .and_then(|n| n.to_str())
                         .and_then(|n| bounded(Some(n), 255));
-                    let media_type = inline.as_ref().and_then(|i| i.media_type.clone()).and_then(|m| bounded(Some(&m), 128));
+                    let media_type = inline
+                        .as_ref()
+                        .and_then(|i| i.media_type.clone())
+                        .and_then(|m| bounded(Some(&m), 128));
                     let mut copied_as = None;
                     let bytes = inline.as_ref().map(|i| i.data.len() as u64);
                     match inline {
-                        Some(found) if copy && self.blob_total + found.data.len() <= MAX_ATTACHMENTS_TOTAL => {
+                        Some(found)
+                            if copy
+                                && self.blob_total + found.data.len() <= MAX_ATTACHMENTS_TOTAL =>
+                        {
                             let file = format!("{sha256}.{}", extension(media_type.as_deref()));
-                            if !self.blobs.iter().any(|(n, _): &(String, Vec<u8>)| *n == file) {
+                            if !self
+                                .blobs
+                                .iter()
+                                .any(|(n, _): &(String, Vec<u8>)| *n == file)
+                            {
                                 self.blob_total += found.data.len();
                                 self.blobs.push((file.clone(), found.data));
                             }
@@ -684,7 +751,8 @@ impl Projector {
                         text: String::new(),
                         tool: None,
                         attachment: Some(AttachmentRef {
-                            kind: bounded(Some(&attachment.kind), 64).unwrap_or_else(|| "attachment".into()),
+                            kind: bounded(Some(&attachment.kind), 64)
+                                .unwrap_or_else(|| "attachment".into()),
                             name,
                             sha256,
                             bytes,
@@ -696,20 +764,45 @@ impl Projector {
                     });
                 }
             }
-            Kind::Step { text, calls, reasoning, .. } => {
+            Kind::Step {
+                text,
+                calls,
+                reasoning,
+                ..
+            } => {
                 self.omitted.reasoning += reasoning.len() as u64;
-                let joined = text.iter().filter(|t| !t.is_empty()).cloned().collect::<Vec<_>>().join("\n\n");
+                let joined = text
+                    .iter()
+                    .filter(|t| !t.is_empty())
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join("\n\n");
                 if !joined.is_empty() {
-                    add(&mut self.items, &mut self.text_bytes, ItemKind::AssistantText, joined, None);
+                    add(
+                        &mut self.items,
+                        &mut self.text_bytes,
+                        ItemKind::AssistantText,
+                        joined,
+                        None,
+                    );
                 }
                 for call in calls {
-                    self.call_names.entry(call.id.clone()).or_insert_with(|| call.source_name.clone());
+                    self.call_names
+                        .entry(call.id.clone())
+                        .or_insert_with(|| call.source_name.clone());
                     let arguments = serde_json::to_string_pretty(&call.input).unwrap_or_default();
-                    add(&mut self.items, &mut self.text_bytes, ItemKind::ToolCall, arguments, Some(ToolInfo {
-                        name: bounded(Some(&call.source_name), 128).unwrap_or_else(|| "tool".into()),
-                        call_id: bounded(Some(&call.id), 256),
-                        is_error: false,
-                    }));
+                    add(
+                        &mut self.items,
+                        &mut self.text_bytes,
+                        ItemKind::ToolCall,
+                        arguments,
+                        Some(ToolInfo {
+                            name: bounded(Some(&call.source_name), 128)
+                                .unwrap_or_else(|| "tool".into()),
+                            call_id: bounded(Some(&call.id), 256),
+                            is_error: false,
+                        }),
+                    );
                 }
             }
             Kind::Results { results } => {
@@ -722,16 +815,26 @@ impl Projector {
                         .get(&result.call_id)
                         .and_then(|n| bounded(Some(n), 128))
                         .unwrap_or_else(|| "tool".into());
-                    add(&mut self.items, &mut self.text_bytes, ItemKind::ToolResult, result.content.text(), Some(ToolInfo {
-                        name,
-                        call_id: bounded(Some(&result.call_id), 256),
-                        is_error: result.is_error,
-                    }));
+                    add(
+                        &mut self.items,
+                        &mut self.text_bytes,
+                        ItemKind::ToolResult,
+                        result.content.text(),
+                        Some(ToolInfo {
+                            name,
+                            call_id: bounded(Some(&result.call_id), 256),
+                            is_error: result.is_error,
+                        }),
+                    );
                 }
             }
-            Kind::Compaction { summary, .. } => {
-                add(&mut self.items, &mut self.text_bytes, ItemKind::Compaction, summary.clone(), None)
-            }
+            Kind::Compaction { summary, .. } => add(
+                &mut self.items,
+                &mut self.text_bytes,
+                ItemKind::Compaction,
+                summary.clone(),
+                None,
+            ),
             Kind::Meta { .. } => self.omitted.meta += 1,
         }
     }
@@ -782,7 +885,13 @@ pub fn sanitize_mukade_document(document: &mut Value, redactor: &mut Redactor) -
                 items.iter_mut().for_each(|item| strip(item, removed));
             }
             Value::Object(map) => {
-                for key in ["opaque", "signature", "encrypted_content", "reasoning", "thinking"] {
+                for key in [
+                    "opaque",
+                    "signature",
+                    "encrypted_content",
+                    "reasoning",
+                    "thinking",
+                ] {
                     if map.remove(key).is_some() {
                         *removed += 1;
                     }
@@ -801,17 +910,36 @@ pub fn sanitize_mukade_document(document: &mut Value, redactor: &mut Redactor) -
 fn safe_file_stem(value: &str) -> String {
     let stem: String = value
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
         .take(64)
         .collect();
     let stem = stem.trim_matches('-').to_owned();
-    if stem.is_empty() { "session".into() } else { stem }
+    if stem.is_empty() {
+        "session".into()
+    } else {
+        stem
+    }
 }
 
 /// Renders a session held whole in memory: the same items, redaction and writers as the
 /// streamed export, collected. It is what a streamed file is compared with.
-pub fn render(session: &Session, request: &ExportRequest, fingerprint: String) -> Result<Rendered, ExportIssue> {
-    render_at(session, request, fingerprint, shinatama_export::time::now_rfc3339())
+pub fn render(
+    session: &Session,
+    request: &ExportRequest,
+    fingerprint: String,
+) -> Result<Rendered, ExportIssue> {
+    render_at(
+        session,
+        request,
+        fingerprint,
+        shinatama_export::time::now_rfc3339(),
+    )
 }
 
 /// [`render`] with the export's own timestamp given, so two renders can be compared.
@@ -856,8 +984,20 @@ pub fn render_at(
         removed = document.removed;
     }
     let body_bytes = body.len() as u64;
-    let done = finalize(&session.meta, request, fingerprint, projector, emitter, removed, body_bytes, created)?;
-    Ok(Rendered { body, payload: done.payload })
+    let done = finalize(
+        &session.meta,
+        request,
+        fingerprint,
+        projector,
+        emitter,
+        removed,
+        body_bytes,
+        created,
+    )?;
+    Ok(Rendered {
+        body,
+        payload: done.payload,
+    })
 }
 
 #[cfg(test)]
@@ -890,7 +1030,10 @@ mod tests {
     fn request(format: Format, mode: Mode, with_attachments: bool) -> ExportRequest {
         ExportRequest {
             detail: DetailRequest {
-                root: RootSelector { store_root_id: "r".into(), configuration_revision: 1 },
+                root: RootSelector {
+                    store_root_id: "r".into(),
+                    configuration_revision: 1,
+                },
                 native_id: "s-1".into(),
                 cursor: None,
                 limit: 1,
@@ -907,16 +1050,33 @@ mod tests {
     #[test]
     fn stx_export_projects_redacts_and_omits_reasoning() {
         let session = session();
-        let payload = render(&session, &request(Format::Stx, Mode::Full, false), "f".repeat(64)).unwrap();
+        let payload = render(
+            &session,
+            &request(Format::Stx, Mode::Full, false),
+            "f".repeat(64),
+        )
+        .unwrap();
         assert!(!text(&payload).contains("secret thoughts"));
         assert!(!text(&payload).contains("ghp_0123"));
         let document = stx::read(&payload.content()).unwrap();
         let kinds: Vec<_> = document.items().map(|i| i.kind).collect();
-        assert_eq!(kinds, [ItemKind::UserText, ItemKind::Attachment, ItemKind::AssistantText, ItemKind::ToolCall, ItemKind::ToolResult]);
+        assert_eq!(
+            kinds,
+            [
+                ItemKind::UserText,
+                ItemKind::Attachment,
+                ItemKind::AssistantText,
+                ItemKind::ToolCall,
+                ItemKind::ToolResult
+            ]
+        );
         assert_eq!(document.header.omitted.reasoning, 1);
         assert_eq!(document.header.omitted.meta, 1);
         let first = document.items().next().unwrap();
-        assert_eq!(first.provenance.timestamp.as_deref(), Some("2026-11-01T10:00:00Z"));
+        assert_eq!(
+            first.provenance.timestamp.as_deref(),
+            Some("2026-11-01T10:00:00Z")
+        );
         let result = document.items().nth(4).unwrap();
         assert_eq!(result.tool.as_ref().unwrap().name, "Read");
         assert_eq!(payload.report.redactions.get("github_token"), Some(&1));
@@ -928,7 +1088,12 @@ mod tests {
     #[test]
     fn attachments_are_copied_only_on_request_and_portable_hides_home() {
         let session = session();
-        let payload = render(&session, &request(Format::Stx, Mode::Portable, true), "f".repeat(64)).unwrap();
+        let payload = render(
+            &session,
+            &request(Format::Stx, Mode::Portable, true),
+            "f".repeat(64),
+        )
+        .unwrap();
         assert_eq!(payload.attachments.len(), 1);
         assert!(payload.attachments[0].name.ends_with(".png"));
         assert_eq!(payload.report.attachments_copied, 1);
@@ -936,18 +1101,29 @@ mod tests {
         let document = stx::read(&payload.content()).unwrap();
         let attachment = document.items().find_map(|i| i.attachment.clone()).unwrap();
         assert!(attachment.content_inline);
-        assert_eq!(attachment.copied_as.as_deref(), Some(payload.attachments[0].name.as_str()));
+        assert_eq!(
+            attachment.copied_as.as_deref(),
+            Some(payload.attachments[0].name.as_str())
+        );
     }
 
     #[test]
     fn mukade_and_markdown_never_carry_reasoning_and_native_is_refused() {
         let session = session();
         for format in [Format::Mukade, Format::Md] {
-            let payload = render(&session, &request(format, Mode::Full, false), "f".repeat(64)).unwrap();
+            let payload = render(
+                &session,
+                &request(format, Mode::Full, false),
+                "f".repeat(64),
+            )
+            .unwrap();
             assert!(!text(&payload).contains("secret thoughts"), "{format:?}");
             assert!(!text(&payload).contains("ghp_0123"), "{format:?}");
         }
-        assert_eq!(validate_request(&request(Format::Native, Mode::Full, false)), Err(ExportIssue::FormatUnavailable));
+        assert_eq!(
+            validate_request(&request(Format::Native, Mode::Full, false)),
+            Err(ExportIssue::FormatUnavailable)
+        );
     }
 
     /// The parent's side of the pipe, in process: frames in, body frames staged, final frame kept.
@@ -1001,12 +1177,20 @@ mod tests {
             let mut frames = FrameWriter::new(&mut side);
             stream_export(Ok(&large.snapshot), request, &mut frames).map_err(|e| e.to_string())?;
         }
-        let last: ExportFinal = serde_json::from_slice(side.parser.final_frame().ok_or("no final frame")?)
-            .map_err(|e| e.to_string())?;
+        let last: ExportFinal =
+            serde_json::from_slice(side.parser.final_frame().ok_or("no final frame")?)
+                .map_err(|e| e.to_string())?;
         let body = side.parser.body_bytes();
-        let payload = last.export.payload.ok_or_else(|| format!("refused: {:?}", last.export.issue))?;
-        assert_eq!(payload.report.content_bytes, payload.prefix.len() as u64 + body);
-        let receipt = commit_export(side.staged.take().unwrap(), &payload).map_err(|e| format!("{e:?}"))?;
+        let payload = last
+            .export
+            .payload
+            .ok_or_else(|| format!("refused: {:?}", last.export.issue))?;
+        assert_eq!(
+            payload.report.content_bytes,
+            payload.prefix.len() as u64 + body
+        );
+        let receipt =
+            commit_export(side.staged.take().unwrap(), &payload).map_err(|e| format!("{e:?}"))?;
         Ok((receipt, payload))
     }
 
@@ -1022,7 +1206,10 @@ mod tests {
             }
             _ => {
                 let line = head.lines().next().unwrap();
-                serde_json::from_str::<Value>(line).unwrap()["created"].as_str().unwrap().to_owned()
+                serde_json::from_str::<Value>(line).unwrap()["created"]
+                    .as_str()
+                    .unwrap()
+                    .to_owned()
             }
         }
     }
@@ -1048,7 +1235,8 @@ mod tests {
         let folder = large.root_path.join("out");
         std::fs::create_dir_all(&folder).unwrap();
         let path = folder.join("big.md");
-        let (receipt, payload) = export_to_file(&large, &request_for(&large, Format::Md), &path, None).unwrap();
+        let (receipt, payload) =
+            export_to_file(&large, &request_for(&large, Format::Md), &path, None).unwrap();
         let file = std::fs::read(&path).unwrap();
         let content = String::from_utf8(file).unwrap();
         // Every word, not the 4 KiB the view shows: the marker sits 12 MiB into the result.
@@ -1059,7 +1247,11 @@ mod tests {
         assert_eq!(payload.report.items, 4);
         assert!(content.len() > 17 * 1024 * 1024);
         assert_eq!(receipt.bytes, content.len() as u64);
-        assert_eq!(std::fs::read_dir(&folder).unwrap().count(), 1, "no staged file is left");
+        assert_eq!(
+            std::fs::read_dir(&folder).unwrap().count(),
+            1,
+            "no staged file is left"
+        );
         // The interchange document streams too (Mukade's DocumentWriter): no output bound.
         let other = folder.join("big.json");
         let (receipt, _) =
@@ -1067,7 +1259,11 @@ mod tests {
         let document: Value = serde_json::from_slice(&std::fs::read(&other).unwrap()).unwrap();
         assert!(document.to_string().contains(large_fixture::DEEP_MARKER));
         assert!(receipt.bytes > 17 * 1024 * 1024);
-        assert_eq!(std::fs::read_dir(&folder).unwrap().count(), 2, "no staged file is left");
+        assert_eq!(
+            std::fs::read_dir(&folder).unwrap().count(),
+            2,
+            "no staged file is left"
+        );
     }
 
     #[cfg(windows)]
@@ -1089,9 +1285,18 @@ mod tests {
             assert_eq!(receipt.bytes, file.len() as u64);
             assert_eq!(payload.report.content_bytes, file.len() as u64);
             assert_eq!(payload.report.items, 14);
-            let memory = render_at(&whole, &request, payload.report.source_fingerprint.clone(), created_of(&file, format)).unwrap();
+            let memory = render_at(
+                &whole,
+                &request,
+                payload.report.source_fingerprint.clone(),
+                created_of(&file, format),
+            )
+            .unwrap();
             assert_eq!(memory.content().len(), file.len(), "{format:?}");
-            assert!(memory.content() == file, "{format:?}: the streamed file is not the in-memory render");
+            assert!(
+                memory.content() == file,
+                "{format:?}: the streamed file is not the in-memory render"
+            );
             if format == Format::Stx {
                 // The header's checksum covers the body the frames carried.
                 let document = stx::read(&file).unwrap();
@@ -1111,13 +1316,21 @@ mod tests {
         let path = folder.join("keep.md");
         std::fs::write(&path, b"previous").unwrap();
         // The pipe fails in the middle of the body.
-        let broken = export_to_file(&large, &request_for(&large, Format::Md), &path, Some(3 * 1024 * 1024));
+        let broken = export_to_file(
+            &large,
+            &request_for(&large, Format::Md),
+            &path,
+            Some(3 * 1024 * 1024),
+        );
         assert!(broken.is_err());
         assert_eq!(std::fs::read(&path).unwrap(), b"previous");
         assert_eq!(std::fs::read_dir(&folder).unwrap().count(), 1);
         // The final frame refuses (the file changed since the page was read), after the body.
         let mut stale = request_for(&large, Format::Md);
-        stale.detail.cursor = Some(crate::session_detail::DetailCursor { offset: 0, fingerprint: "0".repeat(64) });
+        stale.detail.cursor = Some(crate::session_detail::DetailCursor {
+            offset: 0,
+            fingerprint: "0".repeat(64),
+        });
         let refused = export_to_file(&large, &stale, &path, None);
         assert!(refused.err().unwrap().contains("SourceChanged"));
         assert_eq!(std::fs::read(&path).unwrap(), b"previous");

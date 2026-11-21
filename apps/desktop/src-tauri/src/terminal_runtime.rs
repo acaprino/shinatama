@@ -84,7 +84,10 @@ enum AdmissionMode {
 impl AdmissionMode {
     /// Memory, process count and CPU are a share of the ledger, not a Windows quota.
     fn advisory(self) -> bool {
-        matches!(self, Self::Interactive | Self::Proxy | Self::ProxyMaintenance)
+        matches!(
+            self,
+            Self::Interactive | Self::Proxy | Self::ProxyMaintenance
+        )
     }
     /// Admitted after `request_shutdown`: only the cleanup the close itself runs.
     fn allowed_while_closing(self) -> bool {
@@ -714,9 +717,10 @@ impl WindowsTerminalAdmission for Admission {
             .finish_cleanup(&state.store, timeout)
             .map_err(|e| anyhow!("Terminal cleanup remains reserved: {e:?}"))?;
         if matches!(result, CleanupStatus::Released { .. })
-            && let Ok(mut approved) = self.approved.lock() {
-                approved.retain(|item| item.key != workload.owned_key());
-            }
+            && let Ok(mut approved) = self.approved.lock()
+        {
+            approved.retain(|item| item.key != workload.owned_key());
+        }
         Ok(result)
     }
     fn observe(
@@ -953,7 +957,10 @@ mod memory_tests {
             "half the free memory at first launch"
         );
         previous.aggregate_ceiling.memory_bytes = 16 * GIB;
-        assert!(is_previous_policy(&previous), "the 16 GiB policy of the build installed on 2026-11-15");
+        assert!(
+            is_previous_policy(&previous),
+            "the 16 GiB policy of the build installed on 2026-11-15"
+        );
         previous.aggregate_ceiling.memory_bytes = 5 * GIB;
         assert!(!is_previous_policy(&previous));
         assert!(!is_previous_policy(&policy()));

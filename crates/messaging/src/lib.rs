@@ -174,7 +174,9 @@ impl std::fmt::Display for MessagingError {
 pub type Result<T> = std::result::Result<T, MessagingError>;
 
 pub fn escape(text: &str) -> String {
-    text.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 fn attr(text: &str) -> String {
     escape(text).replace('"', "&quot;")
@@ -198,28 +200,48 @@ pub struct Messaging<'a, D: Directory> {
 
 impl<'a, D: Directory> Messaging<'a, D> {
     fn caller(&self, id: &str) -> Result<Instance> {
-        self.directory.instances().into_iter().find(|i| i.id == id).ok_or(MessagingError::UnknownCaller)
+        self.directory
+            .instances()
+            .into_iter()
+            .find(|i| i.id == id)
+            .ok_or(MessagingError::UnknownCaller)
     }
     fn in_scope(&self, from: &Instance, to: &Instance) -> bool {
         from.project.eq_ignore_ascii_case(&to.project)
             || (from.roundtable.is_some() && from.roundtable == to.roundtable)
-            || self.directory.cross_project_allowed(&from.project, &to.project)
+            || self
+                .directory
+                .cross_project_allowed(&from.project, &to.project)
     }
 
     /// Instances the caller may message.
     pub fn instances(&self, caller: &str) -> Result<Vec<Instance>> {
         let me = self.caller(caller)?;
-        Ok(self.directory.instances().into_iter().filter(|i| i.id != me.id && self.in_scope(&me, i)).collect())
+        Ok(self
+            .directory
+            .instances()
+            .into_iter()
+            .filter(|i| i.id != me.id && self.in_scope(&me, i))
+            .collect())
     }
 
     fn paused(&self, from: &str, to: &str, now_ms: i64) -> Result<bool> {
         let key = format!("{from}->{to}");
-        Ok(self.store.alerts_since(now_ms - IMPLICIT_REPLY_WINDOW_MS)?.iter().any(|a| a.kind == "pair_paused" && a.detail == key))
+        Ok(self
+            .store
+            .alerts_since(now_ms - IMPLICIT_REPLY_WINDOW_MS)?
+            .iter()
+            .any(|a| a.kind == "pair_paused" && a.detail == key))
     }
 
     fn pause(&self, from: &str, to: &str, reason: &str, now_ms: i64) -> Result<()> {
-        self.store.raise_alert("pair_paused", &format!("{from}->{to}"), now_ms)?;
-        self.store.raise_alert("alert", &format!("Messages from {from} to {to} paused: {reason}"), now_ms)?;
+        self.store
+            .raise_alert("pair_paused", &format!("{from}->{to}"), now_ms)?;
+        self.store.raise_alert(
+            "alert",
+            &format!("Messages from {from} to {to} paused: {reason}"),
+            now_ms,
+        )?;
         Ok(())
     }
 
@@ -238,14 +260,20 @@ impl<'a, D: Directory> Messaging<'a, D> {
             .filter(|i| i.id != me.id)
             .filter(|i| match &request.to {
                 Address::Instance { id } => &i.id == id,
-                Address::Agent { agent, project } => &i.agent == agent && i.project.eq_ignore_ascii_case(project),
+                Address::Agent { agent, project } => {
+                    &i.agent == agent && i.project.eq_ignore_ascii_case(project)
+                }
                 Address::Roundtable { group } => i.roundtable.as_deref() == Some(group.as_str()),
             })
             .collect();
         if matching.is_empty() {
             return Err(MessagingError::NoRecipient);
         }
-        let recipients: Vec<&Instance> = matching.iter().copied().filter(|i| self.in_scope(&me, i)).collect();
+        let recipients: Vec<&Instance> = matching
+            .iter()
+            .copied()
+            .filter(|i| self.in_scope(&me, i))
+            .collect();
         if recipients.is_empty() {
             return Err(MessagingError::CrossProject);
         }
@@ -261,7 +289,10 @@ impl<'a, D: Directory> Messaging<'a, D> {
             // Depth: explicit parent, else the latest message received from this peer recently.
             let parent = match &request.in_reply_to {
                 Some(id) => self.store.get(id)?,
-                None => self.store.between(&recipient.id, &me.id, now_ms - IMPLICIT_REPLY_WINDOW_MS)?.pop(),
+                None => self
+                    .store
+                    .between(&recipient.id, &me.id, now_ms - IMPLICIT_REPLY_WINDOW_MS)?
+                    .pop(),
             };
             let depth = parent.as_ref().map_or(0, |p| p.depth + 1);
             if depth > MAX_DEPTH {
@@ -316,7 +347,11 @@ impl<'a, D: Directory> Messaging<'a, D> {
                 Err(error) => return Err(error.into()),
             }
         }
-        Ok(SendReceipt { ids, duplicate, redactions })
+        Ok(SendReceipt {
+            ids,
+            duplicate,
+            redactions,
+        })
     }
 
     /// MCP pull: the caller's unexpired messages, wrapped as untrusted data, marked delivered.
@@ -326,7 +361,15 @@ impl<'a, D: Directory> Messaging<'a, D> {
         let mut items = Vec::new();
         for message in self.store.for_recipient(&me.id, now_ms, 50)? {
             if message.state == MessageState::Queued {
-                self.store.update_state(&message.id, MessageState::Queued, MessageState::Delivered, message.attempts, message.next_attempt_at_ms, Some(Channel::McpPull.as_str()), None)?;
+                self.store.update_state(
+                    &message.id,
+                    MessageState::Queued,
+                    MessageState::Delivered,
+                    message.attempts,
+                    message.next_attempt_at_ms,
+                    Some(Channel::McpPull.as_str()),
+                    None,
+                )?;
             }
             items.push(InboxItem {
                 wrapped: wrap(&message),
@@ -340,12 +383,23 @@ impl<'a, D: Directory> Messaging<'a, D> {
     }
 
     pub fn ack(&self, caller: &str, id: &str) -> Result<()> {
-        let message = self.store.get(id)?.ok_or(MessagingError::Store(StoreError::NotFound))?;
+        let message = self
+            .store
+            .get(id)?
+            .ok_or(MessagingError::Store(StoreError::NotFound))?;
         if message.recipient_instance != caller {
             return Err(MessagingError::NotRecipient);
         }
         for from in [MessageState::Delivered, MessageState::Queued] {
-            if self.store.update_state(id, from, MessageState::Acked, message.attempts, message.next_attempt_at_ms, None, None)? {
+            if self.store.update_state(
+                id,
+                from,
+                MessageState::Acked,
+                message.attempts,
+                message.next_attempt_at_ms,
+                None,
+                None,
+            )? {
                 return Ok(());
             }
         }
@@ -355,7 +409,12 @@ impl<'a, D: Directory> Messaging<'a, D> {
 
 /// Pushes messages through a recipient's channels (R09-R13).
 pub trait Transport {
-    fn push(&mut self, recipient: &Instance, channel: Channel, wrapped: &str) -> std::result::Result<(), String>;
+    fn push(
+        &mut self,
+        recipient: &Instance,
+        channel: Channel,
+        wrapped: &str,
+    ) -> std::result::Result<(), String>;
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -369,22 +428,48 @@ pub struct DeliveryReport {
 
 /// One delivery pass: expired messages expire, offline recipients wait, push channels are
 /// tried in order (MCP pull is passive: the message stays queued for the inbox tool).
-pub fn deliver_due<D: Directory>(store: &MessageStore, directory: &D, transport: &mut dyn Transport, now_ms: i64) -> Result<DeliveryReport> {
-    let mut report = DeliveryReport { expired: store.expire(now_ms)?, ..DeliveryReport::default() };
+pub fn deliver_due<D: Directory>(
+    store: &MessageStore,
+    directory: &D,
+    transport: &mut dyn Transport,
+    now_ms: i64,
+) -> Result<DeliveryReport> {
+    let mut report = DeliveryReport {
+        expired: store.expire(now_ms)?,
+        ..DeliveryReport::default()
+    };
     let instances = directory.instances();
     for message in store.due(now_ms, 200)? {
-        let Some(recipient) = instances.iter().find(|i| i.id == message.recipient_instance && i.online) else {
+        let Some(recipient) = instances
+            .iter()
+            .find(|i| i.id == message.recipient_instance && i.online)
+        else {
             report.waiting_offline += 1;
             continue;
         };
-        if !store.update_state(&message.id, MessageState::Queued, MessageState::Delivering, message.attempts, message.next_attempt_at_ms, None, None)? {
+        if !store.update_state(
+            &message.id,
+            MessageState::Queued,
+            MessageState::Delivering,
+            message.attempts,
+            message.next_attempt_at_ms,
+            None,
+            None,
+        )? {
             continue; // another pass took it
         }
         let wrapped = wrap(&message);
         let mut outcome = Err("no push channel".to_owned());
         let mut used = None;
-        for channel in recipient.channels.iter().copied().filter(|c| *c != Channel::McpPull) {
-            if channel == Channel::Paste && (recipient.idle_quiet_ms < PASTE_QUIET_MS || recipient.prompt_or_draft_active) {
+        for channel in recipient
+            .channels
+            .iter()
+            .copied()
+            .filter(|c| *c != Channel::McpPull)
+        {
+            if channel == Channel::Paste
+                && (recipient.idle_quiet_ms < PASTE_QUIET_MS || recipient.prompt_or_draft_active)
+            {
                 outcome = Err("paste not safe now".into());
                 continue;
             }
@@ -396,7 +481,15 @@ pub fn deliver_due<D: Directory>(store: &MessageStore, directory: &D, transport:
         }
         match (outcome, used) {
             (Ok(()), Some(channel)) => {
-                store.update_state(&message.id, MessageState::Delivering, MessageState::Delivered, message.attempts, now_ms, Some(channel.as_str()), None)?;
+                store.update_state(
+                    &message.id,
+                    MessageState::Delivering,
+                    MessageState::Delivered,
+                    message.attempts,
+                    now_ms,
+                    Some(channel.as_str()),
+                    None,
+                )?;
                 report.delivered += 1;
             }
             (result, _) => {
@@ -404,12 +497,35 @@ pub fn deliver_due<D: Directory>(store: &MessageStore, directory: &D, transport:
                 let pull_only = recipient.channels.contains(&Channel::McpPull);
                 let attempts = message.attempts + 1;
                 if attempts > MAX_RETRIES && !pull_only {
-                    store.update_state(&message.id, MessageState::Delivering, MessageState::Failed, attempts.min(6), now_ms, None, failure.as_deref())?;
-                    store.raise_alert("alert", &format!("Message {} to {} failed after {MAX_RETRIES} retries", message.id, message.recipient_instance), now_ms)?;
+                    store.update_state(
+                        &message.id,
+                        MessageState::Delivering,
+                        MessageState::Failed,
+                        attempts.min(6),
+                        now_ms,
+                        None,
+                        failure.as_deref(),
+                    )?;
+                    store.raise_alert(
+                        "alert",
+                        &format!(
+                            "Message {} to {} failed after {MAX_RETRIES} retries",
+                            message.id, message.recipient_instance
+                        ),
+                        now_ms,
+                    )?;
                     report.failed += 1;
                 } else {
                     let backoff = FIRST_BACKOFF_MS * (1i64 << (attempts.min(MAX_RETRIES) - 1));
-                    store.update_state(&message.id, MessageState::Delivering, MessageState::Queued, attempts.min(6), now_ms + backoff, None, failure.as_deref())?;
+                    store.update_state(
+                        &message.id,
+                        MessageState::Delivering,
+                        MessageState::Queued,
+                        attempts.min(6),
+                        now_ms + backoff,
+                        None,
+                        failure.as_deref(),
+                    )?;
                     report.retried += 1;
                 }
             }

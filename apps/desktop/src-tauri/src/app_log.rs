@@ -33,7 +33,13 @@ pub(crate) fn write(source: &str, message: &str) {
     let Some(directory) = DIRECTORY.get() else {
         return;
     };
-    let text = line(&chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string(), source, message);
+    let text = line(
+        &chrono::Local::now()
+            .format("%Y-%m-%d %H:%M:%S%.3f")
+            .to_string(),
+        source,
+        message,
+    );
     let Ok(_writing) = WRITING.lock() else {
         return;
     };
@@ -70,7 +76,9 @@ pub(crate) fn install_panic_hook() {
         if let Some(directory) = DIRECTORY.get()
             && let Ok(_writing) = WRITING.try_lock()
         {
-            let at = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string();
+            let at = chrono::Local::now()
+                .format("%Y-%m-%d %H:%M:%S%.3f")
+                .to_string();
             append(directory, &line(&at, "panic", &text));
         }
         previous(info);
@@ -100,12 +108,20 @@ fn line(at: &str, source: &str, message: &str) -> String {
         .map(|ch| if ch.is_control() { ' ' } else { ch })
         .take(MAX_MESSAGE)
         .collect();
-    format!("{at} {}: {}\n", if source.is_empty() { "app" } else { &source }, message.trim_end())
+    format!(
+        "{at} {}: {}\n",
+        if source.is_empty() { "app" } else { &source },
+        message.trim_end()
+    )
 }
 
 /// The window's own lines: why the saved layout did not load, and each (re)load of the page.
 #[tauri::command]
-pub(crate) fn app_log(window: tauri::WebviewWindow, source: String, message: String) -> Result<(), String> {
+pub(crate) fn app_log(
+    window: tauri::WebviewWindow,
+    source: String,
+    message: String,
+) -> Result<(), String> {
     crate::local(&window)?;
     if !PAGE_SOURCES.contains(&source.as_str()) || message.len() > 4 * MAX_MESSAGE {
         return Err("This log line is not accepted.".into());
@@ -120,9 +136,15 @@ mod tests {
 
     #[test]
     fn a_line_is_one_bounded_line_whatever_it_is_given() {
-        assert_eq!(line("2026-11-17 14:00:00.000", "resume", "opened after 812 ms"),
-            "2026-11-17 14:00:00.000 resume: opened after 812 ms\n");
-        let text = line("t", "Re sume\n!", &format!("first\nsecond\r\u{7}{}", "x".repeat(2000)));
+        assert_eq!(
+            line("2026-11-17 14:00:00.000", "resume", "opened after 812 ms"),
+            "2026-11-17 14:00:00.000 resume: opened after 812 ms\n"
+        );
+        let text = line(
+            "t",
+            "Re sume\n!",
+            &format!("first\nsecond\r\u{7}{}", "x".repeat(2000)),
+        );
         assert_eq!(text.matches('\n').count(), 1);
         assert!(text.starts_with("t esume: first second"));
         assert!(text.len() < MAX_MESSAGE + 40);
@@ -136,9 +158,15 @@ mod tests {
         fs::write(directory.join(FILE), vec![b'x'; MAX_BYTES as usize]).unwrap();
         append(&directory, "next\n");
         assert_eq!(fs::read_to_string(directory.join(FILE)).unwrap(), "next\n");
-        assert_eq!(fs::metadata(directory.join(PREVIOUS)).unwrap().len(), MAX_BYTES);
+        assert_eq!(
+            fs::metadata(directory.join(PREVIOUS)).unwrap().len(),
+            MAX_BYTES
+        );
         append(&directory, "after\n");
-        assert_eq!(fs::read_to_string(directory.join(FILE)).unwrap(), "next\nafter\n");
+        assert_eq!(
+            fs::read_to_string(directory.join(FILE)).unwrap(),
+            "next\nafter\n"
+        );
         let _ = fs::remove_dir_all(&directory);
     }
 }

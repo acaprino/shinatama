@@ -209,10 +209,11 @@ impl ThreadLifecycle {
         // Reserve an explicitly sealed UUID before ResumeShell. A fresh Codex
         // launch has no native ID yet: only its exact owner is recorded now.
         if let Some(requested) = &core.requested
-            && apply(core, &mut state, requested).is_err() {
-                core.failed.store(true, Ordering::Release);
-                return Err(TRACKING);
-            }
+            && apply(core, &mut state, requested).is_err()
+        {
+            core.failed.store(true, Ordering::Release);
+            return Err(TRACKING);
+        }
         drop(state);
         let receiver = self
             .receiver
@@ -298,9 +299,9 @@ impl ThreadLifecycle {
         if let Some(receipt) = &receipt
             && (receipt.owner.activation != owner
                 || core.reservation.get() != Some(&receipt.owner.reservation))
-            {
-                return Err(BINDING);
-            }
+        {
+            return Err(BINDING);
+        }
         let Some(active) = state.activation.clone() else {
             if state.attempted
                 && core

@@ -220,7 +220,10 @@ impl Redactor {
                 copied = i;
                 continue;
             }
-            if boundary && self.high_entropy && let Some(len) = high_entropy_at(bytes, i) {
+            if boundary
+                && self.high_entropy
+                && let Some(len) = high_entropy_at(bytes, i)
+            {
                 out.push_str(&text[copied..i]);
                 out.push_str(&self.mark("high_entropy"));
                 self.count("high_entropy");
@@ -304,8 +307,8 @@ impl Redactor {
                 j += 1;
             }
             let body = &bytes[i + p.len()..j];
-            let mixed = body.iter().any(u8::is_ascii_digit)
-                && body.iter().any(u8::is_ascii_alphabetic);
+            let mixed =
+                body.iter().any(u8::is_ascii_digit) && body.iter().any(u8::is_ascii_alphabetic);
             if body.len() >= *min_body && (mixed || body.len() >= 32) {
                 return Some((j - i, class));
             }
@@ -315,8 +318,10 @@ impl Redactor {
     }
 
     fn authorization_at(&self, bytes: &[u8], i: usize) -> Option<(usize, usize, &'static str)> {
-        for (scheme, class) in [(&b"bearer "[..], "bearer_token"), (&b"basic "[..], "basic_auth")]
-        {
+        for (scheme, class) in [
+            (&b"bearer "[..], "bearer_token"),
+            (&b"basic "[..], "basic_auth"),
+        ] {
             if bytes.len() < i + scheme.len()
                 || !bytes[i..i + scheme.len()].eq_ignore_ascii_case(scheme)
                 || (i > 0 && word_char(bytes[i - 1]))
@@ -326,7 +331,8 @@ impl Redactor {
             let start = i + scheme.len();
             let mut end = start;
             while end < bytes.len()
-                && (token_char(bytes[end]) || matches!(bytes[end], b'.' | b'+' | b'/' | b'=' | b'~'))
+                && (token_char(bytes[end])
+                    || matches!(bytes[end], b'.' | b'+' | b'/' | b'=' | b'~'))
             {
                 end += 1;
             }
@@ -369,7 +375,8 @@ impl Redactor {
             return text.to_owned();
         }
         let bytes = text.as_bytes();
-        let local_char = |c: u8| c.is_ascii_alphanumeric() || matches!(c, b'.' | b'_' | b'%' | b'+' | b'-');
+        let local_char =
+            |c: u8| c.is_ascii_alphanumeric() || matches!(c, b'.' | b'_' | b'%' | b'+' | b'-');
         let domain_char = |c: u8| c.is_ascii_alphanumeric() || matches!(c, b'.' | b'-');
         let mut out = String::with_capacity(text.len());
         let mut copied = 0;
@@ -391,9 +398,9 @@ impl Redactor {
                 end -= 1;
             }
             let domain = &text[i + 1..end];
-            let tld_ok = domain
-                .rsplit_once('.')
-                .is_some_and(|(host, tld)| !host.is_empty() && tld.len() >= 2 && tld.bytes().all(|c| c.is_ascii_alphabetic()));
+            let tld_ok = domain.rsplit_once('.').is_some_and(|(host, tld)| {
+                !host.is_empty() && tld.len() >= 2 && tld.bytes().all(|c| c.is_ascii_alphabetic())
+            });
             if start < i && tld_ok {
                 out.push_str(&text[copied..start]);
                 out.push_str(&self.mark("email"));
@@ -465,7 +472,9 @@ fn url_credentials(bytes: &[u8], start: usize) -> Option<usize> {
 fn plausible_secret_value(value: &str) -> bool {
     let v = value.trim();
     v.len() >= 8
-        && !v.get(..9).is_some_and(|p| p.eq_ignore_ascii_case("[redacted"))
+        && !v
+            .get(..9)
+            .is_some_and(|p| p.eq_ignore_ascii_case("[redacted"))
         && !v.starts_with('$')
         && !v.starts_with('<')
         && !v.starts_with('{')
@@ -474,7 +483,9 @@ fn plausible_secret_value(value: &str) -> bool {
             v.to_ascii_lowercase().as_str(),
             "null" | "none" | "true" | "false" | "undefined" | "required" | "optional" | "string"
         )
-        && !v.chars().all(|c| c == '*' || c == 'x' || c == 'X' || c == '.')
+        && !v
+            .chars()
+            .all(|c| c == '*' || c == 'x' || c == 'X' || c == '.')
         && v.chars().any(|c| c.is_ascii_alphanumeric())
 }
 
@@ -496,7 +507,9 @@ fn assignment_value(bytes: &[u8], sep: usize) -> Option<(usize, usize)> {
     if key_end == k || key_end - k > 64 {
         return None;
     }
-    let key = std::str::from_utf8(&bytes[k..key_end]).ok()?.to_ascii_lowercase();
+    let key = std::str::from_utf8(&bytes[k..key_end])
+        .ok()?
+        .to_ascii_lowercase();
     if !SECRET_KEYS.iter().any(|s| key.ends_with(s)) {
         return None;
     }
@@ -518,7 +531,10 @@ fn assignment_value(bytes: &[u8], sep: usize) -> Option<(usize, usize)> {
         let c = bytes[end];
         let stop = match quote {
             Some(q) => c == q || c == b'\n',
-            None => c.is_ascii_whitespace() || matches!(c, b',' | b';' | b'&' | b'"' | b'\'' | b')' | b'}' | b']'),
+            None => {
+                c.is_ascii_whitespace()
+                    || matches!(c, b',' | b';' | b'&' | b'"' | b'\'' | b')' | b'}' | b']')
+            }
         };
         if stop || (quote.is_some() && c == b'\\') {
             break;
@@ -544,7 +560,10 @@ mod tests {
         assert_eq!(full(&text), "use [REDACTED:anthropic_key] now");
         let mut portable = Redactor::new(Mode::Portable, Some(r"C:\Users\someone"));
         assert_eq!(portable.redact(&text), "use [REDACTED:anthropic_key] now");
-        assert_eq!(full("ghp_0123456789abcdefABCDEF0123456789abcd"), "[REDACTED:github_token]");
+        assert_eq!(
+            full("ghp_0123456789abcdefABCDEF0123456789abcd"),
+            "[REDACTED:github_token]"
+        );
         assert_eq!(full("AKIAIOSFODNN7EXAMPLE"), "[REDACTED:aws_access_key]");
         assert_eq!(
             full("token xoxb-1234567890-abcdefghij"),
@@ -585,12 +604,18 @@ mod tests {
 
     #[test]
     fn assignments_in_env_json_and_yaml() {
-        assert_eq!(full("DB_PASSWORD=correct-horse-battery"), "DB_PASSWORD=[REDACTED:assignment]");
+        assert_eq!(
+            full("DB_PASSWORD=correct-horse-battery"),
+            "DB_PASSWORD=[REDACTED:assignment]"
+        );
         assert_eq!(
             full(r#"{"client_secret": "abc123def456ghi"}"#),
             r#"{"client_secret": "[REDACTED:assignment]"}"#
         );
-        assert_eq!(full("api-key: 9f8e7d6c5b4a3210"), "api-key: [REDACTED:assignment]");
+        assert_eq!(
+            full("api-key: 9f8e7d6c5b4a3210"),
+            "api-key: [REDACTED:assignment]"
+        );
     }
 
     #[test]
@@ -632,9 +657,15 @@ mod tests {
     #[test]
     fn seed_rules_use_lowercase_markers_and_catch_high_entropy_tokens() {
         let mut seed = Redactor::for_seed();
-        assert_eq!(seed.redact("k ghp_0123456789abcdefABCDEF0123456789abcd"), "k [redacted:github_token]");
+        assert_eq!(
+            seed.redact("k ghp_0123456789abcdefABCDEF0123456789abcd"),
+            "k [redacted:github_token]"
+        );
         let opaque = "Zx9QvR2mT8kLp4WnB7yHc3JdF6sGa1Ue5VtK0rYqXoNi";
-        assert_eq!(seed.redact(&format!("secret is {opaque} ok")), "secret is [redacted:high_entropy] ok");
+        assert_eq!(
+            seed.redact(&format!("secret is {opaque} ok")),
+            "secret is [redacted:high_entropy] ok"
+        );
         for benign in [
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "550e8400-e29b-41d4-a716-446655440000",
@@ -647,7 +678,11 @@ mod tests {
         }
         assert_eq!(seed.redact("[REDACTED:jwt] stays"), "[REDACTED:jwt] stays");
         let mut export = Redactor::new(Mode::Full, None);
-        assert_eq!(export.redact(&format!("x {opaque}")), format!("x {opaque}"), "exports keep the rule off");
+        assert_eq!(
+            export.redact(&format!("x {opaque}")),
+            format!("x {opaque}"),
+            "exports keep the rule off"
+        );
     }
 
     #[test]

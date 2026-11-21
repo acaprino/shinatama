@@ -152,10 +152,16 @@ impl HarnessDriver for CodexDriver {
         };
         let hook = hook_executable().map_err(DriverError::from)?;
         let selection = match context.initial_prompt {
-            Some(prompt) => selection.with_initial_prompt(prompt).map_err(launch_error)?,
+            Some(prompt) => selection
+                .with_initial_prompt(prompt)
+                .map_err(launch_error)?,
             None => selection,
         };
-        let selection = if context.require_mukade { selection.with_mukade_required() } else { selection };
+        let selection = if context.require_mukade {
+            selection.with_mukade_required()
+        } else {
+            selection
+        };
         // ADR-0057: Codex runs Mukade's hooks only once it trusts them. Mukade records that
         // approval in this private home's config.toml, through Codex's own app-server, before
         // the launch. Without it the hooks are not composed at all: the session opens as an

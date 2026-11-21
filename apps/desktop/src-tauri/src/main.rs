@@ -2,65 +2,65 @@
 #[cfg(windows)]
 mod agents;
 mod app_log;
+mod attention;
+mod attention_signals;
 #[cfg(windows)]
 mod browser;
 #[cfg(windows)]
 mod browser_agent;
 #[cfg(windows)]
 mod collaboration;
-mod attention;
-mod attention_signals;
 mod disk_space;
-mod relaunch;
 mod files;
-mod instances;
-#[cfg(windows)]
-mod titles;
-mod project_overview;
 #[cfg(windows)]
 mod hop_run;
+mod instances;
 mod launch;
 mod launch_settings;
 mod leftovers;
-mod model_settings;
-mod memory_settings;
-mod muro;
-mod secret_store;
 pub mod maintenance;
+#[cfg(windows)]
+mod marionette;
+mod memory_settings;
+mod model_settings;
+mod muro;
+#[cfg(windows)]
+mod native_frame;
 mod new_project;
 #[cfg(windows)]
 mod opening;
 mod presentation;
+mod project_overview;
 mod projects;
+mod relaunch;
 mod resource_governor;
 mod resources;
 #[cfg(windows)]
 mod responsiveness;
-#[cfg(windows)]
-mod marionette;
-#[cfg(windows)]
-mod native_frame;
+mod secret_store;
 #[cfg(windows)]
 mod sessions;
 #[cfg(windows)]
 mod sidecar;
 mod storage;
-mod threads;
+#[cfg(windows)]
+mod team_announcer;
+mod terminal_input;
+#[cfg(windows)]
+mod terminal_runtime;
 #[cfg(windows)]
 mod thread_chat;
 #[cfg(windows)]
-mod team_announcer;
-#[cfg(windows)]
-mod thread_team;
-#[cfg(windows)]
 mod thread_peers;
 #[cfg(windows)]
-mod terminal_runtime;
-mod terminal_input;
+mod thread_team;
+mod threads;
 #[cfg(windows)]
-mod webview_recovery;
+mod titles;
 #[cfg(feature = "tl1-proof")]
 mod tl1;
+#[cfg(windows)]
+mod webview_recovery;
 mod workspace;
 use shinatama_state::database::{DatabaseAccess, ProjectRecord as ProjectEntry};
 use shinatama_terminal::{OutputBatch, SessionInfo, TerminalHost};
@@ -266,24 +266,29 @@ async fn shell_open(
         let state = saved_services.load().map_err(anyhow::Error::msg)?;
         state.location.validate_project(&project_path)?;
         let project = state.store.select(&project_path)?;
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?;
+        let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
         let timestamp = i64::try_from(timestamp.as_millis())?;
-        let thread = state.store.create_thread(&shinatama_state::threads::ThreadRecord {
-            id: shinatama_state::records::new_id(shinatama_state::records::CanonicalIdKind::Thread),
-            project_id: project.id,
-            kind: shinatama_state::records::ThreadKind::Work,
-            parent_thread_id: None,
-            companion_worker_thread_id: None,
-            title: Some("PowerShell".into()),
-            archived: false,
-            revision: 1,
-            created_at: timestamp,
-            updated_at: timestamp,
-        })?;
+        let thread = state
+            .store
+            .create_thread(&shinatama_state::threads::ThreadRecord {
+                id: shinatama_state::records::new_id(
+                    shinatama_state::records::CanonicalIdKind::Thread,
+                ),
+                project_id: project.id,
+                kind: shinatama_state::records::ThreadKind::Work,
+                parent_thread_id: None,
+                companion_worker_thread_id: None,
+                title: Some("PowerShell".into()),
+                archived: false,
+                revision: 1,
+                created_at: timestamp,
+                updated_at: timestamp,
+            })?;
         Ok::<_, anyhow::Error>(thread.id)
-    }).await.map_err(|_| "The thread could not be saved.".to_owned())?
-        .map_err(|_| "The project or thread could not be saved. No session was started.".to_owned())?;
+    })
+    .await
+    .map_err(|_| "The thread could not be saved.".to_owned())?
+    .map_err(|_| "The project or thread could not be saved. No session was started.".to_owned())?;
     // A failed start leaves the saved thread intact; closing a view never deletes it.
     let session = terminal_start(window, host, services, cwd, rows, cols).await?;
     Ok(ThreadStarted { session, thread_id })
@@ -324,15 +329,23 @@ async fn terminal_read(
     let batch = loop {
         {
             let batch = host.read(&id).map_err(|e| e.to_string())?;
-            if !batch.chunks.is_empty() || batch.eof || batch.error.is_some() || std::time::Instant::now() >= deadline {
+            if !batch.chunks.is_empty()
+                || batch.eof
+                || batch.error.is_some()
+                || std::time::Instant::now() >= deadline
+            {
                 break batch;
             }
         }
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     };
     if let Ok(session) = host.info(&id) {
-        window.state::<attention::Controller>().observe(window.app_handle(), &session, &batch);
-        window.state::<leftovers::Leftovers>().observe(window.app_handle(), &session, &batch);
+        window
+            .state::<attention::Controller>()
+            .observe(window.app_handle(), &session, &batch);
+        window
+            .state::<leftovers::Leftovers>()
+            .observe(window.app_handle(), &session, &batch);
     }
     Ok(batch)
 }
@@ -374,7 +387,11 @@ async fn terminal_stop(
         .await
         .map_err(|e| e.to_string())?
         .map_err(|e| e.to_string());
-    if result.is_ok() { window.state::<attention::Controller>().forget(window.app_handle(), &stopped_id); }
+    if result.is_ok() {
+        window
+            .state::<attention::Controller>()
+            .forget(window.app_handle(), &stopped_id);
+    }
     result
 }
 #[tauri::command]
@@ -385,7 +402,9 @@ async fn terminal_shutdown(
     local(&window)?;
     let host = host.inner().clone();
     #[cfg(windows)]
-    let sidecar = window.try_state::<Arc<sidecar::Controller>>().map(|s| s.inner().clone());
+    let sidecar = window
+        .try_state::<Arc<sidecar::Controller>>()
+        .map(|s| s.inner().clone());
     #[cfg(windows)]
     if let Some(runtime) = window.try_state::<Arc<terminal_runtime::Runtime>>() {
         runtime.request_shutdown();
@@ -411,18 +430,24 @@ async fn terminal_shutdown(
 }
 /// Managed in setup; an IPC call can arrive while setup still runs. Never panic: say so.
 #[cfg(windows)]
-pub(crate) fn ready<T: Send + Sync + 'static>(window: &tauri::WebviewWindow) -> Result<std::sync::Arc<T>, String>
+pub(crate) fn ready<T: Send + Sync + 'static>(
+    window: &tauri::WebviewWindow,
+) -> Result<std::sync::Arc<T>, String>
 where
     std::sync::Arc<T>: Send + Sync,
 {
     window
         .try_state::<std::sync::Arc<T>>()
         .map(|state| state.inner().clone())
-        .ok_or_else(|| "Shinatama is still finishing its start; not yet ready. Retry in a moment.".to_owned())
+        .ok_or_else(|| {
+            "Shinatama is still finishing its start; not yet ready. Retry in a moment.".to_owned()
+        })
 }
 fn sidecar_active(window: &tauri::Window) -> bool {
     #[cfg(windows)]
-    return window.try_state::<Arc<sidecar::Controller>>().is_some_and(|c| c.is_active());
+    return window
+        .try_state::<Arc<sidecar::Controller>>()
+        .is_some_and(|c| c.is_active());
     #[cfg(not(windows))]
     false
 }
@@ -511,8 +536,7 @@ async fn agent_start(
             )
             .await
             .map_err(str::to_owned)?;
-        serde_json::to_value(started)
-            .map_err(|_| "Agent startup status is unavailable.".into())
+        serde_json::to_value(started).map_err(|_| "Agent startup status is unavailable.".into())
     }
     #[cfg(not(windows))]
     Err("Agent startup is available on Windows.".into())
@@ -548,8 +572,7 @@ async fn agent_open(
             )
             .await
             .map_err(str::to_owned)?;
-        serde_json::to_value(started)
-            .map_err(|_| "Agent startup status is unavailable.".into())
+        serde_json::to_value(started).map_err(|_| "Agent startup status is unavailable.".into())
     }
     #[cfg(not(windows))]
     {
@@ -683,7 +706,8 @@ fn portable_environment() {
         return;
     }
     let inside = std::env::current_dir().is_ok_and(|cwd| {
-        cwd.ancestors().any(|part| part.as_os_str().eq_ignore_ascii_case(root.as_os_str()))
+        cwd.ancestors()
+            .any(|part| part.as_os_str().eq_ignore_ascii_case(root.as_os_str()))
     });
     if inside && let Some(profile) = std::env::var_os("USERPROFILE") {
         let _ = std::env::set_current_dir(profile);
@@ -725,14 +749,24 @@ fn main() {
             {
                 let browser = Arc::new(browser::BrowserState::default());
                 browser::BrowserState::start_sweeper(Arc::clone(&browser));
-                let tools = Arc::new(browser_agent::AgentBrowser { state: Arc::clone(&browser), app: app.handle().clone() });
+                let tools = Arc::new(browser_agent::AgentBrowser {
+                    state: Arc::clone(&browser),
+                    app: app.handle().clone(),
+                });
                 let _ = shinatama_engine::session_control::install_browser(tools);
                 app.manage(browser);
             }
             let directory = data_home(app.handle());
             if let Ok(home) = &directory {
                 app_log::start(home);
-                app_log::write("start", &format!("Shinatama {} started (process {}).", env!("CARGO_PKG_VERSION"), std::process::id()));
+                app_log::write(
+                    "start",
+                    &format!(
+                        "Shinatama {} started (process {}).",
+                        env!("CARGO_PKG_VERSION"),
+                        std::process::id()
+                    ),
+                );
             }
             #[cfg(windows)]
             if let Ok(home) = &directory {
@@ -740,7 +774,12 @@ fn main() {
             }
             // Shinatama's own Muro keeps the plugins of its agent boxes in sync: it is set up and
             // started on a thread of its own, beside Marionette's, which writes only its own store.
-            let plugins = Arc::new(muro::Muro::for_app(directory.as_ref().map(Clone::clone).map_err(|e| e.to_string())));
+            let plugins = Arc::new(muro::Muro::for_app(
+                directory
+                    .as_ref()
+                    .map(Clone::clone)
+                    .map_err(|e| e.to_string()),
+            ));
             muro::start(Arc::clone(&plugins));
             app.manage(plugins);
             // The data disk's free space, for the Model proxy panel and refused opens: a full disk
@@ -752,14 +791,23 @@ fn main() {
                 .map(|home| disk_space::DiskWatch::start(home.clone()));
             // The saved launch policy must be in force before any agent can start.
             app.manage(launch_settings::Controller::start(
-                directory.as_ref().map(Clone::clone).map_err(|e| e.to_string()),
+                directory
+                    .as_ref()
+                    .map(Clone::clone)
+                    .map_err(|e| e.to_string()),
             ));
             // Likewise the memory safety choice, before any start is admitted.
             app.manage(model_settings::Controller::start(
-                directory.as_ref().map(Clone::clone).map_err(|e| e.to_string()),
+                directory
+                    .as_ref()
+                    .map(Clone::clone)
+                    .map_err(|e| e.to_string()),
             ));
             app.manage(memory_settings::Controller::start(
-                directory.as_ref().map(Clone::clone).map_err(|e| e.to_string()),
+                directory
+                    .as_ref()
+                    .map(Clone::clone)
+                    .map_err(|e| e.to_string()),
             ));
             let services = Arc::new(storage::Services::new(directory.map_err(|e| e.to_string())));
             let maintenance = Arc::new(maintenance::Controller::start(services.clone()));
@@ -784,7 +832,10 @@ fn main() {
                 if let Some(disk) = &disk {
                     sidecar.watch_disk(Arc::clone(disk));
                 }
-                app.manage(Arc::new(sessions::Controller::new(services.clone(), runtime.clone())));
+                app.manage(Arc::new(sessions::Controller::new(
+                    services.clone(),
+                    runtime.clone(),
+                )));
                 let thread_window = app.handle().clone();
                 let agents_controller = Arc::new(agents::Controller::new(
                     services.clone(),
@@ -795,9 +846,13 @@ fn main() {
                         // Only saved selectors leave the lifecycle observer. The
                         // frontend re-reads bounded metadata; no native data or
                         // action authority is carried by this notification.
-                        let _ = thread_window.emit_to("main", "thread-changed", serde_json::json!({
-                            "projectId": project_id, "threadId": thread_id,
-                        }));
+                        let _ = thread_window.emit_to(
+                            "main",
+                            "thread-changed",
+                            serde_json::json!({
+                                "projectId": project_id, "threadId": thread_id,
+                            }),
+                        );
                     }),
                 ));
                 app.manage(agents_controller.clone());
@@ -805,9 +860,13 @@ fn main() {
                 // says which one it is waiting for.
                 let progress_window = app.handle().clone();
                 opening::install(Box::new(move |harness, step| {
-                    let _ = progress_window.emit_to("main", "agent-opening", serde_json::json!({
-                        "harness": harness, "step": step,
-                    }));
+                    let _ = progress_window.emit_to(
+                        "main",
+                        "agent-opening",
+                        serde_json::json!({
+                            "harness": harness, "step": step,
+                        }),
+                    );
                 }));
                 // Every agent session goes through the model proxy, and starting it took 15-30 s
                 // of the first click after each start. It starts now, in the background, with the
@@ -1220,15 +1279,20 @@ fn main() {
             }
             // Windows destroyed to be built again after a WebView2 loss are not a close.
             #[cfg(windows)]
-            if webview_recovery::recovering() { return; }
+            if webview_recovery::recovering() {
+                return;
+            }
             #[cfg(windows)]
-            if window.label() == "main" && matches!(event, tauri::WindowEvent::Resized(_))
+            if window.label() == "main"
+                && matches!(event, tauri::WindowEvent::Resized(_))
                 && let Some(main) = window.app_handle().get_webview_window("main")
             {
                 responsiveness::main_resized(&main);
             }
             if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
-                if let Some(widget) = window.app_handle().get_webview_window("attention") { let _ = widget.destroy(); }
+                if let Some(widget) = window.app_handle().get_webview_window("attention") {
+                    let _ = widget.destroy();
+                }
                 return;
             }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event
@@ -1245,7 +1309,9 @@ fn main() {
         .expect("Cannot run Shinatama desktop")
         .run(|_app, _event| {
             #[cfg(windows)]
-            if let tauri::RunEvent::ExitRequested { api, code: None, .. } = &_event
+            if let tauri::RunEvent::ExitRequested {
+                api, code: None, ..
+            } = &_event
                 && webview_recovery::recovering()
             {
                 api.prevent_exit();

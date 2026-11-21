@@ -30,7 +30,9 @@ pub fn fold(text: &str) -> String {
 pub fn valid_name(folded: &str, max: usize) -> bool {
     !folded.is_empty()
         && folded.chars().count() <= max
-        && folded.chars().all(|c| c.is_alphanumeric() || matches!(c, ' ' | '.' | '-' | '_' | '/' | '+' | '#'))
+        && folded
+            .chars()
+            .all(|c| c.is_alphanumeric() || matches!(c, ' ' | '.' | '-' | '_' | '/' | '+' | '#'))
 }
 
 /// A concept's identity: folded, case-folded, spaces collapsed; no aliases (R53).
@@ -64,7 +66,10 @@ mod tests {
 
     #[test]
     fn folds_fullwidth_and_spaces() {
-        assert_eq!(fold("  Ｒｕｓｔ\u{3000}\u{00A0}borrow   checker "), "Rust borrow checker");
+        assert_eq!(
+            fold("  Ｒｕｓｔ\u{3000}\u{00A0}borrow   checker "),
+            "Rust borrow checker"
+        );
         assert_eq!(identity("Borrow  CHECKER"), identity("borrow checker"));
         assert!(valid_name("C++ / C#", 60));
         assert!(valid_name("città", 60));

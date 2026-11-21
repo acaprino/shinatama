@@ -5,7 +5,9 @@
 //! reopening the source activation when a close hop died while SWITCHING with no live
 //! destination. An uncertain spawn is only observed: nothing here can start an agent, and no
 //! path deletes anything an agent owns.
-use shinatama_state::hops::{HopError, HopJournal, HopMode, HopRecord, HopState, Recovered, RecoveryProbe};
+use shinatama_state::hops::{
+    HopError, HopJournal, HopMode, HopRecord, HopState, Recovered, RecoveryProbe,
+};
 
 pub trait RecoveryRuntime {
     fn destination_alive(&mut self, hop: &HopRecord) -> bool;
@@ -39,7 +41,11 @@ pub struct Reconciled {
     pub actions: Vec<Action>,
 }
 
-pub fn reconcile(journal: &HopJournal, runtime: &mut dyn RecoveryRuntime, now_ms: i64) -> Result<Vec<Reconciled>, HopError> {
+pub fn reconcile(
+    journal: &HopJournal,
+    runtime: &mut dyn RecoveryRuntime,
+    now_ms: i64,
+) -> Result<Vec<Reconciled>, HopError> {
     let recovered = journal.recover(&mut Probe(runtime), now_ms)?;
     let mut out = Vec::with_capacity(recovered.len());
     for item in recovered {
@@ -47,7 +53,10 @@ pub fn reconcile(journal: &HopJournal, runtime: &mut dyn RecoveryRuntime, now_ms
         let mut actions = Vec::new();
         match (item.from, item.to) {
             (_, None) => actions.push(Action::Observing),
-            (HopState::Preparing | HopState::Ready, Some(to @ (HopState::Aborted | HopState::Failed))) => {
+            (
+                HopState::Preparing | HopState::Ready,
+                Some(to @ (HopState::Aborted | HopState::Failed)),
+            ) => {
                 if let Some(instance) = hop.destination_instance.as_deref()
                     && runtime.destination_alive(&hop)
                 {
@@ -58,7 +67,9 @@ pub fn reconcile(journal: &HopJournal, runtime: &mut dyn RecoveryRuntime, now_ms
                     actions.push(Action::OfferRetry);
                 }
             }
-            (HopState::Switching, Some(HopState::Aborted)) if hop.plan.mode == HopMode::Close && hop.plan.source_instance.is_some() => {
+            (HopState::Switching, Some(HopState::Aborted))
+                if hop.plan.mode == HopMode::Close && hop.plan.source_instance.is_some() =>
+            {
                 actions.push(match runtime.reopen_source(&hop) {
                     Ok(()) => Action::ReopenedSource,
                     Err(message) => Action::ReopenFailed(message),
@@ -66,7 +77,10 @@ pub fn reconcile(journal: &HopJournal, runtime: &mut dyn RecoveryRuntime, now_ms
             }
             _ => {}
         }
-        out.push(Reconciled { recovered: item, actions });
+        out.push(Reconciled {
+            recovered: item,
+            actions,
+        });
     }
     Ok(out)
 }
@@ -128,7 +142,9 @@ mod tests {
         };
         let arrow = |to: HopState| {
             let hop = journal.hop(&id).unwrap().unwrap();
-            journal.transition(&id, hop.state, hop.revision, to, None, 0).unwrap();
+            journal
+                .transition(&id, hop.state, hop.revision, to, None, 0)
+                .unwrap();
         };
         go(&mut || {
             journal.plan(&plan(), 0).unwrap();
@@ -136,19 +152,34 @@ mod tests {
         go(&mut || arrow(Previewed));
         go(&mut || arrow(Confirmed));
         go(&mut || arrow(Preparing));
-        go(&mut || journal.record_effect(&id, "spawn_attempted", None, 0).unwrap());
         go(&mut || {
-            journal.set_destination(&id, Some("i_dest"), Some("dest-native"), 0).unwrap();
-            journal.record_effect(&id, "spawn_observed", None, 0).unwrap();
+            journal
+                .record_effect(&id, "spawn_attempted", None, 0)
+                .unwrap()
+        });
+        go(&mut || {
+            journal
+                .set_destination(&id, Some("i_dest"), Some("dest-native"), 0)
+                .unwrap();
+            journal
+                .record_effect(&id, "spawn_observed", None, 0)
+                .unwrap();
         });
         go(&mut || arrow(Ready));
         go(&mut || arrow(Switching));
-        go(&mut || journal.record_effect(&id, "source_activation_end", None, 0).unwrap());
+        go(&mut || {
+            journal
+                .record_effect(&id, "source_activation_end", None, 0)
+                .unwrap()
+        });
         go(&mut || arrow(Committed));
     }
 
     fn scratch(tag: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("shinatama-recovery-{tag}-{}", uuid::Uuid::new_v4().simple()));
+        let dir = std::env::temp_dir().join(format!(
+            "shinatama-recovery-{tag}-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -184,16 +215,29 @@ mod tests {
             let dir = scratch("matrix");
             let journal = crashed_journal(&dir, steps);
             assert!(journal.integrity_check().unwrap(), "steps {steps}");
-            let mut runtime = Runtime { alive, ..Runtime::default() };
+            let mut runtime = Runtime {
+                alive,
+                ..Runtime::default()
+            };
             let first = reconcile(&journal, &mut runtime, 1_000).unwrap();
             let hop = journal.hop(&"c".repeat(32)).unwrap().unwrap();
-            assert_eq!(Some(hop.state), expected, "steps {steps} alive {alive}: {first:?}");
+            assert_eq!(
+                Some(hop.state),
+                expected,
+                "steps {steps} alive {alive}: {first:?}"
+            );
             assert_eq!(runtime.killed.len(), kills, "steps {steps}");
             assert_eq!(runtime.reopened, reopens, "steps {steps}");
             // Recovery runs once: a second pass from another process changes nothing more.
-            let mut again = Runtime { alive, ..Runtime::default() };
+            let mut again = Runtime {
+                alive,
+                ..Runtime::default()
+            };
             let second = reconcile(&journal, &mut again, 1_000).unwrap();
-            assert!(again.killed.is_empty() && again.reopened == 0, "steps {steps}: {second:?}");
+            assert!(
+                again.killed.is_empty() && again.reopened == 0,
+                "steps {steps}: {second:?}"
+            );
             assert!(journal.integrity_check().unwrap());
             drop(journal);
             std::fs::remove_dir_all(dir).unwrap();
@@ -210,7 +254,10 @@ mod tests {
         let failed = reconcile(&journal, &mut runtime, READY_TIMEOUT_MS + 1).unwrap();
         assert_eq!(failed[0].recovered.to, Some(HopState::Failed));
         assert_eq!(failed[0].actions, [Action::OfferRetry]);
-        assert!(runtime.killed.is_empty(), "no instance was ever observed, so nothing is killed");
+        assert!(
+            runtime.killed.is_empty(),
+            "no instance was ever observed, so nothing is killed"
+        );
         drop(journal);
         std::fs::remove_dir_all(dir).unwrap();
     }

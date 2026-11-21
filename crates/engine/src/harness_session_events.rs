@@ -453,7 +453,9 @@ fn detach_browser_call(
     shared: &Arc<Shared>,
 ) -> Option<Response> {
     if BROWSER_CALLS
-        .try_update(Ordering::AcqRel, Ordering::Acquire, |count| (count < MAX_BROWSER_CALLS).then_some(count + 1))
+        .try_update(Ordering::AcqRel, Ordering::Acquire, |count| {
+            (count < MAX_BROWSER_CALLS).then_some(count + 1)
+        })
         .is_err()
     {
         return Some(503.into());
@@ -461,17 +463,24 @@ fn detach_browser_call(
     let release = || {
         BROWSER_CALLS.fetch_sub(1, Ordering::AcqRel);
     };
-    let (Ok(mut own), Some(broker)) = (stream.try_clone(), crate::session_control::installed()) else {
+    let (Ok(mut own), Some(broker)) = (stream.try_clone(), crate::session_control::installed())
+    else {
         release();
         return Some(503.into());
     };
-    let (caller, project, shared) = (record.clone(), expected_cwd.to_path_buf(), Arc::clone(shared));
-    let spawned = thread::Builder::new().name("session-detached-call".into()).spawn(move || {
-        let response = rpc_response(&broker, &caller, harness, &project, &body);
-        respond(&mut own, response, &shared, BROWSER_RESPONSE_TIMEOUT);
-        let _ = own.shutdown(Shutdown::Both);
-        BROWSER_CALLS.fetch_sub(1, Ordering::AcqRel);
-    });
+    let (caller, project, shared) = (
+        record.clone(),
+        expected_cwd.to_path_buf(),
+        Arc::clone(shared),
+    );
+    let spawned = thread::Builder::new()
+        .name("session-detached-call".into())
+        .spawn(move || {
+            let response = rpc_response(&broker, &caller, harness, &project, &body);
+            respond(&mut own, response, &shared, BROWSER_RESPONSE_TIMEOUT);
+            let _ = own.shutdown(Shutdown::Both);
+            BROWSER_CALLS.fetch_sub(1, Ordering::AcqRel);
+        });
     if spawned.is_err() {
         release();
         return Some(503.into());
@@ -806,13 +815,52 @@ mod tests {
         let record = identity.record();
         let address: SocketAddr = "127.0.0.1:43210".parse().unwrap();
         let route = format!("/v1/claude/session/{}", record.instance_id);
-        let header = |method: &str, credential: &str, extra: &str| format!(
-            "{method} {route}/mcp HTTP/1.1\r\nHost: {address}\r\nAuthorization: Bearer {credential}\r\n{extra}\r\n"
+        let header = |method: &str, credential: &str, extra: &str| {
+            format!(
+                "{method} {route}/mcp HTTP/1.1\r\nHost: {address}\r\nAuthorization: Bearer {credential}\r\n{extra}\r\n"
+            )
+        };
+        assert_eq!(
+            parse_header(
+                header(
+                    "POST",
+                    token,
+                    "Content-Type: application/json\r\nContent-Length: 2\r\n"
+                )
+                .as_bytes(),
+                address,
+                &route,
+                &record
+            ),
+            Ok((2, true))
         );
-        assert_eq!(parse_header(header("POST", token, "Content-Type: application/json\r\nContent-Length: 2\r\n").as_bytes(), address, &route, &record), Ok((2, true)));
-        assert_eq!(parse_header(header("GET", token, "").as_bytes(), address, &route, &record), Err(405));
-        assert_eq!(parse_header(header("GET", "incorrect", "").as_bytes(), address, &route, &record), Err(401));
-        assert_eq!(parse_header(header("GET", token, "Origin: http://untrusted.test\r\n").as_bytes(), address, &route, &record), Err(400));
+        assert_eq!(
+            parse_header(
+                header("GET", token, "").as_bytes(),
+                address,
+                &route,
+                &record
+            ),
+            Err(405)
+        );
+        assert_eq!(
+            parse_header(
+                header("GET", "incorrect", "").as_bytes(),
+                address,
+                &route,
+                &record
+            ),
+            Err(401)
+        );
+        assert_eq!(
+            parse_header(
+                header("GET", token, "Origin: http://untrusted.test\r\n").as_bytes(),
+                address,
+                &route,
+                &record
+            ),
+            Err(400)
+        );
     }
 
     fn post_mcp(

@@ -6,64 +6,64 @@ use shinatama_adapter::{
 };
 use std::collections::BTreeMap;
 
-pub mod doctor;
-pub mod checkup;
-pub mod launch;
-pub mod launch_policy;
-pub mod model_config;
-pub mod terminal_palette;
-pub mod native_launch;
-pub mod claude_session_events;
-pub mod harness_session_events;
-pub mod session_control;
-pub mod mukade_chat;
-pub mod team;
-pub mod mukade_mcp;
-#[cfg(windows)]
-pub(crate) mod harness_hooks;
-pub mod marionette;
-pub mod claude_mods;
-pub mod resources;
-#[cfg(feature = "session-reader")]
-pub mod session_roots;
-#[cfg(all(windows, feature = "session-reader"))]
-pub mod session_detail;
-#[cfg(all(windows, feature = "session-reader"))]
-pub mod session_lineage;
-#[cfg(all(windows, feature = "session-reader"))]
-pub mod session_raw;
-#[cfg(all(windows, feature = "session-reader"))]
-pub mod session_find;
-#[cfg(all(windows, feature = "session-reader"))]
-pub mod export_frames;
-#[cfg(all(windows, feature = "session-reader"))]
-pub mod session_export;
 #[cfg(windows)]
 pub mod check_scratch;
-#[cfg(windows)]
-pub mod claude_probe;
+pub mod checkup;
 #[cfg(windows)]
 pub mod claude_launch;
+pub mod claude_mods;
 #[cfg(windows)]
-pub mod codex_probe;
+pub mod claude_probe;
+pub mod claude_session_events;
 #[cfg(windows)]
 pub mod codex_launch;
 #[cfg(windows)]
-pub mod opencode_probe;
+pub mod codex_probe;
+pub mod doctor;
+#[cfg(all(windows, feature = "session-reader"))]
+pub mod export_frames;
+#[cfg(windows)]
+pub(crate) mod harness_hooks;
+pub mod harness_session_events;
+pub mod launch;
+pub mod launch_policy;
+pub mod marionette;
+pub mod model_config;
+pub mod mukade_chat;
+pub mod mukade_mcp;
+pub mod native_launch;
 #[cfg(windows)]
 pub mod opencode_launch;
+#[cfg(windows)]
+pub mod opencode_probe;
 #[cfg(windows)]
 pub mod pi_launch;
 #[cfg(windows)]
 pub mod pi_probe;
-pub mod sidecar_config;
+pub mod resources;
+pub mod session_control;
+#[cfg(all(windows, feature = "session-reader"))]
+pub mod session_detail;
+#[cfg(all(windows, feature = "session-reader"))]
+pub mod session_export;
+#[cfg(all(windows, feature = "session-reader"))]
+pub mod session_find;
+#[cfg(all(windows, feature = "session-reader"))]
+pub mod session_lineage;
+#[cfg(all(windows, feature = "session-reader"))]
+pub mod session_raw;
+#[cfg(feature = "session-reader")]
+pub mod session_roots;
 #[cfg(windows)]
 pub mod sidecar_admin;
-pub mod sidecar_runtime;
 #[cfg(windows)]
 pub mod sidecar_archive;
+pub mod sidecar_config;
+pub mod sidecar_runtime;
 #[cfg(windows)]
 pub mod sidecar_supervisor;
+pub mod team;
+pub mod terminal_palette;
 
 #[derive(Default)]
 pub struct Engine {

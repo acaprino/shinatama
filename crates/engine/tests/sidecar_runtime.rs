@@ -535,9 +535,9 @@ fn pinned_node_and_real_bundle_plus_canonical_storage_under_containment() {
                 .write(true)
                 .create_new(true)
                 .open(preserved)
-            {
-                destination.write_all(&bytes).unwrap();
-            }
+        {
+            destination.write_all(&bytes).unwrap();
+        }
     }
     let before = ["NODE_EXTRA_CA_CERTS", "NODE_TLS_REJECT_UNAUTHORIZED"].map(std::env::var_os);
     let mut result = qualify(&fixture);
@@ -675,9 +675,10 @@ fn qualify(fixture: &Fixture) -> ProofResult<Value> {
             cli.poll()?;
             if let Ok((200, body)) = http(port, "GET", "/__bili/health")
                 && let Ok(value) = serde_json::from_slice::<Value>(&body)
-                    && value["ok"] == true {
-                        break value;
-                    }
+                && value["ok"] == true
+            {
+                break value;
+            }
             if let Some(code) = safe(cli.spawned.process.try_wait(), "observe actual CLI startup")?
             {
                 drain(&mut cli.spawned.stdout, &mut cli.output)?;

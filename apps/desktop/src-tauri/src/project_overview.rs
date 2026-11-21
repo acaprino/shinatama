@@ -38,13 +38,19 @@ pub struct ProjectRow {
 }
 
 #[tauri::command]
-pub async fn project_overview(window: WebviewWindow, services: State<'_, Services>) -> Result<Vec<ProjectRow>, String> {
+pub async fn project_overview(
+    window: WebviewWindow,
+    services: State<'_, Services>,
+) -> Result<Vec<ProjectRow>, String> {
     crate::local(&window)?;
     let services = services.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let state = services.load()?;
         let projects = state.store.recent().map_err(|e| format!("{e:#}"))?;
-        let pins = state.store.pinned_projects().map_err(|e| format!("{e:#}"))?;
+        let pins = state
+            .store
+            .pinned_projects()
+            .map_err(|e| format!("{e:#}"))?;
         let paths: Vec<PathBuf> = projects.iter().map(|p| PathBuf::from(&p.path)).collect();
         let facts = cache().scan(&paths, git::DEFAULT_TIMEOUT);
         let mut rows: Vec<ProjectRow> = projects
@@ -56,10 +62,22 @@ pub async fn project_overview(window: WebviewWindow, services: State<'_, Service
                     .list_threads(&project.id, None, 1, false)
                     .ok()
                     .and_then(|page| page.rows.into_iter().next())
-                    .map(|t| LastThread { id: t.id, title: t.title, harness: t.harness, revision: t.revision, updated_at: t.updated_at });
+                    .map(|t| LastThread {
+                        id: t.id,
+                        title: t.title,
+                        harness: t.harness,
+                        revision: t.revision,
+                        updated_at: t.updated_at,
+                    });
                 ProjectRow {
                     pinned: pins.contains(&project.id),
-                    git: if project.available { git } else { GitFacts::Unknown { reason: "folder unavailable".into() } },
+                    git: if project.available {
+                        git
+                    } else {
+                        GitFacts::Unknown {
+                            reason: "folder unavailable".into(),
+                        }
+                    },
                     id: project.id,
                     path: project.path,
                     name: project.name,
@@ -70,7 +88,11 @@ pub async fn project_overview(window: WebviewWindow, services: State<'_, Service
             })
             .collect();
         let rank = |id: &str| pins.iter().position(|p| p == id).unwrap_or(usize::MAX);
-        rows.sort_by(|a, b| rank(&a.id).cmp(&rank(&b.id)).then(b.last_opened.cmp(&a.last_opened)));
+        rows.sort_by(|a, b| {
+            rank(&a.id)
+                .cmp(&rank(&b.id))
+                .then(b.last_opened.cmp(&a.last_opened))
+        });
         Ok(rows)
     })
     .await
@@ -78,17 +100,32 @@ pub async fn project_overview(window: WebviewWindow, services: State<'_, Service
 }
 
 #[tauri::command]
-pub async fn project_pin(window: WebviewWindow, services: State<'_, Services>, project_id: String, pinned: bool) -> Result<Vec<String>, String> {
+pub async fn project_pin(
+    window: WebviewWindow,
+    services: State<'_, Services>,
+    project_id: String,
+    pinned: bool,
+) -> Result<Vec<String>, String> {
     crate::local(&window)?;
     let services = services.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || services.load()?.store.set_project_pinned(&project_id, pinned).map_err(|e| e.to_string()))
-        .await
-        .map_err(|_| "The project worker stopped.".to_owned())?
+    tauri::async_runtime::spawn_blocking(move || {
+        services
+            .load()?
+            .store
+            .set_project_pinned(&project_id, pinned)
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|_| "The project worker stopped.".to_owned())?
 }
 
 fn recorded(services: &Services, path: &str) -> Result<PathBuf, String> {
     let state = services.load()?;
-    let norm = |p: &str| p.trim_start_matches(r"\\?\").trim_end_matches(['\\', '/']).to_lowercase();
+    let norm = |p: &str| {
+        p.trim_start_matches(r"\\?\")
+            .trim_end_matches(['\\', '/'])
+            .to_lowercase()
+    };
     state
         .store
         .recent()
@@ -100,24 +137,39 @@ fn recorded(services: &Services, path: &str) -> Result<PathBuf, String> {
 }
 
 #[tauri::command]
-pub async fn project_worktree_plan(window: WebviewWindow, services: State<'_, Services>, project: String, name: String) -> Result<git::WorktreePlan, String> {
+pub async fn project_worktree_plan(
+    window: WebviewWindow,
+    services: State<'_, Services>,
+    project: String,
+    name: String,
+) -> Result<git::WorktreePlan, String> {
     crate::local(&window)?;
     let services = services.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || git::plan_worktree(&recorded(&services, &project)?, &name).map_err(|e| e.to_string()))
-        .await
-        .map_err(|_| "The project worker stopped.".to_owned())?
+    tauri::async_runtime::spawn_blocking(move || {
+        git::plan_worktree(&recorded(&services, &project)?, &name).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|_| "The project worker stopped.".to_owned())?
 }
 
 /// Creates exactly the worktree the user confirmed (same name, same derived path).
 #[tauri::command]
-pub async fn project_worktree_create(window: WebviewWindow, services: State<'_, Services>, project: String, name: String, confirmed_path: String) -> Result<String, String> {
+pub async fn project_worktree_create(
+    window: WebviewWindow,
+    services: State<'_, Services>,
+    project: String,
+    name: String,
+    confirmed_path: String,
+) -> Result<String, String> {
     crate::local(&window)?;
     let services = services.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let root = recorded(&services, &project)?;
         let plan = git::plan_worktree(&root, &name).map_err(|e| e.to_string())?;
         if !same(&plan.path, Path::new(&confirmed_path)) {
-            return Err("The worktree location changed after you confirmed it; nothing was created.".into());
+            return Err(
+                "The worktree location changed after you confirmed it; nothing was created.".into(),
+            );
         }
         let path = git::create_worktree(&plan).map_err(|e| e.to_string())?;
         cache().invalidate(&root);
@@ -128,6 +180,11 @@ pub async fn project_worktree_create(window: WebviewWindow, services: State<'_, 
 }
 
 fn same(a: &Path, b: &Path) -> bool {
-    let n = |p: &Path| p.to_string_lossy().trim_start_matches(r"\\?\").trim_end_matches(['\\', '/']).to_lowercase();
+    let n = |p: &Path| {
+        p.to_string_lossy()
+            .trim_start_matches(r"\\?\")
+            .trim_end_matches(['\\', '/'])
+            .to_lowercase()
+    };
     n(a) == n(b)
 }

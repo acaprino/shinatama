@@ -4,7 +4,14 @@
 use std::sync::OnceLock;
 
 /// The steps, in the order an open passes them.
-pub(crate) const STEPS: [&str; 6] = ["proxy", "proxy_resources", "check", "reading", "prepare", "start"];
+pub(crate) const STEPS: [&str; 6] = [
+    "proxy",
+    "proxy_resources",
+    "check",
+    "reading",
+    "prepare",
+    "start",
+];
 
 type Sink = Box<dyn Fn(&str, &'static str) + Send + Sync>;
 static SINK: OnceLock<Sink> = OnceLock::new();

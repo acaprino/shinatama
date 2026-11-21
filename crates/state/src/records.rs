@@ -422,10 +422,17 @@ impl WorkspaceRecord {
 }
 
 pub(crate) fn validate_layout_json(schema_version: u32, layout_json: &str) -> Result<()> {
-    if schema_version != 1 { return Err(RecordsError::UnsupportedLayout); }
-    if layout_json.len() > MAX_LAYOUT_BYTES { return Err(RecordsError::Invalid("dimensione layout")); }
-    let value: serde_json::Value = serde_json::from_str(layout_json).map_err(|_| RecordsError::Invalid("JSON layout"))?;
-    if !value.is_object() { return Err(RecordsError::Invalid("documento layout")); }
+    if schema_version != 1 {
+        return Err(RecordsError::UnsupportedLayout);
+    }
+    if layout_json.len() > MAX_LAYOUT_BYTES {
+        return Err(RecordsError::Invalid("dimensione layout"));
+    }
+    let value: serde_json::Value =
+        serde_json::from_str(layout_json).map_err(|_| RecordsError::Invalid("JSON layout"))?;
+    if !value.is_object() {
+        return Err(RecordsError::Invalid("documento layout"));
+    }
     reject_runtime_payload(&value, 0, &mut 0)
 }
 

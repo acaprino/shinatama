@@ -32,7 +32,9 @@ const MAX_PAGES: usize = 8;
 const MAX_TEXT: usize = 16 * 1024;
 const MAX_OVERVIEW: usize = 64;
 /// Events the window draws, and the ones among them that are news for the user.
-const DRAWN: &[&str] = &["message", "signal", "join", "rejoin", "leave", "close", "reopen"];
+const DRAWN: &[&str] = &[
+    "message", "signal", "join", "rejoin", "leave", "close", "reopen",
+];
 const NEWS: &[&str] = &["message", "signal"];
 
 /// The handles of the host members (the person's `user` and Shinatama's `shinatama`) in each room,
@@ -49,7 +51,10 @@ pub struct Controller {
 type RoomKey = (PathBuf, String);
 static ROOMS: Mutex<BTreeMap<RoomKey, String>> = Mutex::new(BTreeMap::new());
 fn room_key(state: &WorkspaceServices, workset: &str) -> RoomKey {
-    (mukade_chat::data_directory(&state.location), workset.to_owned())
+    (
+        mukade_chat::data_directory(&state.location),
+        workset.to_owned(),
+    )
 }
 fn cached_room(state: &WorkspaceServices, workset: &str) -> Option<String> {
     ROOMS.lock().ok()?.get(&room_key(state, workset)).cloned()
@@ -65,14 +70,24 @@ fn forget_room(state: &WorkspaceServices, workset: &str) {
 /// them. A failure leaves the session an ordinary one; the reason goes to the log. `session` is
 /// the session being resumed: it joins in the Mukade role its agent's arrows give it; a new
 /// session, one not on the map and a thread without a formation join as a peer, as before.
-pub(crate) fn launch_hooks(state: &WorkspaceServices, harness: &str, workset: &str, session: Option<&str>) -> Option<ChatHooks> {
-    if !CHAT_HARNESSES.contains(&harness) || !state.store.thread_chat_enabled(workset).unwrap_or(false) {
+pub(crate) fn launch_hooks(
+    state: &WorkspaceServices,
+    harness: &str,
+    workset: &str,
+    session: Option<&str>,
+) -> Option<ChatHooks> {
+    if !CHAT_HARNESSES.contains(&harness)
+        || !state.store.thread_chat_enabled(workset).unwrap_or(false)
+    {
         return None;
     }
     match room_of(state, workset) {
         Ok(room) => {
-            let formation = crate::thread_team::load(&state.store, workset).ok().and_then(|record| record.formation);
-            ChatHooks::new(&state.location, &room).map(|hooks| hooks.with_role(launch_role(formation.as_ref(), session).as_str()))
+            let formation = crate::thread_team::load(&state.store, workset)
+                .ok()
+                .and_then(|record| record.formation);
+            ChatHooks::new(&state.location, &room)
+                .map(|hooks| hooks.with_role(launch_role(formation.as_ref(), session).as_str()))
         }
         Err(reason) => {
             eprintln!("A session of a talking thread opens without its room: {reason}");
@@ -84,12 +99,16 @@ pub(crate) fn launch_hooks(state: &WorkspaceServices, harness: &str, workset: &s
 /// The Mukade role of the agent of `formation` whose session is `session`; a peer when there is
 /// no formation, no session yet, or the session is not on the map.
 pub(crate) fn launch_role(formation: Option<&Formation>, session: Option<&str>) -> MukadeRole {
-    let (Some(formation), Some(session)) = (formation, session) else { return MukadeRole::Peer };
+    let (Some(formation), Some(session)) = (formation, session) else {
+        return MukadeRole::Peer;
+    };
     formation
         .agents
         .iter()
         .find(|agent| agent.session.as_deref() == Some(session))
-        .map_or(MukadeRole::Peer, |agent| team::mukade_role(formation, &agent.id))
+        .map_or(MukadeRole::Peer, |agent| {
+            team::mukade_role(formation, &agent.id)
+        })
 }
 
 /// The thread's room ID, starting Shinatama's own service when it is stopped and opening the
@@ -132,11 +151,18 @@ pub(crate) fn find_room(state: &WorkspaceServices, workset: &str) -> Option<Stri
 
 /// The room of a session that was launched in this run with Mukade's hooks into `room`, and
 /// whose adapter then joined it: only then is it a member through its hooks.
-pub(crate) fn hooked_member(state: &WorkspaceServices, session: &str, harness: &str, native: &str, room: &str) -> Option<AdapterMember> {
+pub(crate) fn hooked_member(
+    state: &WorkspaceServices,
+    session: &str,
+    harness: &str,
+    native: &str,
+    room: &str,
+) -> Option<AdapterMember> {
     if mukade_chat::launched_room(session).as_deref() != Some(room) {
         return None;
     }
-    mukade_chat::adapter_member(&state.location, harness, native).filter(|member| member.room_id == room)
+    mukade_chat::adapter_member(&state.location, harness, native)
+        .filter(|member| member.room_id == room)
 }
 
 pub(crate) fn session_state(status: ThreadStatus) -> &'static str {
@@ -160,12 +186,18 @@ pub(crate) async fn blocking<T: Send + 'static>(
 }
 
 pub(crate) fn workset(value: &str) -> Result<(), String> {
-    thread_room_name(value).map(|_| ()).ok_or_else(|| "The thread is invalid.".to_owned())
+    thread_room_name(value)
+        .map(|_| ())
+        .ok_or_else(|| "The thread is invalid.".to_owned())
 }
 
 /// The pages of a listing (`rooms`, `members`, `ledger`), within a bound; `true` when the
 /// listing ended before the bound.
-pub(crate) fn listing(state: &WorkspaceServices, operation: &str, arguments: &[(&str, &str)]) -> Result<(Vec<Value>, bool), String> {
+pub(crate) fn listing(
+    state: &WorkspaceServices,
+    operation: &str,
+    arguments: &[(&str, &str)],
+) -> Result<(Vec<Value>, bool), String> {
     let mut items = Vec::new();
     let mut cursor: Option<String> = None;
     for _ in 0..MAX_PAGES {
@@ -191,9 +223,14 @@ fn recent_events(state: &WorkspaceServices, room: &str) -> Result<Vec<Value>, St
     use chrono::{Duration, SecondsFormat, Utc};
     let now = Utc::now();
     let mut kept: Option<Vec<Value>> = None;
-    for span in [Some(Duration::minutes(10)), Some(Duration::hours(1)), Some(Duration::days(1)),
-        Some(Duration::days(7)), Some(Duration::days(30)), None]
-    {
+    for span in [
+        Some(Duration::minutes(10)),
+        Some(Duration::hours(1)),
+        Some(Duration::days(1)),
+        Some(Duration::days(7)),
+        Some(Duration::days(30)),
+        None,
+    ] {
         let since = span.map(|span| (now - span).to_rfc3339_opts(SecondsFormat::Millis, true));
         let mut arguments = vec![("room-id", room)];
         if let Some(since) = &since {
@@ -222,9 +259,15 @@ pub struct ChatSwitch {
 }
 
 #[tauri::command]
-pub async fn thread_chat_list(window: WebviewWindow, services: State<'_, Arc<storage::Services>>) -> Result<Vec<String>, String> {
+pub async fn thread_chat_list(
+    window: WebviewWindow,
+    services: State<'_, Arc<storage::Services>>,
+) -> Result<Vec<String>, String> {
     crate::local(&window)?;
-    blocking(services.inner(), |state| state.store.chat_threads().map_err(|e| e.to_string())).await
+    blocking(services.inner(), |state| {
+        state.store.chat_threads().map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[derive(Deserialize)]
@@ -244,11 +287,25 @@ pub async fn thread_chat_set(
     crate::local(&window)?;
     workset(&request.workset_id)?;
     blocking(services.inner(), move |state| {
-        if state.store.workset_record(&request.workset_id).map_err(|e| e.to_string())?.is_none() {
+        if state
+            .store
+            .workset_record(&request.workset_id)
+            .map_err(|e| e.to_string())?
+            .is_none()
+        {
             return Err("The thread no longer exists.".into());
         }
-        let enabled = state.store.set_thread_chat(&request.workset_id, request.enabled).map_err(|e| e.to_string())?;
-        let warning = if request.enabled { room_of(state, &request.workset_id).inspect_err(|_| forget_room(state, &request.workset_id)).err() } else { None };
+        let enabled = state
+            .store
+            .set_thread_chat(&request.workset_id, request.enabled)
+            .map_err(|e| e.to_string())?;
+        let warning = if request.enabled {
+            room_of(state, &request.workset_id)
+                .inspect_err(|_| forget_room(state, &request.workset_id))
+                .err()
+        } else {
+            None
+        };
         Ok(ChatSwitch { enabled, warning })
     })
     .await
@@ -311,7 +368,11 @@ pub async fn thread_chat_overview(
         workset(id)?;
     }
     for seen in request.seen.values() {
-        if !seen.event_id.bytes().all(|c| c.is_ascii_digit()) || seen.event_id.len() > 20 || seen.timestamp.len() > 64 || seen.timestamp.chars().any(char::is_control) {
+        if !seen.event_id.bytes().all(|c| c.is_ascii_digit())
+            || seen.event_id.len() > 20
+            || seen.timestamp.len() > 64
+            || seen.timestamp.chars().any(char::is_control)
+        {
             return Err("A read position is invalid.".into());
         }
     }
@@ -326,7 +387,12 @@ pub async fn thread_chat_overview(
         let mut connected = BTreeMap::new();
         let mut launched = BTreeMap::new();
         if service != "running" || request.workset_ids.is_empty() {
-            return Ok(ChatOverview { service, rooms, connected, launched });
+            return Ok(ChatOverview {
+                service,
+                rooms,
+                connected,
+                launched,
+            });
         }
         let names: BTreeMap<String, &String> = request
             .workset_ids
@@ -334,21 +400,44 @@ pub async fn thread_chat_overview(
             .filter_map(|id| thread_room_name(id).map(|name| (name, id)))
             .collect();
         for room in listing(state, "rooms", &[])?.0 {
-            let (Some(name), Some(room_id), Some(revision)) = (room["name"].as_str(), room["room_id"].as_str(), room["revision"].as_str()) else { continue };
+            let (Some(name), Some(room_id), Some(revision)) = (
+                room["name"].as_str(),
+                room["room_id"].as_str(),
+                room["revision"].as_str(),
+            ) else {
+                continue;
+            };
             let Some(id) = names.get(name) else { continue };
             let unread = match request.seen.get(*id) {
                 Some(seen) if later(revision, &seen.event_id) => {
-                    let known = controller.unread.lock().ok().and_then(|cache| cache.get(room_id).cloned());
+                    let known = controller
+                        .unread
+                        .lock()
+                        .ok()
+                        .and_then(|cache| cache.get(room_id).cloned());
                     match known {
-                        Some((at, from, answer)) if at == revision && from == seen.event_id => answer,
+                        Some((at, from, answer)) if at == revision && from == seen.event_id => {
+                            answer
+                        }
                         _ => {
-                            let (events, _) = listing(state, "ledger", &[("room-id", room_id), ("since", &seen.timestamp)])?;
+                            let (events, _) = listing(
+                                state,
+                                "ledger",
+                                &[("room-id", room_id), ("since", &seen.timestamp)],
+                            )?;
                             let answer = events.iter().any(|event| {
-                                event["kind"].as_str().is_some_and(|kind| NEWS.contains(&kind))
-                                    && event["event_id"].as_str().is_some_and(|event| later(event, &seen.event_id))
+                                event["kind"]
+                                    .as_str()
+                                    .is_some_and(|kind| NEWS.contains(&kind))
+                                    && event["event_id"]
+                                        .as_str()
+                                        .is_some_and(|event| later(event, &seen.event_id))
                             });
                             if let Ok(mut cache) = controller.unread.lock() {
-                                cache.insert(room_id.to_owned(), (revision.to_owned(), seen.event_id.clone(), answer));
+                                cache.insert(
+                                    room_id.to_owned(),
+                                    (revision.to_owned(), seen.event_id.clone(), answer),
+                                );
                             }
                             answer
                         }
@@ -356,17 +445,22 @@ pub async fn thread_chat_overview(
                 }
                 _ => false,
             };
-            rooms.insert((*id).clone(), RoomMark {
-                latest: revision.to_owned(),
-                last_activity: room["last_activity"].as_str().map(str::to_owned),
-                unread,
-            });
+            rooms.insert(
+                (*id).clone(),
+                RoomMark {
+                    latest: revision.to_owned(),
+                    last_activity: room["last_activity"].as_str().map(str::to_owned),
+                    unread,
+                },
+            );
             let members: Vec<String> = state
                 .store
                 .workset_native_sessions(id)
                 .unwrap_or_default()
                 .into_iter()
-                .filter(|(session, harness, native)| hooked_member(state, session, harness, native, room_id).is_some())
+                .filter(|(session, harness, native)| {
+                    hooked_member(state, session, harness, native, room_id).is_some()
+                })
                 .map(|(session, _, _)| session)
                 .collect();
             connected.insert((*id).clone(), members);
@@ -377,14 +471,22 @@ pub async fn thread_chat_overview(
                 .unwrap_or_default()
                 .into_iter()
                 .filter(|session| {
-                    session.harness.as_deref().is_some_and(|harness| !MANUAL_HARNESSES.contains(&harness))
+                    session
+                        .harness
+                        .as_deref()
+                        .is_some_and(|harness| !MANUAL_HARNESSES.contains(&harness))
                         && mukade_chat::launched_room(&session.id).as_deref() == Some(room_id)
                 })
                 .map(|session| session.id)
                 .collect();
             launched.insert((*id).clone(), started);
         }
-        Ok(ChatOverview { service, rooms, connected, launched })
+        Ok(ChatOverview {
+            service,
+            rooms,
+            connected,
+            launched,
+        })
     })
     .await
 }
@@ -406,11 +508,19 @@ pub async fn thread_chat_snapshot(
 ) -> Result<Value, String> {
     crate::local(&window)?;
     workset(&request.workset_id)?;
-    if request.since.as_ref().is_some_and(|since| since.len() > 64 || since.chars().any(char::is_control)) {
+    if request
+        .since
+        .as_ref()
+        .is_some_and(|since| since.len() > 64 || since.chars().any(char::is_control))
+    {
         return Err("The read position is invalid.".into());
     }
     blocking(services.inner(), move |state| {
-        if !state.store.thread_chat_enabled(&request.workset_id).map_err(|e| e.to_string())? {
+        if !state
+            .store
+            .thread_chat_enabled(&request.workset_id)
+            .map_err(|e| e.to_string())?
+        {
             return Ok(json!({"enabled": false}));
         }
         // Reads repeat safely: after a failure the room is opened again, once.
@@ -435,9 +545,19 @@ pub async fn thread_chat_snapshot(
 /// The thread's sessions with what is known of them without a service call: their record, the
 /// adapter's record of the member each holds in `room` and whether this run launched them into it.
 /// Without a room no session is tied to a member.
-pub(crate) fn session_facts(state: &WorkspaceServices, workset: &str, room: Option<&str>) -> Result<Vec<SessionFacts>, String> {
-    let summaries = state.store.workset_threads(workset).map_err(|e| e.to_string())?;
-    let natives = state.store.workset_native_sessions(workset).map_err(|e| e.to_string())?;
+pub(crate) fn session_facts(
+    state: &WorkspaceServices,
+    workset: &str,
+    room: Option<&str>,
+) -> Result<Vec<SessionFacts>, String> {
+    let summaries = state
+        .store
+        .workset_threads(workset)
+        .map_err(|e| e.to_string())?;
+    let natives = state
+        .store
+        .workset_native_sessions(workset)
+        .map_err(|e| e.to_string())?;
     Ok(summaries
         .into_iter()
         .map(|summary| {
@@ -445,10 +565,18 @@ pub(crate) fn session_facts(state: &WorkspaceServices, workset: &str, room: Opti
                 natives
                     .iter()
                     .find(|(id, _, _)| id == &summary.id)
-                    .and_then(|(session, harness, native)| hooked_member(state, session, harness, native, room))
+                    .and_then(|(session, harness, native)| {
+                        hooked_member(state, session, harness, native, room)
+                    })
             });
-            let launched = room.is_some_and(|room| mukade_chat::launched_room(&summary.id).as_deref() == Some(room));
-            SessionFacts { summary, adapter, launched }
+            let launched = room.is_some_and(|room| {
+                mukade_chat::launched_room(&summary.id).as_deref() == Some(room)
+            });
+            SessionFacts {
+                summary,
+                adapter,
+                launched,
+            }
         })
         .collect())
 }
@@ -468,18 +596,26 @@ pub(crate) struct SessionFacts {
 /// adapter record names it, or (a session that joined by hand) by the stable name
 /// `shinatama_thread_peers` gives it. A session is in the room when it is a member through
 /// its hooks, or, joined by hand, while it runs.
-pub(crate) fn project(room: &str, members: &[Value], events: &[Value], sessions: &[SessionFacts]) -> Value {
+pub(crate) fn project(
+    room: &str,
+    members: &[Value],
+    events: &[Value],
+    sessions: &[SessionFacts],
+) -> Value {
     let session_of = |member: &Value| -> Option<&SessionFacts> {
         let id = member["member_id"].as_str()?;
         let name = member["name"].as_str()?;
         sessions.iter().find(|session| {
-            session.adapter.as_ref().is_some_and(|adapter| adapter.member_id == id)
+            session
+                .adapter
+                .as_ref()
+                .is_some_and(|adapter| adapter.member_id == id)
                 || session
                     .summary
                     .harness
                     .as_deref()
                     .filter(|harness| MANUAL_HARNESSES.contains(harness))
-                .and_then(|harness| thread_member_name(harness, &session.summary.id))
+                    .and_then(|harness| thread_member_name(harness, &session.summary.id))
                     .is_some_and(|stable| stable == name)
         })
     };
@@ -508,14 +644,19 @@ pub(crate) fn project(room: &str, members: &[Value], events: &[Value], sessions:
         .iter()
         .map(|session| {
             let harness = session.summary.harness.as_deref();
-            let member = members.iter().find(|member| member["sessionId"].as_str() == Some(session.summary.id.as_str()));
+            let member = members
+                .iter()
+                .find(|member| member["sessionId"].as_str() == Some(session.summary.id.as_str()));
             let present = member.is_some_and(|member| member["active"] == true)
-                && (session.adapter.is_some() || session.summary.status == ThreadStatus::RecordedOpen);
+                && (session.adapter.is_some()
+                    || session.summary.status == ThreadStatus::RecordedOpen);
             let connection = if !harness.is_some_and(|harness| CHAT_HARNESSES.contains(&harness)) {
                 "unsupported"
             } else if present {
                 "in_room"
-            } else if session.launched && !harness.is_some_and(|harness| MANUAL_HARNESSES.contains(&harness)) {
+            } else if session.launched
+                && !harness.is_some_and(|harness| MANUAL_HARNESSES.contains(&harness))
+            {
                 "launched"
             } else {
                 "not_connected"
@@ -589,10 +730,18 @@ pub async fn thread_chat_send(
 ) -> Result<Value, String> {
     crate::local(&window)?;
     workset(&request.workset_id)?;
-    if request.text.trim().is_empty() || request.text.len() > MAX_TEXT || request.text.contains('\0') {
+    if request.text.trim().is_empty()
+        || request.text.len() > MAX_TEXT
+        || request.text.contains('\0')
+    {
         return Err("Write a message of at most 16 KB.".into());
     }
-    if request.recipients.len() > 16 || !request.recipients.iter().all(|name| member_name(name) && name != USER_MEMBER) {
+    if request.recipients.len() > 16
+        || !request
+            .recipients
+            .iter()
+            .all(|name| member_name(name) && name != USER_MEMBER)
+    {
         return Err("A recipient is invalid.".into());
     }
     let controller = Arc::clone(controller.inner());
@@ -633,7 +782,11 @@ pub(crate) fn as_host<T>(
     name: &str,
     act: impl Fn(&str) -> Result<T, String>,
 ) -> Result<T, String> {
-    let cached = controller.hosts.lock().ok().and_then(|hosts| hosts.get(&(room.to_owned(), name.to_owned())).cloned());
+    let cached = controller
+        .hosts
+        .lock()
+        .ok()
+        .and_then(|hosts| hosts.get(&(room.to_owned(), name.to_owned())).cloned());
     with_recovery(cached, act, || host_handle(state, controller, room, name))
 }
 
@@ -657,13 +810,29 @@ fn with_recovery<T>(
 /// What `mukade chat join` is given for a host member: the flag that makes it the host's (the
 /// program reads the host's credential itself) and the harness name Mukade asks every member for.
 fn host_join<'a>(request_id: &'a str, room: &'a str, name: &'a str) -> [(&'a str, &'a str); 6] {
-    [("request-id", request_id), ("room-id", room), ("harness", USER_HARNESS), ("role", "peer"), ("name", name), ("host", "")]
+    [
+        ("request-id", request_id),
+        ("room-id", room),
+        ("harness", USER_HARNESS),
+        ("role", "peer"),
+        ("name", name),
+        ("host", ""),
+    ]
 }
 
 /// What `mukade chat rejoin` is given to recover a host member: since Mukade 0.1.2 only the bare
 /// `--host` flag (the program reads the host's credential itself) can recover a host member.
-fn host_rejoin<'a>(request_id: &'a str, room: &'a str, member_id: &'a str) -> [(&'a str, &'a str); 4] {
-    [("request-id", request_id), ("room-id", room), ("member-id", member_id), ("host", "")]
+fn host_rejoin<'a>(
+    request_id: &'a str,
+    room: &'a str,
+    member_id: &'a str,
+) -> [(&'a str, &'a str); 4] {
+    [
+        ("request-id", request_id),
+        ("room-id", room),
+        ("member-id", member_id),
+        ("host", ""),
+    ]
 }
 
 /// Join as the host member `preferred`, or recover that member after a restart (`rejoin` keeps
@@ -684,7 +853,9 @@ fn host_member(
             Err(reason) if reason.contains("member_name_taken") => {
                 let held = members()?;
                 let ours = held.iter().find(|member| {
-                    member["name"] == candidate.as_str() && member["harness"] == USER_HARNESS && member["host"] == true
+                    member["name"] == candidate.as_str()
+                        && member["harness"] == USER_HARNESS
+                        && member["host"] == true
                 });
                 if let Some(member_id) = ours.and_then(|member| member["member_id"].as_str()) {
                     return rejoin(member_id);
@@ -693,21 +864,38 @@ fn host_member(
             Err(reason) => return Err(reason),
         }
     }
-    Err(format!("The room's {preferred} member, and the names it could take instead, belong to someone else."))
+    Err(format!(
+        "The room's {preferred} member, and the names it could take instead, belong to someone else."
+    ))
 }
 
 /// The host member `name`'s handle: see `host_member` for the name it may end up with.
-fn host_handle(state: &WorkspaceServices, controller: &Controller, room: &str, name: &str) -> Result<String, String> {
+fn host_handle(
+    state: &WorkspaceServices,
+    controller: &Controller,
+    room: &str,
+    name: &str,
+) -> Result<String, String> {
     let answer = host_member(
         name,
         |candidate| {
             let request_id = uuid::Uuid::new_v4().to_string();
-            mukade_chat::call(&state.location, "join", &host_join(&request_id, room, candidate), None)
+            mukade_chat::call(
+                &state.location,
+                "join",
+                &host_join(&request_id, room, candidate),
+                None,
+            )
         },
         || listing(state, "members", &[("room-id", room)]).map(|(members, _)| members),
         |member_id| {
             let request_id = uuid::Uuid::new_v4().to_string();
-            mukade_chat::call(&state.location, "rejoin", &host_rejoin(&request_id, room, member_id), None)
+            mukade_chat::call(
+                &state.location,
+                "rejoin",
+                &host_rejoin(&request_id, room, member_id),
+                None,
+            )
         },
     )?;
     let handle = answer["member_handle"]
@@ -728,8 +916,15 @@ mod tests {
 
     fn summary(id: &str, harness: Option<&str>, status: ThreadStatus) -> ThreadSummary {
         ThreadSummary {
-            id: id.into(), project_id: "p_aaaaaaaaaaaa".into(), kind: ThreadKind::Work, title: None,
-            revision: 1, updated_at: 1, harness: harness.map(Into::into), native_available: Some(true), status,
+            id: id.into(),
+            project_id: "p_aaaaaaaaaaaa".into(),
+            kind: ThreadKind::Work,
+            title: None,
+            revision: 1,
+            updated_at: 1,
+            harness: harness.map(Into::into),
+            native_available: Some(true),
+            status,
         }
     }
 
@@ -746,14 +941,40 @@ mod tests {
         ];
         let sessions = [
             SessionFacts {
-                summary: summary("t_aaaaaaaaaaaa", Some("claude_code"), ThreadStatus::RecordedOpen),
-                adapter: Some(AdapterMember { room_id: "r".into(), member_id: "m1".into(), name: "claude-1".into(), role: "peer".into(), wakes: 1 }),
+                summary: summary(
+                    "t_aaaaaaaaaaaa",
+                    Some("claude_code"),
+                    ThreadStatus::RecordedOpen,
+                ),
+                adapter: Some(AdapterMember {
+                    room_id: "r".into(),
+                    member_id: "m1".into(),
+                    name: "claude-1".into(),
+                    role: "peer".into(),
+                    wakes: 1,
+                }),
                 launched: true,
             },
             // Joined by hand, under its stable name, and running.
-            SessionFacts { summary: summary("t_bbbbbbbbbbbb", Some("codex"), ThreadStatus::RecordedOpen), adapter: None, launched: false },
-            SessionFacts { summary: summary("t_cccccccccccc", Some("shell"), ThreadStatus::RecordedOpen), adapter: None, launched: false },
-            SessionFacts { summary: summary("t_dddddddddddd", Some("claude_code"), ThreadStatus::RecordedOpen), adapter: None, launched: false },
+            SessionFacts {
+                summary: summary("t_bbbbbbbbbbbb", Some("codex"), ThreadStatus::RecordedOpen),
+                adapter: None,
+                launched: false,
+            },
+            SessionFacts {
+                summary: summary("t_cccccccccccc", Some("shell"), ThreadStatus::RecordedOpen),
+                adapter: None,
+                launched: false,
+            },
+            SessionFacts {
+                summary: summary(
+                    "t_dddddddddddd",
+                    Some("claude_code"),
+                    ThreadStatus::RecordedOpen,
+                ),
+                adapter: None,
+                launched: false,
+            },
         ];
         let view = project("r", &members, &events, &sessions);
         assert_eq!(view["members"][0]["sessionId"], "t_aaaaaaaaaaaa");
@@ -767,7 +988,10 @@ mod tests {
         assert_eq!(view["sessions"][3]["connection"], "not_connected");
         // Only deliberate events are drawn; a bind is not one.
         assert_eq!(view["events"].as_array().unwrap().len(), 1);
-        assert_eq!(view["events"][0]["recipients"], json!(["codex-bbbbbbbbbbbb"]));
+        assert_eq!(
+            view["events"][0]["recipients"],
+            json!(["codex-bbbbbbbbbbbb"])
+        );
         assert_eq!(view["events"][0]["text"], "Rivedi il diff");
     }
 
@@ -784,8 +1008,18 @@ mod tests {
             json!({"event_id":"2","timestamp":"2026-11-16T10:00:01.000Z","kind":"message","actor":{"name":"shinatama","host":false},"payload":{"text":"hi"},"recipient_ids":[]}),
         ];
         let view = project("r", &members, &events, &[]);
-        let flags: Vec<(bool, bool)> = (0..4).map(|i| (view["members"][i]["host"] == true, view["members"][i]["user"] == true)).collect();
-        assert_eq!(flags, [(false, false), (true, false), (false, false), (true, true)]);
+        let flags: Vec<(bool, bool)> = (0..4)
+            .map(|i| {
+                (
+                    view["members"][i]["host"] == true,
+                    view["members"][i]["user"] == true,
+                )
+            })
+            .collect();
+        assert_eq!(
+            flags,
+            [(false, false), (true, false), (false, false), (true, true)]
+        );
         assert_eq!(view["events"][0]["actorHost"], true);
         assert_eq!(view["events"][1]["actorHost"], false);
     }
@@ -798,13 +1032,36 @@ mod tests {
             json!({"member_id":"m8","name":"opencode-1","harness":"opencode","role":"peer","left_at":null}),
             json!({"member_id":"m9","name":"pi-1","harness":"pi","role":"peer","left_at":null}),
         ];
-        let tied = |member: &str, name: &str| Some(AdapterMember { room_id: "r".into(), member_id: member.into(), name: name.into(), role: "peer".into(), wakes: 2 });
+        let tied = |member: &str, name: &str| {
+            Some(AdapterMember {
+                room_id: "r".into(),
+                member_id: member.into(),
+                name: name.into(),
+                role: "peer".into(),
+                wakes: 2,
+            })
+        };
         let sessions = [
-            SessionFacts { summary: summary("t_oooooooooooo", Some("opencode"), ThreadStatus::RecordedOpen), adapter: tied("m8", "opencode-1"), launched: true },
-            SessionFacts { summary: summary("t_pppppppppppp", Some("pi"), ThreadStatus::RecordedOpen), adapter: tied("m9", "pi-1"), launched: true },
+            SessionFacts {
+                summary: summary(
+                    "t_oooooooooooo",
+                    Some("opencode"),
+                    ThreadStatus::RecordedOpen,
+                ),
+                adapter: tied("m8", "opencode-1"),
+                launched: true,
+            },
+            SessionFacts {
+                summary: summary("t_pppppppppppp", Some("pi"), ThreadStatus::RecordedOpen),
+                adapter: tied("m9", "pi-1"),
+                launched: true,
+            },
         ];
         let view = project("r", &members, &[], &sessions);
-        for (row, session, member) in [(0, "t_oooooooooooo", "opencode-1"), (1, "t_pppppppppppp", "pi-1")] {
+        for (row, session, member) in [
+            (0, "t_oooooooooooo", "opencode-1"),
+            (1, "t_pppppppppppp", "pi-1"),
+        ] {
             assert_eq!(view["sessions"][row]["connection"], "in_room");
             assert_eq!(view["sessions"][row]["memberName"], member);
             assert_eq!(view["sessions"][row]["wakes"], 2);
@@ -815,10 +1072,23 @@ mod tests {
     #[test]
     fn an_opencode_or_pi_session_without_a_recorded_native_id_claims_no_member() {
         // A session opened before its id was recorded: its member in the room is not tied to it.
-        let members = [json!({"member_id":"m9","name":"pi-1","harness":"pi","role":"peer","left_at":null})];
+        let members =
+            [json!({"member_id":"m9","name":"pi-1","harness":"pi","role":"peer","left_at":null})];
         let sessions = [
-            SessionFacts { summary: summary("t_pppppppppppp", Some("pi"), ThreadStatus::RecordedOpen), adapter: None, launched: true },
-            SessionFacts { summary: summary("t_oooooooooooo", Some("opencode"), ThreadStatus::RecordedOpen), adapter: None, launched: false },
+            SessionFacts {
+                summary: summary("t_pppppppppppp", Some("pi"), ThreadStatus::RecordedOpen),
+                adapter: None,
+                launched: true,
+            },
+            SessionFacts {
+                summary: summary(
+                    "t_oooooooooooo",
+                    Some("opencode"),
+                    ThreadStatus::RecordedOpen,
+                ),
+                adapter: None,
+                launched: false,
+            },
         ];
         let view = project("r", &members, &[], &sessions);
         assert_eq!(view["sessions"][0]["connection"], "launched");
@@ -829,19 +1099,40 @@ mod tests {
 
     #[test]
     fn a_member_that_joined_by_hand_is_not_in_the_room_once_its_session_stops() {
-        let members = [json!({"member_id":"m2","name":"codex-bbbbbbbbbbbb","harness":"codex","role":"peer","left_at":null})];
-        let sessions = [SessionFacts { summary: summary("t_bbbbbbbbbbbb", Some("codex"), ThreadStatus::Inactive), adapter: None, launched: false }];
-        assert_eq!(project("r", &members, &[], &sessions)["sessions"][0]["connection"], "not_connected");
+        let members = [
+            json!({"member_id":"m2","name":"codex-bbbbbbbbbbbb","harness":"codex","role":"peer","left_at":null}),
+        ];
+        let sessions = [SessionFacts {
+            summary: summary("t_bbbbbbbbbbbb", Some("codex"), ThreadStatus::Inactive),
+            adapter: None,
+            launched: false,
+        }];
+        assert_eq!(
+            project("r", &members, &[], &sessions)["sessions"][0]["connection"],
+            "not_connected"
+        );
     }
 
     #[test]
     fn a_session_launches_in_the_role_the_arrows_of_its_agent_give_it() {
         use shinatama_engine::team::{Agent, Formation, Kind, Link, MukadeRole, Report, Share};
         let agent = |id: &str, session: Option<&str>| Agent {
-            id: id.into(), session: session.map(Into::into), model: None, name: id.into(),
-            notes: String::new(), share: Share::Split, x: 0, y: 0,
+            id: id.into(),
+            session: session.map(Into::into),
+            model: None,
+            name: id.into(),
+            notes: String::new(),
+            share: Share::Split,
+            x: 0,
+            y: 0,
         };
-        let link = |from: &str, to: &str, kind: Kind, report: Report| Link { from: from.into(), to: to.into(), kind, report, words: String::new() };
+        let link = |from: &str, to: &str, kind: Kind, report: Report| Link {
+            from: from.into(),
+            to: to.into(),
+            kind,
+            report,
+            words: String::new(),
+        };
         let formation = Formation {
             revision: 1,
             agents: vec![
@@ -851,8 +1142,18 @@ mod tests {
                 agent("a_dddddddddddd", None),
             ],
             links: vec![
-                link("a_aaaaaaaaaaaa", "a_bbbbbbbbbbbb", Kind::Work, Report::Strict),
-                link("a_cccccccccccc", "a_bbbbbbbbbbbb", Kind::Observes, Report::Done),
+                link(
+                    "a_aaaaaaaaaaaa",
+                    "a_bbbbbbbbbbbb",
+                    Kind::Work,
+                    Report::Strict,
+                ),
+                link(
+                    "a_cccccccccccc",
+                    "a_bbbbbbbbbbbb",
+                    Kind::Observes,
+                    Report::Done,
+                ),
             ],
         };
         let role = |session: Option<&str>| launch_role(Some(&formation), session);
@@ -868,7 +1169,13 @@ mod tests {
     #[test]
     fn a_host_member_joins_with_the_host_flag_under_the_name_it_is_given() {
         let joined = host_join("req", "room", "shinatama");
-        for pair in [("host", ""), ("name", "shinatama"), ("harness", "shinatama"), ("role", "peer"), ("room-id", "room")] {
+        for pair in [
+            ("host", ""),
+            ("name", "shinatama"),
+            ("harness", "shinatama"),
+            ("role", "peer"),
+            ("room-id", "room"),
+        ] {
             assert!(joined.contains(&pair), "{pair:?}");
         }
         assert!(host_join("req", "room", "user").contains(&("name", "user")));
@@ -879,7 +1186,12 @@ mod tests {
         // Mukade's `rejoin` of a member the host created needs the host's credential, which the
         // program reads from its own folder when it is given the bare `--host` flag.
         let rejoined = host_rejoin("req", "room", "m0");
-        for pair in [("host", ""), ("member-id", "m0"), ("room-id", "room"), ("request-id", "req")] {
+        for pair in [
+            ("host", ""),
+            ("member-id", "m0"),
+            ("room-id", "room"),
+            ("request-id", "req"),
+        ] {
             assert!(rejoined.contains(&pair), "{pair:?}");
         }
     }
@@ -913,30 +1225,57 @@ mod tests {
     }
 
     #[test]
-    fn a_host_whose_name_a_hand_joined_agent_took_joins_under_another_and_never_adopts_that_agent() {
+    fn a_host_whose_name_a_hand_joined_agent_took_joins_under_another_and_never_adopts_that_agent()
+    {
         // An agent joined by hand as `shinatama` (not a host, and under another harness).
         let (joined, log) = Held(vec![("shinatama", "claude_code", false)]).run("shinatama");
         assert_eq!(joined.unwrap()["member_handle"], "shinatama-2");
-        assert_eq!(log, ["join shinatama", "join shinatama-2"], "no rejoin of the squatter");
+        assert_eq!(
+            log,
+            ["join shinatama", "join shinatama-2"],
+            "no rejoin of the squatter"
+        );
         // Even under Shinatama's harness: only a member the room marks as a host is recovered.
-        let (joined, log) = Held(vec![("shinatama", "shinatama", false), ("shinatama-2", "claude_code", false)]).run("shinatama");
+        let (joined, log) = Held(vec![
+            ("shinatama", "shinatama", false),
+            ("shinatama-2", "claude_code", false),
+        ])
+        .run("shinatama");
         assert_eq!(joined.unwrap()["member_handle"], "shinatama-3");
-        assert!(log.iter().all(|line| !line.starts_with("rejoin")), "{log:?}");
+        assert!(
+            log.iter().all(|line| !line.starts_with("rejoin")),
+            "{log:?}"
+        );
         // The host that holds the name after a restart is recovered, not duplicated.
         let (joined, log) = Held(vec![("shinatama", "shinatama", true)]).run("shinatama");
         assert_eq!(joined.unwrap()["member_handle"], "m0");
         assert_eq!(log, ["join shinatama", "rejoin m0"]);
         // ...and so is the host that already moved to the second name.
-        let (joined, _) = Held(vec![("shinatama", "claude_code", false), ("shinatama-2", "shinatama", true)]).run("shinatama");
+        let (joined, _) = Held(vec![
+            ("shinatama", "claude_code", false),
+            ("shinatama-2", "shinatama", true),
+        ])
+        .run("shinatama");
         assert_eq!(joined.unwrap()["member_handle"], "m1");
         // Every name taken by others is a refusal naming the member.
         let mut all = vec![("shinatama", "claude_code", false)];
-        all.extend((2..=9).map(|n| (&*Box::leak(format!("shinatama-{n}").into_boxed_str()), "claude_code", false)));
+        all.extend((2..=9).map(|n| {
+            (
+                &*Box::leak(format!("shinatama-{n}").into_boxed_str()),
+                "claude_code",
+                false,
+            )
+        }));
         let (joined, log) = Held(all).run("shinatama");
         assert!(joined.unwrap_err().contains("belong to someone else"));
         assert_eq!(log.len(), 9, "bounded");
         // Another error is returned as it is.
-        let failed = host_member("shinatama", |_| Err("Mukade chat join failed.".into()), || Ok(Vec::new()), |_| Ok(json!({})));
+        let failed = host_member(
+            "shinatama",
+            |_| Err("Mukade chat join failed.".into()),
+            || Ok(Vec::new()),
+            |_| Ok(json!({})),
+        );
         assert_eq!(failed.unwrap_err(), "Mukade chat join failed.");
     }
 
@@ -944,8 +1283,15 @@ mod tests {
     fn a_host_name_is_the_preferred_one_then_numbered_from_two() {
         assert_eq!(mukade_chat::host_name("shinatama", 1), "shinatama");
         assert_eq!(mukade_chat::host_name("shinatama", 3), "shinatama-3");
-        assert!(mukade_chat::is_host_name("shinatama", "shinatama") && mukade_chat::is_host_name("shinatama", "shinatama-12"));
-        assert!(!mukade_chat::is_host_name("shinatama", "shinatama-") && !mukade_chat::is_host_name("shinatama", "shinatama-x") && !mukade_chat::is_host_name("shinatama", "shinatamas"));
+        assert!(
+            mukade_chat::is_host_name("shinatama", "shinatama")
+                && mukade_chat::is_host_name("shinatama", "shinatama-12")
+        );
+        assert!(
+            !mukade_chat::is_host_name("shinatama", "shinatama-")
+                && !mukade_chat::is_host_name("shinatama", "shinatama-x")
+                && !mukade_chat::is_host_name("shinatama", "shinatamas")
+        );
         assert!(!mukade_chat::is_host_name("shinatama", "user-2"));
     }
 
@@ -955,39 +1301,65 @@ mod tests {
         let stale = || Err::<String, String>("stale_member: The member handle is stale".to_owned());
         // A handle another run rotated: recovered, and the act repeated once with the new one.
         let recovered = Cell::new(0);
-        let acted = with_recovery(Some("old".into()), |handle| if handle == "old" { stale() } else { Ok(handle.to_owned()) }, || {
-            recovered.set(recovered.get() + 1);
-            Ok("new".into())
-        });
+        let acted = with_recovery(
+            Some("old".into()),
+            |handle| {
+                if handle == "old" {
+                    stale()
+                } else {
+                    Ok(handle.to_owned())
+                }
+            },
+            || {
+                recovered.set(recovered.get() + 1);
+                Ok("new".into())
+            },
+        );
         assert_eq!((acted, recovered.get()), (Ok("new".to_owned()), 1));
         // A recovered handle that is refused again is reported, not recovered again.
         let recovered = Cell::new(0);
-        let acted = with_recovery(Some("old".into()), |_| stale(), || {
-            recovered.set(recovered.get() + 1);
-            Ok("new".into())
-        });
+        let acted = with_recovery(
+            Some("old".into()),
+            |_| stale(),
+            || {
+                recovered.set(recovered.get() + 1);
+                Ok("new".into())
+            },
+        );
         assert!(acted.is_err());
         assert_eq!(recovered.get(), 1);
         // Any other failure, a timeout among them, is returned as it is: nothing is sent twice.
         let tries = Cell::new(0);
-        let acted: Result<String, String> = with_recovery(Some("h".into()), |_| {
-            tries.set(tries.get() + 1);
-            Err("Mukade chat send did not finish in time.".into())
-        }, || Ok("new".into()));
+        let acted: Result<String, String> = with_recovery(
+            Some("h".into()),
+            |_| {
+                tries.set(tries.get() + 1);
+                Err("Mukade chat send did not finish in time.".into())
+            },
+            || Ok("new".into()),
+        );
         assert_eq!((acted.is_err(), tries.get()), (true, 1));
         // No handle yet: one is made, and used once.
         let tries = Cell::new(0);
-        let acted = with_recovery(None, |handle| {
-            tries.set(tries.get() + 1);
-            Ok(handle.to_owned())
-        }, || Ok("made".into()));
+        let acted = with_recovery(
+            None,
+            |handle| {
+                tries.set(tries.get() + 1);
+                Ok(handle.to_owned())
+            },
+            || Ok("made".into()),
+        );
         assert_eq!((acted, tries.get()), (Ok("made".to_owned()), 1));
     }
 
     #[test]
     fn only_a_refused_handle_is_recovered_and_event_ids_compare_as_numbers() {
-        assert!(stale_handle("stale_member: The member handle is stale; recover the member with chat_rejoin"));
-        assert!(stale_handle("member_not_found: No member has that ID in this room"));
+        assert!(stale_handle(
+            "stale_member: The member handle is stale; recover the member with chat_rejoin"
+        ));
+        assert!(stale_handle(
+            "member_not_found: No member has that ID in this room"
+        ));
         assert!(!stale_handle("Mukade chat send did not finish in time."));
         assert!(!stale_handle("room_closed: The room is closed"));
         assert!(later("10", "9") && !later("9", "10") && !later("7", "7") && later("8", "7"));

@@ -311,19 +311,22 @@ fn proof() -> ProofResult<()> {
                     let status = receiver.status();
                     // Only fixed classes and counters, never the text, token,
                     // command line, native path or request body.
-                    eprintln!("{}", serde_json::json!({
-                        "diagnostic":"codex-hook-command-exit", "exitCode":code,
-                        "stdoutBytes":output.len(), "stderrBytes":errors.len(),
-                        "clixml":text.contains("CLIXML"),
-                        "progressRecord":text.contains("S=\"progress\"") || text.contains("ProgressRecord"),
-                        "commandNotFound":text.contains("CommandNotFoundException"),
-                        "nativeCommandError":text.contains("NativeCommandError"),
-                        "parserError":text.contains("ParserError"),
-                        "securityError":text.contains("PSSecurityException"),
-                        "eventQueued":receiver.try_next().ok().flatten().is_some(),
-                        "rejectedRequests":status.rejected_requests,
-                        "receiverFailed":status.failed,"queueOverflowed":status.queue_overflowed
-                    }));
+                    eprintln!(
+                        "{}",
+                        serde_json::json!({
+                            "diagnostic":"codex-hook-command-exit", "exitCode":code,
+                            "stdoutBytes":output.len(), "stderrBytes":errors.len(),
+                            "clixml":text.contains("CLIXML"),
+                            "progressRecord":text.contains("S=\"progress\"") || text.contains("ProgressRecord"),
+                            "commandNotFound":text.contains("CommandNotFoundException"),
+                            "nativeCommandError":text.contains("NativeCommandError"),
+                            "parserError":text.contains("ParserError"),
+                            "securityError":text.contains("PSSecurityException"),
+                            "eventQueued":receiver.try_next().ok().flatten().is_some(),
+                            "rejectedRequests":status.rejected_requests,
+                            "receiverFailed":status.failed,"queueOverflowed":status.queue_overflowed
+                        })
+                    );
                 }
                 require(
                     code == 0 && output.is_empty() && errors.is_empty(),

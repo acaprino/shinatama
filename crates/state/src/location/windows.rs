@@ -22,9 +22,10 @@ use windows_sys::Win32::Storage::FileSystem::{
     BY_HANDLE_FILE_INFORMATION, CreateDirectoryW, FILE_ALL_ACCESS, FILE_ATTRIBUTE_DIRECTORY,
     FILE_ATTRIBUTE_OFFLINE, FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS, FILE_ATTRIBUTE_RECALL_ON_OPEN,
     FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
-    FILE_READ_ATTRIBUTES, FILE_READ_DATA, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_STANDARD_INFO, FileStandardInfo,
-    GetDriveTypeW, GetFileAttributesW, GetFileInformationByHandle, GetFileInformationByHandleEx,
-    GetVolumeInformationW, GetVolumePathNameW, INVALID_FILE_ATTRIBUTES, QueryDosDeviceW,
+    FILE_READ_ATTRIBUTES, FILE_READ_DATA, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_STANDARD_INFO,
+    FileStandardInfo, GetDriveTypeW, GetFileAttributesW, GetFileInformationByHandle,
+    GetFileInformationByHandleEx, GetVolumeInformationW, GetVolumePathNameW,
+    INVALID_FILE_ATTRIBUTES, QueryDosDeviceW,
 };
 use windows_sys::Win32::System::Environment::ExpandEnvironmentStringsW;
 use windows_sys::Win32::System::Registry::{
@@ -898,20 +899,34 @@ mod owner_only_read_tests {
 
     fn descriptor(sddl: &str) -> LocalAllocation {
         let mut descriptor = null_mut();
-        assert_ne!(unsafe {
-            ConvertStringSecurityDescriptorToSecurityDescriptorW(
-                wide(sddl).as_ptr(), 1, &mut descriptor, null_mut(),
-            )
-        }, 0);
+        assert_ne!(
+            unsafe {
+                ConvertStringSecurityDescriptorToSecurityDescriptorW(
+                    wide(sddl).as_ptr(),
+                    1,
+                    &mut descriptor,
+                    null_mut(),
+                )
+            },
+            0
+        );
         LocalAllocation(descriptor)
     }
 
     fn parts(descriptor: &LocalAllocation) -> (PSID, *mut ACL) {
         let mut owner = null_mut();
         let mut owner_defaulted = 0;
-        assert_ne!(unsafe { GetSecurityDescriptorOwner(descriptor.0, &mut owner, &mut owner_defaulted) }, 0);
+        assert_ne!(
+            unsafe { GetSecurityDescriptorOwner(descriptor.0, &mut owner, &mut owner_defaulted) },
+            0
+        );
         let (mut present, mut acl, mut defaulted) = (0, null_mut(), 0);
-        assert_ne!(unsafe { GetSecurityDescriptorDacl(descriptor.0, &mut present, &mut acl, &mut defaulted) }, 0);
+        assert_ne!(
+            unsafe {
+                GetSecurityDescriptorDacl(descriptor.0, &mut present, &mut acl, &mut defaulted)
+            },
+            0
+        );
         assert_ne!(present, 0);
         (owner, acl)
     }
@@ -940,12 +955,12 @@ mod owner_only_read_tests {
         let user = CurrentUser::load(path).unwrap();
         let sid = sid_text(&user);
         for sddl in [
-            format!("O:BAD:(A;;FA;;;{sid})"), // foreign owner
-            format!("O:{sid}D:(A;;FA;;;WD)"), // everyone instead of current user
+            format!("O:BAD:(A;;FA;;;{sid})"),                // foreign owner
+            format!("O:{sid}D:(A;;FA;;;WD)"),                // everyone instead of current user
             format!("O:{sid}D:(A;;FA;;;{sid})(A;;FR;;;WD)"), // extra grant
-            format!("O:{sid}D:(A;IO;FA;;;{sid})"), // inheritance only: no effective grant
-            format!("O:{sid}D:(A;;FR;;;{sid})"), // partial grant
-            format!("O:{sid}D:(D;;FA;;;{sid})"), // deny ACE, not the expected allow
+            format!("O:{sid}D:(A;IO;FA;;;{sid})"),           // inheritance only: no effective grant
+            format!("O:{sid}D:(A;;FR;;;{sid})"),             // partial grant
+            format!("O:{sid}D:(D;;FA;;;{sid})"),             // deny ACE, not the expected allow
         ] {
             let descriptor = descriptor(&sddl);
             let (owner, acl) = parts(&descriptor);

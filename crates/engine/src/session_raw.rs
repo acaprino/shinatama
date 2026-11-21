@@ -235,7 +235,8 @@ mod tests {
             root,
             native_id: "raw-fixture".into(),
             cursor: None,
-            limit: 50, overview_only: false,
+            limit: 50,
+            overview_only: false,
         };
         let normal = read_detail(&snapshot, &detail);
         assert!(normal.issue.is_none());
@@ -316,13 +317,22 @@ mod tests {
         again.cursor = None;
         let fresh = read_detail(&snapshot, &again);
         assert!(fresh.issue.is_none(), "{:?}", fresh.issue);
-        again.cursor = Some(DetailCursor { offset: 0, fingerprint: fresh.page.unwrap().fingerprint });
+        again.cursor = Some(DetailCursor {
+            offset: 0,
+            fingerprint: fresh.page.unwrap().fingerprint,
+        });
         let (grown_session, _) = read_clipped_verified(&snapshot, &again, MAX_RAW_BYTES).unwrap();
         request.detail = again;
         request.entry_ordinal = opaque;
         let past_bound = read_raw(&snapshot, &request);
         assert!(past_bound.issue.is_none(), "{:?}", past_bound.issue);
-        assert!(past_bound.raw_json.as_ref().unwrap().contains("synthetic-opaque"));
+        assert!(
+            past_bound
+                .raw_json
+                .as_ref()
+                .unwrap()
+                .contains("synthetic-opaque")
+        );
         request.entry_ordinal = grown_session.entries.len() - 1;
         assert_eq!(
             read_raw(&snapshot, &request).issue,

@@ -40,12 +40,18 @@ pub enum Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            Self::InvalidDirectory => "The Mukade data directory must be an absolute private directory outside projects.",
-            Self::PrivateStorageRequired => "Mukade connection files could not be verified as private regular files.",
+            Self::InvalidDirectory => {
+                "The Mukade data directory must be an absolute private directory outside projects."
+            }
+            Self::PrivateStorageRequired => {
+                "Mukade connection files could not be verified as private regular files."
+            }
             Self::ServiceStopped => "The Mukade service is stopped.",
             Self::InvalidMetadata => "Mukade connection metadata is invalid.",
             Self::InvalidCredential => "Mukade connection credential is invalid.",
-            Self::ServiceUnavailable => "The selected Mukade service did not answer its bounded health check.",
+            Self::ServiceUnavailable => {
+                "The selected Mukade service did not answer its bounded health check."
+            }
             Self::ServiceChanged => "The selected Mukade service identity changed or is stopping.",
         })
     }
@@ -89,11 +95,15 @@ impl Connection {
         if let Ok(Some(connection)) = Self::discover(base) {
             return Ok(Some(connection));
         }
-        let Some(program) = bundled_program() else { return Ok(None) };
+        let Some(program) = bundled_program() else {
+            return Ok(None);
+        };
         let own = own_directory(base);
         // `chat start` is idempotent: a concurrent caller finds the same service.
         run_bundled(&program, &own, "start")?;
-        Self::discover_at(base, &own).map(Some).map_err(|e| e.to_string())
+        Self::discover_at(base, &own)
+            .map(Some)
+            .map_err(|e| e.to_string())
     }
 
     fn discover_at(base: &StorageLocation, selected: &Path) -> Result<Self, Error> {
@@ -110,14 +120,22 @@ impl Connection {
                 Err(_) => return Err(Error::InvalidDirectory),
             }
         }
-        let data = base.resolve_related_directory(selected).map_err(|_| Error::InvalidDirectory)?;
-        data.verify_private_directory().map_err(|_| Error::PrivateStorageRequired)?;
+        let data = base
+            .resolve_related_directory(selected)
+            .map_err(|_| Error::InvalidDirectory)?;
+        data.verify_private_directory()
+            .map_err(|_| Error::PrivateStorageRequired)?;
         let bus_path = selected.join("bus");
         reject_reparse(&bus_path)?;
-        let bus = base.resolve_related_directory(&bus_path).map_err(|_| Error::InvalidDirectory)?;
-        bus.verify_private_directory().map_err(|_| Error::PrivateStorageRequired)?;
+        let bus = base
+            .resolve_related_directory(&bus_path)
+            .map_err(|_| Error::InvalidDirectory)?;
+        bus.verify_private_directory()
+            .map_err(|_| Error::PrivateStorageRequired)?;
         let lock_path = bus.directory().join("instance.lock");
-        let lock = bus.open_owner_only_file(&lock_path).map_err(|_| Error::PrivateStorageRequired)?;
+        let lock = bus
+            .open_owner_only_file(&lock_path)
+            .map_err(|_| Error::PrivateStorageRequired)?;
         match lock.try_lock() {
             Ok(()) => return Err(Error::ServiceStopped), // drop releases the read-only probe lock
             Err(TryLockError::WouldBlock) => {}
@@ -139,7 +157,8 @@ impl Connection {
         if metadata.len() > MAX_METADATA {
             return Err(Error::InvalidMetadata);
         }
-        let state: Instance = serde_json::from_slice(metadata).map_err(|_| Error::InvalidMetadata)?;
+        let state: Instance =
+            serde_json::from_slice(metadata).map_err(|_| Error::InvalidMetadata)?;
         if !same_path(directory, &state.data_dir)
             || state.pid == 0
             || state.server_version.is_empty()
@@ -195,7 +214,10 @@ impl Connection {
     /// launcher sets them. Only the prepared child's environment holds them.
     pub fn apply_kit_environment(&self, environment: &mut BTreeMap<OsString, OsString>) {
         for (name, value) in [
-            ("MUKADE_CHAT_AUTHORIZATION", format!("Bearer {}", self.token)),
+            (
+                "MUKADE_CHAT_AUTHORIZATION",
+                format!("Bearer {}", self.token),
+            ),
             ("MUKADE_CHAT_SERVICE_ID", self.service_id.clone()),
         ] {
             environment.retain(|key, _| !key.eq_ignore_ascii_case(name));
@@ -212,7 +234,9 @@ impl Connection {
         let deadline = Instant::now() + HEALTH_TIMEOUT;
         let mut stream = TcpStream::connect_timeout(&self.address, HEALTH_TIMEOUT)
             .map_err(|_| Error::ServiceUnavailable)?;
-        stream.set_write_timeout(Some(remaining(deadline)?)).map_err(|_| Error::ServiceUnavailable)?;
+        stream
+            .set_write_timeout(Some(remaining(deadline)?))
+            .map_err(|_| Error::ServiceUnavailable)?;
         // HTTP/1.0: Mukade answers a 1.1 request chunked; a 1.0 answer is the plain
         // body, ended by its length or by the close of the connection.
         let mut request = format!(
@@ -224,9 +248,17 @@ impl Connection {
         sent.map_err(|_| Error::ServiceUnavailable)?;
         let response = read_health(&mut stream, deadline)?;
         #[derive(Deserialize)]
-        struct Health { service_id: String, instance_id: String, status: String }
-        let health: Health = serde_json::from_slice(&response).map_err(|_| Error::ServiceUnavailable)?;
-        if health.service_id != self.service_id || health.instance_id != self.instance_id || health.status != "running" {
+        struct Health {
+            service_id: String,
+            instance_id: String,
+            status: String,
+        }
+        let health: Health =
+            serde_json::from_slice(&response).map_err(|_| Error::ServiceUnavailable)?;
+        if health.service_id != self.service_id
+            || health.instance_id != self.instance_id
+            || health.status != "running"
+        {
             return Err(Error::ServiceChanged);
         }
         Ok(())
@@ -255,7 +287,9 @@ pub(crate) fn own_directory(base: &StorageLocation) -> PathBuf {
 pub fn bundled_program() -> Option<PathBuf> {
     let executable = std::env::current_exe().ok()?;
     let folder = executable.parent()?;
-    [Some(folder), folder.parent()].into_iter().flatten()
+    [Some(folder), folder.parent()]
+        .into_iter()
+        .flatten()
         .map(|root| root.join("mukade").join("mukade.exe"))
         .find(|program| {
             reject_reparse(program).is_ok() && fs::metadata(program).is_ok_and(|m| m.is_file())
@@ -269,8 +303,10 @@ fn run_bundled(program: &Path, directory: &Path, operation: &str) -> Result<(), 
     let mut environment: BTreeMap<OsString, OsString> = std::env::vars_os().collect();
     isolate_environment(&mut environment);
     let mut command = std::process::Command::new(program);
-    command.args(["chat", operation])
-        .env_clear().envs(environment)
+    command
+        .args(["chat", operation])
+        .env_clear()
+        .envs(environment)
         .env("MUKADE_DATA_DIR", directory)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
@@ -280,7 +316,9 @@ fn run_bundled(program: &Path, directory: &Path, operation: &str) -> Result<(), 
         use std::os::windows::process::CommandExt;
         command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
     }
-    let mut child = command.spawn().map_err(|_| "The bundled Mukade program could not be run.".to_owned())?;
+    let mut child = command
+        .spawn()
+        .map_err(|_| "The bundled Mukade program could not be run.".to_owned())?;
     let deadline = Instant::now() + BUNDLED_TIMEOUT;
     loop {
         match child.try_wait() {
@@ -291,9 +329,19 @@ fn run_bundled(program: &Path, directory: &Path, operation: &str) -> Result<(), 
                 if let Some(stream) = child.stderr.take() {
                     let _ = stream.take(2048).read_to_string(&mut text);
                 }
-                let line: String = text.lines().next().unwrap_or_default()
-                    .chars().filter(|c| !c.is_control()).take(400).collect();
-                return Err(if line.is_empty() { format!("Mukade chat {operation} failed.") } else { line });
+                let line: String = text
+                    .lines()
+                    .next()
+                    .unwrap_or_default()
+                    .chars()
+                    .filter(|c| !c.is_control())
+                    .take(400)
+                    .collect();
+                return Err(if line.is_empty() {
+                    format!("Mukade chat {operation} failed.")
+                } else {
+                    line
+                });
             }
             Ok(None) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(50)),
             _ => {
@@ -318,7 +366,14 @@ pub fn clear_environment(environment: &mut BTreeMap<OsString, OsString>) {
 
 /// The harnesses' own store variables, which tell a Mukade process where their sessions live:
 /// Mukade's catalog (`catalog/harnesses.json`, `store.env`).
-const HARNESS_STORES: &[&str] = &["CLAUDE_CONFIG_DIR", "CODEX_HOME", "OPENCODE_DB", "PI_CODING_AGENT_DIR", "HERMES_HOME", "DSH_HOME"];
+const HARNESS_STORES: &[&str] = &[
+    "CLAUDE_CONFIG_DIR",
+    "CODEX_HOME",
+    "OPENCODE_DB",
+    "PI_CODING_AGENT_DIR",
+    "HERMES_HOME",
+    "DSH_HOME",
+];
 
 /// For a Mukade process Shinatama runs (the service, a chat command, a trust or kit run): on top
 /// of `clear_environment`, none of the system's harness stores or Codex settings, so it neither
@@ -333,12 +388,18 @@ pub(crate) fn isolate_environment(environment: &mut BTreeMap<OsString, OsString>
 }
 
 fn endpoint_address(endpoint: &str) -> Result<SocketAddr, Error> {
-    let port = endpoint.strip_prefix("http://127.0.0.1:")
+    let port = endpoint
+        .strip_prefix("http://127.0.0.1:")
         .and_then(|s| s.strip_suffix("/mcp"))
         .ok_or(Error::InvalidMetadata)?;
     let number: u16 = port.parse().map_err(|_| Error::InvalidMetadata)?;
-    if number == 0 || number.to_string() != port { return Err(Error::InvalidMetadata); }
-    Ok(SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, number)))
+    if number == 0 || number.to_string() != port {
+        return Err(Error::InvalidMetadata);
+    }
+    Ok(SocketAddr::V4(SocketAddrV4::new(
+        Ipv4Addr::LOCALHOST,
+        number,
+    )))
 }
 
 fn canonical_uuid(value: &str) -> bool {
@@ -349,33 +410,50 @@ fn same_path(expected: &Path, actual: &Path) -> bool {
     fn key(path: &Path) -> Option<String> {
         let text = path.to_str()?;
         let text = text.strip_prefix(r"\\?\").unwrap_or(text);
-        Some(text.trim_end_matches(['\\', '/']).replace('/', "\\").to_ascii_lowercase())
+        Some(
+            text.trim_end_matches(['\\', '/'])
+                .replace('/', "\\")
+                .to_ascii_lowercase(),
+        )
     }
     actual.is_absolute() && key(expected).is_some() && key(expected) == key(actual)
 }
 
 pub(crate) fn reject_reparse(path: &Path) -> Result<(), Error> {
     let metadata = fs::symlink_metadata(path).map_err(|_| Error::PrivateStorageRequired)?;
-    if metadata.file_type().is_symlink() { return Err(Error::PrivateStorageRequired); }
+    if metadata.file_type().is_symlink() {
+        return Err(Error::PrivateStorageRequired);
+    }
     #[cfg(windows)]
     {
         use std::os::windows::fs::MetadataExt;
-        if metadata.file_attributes() & 0x400 != 0 { return Err(Error::PrivateStorageRequired); }
+        if metadata.file_attributes() & 0x400 != 0 {
+            return Err(Error::PrivateStorageRequired);
+        }
     }
     Ok(())
 }
 
 fn read_private(directory: &StorageLocation, name: &str, limit: usize) -> Result<Vec<u8>, Error> {
     let path = directory.directory().join(name);
-    let file = directory.open_owner_only_file(&path).map_err(|_| Error::PrivateStorageRequired)?;
+    let file = directory
+        .open_owner_only_file(&path)
+        .map_err(|_| Error::PrivateStorageRequired)?;
     let mut bytes = Vec::new();
-    file.take((limit + 1) as u64).read_to_end(&mut bytes).map_err(|_| Error::PrivateStorageRequired)?;
-    if bytes.len() > limit { return Err(Error::InvalidMetadata); }
+    file.take((limit + 1) as u64)
+        .read_to_end(&mut bytes)
+        .map_err(|_| Error::PrivateStorageRequired)?;
+    if bytes.len() > limit {
+        return Err(Error::InvalidMetadata);
+    }
     Ok(bytes)
 }
 
 fn remaining(deadline: Instant) -> Result<Duration, Error> {
-    deadline.checked_duration_since(Instant::now()).filter(|d| !d.is_zero()).ok_or(Error::ServiceUnavailable)
+    deadline
+        .checked_duration_since(Instant::now())
+        .filter(|d| !d.is_zero())
+        .ok_or(Error::ServiceUnavailable)
 }
 
 fn read_health(stream: &mut TcpStream, deadline: Instant) -> Result<Vec<u8>, Error> {
@@ -384,25 +462,43 @@ fn read_health(stream: &mut TcpStream, deadline: Instant) -> Result<Vec<u8>, Err
     let (header_end, body_len) = loop {
         if let Some(at) = bytes.windows(4).position(|w| w == b"\r\n\r\n") {
             let end = at + 4;
-            if end > MAX_HTTP_HEADER { return Err(Error::ServiceUnavailable); }
+            if end > MAX_HTTP_HEADER {
+                return Err(Error::ServiceUnavailable);
+            }
             break (end, health_content_length(&bytes[..end])?);
         }
-        if bytes.len() >= MAX_HTTP_HEADER { return Err(Error::ServiceUnavailable); }
-        stream.set_read_timeout(Some(remaining(deadline)?)).map_err(|_| Error::ServiceUnavailable)?;
+        if bytes.len() >= MAX_HTTP_HEADER {
+            return Err(Error::ServiceUnavailable);
+        }
+        stream
+            .set_read_timeout(Some(remaining(deadline)?))
+            .map_err(|_| Error::ServiceUnavailable)?;
         let size = (MAX_HTTP_HEADER - bytes.len()).min(chunk.len());
-        let n = stream.read(&mut chunk[..size]).map_err(|_| Error::ServiceUnavailable)?;
-        if n == 0 { return Err(Error::ServiceUnavailable); }
+        let n = stream
+            .read(&mut chunk[..size])
+            .map_err(|_| Error::ServiceUnavailable)?;
+        if n == 0 {
+            return Err(Error::ServiceUnavailable);
+        }
         bytes.extend_from_slice(&chunk[..n]);
     };
     // Without a length the body ends where the service closes the connection.
     let limit = header_end + body_len.unwrap_or(MAX_HEALTH_BODY);
-    if bytes.len() > limit { return Err(Error::ServiceUnavailable); }
+    if bytes.len() > limit {
+        return Err(Error::ServiceUnavailable);
+    }
     while bytes.len() < limit {
-        stream.set_read_timeout(Some(remaining(deadline)?)).map_err(|_| Error::ServiceUnavailable)?;
+        stream
+            .set_read_timeout(Some(remaining(deadline)?))
+            .map_err(|_| Error::ServiceUnavailable)?;
         let size = (limit - bytes.len()).min(chunk.len());
-        let n = stream.read(&mut chunk[..size]).map_err(|_| Error::ServiceUnavailable)?;
+        let n = stream
+            .read(&mut chunk[..size])
+            .map_err(|_| Error::ServiceUnavailable)?;
         if n == 0 {
-            if body_len.is_some() { return Err(Error::ServiceUnavailable); }
+            if body_len.is_some() {
+                return Err(Error::ServiceUnavailable);
+            }
             break;
         }
         bytes.extend_from_slice(&chunk[..n]);
@@ -410,8 +506,16 @@ fn read_health(stream: &mut TcpStream, deadline: Instant) -> Result<Vec<u8>, Err
     if body_len.is_none() {
         // More than the bound, or nothing at all, is not a health answer.
         let mut extra = [0u8; 1];
-        stream.set_read_timeout(Some(remaining(deadline)?)).map_err(|_| Error::ServiceUnavailable)?;
-        if bytes.len() == header_end || (bytes.len() == limit && stream.read(&mut extra).map_err(|_| Error::ServiceUnavailable)? != 0) {
+        stream
+            .set_read_timeout(Some(remaining(deadline)?))
+            .map_err(|_| Error::ServiceUnavailable)?;
+        if bytes.len() == header_end
+            || (bytes.len() == limit
+                && stream
+                    .read(&mut extra)
+                    .map_err(|_| Error::ServiceUnavailable)?
+                    != 0)
+        {
             return Err(Error::ServiceUnavailable);
         }
     }
@@ -428,11 +532,20 @@ fn health_content_length(header: &[u8]) -> Result<Option<usize>, Error> {
     let mut length = None;
     for line in lines.take_while(|line| !line.is_empty()) {
         let (name, value) = line.split_once(':').ok_or(Error::ServiceUnavailable)?;
-        if name.eq_ignore_ascii_case("transfer-encoding") { return Err(Error::ServiceUnavailable); }
+        if name.eq_ignore_ascii_case("transfer-encoding") {
+            return Err(Error::ServiceUnavailable);
+        }
         if name.eq_ignore_ascii_case("content-length") {
-            if length.is_some() { return Err(Error::ServiceUnavailable); }
-            let size: usize = value.trim().parse().map_err(|_| Error::ServiceUnavailable)?;
-            if size == 0 || size > MAX_HEALTH_BODY { return Err(Error::ServiceUnavailable); }
+            if length.is_some() {
+                return Err(Error::ServiceUnavailable);
+            }
+            let size: usize = value
+                .trim()
+                .parse()
+                .map_err(|_| Error::ServiceUnavailable)?;
+            if size == 0 || size > MAX_HEALTH_BODY {
+                return Err(Error::ServiceUnavailable);
+            }
             length = Some(size);
         }
     }
@@ -453,28 +566,65 @@ mod tests {
             "pid":12,"service_id":SERVICE,"instance_id":INSTANCE,"server_version":"0.1.0"})
     }
     fn connection(port: u16) -> Connection {
-        Connection::from_files(&std::env::temp_dir(), &serde_json::to_vec(&metadata(port)).unwrap(), TOKEN.as_bytes()).unwrap()
+        Connection::from_files(
+            &std::env::temp_dir(),
+            &serde_json::to_vec(&metadata(port)).unwrap(),
+            TOKEN.as_bytes(),
+        )
+        .unwrap()
     }
 
     #[test]
     fn rejects_remote_ambiguous_and_injected_endpoints_before_using_credential() {
-        for endpoint in ["https://127.0.0.1:1/mcp", "http://localhost:1/mcp", "http://127.0.0.1:0/mcp",
-            "http://127.0.0.1:0001/mcp", "http://127.0.0.1:1/mcp?x=1", "http://user@127.0.0.1:1/mcp",
-            "http://127.0.0.1:1/mcp\r\nInjected: value", "http://example.com:1/mcp"] {
+        for endpoint in [
+            "https://127.0.0.1:1/mcp",
+            "http://localhost:1/mcp",
+            "http://127.0.0.1:0/mcp",
+            "http://127.0.0.1:0001/mcp",
+            "http://127.0.0.1:1/mcp?x=1",
+            "http://user@127.0.0.1:1/mcp",
+            "http://127.0.0.1:1/mcp\r\nInjected: value",
+            "http://example.com:1/mcp",
+        ] {
             assert!(endpoint_address(endpoint).is_err(), "{endpoint}");
         }
-        assert_eq!(endpoint_address("http://127.0.0.1:33210/mcp").unwrap().port(), 33210);
+        assert_eq!(
+            endpoint_address("http://127.0.0.1:33210/mcp")
+                .unwrap()
+                .port(),
+            33210
+        );
     }
 
     #[test]
     fn validates_storage_identity_and_credentials() {
-        for (field, value) in [("service_id", json!("not-a-service")), ("instance_id", json!("latest")),
-            ("data_dir", json!("relative")), ("pid", json!(0)), ("extra", json!(true))] {
-            let mut state = metadata(1); state[field] = value;
-            assert!(Connection::from_files(&std::env::temp_dir(), &serde_json::to_vec(&state).unwrap(), TOKEN.as_bytes()).is_err());
+        for (field, value) in [
+            ("service_id", json!("not-a-service")),
+            ("instance_id", json!("latest")),
+            ("data_dir", json!("relative")),
+            ("pid", json!(0)),
+            ("extra", json!(true)),
+        ] {
+            let mut state = metadata(1);
+            state[field] = value;
+            assert!(
+                Connection::from_files(
+                    &std::env::temp_dir(),
+                    &serde_json::to_vec(&state).unwrap(),
+                    TOKEN.as_bytes()
+                )
+                .is_err()
+            );
         }
-        for token in [b"short".as_slice(), b"\r\nnothex".as_slice(), &[b'g';64]] {
-            assert!(Connection::from_files(&std::env::temp_dir(), &serde_json::to_vec(&metadata(1)).unwrap(), token).is_err());
+        for token in [b"short".as_slice(), b"\r\nnothex".as_slice(), &[b'g'; 64]] {
+            assert!(
+                Connection::from_files(
+                    &std::env::temp_dir(),
+                    &serde_json::to_vec(&metadata(1)).unwrap(),
+                    token
+                )
+                .is_err()
+            );
         }
     }
 
@@ -489,12 +639,18 @@ mod tests {
         assert!(claude.contains("${SHINATAMA_MUKADE_TOKEN}"));
         assert!(codex.contains("bearer_token_env_var=\"SHINATAMA_MUKADE_TOKEN\""));
         assert!(codex.contains("tool_timeout_sec=330"));
-        let mut env = BTreeMap::from([("shinatama_mukade_token".into(), "old".into()), ("KEEP".into(), "yes".into())]);
+        let mut env = BTreeMap::from([
+            ("shinatama_mukade_token".into(), "old".into()),
+            ("KEEP".into(), "yes".into()),
+        ]);
         env.insert("mukade_chat_room_id".into(), "parent-room".into());
         env.insert("MUKADE_CHAT_AUTHORIZATION".into(), "parent-bearer".into());
         connection.apply_environment(&mut env);
         assert_eq!(env.len(), 2);
-        assert_eq!(env.get(&OsString::from(TOKEN_ENV)), Some(&OsString::from(TOKEN)));
+        assert_eq!(
+            env.get(&OsString::from(TOKEN_ENV)),
+            Some(&OsString::from(TOKEN))
+        );
         clear_environment(&mut env);
         assert_eq!(env, BTreeMap::from([("KEEP".into(), "yes".into())]));
         // Another installation's service and program never reach a child or a Mukade process.
@@ -509,23 +665,37 @@ mod tests {
         ]);
         let mut child = env.clone();
         clear_environment(&mut child);
-        assert!(!child.contains_key(&OsString::from("MUKADE_DATA_DIR")) && !child.contains_key(&OsString::from("mukade_codex_exe")));
-        assert!(child.contains_key(&OsString::from("CODEX_HOME")), "a harness child's own home is its launcher's business");
+        assert!(
+            !child.contains_key(&OsString::from("MUKADE_DATA_DIR"))
+                && !child.contains_key(&OsString::from("mukade_codex_exe"))
+        );
+        assert!(
+            child.contains_key(&OsString::from("CODEX_HOME")),
+            "a harness child's own home is its launcher's business"
+        );
         isolate_environment(&mut env);
         assert_eq!(env, BTreeMap::from([("PATH".into(), "C:/Windows".into())]));
     }
 
     /// `length: false` is the real service's HTTP/1.0 answer: no length, then close.
-    fn health_server(body: Value, status: &str, length: bool) -> (u16, std::thread::JoinHandle<()>) {
+    fn health_server(
+        body: Value,
+        status: &str,
+        length: bool,
+    ) -> (u16, std::thread::JoinHandle<()>) {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         let port = listener.local_addr().unwrap().port();
         let status = status.to_owned();
         let handle = std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
-            stream.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
             let mut request = Vec::new();
             while !request.ends_with(b"\r\n\r\n") {
-                let mut byte = [0]; stream.read_exact(&mut byte).unwrap(); request.push(byte[0]);
+                let mut byte = [0];
+                stream.read_exact(&mut byte).unwrap();
+                request.push(byte[0]);
                 assert!(request.len() < 2048);
             }
             let request = String::from_utf8(request).unwrap();
@@ -536,7 +706,11 @@ mod tests {
             if length {
                 write!(stream,"HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).unwrap();
             } else {
-                write!(stream,"HTTP/1.0 {status}\r\ncontent-type: application/json\r\n\r\n{body}").unwrap();
+                write!(
+                    stream,
+                    "HTTP/1.0 {status}\r\ncontent-type: application/json\r\n\r\n{body}"
+                )
+                .unwrap();
             }
         });
         (port, handle)
@@ -545,9 +719,21 @@ mod tests {
     #[test]
     fn health_pins_both_identities_and_requires_running_without_redirects() {
         for (body, status, expected) in [
-            (json!({"service_id":SERVICE,"instance_id":INSTANCE,"status":"running"}), "200 OK", Ok(())),
-            (json!({"service_id":SERVICE,"instance_id":"other","status":"running"}), "200 OK", Err(Error::ServiceChanged)),
-            (json!({"service_id":SERVICE,"instance_id":INSTANCE,"status":"stopping"}), "200 OK", Err(Error::ServiceChanged)),
+            (
+                json!({"service_id":SERVICE,"instance_id":INSTANCE,"status":"running"}),
+                "200 OK",
+                Ok(()),
+            ),
+            (
+                json!({"service_id":SERVICE,"instance_id":"other","status":"running"}),
+                "200 OK",
+                Err(Error::ServiceChanged),
+            ),
+            (
+                json!({"service_id":SERVICE,"instance_id":INSTANCE,"status":"stopping"}),
+                "200 OK",
+                Err(Error::ServiceChanged),
+            ),
             (json!({}), "302 Found", Err(Error::ServiceUnavailable)),
         ] {
             let (port, worker) = health_server(body, status, true);
@@ -574,10 +760,16 @@ mod tests {
     #[test]
     fn health_response_has_bounded_unambiguous_framing() {
         assert_eq!(health_content_length(b"HTTP/1.0 200 OK\r\n\r\n"), Ok(None));
-        assert_eq!(health_content_length(b"HTTP/1.1 200 OK\r\nContent-Length: 3\r\n\r\n"), Ok(Some(3)));
-        for header in ["HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n", "HTTP/1.1 200 OK\r\nContent-Length: 8192\r\n\r\n",
+        assert_eq!(
+            health_content_length(b"HTTP/1.1 200 OK\r\nContent-Length: 3\r\n\r\n"),
+            Ok(Some(3))
+        );
+        for header in [
+            "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n",
+            "HTTP/1.1 200 OK\r\nContent-Length: 8192\r\n\r\n",
             "HTTP/1.1 200 OK\r\nContent-Length: 3\r\nContent-Length: 3\r\n\r\n",
-            "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nContent-Length: 3\r\n\r\n"] {
+            "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nContent-Length: 3\r\n\r\n",
+        ] {
             assert!(health_content_length(header.as_bytes()).is_err());
         }
     }

@@ -25,11 +25,34 @@ pub struct Selector {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SessionCommand {
-    Sessions { agent: Option<String>, project: Option<String>, json: bool },
-    Find { query: String, agent: Option<String>, project: Option<String>, json: bool },
-    Export { selector: Selector, output: Option<String>, format: String, mode: String, attachments: bool, replace: bool, json: bool },
-    Forget { selector: Selector, json: bool },
-    ForgetThread { thread_id: String, json: bool },
+    Sessions {
+        agent: Option<String>,
+        project: Option<String>,
+        json: bool,
+    },
+    Find {
+        query: String,
+        agent: Option<String>,
+        project: Option<String>,
+        json: bool,
+    },
+    Export {
+        selector: Selector,
+        output: Option<String>,
+        format: String,
+        mode: String,
+        attachments: bool,
+        replace: bool,
+        json: bool,
+    },
+    Forget {
+        selector: Selector,
+        json: bool,
+    },
+    ForgetThread {
+        thread_id: String,
+        json: bool,
+    },
     Resume,
     Hop,
 }
@@ -47,14 +70,24 @@ fn agent(value: &str) -> Option<String> {
 fn selector(value: &str) -> Option<Selector> {
     let (agent_name, id) = value.split_once(':')?;
     let agent = agent(agent_name)?;
-    let valid = !id.is_empty() && id.len() <= 256 && id.bytes().all(|c| c.is_ascii_alphanumeric() || matches!(c, b'-' | b'_'));
-    valid.then(|| Selector { agent, native_id: id.to_owned() })
+    let valid = !id.is_empty()
+        && id.len() <= 256
+        && id
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'-' | b'_'));
+    valid.then(|| Selector {
+        agent,
+        native_id: id.to_owned(),
+    })
 }
 
 /// `None` means "not a session command"; `Some(Err(()))` a malformed one.
 pub fn parse(args: &[String]) -> Option<Result<SessionCommand, ()>> {
     let command = args.first()?.as_str();
-    if !matches!(command, "sessions" | "find" | "export" | "forget" | "resume" | "hop") {
+    if !matches!(
+        command,
+        "sessions" | "find" | "export" | "forget" | "resume" | "hop"
+    ) {
         return None;
     }
     Some(parse_inner(command, &args[1..]))
@@ -69,7 +102,8 @@ fn parse_inner(command: &str, rest: &[String]) -> Result<SessionCommand, ()> {
     }
     let mut positional = Vec::new();
     let (mut agent_filter, mut project, mut json) = (None, None, false);
-    let (mut output, mut format, mut mode, mut attachments, mut replace) = (None, None, None, false, false);
+    let (mut output, mut format, mut mode, mut attachments, mut replace) =
+        (None, None, None, false, false);
     let mut iter = rest.iter();
     let once = |slot: &mut Option<String>, value: Option<&String>| -> Result<(), ()> {
         if slot.is_some() {
@@ -96,38 +130,80 @@ fn parse_inner(command: &str, rest: &[String]) -> Result<SessionCommand, ()> {
         Some(value) => Some(agent(&value).ok_or(())?),
         None => None,
     };
-    let export_only = output.is_some() || format.is_some() || mode.is_some() || attachments || replace;
+    let export_only =
+        output.is_some() || format.is_some() || mode.is_some() || attachments || replace;
     match command {
-        "sessions" if positional.is_empty() && !export_only => Ok(SessionCommand::Sessions { agent: agent_filter, project, json }),
+        "sessions" if positional.is_empty() && !export_only => Ok(SessionCommand::Sessions {
+            agent: agent_filter,
+            project,
+            json,
+        }),
         "find" if positional.len() == 1 && !export_only => {
             let query = positional.remove(0);
             if query.trim().is_empty() || query.len() > 128 || query.chars().any(char::is_control) {
                 return Err(());
             }
-            Ok(SessionCommand::Find { query, agent: agent_filter, project, json })
+            Ok(SessionCommand::Find {
+                query,
+                agent: agent_filter,
+                project,
+                json,
+            })
         }
         "export" if positional.len() == 1 && agent_filter.is_none() && project.is_none() => {
             let selector = selector(&positional[0]).ok_or(())?;
             let format = format.unwrap_or_else(|| "stx".into());
             let mode = mode.unwrap_or_else(|| "full".into());
-            if shinatama_export::Format::parse(&format).is_none() || shinatama_export::Mode::parse(&mode).is_none() {
+            if shinatama_export::Format::parse(&format).is_none()
+                || shinatama_export::Mode::parse(&mode).is_none()
+            {
                 return Err(());
             }
-            Ok(SessionCommand::Export { selector, output, format, mode, attachments, replace, json })
+            Ok(SessionCommand::Export {
+                selector,
+                output,
+                format,
+                mode,
+                attachments,
+                replace,
+                json,
+            })
         }
-        "forget" if positional.len() == 1 && !export_only && agent_filter.is_none() && project.is_none() => {
+        "forget"
+            if positional.len() == 1
+                && !export_only
+                && agent_filter.is_none()
+                && project.is_none() =>
+        {
             let value = &positional[0];
-            if value.len() == 14 && value.starts_with("t_") && value[2..].bytes().all(|c| matches!(c, b'a'..=b'z' | b'2'..=b'7')) {
-                return Ok(SessionCommand::ForgetThread { thread_id: value.clone(), json });
+            if value.len() == 14
+                && value.starts_with("t_")
+                && value[2..]
+                    .bytes()
+                    .all(|c| matches!(c, b'a'..=b'z' | b'2'..=b'7'))
+            {
+                return Ok(SessionCommand::ForgetThread {
+                    thread_id: value.clone(),
+                    json,
+                });
             }
-            Ok(SessionCommand::Forget { selector: selector(value).ok_or(())?, json })
+            Ok(SessionCommand::Forget {
+                selector: selector(value).ok_or(())?,
+                json,
+            })
         }
         _ => Err(()),
     }
 }
 
 /// A stable machine-readable refusal (R37): `{"status":"refused","code":...,"message":...}`.
-fn report(out: &mut dyn Write, json: bool, code: ExitCode, reason: &str, message: &str) -> std::io::Result<ExitCode> {
+fn report(
+    out: &mut dyn Write,
+    json: bool,
+    code: ExitCode,
+    reason: &str,
+    message: &str,
+) -> std::io::Result<ExitCode> {
     let status = match code {
         ExitCode::Done => "done",
         ExitCode::Refused => "refused",
@@ -136,7 +212,10 @@ fn report(out: &mut dyn Write, json: bool, code: ExitCode, reason: &str, message
         ExitCode::RecoveryRequired => "recovery_required",
     };
     if json {
-        serde_json::to_writer(&mut *out, &serde_json::json!({"schema": "shinatama.cli/1", "status": status, "code": reason, "message": message}))?;
+        serde_json::to_writer(
+            &mut *out,
+            &serde_json::json!({"schema": "shinatama.cli/1", "status": status, "code": reason, "message": message}),
+        )?;
         writeln!(out)?;
     } else {
         writeln!(out, "{message}")?;
@@ -145,13 +224,27 @@ fn report(out: &mut dyn Write, json: bool, code: ExitCode, reason: &str, message
 }
 
 #[cfg(not(windows))]
-pub fn run(command: &SessionCommand, out: &mut dyn Write, _err: &mut dyn Write) -> std::io::Result<ExitCode> {
+pub fn run(
+    command: &SessionCommand,
+    out: &mut dyn Write,
+    _err: &mut dyn Write,
+) -> std::io::Result<ExitCode> {
     let _ = command;
-    report(out, false, ExitCode::Refused, "unsupported_platform", "Session commands are supported on Windows only.")
+    report(
+        out,
+        false,
+        ExitCode::Refused,
+        "unsupported_platform",
+        "Session commands are supported on Windows only.",
+    )
 }
 
 #[cfg(windows)]
-pub fn run(command: &SessionCommand, out: &mut dyn Write, err: &mut dyn Write) -> std::io::Result<ExitCode> {
+pub fn run(
+    command: &SessionCommand,
+    out: &mut dyn Write,
+    err: &mut dyn Write,
+) -> std::io::Result<ExitCode> {
     windows::run(command, out, err)
 }
 
@@ -163,7 +256,10 @@ mod windows {
         resources::admission::{AdmissionCoordinator, PrepareRequest},
         session_detail::DetailRequest,
         session_export::{CommitError, ExportIssue, ExportRequest, commit_export},
-        session_roots::{PreparedSessionList, RootSelector, SessionListRead, SessionReadIssue, metadata_worker_budget},
+        session_roots::{
+            PreparedSessionList, RootSelector, SessionListRead, SessionReadIssue,
+            metadata_worker_budget,
+        },
     };
     use shinatama_export::{Format, Mode, output};
     use shinatama_state::{
@@ -199,25 +295,49 @@ mod windows {
     }
 
     fn open_store() -> Outcome<Store> {
-        let cwd = std::env::current_dir().map_err(|_| failed("storage_unavailable", "The current folder cannot be read."))?;
-        let request = LocationRequest::from_environment(vec![cwd])
-            .map_err(|_| failed("storage_unavailable", "Shinatama's private storage location is unavailable."))?;
-        let location = StorageLocation::resolve(request)
-            .map_err(|_| failed("storage_unavailable", "Shinatama's private storage location is unavailable."))?;
+        let cwd = std::env::current_dir()
+            .map_err(|_| failed("storage_unavailable", "The current folder cannot be read."))?;
+        let request = LocationRequest::from_environment(vec![cwd]).map_err(|_| {
+            failed(
+                "storage_unavailable",
+                "Shinatama's private storage location is unavailable.",
+            )
+        })?;
+        let location = StorageLocation::resolve(request).map_err(|_| {
+            failed(
+                "storage_unavailable",
+                "Shinatama's private storage location is unavailable.",
+            )
+        })?;
         if !location.database_path().try_exists().unwrap_or(false) {
-            return Err(needs_user("first_run", "Open Shinatama once before using session commands; no state was created."));
+            return Err(needs_user(
+                "first_run",
+                "Open Shinatama once before using session commands; no state was created.",
+            ));
         }
-        let database = Database::open(&location, None)
-            .map_err(|_| failed("storage_unavailable", "Shinatama's database could not be opened; nothing was changed."))?;
+        let database = Database::open(&location, None).map_err(|_| {
+            failed(
+                "storage_unavailable",
+                "Shinatama's database could not be opened; nothing was changed.",
+            )
+        })?;
         Ok(Store { location, database })
     }
 
     fn helper() -> Outcome<PathBuf> {
         std::env::current_exe()
             .ok()
-            .and_then(|exe| exe.parent().map(|dir| dir.join("shinatama-session-helper.exe")))
+            .and_then(|exe| {
+                exe.parent()
+                    .map(|dir| dir.join("shinatama-session-helper.exe"))
+            })
             .filter(|path| path.is_file())
-            .ok_or_else(|| failed("helper_missing", "shinatama-session-helper.exe is missing next to this program."))
+            .ok_or_else(|| {
+                failed(
+                    "helper_missing",
+                    "shinatama-session-helper.exe is missing next to this program.",
+                )
+            })
     }
 
     fn issue(issue: SessionReadIssue) -> Failure {
@@ -252,10 +372,27 @@ mod windows {
         let ledger = store
             .database
             .resource_reservations()
-            .map_err(|_| failed("storage_unavailable", "The resource ledger could not be read."))?
-            .ok_or_else(|| needs_user("first_run", "Open Shinatama once so it sets its resource policy; no state was created."))?;
-        let coordinator = AdmissionCoordinator::new(1).map_err(|_| failed("worker_unavailable", "The session worker could not be prepared."))?;
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as i64);
+            .map_err(|_| {
+                failed(
+                    "storage_unavailable",
+                    "The resource ledger could not be read.",
+                )
+            })?
+            .ok_or_else(|| {
+                needs_user(
+                    "first_run",
+                    "Open Shinatama once so it sets its resource policy; no state was created.",
+                )
+            })?;
+        let coordinator = AdmissionCoordinator::new(1).map_err(|_| {
+            failed(
+                "worker_unavailable",
+                "The session worker could not be prepared.",
+            )
+        })?;
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |d| d.as_millis() as i64);
         let workload = coordinator
             .prepare(&store.database, &ledger.policy.stamp, ledger.revision, PrepareRequest {
                 budget: metadata_worker_budget(),
@@ -265,7 +402,13 @@ mod windows {
             })
             .map_err(|_| refused("resources", "Shinatama's resource budget has no room for a session reader now; retry later."))?;
         let read = match sink {
-            Some(sink) => prepared.run_contained_export(&store.database, &helper, &store.location, workload, sink),
+            Some(sink) => prepared.run_contained_export(
+                &store.database,
+                &helper,
+                &store.location,
+                workload,
+                sink,
+            ),
             None => prepared.run_contained(&store.database, &helper, &store.location, workload),
         };
         if read.cleanup_retained() {
@@ -279,9 +422,17 @@ mod windows {
 
     fn output_failure(error: output::OutputError) -> Failure {
         match error {
-            output::OutputError::Exists | output::OutputError::AttachmentsExist => refused("exists", "The output exists; add --replace to overwrite it. Nothing was written."),
-            output::OutputError::InvalidPath | output::OutputError::ParentMissing => refused("invalid_path", "The output folder does not exist or the name is invalid. Nothing was written."),
-            output::OutputError::Write(_) => failed("write_failed", "Writing failed; no partial file was left."),
+            output::OutputError::Exists | output::OutputError::AttachmentsExist => refused(
+                "exists",
+                "The output exists; add --replace to overwrite it. Nothing was written.",
+            ),
+            output::OutputError::InvalidPath | output::OutputError::ParentMissing => refused(
+                "invalid_path",
+                "The output folder does not exist or the name is invalid. Nothing was written.",
+            ),
+            output::OutputError::Write(_) => {
+                failed("write_failed", "Writing failed; no partial file was left.")
+            }
         }
     }
 
@@ -292,21 +443,45 @@ mod windows {
             .map_err(|_| failed("storage_unavailable", "The archive list could not be read."))?;
         Ok(roots
             .into_iter()
-            .filter(|root| root.available && agent.is_none_or(|a| a == root.harness) && AGENTS.contains(&root.harness.as_str()))
+            .filter(|root| {
+                root.available
+                    && agent.is_none_or(|a| a == root.harness)
+                    && AGENTS.contains(&root.harness.as_str())
+            })
             .collect())
     }
 
     fn selector_of(root: &StoreRootRecord) -> RootSelector {
-        RootSelector { store_root_id: root.id.clone(), configuration_revision: root.config_revision }
+        RootSelector {
+            store_root_id: root.id.clone(),
+            configuration_revision: root.config_revision,
+        }
     }
 
-    fn list_root(store: &Store, root: &StoreRootRecord, mut visit: impl FnMut(&shinatama_engine::session_roots::SessionRow) -> bool) -> Outcome<()> {
+    fn list_root(
+        store: &Store,
+        root: &StoreRootRecord,
+        mut visit: impl FnMut(&shinatama_engine::session_roots::SessionRow) -> bool,
+    ) -> Outcome<()> {
         let mut cursor = None;
         let mut seen = 0usize;
         loop {
-            let prepared = PreparedSessionList::resolve(&store.database, &store.location, &selector_of(root), cursor, 50, true).map_err(issue)?;
+            let prepared = PreparedSessionList::resolve(
+                &store.database,
+                &store.location,
+                &selector_of(root),
+                cursor,
+                50,
+                true,
+            )
+            .map_err(issue)?;
             let read = contained(store, &prepared)?;
-            let page = read.page().ok_or_else(|| failed("read_unavailable", "The session worker returned no listing."))?;
+            let page = read.page().ok_or_else(|| {
+                failed(
+                    "read_unavailable",
+                    "The session worker returned no listing.",
+                )
+            })?;
             for row in &page.rows {
                 seen += 1;
                 if !visit(row) || seen >= MAX_LISTED {
@@ -341,9 +516,15 @@ mod windows {
             }
         }
         match matches.len() {
-            0 => Err(refused("session_not_found", "No archive lists this session.")),
+            0 => Err(refused(
+                "session_not_found",
+                "No archive lists this session.",
+            )),
             1 => Ok(matches.remove(0)),
-            _ => Err(refused("ambiguous_session", "More than one archive lists this session id.")),
+            _ => Err(refused(
+                "ambiguous_session",
+                "More than one archive lists this session id.",
+            )),
         }
     }
 
@@ -352,31 +533,53 @@ mod windows {
         writeln!(out)
     }
 
-    pub fn run(command: &SessionCommand, out: &mut dyn Write, err: &mut dyn Write) -> std::io::Result<ExitCode> {
+    pub fn run(
+        command: &SessionCommand,
+        out: &mut dyn Write,
+        err: &mut dyn Write,
+    ) -> std::io::Result<ExitCode> {
         let json = match command {
-            SessionCommand::Sessions { json, .. } | SessionCommand::Find { json, .. } | SessionCommand::Export { json, .. } | SessionCommand::Forget { json, .. } | SessionCommand::ForgetThread { json, .. } => *json,
+            SessionCommand::Sessions { json, .. }
+            | SessionCommand::Find { json, .. }
+            | SessionCommand::Export { json, .. }
+            | SessionCommand::Forget { json, .. }
+            | SessionCommand::ForgetThread { json, .. } => *json,
             _ => false,
         };
         match execute(command, out, err) {
             Ok(code) => Ok(code),
-            Err(Failure::Exit(code, reason, message)) => report(if json { out } else { err }, json, code, reason, &message),
+            Err(Failure::Exit(code, reason, message)) => {
+                report(if json { out } else { err }, json, code, reason, &message)
+            }
         }
     }
 
-    fn execute(command: &SessionCommand, out: &mut dyn Write, err: &mut dyn Write) -> Outcome<ExitCode> {
+    fn execute(
+        command: &SessionCommand,
+        out: &mut dyn Write,
+        err: &mut dyn Write,
+    ) -> Outcome<ExitCode> {
         let io = |_| failed("output_failed", "Writing the output failed.");
         match command {
             SessionCommand::Resume | SessionCommand::Hop => Err(refused(
                 "desktop_only",
                 "Resume and hop open the agent in a Shinatama terminal; use the desktop. Nothing was started.",
             )),
-            SessionCommand::Sessions { agent, project, json } => {
+            SessionCommand::Sessions {
+                agent,
+                project,
+                json,
+            } => {
                 let store = open_store()?;
                 let mut rows = Vec::new();
                 let prefix = project.as_ref().map(|p| p.to_ascii_lowercase());
                 for root in roots(&store, agent.as_deref())? {
                     list_root(&store, &root, |row| {
-                        let keep = prefix.as_ref().is_none_or(|p| row.working_directory.as_ref().is_some_and(|w| w.to_ascii_lowercase().starts_with(p)));
+                        let keep = prefix.as_ref().is_none_or(|p| {
+                            row.working_directory
+                                .as_ref()
+                                .is_some_and(|w| w.to_ascii_lowercase().starts_with(p))
+                        });
                         if keep {
                             rows.push(json!({
                                 "agent": root.harness, "session": format!("{}:{}", root.harness, row.native_id),
@@ -391,37 +594,82 @@ mod windows {
                     write_json(out, json!({"schema": "shinatama.cli.sessions/1", "status": "done", "sessions": rows})).map_err(io)?;
                 } else {
                     for row in &rows {
-                        writeln!(out, "{}\t{}\t{}", row["session"].as_str().unwrap_or_default(), row["updated"].as_str().unwrap_or("-"), row["title"].as_str().unwrap_or("(untitled)")).map_err(io)?;
+                        writeln!(
+                            out,
+                            "{}\t{}\t{}",
+                            row["session"].as_str().unwrap_or_default(),
+                            row["updated"].as_str().unwrap_or("-"),
+                            row["title"].as_str().unwrap_or("(untitled)")
+                        )
+                        .map_err(io)?;
                     }
                 }
                 Ok(ExitCode::Done)
             }
-            SessionCommand::Find { query, agent, project, json } => {
+            SessionCommand::Find {
+                query,
+                agent,
+                project,
+                json,
+            } => {
                 let store = open_store()?;
-                let index = SearchIndex::open(&store.location).map_err(|_| failed("index_unavailable", "The search index could not be opened."))?;
+                let index = SearchIndex::open(&store.location).map_err(|_| {
+                    failed("index_unavailable", "The search index could not be opened.")
+                })?;
                 if !index.enabled().unwrap_or(false) {
-                    return Err(needs_user("index_disabled", "Session indexing is off; turn it on in Search in the desktop."));
+                    return Err(needs_user(
+                        "index_disabled",
+                        "Session indexing is off; turn it on in Search in the desktop.",
+                    ));
                 }
-                let filters = SearchFilters { harness: agent.clone(), project: project.clone(), from: None, to: None };
-                let hits = index.search(query, &filters, 50).map_err(|_| refused("invalid_query", "The query was refused."))?;
+                let filters = SearchFilters {
+                    harness: agent.clone(),
+                    project: project.clone(),
+                    from: None,
+                    to: None,
+                };
+                let hits = index
+                    .search(query, &filters, 50)
+                    .map_err(|_| refused("invalid_query", "The query was refused."))?;
                 if *json {
                     let hits: Vec<_> = hits.iter().map(|hit| json!({
                         "session": format!("{}:{}", hit.harness, hit.native_id), "agent": hit.harness, "archive": hit.root_id,
                         "title": hit.title, "cwd": hit.working_directory, "updated": hit.updated_at,
                         "snippet": hit.snippet, "source_deleted": hit.source_deleted,
                     })).collect();
-                    write_json(out, json!({"schema": "shinatama.cli.find/1", "status": "done", "hits": hits})).map_err(io)?;
+                    write_json(
+                        out,
+                        json!({"schema": "shinatama.cli.find/1", "status": "done", "hits": hits}),
+                    )
+                    .map_err(io)?;
                 } else {
                     for hit in &hits {
-                        writeln!(out, "{}:{}\t{}\t{}", hit.harness, hit.native_id, hit.title.as_deref().unwrap_or("(untitled)"), hit.snippet.replace(['\n', '\r'], " ")).map_err(io)?;
+                        writeln!(
+                            out,
+                            "{}:{}\t{}\t{}",
+                            hit.harness,
+                            hit.native_id,
+                            hit.title.as_deref().unwrap_or("(untitled)"),
+                            hit.snippet.replace(['\n', '\r'], " ")
+                        )
+                        .map_err(io)?;
                     }
                 }
                 Ok(ExitCode::Done)
             }
             SessionCommand::Forget { selector, json } => {
                 let store = open_store()?;
-                let index = SearchIndex::open(&store.location).map_err(|_| failed("index_unavailable", "The search index could not be opened."))?;
-                let removed = index.forget_session(&selector.agent, &selector.native_id).map_err(|_| failed("index_unavailable", "The search index could not be changed."))?;
+                let index = SearchIndex::open(&store.location).map_err(|_| {
+                    failed("index_unavailable", "The search index could not be opened.")
+                })?;
+                let removed = index
+                    .forget_session(&selector.agent, &selector.native_id)
+                    .map_err(|_| {
+                        failed(
+                            "index_unavailable",
+                            "The search index could not be changed.",
+                        )
+                    })?;
                 if *json {
                     write_json(out, json!({"schema": "shinatama.cli.forget/1", "status": "done", "removed": removed})).map_err(io)?;
                 } else {
@@ -432,8 +680,13 @@ mod windows {
             SessionCommand::ForgetThread { thread_id, json } => {
                 use shinatama_state::forget::{ForgetError, forget_thread};
                 let store = open_store()?;
-                let at = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).ok().and_then(|t| i64::try_from(t.as_millis()).ok()).unwrap_or(0);
-                let report = forget_thread(&store.location, &store.database, thread_id, None, at).map_err(|error| {
+                let at = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .ok()
+                    .and_then(|t| i64::try_from(t.as_millis()).ok())
+                    .unwrap_or(0);
+                let report = forget_thread(&store.location, &store.database, thread_id, None, at)
+                    .map_err(|error| {
                     let message = error.to_string();
                     match error {
                         ForgetError::NotFound => refused("not_found", &message),
@@ -454,20 +707,40 @@ mod windows {
                 }
                 Ok(ExitCode::Done)
             }
-            SessionCommand::Export { selector, output: target, format, mode, attachments, replace, json } => {
-                let format = Format::parse(format).ok_or_else(|| refused("invalid_format", "Unknown format."))?;
-                let mode = Mode::parse(mode).ok_or_else(|| refused("invalid_mode", "Unknown mode."))?;
+            SessionCommand::Export {
+                selector,
+                output: target,
+                format,
+                mode,
+                attachments,
+                replace,
+                json,
+            } => {
+                let format = Format::parse(format)
+                    .ok_or_else(|| refused("invalid_format", "Unknown format."))?;
+                let mode =
+                    Mode::parse(mode).ok_or_else(|| refused("invalid_mode", "Unknown mode."))?;
                 if format == Format::Native {
-                    return Err(refused("format_unavailable", "No native export has been proven for this agent yet; use stx, mukade or md."));
+                    return Err(refused(
+                        "format_unavailable",
+                        "No native export has been proven for this agent yet; use stx, mukade or md.",
+                    ));
                 }
                 if *attachments && target.is_none() {
-                    return Err(refused("output_required", "--with-attachments needs -o FILE."));
+                    return Err(refused(
+                        "output_required",
+                        "--with-attachments needs -o FILE.",
+                    ));
                 }
                 let target = match target {
                     Some(path) => {
-                        let path = std::path::absolute(Path::new(path)).map_err(|_| refused("invalid_path", "The output path is invalid."))?;
+                        let path = std::path::absolute(Path::new(path))
+                            .map_err(|_| refused("invalid_path", "The output path is invalid."))?;
                         if !*replace && path.exists() {
-                            return Err(refused("exists", "The output file exists; add --replace to overwrite it. Nothing was written."));
+                            return Err(refused(
+                                "exists",
+                                "The output file exists; add --replace to overwrite it. Nothing was written.",
+                            ));
                         }
                         Some(path)
                     }
@@ -475,15 +748,34 @@ mod windows {
                 };
                 let store = open_store()?;
                 let root = locate(&store, selector)?;
-                let home = (mode == Mode::Portable).then(|| std::env::var("USERPROFILE").ok()).flatten().filter(|h| Path::new(h).is_absolute());
+                let home = (mode == Mode::Portable)
+                    .then(|| std::env::var("USERPROFILE").ok())
+                    .flatten()
+                    .filter(|h| Path::new(h).is_absolute());
                 let request = ExportRequest {
-                    detail: DetailRequest { root: selector_of(&root), native_id: selector.native_id.clone(), cursor: None, limit: 1, overview_only: false },
-                    format, mode, with_attachments: *attachments, thread: None, home,
+                    detail: DetailRequest {
+                        root: selector_of(&root),
+                        native_id: selector.native_id.clone(),
+                        cursor: None,
+                        limit: 1,
+                        overview_only: false,
+                    },
+                    format,
+                    mode,
+                    with_attachments: *attachments,
+                    thread: None,
+                    home,
                 };
-                let prepared = PreparedSessionList::resolve_export(&store.database, &store.location, request).map_err(issue)?;
+                let prepared =
+                    PreparedSessionList::resolve_export(&store.database, &store.location, request)
+                        .map_err(issue)?;
                 // The body is staged as the worker writes it (a session of any size has no total
                 // bound) and committed only after its final frame; dropping `staged` removes it.
-                let policy = if *replace { output::Overwrite::Replace } else { output::Overwrite::Refuse };
+                let policy = if *replace {
+                    output::Overwrite::Replace
+                } else {
+                    output::Overwrite::Refuse
+                };
                 let mut staged = match &target {
                     Some(path) => output::stage(path, policy),
                     None => output::stage_scratch(&std::env::temp_dir()),
@@ -491,16 +783,20 @@ mod windows {
                 .map_err(output_failure)?;
                 let mut write_failed = false;
                 let read = {
-                    let mut sink = |bytes: &[u8]| {
-                        staged.write(bytes).inspect_err(|_| write_failed = true)
-                    };
+                    let mut sink =
+                        |bytes: &[u8]| staged.write(bytes).inspect_err(|_| write_failed = true);
                     contained_with(&store, &prepared, Some(&mut sink))
                 };
                 if write_failed {
-                    return Err(failed("write_failed", "Writing failed; no partial file was left."));
+                    return Err(failed(
+                        "write_failed",
+                        "Writing failed; no partial file was left.",
+                    ));
                 }
                 let read = read?;
-                let reply = read.export().ok_or_else(|| failed("read_unavailable", "The session worker returned no export."))?;
+                let reply = read.export().ok_or_else(|| {
+                    failed("read_unavailable", "The session worker returned no export.")
+                })?;
                 if let Some(value) = reply.issue {
                     let code = match value {
                         ExportIssue::FormatUnavailable => "format_unavailable",
@@ -508,9 +804,14 @@ mod windows {
                         ExportIssue::InvalidRequest => "invalid_request",
                         ExportIssue::Detail(_) => "read_unavailable",
                     };
-                    return Err(refused(code, "The export was refused; nothing was written."));
+                    return Err(refused(
+                        code,
+                        "The export was refused; nothing was written.",
+                    ));
                 }
-                let payload = reply.payload.as_ref().ok_or_else(|| failed("read_unavailable", "The session worker returned no export."))?;
+                let payload = reply.payload.as_ref().ok_or_else(|| {
+                    failed("read_unavailable", "The session worker returned no export.")
+                })?;
                 let report_value = serde_json::to_value(&payload.report).unwrap_or_default();
                 match target {
                     None => {
@@ -520,10 +821,14 @@ mod windows {
                         }
                     }
                     Some(_) => {
-                        let receipt = commit_export(staged, payload).map_err(|error| match error {
-                            CommitError::Attachment => failed("read_unavailable", "An attachment could not be decoded; nothing was written."),
-                            CommitError::Output(error) => output_failure(error),
-                        })?;
+                        let receipt =
+                            commit_export(staged, payload).map_err(|error| match error {
+                                CommitError::Attachment => failed(
+                                    "read_unavailable",
+                                    "An attachment could not be decoded; nothing was written.",
+                                ),
+                                CommitError::Output(error) => output_failure(error),
+                            })?;
                         if *json {
                             write_json(out, json!({"schema": "shinatama.cli.export/1", "status": "done", "path": receipt.path, "bytes": receipt.bytes,
                                 "sha256": receipt.sha256, "attachments": receipt.attachments, "report": report_value})).map_err(io)?;
@@ -549,13 +854,53 @@ mod tests {
     #[test]
     fn parses_the_documented_forms() {
         assert_eq!(parse(&args(&["doctor"])), None);
-        assert_eq!(parse(&args(&["sessions", "--agent", "claude", "--json"])), Some(Ok(SessionCommand::Sessions { agent: Some("claude_code".into()), project: None, json: true })));
-        assert!(matches!(parse(&args(&["find", "parser bug", "--agent", "codex"])), Some(Ok(SessionCommand::Find { .. }))));
-        let Some(Ok(SessionCommand::Export { selector, format, mode, .. })) = parse(&args(&["export", "codex:abc-1", "-o", "x.stx.jsonl", "--mode", "portable"])) else { panic!() };
-        assert_eq!(selector, Selector { agent: "codex".into(), native_id: "abc-1".into() });
+        assert_eq!(
+            parse(&args(&["sessions", "--agent", "claude", "--json"])),
+            Some(Ok(SessionCommand::Sessions {
+                agent: Some("claude_code".into()),
+                project: None,
+                json: true
+            }))
+        );
+        assert!(matches!(
+            parse(&args(&["find", "parser bug", "--agent", "codex"])),
+            Some(Ok(SessionCommand::Find { .. }))
+        ));
+        let Some(Ok(SessionCommand::Export {
+            selector,
+            format,
+            mode,
+            ..
+        })) = parse(&args(&[
+            "export",
+            "codex:abc-1",
+            "-o",
+            "x.stx.jsonl",
+            "--mode",
+            "portable",
+        ]))
+        else {
+            panic!()
+        };
+        assert_eq!(
+            selector,
+            Selector {
+                agent: "codex".into(),
+                native_id: "abc-1".into()
+            }
+        );
         assert_eq!((format.as_str(), mode.as_str()), ("stx", "portable"));
-        assert_eq!(parse(&args(&["resume", "x"])), Some(Ok(SessionCommand::Resume)));
-        assert_eq!(parse(&args(&["forget", "t_abcdefgh2345", "--json"])), Some(Ok(SessionCommand::ForgetThread { thread_id: "t_abcdefgh2345".into(), json: true })));
+        assert_eq!(
+            parse(&args(&["resume", "x"])),
+            Some(Ok(SessionCommand::Resume))
+        );
+        assert_eq!(
+            parse(&args(&["forget", "t_abcdefgh2345", "--json"])),
+            Some(Ok(SessionCommand::ForgetThread {
+                thread_id: "t_abcdefgh2345".into(),
+                json: true
+            }))
+        );
     }
 
     #[test]
@@ -583,6 +928,9 @@ mod tests {
     fn resume_and_hop_are_refused_with_exit_two() {
         let mut out = Vec::new();
         let mut err = Vec::new();
-        assert_eq!(run(&SessionCommand::Hop, &mut out, &mut err).unwrap(), ExitCode::Refused);
+        assert_eq!(
+            run(&SessionCommand::Hop, &mut out, &mut err).unwrap(),
+            ExitCode::Refused
+        );
     }
 }

@@ -26,12 +26,18 @@ fn escape(text: &str, out: &mut String) {
 pub fn local_target(target: &str) -> Option<String> {
     let path = target.split(['#', '?']).next().unwrap_or_default();
     let lower = target.to_ascii_lowercase();
-    let schemed = lower.find(':').is_some_and(|i| lower[..i].chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.')));
+    let schemed = lower.find(':').is_some_and(|i| {
+        lower[..i]
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'))
+    });
     (!path.is_empty()
         && !schemed
         && !target.starts_with(['/', '\\'])
         && !target.contains('\\')
-        && !path.chars().any(|c| c.is_control() || matches!(c, '"' | '\'' | '<' | '>' | '`'))
+        && !path
+            .chars()
+            .any(|c| c.is_control() || matches!(c, '"' | '\'' | '<' | '>' | '`'))
         && !path.split('/').any(|p| p == ".."))
     .then(|| path.trim_start_matches("./").to_owned())
 }
@@ -66,7 +72,9 @@ fn inline(text: &str, out: &mut String) {
             continue;
         }
         if (c == '*' || c == '_') && i + 1 < chars.len() && chars[i + 1] == c {
-            if let Some(end) = (i + 2..chars.len().saturating_sub(1)).find(|&j| chars[j] == c && chars[j + 1] == c) {
+            if let Some(end) =
+                (i + 2..chars.len().saturating_sub(1)).find(|&j| chars[j] == c && chars[j + 1] == c)
+            {
                 flush(&mut plain, out);
                 out.push_str("<strong>");
                 inline(&chars[i + 2..end].iter().collect::<String>(), out);
@@ -94,8 +102,14 @@ fn inline(text: &str, out: &mut String) {
             && let Some(target_end) = find_close(&chars, label_end + 2, ')')
         {
             flush(&mut plain, out);
-            let label: String = chars[i + if image { 2 } else { 1 }..label_end].iter().collect();
-            let target: String = chars[label_end + 2..target_end].iter().collect::<String>().trim().to_owned();
+            let label: String = chars[i + if image { 2 } else { 1 }..label_end]
+                .iter()
+                .collect();
+            let target: String = chars[label_end + 2..target_end]
+                .iter()
+                .collect::<String>()
+                .trim()
+                .to_owned();
             if image {
                 out.push_str("<span class=\"md-image\">[image: ");
                 escape(&label, out);
@@ -151,7 +165,8 @@ fn list_item(line: &str) -> Option<(bool, &str)> {
         }
     }
     let digits = trimmed.chars().take_while(char::is_ascii_digit).count();
-    (digits > 0 && digits < 10 && trimmed[digits..].starts_with(". ")).then(|| (true, &trimmed[digits + 2..]))
+    (digits > 0 && digits < 10 && trimmed[digits..].starts_with(". "))
+        .then(|| (true, &trimmed[digits + 2..]))
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -188,8 +203,16 @@ pub fn render(source: &str) -> Rendered {
         let trimmed = line.trim_start();
         if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
             close(&mut block, &mut out);
-            let marker: String = trimmed.chars().take_while(|c| *c == '`' || *c == '~').collect();
-            let language: String = trimmed[marker.len()..].trim().chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-').take(32).collect();
+            let marker: String = trimmed
+                .chars()
+                .take_while(|c| *c == '`' || *c == '~')
+                .collect();
+            let language: String = trimmed[marker.len()..]
+                .trim()
+                .chars()
+                .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
+                .take(32)
+                .collect();
             out.push_str("<pre><code");
             if !language.is_empty() {
                 out.push_str(" data-language=\"");
@@ -252,7 +275,10 @@ pub fn render(source: &str) -> Rendered {
         out.push_str("</code></pre>\n");
     }
     close(&mut block, &mut out);
-    Rendered { html: out, truncated }
+    Rendered {
+        html: out,
+        truncated,
+    }
 }
 
 #[cfg(test)]
@@ -263,9 +289,19 @@ mod tests {
     fn renders_the_common_subset() {
         let html = render("# Title\n\nSome *em* and **bold** and `x<y`.\n\n- a\n- b\n\n1. one\n\n> quoted\n\n```rust\nfn main() {}\n```\n").html;
         assert!(html.contains("<h1>Title</h1>"));
-        assert!(html.contains("<em>em</em>") && html.contains("<strong>bold</strong>") && html.contains("<code>x&lt;y</code>"));
-        assert!(html.contains("<ul>\n<li>a</li>\n<li>b</li>\n</ul>") && html.contains("<ol>\n<li>one</li>"));
-        assert!(html.contains("<blockquote>") && html.contains("<pre><code data-language=\"rust\">fn main() {}\n</code></pre>"));
+        assert!(
+            html.contains("<em>em</em>")
+                && html.contains("<strong>bold</strong>")
+                && html.contains("<code>x&lt;y</code>")
+        );
+        assert!(
+            html.contains("<ul>\n<li>a</li>\n<li>b</li>\n</ul>")
+                && html.contains("<ol>\n<li>one</li>")
+        );
+        assert!(
+            html.contains("<blockquote>")
+                && html.contains("<pre><code data-language=\"rust\">fn main() {}\n</code></pre>")
+        );
     }
 
     #[test]
@@ -281,21 +317,65 @@ mod tests {
         );
         let html = render(hostile).html;
         // Only escaped text may contain attribute-like words; no tag carries them.
-        for tag in html.split('<').skip(1).map(|t| t.split('>').next().unwrap_or_default()) {
+        for tag in html
+            .split('<')
+            .skip(1)
+            .map(|t| t.split('>').next().unwrap_or_default())
+        {
             let attributes: Vec<&str> = tag.split_whitespace().skip(1).collect();
-            assert!(attributes.iter().all(|a| a.starts_with("data-path=") || a.starts_with("data-language=") || a.starts_with("class=")), "{tag}");
+            assert!(
+                attributes.iter().all(|a| a.starts_with("data-path=")
+                    || a.starts_with("data-language=")
+                    || a.starts_with("class=")),
+                "{tag}"
+            );
         }
         for forbidden in ["<script", "<img", "href=", "<iframe", "style="] {
             assert!(!html.contains(forbidden), "{forbidden}: {html}");
         }
         assert!(html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"));
-        assert!(html.contains("click (javascript:alert(1") && html.contains("(https://evil.example/x)"));
+        assert!(
+            html.contains("click (javascript:alert(1") && html.contains("(https://evil.example/x)")
+        );
         assert!(html.contains("[image: pixel · https://tracker.example/p.gif · not loaded]"));
         assert!(html.contains("<a data-path=\"docs/guide.md\">ok</a>"));
         assert!(!html.contains("data-path=\"../") && !html.contains("data-path=\"C:"));
         assert!(html.contains("<pre><code data-language=\"mermaid\">graph TD; A--&gt;B"));
-        let tags: Vec<&str> = html.match_indices('<').map(|(i, _)| html[i + 1..].split(['>', ' ']).next().unwrap_or_default()).collect();
-        let allowed = ["h1", "/h1", "p", "/p", "em", "/em", "strong", "/strong", "code", "/code", "pre", "/pre", "ul", "/ul", "ol", "/ol", "li", "/li", "blockquote", "/blockquote", "hr", "a", "/a", "span", "/span", "h2", "/h2", "h3", "/h3"];
+        let tags: Vec<&str> = html
+            .match_indices('<')
+            .map(|(i, _)| html[i + 1..].split(['>', ' ']).next().unwrap_or_default())
+            .collect();
+        let allowed = [
+            "h1",
+            "/h1",
+            "p",
+            "/p",
+            "em",
+            "/em",
+            "strong",
+            "/strong",
+            "code",
+            "/code",
+            "pre",
+            "/pre",
+            "ul",
+            "/ul",
+            "ol",
+            "/ol",
+            "li",
+            "/li",
+            "blockquote",
+            "/blockquote",
+            "hr",
+            "a",
+            "/a",
+            "span",
+            "/span",
+            "h2",
+            "/h2",
+            "h3",
+            "/h3",
+        ];
         assert!(tags.iter().all(|t| allowed.contains(t)), "{tags:?}");
     }
 

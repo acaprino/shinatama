@@ -546,9 +546,7 @@ pub(crate) fn compose_launch(
 }
 /// Drops inherited entries no child can use: empty names, NULs, and names containing
 /// `=` other than Windows' drive pseudo-variables (`=C:`).
-fn sanitize_inherited(
-    environment: &BTreeMap<OsString, OsString>,
-) -> BTreeMap<OsString, OsString> {
+fn sanitize_inherited(environment: &BTreeMap<OsString, OsString>) -> BTreeMap<OsString, OsString> {
     environment
         .iter()
         .filter(|(name, value)| {
@@ -1000,7 +998,10 @@ mod sanitize_inherited_tests {
             environment.insert(name.into(), value.into());
         }
         let kept: Vec<_> = sanitize_inherited(&environment).into_keys().collect();
-        let kept: Vec<_> = kept.iter().map(|name| name.to_string_lossy().into_owned()).collect();
+        let kept: Vec<_> = kept
+            .iter()
+            .map(|name| name.to_string_lossy().into_owned())
+            .collect();
         assert_eq!(kept, ["=C:", "OK", "PATH"]);
     }
 }

@@ -38,10 +38,22 @@ pub enum StateSource {
     None,
 }
 
-pub fn derive(observation: Option<attention::TerminalObservation>) -> (InstanceState, StateSource, bool) {
-    let Some(o) = observation else { return (InstanceState::Starting, StateSource::None, false) };
+pub fn derive(
+    observation: Option<attention::TerminalObservation>,
+) -> (InstanceState, StateSource, bool) {
+    let Some(o) = observation else {
+        return (InstanceState::Starting, StateSource::None, false);
+    };
     if o.ended {
-        return (if o.exit_code.is_some_and(|c| c != 0) { InstanceState::Error } else { InstanceState::Exited }, StateSource::Process, true);
+        return (
+            if o.exit_code.is_some_and(|c| c != 0) {
+                InstanceState::Error
+            } else {
+                InstanceState::Exited
+            },
+            StateSource::Process,
+            true,
+        );
     }
     let signal_after_output = match (o.since_signal_ms, o.since_output_ms) {
         (Some(signal), Some(output)) => signal <= output.saturating_add(1_000),
@@ -49,10 +61,18 @@ pub fn derive(observation: Option<attention::TerminalObservation>) -> (InstanceS
         _ => false,
     };
     if signal_after_output && o.since_signal_ms.is_some_and(|ms| ms < 30 * 60 * 1000) {
-        return (InstanceState::AttentionRequested, StateSource::TerminalSignal, false);
+        return (
+            InstanceState::AttentionRequested,
+            StateSource::TerminalSignal,
+            false,
+        );
     }
     match o.since_output_ms {
-        Some(ms) if ms < 3_000 => (InstanceState::ProducingOutput, StateSource::TerminalOutput, false),
+        Some(ms) if ms < 3_000 => (
+            InstanceState::ProducingOutput,
+            StateSource::TerminalOutput,
+            false,
+        ),
         Some(_) => (InstanceState::Quiet, StateSource::TerminalOutput, false),
         None => (InstanceState::Starting, StateSource::None, false),
     }
@@ -72,12 +92,24 @@ pub struct Row {
 }
 
 #[tauri::command]
-pub async fn instances_overview(window: WebviewWindow, host: State<'_, Host>, feed: State<'_, attention::Controller>) -> Result<Vec<Row>, String> {
+pub async fn instances_overview(
+    window: WebviewWindow,
+    host: State<'_, Host>,
+    feed: State<'_, attention::Controller>,
+) -> Result<Vec<Row>, String> {
     crate::local(&window)?;
     let sessions = host.list();
     let observations = feed.observations();
-    let rows: Vec<(shinatama_terminal::SessionInfo, (InstanceState, StateSource, bool))> =
-        sessions.into_iter().map(|s| { let d = derive(observations.get(&s.id).copied()); (s, d) }).collect();
+    let rows: Vec<(
+        shinatama_terminal::SessionInfo,
+        (InstanceState, StateSource, bool),
+    )> = sessions
+        .into_iter()
+        .map(|s| {
+            let d = derive(observations.get(&s.id).copied());
+            (s, d)
+        })
+        .collect();
     tauri::async_runtime::spawn_blocking(move || {
         let paths: Vec<PathBuf> = rows.iter().map(|(s, _)| PathBuf::from(&s.cwd)).collect();
         let facts = cache().scan(&paths, git::DEFAULT_TIMEOUT);
@@ -105,19 +137,59 @@ mod tests {
     use super::*;
     use crate::attention::TerminalObservation;
 
-    fn o(ended: bool, exit: Option<u32>, signal: Option<u64>, output: Option<u64>) -> Option<TerminalObservation> {
-        Some(TerminalObservation { ended, exit_code: exit, since_signal_ms: signal, since_output_ms: output })
+    fn o(
+        ended: bool,
+        exit: Option<u32>,
+        signal: Option<u64>,
+        output: Option<u64>,
+    ) -> Option<TerminalObservation> {
+        Some(TerminalObservation {
+            ended,
+            exit_code: exit,
+            since_signal_ms: signal,
+            since_output_ms: output,
+        })
     }
 
     #[test]
     fn only_process_exit_is_certain_and_no_permission_state_is_inferred() {
-        assert_eq!(derive(None), (InstanceState::Starting, StateSource::None, false));
-        assert_eq!(derive(o(true, Some(0), None, Some(10))), (InstanceState::Exited, StateSource::Process, true));
-        assert_eq!(derive(o(true, Some(1), None, Some(10))), (InstanceState::Error, StateSource::Process, true));
-        assert_eq!(derive(o(false, None, Some(100), Some(5_000))), (InstanceState::AttentionRequested, StateSource::TerminalSignal, false));
-        assert_eq!(derive(o(false, None, Some(60_000), Some(500))), (InstanceState::ProducingOutput, StateSource::TerminalOutput, false), "output after the signal wins");
-        assert_eq!(derive(o(false, None, None, Some(10_000))), (InstanceState::Quiet, StateSource::TerminalOutput, false));
-        for observation in [o(false, None, Some(1), Some(1)), o(false, None, None, Some(1))] {
+        assert_eq!(
+            derive(None),
+            (InstanceState::Starting, StateSource::None, false)
+        );
+        assert_eq!(
+            derive(o(true, Some(0), None, Some(10))),
+            (InstanceState::Exited, StateSource::Process, true)
+        );
+        assert_eq!(
+            derive(o(true, Some(1), None, Some(10))),
+            (InstanceState::Error, StateSource::Process, true)
+        );
+        assert_eq!(
+            derive(o(false, None, Some(100), Some(5_000))),
+            (
+                InstanceState::AttentionRequested,
+                StateSource::TerminalSignal,
+                false
+            )
+        );
+        assert_eq!(
+            derive(o(false, None, Some(60_000), Some(500))),
+            (
+                InstanceState::ProducingOutput,
+                StateSource::TerminalOutput,
+                false
+            ),
+            "output after the signal wins"
+        );
+        assert_eq!(
+            derive(o(false, None, None, Some(10_000))),
+            (InstanceState::Quiet, StateSource::TerminalOutput, false)
+        );
+        for observation in [
+            o(false, None, Some(1), Some(1)),
+            o(false, None, None, Some(1)),
+        ] {
             assert!(!derive(observation).2, "a running state is never certain");
         }
     }

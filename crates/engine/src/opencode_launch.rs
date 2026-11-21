@@ -4,11 +4,11 @@
 //! No provider request, login, user credential read, shell or marketplace install.
 #![cfg(windows)]
 use crate::{
-    marionette::{Host, Marionette, is_marionette_set},
     launch::{
         LaunchInputs, LaunchIssueCode, PreparedLaunch, compose_launch, identity::LaunchIdentity,
     },
     launch_policy::LaunchPolicy,
+    marionette::{Host, Marionette, is_marionette_set},
     native_launch::{
         NativeAdmissionProfile, NativeLaunchBinding, NativeLaunchError, NativeLaunchPins,
         NativeProgramIdentity, NativeTrialReceipt, NativeTrialTracker, NativeTuiPermit,
@@ -196,11 +196,21 @@ pub struct PreparedOpenCodeStart {
 }
 
 /// Mukade's OpenCode kit, written beside the instance, and the configuration it merged.
-fn chat_kit(base: &StorageLocation, instance: &Path, config: &str) -> Result<(crate::mukade_mcp::Connection, String), String> {
+fn chat_kit(
+    base: &StorageLocation,
+    instance: &Path,
+    config: &str,
+) -> Result<(crate::mukade_mcp::Connection, String), String> {
     let connection = crate::mukade_mcp::Connection::discover(base)
         .map_err(|error| error.to_string())?
         .ok_or("the Mukade service is not running")?;
-    let kit = crate::mukade_chat::plugin_kit(base, "opencode", &instance.join("mukade-kit"), &connection, Some(config))?;
+    let kit = crate::mukade_chat::plugin_kit(
+        base,
+        "opencode",
+        &instance.join("mukade-kit"),
+        &connection,
+        Some(config),
+    )?;
     let merged = kit.opencode_config.ok_or("Mukade gave no configuration")?;
     // The plugin and the MCP entry ride in the configuration; OpenCode takes no kit argument.
     if !kit.arguments.is_empty() {
@@ -226,7 +236,9 @@ fn fixed_arguments(native_id: Option<&str>, initial_prompt: Option<&str>) -> Vec
 /// A first message is bounded as `collaboration.rs` bounds it (`crate::launch::is_first_message`).
 fn check_first_message(prompt: Option<&str>) -> Result<(), OpenCodeLaunchError> {
     match prompt {
-        Some(text) if !crate::launch::is_first_message(text) => Err(OpenCodeLaunchError::InvalidFirstMessage),
+        Some(text) if !crate::launch::is_first_message(text) => {
+            Err(OpenCodeLaunchError::InvalidFirstMessage)
+        }
         _ => Ok(()),
     }
 }
@@ -238,7 +250,8 @@ pub fn is_session_id(id: &str) -> bool {
     id.len() == 30
         && id.strip_prefix("ses_").is_some_and(|rest| {
             let (hex, tail) = rest.split_at(12);
-            hex.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+            hex.bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
                 && tail.bytes().all(|byte| byte.is_ascii_alphanumeric())
         })
 }
@@ -717,14 +730,20 @@ fn prepare(
     } else {
         crate::launch_policy::current()
     };
-    let models = if trial { crate::model_config::Snapshot::default() } else {
+    let models = if trial {
+        crate::model_config::Snapshot::default()
+    } else {
         crate::model_config::current()
             .map_err(|_| OpenCodeLaunchError::Configuration)?
             .for_launch(crate::model_config::Harness::OpenCode, context.model)
             .map_err(|_| OpenCodeLaunchError::Model)?
     };
-    let mut config = models.opencode(serde_json::from_str(config_content(policy.full_access()))
-        .map_err(|_| OpenCodeLaunchError::Configuration)?).to_string();
+    let mut config = models
+        .opencode(
+            serde_json::from_str(config_content(policy.full_access()))
+                .map_err(|_| OpenCodeLaunchError::Configuration)?,
+        )
+        .to_string();
     // ADR-0057: a session of a talking thread loads Mukade's plugin kit, merged by Mukade into
     // this configuration. Any failure leaves the session an ordinary one.
     if let Some(chat) = context.chat.filter(|_| !trial) {
@@ -735,7 +754,9 @@ fn prepare(
                 chat.apply_environment(&mut environment);
                 crate::mukade_chat::note_launch(context.thread_id, chat.room_id());
             }
-            Err(reason) => eprintln!("This OpenCode session opens without its thread's room: {reason}"),
+            Err(reason) => {
+                eprintln!("This OpenCode session opens without its thread's room: {reason}")
+            }
         }
     }
     set(&mut environment, "OPENCODE_CONFIG_CONTENT", config.into());
@@ -931,7 +952,10 @@ pub(crate) fn create_json(
 /// mirrored into OpenCode's private copy under `home`. A session writes into the tree it loads
 /// (Python leaves `__pycache__` beside the muro scripts the agent runs), and one stray file in
 /// the store fails the digest check of every later launch, so the store is never handed out.
-fn bundled_adapter(store: &Path, home: &Path) -> Result<crate::marionette::Adapter, OpenCodeLaunchError> {
+fn bundled_adapter(
+    store: &Path,
+    home: &Path,
+) -> Result<crate::marionette::Adapter, OpenCodeLaunchError> {
     Marionette::current(store)
         .and_then(|release| release.verify(Host::OpenCode))
         .and_then(|adapter| adapter.private_copy(&home.join(crate::marionette::OPENCODE_COPY)))
@@ -1153,13 +1177,20 @@ mod tests {
         // 2026-11-17: Python left `__pycache__` beside the muro scripts of the adapter OpenCode
         // loaded from the synced store; every later OpenCode launch then failed its digest check
         // ("The bundled plugins could not be verified for OpenCode.").
-        use crate::marionette::{self, tests::{FakeFetch, scratch}};
+        use crate::marionette::{
+            self,
+            tests::{FakeFetch, scratch},
+        };
         let home = scratch("opencode-copy-home");
         let store = home.join(marionette::STORE);
         marionette::sync(&store, &FakeFetch::new("marionette-v0.1.0", "0.1.0")).unwrap();
         for _launch in 0..2 {
             let adapter = bundled_adapter(&store, &home).unwrap();
-            assert!(adapter.dir().starts_with(home.join(marionette::OPENCODE_COPY)));
+            assert!(
+                adapter
+                    .dir()
+                    .starts_with(home.join(marionette::OPENCODE_COPY))
+            );
             assert!(adapter.dir().join("index.js").is_file());
             let cache = adapter.dir().join("skills/marionette/__pycache__");
             std::fs::create_dir_all(&cache).unwrap();
@@ -1268,7 +1299,8 @@ mod tests {
             &identity,
         )
         .with_private_paths(&paths);
-        let launch_with_id = compose_launch(&descriptor, Operation::StartNew, mode, &inputs).unwrap();
+        let launch_with_id =
+            compose_launch(&descriptor, Operation::StartNew, mode, &inputs).unwrap();
         assert_eq!(
             launch_with_id.command().argv(),
             ["--standalone", "--session", given.as_str()].map(OsString::from)
@@ -1334,7 +1366,10 @@ mod tests {
     }
     #[test]
     fn opencode_standalone_keeps_native_permission_prompts() {
-        assert_eq!(fixed_arguments(None, None), vec![OsString::from("--standalone")]);
+        assert_eq!(
+            fixed_arguments(None, None),
+            vec![OsString::from("--standalone")]
+        );
         let protected: Value = serde_json::from_str(config_content(false)).unwrap();
         assert!(protected.get("permissions").is_none());
     }
@@ -1350,7 +1385,10 @@ mod tests {
             ["--standalone", "--session", id].map(OsString::from)
         );
         // The trial has no session of its own to name.
-        assert_eq!(fixed_arguments(None, None), ["--standalone"].map(OsString::from));
+        assert_eq!(
+            fixed_arguments(None, None),
+            ["--standalone"].map(OsString::from)
+        );
         for _ in 0..64 {
             let made = new_session_id();
             assert!(is_session_id(&made), "{made}");
@@ -1388,16 +1426,33 @@ mod tests {
             ["--standalone", "--session", id, "--prompt", text].map(OsString::from)
         );
         // Without one, the arguments are what they were.
-        assert_eq!(fixed_arguments(Some(id), None), ["--standalone", "--session", id].map(OsString::from));
-        assert_eq!(fixed_arguments(None, None), ["--standalone"].map(OsString::from));
+        assert_eq!(
+            fixed_arguments(Some(id), None),
+            ["--standalone", "--session", id].map(OsString::from)
+        );
+        assert_eq!(
+            fixed_arguments(None, None),
+            ["--standalone"].map(OsString::from)
+        );
     }
     #[test]
     fn a_first_message_with_a_nul_or_over_8192_bytes_is_refused() {
         assert_eq!(check_first_message(None), Ok(()));
         assert_eq!(check_first_message(Some(&"x".repeat(8192))), Ok(()));
         assert_eq!(check_first_message(Some(&"é".repeat(4096))), Ok(()));
-        for refused in ["x".repeat(8193), "é".repeat(4097), "a\0b".into(), "\0".into(), String::new(), " \r\n\t".into()] {
-            assert_eq!(check_first_message(Some(&refused)), Err(OpenCodeLaunchError::InvalidFirstMessage), "{refused:?}");
+        for refused in [
+            "x".repeat(8193),
+            "é".repeat(4097),
+            "a\0b".into(),
+            "\0".into(),
+            String::new(),
+            " \r\n\t".into(),
+        ] {
+            assert_eq!(
+                check_first_message(Some(&refused)),
+                Err(OpenCodeLaunchError::InvalidFirstMessage),
+                "{refused:?}"
+            );
         }
     }
     /// The terminal host refuses more than `MAX_LAUNCH_ARGUMENTS` (32, as above). OpenCode's chat
@@ -1416,7 +1471,10 @@ mod tests {
         use crate::model_config::{Harness, fixtures};
         let (panel, other) = fixtures::panel_and_other();
         let base = || serde_json::from_str::<Value>(config_content(false)).unwrap();
-        let launch = panel.clone().for_launch(Harness::OpenCode, Some(Some(&other))).unwrap();
+        let launch = panel
+            .clone()
+            .for_launch(Harness::OpenCode, Some(Some(&other)))
+            .unwrap();
         let config = launch.opencode(base());
         assert_eq!(config["model"], "shinatama-other/big");
         assert_eq!(config["provider"]["shinatama-other"]["name"], "Other");

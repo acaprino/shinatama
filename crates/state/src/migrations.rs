@@ -517,10 +517,17 @@ mod fault_tests {
                 .unwrap()
         }
         fn records(connection: &Connection) -> Vec<Vec<Vec<Value>>> {
-            ["project", "setting", "store_root", "workspace", "thread", "segment"]
-                .into_iter()
-                .map(|table| rows(connection, &format!("SELECT * FROM {table} ORDER BY rowid")))
-                .collect()
+            [
+                "project",
+                "setting",
+                "store_root",
+                "workspace",
+                "thread",
+                "segment",
+            ]
+            .into_iter()
+            .map(|table| rows(connection, &format!("SELECT * FROM {table} ORDER BY rowid")))
+            .collect()
         }
         const HISTORY: &str = "SELECT instance_id,owner_pid,owner_created_at_100ns,thread_id,segment_id,store_root_id,store_revision,native_id,revision,started_at,ended_at FROM activation ORDER BY instance_id";
 
@@ -530,8 +537,12 @@ mod fault_tests {
         let location = location(&root);
         location.prepare_private_directory().unwrap();
         let mut connection = Connection::open(location.database_path()).unwrap();
-        connection.pragma_update(None, "foreign_keys", true).unwrap();
-        connection.pragma_update(None, "journal_mode", "WAL").unwrap();
+        connection
+            .pragma_update(None, "foreign_keys", true)
+            .unwrap();
+        connection
+            .pragma_update(None, "journal_mode", "WAL")
+            .unwrap();
         for migration in MIGRATIONS.iter().filter(|step| step.to <= 4) {
             for sql in migration.sql {
                 connection.execute_batch(sql).unwrap();
@@ -561,22 +572,36 @@ mod fault_tests {
             |version, transaction| {
                 assert_eq!(version, 5);
                 assert_eq!(rows(transaction, HISTORY), history);
-                Err(DatabaseError::Io(std::io::Error::other("synthetic v5 fault")))
+                Err(DatabaseError::Io(std::io::Error::other(
+                    "synthetic v5 fault",
+                )))
             },
         );
         assert!(matches!(result, Err(DatabaseError::Io(_))));
-        assert_eq!(connection.pragma_query_value::<u32, _>(None, "user_version", |row| row.get(0)).unwrap(), 4);
+        assert_eq!(
+            connection
+                .pragma_query_value::<u32, _>(None, "user_version", |row| row.get(0))
+                .unwrap(),
+            4
+        );
         schema::validate_version(&connection, 4).unwrap();
         assert_eq!(rows(&connection, HISTORY), history);
         assert_eq!(records(&connection), saved_records);
 
-        let backups = fs::read_dir(location.directory()).unwrap()
+        let backups = fs::read_dir(location.directory())
+            .unwrap()
             .map(|entry| entry.unwrap().path())
-            .filter(|path| path.file_name().unwrap().to_string_lossy().starts_with("shinatama-before-v4-to-v5-")
-                && path.to_string_lossy().ends_with(".backup.db"))
+            .filter(|path| {
+                path.file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .starts_with("shinatama-before-v4-to-v5-")
+                    && path.to_string_lossy().ends_with(".backup.db")
+            })
             .collect::<Vec<_>>();
         assert_eq!(backups.len(), 1);
-        let backup = Connection::open_with_flags(&backups[0], OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+        let backup =
+            Connection::open_with_flags(&backups[0], OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
         schema::validate_version(&backup, 4).unwrap();
         ensure_integrity(&backup).unwrap();
         assert_eq!(rows(&backup, HISTORY), history);
@@ -585,16 +610,43 @@ mod fault_tests {
 
         initialize(&mut connection, &location).unwrap();
         // The run continues to the current version; the saved thread becomes a workset of one session.
-        assert_eq!(connection.pragma_query_value::<u32, _>(None, "user_version", |row| row.get(0)).unwrap(), schema::CURRENT_VERSION);
+        assert_eq!(
+            connection
+                .pragma_query_value::<u32, _>(None, "user_version", |row| row.get(0))
+                .unwrap(),
+            schema::CURRENT_VERSION
+        );
         schema::validate_version(&connection, schema::CURRENT_VERSION).unwrap();
-        assert_eq!(rows(&connection, "SELECT thread_id,workset_id FROM workset_member"),
-            vec![vec![Value::Text("t_aaaaaaaaaaaa".into()), Value::Text("w_aaaaaaaaaaaa".into())]]);
+        assert_eq!(
+            rows(
+                &connection,
+                "SELECT thread_id,workset_id FROM workset_member"
+            ),
+            vec![vec![
+                Value::Text("t_aaaaaaaaaaaa".into()),
+                Value::Text("w_aaaaaaaaaaaa".into())
+            ]]
+        );
         ensure_integrity(&connection).unwrap();
         assert_eq!(rows(&connection, HISTORY), history);
         assert_eq!(records(&connection), saved_records);
-        assert_eq!(rows(&connection, "SELECT activation_sequence FROM activation ORDER BY started_at,instance_id"),
-            vec![vec![Value::Integer(1)], vec![Value::Integer(2)]]);
-        assert_eq!(connection.query_row::<i64, _, _>("SELECT count(*) FROM pragma_foreign_key_check", [], |row| row.get(0)).unwrap(), 0);
+        assert_eq!(
+            rows(
+                &connection,
+                "SELECT activation_sequence FROM activation ORDER BY started_at,instance_id"
+            ),
+            vec![vec![Value::Integer(1)], vec![Value::Integer(2)]]
+        );
+        assert_eq!(
+            connection
+                .query_row::<i64, _, _>(
+                    "SELECT count(*) FROM pragma_foreign_key_check",
+                    [],
+                    |row| row.get(0)
+                )
+                .unwrap(),
+            0
+        );
         assert!(backups[0].is_file());
         drop(connection);
         drop(location);

@@ -3,12 +3,14 @@
 //! staged and committed by the parent with the atomic writer. Synthetic archive only; the source
 //! bytes must not change.
 use shinatama_engine::{
+    export_frames::Progress,
     resources::admission::{AdmissionCoordinator, PrepareRequest},
     session_detail::{DetailCursor, DetailRequest},
-    session_find::FindRequest,
     session_export::{ExportRequest, commit_export},
-    export_frames::Progress,
-    session_roots::{Framed, PreparedSessionList, RootSelector, SessionReadIssue, metadata_worker_budget},
+    session_find::FindRequest,
+    session_roots::{
+        Framed, PreparedSessionList, RootSelector, SessionReadIssue, metadata_worker_budget,
+    },
 };
 use shinatama_export::{Format, Mode, output, stx};
 use shinatama_state::{
@@ -28,7 +30,10 @@ use std::{
 static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 fn now() -> i64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as i64
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64
 }
 
 /// What one contained export left behind.
@@ -42,58 +47,132 @@ struct Exported {
 
 /// Runs one export of `source` (a Claude Code session file) through the real helper.
 fn export_through_helper(source: &[u8], format: Format, file_name: &str) -> Exported {
-    let _only = ONE_AT_A_TIME.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _only = ONE_AT_A_TIME
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let parent = fs::canonicalize(std::env::temp_dir()).unwrap();
     let fixture = parent.join(format!("shinatama-export-native-{}", uuid::Uuid::new_v4()));
     let location = StorageLocation::resolve(LocationRequest {
-        local_data_directory: parent.clone(), home_override: Some(fixture.clone()),
-        project_roots: vec![], synchronized_roots: vec![],
-    }).unwrap();
+        local_data_directory: parent.clone(),
+        home_override: Some(fixture.clone()),
+        project_roots: vec![],
+        synchronized_roots: vec![],
+    })
+    .unwrap();
     let database = Database::open(&location, None).unwrap();
     let budget = metadata_worker_budget();
-    let stamp = PolicyStamp { version: 1, id: "session-export-local-proof-v1".into() };
-    database.initialize_resource_policy(&ReservationPolicy {
-        stamp: stamp.clone(), aggregate_ceiling: budget, per_slot_ceiling: budget,
-        max_slots: 1, max_lease_ms: 300_000,
-    }).unwrap();
+    let stamp = PolicyStamp {
+        version: 1,
+        id: "session-export-local-proof-v1".into(),
+    };
+    database
+        .initialize_resource_policy(&ReservationPolicy {
+            stamp: stamp.clone(),
+            aggregate_ceiling: budget,
+            per_slot_ceiling: budget,
+            max_slots: 1,
+            max_lease_ms: 300_000,
+        })
+        .unwrap();
     let coordinator = AdmissionCoordinator::new(1).unwrap();
     let archive = fixture.join("archive");
     let file = archive.join("projects/fixture-project/export-native-id.jsonl");
     fs::create_dir_all(file.parent().unwrap()).unwrap();
     fs::write(&file, source).unwrap();
     let root = PreparedStoreRoot::resolve(StoreRootRecord {
-        id: "export-root".into(), harness: "claude_code".into(),
-        kind: RootKind::System, scope: RootScope::Additional,
+        id: "export-root".into(),
+        harness: "claude_code".into(),
+        kind: RootKind::System,
+        scope: RootScope::Additional,
         resolved_path: archive.to_string_lossy().trim_start_matches(r"\?\").into(),
-        origin: RootOrigin::Configured, config_revision: 1,
-        access: RootAccess::ReadOnly, available: true,
-    }).unwrap();
+        origin: RootOrigin::Configured,
+        config_revision: 1,
+        access: RootAccess::ReadOnly,
+        available: true,
+    })
+    .unwrap();
     database.register_additional_system_root(&root).unwrap();
-    let selector = RootSelector { store_root_id: "export-root".into(), configuration_revision: 1 };
+    let selector = RootSelector {
+        store_root_id: "export-root".into(),
+        configuration_revision: 1,
+    };
     let request = ExportRequest {
-        detail: DetailRequest { root: selector, native_id: "export-native-id".into(), cursor: None, limit: 1, overview_only: false },
-        format, mode: Mode::Full, with_attachments: false, thread: None, home: None,
+        detail: DetailRequest {
+            root: selector,
+            native_id: "export-native-id".into(),
+            cursor: None,
+            limit: 1,
+            overview_only: false,
+        },
+        format,
+        mode: Mode::Full,
+        with_attachments: false,
+        thread: None,
+        home: None,
     };
     let prepared = PreparedSessionList::resolve_export(&database, &location, request).unwrap();
     let at = now();
     let revision = database.resource_reservations().unwrap().unwrap().revision;
-    let workload = coordinator.prepare(&database, &stamp, revision, PrepareRequest {
-        budget, process_commit_bytes: 768 * 1024 * 1024, now_ms: at, lease_expires_at_ms: at + 15_000,
-    }).unwrap();
+    let workload = coordinator
+        .prepare(
+            &database,
+            &stamp,
+            revision,
+            PrepareRequest {
+                budget,
+                process_commit_bytes: 768 * 1024 * 1024,
+                now_ms: at,
+                lease_expires_at_ms: at + 15_000,
+            },
+        )
+        .unwrap();
     let out = fixture.join(file_name);
     let mut staged = Some(output::stage(&out, output::Overwrite::Refuse).unwrap());
     let mut sink = |bytes: &[u8]| staged.as_mut().unwrap().write(bytes);
-    let receipt = prepared.run_contained_export(&database,
-        Path::new(env!("CARGO_BIN_EXE_shinatama-session-helper")), &location, workload, &mut sink);
-    assert!(!receipt.cleanup_retained(), "worker cleanup retained: {:?}", receipt.issue);
-    assert!(receipt.issue.is_none(), "contained export refused: {:?}", receipt.issue);
+    let receipt = prepared.run_contained_export(
+        &database,
+        Path::new(env!("CARGO_BIN_EXE_shinatama-session-helper")),
+        &location,
+        workload,
+        &mut sink,
+    );
+    assert!(
+        !receipt.cleanup_retained(),
+        "worker cleanup retained: {:?}",
+        receipt.issue
+    );
+    assert!(
+        receipt.issue.is_none(),
+        "contained export refused: {:?}",
+        receipt.issue
+    );
     let reply = receipt.export().unwrap();
     assert!(reply.issue.is_none(), "export issue: {:?}", reply.issue);
     let payload = reply.payload.as_ref().unwrap();
     let written = commit_export(staged.take().unwrap(), payload).unwrap();
-    assert_eq!(fs::read_dir(&fixture).unwrap().filter(|e| e.as_ref().unwrap().file_name().to_string_lossy().starts_with('.')).count(), 0,
-        "no staged file is left beside the output");
-    assert_eq!(database.resource_reservations().unwrap().unwrap().reserved_total().unwrap().memory_bytes, 0);
+    assert_eq!(
+        fs::read_dir(&fixture)
+            .unwrap()
+            .filter(|e| e
+                .as_ref()
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with('.'))
+            .count(),
+        0,
+        "no staged file is left beside the output"
+    );
+    assert_eq!(
+        database
+            .resource_reservations()
+            .unwrap()
+            .unwrap()
+            .reserved_total()
+            .unwrap()
+            .memory_bytes,
+        0
+    );
     let exported = Exported {
         content_bytes: payload.report.content_bytes,
         receipt_bytes: written.bytes,
@@ -122,9 +201,16 @@ fn contained_export_writes_redacted_stx_and_keeps_the_source_unchanged() {
     assert!(!content.contains("private-thought"));
     let document = stx::read(content.as_bytes()).unwrap();
     assert_eq!(document.header.source.native_session_id, "export-native-id");
-    assert!(document.items().any(|item| item.text.contains("[REDACTED:github_token]")));
+    assert!(
+        document
+            .items()
+            .any(|item| item.text.contains("[REDACTED:github_token]"))
+    );
     assert_eq!(document.header.omitted.reasoning, 1);
-    assert!(exported.source_unchanged, "the native source must not change");
+    assert!(
+        exported.source_unchanged,
+        "the native source must not change"
+    );
     fs::remove_dir_all(exported.fixture).unwrap();
 }
 
@@ -189,47 +275,93 @@ struct Framed2 {
 /// One export through the real helper with a progress listener, stopping (`cancel_after` body bytes)
 /// when asked; the staged file is dropped unless the export completes and commits.
 fn framed_export(source: &str, format: Format, cancel_after: Option<u64>) -> Framed2 {
-    let _only = ONE_AT_A_TIME.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _only = ONE_AT_A_TIME
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let parent = fs::canonicalize(std::env::temp_dir()).unwrap();
-    let fixture = parent.join(format!("shinatama-export-progress-{}", uuid::Uuid::new_v4()));
+    let fixture = parent.join(format!(
+        "shinatama-export-progress-{}",
+        uuid::Uuid::new_v4()
+    ));
     let location = StorageLocation::resolve(LocationRequest {
-        local_data_directory: parent.clone(), home_override: Some(fixture.clone()),
-        project_roots: vec![], synchronized_roots: vec![],
-    }).unwrap();
+        local_data_directory: parent.clone(),
+        home_override: Some(fixture.clone()),
+        project_roots: vec![],
+        synchronized_roots: vec![],
+    })
+    .unwrap();
     let database = Database::open(&location, None).unwrap();
     let budget = metadata_worker_budget();
-    let stamp = PolicyStamp { version: 1, id: "session-export-progress-v1".into() };
-    database.initialize_resource_policy(&ReservationPolicy {
-        stamp: stamp.clone(), aggregate_ceiling: budget, per_slot_ceiling: budget,
-        max_slots: 1, max_lease_ms: 300_000,
-    }).unwrap();
+    let stamp = PolicyStamp {
+        version: 1,
+        id: "session-export-progress-v1".into(),
+    };
+    database
+        .initialize_resource_policy(&ReservationPolicy {
+            stamp: stamp.clone(),
+            aggregate_ceiling: budget,
+            per_slot_ceiling: budget,
+            max_slots: 1,
+            max_lease_ms: 300_000,
+        })
+        .unwrap();
     let coordinator = AdmissionCoordinator::new(1).unwrap();
     let archive = fixture.join("archive");
     let file = archive.join("projects/fixture-project/export-native-id.jsonl");
     fs::create_dir_all(file.parent().unwrap()).unwrap();
     fs::write(&file, source).unwrap();
     let root = PreparedStoreRoot::resolve(StoreRootRecord {
-        id: "export-root".into(), harness: "claude_code".into(),
-        kind: RootKind::System, scope: RootScope::Additional,
+        id: "export-root".into(),
+        harness: "claude_code".into(),
+        kind: RootKind::System,
+        scope: RootScope::Additional,
         resolved_path: archive.to_string_lossy().trim_start_matches(r"\?\").into(),
-        origin: RootOrigin::Configured, config_revision: 1,
-        access: RootAccess::ReadOnly, available: true,
-    }).unwrap();
+        origin: RootOrigin::Configured,
+        config_revision: 1,
+        access: RootAccess::ReadOnly,
+        available: true,
+    })
+    .unwrap();
     database.register_additional_system_root(&root).unwrap();
-    let selector = RootSelector { store_root_id: "export-root".into(), configuration_revision: 1 };
+    let selector = RootSelector {
+        store_root_id: "export-root".into(),
+        configuration_revision: 1,
+    };
     let request = ExportRequest {
-        detail: DetailRequest { root: selector, native_id: "export-native-id".into(), cursor: None, limit: 1, overview_only: false },
-        format, mode: Mode::Full, with_attachments: false, thread: None, home: None,
+        detail: DetailRequest {
+            root: selector,
+            native_id: "export-native-id".into(),
+            cursor: None,
+            limit: 1,
+            overview_only: false,
+        },
+        format,
+        mode: Mode::Full,
+        with_attachments: false,
+        thread: None,
+        home: None,
     };
     let prepared = PreparedSessionList::resolve_export(&database, &location, request).unwrap();
     let file_bytes = prepared.file_bytes();
     let at = now();
     let revision = database.resource_reservations().unwrap().unwrap().revision;
-    let workload = coordinator.prepare(&database, &stamp, revision, PrepareRequest {
-        budget, process_commit_bytes: 768 * 1024 * 1024, now_ms: at, lease_expires_at_ms: at + 15_000,
-    }).unwrap();
+    let workload = coordinator
+        .prepare(
+            &database,
+            &stamp,
+            revision,
+            PrepareRequest {
+                budget,
+                process_commit_bytes: 768 * 1024 * 1024,
+                now_ms: at,
+                lease_expires_at_ms: at + 15_000,
+            },
+        )
+        .unwrap();
     let out = fixture.join("out.md");
-    let staged = RefCell::new(Some(output::stage(&out, output::Overwrite::Refuse).unwrap()));
+    let staged = RefCell::new(Some(
+        output::stage(&out, output::Overwrite::Refuse).unwrap(),
+    ));
     let written = Cell::new(0u64);
     let events = RefCell::new(Vec::new());
     let began = Instant::now();
@@ -239,9 +371,17 @@ fn framed_export(source: &str, format: Format, cancel_after: Option<u64>) -> Fra
     };
     let mut progress = |value: Progress| events.borrow_mut().push((began.elapsed(), value));
     let cancel = || cancel_after.is_some_and(|limit| written.get() >= limit);
-    let read = prepared.run_contained_framed(&database,
-        Path::new(env!("CARGO_BIN_EXE_shinatama-session-helper")), &location, workload,
-        Framed { body: &mut body, progress: &mut progress, cancel: &cancel });
+    let read = prepared.run_contained_framed(
+        &database,
+        Path::new(env!("CARGO_BIN_EXE_shinatama-session-helper")),
+        &location,
+        workload,
+        Framed {
+            body: &mut body,
+            progress: &mut progress,
+            cancel: &cancel,
+        },
+    );
     let elapsed = began.elapsed();
     let issue = read.issue;
     if issue.is_none() {
@@ -255,10 +395,18 @@ fn framed_export(source: &str, format: Format, cancel_after: Option<u64>) -> Fra
         retained: read.cleanup_retained(),
         progress: events.into_inner(),
         elapsed,
-        left_beside_output: fs::read_dir(&fixture).unwrap()
+        left_beside_output: fs::read_dir(&fixture)
+            .unwrap()
             .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
-            .filter(|name| name.starts_with('.')).collect(),
-        memory_reserved: database.resource_reservations().unwrap().unwrap().reserved_total().unwrap().memory_bytes,
+            .filter(|name| name.starts_with('.'))
+            .collect(),
+        memory_reserved: database
+            .resource_reservations()
+            .unwrap()
+            .unwrap()
+            .reserved_total()
+            .unwrap()
+            .memory_bytes,
         out_exists: out.exists(),
         file_bytes,
     };
@@ -275,25 +423,59 @@ fn contained_export_reports_progress_at_a_bounded_rate() {
     // well inside the 10 s wall of a file this size.
     let run = framed_export(&big_session(20, 1024 * 1024), Format::Md, None);
     assert!(run.issue.is_none(), "{:?}", run.issue);
-    assert!(run.out_exists && run.left_beside_output.is_empty(), "{} {:?}", run.out_exists, run.left_beside_output);
-    assert!(run.file_bytes > 20 * 1024 * 1024, "the file size is known as context: {}", run.file_bytes);
-    assert!(!run.progress.is_empty(), "no progress frame in {:?}", run.elapsed);
+    assert!(
+        run.out_exists && run.left_beside_output.is_empty(),
+        "{} {:?}",
+        run.out_exists,
+        run.left_beside_output
+    );
+    assert!(
+        run.file_bytes > 20 * 1024 * 1024,
+        "the file size is known as context: {}",
+        run.file_bytes
+    );
+    assert!(
+        !run.progress.is_empty(),
+        "no progress frame in {:?}",
+        run.elapsed
+    );
     let allowed = (run.elapsed.as_millis() / 250) as usize + 1;
-    assert!(run.progress.len() <= allowed, "{} frames in {:?}", run.progress.len(), run.elapsed);
+    assert!(
+        run.progress.len() <= allowed,
+        "{} frames in {:?}",
+        run.progress.len(),
+        run.elapsed
+    );
     // Counts only grow, never exceed the session (41 entries: the prompt and 20 call/result pairs).
-    assert!(run.progress.windows(2).all(|pair| pair[0].1.entries <= pair[1].1.entries && pair[0].1.bytes <= pair[1].1.bytes));
-    assert!(run.progress.iter().all(|(_, p)| p.entries <= 41 && p.hits == 0));
+    assert!(
+        run.progress.windows(2).all(
+            |pair| pair[0].1.entries <= pair[1].1.entries && pair[0].1.bytes <= pair[1].1.bytes
+        )
+    );
+    assert!(
+        run.progress
+            .iter()
+            .all(|(_, p)| p.entries <= 41 && p.hits == 0)
+    );
     assert_eq!(run.memory_reserved, 0);
 }
 
 #[test]
 #[ignore = "explicit native proof with the contained session helper; synthetic archive only"]
 fn cancelling_an_export_midway_stops_the_worker_and_leaves_no_file() {
-    let run = framed_export(&big_session(20, 1024 * 1024), Format::Md, Some(3 * 1024 * 1024));
+    let run = framed_export(
+        &big_session(20, 1024 * 1024),
+        Format::Md,
+        Some(3 * 1024 * 1024),
+    );
     assert_eq!(run.issue, Some(SessionReadIssue::Cancelled));
     assert!(!run.retained, "the worker's cleanup is confirmed");
     assert!(!run.out_exists, "nothing was written to the destination");
-    assert!(run.left_beside_output.is_empty(), "the staged file was removed: {:?}", run.left_beside_output);
+    assert!(
+        run.left_beside_output.is_empty(),
+        "the staged file was removed: {:?}",
+        run.left_beside_output
+    );
     assert_eq!(run.memory_reserved, 0, "the reservation was released");
     // It stopped long before an uncancelled export of the same session finishes.
     assert!(run.elapsed < Duration::from_secs(8), "{:?}", run.elapsed);
@@ -311,52 +493,107 @@ struct Searched {
 /// One search of `query` through the real helper; `cancel_on_progress` stops it at its first progress
 /// frame.
 fn framed_search(source: &str, query: &str, cancel_on_progress: bool) -> Searched {
-    let _only = ONE_AT_A_TIME.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _only = ONE_AT_A_TIME
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let parent = fs::canonicalize(std::env::temp_dir()).unwrap();
-    let fixture = parent.join(format!("shinatama-search-progress-{}", uuid::Uuid::new_v4()));
+    let fixture = parent.join(format!(
+        "shinatama-search-progress-{}",
+        uuid::Uuid::new_v4()
+    ));
     let location = StorageLocation::resolve(LocationRequest {
-        local_data_directory: parent.clone(), home_override: Some(fixture.clone()),
-        project_roots: vec![], synchronized_roots: vec![],
-    }).unwrap();
+        local_data_directory: parent.clone(),
+        home_override: Some(fixture.clone()),
+        project_roots: vec![],
+        synchronized_roots: vec![],
+    })
+    .unwrap();
     let database = Database::open(&location, None).unwrap();
     let budget = metadata_worker_budget();
-    let stamp = PolicyStamp { version: 1, id: "session-search-progress-v1".into() };
-    database.initialize_resource_policy(&ReservationPolicy {
-        stamp: stamp.clone(), aggregate_ceiling: budget, per_slot_ceiling: budget,
-        max_slots: 1, max_lease_ms: 300_000,
-    }).unwrap();
+    let stamp = PolicyStamp {
+        version: 1,
+        id: "session-search-progress-v1".into(),
+    };
+    database
+        .initialize_resource_policy(&ReservationPolicy {
+            stamp: stamp.clone(),
+            aggregate_ceiling: budget,
+            per_slot_ceiling: budget,
+            max_slots: 1,
+            max_lease_ms: 300_000,
+        })
+        .unwrap();
     let coordinator = AdmissionCoordinator::new(1).unwrap();
     let archive = fixture.join("archive");
     let file = archive.join("projects/fixture-project/export-native-id.jsonl");
     fs::create_dir_all(file.parent().unwrap()).unwrap();
     fs::write(&file, source).unwrap();
     let root = PreparedStoreRoot::resolve(StoreRootRecord {
-        id: "export-root".into(), harness: "claude_code".into(),
-        kind: RootKind::System, scope: RootScope::Additional,
+        id: "export-root".into(),
+        harness: "claude_code".into(),
+        kind: RootKind::System,
+        scope: RootScope::Additional,
         resolved_path: archive.to_string_lossy().trim_start_matches(r"\?\").into(),
-        origin: RootOrigin::Configured, config_revision: 1,
-        access: RootAccess::ReadOnly, available: true,
-    }).unwrap();
+        origin: RootOrigin::Configured,
+        config_revision: 1,
+        access: RootAccess::ReadOnly,
+        available: true,
+    })
+    .unwrap();
     database.register_additional_system_root(&root).unwrap();
-    let selector = RootSelector { store_root_id: "export-root".into(), configuration_revision: 1 };
+    let selector = RootSelector {
+        store_root_id: "export-root".into(),
+        configuration_revision: 1,
+    };
     let workload = |database: &Database| {
         let at = now();
         let revision = database.resource_reservations().unwrap().unwrap().revision;
-        coordinator.prepare(database, &stamp, revision, PrepareRequest {
-            budget, process_commit_bytes: 768 * 1024 * 1024, now_ms: at, lease_expires_at_ms: at + 15_000,
-        }).unwrap()
+        coordinator
+            .prepare(
+                database,
+                &stamp,
+                revision,
+                PrepareRequest {
+                    budget,
+                    process_commit_bytes: 768 * 1024 * 1024,
+                    now_ms: at,
+                    lease_expires_at_ms: at + 15_000,
+                },
+            )
+            .unwrap()
     };
     let helper = Path::new(env!("CARGO_BIN_EXE_shinatama-session-helper"));
     // The visible page first: its fingerprint pins the search.
-    let detail = DetailRequest { root: selector, native_id: "export-native-id".into(), cursor: None, limit: 50, overview_only: false };
-    let prepared = PreparedSessionList::resolve_detail(&database, &location, detail.clone()).unwrap();
+    let detail = DetailRequest {
+        root: selector,
+        native_id: "export-native-id".into(),
+        cursor: None,
+        limit: 50,
+        overview_only: false,
+    };
+    let prepared =
+        PreparedSessionList::resolve_detail(&database, &location, detail.clone()).unwrap();
     let read = prepared.run_contained(&database, helper, &location, workload(&database));
     assert!(read.issue.is_none(), "{:?}", read.issue);
-    let fingerprint = read.detail().unwrap().page.as_ref().unwrap().fingerprint.clone();
+    let fingerprint = read
+        .detail()
+        .unwrap()
+        .page
+        .as_ref()
+        .unwrap()
+        .fingerprint
+        .clone();
     drop(read);
     let mut pinned = detail;
-    pinned.cursor = Some(DetailCursor { offset: 0, fingerprint });
-    let request = FindRequest { detail: pinned, query: query.into(), cursor: None };
+    pinned.cursor = Some(DetailCursor {
+        offset: 0,
+        fingerprint,
+    });
+    let request = FindRequest {
+        detail: pinned,
+        query: query.into(),
+        cursor: None,
+    };
     let prepared = PreparedSessionList::resolve_find(&database, &location, request).unwrap();
     let began = Instant::now();
     let events = RefCell::new(Vec::new());
@@ -367,14 +604,32 @@ fn framed_search(source: &str, query: &str, cancel_on_progress: bool) -> Searche
         events.borrow_mut().push((began.elapsed(), value));
     };
     let cancel = || cancel_on_progress && seen.get();
-    let read = prepared.run_contained_framed(&database, helper, &location, workload(&database),
-        Framed { body: &mut body, progress: &mut progress, cancel: &cancel });
+    let read = prepared.run_contained_framed(
+        &database,
+        helper,
+        &location,
+        workload(&database),
+        Framed {
+            body: &mut body,
+            progress: &mut progress,
+            cancel: &cancel,
+        },
+    );
     let result = Searched {
         issue: read.issue,
         retained: read.cleanup_retained(),
         progress: events.into_inner(),
-        total_hits: read.find().and_then(|reply| reply.page.as_ref()).map(|page| page.total_hits),
-        memory_reserved: database.resource_reservations().unwrap().unwrap().reserved_total().unwrap().memory_bytes,
+        total_hits: read
+            .find()
+            .and_then(|reply| reply.page.as_ref())
+            .map(|page| page.total_hits),
+        memory_reserved: database
+            .resource_reservations()
+            .unwrap()
+            .unwrap()
+            .reserved_total()
+            .unwrap()
+            .memory_bytes,
     };
     drop(read);
     drop(database);
@@ -391,8 +646,16 @@ fn contained_search_reports_progress_with_hits_so_far_and_cancels() {
     assert!(done.issue.is_none(), "{:?}", done.issue);
     assert_eq!(done.total_hits, Some(21), "the prompt and the 20 results");
     assert!(!done.progress.is_empty(), "no progress frame");
-    assert!(done.progress.windows(2).all(|pair| pair[0].1.entries <= pair[1].1.entries && pair[0].1.hits <= pair[1].1.hits));
-    assert!(done.progress.iter().all(|(_, p)| p.entries <= 41 && p.hits <= 21 && p.bytes == 0));
+    assert!(
+        done.progress
+            .windows(2)
+            .all(|pair| pair[0].1.entries <= pair[1].1.entries && pair[0].1.hits <= pair[1].1.hits)
+    );
+    assert!(
+        done.progress
+            .iter()
+            .all(|(_, p)| p.entries <= 41 && p.hits <= 21 && p.bytes == 0)
+    );
     assert_eq!(done.memory_reserved, 0);
     let stopped = framed_search(&source, "needle", true);
     assert_eq!(stopped.issue, Some(SessionReadIssue::Cancelled));

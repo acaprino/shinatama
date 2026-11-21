@@ -373,7 +373,9 @@ impl Database {
             .iter()
             .position(|entry| entry.owner.activation.instance_id == expected.owner.instance_id)
             .ok_or(CleanupError::ReceiptRequired)?;
-        if journal.entries[index].owner != certificate.owner || journal.entries[index].cleanup.is_some() {
+        if journal.entries[index].owner != certificate.owner
+            || journal.entries[index].cleanup.is_some()
+        {
             return Err(CleanupError::Conflict);
         }
         let owner = journal.entries[index].owner.clone();

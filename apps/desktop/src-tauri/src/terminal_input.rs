@@ -17,7 +17,9 @@ const PRUNE_EVERY: Duration = Duration::from_secs(60 * 60);
 static LAST_PRUNE: Mutex<Option<Instant>> = Mutex::new(None);
 
 fn pastes_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    Ok(crate::data_home(app).map_err(|e| e.to_string())?.join("pastes"))
+    Ok(crate::data_home(app)
+        .map_err(|e| e.to_string())?
+        .join("pastes"))
 }
 
 /// The file extension for an image every harness reads, from its first bytes; `None` otherwise.
@@ -38,7 +40,9 @@ fn image_extension(bytes: &[u8]) -> Option<&'static str> {
 
 /// Starts a removal of old pastes unless one ran within `PRUNE_EVERY`.
 fn prune_soon(dir: PathBuf) {
-    let mut last = LAST_PRUNE.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut last = LAST_PRUNE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     if last.is_some_and(|at| at.elapsed() < PRUNE_EVERY) {
         return;
     }
@@ -47,13 +51,18 @@ fn prune_soon(dir: PathBuf) {
 }
 
 fn prune(dir: &std::path::Path) {
-    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
     let now = SystemTime::now();
     for entry in entries.flatten() {
         let old = entry
             .metadata()
             .and_then(|meta| meta.modified())
-            .is_ok_and(|modified| now.duration_since(modified).is_ok_and(|age| age > KEEP_PASTES));
+            .is_ok_and(|modified| {
+                now.duration_since(modified)
+                    .is_ok_and(|age| age > KEEP_PASTES)
+            });
         if old && entry.file_type().is_ok_and(|kind| kind.is_file()) {
             let _ = std::fs::remove_file(entry.path());
         }
@@ -73,15 +82,21 @@ pub fn terminal_paste_image(
     if bytes.len() > IMAGE_LIMIT {
         return Err("The pasted image is larger than 64 MiB".into());
     }
-    let extension = image_extension(bytes).ok_or("The pasted image is not PNG, JPEG, GIF or WebP")?;
+    let extension =
+        image_extension(bytes).ok_or("The pasted image is not PNG, JPEG, GIF or WebP")?;
     let dir = pastes_dir(window.app_handle())?;
-    std::fs::create_dir_all(&dir).map_err(|e| format!("The pastes folder could not be created: {e}"))?;
+    std::fs::create_dir_all(&dir)
+        .map_err(|e| format!("The pastes folder could not be created: {e}"))?;
     let stamp = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .map(|elapsed| elapsed.as_millis())
         .unwrap_or_default();
-    let path = dir.join(format!("paste-{stamp}-{}.{extension}", &uuid::Uuid::new_v4().simple().to_string()[..8]));
-    std::fs::write(&path, bytes).map_err(|e| format!("The pasted image could not be saved: {e}"))?;
+    let path = dir.join(format!(
+        "paste-{stamp}-{}.{extension}",
+        &uuid::Uuid::new_v4().simple().to_string()[..8]
+    ));
+    std::fs::write(&path, bytes)
+        .map_err(|e| format!("The pasted image could not be saved: {e}"))?;
     prune_soon(dir);
     Ok(path.to_string_lossy().into_owned())
 }
@@ -133,9 +148,14 @@ fn clipboard_files() -> Result<Vec<String>, String> {
             for index in 0..count {
                 let length = DragQueryFileW(handle, index, std::ptr::null_mut(), 0);
                 let mut buffer = vec![0u16; length as usize + 1];
-                let written = DragQueryFileW(handle, index, buffer.as_mut_ptr(), buffer.len() as u32);
+                let written =
+                    DragQueryFileW(handle, index, buffer.as_mut_ptr(), buffer.len() as u32);
                 buffer.truncate(written as usize);
-                paths.push(std::ffi::OsString::from_wide(&buffer).to_string_lossy().into_owned());
+                paths.push(
+                    std::ffi::OsString::from_wide(&buffer)
+                        .to_string_lossy()
+                        .into_owned(),
+                );
             }
         }
         CloseClipboard();
