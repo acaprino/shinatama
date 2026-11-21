@@ -245,7 +245,10 @@ export async function driveTeamMap(page, expect, log = console.log) {
   await expect(bar('Apply')).toBeEnabled();
   log('ok a struck-out option with the engine\'s reason, the problems strip and Apply disabled on an error');
 
-  // The card's box edits name and notes and shows the role; hand-out appears with two or more work arrows.
+  // The card's box edits name and notes and shows the role; hand-out appears with two or more work arrows. On a small
+  // map the arrow's box lies over the card: it is closed first, as a user would close it.
+  await page.keyboard.press('Escape');
+  await expect(box).toBeHidden();
   await byId(planner).locator('.team-card-name').click();
   await expect(agentBox).toBeVisible();
   await expect(agentBox.locator('.team-seg')).toBeHidden();
