@@ -456,7 +456,7 @@ fn pending_records_are_bounded_without_eviction_and_failed_before_run_can_acknow
 fn termination_certificate_releases_ticket_closes_activation_and_consumes_association_once() {
     let fixture = Fixture::new();
     let db = fixture.open();
-    let (stamp, ticket, owner) = active_ticket(&db, false);
+    let (_stamp, ticket, owner) = active_ticket(&db, false);
     let association = bind(&db, &ticket, &owner);
     let expected = activation(&db, &owner);
     // Pre-receipt crash window: association exists, no cleanup receipt yet.
