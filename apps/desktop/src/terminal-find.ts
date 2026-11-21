@@ -1,3 +1,4 @@
+import { componentElement, textFieldHtml, uiButton, uiPart } from '@acaprino/imago/ui';
 import type { Terminal } from '@xterm/xterm';
 import { openModal, openSheet } from './modal.ts';
 
@@ -7,14 +8,25 @@ export function createTerminalFind(options: {
   returnFocus(id: string): void;
   notify(message: string): void;
 }) {
-  const dialog = document.createElement('dialog'); dialog.id = 'terminal-find-dialog';
+  const dialog = uiPart('dialog'); dialog.id = 'terminal-find-dialog';
   dialog.setAttribute('aria-labelledby', 'terminal-find-title');
-  dialog.innerHTML = '<form><div class="dialog-heading"><h1 id="terminal-find-title">Find in terminal</h1><button type="button" aria-label="Close search">×</button></div><label for="terminal-find-query">Text in this terminal</label><input id="terminal-find-query" type="search" autocomplete="off" maxlength="128"><p class="hint" role="status"></p><div class="dialog-actions"><button type="button" data-previous>Previous</button><button type="submit">Next</button></div></form>';
-  document.querySelector('main')!.append(dialog);
-  const query = dialog.querySelector<HTMLInputElement>('input')!;
-  const status = dialog.querySelector<HTMLElement>('[role="status"]')!;
-  const previous = dialog.querySelector<HTMLButtonElement>('[data-previous]')!;
-  const next = dialog.querySelector<HTMLButtonElement>('[type="submit"]')!;
+  const form = uiPart('form');
+  const heading = uiPart('header');
+  const title = uiPart('title', 'Find in terminal'); title.id = 'terminal-find-title';
+  const close = uiButton('×', { attrs: { 'aria-label': 'Close search' } });
+  heading.append(title, close);
+  const field = componentElement(textFieldHtml('Text in this terminal', 'terminal-find', '', {
+    id: 'terminal-find-query', type: 'search', error: false, attrs: { autocomplete: 'off', maxlength: '128' },
+  }));
+  const query = field.querySelector('input')!;
+  const status = uiPart('status');
+  const actions = uiPart('actions');
+  const previous = uiButton('Previous');
+  const next = uiButton('Next', { primary: true }); next.type = 'submit';
+  actions.append(previous, next);
+  form.append(heading, field, status, actions);
+  dialog.append(form);
+  (document.querySelector('#app') ?? document.body).append(dialog);
   let origin: ReturnType<typeof options.current> = null;
   let generation = 0; let frame = 0; let hits: number[] = []; let selected = -1; let overflow = false;
   function select(direction: number) {
@@ -48,9 +60,9 @@ export function createTerminalFind(options: {
     frame = requestAnimationFrame(scan);
   }
   query.addEventListener('input', search);
-  dialog.querySelector('form')!.onsubmit = event => { event.preventDefault(); select(1); };
+  form.onsubmit = event => { event.preventDefault(); select(1); };
   previous.onclick = () => select(-1);
-  dialog.querySelector<HTMLButtonElement>('[aria-label="Close search"]')!.onclick = () => dialog.close();
+  close.onclick = () => dialog.close();
   dialog.addEventListener('close', () => {
     ++generation; cancelAnimationFrame(frame);
     const id = origin?.id; origin = null; hits = [];

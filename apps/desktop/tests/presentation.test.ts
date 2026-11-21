@@ -64,18 +64,14 @@ test('the window opens in Smooth unless ONI MODE was chosen, and followed termin
   const followed = { ...DEFAULT_PRESENTATION, skin: 'sumi', followSkin: true };
   assert.equal(optionsForProfile('codex', followed, 'smooth').theme?.background, SMOOTH.terminal);
   assert.equal(optionsForProfile('codex', followed, 'oni').theme?.background, SKINS.sumi.tokens.terminal);
-  assert.match(readFileSync(new URL('../index.html', import.meta.url), 'utf8'), /<html[^>]*data-look="smooth"/);
+  assert.match(readFileSync(new URL('../index.html', import.meta.url), 'utf8'), /<html[^>]*data-im-look="smooth"/);
 });
-test('every Smooth rule is scoped to the Smooth root, so ONI MODE sees none of them', () => {
-  const css = readFileSync(new URL('../src/smooth.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-  const tops: string[] = []; let depth = 0; let start = 0;
-  for (let index = 0; index < css.length; index++) {
-    if (css[index] === '{') { if (depth++ === 0) tops.push(css.slice(start, index).trim()); }
-    else if (css[index] === '}') { if (--depth === 0) start = index + 1; }
+test('Imago scopes the two look geometries independently', () => {
+  const css = readFileSync(new URL(import.meta.resolve('@acaprino/imago/css/tokens.css')), 'utf8');
+  for (const [look, radius] of [['smooth', '6px'], ['oni', '0px']]) {
+    const rule = css.split('[data-im-look="' + look + '"] {')[1]?.split('}')[0];
+    assert.ok(rule?.includes('--im-r-control: ' + radius));
   }
-  assert.ok(tops.length > 0);
-  for (const selector of tops) assert.match(selector, /^(:where\()?:root\[data-look="smooth"\]\)?$/, `unscoped: ${selector}`);
-  assert.doesNotMatch(css, /#[0-9a-fA-F]{3,8}\b|\b(?:rgb|hsl)a?\(/, 'Smooth colours are its tokens (presentation.ts)');
 });
 test('Smooth follows Windows unless light or dark was chosen, and its light theme paints followed terminals light', () => {
   assert.equal(storedTheme(null), 'system');

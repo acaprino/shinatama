@@ -1,26 +1,12 @@
+import { applyLook, applyShinatamaPalette, SHINATAMA_PALETTES as SKINS, type ShinatamaPaletteTokens as Tokens } from '@acaprino/imago/shell';
+import { uiPart, uiSelect, uiInput } from '@acaprino/imago/ui';
 import { invoke } from '@tauri-apps/api/core';
 import type { ITheme, ITerminalOptions, Terminal } from '@xterm/xterm';
 import { confirmsField } from './desktop-shell-model.ts';
 
-const base = {
-  stage: '#04070f', chrome: '#070c18', 'chrome-2': '#0a1120', surface: '#0e1729', 'surface-2': '#13203a', terminal: '#050912',
-  line: '#1c3563', 'line-strong': '#4a78e6', ice: '#a9c8ff', text: '#e6f0ff', 'text-2': '#b4c8e8', muted: '#8fa6c9',
-  accent: '#f48fb8', 'accent-soft': '#ffb3d0', 'accent-ink': '#1c0811', live: '#6fe3d2', warning: '#e8bb72', error: '#ff8495',
-  danger: '#a0294e', 'danger-line': '#e35f87', 'on-danger': '#ffffff', selection: '#2a4a8f', scrim: '#02050bcc', shadow: '#000000aa', grid: '#1c356340',
-  // The tint of the desktop glass over the window's acrylic. ONI MODE paints its stage there (styles.css); Smooth reads this one.
-  'glass-tint': '#04070f',
-} as const;
-type Tokens = { readonly [K in keyof typeof base]: string };
-export const SKINS: Readonly<Record<string, { readonly name: string; readonly tokens: Tokens }>> = {
-  shinatama: { name: 'Shinatama', tokens: base },
-  neutral: { name: 'Neutral dark', tokens: { ...base, stage: '#080b10', chrome: '#0d1219', 'chrome-2': '#121a24', surface: '#17212e', 'surface-2': '#1d2a3a', terminal: '#090e15', line: '#334256', 'line-strong': '#899bb6', ice: '#d5e1f4', accent: '#b8c9e3', 'accent-soft': '#dbe7fa', 'accent-ink': '#0a1220', grid: '#33425640' } },
-  section9: { name: 'Section 9', tokens: { ...base, stage: '#030b0c', chrome: '#061214', 'chrome-2': '#091b1d', surface: '#0c2225', 'surface-2': '#103035', terminal: '#041012', line: '#24545a', 'line-strong': '#62aeb6', ice: '#a8edf2', text: '#e4f8f6', 'text-2': '#bededb', muted: '#a4c9c6', accent: '#78e2dc', 'accent-soft': '#b4fff8', 'accent-ink': '#032021', selection: '#235e62', grid: '#24545a40' } },
-  tctf: { name: 'TCTF', tokens: { ...base, stage: '#090b0e', chrome: '#10151b', 'chrome-2': '#171e26', surface: '#1b2631', 'surface-2': '#24313e', terminal: '#0a1016', line: '#455567', 'line-strong': '#b59b78', ice: '#f6d9b3', text: '#f5ece0', 'text-2': '#d8cab8', muted: '#c7baa7', accent: '#ffc072', 'accent-soft': '#ffdfad', 'accent-ink': '#241405', selection: '#635035', grid: '#45556740' } },
-  sumi: { name: 'Sumi', tokens: { ...base, stage: '#080707', chrome: '#100c0c', 'chrome-2': '#171111', surface: '#211919', 'surface-2': '#2b2020', terminal: '#0a0808', line: '#573a37', 'line-strong': '#c88b81', ice: '#f3d5cd', text: '#f7e9e3', 'text-2': '#dcc7c0', muted: '#cbb5ae', accent: '#f49c8b', 'accent-soft': '#ffd2c5', 'accent-ink': '#2a0c08', selection: '#653c35', grid: '#573a3740' } },
-};
-/** The look of the window: Smooth (the default) or ONI MODE (the look Shinatama was born with). The choice is an attribute on
- * the root (`data-look`): smooth.css is scoped to it, the other stylesheets are what is left without it. Kept in the
- * webview's own storage like the zoom. Smooth has one palette, below; the skins above are ONI MODE's themes. */
+export { SKINS };
+const base = SKINS.shinatama.tokens;
+/** Imago draws both looks. ONI also accepts the user's persisted accent palette. */
 export type Look = 'smooth' | 'oni';
 export const LOOK_KEY = 'shinatama.look';
 /** The look a stored value stands for: ONI MODE only when it was chosen, anything else (nothing stored, a stale value) is Smooth. */
@@ -117,21 +103,34 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
   let current = DEFAULT_PRESENTATION; let revision = 0; let loaded = !options.desktop; let blocked = false;
   let flight: Promise<void> | null = null; let pending: PresentationSettings | null = null; let timer = 0; let edits = 0;
   const warnedProfiles = new Set<string>();
-  const theme = document.createElement('div'); theme.className = 'presentation-theme';
-  theme.innerHTML = '<label for="presentation-theme">Theme</label><select id="presentation-theme"><option value="system">Windows</option><option value="light">Light</option><option value="dark">Dark</option><option value="oni">Classic</option></select><label for="presentation-skin">Classic theme</label><select id="presentation-skin"></select>';
+  const theme = uiPart('stack');
+  const form = uiPart('form');
+  form.classList.add('im-stack');
+  function field(host: HTMLElement, label: string, id: string, input: HTMLSelectElement | HTMLInputElement) {
+    const row = uiPart('field');
+    input.id = id;
+    row.append(uiPart('text', label), input);
+    host.append(row);
+  }
+  const themeSelector = uiSelect([['system', 'Windows'], ['light', 'Light'], ['dark', 'Dark'], ['oni', 'Classic']]);
+  field(theme, 'Theme', 'presentation-theme', themeSelector);
+  const selector = uiSelect(Object.entries(SKINS).map(([id, skin]) => [id, skin.name]));
+  field(theme, 'Classic theme', 'presentation-skin', selector);
+  const font = uiSelect(fonts.map(name => [name, name === 'profile' ? 'Profile default' : name]));
+  field(form, 'Terminal font', 'presentation-font', font);
+  const size = uiInput('number'); size.min = '8'; size.max = '32'; size.required = true;
+  field(form, 'Font size', 'presentation-size', size);
+  const height = uiInput('number'); height.min = '100'; height.max = '180'; height.required = true;
+  field(form, 'Line height (%)', 'presentation-height', height);
+  const follow = uiInput('checkbox');
+  field(form, 'Follow interface theme in terminals', 'presentation-follow', follow);
+  const status = uiPart('status'); status.id = 'presentation-status';
+  form.append(uiPart('hint', 'Follow theme changes default and ANSI colours. Application truecolour output stays untouched.'),
+    uiPart('hint', 'Uses local fonts with a system monospace fallback.'), status);
   let look: Look = (() => { try { return storedLook(localStorage.getItem(LOOK_KEY)); } catch { return storedLook(null); } })();
   let smoothTheme: Theme = (() => { try { return storedTheme(localStorage.getItem(THEME_KEY)); } catch { return storedTheme(null); } })();
-  const themeSelector = theme.querySelector<HTMLSelectElement>('#presentation-theme')!;
   const systemLight = window.matchMedia('(prefers-color-scheme: light)');
   const light = () => look === 'smooth' && (smoothTheme === 'light' || (smoothTheme === 'system' && systemLight.matches));
-  const selector = theme.querySelector<HTMLSelectElement>('#presentation-skin')!;
-  for (const [id, skin] of Object.entries(SKINS)) { const option = document.createElement('option'); option.value = id; option.textContent = skin.name; selector.append(option); }
-  const form = document.createElement('form'); form.className = 'presentation-terminal';
-  form.innerHTML = '<label for="presentation-font">Terminal font</label><select id="presentation-font"></select><label for="presentation-size">Font size</label><input id="presentation-size" type="number" min="8" max="32" step="1" required><label for="presentation-height">Line height (%)</label><input id="presentation-height" type="number" min="100" max="180" step="1" required><label class="presentation-follow"><input type="checkbox" id="presentation-follow"> Follow interface theme in terminals</label><p class="hint">Follow theme changes default and ANSI colours; Claude Code and Codex started afterwards use their ANSI-colour themes. Application truecolour output stays untouched.</p><p class="hint">Uses local fonts with a system monospace fallback. No fonts or artwork are downloaded.</p><p id="presentation-status" role="status"></p>';
-  const font = form.querySelector<HTMLSelectElement>('#presentation-font')!;
-  for (const name of fonts) { const option = document.createElement('option'); option.value = name; option.textContent = name === 'profile' ? 'Profile default' : name; font.append(option); }
-  const size = form.querySelector<HTMLInputElement>('#presentation-size')!; const height = form.querySelector<HTMLInputElement>('#presentation-height')!;
-  const follow = form.querySelector<HTMLInputElement>('#presentation-follow')!; const status = form.querySelector<HTMLElement>('#presentation-status')!;
   const equal = (a: PresentationSettings, b: PresentationSettings) => JSON.stringify(a) === JSON.stringify(b);
   function render() { selector.disabled = look !== 'oni'; themeSelector.value = look === 'oni' ? 'oni' : smoothTheme; selector.value = current.skin; font.value = current.fontFamily; size.value = String(current.fontSize); height.value = String(current.lineHeight); follow.checked = current.followSkin; }
   // The window's theme, sent only when it changes; presentation.rs keeps it for the next start.
@@ -142,7 +141,13 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
     windowTheme = wanted;
     void invoke('presentation_window_theme', { theme: wanted }).catch(() => { windowTheme = ''; });
   }
-  function apply() { applyWindowTheme(); document.documentElement.dataset.look = look; document.documentElement.dataset.theme = light() ? 'light' : 'dark'; document.documentElement.style.colorScheme = light() ? 'light' : 'dark'; if (light()) document.documentElement.style.setProperty('--accent-text', ACCENT_TEXT_LIGHT); else document.documentElement.style.removeProperty('--accent-text'); for (const [name, value] of Object.entries(tokensFor(look, current.skin, light()))) document.documentElement.style.setProperty(`--${name}`, value); render(); }
+  function apply() {
+    applyWindowTheme();
+    const root = document.documentElement;
+    applyLook(root, { app: 'shinatama', look, theme: windowThemeFor(look, smoothTheme), glass: options.desktop }, { systemIsDark: () => !systemLight.matches });
+    applyShinatamaPalette(root, look === 'oni' ? current.skin : null, options.desktop);
+    render();
+  }
   function reportFailure() { blocked = true; status.textContent = 'Changes remain visible in this window. Saving is unavailable; press Reload in Settings before trying again.'; options.notify(status.textContent); }
   function schedule() { clearTimeout(timer); if (!blocked && loaded && pending) timer = window.setTimeout(() => { void save(); }, 0); }
   async function save() {

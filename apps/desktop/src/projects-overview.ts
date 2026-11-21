@@ -1,6 +1,6 @@
+import { uiPart, uiButton, uiInput } from '@acaprino/imago/ui';
 import { listen } from '@tauri-apps/api/event';
 import { openModal } from './modal.ts';
-import './projects-overview.css';
 import { confirmsField } from './desktop-shell-model.ts';
 import { itemText, leftoversFor, summaryText, type LeftoverStatus } from './leftovers-model.ts';
 
@@ -30,13 +30,13 @@ function gitText(git: Git): string {
  * what agent sessions left in each project as Xiox sees it (read-only: the clean command is
  * only copied, never run). */
 export function createProjectsOverview(options: Options) {
-  const dialog = document.createElement('dialog'); dialog.id = 'projects-overview-dialog'; dialog.setAttribute('aria-labelledby', 'projects-overview-title');
-  const heading = document.createElement('div'); heading.className = 'dialog-heading';
-  const title = document.createElement('h1'); title.id = 'projects-overview-title'; title.textContent = 'Projects';
-  const closeButton = document.createElement('button'); closeButton.type = 'button'; closeButton.textContent = '×'; closeButton.setAttribute('aria-label', 'Close projects');
+  const dialog = uiPart('dialog'); dialog.id = 'projects-overview-dialog'; dialog.setAttribute('aria-labelledby', 'projects-overview-title');
+  const heading = uiPart('header'); heading.classList.add('dialog-heading');
+  const title = uiPart('title'); title.id = 'projects-overview-title'; title.textContent = 'Projects';
+  const closeButton = uiButton('×'); closeButton.setAttribute('aria-label', 'Close projects');
   heading.append(title, closeButton);
-  const status = document.createElement('p'); status.className = 'projects-overview-status'; status.setAttribute('role', 'status');
-  const list = document.createElement('ul'); list.className = 'projects-overview-list';
+  const status = uiPart('status');
+  const list = uiPart('list', undefined, 'im-scroll im-scroll--bounded');
   dialog.append(heading, status, list);
   (document.querySelector('#app') ?? document.body).append(dialog);
   let generation = 0;
@@ -51,9 +51,9 @@ export function createProjectsOverview(options: Options) {
     slot.replaceChildren();
     if (!leftovers.available || !row.available) return;
     const picture = leftoversFor(row.path, leftovers.projects);
-    const head = document.createElement('div'); head.className = 'projects-leftovers-head';
-    const line = document.createElement('small'); line.className = 'projects-leftovers-line';
-    const check = document.createElement('button'); check.type = 'button';
+    const head = uiPart('row');
+    const line = uiPart('hint');
+    const check = uiButton('');
     check.textContent = !picture ? 'Watch now' : picture.phase === 'ended' ? 'Restart Xiox' : 'Check now';
     check.title = 'Xiox lists the worktrees, copies, bench and backup folders and builds that appeared. It never removes anything.';
     check.disabled = picture?.phase === 'starting';
@@ -72,25 +72,25 @@ export function createProjectsOverview(options: Options) {
     head.append(line, check);
     slot.append(head);
     if (!picture.newItems.length) return;
-    const toggle = document.createElement('button'); toggle.type = 'button';
+    const toggle = uiButton('');
     const open = expanded.has(row.id);
     toggle.textContent = open ? 'Hide details' : 'Details'; toggle.setAttribute('aria-expanded', String(open));
     toggle.onclick = () => { if (expanded.has(row.id)) expanded.delete(row.id); else expanded.add(row.id); renderLeftovers(row, slot); };
     head.append(toggle);
     if (!open) return;
-    const items = document.createElement('ul'); items.className = 'projects-leftovers-items';
+    const items = uiPart('list');
     items.append(...picture.newItems.map(entry => {
-      const li = document.createElement('li'); li.textContent = itemText(entry);
+      const li = uiPart('item', itemText(entry));
       if (entry.blocked.length) li.dataset.blocked = 'true';
       return li;
     }));
     slot.append(items);
     if (!picture.cleanCommand) {
-      const note = document.createElement('small'); note.textContent = 'No clean command: the new items need your own choice (caution) or cannot be removed. See xiox clean --include.';
+      const note = uiPart('hint', 'No clean command: the new items need your own choice (caution) or cannot be removed. See xiox clean --include.');
       slot.append(note); return;
     }
-    const command = document.createElement('code'); command.className = 'projects-leftovers-command'; command.textContent = picture.cleanCommand;
-    const copy = document.createElement('button'); copy.type = 'button'; copy.textContent = 'Copy clean command';
+    const command = uiPart('code', picture.cleanCommand);
+    const copy = uiButton('Copy clean command');
     copy.onclick = async () => {
       try {
         await navigator.clipboard.writeText(picture.cleanCommand ?? '');
@@ -116,31 +116,31 @@ export function createProjectsOverview(options: Options) {
     } catch (error) { status.dataset.state = 'error'; status.textContent = text(error); }
   }
   function rowElement(row: ProjectRow) {
-    const item = document.createElement('li'); item.className = 'projects-overview-row'; item.dataset.projectId = row.id;
-    const pin = document.createElement('button'); pin.type = 'button'; pin.className = 'projects-pin'; pin.textContent = row.pinned ? '★' : '☆';
+    const item = uiPart('item'); item.classList.add('projects-overview-row'); item.dataset.projectId = row.id;
+    const pin = uiButton(''); pin.classList.add('projects-pin'); pin.textContent = row.pinned ? '★' : '☆';
     pin.setAttribute('aria-pressed', String(row.pinned)); pin.setAttribute('aria-label', row.pinned ? `Unpin ${row.name}` : `Pin ${row.name}`);
     pin.onclick = async () => { try { await options.invoke('project_pin', { projectId: row.id, pinned: !row.pinned }); await load(); } catch (error) { status.textContent = text(error); } };
-    const info = document.createElement('div'); info.className = 'projects-overview-info';
-    const name = document.createElement('strong'); name.textContent = row.name || row.path;
-    const path = document.createElement('small'); path.textContent = row.available ? row.path : `${row.path} · unavailable`;
-    const facts = document.createElement('small'); facts.className = 'projects-git'; facts.textContent = gitText(row.git);
-    const last = document.createElement('small');
+    const info = uiPart('stack');
+    const name = uiPart('strong', row.name || row.path);
+    const path = uiPart('hint', row.available ? row.path : `${row.path} · unavailable`);
+    const facts = uiPart('hint'); facts.classList.add('projects-git'); facts.textContent = gitText(row.git);
+    const last = uiPart('hint');
     last.textContent = row.lastThread ? `Last: ${row.lastThread.title ?? 'Untitled thread'} · ${row.lastThread.harness ?? 'no agent yet'}` : 'No thread yet';
-    const leftoversSlot = document.createElement('div'); leftoversSlot.className = 'projects-leftovers';
+    const leftoversSlot = uiPart('stack');
     slots.set(row.id, { row, slot: leftoversSlot }); renderLeftovers(row, leftoversSlot);
     info.append(name, path, facts, last);
-    const actions = document.createElement('div'); actions.className = 'projects-overview-actions';
-    const resume = document.createElement('button'); resume.type = 'button'; resume.textContent = 'Resume last';
+    const actions = uiPart('actions');
+    const resume = uiButton('Resume last');
     resume.disabled = !row.available || !row.lastThread?.harness;
     resume.onclick = async () => { if (!row.lastThread) return; try { dialog.close(); await options.resume(row, row.lastThread); } catch (error) { options.reportError(text(error)); } };
-    const open = document.createElement('button'); open.type = 'button'; open.textContent = 'New session'; open.disabled = !row.available;
+    const open = uiButton('New session'); open.disabled = !row.available;
     open.onclick = () => { dialog.close(); options.newSession(row.path); };
-    const tree = document.createElement('button'); tree.type = 'button'; tree.textContent = 'New in worktree…';
+    const tree = uiButton('New in worktree…');
     tree.disabled = !row.available || row.git.state !== 'known';
-    const form = document.createElement('div'); form.className = 'projects-worktree'; form.hidden = true;
-    const field = document.createElement('input'); field.type = 'text'; field.value = 'task-1'; field.setAttribute('aria-label', `Worktree name for ${row.name}`);
+    const form = uiPart('stack'); form.hidden = true;
+    const field = uiInput('text'); field.value = 'task-1'; field.setAttribute('aria-label', `Worktree name for ${row.name}`);
     field.pattern = '[a-z0-9-]{1,40}';
-    const create = document.createElement('button'); create.type = 'button'; create.className = 'primary'; create.textContent = 'Create and open';
+    const create = uiButton('Create and open', { primary: true });
     create.onclick = () => { void worktree(row, field.value.trim()); };
     field.addEventListener('keydown', event => { if (confirmsField(event)) create.click(); });
     form.append(field, create);

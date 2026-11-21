@@ -1,4 +1,4 @@
-import './resource-status.css';
+import { uiPart } from '@acaprino/imago/ui';
 
 type Policy = {
   stage: 'normal' | 'reduce_optional' | 'defer_starts';
@@ -25,9 +25,9 @@ export function renderResourceStatus(reply: ResourceTelemetryReply) {
   if (!anchor) return;
   let badge = document.querySelector<HTMLSpanElement>('#resource-status');
   if (!badge) {
-    badge = document.createElement('span');
+    badge = uiPart('text', undefined, 'im-chip');
     badge.id = 'resource-status';
-    badge.className = 'resource-health';
+    badge.classList.add('resource-health');
     badge.setAttribute('role', 'status');
     anchor.after(badge);
   }
@@ -36,6 +36,7 @@ export function renderResourceStatus(reply: ResourceTelemetryReply) {
   const label = checking ? 'Resources: checking' : policy.stage === 'normal' ? 'Resources: available' : 'Resources: reduced activity';
   if (badge.textContent !== label) badge.textContent = label;
   badge.dataset.stage = policy?.stage ?? 'defer_starts';
+  badge.dataset.imTone = checking ? 'info' : policy.stage === 'normal' ? 'ok' : 'warn';
   badge.title = [
     `Observed process memory: ${memory(reply.resources.owned_private_commit_bytes)}`,
     `System commit headroom: ${memory(reply.resources.system_remaining_commit_bytes)}`,

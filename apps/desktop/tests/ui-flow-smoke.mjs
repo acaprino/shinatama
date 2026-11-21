@@ -92,7 +92,7 @@ try {
 
   await page.locator('#project').click();
   await page.evaluate(() => { void window.__bridge.emit('confirm-close'); });
-  await expect(page.locator('#confirm-dialog')).toBeVisible();
+  await expect(page.getByRole('alertdialog', { name: 'Close workspace?', exact: true })).toBeVisible();
   const beforeBrowse = (await calls('catalog_browse')).length;
   const beforeCreate = (await calls('new_project_options')).length;
   await page.keyboard.press('F3'); await page.keyboard.press('n');
@@ -108,7 +108,7 @@ try {
   }
   await page.locator('#window-minimize').click();
   expect((await calls('plugin:window|minimize')).length).toBe(1);
-  await page.locator('#confirm-dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.locator('#project-dialog').getByRole('button', { name: 'Close', exact: true }).click();
   passed.push('overlay blocks picker F3/n while custom frame stays reachable');
 
@@ -152,7 +152,7 @@ try {
   expect((await calls('terminal_start')).at(-1).cwd).toBe('D:\\Projects\\alpha');
   await page.evaluate(() => { window.__bridge.exits.t3 = 0; });
   await second.getByRole('button', { name: 'Close terminal', exact: true }).click();
-  await expect(page.locator('#confirm-dialog')).toBeHidden();
+  await expect(page.getByRole('dialog', { name: /Stop terminal|Close session/ })).toBeHidden();
   expect(await runtimeIds()).toEqual(['t1']);
   passed.push('exited terminals require explicit restart or close');
 
@@ -165,11 +165,11 @@ try {
   await page.getByRole('button', { name: 'Use folder', exact: true }).click();
   await expect.poll(() => page.evaluate(() => !!window.__bridge.releaseSelection)).toBe(true);
   await page.evaluate(() => { void window.__bridge.emit('confirm-close'); });
-  await expect(page.locator('#confirm-dialog')).toBeVisible();
+  await expect(page.getByRole('alertdialog', { name: 'Close workspace?', exact: true })).toBeVisible();
   await page.evaluate(() => { window.__bridge.releaseSelection(); });
   await expect(page.locator('#project-dialog')).toBeHidden();
   expect(await calls('terminal_start')).toEqual([]);
-  await page.locator('#confirm-dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(page.locator('.terminal-view')).toBeVisible();
   expect((await calls('terminal_start')).length).toBe(1);
   await page.locator('#project').click();

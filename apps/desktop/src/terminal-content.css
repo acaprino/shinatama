@@ -1,0 +1,33 @@
+@import '@xterm/xterm/css/xterm.css';
+
+/* content-box: xterm's fit reads this box's height as the room for rows, so the padding must stay out of it. */
+.terminal-view { position: absolute; inset: 0; box-sizing: content-box; padding: 10px 8px 2px; }
+.xterm { height: 100%; }
+.xterm-viewport { scrollbar-width: thin; scrollbar-color: var(--im-line-strong) transparent; }
+/* The minimap takes the scrollbar's place: the 14px xterm's fit leaves free plus 6px more of the
+   right padding: 20px wide, it keeps at least 4px from the text. Its color is the live lines'
+   ink; the archive band's color is the archive's. */
+.terminal-view.has-minimap { padding-right: 14px; }
+/* Both scrollbars go: xterm's own, and the native one of its viewport, which showed through the
+   strip as a second thumb with arrows. */
+.terminal-view.has-minimap > .xterm .xterm-scrollable-element > .scrollbar.vertical { opacity: 0 !important; pointer-events: none; }
+.terminal-view.has-minimap > .xterm .xterm-viewport { scrollbar-width: none; }
+.terminal-minimap { position: absolute; top: 10px; right: 4px; bottom: 2px; width: 20px; z-index: 5; cursor: default; touch-action: none;
+  border-left: 1px solid color-mix(in srgb, var(--im-line-strong) 45%, transparent); color: var(--im-info);
+  background: color-mix(in srgb, color-mix(in srgb, var(--im-sheet) 84%, var(--im-line-strong)) 46%, transparent); }
+.terminal-minimap canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; opacity: .78; pointer-events: none; }
+.terminal-minimap-archive { position: absolute; top: 0; left: 0; right: 0; color: var(--im-muted);
+  border-bottom: 1px solid var(--im-accent); background: color-mix(in srgb, var(--im-ground) 40%, transparent); }
+/* The frame of the lines on screen: a cobalt edge with a dark rim outside it, so it stands out of
+   dense pale lines as well as of an empty strip. */
+.terminal-minimap-view { position: absolute; left: 1px; right: 1px; pointer-events: none;
+  border: 1px solid var(--im-line-strong); outline: 1px solid color-mix(in srgb, var(--im-ground) 80%, transparent);
+  background: color-mix(in srgb, var(--im-line-strong) 30%, transparent);
+  transition: border-color var(--im-t-fast) var(--im-ease), background-color var(--im-t-fast) var(--im-ease); }
+.terminal-minimap:hover .terminal-minimap-view, .terminal-minimap.dragging .terminal-minimap-view { border-color: var(--im-info); background: color-mix(in srgb, var(--im-info) 18%, transparent); }
+.terminal-earlier { position: absolute; top: 10px; right: 30px; z-index: 6; }
+.terminal-history { position: absolute; inset: 0; z-index: 8; display: flex; flex-direction: column; }
+.terminal-history-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* No padding: xterm's fit reads this box's height as the room for rows. */
+.terminal-history-screen { position: relative; flex: 1; min-height: 0; margin: 6px 8px 2px; }
+.terminal-view.drop-target { outline: 2px dashed var(--im-accent); outline-offset: -4px; }

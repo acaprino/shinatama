@@ -1,5 +1,5 @@
+import { uiPart, uiButton, uiInput, uiSelect, uiOption } from '@acaprino/imago/ui';
 import { openModal } from './modal.ts';
-import './session-library.css';
 
 export type SessionRootSelector = { storeRootId: string; configurationRevision: number };
 export type SessionCursor = { offset: number; fingerprint: string };
@@ -101,55 +101,55 @@ export function failureText(value: unknown) {
 
 /** Metadata only; one callback outstanding, including across close/root changes. */
 export function createSessionLibrary(options: Options) {
-  const button = document.createElement('button'); button.id = 'sessions'; button.type = 'button'; button.textContent = 'Archive browser'; button.title = 'Page through one session archive, or add a read-only archive';
+  const button = uiButton(''); button.id = 'sessions'; button.type = 'button'; button.textContent = 'Archive browser'; button.title = 'Page through one session archive, or add a read-only archive';
   document.querySelector('.toolbar')?.append(button);
-  const dialog = document.createElement('dialog'); dialog.id = 'session-library-dialog'; dialog.setAttribute('aria-labelledby', 'session-library-title');
-  const heading = document.createElement('div'); heading.className = 'dialog-heading';
-  const title = document.createElement('h1'); title.id = 'session-library-title'; title.textContent = 'Archive browser';
-  const closeButton = document.createElement('button'); closeButton.type = 'button'; closeButton.textContent = '×'; closeButton.setAttribute('aria-label', 'Close sessions'); heading.append(title, closeButton);
-  const description = document.createElement('p'); description.textContent = 'Browse the metadata of an explicitly selected archive. Browsing never starts or resumes an agent.';
-  const tools = document.createElement('div'); tools.className = 'session-library-tools';
-  const loadRoots = document.createElement('button'); loadRoots.type = 'button'; loadRoots.textContent = 'Load archives';
-  const rootLabel = document.createElement('label'); rootLabel.htmlFor = 'session-library-root'; rootLabel.textContent = 'Archive';
-  const rootSelect = document.createElement('select'); rootSelect.id = 'session-library-root';
-  const reload = document.createElement('button'); reload.type = 'button'; reload.textContent = 'Reload sessions'; tools.append(loadRoots, rootLabel, rootSelect, reload);
-  const archive = document.createElement('details'); archive.hidden = !options.addArchive;
-  const archiveHeading = document.createElement('summary'); archiveHeading.textContent = 'Add a read-only archive';
-  const archiveHelp = document.createElement('p'); archiveHelp.className = 'hint'; archiveHelp.textContent = 'Choose an agent and its existing archive folder. Files stay in place and browsing does not change them.';
-  const archiveForm = document.createElement('form'); archiveForm.className = 'session-library-tools';
-  const harnessLabel = document.createElement('label'); harnessLabel.htmlFor = 'session-archive-agent'; harnessLabel.textContent = 'Agent';
-  const harness = document.createElement('select'); harness.id = 'session-archive-agent'; harness.required = true;
+  const dialog = uiPart('dialog'); dialog.id = 'session-library-dialog'; dialog.setAttribute('aria-labelledby', 'session-library-title');
+  const heading = uiPart('header'); heading.classList.add('dialog-heading');
+  const title = uiPart('title'); title.id = 'session-library-title'; title.textContent = 'Archive browser';
+  const closeButton = uiButton('×'); closeButton.setAttribute('aria-label', 'Close sessions'); heading.append(title, closeButton);
+  const description = uiPart('paragraph', 'Browse the metadata of an explicitly selected archive. Browsing never starts or resumes an agent.');
+  const tools = uiPart('toolbar');
+  const loadRoots = uiButton('Load archives');
+  const rootLabel = uiPart('label'); rootLabel.htmlFor = 'session-library-root'; rootLabel.textContent = 'Archive';
+  const rootSelect = uiSelect(); rootSelect.id = 'session-library-root';
+  const reload = uiButton('Reload sessions'); tools.append(loadRoots, rootLabel, rootSelect, reload);
+  const archive = uiPart('details'); archive.hidden = !options.addArchive;
+  const archiveHeading = uiPart('summary', 'Add a read-only archive');
+  const archiveHelp = uiPart('hint', 'Choose an agent and its existing archive folder. Files stay in place and browsing does not change them.');
+  const archiveForm = uiPart('form');
+  const harnessLabel = uiPart('label'); harnessLabel.htmlFor = 'session-archive-agent'; harnessLabel.textContent = 'Agent';
+  const harness = uiSelect(); harness.id = 'session-archive-agent'; harness.required = true;
   for (const [value, label] of [['', 'Choose agent'], ['claude_code', 'Claude Code'], ['codex', 'Codex'], ['pi', 'Pi']]) {
-    const option = document.createElement('option'); option.value = value; option.textContent = label; harness.append(option);
+    const option = uiOption(value, label); harness.append(option);
   }
-  const archivePathLabel = document.createElement('label'); archivePathLabel.htmlFor = 'session-archive-path'; archivePathLabel.textContent = 'Archive folder';
-  const archivePath = document.createElement('input'); archivePath.id = 'session-archive-path'; archivePath.type = 'text'; archivePath.maxLength = 4096;
+  const archivePathLabel = uiPart('label'); archivePathLabel.htmlFor = 'session-archive-path'; archivePathLabel.textContent = 'Archive folder';
+  const archivePath = uiInput(); archivePath.id = 'session-archive-path'; archivePath.type = 'text'; archivePath.maxLength = 4096;
   archivePath.autocomplete = 'off'; archivePath.spellcheck = false; archivePath.required = true;
-  const addArchive = document.createElement('button'); addArchive.type = 'submit'; addArchive.textContent = 'Add archive';
+  const addArchive = uiButton(''); addArchive.type = 'submit'; addArchive.textContent = 'Add archive';
   archiveForm.append(harnessLabel, harness, archivePathLabel, archivePath, addArchive); archive.append(archiveHeading, archiveHelp, archiveForm);
-  const source = document.createElement('p'); source.className = 'hint session-library-source';
-  const status = document.createElement('p'); status.id = 'session-library-status'; status.setAttribute('role', 'status');
-  const filterLabel = document.createElement('label'); filterLabel.htmlFor = 'session-library-filter'; filterLabel.textContent = 'Filter this page';
-  const filter = document.createElement('input'); filter.id = 'session-library-filter'; filter.type = 'search'; filter.maxLength = 128; filter.autocomplete = 'off';
-  const views = document.createElement('div'); views.className = 'session-library-views'; views.setAttribute('role', 'group'); views.setAttribute('aria-label', 'Current page view');
-  const listView = document.createElement('button'); listView.type = 'button'; listView.textContent = 'List'; listView.setAttribute('aria-controls', 'session-library-list');
-  const projectView = document.createElement('button'); projectView.type = 'button'; projectView.textContent = 'Projects / sessions'; projectView.setAttribute('aria-controls', 'session-library-projects');
+  const source = uiPart('hint');
+  const status = uiPart('status'); status.id = 'session-library-status'; status.setAttribute('role', 'status');
+  const filterLabel = uiPart('label'); filterLabel.htmlFor = 'session-library-filter'; filterLabel.textContent = 'Filter this page';
+  const filter = uiInput(); filter.id = 'session-library-filter'; filter.type = 'search'; filter.maxLength = 128; filter.autocomplete = 'off';
+  const views = uiPart('stack'); views.setAttribute('role', 'group'); views.setAttribute('aria-label', 'Current page view');
+  const listView = uiButton('List'); listView.setAttribute('aria-controls', 'session-library-list');
+  const projectView = uiButton('Projects / sessions'); projectView.setAttribute('aria-controls', 'session-library-projects');
   views.append(listView, projectView);
-  const viewScope = document.createElement('p'); viewScope.className = 'hint session-library-view-scope';
-  const scroll = document.createElement('div'); scroll.className = 'session-library-table';
-  const table = document.createElement('table'); table.id = 'session-library-list'; table.setAttribute('aria-label', 'Session metadata');
-  const head = document.createElement('thead'); const header = document.createElement('tr');
-  for (const label of ['Session', 'Working folder', 'Updated']) { const cell = document.createElement('th'); cell.scope = 'col'; cell.textContent = label; header.append(cell); }
-  head.append(header); const body = document.createElement('tbody'); table.append(head, body); scroll.append(table);
-  const projects = document.createElement('div'); projects.id = 'session-library-projects'; projects.setAttribute('aria-label', 'Projects and sessions on this page'); scroll.append(projects);
-  const pagination = document.createElement('div'); pagination.className = 'session-library-pagination';
-  const previous = document.createElement('button'); previous.type = 'button'; previous.textContent = 'Previous';
-  const position = document.createElement('span'); const next = document.createElement('button'); next.type = 'button'; next.textContent = 'Next'; pagination.append(previous, position, next);
-  const metadata = document.createElement('dl'); metadata.className = 'session-library-metadata'; metadata.setAttribute('aria-label', 'Selected session metadata');
-  const unavailable = document.createElement('p'); unavailable.className = 'hint'; unavailable.textContent = 'Resume and hop require separately qualified native operations.';
-  const actions = document.createElement('div'); actions.className = 'dialog-actions';
-  const detail = document.createElement('button'); detail.type = 'button'; detail.textContent = options.openDetail ? 'Open detail' : 'Detail unavailable'; detail.disabled = true; actions.append(detail);
-  for (const label of ['Resume unavailable', 'Hop unavailable']) { const action = document.createElement('button'); action.type = 'button'; action.disabled = true; action.textContent = label; actions.append(action); }
+  const viewScope = uiPart('hint');
+  const scroll = uiPart('scroll', undefined, 'im-scroll--bounded');
+  const table = uiPart('table'); table.id = 'session-library-list'; table.setAttribute('aria-label', 'Session metadata');
+  const head = uiPart('tableHead'); const header = uiPart('tableRow');
+  for (const label of ['Session', 'Working folder', 'Updated']) { const cell = uiPart('columnHeader'); cell.scope = 'col'; cell.textContent = label; header.append(cell); }
+  head.append(header); const body = uiPart('tableBody'); table.append(head, body); scroll.append(table);
+  const projects = uiPart('stack'); projects.id = 'session-library-projects'; projects.setAttribute('aria-label', 'Projects and sessions on this page'); scroll.append(projects);
+  const pagination = uiPart('actions'); pagination.classList.add('session-library-pagination');
+  const previous = uiButton('Previous');
+  const position = uiPart('text'); const next = uiButton('Next'); pagination.append(previous, position, next);
+  const metadata = uiPart('descriptionList'); metadata.classList.add('session-library-metadata'); metadata.setAttribute('aria-label', 'Selected session metadata');
+  const unavailable = uiPart('hint', 'Resume and hop require separately qualified native operations.');
+  const actions = uiPart('actions');
+  const detail = uiButton(options.openDetail ? 'Open detail' : 'Detail unavailable'); detail.disabled = true; actions.append(detail);
+  for (const label of ['Resume unavailable', 'Hop unavailable']) { const action = uiButton(''); action.disabled = true; action.textContent = label; actions.append(action); }
   dialog.append(heading, description, tools, archive, source, status, filterLabel, filter, views, viewScope, scroll, pagination, metadata, unavailable, actions);
   (document.querySelector('#app') ?? document.body).append(dialog);
   let roots: SessionLibraryRoot[] = []; let page: SessionListPage | null = null; let cursor: SessionCursor | null = null;
@@ -160,13 +160,13 @@ export function createSessionLibrary(options: Options) {
   let message = 'Load archives to choose an explicit store.'; let failed = false;
   const currentRoot = () => rootSelect.value === '' ? null : roots[Number(rootSelect.value)] ?? null;
   function metadataRow(label: string, value: string | number | boolean | null) {
-    const term = document.createElement('dt'); term.textContent = label; const detail = document.createElement('dd'); detail.textContent = value === null || value === '' ? 'Unknown' : String(value); metadata.append(term, detail);
+    const term = uiPart('term', label); const detail = uiPart('definition', value === null || value === '' ? 'Unknown' : String(value)); metadata.append(term, detail);
   }
   function chooseSession(row: SessionMetadataRow, owner: SessionListPage) {
     // The title is what a person recognises; the ID stays visible beneath it, shortened, in full on hover.
-    const choose = document.createElement('button'); choose.type = 'button'; choose.className = 'session-library-choose';
-    const name = document.createElement('span'); name.className = 'session-library-title'; name.textContent = row.title || 'Untitled session';
-    const native = document.createElement('span'); native.className = 'session-library-id'; native.textContent = row.nativeId.length > 18 ? `${row.nativeId.slice(0, 8)}…${row.nativeId.slice(-4)}` : row.nativeId;
+    const choose = uiButton('');
+    const name = uiPart('text', row.title || 'Untitled session');
+    const native = uiPart('text', row.nativeId.length > 18 ? `${row.nativeId.slice(0, 8)}…${row.nativeId.slice(-4)}` : row.nativeId);
     choose.append(name, native); choose.title = row.nativeId; choose.setAttribute('aria-label', `${row.title || 'Untitled session'}, session ${row.nativeId}`);
     choose.dataset.nativeId = row.nativeId; choose.disabled = busy !== null;
     choose.setAttribute('aria-pressed', String(selected === row));
@@ -204,10 +204,10 @@ export function createSessionLibrary(options: Options) {
     const visible = page?.rows.filter(row => [row.nativeId, row.title, row.workingDirectory, row.updatedAt].some(value => value?.toLocaleLowerCase().includes(query))) ?? [];
     if (page && view === 'list') {
       for (const row of visible) {
-        const line = document.createElement('tr'); line.setAttribute('aria-selected', String(selected === row));
-        const id = document.createElement('td'); id.append(chooseSession(row, page)); line.append(id);
-        const folder = document.createElement('td'); folder.className = 'session-library-folder'; folder.textContent = row.workingDirectory || 'Unknown'; folder.title = row.workingDirectory || '';
-        const updated = document.createElement('td'); updated.className = 'session-library-updated'; updated.textContent = when(row.updatedAt); updated.title = row.updatedAt || '';
+        const line = uiPart('tableRow'); line.setAttribute('aria-selected', String(selected === row));
+        const id = uiPart('cell'); id.append(chooseSession(row, page)); line.append(id);
+        const folder = uiPart('cell', row.workingDirectory || 'Unknown'); folder.title = row.workingDirectory || '';
+        const updated = uiPart('cell', when(row.updatedAt)); updated.title = row.updatedAt || '';
         line.append(folder, updated); body.append(line);
       }
     } else if (page) {
@@ -218,16 +218,16 @@ export function createSessionLibrary(options: Options) {
         const members = groups.get(folder) ?? []; members.push(row); groups.set(folder, members);
       }
       for (const [folder, members] of groups) {
-        const group = document.createElement('details'); group.className = 'session-project-group'; group.open = expandedProjects.has(folder);
-        const summary = document.createElement('summary');
-        const name = document.createElement('span'); name.className = 'session-project-name'; name.textContent = folder ?? 'Unknown project';
-        const count = document.createElement('span'); count.className = 'session-project-count'; count.textContent = `${members.length} on this page`; summary.append(name, count);
-        const items = document.createElement('ul');
+        const group = uiPart('details'); group.classList.add('session-project-group'); group.open = expandedProjects.has(folder);
+        const summary = uiPart('summary');
+        const name = uiPart('text', folder ?? 'Unknown project');
+        const count = uiPart('text', `${members.length} on this page`); summary.append(name, count);
+        const items = uiPart('list');
         for (const row of members) {
-          const item = document.createElement('li'); const choose = chooseSession(row, owner); choose.className = 'session-project-session';
-          const fields = document.createElement('div'); fields.className = 'session-project-fields';
-          const rowTitle = document.createElement('span'); rowTitle.textContent = row.title || 'Unknown title';
-          const updated = document.createElement('span'); updated.textContent = row.updatedAt || 'Unknown update time';
+          const item = uiPart('item'); const choose = chooseSession(row, owner);
+          const fields = uiPart('stack');
+          const rowTitle = uiPart('text', row.title || 'Unknown title');
+          const updated = uiPart('text', row.updatedAt || 'Unknown update time');
           fields.append(rowTitle, updated); item.append(choose, fields); items.append(item);
         }
         group.append(summary, items);
@@ -251,8 +251,8 @@ export function createSessionLibrary(options: Options) {
   function reset() { page = null; cursor = null; history = []; selected = null; expandedProjects.clear(); renderedProjects.clear(); filter.value = ''; failed = false; }
   function replaceRoots(received: SessionLibraryRoot[], selectedRoot: SessionRootSelector | null) {
     roots = received; reset(); rootSelect.replaceChildren();
-    const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'Choose an archive explicitly'; rootSelect.append(placeholder);
-    roots.forEach((root, index) => { const option = document.createElement('option'); option.value = String(index); option.textContent = `${root.label || root.harness} · ${root.kind} · revision ${root.configurationRevision}${root.available ? '' : ' · Unavailable'}`; rootSelect.append(option); });
+    const placeholder = uiOption('', 'Choose an archive explicitly'); rootSelect.append(placeholder);
+    roots.forEach((root, index) => { const option = uiOption(String(index), `${root.label || root.harness} · ${root.kind} · revision ${root.configurationRevision}${root.available ? '' : ' · Unavailable'}`); rootSelect.append(option); });
     const retained = selectedRoot ? roots.findIndex(root => same(root, selectedRoot)) : -1; rootSelect.value = retained >= 0 ? String(retained) : '';
     loadRoots.textContent = 'Reload archives';
   }

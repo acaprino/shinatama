@@ -1,4 +1,5 @@
-import './thread-sidebar.css';
+import { uiPart, uiButton, uiInput, uiSelect, uiOption } from '@acaprino/imago/ui';
+import { splitter } from '@acaprino/imago/ui';
 import { resumeFailureCode, resumeFailureText } from './resume-failure.ts';
 
 export type CurrentThreadProject = { projectId: string; label?: string };
@@ -125,49 +126,45 @@ function renamedValue(value: unknown, before: ThreadSummary, title: string): Thr
 
 /** One explicit operation, one latest pending UI-state save, no launch replay. */
 export function createThreadSidebar(options: ThreadSidebarOptions) {
-  const element = document.createElement('aside'); element.className = 'thread-sidebar'; element.setAttribute('aria-label', 'Project threads');
-  const heading = document.createElement('header'); heading.className = 'thread-sidebar-heading';
-  const title = document.createElement('h2'); title.textContent = 'Threads';
-  const collapse = document.createElement('button'); collapse.type = 'button'; collapse.className = 'thread-sidebar-toggle';
+  const element = uiPart('aside', undefined, 'thread-sidebar im-resizable-nav'); element.setAttribute('aria-label', 'Project threads');
+  const heading = uiPart('header');
+  const title = uiPart('heading', 'Threads');
+  const collapse = uiButton('', { sm: true });
   collapse.setAttribute('aria-controls', 'thread-sidebar-body'); heading.append(title, collapse);
-  const body = document.createElement('div'); body.id = 'thread-sidebar-body'; body.className = 'thread-sidebar-body';
-  const scopeLabel = document.createElement('label'); scopeLabel.className = 'thread-sidebar-scope'; scopeLabel.htmlFor = 'thread-sidebar-project'; scopeLabel.textContent = 'Project';
-  const scopeSelect = document.createElement('select'); scopeSelect.id = 'thread-sidebar-project'; scopeSelect.className = 'thread-sidebar-scope';
-  const reload = document.createElement('button'); reload.type = 'button'; reload.className = 'thread-sidebar-reload'; reload.textContent = 'Reload threads';
-  const create = document.createElement('button'); create.type = 'button'; create.className = 'thread-sidebar-create'; create.textContent = options.onNewSession ? 'New session' : 'New thread'; create.hidden = !options.onNewSession && !options.create;
-  const showArchivedLabel = document.createElement('label'); showArchivedLabel.className = 'thread-sidebar-archived-toggle';
-  const showArchived = document.createElement('input'); showArchived.type = 'checkbox'; showArchived.id = 'thread-sidebar-show-archived';
+  const body = uiPart('scroll', undefined, 'thread-sidebar-body im-stack'); body.id = 'thread-sidebar-body';
+  const scopeLabel = uiPart('label', 'Project'); scopeLabel.htmlFor = 'thread-sidebar-project';
+  const scopeSelect = uiSelect(); scopeSelect.classList.add('thread-sidebar-scope'); scopeSelect.id = 'thread-sidebar-project';
+  const reload = uiButton('Reload threads', { sm: true });
+  const create = uiButton(options.onNewSession ? 'New session' : 'New thread', { sm: true, cls: 'thread-sidebar-create' }); create.hidden = !options.onNewSession && !options.create;
+  const showArchivedLabel = uiPart('label');
+  const showArchived = uiInput('checkbox'); showArchived.id = 'thread-sidebar-show-archived';
   showArchivedLabel.append(showArchived, ' Show archived threads'); showArchivedLabel.hidden = !options.archive;
-  const status = document.createElement('p'); status.className = 'thread-sidebar-status'; status.setAttribute('role', 'status');
-  const list = document.createElement('ul'); list.className = 'thread-sidebar-list'; list.setAttribute('aria-label', 'Saved threads');
-  const pagination = document.createElement('div'); pagination.className = 'thread-sidebar-pagination';
-  const previous = document.createElement('button'); previous.type = 'button'; previous.textContent = 'Previous';
-  const pageLabel = document.createElement('span'); const next = document.createElement('button'); next.type = 'button'; next.textContent = 'Next';
+  const status = uiPart('status', undefined, 'thread-sidebar-status'); status.setAttribute('role', 'status');
+  const list = uiPart('list', undefined, 'thread-sidebar-list'); list.setAttribute('aria-label', 'Saved threads');
+  const pagination = uiPart('row');
+  const previous = uiButton('Previous');
+  const pageLabel = uiPart('text'); const next = uiButton('Next');
   pagination.append(previous, pageLabel, next);
-  const detail = document.createElement('dl'); detail.className = 'thread-sidebar-detail'; detail.setAttribute('aria-label', 'Selected thread metadata');
-  const limitation = document.createElement('p'); limitation.className = 'thread-sidebar-limitation';
+  const detail = uiPart('descriptionList'); detail.setAttribute('aria-label', 'Selected thread metadata');
+  const limitation = uiPart('paragraph');
   limitation.textContent = 'Click an open thread to go to its tab, a closed one to resume it in a new tab.';
-  const actions = document.createElement('div'); actions.className = 'thread-sidebar-actions';
-  const recover = document.createElement('button'); recover.type = 'button'; recover.textContent = 'Recover session'; recover.hidden = true; actions.append(recover);
-  const rename = document.createElement('button'); rename.type = 'button'; rename.textContent = 'Rename'; rename.hidden = true; actions.append(rename);
-  const archive = document.createElement('button'); archive.type = 'button'; archive.hidden = true; actions.append(archive);
+  const actions = uiPart('actions');
+  const recover = uiButton('Recover session'); recover.hidden = true; actions.append(recover);
+  const rename = uiButton('Rename'); rename.hidden = true; actions.append(rename);
+  const archive = uiButton(''); archive.hidden = true; actions.append(archive);
   const forgetLabel = 'Forget permanently…';
-  const forget = document.createElement('button'); forget.type = 'button'; forget.textContent = forgetLabel; forget.hidden = true; actions.append(forget);
-  const renameForm = document.createElement('form'); renameForm.className = 'thread-sidebar-rename'; renameForm.hidden = true;
-  const renameLabel = document.createElement('label'); renameLabel.htmlFor = 'thread-rename-title'; renameLabel.textContent = 'Thread name';
-  const renameInput = document.createElement('input'); renameInput.id = 'thread-rename-title'; renameInput.type = 'text'; renameInput.maxLength = 256; renameInput.autocomplete = 'off';
-  const renameError = document.createElement('p'); renameError.id = 'thread-rename-error'; renameError.setAttribute('role', 'alert'); renameError.hidden = true;
+  const forget = uiButton(forgetLabel); forget.hidden = true; actions.append(forget);
+  const renameForm = uiPart('form', undefined, 'thread-sidebar-rename'); renameForm.hidden = true;
+  const renameLabel = uiPart('label', 'Thread name'); renameLabel.htmlFor = 'thread-rename-title';
+  const renameInput = uiInput('text'); renameInput.id = 'thread-rename-title'; renameInput.maxLength = 256; renameInput.autocomplete = 'off';
+  const renameError = uiPart('alert'); renameError.id = 'thread-rename-error'; renameError.setAttribute('role', 'alert'); renameError.hidden = true;
   renameInput.setAttribute('aria-describedby', renameError.id);
-  const renameButtons = document.createElement('div');
-  const renameSave = document.createElement('button'); renameSave.type = 'submit'; renameSave.textContent = 'Save';
-  const renameCancel = document.createElement('button'); renameCancel.type = 'button'; renameCancel.textContent = 'Cancel';
+  const renameButtons = uiPart('row');
+  const renameSave = uiButton('Save'); renameSave.type = 'submit';
+  const renameCancel = uiButton('Cancel');
   renameButtons.append(renameSave, renameCancel); renameForm.append(renameLabel, renameInput, renameError, renameButtons);
-  for (const text of ['Hop unavailable']) { const button = document.createElement('button'); button.type = 'button'; button.disabled = true; button.textContent = text; actions.append(button); }
+  for (const text of ['Hop unavailable']) { const button = uiButton(text); button.disabled = true; actions.append(button); }
   body.append(scopeLabel, scopeSelect, create, reload, showArchivedLabel, status, list, pagination, detail, limitation, actions, renameForm);
-  const separator = document.createElement('div'); separator.className = 'thread-sidebar-resize'; separator.tabIndex = 0;
-  separator.setAttribute('role', 'separator'); separator.setAttribute('aria-label', 'Thread sidebar width'); separator.setAttribute('aria-orientation', 'vertical');
-  separator.setAttribute('aria-valuemin', String(MIN_WIDTH)); separator.setAttribute('aria-valuemax', String(MAX_WIDTH));
-  element.append(heading, body, separator); options.host.append(element);
   let display = { ...initialState }; let projects: CurrentThreadProject[] = []; let selectedProject: string | null = null;
   let page: ThreadListPage | null = null; let cursor: ThreadCursor | null = null; let history: (ThreadCursor | null)[] = [];
   let selected: string | null = null; let generation = 0; let uiGeneration = 0; let destroyed = false;
@@ -177,7 +174,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
   let pendingState: ThreadSidebarState | null = null; let saveTimer = 0;
   let pendingProjectRead = false;
   let pendingChangedProject: string | null = null; let changeTimer = 0;
-  let drag: { pointer: number; x: number; before: ThreadSidebarState } | null = null;
+
   const anchors = new Map<string, HTMLLIElement>();
   /** Names agents gave their conversations; a name the user gives (`title`) always wins. */
   const agentNames = new Map<string, string>(); const namedAt = new Map<string, number>(); let naming = false;
@@ -214,7 +211,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
   const namesTimer = window.setInterval(() => { if (!display.collapsed) requestNames(); }, 15000);
   const renderedRows = new WeakMap<HTMLLIElement, ThreadSummary>();
   function metadata(label: string, value: string) {
-    const term = document.createElement('dt'); term.textContent = label; const valueNode = document.createElement('dd'); valueNode.textContent = value; detail.append(term, valueNode);
+    const term = uiPart('term', label); const valueNode = uiPart('definition', value); detail.append(term, valueNode);
   }
   /** What a click on the row does, said on the row itself so a click is never silent. */
   function rowState(row: ThreadSummary): { kind: 'open' | 'resumable' | 'recover' | 'blocked' | 'archived'; text: string } {
@@ -229,8 +226,8 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
   }
   function render() {
     if (destroyed) return;
-    element.classList.toggle('is-collapsed', display.collapsed); element.style.setProperty('--thread-sidebar-width', `${display.width}px`);
-    body.hidden = display.collapsed; separator.hidden = display.collapsed; separator.setAttribute('aria-valuenow', String(display.width));
+    element.classList.toggle('is-collapsed', display.collapsed); element.toggleAttribute('data-im-compact', display.collapsed);
+    body.hidden = display.collapsed; separator.hidden = display.collapsed;
     collapse.textContent = display.collapsed ? '›' : '‹'; collapse.setAttribute('aria-label', display.collapsed ? 'Expand threads' : 'Collapse threads');
     collapse.setAttribute('aria-expanded', String(!display.collapsed));
     reload.disabled = busy !== null || selectedProject === null; showArchived.disabled = busy !== null || selectedProject === null; showArchived.checked = archivedView; scopeSelect.disabled = !projects.length || busy !== null;
@@ -238,21 +235,21 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     previous.disabled = busy !== null || !history.length; next.disabled = busy !== null || !page?.next;
     body.setAttribute('aria-busy', String(busy !== null));
     status.textContent = busy === 'list' ? 'Reading saved threads…' : busy === 'create' ? 'Saving a new thread…' : busy === 'resume' ? 'Resuming conversation…' : busy === 'recover' ? 'Recovering stopped session…' : busy === 'rename' ? 'Saving thread name…' : busy === 'archive' ? 'Saving archive state…' : busy === 'forget' ? 'Forgetting thread…' : busy === 'load_state' ? 'Restoring sidebar display…' : message;
-    status.dataset.state = failed ? 'error' : 'ready';
+    status.dataset.state = failed ? 'error' : 'ready'; status.classList.toggle('im-text-err', failed);
     const retained = new Set(page?.rows.map(row => row.id) ?? []);
     for (const [id, node] of anchors) if (!retained.has(id)) { node.remove(); anchors.delete(id); }
     let position = 0;
     for (const row of page?.rows ?? []) {
       let node = anchors.get(row.id);
       if (!node) {
-        node = document.createElement('li'); node.dataset.threadId = row.id;
-        const anchor = document.createElement('button'); anchor.type = 'button'; anchor.dataset.threadId = row.id; anchor.className = 'thread-sidebar-anchor';
-        const label = document.createElement('span'); label.className = 'thread-sidebar-title';
-        const id = document.createElement('span'); id.className = 'thread-sidebar-id';
-        const agent = document.createElement('span'); agent.className = 'thread-sidebar-agent';
-        const updated = document.createElement('span'); updated.className = 'thread-sidebar-updated';
-        const source = document.createElement('span'); source.className = 'thread-sidebar-source';
-        const state = document.createElement('span'); state.className = 'thread-sidebar-state';
+        node = uiPart('item'); node.dataset.threadId = row.id;
+        const anchor = uiButton('', { sm: true, cls: 'thread-sidebar-anchor im-nav-entry' }); anchor.dataset.threadId = row.id;
+        const label = uiPart('text', undefined, 'thread-sidebar-title');
+        const id = uiPart('text', undefined, 'thread-sidebar-id');
+        const agent = uiPart('text', undefined, 'thread-sidebar-agent');
+        const updated = uiPart('text', undefined, 'thread-sidebar-updated');
+        const source = uiPart('text', undefined, 'thread-sidebar-source');
+        const state = uiPart('text', undefined, 'thread-sidebar-state');
         anchor.append(label, state, id, agent, updated, source); node.append(anchor); anchors.set(row.id, node);
         anchor.onclick = () => {
           if (busy) return;
@@ -311,7 +308,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
       metadata('Saved status', { unbound: 'No native session linked', inactive: 'Recorded inactive', recorded_open: 'Recorded open; activity unknown', archived: 'Archived' }[chosen.status]);
     }
   }
-  function disarmForget() { window.clearTimeout(forgetArmed); forgetArmed = 0; forget.textContent = forgetLabel; forget.classList.remove('danger'); }
+  function disarmForget() { window.clearTimeout(forgetArmed); forgetArmed = 0; forget.textContent = forgetLabel; forget.classList.remove('danger', 'im-btn--danger'); }
   function listPage(project: string, requested: ThreadCursor | null) {
     return options.list({ projectId: project, cursor: requested, limit: 50, archived: archivedView }).then(value => pageValue(value, project, requested, archivedView));
   }
@@ -385,9 +382,9 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     return record(value) && projectId(value.projectId) && (value.label === undefined || safeText(value.label, 128));
   }
   function renderProjects() {
-    const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'Choose a project'; scopeSelect.replaceChildren(placeholder);
+    const placeholder = uiOption('', 'Choose a project'); scopeSelect.replaceChildren(placeholder);
     for (const project of projects) {
-      const option = document.createElement('option'); option.value = project.projectId; option.textContent = project.label || project.projectId; scopeSelect.append(option);
+      const option = uiOption(project.projectId, project.label || project.projectId); scopeSelect.append(option);
     }
     scopeSelect.value = selectedProject ?? '';
   }
@@ -421,35 +418,21 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     if (pendingProjectRead && !busy) { pendingProjectRead = false; void read(null, 'reload'); }
     if (!valid) options.reportError('The current project is unavailable. No other project was used.'); return valid;
   }
-  function cancelDrag() {
-    if (!drag) return; const before = drag; drag = null; display = before.before;
-    if (separator.hasPointerCapture(before.pointer)) separator.releasePointerCapture(before.pointer); render();
-  }
-  separator.onpointerdown = event => {
-    if (event.button !== 0 || drag || display.collapsed) return;
-    uiGeneration++; // A late display restore cannot replace an active gesture.
-    drag = { pointer: event.pointerId, x: event.clientX, before: { ...display } }; separator.setPointerCapture(event.pointerId); separator.focus(); event.preventDefault();
-  };
-  separator.onpointermove = event => {
-    if (drag?.pointer !== event.pointerId) return;
-    display.width = Math.round(Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, drag.before.width + event.clientX - drag.x))); render();
-  };
-  separator.onpointerup = event => {
-    if (drag?.pointer !== event.pointerId) return; drag = null; separator.releasePointerCapture(event.pointerId); changedDisplay();
-  };
-  separator.onpointercancel = cancelDrag; separator.onlostpointercapture = cancelDrag;
-  separator.onkeydown = event => {
-    if (event.key === 'Escape' && drag) { event.preventDefault(); cancelDrag(); return; }
-    if (drag || event.altKey || event.ctrlKey || event.metaKey) return;
-    let width = display.width;
-    if (event.key === 'ArrowRight') width += WIDTH_STEP;
-    else if (event.key === 'ArrowLeft') width -= WIDTH_STEP;
-    else if (event.key === 'Home') width = MIN_WIDTH;
-    else if (event.key === 'End') width = MAX_WIDTH;
-    else return;
-    event.preventDefault(); display.width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, width)); changedDisplay();
-  };
-  collapse.onclick = () => { cancelDrag(); display.collapsed = !display.collapsed; changedDisplay(); };
+  const resize = splitter(document, {
+    label: 'Thread sidebar width', controls: body.id, min: MIN_WIDTH, max: MAX_WIDTH,
+    value: display.width, step: WIDTH_STEP,
+    onStart: () => { uiGeneration++; },
+    onResize(width) {
+      display.width = width;
+      element.style.setProperty('--thread-sidebar-width', width + 'px');
+      element.style.setProperty('--im-nav-width', width + 'px');
+    },
+    onCommit: changedDisplay,
+  });
+  const separator = resize.element;
+  separator.classList.add('thread-sidebar-resize');
+  element.append(heading, body, separator); options.host.append(element);
+  collapse.onclick = () => { resize.cancel(); display.collapsed = !display.collapsed; changedDisplay(); };
   scopeSelect.onchange = () => {
     if (busy || destroyed) return;
     generation++; selectedProject = projects.find(project => project.projectId === scopeSelect.value)?.projectId ?? null; reset();
@@ -489,7 +472,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     const chosen = page?.rows.find(row => row.id === selected && row.projectId === selectedProject);
     if (!chosen || chosen.status === 'recorded_open') return;
     if (!forgetArmed) {
-      forget.textContent = 'Click again: delete forever'; forget.classList.add('danger');
+      forget.textContent = 'Click again: delete forever'; forget.classList.add('danger', 'im-btn--danger');
       message = `Forgetting deletes ${userTitle(chosen) || agentNames.get(chosen.id) || chosen.title || 'this thread'}, its companion, hops and hand-off files from Shinatama. The agent's own session files stay.`; render();
       forgetArmed = window.setTimeout(disarmForget, 5000); return;
     }
@@ -677,7 +660,7 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
         const value = await options.loadState!();
         if (destroyed || at !== uiGeneration) return;
         if (value === null) return;
-        const restored = stateValue(value); if (!restored) throw new Error('Invalid sidebar display'); display = restored;
+        const restored = stateValue(value); if (!restored) throw new Error('Invalid sidebar display'); display = restored; resize.setValue(restored.width);
       } catch { if (!destroyed) options.reportError('Sidebar display could not be restored. Default dimensions are in use.'); }
       finally { afterOperation(); }
     })();
@@ -687,6 +670,6 @@ export function createThreadSidebar(options: ThreadSidebarOptions) {
     refreshCapabilities: render,
     notifyThreadChanged,
     refresh: () => read(null, 'reload'), state: (): Readonly<ThreadSidebarState> => Object.freeze({ ...display }),
-    destroy() { destroyed = true; generation++; window.clearInterval(namesTimer); window.clearTimeout(saveTimer); window.clearTimeout(forgetArmed); window.clearTimeout(changeTimer); pendingState = null; pendingChangedProject = null; cancelDrag(); anchors.clear(); element.remove(); },
+    destroy() { destroyed = true; generation++; window.clearInterval(namesTimer); window.clearTimeout(saveTimer); window.clearTimeout(forgetArmed); window.clearTimeout(changeTimer); pendingState = null; pendingChangedProject = null; resize.cancel(); anchors.clear(); element.remove(); },
   };
 }

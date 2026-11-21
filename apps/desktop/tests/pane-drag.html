@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-im-app="shinatama" data-im-look="oni" data-im-theme="dark">
 <head>
 <meta charset="utf-8">
 <title>Pane drag fixture</title>
@@ -9,6 +9,7 @@
 <!-- Only the pane layout: three views in one pane, the real renderer and model, no app around them. -->
 <div id="host"></div>
 <script type="module">
+import '@acaprino/imago/css/imago.css';
 import '/src/styles.css';
 import '/src/workspace-renderer.css';
 import { createWorkspaceRenderer } from '/src/workspace-renderer.ts';
@@ -20,7 +21,9 @@ for (const id of ['a', 'b', 'c']) {
   layout = reduceWorkspaceLayout(layout, { type: 'add-view', groupId: tabGroups(layout.root)[0].id,
     view: { id, resource: { kind: 'terminal', instanceId: null, threadId: null, profileId: null }, hidden: false } }).layout;
 }
+let filterId = null;
 const renderer = createWorkspaceRenderer({
+  tabFilter: () => filterId && { label: filterId, shows: view => view.id === filterId },
   host: document.getElementById('host'), bindings,
   labelForView: view => `Tab ${view.id}`,
   dispatch(action, expected) {
@@ -30,6 +33,18 @@ const renderer = createWorkspaceRenderer({
   },
 });
 window.__actions = [];
+window.__bindings = bindings;
+window.__filter = id => { filterId = id; renderer.render(layout); };
+window.__weights = () => [...layout.root.weights];
+window.__threeColumns = () => {
+  const children = ['a', 'b', 'c'].map(id => ({
+    kind: 'group', id: 'pane-' + id, tabs: [id], activeTabId: id, collapsed: false,
+    lastUsableSize: { width: 400, height: 760 },
+  }));
+  layout = { ...layout, root: { kind: 'split', id: 'columns', axis: 'columns', weights: [1, 1, 1], children },
+    focusedGroupId: 'pane-a', maximizedGroupId: null };
+  renderer.render(layout);
+};
 window.__panes = () => tabGroups(layout.root).map(group => group.tabs);
 window.__split = () => layout.root.kind === 'split' ? layout.root.axis : null;
 renderer.render(layout);

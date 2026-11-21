@@ -141,7 +141,7 @@ try {
   const gone = new Promise(accept => app.once('exit', accept));
   await page.getByRole('button', { name: 'Close window', exact: true }).click();
   // A running terminal makes the window ask first.
-  await Promise.race([gone, page.locator('#confirm-dialog button[value="stop"]').click({ timeout: 10000 }).catch(() => {})]);
+  await Promise.race([gone, page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Stop', exact: true }).click({ timeout: 10000 }).catch(() => {})]);
   expect(await Promise.race([gone, delay(20000).then(() => 'timeout')])).toBe(0);
   await browser.close().catch(() => {});
   await launch();

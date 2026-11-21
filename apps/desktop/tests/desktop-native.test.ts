@@ -28,10 +28,10 @@ test('chrome uses the arrow cursor: no hand outside links in rendered content', 
 });
 
 test('the interface is not selectable text; fields, panels and code are', () => {
-  const css = read('styles.css');
-  assert.match(css, /html \{ cursor: default; -webkit-user-select: none; user-select: none; \}/);
-  for (const content of ['input', 'textarea', 'dialog', 'pre', 'code', '.cm-editor', '#notice > span']) {
-    assert.match(css, new RegExp(`${content.replace(/[.*+?^${}()|[\]\\>]/g, '\\$&')}[^{]*\\{ -webkit-user-select: text; user-select: text; \\}`), content);
+  const css = readFileSync(new URL(import.meta.resolve('@acaprino/imago/css/base.css')), 'utf8');
+  assert.match(css, /\.im-shell\s*\{[^}]*user-select:\s*none/);
+  for (const selector of ['.im-content-text', 'input', 'textarea', '[contenteditable="true"]']) {
+    assert.ok(css.split('user-select: text')[0].includes(selector), selector);
   }
 });
 
@@ -49,7 +49,7 @@ test('no page closes its window with window.close(), which bypasses CloseRequest
 
 test('every window is built by the shared bootstrap', () => {
   const recovery = readRust('webview_recovery.rs');
-  for (const step of ['.on_navigation(crate::native_frame::navigation_policy(app))', '.on_new_window(', 'crate::native_frame::prepare(&window)', 'SetIsBuiltInErrorPageEnabled(false)']) {
+  for (const step of ['guard_navigation(', 'watch_process_failures(window', 'crate::native_frame::prepare(&window)']) {
     assert.ok(recovery.includes(step), `webview_recovery::build lacks ${step}`);
   }
   for (const name of readdirSync(rust, { recursive: true }).map(String).filter(name => name.endsWith('.rs') && name !== 'webview_recovery.rs')) {
@@ -61,10 +61,20 @@ test('every window is built by the shared bootstrap', () => {
   }
 });
 
-test('the navigation policy compares the origin exactly', () => {
-  const policy = readRust('native_frame.rs');
-  assert.match(policy, /url\.host_str\(\) == Some\("tauri\.localhost"\)/);
-  assert.doesNotMatch(policy, /starts_with\("http/);
+test('only development adds its configured server to Imago’s embedded origin guard', () => {
+  const recovery = readRust('webview_recovery.rs');
+  assert.match(recovery, /dev_url\s*\.as_ref\(\)\s*\.filter\(\|_\| tauri::is_dev\(\)\)/);
+  assert.match(recovery, /guard_navigation\(\s*tauri::WebviewWindowBuilder::from_config\(app, config\)\?,\s*&origins/);
+});
+
+test('the main frame uses Imago’s snap overlay and save-before-reload menu', () => {
+  const frame = readRust('native_frame.rs');
+  assert.match(frame, /if !tauri::is_dev\(\) \{\s*let _ = disable_browser_accelerators\(window\)/);
+  assert.match(frame, /if window.label\(\) == "main" \{\s*let overlay = install_snap_layouts\(window\)/);
+  assert.match(frame, /install_reload_menu\(window, "Reload interface"/);
+  assert.match(frame, /overlay\.set_rect\(x, y, width, height\)/);
+  assert.match(frame, /"interface-reload-requested", token/);
+  assert.match(frame, /if take_pending\(token\) \{\s*let _ = main.reload\(\)/);
 });
 
 test('zoom keys follow Ctrl+= / Ctrl+- / Ctrl+0 on any layout', () => {

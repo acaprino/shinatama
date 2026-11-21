@@ -1,8 +1,8 @@
+import { uiPart, uiButton, uiInput } from '@acaprino/imago/ui';
 import { openModal, topModal } from './modal.ts';
 import type { DetailRequest } from './session-detail.ts';
 import type { SessionRootSelector } from './session-library.ts';
 import { createProgressLine, type ProgressBackend } from './session-progress.ts';
-import './session-find.css';
 
 export type FindCursor = { offset: number; fingerprint: string };
 export type FindRequest = { detail: DetailRequest; query: string; cursor: FindCursor | null };
@@ -71,22 +71,22 @@ function decode(value: unknown, request: FindRequest): FindPage {
 
 /** No opening-time reads, live keystroke search, persistent index or resume. */
 export function createSessionFind(options: Options) {
-  const dialog = document.createElement('dialog'); dialog.id = 'session-find-dialog'; dialog.setAttribute('aria-labelledby', 'session-find-title');
-  const heading = document.createElement('div'); heading.className = 'dialog-heading';
-  const title = document.createElement('h1'); title.id = 'session-find-title'; title.textContent = 'Find in this session';
-  const closeButton = document.createElement('button'); closeButton.type = 'button'; closeButton.textContent = '×'; closeButton.setAttribute('aria-label', 'Close session search'); heading.append(title, closeButton);
-  const source = document.createElement('p'); source.className = 'hint session-find-source';
-  const form = document.createElement('form'); form.className = 'session-find-form';
-  const label = document.createElement('label'); label.htmlFor = 'session-find-query'; label.textContent = 'Literal text';
-  const query = document.createElement('input'); query.id = 'session-find-query'; query.type = 'search'; query.maxLength = 128;
+  const dialog = uiPart('dialog'); dialog.id = 'session-find-dialog'; dialog.setAttribute('aria-labelledby', 'session-find-title');
+  const heading = uiPart('header'); heading.classList.add('dialog-heading');
+  const title = uiPart('title'); title.id = 'session-find-title'; title.textContent = 'Find in this session';
+  const closeButton = uiButton('×'); closeButton.setAttribute('aria-label', 'Close session search'); heading.append(title, closeButton);
+  const source = uiPart('hint');
+  const form = uiPart('form');
+  const label = uiPart('label'); label.htmlFor = 'session-find-query'; label.textContent = 'Literal text';
+  const query = uiInput(); query.id = 'session-find-query'; query.type = 'search'; query.maxLength = 128;
   query.autocomplete = 'off'; query.spellcheck = false; query.setAttribute('aria-describedby', 'session-find-scope');
-  const search = document.createElement('button'); search.type = 'submit'; search.textContent = 'Search this session'; form.append(label, query, search);
-  const status = document.createElement('p'); status.className = 'session-find-status'; status.setAttribute('role', 'status');
-  const results = document.createElement('ol'); results.className = 'session-find-results'; results.setAttribute('aria-label', 'Session search matches');
-  const pager = document.createElement('div'); pager.className = 'session-find-pagination';
-  const previous = document.createElement('button'); previous.type = 'button'; previous.textContent = 'Previous matches';
-  const position = document.createElement('span'); const next = document.createElement('button'); next.type = 'button'; next.textContent = 'Next matches'; pager.append(previous, position, next);
-  const scope = document.createElement('p'); scope.id = 'session-find-scope'; scope.className = 'hint';
+  const search = uiButton(''); search.type = 'submit'; search.textContent = 'Search this session'; form.append(label, query, search);
+  const status = uiPart('status'); status.classList.add('session-find-status'); status.setAttribute('role', 'status');
+  const results = uiPart('orderedList', undefined, 'im-scroll im-scroll--bounded'); results.setAttribute('aria-label', 'Session search matches');
+  const pager = uiPart('actions'); pager.classList.add('session-find-pagination');
+  const previous = uiButton('Previous matches');
+  const position = uiPart('text'); const next = uiButton('Next matches'); pager.append(previous, position, next);
+  const scope = uiPart('hint'); scope.id = 'session-find-scope';
   scope.textContent = 'Searches canonical user, assistant, plain tool-result text and compaction summaries in this session. Case-insensitive literal matching; RAW, reasoning, tool arguments, structured results and attachment content are excluded. At most 50 matches per page. Choosing a match opens its saved transcript; it starts no agent.';
   const progress = createProgressLine('search', options.progress);
   dialog.append(heading, source, form, status, progress.element, results, pager, scope); (document.querySelector('#app') ?? document.body).append(dialog);
@@ -103,12 +103,12 @@ export function createSessionFind(options: Options) {
     if (page) {
       position.textContent = page.totalHits ? `${(cursor?.offset ?? 0) + 1}–${(cursor?.offset ?? 0) + page.hits.length} of ${page.totalHits}` : '0 matches';
       for (const hit of page.hits) {
-        const item = document.createElement('li'); const button = document.createElement('button'); button.type = 'button';
-        button.className = 'session-find-match'; button.disabled = busy;
-        const locator = document.createElement('span'); locator.className = 'session-find-locator'; locator.textContent = `Match ${hit.matchOrdinal + 1} · Entry ${hit.entryOrdinal}`;
-        const snippet = document.createElement('span'); snippet.className = 'session-find-snippet'; snippet.textContent = hit.snippet;
+        const item = uiPart('item'); const button = uiButton('');
+        button.classList.add('session-find-match'); button.disabled = busy;
+        const locator = uiPart('text', `Match ${hit.matchOrdinal + 1} · Entry ${hit.entryOrdinal}`);
+        const snippet = uiPart('text', hit.snippet);
         button.append(locator, snippet);
-        if (hit.truncated) { const marker = document.createElement('span'); marker.className = 'hint'; marker.textContent = 'Excerpt limited to 512 bytes'; button.append(marker); }
+        if (hit.truncated) { const marker = uiPart('text', 'Excerpt limited to 512 bytes'); button.append(marker); }
         const owner = page;
         button.onclick = () => {
           if (busy || !dialog.open || page !== owner || !selected || query.value !== owner.query) return;

@@ -1,100 +1,31 @@
-/* Project files: a folder tree on the left, the open file on the right. The drawer is wide while
-   this panel is open (styles.css: --drawer-width). */
-#files-dialog { width: min(1180px, calc(100vw - 32px)); height: min(80vh, 820px); display: none; }
-#files-dialog[open] { display: flex; flex-direction: column; padding-bottom: 12px; }
-#files-dialog .dialog-heading { gap: 12px; }
-#files-dialog .dialog-heading h1 { flex: none; }
-#files-dialog .files-project { flex: 0 1 260px; width: auto; height: 28px; margin-left: auto; font-size: 12px; }
-.files-body { flex: 1; min-height: 0; display: grid; grid-template-columns: var(--files-side, 300px) 0 minmax(0, 1fr); margin: 10px -24px 0; border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
-/* The divider between tree and file: drag to resize, arrows to nudge. */
-.files-split { position: relative; z-index: 2; width: 0; cursor: col-resize; outline: none; }
-.files-split::before { content: ''; position: absolute; inset: 0 -4px; }
-.files-split::after { content: ''; position: absolute; inset: 0 0 0 -1px; width: 1px; background: color-mix(in srgb, var(--line) 70%, transparent); transition: background-color var(--fast) var(--ease-out), width var(--fast) var(--ease-out); }
-.files-split:hover::after, .files-split:focus-visible::after, .files-split.dragging::after { width: 2px; background: var(--accent); }
-#files-dialog.resizing { cursor: col-resize; user-select: none; }
-
-/* Tree */
-.files-side { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-#files-dialog .files-search { flex: none; width: auto; height: 30px; margin: 10px 10px 6px 24px; font-size: 12px; }
-.files-tree-host { flex: 1; min-height: 0; overflow: auto; padding: 2px 0 10px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
-.files-tree, .files-tree ul { margin: 0; padding: 0; list-style: none; }
-.files-tree li { outline: none; }
-.files-row { display: grid; grid-template-columns: 12px 15px minmax(0, 1fr) auto; align-items: center; gap: 6px; min-height: 26px; padding: 0 12px 0 calc(14px + var(--level, 0) * 12px); color: var(--text-2); font: 12.5px/1.3 var(--mono); cursor: default; user-select: none; transition: background-color var(--fast) var(--ease-out), color var(--fast) var(--ease-out); }
-.files-row:hover { background: color-mix(in srgb, var(--line-strong) 12%, transparent); color: var(--text); }
-.files-tree li:focus-visible > .files-row { outline: 1px solid var(--accent); outline-offset: -1px; }
-.files-tree li[aria-selected="true"] > .files-row { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--text); }
-.files-tree li[aria-disabled="true"] > .files-row { opacity: .5; cursor: default; }
-.files-tree li[aria-busy="true"] > .files-row .files-caret { opacity: .4; }
-.files-twist { display: grid; place-items: center; width: 14px; height: 14px; }
-.files-caret { width: 12px; height: 12px; color: var(--muted); rotate: -90deg; transition: rotate var(--base) var(--ease-out); }
-.files-tree li[aria-expanded="true"] > .files-row .files-caret { rotate: 0deg; }
-.files-glyph { width: 15px; height: 15px; color: var(--muted); }
-.files-row[data-kind="directory"] .files-glyph { color: var(--ice); }
-.files-row[data-kind="directory"] { color: var(--text); }
-.files-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.files-size, .files-where { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
-.files-where { max-width: 26ch; overflow: hidden; text-overflow: ellipsis; }
-.files-results .files-row { padding-left: 16px; }
-.files-note { padding: 4px 12px 4px calc(47px + var(--level, 0) * 12px); font-size: 12px; font-style: italic; color: var(--muted); }
-
-/* File */
-.files-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.files-bar { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 24px 6px 14px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
-.files-crumbs { display: flex; flex: 1; align-items: center; min-width: 0; overflow: hidden; font: 12px var(--mono); color: var(--muted); white-space: nowrap; }
-#files-dialog .files-crumb { min-height: 22px; padding: 0 3px; border-color: transparent; font: inherit; letter-spacing: 0; text-transform: none; color: var(--text-2); }
-#files-dialog .files-crumb:hover { border-color: transparent; background: color-mix(in srgb, var(--line-strong) 14%, transparent); color: var(--text); }
-.files-crumb-sep { padding: 0 1px; color: var(--muted); }
-.files-crumb-leaf { overflow: hidden; text-overflow: ellipsis; padding-left: 3px; font-weight: 600; color: var(--text); }
-.files-crumb-none { color: var(--muted); }
-.files-dirty { flex: none; width: 7px; height: 7px; margin-left: 8px; background: var(--accent); }
-.files-language { flex: none; font: 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.files-modes { display: flex; flex: none; }
-#files-dialog .files-modes button { min-height: 26px; padding: 0 9px; font-size: 11px; }
-#files-dialog .files-modes button + button { margin-left: -1px; }
-#files-dialog .files-modes button[aria-pressed="true"] { position: relative; z-index: 1; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--text); }
-#files-dialog .files-bar .primary { min-height: 26px; }
-.files-panes { position: relative; flex: 1; min-height: 0; display: flex; }
-.files-panes > * { flex: 1; min-width: 0; min-height: 0; }
-.files-panes[data-view="split"] > .files-code { border-right: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
+.im-document-panes[data-view="split"] > .files-code { border-right: 1px solid color-mix(in srgb, var(--im-line) 70%, transparent); }
 .files-code { position: relative; overflow: hidden; }
 .files-code .cm-editor { height: 100%; }
-/* CodeMirror's own search panel: compact fields, not the dialog's 36px form fields. */
-#files-dialog .cm-panel.cm-search { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 6px 10px; font: 12px var(--mono); }
-#files-dialog .cm-panel.cm-search input.cm-textfield { width: 180px; height: 24px; margin: 0; padding: 0 6px; font: 12px var(--mono); }
-#files-dialog .cm-panel.cm-search label { display: inline-flex; align-items: center; gap: 4px; margin: 0; font: 11px var(--mono); letter-spacing: 0; text-transform: none; color: var(--text-2); }
-#files-dialog .cm-panel.cm-search label input { width: auto; height: auto; }
-#files-dialog .cm-panel.cm-search button { min-height: 24px; padding: 0 8px; font-size: 11px; background-image: none; }
-#files-dialog .cm-panel.cm-search button[name="close"] { margin-left: auto; border: 0; font-size: 16px; color: var(--muted); }
 .cm-fold-mark { display: inline-block; width: 6px; height: 6px; margin-top: 6px; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; rotate: -45deg; }
 .cm-fold-mark.open { rotate: 45deg; margin-top: 4px; }
-.files-preview { overflow: auto; padding: 14px 24px 14px 18px; color: var(--text); font-size: 14px; line-height: 1.65; user-select: text; scrollbar-width: thin; }
-/* A document's own headings, not the panel's uppercase chrome titles (dialog h1 in styles.css). */
-#files-dialog .files-preview :is(h1, h2, h3, h4, h5, h6) { margin: 1.2em 0 .5em; font-family: 'Segoe UI Variable Display', 'Segoe UI', sans-serif; font-weight: 650; letter-spacing: -.01em; line-height: 1.25; text-transform: none; color: var(--text); }
+.files-preview { overflow: auto; padding: 14px 24px 14px 18px; color: var(--im-text); font-size: 14px; line-height: 1.65; user-select: text; scrollbar-width: thin; }
+/* Rendered Markdown uses document heading levels and selectable body text. */
+#files-dialog .files-preview :is(h1, h2, h3, h4, h5, h6) { margin: 1.2em 0 .5em; font-family: var(--im-font-display); font-weight: 650; letter-spacing: -.01em; line-height: 1.25; text-transform: none; color: var(--im-text); }
 #files-dialog .files-preview h1 { font-size: 24px; }
-#files-dialog .files-preview h2 { font-size: 19px; padding-bottom: 4px; border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
+#files-dialog .files-preview h2 { font-size: 19px; padding-bottom: 4px; border-bottom: 1px solid color-mix(in srgb, var(--im-line) 70%, transparent); }
 #files-dialog .files-preview h3 { font-size: 16px; }
 #files-dialog .files-preview :is(h4, h5, h6) { font-size: 14px; }
 #files-dialog .files-preview > :first-child { margin-top: 0; }
-#files-dialog .files-preview p { margin: 0 0 .9em; font-size: 14px; color: var(--text); }
+#files-dialog .files-preview p { margin: 0 0 .9em; font-size: 14px; color: var(--im-text); }
 #files-dialog .files-preview :is(ul, ol) { padding-left: 1.4em; }
-#files-dialog .files-preview blockquote { margin: 0 0 .9em; padding-left: 12px; border-left: 1px solid var(--line-strong); color: var(--text-2); }
-.files-preview pre { background: var(--chrome); padding: 10px 12px; overflow: auto; font: 12.5px/1.55 var(--mono); }
-.files-preview code { font-family: var(--mono); font-size: .92em; }
+#files-dialog .files-preview blockquote { margin: 0 0 .9em; padding-left: 12px; border-left: 1px solid var(--im-line-strong); color: var(--im-muted); }
+.files-preview pre { background: var(--im-ground); padding: 10px 12px; overflow: auto; font: 12.5px/1.55 var(--im-font-code); }
+.files-preview code { font-family: var(--im-font-code); font-size: .92em; }
 .files-preview table { border-collapse: collapse; margin: 12px 0; font-size: 13px; }
-.files-preview th, .files-preview td { padding: 6px 12px 6px 0; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
-.files-preview th { color: var(--text-2); font-weight: 600; }
-.files-preview a[data-path] { color: var(--accent-text, var(--accent)); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
-.files-preview .md-link, .files-preview .md-image { color: var(--text-2); }
-.files-empty { display: grid; place-items: center; padding: 24px; color: var(--muted); font-size: 13px; }
-#files-dialog .files-status { flex: none; min-height: 1.6em; margin: 0; padding: 6px 24px 0 14px; font: 12px var(--mono); color: var(--text-2); }
-#files-dialog .files-status[data-state=error] { color: var(--error); }
-.files-picture { overflow: auto; display: flex; align-items: flex-start; justify-content: center; padding: 14px; background: var(--chrome); }
+.files-preview th, .files-preview td { padding: 6px 12px 6px 0; border-bottom: 1px solid var(--im-line); text-align: left; vertical-align: top; }
+.files-preview th { color: var(--im-muted); font-weight: 600; }
+.files-preview a[data-path] { color: var(--im-accent-text); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.files-preview .md-link, .files-preview .md-image { color: var(--im-muted); }
+.files-picture { overflow: auto; display: flex; align-items: flex-start; justify-content: center; padding: 14px; background: var(--im-ground); }
 .files-picture img { max-width: 100%; height: auto; image-rendering: auto; }
 .files-visual { overflow: auto; padding: 14px 24px 14px 18px; display: flex; flex-direction: column; gap: 8px; }
-#files-dialog .files-visual input, #files-dialog .files-visual textarea { width: 100%; height: auto; padding: 4px 6px; border: 1px solid transparent; background: transparent; color: var(--text); font: 14px/1.6 'Segoe UI Variable Text', 'Segoe UI', sans-serif; resize: vertical; }
-#files-dialog .files-visual input:focus, #files-dialog .files-visual textarea:focus { border-color: var(--accent); outline: none; }
+.files-visual :is(input, textarea) { width: 100%; height: auto; resize: vertical; }
 #files-dialog .files-visual .files-visual-heading { font-weight: 700; font-size: 18px; }
 #files-dialog .files-visual .files-visual-heading.level-1 { font-size: 22px; }
-#files-dialog .files-visual .files-visual-code { font: 13px/1.5 var(--mono); background: var(--chrome); }
-.files-visual .invalid { border-color: var(--error); }
-.files-visual-kept { margin: 0; padding: 6px 8px; color: var(--text-2); background: var(--chrome); border-left: 1px solid var(--line-strong); white-space: pre-wrap; font: 12px/1.5 var(--mono); }
+#files-dialog .files-visual .files-visual-code { font: 13px/1.5 var(--im-font-code); background: var(--im-ground); }
+.files-visual-kept { margin: 0; padding: 6px 8px; color: var(--im-muted); background: var(--im-ground); border-left: 1px solid var(--im-line-strong); white-space: pre-wrap; font: 12px/1.5 var(--im-font-code); }

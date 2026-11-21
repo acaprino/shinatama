@@ -4,7 +4,8 @@
 // reads, waits for or acknowledges a message, and holds no member handle or credential).
 // An agent may have no session yet (+ New agent, or a template): it takes a model from the menu of the Models panel and Apply opens
 // a session for it, or a session dropped on it fills it.
-import './team-map.css';
+import { graphLegendHtml, componentElement, uiButton, uiPart, uiInput, uiSelect, uiOption, uiTextarea, type UiPart } from '@acaprino/imago/ui';
+import { graphEditorWorkspace, graphInspector, graphEditorNode, graphEditorPort, graphEditorEdge, graphGesture, graphArrowMarker, graphConnectionPreview, graphMiniature } from '@acaprino/imago/graph';
 import { confirmsField } from './desktop-shell-model.ts';
 import { createEvaluator } from './team-map-evaluate.ts';
 import {
@@ -29,8 +30,9 @@ const MAX_NOTES_BYTES = 1024;
 const MAX_WORDS = 120;
 const KEEP_TIDY_KEY = 'shinatama.team.keepTidy';
 const VIEW_PREFIX = 'team-';
-const NS = 'http://www.w3.org/2000/svg';
 
+const harnessTones: Record<string, string> = { claude_code: 'accent', codex: 'info', opencode: 'ok', pi: 'warn' };
+const harnessTone = (name: string) => harnessTones[name] ?? '';
 const ROLE_NAME: Record<string, string> = { lead: 'Lead', worker: 'Worker', leadWorker: 'Lead + Worker', observer: 'Observer', peer: 'Peer' };
 const SHARE_NAME: Record<Share, string> = { split: 'Splits it', same: 'Same to all', free: 'First free' };
 const SHARE_SHORT: Record<Share, string> = { split: 'splits the work', same: 'same work to all', free: 'to whoever is free' };
@@ -47,22 +49,22 @@ const REPORTS: readonly [Report, string, string][] = [
   ['steps', 'At every step', 'Constant feedback: it says what it is doing as it goes.'],
   ['strict', 'Only done / blocked', 'It only executes: no questions, no messages, just done or blocked.'],
 ];
-const SHAPES: readonly { id: 'star' | 'chain' | 'peers'; name: string; tip: string; icon: string }[] = [
+const SHAPES: readonly { id: 'star' | 'chain' | 'peers'; name: string; tip: string; nodes: Point[]; links: [number, number][] }[] = [
   { id: 'star', name: 'Star', tip: 'One agent in the centre gives work to all the others. Open a card first to choose the centre.',
-    icon: '<path d="M13 10L4 3M13 10L22 3M13 10L4 17M13 10L22 17" fill="none"/><circle cx="13" cy="10" r="3.2"/><circle cx="4" cy="3" r="2"/><circle cx="22" cy="3" r="2"/><circle cx="4" cy="17" r="2"/><circle cx="22" cy="17" r="2"/>' },
+    nodes: [{ x: 13, y: 10 }, { x: 4, y: 3 }, { x: 22, y: 3 }, { x: 4, y: 17 }, { x: 22, y: 17 }], links: [[0, 1], [0, 2], [0, 3], [0, 4]] },
   { id: 'chain', name: 'Chain', tip: 'A pipeline: each agent gives work to the next.',
-    icon: '<path d="M6 10H10M16 10H20" fill="none"/><circle cx="3.5" cy="10" r="2.6"/><circle cx="13" cy="10" r="2.6"/><circle cx="22.5" cy="10" r="2.6"/>' },
+    nodes: [{ x: 4, y: 10 }, { x: 13, y: 10 }, { x: 22, y: 10 }], links: [[0, 1], [1, 2]] },
   { id: 'peers', name: 'Peers', tip: 'No one is in charge: the work arrows go, everyone talks to everyone.',
-    icon: '<circle cx="5" cy="10" r="2.6"/><circle cx="13" cy="10" r="2.6"/><circle cx="21" cy="10" r="2.6"/>' },
+    nodes: [{ x: 4, y: 10 }, { x: 13, y: 10 }, { x: 22, y: 10 }], links: [] },
 ];
 
-const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string) => {
-  const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node;
-};
-const svg = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string> = {}) => {
-  const node = document.createElementNS(NS, tag); for (const key of Object.keys(attrs)) node.setAttribute(key, attrs[key]); return node;
-};
-const quietButton = (label: string, title?: string) => { const b = el('button', 'quiet', label); b.type = 'button'; if (title) b.title = title; return b; };
+const part = <K extends UiPart>(kind: K, className?: string, text?: string) => uiPart(kind, text, className);
+function button(label = '', cls?: string) {
+  const node = uiButton(label, { cls, primary: cls === 'primary' });
+  if (!label) node.replaceChildren();
+  return node;
+}
+const quietButton = (label: string, title?: string) => { const b = button(label, 'quiet'); if (title) b.title = title; return b; };
 const message = (error: unknown) => typeof error === 'string' ? error : (error as { message?: string } | null)?.message ?? 'Something went wrong.';
 const clone = <T,>(value: T): T => structuredClone(value);
 const bytes = (text: string) => new TextEncoder().encode(text).length;
@@ -78,8 +80,8 @@ const structureOf = (f: Formation) => JSON.stringify([f.agents.map(a => a.id), f
 
 type Selection = { agent: string } | { link: { from: string; to: string } } | null;
 type Grab = {
-  kind: 'move' | 'link' | 'session'; id: string; pointer: number; target: HTMLElement; startX: number; startY: number; dx: number; dy: number;
-  moved: boolean; ghost?: HTMLElement; rubber?: SVGPathElement;
+  kind: 'move' | 'link' | 'session'; id: string; stop(): void; target: HTMLElement; origin?: Point; dx: number; dy: number;
+  moved: boolean; ghost?: HTMLElement; rubber?: ReturnType<typeof graphConnectionPreview>;
 };
 type Box = { key: string; element: HTMLElement; update(): void };
 
@@ -119,60 +121,59 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   const ask = <T,>(command: string, extra: Record<string, unknown> = {}) => deps.invoke<T>(command, { request: { worksetId: thread.id, ...extra } });
 
   // -------------------------------------------------------------------------------------------------------------- skeleton
-  const root = el('div', 'team-map'); root.dataset.viewId = viewId; root.tabIndex = -1;
-  const bar = el('div', 'team-bar'); bar.setAttribute('role', 'toolbar'); bar.setAttribute('aria-label', 'Team map');
-  const shapesLabel = el('span', 'team-bar-label', 'Arrange as');
-  const shapes = el('div', 'team-shapes'); shapes.setAttribute('role', 'group'); shapes.setAttribute('aria-label', 'Arrange the team as');
+  const { root, body, palette: side, stage, editor } = graphEditorWorkspace('Team map', 'Sessions of the thread');
+  root.classList.add('team-map'); body.classList.add('team-body'); side.classList.add('team-side'); stage.classList.add('team-stage');
+  root.dataset.viewId = viewId; root.tabIndex = -1;
+  const bar = part('toolbar', 'team-bar'); bar.setAttribute('role', 'toolbar'); bar.setAttribute('aria-label', 'Team map');
+  const shapesLabel = part('text', 'team-bar-label im-muted', 'Arrange as');
+  const shapes = part('actions', 'team-shapes'); shapes.setAttribute('role', 'group'); shapes.setAttribute('aria-label', 'Arrange the team as');
   const shapeButtons = SHAPES.map(shape => {
-    const b = el('button'); b.type = 'button'; b.dataset.shape = shape.id; b.title = shape.tip;
-    const icon = svg('svg', { viewBox: '0 0 26 20', 'aria-hidden': 'true' }); icon.innerHTML = shape.icon; b.append(icon, shape.name);
+    const b = button(); b.dataset.shape = shape.id; b.title = shape.tip;
+    const icon = graphMiniature({ width: 26, height: 20, nodeWidth: 4, nodeHeight: 4, nodes: shape.nodes,
+      edges: shape.links.map(([from, to]) => ({ a: shape.nodes[from], b: shape.nodes[to] })) });
+    b.append(icon, shape.name);
     b.onclick = () => arrangeAs(shape.id); shapes.append(b); return b;
   });
-  const tidyButton = el('button', 'team-tidy', '⤢ Tidy up'); tidyButton.type = 'button';
+  const tidyButton = button('⤢ Tidy up', 'team-tidy'); tidyButton.type = 'button';
   tidyButton.title = 'Place the cards by their arrows: who gives work above, who takes it below, observers on the right';
-  const autoLabel = el('label', 'team-auto'); autoLabel.title = 'Rearrange by itself whenever an arrow or a card changes';
-  const autoBox = el('input'); autoBox.type = 'checkbox'; autoBox.checked = keepTidy; autoLabel.append(autoBox, ' keep tidy');
-  const templatesButton = el('button', 'team-templates-button', 'Templates ▾'); templatesButton.type = 'button';
+  const autoLabel = part('label', 'team-auto im-inline-row'); autoLabel.title = 'Rearrange by itself whenever an arrow or a card changes';
+  const autoBox = uiInput('checkbox'); autoBox.checked = keepTidy; autoLabel.append(autoBox, ' keep tidy');
+  const templatesButton = button('Templates ▾', 'team-templates-button'); templatesButton.type = 'button';
   templatesButton.setAttribute('aria-haspopup', 'dialog'); templatesButton.setAttribute('aria-expanded', 'false');
   templatesButton.title = 'Teams saved to use again, in any thread';
-  const state = el('span', 'team-state'); state.setAttribute('role', 'status');
-  const discard = el('button', 'quiet', 'Discard'); discard.type = 'button'; discard.title = 'Throw away what is not applied and read the team again';
-  const apply = el('button', 'primary', 'Apply'); apply.type = 'button';
+  const state = part('status', 'team-state im-editor-summary'); state.setAttribute('role', 'status');
+  const discard = button('Discard', 'quiet'); discard.type = 'button'; discard.title = 'Throw away what is not applied and read the team again';
+  const apply = button('Apply', 'primary'); apply.type = 'button';
   bar.append(shapesLabel, shapes, tidyButton, autoLabel, templatesButton, state, discard, apply);
   // The Templates menu: the saved teams, each with a drawing of its shape; below, a name and "Save this team".
-  const menu = el('div', 'team-templates'); menu.setAttribute('role', 'dialog'); menu.setAttribute('aria-label', 'Templates'); menu.hidden = true;
-  const menuHead = el('h3', undefined, 'Templates'); const menuClose = quietButton('×'); menuClose.setAttribute('aria-label', 'Close the templates'); menuHead.append(menuClose);
-  const templateList = el('ul', 'team-template-list'); templateList.setAttribute('aria-label', 'Saved teams');
-  const templateName = el('input'); templateName.maxLength = 60; templateName.placeholder = 'Name this team'; templateName.setAttribute('aria-label', 'Name of the template');
-  const templateSave = el('button', 'primary', 'Save this team'); templateSave.type = 'button';
-  const templateForm = el('div', 'team-template-form'); templateForm.append(templateName, templateSave);
-  const templateSaid = el('p', 'team-template-said'); templateSaid.setAttribute('role', 'status');
+  const menu = graphInspector('Templates'); menu.classList.add('team-templates', 'im-editor-popup'); menu.hidden = true;
+  const menuHead = part('subheading', undefined, 'Templates'); const menuClose = quietButton('×'); menuClose.setAttribute('aria-label', 'Close the templates'); menuHead.append(menuClose);
+  const templateList = part('list', 'team-template-list im-editor-items'); templateList.setAttribute('aria-label', 'Saved teams');
+  const templateName = uiInput(); templateName.maxLength = 60; templateName.placeholder = 'Name this team'; templateName.setAttribute('aria-label', 'Name of the template');
+  const templateSave = button('Save this team', 'primary'); templateSave.type = 'button';
+  const templateForm = part('body', 'team-template-form im-editor-inline-form'); templateForm.append(templateName, templateSave);
+  const templateSaid = part('paragraph', 'team-template-said im-status-text'); templateSaid.setAttribute('role', 'status');
   menu.append(menuHead, templateList, templateForm, templateSaid);
-  const problems = el('ul', 'team-problems'); problems.setAttribute('aria-label', 'Problems with this team'); problems.hidden = true;
-  const body = el('div', 'team-body');
-  const side = el('aside', 'team-side'); side.setAttribute('aria-label', 'Sessions of the thread');
-  const sideList = el('ul', 'team-sessions'); const sideNote = el('p');
-  const newAgent = el('button', 'team-new-agent', '+ New agent'); newAgent.type = 'button';
+  const problems = part('list', 'team-problems im-editor-issues'); problems.setAttribute('aria-label', 'Problems with this team'); problems.hidden = true;
+  const sideList = part('list', 'team-sessions im-editor-items'); const sideNote = part('paragraph');
+  const newAgent = button('+ New agent', 'team-new-agent'); newAgent.type = 'button';
   newAgent.title = 'An agent with no session yet: choose its model and Apply opens one, or drop a session of the thread on it';
-  side.append(el('h2', undefined, 'Sessions'), sideList, sideNote, newAgent);
-  const stage = el('div', 'team-stage');
-  const scroll = el('div', 'team-scroll'); const canvas = el('div', 'team-canvas');
-  const wires = svg('svg', { class: 'team-wires' }); 
-  const defs = svg('defs');
-  for (const kind of ['work', 'observes', 'bad', 'rubber']) {
-    const marker = svg('marker', { id: `${viewId}-head-${kind}`, viewBox: '0 0 10 10', refX: '9', refY: '5', markerWidth: '11', markerHeight: '11', markerUnits: 'userSpaceOnUse', orient: 'auto' });
-    const arrow = svg('path', { d: 'M0 0L10 5L0 10z', class: 'team-head' }); arrow.dataset.kind = kind === 'observes' ? 'observes' : 'work';
+  side.append(part('heading', undefined, 'Sessions'), sideList, sideNote, newAgent);
+  const { scroll, canvas, wires, defs, edges: wireLayer, nodes } = editor;
+  scroll.classList.add('team-scroll'); canvas.classList.add('team-canvas');
+  wires.classList.add('team-wires'); nodes.classList.add('team-nodes');
+  for (const kind of ['work', 'observes', 'bad', 'rubber'] as const) {
+    const arrow = graphArrowMarker(defs, `${viewId}-head-${kind}`);
+    arrow.dataset.imTone = ({ work: '', observes: 'info', bad: 'err', rubber: 'accent' })[kind];
+    arrow.classList.add('team-head'); arrow.dataset.kind = kind === 'observes' ? 'observes' : 'work';
     if (kind === 'bad') arrow.setAttribute('data-bad', ''); if (kind === 'rubber') arrow.setAttribute('data-rubber', '');
-    marker.append(arrow); defs.append(marker);
   }
-  const wireLayer = svg('g'); wires.append(defs, wireLayer);
-  const nodes = el('div', 'team-nodes');
-  const hint = el('p', 'team-hint'); hint.innerHTML = '<b>Drag the sessions from the list on the left onto this map</b> (or press one to add it).<br>Then pull the → of a card onto another to connect them, and click the arrow to say what kind of relation it is.<br>Or start from <b>Templates</b>, or add <b>+ New agent</b> and drop a session on it later.';
-  canvas.append(wires, nodes, hint); scroll.append(canvas);
-  const tray = el('div', 'team-tray'); tray.dataset.zone = 'tray';
-  const statusLine = el('p', 'team-status'); statusLine.hidden = true;
-  stage.append(scroll, tray, statusLine); body.append(side, stage);
-  const off = el('p', 'team-off'); off.hidden = true;
+  const hint = part('paragraph', 'team-hint im-editor-empty'); hint.textContent = 'Drag the sessions from the list on the left onto this map (or press one to add it). Then pull the → of a card onto another to connect them, and click the arrow to say what kind of relation it is. Or start from Templates, or add + New agent and drop a session on it later.';
+  canvas.append(hint);
+  const tray = part('body', 'team-tray im-editor-shelf'); tray.dataset.zone = 'tray';
+  const statusLine = part('paragraph', 'team-status im-status-text'); statusLine.hidden = true;
+  stage.append(tray, statusLine);
+  const off = part('paragraph', 'team-off im-muted'); off.hidden = true;
   root.append(bar, problems, body, off, menu);
 
   // ------------------------------------------------------------------------------------------------------------- lookups
@@ -447,20 +448,20 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   const focusRow = (id: string, act: 'use' | 'delete') => templateList.querySelector<HTMLElement>(`[data-id="${id}"] [data-act="${act}"]`)?.focus({ preventScroll: true });
 
   function miniatureOf(t: Template): SVGElement {
-    const m = miniature(t); const drawing = svg('svg', { class: 'team-mini', viewBox: '0 0 64 40', width: '64', height: '40', 'aria-hidden': 'true' });
-    for (const line of m.lines) { const l = svg('line', { x1: String(line.a.x), y1: String(line.a.y), x2: String(line.b.x), y2: String(line.b.y), class: 'team-mini-line' }); l.dataset.kind = line.kind; drawing.append(l); }
-    for (const c of m.cards) drawing.append(svg('rect', { x: String(c.x - 3.5), y: String(c.y - 2.5), width: '7', height: '5', class: 'team-mini-card' }));
+    const m = miniature(t);
+    const drawing = graphMiniature({ width: 64, height: 40, nodeWidth: 7, nodeHeight: 5, edges: m.lines, nodes: m.cards });
+    drawing.classList.add('team-mini');
     return drawing;
   }
   function drawTemplates() {
     menu.hidden = !templatesOpen; templatesButton.setAttribute('aria-expanded', String(templatesOpen));
     if (!templatesOpen) return;
     menu.style.top = `${bar.offsetHeight}px`;
-    if (templates === null) templateList.replaceChildren(el('li', 'team-template-empty', 'Reading the templates…'));
-    else if (!templates.length) templateList.replaceChildren(el('li', 'team-template-empty', 'No template yet. Build a team, name it below and press Save this team.'));
+    if (templates === null) templateList.replaceChildren(part('item', 'team-template-empty', 'Reading the templates…'));
+    else if (!templates.length) templateList.replaceChildren(part('item', 'team-template-empty', 'No template yet. Build a team, name it below and press Save this team.'));
     else templateList.replaceChildren(...templates.map(t => {
-      const item = el('li', 'team-template'); item.dataset.id = t.id;
-      const text = el('div', 'team-template-text'); text.append(el('b', undefined, t.name), el('span', undefined, `${t.agents.length} agent${t.agents.length === 1 ? '' : 's'}`));
+      const item = part('item', 'team-template im-editor-preset'); item.dataset.id = t.id;
+      const text = part('body', 'team-template-text im-editor-caption'); text.append(part('strong', undefined, t.name), part('text', undefined, `${t.agents.length} agent${t.agents.length === 1 ? '' : 's'}`));
       const use = quietButton(confirming === `use:${t.id}` ? 'Replace the map?' : 'Use'); use.dataset.act = 'use'; use.setAttribute('aria-label', `Use ${t.name}`);
       use.title = confirming === `use:${t.id}` ? 'Press again: the agents on the map are replaced by the template\'s. Discard brings back what was applied.' : 'Replace the draft with this team; no agent has a session yet';
       use.disabled = applying; use.onclick = () => useTemplate(t);
@@ -507,36 +508,43 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     for (const a of draft.agents) {
       let node = cards.get(a.id);
       if (!node) {
-        node = el('div', 'team-card'); node.dataset.agent = a.id; node.tabIndex = 0; node.setAttribute('role', 'button'); node.setAttribute('aria-haspopup', 'dialog');
-        cards.set(a.id, node); nodes.append(node);
         const id = a.id;
-        node.onpointerdown = event => press(event, id, 'move');
-        node.onkeydown = event => cardKey(event, id);
+        node = graphEditorNode({
+          press: event => press(event, id, 'move'),
+          open: () => {
+            selection = selection && 'agent' in selection && selection.agent === id ? null : { agent: id };
+            requestTrials(); draw(); if (selection) focusBox();
+          },
+          nudge: delta => nudgeCard(id, delta),
+        });
+        node.style.width = `${CARD.width}px`; node.style.minHeight = `${CARD.height}px`;
+        node.classList.add('team-card'); node.dataset.agent = id; node.setAttribute('aria-haspopup', 'dialog');
+        cards.set(id, node); nodes.append(node);
       }
       node.style.left = `${a.x}px`; node.style.top = `${a.y}px`;
       const session = sessionOf(a); const harness = session?.harness ?? '';
-      node.dataset.harness = harness;
+      node.dataset.harness = harness; node.dataset.imTone = harnessTone(harness);
       node.setAttribute('aria-pressed', String(!!selection && 'agent' in selection && selection.agent === a.id));
       node.toggleAttribute('data-in', session?.connection === 'in_room');
       node.toggleAttribute('data-empty', !a.session);
       const [told, toldText] = toldState(a);
       node.toggleAttribute('data-pending', told === 'edited');
       node.toggleAttribute('data-bad', bad.has(a.id) || failures.has(a.id) || told === 'failed');
-      const head = el('div', 'team-card-top'); const dot = el('span', 'team-dot'); dot.setAttribute('aria-hidden', 'true');
-      head.append(dot, el('span', 'team-card-name', a.name || '(no name)'));
-      if (bad.has(a.id)) { const mark = el('span', 'team-card-bad', '✕'); mark.title = 'A problem with this agent: see the list above the map'; head.append(mark); }
+      const head = part('body', 'team-card-top im-editor-node-title'); const dot = part('text', 'team-dot im-editor-dot'); dot.setAttribute('aria-hidden', 'true'); dot.dataset.imTone = session?.connection === 'in_room' ? 'ok' : '';
+      head.append(dot, part('text', 'team-card-name im-truncate', a.name || '(no name)'));
+      if (bad.has(a.id)) { const mark = part('text', 'team-card-bad', '✕'); mark.title = 'A problem with this agent: see the list above the map'; head.append(mark); }
       const view = roles[a.id]; const roleName = view ? ROLE_NAME[view.role] ?? view.role : 'checking…';
-      const role = el('div', 'team-card-role', view && workOut(a.id) > 1 ? `${roleName} · ${SHARE_SHORT[a.share]}` : roleName);
+      const role = part('body', 'team-card-role im-editor-caption', view && workOut(a.id) > 1 ? `${roleName} · ${SHARE_SHORT[a.share]}` : roleName);
       if (view) role.title = `${roleName}: ${view.detail}. Inferred from its arrows.`;
-      const meta = el('div', 'team-card-meta', !a.session ? (a.model ? modelText(a.model) : 'no session yet')
+      const meta = part('body', 'team-card-meta im-editor-caption', !a.session ? (a.model ? modelText(a.model) : 'no session yet')
         : `${programOf(a)}${a.model?.model ? ` · ${a.model.model}` : ''}${session?.title ? ` · ${session.title}` : ''}${session?.memberName ? ` · ${session.memberName}` : ''}`);
-      const toldNode = el('span', 'team-told', toldText); toldNode.dataset.s = told; toldNode.title = told === 'failed' ? toldText : '';
+      const toldNode = part('text', 'team-told', toldText); toldNode.dataset.s = told; toldNode.title = told === 'failed' ? toldText : '';
       const left = session?.wakes != null && session.wakes >= 7 ? `${Math.max(0, 10 - session.wakes)} wakes left` : '';
-      const wakes = el('span', 'team-wakes', left);
-      const foot = el('div', 'team-card-foot'); foot.append(toldNode, wakes);
-      const port = el('button', 'team-port', '→'); port.type = 'button'; port.tabIndex = -1; port.setAttribute('aria-hidden', 'true');
-      port.title = 'Pull onto another card to connect them (the keyboard: open the card and use Connect to…)';
-      const id = a.id; port.onpointerdown = event => { event.stopPropagation(); press(event, id, 'link'); };
+      const wakes = part('text', 'team-wakes', left);
+      const foot = part('body', 'team-card-foot im-editor-node-foot'); foot.append(toldNode, wakes);
+      const port = graphEditorPort('→', 'Pull onto another card to connect them (the keyboard: open the card and use Connect to.)',
+        event => press(event, a.id, 'link'));
+      port.classList.add('team-port');
       node.replaceChildren(head, role, meta, foot, port);
       node.setAttribute('aria-label', `${a.name}. ${roleName}${view && workOut(a.id) > 1 ? `, ${SHARE_SHORT[a.share]}` : ''}. ${toldText || 'in sync'}. ${bad.has(a.id) ? 'Has a problem. ' : ''}Enter opens its box.`);
     }
@@ -557,25 +565,23 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     const selected = selectedLink();
     draft.links.forEach((l, i) => {
       const ends = endsOf(l); if (!ends) return;
-      const [a, b] = ends; const d = `M${a.x} ${a.y}L${b.x} ${b.y}`;
-      const group = svg('g', { class: 'team-link', tabindex: '0', role: 'button' });
-      group.dataset.from = l.from; group.dataset.to = l.to;
+      const [a, b] = ends;
       const wrong = bad.has(i);
+      const open = () => { selection = selectedLink() === i ? null : { link: { from: l.from, to: l.to } }; requestTrials(); draw(); if (selection) focusBox(); };
+      const { group, hit, line, label, title } = graphEditorEdge(a, b, `${viewId}-head-${wrong ? 'bad' : l.kind}`, open);
+      group.classList.add('team-link'); hit.classList.add('team-hit');
+      line.classList.add('team-wire'); label.classList.add('team-wire-label');
+      group.dataset.imStroke = l.kind === 'observes' ? 'dotted' : mark.has(i) ? 'dashed' : 'solid';
+      group.dataset.imTone = wrong ? 'err' : l.kind === 'observes' ? 'info' : '';
+      group.setAttribute('aria-pressed', String(selected === i));
+      group.dataset.from = l.from; group.dataset.to = l.to;
       const said = l.kind === 'work' ? (l.report === 'strict' ? 'gives work · only done / blocked' : l.report === 'steps' ? 'gives work · every step' : 'gives work to') : 'observes';
       const short = l.words.length > 26 ? `${l.words.slice(0, 25)}…` : l.words;
       group.setAttribute('aria-label', `${wrong ? 'Problem: ' : ''}${nameOf(l.from)} ${KIND_NAME[l.kind]} ${nameOf(l.to)}${l.kind === 'work' ? `, ${REPORTS.find(r => r[0] === l.report)?.[1].toLowerCase()}` : ''}${mark.has(i) ? ', not applied' : ''}. Enter opens its box.`);
-      const hit = svg('path', { class: 'team-hit', d });
-      const line = svg('path', { class: 'team-wire', d, 'marker-end': `url(#${viewId}-head-${wrong ? 'bad' : l.kind === 'observes' ? 'observes' : 'work'})` });
       line.dataset.kind = l.kind; if (mark.has(i)) line.setAttribute('data-pending', ''); if (selected === i) line.setAttribute('data-on', ''); if (wrong) line.setAttribute('data-bad', '');
-      const label = svg('text', { class: 'team-wire-label', x: String((a.x + b.x) / 2), y: String((a.y + b.y) / 2 - 6), 'text-anchor': 'middle' });
       label.dataset.kind = l.kind; if (wrong) label.setAttribute('data-bad', '');
       label.textContent = `${wrong ? '✕ ' : ''}${said}${short ? ` · “${short}”` : ''}`;
-      const title = svg('title'); title.textContent = `${nameOf(l.from)} ${KIND_NAME[l.kind]} ${nameOf(l.to)}: click to change`;
-      group.append(title, hit, line, label);
-      const open = () => { selection = selectedLink() === i ? null : { link: { from: l.from, to: l.to } }; requestTrials(); draw(); if (selection) focusBox(); };
-      group.addEventListener('pointerdown', event => { event.stopPropagation(); });
-      group.addEventListener('click', open);
-      group.addEventListener('keydown', event => { if (confirmsField(event) || event.key === ' ') { event.preventDefault(); open(); } });
+      title.textContent = `${nameOf(l.from)} ${KIND_NAME[l.kind]} ${nameOf(l.to)}: click to change`;
       wireLayer.append(group);
     });
     if (keep) wireLayer.querySelector<SVGElement>(`.team-link[data-from="${keep.from}"][data-to="${keep.to}"]`)?.focus({ preventScroll: true });
@@ -586,9 +592,9 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     const rest = (snap?.sessions ?? []).filter(s => !onMap.has(s.sessionId));
     const full = draft.agents.length >= MAX_AGENTS;
     sideList.replaceChildren(...rest.map(s => {
-      const item = el('li'); const b = el('button', 'team-session'); b.type = 'button'; b.dataset.session = s.sessionId; b.dataset.harness = s.harness ?? '';
+      const item = part('item'); const b = button('', 'team-session im-editor-source'); b.dataset.session = s.sessionId; b.dataset.harness = s.harness ?? ''; b.dataset.imTone = harnessTone(s.harness ?? '');
       const label = s.harness ? deps.harnessLabel(s.harness) : 'Session';
-      b.append(el('b', undefined, s.title && s.title !== label ? s.title : label), el('span', undefined, `${label} · ${s.state.replace('_', ' ')}${s.connection === 'unsupported' ? ' · cannot take part' : ''}`));
+      b.append(part('strong', undefined, s.title && s.title !== label ? s.title : label), part('text', undefined, `${label} · ${s.state.replace('_', ' ')}${s.connection === 'unsupported' ? ' · cannot take part' : ''}`));
       b.disabled = s.connection === 'unsupported' || full;
       b.title = s.connection === 'unsupported' ? 'Shinatama gives this agent no Mukade tools: it cannot take part in a team.' : full ? `The map holds ${MAX_AGENTS} agents at most.` : 'Drag onto the map, or press to add it';
       b.setAttribute('aria-label', `Add ${b.firstElementChild?.textContent ?? label} (${label}) to the map`);
@@ -600,16 +606,17 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   }
 
   function drawTray() {
-    tray.replaceChildren();
-    for (const kind of ['work', 'observes'] as const) { const key = el('span', 'team-key'); const line = el('i'); line.dataset.kind = kind; key.append(line, KIND_NAME[kind]); tray.append(key); }
-    tray.append(el('span', 'team-sep'), draft.agents.length ? 'Drag a card down here to take it off the map (its session stays open)' : '');
+    const summary = draft.agents.length ? 'Drag a card down here to take it off the map (its session stays open)' : '';
+    tray.replaceChildren(componentElement(graphLegendHtml([
+      { label: KIND_NAME.work }, { label: KIND_NAME.observes, stroke: 'dotted' },
+    ], summary)));
   }
 
   function drawProblems() {
     const shown = issues();
     problems.hidden = !shown.length;
     problems.replaceChildren(...shown.map(issue => {
-      const li = el('li'); const b = el('button'); b.type = 'button'; b.dataset.level = issue.level;
+      const li = part('item'); const b = button(); b.dataset.level = issue.level;
       b.append(issue.level === 'error' ? 'Error: ' : 'Warning: ', issue.text);
       b.onclick = () => {
         const l = draft.links[issue.links[0]];
@@ -626,7 +633,8 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     const waiting = (applied?.agents ?? []).filter(a => !snap?.told[a.id]).length;
     const refusedAgents = (applied?.agents ?? []).filter(a => snap?.refused[a.id]).length;
     let text: string; let tone: string;
-    if (applying) { text = 'applying…'; tone = 'dirty'; }
+    if (!snap) { text = 'Reading the team…'; tone = ''; }
+    else if (applying) { text = 'applying…'; tone = 'dirty'; }
     else if (bad) { text = `✕ ${bad} problem${bad > 1 ? 's' : ''} to fix before it can be applied`; tone = 'error'; }
     else if (dirty) { text = open ? `not applied: ${open} session${open > 1 ? 's' : ''} to open, nothing was sent yet` : 'not applied: nothing was sent yet'; tone = 'dirty'; }
     else if (open) { text = `${open} agent${open > 1 ? 's' : ''} still without a session: Apply opens ${open > 1 ? 'them' : 'it'}`; tone = 'dirty'; }
@@ -636,7 +644,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     else if (snap?.refused.notice) { text = `revision ${applied!.revision} · the notice to the other sessions could not be sent: ${snap.refused.notice}`; tone = 'error'; }
     else if (waiting) { text = `revision ${applied!.revision} · ${waiting} told when ${waiting > 1 ? 'they join' : 'it joins'}`; tone = 'dirty'; }
     else { text = `revision ${applied!.revision} · everyone was told`; tone = 'ok'; }
-    state.textContent = text; state.dataset.tone = tone;
+    state.textContent = text; state.dataset.tone = tone; state.dataset.imTone = tone === 'dirty' ? 'warn' : tone === 'error' ? 'err' : tone;
     const ready = !draft.agents.length || (fresh() && !evaluating);
     const todo = dirty || open > 0;
     apply.textContent = open ? `Open ${open} session${open > 1 ? 's' : ''} and apply` : 'Apply';
@@ -644,7 +652,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     apply.title = bad ? 'Fix the problems above first' : !todo ? 'Nothing to apply' : !ready ? 'Checking the team…'
       : open ? 'Open a session for each agent that has none, then tell each concerned session its place' : 'Tell each concerned session its place';
     discard.disabled = !dirty || applying;
-    newAgent.disabled = applying || draft.agents.length >= MAX_AGENTS;
+    newAgent.disabled = !snap?.enabled || applying || draft.agents.length >= MAX_AGENTS;
     newAgent.title = draft.agents.length >= MAX_AGENTS ? `The map holds ${MAX_AGENTS} agents at most.` : 'An agent with no session yet: choose its model and Apply opens one, or drop a session of the thread on it';
     tidyButton.disabled = draft.agents.length < 1 || applying;
     for (const b of shapeButtons) b.disabled = draft.agents.length < 2 || applying;
@@ -667,43 +675,43 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   const closeButton = (what: string) => { const b = quietButton('×'); b.setAttribute('aria-label', `Close ${what}`); b.onclick = () => closeBox(true); return b; };
 
   function agentBox(a: Agent): Box {
-    const element = el('div', 'team-box team-box-agent'); element.setAttribute('role', 'dialog'); element.setAttribute('aria-label', `Agent ${a.name}`);
-    const headText = el('span'); const head = el('h3'); head.append(headText, closeButton('the agent box'));
-    const name = el('input'); name.maxLength = MAX_NAME; name.value = a.name; name.id = `${viewId}-name`; name.dataset.first = '1';
+    const element = graphInspector(`Agent ${a.name}`); element.classList.add('team-box', 'team-box-agent'); element.style.width = '262px';
+    const headText = part('text'); const head = part('subheading'); head.append(headText, closeButton('the agent box'));
+    const name = uiInput(); name.maxLength = MAX_NAME; name.value = a.name; name.id = `${viewId}-name`; name.dataset.first = '1';
     name.oninput = () => { const clean = plain(name.value); if (clean !== name.value) name.value = clean; if (clean.trim()) updateAgent(a.id, { name: clean }); };
     name.onblur = () => { if (!name.value.trim()) name.value = agentOf(a.id)?.name ?? 'Agent'; };
-    const nameLabel = el('label', undefined, 'Name'); nameLabel.append(name);
+    const nameLabel = part('field', undefined, 'Name'); nameLabel.append(name);
     // An agent without a session chooses the model its session is opened with, from what the Models panel holds; a running one
     // keeps its own, fixed.
-    const model = el('input'); model.disabled = true;
-    const modelMenu = el('select'); modelMenu.setAttribute('aria-label', 'Model');
+    const model = uiInput(); model.disabled = true;
+    const modelMenu = uiSelect(); modelMenu.setAttribute('aria-label', 'Model');
     modelMenu.onchange = () => {
       const chosen = snap?.models.find(m => modelKey(m) === modelMenu.value);
       updateAgent(a.id, { model: chosen ? { program: chosen.program, connection: chosen.connection, model: chosen.model } : null });
     };
-    const modelLabel = el('label', undefined, 'Model'); modelLabel.append(model);
-    const menuLabel = el('label', undefined, 'Model'); menuLabel.append(modelMenu);
-    const role = el('p', 'role-line'); const roleName = el('b'); const roleDetail = el('span'); role.append(roleName, roleDetail);
-    const inferred = el('p', undefined, 'The role is inferred from its arrows: change an arrow and it changes.');
-    const handOut = el('div'); const handLabel = el('p', 'lab'); const seg = el('div', 'team-seg'); seg.setAttribute('role', 'group'); handOut.append(handLabel, seg);
+    const modelLabel = part('field', undefined, 'Model'); modelLabel.append(model);
+    const menuLabel = part('field', undefined, 'Model'); menuLabel.append(modelMenu);
+    const role = part('paragraph', 'role-line'); const roleName = part('strong'); const roleDetail = part('text'); role.append(roleName, roleDetail);
+    const inferred = part('paragraph', undefined, 'The role is inferred from its arrows: change an arrow and it changes.');
+    const handOut = part('body'); const handLabel = part('paragraph', 'lab'); const seg = part('body', 'team-seg im-editor-options'); seg.setAttribute('role', 'group'); handOut.append(handLabel, seg);
     const shareButtons = (Object.keys(SHARE_NAME) as Share[]).map(key => {
-      const b = el('button', undefined, SHARE_NAME[key]); b.type = 'button'; b.title = SHARE_TIP[key]; b.dataset.share = key;
+      const b = button(SHARE_NAME[key]); b.title = SHARE_TIP[key]; b.dataset.share = key;
       b.onclick = () => updateAgent(a.id, { share: key }); seg.append(b); return b;
     });
-    const notes = el('textarea'); notes.value = a.notes; notes.placeholder = 'Anything the arrows do not say, in your words.'; notes.rows = 3;
+    const notes = uiTextarea(); notes.value = a.notes; notes.placeholder = 'Anything the arrows do not say, in your words.'; notes.rows = 3;
     notes.oninput = () => { let clean = plain(notes.value); while (bytes(clean) > MAX_NOTES_BYTES) clean = clean.slice(0, -1); if (clean !== notes.value) notes.value = clean; updateAgent(a.id, { notes: clean }); };
-    const notesLabel = el('label', undefined, 'Notes for it (optional)'); notesLabel.append(notes);
-    const to = el('select'); to.setAttribute('aria-label', 'Connect to…'); to.title = 'The keyboard\'s way to draw an arrow: this agent gives work to the one chosen';
-    const toLabel = el('label', undefined, 'Connect to…'); toLabel.append(to);
+    const notesLabel = part('field', undefined, 'Notes for it (optional)'); notesLabel.append(notes);
+    const to = uiSelect(); to.setAttribute('aria-label', 'Connect to…'); to.title = 'The keyboard\'s way to draw an arrow: this agent gives work to the one chosen';
+    const toLabel = part('field', undefined, 'Connect to…'); toLabel.append(to);
     to.onchange = () => { const id = to.value; to.value = ''; if (id) connectAgents(a.id, id); };
     // An agent with no session takes one of the thread's: dropped on its card, or chosen here (the keyboard's way).
-    const pick = el('select'); pick.setAttribute('aria-label', 'Use a session…'); pick.title = 'The session takes this agent\'s place: its name and arrows stay';
-    const pickLabel = el('label', undefined, 'Use a session…'); pickLabel.append(pick);
+    const pick = uiSelect(); pick.setAttribute('aria-label', 'Use a session…'); pick.title = 'The session takes this agent\'s place: its name and arrows stay';
+    const pickLabel = part('field', undefined, 'Use a session…'); pickLabel.append(pick);
     pick.onchange = () => { const id = pick.value; pick.value = ''; const s = snap?.sessions.find(x => x.sessionId === id); if (s) fillWith(s, a.id); };
-    const fields = el('div', 'team-fields'); fields.append(nameLabel, modelLabel, menuLabel, pickLabel, role, inferred, handOut, notesLabel, toLabel);
+    const fields = part('body', 'team-fields im-stack'); fields.append(nameLabel, modelLabel, menuLabel, pickLabel, role, inferred, handOut, notesLabel, toLabel);
     const show = quietButton('Show its tab', 'Show this session\'s tab in the window'); show.onclick = () => { const at = agentOf(a.id)?.session; if (at) deps.focusSession(at); };
     const out = quietButton('Take off the map', 'The session stays open; it only leaves the team map'); out.onclick = () => takeOff(a.id);
-    const foot = el('div', 'foot'); foot.append(show, out);
+    const foot = part('body', 'foot im-action-row'); foot.append(show, out);
     element.append(head, fields, foot);
     const update = () => {
       const live = agentOf(a.id); if (!live) return;
@@ -717,8 +725,8 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
       const lost = live.model && !holdsModel(choices, live.model) ? live.model : null;
       const wantedMenu = JSON.stringify([choices.map(modelKey), lost && modelKey(lost)]);
       if (modelMenu.dataset.options !== wantedMenu) {
-        modelMenu.replaceChildren(new Option('Choose a model…', ''), ...choices.map(m => new Option(m.label, modelKey(m))),
-          ...(lost ? [new Option(`${lost.model ?? lost.program} · no longer in the Models panel`, modelKey(lost))] : []));
+        modelMenu.replaceChildren(uiOption('', 'Choose a model…'), ...choices.map(m => uiOption(modelKey(m), m.label)),
+          ...(lost ? [uiOption(modelKey(lost), `${lost.model ?? lost.program} · no longer in the Models panel`)] : []));
         modelMenu.dataset.options = wantedMenu;
       }
       modelMenu.value = live.model ? modelKey(live.model) : '';
@@ -728,7 +736,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
       pickLabel.hidden = !!live.session;
       const sessionOptions = ['', ...free.map(x => x.sessionId)].join('|');
       if (pick.dataset.options !== sessionOptions) {
-        pick.replaceChildren(new Option('Use a session…', ''), ...free.map(x => new Option(sessionLabel(x), x.sessionId)));
+        pick.replaceChildren(uiOption('', 'Use a session…'), ...free.map(x => uiOption(x.sessionId, sessionLabel(x))));
         pick.dataset.options = sessionOptions;
       }
       pick.disabled = !free.length;
@@ -740,7 +748,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
       const others = draft.agents.filter(x => x.id !== a.id);
       const full = draft.links.length >= MAX_LINKS;
       const wanted = ['', ...others.map(x => x.id)].join('|');
-      if (to.dataset.options !== wanted) { to.replaceChildren(new Option('Connect to…', ''), ...others.map(x => new Option(x.name, x.id))); to.dataset.options = wanted; }
+      if (to.dataset.options !== wanted) { to.replaceChildren(uiOption('', 'Connect to…'), ...others.map(x => uiOption(x.id, x.name))); to.dataset.options = wanted; }
       for (const option of Array.from(to.options)) if (option.value) option.textContent = nameOf(option.value);
       to.disabled = full || !others.length; to.title = full ? `The map holds ${MAX_LINKS} arrows at most.` : to.title;
     };
@@ -750,24 +758,24 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
 
   function linkBox(index: number): Box {
     const l = draft.links[index]; const from = l.from, to = l.to;
-    const element = el('div', 'team-box team-box-link'); element.setAttribute('role', 'dialog');
-    const head = el('h3'); const title = el('span'); head.append(title, closeButton('the arrow box'));
-    const kinds = el('div', 'team-kinds'); kinds.setAttribute('role', 'group'); kinds.setAttribute('aria-label', 'Kind of relation');
+    const element = graphInspector('Arrow'); element.classList.add('team-box', 'team-box-link'); element.style.width = '330px';
+    const head = part('subheading'); const title = part('text'); head.append(title, closeButton('the arrow box'));
+    const kinds = part('body', 'team-kinds im-stack'); kinds.setAttribute('role', 'group'); kinds.setAttribute('aria-label', 'Kind of relation');
     const kindButtons = (['work', 'observes'] as const).map(kind => {
-      const b = el('button'); b.type = 'button'; b.dataset.kind = kind; b.dataset.first = '1'; const i = el('i'); i.dataset.kind = kind; const name = el('b'); const why = el('span'); b.append(i, name, why);
+      const b = button(); b.dataset.kind = kind; b.dataset.first = '1'; b.classList.add('im-editor-choice'); const i = part('text', 'team-kind-line im-editor-sample'); i.setAttribute('aria-hidden', 'true'); i.dataset.kind = kind; i.dataset.imStroke = kind === 'observes' ? 'dotted' : 'solid'; const name = part('strong'); const why = part('text'); b.append(i, name, why);
       b.onclick = () => { const at = linkIndex(from, to); if (at >= 0 && draft.links[at].kind !== kind) updateLink(at, { kind, report: 'done' }); };
       kinds.append(b); return { b, name, why, kind };
     });
-    const howLabel = el('p', 'lab'); const seg = el('div', 'team-seg'); seg.setAttribute('role', 'group');
+    const howLabel = part('paragraph', 'lab'); const seg = part('body', 'team-seg im-editor-options'); seg.setAttribute('role', 'group');
     const reportButtons = REPORTS.map(([key, text, tip]) => {
-      const b = el('button', undefined, text); b.type = 'button'; b.title = tip; b.dataset.report = key;
+      const b = button(text); b.title = tip; b.dataset.report = key;
       b.onclick = () => { const at = linkIndex(from, to); if (at >= 0) updateLink(at, { report: key }); }; seg.append(b); return b;
     });
-    const reportReason = el('p', 'team-reason');
-    const wordsLabel = el('label', undefined, 'In your words (optional)'); const words = el('input'); words.maxLength = MAX_WORDS; words.value = l.words;
+    const reportReason = part('paragraph', 'team-reason im-field-error');
+    const wordsLabel = part('field', undefined, 'In your words (optional)'); const words = uiInput(); words.maxLength = MAX_WORDS; words.value = l.words;
     words.oninput = () => { const clean = plain(words.value).slice(0, MAX_WORDS); if (clean !== words.value) words.value = clean; const at = linkIndex(from, to); if (at >= 0) updateLink(at, { words: clean }); };
     wordsLabel.append(words);
-    const says = el('p', 'team-says');
+    const says = part('paragraph', 'team-says im-editor-description');
     const flip = quietButton('⇄ Reverse'); flip.dataset.act = 'reverse';
     flip.onclick = () => {
       const at = linkIndex(from, to); if (at < 0) return;
@@ -777,9 +785,9 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     };
     const del = quietButton('Delete the arrow'); del.dataset.act = 'delete';
     del.onclick = () => { const at = linkIndex(from, to); if (at < 0) return; selection = null; edit({ ...draft, links: draft.links.filter((_, i) => i !== at) }); };
-    const foot = el('div', 'foot'); foot.append(flip, del);
-    const how = el('div'); how.append(howLabel, seg, reportReason);
-    const fields = el('div', 'team-fields'); fields.append(kinds, how, wordsLabel, says);
+    const foot = part('body', 'foot im-action-row'); foot.append(flip, del);
+    const how = part('body'); how.append(howLabel, seg, reportReason);
+    const fields = part('body', 'team-fields im-stack'); fields.append(kinds, how, wordsLabel, says);
     element.append(head, fields, foot);
     const update = () => {
       const at = linkIndex(from, to); if (at < 0) return; const now = draft.links[at];
@@ -827,6 +835,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   // --------------------------------------------------------------------------------------------------------------- draw
   function draw() {
     if (disposed || grab) return;
+    root.dataset.loaded = String(snap !== null);
     const enabled = snap?.enabled !== false;
     off.hidden = enabled; body.hidden = !enabled; bar.hidden = !enabled;
     if (!enabled) { problems.hidden = true; off.textContent = 'The sessions of this thread do not talk to each other, so it has no team. Turn it on in the thread\'s settings (⋯).'; return; }
@@ -837,7 +846,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   }
 
   // -------------------------------------------------------------------------------------------------- pointer and keys
-  const canvasPoint = (event: PointerEvent): Point => { const r = canvas.getBoundingClientRect(); return { x: event.clientX - r.left, y: event.clientY - r.top }; };
+  const canvasPoint = editor.point;
   const over = (event: PointerEvent) => document.elementFromPoint(event.clientX, event.clientY);
   const overTray = (event: PointerEvent) => !!over(event)?.closest('[data-zone="tray"]');
   const overMap = (event: PointerEvent) => !!over(event)?.closest('.team-scroll');
@@ -846,22 +855,20 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     if (event.button !== 0 || grab || applying) return;
     const target = event.currentTarget as HTMLElement;
     const rect = (kind === 'session' ? target : cards.get(id) ?? target).getBoundingClientRect();
-    grab = { kind, id, pointer: event.pointerId, target, startX: event.clientX, startY: event.clientY, dx: event.clientX - rect.left, dy: event.clientY - rect.top, moved: false };
     if (kind !== 'session') event.preventDefault();
-    try { target.setPointerCapture(event.pointerId); } catch { /* a synthetic pointer: the move events still arrive */ }
-    target.addEventListener('pointermove', moveGrab); target.addEventListener('pointerup', releaseGrab); target.addEventListener('pointercancel', cancelGrab);
+    const agent = kind === 'move' ? agentOf(id) : undefined;
+    const stop = graphGesture(event, { move: moveGrab, release: releaseGrab, cancel: cancelGrab });
+    grab = { kind, id, target, stop, origin: agent && { x: agent.x, y: agent.y },
+      dx: event.clientX - rect.left, dy: event.clientY - rect.top, moved: false };
   }
   function endGrab() {
     const g = grab; if (!g) return null; grab = null;
-    g.target.removeEventListener('pointermove', moveGrab); g.target.removeEventListener('pointerup', releaseGrab); g.target.removeEventListener('pointercancel', cancelGrab);
-    try { g.target.releasePointerCapture(g.pointer); } catch { /* already released */ }
-    g.ghost?.remove(); g.rubber?.remove(); tray.removeAttribute('data-drop'); scroll.removeAttribute('data-drop');
+    g.stop(); g.ghost?.remove(); g.rubber?.path.remove(); tray.removeAttribute('data-drop'); scroll.removeAttribute('data-drop');
     for (const node of cards.values()) { node.removeAttribute('data-over'); node.removeAttribute('data-lifted'); }
     return g;
   }
   function moveGrab(event: PointerEvent) {
-    const g = grab; if (!g || event.pointerId !== g.pointer) return;
-    if (!g.moved && Math.hypot(event.clientX - g.startX, event.clientY - g.startY) < 4) return;
+    const g = grab; if (!g) return;
     g.moved = true;
     if (g.kind === 'move') {
       const a = agentOf(g.id); if (!a) return; const p = canvasPoint(event);
@@ -871,12 +878,15 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     } else if (g.kind === 'link') {
       const a = agentOf(g.id); if (!a) return; const p = canvasPoint(event);
       const start = borderPoint(rectOf(a), p, 3);
-      g.rubber ??= (() => { const r = svg('path', { class: 'team-wire rubber', 'marker-end': `url(#${viewId}-head-rubber)` }); wireLayer.append(r); return r; })();
-      g.rubber.setAttribute('d', `M${start.x} ${start.y}L${p.x} ${p.y}`);
+      if (!g.rubber) {
+        g.rubber = graphConnectionPreview(wireLayer, `${viewId}-head-rubber`);
+        g.rubber.path.classList.add('team-wire', 'rubber');
+      }
+      g.rubber.update(start, p);
       const hover = over(event)?.closest<HTMLElement>('.team-card');
       for (const [id, node] of cards) node.toggleAttribute('data-over', node === hover && id !== g.id);
     } else {
-      g.ghost ??= (() => { const gh = el('div', 'team-ghost', g.target.querySelector('b')?.textContent ?? 'Session'); gh.dataset.harness = g.target.dataset.harness ?? ''; document.body.append(gh); return gh; })();
+      g.ghost ??= (() => { const gh = part('body', 'team-ghost im-editor-ghost', g.target.querySelector('strong')?.textContent ?? 'Session'); gh.dataset.harness = g.target.dataset.harness ?? ''; document.body.append(gh); return gh; })();
       g.ghost.style.transform = `translate(${event.clientX + 12}px, ${event.clientY + 8}px)`;
       scroll.toggleAttribute('data-drop', overMap(event));
       // A card with no session takes the session dropped on it.
@@ -885,7 +895,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     }
   }
   function releaseGrab(event: PointerEvent) {
-    const g = grab; if (!g || event.pointerId !== g.pointer) return;
+    const g = grab; if (!g) return;
     const droppedOnTray = overTray(event), droppedOnMap = overMap(event), hover = over(event)?.closest<HTMLElement>('.team-card[data-agent]');
     const point = canvasPoint(event);
     endGrab();
@@ -904,18 +914,18 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
       else if (!g.moved) addSessionAt(s, freeSpot());
     }
   }
-  function cancelGrab() { const g = endGrab(); if (g) draw(); }
+  function cancelGrab() {
+    const g = endGrab(); if (!g) return;
+    const agent = g.origin && agentOf(g.id);
+    if (agent && g.origin) Object.assign(agent, g.origin);
+    draw();
+  }
 
-  function cardKey(event: KeyboardEvent, id: string) {
-    if (event.target !== event.currentTarget) return;
-    if (confirmsField(event) || event.key === ' ') {
-      event.preventDefault(); selection = selection && 'agent' in selection && selection.agent === id ? null : { agent: id }; requestTrials(); draw(); if (selection) focusBox();
-    } else if (event.key.startsWith('Arrow') && !applying) {
-      event.preventDefault(); const step = event.shiftKey ? 40 : 10; const a = agentOf(id); if (!a) return;
-      const dx = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0, dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0;
-      a.x = Math.max(0, a.x + dx); a.y = Math.max(0, a.y + dy); draw(); cards.get(id)?.focus({ preventScroll: true });
-      window.clearTimeout(nudge); nudge = window.setTimeout(() => { if (!pending()) storePlaces([id]); }, 400);
-    }
+  function nudgeCard(id: string, delta: Point) {
+    const a = agentOf(id); if (!a || applying) return;
+    a.x = Math.max(0, a.x + delta.x); a.y = Math.max(0, a.y + delta.y);
+    draw(); cards.get(id)?.focus({ preventScroll: true });
+    window.clearTimeout(nudge); nudge = window.setTimeout(() => { if (!pending()) storePlaces([id]); }, 400);
   }
   let nudge = 0;
 
@@ -934,7 +944,8 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   autoBox.onchange = () => { keepTidy = autoBox.checked; writeKeepTidy(keepTidy); if (keepTidy) tidyNow(); };
   apply.onclick = () => { void applyNow(); };
   discard.onclick = () => { void discardNow(); };
-  new ResizeObserver(() => { if (!disposed && snap) { drawCards(); drawWires(); if (box) { box.update(); fitBox(box.element); } } }).observe(scroll);
+  const resize = new ResizeObserver(() => { if (!disposed && !grab && snap) { drawCards(); drawWires(); if (box) { box.update(); fitBox(box.element); } } });
+  resize.observe(scroll);
 
   timer = window.setInterval(() => { if (visible && !document.hidden) void refresh(); }, POLL_MS);
   const visibility = () => { if (visible && !document.hidden) void refresh(); };
@@ -945,7 +956,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     viewId, element: root, thread,
     setVisible(next: boolean) { if (visible === next) return; visible = next; if (next) void refresh(); },
     focus() { (cards.values().next().value ?? root).focus({ preventScroll: true }); },
-    dispose() { disposed = true; window.clearInterval(timer); window.clearTimeout(nudge); evaluator.cancel(); document.removeEventListener('visibilitychange', visibility); endGrab(); document.removeEventListener('pointerdown', outside, true); root.remove(); onClose(); },
+    dispose() { disposed = true; resize.disconnect(); window.clearInterval(timer); window.clearTimeout(nudge); evaluator.cancel(); document.removeEventListener('visibilitychange', visibility); endGrab(); document.removeEventListener('pointerdown', outside, true); root.remove(); onClose(); },
   };
 }
 
@@ -972,9 +983,9 @@ export function createTeamMap(deps: TeamMapDeps) {
     /** A saved tab whose map is not open (after a restart): a button to open it again. */
     placeholder(viewId: string, reopen: (thread: TeamThread) => void): HTMLElement | null {
       if (maps.has(viewId)) return null;
-      const id = threadOfView(viewId); const card = el('div', 'team-map team-closed');
-      card.append(el('p', undefined, 'The team map of this thread is closed.'));
-      if (id) { const b = el('button', undefined, 'Open the team map'); b.type = 'button'; b.onclick = () => reopen({ id }); card.append(b); }
+      const id = threadOfView(viewId); const card = part('body', 'team-map team-closed im-stack');
+      card.append(part('paragraph', undefined, 'The team map of this thread is closed.'));
+      if (id) { const b = button('Open the team map'); b.onclick = () => reopen({ id }); card.append(b); }
       return card;
     },
   };

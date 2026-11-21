@@ -1,3 +1,4 @@
+import { componentElement, inputHtml, uiButton, uiPart } from '@acaprino/imago/ui';
 // Browser tabs (ADR-0056): each page is a workspace view drawn from the Moli
 // host's JPEG frames on a canvas. Page content never becomes DOM here; the
 // address bar shows the page's real URL. Tabs tile like terminal tabs.
@@ -43,11 +44,10 @@ type Saved = Record<string, { url: string; title: string; file?: string }>;
 function readSaved(): Saved { try { return JSON.parse(localStorage.getItem(STORE) ?? '{}') as Saved; } catch { return {}; } }
 function writeSaved(saved: Saved) { try { localStorage.setItem(STORE, JSON.stringify(saved)); } catch { /* a convenience only */ } }
 
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text?: string): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag); node.className = className; if (text !== undefined) node.textContent = text; return node;
-}
 function button(label: string, title: string, run: () => void): HTMLButtonElement {
-  const b = el('button', 'browser-button', label); b.type = 'button'; b.title = title; b.setAttribute('aria-label', title); b.addEventListener('click', run); return b;
+  const b = uiButton(label, { sm: true, attrs: { title, 'aria-label': title } });
+  b.addEventListener('click', run);
+  return b;
 }
 
 export function newBrowserViewId(): string {
@@ -76,6 +76,7 @@ export function createBrowserTabs(deps: BrowserTabsDeps) {
       tab.strip.querySelector<HTMLButtonElement>('[data-control="give"]')!.hidden = strip.action !== 'give';
     }
     tab.element.dataset.controller = agent ? 'agent' : 'user';
+    tab.canvas.style.cursor = agent ? 'not-allowed' : '';
     remember(tab);
   }
 
@@ -102,12 +103,14 @@ export function createBrowserTabs(deps: BrowserTabsDeps) {
   }
 
   function build(viewId: string): Tab {
-    const element = el('div', 'browser-tab'); element.dataset.viewId = viewId;
-    const bar = el('div', 'browser-bar');
-    const address = el('input', 'browser-address'); address.type = 'text'; address.spellcheck = false; address.setAttribute('aria-label', 'Address');
-    const strip = el('div', 'browser-strip'); strip.hidden = true;
-    const area = el('div', 'browser-page');
-    const canvas = el('canvas', 'browser-canvas'); canvas.tabIndex = 0; canvas.setAttribute('aria-label', 'Web page');
+    const element = uiPart('stack'); element.classList.add('browser-tab', 'im-render-view'); element.dataset.viewId = viewId;
+    const bar = uiPart('toolbar'); bar.classList.add('browser-bar');
+    bar.setAttribute('role', 'group'); bar.setAttribute('aria-label', 'Browser navigation');
+    const address = componentElement<HTMLInputElement>(inputHtml({ name: 'address', label: 'Address', value: '',
+      attrs: { class: 'im-input browser-address', spellcheck: 'false' } }));
+    const strip = uiPart('row'); strip.classList.add('browser-strip'); strip.hidden = true;
+    const area = uiPart('viewport'); area.classList.add('browser-page');
+    const canvas = document.createElement('canvas'); canvas.className = 'browser-canvas'; canvas.tabIndex = 0; canvas.setAttribute('aria-label', 'Web page');
     area.append(canvas);
     const tab: Tab = { viewId, element, canvas, address, strip, page: null, file: null, visible: false, queue: [], sending: false, poll: 0, dispose: () => {} };
     const nav = (action: string, url?: string) => { if (tab.page) void deps.invoke('browser_navigate', { page: tab.page.id, action, url }).then(() => refresh(tab), error => deps.notify(String(error))); };
@@ -129,7 +132,8 @@ export function createBrowserTabs(deps: BrowserTabsDeps) {
     };
     const take = button('Prendi il controllo', 'Take control of this page from the agent', () => control(true)); take.dataset.control = 'take';
     const give = button('Restituisci', 'Hand this page back to the agent', () => control(false)); give.dataset.control = 'give';
-    strip.append(el('span', 'browser-strip-text', ''), take, give);
+    const stripText = uiPart('text'); stripText.classList.add('browser-strip-text');
+    strip.append(stripText, take, give);
     element.append(bar, strip, area);
 
     const rect = () => canvas.getBoundingClientRect();
@@ -214,8 +218,8 @@ export function createBrowserTabs(deps: BrowserTabsDeps) {
     placeholder(viewId: string, reopen: (target: BrowserTarget) => void): HTMLElement | null {
       if (tabs.has(viewId)) return null;
       const saved = readSaved()[viewId];
-      const card = el('div', 'browser-closed');
-      card.append(el('p', 'browser-closed-url', saved?.url ?? 'This page is closed.'));
+      const card = uiPart('stack'); card.classList.add('browser-closed');
+      card.append(uiPart('paragraph', saved?.url ?? 'This page is closed.'));
       if (saved?.url) card.append(button('Riapri', 'Open this page again', () => reopen(saved.file ? { file: saved.file } : { url: saved.url })));
       return card;
     },

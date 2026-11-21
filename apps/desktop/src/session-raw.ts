@@ -1,7 +1,7 @@
+import { uiPart, uiButton, uiInput } from '@acaprino/imago/ui';
 import { openModal, topModal } from './modal.ts';
 import type { DetailRequest } from './session-detail.ts';
 import type { SessionRootSelector } from './session-library.ts';
-import './session-raw.css';
 
 export type RawSelection = { root: SessionRootSelector; nativeId: string; entryOrdinal: number; fingerprint: string };
 export type RawRequest = { detail: DetailRequest; entryOrdinal: number; confirmedRaw: boolean };
@@ -49,23 +49,23 @@ function decode(value: unknown, selection: RawSelection): string {
 /** Opening never reads RAW. Only a checked warning plus an explicit Load click
  * invokes the injected contained reader. No cache, logging, HTML or navigation. */
 export function createSessionRaw(options: Options) {
-  const dialog = document.createElement('dialog'); dialog.id = 'session-raw-dialog'; dialog.setAttribute('aria-labelledby', 'session-raw-title');
-  const heading = document.createElement('div'); heading.className = 'dialog-heading';
-  const title = document.createElement('h1'); title.id = 'session-raw-title'; title.textContent = 'RAW native entry';
-  const closeButton = document.createElement('button'); closeButton.type = 'button'; closeButton.textContent = '×'; closeButton.setAttribute('aria-label', 'Close RAW entry');
+  const dialog = uiPart('dialog'); dialog.id = 'session-raw-dialog'; dialog.setAttribute('aria-labelledby', 'session-raw-title');
+  const heading = uiPart('header'); heading.classList.add('dialog-heading');
+  const title = uiPart('title'); title.id = 'session-raw-title'; title.textContent = 'RAW native entry';
+  const closeButton = uiButton('×'); closeButton.setAttribute('aria-label', 'Close RAW entry');
   heading.append(title, closeButton);
-  const warning = document.createElement('p'); warning.id = 'session-raw-warning'; warning.className = 'session-raw-warning';
+  const warning = uiPart('paragraph'); warning.id = 'session-raw-warning';
   warning.textContent = 'RAW may contain credentials, private reasoning, signed or encrypted data, and other sensitive native fields. Nothing is hidden or redacted in this view. Load only if you intend to inspect this entry.';
-  const consent = document.createElement('label'); consent.className = 'session-raw-consent';
-  const confirmed = document.createElement('input'); confirmed.type = 'checkbox'; confirmed.id = 'session-raw-confirm'; confirmed.setAttribute('aria-describedby', warning.id);
-  const consentText = document.createElement('span'); consentText.textContent = 'I understand and want to load this one RAW entry.'; consent.append(confirmed, consentText);
-  const source = document.createElement('p'); source.className = 'hint session-raw-source';
-  const actions = document.createElement('div'); actions.className = 'session-raw-actions';
-  const load = document.createElement('button'); load.type = 'button'; load.id = 'session-raw-load'; load.textContent = 'Load this RAW entry';
-  const copy = document.createElement('button'); copy.type = 'button'; copy.id = 'session-raw-copy'; copy.textContent = 'Copy visible RAW'; actions.append(load, copy);
-  const status = document.createElement('p'); status.className = 'session-raw-status'; status.setAttribute('role', 'status');
-  const content = document.createElement('pre'); content.id = 'session-raw-content'; content.tabIndex = 0; content.setAttribute('aria-label', 'Visible RAW native record');
-  const scope = document.createElement('p'); scope.className = 'hint'; scope.textContent = 'One entry, at most 64 KiB. Attachment files stay closed. Closing clears this view. Copy writes only the displayed RAW to your clipboard.';
+  const consent = uiPart('label');
+  const confirmed = uiInput('checkbox'); confirmed.id = 'session-raw-confirm'; confirmed.setAttribute('aria-describedby', warning.id);
+  const consentText = uiPart('text', 'I understand and want to load this one RAW entry.'); consent.append(confirmed, consentText);
+  const source = uiPart('hint');
+  const actions = uiPart('actions');
+  const load = uiButton(''); load.id = 'session-raw-load'; load.textContent = 'Load this RAW entry';
+  const copy = uiButton(''); copy.id = 'session-raw-copy'; copy.textContent = 'Copy visible RAW'; actions.append(load, copy);
+  const status = uiPart('status');
+  const content = uiPart('pre', undefined, 'im-scroll--bounded'); content.id = 'session-raw-content'; content.tabIndex = 0; content.setAttribute('aria-label', 'Visible RAW native record');
+  const scope = uiPart('hint', 'One entry, at most 64 KiB. Attachment files stay closed. Closing clears this view. Copy writes only the displayed RAW to your clipboard.');
   dialog.append(heading, warning, source, consent, actions, status, content, scope); (document.querySelector('#app') ?? document.body).append(dialog);
   let selected: RawSelection | null = null; let generation = 0; let destroyed = false; let busy = false; let copying = false;
   let message = 'RAW has not been requested.'; let failed = false;

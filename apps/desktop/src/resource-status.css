@@ -1,7 +1,0 @@
-.resource-health {
-  margin-inline-start: 12px;
-  color: var(--text-2);
-  font-size: 11px;
-  white-space: nowrap;
-}
-.resource-health[data-stage="defer_starts"] { color: var(--muted); }

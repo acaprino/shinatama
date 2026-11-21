@@ -160,9 +160,10 @@ try {
   await page.locator('#toolbar-more').click(); await page.locator('#open-settings').click();
   await expect(page.locator('#settings-dialog')).toBeVisible();
   await expect(page.locator('#toolbar-more-menu')).toBeHidden();
-  await page.getByLabel('Theme', { exact: true }).selectOption('section9');
+  await page.getByLabel('Theme', { exact: true }).selectOption('oni');
+  await page.getByLabel('Classic theme', { exact: true }).selectOption('section9');
   await expect.poll(async () => (await appearance())?.settings.skin).toBe('section9');
-  expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim())).toBe('#78e2dc');
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--im-accent').trim())).toBe('#78e2dc');
   expect(await ids()).toEqual(beforeAppearance);
   await page.locator('#presentation-follow').check();
   await expect.poll(async () => (await appearance())?.settings.followSkin).toBe(true);
@@ -308,12 +309,12 @@ try {
 
   if (healthyCount > 0) {
     await page.getByRole('button', { name: 'Close window', exact: true }).click();
-    await page.locator('#confirm-dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Cancel', exact: true }).click();
     expect((await ids()).length).toBe(healthyCount);
   }
   const closed = page.waitForEvent('close', { timeout: 30000 });
   await page.getByRole('button', { name: 'Close window', exact: true }).click();
-  if (healthyCount > 0) await page.locator('#confirm-dialog').getByRole('button', { name: 'Stop', exact: true }).click();
+  if (healthyCount > 0) await page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Stop', exact: true }).click();
   await closed;
   expect(errors).toEqual([]);
   console.log('PASS: native borderless controls; real contained terminals and visible limits; nested layout/themes/find/reload; sidecar ready; isolated Claude check and original TUI startup/stop; canonical instance/thread references; confirmed save/close.');

@@ -1,5 +1,5 @@
+import { segmentedControl, uiPart, uiButton, uiInput, uiSelect, uiOption } from '@acaprino/imago/ui';
 import { openSheet } from './modal.ts';
-import './new-session.css';
 
 export type NewSessionProject = { id: string; path: string };
 export type NewSessionHarness = { id: string; label: string };
@@ -45,31 +45,31 @@ export function createNewSession(options: Options) {
   let choices = options.harnesses.length <= 32 ? options.harnesses.filter((item, index, all) =>
     /^[a-z0-9_-]{1,64}$/i.test(item.id) && scalar(item.label, 128) && all.findIndex(candidate => candidate.id === item.id) === index
   ).map(item => ({ ...item })) : [];
-  const dialog = document.createElement('dialog'); dialog.id = 'new-session-dialog'; dialog.setAttribute('aria-labelledby', 'new-session-title');
-  const form = document.createElement('form'); form.noValidate = true;
-  const heading = document.createElement('div'); heading.className = 'dialog-heading';
-  const title = document.createElement('h1'); title.id = 'new-session-title'; title.textContent = 'New session';
-  const closeButton = document.createElement('button'); closeButton.type = 'button'; closeButton.textContent = '×'; closeButton.setAttribute('aria-label', 'Close new session'); heading.append(title, closeButton);
+  const dialog = uiPart('dialog'); dialog.id = 'new-session-dialog'; dialog.setAttribute('aria-labelledby', 'new-session-title');
+  const form = uiPart('form'); form.noValidate = true;
+  const heading = uiPart('row', undefined, 'dialog-heading');
+  const title = uiPart('title', 'New session'); title.id = 'new-session-title';
+  const closeButton = uiButton('×'); closeButton.setAttribute('aria-label', 'Close new session'); heading.append(title, closeButton);
 
   // 1. Project: pick from the list, or browse / type a folder.
-  const projectLabel = document.createElement('label'); projectLabel.htmlFor = 'new-session-project'; projectLabel.textContent = 'Project';
-  const list = document.createElement('div'); list.id = 'new-session-projects'; list.setAttribute('role', 'listbox'); list.setAttribute('aria-label', 'Recent projects');
-  const folderRow = document.createElement('div'); folderRow.className = 'new-session-folder';
-  const project = document.createElement('input'); project.id = 'new-session-project'; project.type = 'text'; project.maxLength = 4096;
+  const projectLabel = uiPart('label', 'Project'); projectLabel.htmlFor = 'new-session-project';
+  const list = uiPart('scroll'); list.classList.add('im-choice-list'); list.id = 'new-session-projects'; list.setAttribute('role', 'listbox'); list.setAttribute('aria-label', 'Recent projects');
+  const folderRow = uiPart('row');
+  const project = uiInput('text'); project.id = 'new-session-project'; project.maxLength = 4096;
   project.autocomplete = 'off'; project.spellcheck = false; project.placeholder = 'Folder path, or pick one above';
-  const browse = document.createElement('button'); browse.type = 'button'; browse.textContent = 'Browse…'; browse.hidden = !options.browse; folderRow.append(project, browse);
+  const browse = uiButton('Browse…'); browse.hidden = !options.browse; folderRow.append(project, browse);
 
   // 2. Agent: one tap. The select stays in the DOM (visually hidden) as the single source of truth.
-  const harnessLabel = document.createElement('label'); harnessLabel.htmlFor = 'new-session-harness'; harnessLabel.textContent = 'Agent';
-  const harness = document.createElement('select'); harness.id = 'new-session-harness'; harness.className = 'sr-only';
-  const tiles = document.createElement('div'); tiles.id = 'new-session-agents'; tiles.setAttribute('role', 'radiogroup'); tiles.setAttribute('aria-label', 'Agent');
-  const status = document.createElement('p'); status.id = 'new-session-status'; status.setAttribute('role', 'status');
-  const error = document.createElement('p'); error.id = 'new-session-error'; error.setAttribute('role', 'alert'); error.hidden = true;
+  const harnessLabel = uiPart('label', 'Agent'); harnessLabel.htmlFor = 'new-session-harness';
+  const harness = uiSelect(); harness.classList.add('im-visually-hidden'); harness.id = 'new-session-harness';
+  const tiles = uiPart('body'); tiles.id = 'new-session-agents'; tiles.setAttribute('role', 'radiogroup'); tiles.setAttribute('aria-label', 'Agent');
+  const status = uiPart('status'); status.id = 'new-session-status'; status.setAttribute('role', 'status');
+  const error = uiPart('alert'); error.id = 'new-session-error'; error.setAttribute('role', 'alert'); error.hidden = true;
   project.setAttribute('aria-describedby', error.id);
-  const actions = document.createElement('div'); actions.className = 'dialog-actions';
-  const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = 'Cancel';
-  const submit = document.createElement('button'); submit.type = 'submit'; submit.className = 'primary'; submit.textContent = 'Open'; actions.append(cancel, submit);
-  const hint = document.createElement('span'); hint.className = 'new-session-keys'; hint.textContent = 'Enter opens · Esc closes'; actions.prepend(hint);
+  const actions = uiPart('actions');
+  const cancel = uiButton('Cancel');
+  const submit = uiButton('Open', { primary: true }); submit.type = 'submit'; actions.append(cancel, submit);
+  const hint = uiPart('text', 'Enter opens · Esc closes'); actions.prepend(hint);
   form.append(heading, harnessLabel, harness, tiles, projectLabel, folderRow, list, status, error, actions); dialog.append(form);
   (document.querySelector('#app') ?? document.body).append(dialog);
 
@@ -79,36 +79,34 @@ export function createNewSession(options: Options) {
   function clearError() { error.textContent = ''; error.hidden = true; }
   function syncHarness() {
     harness.replaceChildren();
-    for (const choice of choices) { const item = document.createElement('option'); item.value = choice.id; item.textContent = choice.label; harness.append(item); }
+    for (const choice of choices) { const item = uiOption(choice.id, choice.label); harness.append(item); }
   }
   const agentOrder = (id: string) => { const rank = ['claude_code', 'codex', 'opencode'].indexOf(id); return rank < 0 ? (id === 'powershell' ? 99 : 50) : rank; };
   function paintTiles() {
-    tiles.replaceChildren();
-    for (const choice of [...choices].sort((a, b) => agentOrder(a.id) - agentOrder(b.id))) {
-      const tile = document.createElement('button'); tile.type = 'button'; tile.className = 'new-session-agent'; tile.textContent = choice.label;
-      tile.dataset.agent = choice.id; tile.setAttribute('role', 'radio'); tile.setAttribute('aria-checked', String(harness.value === choice.id));
-      tile.disabled = pending === 'open';
-      // The tiles are repainted on every choice, so a double click is read from the click count.
-      tile.onclick = event => {
-        if (pending === 'open') return; harness.value = choice.id; lastHarness = choice.id; clearError(); paintTiles();
-        tiles.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
-        if (event.detail >= 2) void open();
-      };
-      tiles.append(tile);
-    }
+    const group = segmentedControl(document, {
+      label: 'Agent', name: 'session-agent', value: harness.value,
+      choices: [...choices].sort((a, b) => agentOrder(a.id) - agentOrder(b.id))
+        .map(choice => ({ value: choice.id, label: choice.label, disabled: pending === 'open' })),
+      onChange(value) { harness.value = value; lastHarness = value; clearError(); },
+    });
+    for (const [value, input] of group.inputs) { input.classList.add('new-session-agent'); input.dataset.agent = value; }
+    group.element.ondblclick = event => {
+      if (!pending && event.target instanceof Element && event.target.closest('label')) void open();
+    };
+    tiles.replaceChildren(group.element);
   }
   function paintProjects() {
     list.replaceChildren();
     if (!projects.length) {
-      const empty = document.createElement('p'); empty.className = 'hint new-session-empty';
+      const empty = uiPart('hint');
       empty.textContent = pending === 'projects' ? 'Loading projects…' : 'No projects yet. Browse for a folder.'; list.append(empty); return;
     }
     for (const item of projects) {
-      const row = document.createElement('button'); row.type = 'button'; row.className = 'new-session-project-row'; row.setAttribute('role', 'option');
+      const row = uiButton('', { cls: 'new-session-project-row im-choice-row' }); row.setAttribute('role', 'option');
       const selected = samePath(item.path, project.value.trim()); row.setAttribute('aria-selected', String(selected));
       row.disabled = pending === 'open'; row.title = item.path;
-      const name = document.createElement('strong'); name.textContent = folderName(item.path);
-      const path = document.createElement('span'); path.textContent = item.path; row.append(name, path);
+      const name = uiPart('strong', folderName(item.path));
+      const path = uiPart('text', item.path); row.replaceChildren(name, path);
       row.onclick = event => { if (pending) return; project.value = item.path; clearError(); paintProjects(); submit.focus(); if (event.detail >= 2) void open(); };
       list.append(row);
     }

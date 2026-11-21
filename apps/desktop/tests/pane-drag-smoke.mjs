@@ -66,6 +66,45 @@ try {
   expect((await panes()).length).toBe(2);
   passed.push('Alt+Shift+arrow splits a tab off, or moves a pane\'s only tab to the pane on that side');
 
+  for (const id of ['a', 'b', 'c']) {
+    await tab(id).click();
+    expect(await page.evaluate(id => {
+      const original = window.__bindings.get(id);
+      const selected = document.querySelector(`.wm-tab[data-view-id="${id}"]`);
+      return selected.closest('.wm-pane').querySelector('.wm-body').contains(original) && !original.hidden;
+    }, id)).toBe(true);
+  }
+  passed.push('all three original live DOM bindings survive moves, parking and reactivation');
+
+  await page.evaluate(() => window.__threeColumns());
+  const handles = page.getByRole('separator');
+  await expect(handles).toHaveCount(2);
+  await handles.nth(1).focus();
+  await page.keyboard.press('ArrowRight');
+  const weights = () => page.evaluate(() => window.__weights());
+  const adjusted = await weights();
+  expect(adjusted[0]).toBe(1); expect(adjusted[1]).toBeCloseTo(1.1); expect(adjusted[2]).toBeCloseTo(0.9);
+  await page.keyboard.press('Home');
+  expect(await weights()).toEqual([1, 1, 1]);
+  const handle = await handles.first().boundingBox();
+  const x = handle.x + handle.width / 2;
+  const y = handle.y + handle.height / 2;
+  await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + 75, y, { steps: 5 });
+  await page.keyboard.press('Escape'); await page.mouse.up();
+  expect(await weights()).toEqual([1, 1, 1]);
+  await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + 75, y, { steps: 5 }); await page.mouse.up();
+  const resized = await weights();
+  expect(resized[0]).toBeGreaterThan(1); expect(resized[1]).toBeLessThan(1); expect(resized[2]).toBe(1);
+  passed.push('three-way split resizes only adjacent children by keyboard and pointer and restores on Escape');
+
+  await page.evaluate(() => window.__filter('b'));
+  await expect(page.getByRole('tab')).toHaveCount(1);
+  await expect(page.getByText('No b tabs here')).toHaveCount(2);
+  expect(await panes()).toEqual([['a'], ['b'], ['c']]);
+  await page.evaluate(() => window.__filter(null));
+  await expect(page.getByRole('tab')).toHaveCount(3);
+  passed.push('filtering changes the tab strip while preserving the layout');
+
   expect(errors).toEqual([]);
   console.log(passed.map(line => `ok - ${line}`).join('\n'));
 } catch (error) {

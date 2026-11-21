@@ -1,3 +1,4 @@
+import { uiButton, uiPart } from '@acaprino/imago/ui';
 /** The archived lines of one terminal, shown in its own pane over the live screen: a read-only
  * terminal holding a window of `WINDOW_LINES` around the line asked for. "Earlier" and "Later"
  * move the window; Esc or "Back to live" closes it and frees everything it held. The live
@@ -17,12 +18,12 @@ export function openTerminalHistory(options: {
 }) {
   const { host, history } = options;
   host.querySelector('.terminal-history')?.dispatchEvent(new Event('history-close'));
-  const panel = document.createElement('section'); panel.className = 'terminal-history';
+  const panel = uiPart('region'); panel.classList.add('terminal-history');
   panel.setAttribute('aria-label', 'Earlier terminal lines'); panel.style.background = options.background;
-  const bar = document.createElement('div'); bar.className = 'terminal-history-bar';
-  const title = document.createElement('span'); title.className = 'terminal-history-title'; title.setAttribute('role', 'status');
-  const earlier = button('Earlier'); const later = button('Later'); const live = button('Back to live');
-  live.classList.add('primary'); bar.append(title, earlier, later, live);
+  const bar = uiPart('toolbar'); bar.classList.add('terminal-history-bar');
+  const title = uiPart('status'); title.classList.add('terminal-history-title'); title.setAttribute('role', 'status');
+  const earlier = uiButton('Earlier'); const later = uiButton('Later'); const live = uiButton('Back to live', { primary: true });
+  bar.setAttribute('aria-label', 'Terminal history'); bar.append(title, earlier, later, live);
   const screen = document.createElement('div'); screen.className = 'terminal-history-screen';
   panel.append(bar, screen); host.append(panel);
   const terminal = new Terminal({ ...options.terminalOptions, disableStdin: true, cursorBlink: false,
@@ -65,8 +66,4 @@ export function openTerminalHistory(options: {
   const observer = new ResizeObserver(() => { if (!closed) fit.fit(); }); observer.observe(screen);
   void show(options.line, 'line').then(() => { if (!closed) terminal.focus(); });
   return { close };
-}
-
-function button(label: string) {
-  const element = document.createElement('button'); element.type = 'button'; element.textContent = label; return element;
 }

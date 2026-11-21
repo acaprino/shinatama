@@ -81,8 +81,8 @@ export async function showProject(page, projectId) {
   const group = page.locator(`.thread-sidebar-group[data-project-id="${projectId}"]`);
   if (!await group.count()) {
     await page.locator('#project').click();
-    await page.locator(`#project-menu .toolbar-menu-tick[data-project-id="${projectId}"]`).click();
-    await page.keyboard.press('Escape');
+    await page.locator(`#project-menu [data-im-mark="${projectId}"]`).click();
+    await page.locator('#project').click();
   }
   await until(() => group.isVisible(), 10000, 'The project did not appear in the thread sidebar.');
 }

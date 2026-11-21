@@ -98,8 +98,8 @@ try {
   // 5. Turning a thread off closes it without deleting it (owner, 2026-11-18): after asking, its running
   //    session stops and its tab leaves; turned on again, the session is back as a tab that is not running.
   await rowOf(threadB).click();
-  await expect(page.locator('#confirm-title')).toHaveText('Turn the thread off?');
-  await page.locator('#confirm-dialog button[value="stop"]').click();
+  await expect(page.getByRole('alertdialog', { name: 'Turn the thread off?', exact: true })).toBeVisible();
+  await page.getByRole('alertdialog', { name: 'Turn the thread off?', exact: true }).getByRole('button', { name: 'Turn off', exact: true }).click();
   await expect(tabs).toHaveCount(2, { timeout: 15000 });
   await expect(rowOf(threadB)).toHaveAttribute('aria-pressed', 'false');
   expect(await terminals()).toBe(2);
@@ -111,13 +111,13 @@ try {
   await rowOf(threadB).click();
   await expect(tabs).toHaveCount(2, { timeout: 15000 });
   await expect(rowOf(threadB)).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.locator('#confirm-dialog')).not.toHaveAttribute('open', '');
+  await expect(page.getByRole('alertdialog', { name: 'Turn the thread off?', exact: true })).toHaveCount(0);
   await shot('3-first-thread-only');
 
   // 6. Closing a session stops it and keeps it: no tab, listed under Closed sessions, never deleted.
   await page.locator('.wm-tab-close').first().click({ force: true });
-  await expect(page.locator('#confirm-title')).toHaveText('Close session?');
-  await page.locator('#confirm-dialog button[value="stop"]').click();
+  await expect(page.getByRole('dialog', { name: 'Close session?', exact: true })).toBeVisible();
+  await page.getByRole('dialog', { name: 'Close session?', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
   await expect(tabs).toHaveCount(1, { timeout: 15000 });
   expect(await terminals()).toBe(1);
   const closed = page.locator('.thread-sidebar-details');
@@ -175,9 +175,9 @@ try {
 
   // 10. A clean restart turns on the threads that were on, with the window's two columns, their sessions not running, nothing started.
   await page.getByRole('button', { name: 'Close window', exact: true }).click();
-  await expect(page.locator('#confirm-title')).toHaveText('Close workspace?');
+  await expect(page.getByRole('alertdialog', { name: 'Close workspace?', exact: true })).toBeVisible();
   const gone = new Promise(accept => app.once('exit', accept));
-  await page.locator('#confirm-dialog button[value="stop"]').click();
+  await page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Stop', exact: true }).click();
   expect(await Promise.race([gone, delay(20000).then(() => 'timeout')])).toBe(0);
   await browser.close().catch(() => {});
   await launch(); bind();

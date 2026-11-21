@@ -1,3 +1,4 @@
+import { uiButton, uiPart } from '@acaprino/imago/ui';
 import { invoke } from '@tauri-apps/api/core';
 import { openModal, openSheet } from './modal.ts';
 import { beginMutation, browseFolder, cancelMutation, createCatalogClient, createRequestId, orderedCandidates, saveRoots,
@@ -147,14 +148,14 @@ export function createProjectPicker(options: Options) {
     options.onSelected(project.path, true); dialog.close();
   }
   function projectButton(project: Project | Candidate, className: string) {
-    const row = document.createElement('div'); row.setAttribute('role', 'listitem');
-    const button = document.createElement('button'); button.type = 'button'; button.className = className;
+    const row = uiPart('row'); row.setAttribute('role', 'listitem');
+    const button = uiButton(''); button.replaceChildren(); button.classList.add(className);
     button.dataset.path = project.path;
     button.disabled = !project.available || saving; button.title = project.path;
-    const name = document.createElement('strong'); name.textContent = project.name;
-    const path = document.createElement('span'); path.textContent = project.path;
+    const name = uiPart('strong'); name.textContent = project.name;
+    const path = uiPart('text'); path.textContent = project.path;
     button.append(name, path);
-    if (!project.available) { const label = document.createElement('small'); label.textContent = 'Folder unavailable'; button.append(label); }
+    if (!project.available) { const label = uiPart('hint'); label.textContent = 'Folder unavailable'; button.append(label); }
     button.onclick = () => { void select(project.path); };
     row.append(button); return row;
   }
@@ -170,7 +171,7 @@ export function createProjectPicker(options: Options) {
     const noHistory = !recentList.childElementCount && !query;
     $('#recent-project-heading').hidden = noHistory; recentList.hidden = noHistory;
     if (!recentList.childElementCount && query) {
-      const empty = document.createElement('p'); empty.className = 'hint'; empty.textContent = 'No matching folders.';
+      const empty = uiPart('hint'); empty.textContent = 'No matching folders.';
       recentList.append(empty);
     }
     projectList.replaceChildren();
@@ -202,20 +203,20 @@ export function createProjectPicker(options: Options) {
   }
   function rootRow(root: { id: string; path: string }, index: number, scanned: CatalogRoot | undefined) {
     const isDefault = config?.defaultRootId === root.id;
-    const row = document.createElement('div'); row.setAttribute('role', 'listitem');
-    row.className = `catalog-root-status ${scanned?.state ?? 'scanning'}`; row.dataset.rootId = root.id;
+    const row = uiPart('row'); row.setAttribute('role', 'listitem');
+    row.classList.add('catalog-root-status', scanned?.state ?? 'scanning'); row.dataset.rootId = root.id;
     if (scanned?.message) row.title = scanned.message;
-    const text = document.createElement('div'); text.className = 'root-text';
-    const path = document.createElement('span'); path.textContent = root.path; path.title = root.path;
-    const state = document.createElement('small');
+    const text = uiPart('stack');
+    const path = uiPart('text'); path.textContent = root.path; path.title = root.path;
+    const state = uiPart('hint');
     state.textContent = !scanned ? 'Scanning…' : scanned.state === 'ready' ? `${scanned.projectCount} ${scanned.projectCount === 1 ? 'project' : 'projects'}` : stateLabels[scanned.state];
     text.append(path, state);
-    const star = document.createElement('button'); star.type = 'button'; star.className = 'root-default';
+    const star = uiButton(''); star.classList.add('root-default');
     star.textContent = isDefault ? 'Default' : 'Make default'; star.setAttribute('aria-pressed', String(isDefault));
     star.title = isDefault ? 'New projects are created in this root' : 'Create new projects in this root';
     star.setAttribute('aria-label', `${isDefault ? 'Default root' : 'Make default'}: ${root.path}`);
     star.disabled = saving || !configFresh || isDefault; star.onclick = () => { void writeRoots(config!.roots.map(entry => ({ ...entry })), index); };
-    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'root-remove'; remove.textContent = 'Remove';
+    const remove = uiButton('Remove', { danger: true }); remove.classList.add('root-remove');
     remove.setAttribute('aria-label', `Remove root ${root.path}`); remove.title = 'Stop listing this root. The folder itself is not touched.';
     remove.disabled = saving || !configFresh; remove.onclick = () => { void removeRoot(index); };
     row.append(text, star, remove); return row;
@@ -224,7 +225,7 @@ export function createProjectPicker(options: Options) {
     const roots = config?.roots ?? [];
     rootList.replaceChildren(...roots.map((root, index) => rootRow(root, index, catalog?.roots.find(entry => entry.id === root.id))));
     if (!roots.length) {
-      const empty = document.createElement('p'); empty.className = 'root-empty';
+      const empty = uiPart('hint'); empty.classList.add('root-empty');
       empty.textContent = configLoading ? 'Reading project roots…' : 'No root yet. Choose the folder that holds your projects.';
       rootList.append(empty);
     }
@@ -233,7 +234,7 @@ export function createProjectPicker(options: Options) {
     const blocked = saving || !config || !configFresh;
     $<HTMLButtonElement>('#choose-root').disabled = blocked || roots.length >= 16;
     // Choosing a root is the call to action only until there is one; then picking a project is.
-    $('#choose-root').classList.toggle('primary', !roots.length);
+    $('#choose-root').classList.toggle('im-btn--primary', !roots.length);
     $<HTMLButtonElement>('#add-root').disabled = blocked || roots.length >= 16;
     form.classList.toggle('no-roots', !configLoading && !roots.length);
   }

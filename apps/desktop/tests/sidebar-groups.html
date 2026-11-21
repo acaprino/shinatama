@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-im-app="shinatama" data-im-look="smooth" data-im-theme="dark">
 <head>
 <meta charset="utf-8">
 <title>Sidebar groups fixture</title>
@@ -9,7 +9,7 @@
 <!-- Only the thread sidebar: the real component, threads of two projects served from memory. -->
 <div id="host"></div>
 <script type="module">
-import '/src/styles.css';
+import '@acaprino/imago/css/imago.css';
 import { createWorksetSidebar } from '/src/workset-sidebar.ts';
 import { createToneKeeper } from '/src/thread-tone.ts';
 const tones = createToneKeeper();

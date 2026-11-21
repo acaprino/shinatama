@@ -1,8 +1,0 @@
-.toolbar { overflow-x: auto; scrollbar-width: thin; }
-.toolbar > button { flex-shrink: 0; }
-.terminal-resources { color: var(--text-2); white-space: nowrap; }
-@media (max-width: 1100px) { .toolbar .workspace-name, .toolbar .spring { display: none; } }
-#settings-dialog .presentation-follow { display: flex; align-items: center; gap: 8px; margin: 16px 0 8px; font: 13px var(--mono); line-height: 1.5; letter-spacing: 0; text-transform: none; color: var(--text); }
-#settings-dialog #presentation-follow { width: auto; height: auto; padding: 0; }
-#presentation-status { min-height: 2em; color: var(--text-2); font-size: 12px; }
-#settings-dialog #presentation-skin:disabled { opacity: .5; }

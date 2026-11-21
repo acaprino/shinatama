@@ -12,31 +12,23 @@
 //! error page ("can't reach this page") is off: it has no way back into the app. A page is
 //! reloaded at most three times a minute; past that the main window asks the user, so a page
 //! that fails at once cannot reload forever.
+use imago_shell::{ProcessFailure, guard_navigation, watch_process_failures};
 use std::{
     sync::{
         Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
     time::{Duration, Instant},
 };
 use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewWindow};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
-use webview2_com::{
-    Microsoft::Web::WebView2::Win32::{
-        COREWEBVIEW2_PROCESS_FAILED_KIND, COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED,
-        COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_EXITED,
-        COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_UNRESPONSIVE,
-        COREWEBVIEW2_WEB_ERROR_STATUS, COREWEBVIEW2_WEB_ERROR_STATUS_OPERATION_CANCELED,
-    },
-    NavigationCompletedEventHandler, ProcessFailedEventHandler,
-};
 
-/// True from the loss of the browser process until the windows are built again. While it is
-/// set, the destruction of the windows is not the end of the application.
-static RECOVERING: AtomicBool = AtomicBool::new(false);
+/// Even generations identify a live set of webviews. The following odd generation
+/// covers destruction and reconstruction. Delayed reports from a dead set are stale.
+static GENERATION: AtomicU64 = AtomicU64::new(0);
 
 pub fn recovering() -> bool {
-    RECOVERING.load(Ordering::Acquire)
+    GENERATION.load(Ordering::Acquire) % 2 == 1
 }
 
 /// Builds one configured window and watches its webview.
@@ -52,10 +44,20 @@ pub fn build(
         config.theme = theme;
     }
     let config = &config;
-    let window = tauri::WebviewWindowBuilder::from_config(app, config)?
-        .on_navigation(crate::native_frame::navigation_policy(app))
-        .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny)
-        .build()?;
+    // Imago always allows the embedded frontend. Only development adds the configured server.
+    let dev_origin = app
+        .config()
+        .build
+        .dev_url
+        .as_ref()
+        .filter(|_| tauri::is_dev())
+        .map(|url| url.as_str());
+    let origins: Vec<&str> = dev_origin.into_iter().collect();
+    let window = guard_navigation(
+        tauri::WebviewWindowBuilder::from_config(app, config)?,
+        &origins,
+    )
+    .build()?;
     watch(&window);
     crate::native_frame::prepare(&window);
     // A window built hidden (the alert widget) holds only what it needs until shown.
@@ -70,57 +72,33 @@ pub fn build(
 }
 
 fn watch(window: &WebviewWindow) {
-    let app = window.app_handle().clone();
-    let failed = window.clone();
-    let loaded = window.clone();
-    let _ = window.with_webview(move |webview| {
-        // SAFETY: called on the thread that owns the webview, on live COM objects.
-        unsafe {
-            let Ok(core) = webview.controller().CoreWebView2() else {
-                return;
-            };
-            // WebView2's default is TRUE. From the next navigation a failed load shows a blank
-            // page, and NavigationCompleted below takes over.
-            if let Ok(settings) = core.Settings() {
-                let _ = settings.SetIsBuiltInErrorPageEnabled(false);
-            }
-            let handler = ProcessFailedEventHandler::create(Box::new(move |_, args| {
-                let mut kind = COREWEBVIEW2_PROCESS_FAILED_KIND::default();
-                if let Some(args) = args {
-                    args.ProcessFailedKind(&mut kind)?;
-                }
-                if kind == COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED {
-                    // Each webview reports the same loss; the first report rebuilds them all.
-                    if !RECOVERING.swap(true, Ordering::AcqRel) {
-                        let app = app.clone();
-                        // Windows are destroyed and built off the thread that runs this callback.
-                        std::thread::spawn(move || rebuild(&app));
-                    }
-                } else if kind == COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_EXITED {
-                    reload_or_ask(&failed, Failure::Stopped);
-                } else if kind == COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_UNRESPONSIVE {
-                    ask(&failed, Failure::Unresponsive);
-                }
-                Ok(())
-            }));
-            let mut token = 0i64;
-            let _ = core.add_ProcessFailed(&handler, &mut token);
-            let handler = NavigationCompletedEventHandler::create(Box::new(move |_, args| {
-                let Some(args) = args else { return Ok(()) };
-                let mut success = windows_core::BOOL(1);
-                args.IsSuccess(&mut success)?;
-                let mut status = COREWEBVIEW2_WEB_ERROR_STATUS::default();
-                args.WebErrorStatus(&mut status)?;
-                // Cancelled is not failed: a navigation the policy refused, or one a newer replaced.
-                if !success.as_bool()
-                    && status != COREWEBVIEW2_WEB_ERROR_STATUS_OPERATION_CANCELED
-                    && !recovering()
+    let watched = window.clone();
+    let generation = GENERATION.load(Ordering::Acquire).next_multiple_of(2);
+    let _ = watch_process_failures(window, move |failure| {
+        if GENERATION.load(Ordering::Acquire) != generation {
+            return;
+        }
+        match failure {
+            ProcessFailure::Browser => {
+                // Every webview reports the same loss, on its own worker thread.
+                if GENERATION
+                    .compare_exchange(
+                        generation,
+                        generation + 1,
+                        Ordering::AcqRel,
+                        Ordering::Acquire,
+                    )
+                    .is_ok()
                 {
-                    reload_or_ask(&loaded, Failure::NotLoaded(status.0));
+                    rebuild(watched.app_handle());
                 }
-                Ok(())
-            }));
-            let _ = core.add_NavigationCompleted(&handler, &mut token);
+            }
+            ProcessFailure::Renderer => reload_or_ask(&watched, Failure::Stopped),
+            ProcessFailure::NotLoaded(status) => {
+                reload_or_ask(&watched, Failure::NotLoaded(status))
+            }
+            ProcessFailure::Unresponsive => ask(&watched, Failure::Unresponsive),
+            ProcessFailure::Other => {}
         }
     });
 }
@@ -268,5 +246,5 @@ fn rebuild(app: &AppHandle) {
         }
         let _ = window.set_focus();
     }
-    RECOVERING.store(false, Ordering::Release);
+    GENERATION.fetch_add(1, Ordering::Release);
 }

@@ -109,6 +109,7 @@ try {
     Invoke-Verification 'python-tests' 'python' @('-m', 'unittest', 'discover', '-s', 'scripts', '-p', 'test_*.py')
     Invoke-Verification 'frontend-tests' 'npm.cmd' @('test')
     Invoke-Verification 'frontend-build' 'npm.cmd' @('run', 'build')
+    Invoke-Verification 'imago-desktop-smoke' 'npm.cmd' @('run', 'test:imago') -Needs @('frontend-build')
     Invoke-Verification 'dependencies' 'python' @('scripts/dependencies.py', 'check')
     Invoke-Verification 'rust-format' 'cargo' @('fmt', '--all', '--check')
     # A whole-workspace compile from nothing takes longer than the 15 minutes of the other checks.

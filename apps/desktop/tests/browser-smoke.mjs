@@ -72,8 +72,8 @@ try {
 
   // Files panel → Browser button on a local document.
   await page.locator('#open-files').click();
-  await page.locator('#files-dialog .files-row', { hasText: 'site' }).first().click();
-  await page.locator('#files-dialog .files-row', { hasText: 'index.html' }).first().click();
+  await page.locator('#files-dialog [role=treeitem]', { hasText: 'site' }).first().click();
+  await page.locator('#files-dialog [role=treeitem]', { hasText: 'index.html' }).first().click();
   const button = page.locator('#files-dialog button', { hasText: 'Browser' });
   await button.waitFor({ state: 'visible', timeout: 10000 });
   const opened = Date.now();

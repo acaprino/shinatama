@@ -101,9 +101,9 @@ try {
   // 2. The drawer opens with full access on; its index reaches every section, in order.
   await openSettings();
   await expect(page.locator('#settings-full-access')).toBeChecked();
-  const sections = ['appearance', 'agents', 'models', 'memory', 'alerts', 'github', 'variables', 'sessions'];
+  const sections = ['appearance', 'agents', 'models', 'memory', 'alerts', 'github', 'variables', 'sessions', 'plugins'];
   const links = page.locator('#settings-dialog .settings-index-link');
-  await expect(links).toHaveText(['Appearance', 'Agents', 'Models', 'Memory', 'Alerts', 'GitHub', 'Variables', 'Sessions']);
+  await expect(links).toHaveText(['Appearance', 'Agents', 'Models', 'Memory', 'Alerts', 'GitHub', 'Variables', 'Sessions', 'Plugins']);
   for (const [index, id] of sections.entries()) {
     await links.nth(index).click();
     await expect(page.locator(`#settings-section-${id}-title`)).toBeFocused();

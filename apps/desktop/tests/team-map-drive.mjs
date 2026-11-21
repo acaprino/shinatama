@@ -137,6 +137,8 @@ export async function driveTeamMap(page, expect, log = console.log) {
 
   // The empty map and its hint.
   await expect(map).toBeVisible();
+  await expect(map).toHaveAttribute('data-loaded', 'true');
+  await expect(map.locator('dialog[open]')).toHaveCount(0);
   await expect(map.locator('.team-hint')).toBeVisible();
   await expect(map.locator('.team-session')).toHaveCount(3);
   await expect(bar('Apply')).toBeDisabled();
@@ -165,6 +167,24 @@ export async function driveTeamMap(page, expect, log = console.log) {
   await byId(planner).locator('.team-card-name').dragTo(canvas, { targetPosition: { x: 300, y: 60 } });
   expect(await count('team_place')).toBe(0);
   log('ok sessions dropped, added from the keyboard, and a card moved without team_place while something is pending');
+
+  // Escape cancels the current pointer capture and retains the draft on release.
+  const position = [await left(planner), await top(planner)];
+  const handle = await byId(planner).locator('.team-card-name').boundingBox();
+  await page.mouse.move(handle.x + 2, handle.y + 2);
+  await page.mouse.down();
+  await page.mouse.move(handle.x + 28, handle.y + 28, { steps: 3 });
+  await expect(byId(planner)).toHaveAttribute('data-lifted', '');
+  await page.keyboard.press('Escape'); await page.mouse.up();
+  expect([await left(planner), await top(planner)]).toEqual(position);
+  const port = await byId(planner).locator('.team-port').boundingBox();
+  await page.mouse.move(port.x + port.width / 2, port.y + port.height / 2);
+  await page.mouse.down(); await page.mouse.move(port.x + 50, port.y + 30, { steps: 3 });
+  await expect(map.locator('.im-editor-preview')).toHaveCount(1);
+  await page.keyboard.press('Escape'); await page.mouse.up();
+  await expect(map.locator('.im-editor-preview')).toHaveCount(0);
+  await expect(map.locator('.team-link')).toHaveCount(0);
+  log('ok Escape cancels a move or connection preview without changing the draft');
 
   // Pulling the → onto a card draws a work arrow and opens its box.
   await pull(planner, builder);
@@ -424,7 +444,7 @@ const tools = (page, expect) => {
     if (await agentBox.isVisible()) await agentBox.getByRole('button', { name: 'Close the agent box' }).click();
     await byId(from).locator('.team-port').dragTo(byId(to));
   };
-  const row = name => menu.locator('.team-template').filter({ has: page.locator('.team-template-text b', { hasText: new RegExp(`^${name}$`) }) });
+  const row = name => menu.locator('.team-template').filter({ has: page.locator('.team-template-text strong', { hasText: new RegExp(`^${name}$`) }) });
   const save = menu.getByRole('button', { name: 'Save this team', exact: true });
   return { map, bar, byName, idOf, byId, link, box, agentBox, menu, chip, calls, openLink, pull, row, save };
 };
@@ -447,6 +467,7 @@ export async function driveTemplateSave(page, expect, log = console.log) {
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
   await expect(bar('Templates ▾')).toBeFocused();
+  await expect(page.locator('dialog[open]')).toHaveCount(0);
   log('ok the Templates menu opens empty, Save waits for a name, Escape closes it');
 
   // An error of the checks blocks Save: the engine decides, the window only says so.
@@ -468,8 +489,8 @@ export async function driveTemplateSave(page, expect, log = console.log) {
   await save.click();
   await expect(menu.locator('.team-template')).toHaveCount(1);
   await expect(row('Review crew').locator('.team-template-text span')).toHaveText('3 agents');
-  await expect(row('Review crew').locator('.team-mini-card')).toHaveCount(3);
-  await expect(row('Review crew').locator('.team-mini-line')).toHaveCount(2);
+  await expect(row('Review crew').locator('.im-graph-mini-node')).toHaveCount(3);
+  await expect(row('Review crew').locator('.im-graph-mini-edge')).toHaveCount(2);
   await expect(menu.locator('.team-template-said')).toHaveText('Saved “Review crew”.');
   await menu.getByLabel('Name of the template').fill('REVIEW crew');
   await save.click();
@@ -499,7 +520,7 @@ export async function driveTemplateListed(page, expect, log = console.log) {
   await expect(menu).toBeVisible();
   await expect(menu.locator('.team-template')).toHaveCount(1);
   await expect(row('Review crew').locator('.team-template-text span')).toHaveText('3 agents');
-  await expect(row('Review crew').locator('.team-mini-card')).toHaveCount(3);
+  await expect(row('Review crew').locator('.im-graph-mini-node')).toHaveCount(3);
   await page.keyboard.press('Escape');
   log('ok the template is listed after a restart of the window');
 }

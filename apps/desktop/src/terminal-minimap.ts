@@ -1,3 +1,4 @@
+import { uiButton } from '@acaprino/imago/ui';
 /** The strip at a terminal's right edge, in place of its scrollbar: the scrollback in miniature.
  * Each line is a bar from its indent to its end (80 cells fill the strip), a few pixels apart while
  * the scrollback is short and one pixel row for several lines once it is longer than the strip; a
@@ -87,7 +88,7 @@ export function createTerminalMinimap(options: {
   const archiveBand = document.createElement('div'); archiveBand.className = 'terminal-minimap-archive'; archiveBand.hidden = true;
   const frame = document.createElement('div'); frame.className = 'terminal-minimap-view';
   strip.append(archiveBand, canvas, frame);
-  const earlier = document.createElement('button'); earlier.type = 'button'; earlier.className = 'terminal-earlier'; earlier.hidden = true;
+  const earlier = uiButton('Earlier', { sm: true, cls: 'terminal-earlier' }); earlier.hidden = true;
   earlier.onclick = () => options.openHistory(Math.max(0, history.archive.lines() - 1));
   host.classList.add('has-minimap'); host.append(strip, earlier);
   let timer = 0; let disposed = false;

@@ -57,7 +57,7 @@ if ($process.ProcessName -ne 'shinatama-desktop') { throw 'Expected the Shinatam
 $main = $process.MainWindowHandle
 if ($main -eq 0) { throw 'The test window has no native handle' }
 $P = [NativeFrameProbe]
-$overlay = $P::FindWindowExW($main, [IntPtr]::Zero, 'ShinatamaMaximizeOverlay', [NullString]::Value)
+$overlay = $P::FindWindowExW($main, [IntPtr]::Zero, 'ImagoMaximizeOverlay', [NullString]::Value)
 function Center {
   $r = New-Object NativeFrameProbe+Rect; [void]$P::GetWindowRect($overlay, [ref]$r)
   [IntPtr](((([int](($r.Top + $r.Bottom) / 2)) -band 0xFFFF) -shl 16) -bor (([int](($r.Left + $r.Right) / 2)) -band 0xFFFF))

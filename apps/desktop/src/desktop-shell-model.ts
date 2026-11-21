@@ -1,3 +1,5 @@
+import { clampZoom, stepZoom, zoomDirection } from '@acaprino/imago/shell';
+
 // Decisions of the desktop shell (desktop-shell.ts) that need no window: which keys zoom,
 // where the engine's context menu and Select All stay. Kept free of Tauri imports for tests.
 
@@ -10,25 +12,18 @@ export interface KeyLike { readonly key: string; readonly code: string; readonly
 
 /** Ctrl+= / Ctrl++ / Ctrl+- / Ctrl+0, by character or by physical key, on any layout. */
 export function zoomCommand(event: KeyLike): ZoomCommand | null {
-  if (!event.ctrlKey || event.altKey || event.metaKey) return null;
-  if (event.key === '+' || event.key === '=' || event.code === 'NumpadAdd' || (!event.shiftKey && event.code === 'Equal')) return 'in';
-  if (event.shiftKey) return null;
-  if (event.key === '-' || event.code === 'NumpadSubtract' || event.code === 'Minus') return 'out';
-  if (event.key === '0' || event.code === 'Digit0' || event.code === 'Numpad0') return 'reset';
-  return null;
+  const direction = zoomDirection(event);
+  return direction === null ? null : direction === 0 ? 'reset' : direction === 1 ? 'in' : 'out';
 }
 
 /** The next level from any current one, including a level saved by an older step list. */
 export function nextZoom(current: number, command: ZoomCommand): number {
-  if (command === 'reset') return 1;
-  if (command === 'in') return ZOOM_STEPS.find(step => step > current + 0.001) ?? ZOOM_STEPS.at(-1)!;
-  return [...ZOOM_STEPS].reverse().find(step => step < current - 0.001) ?? ZOOM_STEPS[0];
+  return stepZoom(current, command === 'in' ? 1 : command === 'out' ? -1 : 0, ZOOM_STEPS);
 }
 
 /** A saved level, or 100% when it is missing or not one the app offers. */
 export function savedZoom(stored: string | null): number {
-  const value = Number(stored);
-  return ZOOM_STEPS.some(step => Math.abs(step - value) < 0.001) ? value : 1;
+  return clampZoom(Number(stored), ZOOM_STEPS);
 }
 
 /** Fields, editors, terminals and the browser tab keep their own keys and menus. */

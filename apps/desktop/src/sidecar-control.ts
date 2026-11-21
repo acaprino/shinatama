@@ -1,3 +1,4 @@
+import { uiPart, uiButton } from '@acaprino/imago/ui';
 import { invoke } from '@tauri-apps/api/core';
 import { sidePanel } from './modal.ts';
 import { adoptStopReply, archiveLine, buttons, confirmStillNeeded, diskLine, driftLine, exitLine, faultLine, indicator, messageLine, parseStatus, phaseLabel, restartOffered, showsTraffic, stallLine, startLabel, stopConsequence, trafficLine, type ProxyStatus } from './sidecar-status.ts';
@@ -8,49 +9,48 @@ const POLL_MS = 1500;
  * confirmations before a costly stop or a restart are inline, inside the panel. `restart` closes the
  * workspace and starts Shinatama again: the exit that works when the supervisor no longer answers. */
 export function createSidecarControl(desktop: boolean, notify: (message: string) => void, restart: () => Promise<void>) {
-  const el = <K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}) => Object.assign(document.createElement(tag), props);
   // The toolbar shows a traffic light, not a labelled button: the phase is in its accessible name
   // and tooltip, and a click still opens the panel.
-  const button = el('button', { id: 'model-proxy', type: 'button', className: 'proxy-indicator', disabled: !desktop });
+  const button = Object.assign(uiButton(''), { id: 'model-proxy', disabled: !desktop });
   button.setAttribute('aria-controls', 'model-proxy-panel'); button.setAttribute('aria-expanded', 'false');
-  button.append(el('span', { className: 'lamp' }));
+  const lamp = uiPart('text', undefined, 'im-signal'); button.replaceChildren(lamp);
   document.querySelector('.toolbar')?.append(button);
 
-  const panel = el('aside', { id: 'model-proxy-panel', hidden: true });
+  const panel = Object.assign(uiPart('aside', undefined, 'im-docked-inspector'), { id: 'model-proxy-panel', hidden: true });
   panel.setAttribute('aria-labelledby', 'model-proxy-title');
-  const close = el('button', { type: 'button', textContent: '×' }); close.setAttribute('aria-label', 'Close Model proxy');
-  const heading = el('div', { className: 'dialog-heading' });
-  heading.append(el('h1', { id: 'model-proxy-title', textContent: 'Model proxy' }), close);
-  const description = el('p', { textContent: 'Every agent reaches its model through this local service. Recovery never resends an agent request.' });
-  const state = el('p', { id: 'model-proxy-state', tabIndex: -1 }); state.setAttribute('role', 'status');
-  const traffic = el('p', { className: 'hint' });
-  const message = el('p', { className: 'hint' });
-  const stall = el('p', { className: 'hint' });
-  const fault = el('p', { className: 'hint' });
-  const disk = el('p', { className: 'hint' });
-  const archive = el('p', { className: 'hint' });
-  const drift = el('p', { className: 'hint' });
-  const interruption = el('p', { className: 'hint' });
-  const confirm = el('div', { id: 'model-proxy-confirm', hidden: true }); confirm.setAttribute('role', 'group'); confirm.setAttribute('aria-label', 'Confirm stop');
-  const consequence = el('p');
-  const keep = el('button', { type: 'button', textContent: 'Keep running', className: 'primary' });
-  const stopAnyway = el('button', { type: 'button', textContent: 'Stop anyway' });
-  const choices = el('div', { className: 'proxy-actions' }); choices.append(stopAnyway, keep);
+  const close = uiButton('×'); close.setAttribute('aria-label', 'Close Model proxy');
+  const heading = uiPart('row', undefined, 'dialog-heading');
+  heading.append(Object.assign(uiPart('title', 'Model proxy'), { id: 'model-proxy-title' }), close);
+  const description = uiPart('paragraph', 'Every agent reaches its model through this local service. Recovery never resends an agent request.');
+  const state = Object.assign(uiPart('status'), { id: 'model-proxy-state', tabIndex: -1 }); state.setAttribute('role', 'status');
+  const traffic = uiPart('hint');
+  const message = uiPart('hint');
+  const stall = uiPart('hint');
+  const fault = uiPart('hint');
+  const disk = uiPart('hint');
+  const archive = uiPart('hint');
+  const drift = uiPart('hint');
+  const interruption = uiPart('hint');
+  const confirm = Object.assign(uiPart('panel'), { id: 'model-proxy-confirm', hidden: true }); confirm.setAttribute('role', 'group'); confirm.setAttribute('aria-label', 'Confirm stop');
+  const consequence = uiPart('paragraph');
+  const keep = uiButton('Keep running', { primary: true });
+  const stopAnyway = uiButton('Stop anyway');
+  const choices = uiPart('actions'); choices.append(stopAnyway, keep);
   confirm.append(consequence, choices);
-  const restartConfirm = el('div', { id: 'model-proxy-restart', hidden: true }); restartConfirm.setAttribute('role', 'group'); restartConfirm.setAttribute('aria-label', 'Confirm restart');
-  const restartText = el('p', { textContent: 'Shinatama will close and start again. Running terminals stop; their sessions are restored at the next start.' });
-  const restartNow = el('button', { type: 'button', textContent: 'Restart Shinatama', className: 'danger' });
-  const keepWaiting = el('button', { type: 'button', textContent: 'Keep waiting', className: 'primary' });
-  const restartChoices = el('div', { className: 'proxy-actions' }); restartChoices.append(restartNow, keepWaiting);
+  const restartConfirm = Object.assign(uiPart('panel'), { id: 'model-proxy-restart', hidden: true }); restartConfirm.setAttribute('role', 'group'); restartConfirm.setAttribute('aria-label', 'Confirm restart');
+  const restartText = uiPart('paragraph', 'Shinatama will close and start again. Running terminals stop; their sessions are restored at the next start.');
+  const restartNow = uiButton('Restart Shinatama', { cls: 'danger', danger: true });
+  const keepWaiting = uiButton('Keep waiting', { primary: true });
+  const restartChoices = uiPart('actions'); restartChoices.append(restartNow, keepWaiting);
   restartConfirm.append(restartText, restartChoices);
-  const actions = el('div', { className: 'proxy-actions' });
-  const start = el('button', { type: 'button', className: 'primary' });
-  const stop = el('button', { type: 'button', textContent: 'Stop' });
-  const retry = el('button', { type: 'button', textContent: 'Retry recovery' });
-  const restartOffer = el('button', { type: 'button', textContent: 'Restart Shinatama', className: 'danger', hidden: true });
+  const actions = uiPart('actions');
+  const start = uiButton('', { primary: true });
+  const stop = uiButton('Stop');
+  const retry = uiButton('Retry recovery');
+  const restartOffer = Object.assign(uiButton('Restart Shinatama', { cls: 'danger', danger: true }), { hidden: true });
   actions.append(stop, retry, restartOffer, start);
   panel.append(heading, description, state, traffic, message, stall, fault, disk, archive, interruption, drift, confirm, restartConfirm, actions);
-  (document.querySelector('#app') ?? document.body).append(panel);
+  (document.querySelector('#work-area') ?? document.querySelector('#app') ?? document.body).append(panel);
 
   let current: ProxyStatus | null = null; let outstanding = false; let destroyed = false; let confirming = false;
   // Status reads that failed in a row: three mean the panel can no longer see the proxy's owner.
@@ -59,6 +59,7 @@ export function createSidecarControl(desktop: boolean, notify: (message: string)
   function render() {
     const phase = current?.phase ?? 'unavailable';
     const shown = indicator(current);
+    lamp.dataset.imTone = { green: 'ok', amber: 'warn', red: 'err', off: '' }[shown.tone];
     button.dataset.tone = shown.tone; button.setAttribute('aria-label', shown.label); button.title = shown.label;
     state.textContent = current?.stalled ? 'Not reporting' : phaseLabel(phase);
     const running = current !== null && showsTraffic(phase);
