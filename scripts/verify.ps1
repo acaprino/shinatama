@@ -110,6 +110,9 @@ try {
     Invoke-Verification 'frontend-tests' 'npm.cmd' @('test')
     Invoke-Verification 'frontend-build' 'npm.cmd' @('run', 'build')
     Invoke-Verification 'imago-desktop-smoke' 'npm.cmd' @('run', 'test:imago') -Needs @('frontend-build')
+    # The real tiling renderer and layout model in headless Edge: drag, keyboard, three-way split, and the
+    # live DOM bindings a terminal or editor keeps across moves and parking. No app build is needed.
+    Invoke-Verification 'pane-drag-smoke' 'npm.cmd' @('run', 'test:drag')
     Invoke-Verification 'dependencies' 'python' @('scripts/dependencies.py', 'check')
     Invoke-Verification 'rust-format' 'cargo' @('fmt', '--all', '--check')
     # A whole-workspace compile from nothing takes longer than the 15 minutes of the other checks.
