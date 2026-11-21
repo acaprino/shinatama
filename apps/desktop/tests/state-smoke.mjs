@@ -14,7 +14,10 @@ const tmpdir = () => realpathSync.native(systemTmpdir());
 
 if (process.platform !== 'win32') throw new Error('This embedded WebView2 state check is Windows-only.');
 const root = process.cwd();
-const expectedSchema = Number(process.env.SHINATAMA_EXPECT_SCHEMA || 3);
+// The schema the app writes is shinatama_state::schema::CURRENT_VERSION; the test reads it there,
+// so a new migration does not leave the expectation behind (it said 3 while the app wrote 6).
+const schemaSource = await readFile(resolve(root, 'crates/state/src/schema.rs'), 'utf8');
+const expectedSchema = Number(process.env.SHINATAMA_EXPECT_SCHEMA || schemaSource.match(/pub const CURRENT_VERSION: u32 = (\d+);/)?.[1]);
 if (!Number.isSafeInteger(expectedSchema) || expectedSchema < 1 || expectedSchema >= 999) {
   throw new Error('The expected test schema must be an integer from 1 to 998.');
 }
