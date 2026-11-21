@@ -689,8 +689,15 @@ fn real_contained_terminal_faults_keep_a_fresh_sibling_responsive_and_saved_work
     applied_limits(&host, &healthy)?;
     applied_limits(&host, &crash)?;
     assert_eq!(fs::read(&saved)?, SENTINEL);
-    // Release only the synthetic arrays explicitly. No quota/baseline is reset.
-    host.write(&crash.id, b"$shnHold.Clear();$shnBlock=$null;$shnReserve=$null;[GC]::Collect();[GC]::WaitForPendingFinalizers();[GC]::Collect()\r".to_vec())?;
+    // Release only the synthetic arrays explicitly. No quota/baseline is reset. No collection is
+    // forced: right after the managed refusal at the 256 MiB process ceiling, a forced full
+    // GC.Collect/WaitForPendingFinalizers ended Windows PowerShell by itself (exit code 5, nothing
+    // terminated by the job or the host) in two of three Verify Windows runs. Dropping the
+    // references is the release; the runtime collects them when it next needs the memory.
+    host.write(
+        &crash.id,
+        b"$shnHold.Clear();$shnBlock=$null;$shnReserve=$null\r".to_vec(),
+    )?;
     let memory_cleared = send_marker(&host, &crash, "SHN_MEMORY_CLEARED_")?;
     fault_until(
         &host,
