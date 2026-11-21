@@ -110,6 +110,9 @@ try {
     Invoke-Verification 'frontend-tests' 'npm.cmd' @('test')
     Invoke-Verification 'frontend-build' 'npm.cmd' @('run', 'build')
     Invoke-Verification 'imago-desktop-smoke' 'npm.cmd' @('run', 'test:imago') -Needs @('frontend-build')
+    # Imago's canon: the names, values, keys and files the design file asks of an app (the "imago" block of
+    # package.json says where they are). A finding fails the run.
+    Invoke-Verification 'imago-check' 'node' @('node_modules/@acaprino/imago/scripts/check/cli.mjs')
     # The real tiling renderer and layout model in headless Edge: drag, keyboard, three-way split, and the
     # live DOM bindings a terminal or editor keeps across moves and parking. No app build is needed.
     Invoke-Verification 'pane-drag-smoke' 'npm.cmd' @('run', 'test:drag')
