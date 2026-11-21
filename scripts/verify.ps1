@@ -149,6 +149,11 @@ try {
     Invoke-Verification 'maintenance-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/maintenance-smoke.mjs') -Needs $app
     # Threads, their tabs, closing and bringing back a session, and a restart (ADR-0055).
     Invoke-Verification 'thread-sets-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/thread-sets-smoke.mjs') -Needs $app
+    # The tools composed with Imago (plan F34.4, F34.5) through the real app: the files tool (tree, preview, visual
+    # editor, save), the terminal's minimap beside a drawer, and the team map with its commands stubbed.
+    Invoke-Verification 'files-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/files-smoke.mjs') -Needs $app
+    Invoke-Verification 'minimap-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/minimap-smoke.mjs') -Needs $app
+    Invoke-Verification 'team-map-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/team-map-smoke.mjs') -Needs $app
     if (-not $notPassed.Contains('desktop-build')) {
         $report.executable = [ordered]@{
             path = 'target/debug/shinatama-desktop.exe'
