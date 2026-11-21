@@ -21,8 +21,9 @@ function mockDesktop() {
   const layout = { version: 1, root: { kind: 'split', id: 'split', axis: 'columns', weights: [1, 1], children }, views, focusedGroupId: children[0].id, maximizedGroupId: null };
   let saved = { workspaceId: 'main', revision: 1, schemaVersion: 1, layoutJson: JSON.stringify(layout), ownership: 'ours', readOnly: false };
   const settings = { version: 1, skin: 'shinatama', fontFamily: 'profile', fontSize: 13, lineHeight: 115, followSkin: false };
+  let presentationRevision = 1;
   const state = window.smoke = {
-    calls: [], failure: null, notice: null,
+    calls: [], failure: null, notice: null, saveRefused: false,
     emit(event, payload) { for (const id of listeners.get(event) ?? []) callbacks.get(id)?.({ event, id, payload }); },
   };
   window.isTauri = true;
@@ -56,7 +57,14 @@ function mockDesktop() {
         case 'global_workspace_save':
           saved = { ...saved, revision: saved.revision + 1, layoutJson: args.request.layoutJson };
           return saved;
-        case 'presentation_load': return { revision: 1, settings };
+        case 'presentation_load': return { revision: presentationRevision, settings };
+        // As presentation.rs: the next revision, with the settings it stored. Its one controller answers one request at
+        // a time, so the first save meets a load still returning (another window, a test's read) and is refused as busy.
+        case 'presentation_save':
+          if (!state.saveRefused) { state.saveRefused = true; throw { code: 'busy', message: 'The previous presentation request is still returning.' }; }
+          if (args.request.expectedRevision !== presentationRevision) throw new Error('presentation_save: stale revision');
+          presentationRevision += 1; Object.assign(settings, args.request.settings);
+          return { revision: presentationRevision, settings: { ...settings } };
         case 'storage_location': return { directory: 'C:/Fixture', database_path: 'C:/Fixture/state.sqlite', read_only: false, message: null };
         case 'attention_current': return { enabled: true, muted: false, current: state.notice };
         case 'attention_open': case 'attention_dismiss': state.notice = null; return;
@@ -127,6 +135,13 @@ try {
     await expect.poll(() => page.evaluate(() => window.smoke.calls.filter(call => call.command === 'presentation_window_theme').at(-1)?.args.theme)).toBe(theme);
   }
   assert.ok(palette.every(Boolean) && palette[0] !== palette[1], 'The Imago sheet color follows the theme');
+  // Classic is ONI with one of Shinatama's skins: the skin applies at once and is saved (presentation.ts).
+  await page.locator('#presentation-theme').selectOption('oni');
+  await page.locator('#presentation-skin').selectOption('section9');
+  await expect.poll(() => page.evaluate(() => window.smoke.calls.filter(call => call.command === 'presentation_save').at(-1)?.args.request.settings.skin)).toBe('section9');
+  await expect(page.locator('#presentation-status')).toHaveText('Preferences saved.');
+  assert.equal(await page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--im-accent').trim()), '#78e2dc');
+  await page.locator('#presentation-theme').selectOption('dark');
   // Settings is a drawer of Imago's one layer stack, beside live panels: Escape in the terminal belongs to the
   // agent, anywhere else it closes the drawer, and focus goes back to the focused pane (settings-panel.ts).
   assert.equal(await dialog.getAttribute('data-im-layer'), 'drawer');

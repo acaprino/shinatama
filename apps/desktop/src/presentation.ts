@@ -151,6 +151,19 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
     applyShinatamaPalette(root, look === 'oni' ? current.skin : null, options.desktop);
     render();
   }
+  // presentation.rs answers one request at a time: a load still returning (the attention window's, another reader's)
+  // refuses the next request as busy before it reads or writes anything. That is a wait, not a failure, so the same
+  // request is sent again shortly; only a refusal that lasts past the retries blocks saving.
+  async function whenFree<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+    for (let attempt = 0; ; attempt++) {
+      try { return await invoke<T>(command, args); }
+      catch (error) {
+        const busy = typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'busy';
+        if (!busy || attempt >= 20) throw error;
+        await new Promise(resolve => window.setTimeout(resolve, 50));
+      }
+    }
+  }
   function reportFailure() { blocked = true; status.textContent = 'Changes remain visible in this window. Saving is unavailable; press Reload in Settings before trying again.'; options.notify(status.textContent); }
   function schedule() { clearTimeout(timer); if (!blocked && loaded && pending) timer = window.setTimeout(() => { void save(); }, 0); }
   async function save() {
@@ -158,7 +171,7 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
     const desired = pending; pending = null;
     const task = (async () => {
       try {
-        const received = snapshot(await invoke('presentation_save', { request: { expectedRevision: revision, settings: desired } }));
+        const received = snapshot(await whenFree('presentation_save', { request: { expectedRevision: revision, settings: desired } }));
         if (!received || received.revision !== revision + 1 || !equal(received.settings, desired)) throw new Error('Invalid preference confirmation');
         revision = received.revision; status.textContent = 'Preferences saved.';
       } catch { reportFailure(); }
@@ -171,7 +184,7 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
     const at = edits;
     const task = (async () => {
       try {
-        const received = snapshot(await invoke('presentation_load')); if (!received) throw new Error('Invalid saved presentation');
+        const received = snapshot(await whenFree('presentation_load')); if (!received) throw new Error('Invalid saved presentation');
         revision = received.revision; loaded = true; blocked = false;
         if (at === edits) { current = received.settings; pending = null; } else pending = current;
         apply(); options.onChange(); status.textContent = 'Preferences loaded.';
