@@ -80,7 +80,16 @@ export async function dragTab(page, tab, pane, where) {
       hostDragging: !!document.querySelector('.wm-dragging'),
       openModals: [...document.querySelectorAll('dialog[open][aria-modal="true"]')].map(dialog => dialog.id),
       openDialogs: [...document.querySelectorAll('dialog[open]')].map(dialog => dialog.id || dialog.className),
-      hit: document.elementFromPoint(innerWidth / 2, innerHeight / 2)?.className?.toString().slice(0, 80),
+      // What the press landed on: the tab itself, a child, or something drawn over it.
+      underPress: (() => {
+        const box = node.getBoundingClientRect();
+        const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+        return { tag: hit?.tagName, classes: hit?.className?.toString().slice(0, 80), insideTab: !!hit && node.contains(hit) };
+      })(),
+      tabPointerEvents: getComputedStyle(node).pointerEvents,
+      splitters: [...document.querySelectorAll('.wm-splitter')].slice(0, 6).map(splitter => {
+        const box = splitter.getBoundingClientRect(); return [Math.round(box.left), Math.round(box.top), Math.round(box.width), Math.round(box.height)];
+      }),
     })).catch(error => ({ tabGone: String(error).slice(0, 200) }));
     await page.mouse.up();
     throw new Error(failure.message + ' ' + JSON.stringify(state));

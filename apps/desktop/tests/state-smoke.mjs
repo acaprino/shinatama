@@ -182,7 +182,11 @@ try {
   await instance.page.locator('#project-form').getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
   expect(await readFile(legacyPath)).toEqual(corruptedLegacy);
   await closeApp(instance);
-  expect(snapshotDatabase()).toEqual(initialSnapshot);
+  // The window's own state (ui.*) is saved again at each start: the thread sidebar lists the
+  // toolbar's project (workset-sidebar.ts setProject) and the layout gets a new revision. The data
+  // must come back untouched; the read-only run below still compares the file byte for byte.
+  const withoutWindowState = snapshot => ({ ...snapshot, settings: snapshot.settings.filter(row => !row.key.startsWith('ui.')) });
+  expect(withoutWindowState(snapshotDatabase())).toEqual(withoutWindowState(initialSnapshot));
   evidence.checks.restartUsesVerifiedSqliteDespiteCorruptLegacyJson = true;
 
   // Only the synthetic database is changed, while its application is closed.
