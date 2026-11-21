@@ -134,7 +134,11 @@ try {
     # A default unconfigured Windows host deliberately cannot spawn a process.
     # These share a checkout and use fixed CDP ports: keep them sequential.
     $app = @('desktop-build', 'test-job-build')
-    Invoke-Verification 'desktop-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/desktop-smoke.mjs') -Needs $app
+    # The model proxy runs on the pinned Node of sidecar/runtime.lock.json. A fresh checkout has none:
+    # fetch-runtime.ps1 downloads the official archive and refuses it unless both SHA256 match (it does
+    # nothing where sidecar/runtime exists). desktop-smoke opens the proxy.
+    Invoke-Verification 'sidecar-runtime' 'pwsh' @('-NoProfile', '-File', 'sidecar/fetch-runtime.ps1')
+    Invoke-Verification 'desktop-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/desktop-smoke.mjs') -Needs ($app + 'sidecar-runtime')
     Invoke-Verification 'projects-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/projects-smoke.mjs') -Needs $app
     Invoke-Verification 'storage-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/storage-smoke.mjs') -Needs $app
     Invoke-Verification 'state-smoke' $probe @('wrap-run', 'node', 'apps/desktop/tests/state-smoke.mjs') -Needs $app
