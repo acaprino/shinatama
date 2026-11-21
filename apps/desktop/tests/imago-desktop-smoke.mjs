@@ -127,21 +127,47 @@ try {
   await expect(zoom).toHaveValue('1.3');
   await expect.poll(() => page.evaluate(() => localStorage.getItem('shinatama.zoom'))).toBe('1.3');
   assert.deepEqual(await page.evaluate(() => window.smoke.calls.filter(({ command }) => command === 'plugin:webview|set_webview_zoom').map(({ args }) => args.value)), [1.2, 1.3]);
+  // The look and the theme are the window's five Appearance commands, run from the palette (Ctrl+K), as in every app.
+  async function command(title) {
+    await page.locator('#project').focus();
+    await page.keyboard.press('Control+k');
+    const commands = page.getByRole('dialog', { name: 'Type a command' });
+    await expect(commands).toBeVisible();
+    await commands.getByRole('combobox').fill(title);
+    await commands.getByRole('option').filter({ hasText: title }).first().click();
+    await expect(commands).toBeHidden();
+  }
+  await expect(page.locator('#presentation-theme')).toHaveCount(0);
   const palette = [];
-  for (const theme of ['light', 'dark']) {
-    await page.locator('#presentation-theme').selectOption(theme);
+  for (const [title, theme] of [['Light theme', 'light'], ['Dark theme', 'dark']]) {
+    await command(title);
     await expect(page.locator('html')).toHaveAttribute('data-im-theme', theme);
     palette.push(await page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--im-sheet').trim()));
     await expect.poll(() => page.evaluate(() => window.smoke.calls.filter(call => call.command === 'presentation_window_theme').at(-1)?.args.theme)).toBe(theme);
   }
   assert.ok(palette.every(Boolean) && palette[0] !== palette[1], 'The Imago sheet color follows the theme');
-  // Classic is ONI with one of Shinatama's skins: the skin applies at once and is saved (presentation.ts).
-  await page.locator('#presentation-theme').selectOption('oni');
-  await page.locator('#presentation-skin').selectOption('section9');
+  // ONI has a light theme too. Shinatama's skins are dark palettes: under ONI light the skin control is disabled and
+  // says why, nothing of a skin is left on the root, and the window's theme is light.
+  const skin = page.locator('#presentation-skin');
+  await command('ONI look');
+  await expect(page.locator('html')).toHaveAttribute('data-im-look', 'oni');
+  await expect(skin).toBeEnabled();
+  await command('Light theme');
+  await expect(page.locator('html')).toHaveAttribute('data-im-theme', 'light');
+  await expect(skin).toBeDisabled();
+  await expect(skin).toHaveAttribute('title', /Skins are dark/);
+  assert.equal(await page.locator('html').evaluate(node => node.style.getPropertyValue('--im-ground')), '');
+  await expect.poll(() => page.evaluate(() => window.smoke.calls.filter(call => call.command === 'presentation_window_theme').at(-1)?.args.theme)).toBe('light');
+  assert.equal(await page.evaluate(() => localStorage.getItem('shinatama.look-version')), '2');
+  // The Dark theme brings the skin back: it applies at once and is saved (presentation.ts).
+  await command('Dark theme');
+  await expect(skin).toBeEnabled();
+  await skin.selectOption('section9');
   await expect.poll(() => page.evaluate(() => window.smoke.calls.filter(call => call.command === 'presentation_save').at(-1)?.args.request.settings.skin)).toBe('section9');
   await expect(page.locator('#presentation-status')).toHaveText('Preferences saved.');
   assert.equal(await page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--im-accent').trim()), '#78e2dc');
-  await page.locator('#presentation-theme').selectOption('dark');
+  await command('Smooth look');
+  await expect(page.locator('html')).toHaveAttribute('data-im-look', 'smooth');
   // Settings is a drawer of Imago's one layer stack, beside live panels: Escape in the terminal belongs to the
   // agent, anywhere else it closes the drawer, and focus goes back to the focused pane (settings-panel.ts).
   assert.equal(await dialog.getAttribute('data-im-layer'), 'drawer');

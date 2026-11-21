@@ -1359,6 +1359,8 @@ $('#app .im-body').prepend(threadSidebar.element);
   void sidebar.ready.then(() => {
     const unmountApp = mountApp($('#app'), registry, {
       search: () => terminalFind.open(),
+      // The look and the theme: the five Appearance commands of every app (presentation.ts keeps the choice).
+      appearance: presentation.appearance,
       sidebar: { collapsed: sidebar.collapsed(), onChange: collapsed => sidebar.setCollapsed(collapsed) },
     });
     window.addEventListener('pagehide', unmountApp, { once: true });

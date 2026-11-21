@@ -159,13 +159,20 @@ try {
   await type(first, "Write-Output ('SHINATAMA_' + 'DESKTOP_OK')");
   await expect(pane(first).locator('.xterm-accessibility')).toContainText('SHINATAMA_DESKTOP_OK');
   const beforeAppearance = await ids();
-  // Theme and terminal appearance live in the Appearance section of Settings (the last entry of the
-  // toolbar's "⋯" menu); every change applies at once and the drawer stays open.
+  // The look and the theme are the window's Appearance commands (Ctrl+K); ONI dark's skin and the terminal appearance
+  // live in the Appearance section of Settings (the last entry of the toolbar's "⋯" menu). Every change applies at once
+  // and the drawer stays open.
   await page.locator('#toolbar-more').click(); await page.locator('#open-settings').click();
   await expect(page.locator('#settings-dialog')).toBeVisible();
   await expect(page.locator('#toolbar-more-menu')).toBeHidden();
-  await page.getByLabel('Theme', { exact: true }).selectOption('oni');
-  await page.getByLabel('Classic theme', { exact: true }).selectOption('section9');
+  await page.locator('#project').focus(); await page.keyboard.press('Control+k');
+  const commands = page.getByRole('dialog', { name: 'Type a command' });
+  await commands.getByRole('combobox').fill('ONI look');
+  await commands.getByRole('option').filter({ hasText: 'ONI look' }).first().click();
+  await expect(commands).toBeHidden();
+  // ONI with the Windows theme is dark, so the skin applies.
+  await expect(page.locator('html')).toHaveAttribute('data-im-look', 'oni');
+  await page.getByLabel('ONI skin', { exact: true }).selectOption('section9');
   await expect.poll(async () => (await appearance())?.settings.skin).toBe('section9');
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--im-accent').trim())).toBe('#78e2dc');
   expect(await ids()).toEqual(beforeAppearance);
