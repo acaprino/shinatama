@@ -6,7 +6,7 @@ Runtime and build-tool reachability are conservative package-level classificatio
 Full packaged LICENSE/COPYRIGHT/NOTICE texts and reviewed supplements are generated in `.verification/THIRD_PARTY_LICENSES.txt`; distribute that file with prototype artifacts.
 System WebView2 and system fonts are external dependencies, not bundled assets. npm, Python and the Rust toolchain are build/test tools. The separately pinned sidecar source/runtime preparation is outside this Cargo/npm inventory. Its complete publisher Node license bundle is verified by sidecar/prepare-runtime.ps1; that check does not close X3 or certify a product release.
 
-Target: `x86_64-pc-windows-msvc`. Indexed packages: 388.
+Target: `x86_64-pc-windows-msvc`. Indexed packages: 399.
 
 | Ecosystem | Package | Version | Reachability | Declared license | Policy | License text files |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -123,6 +123,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 388.
 | Rust | ident_case | 1.0.1 | build-tool | MIT/Apache-2.0 | recognized | LICENSE |
 | Rust | idna | 1.1.0 | build-tool, runtime | MIT OR Apache-2.0 | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | idna_adapter | 1.2.2 | build-tool, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
+| Rust | imago-shell | 0.1.3 | runtime | Apache-2.0 | recognized | LICENSE |
 | Rust | indexmap | 1.9.3 | build-tool, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | indexmap | 2.14.2 | build-tool, dev-test, runtime | Apache-2.0 OR MIT | recognized | LICENSE-APACHE; LICENSE-MIT |
 | Rust | infer | 0.22.0 | build-tool, runtime | MIT | recognized | LICENSE |
@@ -338,6 +339,7 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 388.
 | Rust | zerovec-derive | 0.11.7 | build-tool | Unicode-3.0 | recognized | LICENSE |
 | Rust | zlib-rs | 0.6.8 | build-tool | Zlib | recognized | LICENSE |
 | Rust | zmij | 1.0.23 | build-tool, dev-test, runtime | MIT | recognized | LICENSE-MIT |
+| npm | @acaprino/imago | 0.1.3 | runtime | Apache-2.0 | recognized | LICENSE |
 | npm | @codemirror/autocomplete | 6.20.4 | runtime | MIT | recognized | LICENSE |
 | npm | @codemirror/commands | 6.11.1 | runtime | MIT | recognized | LICENSE |
 | npm | @codemirror/lang-css | 6.3.1 | runtime | MIT | recognized | LICENSE |
@@ -381,6 +383,15 @@ Target: `x86_64-pc-windows-msvc`. Indexed packages: 388.
 | npm | @xterm/addon-fit | 0.11.0 | runtime | MIT | recognized | LICENSE |
 | npm | @xterm/xterm | 6.0.0 | runtime | MIT | recognized | LICENSE |
 | npm | crelt | 1.0.7 | runtime | MIT | recognized | LICENSE |
+| npm | d3-color | 3.1.1 | runtime | ISC | recognized | LICENSE |
+| npm | d3-dispatch | 3.0.2 | runtime | ISC | recognized | LICENSE |
+| npm | d3-drag | 3.0.1 | runtime | ISC | recognized | LICENSE |
+| npm | d3-ease | 3.0.2 | runtime | BSD-3-Clause | recognized | LICENSE |
+| npm | d3-interpolate | 3.0.2 | runtime | ISC | recognized | LICENSE |
+| npm | d3-selection | 3.0.1 | runtime | ISC | recognized | LICENSE |
+| npm | d3-timer | 3.0.2 | runtime | ISC | recognized | LICENSE |
+| npm | d3-transition | 3.0.2 | runtime | ISC | recognized | LICENSE |
+| npm | d3-zoom | 3.0.1 | runtime | ISC | recognized | LICENSE |
 | npm | detect-libc | 2.1.2 | build-tool | Apache-2.0 | recognized | LICENSE |
 | npm | fdir | 6.5.0 | build-tool | MIT | recognized | LICENSE |
 | npm | lightningcss | 1.33.0 | build-tool | MPL-2.0 | release-review-required | LICENSE |

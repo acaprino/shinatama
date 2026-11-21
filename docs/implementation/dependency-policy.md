@@ -4,7 +4,7 @@ This is build-time inventory tooling for the Windows prototype, not release lega
 
 ## Automated checks
 
-The root npm manifest is the sole package declaration and uses exact versions matching its lockfile. Production Rust workspace crates inherit direct dependencies from the workspace list. Git dependencies need full revision pins. The locked Windows graph is classified by runtime, build-tool and dev-test reachability; proc macros belong to build-tool paths.
+The root npm manifest declares exact registry versions or HTTPS Git repositories pinned to a full commit. The npm lockfile must match the declared version or the complete Git URL and revision. Production Rust workspace crates inherit direct dependencies from the workspace list. Git dependencies need full revision pins. The locked Windows graph is classified by runtime, build-tool and dev-test reachability; proc macros belong to build-tool paths.
 
 The prepared C12 upstream mirror has one narrow metadata exception: only
 `sidecar/source-build/prepared/{package.json,kernel/package.json,pi-subagents/package.json}`

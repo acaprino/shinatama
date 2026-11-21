@@ -14,7 +14,7 @@ tl1-proof = []
 tauri-build.workspace = true
 
 [dependencies]
-imago-shell = { git = "https://github.com/acaprino/imago.git", rev = "2902a11ddb0ace2b2a36dcb0f840c13ccb0f949d" }
+imago-shell.workspace = true
 tauri.workspace = true
 tauri-plugin-dialog.workspace = true
 serde.workspace = true

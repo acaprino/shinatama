@@ -5,6 +5,7 @@ import unittest
 import subprocess
 import shutil
 import os
+import tomllib
 
 import dependencies
 
@@ -45,6 +46,24 @@ class DependencyPolicyTests(unittest.TestCase):
         self.assertTrue(any('exact version' in error for error in errors))
         self.assertTrue(any('do not agree' in error for error in errors))
 
+    def test_git_packages_require_the_same_immutable_source_in_the_lock(self):
+        source = 'git+https://github.com/example/widget.git#'
+        pinned = source + 'a' * 40
+        for declared, resolved, version, valid in [
+            (pinned, pinned, '1.2.3', True),
+            (pinned, source + 'b' * 40, '1.2.3', False),
+            (pinned, pinned.replace('/example/', '/another/'), '1.2.3', False),
+            (pinned, pinned, '', False),
+            (source + 'develop', source + 'develop', '1.2.3', False),
+        ]:
+            with self.subTest(declared=declared, resolved=resolved, version=version):
+                manifest = {'dependencies':{'widget':declared}}
+                self.write('package.json', manifest)
+                self.write('package-lock.json', {'lockfileVersion':3, 'packages':{
+                    '':manifest, 'node_modules/widget':{'version':version, 'resolved':resolved},
+                }})
+                self.assertEqual(not dependencies.validate_npm(self.root), valid)
+
     def test_second_manifest_is_rejected_but_bench_and_dependencies_are_excluded(self):
         self.npm_fixture()
         self.write('node_modules/installed/package.json', {})
@@ -52,6 +71,13 @@ class DependencyPolicyTests(unittest.TestCase):
         self.assertEqual(dependencies.validate_npm(self.root), [])
         self.write('apps/desktop/package.json', {})
         self.assertTrue(any('Second npm manifest' in error for error in dependencies.validate_npm(self.root)))
+
+    def test_desktop_and_native_shell_use_the_same_imago_revision(self):
+        root = dependencies.ROOT
+        cargo = tomllib.loads((root/'Cargo.toml').read_text(encoding='utf-8'))
+        shell = cargo['workspace']['dependencies']['imago-shell']
+        frontend = dependencies.read_json(root/'package.json')['dependencies']['@acaprino/imago']
+        self.assertEqual(frontend, f"git+{shell['git']}#{shell['rev']}")
 
     def prepared_sidecar_fixture(self):
         self.npm_fixture()
