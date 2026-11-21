@@ -1,146 +1,110 @@
 {
   "agent-setup.ts": {
-    "parts": 20,
-    "classes": 0
+    "parts": 20
   },
   "attention-control.ts": {
-    "parts": 9,
-    "classes": 0
+    "parts": 9
   },
   "browser-tab.ts": {
-    "parts": 9,
-    "classes": 0
+    "parts": 9
   },
   "files-panel.ts": {
-    "parts": 15,
-    "classes": 0
+    "parts": 15
   },
   "files-tree.ts": {
-    "parts": 1,
-    "classes": 0
+    "parts": 1
   },
   "hop-preview.ts": {
-    "parts": 24,
-    "classes": 0
+    "parts": 24
   },
   "instances-overview.ts": {
-    "parts": 31,
-    "classes": 0
+    "parts": 31
   },
   "leftovers-panel.ts": {
-    "parts": 32,
-    "classes": 0
+    "parts": 32
   },
   "main.ts": {
-    "parts": 22,
-    "classes": 0
+    "parts": 22
   },
   "model-settings-panel.ts": {
-    "parts": 50,
-    "classes": 0
+    "parts": 50
   },
   "new-project.ts": {
-    "parts": 20,
-    "classes": 0
+    "parts": 20
   },
   "new-session.ts": {
-    "parts": 24,
-    "classes": 0
+    "parts": 24
   },
   "presentation.ts": {
-    "parts": 13,
-    "classes": 0
+    "parts": 13
   },
   "project-controls.ts": {
-    "parts": 31,
-    "classes": 0
+    "parts": 31
   },
   "project-picker.ts": {
-    "parts": 13,
-    "classes": 0
+    "parts": 13
   },
   "projects-overview.ts": {
-    "parts": 30,
-    "classes": 0
+    "parts": 30
   },
   "resource-status.ts": {
-    "parts": 1,
-    "classes": 0
+    "parts": 1
   },
   "session-detail.ts": {
-    "parts": 44,
-    "classes": 0
+    "parts": 44
   },
   "session-export.ts": {
-    "parts": 30,
-    "classes": 0
+    "parts": 30
   },
   "session-find.ts": {
-    "parts": 21,
-    "classes": 0
+    "parts": 21
   },
   "session-library.ts": {
-    "parts": 65,
-    "classes": 0
+    "parts": 65
   },
   "session-menu.ts": {
-    "parts": 1,
-    "classes": 0
+    "parts": 1
   },
   "session-progress.ts": {
-    "parts": 3,
-    "classes": 0
+    "parts": 3
   },
   "session-raw.ts": {
-    "parts": 15,
-    "classes": 0
+    "parts": 15
   },
   "session-search.ts": {
-    "parts": 36,
-    "classes": 0
+    "parts": 36
   },
   "sessions-panel.ts": {
-    "parts": 45,
-    "classes": 0
+    "parts": 45
   },
   "settings-panel.ts": {
-    "parts": 56,
-    "classes": 0
+    "parts": 56
   },
   "shell-frame.ts": {
-    "parts": 21,
-    "classes": 0
+    "parts": 21
   },
   "sidecar-control.ts": {
-    "parts": 31,
-    "classes": 0
+    "parts": 31
   },
   "team-map.ts": {
-    "parts": 19,
-    "classes": 0
+    "parts": 19
   },
   "terminal-find.ts": {
-    "parts": 10,
-    "classes": 0
+    "parts": 10
   },
   "terminal-history-view.ts": {
-    "parts": 6,
-    "classes": 0
+    "parts": 6
   },
   "terminal-minimap.ts": {
-    "parts": 1,
-    "classes": 0
+    "parts": 1
   },
   "thread-chat.ts": {
-    "parts": 34,
-    "classes": 0
+    "parts": 34
   },
   "toolbar-simple.ts": {
-    "parts": 10,
-    "classes": 0
+    "parts": 10
   },
   "workset-sidebar.ts": {
-    "parts": 59,
-    "classes": 0
+    "parts": 59
   }
 }
