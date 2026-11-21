@@ -1294,6 +1294,8 @@ async function openNewSession(group: string = focusedGroup(), path?: string, har
 }
 threadSidebar = createWorksetSidebar({
   shell: $('#app'),
+  // The empty sidebar's first action: the toolbar's Projects, which lists projects for it.
+  chooseProjects: () => $('#project').click(),
   restoreFocus: () => $('#threads-toggle').focus(),
   list: request => desktop ? invoke('workset_list', {request}) : Promise.resolve({rows:[],more:false}),
   create: desktop ? request => invoke('workset_create', {request}) : undefined,

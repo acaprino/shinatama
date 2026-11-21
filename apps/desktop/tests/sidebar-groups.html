@@ -22,7 +22,12 @@ const tones = createToneKeeper();
 const A = 'p_aaaaaaaaaaaa'; const B = 'p_bbbbbbbbbbbb';
 const thread = (id, projectId, title, sessions = 1) => ({ id, projectId, title, archived: false, revision: 1, usedAt: Date.now(), sessions, open: 0, lead: null });
 const threads = { [A]: [thread('w_aaaaaaaaaaa3', A, 'Alpha one'), thread('w_aaaaaaaaaaa4', A, 'Alpha two', 3)], [B]: [thread('w_bbbbbbbbbbb3', B, 'Beta one')] };
-const log = window.__log = { saved: [], created: [], added: [], opened: [], closed: [], removed: [], renamed: [], deleted: [], forgotten: [], modes: [], chats: [] };
+const log = window.__log = { saved: [], created: [], added: [], opened: [], closed: [], removed: [], renamed: [], deleted: [], forgotten: [], modes: [], chats: [], chose: 0 };
+// The smoke holds the lists' reads, or refuses them, to see the panel's states.
+let listsHeld = null; let listsRefused = false;
+window.__holdLists = () => { listsHeld = []; };
+window.__releaseLists = () => { const waiting = listsHeld ?? []; listsHeld = null; for (const go of waiting) go(); };
+window.__refuseLists = refused => { listsRefused = refused; };
 const on = new Set(); const running = { w_aaaaaaaaaaa4: 2 };
 const waiting = new Set(['w_bbbbbbbbbbb3']); const talking = new Set(['w_aaaaaaaaaaa3']);
 // Held removals wait for an answer, as main.ts waits for the stop confirmation; kept, the project comes back.
@@ -31,7 +36,12 @@ window.__holdRemovals = () => { held = []; };
 window.__answerRemovals = keep => { const waiting = held ?? []; held = null; for (const settle of waiting) settle(keep); };
 const sidebar = window.__sidebar = createWorksetSidebar({
   shell,
-  list: async ({ projectId, archived }) => ({ rows: archived ? [] : threads[projectId] ?? [], more: false }),
+  list: async ({ projectId, archived }) => {
+    if (listsHeld) await new Promise(go => listsHeld.push(go));
+    if (listsRefused) throw { code: 'unavailable' };
+    return { rows: archived ? [] : threads[projectId] ?? [], more: false };
+  },
+  chooseProjects: () => { log.chose += 1; },
   create: async ({ projectId }) => { log.created.push(projectId); return { id: 'w_cccccccccccc', revision: 1 }; },
   onOpen: async thread => { log.opened.push(thread.id); on.add(thread.id); return true; },
   onClose: async thread => { log.closed.push(thread.id); on.delete(thread.id); return true; },

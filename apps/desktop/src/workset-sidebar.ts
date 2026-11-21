@@ -1,6 +1,6 @@
 import {
-  avatarHtml, buttonHtml, checkboxOptionHtml, claimKey, componentElement, confirm, iconButtonHtml, iconHtml, openMenu, roving,
-  sidebarHtml, sidebarResize, textFieldHtml, uiButton, uiInput, uiPart, uiTone, uiTraits, type MenuItem,
+  avatarHtml, buttonHtml, checkboxOptionHtml, claimKey, componentElement, confirm, iconButtonHtml, iconHtml, LOADING_DELAY_MS, openMenu, roving,
+  setPanelState, showAfter, sidebarHtml, sidebarResize, textFieldHtml, uiButton, uiInput, uiPart, uiTone, uiTraits, type MenuItem,
 } from '@acaprino/imago/ui';
 // ADR-0055: the sidebar lists threads. A thread is a set of sessions with its own layout; a click
 // opens it, and the window then shows all and only its sessions. Nothing here starts an agent.
@@ -83,6 +83,8 @@ export type WorksetSidebarOptions = {
   names?: (threadIds: readonly string[]) => Promise<unknown>;
   loadState?: () => Promise<unknown>;
   saveState?: (state: Readonly<ThreadSidebarState>) => Promise<void>;
+  /** The first action of the empty sidebar: choose the projects it lists (the toolbar's Projects). */
+  chooseProjects?: () => void;
   reportError: (message: string) => void;
 };
 const AGENT_LABELS: Record<string, string> = { powershell: 'PowerShell', claude_code: 'Claude Code', codex: 'Codex', opencode: 'OpenCode', pi: 'Pi', hermes: 'Hermes Agent', deepseek: 'DeepSeek Harness' };
@@ -297,6 +299,28 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     if ((shell.dataset.imSidebarCollapsed === 'true') !== display.collapsed) fold.click();
   }
 
+  // The panel's state (Imago's): empty with its first action while no project is listed, the skeleton while a first read
+  // lasts past 300ms, the error with Retry when the read failed for every project. One that failed for some only is said
+  // in the status line, beside the threads that were read. Painted only when it changes, so focus on its button stays.
+  let loadingShown = false; let paintedState = '';
+  function panelState() {
+    const allFailed = failed && active.length > 0 && active.every(project => groups.get(project)?.failed);
+    return !active.length
+      ? { kind: 'empty' as const, text: 'No project in the sidebar.', action: options.chooseProjects ? { label: 'Choose projects', run: options.chooseProjects } : undefined }
+      : allFailed ? { kind: 'error' as const, text: message, retry: { label: 'Retry', run: () => { void read(); } } }
+      : loadingShown ? { kind: 'loading' as const, rows: 3 } : { kind: 'ready' as const };
+  }
+  /** Whether the state layer still stands first with every row taken out beside it (a row added since would show). */
+  function stateHolds(): boolean {
+    const layer = list.firstElementChild;
+    return !!layer?.hasAttribute('data-im-state-layer') && [...list.children].every(child => child === layer || (child as HTMLElement).style.display === 'none');
+  }
+  function paintState() {
+    const state = panelState();
+    const key = state.kind === 'error' ? 'error:' + state.text : state.kind;
+    if (key === paintedState && (key === 'ready' || stateHolds())) return;
+    paintedState = key; setPanelState(element, state);
+  }
   function render() {
     if (destroyed) return;
     applyDisplay();
@@ -304,7 +328,9 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     if (now !== shownMode) { shownMode = now; options.onModeChange?.(now); }
     showArchived.disabled = busy || !active.length; showArchived.checked = archivedView;
     attr(list, 'aria-busy', String(busy));
-    setText(status, message); status.dataset.state = failed ? 'error' : 'ready'; uiTone(status, failed ? 'err' : null); status.hidden = !message;
+    // The status line says what the panel's state does not: a partial failure, the 200-thread cap.
+    const said = panelState().kind === 'ready' ? message : '';
+    setText(status, said); status.dataset.state = failed ? 'error' : 'ready'; uiTone(status, failed ? 'err' : null); status.hidden = !said;
     foot.hidden = status.hidden && showArchivedLabel.hidden;
     setText(count, String(rows.length));
     const retained = new Set(rows.map(row => row.id));
@@ -329,9 +355,12 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     }
     // A row that moves keeps the focus it had.
     const focused = document.activeElement instanceof HTMLElement && list.contains(document.activeElement) ? document.activeElement : null;
-    for (const child of [...list.children]) if (!nodes.includes(child as HTMLLIElement)) child.remove();
-    nodes.forEach((item, position) => { if (list.children[position] !== item) list.insertBefore(item, list.children[position] ?? null); });
+    // The panel's state layer (Imago's) stays first, the rows after it; the state is painted once the rows are in place.
+    const layer = list.querySelector<HTMLElement>(':scope > [data-im-state-layer]'); const offset = layer ? 1 : 0;
+    for (const child of [...list.children]) if (child !== layer && !nodes.includes(child as HTMLLIElement)) child.remove();
+    nodes.forEach((item, position) => { if (list.children[position + offset] !== item) list.insertBefore(item, list.children[position + offset] ?? null); });
     if (focused?.isConnected && document.activeElement !== focused) focused.focus({ preventScroll: true });
+    paintState();
     const current = chosen();
     if (!current) { expanded = null; sessionsOf = null; editing = false; }
     if (details.hidden !== !current) details.hidden = !current;
@@ -613,7 +642,11 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   async function read(): Promise<boolean> {
     if (destroyed || !active.length) return false;
     if (busy) { rereadWanted = true; return false; }
-    const scope = [...active]; const at = generation; busy = true; render();
+    const scope = [...active]; const at = generation; busy = true;
+    // Only a read with nothing to show yet shows the skeleton, and only if it lasts.
+    const first = !rows.length;
+    const cancelLoading = first ? showAfter(LOADING_DELAY_MS, () => { if (!destroyed && at === generation) { loadingShown = true; render(); } }) : () => {};
+    render();
     try {
       const results = await Promise.allSettled(scope.map(async project => {
         const value = rowsValue(await options.list({ projectId: project, archived: archivedView }), project, archivedView);
@@ -630,9 +663,10 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
       if (expanded) void loadSessions();
       failed = error !== null;
       message = failed ? failureText(error, 'read') : [...groups.values()].some(group => group.more) ? 'Showing the 200 most recent threads of each project.' : '';
-      if (failed) options.reportError(message);
+      // A read refused for every project is said in the panel (its Retry reads again); one refused for some, in a notice too.
+      if (failed && !scope.every(project => groups.get(project)?.failed)) options.reportError(message);
       return !failed;
-    } finally { done(); }
+    } finally { cancelLoading(); loadingShown = false; done(); }
   }
   function done() {
     busy = false; render();

@@ -300,6 +300,35 @@ try {
   expect(await removal(false)).toEqual({ beforeAnswer: false, listed: false });
   passed.push('a removal that asks first settles only after the answer: cancelled, the project stays; confirmed, it goes');
 
+  // The panel's states are Imago's (setPanelState): a read that lasts shows the skeleton after 300ms, never before; a read
+  // refused for every project says so in the panel with Retry, which reads again; no project listed is the empty state.
+  const region = page.locator('#app .im-sidebar');
+  // No project listed: the empty state, with its first action.
+  const listed = await page.evaluate(() => [...window.__sidebar.activeIds()]);
+  await page.evaluate(async () => { for (const id of window.__sidebar.activeIds()) await window.__sidebar.toggleActive(id); });
+  const empty = region.locator('[data-im-state-layer="empty"]');
+  await expect(empty).toContainText('No project in the sidebar.');
+  await empty.getByRole('button', { name: 'Choose projects', exact: true }).click();
+  expect((await log()).chose).toBe(1);
+  // A first read, with nothing to show yet: nothing before 300ms, then the skeleton until the rows land.
+  await page.evaluate(first => { window.__holdLists(); void window.__sidebar.toggleActive(first); }, listed[0]);
+  await page.waitForTimeout(150);
+  await expect(region.locator('[data-im-state-layer]')).toHaveCount(0);
+  await expect(region.locator('[data-im-state-layer="loading"] .im-skeleton').first()).toBeVisible();
+  await expect(region).toHaveAttribute('aria-busy', 'true');
+  await page.evaluate(() => window.__releaseLists());
+  await expect(region.locator('[data-im-state-layer]')).toHaveCount(0);
+  await expect(region.locator('li.thread-sidebar-row').first()).toBeVisible();
+  // A read refused for every project is said in the panel, with Retry, which reads again.
+  await page.evaluate(() => { window.__refuseLists(true); void window.__sidebar.refresh(); });
+  const failure = region.locator('[data-im-state-layer="error"]');
+  await expect(failure).toContainText('Error');
+  await page.evaluate(() => window.__refuseLists(false));
+  await failure.getByRole('button', { name: 'Retry', exact: true }).click();
+  await expect(region.locator('[data-im-state-layer]')).toHaveCount(0);
+  await expect(region.locator('li.thread-sidebar-row').first()).toBeVisible();
+  passed.push('with no project the sidebar offers Choose projects; a first read shows the skeleton after 300ms, never before; a refused read says so with Retry, which reads again');
+
   expect(errors).toEqual([]);
   console.log(passed.map(line => `ok - ${line}`).join('\n'));
 } catch (error) {
