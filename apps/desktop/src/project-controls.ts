@@ -1,8 +1,30 @@
-import { componentElement, formHeaderHtml, uiButton, uiInput, uiPart } from '@acaprino/imago/ui';
+import { componentElement, formHeaderHtml, pathField, uiButton, uiInput, uiPart } from '@acaprino/imago/ui';
 
 function identified<T extends HTMLElement>(node: T, id: string) {
   node.id = id;
   return node;
+}
+
+/** What the two path fields do with a native choice: each acts at once (adds the root, opens the folder).
+ *  The project picker supplies them when it is created; until then a browse button chooses nothing. */
+export type PathActions = {
+  chooseRoot(): Promise<string | null>; addRoot(path: string): Promise<unknown>;
+  chooseProject(): Promise<string | null>; openProject(path: string): void; reportError(error: unknown): void;
+};
+let pathActions: PathActions | null = null;
+export function bindPathActions(actions: PathActions) { pathActions = actions; }
+
+/** An Imago path field whose browse button acts on the choice; the button keeps its id and label. */
+function actingPath(input: HTMLInputElement, buttonId: string, buttonLabel: string,
+  choose: (actions: PathActions) => Promise<string | null>, act: (actions: PathActions, path: string) => unknown) {
+  const field = pathField(input, {
+    buttonLabel,
+    choose: () => pathActions ? choose(pathActions) : Promise.resolve(null),
+    commit: async path => { if (pathActions) await act(pathActions, path); },
+    onError: error => pathActions?.reportError(error),
+  });
+  field.querySelector('button')!.id = buttonId;
+  return field;
 }
 
 export function projectControls() {
@@ -33,8 +55,9 @@ export function projectControls() {
   const roots = identified(uiPart('region'), 'roots-panel');
   roots.setAttribute('aria-label', 'Your project roots');
   const add = uiPart('row');
-  add.append(field('root-path', 'Root folder path', 'Paste a root folder, e.g. D:\\Projects'),
-    button('add-root', 'Add'), button('choose-root', 'Choose root folder…', true));
+  add.append(actingPath(field('root-path', 'Root folder path', 'Paste a root folder, e.g. D:\\Projects'),
+    'choose-root', 'Choose root folder…', actions => actions.chooseRoot(), (actions, path) => actions.addRoot(path)),
+  button('add-root', 'Add'));
   roots.append(list('root-list', 'Root folders'), add, identified(uiPart('hint'), 'default-root-summary'));
   const catalog = uiPart('region');
   const title = uiPart('header');
@@ -49,7 +72,8 @@ export function projectControls() {
   const folder = field('folder', 'Folder to open as a project', 'D:\\Projects\\my-app'); folder.required = true;
   const submit = uiButton('Use folder'); submit.type = 'submit';
   const row = uiPart('row');
-  row.append(folder, button('browse-project', 'Browse… F3'), submit);
+  row.append(actingPath(folder, 'browse-project', 'Browse… F3',
+    actions => actions.chooseProject(), (actions, path) => actions.openProject(path)), submit);
   single.append(identified(uiPart('heading', 'Just one folder'), 'single-folder-heading'),
     uiPart('hint', 'Opens one folder as a project, without adding a root.'), row);
   const error = identified(uiPart('alert'), 'project-error'); error.hidden = true;

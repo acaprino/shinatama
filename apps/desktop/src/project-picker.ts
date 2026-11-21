@@ -4,6 +4,7 @@ import { openModal, openSheet } from './modal.ts';
 import { beginMutation, browseFolder, cancelMutation, createCatalogClient, createRequestId, orderedCandidates, saveRoots,
   type Candidate, type Catalog, type CatalogRoot, type Project, type RootConfig, type RootDraft } from './project-catalog.ts';
 import { confirmsField } from './desktop-shell-model.ts';
+import { bindPathActions } from './project-controls.ts';
 
 type Options = { desktop: boolean; getPath: () => string; onSelected: (path: string, chosen: boolean) => void; onCreate: () => void; reportError: (error: unknown, tone?: 'info' | 'error') => void };
 const $ = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
@@ -267,20 +268,35 @@ export function createProjectPicker(options: Options) {
     const kept = roots.findIndex(root => root.id === config!.defaultRootId);
     await writeRoots(roots, kept >= 0 ? kept : roots.length ? 0 : null);
   }
-  async function chooseRoot() {
-    if (saving || !config) return;
+  // The two path fields (project-controls.ts) are Imago path fields that act on the choice: the native
+  // picker runs through the same tracked mutation as before, then the root is added or the project opened.
+  async function chooseRoot(): Promise<string | null> {
+    if (saving || !config) return null;
     let picked: string | null = null;
     await mutate(requestId => browseFolder('root', config?.defaultRootId ?? undefined, requestId), result => {
       if (result.kind === 'root') picked = result.path;
     });
-    if (picked) await addRoot(picked);
+    return picked;
   }
-  async function browseProject() {
-    if (saving) return;
+  // The backend answers with the validated project; it is opened as it came, never looked up again by path.
+  let pickedProject: Project | null = null;
+  async function chooseProject(): Promise<string | null> {
+    pickedProject = null;
+    if (saving) return null;
+    let picked = null as Project | null;
     await mutate(requestId => browseFolder('project', config?.defaultRootId ?? undefined, requestId), result => {
-      if (result.kind === 'project') useProject(result.project);
+      if (result.kind === 'project') picked = result.project;
     });
+    pickedProject = picked;
+    return picked?.path ?? null;
   }
+  bindPathActions({
+    chooseRoot, addRoot, chooseProject,
+    openProject(path) { const project = pickedProject; pickedProject = null; if (project?.path === path) useProject(project); },
+    reportError(failure) { if (dialog.open) showError(failure); else options.reportError(`Folder operation did not complete: ${failure}`); },
+  });
+  /** F3 and "Open one folder…" press the field's own button, so they share its busy state. */
+  function browseProject() { $<HTMLButtonElement>('#browse-project').click(); }
   function refresh() {
     if (!options.desktop || !dialog.open) return;
     pageOffsets = [];
@@ -299,9 +315,7 @@ export function createProjectPicker(options: Options) {
   rootPath.oninput = () => { error.hidden = true; };
   rootPath.onkeydown = event => { if (confirmsField(event)) { event.preventDefault(); void addTypedRoot(); } };
   $('#add-root').onclick = () => { void addTypedRoot(); };
-  $('#browse-project').onclick = () => { void browseProject(); };
   $('#create-project').onclick = options.onCreate;
-  $('#choose-root').onclick = () => { void chooseRoot(); };
   $('#refresh-projects').onclick = refresh;
   $('#catalog-previous').onclick = () => {
     if (catalog && catalog.offset > 0 && !queryPending && !loading && !saving) {
@@ -360,7 +374,7 @@ export function createProjectPicker(options: Options) {
       if (!dialog.open || dialog.inert || event.ctrlKey || event.metaKey || event.altKey || saving) return false;
       if (event.key.toLowerCase() === 'n' && !event.repeat && !editable(event.target)) { event.preventDefault(); options.onCreate(); return true; }
       if (event.key === '/' && !editable(event.target)) { event.preventDefault(); filter.focus(); return true; }
-      if (event.key === 'F3') { event.preventDefault(); void browseProject(); return true; }
+      if (event.key === 'F3') { event.preventDefault(); browseProject(); return true; }
       return false;
     },
   };
