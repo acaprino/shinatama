@@ -157,7 +157,7 @@ try {
   await stage('refusals');
   for (const item of cases.filter(item => item.kind === 'alive')) {
     await open(item); await expect(card).toContainText('Marked open'); await expect(recover).toBeVisible();
-    await recover.click(); await expect(page.locator('#notice')).toContainText('could not be verified');
+    await recover.click(); await expect(page.locator('.im-notice', { hasText: 'could not be verified' })).toBeVisible();
     await expect(recover).toBeVisible();
     require(saved(item).ended_at === null && saved(item).revision === 1, 'refused-activation-changed');
   }

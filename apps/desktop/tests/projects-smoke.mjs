@@ -94,7 +94,7 @@ try {
   await closeApp(running); running = null;
   running = await openApp();
   await expect(running.page.locator('#project')).toHaveAttribute('data-project', 'second-project');
-  await expect(running.page.locator('#notice')).toContainText('Last project unavailable');
+  await expect(running.page.locator('.im-notice', { hasText: 'Last project unavailable' })).toBeVisible();
   // New session offers its choices; nothing starts by itself in the unavailable folder.
   await running.page.locator('#new-terminal').click();
   await expect.poll(async () => await running.page.locator('#session-menu').isVisible() || await running.page.locator('#project-menu').isVisible()).toBe(true);

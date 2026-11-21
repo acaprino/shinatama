@@ -140,7 +140,7 @@ try {
   await rename.click(); await input.fill('Stale local edit');
   const current=await ipc('workset_update',{request:{worksetId,expectedRevision:renamed.revision,title:'Other window title'}});
   await input.press('Enter');
-  await expect(page.locator('#notice')).toContainText('This thread changed');
+  await expect(page.locator('.im-notice', { hasText: 'This thread changed' })).toBeVisible();
   await expect(anchor.locator('.thread-sidebar-title')).toHaveText('Other window title');
   await expect(form).toBeHidden();
   expect((await stored()).title).toBe('Other window title');

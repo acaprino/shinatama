@@ -1,6 +1,6 @@
 import './shell-frame.ts';
 import '@acaprino/imago/css/imago.css';
-import { claimKey, confirm as confirmWorkspace, createRegistry, hasModal, mountApp, uiButton, uiOption, uiPart, uiSelect, uiTraits } from '@acaprino/imago/ui';
+import { claimKey, confirm as confirmWorkspace, createRegistry, hasModal, mountApp, notify as showNotice, uiButton, uiOption, uiPart, uiSelect, uiTraits } from '@acaprino/imago/ui';
 import { zoomDirection } from '@acaprino/imago/shell';
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -241,20 +241,19 @@ let pendingAttentionFocus: string | null = null;
 const workspace = $('#workspace');
 const confirmDialog = $<HTMLDialogElement>('#confirm-dialog');
 
-let noticeTimer = 0;
-/** True while the notice shows what an open is waiting for (`showOpening`). */
-let openingShown = false;
+/** Closes the notice `notify` showed last; a new session's start takes it away. */
+let closeNotice: (() => void) | null = null;
 /** Set when the database is read-only (a newer schema): its notice says why nothing is saved,
  *  so the layout notices that follow from it do not take its place. */
 let readOnlyStorage = false;
+/** Imago's notice: a result replaces the plain one on screen and goes after six seconds; an error says "Error" in
+ *  words and stays, up to three, until it is dismissed. */
 function notify(message: unknown, tone: Tone = 'error') {
-  const notice = $('#notice');
-  notice.dataset.tone = tone;
-  notice.setAttribute('role', tone === 'error' ? 'alert' : 'status');
-  $('#notice span').textContent = String(message);
-  notice.hidden = false;
-  clearTimeout(noticeTimer); openingShown = false;
-  if (tone !== 'error') noticeTimer = window.setTimeout(() => { notice.hidden = true; }, 6000);
+  closeNotice = showNotice($('#app'), String(message), tone === 'error' ? { tone: 'err' } : {});
+}
+/** The open in progress, said in the footer until it ends (never a notice that does not go). */
+function showProgress(text: string | null) {
+  const line = $('#open-progress'); line.textContent = text ?? ''; line.hidden = text === null;
 }
 /** What the open in progress is waiting for, said until the open ends (a first open after a start
  * waits for the model proxy and the harness check; it no longer fails while they finish). */
@@ -269,13 +268,12 @@ function showOpening(harness: string, step: string) {
   const text = openingSteps[step]; if (!text) return;
   const agent = sessionHarnesses.find(item => item.id === harness)?.label ?? harness;
   openingStep = text(agent);
-  notify(`Opening ${agent}: ${openingStep}…`, 'info'); clearTimeout(noticeTimer); openingShown = true; render();
+  showProgress(`Opening ${agent}: ${openingStep}…`); render();
 }
 /** Ends the progress line of an open; a result notice shown since stays. */
-function endOpening() { if (openingShown) $('#notice').hidden = true; openingShown = false; openingStep = null; }
+function endOpening() { showProgress(null); openingStep = null; }
 /** Writes one line in shinatama.log (data folder); a log that cannot be written changes nothing. */
 function appLog(source: 'layout' | 'page', message: string) { if (desktop) void invoke('app_log', { source, message }).catch(() => {}); }
-$('#notice button').onclick = () => { $('#notice').hidden = true; };
 const attentionControl = createAttentionControl(desktop, notify);
 // Restart is the panel's exit when the proxy supervisor stops answering; it closes like the window does.
 createSidecarControl(desktop, notify, () => closeWorkspace(true));
@@ -1281,7 +1279,7 @@ async function openNewSession(group: string = focusedGroup(), path?: string, har
     await loadHarnessCatalog();
     if (!selectedPath && scope === 'thread' && thread) { notify('The folder of this thread\'s project is not available. Use New session beside the projects.', 'info'); return; }
     if (!selectedPath) { notify('Choose a project first: sessions start in the selected project.', 'info'); $('#project').click(); return; }
-    $('#notice').hidden = true;
+    closeNotice?.(); closeNotice = null;
     if (harness && sessionHarnesses.some(candidate => candidate.id === harness)) { await launchSession(selectedPath, harness, group, thread); return; }
     const anchor = pressed?.isConnected ? pressed : $<HTMLElement>('#new-terminal');
     sessionMenuTarget = { path: selectedPath, group, workset: thread };

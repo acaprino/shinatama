@@ -46,7 +46,7 @@ async function check(home, valid, index) {
     } else {
       await expect(page.locator('#runtime-status')).toHaveText('Storage unavailable', { timeout: 15000 });
       expect(await error()).toContain('SHINATAMA_HOME');
-      await expect(page.locator('#notice')).toBeVisible();
+      await expect(page.locator('.im-notice').first()).toBeVisible();
     }
     // These commands remain responsive even when storage is rejected.
     expect(await invoke(page, 'terminal_list')).toEqual([]);

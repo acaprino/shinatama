@@ -50,8 +50,9 @@ export async function startSession(page, { project, harness, trigger = page.loca
     /** The product's refusal text, or null: the sheet's inline error, or the error notice of the menu route. */
     refusal: async () => {
       if (await sheet.isVisible() && await inline.isVisible()) return (await inline.innerText()).replace(/[\r\n]+/g, ' ').trim();
-      const notice = page.locator('#notice[data-tone="error"]');
-      return await notice.isVisible() ? (await notice.locator('span').first().innerText()).replace(/[\r\n]+/g, ' ').trim() : null;
+      // The newest error notice (Imago keeps up to three).
+      const notice = page.locator('.im-notice[data-im-tone="err"]').last();
+      return await notice.isVisible() ? (await notice.locator('.im-notice-text').innerText()).replace(/[\r\n]+/g, ' ').trim() : null;
     },
     /** Waits for the open to finish; throws with the product's text if it was refused. */
     done: milliseconds => until(async () => {

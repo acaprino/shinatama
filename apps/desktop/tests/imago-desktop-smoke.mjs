@@ -171,8 +171,14 @@ try {
   await expect(dialog).toBeHidden();
   await page.evaluate(() => { window.smoke.failure = 'plugin:window|minimize'; });
   await page.locator('#window-minimize').click();
-  await expect(page.locator('#notice')).toBeVisible();
-  await expect(page.locator('#notice')).toContainText(/minimize|fixture refused/i);
+  // Imago's error notice: it says "Error" in words and stays until it is dismissed.
+  const refused = page.locator('.im-notice[data-im-tone="err"]', { hasText: /minimize|fixture refused/i });
+  await expect(refused).toBeVisible();
+  await expect(refused.locator('.im-notice-text')).toHaveText(/^Error: /);
+  await refused.getByRole('button', { name: 'Dismiss' }).click();
+  await expect(refused).toHaveCount(0);
+  // An open in progress is said in the footer, not in a notice; at rest the line is empty and hidden.
+  await expect(page.locator('.im-footer #open-progress[role="status"]')).toBeHidden();
 
   await page.evaluate(() => window.smoke.emit('confirm-close', null));
   const confirmation = page.getByRole('alertdialog', { name: 'Close workspace?' });

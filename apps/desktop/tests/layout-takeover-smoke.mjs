@@ -56,7 +56,7 @@ try {
   await launch();
   await until(async () => await ownership() === 'ours', 20000, 'The layout of the killed window was not taken over.');
   await delay(1500);
-  const notice = await page.locator('#notice:not([hidden]) span').allTextContents();
+  const notice = await page.locator('.im-notice-text').allTextContents();
   if (notice.some(text => /another|arrangement|layout/i.test(text))) throw new Error('A notice was shown: ' + notice.join(' | '));
   if (await page.locator('#recover-layout').count()) throw new Error('A Recover saved layout button was shown.');
   console.log('layout-takeover smoke: ok');

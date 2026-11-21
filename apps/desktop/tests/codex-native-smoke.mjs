@@ -648,7 +648,7 @@ try {
       evidence.hostResources.complete = resources.complete === true;
     } catch { evidence.hostResources = { unavailable: true }; }
     try {
-      const inline = page.locator('#new-session-error:visible, #notice[data-tone="error"]:visible span').first();
+      const inline = page.locator('#new-session-error:visible, .im-notice[data-im-tone="err"] .im-notice-text').first();
       if (await inline.isVisible()) {
         const text = await inline.innerText();
         evidence.openErrorFamilies = serviceErrorFamilies(text);

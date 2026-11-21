@@ -298,7 +298,7 @@ try {
   expect(durableThreads.rows.find(row => row.id === threadId).status).toBe('recorded_open');
   await ipc('terminal_stop', { id: native });
   await expect(pane(native).locator('.exit-banner')).toBeVisible({ timeout: 15000 });
-  await expect(page.locator('#notice[data-tone="error"]')).toBeHidden();
+  await expect(page.locator('.im-notice[data-im-tone="err"]')).toHaveCount(0);
   await pane(native).getByRole('button', { name: 'Close terminal', exact: true }).click();
   await expect.poll(ids).toHaveLength(healthyCount);
   if (agentOnly) {
@@ -359,7 +359,7 @@ try {
       const snapshot = await Promise.race([
         page.evaluate(async scope => ({
           resourceControl: await window.__TAURI_INTERNALS__.invoke('resources_telemetry', { telemetry: {} }),
-          notice: document.querySelector('#notice')?.textContent?.slice(0, 2048),
+          notice: [...document.querySelectorAll('.im-notice')].map(node => node.textContent).join(' | ').slice(0, 2048),
           modelProxy: document.querySelector('#model-proxy-panel')?.textContent?.slice(0, 2048),
           agentCheckup: document.querySelector('#agent-setup-dialog')?.textContent?.slice(0, 4096),
           sidecarStatus: await window.__TAURI_INTERNALS__.invoke('sidecar_status'),

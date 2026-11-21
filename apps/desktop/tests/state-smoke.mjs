@@ -200,7 +200,7 @@ try {
   expect(beforeReadOnly.version).toBe(999);
   instance = await openApp(true);
   await expect(instance.page.locator('#project')).toHaveAttribute('data-project', 'second-project');
-  await expect(instance.page.locator('#notice')).toContainText('999');
+  await expect(instance.page.locator('.im-notice', { hasText: '999' })).toBeVisible();
   expect(await invoke(instance, 'project_recent')).toEqual(selected);
   const rejected = await invoke(instance, 'project_select', { path: first })
     .then(() => ({ rejected: false, message: '' }), error => ({ rejected: true, message: String(error) }));

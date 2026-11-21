@@ -143,7 +143,7 @@ try {
   console.log(surfaceOnly?'PASS: native surface, non-activating window, sound path, mute/preferences, stale/privilege/disable guards and app close. Live PTY proof remains deferred.':'PASS: native overlay and real PTY OSC/BEL/exit integration.');
 } catch(error) {
   if(main && !main.isClosed()) {
-    console.error(await main.evaluate(async()=>({notice:document.querySelector('#notice')?.textContent,resources:await window.__TAURI_INTERNALS__.invoke('resources_status'),project:document.querySelector('#project')?.textContent,dialogs:[...document.querySelectorAll('dialog[open]')].map(dialog=>dialog.textContent?.slice(0,500))})));
+    console.error(await main.evaluate(async()=>({notice:[...document.querySelectorAll('.im-notice')].map(node => node.textContent).join(' | '),resources:await window.__TAURI_INTERNALS__.invoke('resources_status'),project:document.querySelector('#project')?.textContent,dialogs:[...document.querySelectorAll('dialog[open]')].map(dialog=>dialog.textContent?.slice(0,500))})));
     await main.screenshot({path:resolve(output,'attention-failure.png')}).catch(()=>{});
   }
   throw error;

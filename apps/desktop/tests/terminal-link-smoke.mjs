@@ -73,7 +73,7 @@ try {
   await delay(300);
   await window.mouse.down(); await window.mouse.up();
   const tab = await until(async () => (await window.locator('.browser-tab').count()) > 0, 30000, 'No browser tab opened.')
-    .catch(async error => { throw new Error(`${error.message} Notice: ${await window.locator('#notice span').textContent().catch(() => '')}`); });
+    .catch(async error => { throw new Error(`${error.message} Notice: ${(await window.locator('.im-notice-text').allTextContents().catch(() => [])).join(' | ')}`); });
   const red = await until(() => window.evaluate(() => {
     const canvas = document.querySelector('.browser-tab:not([hidden]) .browser-canvas'); if (!canvas || !canvas.width) return false;
     const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data; let hit = 0;

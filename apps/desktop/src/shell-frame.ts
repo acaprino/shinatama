@@ -33,6 +33,8 @@ main.querySelector('.im-panel-body')!.append(workspace);
 // The footer: the runtime's state, the counts, the keys.
 const footer = shell.querySelector<HTMLElement>('.im-footer')!;
 const runtime = uiPart('text', 'Connecting…', 'im-footer-text'); runtime.id = 'runtime-status';
+// What an open in progress waits for, said until it ends (main.ts showProgress).
+const progress = uiPart('text'); progress.id = 'open-progress'; progress.setAttribute('role', 'status'); progress.hidden = true;
 const terminals = uiPart('text', '0 terminals'); terminals.id = 'terminal-count';
 const count = uiPart('hint', '2 panes');
 count.id = 'pane-count';
@@ -40,17 +42,10 @@ const workspaceStatus = uiPart('text', 'Workspace ', 'workspace-name');
 workspaceStatus.append(count);
 const keys = uiPart('text', undefined, 'im-footer-keys');
 keys.append(uiPart('hint', 'Ctrl+Shift+T  new session'), uiPart('hint', 'Ctrl+Shift+Left / Right  focus pane'));
-footer.append(runtime, terminals, workspaceStatus, uiPart('spacer'), keys);
+footer.append(runtime, progress, terminals, workspaceStatus, uiPart('spacer'), keys);
 for (const button of shell.querySelectorAll<HTMLButtonElement>('[data-im-window]')) {
   button.id = 'window-' + button.dataset.imWindow;
   button.disabled = true;
 }
-const host = uiTraits(uiPart('body'), 'noticeHost');
-host.dataset.imNotices = '';
-const notice = uiTraits(uiPart('row'), 'notice');
-notice.id = 'notice';
-notice.hidden = true;
-notice.setAttribute('role', 'status');
-notice.append(uiPart('text'), componentElement(iconButtonHtml('Dismiss notification', 'dismiss-notice', 'close')));
-host.append(notice);
-shell.append(host, projectControls(), stopControls());
+// The notices are Imago's (main.ts notify): their host is made in the shell at the first one.
+shell.append(projectControls(), stopControls());
