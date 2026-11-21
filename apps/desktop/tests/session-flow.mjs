@@ -84,7 +84,9 @@ export async function dragTab(page, tab, pane, where) {
       underPress: (() => {
         const box = node.getBoundingClientRect();
         const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
-        return { tag: hit?.tagName, classes: hit?.className?.toString().slice(0, 80), insideTab: !!hit && node.contains(hit) };
+        const rect = element => { const b = element.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)]; };
+        const path = []; for (let n = hit; n && n !== document.body && path.length < 6; n = n.parentElement) path.push(n.tagName.toLowerCase() + (n.id ? '#' + n.id : '') + '.' + String(n.className).trim().split(/\s+/).slice(0, 3).join('.'));
+        return { path: path.join(' < '), hitRect: hit && rect(hit), tabRect: rect(node), viewport: [innerWidth, innerHeight], insideTab: !!hit && node.contains(hit) };
       })(),
       tabPointerEvents: getComputedStyle(node).pointerEvents,
       splitters: [...document.querySelectorAll('.wm-splitter')].slice(0, 6).map(splitter => {
