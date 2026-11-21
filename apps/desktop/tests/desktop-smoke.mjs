@@ -249,11 +249,21 @@ try {
     return status.phase;
   }, { timeout: 45000 }).toBe('ready');
   const agentOpen = await startSession(page, { project: projectPath, harness: 'claude_code' });
+  // A machine without Claude Code (a GitHub runner) skips the agent part and says so; any other
+  // refusal still fails, and so does a missing Claude Code in the first-agent-only run.
+  let claudeMissing = false;
   await expect.poll(async () => {
     const refused = await agentOpen.refusal();
+    if (refused && !agentOnly && /harness is not installed/i.test(refused)) { claudeMissing = true; return false; }
     if (refused) throw new Error('Agent open refused: ' + refused.slice(0, 300) + ' ' + JSON.stringify(await ipc('agent_status')));
     return agentOpen.pending();
   }, { timeout: 120000 }).toBe(false);
+  if (claudeMissing) {
+    console.log('SKIP: Claude Code is not installed here; the isolated Claude check and the TUI startup/stop did not run.');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#new-session-dialog')).toBeHidden();
+    await expect(page.locator('#session-menu')).toBeHidden();
+  } else {
   await expect.poll(() => checkScratchNames(storage.directory), {
     timeout: 5000, intervals: [50, 100, 200],
     message: 'A successful open must leave no released version-probe or TUI-canary scratch.',
@@ -310,6 +320,7 @@ try {
     await page.screenshot({path:resolve(output,'c25-thread-sidebar.png'),timeout:3000});
     console.log('PASS: durable real-start thread, read-only selection, sidebar width/collapse saved and restored; no auto-resume.');
   }
+  } // the agent part, when Claude Code is installed
 
   if (healthyCount > 0) {
     await page.getByRole('button', { name: 'Close window', exact: true }).click();
@@ -321,7 +332,8 @@ try {
   if (healthyCount > 0) await page.getByRole('alertdialog', { name: 'Close workspace?', exact: true }).getByRole('button', { name: 'Stop', exact: true }).click();
   await closed;
   expect(errors).toEqual([]);
-  console.log('PASS: native borderless controls; real contained terminals and visible limits; nested layout/themes/find/reload; sidecar ready; isolated Claude check and original TUI startup/stop; canonical instance/thread references; confirmed save/close.');
+  console.log('PASS: native borderless controls; real contained terminals and visible limits; nested layout/themes/find/reload; sidecar ready; '
+    + (claudeMissing ? 'Claude Code not installed, its check skipped; ' : 'isolated Claude check and original TUI startup/stop; canonical instance/thread references; ') + 'confirmed save/close.');
 } catch (error) {
   if (!browser) {
     // The app ran but its WebView never answered: what the app logged in this run's synthetic home,
