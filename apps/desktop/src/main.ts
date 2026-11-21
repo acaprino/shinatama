@@ -1,6 +1,7 @@
 import './shell-frame.ts';
 import '@acaprino/imago/css/imago.css';
-import { confirm as confirmWorkspace, hasModal, uiButton, uiOption, uiPart, uiSelect, uiTraits } from '@acaprino/imago/ui';
+import { claimKey, confirm as confirmWorkspace, createRegistry, hasModal, mountApp, uiButton, uiOption, uiPart, uiSelect, uiTraits } from '@acaprino/imago/ui';
+import { zoomDirection } from '@acaprino/imago/shell';
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -72,6 +73,8 @@ type View = {
 type WorksetScope = { id: string; projectId: string };
 type Tone = 'info' | 'error';
 const $ = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
+// The window's command registry; mountApp attaches it once the sidebar is in the shell.
+const registry = createRegistry();
 const desktop = isTauri();
 const loadTerminalEmulator = () => import('./terminal-emulator.ts');
 // The desktop window is transparent over Windows acrylic; only the terminal panes let it through.
@@ -746,7 +749,15 @@ async function attachTerminal(info: SessionInfo, group: string, threadId: string
     // Ctrl+V / Ctrl+Shift+V / Shift+Insert paste: xterm must not consume the key (it would send ^V
     // to the harness and cancel the browser's paste event), so the textarea's own paste reaches it.
     if (event.type === 'keydown' && !event.altKey && ((event.ctrlKey && (event.key === 'v' || event.key === 'V')) || (event.shiftKey && event.key === 'Insert'))) return false;
-    return !(event.ctrlKey && event.shiftKey && ['T', 't', 'F', 'f', 'ArrowLeft', 'ArrowRight'].includes(event.key));
+    // Shinatama's own chords go to the window's commands.
+    if (event.ctrlKey && event.shiftKey && ['T', 't', 'F', 'f', 'ArrowLeft', 'ArrowRight'].includes(event.key)) return false;
+    if (event.type === 'keydown') {
+      // F6 and Shift+F6 leave the terminal for the next region, so the keyboard is never trapped in it; the zoom keys
+      // are the window's. Every other key is the program's, Ctrl+K and Ctrl+F included: no command of the window runs.
+      if (event.key === 'F6' || zoomDirection(event) !== null) return false;
+      claimKey(event);
+    }
+    return true;
   });
   render(); if (shownHere && !background) setFocus(view.group);
   void drain(view);
@@ -1282,7 +1293,7 @@ async function openNewSession(group: string = focusedGroup(), path?: string, har
   } finally { openingSessionDialog = false; }
 }
 threadSidebar = createWorksetSidebar({
-  host: $('#work-area'),
+  shell: $('#app'),
   restoreFocus: () => $('#threads-toggle').focus(),
   list: request => desktop ? invoke('workset_list', {request}) : Promise.resolve({rows:[],more:false}),
   create: desktop ? request => invoke('workset_create', {request}) : undefined,
@@ -1337,7 +1348,16 @@ threadSidebar = createWorksetSidebar({
   reportError: notify,
   onModeChange: mode => { $('#threads-toggle').setAttribute('aria-pressed', String(mode !== 'hidden')); },
 });
-$('#work-area').prepend(threadSidebar.element);
+// The canon's sidebar region, first in the shell's body: Imago folds it into its rail (sidebarCollapse), makes it a
+// drawer under 620 (sidebarDrawer, the title bar's toggle), and F6 moves between it, the content and the side panel.
+$('#app .im-body').prepend(threadSidebar.element);
+// mountApp: the layer stack, the sidebar's drawer and fold, F6 between the regions, the registry on the document, Ctrl+K
+// (the palette) and Ctrl+F (Find in the focused pane). A terminal keeps its own keys (it claims them, see openTerminal).
+const unmountApp = mountApp($('#app'), registry, {
+  search: () => terminalFind.open(),
+  sidebar: { collapsed: threadSidebar.collapsed(), onChange: collapsed => threadSidebar?.setCollapsed(collapsed) },
+});
+window.addEventListener('pagehide', unmountApp, { once: true });
 // ADR-0057: the conversation of a thread whose sessions talk to each other, beside the terminals.
 threadChat = createThreadChat({
   invoke: (command, args) => invoke(command, args),
@@ -1496,14 +1516,13 @@ const filesPanel = createFilesPanel({
   button.onclick = () => { void filesPanel.show(); };
   document.querySelector('#new-terminal')?.before(button);
 }
-// What agent sessions create on disk (Xiox), docked right of the workspace and always in view.
+// What agent sessions create on disk (Xiox), a view of the side panel beside the workspace.
 if (desktop) {
   const leftovers = createLeftoversPanel({
     invoke: (command, args) => invoke(command, args),
     focusSession: id => focusAttentionSession(id),
     reportError: notify,
   });
-  $('#work-area').append(leftovers.element);
   document.querySelector('#new-terminal')?.before(leftovers.toggle);
 }
 const projectsOverview = createProjectsOverview({
@@ -1658,23 +1677,23 @@ $('#layout-toggle').onclick = () => {
     if (result.ok) { workspaceLayout = result.value; persistence?.update(workspaceLayout); render(); }
   }
 };
-document.addEventListener('keydown', event => {
-  if (projectPicker.handleKey(event)) return;
-  if (newProject.handleKey(event)) return;
-  const target = event.target instanceof HTMLElement ? event.target : null;
-  const terminalInput = !!target?.closest('.xterm');
-  const textInput = !!target?.closest('input,textarea,select,[contenteditable="true"]');
-  if (!modalOpen() && !terminalInput && !textInput && !event.ctrlKey && !event.altKey && !event.metaKey) {
-    // A character key acts only while its control has focus, never on stray focus.
-    if (event.key === '/' && target?.closest('#project')) { event.preventDefault(); projectPicker.open(true); return; }
-    if (event.key === 'F3') { event.preventDefault(); projectPicker.open(); void projectPicker.browse(); return; }
-  }
-  if (modalOpen() || !event.ctrlKey || !event.shiftKey) return;
-  if (event.key.toLowerCase() === 'f') { event.preventDefault(); terminalFind.open(); }
-  if (event.key.toLowerCase() === 't') { event.preventDefault(); openNewSession(); }
-  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-    event.preventDefault(); const neighbor = keyboardNeighbor(workspaceLayout, focusedGroup(), event.key === 'ArrowLeft' ? 'left' : 'right', { width: workspace.clientWidth, height: workspace.clientHeight }); if (neighbor) setFocus(neighbor);
-  }
+// The window's commands, in the registry mountApp attaches (the palette, Ctrl+K, lists them). None runs under a modal.
+const fieldFocused = () => !!document.activeElement?.closest('input,textarea,select,[contenteditable="true"],.xterm');
+registry.register({ id: 'shinatama.new-session', title: 'New session', keys: 'Ctrl+Shift+T', when: () => !modalOpen(), run: () => { void openNewSession(); } });
+registry.register({ id: 'shinatama.find-in-terminal', title: 'Find in the terminal', keys: 'Ctrl+Shift+F', when: () => !modalOpen(), run: () => terminalFind.open() });
+for (const [side, key] of [['left', 'ArrowLeft'], ['right', 'ArrowRight']] as const) {
+  registry.register({ id: `shinatama.pane-${side}`, title: `Focus the pane on the ${side}`, keys: `Ctrl+Shift+${key}`, when: () => !modalOpen(), run: () => {
+    const neighbor = keyboardNeighbor(workspaceLayout, focusedGroup(), side, { width: workspace.clientWidth, height: workspace.clientHeight }); if (neighbor) setFocus(neighbor);
+  } });
+}
+// F3 outside a field or a terminal opens a folder as a project.
+registry.register({ id: 'shinatama.open-folder', title: 'Open a folder as a project', keys: 'F3', when: () => !modalOpen() && !fieldFocused(), run: () => { projectPicker.open(); void projectPicker.browse(); } });
+// A surface's own keys stay on it: the project picker's n, / and F3; on the Projects button, n makes a project and /
+// opens the picker on its filter. A character key acts only while its control has focus, never on stray focus.
+$('#project-dialog').addEventListener('keydown', event => { if (projectPicker.handleKey(event)) claimKey(event); });
+$('#project').addEventListener('keydown', event => {
+  if (newProject.handleKey(event)) { claimKey(event); return; }
+  if (event.key === '/' && !event.ctrlKey && !event.altKey && !event.metaKey && !modalOpen()) { event.preventDefault(); claimKey(event); projectPicker.open(true); }
 });
 async function initialize() {
   render(); setFocus(focusedGroup(), false);

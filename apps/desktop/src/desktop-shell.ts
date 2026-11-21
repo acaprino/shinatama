@@ -55,6 +55,7 @@ export async function initializeDesktopShell(options: DesktopShellOptions): Prom
       if (panel) window.getSelection()?.selectAllChildren(panel);
     }
   };
+  // imago-check: allow own-keydown — the zoom keys and Select All are the window's before a terminal or a field sees them (capture, as Windows Terminal does); the registry runs after, in the bubble phase.
   document.addEventListener('keydown', onKey, true);
 
   const stopReload = await listen<number>('interface-reload-requested', ({ payload }) => {

@@ -113,11 +113,11 @@ try {
   assert.ok(await dialog.evaluate(node => node instanceof HTMLDialogElement && node.open));
   await expect(page.locator('#settings-status')).toContainText('Reload before saving');
   const zoom = page.locator('#settings-zoom');
-  await zoom.selectOption('1.25');
+  await zoom.selectOption('1.2');
   await page.keyboard.press('Control+=');
-  await expect(zoom).toHaveValue('1.5');
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('shinatama.zoom'))).toBe('1.5');
-  assert.deepEqual(await page.evaluate(() => window.smoke.calls.filter(({ command }) => command === 'plugin:webview|set_webview_zoom').map(({ args }) => args.value)), [1.25, 1.5]);
+  await expect(zoom).toHaveValue('1.3');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('shinatama.zoom'))).toBe('1.3');
+  assert.deepEqual(await page.evaluate(() => window.smoke.calls.filter(({ command }) => command === 'plugin:webview|set_webview_zoom').map(({ args }) => args.value)), [1.2, 1.3]);
   const palette = [];
   for (const theme of ['light', 'dark']) {
     await page.locator('#presentation-theme').selectOption(theme);

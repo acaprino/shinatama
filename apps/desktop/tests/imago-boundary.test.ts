@@ -110,13 +110,15 @@ function inspectModule(file: string, source: string) {
 const terminalSelectors = new Set([
   '.terminal-view', '.xterm', '.xterm-viewport', '.terminal-view.has-minimap', '.terminal-view.drop-target',
   '.terminal-view.has-minimap > .xterm .xterm-scrollable-element > .scrollbar.vertical',
-  '.terminal-view.has-minimap > .xterm .xterm-viewport', '.terminal-earlier', '.terminal-history-screen',
+  '.terminal-view.has-minimap > .xterm .xterm-viewport', '.terminal-view > .terminal-minimap', '.terminal-earlier', '.terminal-history-screen',
 ]);
 const fileSelectors = new Set([
   '.cm-fold-mark', '.cm-fold-mark.open', '.files-preview .md-link', '.files-preview .md-image',
 ]);
+// The frame's one rule: the tiling workspace fills the content panel's body.
+const shellSelectors = new Set(['.workspace-host']);
 function inspectCss(file: string, source: string): string[] {
-  const scope = file === 'src/terminal-content.css' ? terminalSelectors : file === 'src/files-panel.css' ? fileSelectors : null;
+  const scope = file === 'src/terminal-content.css' ? terminalSelectors : file === 'src/files-panel.css' ? fileSelectors : file === 'src/shell-content.css' ? shellSelectors : null;
   if (!scope) return [file + ' is not a specialist content stylesheet'];
   const issues: string[] = [];
   const root = postcss.parse(source, { from: file });

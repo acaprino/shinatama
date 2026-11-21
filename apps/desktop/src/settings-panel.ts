@@ -36,7 +36,7 @@ const percent = (level: number) => `${Math.round(level * 100)}%`;
  * always has: Appearance, Alerts and Sessions apply as they change; Agents, Models, Memory, GitHub and the
  * variables wait for Save. Saved secrets never come back to this page; they can be replaced or removed. */
 export function createSettingsPanel(options: Options) {
-  const dialog = uiTraits(uiPart('dialog'), 'sectionedDrawer'); dialog.id = 'settings-dialog'; dialog.setAttribute('aria-labelledby', 'settings-title');
+  const dialog = uiPart('dialog'); dialog.id = 'settings-dialog'; dialog.setAttribute('aria-labelledby', 'settings-title');
   const top = uiPart('stack');
   const heading = uiPart('row', undefined, 'dialog-heading'); const title = uiPart('title', 'Settings'); title.id = 'settings-title';
   const closeButton = uiButton('×'); closeButton.setAttribute('aria-label', 'Close settings');

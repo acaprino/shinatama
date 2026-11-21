@@ -30,7 +30,7 @@ async function withSpecialistPage(run) {
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     await page.route('https://fixture.invalid/', route => route.fulfill({ contentType: 'text/html', body: `<!doctype html>
-      <html data-im-look="oni" data-im-theme="dark"><body><main class="im-shell im-desktop-frame" id="app">
+      <html data-im-look="oni" data-im-theme="dark"><body><main class="im-shell" id="app">
       <div id="host" style="width:73vw;height:55vh"></div></main></body></html>` }));
     await page.goto('https://fixture.invalid/');
     await page.addStyleTag({ content: output.find(asset => asset.fileName.endsWith('.css')).source });

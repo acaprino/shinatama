@@ -6,7 +6,7 @@
   "imago": {
     "src": ["apps/desktop/src"],
     "tests": ["apps/desktop/tests"],
-    "cargo": "Cargo.toml",
+    "cargo": "apps/desktop/src-tauri/Cargo.toml",
     "agents": ["AGENTS.md", "CLAUDE.md"],
     "entry": "apps/desktop/src/main.ts",
     "app": "shinatama",

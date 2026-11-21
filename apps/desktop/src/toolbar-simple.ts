@@ -10,7 +10,9 @@ export function organizeToolbar(): void {
   toolbar.append(more);
   const secondary = ['find-terminal', 'layout-toggle', 'restore', 'sessions', 'session-search', 'open-settings'];
   const folding = ['open-sessions', 'open-projects', 'open-files'];
-  const narrow = window.matchMedia('(max-width: 700px)');
+  // The shell's width, not the screen's (the canon's breakpoint of 850): a narrow shell folds the toolbar into More.
+  const shell = toolbar.closest<HTMLElement>('.im-shell') ?? document.documentElement;
+  const narrow = { matches: shell.getBoundingClientRect().width < 850 };
   // Original buttons retain their handlers and disabled state when their commands move to More.
   const reserve = (id: string) => {
     const control = toolbar.querySelector<HTMLButtonElement>('#' + id);
@@ -33,7 +35,10 @@ export function organizeToolbar(): void {
       else home.after(control);
     }
   }
-  narrow.addEventListener('change', fold);
+  new ResizeObserver(([entry]) => {
+    const matches = entry.contentRect.width < 850;
+    if (matches !== narrow.matches) { narrow.matches = matches; fold(); }
+  }).observe(shell);
   fold();
   more.onclick = () => {
     if (more.getAttribute('aria-expanded') === 'true') { closeMore?.(); return; }

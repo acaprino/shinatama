@@ -15,7 +15,8 @@ const browser = await chromium.launch({ executablePath, channel: !executablePath
 try {
   const page = await browser.newPage();
   await page.clock.install();
-  await page.setContent('<main id="app"><div id="work-area"></div></main>');
+  // The canon's shell with its side panel (the inspector), where the conversation shows.
+  await page.setContent('<main id="app" class="im-shell"><section class="im-panel im-inspector" aria-label="Side panel" hidden></section></main>');
   await page.addScriptTag({ content: bundle[0].output.find(chunk => chunk.type === 'chunk').code });
   await page.evaluate(() => {
     const session = name => ({ sessionId: name, title: name, memberName: name, state: 'running', connection: 'in_room' });

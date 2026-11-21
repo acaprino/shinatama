@@ -1,4 +1,5 @@
 import { keyedList, uiPart, uiButton, uiSelect, uiTextarea, uiOption, uiTraits, uiTone } from '@acaprino/imago/ui';
+import { closeSidePanel, openSidePanel, sideView } from './side-panel.ts';
 // ADR-0057: the conversation of a thread whose sessions talk to each other. A side panel beside the
 // terminals, not a dialog: the user can watch the sessions work while they read. It reads the room
 // without consuming anything a session has not read, and writes only as the user's own member.
@@ -32,11 +33,9 @@ const CONNECTION_TEXT: Record<ChatSession['connection'], string> = {
 };
 
 export function createThreadChat(options: Options) {
-  const panel = uiTraits(uiPart('aside'), 'dockedInspector'); panel.id = 'thread-chat-panel'; panel.hidden = true; panel.setAttribute('aria-labelledby', 'thread-chat-title');
-  const heading = uiPart('row');
-  const title = uiPart('title', 'Conversation'); title.id = 'thread-chat-title'; title.tabIndex = -1;
-  const close = uiButton('×'); close.setAttribute('aria-label', 'Close the conversation');
-  heading.append(title, close);
+  // A view of the window's side panel: the terminals stay live beside it.
+  const view = sideView('thread-chat-panel', 'Conversation', 'Close the conversation', 'thread-chat-title');
+  const panel = view.root; const close = view.close; const title = view.header.querySelector<HTMLElement>('#thread-chat-title')!;
   const thread = uiPart('paragraph');
   const status = uiPart('status'); status.setAttribute('role', 'status');
   const sessionsHead = uiPart('heading', 'Sessions');
@@ -60,8 +59,8 @@ export function createThreadChat(options: Options) {
   const send = uiButton('Send', { primary: true }); send.type = 'submit';
   const actions = uiPart('actions'); actions.append(send);
   form.append(toLabel, to, textLabel, text, hint, actions);
-  panel.append(heading, thread, status, sessionsHead, sessions, logHead, log, empty, form);
-  (document.querySelector('#work-area') ?? document.querySelector('#app'))?.append(panel);
+  view.body.append(thread, status, sessionsHead, sessions, logHead, log, empty);
+  view.foot.append(form);
 
   let current: ChatThread | null = null; let snapshot: ChatSnapshot | null = null; let events: ChatEvent[] = [];
   let timer = 0; let reading: number | null = null; let sending = false; let generation = 0; let toChosen = false;
@@ -130,7 +129,6 @@ export function createThreadChat(options: Options) {
   function render() {
     if (!current) return;
     paintText(thread, options.title(current));
-    const tone = options.tone(current); if (tone) panel.style.setProperty('--im-item-color', tone); else panel.style.removeProperty('--im-item-color');
     renderSessions(); renderLog();
     send.disabled = sending || !snapshot?.enabled; to.disabled = text.disabled = !snapshot?.enabled;
   }
@@ -184,7 +182,6 @@ export function createThreadChat(options: Options) {
   filter.onchange = renderLog;
   to.onchange = () => { toChosen = true; };
   close.onclick = () => hide();
-  panel.onkeydown = event => { if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); hide(); } };
   const visibility = () => { if (!document.hidden && current) void read(); };
   document.addEventListener('visibilitychange', visibility);
 
@@ -192,17 +189,21 @@ export function createThreadChat(options: Options) {
     snapshot = null; events = []; toChosen = false; lastSeenEvent = null;
     paintSessions([]); paintRecipients([]); paintEvents([]);
   }
-  function hide() {
-    if (panel.hidden) return;
+  /** The view left the side panel (its ×, Escape, another view): the room is no longer read. */
+  function left() {
+    if (!current) return;
     generation++; current = null; clearRoom(); window.clearInterval(timer);
-    panel.hidden = true; options.restoreFocus?.();
+  }
+  function hide() {
+    if (!current) return;
+    closeSidePanel(panel); left(); options.restoreFocus?.();
   }
   return {
     element: panel,
     /** Opens the conversation of this thread, or brings it forward if it is already open. */
     open(scope: ChatThread) {
       if (current?.id !== scope.id) { generation++; current = { ...scope }; clearRoom(); setStatus('Reading the room…'); }
-      panel.hidden = false; render(); title.focus(); schedule(); void read();
+      openSidePanel(panel, { onLeave: left }); render(); title.focus(); schedule(); void read();
     },
     hide,
     current: (): string | null => current?.id ?? null,

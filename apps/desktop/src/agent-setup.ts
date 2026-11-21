@@ -53,7 +53,7 @@ export function createAgentSetup(options: Options) {
     && typeof item.checkable === 'boolean' && all.findIndex(other => other.agentId === item.agentId) === index);
   const button = uiButton('Agents'); button.id = 'agents';
   document.querySelector('.toolbar')?.append(button);
-  const dialog = uiTraits(uiPart('dialog'), 'paddedDrawer'); dialog.id = 'agent-setup-dialog'; dialog.setAttribute('aria-labelledby', 'agent-setup-title');
+  const dialog = uiPart('dialog'); dialog.id = 'agent-setup-dialog'; dialog.setAttribute('aria-labelledby', 'agent-setup-title');
   const heading = uiPart('row', undefined, 'dialog-heading');
   const title = uiPart('title', 'Agents'); title.id = 'agent-setup-title';
   const dismiss = uiButton('×'); dismiss.setAttribute('aria-label', 'Close agents');

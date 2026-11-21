@@ -58,6 +58,9 @@ const SHAPES: readonly { id: 'star' | 'chain' | 'peers'; name: string; tip: stri
     nodes: [{ x: 4, y: 10 }, { x: 13, y: 10 }, { x: 22, y: 10 }], links: [] },
 ];
 
+// A tone or a stroke the canon does not name is no attribute at all (imago-check, unknown-value): a plain wire or card.
+const setTone = (node: HTMLElement | SVGElement, tone: string) => { if (['ok', 'warn', 'err', 'info', 'accent'].includes(tone)) node.dataset.imTone = tone; else delete node.dataset.imTone; };
+const setStroke = (node: HTMLElement | SVGElement, stroke: string) => { if (stroke === 'dashed' || stroke === 'dotted') node.dataset.imStroke = stroke; else delete node.dataset.imStroke; };
 const part = <K extends UiPart>(kind: K, className?: string, text?: string) => uiPart(kind, text, className);
 function button(label = '', cls?: string) {
   const node = uiButton(label, { cls, primary: cls === 'primary' });
@@ -164,7 +167,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
   wires.classList.add('team-wires'); nodes.classList.add('team-nodes');
   for (const kind of ['work', 'observes', 'bad', 'rubber'] as const) {
     const arrow = graphArrowMarker(defs, `${viewId}-head-${kind}`);
-    arrow.dataset.imTone = ({ work: '', observes: 'info', bad: 'err', rubber: 'accent' })[kind];
+    setTone(arrow, ({ work: '', observes: 'info', bad: 'err', rubber: 'accent' })[kind]);
     arrow.classList.add('team-head'); arrow.dataset.kind = kind === 'observes' ? 'observes' : 'work';
     if (kind === 'bad') arrow.setAttribute('data-bad', ''); if (kind === 'rubber') arrow.setAttribute('data-rubber', '');
   }
@@ -523,14 +526,14 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
       }
       node.style.left = `${a.x}px`; node.style.top = `${a.y}px`;
       const session = sessionOf(a); const harness = session?.harness ?? '';
-      node.dataset.harness = harness; node.dataset.imTone = harnessTone(harness);
+      node.dataset.harness = harness; setTone(node, harnessTone(harness));
       node.setAttribute('aria-pressed', String(!!selection && 'agent' in selection && selection.agent === a.id));
       node.toggleAttribute('data-in', session?.connection === 'in_room');
       node.toggleAttribute('data-empty', !a.session);
       const [told, toldText] = toldState(a);
       node.toggleAttribute('data-pending', told === 'edited');
       node.toggleAttribute('data-bad', bad.has(a.id) || failures.has(a.id) || told === 'failed');
-      const head = uiTraits(part('body', 'team-card-top'), 'editorNodeTitle'); const dot = uiTraits(part('text', 'team-dot'), 'editorDot'); dot.setAttribute('aria-hidden', 'true'); dot.dataset.imTone = session?.connection === 'in_room' ? 'ok' : '';
+      const head = uiTraits(part('body', 'team-card-top'), 'editorNodeTitle'); const dot = uiTraits(part('text', 'team-dot'), 'editorDot'); dot.setAttribute('aria-hidden', 'true'); setTone(dot, session?.connection === 'in_room' ? 'ok' : '');
       head.append(dot, uiTraits(part('text', 'team-card-name', a.name || '(no name)'), 'truncate'));
       if (bad.has(a.id)) { const mark = part('text', 'team-card-bad', '✕'); mark.title = 'A problem with this agent: see the list above the map'; head.append(mark); }
       const view = roles[a.id]; const roleName = view ? ROLE_NAME[view.role] ?? view.role : 'checking…';
@@ -571,8 +574,8 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
       const { group, hit, line, label, title } = graphEditorEdge(a, b, `${viewId}-head-${wrong ? 'bad' : l.kind}`, open);
       group.classList.add('team-link'); hit.classList.add('team-hit');
       line.classList.add('team-wire'); label.classList.add('team-wire-label');
-      group.dataset.imStroke = l.kind === 'observes' ? 'dotted' : mark.has(i) ? 'dashed' : 'solid';
-      group.dataset.imTone = wrong ? 'err' : l.kind === 'observes' ? 'info' : '';
+      setStroke(group, l.kind === 'observes' ? 'dotted' : mark.has(i) ? 'dashed' : 'solid');
+      setTone(group, wrong ? 'err' : l.kind === 'observes' ? 'info' : '');
       group.setAttribute('aria-pressed', String(selected === i));
       group.dataset.from = l.from; group.dataset.to = l.to;
       const said = l.kind === 'work' ? (l.report === 'strict' ? 'gives work · only done / blocked' : l.report === 'steps' ? 'gives work · every step' : 'gives work to') : 'observes';
@@ -592,7 +595,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     const rest = (snap?.sessions ?? []).filter(s => !onMap.has(s.sessionId));
     const full = draft.agents.length >= MAX_AGENTS;
     sideList.replaceChildren(...rest.map(s => {
-      const item = part('item'); const b = uiTraits(button('', 'team-session'), 'editorSource'); b.dataset.session = s.sessionId; b.dataset.harness = s.harness ?? ''; b.dataset.imTone = harnessTone(s.harness ?? '');
+      const item = part('item'); const b = uiTraits(button('', 'team-session'), 'editorSource'); b.dataset.session = s.sessionId; b.dataset.harness = s.harness ?? ''; setTone(b, harnessTone(s.harness ?? ''));
       const label = s.harness ? deps.harnessLabel(s.harness) : 'Session';
       b.append(part('strong', undefined, s.title && s.title !== label ? s.title : label), part('text', undefined, `${label} · ${s.state.replace('_', ' ')}${s.connection === 'unsupported' ? ' · cannot take part' : ''}`));
       b.disabled = s.connection === 'unsupported' || full;
@@ -644,7 +647,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     else if (snap?.refused.notice) { text = `revision ${applied!.revision} · the notice to the other sessions could not be sent: ${snap.refused.notice}`; tone = 'error'; }
     else if (waiting) { text = `revision ${applied!.revision} · ${waiting} told when ${waiting > 1 ? 'they join' : 'it joins'}`; tone = 'dirty'; }
     else { text = `revision ${applied!.revision} · everyone was told`; tone = 'ok'; }
-    state.textContent = text; state.dataset.tone = tone; state.dataset.imTone = tone === 'dirty' ? 'warn' : tone === 'error' ? 'err' : tone;
+    state.textContent = text; state.dataset.tone = tone; setTone(state, tone === 'dirty' ? 'warn' : tone === 'error' ? 'err' : tone);
     const ready = !draft.agents.length || (fresh() && !evaluating);
     const todo = dirty || open > 0;
     apply.textContent = open ? `Open ${open} session${open > 1 ? 's' : ''} and apply` : 'Apply';
@@ -762,7 +765,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
     const head = part('subheading'); const title = part('text'); head.append(title, closeButton('the arrow box'));
     const kinds = uiTraits(part('body', 'team-kinds'), 'stack'); kinds.setAttribute('role', 'group'); kinds.setAttribute('aria-label', 'Kind of relation');
     const kindButtons = (['work', 'observes'] as const).map(kind => {
-      const b = button(); b.dataset.kind = kind; b.dataset.first = '1'; uiTraits(b, 'editorChoice'); const i = uiTraits(part('text', 'team-kind-line'), 'editorSample'); i.setAttribute('aria-hidden', 'true'); i.dataset.kind = kind; i.dataset.imStroke = kind === 'observes' ? 'dotted' : 'solid'; const name = part('strong'); const why = part('text'); b.append(i, name, why);
+      const b = button(); b.dataset.kind = kind; b.dataset.first = '1'; uiTraits(b, 'editorChoice'); const i = uiTraits(part('text', 'team-kind-line'), 'editorSample'); i.setAttribute('aria-hidden', 'true'); i.dataset.kind = kind; setStroke(i, kind === 'observes' ? 'dotted' : 'solid'); const name = part('strong'); const why = part('text'); b.append(i, name, why);
       b.onclick = () => { const at = linkIndex(from, to); if (at >= 0 && draft.links[at].kind !== kind) updateLink(at, { kind, report: 'done' }); };
       kinds.append(b); return { b, name, why, kind };
     });
