@@ -7,7 +7,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { createZoomController, guardDesktop, type ZoomController } from '@acaprino/imago/shell';
-import { keepsSelectAll, ZOOM_STEPS } from './desktop-shell-model.ts';
+import { ENGINE_SURFACES, keepsSelectAll, ZOOM_STEPS } from './desktop-shell-model.ts';
 
 const ZOOM_KEY = 'shinatama.zoom';
 
@@ -37,7 +37,7 @@ export async function initializeDesktopShell(options: DesktopShellOptions): Prom
   zoom = controller;
   notifyZoom(controller.current());
 
-  const releaseGuard = guardDesktop(document, { allowReloadIn: '.xterm, .browser-canvas, .cm-editor' });
+  const releaseGuard = guardDesktop(document, { allowReloadIn: ENGINE_SURFACES });
   // Capture: a terminal or a field never sees these keys, as in Windows Terminal.
   const onKey = (event: KeyboardEvent): void => {
     const target = event.target instanceof Element ? event.target : null;
