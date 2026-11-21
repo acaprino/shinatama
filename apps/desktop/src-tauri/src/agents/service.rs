@@ -103,6 +103,7 @@ impl From<&'static str> for DriverError {
     }
 }
 #[derive(Clone)]
+#[allow(clippy::large_enum_variant)]
 pub(super) enum SessionOperation {
     New,
     Resume(ThreadResumeTarget),
@@ -226,6 +227,7 @@ pub(super) trait HarnessService: Send + Sync {
     fn descriptor(&self) -> HarnessDescriptor;
     fn diagnostics(&self) -> Value;
     fn check(&self) -> Result<AgentCheckup, ServiceError>;
+    #[allow(clippy::too_many_arguments)]
     fn open(
         &self,
         host: &TerminalHost,
@@ -679,6 +681,7 @@ impl<D: HarnessDriver> Service<D> {
                     old.candidate.path == current.path && old.candidate.kind == current.kind
                 }))
     }
+    #[allow(clippy::too_many_arguments)]
     fn open_impl(
         &self,
         host: &TerminalHost,

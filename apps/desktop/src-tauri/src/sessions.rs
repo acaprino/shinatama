@@ -83,6 +83,7 @@ impl Drop for WatchGuard {
 }
 
 /// What an export streamed to a staged file came back as.
+#[allow(clippy::large_enum_variant)]
 pub enum StagedExport {
     /// The worker finished: its final frame, and the staged body to commit when it holds a payload.
     Done {

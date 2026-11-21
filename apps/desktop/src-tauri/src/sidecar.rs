@@ -394,10 +394,13 @@ impl Drop for OpeningGuard {
 }
 /// What the proxy owner asks before it stops an idle proxy for a cleanup, and between the run's
 /// commands: the live agent sessions and the opens in progress. An unknown count is activity.
+/// How many live sessions there are, once the agents controller can say.
+type LiveCount = Box<dyn Fn() -> Option<usize> + Send + Sync>;
+
 #[derive(Clone, Default)]
 pub(crate) struct SessionActivity {
     opening: Opening,
-    live: Arc<OnceLock<Box<dyn Fn() -> Option<usize> + Send + Sync>>>,
+    live: Arc<OnceLock<LiveCount>>,
 }
 impl SessionActivity {
     pub(crate) fn set_live(&self, live: Box<dyn Fn() -> Option<usize> + Send + Sync>) {

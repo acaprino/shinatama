@@ -436,6 +436,7 @@ impl Controller {
         )
         .await
     }
+    #[allow(clippy::too_many_arguments)]
     async fn start_request(
         self: &Arc<Self>,
         agent_id: &str,
@@ -534,6 +535,7 @@ impl Controller {
     /// `model` is then ignored; otherwise `model` is the Models panel's entry the program runs
     /// (only OpenCode and Pi take one). The thread's room is joined through the launch's hooks as
     /// for any session of a talking thread; a failure of the chat never refuses the launch.
+    #[allow(clippy::too_many_arguments)]
     pub async fn open_agent(
         self: &Arc<Self>,
         program: &str,

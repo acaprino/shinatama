@@ -38,6 +38,7 @@ const WAIT: Duration = Duration::from_secs(2);
 const POLL: Duration = Duration::from_millis(10);
 
 /// Rust-only inputs from the sealed launch recipe, never UI or hook selectors.
+#[allow(clippy::large_enum_variant)]
 pub(super) enum PendingThread {
     Start {
         thread: ThreadRecord,

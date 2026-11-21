@@ -939,8 +939,10 @@ mod tests {
     }
     #[test]
     fn disabled_widget_does_not_queue_memory_warnings() {
-        let mut feed = Feed::default();
-        feed.enabled = false;
+        let mut feed = Feed {
+            enabled: false,
+            ..Feed::default()
+        };
         assert_eq!(
             feed.observe_memory(Some(memory(400, 2000)), None, false),
             MemoryChange::None

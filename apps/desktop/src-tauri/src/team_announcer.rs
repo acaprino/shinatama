@@ -857,10 +857,12 @@ mod tests {
     }
 
     /// A room that answers from a script and remembers what it was asked, in order.
+    /// What the scripted room answers for one delivery.
+    type Answer<T> = Box<dyn Fn(&Delivery) -> Result<T, String>>;
     struct Scripted {
         log: RefCell<Vec<String>>,
-        send: Box<dyn Fn(&Delivery) -> Result<Value, String>>,
-        found: Box<dyn Fn(&Delivery) -> Result<bool, String>>,
+        send: Answer<Value>,
+        found: Answer<bool>,
     }
     impl Scripted {
         fn new(
