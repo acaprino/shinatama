@@ -1,4 +1,4 @@
-import { uiPart, uiButton, uiInput } from '@acaprino/imago/ui';
+import { uiPart, uiButton, uiInput, uiTraits } from '@acaprino/imago/ui';
 import { openModal, topModal } from './modal.ts';
 import type { DetailRequest } from './session-detail.ts';
 import type { SessionRootSelector } from './session-library.ts';
@@ -64,7 +64,7 @@ export function createSessionRaw(options: Options) {
   const load = uiButton(''); load.id = 'session-raw-load'; load.textContent = 'Load this RAW entry';
   const copy = uiButton(''); copy.id = 'session-raw-copy'; copy.textContent = 'Copy visible RAW'; actions.append(load, copy);
   const status = uiPart('status');
-  const content = uiPart('pre', undefined, 'im-scroll--bounded'); content.id = 'session-raw-content'; content.tabIndex = 0; content.setAttribute('aria-label', 'Visible RAW native record');
+  const content = uiTraits(uiPart('pre'), 'bounded'); content.id = 'session-raw-content'; content.tabIndex = 0; content.setAttribute('aria-label', 'Visible RAW native record');
   const scope = uiPart('hint', 'One entry, at most 64 KiB. Attachment files stay closed. Closing clears this view. Copy writes only the displayed RAW to your clipboard.');
   dialog.append(heading, warning, source, consent, actions, status, content, scope); (document.querySelector('#app') ?? document.body).append(dialog);
   let selected: RawSelection | null = null; let generation = 0; let destroyed = false; let busy = false; let copying = false;

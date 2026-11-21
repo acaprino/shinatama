@@ -1,4 +1,4 @@
-import { uiPart, uiButton, uiInput, uiSelect, uiOption } from '@acaprino/imago/ui';
+import { uiPart, uiButton, uiInput, uiSelect, uiOption, uiTraits, uiEmphasis } from '@acaprino/imago/ui';
 import { openModal } from './modal.ts';
 import type { SessionRootSelector } from './session-library.ts';
 
@@ -80,7 +80,7 @@ export function createSessionSearch(options: Options) {
   form.append(queryLabel, query, agentLabel, agent, projectLabel, project, fromLabel, from, toLabel, to, submit);
 
   const status = uiPart('status'); status.id = 'session-search-status'; status.setAttribute('role', 'status');
-  const results = uiPart('orderedList', undefined, 'im-scroll im-scroll--bounded'); results.setAttribute('aria-label', 'Search results');
+  const results = uiTraits(uiPart('orderedList'), 'scroll', 'bounded'); results.setAttribute('aria-label', 'Search results');
 
   const indexing = uiPart('details'); indexing.classList.add('session-search-index');
   const indexSummary = uiPart('summary', 'Index');
@@ -162,12 +162,12 @@ export function createSessionSearch(options: Options) {
   stop.onclick = () => { void options.indexCancel().then(() => refresh(), () => undefined); };
   // Confirmed in place: the first press arms the button for a few seconds, the second forgets.
   const forgetLabel = forget.textContent; let forgetArmed = 0;
-  const disarmForget = () => { clearTimeout(forgetArmed); forgetArmed = 0; forget.textContent = forgetLabel; forget.classList.remove('im-btn--danger'); forget.removeAttribute('title'); };
+  const disarmForget = () => { clearTimeout(forgetArmed); forgetArmed = 0; forget.textContent = forgetLabel; uiEmphasis(forget, null); forget.removeAttribute('title'); };
   forget.onblur = disarmForget;
   forget.onclick = () => {
     if (busy) return;
     if (!forgetArmed) {
-      forget.textContent = 'Confirm forget';
+      forget.textContent = 'Confirm forget'; uiEmphasis(forget, 'danger');
       forget.title = 'Forgets all indexed session text. Your sessions and threads are not changed.';
       status.textContent = 'Press Confirm forget to remove all indexed session text. Your sessions and threads are not changed.';
       forgetArmed = window.setTimeout(disarmForget, 5000); return;

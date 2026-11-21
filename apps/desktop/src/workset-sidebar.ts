@@ -1,4 +1,4 @@
-import { uiPart, uiButton, uiInput } from '@acaprino/imago/ui';
+import { uiPart, uiButton, uiInput, uiTraits, uiTone, uiEmphasis } from '@acaprino/imago/ui';
 import { splitter } from '@acaprino/imago/ui';
 // ADR-0055: the sidebar lists threads. A thread is a set of sessions with its own layout; a click
 // opens it, and the window then shows all and only its sessions. Nothing here starts an agent.
@@ -131,21 +131,21 @@ function agoText(timestamp: number) {
 }
 
 export function createWorksetSidebar(options: WorksetSidebarOptions) {
-  const element = uiPart('aside', undefined, 'thread-sidebar im-resizable-nav'); element.setAttribute('aria-label', 'Project threads');
+  const element = uiTraits(uiPart('aside', undefined, 'thread-sidebar'), 'resizableNav'); element.setAttribute('aria-label', 'Project threads');
   const heading = uiPart('header'); const collapse = uiButton('', { sm: true });
   collapse.setAttribute('aria-controls', 'thread-sidebar-body');
   const close = uiButton('×', { sm: true });
   close.title = 'Close the thread sidebar (the Threads button brings it back)'; close.setAttribute('aria-label', 'Close the thread sidebar');
   heading.append(uiPart('heading', 'Threads'), collapse, close);
   // Compact: one square per thread, its colour when on; a click turns it on or off.
-  const rail = uiPart('list', undefined, 'im-nav-rail'); rail.setAttribute('aria-label', 'Threads');
-  const body = uiPart('scroll', undefined, 'thread-sidebar-body im-stack'); body.id = 'thread-sidebar-body';
+  const rail = uiTraits(uiPart('list'), 'navRail'); rail.setAttribute('aria-label', 'Threads');
+  const body = uiTraits(uiPart('scroll', undefined, 'thread-sidebar-body'), 'stack'); body.id = 'thread-sidebar-body';
   const showArchivedLabel = uiPart('label'); const showArchived = uiInput('checkbox');
   showArchivedLabel.append(showArchived, ' Show archived threads'); showArchivedLabel.hidden = !options.update;
   const status = uiPart('paragraph', undefined, 'thread-sidebar-status'); status.setAttribute('role', 'status');
   const list = uiPart('list', undefined, 'thread-sidebar-list'); list.setAttribute('aria-label', 'Threads, by project');
   // The settings of one thread open in place, under its row (⋯): name, every session (open, then closed), archive, forget.
-  const details = uiPart('item', undefined, 'thread-sidebar-details im-nav-detail im-stack');
+  const details = uiTraits(uiPart('item', undefined, 'thread-sidebar-details'), 'navDetail', 'stack');
   const renameForm = uiPart('form', undefined, 'thread-sidebar-rename');
   const renameLabel = uiPart('label', 'Name'); renameLabel.htmlFor = 'thread-rename-title';
   const renameInput = uiInput(); renameInput.id = 'thread-rename-title'; renameInput.type = 'text'; renameInput.maxLength = 256; renameInput.autocomplete = 'off';
@@ -165,7 +165,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   const sessionRenameSave = uiButton('Save'); sessionRenameSave.type = 'submit'; sessionRenameSave.dataset.key = 'rename-save';
   sessionRename.append(sessionRenameInput, sessionRenameSave);
   const closedHead = uiPart('paragraph', undefined, 'thread-sidebar-closed-head'); const closedList = uiPart('list', undefined, 'thread-sidebar-closed');
-  const warning = uiPart('paragraph', undefined, 'im-text-err'); warning.hidden = true;
+  const warning = uiTone(uiPart('paragraph'), 'err'); warning.hidden = true;
   // ADR-0057: the switch that lets the thread's sessions talk to each other.
   const chatLabel = uiPart('label'); const chatSwitch = uiInput('checkbox'); chatSwitch.id = 'thread-chat-switch';
   chatLabel.append(chatSwitch, ' Sessions talk to each other');
@@ -240,7 +240,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     const now = display.hidden ? 'hidden' : display.collapsed ? 'compact' : 'open';
     if (now !== shownMode) { shownMode = now; options.onModeChange?.(now); }
     showArchived.disabled = busy || !active.length; showArchived.checked = archivedView;
-    body.setAttribute('aria-busy', String(busy)); status.textContent = message; status.dataset.state = failed ? 'error' : 'ready'; status.classList.toggle('im-text-err', failed); status.hidden = !message;
+    body.setAttribute('aria-busy', String(busy)); status.textContent = message; status.dataset.state = failed ? 'error' : 'ready'; uiTone(status, failed ? 'err' : null); status.hidden = !message;
     const retained = new Set(rows.map(row => row.id));
     for (const [id, item] of anchors) if (!retained.has(id)) { item.remove(); anchors.delete(id); }
     const nodes: HTMLLIElement[] = [];
@@ -318,7 +318,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     const focused = document.activeElement instanceof HTMLElement && sessionsList.contains(document.activeElement) ? document.activeElement : null;
     const focusKey = focused?.dataset.key; const typing = focused === sessionRenameInput ? [sessionRenameInput.selectionStart, sessionRenameInput.selectionEnd] as const : null;
     sessionsList.replaceChildren(...listed.map(session => {
-      const item = uiPart('item', undefined, 'im-inline-row'); item.dataset.threadId = session.id;
+      const item = uiTraits(uiPart('item'), 'row'); item.dataset.threadId = session.id;
       const button = (label: string, key: string, title: string, act: () => void) => {
         const made = uiButton(label); made.dataset.key = `${key}:${session.id}`; made.disabled = busy;
         made.title = title; made.setAttribute('aria-label', `${label} ${session.name}`); made.onclick = act; return made;
@@ -328,8 +328,8 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
         if (!typing) sessionRenameInput.placeholder = session.name;
         sessionRenameSave.disabled = busy; item.append(sessionRename); return item;
       }
-      const words = uiPart('text', undefined, 'im-stack im-grow');
-      words.append(uiPart('text', session.name), uiPart('text', sessionStateText(session.state), 'im-muted'));
+      const words = uiTraits(uiPart('text'), 'stack', 'grow');
+      words.append(uiPart('text', session.name), uiTraits(uiPart('text', sessionStateText(session.state)), 'muted'));
       words.title = `${session.name} · ${sessionStateText(session.state)} · ${agoText(session.updatedAt)}`;
       item.append(words);
       if (options.onShowSession) item.append(button('Show', 'show', 'Show this session\'s tab, turning the thread on if it is off', () => {
@@ -394,9 +394,9 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   function threadItem(row: WorksetSummary): HTMLLIElement {
     let item = anchors.get(row.id);
     if (!item) {
-      item = uiPart('item', undefined, 'thread-sidebar-row im-nav-line'); const anchor = uiButton('', { sm: true, cls: 'thread-sidebar-anchor im-nav-entry' }); anchor.dataset.worksetId = row.id;
+      item = uiTraits(uiPart('item', undefined, 'thread-sidebar-row'), 'navLine'); const anchor = uiTraits(uiButton('', { sm: true, cls: 'thread-sidebar-anchor' }), 'navEntry'); anchor.dataset.worksetId = row.id;
       // The square says whether the thread is shown: filled when its tabs are in the window.
-      const mark = uiPart('text', undefined, 'thread-sidebar-switch im-nav-mark'); mark.setAttribute('aria-hidden', 'true');
+      const mark = uiTraits(uiPart('text', undefined, 'thread-sidebar-switch'), 'navMark'); mark.setAttribute('aria-hidden', 'true');
       anchor.append(mark, uiPart('text', undefined, 'thread-sidebar-title'), uiPart('text', undefined, 'thread-sidebar-state'), uiPart('text', undefined, 'thread-sidebar-updated'));
       anchor.onclick = () => { const actual = rows.find(candidate => candidate.id === row.id); if (actual) void openThread(actual); };
       item.append(anchor);
@@ -457,7 +457,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   }
   function groupHead(project: string): HTMLLIElement {
     let head = heads.get(project); if (head) return head;
-    head = uiPart('item', undefined, 'thread-sidebar-group im-nav-line'); head.dataset.projectId = project;
+    head = uiTraits(uiPart('item', undefined, 'thread-sidebar-group'), 'navLine'); head.dataset.projectId = project;
     const toggle = uiButton('', { sm: true, cls: 'thread-sidebar-group-toggle' });
     toggle.append(uiPart('text', undefined, 'thread-sidebar-group-name'), uiPart('text', undefined, 'thread-sidebar-group-count'));
     toggle.onclick = () => { if (!collapsedGroups.delete(project)) collapsedGroups.add(project); render(); };
@@ -465,7 +465,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
     const hide = uiButton('×', { sm: true, cls: 'thread-sidebar-group-remove' }); hide.onclick = () => { if (!busy) setActive(active.filter(id => id !== project)); };
     head.append(toggle, add, hide); heads.set(project, head); return head;
   }
-  function disarm() { window.clearTimeout(removeArmed); removeArmed = 0; remove.textContent = removeLabel; remove.classList.remove('danger', 'im-btn--danger'); warning.hidden = true; }
+  function disarm() { window.clearTimeout(removeArmed); removeArmed = 0; remove.textContent = removeLabel; uiEmphasis(remove, null).classList.remove('danger'); warning.hidden = true; }
   async function read(): Promise<boolean> {
     if (destroyed || !active.length) return false;
     if (busy) { rereadWanted = true; return false; }
@@ -560,7 +560,7 @@ export function createWorksetSidebar(options: WorksetSidebarOptions) {
   remove.onclick = () => {
     const current = chosen(); if (!current || !options.remove || busy) return;
     if (!removeArmed) {
-      remove.textContent = 'Click again to delete'; remove.classList.add('danger', 'im-btn--danger'); removeArmed = window.setTimeout(disarm, 5000);
+      remove.textContent = 'Click again to delete'; uiEmphasis(remove, 'danger').classList.add('danger'); removeArmed = window.setTimeout(disarm, 5000);
       warning.textContent = `Deletes this thread and its ${current.sessions} session${current.sessions === 1 ? '' : 's'} from Shinatama, closed ones included. The agents' own files stay.`;
       warning.hidden = false; return;
     }

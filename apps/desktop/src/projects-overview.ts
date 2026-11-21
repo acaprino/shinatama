@@ -1,4 +1,4 @@
-import { uiPart, uiButton, uiInput } from '@acaprino/imago/ui';
+import { uiPart, uiButton, uiInput, uiTraits } from '@acaprino/imago/ui';
 import { listen } from '@tauri-apps/api/event';
 import { openModal } from './modal.ts';
 import { confirmsField } from './desktop-shell-model.ts';
@@ -36,7 +36,7 @@ export function createProjectsOverview(options: Options) {
   const closeButton = uiButton('×'); closeButton.setAttribute('aria-label', 'Close projects');
   heading.append(title, closeButton);
   const status = uiPart('status');
-  const list = uiPart('list', undefined, 'im-scroll im-scroll--bounded');
+  const list = uiTraits(uiPart('list'), 'scroll', 'bounded');
   dialog.append(heading, status, list);
   (document.querySelector('#app') ?? document.body).append(dialog);
   let generation = 0;

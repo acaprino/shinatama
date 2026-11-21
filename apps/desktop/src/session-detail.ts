@@ -1,4 +1,4 @@
-import { uiPart, uiButton } from '@acaprino/imago/ui';
+import { uiPart, uiButton, uiTraits } from '@acaprino/imago/ui';
 import { openModal, topModal } from './modal.ts';
 import type { SessionRootSelector } from './session-library.ts';
 import type { RawSelection } from './session-raw.ts';
@@ -136,8 +136,8 @@ export function createSessionDetail(options: Options) {
     const panel = uiPart('region'); panel.setAttribute('aria-label', button.textContent); panels.set(name, panel);
   }
   const overview = uiPart('descriptionList'); overview.classList.add('session-detail-overview'); panels.get('overview')!.append(overview);
-  const events = uiPart('stack', undefined, 'im-scroll im-scroll--bounded'); events.classList.add('session-detail-events'); panels.get('transcript')!.append(events);
-  const lineage = uiPart('stack', undefined, 'im-scroll im-scroll--bounded'); panels.get('lineage')!.append(lineage);
+  const events = uiTraits(uiPart('stack'), 'scroll', 'bounded'); events.classList.add('session-detail-events'); panels.get('transcript')!.append(events);
+  const lineage = uiTraits(uiPart('stack'), 'scroll', 'bounded'); panels.get('lineage')!.append(lineage);
   const pager = uiPart('actions'); pager.classList.add('session-detail-pagination');
   const previous = uiButton('Previous');
   const position = uiPart('text'); const next = uiButton('Next'); pager.append(previous, position, next);

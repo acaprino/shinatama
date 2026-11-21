@@ -1,19 +1,19 @@
 {
   "agent-setup.ts": {
     "parts": 20,
-    "classes": 4
+    "classes": 0
   },
   "attention-control.ts": {
     "parts": 9,
-    "classes": 1
+    "classes": 0
   },
   "browser-tab.ts": {
-    "parts": 8,
-    "classes": 2
+    "parts": 9,
+    "classes": 0
   },
   "files-panel.ts": {
-    "parts": 13,
-    "classes": 5
+    "parts": 15,
+    "classes": 0
   },
   "files-tree.ts": {
     "parts": 1,
@@ -21,23 +21,23 @@
   },
   "hop-preview.ts": {
     "parts": 24,
-    "classes": 1
+    "classes": 0
   },
   "instances-overview.ts": {
     "parts": 31,
-    "classes": 2
+    "classes": 0
   },
   "leftovers-panel.ts": {
     "parts": 32,
-    "classes": 2
+    "classes": 0
   },
   "main.ts": {
     "parts": 22,
-    "classes": 3
+    "classes": 0
   },
   "model-settings-panel.ts": {
     "parts": 50,
-    "classes": 6
+    "classes": 0
   },
   "new-project.ts": {
     "parts": 20,
@@ -45,31 +45,31 @@
   },
   "new-session.ts": {
     "parts": 24,
-    "classes": 3
+    "classes": 0
   },
   "presentation.ts": {
     "parts": 13,
-    "classes": 1
+    "classes": 0
   },
   "project-controls.ts": {
     "parts": 31,
-    "classes": 1
+    "classes": 0
   },
   "project-picker.ts": {
     "parts": 13,
-    "classes": 1
+    "classes": 0
   },
   "projects-overview.ts": {
     "parts": 30,
-    "classes": 2
+    "classes": 0
   },
   "resource-status.ts": {
     "parts": 1,
-    "classes": 1
+    "classes": 0
   },
   "session-detail.ts": {
     "parts": 44,
-    "classes": 4
+    "classes": 0
   },
   "session-export.ts": {
     "parts": 30,
@@ -77,11 +77,11 @@
   },
   "session-find.ts": {
     "parts": 21,
-    "classes": 2
+    "classes": 0
   },
   "session-library.ts": {
     "parts": 65,
-    "classes": 1
+    "classes": 0
   },
   "session-menu.ts": {
     "parts": 1,
@@ -93,11 +93,11 @@
   },
   "session-raw.ts": {
     "parts": 15,
-    "classes": 1
+    "classes": 0
   },
   "session-search.ts": {
     "parts": 36,
-    "classes": 3
+    "classes": 0
   },
   "sessions-panel.ts": {
     "parts": 45,
@@ -105,15 +105,15 @@
   },
   "settings-panel.ts": {
     "parts": 56,
-    "classes": 7
+    "classes": 0
   },
   "shell-frame.ts": {
     "parts": 21,
-    "classes": 8
+    "classes": 0
   },
   "sidecar-control.ts": {
     "parts": 31,
-    "classes": 2
+    "classes": 0
   },
   "team-map.ts": {
     "parts": 19,
@@ -133,7 +133,7 @@
   },
   "thread-chat.ts": {
     "parts": 34,
-    "classes": 8
+    "classes": 0
   },
   "toolbar-simple.ts": {
     "parts": 10,
@@ -141,6 +141,6 @@
   },
   "workset-sidebar.ts": {
     "parts": 59,
-    "classes": 17
+    "classes": 0
   }
 }

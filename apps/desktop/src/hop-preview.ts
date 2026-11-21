@@ -1,4 +1,4 @@
-import { uiPart, uiButton, uiSelect, uiOption } from '@acaprino/imago/ui';
+import { uiPart, uiButton, uiSelect, uiOption, uiTraits } from '@acaprino/imago/ui';
 import { openModal } from './modal.ts';
 import type { SessionRootSelector } from './session-library.ts';
 
@@ -31,7 +31,7 @@ export function createHopPreview(options: Options) {
   const status = uiPart('status');
   const facts = uiPart('descriptionList');
   const lists = uiPart('stack');
-  const seed = uiPart('pre', undefined, 'im-scroll--bounded'); seed.tabIndex = 0; seed.setAttribute('aria-label', 'Exact seed');
+  const seed = uiTraits(uiPart('pre'), 'bounded'); seed.tabIndex = 0; seed.setAttribute('aria-label', 'Exact seed');
   const actions = uiPart('actions');
   const copy = uiButton('Copy hand-off prompt');
   const send = uiButton('Hop', { primary: true });

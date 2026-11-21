@@ -1,6 +1,6 @@
 import './shell-frame.ts';
 import '@acaprino/imago/css/imago.css';
-import { confirm as confirmWorkspace, hasModal, uiButton, uiOption, uiPart, uiSelect } from '@acaprino/imago/ui';
+import { confirm as confirmWorkspace, hasModal, uiButton, uiOption, uiPart, uiSelect, uiTraits } from '@acaprino/imago/ui';
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -493,7 +493,7 @@ function render() {
       const parsed = parseWorkspaceLayout({ ...workspaceLayout, views: workspaceLayout.views.map(view => view.id === active.info.id && view.resource.kind === 'terminal' ? { ...view, resource: { ...view.resource, profileId: active.profile } } : view) });
       if (parsed.ok) { workspaceLayout = parsed.value; persistence?.update(workspaceLayout); }
     } };
-    const path = uiPart('text', undefined, 'im-grow im-truncate path'); path.textContent = active?.info.cwd ?? projectPath; path.title = path.textContent;
+    const path = uiTraits(uiPart('text', undefined, 'path'), 'grow', 'truncate'); path.textContent = active?.info.cwd ?? projectPath; path.title = path.textContent;
     const size = uiPart('text', undefined, 'size'); size.textContent = active ? `${active.terminal.cols}×${active.terminal.rows}` : '';
     const resources = uiPart('text', undefined, 'terminal-resources'); resources.setAttribute('aria-label', 'Terminal resources');
     const measured = active && terminalMetrics.get(active.info.id);
@@ -782,7 +782,7 @@ function savedAsEnded(view: View) {
   if (next !== workspaceLayout) { workspaceLayout = next; persistence?.update(workspaceLayout); }
 }
 function showExit(view: View, code: number | null) {
-  const banner = uiPart('row', undefined, 'im-viewport-footer exit-banner'); banner.setAttribute('role', 'status');
+  const banner = uiTraits(uiPart('row', undefined, 'exit-banner'), 'viewportFooter'); banner.setAttribute('role', 'status');
   const text = uiPart('text'); text.textContent = code === null ? 'Process exited' : `Process exited · code ${code}`;
   const restart = uiButton('New session');
   restart.onclick = () => openNewSession(view.group, view.info.cwd,

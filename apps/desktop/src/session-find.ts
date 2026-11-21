@@ -1,4 +1,4 @@
-import { uiPart, uiButton, uiInput } from '@acaprino/imago/ui';
+import { uiPart, uiButton, uiInput, uiTraits } from '@acaprino/imago/ui';
 import { openModal, topModal } from './modal.ts';
 import type { DetailRequest } from './session-detail.ts';
 import type { SessionRootSelector } from './session-library.ts';
@@ -82,7 +82,7 @@ export function createSessionFind(options: Options) {
   query.autocomplete = 'off'; query.spellcheck = false; query.setAttribute('aria-describedby', 'session-find-scope');
   const search = uiButton(''); search.type = 'submit'; search.textContent = 'Search this session'; form.append(label, query, search);
   const status = uiPart('status'); status.classList.add('session-find-status'); status.setAttribute('role', 'status');
-  const results = uiPart('orderedList', undefined, 'im-scroll im-scroll--bounded'); results.setAttribute('aria-label', 'Session search matches');
+  const results = uiTraits(uiPart('orderedList'), 'scroll', 'bounded'); results.setAttribute('aria-label', 'Session search matches');
   const pager = uiPart('actions'); pager.classList.add('session-find-pagination');
   const previous = uiButton('Previous matches');
   const position = uiPart('text'); const next = uiButton('Next matches'); pager.append(previous, position, next);

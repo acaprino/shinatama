@@ -1,4 +1,4 @@
-import { uiPart, uiButton, uiInput, uiSelect, uiOption } from '@acaprino/imago/ui';
+import { uiPart, uiButton, uiInput, uiSelect, uiOption, uiTraits, uiTone } from '@acaprino/imago/ui';
 import { openModal } from './modal.ts';
 import { parseMuroStatus, pluginsButtons, pluginsLine, type MuroStatus } from './muro-status.ts';
 import { createModelSettingsPanel } from './model-settings-panel.ts';
@@ -36,19 +36,19 @@ const percent = (level: number) => `${Math.round(level * 100)}%`;
  * always has: Appearance, Alerts and Sessions apply as they change; Agents, Models, Memory, GitHub and the
  * variables wait for Save. Saved secrets never come back to this page; they can be replaced or removed. */
 export function createSettingsPanel(options: Options) {
-  const dialog = uiPart('dialog', undefined, 'im-sectioned-drawer'); dialog.id = 'settings-dialog'; dialog.setAttribute('aria-labelledby', 'settings-title');
+  const dialog = uiTraits(uiPart('dialog'), 'sectionedDrawer'); dialog.id = 'settings-dialog'; dialog.setAttribute('aria-labelledby', 'settings-title');
   const top = uiPart('stack');
   const heading = uiPart('row', undefined, 'dialog-heading'); const title = uiPart('title', 'Settings'); title.id = 'settings-title';
   const closeButton = uiButton('×'); closeButton.setAttribute('aria-label', 'Close settings');
   heading.append(title, closeButton);
-  const index = uiPart('nav', undefined, 'im-inline-row'); index.setAttribute('aria-label', 'Settings sections');
+  const index = uiTraits(uiPart('nav'), 'row'); index.setAttribute('aria-label', 'Settings sections');
   top.append(heading, index);
   const intro = uiPart('hint', 'Appearance, Alerts and Sessions apply as you change them. Agents, Models, Memory, GitHub and Environment variables apply when you press Save.');
   intro.id = 'settings-intro';
 
   const parts = new Map<SettingsSection, { section: HTMLElement; heading: HTMLHeadingElement; link: HTMLButtonElement }>();
   for (const [id, label, text] of SETTINGS_SECTIONS) {
-    const section = uiPart('region', undefined, 'im-stack im-section'); section.id = `settings-section-${id}`;
+    const section = uiTraits(uiPart('region'), 'stack', 'section'); section.id = `settings-section-${id}`;
     const sectionHeading = uiPart('heading', text); sectionHeading.id = `settings-section-${id}-title`; sectionHeading.tabIndex = -1;
     section.setAttribute('aria-labelledby', sectionHeading.id); section.append(sectionHeading);
     const link = uiButton(label, { cls: 'settings-index-link', sm: true }); link.setAttribute('aria-controls', section.id);
@@ -175,7 +175,7 @@ export function createSettingsPanel(options: Options) {
   const statusLine = () => `${summary(form)} · ${memorySummary(memory)}`;
   function paintMemory() { memoryCheck.checked = memory.enabled; margin.value = String(memory.marginMib); margin.disabled = !memory.enabled; }
 
-  const say = (text: string, error = false) => { status.textContent = text; status.dataset.tone = error ? 'error' : 'info'; status.classList.toggle('im-text-err', error); };
+  const say = (text: string, error = false) => { status.textContent = text; status.dataset.tone = error ? 'error' : 'info'; uiTone(status, error ? 'err' : null); };
   function paintToken() {
     token.placeholder = form.hasToken && !form.removeToken ? 'Saved. Type to replace' : 'ghp_… or github_pat_…';
     removeToken.hidden = !form.hasToken || form.removeToken || Boolean(token.value);
@@ -262,7 +262,7 @@ export function createSettingsPanel(options: Options) {
 
   // Sessions: each switch applies at once through the command its view always used.
   let sessionsBusy = 0;
-  const saySessions = (text: string, error = false) => { sessionsStatus.textContent = text; sessionsStatus.dataset.tone = error ? 'error' : 'info'; sessionsStatus.classList.toggle('im-text-err', error); };
+  const saySessions = (text: string, error = false) => { sessionsStatus.textContent = text; sessionsStatus.dataset.tone = error ? 'error' : 'info'; uiTone(sessionsStatus, error ? 'err' : null); };
   async function loadSessions() {
     if (!options.desktop) { titles.disabled = indexing.disabled = true; saySessions('Open the desktop app to change these.'); return; }
     const mine = ++sessionsBusy; titles.disabled = indexing.disabled = true;
@@ -292,7 +292,7 @@ export function createSettingsPanel(options: Options) {
     const today = at.toDateString() === new Date().toDateString();
     return at.toLocaleString([], today ? { hour: '2-digit', minute: '2-digit' } : { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   };
-  const sayPlugins = (text: string, error = false) => { pluginsStatus.textContent = text; pluginsStatus.dataset.tone = error ? 'error' : 'info'; pluginsStatus.classList.toggle('im-text-err', error); };
+  const sayPlugins = (text: string, error = false) => { pluginsStatus.textContent = text; pluginsStatus.dataset.tone = error ? 'error' : 'info'; uiTone(pluginsStatus, error ? 'err' : null); };
   function paintPlugins(status: MuroStatus | null, problem?: string) {
     const why = pluginsButtons(status, options.desktop);
     syncNow.disabled = why.sync !== null; syncNow.title = why.sync ?? 'Ask Muro to check and apply the plugins now';

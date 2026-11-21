@@ -1,4 +1,4 @@
-import { segmentedControl, uiPart, uiButton, uiInput, uiSelect, uiOption } from '@acaprino/imago/ui';
+import { segmentedControl, uiPart, uiButton, uiInput, uiSelect, uiOption, uiTraits } from '@acaprino/imago/ui';
 import { openSheet } from './modal.ts';
 
 export type NewSessionProject = { id: string; path: string };
@@ -53,7 +53,7 @@ export function createNewSession(options: Options) {
 
   // 1. Project: pick from the list, or browse / type a folder.
   const projectLabel = uiPart('label', 'Project'); projectLabel.htmlFor = 'new-session-project';
-  const list = uiPart('scroll'); list.classList.add('im-choice-list'); list.id = 'new-session-projects'; list.setAttribute('role', 'listbox'); list.setAttribute('aria-label', 'Recent projects');
+  const list = uiPart('scroll'); uiTraits(list, 'choiceList'); list.id = 'new-session-projects'; list.setAttribute('role', 'listbox'); list.setAttribute('aria-label', 'Recent projects');
   const folderRow = uiPart('row');
   const project = uiInput('text'); project.id = 'new-session-project'; project.maxLength = 4096;
   project.autocomplete = 'off'; project.spellcheck = false; project.placeholder = 'Folder path, or pick one above';
@@ -61,7 +61,7 @@ export function createNewSession(options: Options) {
 
   // 2. Agent: one tap. The select stays in the DOM (visually hidden) as the single source of truth.
   const harnessLabel = uiPart('label', 'Agent'); harnessLabel.htmlFor = 'new-session-harness';
-  const harness = uiSelect(); harness.classList.add('im-visually-hidden'); harness.id = 'new-session-harness';
+  const harness = uiSelect(); uiTraits(harness, 'visuallyHidden'); harness.id = 'new-session-harness';
   const tiles = uiPart('body'); tiles.id = 'new-session-agents'; tiles.setAttribute('role', 'radiogroup'); tiles.setAttribute('aria-label', 'Agent');
   const status = uiPart('status'); status.id = 'new-session-status'; status.setAttribute('role', 'status');
   const error = uiPart('alert'); error.id = 'new-session-error'; error.setAttribute('role', 'alert'); error.hidden = true;
@@ -102,7 +102,7 @@ export function createNewSession(options: Options) {
       empty.textContent = pending === 'projects' ? 'Loading projects…' : 'No projects yet. Browse for a folder.'; list.append(empty); return;
     }
     for (const item of projects) {
-      const row = uiButton('', { cls: 'new-session-project-row im-choice-row' }); row.setAttribute('role', 'option');
+      const row = uiTraits(uiButton('', { cls: 'new-session-project-row' }), 'choiceRow'); row.setAttribute('role', 'option');
       const selected = samePath(item.path, project.value.trim()); row.setAttribute('aria-selected', String(selected));
       row.disabled = pending === 'open'; row.title = item.path;
       const name = uiPart('strong', folderName(item.path));

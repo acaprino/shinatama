@@ -1,4 +1,4 @@
-import { uiPart, uiButton } from '@acaprino/imago/ui';
+import { uiPart, uiButton, uiTraits } from '@acaprino/imago/ui';
 
 type Git = { state: 'known'; branch: string | null; dirty: number; untracked: number } | { state: 'not_repository' } | { state: 'unknown'; reason: string };
 export type InstanceRow = { id: string; agent: string; cwd: string; state: string; stateSource: string; certain: boolean; git: Git; usage: string };
@@ -56,7 +56,7 @@ export function createInstancesSection(options: Options) {
   const warnings = uiPart('stack'); warnings.setAttribute('role', 'group'); warnings.setAttribute('aria-label', 'Possible conflicts'); warnings.hidden = true;
   const list = uiPart('list'); list.setAttribute('aria-label', 'Running sessions');
   const timelineHeading = uiPart('subheading', 'Recent hops'); timelineHeading.hidden = true;
-  const timeline = uiPart('orderedList', undefined, 'im-scroll im-scroll--bounded');
+  const timeline = uiTraits(uiPart('orderedList'), 'scroll', 'bounded');
   element.append(warnings, list, timelineHeading, timeline);
 
   const legend = uiPart('paragraph');

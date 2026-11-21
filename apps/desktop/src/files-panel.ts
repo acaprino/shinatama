@@ -1,4 +1,4 @@
-import { breadcrumbs, componentElement, fileWorkspace, inputHtml, segmentedControl, selectHtml, selectOptionsHtml, uiButton, uiInput, uiTextarea, uiPart } from '@acaprino/imago/ui';
+import { breadcrumbs, fileWorkspace, segmentedControl, selectOptionsHtml, uiButton, uiInput, uiTextarea, uiPart, uiTraits, uiSelect, uiTone } from '@acaprino/imago/ui';
 import { openModal } from './modal.ts';
 import { createFilesTree, type Entry, type Listing } from './files-tree.ts';
 import type { CodeView } from './code-view.ts';
@@ -22,11 +22,11 @@ const MODES = [['source', 'Source'], ['split', 'Split'], ['preview', 'Preview'],
 
 /** Read-only browsing plus explicit, version-checked saves. Opening a file never runs it. */
 export function createFilesPanel(options: Options) {
-  const dialog = uiPart('dialog'); dialog.id = 'files-dialog'; dialog.classList.add('im-file-dialog'); dialog.setAttribute('aria-labelledby', 'files-title');
+  const dialog = uiPart('dialog'); dialog.id = 'files-dialog'; uiTraits(dialog, 'fileDialog'); dialog.setAttribute('aria-labelledby', 'files-title');
   const heading = uiPart('header');
   const title = uiPart('title', 'Project files'); title.id = 'files-title';
   const closeButton = uiButton('×', { attrs: { 'aria-label': 'Close files' } });
-  const chooser = componentElement<HTMLSelectElement>(selectHtml({ name: 'files-project', label: 'Project', options: [], value: '', attrs: { class: 'im-select files-project' } }));
+  const chooser = uiSelect(); chooser.name = 'files-project'; chooser.setAttribute('aria-label', 'Project'); chooser.classList.add('files-project');
   heading.append(title, chooser, closeButton);
   const SIDE_KEY = 'shinatama.files.side';
   let initialWidth = 300;
@@ -36,8 +36,8 @@ export function createFilesPanel(options: Options) {
     onWidthCommit(width) { try { localStorage.setItem(SIDE_KEY, String(width)); } catch { /* optional preference */ } },
   });
   const { navigation: side, toolbar: bar, location: crumbs, panes, status } = workspace;
-  const search = componentElement<HTMLInputElement>(inputHtml({ name: 'file-search', label: 'Find a file by name', value: '',
-    attrs: { type: 'search', class: 'im-input files-search', placeholder: 'Find a file by name' } }));
+  const search = uiInput('search'); search.name = 'file-search'; search.setAttribute('aria-label', 'Find a file by name');
+  search.classList.add('files-search'); search.placeholder = 'Find a file by name';
   const tree = createFilesTree({
     list: async path => {
       const project = projectPath(); if (!project) throw 'Choose a project first.';
@@ -76,7 +76,7 @@ export function createFilesPanel(options: Options) {
   const preview = document.createElement('div'); preview.className = 'files-preview'; preview.setAttribute('aria-label', 'Rendered Markdown');
   const picture = document.createElement('div'); picture.className = 'files-picture'; picture.hidden = true;
   const visual = document.createElement('div'); visual.className = 'files-visual'; visual.hidden = true; visual.setAttribute('aria-label', 'Visual editor');
-  const empty = uiPart('hint', 'Choose a file in the tree, or find one by name.', 'im-empty-message');
+  const empty = uiTraits(uiPart('hint', 'Choose a file in the tree, or find one by name.'), 'emptyMessage');
   panes.append(code, preview, picture, visual, empty);
   status.classList.add('files-status');
   dialog.append(heading, workspace.element);
@@ -92,7 +92,7 @@ export function createFilesPanel(options: Options) {
   let pending: string | null = null; let renderGeneration = 0; let renderTimer = 0;
   let codeView: CodeView | null = null; let codeLoading: Promise<CodeView> | null = null;
   const markdown = (path: string) => /\.(md|markdown)$/i.test(path);
-  const setStatus = (text: string, error = false) => { status.textContent = text; status.classList.toggle('im-text-err', error); };
+  const setStatus = (text: string, error = false) => { status.textContent = text; uiTone(status, error ? 'err' : null); };
   const projectPath = () => activeProject;
   /** CodeMirror loads with the first file opened, not with the app. */
   function editor(): Promise<CodeView> {

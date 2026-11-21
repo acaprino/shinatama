@@ -12,7 +12,7 @@ const baselineFile = fileURLToPath(new URL('./imago-ratchet.json', import.meta.u
 type Counts = { parts: number; classes: number };
 
 /** `uiPart(...)` and its siblings build one element at a time: the screen, not Imago, composes the control. */
-const parts = /\b(?:uiPart|uiButton|uiInput|uiSelect|uiOption|uiTextarea|componentElement)\s*\(/g;
+const parts = /\b(?:uiPart|uiButton|uiInput|uiSelect|uiOption|uiTextarea|componentElement)\s*(?:<[^<>()]*>)?\s*\(/g;
 /** An `im-…` class written in the app: Imago's own controls set their classes themselves. */
 const classes = /(?<![\w/@.-])im-[a-z][a-z0-9-]*/g;
 
@@ -34,10 +34,11 @@ test('the counter sees parts and hand-set Imago classes, not imports, CSS variab
   assert.deepEqual(count([
     "import { uiPart } from '@acaprino/imago/ui';",
     "const row = uiPart('row'); row.append(uiButton('Save'));",
+    "const input = componentElement<HTMLInputElement>(inputHtml({ name: 'q', label: 'Find', value: '' }));",
     "row.className = 'im-panel im-panel--docked'; row.dataset.imLook = 'oni';",
     "document.documentElement.setAttribute('data-im-look', 'oni'); row.style.setProperty('--im-gap', '4px');",
     "row.querySelector('.im-panel');",
-  ].join('\n')), { parts: 2, classes: 2 });
+  ].join('\n')), { parts: 3, classes: 2 });
 });
 
 test('no screen adds hand-composed controls; a screen that loses some records it', () => {

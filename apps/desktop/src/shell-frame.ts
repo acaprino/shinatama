@@ -1,4 +1,4 @@
-import { attachLayers, componentElement, iconButtonHtml, renderShellFrame, shellFrameHtml, titlebarHtml, uiButton, uiPart } from '@acaprino/imago/ui';
+import { attachLayers, componentElement, iconButtonHtml, renderShellFrame, shellFrameHtml, titlebarHtml, uiButton, uiPart, uiTraits } from '@acaprino/imago/ui';
 import { projectControls, stopControls } from './project-controls.ts';
 
 const shell = document.querySelector<HTMLElement>('#app')!;
@@ -7,8 +7,8 @@ renderShellFrame(shell, shellFrameHtml({
   mainId: 'desktop-content', skipLabel: 'Skip to terminal workspace', mainHtml: '',
 }));
 const main = shell.querySelector<HTMLElement>('#desktop-content')!;
-main.classList.add('im-desktop-content');
-const toolbar = uiPart('nav', undefined, 'toolbar im-toolbar');
+uiTraits(main, 'desktopContent');
+const toolbar = uiTraits(uiPart('nav', undefined, 'toolbar'), 'toolbar');
 toolbar.setAttribute('aria-label', 'Workspace controls');
 const threads = componentElement(iconButtonHtml('Thread sidebar', 'threads-toggle', 'layers', {
   attrs: { id: 'threads-toggle', 'aria-pressed': 'true' },
@@ -21,12 +21,12 @@ const workspaceStatus = uiPart('text', 'Workspace ', 'workspace-name');
 workspaceStatus.append(count);
 toolbar.append(threads, project,
   uiButton('New session', { primary: true, icon: 'plus', attrs: { id: 'new-terminal' } }),
-  uiPart('spacer', undefined, 'spring im-spacer'),
+  uiTraits(uiPart('spacer', undefined, 'spring'), 'spacer'),
   uiButton('Layout', { attrs: { id: 'layout-toggle', title: 'Switch between columns and rows' } }),
   uiButton('Restore views', { attrs: { id: 'restore', title: 'Show all hidden terminals' } }));
-const area = uiPart('body', undefined, 'im-work-area');
+const area = uiTraits(uiPart('body'), 'workArea');
 area.id = 'work-area';
-const workspace = uiPart('region', undefined, 'im-workspace-area');
+const workspace = uiTraits(uiPart('region'), 'workspaceArea');
 workspace.id = 'workspace';
 workspace.setAttribute('aria-label', 'Terminal workspace');
 area.append(workspace);
@@ -40,9 +40,9 @@ for (const button of shell.querySelectorAll<HTMLButtonElement>('[data-im-window]
   button.id = 'window-' + button.dataset.imWindow;
   button.disabled = true;
 }
-const host = uiPart('body', undefined, 'im-notices');
+const host = uiTraits(uiPart('body'), 'noticeHost');
 host.dataset.imNotices = '';
-const notice = uiPart('row', undefined, 'im-float im-notice');
+const notice = uiTraits(uiPart('row'), 'notice');
 notice.id = 'notice';
 notice.hidden = true;
 notice.setAttribute('role', 'status');

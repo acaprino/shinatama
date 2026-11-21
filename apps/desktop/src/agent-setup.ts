@@ -1,4 +1,4 @@
-import { uiPart, uiButton, uiSelect, uiOption } from '@acaprino/imago/ui';
+import { uiPart, uiButton, uiSelect, uiOption, uiTraits, uiTone } from '@acaprino/imago/ui';
 import { openModal } from './modal.ts';
 
 export type AgentId = 'claude_code' | 'codex' | 'opencode' | 'pi' | 'hermes_agent' | 'deepseek_harness';
@@ -53,7 +53,7 @@ export function createAgentSetup(options: Options) {
     && typeof item.checkable === 'boolean' && all.findIndex(other => other.agentId === item.agentId) === index);
   const button = uiButton('Agents'); button.id = 'agents';
   document.querySelector('.toolbar')?.append(button);
-  const dialog = uiPart('dialog', undefined, 'im-padded-drawer'); dialog.id = 'agent-setup-dialog'; dialog.setAttribute('aria-labelledby', 'agent-setup-title');
+  const dialog = uiTraits(uiPart('dialog'), 'paddedDrawer'); dialog.id = 'agent-setup-dialog'; dialog.setAttribute('aria-labelledby', 'agent-setup-title');
   const heading = uiPart('row', undefined, 'dialog-heading');
   const title = uiPart('title', 'Agents'); title.id = 'agent-setup-title';
   const dismiss = uiButton('×'); dismiss.setAttribute('aria-label', 'Close agents');
@@ -67,7 +67,7 @@ export function createAgentSetup(options: Options) {
   }
   provider.value = providers.find(item => item.checkable)?.agentId ?? '';
   const facts = uiPart('descriptionList'); facts.setAttribute('aria-label', 'Agent checkup');
-  const issues = uiPart('list', undefined, 'im-text-warn');
+  const issues = uiTone(uiPart('list'), 'warn');
   const status = uiPart('hint'); status.id = 'agent-setup-status'; status.setAttribute('role', 'status');
   const hint = uiPart('hint', 'The default empty set needs no optional additions. Checks do not install, sign in or send a message.');
   const actions = uiPart('actions');
@@ -84,8 +84,8 @@ export function createAgentSetup(options: Options) {
   function row(name: string, value: string, state: string) {
     const term = uiPart('term', name);
     const detail = uiPart('definition', value); detail.dataset.state = state;
-    if (['ready', 'authenticated'].includes(state)) detail.classList.add('im-text-ok');
-    if (['missing', 'unavailable', 'unsupported'].includes(state)) detail.classList.add('im-text-warn'); facts.append(term, detail);
+    if (['ready', 'authenticated'].includes(state)) uiTone(detail, 'ok');
+    if (['missing', 'unavailable', 'unsupported'].includes(state)) uiTone(detail, 'warn'); facts.append(term, detail);
   }
   function render() {
     if (destroyed) return;

@@ -1,5 +1,5 @@
 import { applyLook, applyShinatamaPalette, SHINATAMA_PALETTES as SKINS, type ShinatamaPaletteTokens as Tokens } from '@acaprino/imago/shell';
-import { uiPart, uiSelect, uiInput } from '@acaprino/imago/ui';
+import { uiPart, uiSelect, uiInput, uiTraits } from '@acaprino/imago/ui';
 import { invoke } from '@tauri-apps/api/core';
 import type { ITheme, ITerminalOptions, Terminal } from '@xterm/xterm';
 import { confirmsField } from './desktop-shell-model.ts';
@@ -106,7 +106,7 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
   const warnedProfiles = new Set<string>();
   const theme = uiPart('stack');
   const form = uiPart('form');
-  form.classList.add('im-stack');
+  uiTraits(form, 'stack');
   function field(host: HTMLElement, label: string, id: string, input: HTMLSelectElement | HTMLInputElement) {
     const row = uiPart('field');
     input.id = id;

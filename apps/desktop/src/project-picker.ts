@@ -1,4 +1,4 @@
-import { uiButton, uiPart } from '@acaprino/imago/ui';
+import { uiButton, uiPart, uiEmphasis } from '@acaprino/imago/ui';
 import { invoke } from '@tauri-apps/api/core';
 import { openModal, openSheet } from './modal.ts';
 import { beginMutation, browseFolder, cancelMutation, createCatalogClient, createRequestId, orderedCandidates, saveRoots,
@@ -235,7 +235,7 @@ export function createProjectPicker(options: Options) {
     const blocked = saving || !config || !configFresh;
     $<HTMLButtonElement>('#choose-root').disabled = blocked || roots.length >= 16;
     // Choosing a root is the call to action only until there is one; then picking a project is.
-    $('#choose-root').classList.toggle('im-btn--primary', !roots.length);
+    uiEmphasis($<HTMLButtonElement>('#choose-root'), roots.length ? null : 'primary');
     $<HTMLButtonElement>('#add-root').disabled = blocked || roots.length >= 16;
     form.classList.toggle('no-roots', !configLoading && !roots.length);
   }

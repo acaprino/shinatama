@@ -1,4 +1,4 @@
-import { uiPart, uiButton } from '@acaprino/imago/ui';
+import { uiPart, uiButton, uiTraits } from '@acaprino/imago/ui';
 import { invoke } from '@tauri-apps/api/core';
 import { sidePanel } from './modal.ts';
 import { adoptStopReply, archiveLine, buttons, confirmStillNeeded, diskLine, driftLine, exitLine, faultLine, indicator, messageLine, parseStatus, phaseLabel, restartOffered, showsTraffic, stallLine, startLabel, stopConsequence, trafficLine, type ProxyStatus } from './sidecar-status.ts';
@@ -13,10 +13,10 @@ export function createSidecarControl(desktop: boolean, notify: (message: string)
   // and tooltip, and a click still opens the panel.
   const button = Object.assign(uiButton(''), { id: 'model-proxy', disabled: !desktop });
   button.setAttribute('aria-controls', 'model-proxy-panel'); button.setAttribute('aria-expanded', 'false');
-  const lamp = uiPart('text', undefined, 'im-signal'); button.replaceChildren(lamp);
+  const lamp = uiTraits(uiPart('text'), 'signal'); button.replaceChildren(lamp);
   document.querySelector('.toolbar')?.append(button);
 
-  const panel = Object.assign(uiPart('aside', undefined, 'im-docked-inspector'), { id: 'model-proxy-panel', hidden: true });
+  const panel = Object.assign(uiTraits(uiPart('aside'), 'dockedInspector'), { id: 'model-proxy-panel', hidden: true });
   panel.setAttribute('aria-labelledby', 'model-proxy-title');
   const close = uiButton('×'); close.setAttribute('aria-label', 'Close Model proxy');
   const heading = uiPart('row', undefined, 'dialog-heading');

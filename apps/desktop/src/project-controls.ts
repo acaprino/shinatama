@@ -1,4 +1,4 @@
-import { componentElement, formHeaderHtml, pathField, uiButton, uiInput, uiPart } from '@acaprino/imago/ui';
+import { componentElement, formHeaderHtml, pathField, uiButton, uiInput, uiPart, uiTraits } from '@acaprino/imago/ui';
 
 function identified<T extends HTMLElement>(node: T, id: string) {
   node.id = id;
@@ -46,7 +46,7 @@ export function projectControls() {
     return input;
   };
   const list = (id: string, label: string) => {
-    const node = identified(uiPart('stack', undefined, 'im-list'), id);
+    const node = identified(uiTraits(uiPart('stack'), 'list'), id);
     node.setAttribute('role', 'list');
     node.setAttribute('aria-label', label);
     node.setAttribute('aria-live', 'polite');

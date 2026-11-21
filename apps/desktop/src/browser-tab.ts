@@ -1,4 +1,4 @@
-import { componentElement, inputHtml, uiButton, uiPart } from '@acaprino/imago/ui';
+import { uiButton, uiPart, uiTraits, uiInput } from '@acaprino/imago/ui';
 // Browser tabs (ADR-0056): each page is a workspace view drawn from the Moli
 // host's JPEG frames on a canvas. Page content never becomes DOM here; the
 // address bar shows the page's real URL. Tabs tile like terminal tabs.
@@ -103,11 +103,11 @@ export function createBrowserTabs(deps: BrowserTabsDeps) {
   }
 
   function build(viewId: string): Tab {
-    const element = uiPart('stack'); element.classList.add('browser-tab', 'im-render-view'); element.dataset.viewId = viewId;
+    const element = uiPart('stack'); uiTraits(element, 'renderView').classList.add('browser-tab'); element.dataset.viewId = viewId;
     const bar = uiPart('toolbar'); bar.classList.add('browser-bar');
     bar.setAttribute('role', 'group'); bar.setAttribute('aria-label', 'Browser navigation');
-    const address = componentElement<HTMLInputElement>(inputHtml({ name: 'address', label: 'Address', value: '',
-      attrs: { class: 'im-input browser-address', spellcheck: 'false' } }));
+    const address = uiInput(); address.name = 'address'; address.setAttribute('aria-label', 'Address');
+    address.classList.add('browser-address'); address.spellcheck = false;
     const strip = uiPart('row'); strip.classList.add('browser-strip'); strip.hidden = true;
     const area = uiPart('viewport'); area.classList.add('browser-page');
     const canvas = document.createElement('canvas'); canvas.className = 'browser-canvas'; canvas.tabIndex = 0; canvas.setAttribute('aria-label', 'Web page');

@@ -1,4 +1,4 @@
-import { keyedList, uiPart, uiButton, uiSelect, uiTextarea, uiOption } from '@acaprino/imago/ui';
+import { keyedList, uiPart, uiButton, uiSelect, uiTextarea, uiOption, uiTraits, uiTone } from '@acaprino/imago/ui';
 // ADR-0057: the conversation of a thread whose sessions talk to each other. A side panel beside the
 // terminals, not a dialog: the user can watch the sessions work while they read. It reads the room
 // without consuming anything a session has not read, and writes only as the user's own member.
@@ -32,7 +32,7 @@ const CONNECTION_TEXT: Record<ChatSession['connection'], string> = {
 };
 
 export function createThreadChat(options: Options) {
-  const panel = uiPart('aside', undefined, 'im-docked-inspector'); panel.id = 'thread-chat-panel'; panel.hidden = true; panel.setAttribute('aria-labelledby', 'thread-chat-title');
+  const panel = uiTraits(uiPart('aside'), 'dockedInspector'); panel.id = 'thread-chat-panel'; panel.hidden = true; panel.setAttribute('aria-labelledby', 'thread-chat-title');
   const heading = uiPart('row');
   const title = uiPart('title', 'Conversation'); title.id = 'thread-chat-title'; title.tabIndex = -1;
   const close = uiButton('×'); close.setAttribute('aria-label', 'Close the conversation');
@@ -40,14 +40,14 @@ export function createThreadChat(options: Options) {
   const thread = uiPart('paragraph');
   const status = uiPart('status'); status.setAttribute('role', 'status');
   const sessionsHead = uiPart('heading', 'Sessions');
-  const sessions = uiPart('list', undefined, 'im-summary-list'); sessions.setAttribute('aria-label', 'Sessions of the thread');
+  const sessions = uiTraits(uiPart('list'), 'summaryList'); sessions.setAttribute('aria-label', 'Sessions of the thread');
   const logHead = uiPart('row');
   const logTitle = uiPart('heading', 'Messages');
   const filterLabel = uiPart('label'); const filter = uiSelect(); filter.id = 'thread-chat-filter';
   for (const [value, text] of [['all', 'Everything'], ['messages', 'Messages only']] as const) { const option = uiOption(value, text); filter.append(option); }
   filterLabel.append('Show ', filter);
   logHead.append(logTitle, filterLabel);
-  const log = uiPart('orderedList', undefined, 'im-scroll-log'); log.setAttribute('aria-label', 'Conversation of the thread'); log.tabIndex = 0;
+  const log = uiTraits(uiPart('orderedList'), 'conversation'); log.setAttribute('aria-label', 'Conversation of the thread'); log.tabIndex = 0;
   const empty = uiPart('paragraph', 'Nothing written yet. Ask a session to talk to another one, or write to them below.');
   const form = uiPart('form');
   const toLabel = uiPart('label', 'To'); toLabel.htmlFor = 'thread-chat-to';
@@ -71,14 +71,14 @@ export function createThreadChat(options: Options) {
     if (element.textContent !== value) element.textContent = value;
   };
   function setStatus(value: string, tone: 'info' | 'error' = 'info') {
-    paintText(status, value); status.dataset.tone = tone; status.classList.toggle('im-text-err', tone === 'error');
+    paintText(status, value); status.dataset.tone = tone; uiTone(status, tone === 'error' ? 'err' : null);
   }
   const atBottom = () => log.scrollHeight - log.scrollTop - log.clientHeight < 24;
   const paintSessions = keyedList<ChatSession>(sessions, session => session.sessionId, session => {
-    const element = uiPart('item', undefined, 'im-stack');
+    const element = uiTraits(uiPart('item'), 'stack');
     const name = uiPart('strong');
     const member = uiPart('text');
-    const state = uiPart('text', undefined, 'im-muted');
+    const state = uiTraits(uiPart('text'), 'muted');
     const show = uiButton('Show'); show.title = "Show this session's tab";
     show.onclick = () => options.focusSession(session.sessionId);
     element.append(name, member, state, show);
@@ -115,8 +115,8 @@ export function createThreadChat(options: Options) {
     const time = uiPart('time'); time.dateTime = event.timestamp;
     const at = new Date(event.timestamp); time.textContent = Number.isNaN(at.valueOf()) ? '' : at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const who = uiPart('text', line.who); if (isUserLine(event)) who.dataset.user = '';
-    const what = uiPart('paragraph', line.what, 'im-wrap-text');
-    if (line.tag) { const tag = uiPart('text', line.tag, 'thread-chat-tag im-chip'); who.append(' ', tag); }
+    const what = uiTraits(uiPart('paragraph', line.what), 'wrap');
+    if (line.tag) { const tag = uiTraits(uiPart('text', line.tag, 'thread-chat-tag'), 'chip'); who.append(' ', tag); }
     item.append(time, who, what); return { element: item };
   });
   function renderLog() {

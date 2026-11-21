@@ -1,4 +1,4 @@
-import { uiPart, uiButton } from '@acaprino/imago/ui';
+import { uiPart, uiButton, uiTraits } from '@acaprino/imago/ui';
 import { listen } from '@tauri-apps/api/event';
 import {
   ago, authorText, baseName, countText, size, terminalLabel, visibleCount, visibleItems,
@@ -26,14 +26,14 @@ const text = (error: unknown) => typeof error === 'string' ? error : error insta
  * removes anything.
  */
 export function createLeftoversPanel(options: Options) {
-  const panel = uiPart('aside', undefined, 'im-inspection-rail leftovers-sidebar'); panel.setAttribute('aria-label', 'Leftovers');
+  const panel = uiTraits(uiPart('aside', undefined, 'leftovers-sidebar'), 'inspectionRail'); panel.setAttribute('aria-label', 'Leftovers');
   const heading = uiPart('header');
   const title = uiPart('heading', 'Leftovers');
   const close = uiButton('×', { onClick: () => setHidden(true), title: 'Close the Leftovers panel' });
   close.setAttribute('aria-label', 'Close the Leftovers panel');
   heading.append(title, close);
   const status = uiPart('status');
-  const list = uiPart('stack', undefined, 'im-scroll');
+  const list = uiTraits(uiPart('stack'), 'scroll');
   panel.append(heading, status, list);
 
   const toggle = uiButton('Leftovers', { onClick: () => setHidden(!panel.hidden), title: 'What agent sessions created: worktrees, copies, bench and backup folders' });

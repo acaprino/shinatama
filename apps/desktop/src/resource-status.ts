@@ -1,4 +1,4 @@
-import { uiPart } from '@acaprino/imago/ui';
+import { uiPart, uiTraits } from '@acaprino/imago/ui';
 
 type Policy = {
   stage: 'normal' | 'reduce_optional' | 'defer_starts';
@@ -25,7 +25,7 @@ export function renderResourceStatus(reply: ResourceTelemetryReply) {
   if (!anchor) return;
   let badge = document.querySelector<HTMLSpanElement>('#resource-status');
   if (!badge) {
-    badge = uiPart('text', undefined, 'im-chip');
+    badge = uiTraits(uiPart('text'), 'chip');
     badge.id = 'resource-status';
     badge.classList.add('resource-health');
     badge.setAttribute('role', 'status');

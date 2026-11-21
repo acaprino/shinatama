@@ -1,4 +1,4 @@
-import { uiPart, uiButton, uiInput, uiSelect, uiOption } from '@acaprino/imago/ui';
+import { uiPart, uiButton, uiInput, uiSelect, uiOption, uiTraits, uiTone } from '@acaprino/imago/ui';
 import { APIS, HARNESSES, HARNESS_NAMES, MAX_CONNECTIONS, MAX_MODELS, PRESETS, buildModelSave, connectionHost, emptyForm, firstModelId, fromView,
   newModel, parseModelView, readChoice, suggestedName, usedBy, writeChoice, type Edit, type Harness, type Save } from './model-settings-model.ts';
 import { labelledBy } from './field-label.ts';
@@ -20,7 +20,7 @@ let ids = 0;
  *  The model each agent starts with leads the section, since it is what decides a new session;
  *  connections follow, each saying which agents use it so an unused one is never silent. */
 export function createModelSettingsPanel(invoke: Invoke, changed: (message: string) => void) {
-  const element = uiPart('fieldset', undefined, 'model-settings im-stack'); element.disabled = true;
+  const element = uiTraits(uiPart('fieldset', undefined, 'model-settings'), 'stack'); element.disabled = true;
   const intro = uiPart('hint', 'Connect a provider once, then choose the model each agent starts with. Keys are encrypted for this Windows user and never shown again. Changes apply to new sessions after Save.');
 
   const useTitle = uiPart('subheading', 'Model for new sessions'); useTitle.id = 'models-use-title';
@@ -87,7 +87,7 @@ export function createModelSettingsPanel(invoke: Invoke, changed: (message: stri
         document.getElementById(select.id)?.focus();
       };
       const help = uiPart('paragraph'); help.id = `${select.id}-help`;
-      if (selected && !exists) { help.textContent = 'That model was removed. Choose another one, or the agent’s own sign-in and model.'; help.dataset.tone = 'error'; help.classList.add('im-text-err'); select.setAttribute('aria-invalid', 'true'); }
+      if (selected && !exists) { help.textContent = 'That model was removed. Choose another one, or the agent’s own sign-in and model.'; help.dataset.tone = 'error'; uiTone(help, 'err'); select.setAttribute('aria-invalid', 'true'); }
       else if (harness === 'hermes') help.textContent = 'Saved only: Shinatama cannot launch Hermes yet.';
       help.hidden = !help.textContent;
       if (!help.hidden) select.setAttribute('aria-describedby', help.id);
@@ -98,12 +98,12 @@ export function createModelSettingsPanel(invoke: Invoke, changed: (message: stri
 
   function connectionCard(edit: Edit, index: number) {
     const c = edit.connection; const bodyId = `model-connection-${++ids}`;
-    const card = uiPart('panel', undefined, 'model-connection im-stack');
+    const card = uiTraits(uiPart('panel', undefined, 'model-connection'), 'stack');
     const head = uiPart('row');
     const titles = uiPart('stack');
     const title = uiPart('strong'); const meta = uiPart('text');
     titles.append(title, meta);
-    const status = uiPart('text', undefined, 'model-status im-chip');
+    const status = uiTraits(uiPart('text', undefined, 'model-status'), 'chip');
     const toggle = button('', () => {
       if (expanded.has(c.id)) expanded.delete(c.id); else expanded.add(c.id);
       paintOpen(); if (expanded.has(c.id)) body.querySelector<HTMLInputElement>('input')?.focus();
@@ -125,7 +125,7 @@ export function createModelSettingsPanel(invoke: Invoke, changed: (message: stri
     unused.append(unusedText, ...quick);
 
     const body = uiPart('stack'); body.id = bodyId;
-    const grid = uiPart('stack', undefined, 'im-form-grid');
+    const grid = uiTraits(uiPart('stack'), 'formGrid');
     const name = input(c.name, value => { c.name = value; autoNamed.delete(edit); refresh(); }, 100);
     name.placeholder = suggestedName(c.baseUrl) ?? 'e.g. My provider';
     const api = uiSelect(); api.setAttribute('aria-label', 'API protocol');
@@ -153,7 +153,7 @@ export function createModelSettingsPanel(invoke: Invoke, changed: (message: stri
     const models = uiPart('stack');
     function renderModels() {
       models.replaceChildren(...c.models.map((m, i) => {
-        const row = uiPart('stack', undefined, 'im-form-grid');
+        const row = uiTraits(uiPart('stack'), 'formGrid');
         const id = input(m.id, value => {
           const previous = m.id.trim(); m.id = value;
           for (const h of HARNESSES) { const s = form.assignments[h]; if (s?.connectionId === c.id && s.modelId === previous) s.modelId = value.trim(); }

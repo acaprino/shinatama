@@ -1,4 +1,4 @@
-import { uiPart, uiButton, uiInput, uiSelect, uiOption } from '@acaprino/imago/ui';
+import { uiPart, uiButton, uiInput, uiSelect, uiOption, uiTraits } from '@acaprino/imago/ui';
 import { openModal } from './modal.ts';
 
 export type SessionRootSelector = { storeRootId: string; configurationRevision: number };
@@ -136,7 +136,7 @@ export function createSessionLibrary(options: Options) {
   const projectView = uiButton('Projects / sessions'); projectView.setAttribute('aria-controls', 'session-library-projects');
   views.append(listView, projectView);
   const viewScope = uiPart('hint');
-  const scroll = uiPart('scroll', undefined, 'im-scroll--bounded');
+  const scroll = uiTraits(uiPart('scroll'), 'bounded');
   const table = uiPart('table'); table.id = 'session-library-list'; table.setAttribute('aria-label', 'Session metadata');
   const head = uiPart('tableHead'); const header = uiPart('tableRow');
   for (const label of ['Session', 'Working folder', 'Updated']) { const cell = uiPart('columnHeader'); cell.scope = 'col'; cell.textContent = label; header.append(cell); }
