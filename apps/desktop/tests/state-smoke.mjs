@@ -183,9 +183,11 @@ try {
   expect(await readFile(legacyPath)).toEqual(corruptedLegacy);
   await closeApp(instance);
   // The window's own state (ui.*) is saved again at each start: the thread sidebar lists the
-  // toolbar's project (workset-sidebar.ts setProject) and the layout gets a new revision. The data
-  // must come back untouched; the read-only run below still compares the file byte for byte.
-  const withoutWindowState = snapshot => ({ ...snapshot, settings: snapshot.settings.filter(row => !row.key.startsWith('ui.')) });
+  // toolbar's project (workset-sidebar.ts setProject) and the layout gets a new revision. So is the
+  // running app's bookkeeping (operational.*): the model proxy starts with Shinatama and reserves
+  // its resources. The data must come back untouched; the read-only run below still compares the
+  // file byte for byte.
+  const withoutWindowState = snapshot => ({ ...snapshot, settings: snapshot.settings.filter(row => !/^(ui|operational)\./.test(row.key)) });
   expect(withoutWindowState(snapshotDatabase())).toEqual(withoutWindowState(initialSnapshot));
   evidence.checks.restartUsesVerifiedSqliteDespiteCorruptLegacyJson = true;
 
