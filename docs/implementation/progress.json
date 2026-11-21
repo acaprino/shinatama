@@ -3121,6 +3121,105 @@
         "No sign-in, prompt or model call was made: authentication, provider traffic/TLS, tools, run events, native resume/thread binding and a real Pi session read by Mukade are not proven.",
         "Parent stays pending: dependency C15 is not verified and the deferred Daodan checkup (FRD-0001/R08) is outside this cycle."
       ]
+    },
+    "F34": {
+      "status": "in_progress",
+      "units": {
+        "F34.1": {
+          "status": "committed",
+          "commit_sha": "2044e2daebaa63823950b4aa3527eec2fd361e93",
+          "platforms": [
+            "Windows Server 2025 x64 (GitHub Actions windows-2025, WebView2 runtime 157)",
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-21-F34-imago-desktop.md"
+          ],
+          "checks": [
+            "npm test",
+            "npm run build",
+            "npm run test:imago",
+            "node --test apps/desktop/tests/*.browser.mjs",
+            "Imago: npm test, node tests/gallery/run.mjs (both looks, both themes)",
+            "Verify Windows run 44925040941 (bff1131, 27/27): projects-smoke, new-project-smoke, desktop-smoke"
+          ],
+          "limits": [
+            "native-picker-smoke (the Windows folder picker itself) does not run on the runner."
+          ]
+        },
+        "F34.2": {
+          "status": "committed",
+          "commit_sha": "09f504125bc8f33eea62980792a646fe7959e32d",
+          "platforms": [
+            "Windows Server 2025 x64 (GitHub Actions windows-2025, WebView2 runtime 157)",
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-21-F34-imago-desktop.md"
+          ],
+          "checks": [
+            "npm test",
+            "npm run build",
+            "npm run test:imago",
+            "node --test apps/desktop/tests/*.browser.mjs",
+            "Imago: npm test, node tests/gallery/run.mjs (both looks, both themes)",
+            "Verify Windows run 44942028896: desktop-smoke, new-project-smoke, imago-desktop-smoke and every WebView2 smoke"
+          ],
+          "limits": [
+            "The Claude Code part of desktop-smoke is skipped where Claude Code is not installed, as on the runner."
+          ]
+        },
+        "F34.3": {
+          "status": "committed",
+          "commit_sha": "b4181c1d125b8c8abf3eb96062721cfa4556bb34",
+          "platforms": [
+            "Windows Server 2025 x64 (GitHub Actions windows-2025, WebView2 runtime 157)",
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-21-F34-imago-desktop.md"
+          ],
+          "checks": [
+            "npm test",
+            "npm run build",
+            "npm run test:imago",
+            "node --test apps/desktop/tests/*.browser.mjs",
+            "Imago: npm test, node tests/gallery/run.mjs (both looks, both themes)",
+            "Verify Windows run 44942028896: desktop-smoke (terminals dragged into new groups keep their IDs and run), thread-sets-smoke, pane-drag-smoke"
+          ],
+          "limits": [
+            "A screen reader over the moved panes is not part of the automated checks."
+          ]
+        },
+        "F34.4": {
+          "status": "committed",
+          "commit_sha": "6543a371a05eafee6539b885c6dc67ce34676a37",
+          "platforms": [
+            "Windows Server 2025 x64 (GitHub Actions windows-2025, WebView2 runtime 157)",
+            "Windows 11 x64 build 26200"
+          ],
+          "evidence": [
+            "docs/verification/2026-11-21-F34-imago-desktop.md"
+          ],
+          "checks": [
+            "npm test",
+            "npm run build",
+            "npm run test:imago",
+            "node --test apps/desktop/tests/*.browser.mjs",
+            "Imago: npm test, node tests/gallery/run.mjs (both looks, both themes)",
+            "Verify Windows run 44942028896: files-smoke, minimap-smoke"
+          ],
+          "limits": [
+            "browser-smoke needs shinatama-moli.exe, which Verify Windows does not build; the browser tab's controls are checked in Edge by specialist-layout.browser.mjs only."
+          ]
+        },
+        "F34.5": {
+          "status": "in_progress",
+          "limits": [
+            "The team map takes the graph editor's roles (c0d2c88) and team-map-smoke passes; Imago and imago-shell are pinned to the same commit of Imago's develop, not yet to the same release tag, which the owner publishes."
+          ]
+        }
+      }
     }
   },
   "blockers": [],
