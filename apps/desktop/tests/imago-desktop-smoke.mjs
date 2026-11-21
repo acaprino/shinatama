@@ -139,7 +139,8 @@ try {
   await zoom.focus();
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
-  assert.ok(await page.evaluate(() => Boolean(document.activeElement?.closest('[data-group-id="pane-fixture-live"]'))), 'Focus is back in the focused pane');
+  // settings-panel.ts gives focus back when the close event comes, after the dialog has closed.
+  await expect.poll(() => page.evaluate(() => Boolean(document.activeElement?.closest('[data-group-id="pane-fixture-live"]'))), { message: 'Focus is back in the focused pane' }).toBe(true);
   // One press, one action: the control that opened the drawer closes it, and opens nothing else. The drawer
   // covers it, so it is pressed from the keyboard.
   await more('Settings');

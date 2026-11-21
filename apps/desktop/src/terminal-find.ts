@@ -64,6 +64,7 @@ export function createTerminalFind(options: {
   previous.onclick = () => select(-1);
   close.onclick = () => dialog.close();
   dialog.addEventListener('close', () => {
+    if (dialog.open) return;
     ++generation; cancelAnimationFrame(frame);
     const id = origin?.id; origin = null; hits = [];
     if (id) queueMicrotask(() => options.returnFocus(id));

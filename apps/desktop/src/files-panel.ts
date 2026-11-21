@@ -355,7 +355,7 @@ export function createFilesPanel(options: Options) {
   dialog.addEventListener('cancel', event => { event.preventDefault(); closeButton.click(); });
   /** Everything the panel holds goes when it closes: buffers, editor states, the tree. */
   function forgetAll() { opening++; visualGeneration++; renderGeneration++; buffers.clear(); current = null; showingImage = false; codeView?.clear(); preview.replaceChildren(); picture.replaceChildren(); visual.replaceChildren(); language.textContent = ''; render(); }
-  dialog.addEventListener('close', () => { resetSearch(); forgetAll(); tree.clear(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
+  dialog.addEventListener('close', () => { if (dialog.open) return; resetSearch(); forgetAll(); tree.clear(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
   chooser.onchange = async () => {
     const requested = chooser.value;
     chooser.value = activeProject ?? '';

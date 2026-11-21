@@ -92,7 +92,7 @@ export function createHopPreview(options: Options) {
   };
   select.onchange = () => { current = null; status.textContent = ''; render(); };
   closeButton.onclick = () => dialog.close();
-  dialog.addEventListener('close', () => { generation++; busy = false; selection = null; current = null; render(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
+  dialog.addEventListener('close', () => { if (dialog.open) return; generation++; busy = false; selection = null; current = null; render(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
   function show(value: HopSelection) {
     if (!/^[a-f0-9]{64}$/i.test(value.fingerprint)) { options.reportError('This session cannot be handed off safely.'); return; }
     selection = { ...value, root: { ...value.root } }; current = null;

@@ -35,7 +35,8 @@ try {
   }
   if (!browser) throw new Error('WebView startup timed out');
   for (const until = Date.now() + 15000; !page && Date.now() < until;) {
-    page = browser.contexts()[0].pages().find(p => new URL(p.url()).hostname === 'tauri.localhost');
+    // The attention widget is a page too; the workspace is the one that is not widget.html.
+    page = browser.contexts()[0].pages().find(p => new URL(p.url()).hostname === 'tauri.localhost' && !p.url().includes('widget.html'));
     if (!page) await delay(100);
   }
   if (!page) throw new Error('Main WebView missing');

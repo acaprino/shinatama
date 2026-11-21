@@ -247,7 +247,7 @@ export function createSessionsPanel(options: Options) {
   indexButton.onclick = () => options.openIndex();
   settingsButton.onclick = () => options.openSettings();
   closeButton.onclick = () => dialog.close();
-  dialog.addEventListener('close', () => { clearInterval(timer); clearTimeout(notice); instances.reset(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
+  dialog.addEventListener('close', () => { if (dialog.open) return; clearInterval(timer); clearTimeout(notice); instances.reset(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
 
   /** Opens the panel as it was left: the saved list is read once and kept until Reload. */
   async function show() {

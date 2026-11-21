@@ -343,7 +343,7 @@ export function createSettingsPanel(options: Options) {
   save.onclick = () => { void submit(); };
   reload.onclick = () => { options.appearance.reload(); void loadSessions(); void loadPlugins(); if (!busy) void load(); };
   closeButton.onclick = close.onclick = () => dialog.close();
-  dialog.addEventListener('close', () => { clearTimeout(pluginsTimer); token.value = ''; form.tokenInput = ''; models.clearSecrets(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
+  dialog.addEventListener('close', () => { if (dialog.open) return; clearTimeout(pluginsTimer); token.value = ''; form.tokenInput = ''; models.clearSecrets(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
   dialog.addEventListener('submit', event => event.preventDefault());
 
   return {

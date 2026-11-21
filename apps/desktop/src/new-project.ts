@@ -226,7 +226,9 @@ export function createNewProjectDialog(options: Options) {
   reload.onclick = () => { void loadOptions(); };
   close.onclick = cancel.onclick = () => { void cancelOrClose(); };
   dialog.addEventListener('cancel', event => { if (operation) { event.preventDefault(); void cancelOrClose(); } });
-  dialog.addEventListener('close', () => { generation++; loading = false; });
+  // The browser fires close after the dialog has closed; under load it can come after the next opening, which must
+  // keep its read: a close event that finds the dialog open again belongs to a closing already superseded.
+  dialog.addEventListener('close', () => { if (dialog.open) return; generation++; loading = false; });
   return {
     open,
     handleKey(event: KeyboardEvent) {

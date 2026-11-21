@@ -160,7 +160,7 @@ export function createProjectsOverview(options: Options) {
     } catch (error) { if (at === generation) { status.dataset.state = 'error'; status.textContent = text(error); } }
   }
   closeButton.onclick = () => dialog.close();
-  dialog.addEventListener('close', () => { generation++; if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
+  dialog.addEventListener('close', () => { if (dialog.open) return; generation++; if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
   async function show() { if (!dialog.open) openModal(dialog); await load(); }
   return { show };
 }

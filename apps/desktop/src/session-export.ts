@@ -107,7 +107,7 @@ export function createSessionExport(options: Options) {
     } finally { progress.end(requestId); if (at === generation) { busy = false; render(); } }
   };
   closeButton.onclick = () => dialog.close();
-  dialog.addEventListener('close', () => { progress.cancel(); generation++; busy = false; selection = null; report.replaceChildren(); status.textContent = ''; render(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
+  dialog.addEventListener('close', () => { if (dialog.open) return; progress.cancel(); generation++; busy = false; selection = null; report.replaceChildren(); status.textContent = ''; render(); if (!document.querySelector('dialog[open]')) options.restoreFocus?.(); });
   function show(value: ExportSelection) {
     if (!/^[a-f0-9]{64}$/i.test(value.fingerprint) || !/^[a-z0-9_-]{1,256}$/i.test(value.nativeId)) { options.reportError('This session cannot be exported safely.'); return; }
     selection = { root: { ...value.root }, nativeId: value.nativeId, fingerprint: value.fingerprint, harness: value.harness };

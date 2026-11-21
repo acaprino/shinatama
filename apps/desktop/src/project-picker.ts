@@ -331,7 +331,8 @@ export function createProjectPicker(options: Options) {
   };
   form.querySelectorAll<HTMLButtonElement>('[data-cancel]').forEach(button => { button.onclick = () => { void cancelOrClose(); }; });
   dialog.addEventListener('cancel', event => { if (mutation) { event.preventDefault(); void cancelOrClose(); } });
-  dialog.addEventListener('close', () => { dialogRevision++; client.close(); });
+  // A close event that finds the dialog open again belongs to a closing the next opening superseded.
+  dialog.addEventListener('close', () => { if (dialog.open) return; dialogRevision++; client.close(); });
 
   return {
     canStart() { return selectedAvailable; },
