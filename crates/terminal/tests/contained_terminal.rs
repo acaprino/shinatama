@@ -40,6 +40,9 @@ const STARTUP: Duration = Duration::from_secs(20);
 const RTT: Duration = Duration::from_millis(1500);
 const CAPTURE: usize = 512 * 1024;
 const SENTINEL: &[u8] = b"synthetic saved work remains unchanged\n";
+/// Every launch the test makes, each explicit: healthy sibling, flood/self-crash, memory fault,
+/// process-count fault, helper crash. Nothing may start a helper beyond them.
+const PLANNED_LAUNCHES: usize = 5;
 fn budget() -> Budget {
     Budget {
         memory_bytes: 512 * MIB,
@@ -200,7 +203,7 @@ impl WindowsTerminalAdmission for Admission {
             .helpers
             .lock()
             .map_err(|_| anyhow!("synthetic helper registry poisoned"))?;
-        if helpers.len() >= 4 {
+        if helpers.len() >= PLANNED_LAUNCHES {
             bail!("Unexpected helper replacement/activation");
         }
         helpers.push(captured);
@@ -233,7 +236,7 @@ impl WindowsTerminalAdmission for Admission {
         let index = match evidence.iter().position(|item| item.owned == owned) {
             Some(index) => index,
             None => {
-                if evidence.len() >= 4 {
+                if evidence.len() >= PLANNED_LAUNCHES {
                     bail!("synthetic telemetry history exceeded its bound");
                 }
                 evidence.push(JobEvidence {
@@ -534,18 +537,18 @@ fn real_contained_terminal_faults_keep_a_fresh_sibling_responsive_and_saved_work
         stamp: stamp.clone(),
         per_slot_ceiling: per_slot,
         aggregate_ceiling: Budget {
-            memory_bytes: 4 * per_slot.memory_bytes,
-            processes: 4 * per_slot.processes,
-            cpu_basis_points: 4000,
-            queue_bytes: 4 * per_slot.queue_bytes,
-            queue_items: 4 * per_slot.queue_items,
+            memory_bytes: 5 * per_slot.memory_bytes,
+            processes: 5 * per_slot.processes,
+            cpu_basis_points: 5000,
+            queue_bytes: 5 * per_slot.queue_bytes,
+            queue_items: 5 * per_slot.queue_items,
         },
-        max_slots: 4,
+        max_slots: 5,
         max_lease_ms: 120_000,
     })?;
     let admission = Arc::new(Admission {
         database: Arc::clone(&database),
-        coordinator: AdmissionCoordinator::new(4)
+        coordinator: AdmissionCoordinator::new(5)
             .map_err(|error| anyhow!("test pool: {error:?}"))?,
         stamp,
         helpers: Mutex::new(Vec::new()),
@@ -692,22 +695,24 @@ fn real_contained_terminal_faults_keep_a_fresh_sibling_responsive_and_saved_work
     applied_limits(&host, &healthy)?;
     applied_limits(&host, &crash)?;
     assert_eq!(fs::read(&saved)?, SENTINEL);
-    // Release only the synthetic arrays explicitly (the fault command already dropped them; this
-    // proves the shell still answers). No quota/baseline is reset, and no collection is forced:
-    // dropping the references is the release, collected when the runtime next needs the memory.
-    host.write(
-        &crash.id,
-        b"$shnHold.Clear();$shnBlock=$null;$shnReserve=$null\r".to_vec(),
-    )?;
-    let memory_cleared = send_marker(&host, &crash, "SHN_MEMORY_CLEARED_")?;
-    fault_until(
+    // The process-count fault runs in a terminal of its own. After the managed
+    // OutOfMemoryException above, Windows PowerShell ended by itself (exit code 5, nothing
+    // terminated by the job or the host) at its next input line in about two of three
+    // Verify Windows runs, arrays released or not, PSReadLine or not. The memory fault is
+    // proven above; its shell is closed through the real bounded cleanup.
+    let _ = host.stop(&crash.id);
+    roundtrips.push(ping(&host, &healthy, &mut healthy_output, None)?);
+    let crash = host.start(&project, 24, 100)?;
+    let mut crash_output = Transcript::default();
+    let armed = send_marker(&host, &crash, "SHN_PROCESS_READY_")?;
+    marker(
         &host,
-        &healthy,
-        &mut healthy_output,
         &crash,
         &mut crash_output,
-        &memory_cleared,
-        &mut roundtrips,
+        Some((&healthy, &mut healthy_output)),
+        &armed,
+        STARTUP,
+        false,
     )?;
 
     // Direct native children only: no Start-Process/broker/shell interpretation.
@@ -733,7 +738,10 @@ fn real_contained_terminal_faults_keep_a_fresh_sibling_responsive_and_saved_work
         thread::sleep(Duration::from_millis(20));
     }
     let process_evidence = admission.latest_evidence()?;
-    assert_eq!(process_evidence.owned, memory_evidence.owned);
+    assert_ne!(
+        process_evidence.owned, memory_evidence.owned,
+        "the process-count fault is attributed to its own registered job"
+    );
     assert!(
         process_evidence.peak_processes > 8 && process_evidence.snapshot.membership_complete,
         "physical console-helper overshoot must be visible as a complete raw census"
@@ -795,7 +803,7 @@ fn real_contained_terminal_faults_keep_a_fresh_sibling_responsive_and_saved_work
     roundtrips.push(ping(&host, &healthy, &mut healthy_output, None)?);
     assert_eq!(
         admission.helpers.lock().unwrap().len(),
-        4,
+        PLANNED_LAUNCHES,
         "no automatic helper replacement or replay"
     );
     assert_eq!(fs::read(&saved)?, SENTINEL);
