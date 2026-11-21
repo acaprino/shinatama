@@ -655,11 +655,14 @@ fn real_contained_terminal_faults_keep_a_fresh_sibling_responsive_and_saved_work
     )?;
     // Actual managed memory refusal, bounded by the already-applied 256MiB
     // process/512MiB job ceilings. The emergency array makes catch/report viable
-    // without requiring the process to allocate more memory at its limit.
+    // without requiring the process to allocate more memory at its limit. The same
+    // command then drops its arrays: left at its ceiling, Windows PowerShell ended
+    // by itself (exit code 5, nothing terminated) while it read the next line in
+    // three of six Verify Windows runs. The peak stays in the sampled evidence.
     let memory_nonce = uuid::Uuid::new_v4().simple().to_string();
     let memory_refused = format!("SHN_MEMORY_REFUSED_{memory_nonce}");
     host.write(&crash.id, format!(
-        "$shnRefused='SHN_MEMORY_REFUSED_'+'{memory_nonce}';$shnUnexpected='SHN_MEMORY_UNEXPECTED_'+'{memory_nonce}';$shnHold=[Collections.Generic.List[byte[]]]::new();$shnReserve=[byte[]]::new(8388608);for($shnN=0;$shnN -lt 64;$shnN++){{try{{$shnBlock=[byte[]]::new(8388608);for($shnPage=0;$shnPage -lt $shnBlock.Length;$shnPage+=4096){{$shnBlock[$shnPage]=1}};$shnHold.Add($shnBlock)}}catch{{$shnReserve=$null;[GC]::Collect();$shnError=$_.Exception;while($shnError.InnerException){{$shnError=$shnError.InnerException}};if($shnError -is [OutOfMemoryException]){{Write-Output $shnRefused}}else{{Write-Output $shnUnexpected}};break}}}}\r"
+        "$shnRefused='SHN_MEMORY_REFUSED_'+'{memory_nonce}';$shnUnexpected='SHN_MEMORY_UNEXPECTED_'+'{memory_nonce}';$shnHold=[Collections.Generic.List[byte[]]]::new();$shnReserve=[byte[]]::new(8388608);for($shnN=0;$shnN -lt 64;$shnN++){{try{{$shnBlock=[byte[]]::new(8388608);for($shnPage=0;$shnPage -lt $shnBlock.Length;$shnPage+=4096){{$shnBlock[$shnPage]=1}};$shnHold.Add($shnBlock)}}catch{{$shnReserve=$null;[GC]::Collect();$shnError=$_.Exception;while($shnError.InnerException){{$shnError=$shnError.InnerException}};if($shnError -is [OutOfMemoryException]){{Write-Output $shnRefused}}else{{Write-Output $shnUnexpected}};break}}}};$shnHold.Clear();$shnBlock=$null;$shnReserve=$null\r"
     ).into_bytes())?;
     fault_until(
         &host,
@@ -689,11 +692,9 @@ fn real_contained_terminal_faults_keep_a_fresh_sibling_responsive_and_saved_work
     applied_limits(&host, &healthy)?;
     applied_limits(&host, &crash)?;
     assert_eq!(fs::read(&saved)?, SENTINEL);
-    // Release only the synthetic arrays explicitly. No quota/baseline is reset. No collection is
-    // forced: right after the managed refusal at the 256 MiB process ceiling, a forced full
-    // GC.Collect/WaitForPendingFinalizers ended Windows PowerShell by itself (exit code 5, nothing
-    // terminated by the job or the host) in two of three Verify Windows runs. Dropping the
-    // references is the release; the runtime collects them when it next needs the memory.
+    // Release only the synthetic arrays explicitly (the fault command already dropped them; this
+    // proves the shell still answers). No quota/baseline is reset, and no collection is forced:
+    // dropping the references is the release, collected when the runtime next needs the memory.
     host.write(
         &crash.id,
         b"$shnHold.Clear();$shnBlock=$null;$shnReserve=$null\r".to_vec(),
