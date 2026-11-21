@@ -130,8 +130,9 @@ async function probeHealthyTerminal() {
     const text = document.querySelector('.xterm-accessibility-tree')?.textContent || '';
     const matches = [...text.matchAll(/SHINATAMA_HEALTHY:(\d+):(\d+)/g)];
     const newest = matches.at(-1);
+    // The marker's age when the page shows it: the trip back to this script is the round trip's.
     return { sessions: sessions.length, sequence: newest ? Number(newest[1]) : -1,
-      timestamp: newest ? Number(newest[2]) : 0,
+      timestamp: newest ? Number(newest[2]) : 0, readAt: Date.now(),
       project: document.querySelector('#project')?.dataset.project || '' };
   });
   const rtt = performance.now() - started;
@@ -140,7 +141,7 @@ async function probeHealthyTerminal() {
   expect(result.sessions).toBe(1);
   expect(result.project).toBe('synthetic-project');
   expect(result.sequence).toBeGreaterThanOrEqual(0);
-  const age = Date.now() - result.timestamp;
+  const age = result.readAt - result.timestamp;
   markerAges.push(age);
   expect(age).toBeGreaterThanOrEqual(-100);
   expect(age).toBeLessThan(MAX_MARKER_AGE_MS);

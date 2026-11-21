@@ -29,7 +29,7 @@ await mkdir(seed, { recursive: true }); await mkdir(rootB); await mkdir(futureRo
 const projectName = 'My project à'; const createdPath = resolve(rootB, projectName);
 const output = resolve(workspace, '.prototype-evidence'); await mkdir(output, { recursive: true });
 const resultPath = resolve(output, 'new-project.json');
-const evidence = { check: 'C05-connected-Windows-new-project', checks: {}, status: 'running', git: { requested: withGit, status: withGit ? 'pending' : 'not-requested' },
+const evidence = { check: 'C05-connected-Windows-new-project', checks: {}, rootsReadMs: [], status: 'running', git: { requested: withGit, status: withGit ? 'pending' : 'not-requested' },
   gaps: [...(withGit ? [] : ['Real git init is not exercised without --with-git.']), 'Real synced/network drives, the complete U3 key matrix and C09R adaptive resource calibration remain separate qualifications.'] };
 await writeFile(resultPath, `${JSON.stringify(evidence, null, 2)}\n`);
 const port = 19234; const live = new Set(); let launches = 0;
@@ -155,18 +155,31 @@ async function openCreator(instance, fromPicker = false) {
     await instance.page.locator('#refresh-projects').focus();
   }
   else await instance.page.locator('#project').focus();
+  const opened = performance.now();
   await instance.page.keyboard.press('n');
   await expect(instance.page.locator('#new-project-dialog')).toBeVisible();
-  try { await expect(instance.page.locator('#new-project-root')).toBeEnabled(); }
-  catch (failure) {
+  try {
+    await expect(instance.page.locator('#new-project-root')).toBeEnabled();
+    evidence.rootsReadMs.push(Math.round(performance.now() - opened));
+  } catch (failure) {
     // Disabled means reading the roots or an operation still running: the dialog's status says which.
+    // A second read straight from the page, and how long the dialog's own read still takes, tell a
+    // slow or held store from a read the dialog lost.
     const state = await instance.page.evaluate(() => ({
       status: document.querySelector('#new-project-status')?.textContent,
       error: document.querySelector('#new-project-error')?.textContent,
       busy: document.querySelector('#new-project-dialog form')?.getAttribute('aria-busy'),
       modals: [...document.querySelectorAll('dialog[open]')].map(dialog => dialog.id || dialog.className),
     }));
-    throw new Error('The project root stayed disabled: ' + JSON.stringify(state), { cause: failure });
+    const timed = command => instance.page.evaluate(async command => {
+      const started = performance.now();
+      try { await window.__TAURI_INTERNALS__.invoke(command); return Math.round(performance.now() - started); }
+      catch (error) { return `failed after ${Math.round(performance.now() - started)} ms: ${String(error).slice(0, 200)}`; }
+    }, command);
+    const [direct, list] = await Promise.all([timed('new_project_options'), timed('terminal_list')]);
+    const enabled = await expect(instance.page.locator('#new-project-root')).toBeEnabled({ timeout: 30000 }).then(() => true, () => false);
+    throw new Error('The project root stayed disabled: ' + JSON.stringify({ ...state, directOptionsMs: direct, terminalListMs: list,
+      dialogReadEnded: enabled ? `${Math.round(performance.now() - opened)} ms after opening` : 'not within 30 s more' }), { cause: failure });
   }
   await expect(instance.page.locator('#new-project-git')).not.toBeChecked();
 }
