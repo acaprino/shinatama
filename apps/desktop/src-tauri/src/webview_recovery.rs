@@ -31,6 +31,30 @@ pub fn recovering() -> bool {
     GENERATION.load(Ordering::Acquire) % 2 == 1
 }
 
+/// The arguments wry passes when it is given none (wry 0.57 webview2/mod.rs: the mini menu and
+/// SmartScreen off, autoplay allowed), so giving any keeps them.
+const WRY_BROWSER_ARGUMENTS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required";
+
+/// WebView2 ignores WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS when the application passes arguments
+/// through its API, which wry always does (runtime 157 on Verify Windows: the desktop smokes asked
+/// for a remote-debugging port there and the browser never got it). A debug build, the one the
+/// smokes start, forwards them after wry's own; a release build adds nothing.
+fn test_browser_arguments() -> Option<String> {
+    if !cfg!(debug_assertions) {
+        return None;
+    }
+    browser_arguments(
+        std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS")
+            .ok()
+            .as_deref(),
+    )
+}
+
+fn browser_arguments(requested: Option<&str>) -> Option<String> {
+    let requested = requested.map(str::trim).filter(|value| !value.is_empty())?;
+    Some(format!("{WRY_BROWSER_ARGUMENTS} {requested}"))
+}
+
 /// Builds one configured window and watches its webview.
 pub fn build(
     app: &AppHandle,
@@ -42,6 +66,10 @@ pub fn build(
         && let Some(theme) = crate::presentation::saved_window_theme(app)
     {
         config.theme = theme;
+    }
+    // Every window shares one browser process, so every window gets the same arguments.
+    if let Some(arguments) = test_browser_arguments() {
+        config.additional_browser_args = Some(arguments);
     }
     let config = &config;
     // Imago always allows the embedded frontend. Only development adds the configured server.
@@ -247,4 +275,26 @@ fn rebuild(app: &AppHandle) {
         let _ = window.set_focus();
     }
     GENERATION.fetch_add(1, Ordering::Release);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::browser_arguments;
+
+    #[test]
+    fn test_arguments_follow_wry_own_and_nothing_is_added_without_them() {
+        assert_eq!(browser_arguments(None), None);
+        assert_eq!(browser_arguments(Some("  ")), None);
+        assert_eq!(
+            browser_arguments(Some(
+                " --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1 "
+            ))
+            .as_deref(),
+            Some(
+                "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection \
+                 --autoplay-policy=no-user-gesture-required \
+                 --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1"
+            )
+        );
+    }
 }
