@@ -3,6 +3,7 @@ import { uiPart, uiSelect, uiInput } from '@acaprino/imago/ui';
 import { invoke } from '@tauri-apps/api/core';
 import type { ITheme, ITerminalOptions, Terminal } from '@xterm/xterm';
 import { confirmsField } from './desktop-shell-model.ts';
+import { labelledBy } from './field-label.ts';
 
 export { SKINS };
 const base = SKINS.shinatama.tokens;
@@ -109,7 +110,8 @@ export function createPresentation(options: { desktop: boolean; notify(message: 
   function field(host: HTMLElement, label: string, id: string, input: HTMLSelectElement | HTMLInputElement) {
     const row = uiPart('field');
     input.id = id;
-    row.append(uiPart('text', label), input);
+    const caption = uiPart('text', label);
+    row.append(caption, labelledBy(caption, input));
     host.append(row);
   }
   const themeSelector = uiSelect([['system', 'Windows'], ['light', 'Light'], ['dark', 'Dark'], ['oni', 'Classic']]);

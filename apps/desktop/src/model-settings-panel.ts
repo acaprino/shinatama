@@ -1,6 +1,7 @@
 import { uiPart, uiButton, uiInput, uiSelect, uiOption } from '@acaprino/imago/ui';
 import { APIS, HARNESSES, HARNESS_NAMES, MAX_CONNECTIONS, MAX_MODELS, PRESETS, buildModelSave, connectionHost, emptyForm, firstModelId, fromView,
   newModel, parseModelView, readChoice, suggestedName, usedBy, writeChoice, type Edit, type Harness, type Save } from './model-settings-model.ts';
+import { labelledBy } from './field-label.ts';
 
 type Invoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 const apiNames = ['OpenAI Chat Completions', 'OpenAI Responses', 'Anthropic Messages', 'Google Generative AI'];
@@ -9,7 +10,7 @@ const LAUNCHABLE: Harness[] = ['opencode', 'pi'];
 const CUSTOM_PRESET = 'Custom endpoint';
 function button(text: string, click: () => void, danger = false) { const node = uiButton(text, { danger }); node.onclick = click; return node; }
 function field(text: string, input: HTMLElement) {
-  const label = uiPart('field'); label.append(uiPart('text', text), input); return label;
+  const label = uiPart('field'); const caption = uiPart('text', text); label.append(caption, labelledBy(caption, input)); return label;
 }
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 const list = (names: string[]) => names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;

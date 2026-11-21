@@ -2,6 +2,7 @@ import { checkboxOptionHtml, componentElement, formHeaderHtml, uiButton, uiInput
 import { invoke } from '@tauri-apps/api/core';
 import { openModal } from './modal.ts';
 import { beginMutation, cancelMutation, createRequestId, type Project } from './project-catalog.ts';
+import { labelledBy } from './field-label.ts';
 
 type CreationOptions = { revision: number; roots: { id: string; path: string }[]; defaultRootId: string | null };
 type CreationFailure = { message: string; recoveryPath?: string; code?: string };
@@ -47,16 +48,18 @@ export function createNewProjectDialog(options: Options) {
   const heading = componentElement(formHeaderHtml('New project', 'Create a project folder inside one of your configured roots.', false, 'new-project-title'));
   const close = heading.querySelector<HTMLButtonElement>('button')!;
   const rootLabel = uiPart('field');
-  rootLabel.append(uiPart('text', 'Project root'));
+  const rootCaption = uiPart('text', 'Project root');
+  rootLabel.append(rootCaption);
   const root = uiSelect();
   root.id = 'new-project-root';
   root.required = true;
-  rootLabel.append(root);
+  rootLabel.append(labelledBy(rootCaption, root));
   const rootHelp = uiPart('hint');
   rootHelp.id = 'new-project-root-help';
   root.setAttribute('aria-describedby', rootHelp.id);
   const nameLabel = uiPart('field');
-  nameLabel.append(uiPart('text', 'Project folder name'));
+  const nameCaption = uiPart('text', 'Project folder name');
+  nameLabel.append(nameCaption);
   const name = uiInput();
   name.id = 'new-project-name';
   name.required = true;
@@ -64,7 +67,7 @@ export function createNewProjectDialog(options: Options) {
   name.autocomplete = 'off';
   name.spellcheck = false;
   name.placeholder = 'my-project';
-  nameLabel.append(name);
+  nameLabel.append(labelledBy(nameCaption, name));
   const destination = uiPart('hint');
   destination.id = 'new-project-destination';
   destination.setAttribute('aria-live', 'polite');
