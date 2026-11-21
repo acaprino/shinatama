@@ -241,6 +241,9 @@ const confirmDialog = $<HTMLDialogElement>('#confirm-dialog');
 let noticeTimer = 0;
 /** True while the notice shows what an open is waiting for (`showOpening`). */
 let openingShown = false;
+/** Set when the database is read-only (a newer schema): its notice says why nothing is saved,
+ *  so the layout notices that follow from it do not take its place. */
+let readOnlyStorage = false;
 function notify(message: unknown, tone: Tone = 'error') {
   const notice = $('#notice');
   notice.dataset.tone = tone;
@@ -605,8 +608,8 @@ async function connectWorkspace(adoptSaved = true, recovered = false) {
       return;
     }
     const claimed = await controller.claim();
-    if (!claimed.ok) notify('Layout saving is unavailable. Your current workspace is preserved.');
-  } catch { notify('Layout storage is unavailable. Your current workspace is preserved.'); }
+    if (!claimed.ok && !readOnlyStorage) notify('Layout saving is unavailable. Your current workspace is preserved.');
+  } catch { if (!readOnlyStorage) notify('Layout storage is unavailable. Your current workspace is preserved.'); }
 }
 async function startTerminal(group: string, cwd?: string): Promise<boolean> {
   if (!desktop) { notify('This is the browser preview. Run npm run desktop to open real terminals.', 'info'); return false; }
@@ -1749,6 +1752,7 @@ async function initialize() {
       const storage = await invoke<{ directory: string; database_path: string; read_only: boolean; message: string | null }>('storage_location');
       $('#runtime-status').title = `Private data: ${storage.directory}\nDatabase: ${storage.database_path}`;
       if (storage.read_only) {
+        readOnlyStorage = true;
         $('#runtime-status').textContent = 'Read-only storage · update required';
         notify(storage.message || 'Update Shinatama to modify this database.');
       }
