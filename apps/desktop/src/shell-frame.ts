@@ -31,7 +31,7 @@ workspace.id = 'workspace';
 workspace.setAttribute('aria-label', 'Terminal workspace');
 area.append(workspace);
 const status = uiPart('footer', undefined, 'statusbar');
-const runtime = uiPart('text', 'Connecting.'); runtime.id = 'runtime-status';
+const runtime = uiPart('text', 'Connecting…'); runtime.id = 'runtime-status';
 const terminals = uiPart('text', '0 terminals'); terminals.id = 'terminal-count';
 status.append(runtime, terminals, workspaceStatus, uiPart('spacer'), uiPart('hint', 'Ctrl+Shift+T  new session'),
   uiPart('hint', 'Ctrl+Shift+Left / Right  focus pane'));

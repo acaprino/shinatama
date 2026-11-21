@@ -46,7 +46,7 @@ export function createSessionMenu(options: Options) {
       configure(row) { row.dataset.harness = harness.id; },
       run() { last = harness.id; options.start(harness.id, path); },
     });
-    items.push({ label: 'Other folder.', configure(row) { row.classList.add('session-menu-other'); }, run: () => options.otherFolder(path) });
+    items.push({ label: 'Other folder…', configure(row) { row.classList.add('session-menu-other'); }, run: () => options.otherFolder(path) });
     const dismiss = openMenu(target, items, {
       heading, configure(menu) { menuElement = menu; menu.dataset.projectPath = path; menu.id = 'session-menu'; menu.setAttribute('aria-label', 'New session'); },
       onClose() { active = null; },

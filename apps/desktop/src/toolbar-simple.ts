@@ -173,8 +173,13 @@ export function createProjectMenu(options: {
     if (options.running) pane.append(runningButton);
     runningButton.onclick = () => { onlyRunning = !onlyRunning; void picker.refresh(); picker.input.focus(); };
     const actions = uiPart('actions');
-    for (const [label, run] of [['Project roots.', options.manage], ['Open one folder.', options.browse], ['New project.', options.create]] as const) {
+    for (const [label, run, hint] of [
+      ['Project roots…', options.manage, 'Folders that hold your projects, such as D:\\Projects'],
+      ['Open one folder…', options.browse, 'Open a single folder as a project, without adding a root'],
+      ['New project…', options.create, undefined],
+    ] as const) {
       const action = uiButton(label);
+      if (hint) action.title = hint;
       action.onclick = () => { close(); run(); };
       actions.append(action);
     }

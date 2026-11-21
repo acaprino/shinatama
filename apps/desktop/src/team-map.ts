@@ -542,7 +542,7 @@ function build(thread: TeamThread, deps: TeamMapDeps, onClose: () => void) {
       const left = session?.wakes != null && session.wakes >= 7 ? `${Math.max(0, 10 - session.wakes)} wakes left` : '';
       const wakes = part('text', 'team-wakes', left);
       const foot = part('body', 'team-card-foot im-editor-node-foot'); foot.append(toldNode, wakes);
-      const port = graphEditorPort('→', 'Pull onto another card to connect them (the keyboard: open the card and use Connect to.)',
+      const port = graphEditorPort('→', 'Pull onto another card to connect them (the keyboard: open the card and use Connect to…)',
         event => press(event, a.id, 'link'));
       port.classList.add('team-port');
       node.replaceChildren(head, role, meta, foot, port);

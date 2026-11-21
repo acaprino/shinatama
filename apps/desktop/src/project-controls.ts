@@ -34,7 +34,7 @@ export function projectControls() {
   roots.setAttribute('aria-label', 'Your project roots');
   const add = uiPart('row');
   add.append(field('root-path', 'Root folder path', 'Paste a root folder, e.g. D:\\Projects'),
-    button('add-root', 'Add'), button('choose-root', 'Choose root folder.', true));
+    button('add-root', 'Add'), button('choose-root', 'Choose root folder…', true));
   roots.append(list('root-list', 'Root folders'), add, identified(uiPart('hint'), 'default-root-summary'));
   const catalog = uiPart('region');
   const title = uiPart('header');
@@ -49,7 +49,7 @@ export function projectControls() {
   const folder = field('folder', 'Folder to open as a project', 'D:\\Projects\\my-app'); folder.required = true;
   const submit = uiButton('Use folder'); submit.type = 'submit';
   const row = uiPart('row');
-  row.append(folder, button('browse-project', 'Browse. F3'), submit);
+  row.append(folder, button('browse-project', 'Browse… F3'), submit);
   single.append(identified(uiPart('heading', 'Just one folder'), 'single-folder-heading'),
     uiPart('hint', 'Opens one folder as a project, without adding a root.'), row);
   const error = identified(uiPart('alert'), 'project-error'); error.hidden = true;
