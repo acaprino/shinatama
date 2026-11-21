@@ -40,8 +40,8 @@ const count = uiPart('hint', '2 panes');
 count.id = 'pane-count';
 const workspaceStatus = uiPart('text', 'Workspace ', 'workspace-name');
 workspaceStatus.append(count);
+// The keys that work now: main.ts writes them from the registry (footerKeys) once mountApp has registered its own.
 const keys = uiPart('text', undefined, 'im-footer-keys');
-keys.append(uiPart('hint', 'Ctrl+Shift+T  new session'), uiPart('hint', 'Ctrl+Shift+Left / Right  focus pane'));
 footer.append(runtime, progress, terminals, workspaceStatus, uiPart('spacer'), keys);
 for (const button of shell.querySelectorAll<HTMLButtonElement>('[data-im-window]')) {
   button.id = 'window-' + button.dataset.imWindow;

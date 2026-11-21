@@ -1,6 +1,6 @@
 import './shell-frame.ts';
 import '@acaprino/imago/css/imago.css';
-import { claimKey, confirm as confirmWorkspace, createRegistry, hasModal, mountApp, notify as showNotice, uiButton, uiOption, uiPart, uiSelect, uiTraits } from '@acaprino/imago/ui';
+import { claimKey, confirm as confirmWorkspace, createRegistry, footerKeys, hasModal, mountApp, notify as showNotice, PALETTE_COMMAND, uiButton, uiOption, uiPart, uiSelect, uiTraits } from '@acaprino/imago/ui';
 import { zoomDirection } from '@acaprino/imago/shell';
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -1364,6 +1364,10 @@ $('#app .im-body').prepend(threadSidebar.element);
       sidebar: { collapsed: sidebar.collapsed(), onChange: collapsed => sidebar.setCollapsed(collapsed) },
     });
     window.addEventListener('pagehide', unmountApp, { once: true });
+    // The footer's keys, from the registry: one key cap per key, as on the buttons and in the palette.
+    document.querySelector('.im-footer .im-footer-keys')?.replaceWith(footerKeys(document, registry, [
+      PALETTE_COMMAND, 'shinatama.new-session', { keys: 'Ctrl+Shift+ArrowLeft Ctrl+Shift+ArrowRight', title: 'Focus pane' },
+    ]));
   });
 }
 // ADR-0057: the conversation of a thread whose sessions talk to each other, beside the terminals.

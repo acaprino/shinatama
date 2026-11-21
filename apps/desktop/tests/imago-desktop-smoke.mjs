@@ -205,6 +205,24 @@ try {
   await expect(refused).toHaveCount(0);
   // An open in progress is said in the footer, not in a notice; at rest the line is empty and hidden.
   await expect(page.locator('.im-footer #open-progress[role="status"]')).toBeHidden();
+  // The footer's keys come from the registry (footerKeys), one key cap per key: the palette, New session, the panes.
+  const footerKeys = page.locator('.im-footer .im-footer-keys');
+  await expect(footerKeys).toContainText('Commands');
+  await expect(footerKeys).toContainText('New session');
+  await expect(footerKeys).toContainText('Focus pane');
+  assert.ok(await footerKeys.locator('.im-key').count() >= 7, 'Ctrl K, Ctrl Shift T, Ctrl Shift and the two arrows are key caps');
+  // A focused terminal keeps its keys: Ctrl+K and Ctrl+F reach the program (readline uses them) and open nothing;
+  // F6 leaves the terminal for the next region, so the keyboard is never trapped in it.
+  const writes = () => page.evaluate(() => window.smoke.calls.filter(call => call.command === 'terminal_write').map(call => call.args.data));
+  const written = (await writes()).length;
+  await page.locator('.xterm-helper-textarea').first().focus();
+  await page.keyboard.press('Control+k');
+  await page.keyboard.press('Control+f');
+  await expect.poll(async () => (await writes()).slice(written)).toEqual([[11], [6]]);
+  await expect(page.getByRole('dialog', { name: 'Type a command' })).toHaveCount(0);
+  await expect(page.locator('#terminal-find-dialog')).toBeHidden();
+  await page.keyboard.press('F6');
+  assert.equal(await page.evaluate(() => !!document.activeElement?.closest('.xterm')), false, 'F6 leaves the terminal');
 
   await page.evaluate(() => window.smoke.emit('confirm-close', null));
   const confirmation = page.getByRole('alertdialog', { name: 'Close workspace?' });
