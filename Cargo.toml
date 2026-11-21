@@ -37,6 +37,9 @@ getrandom = "=0.4.3"
 sha2 = "=0.10.9"
 subtle = "=2.6.1"
 rusqlite = { version = "0.40.2", features = ["bundled", "backup", "hooks"] }
+# The Windows resource of shinatama.exe (its icon, Imago's mark), compiled as Mukade's program does; the crate is
+# already in the lock at this version through tauri-winres, so the build graph gains no package.
+embed-resource = "=3.0.12"
 # Dependency inventory: THIRD_PARTY_NOTICES.md; full release audit remains register X3.
 portable-pty = "0.9"
 tauri = "2.9"

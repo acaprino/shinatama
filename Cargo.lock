@@ -3302,6 +3302,7 @@ dependencies = [
 name = "shinatama-cli"
 version = "0.2.1"
 dependencies = [
+ "embed-resource",
  "rusqlite",
  "serde_json",
  "shinatama-adapter",
