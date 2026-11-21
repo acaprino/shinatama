@@ -245,7 +245,13 @@ try {
     await delay(100);
   }
   // What the last check answered says why none completed (refused, deferred, still running).
-  if (!completedChecks) throw new Error('No maintenance check completed alongside the terminal; the last answered: ' + JSON.stringify(lastExplicitStatus).slice(0, 2048));
+  if (!completedChecks) {
+    // An explicit check is deferred before it starts only while the resource governor holds back
+    // optional work: its stage and reason say why.
+    const governor = await invoke('resources_telemetry', { telemetry: {} }).then(reply => reply?.policy, error => String(error));
+    throw new Error('No maintenance check completed alongside the terminal; the last answered: ' + JSON.stringify(lastExplicitStatus).slice(0, 1024)
+      + '; governor: ' + JSON.stringify(governor).slice(0, 2048));
+  }
   expect(sawShapeAnomaly).toBe(true);
   expect(snapshot().digest).toBe(original.digest);
   evidence.checks.manualFiniteChecksPreserveAuthoritativeRows = true;

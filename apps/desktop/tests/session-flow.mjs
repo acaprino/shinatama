@@ -66,6 +66,8 @@ export async function startSession(page, { project, harness, trigger = page.loca
  * ('left' | 'right' | 'top' | 'bottom' split the pane there, 'center' joins its tabs).
  * Waits for the drop preview first, so a refused drop fails here instead of later. */
 export async function dragTab(page, tab, pane, where) {
+  // A narrow pane scrolls its tab strip: a person brings the tab into view before taking it.
+  await tab.scrollIntoViewIfNeeded();
   const from = await tab.boundingBox(); const body = await pane.locator('.wm-body').boundingBox();
   if (!from || !body) throw new Error('The tab or the target pane is not on screen.');
   const fraction = { left: [0.1, 0.5], right: [0.9, 0.5], top: [0.5, 0.1], bottom: [0.5, 0.9], center: [0.5, 0.5] }[where];
